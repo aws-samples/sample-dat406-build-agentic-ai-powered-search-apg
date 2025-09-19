@@ -1,0 +1,421 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >
+  Main template for DAT406 workshop - Build agentic AI-powered search with Amazon Aurora and modern React frontend
+
+Parameters:
+  TemplateName:
+    Type: String
+    Default: genai-dat-406-labs
+    Description: Name used for different elements created.
+
+  VpcName:
+    Default: APGPGVectorWorkshopDAT406
+    Type: String
+
+  VpcCIDR:
+    Default: 10.215.0.0/16
+    Type: String
+
+  PublicSubnetACidr:
+    Default: 10.215.10.0/24
+    Type: String
+
+  PublicSubnetBCidr:
+    Default: 10.215.20.0/24
+    Type: String
+
+  PrivateSubnetACidr:
+    Default: 10.215.30.0/24
+    Type: String
+
+  PrivateSubnetBCidr:
+    Default: 10.215.40.0/24
+    Type: String
+
+  DefaultCodeRepository:
+    Default: https://github.com/aws-samples/DAT406-blaize-bazaar.git
+    Type: String
+    Description: Git repository URL for the workshop code
+
+  DBVersion:
+    Type: String
+    Default: "16"
+    Description: Aurora PostgreSQL version (16 for pgvector support)
+
+  DBInstanceSize:
+    Type: String
+    Default: db.r6gd.4xlarge
+    AllowedValues:
+      - db.r6g.xlarge
+      - db.r6g.2xlarge
+      - db.r6gd.2xlarge
+      - db.r6g.4xlarge
+      - db.r6gd.4xlarge
+      - db.r6g.8xlarge
+      - db.r6gd.8xlarge
+    Description: Instance size for Aurora PostgreSQL cluster
+
+  DBPort:
+    Description: TCP/IP Port for the Database Instance
+    Type: Number
+    Default: 5432
+    MinValue: 1150
+    MaxValue: 65535
+
+  ParticipantRoleArn:
+    Type: String
+    Description: Workshop Studio participant role ARN
+
+  AssetsBucketName:
+    Type: String
+    Description: Workshop Studio assets S3 bucket
+
+  AssetsBucketPrefix:
+    Type: String
+    Description: Workshop Studio assets S3 prefix
+
+  IsWorkshopStudioEnv:
+    Type: String
+    Default: "yes"
+    AllowedValues:
+      - "no"
+      - "yes"
+    Description: Whether this stack is being deployed in Workshop Studio
+
+  # Code Editor Parameters
+  CodeEditorInstanceType:
+    Description: Code Editor EC2 instance type
+    Type: String
+    Default: c6g.2xlarge
+    AllowedValues:
+      - t4g.medium
+      - t4g.large
+      - t4g.xlarge
+      - c6g.xlarge
+      - c6g.2xlarge
+    Description: Instance type for VS Code Server
+
+  CodeEditorVolumeSize:
+    Description: Code Editor EC2 instance volume size in GB
+    Type: Number
+    Default: 100
+    MinValue: 40
+    MaxValue: 500
+
+  # React App Parameters
+  ReactAppPort:
+    Type: Number
+    Default: 3000
+    Description: Port for React development server
+
+  BedrockEmbeddingModel:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Bedrock model for embeddings
+
+  BedrockChatModel:
+    Type: String
+    Default: us.anthropic.claude-3-7-sonnet-20250219-v1:0
+    Description: Bedrock model for chat completions
+
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}genai-pgvector-dat406-vpc.yml'
+      Parameters:
+        TemplateName: !Ref TemplateName
+        VpcName: !Ref VpcName
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnetACidr: !Ref PublicSubnetACidr
+        PublicSubnetBCidr: !Ref PublicSubnetBCidr
+        PrivateSubnetACidr: !Ref PrivateSubnetACidr
+        PrivateSubnetBCidr: !Ref PrivateSubnetBCidr
+
+  APGStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VPCStack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}genai-pgvector-dat406-apg.yml'
+      Parameters:
+        TemplateName: !Ref TemplateName
+        VpcCIDR: !Ref VpcCIDR
+        VPC: !GetAtt VPCStack.Outputs.VPC
+        PrivateSubnets: !GetAtt VPCStack.Outputs.PrivateSubnets
+        DBVersion: !Ref DBVersion
+        DBInstanceSize: !Ref DBInstanceSize
+        DBPort: !Ref DBPort
+        AssetsBucketName: !Ref AssetsBucketName
+        AssetsBucketPrefix: !Ref AssetsBucketPrefix
+
+  # Lambda Layer for PostgreSQL connectivity
+  PsycopgLambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub '${TemplateName}-psycopg-layer'
+      Description: 'PostgreSQL client library (psycopg) for Python 3.11'
+      Content:
+        S3Bucket: !Ref AssetsBucketName
+        S3Key: !Sub '${AssetsBucketPrefix}psycopg-layer.zip'
+      CompatibleRuntimes:
+        - python3.11
+      CompatibleArchitectures:
+        - x86_64
+        - arm64
+
+  CodeEditorStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - APGStack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}code-editor-dat406-react.yml'
+      Parameters:
+        CodeEditorUser: participant
+        InstanceName: !Sub '${TemplateName}-CodeEditor'
+        InstanceVolumeSize: !Ref CodeEditorVolumeSize
+        InstanceType: !Ref CodeEditorInstanceType
+        InstanceOperatingSystem: AmazonLinux-2023
+        HomeFolder: /workshop
+        DevServerBasePath: blaize-bazaar
+        DevServerPort: !Ref ReactAppPort
+        RepoUrl: !Ref DefaultCodeRepository
+        VPCId: !GetAtt VPCStack.Outputs.VPC
+        SubnetId: !GetAtt VPCStack.Outputs.PublicSubnetA
+        VpcCIDR: !Ref VpcCIDR
+        DBSecretArn: !GetAtt APGStack.Outputs.RDSSecrets
+        BedrockEmbeddingModel: !Ref BedrockEmbeddingModel
+        BedrockChatModel: !Ref BedrockChatModel
+        AssetsBucketName: !Ref AssetsBucketName
+        AssetsBucketPrefix: !Ref AssetsBucketPrefix
+        PsycopgLayerArn: !Ref PsycopgLambdaLayer
+
+  BedrockStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - APGStack
+      - VPCStack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}genai-pgvector-dat406-bedrock.yml'
+      Parameters:
+        TemplateName: !Ref TemplateName
+        VPC: !GetAtt VPCStack.Outputs.VPC
+        PrivateSubnets: !GetAtt VPCStack.Outputs.PrivateSubnets
+        VPCSecurityGroup: !GetAtt APGStack.Outputs.VPCSecurityGroup
+        DBCluster: !GetAtt APGStack.Outputs.APGCluster
+        DBClusterEndpoint: !GetAtt APGStack.Outputs.APGClusterEP
+        RDSSecrets: !GetAtt APGStack.Outputs.RDSSecrets
+        AssetsBucketName: !Ref AssetsBucketName
+        AssetsBucketPrefix: !Ref AssetsBucketPrefix
+
+  # S3 Bucket for React App Build
+  ReactAppBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'blaize-bazaar-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, HEAD]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+  ReactAppBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReactAppBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${ReactAppBucket.Arn}/*'
+
+  # CloudFront Distribution for React App
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: ReactAppS3Origin
+            DomainName: !GetAtt ReactAppBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - Id: CodeEditorOrigin
+            DomainName: !GetAtt CodeEditorStack.Outputs.CloudFrontDomainName
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              HTTPPort: 80
+              HTTPSPort: 443
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: ReactAppS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: CodeEditorOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            ForwardedValues:
+              QueryString: true
+              Headers: ['*']
+              Cookies:
+                Forward: all
+        PriceClass: PriceClass_100
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+Outputs:
+  # Code Editor Outputs
+  CodeEditorURL:
+    Description: VS Code Server IDE URL
+    Value: !GetAtt CodeEditorStack.Outputs.URL
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-CodeEditorURL"
+
+  CodeEditorUsername:
+    Description: Code Editor Username
+    Value: !GetAtt CodeEditorStack.Outputs.Username
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-CodeEditorUsername"
+
+  CodeEditorPassword:
+    Description: Code Editor Password
+    Value: !GetAtt CodeEditorStack.Outputs.Password
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-CodeEditorPassword"
+
+  # Database Outputs
+  DatabaseClusterEndpoint:
+    Description: Aurora PostgreSQL Cluster Endpoint
+    Value: !GetAtt APGStack.Outputs.APGClusterEP
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-DBClusterEndpoint"
+
+  DatabaseSecretArn:
+    Description: Database Credentials Secret ARN
+    Value: !GetAtt APGStack.Outputs.RDSSecrets
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-DBSecretArn"
+
+  # Bedrock Outputs
+  BedrockAgentId:
+    Description: Bedrock Agent ID
+    Value: !GetAtt BedrockStack.Outputs.BedrockAgentId
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-BedrockAgentId"
+
+  BedrockKnowledgeBaseId:
+    Description: Bedrock Knowledge Base ID
+    Value: !GetAtt BedrockStack.Outputs.BedrockKnowledgeBaseId
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-BedrockKnowledgeBaseId"
+
+  # React App Outputs
+  ReactAppBucketName:
+    Description: S3 Bucket for React App
+    Value: !Ref ReactAppBucket
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-ReactAppBucket"
+
+  CloudFrontURL:
+    Description: CloudFront Distribution URL for React App
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-CloudFrontURL"
+
+  # VPC Outputs
+  VPCId:
+    Description: VPC ID
+    Value: !GetAtt VPCStack.Outputs.VPC
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-VPCId"
+
+  PublicSubnetA:
+    Description: Public Subnet A ID
+    Value: !GetAtt VPCStack.Outputs.PublicSubnetA
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-PublicSubnetA"
+
+  PublicSubnetB:
+    Description: Public Subnet B ID
+    Value: !GetAtt VPCStack.Outputs.PublicSubnetB
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-PublicSubnetB"
+
+  PrivateSubnets:
+    Description: Private Subnet IDs (comma-separated)
+    Value: !GetAtt VPCStack.Outputs.PrivateSubnets
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-PrivateSubnets"
+
+  # Lambda Layer Output
+  PsycopgLayerArn:
+    Description: ARN of the psycopg Lambda layer for PostgreSQL connectivity
+    Value: !Ref PsycopgLambdaLayer
+    Export:
+      Name: !Sub "${AWS::Region}-${AWS::StackName}-PsycopgLayerArn"
+
+  # Workshop Instructions
+  WorkshopInstructions:
+    Description: Workshop Getting Started Instructions
+    Value: !Sub |
+      ======================================================
+      DAT406 Workshop: Build Agentic AI-powered Search
+      ======================================================
+      
+      🚀 Your environment is ready! Here's how to get started:
+      
+      1. Access VS Code Server:
+         URL: ${CodeEditorStack.Outputs.URL}
+         Username: ${CodeEditorStack.Outputs.Username}
+         Password: ${CodeEditorStack.Outputs.Password}
+      
+      2. Access the Blaize Bazaar App:
+         URL: https://${CloudFrontDistribution.DomainName}
+      
+      3. Database Connection:
+         Endpoint: ${APGStack.Outputs.APGClusterEP}
+         Port: ${DBPort}
+         Database: postgres
+         
+      4. Key Features to Explore:
+         ✅ Vector Search with pgvector
+         ✅ RAG Pipeline with Bedrock
+         ✅ Multi-Agent Orchestration
+         ✅ MCP Protocol Implementation
+         ✅ Floating AI Assistant
+         ✅ Real-time Metrics Dashboard
+      
+      5. Workshop Modules:
+         📚 Module 1: Vector Search Fundamentals
+         📚 Module 2: RAG Implementation
+         📚 Module 3: AI Agent Development
+         📚 Module 4: MCP Protocol
+         📚 Module 5: Production Deployment
+      
+      ======================================================
