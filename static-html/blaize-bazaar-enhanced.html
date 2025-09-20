@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blaize Bazaar - Shop Smart with AI | Aurora PostgreSQL Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #0d0d1a;
+            --accent-purple: #6a1b9a;
+            --accent-light: #ba68c8;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border-subtle: rgba(106, 27, 154, 0.2);
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --aurora-blue: #00c8ff;
+            --aurora-green: #00ff88;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(106, 27, 154, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(186, 104, 200, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 1000;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        nav {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+            background: linear-gradient(
+                135deg,
+                #ffffff 0%,
+                #d4d4d8 10%,
+                #a1a1aa 20%,
+                #e4e4e7 30%,
+                #fafafa 40%,
+                var(--accent-light) 50%,
+                #fafafa 60%,
+                #e4e4e7 70%,
+                #a1a1aa 80%,
+                #d4d4d8 90%,
+                #ffffff 100%
+            );
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            cursor: pointer;
+            position: relative;
+            animation: chrome-shift 8s ease-in-out infinite;
+        }
+
+        @keyframes chrome-shift {
+            0%, 100% { background-position: 0% 50%; }
+            25% { background-position: 50% 25%; }
+            50% { background-position: 100% 50%; }
+            75% { background-position: 50% 75%; }
+        }
+
+        .nav-center {
+            display: flex;
+            gap: 40px;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 400;
+            transition: color 0.3s;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            color: var(--text-primary);
+        }
+
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -26px;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--accent-light);
+            opacity: 0.6;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .search-bar {
+            position: relative;
+            width: 240px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 36px 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        /* Search Results Overlay */
+        .search-overlay {
+            position: fixed;
+            top: 72px;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 15, 0.98);
+            backdrop-filter: blur(30px);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 32px 40px;
+            display: none;
+            z-index: 999;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .search-overlay.active {
+            display: block;
+        }
+
+        .search-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .search-query {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .search-query span {
+            color: var(--accent-light);
+            font-weight: 500;
+        }
+
+        .search-metrics {
+            display: flex;
+            gap: 24px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .search-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .search-result-card {
+            background: rgba(13, 13, 26, 0.5);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .search-result-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-light);
+            box-shadow: 0 8px 24px rgba(186, 104, 200, 0.2);
+        }
+
+        .similarity-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .result-icon {
+            font-size: 36px;
+        }
+
+        .result-info {
+            flex: 1;
+        }
+
+        .result-name {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .result-category {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .result-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .result-price {
+            font-size: 20px;
+            color: var(--accent-light);
+        }
+
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .search-input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent-light);
+            box-shadow: 0 0 0 3px rgba(186, 104, 200, 0.1);
+        }
+
+        main {
+            margin-top: 72px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero {
+            height: calc(100vh - 72px);
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            background: radial-gradient(ellipse at center top, rgba(106, 27, 154, 0.1) 0%, transparent 50%);
+        }
+
+        .hero-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+
+        .hero-text h1 {
+            font-size: 56px;
+            font-weight: 300;
+            letter-spacing: -2px;
+            line-height: 1.1;
+            margin-bottom: 24px;
+        }
+
+        .hero-text .gradient-text {
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-text .subtitle {
+            font-size: 24px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            font-weight: 300;
+        }
+
+        .hero-text p {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+        }
+
+        .btn-primary {
+            padding: 12px 32px;
+            background: var(--accent-purple);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(186, 104, 200, 0.3);
+        }
+
+        .btn-secondary {
+            padding: 12px 32px;
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .hero-image {
+            position: relative;
+            height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-showcase {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(13, 13, 26, 0.5) 100%);
+            border-radius: 24px;
+            border: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .showcase-content {
+            text-align: center;
+            z-index: 1;
+            position: relative;
+            opacity: 0;
+            animation: fadeIn 0.6s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .showcase-content .product-img {
+            font-size: 120px;
+            margin-bottom: 24px;
+        }
+
+        .showcase-content h3 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+
+        .showcase-content .product-price {
+            font-size: 28px;
+            color: var(--accent-light);
+            margin-bottom: 8px;
+        }
+
+        .showcase-content p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Enhanced AI Assistant Bubble */
+        .ai-assistant-bubble {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #4a148c 0%, #6a1b9a 25%, #8e24aa 50%, #ba68c8 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(106, 27, 154, 0.5);
+            transition: all 0.3s;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .ai-assistant-bubble:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 40px rgba(186, 104, 200, 0.7);
+        }
+
+        .ai-assistant-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .aurora-ai-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            padding: 3px 8px;
+            background: linear-gradient(135deg, #8e24aa 0%, #ba68c8 100%);
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(142, 36, 170, 0.6);
+        }
+
+        /* Premium AI Chat Window */
+        .ai-chat-window {
+            position: fixed;
+            bottom: 120px;
+            right: 32px;
+            width: 420px;
+            height: 600px;
+            background: linear-gradient(135deg, rgba(13, 13, 26, 0.98) 0%, rgba(10, 10, 15, 0.98) 100%);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(186, 104, 200, 0.3);
+            border-radius: 20px;
+            display: none;
+            flex-direction: column;
+            z-index: 999;
+            box-shadow: 0 20px 60px rgba(106, 27, 154, 0.3);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .ai-chat-window.active {
+            display: flex;
+        }
+
+        .chat-header {
+            padding: 24px;
+            background: linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(186, 104, 200, 0.1) 100%);
+            border-bottom: 1px solid rgba(186, 104, 200, 0.2);
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .aurora-ai-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .agent-status-indicator {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-message {
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.assistant {
+            align-self: flex-start;
+            background: linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(186, 104, 200, 0.05) 100%);
+            border: 1px solid rgba(186, 104, 200, 0.2);
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-light) 100%);
+            color: white;
+        }
+
+        .chat-input-container {
+            padding: 24px;
+            border-top: 1px solid rgba(186, 104, 200, 0.2);
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(186, 104, 200, 0.2);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent-light);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(186, 104, 200, 0.1);
+        }
+
+        .chat-send-btn {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .chat-send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(186, 104, 200, 0.5);
+        }
+
+        /* Product Detail Modal */
+        .product-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .product-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(13, 13, 26, 0.98) 0%, rgba(10, 10, 15, 0.98) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.3s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .product-detail {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            padding: 48px;
+        }
+
+        .product-gallery {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .main-image {
+            height: 400px;
+            background: linear-gradient(135deg, rgba(106, 27, 154, 0.05) 0%, rgba(13, 13, 26, 0.3) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 120px;
+            position: relative;
+        }
+
+        .image-thumbnails {
+            display: flex;
+            gap: 12px;
+        }
+
+        .thumbnail {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .thumbnail:hover {
+            border-color: var(--accent-light);
+            transform: scale(1.05);
+        }
+
+        .product-details {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .product-title {
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: -1px;
+        }
+
+        .product-rating {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stars {
+            color: #fbbf24;
+        }
+
+        .rating-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .product-price-section {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+        }
+
+        .current-price {
+            font-size: 36px;
+            color: var(--accent-light);
+            font-weight: 300;
+        }
+
+        .original-price {
+            font-size: 20px;
+            color: var(--text-secondary);
+            text-decoration: line-through;
+        }
+
+        .discount-badge {
+            padding: 4px 12px;
+            background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+            border-radius: 20px;
+            font-size: 12px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .product-options {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .quantity-btn {
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quantity-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-light);
+        }
+
+        .quantity-display {
+            font-size: 18px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+        }
+
+        .btn-add-cart {
+            flex: 1;
+            padding: 16px;
+            background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-add-cart:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(186, 104, 200, 0.4);
+        }
+
+        .btn-buy-now {
+            flex: 1;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--aurora-green) 0%, #00c896 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-buy-now:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 200, 150, 0.4);
+        }
+
+        .product-features {
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+        }
+
+        .features-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .feature-icon {
+            color: var(--success);
+        }
+
+        /* Recommendations Section */
+        .recommendations-section {
+            padding: 48px;
+            background: rgba(106, 27, 154, 0.05);
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .recommendations-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .recommendations-title {
+            font-size: 24px;
+            font-weight: 300;
+        }
+
+        .ai-powered-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(186, 104, 200, 0.1);
+            border: 1px solid rgba(186, 104, 200, 0.3);
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--accent-light);
+        }
+
+        .recommendations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 24px;
+        }
+
+        .recommendation-card {
+            background: rgba(13, 13, 26, 0.5);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .recommendation-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-light);
+            box-shadow: 0 8px 24px rgba(186, 104, 200, 0.2);
+        }
+
+        .match-score {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(106, 27, 154, 0.9);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .rec-product-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .rec-product-name {
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .rec-product-price {
+            font-size: 18px;
+            color: var(--accent-light);
+        }
+
+        /* Cart Summary */
+        .cart-summary {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            background: rgba(13, 13, 26, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--accent-light);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: none;
+            align-items: center;
+            gap: 16px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .cart-summary.active {
+            display: flex;
+        }
+
+        .cart-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .cart-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .cart-total {
+            font-size: 18px;
+            color: var(--accent-light);
+            font-weight: 500;
+        }
+
+        .btn-checkout {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--aurora-green) 0%, #00c896 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-checkout:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 200, 150, 0.4);
+        }
+        .collections-section {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 100px 40px;
+            display: none;
+        }
+
+        .collections-section.active {
+            display: block;
+        }
+
+        .collections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        .collection-card {
+            background: linear-gradient(135deg, rgba(106, 27, 154, 0.05) 0%, rgba(13, 13, 26, 0.3) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .collection-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(186, 104, 200, 0.5);
+            box-shadow: 0 12px 32px rgba(106, 27, 154, 0.3);
+        }
+
+        .collection-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .collection-title {
+            font-size: 24px;
+            margin-bottom: 12px;
+            font-weight: 400;
+        }
+
+        .collection-count {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* About Section */
+        .about-section {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 100px 40px;
+            display: none;
+            text-align: center;
+        }
+
+        .about-section.active {
+            display: block;
+        }
+
+        .about-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .about-title {
+            font-size: 48px;
+            font-weight: 300;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .about-text {
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+        }
+
+        .team-info {
+            padding: 32px;
+            background: linear-gradient(135deg, rgba(0, 200, 255, 0.05) 0%, rgba(0, 255, 136, 0.05) 100%);
+            border: 1px solid rgba(0, 200, 255, 0.2);
+            border-radius: 20px;
+            margin-top: 48px;
+        }
+
+        .team-logo {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .team-name {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+
+        .team-description {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav>
+            <div class="logo">Blaize Bazaar</div>
+            
+            <div class="nav-center">
+                <a class="nav-link active" onclick="showSection('shop')">Shop</a>
+                <a class="nav-link" onclick="showSection('collections')">Collections</a>
+                <a class="nav-link" onclick="showSection('about')">About</a>
+            </div>
+
+            <div class="nav-right">
+                <div class="search-bar">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        placeholder="Search products..."
+                        id="searchInput"
+                        onkeyup="handleSearch(event)"
+                    />
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Search Results Overlay -->
+    <div class="search-overlay" id="searchOverlay">
+        <div class="search-header">
+            <div class="search-query">
+                Searching for: <span id="searchTerm"></span>
+            </div>
+            <div class="search-metrics">
+                <div>⚡ <span id="latency">12ms</span></div>
+                <div>🔍 <span id="resultCount">0</span> results</div>
+                <div>🧠 pgvector similarity</div>
+            </div>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div class="product-modal" id="productModal">
+        <div class="modal-content">
+            <div class="modal-close" onclick="closeProductModal()">✕</div>
+            
+            <div class="product-detail">
+                <div class="product-gallery">
+                    <div class="main-image" id="mainProductImage">
+                        <!-- Product icon will be inserted here -->
+                    </div>
+                    <div class="image-thumbnails">
+                        <div class="thumbnail">📐</div>
+                        <div class="thumbnail">📏</div>
+                        <div class="thumbnail">📦</div>
+                        <div class="thumbnail">🎁</div>
+                    </div>
+                </div>
+                
+                <div class="product-details">
+                    <h2 class="product-title" id="modalProductName">Product Name</h2>
+                    
+                    <div class="product-rating">
+                        <span class="stars" id="modalStars">⭐⭐⭐⭐⭐</span>
+                        <span class="rating-text" id="modalRating">4.8 out of 5 (2,451 reviews)</span>
+                    </div>
+                    
+                    <div class="product-price-section">
+                        <span class="current-price" id="modalPrice">$399</span>
+                        <span class="original-price" id="modalOriginalPrice">$499</span>
+                        <span class="discount-badge">20% OFF</span>
+                    </div>
+                    
+                    <div class="product-options">
+                        <div class="quantity-selector">
+                            <span style="color: var(--text-secondary);">Quantity:</span>
+                            <div class="quantity-btn" onclick="decreaseQuantity()">−</div>
+                            <span class="quantity-display" id="quantity">1</span>
+                            <div class="quantity-btn" onclick="increaseQuantity()">+</div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn-add-cart" onclick="addToCart()">🛒 Add to Cart</button>
+                        <button class="btn-buy-now" onclick="buyNow()">⚡ Buy Now</button>
+                    </div>
+                    
+                    <div class="product-features">
+                        <h3 style="font-size: 16px; margin-bottom: 12px;">Key Features</h3>
+                        <div class="features-list">
+                            <div class="feature-item">
+                                <span class="feature-icon">✓</span>
+                                <span>Premium materials and build quality</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">✓</span>
+                                <span>AI-powered recommendations</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">✓</span>
+                                <span>Free shipping & returns</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">✓</span>
+                                <span>2-year warranty included</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recommendations Section -->
+            <div class="recommendations-section">
+                <div class="recommendations-header">
+                    <h3 class="recommendations-title">Items You May Like</h3>
+                    <div class="ai-powered-badge">
+                        🤖 Powered by Aurora AI & pgvector
+                    </div>
+                </div>
+                <div class="recommendations-grid" id="recommendationsGrid">
+                    <!-- Recommendations will be dynamically inserted -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Summary -->
+    <div class="cart-summary" id="cartSummary">
+        <div class="cart-info">
+            <span class="cart-count" id="cartCount">3 items in cart</span>
+            <span class="cart-total" id="cartTotal">$1,847</span>
+        </div>
+        <button class="btn-checkout" onclick="checkout()">Checkout</button>
+    </div>
+
+    <!-- AI Chat Window -->
+    <div class="ai-chat-window" id="chatWindow">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <div class="aurora-ai-avatar">🤖</div>
+                <div>
+                    <div style="font-weight: 500; font-size: 16px;">Aurora AI Assistant</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Powered by Aurora PostgreSQL + Bedrock</div>
+                </div>
+            </div>
+            <div style="cursor: pointer; font-size: 20px;" onclick="toggleChat()">✕</div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message assistant">
+                👋 Welcome to Aurora AI! I'm your premium shopping assistant powered by Amazon Aurora PostgreSQL with pgvector and Amazon Bedrock. I can help you find products, compare options, and provide personalized recommendations using advanced semantic search.
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <input 
+                type="text" 
+                class="chat-input" 
+                placeholder="Ask me anything about our products..."
+                id="chatInput"
+                onkeypress="handleChatKeyPress(event)"
+            />
+            <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <!-- AI Assistant Bubble -->
+    <div class="ai-assistant-bubble" onclick="toggleChat()">
+        <div class="ai-assistant-icon">🤖</div>
+        <div class="aurora-ai-badge">Aurora AI</div>
+    </div>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Shop Section (Hero) -->
+        <section class="hero" id="shopSection">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>
+                        Welcome to<br/>
+                        <span class="gradient-text">Blaize Bazaar</span>
+                    </h1>
+                    <div class="subtitle">Shop Smart with AI-Powered Search</div>
+                    <p>
+                        Experience intelligent product discovery powered by Aurora PostgreSQL with pgvector, 
+                        Amazon Bedrock, and AWS Strands SDK. Real-time semantic search meets premium shopping.
+                    </p>
+                    <div class="hero-buttons">
+                        <button class="btn-primary" onclick="toggleChat()">Chat with Aurora AI</button>
+                        <button class="btn-secondary" onclick="showSection('collections')">Browse Collections</button>
+                    </div>
+                </div>
+                <div class="hero-image">
+                    <div class="product-showcase">
+                        <div class="showcase-content" id="showcaseContent">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Collections Section -->
+        <section class="collections-section" id="collectionsSection">
+            <div style="text-align: center; margin-bottom: 48px;">
+                <h2 style="font-size: 48px; font-weight: 300; margin-bottom: 16px;">Curated Collections</h2>
+                <p style="color: var(--text-secondary); font-size: 18px;">AI-powered collections tailored to your preferences</p>
+            </div>
+            <div class="collections-grid">
+                <div class="collection-card">
+                    <div class="collection-icon">🎧</div>
+                    <div class="collection-title">Premium Audio</div>
+                    <div class="collection-count">247 products • Updated daily</div>
+                </div>
+                <div class="collection-card">
+                    <div class="collection-icon">💻</div>
+                    <div class="collection-title">Pro Workstations</div>
+                    <div class="collection-count">183 products • Curated by AI</div>
+                </div>
+                <div class="collection-card">
+                    <div class="collection-icon">📱</div>
+                    <div class="collection-title">Flagship Phones</div>
+                    <div class="collection-count">94 products • Trending now</div>
+                </div>
+                <div class="collection-card">
+                    <div class="collection-icon">⌚</div>
+                    <div class="collection-title">Smart Wearables</div>
+                    <div class="collection-count">156 products • Health focused</div>
+                </div>
+                <div class="collection-card">
+                    <div class="collection-icon">📷</div>
+                    <div class="collection-title">Creator Gear</div>
+                    <div class="collection-count">312 products • Professional grade</div>
+                </div>
+                <div class="collection-card">
+                    <div class="collection-icon">🎮</div>
+                    <div class="collection-title">Gaming Elite</div>
+                    <div class="collection-count">428 products • Performance optimized</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section class="about-section" id="aboutSection">
+            <div class="about-content">
+                <h2 class="about-title">About Blaize Bazaar</h2>
+                <p class="about-text">
+                    Blaize Bazaar exemplifies production-grade vector search architecture and autonomous agent orchestration 
+                    deployed at enterprise scale. The platform implements semantic search using cosine similarity 
+                    calculations on high-dimensional embeddings, retrieval-augmented generation (RAG) patterns with Amazon Bedrock, 
+                    and multi-agent coordination through the AWS Strands SDK.
+                </p>
+                <p class="about-text">
+                    The architecture leverages pgvector's HNSW indexing for approximate nearest neighbor search across 
+                    millions of product embeddings, while RAG pipelines enhance query responses with contextual data retrieval. 
+                    Agent communication follows the Model Context Protocol (MCP) specification for standardized tool use 
+                    and inter-agent messaging. This implementation showcases practical patterns for building 
+                    production-grade AI applications on managed database infrastructure.
+                </p>
+                <div class="team-info">
+                    <div class="team-logo">🚀</div>
+                    <div class="team-name">Built by Shayon Sanyal</div>
+                    <div class="team-description">
+                        Principal WW PostgreSQL Specialist SA<br><br>
+                        Designed and developed to showcase the seamless integration of Aurora PostgreSQL with pgvector, 
+                        Amazon Bedrock, and AWS Strands SDK for enterprise-scale AI-powered e-commerce applications.<br><br>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; color: var(--text-secondary);">
+                            © 2024 Shayon Sanyal. All rights reserved.<br>
+                            DAT406 | Build agentic AI-powered search with Amazon Aurora and Amazon RDS | AWS re:Invent 2025
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Premium product data for showcase rotation
+        const premiumProducts = [
+            { name: 'Apple AirPods Pro 2', price: '$249', icon: '🎧', desc: 'Active Noise Cancellation' },
+            { name: 'Sony WH-1000XM5', price: '$399', icon: '🎧', desc: 'Industry Leading ANC' },
+            { name: 'MacBook Pro 16" M3 Max', price: '$3,999', icon: '💻', desc: '48GB Unified Memory' },
+            { name: 'iPhone 15 Pro Max', price: '$1,199', icon: '📱', desc: 'Titanium Design' },
+            { name: 'Apple Vision Pro', price: '$3,499', icon: '🥽', desc: 'Spatial Computing' },
+            { name: 'Bose QuietComfort Ultra', price: '$429', icon: '🎧', desc: 'Immersive Audio' },
+            { name: 'iPad Pro 12.9" M2', price: '$1,299', icon: '📱', desc: 'Liquid Retina XDR' },
+            { name: 'Samsung Galaxy S24 Ultra', price: '$1,299', icon: '📱', desc: '200MP Camera System' },
+            { name: 'Dell XPS 15 OLED', price: '$2,499', icon: '💻', desc: '4K OLED Touch Display' },
+            { name: 'Apple Watch Ultra 2', price: '$799', icon: '⌚', desc: 'Precision GPS' },
+            { name: 'Sony A7R V', price: '$3,899', icon: '📷', desc: '61MP Full Frame' },
+            { name: 'LG OLED C3 65"', price: '$1,896', icon: '📺', desc: 'Gaming Optimized' }
+        ];
+
+        // Extended product database for search
+        const productDatabase = [
+            // Headphones
+            { id: 'B001', name: 'Sony WH-1000XM5 Headphones', category: 'Headphones', price: 399, icon: '🎧', keywords: ['sony', 'headphones', 'noise cancelling', 'wireless', 'premium', 'anc'] },
+            { id: 'B002', name: 'Apple AirPods Pro 2', category: 'Headphones', price: 249, icon: '🎧', keywords: ['apple', 'airpods', 'earbuds', 'wireless', 'noise cancelling'] },
+            { id: 'B003', name: 'Bose QuietComfort Ultra', category: 'Headphones', price: 429, icon: '🎧', keywords: ['bose', 'headphones', 'quietcomfort', 'noise cancelling', 'premium'] },
+            { id: 'B004', name: 'Sennheiser Momentum 4', category: 'Headphones', price: 379, icon: '🎧', keywords: ['sennheiser', 'momentum', 'headphones', 'audiophile', 'wireless'] },
+            { id: 'B005', name: 'B&O Beoplay H95', category: 'Headphones', price: 899, icon: '🎧', keywords: ['bang olufsen', 'luxury', 'headphones', 'premium', 'designer'] },
+            { id: 'B006', name: 'Focal Bathys', category: 'Headphones', price: 799, icon: '🎧', keywords: ['focal', 'audiophile', 'headphones', 'high-end', 'wireless'] },
+            { id: 'B007', name: 'AirPods Max', category: 'Headphones', price: 549, icon: '🎧', keywords: ['apple', 'airpods max', 'headphones', 'premium', 'spatial audio'] },
+            { id: 'B008', name: 'Beats Studio Pro', category: 'Headphones', price: 349, icon: '🎧', keywords: ['beats', 'studio', 'headphones', 'bass', 'wireless'] },
+            
+            // Laptops
+            { id: 'L001', name: 'MacBook Pro 16" M3 Max', category: 'Laptops', price: 3999, icon: '💻', keywords: ['macbook', 'laptop', 'apple', 'm3', 'pro', 'professional'] },
+            { id: 'L002', name: 'MacBook Air 15" M2', category: 'Laptops', price: 1299, icon: '💻', keywords: ['macbook', 'air', 'laptop', 'apple', 'm2', 'ultrabook'] },
+            { id: 'L003', name: 'Dell XPS 15 OLED', category: 'Laptops', price: 2499, icon: '💻', keywords: ['dell', 'xps', 'laptop', 'oled', 'windows', 'creator'] },
+            { id: 'L004', name: 'ThinkPad X1 Carbon', category: 'Laptops', price: 1899, icon: '💻', keywords: ['lenovo', 'thinkpad', 'business', 'laptop', 'carbon'] },
+            { id: 'L005', name: 'Surface Laptop Studio 2', category: 'Laptops', price: 2399, icon: '💻', keywords: ['microsoft', 'surface', 'laptop', 'convertible', 'creative'] },
+            { id: 'L006', name: 'ASUS ROG Zephyrus G14', category: 'Laptops', price: 1599, icon: '💻', keywords: ['asus', 'rog', 'gaming', 'laptop', 'amd', 'portable'] },
+            
+            // Phones
+            { id: 'P001', name: 'iPhone 15 Pro Max', category: 'Phones', price: 1199, icon: '📱', keywords: ['iphone', 'apple', 'phone', 'pro max', 'titanium', 'flagship'] },
+            { id: 'P002', name: 'Samsung Galaxy S24 Ultra', category: 'Phones', price: 1299, icon: '📱', keywords: ['samsung', 'galaxy', 'android', 'phone', 's24', 'ultra'] },
+            { id: 'P003', name: 'Google Pixel 8 Pro', category: 'Phones', price: 999, icon: '📱', keywords: ['google', 'pixel', 'android', 'phone', 'camera', 'ai'] },
+            { id: 'P004', name: 'iPhone 15', category: 'Phones', price: 799, icon: '📱', keywords: ['iphone', 'apple', 'phone', 'standard', 'dynamic island'] },
+            
+            // Tablets
+            { id: 'T001', name: 'iPad Pro 12.9" M2', category: 'Tablets', price: 1299, icon: '📱', keywords: ['ipad', 'pro', 'tablet', 'apple', 'm2', 'creative'] },
+            { id: 'T002', name: 'iPad Air', category: 'Tablets', price: 599, icon: '📱', keywords: ['ipad', 'air', 'tablet', 'apple', 'portable'] },
+            { id: 'T003', name: 'Surface Pro 9', category: 'Tablets', price: 999, icon: '📱', keywords: ['surface', 'microsoft', 'tablet', 'windows', 'convertible'] },
+            
+            // Watches
+            { id: 'W001', name: 'Apple Watch Ultra 2', category: 'Watches', price: 799, icon: '⌚', keywords: ['apple watch', 'ultra', 'smartwatch', 'fitness', 'adventure'] },
+            { id: 'W002', name: 'Apple Watch Series 9', category: 'Watches', price: 399, icon: '⌚', keywords: ['apple watch', 'series 9', 'smartwatch', 'health'] },
+            { id: 'W003', name: 'Garmin Epix Pro', category: 'Watches', price: 899, icon: '⌚', keywords: ['garmin', 'epix', 'smartwatch', 'sports', 'gps'] },
+            
+            // Cameras
+            { id: 'C001', name: 'Sony A7R V', category: 'Cameras', price: 3899, icon: '📷', keywords: ['sony', 'a7r', 'camera', 'mirrorless', 'professional', '61mp'] },
+            { id: 'C002', name: 'Canon EOS R5', category: 'Cameras', price: 3499, icon: '📷', keywords: ['canon', 'eos', 'r5', 'camera', 'mirrorless', '45mp'] },
+            
+            // Other
+            { id: 'V001', name: 'Apple Vision Pro', category: 'AR/VR', price: 3499, icon: '🥽', keywords: ['apple', 'vision pro', 'ar', 'vr', 'spatial', 'mixed reality'] },
+            { id: 'TV001', name: 'LG OLED C3 65"', category: 'TVs', price: 1896, icon: '📺', keywords: ['lg', 'oled', 'tv', 'television', '4k', 'gaming'] }
+        ];
+
+        // Calculate similarity score based on keyword matching
+        function calculateSimilarity(query, product) {
+            const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
+            let matches = 0;
+            let totalTerms = searchTerms.length;
+            
+            searchTerms.forEach(term => {
+                // Check in product name
+                if (product.name.toLowerCase().includes(term)) {
+                    matches += 2; // Higher weight for name matches
+                }
+                // Check in keywords
+                product.keywords.forEach(keyword => {
+                    if (keyword.includes(term)) {
+                        matches += 1;
+                    }
+                });
+            });
+            
+            // Calculate base similarity
+            let similarity = totalTerms > 0 ? (matches / (totalTerms * 2)) : 0;
+            
+            // Add some randomness for demo purposes (to show varied scores)
+            similarity = Math.min(0.99, similarity + (Math.random() * 0.15));
+            
+            // Boost exact category matches
+            if (searchTerms.includes(product.category.toLowerCase())) {
+                similarity = Math.min(0.99, similarity + 0.2);
+            }
+            
+            return Math.max(0.15, similarity); // Minimum 15% similarity
+        }
+
+        // Handle search functionality
+        function handleSearch(event) {
+            const query = event.target.value.trim();
+            const overlay = document.getElementById('searchOverlay');
+            const searchResults = document.getElementById('searchResults');
+            
+            if (query.length > 0) {
+                // Show overlay
+                overlay.classList.add('active');
+                document.getElementById('searchTerm').textContent = query;
+                
+                // Calculate similarity for all products
+                const results = productDatabase.map(product => ({
+                    ...product,
+                    similarity: calculateSimilarity(query, product)
+                }))
+                .sort((a, b) => b.similarity - a.similarity)
+                .slice(0, 12); // Show top 12 results
+                
+                // Update metrics
+                const latency = (8 + Math.random() * 8).toFixed(1);
+                document.getElementById('latency').textContent = `${latency}ms`;
+                document.getElementById('resultCount').textContent = results.length;
+                
+                // Display results
+                searchResults.innerHTML = results.map(product => `
+                    <div class="search-result-card">
+                        <div class="similarity-badge">${(product.similarity * 100).toFixed(0)}%</div>
+                        <div class="result-header">
+                            <div class="result-icon">${product.icon}</div>
+                            <div class="result-info">
+                                <div class="result-name">${product.name}</div>
+                                <div class="result-category">${product.category}</div>
+                            </div>
+                        </div>
+                        <div class="result-footer">
+                            <div class="result-price">${product.price.toLocaleString()}</div>
+                            <div class="result-meta">
+                                <span>⭐ 4.${Math.floor(5 + Math.random() * 4)}</span>
+                                <span>${Math.floor(100 + Math.random() * 900)} reviews</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                // Hide overlay
+                overlay.classList.remove('active');
+            }
+        }
+
+        // Close search overlay when clicking outside
+        document.addEventListener('click', function(event) {
+            const searchBar = document.querySelector('.search-bar');
+            const overlay = document.getElementById('searchOverlay');
+            
+            if (!searchBar.contains(event.target) && !overlay.contains(event.target)) {
+                overlay.classList.remove('active');
+            }
+        });
+
+        let currentProductIndex = 0;
+
+        // Function to rotate products
+        function rotateProducts() {
+            const showcaseContent = document.getElementById('showcaseContent');
+            const product = premiumProducts[currentProductIndex];
+            
+            showcaseContent.style.opacity = '0';
+            
+            setTimeout(() => {
+                showcaseContent.innerHTML = `
+                    <div class="product-img">${product.icon}</div>
+                    <h3>${product.name}</h3>
+                    <div class="product-price">${product.price}</div>
+                    <p>${product.desc}</p>
+                `;
+                showcaseContent.style.opacity = '1';
+            }, 300);
+            
+            currentProductIndex = (currentProductIndex + 1) % premiumProducts.length;
+        }
+
+        // Initialize product rotation
+        rotateProducts();
+        setInterval(rotateProducts, 3500);
+
+        // Section navigation
+        function showSection(section) {
+            // Hide all sections
+            document.getElementById('shopSection').style.display = 'none';
+            document.getElementById('collectionsSection').classList.remove('active');
+            document.getElementById('aboutSection').classList.remove('active');
+            
+            // Update nav links
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Show selected section
+            if (section === 'shop') {
+                document.getElementById('shopSection').style.display = 'flex';
+                document.querySelectorAll('.nav-link')[0].classList.add('active');
+            } else if (section === 'collections') {
+                document.getElementById('collectionsSection').classList.add('active');
+                document.querySelectorAll('.nav-link')[1].classList.add('active');
+            } else if (section === 'about') {
+                document.getElementById('aboutSection').classList.add('active');
+                document.querySelectorAll('.nav-link')[2].classList.add('active');
+            }
+        }
+
+        // Chat functionality
+        let chatOpen = false;
+        
+        function toggleChat() {
+            const chatWindow = document.getElementById('chatWindow');
+            chatOpen = !chatOpen;
+            chatWindow.classList.toggle('active');
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                const messagesContainer = document.getElementById('chatMessages');
+                
+                // Add user message
+                const userMsg = document.createElement('div');
+                userMsg.className = 'chat-message user';
+                userMsg.textContent = message;
+                messagesContainer.appendChild(userMsg);
+                
+                input.value = '';
+                
+                // Simulate AI response
+                setTimeout(() => {
+                    const assistantMsg = document.createElement('div');
+                    assistantMsg.className = 'chat-message assistant';
+                    
+                    const responses = [
+                        'I\'ve analyzed your query using Aurora PostgreSQL with pgvector. Based on semantic similarity, I found 3 perfect matches for you.',
+                        'Using our RAG pipeline powered by Amazon Bedrock, I can see that the Sony WH-1000XM5 matches your requirements with 97% confidence.',
+                        'Our multi-agent system has coordinated inventory, pricing, and recommendation agents to find the best deal for you.',
+                        'The MCP protocol integration allows me to access real-time inventory across all warehouses. The product you\'re interested in is available with same-day delivery.'
+                    ];
+                    
+                    assistantMsg.textContent = responses[Math.floor(Math.random() * responses.length)];
+                    messagesContainer.appendChild(assistantMsg);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 1500);
+                
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+    </script>
+</body>
+</html>
