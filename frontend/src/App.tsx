@@ -197,13 +197,11 @@ function App() {
                 </p>
                 <div className="p-8 rounded-2xl mt-12 bg-gradient-card border border-accent-light/20">
                   <div className="text-6xl mb-6">🚀</div>
-                  <div className="text-2xl font-normal mb-3">Built by Shayon Sanyal</div>
                   <div className="text-text-secondary">
-                    Principal WW PostgreSQL Specialist SA<br /><br />
                     Designed and developed to showcase the seamless integration of Aurora PostgreSQL with pgvector,
                     Amazon Bedrock, and AWS Strands SDK for enterprise-scale AI-powered e-commerce applications.<br /><br />
                     <div className="text-xs text-text-secondary pt-4 border-t border-white/10 dark:border-white/10">
-                      © 2024 Shayon Sanyal. All rights reserved.<br />
+                      © 2025 Shayon Sanyal. All rights reserved.<br />
                       DAT406 | Build agentic AI-powered search with Amazon Aurora and Amazon RDS | AWS re:Invent 2025
                     </div>
                   </div>
