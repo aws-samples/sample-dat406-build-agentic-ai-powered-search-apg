@@ -28,9 +28,9 @@ from services.bedrock import BedrockService
 
 # Lab 2 imports (optional)
 try:
-    from agents.search_agent import SearchAgent
-    from agents.inventory_agent import InventoryAgent
-    from agents.recommendation_agent import RecommendationAgent
+    from agents.search_agent import SearchAgent  # type: ignore
+    from agents.inventory_agent import InventoryAgent  # type: ignore
+    from agents.recommendation_agent import RecommendationAgent  # type: ignore
     LAB2_AVAILABLE = True
 except ImportError:
     LAB2_AVAILABLE = False
@@ -50,9 +50,9 @@ embedding_service: EmbeddingService = None
 bedrock_service: BedrockService = None
 
 # Lab 2 agents (optional)
-search_agent: SearchAgent = None
-inventory_agent: InventoryAgent = None
-recommendation_agent: RecommendationAgent = None
+search_agent = None  # type: ignore
+inventory_agent = None  # type: ignore
+recommendation_agent = None  # type: ignore
 
 
 @asynccontextmanager

@@ -21,13 +21,6 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
     }
   }
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim() && onSearch) {
-      onSearch(searchQuery)
-    }
-  }
-
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim() && onSearch) {
       onSearch(searchQuery)
