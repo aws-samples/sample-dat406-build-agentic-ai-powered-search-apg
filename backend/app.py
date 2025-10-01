@@ -1,378 +1,549 @@
-#!/usr/bin/env python3
 """
-FastAPI backend for Blaize Bazaar
-Updated for psycopg3 and us-west-2 region with correct model IDs
+DAT406 Workshop - Main FastAPI Application
+FastAPI app with semantic search (Lab 1) and multi-agent system (Lab 2)
 """
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict
-import json
-import boto3
-import numpy as np
-import os
+import time
 import logging
+from contextlib import asynccontextmanager
+from typing import List
 
-# Use psycopg3 (from Lambda layer)
+from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from config import settings
+from models.search import (
+    SearchRequest,
+    SearchResponse,
+    SearchResult,
+    RecommendationRequest,
+    AgentResponse,
+    HealthResponse,
+)
+from models.product import Product, ProductWithScore, InventoryStats
+from services.database import DatabaseService
+from services.embeddings import EmbeddingService
+from services.bedrock import BedrockService
+
+# Lab 2 imports (optional)
 try:
-    import psycopg
-    from psycopg.rows import dict_row
-    USING_PSYCOPG3 = True
+    from agents.search_agent import SearchAgent
+    from agents.inventory_agent import InventoryAgent
+    from agents.recommendation_agent import RecommendationAgent
+    LAB2_AVAILABLE = True
 except ImportError:
-    # Fallback to psycopg2 for local testing
-    import psycopg2 as psycopg
-    from psycopg2.extras import RealDictCursor
-    USING_PSYCOPG3 = False
+    LAB2_AVAILABLE = False
+    logging.warning("Lab 2 agents not available - MCP features disabled")
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="Blaize Bazaar API", version="1.0.0")
+
+# Global service instances
+db_service: DatabaseService = None
+embedding_service: EmbeddingService = None
+bedrock_service: BedrockService = None
+
+# Lab 2 agents (optional)
+search_agent: SearchAgent = None
+inventory_agent: InventoryAgent = None
+recommendation_agent: RecommendationAgent = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI app
+    Handles startup and shutdown events
+    """
+    # Startup
+    logger.info("Starting DAT406 Workshop API...")
+    
+    global db_service, embedding_service, bedrock_service
+    global search_agent, inventory_agent, recommendation_agent
+    
+    try:
+        # Initialize core services
+        db_service = DatabaseService()
+        await db_service.connect()
+        logger.info("✅ Database service initialized")
+        
+        embedding_service = EmbeddingService()
+        logger.info("✅ Embedding service initialized")
+        
+        bedrock_service = BedrockService()
+        logger.info("✅ Bedrock service initialized")
+        
+        # Initialize Lab 2 agents if available
+        if LAB2_AVAILABLE:
+            try:
+                search_agent = SearchAgent(db_service, embedding_service)
+                inventory_agent = InventoryAgent(db_service)
+                recommendation_agent = RecommendationAgent(db_service, embedding_service)
+                logger.info("✅ Lab 2 agents initialized")
+            except Exception as e:
+                logger.warning(f"Lab 2 agents initialization failed: {e}")
+        
+        logger.info("🚀 DAT406 Workshop API is ready!")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down DAT406 Workshop API...")
+    
+    if db_service:
+        await db_service.disconnect()
+    
+    logger.info("👋 Goodbye!")
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="DAT406 Workshop API",
+    description="Agentic AI-Powered Search with Amazon Aurora PostgreSQL and pgvector",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=["*"],  # In production, specify actual origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global database connection
-db_conn = None
-bedrock_client = None
 
-# Request/Response models
-class SearchRequest(BaseModel):
-    query: str
-    limit: int = 10
-    category: Optional[str] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
-    min_rating: Optional[float] = None
+# Dependency injection
+async def get_db_service() -> DatabaseService:
+    """Get database service instance"""
+    if not db_service:
+        raise HTTPException(status_code=503, detail="Database service not initialized")
+    return db_service
 
-class Product(BaseModel):
-    product_id: str
-    product_description: str
-    img_url: Optional[str]
-    price: float
-    stars: float
-    reviews: int
-    category_name: str
-    is_best_seller: bool
-    quantity: int
-    similarity_score: Optional[float] = None
 
-class SearchResponse(BaseModel):
-    products: List[Product]
-    query_time_ms: float
-    total_results: int
+async def get_embedding_service() -> EmbeddingService:
+    """Get embedding service instance"""
+    if not embedding_service:
+        raise HTTPException(status_code=503, detail="Embedding service not initialized")
+    return embedding_service
 
-class RAGRequest(BaseModel):
-    query: str
-    max_context_items: int = 5
 
-class RAGResponse(BaseModel):
-    answer: str
-    context_items: List[Dict]
-    query_time_ms: float
+async def get_bedrock_service() -> BedrockService:
+    """Get Bedrock service instance"""
+    if not bedrock_service:
+        raise HTTPException(status_code=503, detail="Bedrock service not initialized")
+    return bedrock_service
 
-# Database connection
-def get_db_connection():
-    """Get or create database connection using psycopg3"""
-    global db_conn
-    if db_conn is None or db_conn.closed:
-        if os.environ.get('DB_SECRET_ARN'):
-            # Get from Secrets Manager
-            sm_client = boto3.client('secretsmanager', region_name='us-west-2')
-            secret = sm_client.get_secret_value(SecretId=os.environ['DB_SECRET_ARN'])
-            config = json.loads(secret['SecretString'])
-            conn_str = f"host={config['host']} port={config['port']} dbname={config.get('dbname', 'postgres')} user={config['username']} password={config['password']}"
-        else:
-            # Get from environment variables
-            conn_str = f"host={os.environ.get('PGHOST', 'localhost')} port={os.environ.get('PGPORT', 5432)} dbname={os.environ.get('PGDATABASE', 'postgres')} user={os.environ.get('PGUSER', 'postgres')} password={os.environ.get('PGPASSWORD', '')}"
-        
-        db_conn = psycopg.connect(conn_str)
-    return db_conn
 
-def get_bedrock_client():
-    """Get Bedrock client for us-west-2"""
-    global bedrock_client
-    if bedrock_client is None:
-        bedrock_client = boto3.client(
-            'bedrock-runtime', 
-            region_name='us-west-2'
-        )
-    return bedrock_client
+# ============================================================================
+# HEALTH CHECK ENDPOINTS
+# ============================================================================
 
-def get_cursor(conn):
-    """Get cursor with proper row factory based on psycopg version"""
-    if USING_PSYCOPG3:
-        return conn.cursor(row_factory=dict_row)
-    else:
-        return conn.cursor(cursor_factory=RealDictCursor)
-
-def generate_embedding(text: str) -> List[float]:
-    """Generate embedding using Amazon Titan"""
-    try:
-        client = get_bedrock_client()
-        response = client.invoke_model(
-            modelId='amazon.titan-embed-text-v2:0',
-            body=json.dumps({
-                'inputText': text[:8000]
-            })
-        )
-        result = json.loads(response['body'].read())
-        return result['embedding']
-    except Exception as e:
-        logger.error(f"Failed to generate embedding: {e}")
-        return [0.0] * 1024
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize connections on startup"""
-    try:
-        get_db_connection()
-        get_bedrock_client()
-        logger.info("API server started successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize: {e}")
-
-@app.get("/")
+@app.get("/", response_model=dict)
 async def root():
-    """Health check endpoint"""
-    return {"status": "healthy", "service": "Blaize Bazaar API", "region": "us-west-2"}
+    """Root endpoint"""
+    return {
+        "message": "DAT406 Workshop API",
+        "version": "1.0.0",
+        "lab1": "Semantic Search with pgvector",
+        "lab2": "Multi-Agent System with MCP" if LAB2_AVAILABLE else "Not Available"
+    }
+
+
+@app.get("/api/health", response_model=HealthResponse)
+async def health_check(
+    db: DatabaseService = Depends(get_db_service),
+):
+    """
+    Health check endpoint
+    Returns status of all services
+    """
+    health_status = {
+        "status": "healthy",
+        "database": "unknown",
+        "bedrock": "unknown",
+        "mcp": "unknown" if LAB2_AVAILABLE else "not_available",
+        "version": "1.0.0"
+    }
+    
+    # Check database connection
+    try:
+        await db.execute_query("SELECT 1")
+        health_status["database"] = "connected"
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        health_status["database"] = "disconnected"
+        health_status["status"] = "degraded"
+    
+    # Check Bedrock access
+    try:
+        embedding_service.generate_embedding("test")
+        health_status["bedrock"] = "accessible"
+    except Exception as e:
+        logger.error(f"Bedrock health check failed: {e}")
+        health_status["bedrock"] = "inaccessible"
+        health_status["status"] = "degraded"
+    
+    # Check MCP if Lab 2 is available
+    if LAB2_AVAILABLE and search_agent:
+        try:
+            # Simple check that agent is initialized
+            health_status["mcp"] = "connected"
+        except Exception:
+            health_status["mcp"] = "disconnected"
+    
+    return HealthResponse(**health_status)
+
+
+# ============================================================================
+# LAB 1: SEMANTIC SEARCH ENDPOINTS
+# ============================================================================
 
 @app.post("/api/search", response_model=SearchResponse)
-async def semantic_search(request: SearchRequest):
+async def semantic_search(
+    request: SearchRequest,
+    db: DatabaseService = Depends(get_db_service),
+    embeddings: EmbeddingService = Depends(get_embedding_service),
+):
     """
-    Perform semantic search on products using pgvector
+    LAB 1: Semantic search endpoint using vector similarity
+    
+    Performs pure vector similarity search using pgvector HNSW index
+    and Amazon Titan embeddings.
     """
-    import time
     start_time = time.time()
     
-    # Generate embedding for query
-    query_embedding = generate_embedding(request.query)
-    
-    # Build SQL query with filters
-    conn = get_db_connection()
-    cur = get_cursor(conn)
-    
-    sql = """
-        SELECT 
-            product_id,
-            product_description,
-            img_url,
-            price,
-            stars,
-            reviews,
-            category_name,
-            is_best_seller,
-            quantity,
-            1 - (embedding <=> %s::vector) as similarity_score
-        FROM products
-        WHERE embedding IS NOT NULL
-    """
-    
-    params = [query_embedding]
-    
-    # Add filters
-    if request.category:
-        sql += " AND category_name = %s"
-        params.append(request.category)
-    
-    if request.min_price is not None:
-        sql += " AND price >= %s"
-        params.append(request.min_price)
-    
-    if request.max_price is not None:
-        sql += " AND price <= %s"
-        params.append(request.max_price)
-    
-    if request.min_rating is not None:
-        sql += " AND stars >= %s"
-        params.append(request.min_rating)
-    
-    sql += " ORDER BY embedding <=> %s::vector LIMIT %s"
-    params.extend([query_embedding, request.limit])
-    
     try:
-        cur.execute(sql, params)
-        results = cur.fetchall()
+        # Generate query embedding
+        query_embedding = embeddings.generate_embedding(request.query)
         
-        products = [Product(**row) for row in results]
+        # Perform vector similarity search
+        query = """
+            SELECT 
+                "productId",
+                product_description,
+                imgurl,
+                producturl,
+                stars,
+                reviews,
+                price,
+                category_id,
+                isbestseller,
+                boughtinlastmonth,
+                category_name,
+                quantity,
+                1 - (embedding <=> $1::vector) as similarity_score
+            FROM bedrock_integration.product_catalog
+            WHERE 1 - (embedding <=> $1::vector) >= $2
+            ORDER BY embedding <=> $1::vector
+            LIMIT $3
+        """
         
-        # Get total count
-        count_sql = "SELECT COUNT(*) FROM products WHERE embedding IS NOT NULL"
-        cur.execute(count_sql)
-        result = cur.fetchone()
-        total = result['count'] if isinstance(result, dict) else result[0]
+        results = await db.fetch_all(
+            query,
+            query_embedding,
+            request.min_similarity,
+            request.limit
+        )
         
-        query_time = (time.time() - start_time) * 1000
+        # Convert to response model
+        search_results = []
+        for row in results:
+            product = ProductWithScore(**dict(row))
+            search_result = SearchResult(product=product)
+            search_results.append(search_result)
+        
+        search_time_ms = (time.time() - start_time) * 1000
         
         return SearchResponse(
-            products=products,
-            query_time_ms=query_time,
-            total_results=total
+            query=request.query,
+            results=search_results,
+            total_results=len(search_results),
+            search_time_ms=search_time_ms,
+            search_type="semantic"
         )
+        
     except Exception as e:
         logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
-@app.get("/api/products/categories")
-async def get_categories():
-    """Get all product categories"""
-    conn = get_db_connection()
-    cur = get_cursor(conn)
-    
-    try:
-        cur.execute("""
-            SELECT DISTINCT category_name, COUNT(*) as product_count
-            FROM products
-            WHERE category_name IS NOT NULL
-            GROUP BY category_name
-            ORDER BY product_count DESC
-        """)
-        return cur.fetchall()
-    finally:
-        cur.close()
 
-@app.get("/api/stats")
-async def get_stats():
-    """Get database statistics"""
-    conn = get_db_connection()
-    cur = get_cursor(conn)
-    
-    try:
-        stats = {}
-        
-        # Get various statistics
-        queries = {
-            'total_products': "SELECT COUNT(*) as count FROM products",
-            'products_with_embeddings': "SELECT COUNT(*) as count FROM products WHERE embedding IS NOT NULL",
-            'avg_price': "SELECT AVG(price) as avg FROM products",
-            'avg_rating': "SELECT AVG(stars) as avg FROM products",
-            'total_categories': "SELECT COUNT(DISTINCT category_name) as count FROM products",
-            'best_sellers': "SELECT COUNT(*) as count FROM products WHERE is_best_seller = true"
-        }
-        
-        for key, query in queries.items():
-            try:
-                cur.execute(query)
-                result = cur.fetchone()
-                if isinstance(result, dict):
-                    stats[key] = result.get('count') or result.get('avg') or 0
-                else:
-                    stats[key] = result[0] if result else 0
-            except:
-                stats[key] = 0
-        
-        return stats
-    except Exception as e:
-        logger.error(f"Stats query failed: {e}")
-        return {
-            'total_products': 0,
-            'products_with_embeddings': 0,
-            'avg_price': 0,
-            'avg_rating': 0,
-            'total_categories': 0,
-            'best_sellers': 0
-        }
-    finally:
-        cur.close()
-
-@app.post("/api/rag", response_model=RAGResponse)
-async def rag_query(request: RAGRequest):
+@app.get("/api/products/{product_id}", response_model=Product)
+async def get_product(
+    product_id: str,
+    db: DatabaseService = Depends(get_db_service),
+):
     """
-    Perform RAG (Retrieval Augmented Generation) query
+    Get a single product by ID
     """
-    import time
-    start_time = time.time()
-    
-    # Get relevant products using semantic search
-    query_embedding = generate_embedding(request.query)
-    
-    conn = get_db_connection()
-    cur = get_cursor(conn)
-    
-    # Retrieve relevant context
-    cur.execute("""
-        SELECT 
-            product_id,
-            product_description,
-            price,
-            stars,
-            reviews,
-            category_name
-        FROM products
-        WHERE embedding IS NOT NULL
-        ORDER BY embedding <=> %s::vector
-        LIMIT %s
-    """, (query_embedding, request.max_context_items))
-    
-    context_items = cur.fetchall()
-    
-    # Build context string
-    context = "\n".join([
-        f"Product: {item['product_description']}, Price: ${item['price']}, Rating: {item['stars']} stars, Category: {item['category_name']}"
-        for item in context_items
-    ])
-    
-    # Generate response using Claude via Bedrock
     try:
-        client = get_bedrock_client()
+        query = """
+            SELECT 
+                "productId",
+                product_description,
+                imgurl,
+                producturl,
+                stars,
+                reviews,
+                price,
+                category_id,
+                isbestseller,
+                boughtinlastmonth,
+                category_name,
+                quantity
+            FROM bedrock_integration.product_catalog
+            WHERE "productId" = $1
+        """
         
-        prompt = f"""Based on the following product information, answer the user's question.
-
-Context:
-{context}
-
-User Question: {request.query}
-
-Please provide a helpful and accurate answer based on the product information provided."""
+        result = await db.fetch_one(query, product_id)
         
-        # Use the correct Claude model ID for us-west-2
-        response = client.invoke_model(
-            modelId='us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-            body=json.dumps({
-                'messages': [
-                    {
-                        'role': 'user',
-                        'content': prompt
-                    }
-                ],
-                'max_tokens': 500,
-                'temperature': 0.7,
-                'anthropic_version': 'bedrock-2023-05-31'
-            })
-        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Product not found")
         
-        result = json.loads(response['body'].read())
-        answer = result['content'][0]['text']
+        return Product(**dict(result))
         
-        query_time = (time.time() - start_time) * 1000
-        
-        return RAGResponse(
-            answer=answer,
-            context_items=context_items,
-            query_time_ms=query_time
-        )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"RAG query failed: {e}")
-        # Return a fallback response
-        return RAGResponse(
-            answer="I'm unable to process your question at the moment. Please try again.",
-            context_items=context_items,
-            query_time_ms=(time.time() - start_time) * 1000
-        )
-    finally:
-        cur.close()
+        logger.error(f"Failed to fetch product: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch product: {str(e)}")
+
+
+@app.get("/api/products", response_model=List[Product])
+async def list_products(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    category: str = Query(default=None),
+    min_stars: float = Query(default=None, ge=0, le=5),
+    max_price: float = Query(default=None, ge=0),
+    db: DatabaseService = Depends(get_db_service),
+):
+    """
+    List products with optional filters
+    """
+    try:
+        # Build dynamic query
+        conditions = []
+        params = []
+        param_count = 1
+        
+        if category:
+            conditions.append(f"category_name = ${param_count}")
+            params.append(category)
+            param_count += 1
+        
+        if min_stars is not None:
+            conditions.append(f"stars >= ${param_count}")
+            params.append(min_stars)
+            param_count += 1
+        
+        if max_price is not None:
+            conditions.append(f"price <= ${param_count}")
+            params.append(max_price)
+            param_count += 1
+        
+        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+        
+        query = f"""
+            SELECT 
+                "productId",
+                product_description,
+                imgurl,
+                producturl,
+                stars,
+                reviews,
+                price,
+                category_id,
+                isbestseller,
+                boughtinlastmonth,
+                category_name,
+                quantity
+            FROM bedrock_integration.product_catalog
+            {where_clause}
+            ORDER BY reviews DESC
+            LIMIT ${param_count} OFFSET ${param_count + 1}
+        """
+        
+        params.extend([limit, offset])
+        results = await db.fetch_all(query, *params)
+        
+        return [Product(**dict(row)) for row in results]
+        
+    except Exception as e:
+        logger.error(f"Failed to list products: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list products: {str(e)}")
+
+
+# ============================================================================
+# LAB 2: MULTI-AGENT ENDPOINTS (Optional)
+# ============================================================================
+
+if LAB2_AVAILABLE:
+    
+    @app.post("/api/agent/search", response_model=AgentResponse)
+    async def agent_search(
+        request: SearchRequest,
+    ):
+        """
+        LAB 2: Agent-based search using MCP
+        """
+        if not search_agent:
+            raise HTTPException(status_code=503, detail="Search agent not available")
+        
+        start_time = time.time()
+        
+        try:
+            response = await search_agent.search(
+                query=request.query,
+                limit=request.limit
+            )
+            
+            execution_time_ms = (time.time() - start_time) * 1000
+            
+            return AgentResponse(
+                agent_name="SearchAgent",
+                response=response.get("message", "Search completed"),
+                data=response.get("data"),
+                execution_time_ms=execution_time_ms,
+                tools_used=response.get("tools_used", [])
+            )
+            
+        except Exception as e:
+            logger.error(f"Agent search failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Agent search failed: {str(e)}")
+    
+    
+    @app.get("/api/inventory/analyze", response_model=AgentResponse)
+    async def analyze_inventory():
+        """
+        LAB 2: Analyze inventory using inventory agent
+        """
+        if not inventory_agent:
+            raise HTTPException(status_code=503, detail="Inventory agent not available")
+        
+        start_time = time.time()
+        
+        try:
+            response = await inventory_agent.analyze_inventory()
+            
+            execution_time_ms = (time.time() - start_time) * 1000
+            
+            return AgentResponse(
+                agent_name="InventoryAgent",
+                response=response.get("message", "Analysis completed"),
+                data=response.get("data"),
+                execution_time_ms=execution_time_ms,
+                tools_used=response.get("tools_used", [])
+            )
+            
+        except Exception as e:
+            logger.error(f"Inventory analysis failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Inventory analysis failed: {str(e)}")
+    
+    
+    @app.get("/api/inventory/low-stock", response_model=List[Product])
+    async def get_low_stock(
+        threshold: int = Query(default=10, ge=0),
+        db: DatabaseService = Depends(get_db_service),
+    ):
+        """
+        LAB 2: Get products with low stock
+        """
+        try:
+            query = """
+                SELECT 
+                    "productId",
+                    product_description,
+                    imgurl,
+                    producturl,
+                    stars,
+                    reviews,
+                    price,
+                    category_id,
+                    isbestseller,
+                    boughtinlastmonth,
+                    category_name,
+                    quantity
+                FROM bedrock_integration.product_catalog
+                WHERE quantity <= $1 AND quantity > 0
+                ORDER BY quantity ASC, reviews DESC
+                LIMIT 50
+            """
+            
+            results = await db.fetch_all(query, threshold)
+            
+            return [Product(**dict(row)) for row in results]
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch low stock products: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch low stock: {str(e)}")
+    
+    
+    @app.post("/api/recommendations", response_model=List[ProductWithScore])
+    async def get_recommendations(
+        request: RecommendationRequest,
+    ):
+        """
+        LAB 2: Get product recommendations using recommendation agent
+        """
+        if not recommendation_agent:
+            raise HTTPException(status_code=503, detail="Recommendation agent not available")
+        
+        try:
+            recommendations = await recommendation_agent.get_recommendations(
+                product_id=request.productId,
+                limit=request.limit,
+                exclude_same=request.exclude_same_product
+            )
+            
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"Recommendations failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Recommendations failed: {str(e)}")
+
+
+# ============================================================================
+# ERROR HANDLERS
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Handle HTTP exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    """Handle general exceptions"""
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )

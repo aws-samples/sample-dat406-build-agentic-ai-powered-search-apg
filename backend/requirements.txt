@@ -1,8 +1,23 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-psycopg2-binary==2.9.9
-pgvector==0.2.4
-boto3==1.34.0
-pandas==2.1.4
-numpy==1.26.2
-python-dotenv==1.0.0
+# FastAPI and Server
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# Database - PostgreSQL with pgvector (Python 3.13 compatible)
+psycopg[binary,pool]==3.2.3
+pgvector==0.3.6
+
+# AWS SDK
+boto3==1.35.36
+botocore==1.35.36
+
+# Configuration and Environment
+pydantic==2.9.2
+pydantic-settings==2.6.0
+python-dotenv==1.0.1
+
+# Logging and Utilities
+python-json-logger==3.1.0
+
+# Lab 2: Agents and MCP (will be added later)
+# strands-agents==0.1.0  # Uncomment for Lab 2

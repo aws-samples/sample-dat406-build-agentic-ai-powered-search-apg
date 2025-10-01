@@ -2,16 +2,331 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* Light mode root variables */
+  :root.light {
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b7280;
+    --border-color: rgba(0, 0, 0, 0.1);
+    --card-bg: linear-gradient(135deg, rgba(186, 104, 200, 0.05) 0%, rgba(255, 255, 255, 0.95) 100%);
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --input-bg: rgba(0, 0, 0, 0.05);
+    --input-border: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Dark mode root variables */
+  :root.dark {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #0d0d1a;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --border-color: rgba(106, 27, 154, 0.2);
+    --card-bg: linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(13, 13, 26, 0.5) 100%);
+    --glass-bg: rgba(13, 13, 26, 0.8);
+    --input-bg: rgba(255, 255, 255, 0.05);
+    --input-border: rgba(255, 255, 255, 0.1);
+  }
+
+  body {
+    @apply antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Dark mode radial gradient overlay */
+  .dark body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 50%, rgba(106, 27, 154, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(186, 104, 200, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Light mode subtle gradient */
+  .light body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 50%, rgba(186, 104, 200, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(106, 27, 154, 0.03) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Custom scrollbar - Dark mode */
+  .dark .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(186, 104, 200, 0.3);
+    border-radius: 4px;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(186, 104, 200, 0.5);
+  }
+
+  /* Custom scrollbar - Light mode */
+  .light .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .light .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+  }
+
+  .light .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(106, 27, 154, 0.3);
+    border-radius: 4px;
+  }
+
+  .light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(106, 27, 154, 0.5);
+  }
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer components {
+  /* Premium Button Styles */
+  .btn-primary {
+    @apply px-8 py-3 bg-accent-purple text-white font-medium rounded-lg transition-all duration-300;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(186, 104, 200, 0.4);
+    background: #7c2bad;
+  }
+
+  .btn-secondary {
+    @apply px-8 py-3 font-medium rounded-lg transition-all duration-300;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--glass-bg);
+    border-color: rgba(186, 104, 200, 0.5);
+  }
+
+  /* Premium Card Styles */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    @apply rounded-2xl p-6 transition-all duration-300;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(186, 104, 200, 0.5);
+    box-shadow: 0 12px 32px rgba(106, 27, 154, 0.2);
+  }
+
+  /* Glassmorphism styles */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+  }
+
+  .glass-strong {
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border: 1px solid rgba(186, 104, 200, 0.3);
+  }
+
+  .dark .glass-strong {
+    background: rgba(13, 13, 26, 0.95);
+  }
+
+  .light .glass-strong {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  /* Input Field Styles */
+  .input-field {
+    @apply w-full px-4 py-3 rounded-lg transition-all duration-300;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: #ba68c8;
+    box-shadow: 0 0 0 3px rgba(186, 104, 200, 0.1);
+  }
+
+  .light .input-field:focus {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .input-field:focus {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Gradient Text - Always vibrant */
+  .gradient-text {
+    background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-chrome {
+    background: linear-gradient(
+      135deg,
+      #6a1b9a 0%,
+      #8e44ad 20%,
+      #ba68c8 40%,
+      #ce93d8 50%,
+      #ba68c8 60%,
+      #8e44ad 80%,
+      #6a1b9a 100%
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: chrome-shift 8s ease-in-out infinite;
+  }
+
+  @keyframes chrome-shift {
+    0%, 100% { background-position: 0% 50%; }
+    25% { background-position: 50% 25%; }
+    50% { background-position: 100% 50%; }
+    75% { background-position: 50% 75%; }
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .badge-purple {
+    background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+    @apply text-white;
+  }
+
+  .badge-green {
+    background: linear-gradient(135deg, #00ff88 0%, #00c896 100%);
+    @apply text-white;
+  }
+
+  /* Similarity Score Badge */
+  .similarity-badge {
+    background: linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%);
+    @apply px-3 py-1 rounded-full text-xs font-semibold text-white;
+    box-shadow: 0 2px 8px rgba(106, 27, 154, 0.4);
+  }
+
+  /* Pulsing Animation */
+  .pulse-glow {
+    animation: pulse-glow 2s infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.2);
+      opacity: 0.8;
+    }
+  }
+
+  /* Force floating bubble to bottom right */
+  .floating-bubble {
+    position: fixed !important;
+    bottom: 32px !important;
+    right: 32px !important;
+    left: auto !important;
+  }
+
+  /* Background Gradients */
+  .bg-gradient-radial {
+    background: radial-gradient(ellipse at center top, rgba(106, 27, 154, 0.1) 0%, transparent 50%);
+  }
+
+  .light .bg-gradient-radial {
+    background: radial-gradient(ellipse at center top, rgba(186, 104, 200, 0.08) 0%, transparent 50%);
+  }
+
+  .bg-gradient-card {
+    background: linear-gradient(135deg, rgba(0, 200, 255, 0.05) 0%, rgba(0, 255, 136, 0.05) 100%);
+  }
+
+  .light .bg-gradient-card {
+    background: linear-gradient(135deg, rgba(186, 104, 200, 0.08) 0%, rgba(106, 27, 154, 0.05) 100%);
+  }
+}
+
+@layer utilities {
+  /* Text sizes matching prototype */
+  .text-hero {
+    font-size: 56px;
+    font-weight: 300;
+    letter-spacing: -2px;
+    line-height: 1.1;
+  }
+
+  .text-subtitle {
+    font-size: 24px;
+    font-weight: 300;
+  }
+
+  /* Backdrop blur utilities */
+  .backdrop-blur-strong {
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+  }
+
+  /* Border utilities */
+  .border-subtle {
+    border-color: var(--border-color);
+  }
+
+  /* Dynamic color utilities */
+  .bg-bg-primary {
+    background-color: var(--bg-primary);
+  }
+
+  .bg-bg-secondary {
+    background-color: var(--bg-secondary);
+  }
+
+  .text-text-primary {
+    color: var(--text-primary);
+  }
+
+  .text-text-secondary {
+    color: var(--text-secondary);
+  }
 }

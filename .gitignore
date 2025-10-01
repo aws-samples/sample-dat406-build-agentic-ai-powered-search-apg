@@ -1,29 +1,33 @@
 # Dependencies
 node_modules/
-*.pyc
-__pycache__/
+
+# Build output
+dist/
+dist-ssr/
+
+# Environment variables
 .env
 .env.local
-
-# Build outputs
-dist/
-build/
-*.egg-info/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+.env.*.local
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Data files (if too large)
-# data/*.csv
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
