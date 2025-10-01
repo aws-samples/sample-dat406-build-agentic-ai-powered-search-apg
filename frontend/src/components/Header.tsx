@@ -1,6 +1,5 @@
 /**
  * Premium Header Component - Enhanced with Theme Toggle
- * Fixed position with blur backdrop and centered navigation
  */
 import { useState } from 'react'
 import { useTheme } from '../App'
