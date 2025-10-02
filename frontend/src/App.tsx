@@ -8,6 +8,7 @@ import AIAssistant from './components/AIAssistant'
 import SearchOverlay from './components/SearchOverlay'
 import ProductModal from './components/ProductModal'
 import { Product } from './services/types'
+import './styles/premium-heading-styles.css'
 
 // Theme Context
 type Theme = 'light' | 'dark'
@@ -103,14 +104,16 @@ function App() {
               <div className="max-w-[1400px] mx-auto w-full grid grid-cols-2 gap-20 items-center">
                 {/* Left: Text */}
                 <div>
-                  <h1 className="text-hero mb-6">
-                    Welcome to<br />
-                    <span className="gradient-text">Blaize Bazaar</span>
-                  </h1>
+                    <h1 className="text-hero mb-6 text-gray-900 dark:text-white">
+                      Welcome to<br />
+                      <span className="chrome-heading" data-text="Blaize Bazaar" style={{ fontSize: 'inherit' }}>
+                        Blaize Bazaar
+                      </span>
+                    </h1>
                   <div className="text-subtitle text-white dark:text-white mb-8 font-light">
                     Shop Smart with AI-Powered Search
                   </div>
-                  <p className="text-lg text-text-primary dark:text-text-secondary mb-8 leading-relaxed">
+                  <p className="text-lg text-gray-700 dark:text-white mb-8 leading-relaxed">
                     Experience intelligent product discovery powered by Aurora PostgreSQL with pgvector,
                     Amazon Bedrock, and AWS Strands SDK. Real-time semantic search meets premium shopping.
                   </p>
