@@ -1,12 +1,13 @@
 /**
  * Premium Header Component - Enhanced with Theme Toggle
+ * ALWAYS DARK BACKGROUND - No transparency at top!
  */
 import { useState } from 'react'
 import { useTheme } from '../App'
 
 interface HeaderProps {
-  activeSection?: 'shop' | 'collections' | 'about'
-  onNavigate?: (section: 'shop' | 'collections' | 'about') => void
+  activeSection?: 'shop' | 'collections' | 'tech'
+  onNavigate?: (section: 'shop' | 'collections' | 'tech') => void
   onSearch?: (query: string) => void
 }
 
@@ -14,7 +15,7 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
   const [searchQuery, setSearchQuery] = useState('')
   const { theme, toggleTheme } = useTheme()
 
-  const handleNavClick = (section: 'shop' | 'collections' | 'about') => {
+  const handleNavClick = (section: 'shop' | 'collections' | 'tech') => {
     if (onNavigate) {
       onNavigate(section)
     }
@@ -27,8 +28,20 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass">
-      <nav className="max-w-[1400px] mx-auto px-10 h-[72px] flex items-center justify-between">
+    <header 
+      className="fixed top-0 left-0 right-0 z-50 border-b relative"
+      style={{
+        background: theme === 'dark' 
+          ? 'rgba(10, 10, 15, 0.95)' 
+          : 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+        borderColor: theme === 'dark' 
+          ? 'rgba(106, 27, 154, 0.3)' 
+          : 'rgba(0, 0, 0, 0.1)'
+      }}
+    >
+      <nav className="max-w-[1400px] mx-auto px-10 h-[72px] flex items-center justify-between relative z-10">
         {/* Logo */}
         <div 
           className="logo gradient-text-chrome text-2xl font-light tracking-tight cursor-pointer"
@@ -62,13 +75,13 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
             )}
           </a>
           <a
-            onClick={() => handleNavClick('about')}
+            onClick={() => handleNavClick('tech')}
             className={`nav-link text-sm font-normal transition-colors duration-300 cursor-pointer relative ${
-              activeSection === 'about' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
+              activeSection === 'tech' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            About
-            {activeSection === 'about' && (
+            Architecture
+            {activeSection === 'tech' && (
               <span className="absolute -bottom-[26px] left-0 right-0 h-[1px] bg-accent-light opacity-60" />
             )}
           </a>
@@ -94,6 +107,24 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
               </button>
             )}
           </div>
+
+          {/* GitHub Link */}
+          <a
+            href="https://github.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-300 group"
+            aria-label="View on GitHub"
+            title="View source code on GitHub"
+          >
+            <svg 
+              className="w-5 h-5 text-text-secondary group-hover:text-text-primary transition-colors" 
+              fill="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+          </a>
 
           {/* Theme Toggle Button */}
           <button
@@ -128,6 +159,20 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
           </button>
         </div>
       </nav>
+
+      {/* Animated Purple Data Flow Line - Full Width - Only in Dark Mode */}
+      {theme === 'dark' && (
+        <div className="absolute bottom-0 left-0 w-full h-[2px] pointer-events-none z-50">
+          <div
+            className="absolute h-full w-[40%] top-0"
+            style={{
+              background: 'rgba(186, 104, 200, 0.2)',
+              boxShadow: '0 0 4px rgba(186, 104, 200, 0.6)',
+              animation: 'dataFlowPurple 3s linear infinite'
+            }}
+          />
+        </div>
+      )}
     </header>
   )
 }

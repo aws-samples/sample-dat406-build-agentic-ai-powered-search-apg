@@ -211,38 +211,39 @@ const AIAssistant = () => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="floating-bubble w-[72px] h-[72px] rounded-full z-[1000]
-                   bg-gradient-to-br from-purple-600 via-purple-500 to-blue-600
-                   hover:from-purple-700 hover:via-purple-600 hover:to-blue-700
+                   bg-gradient-to-br from-blue-600 via-purple-600 to-teal-600
+                   hover:from-blue-700 hover:via-purple-700 hover:to-teal-700
                    shadow-2xl hover:shadow-3xl
                    transform transition-all duration-500
                    hover:scale-110 active:scale-95
                    group relative"
         style={{
-          boxShadow: '0 12px 40px rgba(139, 92, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+          boxShadow: '0 12px 40px rgba(59, 130, 246, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
         }}
       >
         {/* Animated Ring */}
         <div className="absolute inset-0 rounded-full 
-                       bg-gradient-to-br from-purple-400 to-blue-400
+                       bg-gradient-to-br from-blue-400 via-purple-400 to-teal-400
                        animate-ping opacity-20" />
         
-        {/* Icon */}
+        {/* Aurora Database Icon */}
         <div className="relative w-full h-full flex items-center justify-center">
-          <Bot className="h-8 w-8 text-white" strokeWidth={2} />
+          <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+          </svg>
         </div>
 
-        {/* Label Badge */}
+        {/* Aurora AI Badge */}
         <div 
-          className="absolute -top-2 -right-2 px-3 py-1 rounded-full text-xs font-bold
-                     bg-gradient-to-r from-purple-500 to-blue-500
+          className="absolute -top-3 -right-4 px-2 py-1 rounded-full text-xs font-bold
+                     bg-gradient-to-r from-blue-500 via-purple-500 to-teal-500
                      text-white shadow-lg
                      transform group-hover:scale-110 transition-transform duration-300"
           style={{
-            boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)'
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)'
           }}
         >
-          <Sparkles className="h-3 w-3 inline mr-1" strokeWidth={2} />
-          AI
+          Aurora AI
         </div>
 
         {/* Notification Dot */}

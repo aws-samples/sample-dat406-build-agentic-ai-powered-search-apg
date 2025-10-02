@@ -39,7 +39,7 @@ const premiumProducts = [
   { name: 'Apple Watch Ultra 2', price: '$799', icon: '⌚', desc: 'Precision GPS' },
 ]
 
-type Section = 'shop' | 'collections' | 'about'
+type Section = 'shop' | 'collections' | 'tech'
 
 function App() {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -106,14 +106,23 @@ function App() {
                 <div>
                     <h1 className="text-hero mb-6 text-gray-900 dark:text-white">
                       Welcome to<br />
-                      <span className="chrome-heading" data-text="Blaize Bazaar" style={{ fontSize: 'inherit' }}>
+                      <span style={{ 
+                        fontSize: 'inherit',
+                        fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+                        fontWeight: '100',
+                        letterSpacing: '0.03em',
+                        background: 'linear-gradient(135deg, rgba(186, 104, 200, 0.7) 0%, rgba(186, 104, 200, 0.95) 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text'
+                      }}>
                         Blaize Bazaar
                       </span>
                     </h1>
                   <div className="text-subtitle text-white dark:text-white mb-8 font-light">
                     Shop Smart with AI-Powered Search
                   </div>
-                  <p className="text-lg text-gray-700 dark:text-white mb-8 leading-relaxed">
+                  <p className="text-lg text-gray-700 dark:text-white mb-12 leading-relaxed" style={{ fontWeight: '300', letterSpacing: '0.01em' }}>
                     Experience intelligent product discovery powered by Aurora PostgreSQL with pgvector,
                     Amazon Bedrock, and AWS Strands SDK. Real-time semantic search meets premium shopping.
                   </p>
@@ -156,7 +165,7 @@ function App() {
           {activeSection === 'collections' && (
             <section className="max-w-[1400px] mx-auto px-10 py-24">
               <div className="text-center mb-12">
-                <h2 className="text-5xl font-light mb-4">Curated Collections</h2>
+                <h2 className="text-5xl font-light mb-4 text-gray-900 dark:text-white">Curated Collections</h2>
                 <p className="text-text-secondary text-lg">AI-powered collections tailored to your preferences</p>
               </div>
               <div className="grid grid-cols-3 gap-8">
@@ -170,7 +179,7 @@ function App() {
                 ].map((collection, index) => (
                   <div key={index} className="card cursor-pointer">
                     <div className="text-5xl mb-4">{collection.icon}</div>
-                    <div className="text-2xl font-normal mb-3">{collection.title}</div>
+                    <div className="text-2xl font-normal mb-3 text-gray-900 dark:text-white">{collection.title}</div>
                     <div className="text-text-secondary text-sm">{collection.count}</div>
                   </div>
                 ))}
@@ -178,37 +187,46 @@ function App() {
             </section>
           )}
 
-          {/* About Section */}
-          {activeSection === 'about' && (
-            <section className="max-w-[1400px] mx-auto px-10 py-24 text-center">
-              <div className="max-w-[800px] mx-auto">
-                <h2 className="text-5xl font-light mb-6">
-                  <span className="gradient-text">About Blaize Bazaar</span>
-                </h2>
-                <p className="text-lg leading-relaxed text-text-secondary mb-12">
-                  Blaize Bazaar exemplifies production-grade vector search architecture and autonomous agent orchestration
-                  deployed at enterprise scale. The platform implements semantic search using cosine similarity
-                  calculations on high-dimensional embeddings, retrieval-augmented generation (RAG) patterns with Amazon Bedrock,
-                  and multi-agent coordination through the AWS Strands SDK.
-                </p>
-                <p className="text-lg leading-relaxed text-text-secondary mb-12">
-                  The architecture leverages pgvector's HNSW indexing for approximate nearest neighbor search across
-                  millions of product embeddings, while RAG pipelines enhance query responses with contextual data retrieval.
-                  Agent communication follows the Model Context Protocol (MCP) specification for standardized tool use
-                  and inter-agent messaging. This implementation showcases practical patterns for building
-                  production-grade AI applications on managed database infrastructure.
-                </p>
-                <div className="p-8 rounded-2xl mt-12 bg-gradient-card border border-accent-light/20">
-                  <div className="text-6xl mb-6">🚀</div>
-                  <div className="text-text-secondary">
-                    Designed and developed to showcase the seamless integration of Aurora PostgreSQL with pgvector,
-                    Amazon Bedrock, and AWS Strands SDK for enterprise-scale AI-powered e-commerce applications.<br /><br />
-                    <div className="text-xs text-text-secondary pt-4 border-t border-white/10 dark:border-white/10">
-                      © 2025 Shayon Sanyal. All rights reserved.<br />
-                      DAT406 | Build agentic AI-powered search with Amazon Aurora and Amazon RDS | AWS re:Invent 2025
-                    </div>
+          {/* Architecture Section */}
+          {activeSection === 'tech' && (
+            <section className="max-w-[1400px] mx-auto px-10 py-24">
+              <div className="text-center mb-12">
+                <h2 className="text-5xl font-light mb-4 text-gray-900 dark:text-white">Architecture</h2>
+                <p className="text-text-secondary text-lg">Production-grade AI search powered by AWS</p>
+              </div>
+              
+              {/* Architecture Diagram */}
+              <div className="mb-16 card p-8">
+                <img 
+                  src="/architecture.png" 
+                  alt="Architecture Diagram" 
+                  className="w-full h-auto rounded-2xl"
+                  style={{ maxHeight: '600px', objectFit: 'contain' }}
+                />
+              </div>
+
+              {/* Technology Stack - Smaller Tiles */}
+              <div className="text-center mb-8">
+                <h3 className="text-3xl font-light text-gray-900 dark:text-white mb-2">Technology Stack</h3>
+                <p className="text-text-secondary text-sm">Powered by AWS's most advanced AI and database services</p>
+              </div>
+              <div className="grid grid-cols-4 gap-6 mb-12">
+                {[
+                  { title: 'Aurora PostgreSQL', icon: '🗄️' },
+                  { title: 'Amazon Bedrock', icon: '🤖' },
+                  { title: 'pgvector', icon: '🔍' },
+                  { title: 'AWS Strands SDK', icon: '🔗' },
+                ].map((tech, index) => (
+                  <div key={index} className="card p-6 text-center">
+                    <div className="text-4xl mb-3">{tech.icon}</div>
+                    <h4 className="text-lg font-normal text-gray-900 dark:text-white">{tech.title}</h4>
                   </div>
-                </div>
+                ))}
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-text-secondary">
+                  © 2025 Shayon Sanyal | DAT406: Build agentic AI-powered search with Amazon Aurora | AWS re:Invent 2025
+                </p>
               </div>
             </section>
           )}

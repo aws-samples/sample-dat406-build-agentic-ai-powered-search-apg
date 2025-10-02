@@ -77,6 +77,31 @@
   }
 }
 
+/* Subtle Premium Version */
+.chrome-heading-subtle {
+  font-size: 3.5rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  
+  /* Subtle gradient - more refined */
+  background: linear-gradient(
+    135deg,
+    var(--text-primary) 0%,
+    rgba(186, 104, 200, 0.8) 50%,
+    var(--text-primary) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  
+  /* Very subtle glow */
+  filter: drop-shadow(0 0 8px rgba(186, 104, 200, 0.2));
+  
+  /* No animation for premium feel */
+  position: relative;
+}
+
 /* Alternative: Faster, more dramatic shine */
 .chrome-heading-dramatic {
   font-size: 3.5rem;

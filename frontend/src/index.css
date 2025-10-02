@@ -20,6 +20,7 @@
     --glass-bg: rgba(255, 255, 255, 0.8);
     --input-bg: rgba(0, 0, 0, 0.05);
     --input-border: rgba(0, 0, 0, 0.1);
+    --header-bg: rgba(255, 255, 255, 0.95);
   }
 
   /* Dark mode root variables */
@@ -33,6 +34,8 @@
     --glass-bg: rgba(13, 13, 26, 0.8);
     --input-bg: rgba(255, 255, 255, 0.05);
     --input-border: rgba(255, 255, 255, 0.1);
+    /* ALWAYS DARK HEADER */
+    --header-bg: rgba(10, 10, 15, 0.95);
   }
 
   body {
@@ -43,7 +46,20 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
-  /* Dark mode radial gradient overlay */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ========================================================================
+   * SUPER DRAMATIC PURPLE PULSE - IMPOSSIBLE TO MISS! 
+   * This replaces the subtle breathing effect with highly visible pulsating
+   * ======================================================================== */
+  
   .dark body::before {
     content: '';
     position: fixed;
@@ -51,10 +67,63 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 20% 50%, rgba(106, 27, 154, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(186, 104, 200, 0.05) 0%, transparent 50%);
+    background: 
+      radial-gradient(circle at 20% 50%, rgba(106, 27, 154, 0.40) 0%, transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(186, 104, 200, 0.35) 0%, transparent 50%),
+      radial-gradient(circle at 50% 20%, rgba(142, 36, 170, 0.30) 0%, transparent 40%),
+      radial-gradient(circle at 30% 70%, rgba(74, 20, 140, 0.25) 0%, transparent 35%);
     pointer-events: none;
     z-index: 0;
+    animation: superDramaticPulse 3s ease-in-out infinite;
+  }
+
+  .dark body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 60% 40%, rgba(186, 104, 200, 0.25) 0%, transparent 30%),
+      radial-gradient(circle at 40% 60%, rgba(142, 36, 170, 0.20) 0%, transparent 25%),
+      radial-gradient(circle at 70% 30%, rgba(106, 27, 154, 0.15) 0%, transparent 20%);
+    pointer-events: none;
+    z-index: 0;
+    animation: superDramaticPulse 5s ease-in-out infinite reverse;
+  }
+
+  @keyframes superDramaticPulse {
+    0% {
+      opacity: 0.6;
+      transform: scale(1) rotate(0deg);
+    }
+    25% {
+      opacity: 0.85;
+      transform: scale(1.1) rotate(5deg);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2) rotate(0deg);
+    }
+    75% {
+      opacity: 0.75;
+      transform: scale(1.05) rotate(-5deg);
+    }
+    100% {
+      opacity: 0.6;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  /* Purple Data Flow Animation - Glowing bar flows left to right */
+  @keyframes dataFlowPurple {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
   }
 
   /* Light mode subtle gradient */
@@ -111,40 +180,91 @@
 }
 
 @layer components {
-  /* Premium Button Styles */
+  /* ========================================================================
+   * ALWAYS DARK HEADER - NO TRANSPARENCY AT TOP!
+   * ======================================================================== */
+  
+  /* Target header/nav elements - adjust selectors based on your actual component */
+  header,
+  nav,
+  .header,
+  .navigation,
+  [class*="header"],
+  [class*="Header"],
+  [class*="nav"] {
+    background: var(--header-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+
+  /* Ensure header is always solid dark in dark mode */
+  .dark header,
+  .dark nav,
+  .dark .header,
+  .dark .navigation,
+  .dark [class*="header"],
+  .dark [class*="Header"],
+  .dark [class*="nav"] {
+    background: rgba(10, 10, 15, 0.95) !important;
+    backdrop-filter: blur(30px) !important;
+    border-bottom: 1px solid rgba(106, 27, 154, 0.3) !important;
+  }
+
+  /* Light mode header */
+  .light header,
+  .light nav,
+  .light .header,
+  .light .navigation,
+  .light [class*="header"],
+  .light [class*="Header"],
+  .light [class*="nav"] {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(30px) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Premium Button Styles - Apple-inspired */
   .btn-primary {
-    @apply px-8 py-3 bg-accent-purple text-white font-medium rounded-lg transition-all duration-300;
+    @apply px-8 py-3 text-white font-normal rounded-full transition-all duration-500;
+    background: linear-gradient(135deg, #8e44ad 0%, #ba68c8 100%);
+    box-shadow: 0 4px 16px rgba(186, 104, 200, 0.2);
+    letter-spacing: 0.01em;
   }
 
   .btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(186, 104, 200, 0.4);
-    background: #7c2bad;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(186, 104, 200, 0.35);
+    background: linear-gradient(135deg, #7c2bad 0%, #a855f7 100%);
   }
 
   .btn-secondary {
-    @apply px-8 py-3 font-medium rounded-lg transition-all duration-300;
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
+    @apply px-8 py-3 font-normal rounded-full transition-all duration-500;
+    background: rgba(186, 104, 200, 0.08);
+    border: 1px solid rgba(186, 104, 200, 0.2);
     color: var(--text-primary);
+    letter-spacing: 0.01em;
   }
 
   .btn-secondary:hover {
-    background: var(--glass-bg);
-    border-color: rgba(186, 104, 200, 0.5);
+    background: rgba(186, 104, 200, 0.15);
+    border-color: rgba(186, 104, 200, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(186, 104, 200, 0.15);
   }
 
-  /* Premium Card Styles */
+  /* Premium Card Styles - Apple-inspired */
   .card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    @apply rounded-2xl p-6 transition-all duration-300;
+    @apply rounded-3xl p-8 transition-all duration-500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
   }
 
   .card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(186, 104, 200, 0.5);
-    box-shadow: 0 12px 32px rgba(106, 27, 154, 0.2);
+    transform: translateY(-6px) scale(1.01);
+    border-color: rgba(186, 104, 200, 0.3);
+    box-shadow: 0 16px 40px rgba(106, 27, 154, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
   }
 
   /* Glassmorphism styles */
@@ -222,6 +342,30 @@
     25% { background-position: 50% 25%; }
     50% { background-position: 100% 50%; }
     75% { background-position: 50% 75%; }
+  }
+
+  .gradient-text-subtle {
+    background: linear-gradient(135deg, var(--text-primary) 0%, rgba(186, 104, 200, 0.8) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .chrome-reflection {
+    font-weight: 200;
+    letter-spacing: 0.05em;
+    background: linear-gradient(
+      90deg,
+      rgba(186, 104, 200, 0.6) 0%,
+      rgba(186, 104, 200, 0.9) 50%,
+      rgba(186, 104, 200, 0.6) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: chrome-shift 6s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(186, 104, 200, 0.3));
   }
 
   /* Badge Styles */
@@ -328,5 +472,10 @@
 
   .text-text-secondary {
     color: var(--text-secondary);
+  }
+
+  /* Header background utility */
+  .bg-header {
+    background: var(--header-bg) !important;
   }
 }
