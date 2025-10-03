@@ -1,0 +1,36 @@
+# Core Setup
+setuptools==65.5.0
+
+# HTTP & Networking
+httpx>=0.25.0
+
+# Database
+psycopg[binary,pool]>=3.1.0
+pgvector>=0.2.0
+sqlparse>=0.4.0
+
+# Data Science
+pandas>=2.0.0
+numpy<2.0
+pandarallel>=1.6.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# AWS
+boto3>=1.28.0
+
+# Utilities & Progress
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+
+# Jupyter & Notebooks
+ipykernel>=6.25.0
+jupyter>=1.0.0
+jupyterlab>=4.0.0
+ipywidgets>=8.0.0
+
+# FastAPI (for backend)
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
