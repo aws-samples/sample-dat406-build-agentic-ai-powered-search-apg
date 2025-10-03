@@ -17,7 +17,7 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
-class EmbeddingsService:
+class EmbeddingService:
     """
     Service for generating text embeddings using Amazon Titan v2.
     
@@ -29,10 +29,10 @@ class EmbeddingsService:
         """Initialize embeddings service with Bedrock client."""
         self.bedrock_runtime = boto3.client(
             service_name="bedrock-runtime",
-            region_name=settings.aws_region
+            region_name=settings.AWS_REGION
         )
-        self.model_id = settings.bedrock_embedding_model
-        self.embedding_dimension = 1024  # Titan v2 dimension
+        self.model_id = "cohere.embed-english-v3"
+        self.embedding_dimension = 1024
         
         logger.info(f"Initialized embeddings service: {self.model_id}")
     
@@ -63,11 +63,12 @@ class EmbeddingsService:
         text = text[:max_length].strip()
         
         try:
-            # Prepare request body for Titan v2
+            # Prepare request body for Cohere
             request_body = {
-                "inputText": text,
-                "dimensions": self.embedding_dimension,
-                "normalize": normalize
+                "texts": [text],
+                "input_type": "search_query",
+                "embedding_types": ["float"],
+                "truncate": "END"
             }
             
             # Call Bedrock API
@@ -82,7 +83,13 @@ class EmbeddingsService:
             response_body = json.loads(response['body'].read())
             
             # Extract embedding vector
-            embedding = response_body.get('embedding', [])
+            if 'embeddings' in response_body:
+                if 'float' in response_body['embeddings']:
+                    embedding = response_body['embeddings']['float'][0]
+                else:
+                    embedding = response_body['embeddings'][0]
+            else:
+                embedding = []
             
             if not embedding or len(embedding) != self.embedding_dimension:
                 raise ValueError(
@@ -221,7 +228,7 @@ class EmbeddingsService:
                 "status": "healthy",
                 "model_id": self.model_id,
                 "embedding_dimension": len(embedding),
-                "region": settings.aws_region
+                "region": settings.AWS_REGION
             }
             
         except Exception as e:

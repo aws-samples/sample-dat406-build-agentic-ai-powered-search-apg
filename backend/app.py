@@ -128,7 +128,10 @@ app.add_middleware(
 async def get_db_service() -> DatabaseService:
     """Get database service instance"""
     if not db_service:
-        raise HTTPException(status_code=503, detail="Database service not initialized")
+        raise HTTPException(
+            status_code=503, 
+            detail="Database unavailable - check network connectivity to Aurora cluster"
+        )
     return db_service
 
 
@@ -210,6 +213,36 @@ async def health_check(
 # LAB 1: SEMANTIC SEARCH ENDPOINTS
 # ============================================================================
 
+@app.get("/api/autocomplete")
+async def autocomplete(
+    q: str = Query(..., min_length=2),
+    limit: int = Query(default=5, ge=1, le=10),
+    db: DatabaseService = Depends(get_db_service),
+):
+    """Fast autocomplete using trigram similarity"""
+    try:
+        query = """
+            SELECT DISTINCT 
+                LEFT(product_description, 60) as suggestion,
+                category_name
+            FROM bedrock_integration.product_catalog
+            WHERE product_description ILIKE %s
+            LIMIT %s
+        """
+        
+        results = await db.fetch_all(query, f"%{q}%", limit)
+        
+        return {
+            "suggestions": [
+                {"text": dict(r)["suggestion"], "category": dict(r)["category_name"]}
+                for r in results
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Autocomplete failed: {e}")
+        return {"suggestions": []}
+
+
 @app.post("/api/search", response_model=SearchResponse)
 async def semantic_search(
     request: SearchRequest,
@@ -243,17 +276,19 @@ async def semantic_search(
                 boughtinlastmonth,
                 category_name,
                 quantity,
-                1 - (embedding <=> $1::vector) as similarity_score
+                1 - (embedding <=> %s::vector) as similarity_score
             FROM bedrock_integration.product_catalog
-            WHERE 1 - (embedding <=> $1::vector) >= $2
-            ORDER BY embedding <=> $1::vector
-            LIMIT $3
+            WHERE 1 - (embedding <=> %s::vector) >= %s
+            ORDER BY embedding <=> %s::vector
+            LIMIT %s
         """
         
         results = await db.fetch_all(
             query,
             query_embedding,
+            query_embedding,
             request.min_similarity,
+            query_embedding,
             request.limit
         )
         

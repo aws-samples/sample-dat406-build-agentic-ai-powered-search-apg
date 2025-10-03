@@ -13,7 +13,6 @@ import psycopg
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
-from pgvector.psycopg import register_vector
 
 from config import settings
 
@@ -62,16 +61,16 @@ class DatabaseService:
                     "row_factory": dict_row,  # Return rows as dictionaries
                     "autocommit": False,  # Explicit transaction control
                 },
-                configure=self._configure_connection,
             )
             
             # Open the pool
             await self._pool.open()
             
+            # Mark as connected before testing
+            self._is_connected = True
+            
             # Test connection
             await self._test_connection()
-            
-            self._is_connected = True
             logger.info(
                 f"✅ Database pool initialized "
                 f"(min={settings.DB_POOL_MIN_SIZE}, max={settings.DB_POOL_MAX_SIZE})"
@@ -81,23 +80,7 @@ class DatabaseService:
             logger.error(f"Failed to initialize database pool: {e}")
             raise
     
-    async def _configure_connection(self, conn: AsyncConnection) -> None:
-        """
-        Configure a new connection from the pool.
-        
-        Registers pgvector extension for vector operations.
-        
-        Args:
-            conn: New connection to configure
-        """
-        try:
-            # Register pgvector extension
-            await register_vector(conn)
-            logger.debug("Registered pgvector extension")
-            
-        except Exception as e:
-            logger.error(f"Error configuring connection: {e}")
-            raise
+
     
     async def _test_connection(self) -> None:
         """
@@ -191,6 +174,9 @@ class DatabaseService:
         
         async with self._pool.connection() as conn:
             try:
+                # Register pgvector for this connection (async version)
+                from pgvector.psycopg import register_vector_async
+                await register_vector_async(conn)
                 yield conn
             except Exception as e:
                 # Rollback on error
@@ -211,7 +197,8 @@ class DatabaseService:
         """
         async with self.get_connection() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(query, params)
+                # Pass params as tuple to execute
+                await cur.execute(query, params if params else None)
                 return await cur.fetchall()
     
     async def fetch_one(self, query: str, *params: Any) -> Optional[dict]:

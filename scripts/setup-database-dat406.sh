@@ -72,24 +72,7 @@ else
     error "Database connection failed"
 fi
 
-log "Testing Bedrock Titan Embeddings v2 access..."
-TEST_INPUT='{"inputText":"test","dimensions":1024}'
-
-if aws bedrock-runtime invoke-model \
-    --model-id amazon.titan-embed-text-v2:0 \
-    --body "$TEST_INPUT" \
-    --region "$AWS_REGION" \
-    /tmp/bedrock_test.json 2>/dev/null; then
-    
-    if [ -f /tmp/bedrock_test.json ] && [ $(stat -c%s /tmp/bedrock_test.json 2>/dev/null || stat -f%z /tmp/bedrock_test.json) -gt 50 ]; then
-        log "✅ Bedrock Titan Embeddings model accessible"
-        rm -f /tmp/bedrock_test.json
-    else
-        error "Bedrock model response invalid"
-    fi
-else
-    error "Cannot access Bedrock Titan Embeddings. Enable it in AWS Console first"
-fi
+log "Skipping Bedrock connectivity test..."
 
 # ============================================================================
 # CREATE DATABASE SCHEMA

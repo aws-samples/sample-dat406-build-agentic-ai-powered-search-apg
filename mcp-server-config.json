@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aurora-postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:brVJ3SNrNtw9VEnG@apgpg-pgvector.cluster-chygmprofdnr.us-west-2.rds.amazonaws.com:5432/postgres"
+      ]
+    }
+  }
+}

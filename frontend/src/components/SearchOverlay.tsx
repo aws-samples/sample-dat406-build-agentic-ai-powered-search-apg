@@ -3,7 +3,9 @@
  * Glassmorphism, smooth animations, and refined spacing
  * DARK MODE READY - SYNTAX FIXED
  */
+import { useEffect, useState } from 'react'
 import { Search, X, Sparkles, Zap, Database } from 'lucide-react'
+import { apiClient } from '../services/api'
 
 interface SearchResult {
   id: string
@@ -14,34 +16,86 @@ interface SearchResult {
   similarity: number
   stars: number
   reviews: number
+  productUrl?: string
 }
 
 interface SearchOverlayProps {
   isVisible: boolean
   onClose: () => void
   searchTerm: string
-  results?: SearchResult[]
-  latency?: string
 }
 
 const SearchOverlay = ({ 
   isVisible, 
   onClose, 
-  searchTerm,
-  results = [],
-  latency = '12ms' 
+  searchTerm
 }: SearchOverlayProps) => {
-  // Mock results for demonstration
-  const mockResults: SearchResult[] = [
-    { id: 'B001', name: 'Sony WH-1000XM5 Wireless Headphones', category: 'Audio', price: 399, icon: '🎧', similarity: 0.94, stars: 4.8, reviews: 834 },
-    { id: 'B002', name: 'Apple AirPods Pro 2nd Generation', category: 'Audio', price: 249, icon: '🎧', similarity: 0.89, stars: 4.9, reviews: 621 },
-    { id: 'B003', name: 'Bose QuietComfort Ultra Headphones', category: 'Audio', price: 429, icon: '🎧', similarity: 0.87, stars: 4.7, reviews: 412 },
-    { id: 'B004', name: 'Sennheiser Momentum 4 Wireless', category: 'Audio', price: 349, icon: '🎧', similarity: 0.85, stars: 4.6, reviews: 289 },
-  ]
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [allResults, setAllResults] = useState<SearchResult[]>([])
+  const [loading, setLoading] = useState(false)
+  const [latency, setLatency] = useState('0ms')
+  const [minPrice, setMinPrice] = useState<number>(0)
+  const [maxPrice, setMaxPrice] = useState<number>(10000)
+  const [minStars, setMinStars] = useState<number>(0)
 
-  const displayResults = results.length > 0 ? results : mockResults
+  useEffect(() => {
+    if (isVisible && searchTerm) {
+      performSearch()
+    }
+  }, [isVisible, searchTerm])
+
+  const performSearch = async () => {
+    setLoading(true)
+    const startTime = performance.now()
+    
+    try {
+      const response = await apiClient.search({
+        query: searchTerm,
+        limit: 10,
+        min_similarity: 0.0  // Lower threshold to get more results
+      })
+      
+      const endTime = performance.now()
+      setLatency(`${Math.round(endTime - startTime)}ms`)
+      
+      console.log('Search response:', response)
+      
+      // Transform API response to SearchResult format
+      const transformedResults: SearchResult[] = response.results.map(r => ({
+        id: r.product.productId,
+        name: r.product.product_description,
+        category: r.product.category_name || 'General',
+        price: r.product.price || 0,
+        icon: r.product.imgurl || '', // Use actual image URL
+        similarity: r.product.similarity_score,
+        stars: r.product.stars || 0,
+        reviews: r.product.reviews || 0,
+        productUrl: r.product.producturl || '' // Add Amazon URL
+      }))
+      
+      console.log('Transformed results:', transformedResults)
+      setAllResults(transformedResults)
+      setResults(transformedResults)
+    } catch (error) {
+      console.error('Search failed:', error)
+      setResults([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const filtered = allResults.filter(r => 
+      r.price >= minPrice && 
+      r.price <= maxPrice && 
+      r.stars >= minStars
+    )
+    setResults(filtered)
+  }, [minPrice, maxPrice, minStars, allResults])
 
   if (!isVisible) return null
+
+  const displayResults = results
 
   return (
     <>
@@ -120,14 +174,75 @@ const SearchOverlay = ({
             </div>
           </div>
 
+          {/* Filters */}
+          <div className="px-8 py-4 border-b border-gray-100/50 dark:border-gray-700/50
+                         bg-white/50 dark:bg-gray-800/50">
+            <div className="flex items-center gap-6">
+              {/* Price Range */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Price:</span>
+                <input
+                  type="number"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(Number(e.target.value))}
+                  placeholder="Min"
+                  className="w-20 px-2 py-1 text-sm rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
+                />
+                <span className="text-gray-400">-</span>
+                <input
+                  type="number"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(Number(e.target.value))}
+                  placeholder="Max"
+                  className="w-20 px-2 py-1 text-sm rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              {/* Star Rating */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Min Rating:</span>
+                <div className="flex gap-1">
+                  {[0, 3, 4, 4.5, 5].map(rating => (
+                    <button
+                      key={rating}
+                      onClick={() => setMinStars(rating)}
+                      className={`px-3 py-1 text-xs rounded-full transition-all ${
+                        minStars === rating
+                          ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {rating === 0 ? 'All' : `${rating}★`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reset */}
+              <button
+                onClick={() => {
+                  setMinPrice(0)
+                  setMaxPrice(10000)
+                  setMinStars(0)
+                }}
+                className="ml-auto text-sm text-purple-600 dark:text-purple-400 hover:underline"
+              >
+                Reset Filters
+              </button>
+            </div>
+          </div>
+
           {/* Results Grid */}
           <div className="p-6 overflow-y-auto custom-scrollbar" 
                style={{ maxHeight: 'calc(100vh - 280px)' }}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {displayResults.map((result, index) => (
-                <div
+                <a
                   key={result.id}
-                  className="group relative p-5 rounded-2xl cursor-pointer
+                  href={result.productUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative p-5 rounded-2xl cursor-pointer block
                            bg-white dark:bg-gray-800 
                            hover:bg-gradient-to-br hover:from-purple-50/50 hover:to-blue-50/50
                            dark:hover:from-purple-900/20 dark:hover:to-blue-900/20
@@ -155,14 +270,26 @@ const SearchOverlay = ({
 
                   {/* Product Info */}
                   <div className="flex items-start gap-4">
-                    {/* Icon */}
-                    <div className="flex-shrink-0 w-16 h-16 rounded-2xl
+                    {/* Product Image */}
+                    <div className="flex-shrink-0 w-16 h-16 rounded-2xl overflow-hidden
                                   bg-gradient-to-br from-gray-50 to-gray-100
                                   dark:from-gray-700 dark:to-gray-600
                                   flex items-center justify-center
-                                  text-3xl
                                   group-hover:scale-110 transition-transform duration-300">
-                      {result.icon}
+                      {result.icon ? (
+                        <img 
+                          src={result.icon} 
+                          alt={result.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                            const parent = e.currentTarget.parentElement
+                            if (parent) parent.innerHTML = '📦'
+                          }}
+                        />
+                      ) : (
+                        <span className="text-3xl">📦</span>
+                      )}
                     </div>
 
                     {/* Details */}
@@ -209,7 +336,7 @@ const SearchOverlay = ({
                       </span>
                     </div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>

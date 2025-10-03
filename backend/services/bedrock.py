@@ -19,9 +19,9 @@ class BedrockService:
     def __init__(self):
         self.client = boto3.client(
             service_name="bedrock-runtime",
-            region_name=settings.aws_region
+            region_name=settings.AWS_REGION
         )
-        self.model_id = settings.bedrock_chat_model
+        self.model_id = settings.BEDROCK_CHAT_MODEL
         logger.info(f"Initialized Bedrock chat service with model: {self.model_id}")
     
     async def chat_completion(
