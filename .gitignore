@@ -1,24 +1,67 @@
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-dist-ssr/
-
-# Environment variables
+# Environment Variables - CRITICAL
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+*.env
 
-# Logs
-*.log
+# AWS Credentials
+.aws/
+aws-credentials.json
+credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+.hypothesis/
+*.egg-info/
+dist/
+build/
+
+# Node.js
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+package-lock.json
+yarn.lock
 
-# Editor
+# Build Output
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.nuxt/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
 .vscode/*
 !.vscode/extensions.json
 .idea/
@@ -27,7 +70,27 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Secrets and Keys
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+private/

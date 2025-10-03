@@ -52,7 +52,38 @@
 └──────────────────┘    └──────────────────────┘
 ```
 
-## 🚀 Quick Start
+## 🎓 Workshop Structure
+
+This repository is organized for the **DAT406 Workshop** at AWS re:Invent 2025:
+
+### Lab 1: Semantic Search Foundation (20 min)
+📂 **Location**: `lab1/`
+
+Build the foundation with Jupyter notebooks:
+- Load 21,704 products into Aurora PostgreSQL
+- Generate vector embeddings with Amazon Bedrock
+- Create HNSW indexes for fast similarity search
+- Perform semantic search queries
+
+👉 [Start Lab 1](./lab1/README.md)
+
+### Lab 2: Full-Stack Application (80 min)
+📂 **Location**: `lab2/`
+
+Build Blaize Bazaar - a production-grade AI e-commerce platform:
+- FastAPI backend with semantic search API
+- React frontend with AI chat assistant
+- Multi-agent system for inventory, pricing, recommendations
+- Model Context Protocol (MCP) integration
+
+👉 [Start Lab 2](./lab2/README.md)
+
+### Workshop Guide
+📖 Complete workshop instructions: [WORKSHOP_GUIDE.md](./WORKSHOP_GUIDE.md)
+
+---
+
+## 🚀 Quick Start (Self-Paced)
 
 ### Prerequisites
 
@@ -61,7 +92,21 @@
 - AWS Account with Bedrock access
 - Aurora PostgreSQL cluster with pgvector
 
-### Backend Setup
+### Option 1: Workshop Labs (Recommended)
+
+```bash
+# Start with Lab 1
+cd lab1
+jupyter notebook
+
+# Then proceed to Lab 2
+cd ../lab2
+# Follow lab2/README.md
+```
+
+### Option 2: Direct Development Setup
+
+#### Backend Setup
 
 ```bash
 # Navigate to backend directory

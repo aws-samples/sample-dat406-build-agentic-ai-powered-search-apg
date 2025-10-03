@@ -1,9 +1,0 @@
-{
-  "reportMissingImports": "none",
-  "reportInvalidTypeForm": "none",
-  "reportOptionalMemberAccess": "none",
-  "reportOptionalSubscript": "none",
-  "reportOptionalCall": "none",
-  "reportGeneralTypeIssues": "none",
-  "reportUnusedVariable": "warning"
-}
