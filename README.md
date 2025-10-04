@@ -39,9 +39,9 @@
 |---------|-------------|
 | 📦 **Product Catalog** | Amazon dataset with embeddings |
 | 🔍 **Semantic Search** | Natural language product queries | 
-| 🤖 **Agent Assist** | Multi-agent orchestration |
+| 🤖 **Agent Assist** | Multi-agent orchestration with Agents as Tools pattern |
 | 🎯 **Smart Filters** | Dynamic price & rating filters |
-| 🔌 **MCP Integration** | Aurora PostgreSQL as an MCP Server |
+| 🔌 **MCP Integration** | Aurora PostgreSQL as an MCP Server with custom tools|
 | ⚡ **Real-time Autocomplete** | Trigram-based suggestions |
 
 ## 🏗️ Architecture
