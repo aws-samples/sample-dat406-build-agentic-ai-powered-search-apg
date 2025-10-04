@@ -1,4 +1,4 @@
-# Blaize Bazaar - AI-Powered Semantic Search E-Commerce
+# Blaize Bazaar - Agentic Search Platform
 
 [![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)](https://www.python.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17.5-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org)
