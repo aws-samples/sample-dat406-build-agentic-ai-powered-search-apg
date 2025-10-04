@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     BEDROCK_EMBEDDING_MODEL: str = "amazon.titan-embed-text-v2:0"
     
     # Chat model for conversational features
-    BEDROCK_CHAT_MODEL: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    BEDROCK_CHAT_MODEL: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"
     
     # ========================================
     # Application Configuration

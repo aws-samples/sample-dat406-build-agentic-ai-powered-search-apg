@@ -22,7 +22,7 @@ def price_optimization_agent(query: str) -> str:
         price_stats = get_price_statistics_tool()
         
         agent = Agent(
-            model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             system_prompt="""You are a pricing optimization specialist for Blaize Bazaar.
 
 Your expertise:

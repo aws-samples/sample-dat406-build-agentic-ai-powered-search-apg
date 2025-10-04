@@ -22,7 +22,7 @@ def product_recommendation_agent(query: str) -> str:
         trending_data = get_trending_products_tool(limit=15)
         
         agent = Agent(
-            model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             system_prompt="""You are a product recommendation specialist for Blaize Bazaar.
 
 Your expertise:

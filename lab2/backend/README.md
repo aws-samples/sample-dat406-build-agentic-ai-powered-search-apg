@@ -62,7 +62,7 @@ DB_PASSWORD=your-password
 
 AWS_REGION=us-west-2
 BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
-BEDROCK_CHAT_MODEL=us.anthropic.claude-sonnet-3-7-20250219-v1:0
+BEDROCK_CHAT_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 ```
 
 ### 3. Verify Database Setup

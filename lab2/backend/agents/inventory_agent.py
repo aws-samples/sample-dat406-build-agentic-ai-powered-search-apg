@@ -24,7 +24,7 @@ def inventory_restock_agent(query: str) -> str:
         inventory_data = get_inventory_health_tool()
         
         agent = Agent(
-            model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+            model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             system_prompt="""You are an inventory management specialist for Blaize Bazaar.
             
 Analyze stock levels and provide ONE concise restocking report.

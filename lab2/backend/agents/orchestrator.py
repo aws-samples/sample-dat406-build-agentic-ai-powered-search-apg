@@ -37,7 +37,7 @@ Always select the most appropriate agent based on the user's query."""
 def create_orchestrator():
     """Create the orchestrator agent with all specialized agents as tools"""
     return Agent(
-        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        model="us.anthropic.claude-sonnet-4-20250514-v1:0",
         system_prompt=ORCHESTRATOR_PROMPT,
         tools=[
             inventory_restock_agent,
