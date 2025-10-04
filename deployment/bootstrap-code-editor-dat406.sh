@@ -1,6 +1,6 @@
 #!/bin/bash
-# DAT406 Workshop - Code Editor Bootstrap Script
-# Sets up VS Code Server + React/Tailwind Frontend Environment
+# DAT406 Workshop - Code Editor Bootstrap Script (Updated v2.1)
+# Sets up VS Code Server + Lab 1 (Jupyter) + Lab 2 (Full Stack) Environment
 # Usage: ./bootstrap-code-editor-dat406.sh [PASSWORD]
 
 set -euo pipefail
@@ -17,6 +17,8 @@ DB_SECRET_ARN="${DB_SECRET_ARN:-}"
 DB_CLUSTER_ENDPOINT="${DB_CLUSTER_ENDPOINT:-}"
 DB_NAME="${DB_NAME:-postgres}"
 AWS_REGION="${AWS_REGION:-us-west-2}"
+BEDROCK_EMBEDDING_MODEL="${BEDROCK_EMBEDDING_MODEL:-amazon.titan-embed-text-v2:0}"
+BEDROCK_CHAT_MODEL="${BEDROCK_CHAT_MODEL:-us.anthropic.claude-sonnet-4-20250514-v1:0}"
 
 # Colors
 RED='\033[0;31m'
@@ -111,7 +113,7 @@ if [ ! -z "$REPO_URL" ] && [ "$REPO_URL" != "none" ]; then
             log "Repository cloned successfully"
         else
             warn "Repository clone failed (may be private) - creating directory structure"
-            sudo -u "$CODE_EDITOR_USER" mkdir -p "$HOME_FOLDER/$REPO_NAME"/{frontend,backend,data,scripts}
+            sudo -u "$CODE_EDITOR_USER" mkdir -p "$HOME_FOLDER/$REPO_NAME"/{lab1,lab2/{backend,frontend,config},data,deployment,docs}
         fi
     else
         log "Repository already exists"
@@ -237,9 +239,10 @@ install_extension() {
     sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" 2>&1 || warn "$EXT_NAME may require manual install"
 }
 
+# Essential extensions for Lab 1 and Lab 2
 install_extension "ms-python.python" "Python"
 install_extension "ms-python.vscode-pylance" "Pylance"
-install_extension "ms-toolsai.jupyter" "Jupyter"
+install_extension "ms-toolsai.jupyter" "Jupyter"  # CRITICAL for Lab 1 notebooks in VS Code
 install_extension "dbaeumer.vscode-eslint" "ESLint"
 install_extension "esbenp.prettier-vscode" "Prettier"
 install_extension "bradlc.vscode-tailwindcss" "Tailwind CSS"
@@ -260,7 +263,12 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "aws.telemetry": false,
-    "telemetry.telemetryLevel": "off"
+    "telemetry.telemetryLevel": "off",
+    "jupyter.askForKernelRestart": false,
+    "notebook.cellToolbarLocation": {
+        "default": "right",
+        "jupyter-notebook": "left"
+    }
 }
 VSCODE_SETTINGS
 
@@ -277,44 +285,98 @@ update-alternatives --set python3 /usr/bin/python3.13
 log "Installing Python packages..."
 sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user --upgrade pip
 
-# Core packages
-sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user \
-    fastapi uvicorn "psycopg[binary,pool]" pgvector boto3 \
-    pandas numpy python-dotenv pydantic pydantic-settings \
-    jupyter jupyterlab matplotlib seaborn
-
-check_success "Python packages installation"
-
 # ============================================================================
-# STEP 11: FRONTEND SETUP (IF DIRECTORY EXISTS)
+# STEP 11: LAB 1 - JUPYTER NOTEBOOK DEPENDENCIES
 # ============================================================================
 
-if [ -d "$HOME_FOLDER/$REPO_NAME/frontend" ]; then
-    log "Setting up React frontend..."
-    cd "$HOME_FOLDER/$REPO_NAME/frontend"
-    
-    # Install dependencies
-    if sudo -u "$CODE_EDITOR_USER" npm install 2>/dev/null; then
-        log "Frontend dependencies installed"
-    else
-        warn "Frontend npm install failed - may need manual setup"
-    fi
-    
-    # Create .env
-    cat > .env << ENV_FRONTEND
-VITE_API_URL=http://localhost:8000
-VITE_AWS_REGION=${AWS_REGION}
-VITE_BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
-ENV_FRONTEND
-    
-    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" .env
-    cd -
+log "Installing Lab 1 (Jupyter) dependencies..."
+if [ -f "$HOME_FOLDER/$REPO_NAME/lab1/requirements.txt" ]; then
+    sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user -r "$HOME_FOLDER/$REPO_NAME/lab1/requirements.txt"
+    check_success "Lab 1 dependencies installation"
 else
-    warn "Frontend directory not found - skipping frontend setup"
+    warn "Lab 1 requirements.txt not found, installing core packages..."
+    sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user \
+        setuptools==65.5.0 \
+        httpx>=0.25.0 \
+        "psycopg[binary,pool]>=3.1.0" \
+        pgvector>=0.2.0 \
+        sqlparse>=0.4.0 \
+        "pandas>=2.0.0" \
+        "numpy<2.0" \
+        "pandarallel>=1.6.0" \
+        "matplotlib>=3.7.0" \
+        "seaborn>=0.12.0" \
+        "boto3>=1.28.0" \
+        "tqdm>=4.65.0" \
+        "python-dotenv>=1.0.0" \
+        "ipykernel>=6.25.0" \
+        "jupyter>=1.0.0" \
+        "jupyterlab>=4.0.0" \
+        "ipywidgets>=8.0.0" \
+        "fastapi>=0.100.0" \
+        "uvicorn>=0.23.0" \
+        "pydantic>=2.0.0" \
+        "pydantic-settings>=2.0.0"
+    check_success "Core Lab 1 packages installation"
+fi
+
+# Register Jupyter kernel for Python 3.13
+log "Registering Jupyter kernel for Python 3.13..."
+sudo -u "$CODE_EDITOR_USER" python3.13 -m ipykernel install --user --name python3 --display-name "Python 3.13"
+check_success "Jupyter kernel registration"
+
+# ============================================================================
+# STEP 12: LAB 2 - BACKEND DEPENDENCIES
+# ============================================================================
+
+log "Installing Lab 2 (Backend) dependencies..."
+if [ -f "$HOME_FOLDER/$REPO_NAME/lab2/backend/requirements.txt" ]; then
+    sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user -r "$HOME_FOLDER/$REPO_NAME/lab2/backend/requirements.txt"
+    check_success "Lab 2 Backend dependencies installation"
+else
+    warn "Lab 2 Backend requirements.txt not found, installing core packages..."
+    sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user \
+        "fastapi>=0.115.0" \
+        "uvicorn[standard]>=0.30.0" \
+        "python-multipart>=0.0.9" \
+        "psycopg[binary,pool]>=3.2.0" \
+        "pgvector>=0.2.5" \
+        "boto3>=1.35.0" \
+        "botocore>=1.35.0" \
+        "pydantic>=2.0.0" \
+        "pydantic-settings>=2.0.0" \
+        "python-dotenv>=1.0.0" \
+        "numpy>=1.22.0,<2.0.0" \
+        "tenacity>=8.0.0" \
+        "rich>=13.0.0" \
+        "python-json-logger>=3.0.0" \
+        strands-agents \
+        strands-agents-tools \
+        strands-agents-builder
+    check_success "Core Lab 2 Backend packages installation"
 fi
 
 # ============================================================================
-# STEP 12: DATABASE CONFIGURATION
+# STEP 13: LAB 2 - FRONTEND SETUP
+# ============================================================================
+
+if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
+    log "Setting up Lab 2 React frontend..."
+    cd "$HOME_FOLDER/$REPO_NAME/lab2/frontend"
+    
+    # Install dependencies
+    if sudo -u "$CODE_EDITOR_USER" npm install 2>/dev/null; then
+        log "Lab 2 Frontend dependencies installed"
+    else
+        warn "Lab 2 Frontend npm install failed - may need manual setup"
+    fi
+    cd -
+else
+    warn "Lab 2 Frontend directory not found - skipping frontend setup"
+fi
+
+# ============================================================================
+# STEP 14: DATABASE CONFIGURATION & ENVIRONMENT FILES
 # ============================================================================
 
 log "Configuring database credentials..."
@@ -342,9 +404,59 @@ if [ ! -z "$DB_SECRET_ARN" ] && [ "$DB_SECRET_ARN" != "none" ]; then
     fi
 fi
 
-# Create .env file
+# Create .env files if we have DB credentials
 if [ ! -z "$DB_HOST" ] && [ ! -z "$DB_USER" ]; then
-    cat > "$HOME_FOLDER/$REPO_NAME/.env" << ENV_FILE
+    
+    # ========== LAB 2 BACKEND .env ==========
+    log "Creating Lab 2 Backend .env file..."
+    cat > "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env" << ENV_BACKEND
+# Database Configuration
+DB_HOST='$DB_HOST'
+DB_PORT='$DB_PORT'
+DB_NAME='$DB_NAME'
+DB_USER='$DB_USER'
+DB_PASSWORD='$DB_PASSWORD'
+DATABASE_URL='postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME'
+
+# PostgreSQL Connection
+PGHOST='$DB_HOST'
+PGPORT='$DB_PORT'
+PGUSER='$DB_USER'
+PGPASSWORD='$DB_PASSWORD'
+PGDATABASE='$DB_NAME'
+
+# AWS Configuration
+AWS_REGION='$AWS_REGION'
+
+# Bedrock Models (Updated for DAT406)
+BEDROCK_EMBEDDING_MODEL='$BEDROCK_EMBEDDING_MODEL'
+BEDROCK_CHAT_MODEL='$BEDROCK_CHAT_MODEL'
+ENV_BACKEND
+
+    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env"
+    chmod 600 "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env"
+    log "Lab 2 Backend .env created"
+    
+    # ========== LAB 2 FRONTEND .env ==========
+    log "Creating Lab 2 Frontend .env file..."
+    cat > "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env" << ENV_FRONTEND
+# API Configuration
+VITE_API_URL=http://localhost:8000
+
+# AWS Configuration
+VITE_AWS_REGION=$AWS_REGION
+
+# Feature Flags
+VITE_ENABLE_LAB2=true
+ENV_FRONTEND
+
+    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
+    chmod 644 "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
+    log "Lab 2 Frontend .env created"
+    
+    # ========== ROOT .env (for compatibility) ==========
+    log "Creating root .env file..."
+    cat > "$HOME_FOLDER/$REPO_NAME/.env" << ENV_ROOT
 DB_HOST='$DB_HOST'
 DB_PORT='$DB_PORT'
 DB_NAME='$DB_NAME'
@@ -357,33 +469,56 @@ PGUSER='$DB_USER'
 PGPASSWORD='$DB_PASSWORD'
 PGDATABASE='$DB_NAME'
 AWS_REGION='$AWS_REGION'
-BEDROCK_EMBEDDING_MODEL='amazon.titan-embed-text-v2:0'
-ENV_FILE
+BEDROCK_EMBEDDING_MODEL='$BEDROCK_EMBEDDING_MODEL'
+BEDROCK_CHAT_MODEL='$BEDROCK_CHAT_MODEL'
+ENV_ROOT
 
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/.env"
     chmod 600 "$HOME_FOLDER/$REPO_NAME/.env"
     
-    # .pgpass
+    # ========== .pgpass for psql CLI ==========
     cat > "/home/$CODE_EDITOR_USER/.pgpass" << PGPASS
 $DB_HOST:$DB_PORT:$DB_NAME:$DB_USER:$DB_PASSWORD
 PGPASS
     chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.pgpass"
     
-    log "Database configuration complete"
+    log "All environment files created successfully"
 fi
 
 # Update bashrc
 cat >> "/home/$CODE_EDITOR_USER/.bashrc" << 'BASHRC'
 
-# DAT406 Workshop
+# DAT406 Workshop Environment
 if [ -f /workshop/sample-dat406-build-agentic-ai-powered-search-apg/.env ]; then
     set -a
     source /workshop/sample-dat406-build-agentic-ai-powered-search-apg/.env
     set +a
 fi
 
-alias workshop='cd /workshop'
+# Workshop aliases
+alias workshop='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg'
+alias lab1='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab1'
+alias lab2='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2'
+alias backend='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2/backend'
+alias frontend='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2/frontend'
+
+# Start Lab 2 services
+start-backend() {
+    cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2/backend
+    uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+}
+
+start-frontend() {
+    cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2/frontend
+    npm run dev
+}
+
+# Jupyter for Lab 1 (can run in VS Code or browser)
+start-jupyter() {
+    cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab1
+    jupyter lab --ip=0.0.0.0 --port=8888 --no-browser
+}
 BASHRC
 
 # ============================================================================
@@ -391,9 +526,51 @@ BASHRC
 # ============================================================================
 
 log "==================== Bootstrap Complete ===================="
+echo ""
+echo "Environment Setup:"
+echo "  ✅ Python 3.13 with Lab 1 & Lab 2 dependencies"
+echo "  ✅ Node.js 20.x"
+echo "  ✅ PostgreSQL 16 client"
+echo "  ✅ Jupyter Lab & notebooks (with VS Code integration)"
+echo "  ✅ VS Code Server with Jupyter extension"
+echo ""
+echo "Lab 1 - Jupyter Notebooks:"
+echo "  📁 Location: $HOME_FOLDER/$REPO_NAME/lab1"
+echo "  📓 Run notebooks directly in VS Code (Jupyter extension installed)"
+echo "  🚀 Or use: start-jupyter (for browser-based Jupyter Lab)"
+echo ""
+echo "Lab 2 - Full Stack Application:"
+echo "  📁 Backend: $HOME_FOLDER/$REPO_NAME/lab2/backend"
+echo "  📁 Frontend: $HOME_FOLDER/$REPO_NAME/lab2/frontend"
+echo ""
 echo "Services:"
-echo "  Nginx: $(systemctl is-active nginx)"
-echo "  Code Editor: $(systemctl is-active code-editor@$CODE_EDITOR_USER)"
+echo "  🌐 Nginx: $(systemctl is-active nginx)"
+echo "  💻 Code Editor: $(systemctl is-active code-editor@$CODE_EDITOR_USER)"
+echo ""
+echo "Database:"
+echo "  🗄️ Host: $DB_HOST"
+echo "  🗄️ Database: $DB_NAME"
+echo "  🗄️ Environment files created in lab2/backend and lab2/frontend"
+echo ""
+echo "Bedrock Models:"
+echo "  🤖 Chat: $BEDROCK_CHAT_MODEL"
+echo "  🔢 Embeddings: $BEDROCK_EMBEDDING_MODEL"
+echo ""
+echo "Quick Start Commands (in VS Code terminal):"
+echo "  • workshop   - Go to workshop root"
+echo "  • lab1       - Go to Lab 1 (open .ipynb files in VS Code)"
+echo "  • lab2       - Go to Lab 2"
+echo "  • backend    - Go to Lab 2 backend"
+echo "  • frontend   - Go to Lab 2 frontend"
+echo "  • start-jupyter    - Start Jupyter Lab in browser (optional)"
+echo "  • start-backend    - Start FastAPI server (Lab 2)"
+echo "  • start-frontend   - Start React dev server (Lab 2)"
+echo ""
+echo "Lab 1 Instructions:"
+echo "  1. In VS Code, navigate to lab1/ folder"
+echo "  2. Open the .ipynb notebook file"
+echo "  3. VS Code will use the Jupyter extension to run it"
+echo "  4. Select 'Python 3.13' kernel when prompted"
 echo ""
 echo "Access via CloudFront URL with token: $CODE_EDITOR_PASSWORD"
 log "============================================================"
