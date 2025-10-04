@@ -286,4 +286,4 @@ For questions or issues:
 
 ---
 
-**Built for AWS re:Invent 2025 | DAT406 Workshop**
+**© 2025 Shayon Sanyal | AWS re:Invent 2025 | DAT406 Workshop**
