@@ -1,5 +1,5 @@
 # Core Setup
-setuptools==65.5.0
+setuptools==78.1.1
 
 # HTTP & Networking
 httpx>=0.25.0
