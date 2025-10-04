@@ -35,14 +35,14 @@
 
 ### ✨ Key Features
 
-| Feature | Description | Performance |
-|---------|-------------|-------------|
-| 📦 **Product Catalog** | Amazon dataset with embeddings | 21,704 products |
-| 🔍 **Semantic Search** | Natural language product queries | 60%+ similarity scores |
-| 🤖 **Agent Assist** | Multi-agent orchestration | Claude Sonnet 4 |
-| 🎯 **Smart Filters** | Dynamic price & rating filters | Instant updates |
-| 🔌 **MCP Integration** | Model Context Protocol | Custom tools |
-| ⚡ **Real-time Autocomplete** | Trigram-based suggestions | <50ms response |
+| Feature | Description |
+|---------|-------------|
+| 📦 **Product Catalog** | Amazon dataset with embeddings |
+| 🔍 **Semantic Search** | Natural language product queries | 
+| 🤖 **Agent Assist** | Multi-agent orchestration |
+| 🎯 **Smart Filters** | Dynamic price & rating filters |
+| 🔌 **MCP Integration** | Aurora PostgreSQL as an MCP Server |
+| ⚡ **Real-time Autocomplete** | Trigram-based suggestions |
 
 ## 🏗️ Architecture
 
