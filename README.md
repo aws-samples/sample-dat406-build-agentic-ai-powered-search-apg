@@ -221,10 +221,10 @@ Each agent connects directly to Aurora PostgreSQL for real-time data access.
 
 Connect AI assistants to Aurora database using Model Context Protocol.
 
-### Base MCP (Aurora PostgreSQL)
-- Direct database access for AI agents
-- SQL query execution
-- Schema introspection
+### Base MCP ([Aurora PostgreSQL](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server))
+Provides 2 out-of-the-box tools:
+- [**run_query**](https://github.com/awslabs/mcp/blob/72625103b3104d4b67ebaa5bb001738da41d0497/src/postgres-mcp-server/awslabs/postgres_mcp_server/server.py#L91) - Execute SQL queries against the database
+- [**get_table_schema**](https://github.com/awslabs/mcp/blob/72625103b3104d4b67ebaa5bb001738da41d0497/src/postgres-mcp-server/awslabs/postgres_mcp_server/server.py#L171) - List all tables with schema information
 
 ### Custom MCP Tools (Blaize Bazaar)
 - **get_trending_products**: Trending analysis
