@@ -174,7 +174,11 @@ const AIAssistant = () => {
                 <div className="font-medium text-lg text-text-primary">Aurora AI</div>
                 <div className="text-xs text-text-secondary flex items-center gap-1">
                   {isLoading ? (
-                    <>🔄 Searching...</>
+                    <div className="flex items-center gap-1">
+                      <span className="typing-dot"></span>
+                      <span className="typing-dot"></span>
+                      <span className="typing-dot"></span>
+                    </div>
                   ) : !backendOnline ? (
                     <>
                       <AlertCircle className="h-3 w-3" />
