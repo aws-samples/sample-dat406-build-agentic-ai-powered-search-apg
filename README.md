@@ -429,15 +429,6 @@ This project is licensed under the MIT License - see [LICENSE](./LICENSE) file f
 
 ---
 
-## 🙏 Acknowledgments
-
-- **AWS re:Invent 2025** - DAT406 Workshop
-- **Amazon Aurora PostgreSQL 17.5** - Vector database with pgvector
-- **Amazon Bedrock** - Titan Embeddings v2 and Claude Sonnet 4
-- **Model Context Protocol** - AI assistant integration
-
----
-
 ## 💬 Support
 
 For questions or issues:
