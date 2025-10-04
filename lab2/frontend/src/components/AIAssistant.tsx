@@ -326,7 +326,7 @@ const AIAssistant = () => {
       <div className="fixed bottom-8 right-8 z-[1000]">
         {/* Tooltip Bubble */}
         {!isOpen && (
-          <div className="absolute bottom-20 right-0 animate-slideIn">
+          <div className="absolute bottom-28 right-0 animate-slideIn">
             <div 
               className="px-4 py-2 rounded-2xl text-base font-medium text-white whitespace-nowrap relative"
               style={{
@@ -352,7 +352,7 @@ const AIAssistant = () => {
         {/* Chat Icon */}
         <div
           onClick={() => setIsOpen(!isOpen)}
-          className="w-[80px] h-[80px] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 animate-float relative overflow-hidden"
+          className="w-[100px] h-[100px] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 animate-float relative overflow-hidden"
           style={{
             boxShadow: '0 8px 32px rgba(106, 27, 154, 0.5)'
           }}

@@ -48,10 +48,12 @@ log "Password: ${CODE_EDITOR_PASSWORD:0:4}****"
 log "Installing base packages..."
 dnf update -y
 dnf install --skip-broken -y \
-    curl gnupg whois argon2 unzip nginx openssl jq git wget \
+    gnupg whois argon2 unzip nginx openssl jq git wget \
     python3.13 python3.13-pip python3.13-devel python3.13-wheel \
     gcc gcc-c++ make postgresql16
 check_success "Base packages installation"
+
+# Note: curl is already installed as curl-minimal on AL2023
 
 # Install Node.js 20.x
 log "Installing Node.js 20.x..."
@@ -296,7 +298,6 @@ if [ -f "$HOME_FOLDER/$REPO_NAME/lab1/requirements.txt" ]; then
 else
     warn "Lab 1 requirements.txt not found, installing core packages..."
     sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user \
-        setuptools==65.5.0 \
         httpx>=0.25.0 \
         "psycopg[binary,pool]>=3.1.0" \
         pgvector>=0.2.0 \
