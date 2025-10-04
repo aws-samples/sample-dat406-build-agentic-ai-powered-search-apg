@@ -287,12 +287,12 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
             logger.error(f"❌ Strands agent execution failed: {e}", exc_info=True)
             raise RuntimeError(f"Agent execution failed: {str(e)}")
     
-    def _parse_agent_response(self, response_text: str) -> Dict[str, Any]:
+    def _parse_agent_response(self, response_text: str, query: str = "") -> Dict[str, Any]:
         """
         Parse agent response to extract:
         - Text response
         - Product data (from JSON blocks or database query results)
-        - Suggestions
+        - Smart suggestions based on context
         """
         # Initialize result
         result = {
@@ -327,6 +327,11 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
         # Combine and filter out productId references
         all_suggestions = suggestions + [s for s in inline_suggestions if len(s) > 5 and len(s) < 50]
         filtered = [s for s in all_suggestions if 'productid' not in s.lower() and not re.match(r'^B[0-9A-Z]{9}$', s)]
+        
+        # Add smart suggestions based on context
+        smart_suggestions = self._generate_smart_suggestions(query, result["products"])
+        filtered.extend(smart_suggestions)
+        
         result["suggestions"] = list(dict.fromkeys(filtered))[:5]  # Dedupe and limit to 5
         
         # Clean text (remove JSON blocks and suggestions)
@@ -356,6 +361,29 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
             })
         
         return formatted
+    
+    def _generate_smart_suggestions(self, query: str, products: List[Dict]) -> List[str]:
+        """Generate smart contextual suggestions based on query and results"""
+        suggestions = []
+        query_lower = query.lower()
+        
+        # After showing products, suggest agent capabilities
+        if products:
+            suggestions.append("💡 Want to see trending items?")
+        
+        # Price-related queries
+        if any(word in query_lower for word in ['price', 'cost', 'deal', 'cheap', 'expensive']):
+            suggestions.append("💡 Need pricing insights?")
+        
+        # Inventory-related queries
+        if any(word in query_lower for word in ['stock', 'inventory', 'available', 'restock']):
+            suggestions.append("💡 Check inventory health?")
+        
+        # Recommendation queries
+        if any(word in query_lower for word in ['recommend', 'suggest', 'best', 'top']):
+            suggestions.append("💡 Get personalized recommendations?")
+        
+        return suggestions
     
     def _error_response(self, error: str) -> Dict[str, Any]:
         """Error response with clear diagnostic information"""

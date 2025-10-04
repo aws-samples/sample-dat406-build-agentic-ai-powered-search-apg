@@ -634,6 +634,82 @@ async def general_exception_handler(request, exc):
     )
 
 
+@app.get("/api/mcp/tools")
+async def list_mcp_tools(
+    db: DatabaseService = Depends(get_db_service)
+):
+    """List all custom MCP tools available"""
+    try:
+        from services.mcp_tools import CustomMCPTools
+        mcp_tools = CustomMCPTools(db)
+        return await mcp_tools.list_custom_tools()
+    except Exception as e:
+        logger.error(f"Failed to list MCP tools: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/mcp/trending")
+async def get_trending(
+    limit: int = Query(default=10, ge=1, le=50),
+    db: DatabaseService = Depends(get_db_service)
+):
+    """Get trending products using custom MCP tool"""
+    try:
+        from services.mcp_tools import CustomMCPTools
+        mcp_tools = CustomMCPTools(db)
+        return await mcp_tools.get_trending_products(limit)
+    except Exception as e:
+        logger.error(f"Failed to get trending products: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/mcp/inventory-health")
+async def get_inventory_health_endpoint(
+    db: DatabaseService = Depends(get_db_service)
+):
+    """Get inventory health using custom MCP tool"""
+    try:
+        from services.mcp_tools import CustomMCPTools
+        mcp_tools = CustomMCPTools(db)
+        return await mcp_tools.get_inventory_health()
+    except Exception as e:
+        logger.error(f"Failed to get inventory health: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/mcp/price-stats")
+async def get_price_stats(
+    category: str = Query(default=None),
+    db: DatabaseService = Depends(get_db_service)
+):
+    """Get price statistics using custom MCP tool"""
+    try:
+        from services.mcp_tools import CustomMCPTools
+        mcp_tools = CustomMCPTools(db)
+        return await mcp_tools.get_price_statistics(category)
+    except Exception as e:
+        logger.error(f"Failed to get price statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/mcp/restock")
+async def restock_product_endpoint(
+    request: dict,
+    db: DatabaseService = Depends(get_db_service)
+):
+    """Restock a product using custom MCP tool"""
+    try:
+        from services.mcp_tools import CustomMCPTools
+        mcp_tools = CustomMCPTools(db)
+        return await mcp_tools.restock_product(
+            product_id=request["product_id"],
+            quantity=request["quantity"]
+        )
+    except Exception as e:
+        logger.error(f"Failed to restock product: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     
@@ -678,14 +754,19 @@ async def agent_query(
 ):
     """
     Query specialized agents (inventory, recommendation, pricing)
+    Uses custom MCP tools to provide data to agents
     """
     try:
         from agents.orchestrator import create_orchestrator
         from agents.inventory_agent import inventory_restock_agent
         from agents.recommendation_agent import product_recommendation_agent
         from agents.pricing_agent import price_optimization_agent
+        from services.mcp_tools import CustomMCPTools
         
-        # Get relevant context from database based on query
+        # Initialize custom MCP tools
+        mcp_tools = CustomMCPTools(db)
+        
+        # Get relevant context using custom MCP tools
         context = ""
         
         # Extract category/product type from query
@@ -700,36 +781,21 @@ async def agent_query(
         elif any(word in query_lower for word in ["phone", "smartphone", "mobile"]):
             category_filter = "AND (category_name ILIKE '%Phone%' OR product_description ILIKE '%phone%')"
         
+        # Use custom MCP tools to get context
+        import json
+        
         if "inventory" in query_lower or "stock" in query_lower or "restock" in query_lower:
-            stock_query = f"""
-                SELECT "productId", product_description, quantity, stars, reviews, price, category_name
-                FROM bedrock_integration.product_catalog
-                WHERE quantity < 20 {category_filter}
-                ORDER BY stars DESC, reviews DESC
-                LIMIT 15
-            """
-            results = await db.fetch_all(stock_query)
-            context = "\n".join([f"{dict(r)}" for r in results])
+            # Use get_inventory_health custom MCP tool
+            inventory_health = await mcp_tools.get_inventory_health()
+            context = json.dumps(inventory_health, indent=2)
         elif "recommend" in query_lower or "suggest" in query_lower or "need" in query_lower:
-            rec_query = f"""
-                SELECT "productId", product_description, price, stars, reviews, category_name, imgurl
-                FROM bedrock_integration.product_catalog
-                WHERE stars >= 4.0 AND quantity > 0 {category_filter}
-                ORDER BY stars DESC, reviews DESC
-                LIMIT 25
-            """
-            results = await db.fetch_all(rec_query)
-            context = "\n".join([f"{dict(r)}" for r in results])
+            # Use get_trending_products custom MCP tool
+            trending = await mcp_tools.get_trending_products(limit=15)
+            context = json.dumps(trending, indent=2)
         elif "price" in query_lower or "deal" in query_lower or "bundle" in query_lower:
-            price_query = f"""
-                SELECT "productId", product_description, price, stars, reviews, category_name
-                FROM bedrock_integration.product_catalog
-                WHERE quantity > 0 {category_filter}
-                ORDER BY stars DESC, reviews DESC
-                LIMIT 25
-            """
-            results = await db.fetch_all(price_query)
-            context = "\n".join([f"{dict(r)}" for r in results])
+            # Use get_price_statistics custom MCP tool
+            price_stats = await mcp_tools.get_price_statistics()
+            context = json.dumps(price_stats, indent=2)
         
         # Use orchestrator or specific agent (always pass context)
         if agent_type == "orchestrator":

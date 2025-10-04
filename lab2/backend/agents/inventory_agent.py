@@ -2,47 +2,52 @@
 Inventory Restock Agent - Monitors stock levels and suggests restocking
 """
 from strands import Agent, tool
-from typing import Dict, Any
+from services.mcp_tool_wrappers import get_inventory_health_tool
 
 
 @tool
-def inventory_restock_agent(query: str, db_context: str = "") -> str:
+def inventory_restock_agent(query: str) -> str:
     """
     Analyze inventory levels and provide restocking recommendations.
+    Can also execute restock actions when user provides product ID and quantity.
     
     Args:
-        query: Inventory-related question or request
-        db_context: Current inventory data from database
+        query: Inventory-related question or restock command
     
     Returns:
-        Restocking recommendations with priority levels
+        Restocking recommendations or restock confirmation
     """
     try:
+        from services.mcp_tool_wrappers import restock_product_tool
+        
+        # Get inventory data from custom MCP tool
+        inventory_data = get_inventory_health_tool()
+        
         agent = Agent(
             model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
             system_prompt="""You are an inventory management specialist for Blaize Bazaar.
             
-Your expertise:
-- Analyze stock levels and identify low-stock items
-- Prioritize restocking based on product popularity (reviews/ratings)
-- Suggest optimal reorder quantities
-- Flag items that are out of stock but have high demand
+Analyze stock levels and provide ONE concise restocking report.
 
-When analyzing inventory:
-1. Identify products with quantity < 10 as LOW STOCK
-2. Identify products with quantity = 0 as OUT OF STOCK
-3. Prioritize by stars (rating) and reviews (popularity)
-4. Suggest reorder quantities: High demand (100+ reviews) = 50 units, Medium (50-100) = 30 units, Low (<50) = 20 units
+Guidelines:
+1. LOW STOCK: quantity < 10 | OUT OF STOCK: quantity = 0
+2. Prioritize by stars and reviews
+3. Reorder quantities: High demand (100+ reviews) = 50 units, Medium (50-100) = 30 units, Low (<50) = 20 units
+4. List critical items with product IDs if available
+5. Keep response under 200 words - no repetition
 
-Format your response with:
-- Priority level (CRITICAL/HIGH/MEDIUM)
-- Product name
-- Current stock
-- Suggested reorder quantity
-- Reasoning based on demand metrics"""
+For restock requests:
+- Use restock_product_tool(product_id, quantity) to add stock
+- Confirm the action with old and new quantities
+
+Format:
+- Summary stats
+- Top priority items (if names provided)
+- Recommended actions""",
+            tools=[restock_product_tool]
         )
         
-        response = agent(f"{query}\n\nInventory Data:\n{db_context}")
+        response = agent(f"{query}\n\nInventory Health Data:\n{inventory_data}")
         return str(response)
     except Exception as e:
         return f"Error in inventory agent: {str(e)}"

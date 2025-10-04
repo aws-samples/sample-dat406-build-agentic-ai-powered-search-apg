@@ -10,11 +10,10 @@ import ProductModal from './components/ProductModal'
 import { Product } from './services/types'
 import './styles/premium-heading-styles.css'
 
-// Theme Context
-type Theme = 'light' | 'dark'
+// Theme Context (locked to dark mode)
+type Theme = 'dark'
 interface ThemeContextType {
   theme: Theme
-  toggleTheme: () => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
@@ -42,27 +41,20 @@ const premiumProducts = [
 type Section = 'shop' | 'collections' | 'tech'
 
 function App() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('theme')
-    return (saved as Theme) || 'dark'
-  })
+  const [theme] = useState<Theme>('dark')
   const [activeSection, setActiveSection] = useState<Section>('shop')
   const [currentProductIndex, setCurrentProductIndex] = useState(0)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [showcaseKey, setShowcaseKey] = useState(0)
   const [searchOverlayVisible, setSearchOverlayVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [backgroundImage, setBackgroundImage] = useState<string>('/backgrounds/bg-1.jpeg')
 
-  // Apply theme to document
+  // Apply dark theme to document
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-    document.documentElement.classList.toggle('light', theme === 'light')
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
-  }
+    document.documentElement.classList.add('dark')
+    document.documentElement.classList.remove('light')
+  }, [])
 
   // Rotate products in hero showcase
   useEffect(() => {
@@ -77,7 +69,7 @@ function App() {
   const currentProduct = premiumProducts[currentProductIndex]
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme }}>
       <div className="min-h-screen bg-bg-primary relative transition-colors duration-300">
         {/* Header */}
         <Header
@@ -100,17 +92,29 @@ function App() {
         <main className="mt-[72px] relative z-10">
           {/* Shop Section (Hero) */}
           {activeSection === 'shop' && (
-            <section className="h-[calc(100vh-72px)] flex items-center px-10 bg-gradient-radial">
-              <div className="max-w-[1400px] mx-auto w-full grid grid-cols-2 gap-20 items-center">
+            <section 
+              className="h-[calc(100vh-72px)] flex items-center px-16 relative"
+              style={{
+                backgroundImage: `url(${backgroundImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                imageRendering: '-webkit-optimize-contrast',
+                filter: 'contrast(1.05) saturate(1.1) brightness(1.02)',
+                WebkitBackfaceVisibility: 'hidden',
+                backfaceVisibility: 'hidden'
+              }}
+            >
+              <div className="w-full grid grid-cols-2 gap-12 items-center">
                 {/* Left: Text */}
                 <div>
-                    <h1 className="text-hero mb-6 text-gray-900 dark:text-white">
+                    <h1 className="text-hero mb-6 text-gray-900 dark:text-white" style={{ fontWeight: '200' }}>
                       Welcome to<br />
                       <span className="gradient-text-chrome" style={{ 
                         fontSize: 'inherit',
-                        fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-                        fontWeight: '100',
-                        letterSpacing: '0.03em'
+                        fontFamily: '"Playfair Display", Georgia, serif',
+                        fontWeight: '600',
+                        letterSpacing: '0.02em'
                       }}>
                         Blaize Bazaar
                       </span>
@@ -124,7 +128,7 @@ function App() {
                   </p>
                   <div className="flex gap-4">
                     <button 
-                      className="btn-primary"
+                      className="btn-secondary"
                       onClick={() => {
                         const bubble = document.querySelector('.floating-bubble') as HTMLElement
                         if (bubble) bubble.click()
@@ -141,23 +145,22 @@ function App() {
                   </div>
                 </div>
 
-                {/* Right: Product Showcase - FIXED FOR DARK MODE */}
+                {/* Right: Empty space (product showcase removed, kept as backup in code) */}
                 <div className="h-[500px] flex items-center justify-center">
-                  <div className="w-full h-full card flex items-center justify-center relative overflow-hidden">
+                  {/* Product showcase hidden - uncomment below to restore */}
+                  {/* <div className="w-full h-full card flex items-center justify-center relative overflow-hidden">
                     <div 
                       key={showcaseKey}
                       className="text-center relative z-10 opacity-0 animate-fadeIn"
                     >
                       <div className="text-[180px] mb-6">{currentProduct.icon}</div>
-                      {/* FIXED: Added dark:text-white for dark mode visibility */}
                       <h3 className="text-2xl font-normal mb-3 text-gray-900 dark:text-white">
                         {currentProduct.name}
                       </h3>
                       <div className="text-[28px] text-accent-light mb-2">{currentProduct.price}</div>
-                      {/* FIXED: Changed from text-text-secondary to explicit dark mode classes */}
                       <p className="text-gray-600 dark:text-gray-400 text-sm">{currentProduct.desc}</p>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </section>
@@ -173,7 +176,7 @@ function App() {
               <div className="grid grid-cols-3 gap-8">
                 {[
                   { icon: '📷', title: 'Security Cameras', count: '200 products • 1.9M reviews', query: 'security cameras' },
-                  { icon: '💻', title: 'Vacuum Cleaners', count: '100 products • Perfect 5★ rating', query: 'vacuum cleaners' },
+                  { icon: '🧹', title: 'Vacuum Cleaners', count: '100 products • Perfect 5★ rating', query: 'vacuum cleaners' },
                   { icon: '🎮', title: 'Gaming Consoles', count: '260 products • Trending now', query: 'gaming consoles' },
                   { icon: '🎧', title: 'Shaving & Grooming', count: '193 products • 481K reviews', query: 'shaving grooming' },
                   { icon: '⌚', title: 'Kids Watches', count: '117 products • 4.4★ average', query: 'kids watches' },

@@ -57,85 +57,98 @@ async def semantic_search(
 
 ---
 
-## 🤖 2. Strands SDK Multi-Agent System
+## 🤖 2. Strands SDK Multi-Agent System: "Agents as Tools" Pattern
+
+### What is "Agents as Tools"?
+
+"Agents as Tools" is an architectural pattern where specialized AI agents are wrapped as callable functions (`@tool`) that can be used by other agents. This creates a hierarchical structure:
+
+1. **Orchestrator Agent** - Handles user interaction and routes to specialists
+2. **Specialist Agents** - Domain experts wrapped as tools
+3. **Data Tools** - Custom MCP tools provide data to specialists
+
+**Key Benefits:**
+- ✅ **Separation of Concerns**: Each agent has focused responsibility
+- ✅ **Hierarchical Delegation**: Clear routing from orchestrator to specialists
+- ✅ **Modular Architecture**: Add/remove agents without affecting system
+- ✅ **Optimized Performance**: Tailored prompts and tools per agent
 
 ### Location: `lab2/backend/agents/`
 
-#### A. Specialized Agents (Agents as Tools Pattern)
+#### A. Orchestrator Agent (Main Entry Point)
 
-**`inventory_agent.py`** - Stock analysis agent:
-```python
-from strands import tool
-
-@tool
-def inventory_restock_agent(query: str, context: str) -> str:
-    """
-    Analyzes inventory levels and provides restock recommendations.
-    
-    Uses Strands @tool decorator to wrap agent as callable function.
-    """
-    system_prompt = """You are an inventory management specialist.
-    Analyze stock levels and provide restock recommendations."""
-    
-    # Agent processes context and returns recommendations
-    return agent_response
-```
-
-**`recommendation_agent.py`** - Product recommendation agent:
-```python
-@tool
-def product_recommendation_agent(query: str, context: str) -> str:
-    """
-    Provides personalized product recommendations.
-    
-    Matches user preferences with product catalog.
-    """
-    system_prompt = """You are a product recommendation specialist.
-    Match products to user needs and preferences."""
-    
-    return recommendations
-```
-
-**`pricing_agent.py`** - Pricing optimization agent:
-```python
-@tool
-def price_optimization_agent(query: str, context: str) -> str:
-    """
-    Analyzes pricing and suggests deals/bundles.
-    """
-    system_prompt = """You are a pricing specialist.
-    Identify best value products and bundle opportunities."""
-    
-    return pricing_analysis
-```
-
-#### B. Orchestrator Agent
-
-**`orchestrator.py`** - Routes queries to specialized agents:
+**`blaize_orchestrator.py`** - Routes queries to specialists:
 ```python
 from strands import Agent
+from agents.inventory_agent import inventory_restock_agent
+from agents.recommendation_agent import product_recommendation_agent
+from agents.pricing_agent import price_optimization_agent
 
-def create_orchestrator():
+def create_blaize_orchestrator():
     """
-    Creates orchestrator agent that delegates to specialists.
-    
-    Implements "Agents as Tools" pattern.
+    Creates orchestrator that routes to specialized agents.
+    Similar to teacher routing to subject specialists.
     """
-    orchestrator = Agent(
+    return Agent(
         model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        system_prompt="""You are Aurora AI orchestrator.
+        Route queries to specialists:
+        - inventory_restock_agent: stock/inventory queries
+        - product_recommendation_agent: recommendation queries  
+        - price_optimization_agent: pricing/deal queries
+        """,
         tools=[
             inventory_restock_agent,
             product_recommendation_agent,
             price_optimization_agent
-        ],
-        system_prompt="""You are an orchestrator that routes queries:
-        - Inventory queries → inventory_restock_agent
-        - Product recommendations → product_recommendation_agent
-        - Pricing queries → price_optimization_agent
-        """
+        ]
+    )
+```
+
+#### B. Specialized Agents (Agents as Tools Pattern)
+
+**`inventory_agent.py`** - Stock analysis:
+```python
+from strands import Agent, tool
+from services.mcp_tool_wrappers import get_inventory_health_tool
+
+@tool
+def inventory_restock_agent(query: str) -> str:
+    """
+    Analyzes inventory using custom MCP tool.
+    """
+    # Get data from custom MCP tool
+    inventory_data = get_inventory_health_tool()
+    
+    # Create specialist agent
+    agent = Agent(
+        model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        system_prompt="""Inventory management specialist..."""
     )
     
-    return orchestrator
+    return str(agent(f"{query}\n\nData: {inventory_data}"))
+```
+
+**`recommendation_agent.py`** - Product recommendations:
+```python
+@tool
+def product_recommendation_agent(query: str) -> str:
+    """
+    Provides recommendations using trending products MCP tool.
+    """
+    trending_data = get_trending_products_tool(limit=15)
+    # ... agent logic
+```
+
+**`pricing_agent.py`** - Pricing analysis:
+```python
+@tool
+def price_optimization_agent(query: str) -> str:
+    """
+    Analyzes pricing using price statistics MCP tool.
+    """
+    price_stats = get_price_statistics_tool()
+    # ... agent logic
 ```
 
 **Key Strands Features**:
@@ -143,6 +156,8 @@ def create_orchestrator():
 - ✅ **Agent Class**: Creates AI agents with system prompts
 - ✅ **Tool Routing**: Orchestrator selects appropriate specialist
 - ✅ **Bedrock Integration**: Uses Claude 3.7 Sonnet
+
+**Learn More**: [Strands Agents as Tools Pattern](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/multi-agent/agents-as-tools/)
 
 ---
 
@@ -319,11 +334,13 @@ User Query: "Show me laptops under $1000"
 - **Embedding Service**: `lab2/backend/services/embeddings.py`
 
 ### Strands SDK Implementation
-- **Chat Service**: `lab2/backend/services/chat.py` (lines 150-300)
+- **Orchestrator**: `lab2/backend/agents/blaize_orchestrator.py`
 - **Inventory Agent**: `lab2/backend/agents/inventory_agent.py`
 - **Recommendation Agent**: `lab2/backend/agents/recommendation_agent.py`
 - **Pricing Agent**: `lab2/backend/agents/pricing_agent.py`
-- **Orchestrator**: `lab2/backend/agents/orchestrator.py`
+- **MCP Tool Wrappers**: `lab2/backend/services/mcp_tool_wrappers.py`
+- **Custom MCP Tools**: `lab2/backend/services/mcp_tools.py`
+- **Chat Service**: `lab2/backend/services/chat.py`
 
 ### MCP Implementation
 - **MCP Client**: `lab2/backend/services/chat.py` (lines 70-120)
@@ -353,9 +370,31 @@ curl -X POST http://localhost:8000/api/chat \
   -d '{"message": "Show me laptops", "conversation_history": []}'
 ```
 
-### Test Specialized Agents
+### Test Orchestrator
 ```bash
-curl -X POST "http://localhost:8000/api/agents/query?query=recommend%20laptops&agent_type=recommendation"
+# Via API
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What needs restocking?", "conversation_history": []}'
+
+# Direct CLI
+cd lab2/backend
+python -m agents.blaize_orchestrator
+```
+
+### Test Custom MCP Tools
+```bash
+# List all custom tools
+curl http://localhost:8000/api/mcp/tools
+
+# Get trending products
+curl http://localhost:8000/api/mcp/trending?limit=5
+
+# Get inventory health
+curl http://localhost:8000/api/mcp/inventory-health
+
+# Get price statistics
+curl http://localhost:8000/api/mcp/price-stats
 ```
 
 ---

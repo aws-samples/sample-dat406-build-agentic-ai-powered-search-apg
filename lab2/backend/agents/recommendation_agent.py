@@ -2,21 +2,25 @@
 Product Recommendation Agent - Suggests products based on user preferences
 """
 from strands import Agent, tool
+from services.mcp_tool_wrappers import get_trending_products_tool
 
 
 @tool
-def product_recommendation_agent(query: str, product_context: str = "") -> str:
+def product_recommendation_agent(query: str) -> str:
     """
     Provide personalized product recommendations based on user preferences.
+    Uses custom MCP tool 'get_trending_products' for data.
     
     Args:
         query: User's product inquiry with preferences
-        product_context: Available products from database
     
     Returns:
         Personalized product recommendations with reasoning
     """
     try:
+        # Get trending products from custom MCP tool
+        trending_data = get_trending_products_tool(limit=15)
+        
         agent = Agent(
             model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
             system_prompt="""You are a product recommendation specialist for Blaize Bazaar.
@@ -47,7 +51,7 @@ Format recommendations as:
 - Key features"""
         )
         
-        response = agent(f"{query}\n\nAvailable Products:\n{product_context}")
+        response = agent(f"{query}\n\nTrending Products Data:\n{trending_data}")
         return str(response)
     except Exception as e:
         return f"Error in recommendation agent: {str(e)}"

@@ -183,11 +183,28 @@ Frontend will be available at: `http://localhost:5173`
 - Shows product name and category
 - GIN index for fast queries
 
-### 5. Multi-Agent System
-- **Inventory Agent**: Stock analysis and reorder recommendations
-- **Recommendation Agent**: Personalized product suggestions
-- **Pricing Agent**: Bundle deals and price optimization
-- **Orchestrator**: Routes queries to specialized agents
+### 5. Multi-Agent System: "Agents as Tools" Pattern
+
+**What is "Agents as Tools"?**
+
+A hierarchical AI architecture where:
+1. **Orchestrator Agent** - Routes queries to domain specialists
+2. **Specialist Agents** - Wrapped as `@tool` functions, callable by orchestrator
+3. **Custom MCP Tools** - Provide data to specialist agents
+
+This mimics human team dynamics: a manager (orchestrator) coordinates specialists (agents), each with focused expertise.
+
+**Blaize Bazaar Implementation:**
+- **Orchestrator Agent** (`blaize_orchestrator.py`): Routes queries like a teacher
+- **Inventory Agent**: Stock analysis using `get_inventory_health` MCP tool
+- **Recommendation Agent**: Product suggestions using `get_trending_products` MCP tool
+- **Pricing Agent**: Price analysis using `get_price_statistics` MCP tool
+
+**Benefits:**
+- ✅ Separation of concerns - each agent has focused responsibility
+- ✅ Modular architecture - add/remove agents independently
+- ✅ Hierarchical delegation - clear routing logic
+- ✅ Optimized prompts - each agent tailored to its domain
 
 ### 6. Premium UI/UX
 - Apple-inspired glassmorphism design
@@ -224,10 +241,19 @@ POST /api/chat
 }
 ```
 
-### Agents
+### Custom MCP Tools
 ```bash
-# Query specialized agents
-POST /api/agents/query?query=recommend%20laptops&agent_type=recommendation
+# List all custom tools
+GET /api/mcp/tools
+
+# Get trending products
+GET /api/mcp/trending?limit=10
+
+# Get inventory health
+GET /api/mcp/inventory-health
+
+# Get price statistics
+GET /api/mcp/price-stats?category=Electronics
 ```
 
 ### Products
@@ -239,9 +265,19 @@ GET /api/products/{product_id}
 GET /api/products?limit=20&category=Electronics&min_stars=4.0
 ```
 
-## 🤖 MCP Integration
+## 🤖 MCP Integration + Custom Tools
 
-The application uses Model Context Protocol to give AI agents direct database access.
+The application uses Model Context Protocol for database access and extends it with custom business logic.
+
+### Base MCP Tools (from Aurora PostgreSQL MCP)
+- `run_query` - Execute SQL queries
+- `get_schema` - Get database schema
+
+### Custom MCP Tools (Blaize Bazaar Extensions)
+- `get_trending_products` - Trending analysis (reviews × stars)
+- `get_inventory_health` - Inventory statistics & alerts
+- `get_price_statistics` - Price analytics by category
+- `list_custom_tools` - Tool discovery
 
 **Configuration**: `lab2/config/mcp-server-config.json`
 
@@ -309,6 +345,7 @@ Implement caching for frequent searches.
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
 - [React Documentation](https://react.dev/)
 - [Strands SDK](https://github.com/awslabs/strands)
+- [Strands Agents as Tools Pattern](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/multi-agent/agents-as-tools/)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 
 ## 🎉 Completion

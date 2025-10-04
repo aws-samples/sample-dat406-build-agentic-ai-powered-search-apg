@@ -73,7 +73,9 @@ Build the foundation with Jupyter notebooks:
 Build Blaize Bazaar - a production-grade AI e-commerce platform:
 - FastAPI backend with semantic search API
 - React frontend with AI chat assistant
-- Multi-agent system for inventory, pricing, recommendations
+- **Multi-agent system using "Agents as Tools" pattern**
+- Orchestrator routes to specialized agents (inventory, pricing, recommendations)
+- Custom MCP tools extend Aurora PostgreSQL with business logic
 - Model Context Protocol (MCP) integration
 
 👉 [Start Lab 2](./lab2/README.md)
@@ -232,19 +234,28 @@ GET /api/health
 - Clickable Amazon links with `target="_blank"`
 - Animated product showcase carousel
 
-## 🤖 MCP Server Integration
+## 🤖 MCP Server Integration + Custom Tools
 
-Connect AI assistants to your Aurora database using Model Context Protocol:
+Connect AI assistants to your Aurora database using Model Context Protocol, extended with custom business logic.
+
+### Base MCP (Aurora PostgreSQL)
+- Direct database access for AI agents
+- SQL query execution
+- Schema introspection
+
+### Custom MCP Tools (Blaize Bazaar)
+- **get_trending_products**: Trending analysis
+- **get_inventory_health**: Stock statistics & alerts  
+- **get_price_statistics**: Price analytics
+- **list_custom_tools**: Tool discovery
 
 ```bash
-# Copy MCP configuration
-mkdir -p ~/.aws/amazonq/
-cp mcp-server-config.json ~/.aws/amazonq/mcp-servers.json
-
-# Restart your IDE
+# Test custom tools
+curl http://localhost:8000/api/mcp/tools
+curl http://localhost:8000/api/mcp/trending?limit=5
 ```
 
-See [MCP_SETUP.md](./MCP_SETUP.md) for detailed instructions.
+See [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) for implementation details.
 
 ## 📁 Project Structure
 
@@ -337,9 +348,10 @@ This project demonstrates:
 2. **Similarity Search** - Use pgvector for fast nearest neighbor search
 3. **HNSW Indexing** - Optimize vector search performance
 4. **Hybrid Search** - Combine vector search with traditional filters
-5. **Real-time UX** - Build responsive search interfaces
-6. **AWS Integration** - Use Bedrock for embeddings
-7. **MCP Protocol** - Enable AI assistant database access
+5. **Multi-Agent Systems** - Orchestrator with specialized agents (Agents as Tools pattern)
+6. **Custom MCP Tools** - Extend Aurora PostgreSQL MCP with business logic
+7. **AWS Integration** - Use Bedrock for embeddings and chat
+8. **Real-time UX** - Build responsive search interfaces
 
 ## 🤝 Contributing
 

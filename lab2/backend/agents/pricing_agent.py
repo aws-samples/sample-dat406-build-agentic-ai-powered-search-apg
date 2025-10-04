@@ -2,21 +2,25 @@
 Price Optimization Agent - Analyzes pricing and suggests deals
 """
 from strands import Agent, tool
+from services.mcp_tool_wrappers import get_price_statistics_tool
 
 
 @tool
-def price_optimization_agent(query: str, pricing_context: str = "") -> str:
+def price_optimization_agent(query: str) -> str:
     """
     Analyze product pricing and suggest optimal deals and discounts.
+    Uses custom MCP tool 'get_price_statistics' for data.
     
     Args:
         query: Pricing-related question or request
-        pricing_context: Product pricing data from database
     
     Returns:
         Pricing analysis and deal recommendations
     """
     try:
+        # Get price statistics from custom MCP tool
+        price_stats = get_price_statistics_tool()
+        
         agent = Agent(
             model="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
             system_prompt="""You are a pricing optimization specialist for Blaize Bazaar.
@@ -47,7 +51,7 @@ Format your analysis as:
 - Reasoning"""
         )
         
-        response = agent(f"{query}\n\nPricing Data:\n{pricing_context}")
+        response = agent(f"{query}\n\nPrice Statistics:\n{price_stats}")
         return str(response)
     except Exception as e:
         return f"Error in pricing agent: {str(e)}"

@@ -80,7 +80,9 @@ Lab 1: Foundation                Lab 2: Full Application
 **Key Learnings**:
 - Building production APIs with FastAPI
 - Integrating Bedrock for conversational AI
-- Multi-agent architectures
+- Multi-agent architectures using "Agents as Tools" pattern
+- Orchestrator routing to specialized agents
+- Custom MCP tools extending Aurora PostgreSQL
 - Modern React development
 - MCP for database access
 
@@ -152,7 +154,9 @@ After completing this workshop, you will be able to:
 
 2. **Build AI Applications**
    - Create conversational AI with Claude
-   - Implement multi-agent systems
+   - Implement multi-agent systems using "Agents as Tools" pattern
+   - Build orchestrator that routes to specialized agents
+   - Extend MCP with custom business logic tools
    - Use MCP for database access
 
 3. **Deploy Production Systems**
@@ -214,6 +218,7 @@ Expected performance after completion:
 - [pgvector Documentation](https://github.com/pgvector/pgvector)
 - [Amazon Bedrock Guide](https://docs.aws.amazon.com/bedrock/)
 - [Strands SDK](https://github.com/awslabs/strands)
+- [Strands Agents as Tools Pattern](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/multi-agent/agents-as-tools/)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 
 ## 🎉 Post-Workshop

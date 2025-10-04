@@ -21,9 +21,9 @@ const AIAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: '👋 Welcome to Blaize Bazaar. What can I help you find today?',
+      content: '✨ I\'m Aurora AI. I can help you find products, compare options, and get recommendations. What are you looking for?',
       timestamp: new Date(),
-      suggestions: ['🎧 Wireless earbuds', '👟 Running shoes', '🎁 Gift ideas']
+      suggestions: ['🎧 Premium headphones', '💻 Laptops', '📱 Smartphones']
     }
   ])
   const [inputValue, setInputValue] = useState('')
@@ -160,21 +160,18 @@ const AIAssistant = () => {
     <>
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-32 right-8 w-[420px] h-[680px] glass-strong rounded-[20px] flex flex-col z-[999] animate-slideUp shadow-2xl">
+        <div className="fixed bottom-32 right-8 w-[420px] max-w-[calc(100vw-4rem)] h-[680px] max-h-[calc(100vh-10rem)] glass-strong rounded-[20px] flex flex-col z-[999] animate-slideUp shadow-2xl">
           {/* Header */}
           <div className="px-6 py-6 rounded-t-[20px] border-b border-accent-light/20 flex justify-between items-center"
                style={{
                  background: 'linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(186, 104, 200, 0.1) 100%)'
                }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                   style={{
-                     background: 'linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%)'
-                   }}>
-                🤖
+              <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden">
+                <img src="/chat-icon.jpeg" alt="Aurora AI" className="w-full h-full object-cover" />
               </div>
               <div>
-                <div className="font-medium text-base text-text-primary">Aurora AI</div>
+                <div className="font-medium text-lg text-text-primary">Aurora AI</div>
                 <div className="text-xs text-text-secondary flex items-center gap-1">
                   {isLoading ? (
                     <>🔄 Searching...</>
@@ -184,7 +181,7 @@ const AIAssistant = () => {
                       Backend Offline
                     </>
                   ) : (
-                    <>✅ Connected</>
+                    <><span className="text-green-500">🟢</span> Online</>
                   )}
                 </div>
               </div>
@@ -213,7 +210,7 @@ const AIAssistant = () => {
               <div key={index} className="flex flex-col gap-3">
                 {/* Message Bubble */}
                 <div
-                  className={`max-w-[85%] px-[18px] py-[14px] rounded-2xl text-sm leading-relaxed animate-slideUp ${
+                  className={`max-w-[85%] px-[18px] py-[14px] rounded-2xl text-base leading-relaxed animate-slideUp ${
                     message.role === 'assistant'
                       ? 'self-start text-text-primary'
                       : 'self-end'
@@ -322,31 +319,48 @@ const AIAssistant = () => {
       )}
 
       {/* Floating Bubble */}
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className="floating-bubble w-[72px] h-[72px] rounded-full flex items-center justify-center cursor-pointer z-[1000] transition-all duration-300 hover:scale-110 animate-float relative"
-        style={{
-          background: 'linear-gradient(135deg, #4a148c 0%, #6a1b9a 25%, #8e24aa 50%, #ba68c8 100%)',
-          boxShadow: '0 8px 32px rgba(106, 27, 154, 0.5)'
-        }}
-      >
-        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-2xl">
-          🤖
-        </div>
-        <div 
-          className="absolute -top-1 -right-1 px-2 py-0.5 rounded-xl text-[10px] font-bold tracking-wide"
-          style={{
-            background: 'linear-gradient(135deg, #8e24aa 0%, #ba68c8 100%)',
-            boxShadow: '0 2px 8px rgba(142, 36, 170, 0.6)'
-          }}
-        >
-          Aurora AI
-        </div>
-        {cart.length > 0 && (
-          <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold animate-pulse">
-            {cart.length}
+      <div className="fixed bottom-8 right-8 z-[1000]">
+        {/* Tooltip Bubble */}
+        {!isOpen && (
+          <div className="absolute bottom-20 right-0 animate-slideIn">
+            <div 
+              className="px-4 py-2 rounded-2xl text-base font-medium text-white whitespace-nowrap relative"
+              style={{
+                background: 'rgba(10, 10, 15, 0.95)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(186, 104, 200, 0.2)'
+              }}
+            >
+              How may I assist?
+              {/* Chat bubble tail */}
+              <div 
+                className="absolute -bottom-2 right-6 w-4 h-4 rotate-45"
+                style={{
+                  background: 'rgba(10, 10, 15, 0.95)',
+                  borderRight: '1px solid rgba(186, 104, 200, 0.2)',
+                  borderBottom: '1px solid rgba(186, 104, 200, 0.2)'
+                }}
+              />
+            </div>
           </div>
         )}
+        
+        {/* Chat Icon */}
+        <div
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-[80px] h-[80px] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 animate-float relative overflow-hidden"
+          style={{
+            boxShadow: '0 8px 32px rgba(106, 27, 154, 0.5)'
+          }}
+        >
+          <img src="/chat-icon.jpeg" alt="Chat" className="w-full h-full object-cover" />
+
+          {cart.length > 0 && (
+            <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold animate-pulse">
+              {cart.length}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Cart Modal */}
