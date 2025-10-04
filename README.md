@@ -37,13 +37,12 @@
 
 | Feature | Description | Performance |
 |---------|-------------|-------------|
-| 🔍 **Semantic Search** | Natural language product queries | 60%+ similarity scores |
-| ⚡ **Real-time Autocomplete** | Trigram-based suggestions | <50ms response |
-| 🤖 **AI Assistant** | Multi-agent orchestration | Claude Sonnet 4 |
-| 🎨 **Premium UI/UX** | Dark/light themes + glassmorphism | Modern design system |
-| 🎯 **Smart Filters** | Dynamic price & rating filters | Instant updates |
 | 📦 **Product Catalog** | Amazon dataset with embeddings | 21,704 products |
+| 🔍 **Semantic Search** | Natural language product queries | 60%+ similarity scores |
+| 🤖 **Agent Assist** | Multi-agent orchestration | Claude Sonnet 4 |
+| 🎯 **Smart Filters** | Dynamic price & rating filters | Instant updates |
 | 🔌 **MCP Integration** | Model Context Protocol | Custom tools |
+| ⚡ **Real-time Autocomplete** | Trigram-based suggestions | <50ms response |
 
 ## 🏗️ Architecture
 
