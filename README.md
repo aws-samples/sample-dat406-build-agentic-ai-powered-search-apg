@@ -1,5 +1,4 @@
-# Blaize Bazaar
-## Agentic Search Platform
+# Blaize Bazaar - Agentic Search Platform
 
 <div align="center">
 
