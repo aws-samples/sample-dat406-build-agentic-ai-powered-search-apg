@@ -29,7 +29,7 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>('shop')
   const [searchOverlayVisible, setSearchOverlayVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const backgroundImage = '/backgrounds/bg-1.jpeg'
+  const backgroundImage = '/backgrounds/bg-1.png'
 
   // Apply dark theme to document
   useEffect(() => {
@@ -146,12 +146,12 @@ function App() {
               </div>
               <div className="grid grid-cols-3 gap-8">
                 {[
-                  { icon: '📷', title: 'Security Cameras', count: '200 products • 1.9M reviews', query: 'security cameras' },
-                  { icon: '🧹', title: 'Vacuum Cleaners', count: '100 products • Perfect 5★ rating', query: 'vacuum cleaners' },
-                  { icon: '🎮', title: 'Gaming Consoles', count: '260 products • Trending now', query: 'gaming consoles' },
-                  { icon: '🎧', title: 'Shaving & Grooming', count: '193 products • 481K reviews', query: 'shaving grooming' },
-                  { icon: '⌚', title: 'Kids Watches', count: '117 products • 4.4★ average', query: 'kids watches' },
-                  { icon: '🚜', title: 'Kids Play Tractors', count: '106 products • 4.8★ rating', query: 'kids play tractors' },
+                  { icon: '🔌', title: 'Cables & Chargers', count: '585 products • Essential accessories', query: 'cable charger' },
+                  { icon: '⌚', title: 'Watches', count: '481 products • Premium timepieces', query: 'watch' },
+                  { icon: '📷', title: 'Cameras', count: '437 products • Capture moments', query: 'camera' },
+                  { icon: '💻', title: 'Laptops', count: '306 products • Power & performance', query: 'laptop' },
+                  { icon: '🎧', title: 'Headphones', count: '175 products • Immersive audio', query: 'headphones earbuds' },
+                  { icon: '🎮', title: 'Gaming', count: '170 products • Next-gen gaming', query: 'gaming' },
                 ].map((collection, index) => (
                   <div 
                     key={index} 

@@ -16,13 +16,27 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState<Array<{text: string, category: string}>>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showCollectionsMenu, setShowCollectionsMenu] = useState(false)
   const { theme } = useTheme()
   const searchRef = useRef<HTMLDivElement>(null)
+  const collectionsRef = useRef<HTMLDivElement>(null)
+
+  const categories = [
+    { icon: '🔌', name: 'Cables & Chargers', query: 'cable charger' },
+    { icon: '⌚', name: 'Watches', query: 'watch' },
+    { icon: '📷', name: 'Cameras', query: 'camera' },
+    { icon: '💻', name: 'Laptops', query: 'laptop' },
+    { icon: '🎧', name: 'Headphones', query: 'headphones earbuds' },
+    { icon: '🎮', name: 'Gaming', query: 'gaming' },
+  ]
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowSuggestions(false)
+      }
+      if (collectionsRef.current && !collectionsRef.current.contains(e.target as Node)) {
+        setShowCollectionsMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -95,17 +109,43 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
               <span className="absolute -bottom-[26px] left-0 right-0 h-[1px] bg-accent-light opacity-60" />
             )}
           </a>
-          <a
-            onClick={() => handleNavClick('collections')}
-            className={`nav-link text-base font-normal transition-colors duration-300 cursor-pointer relative ${
-              activeSection === 'collections' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
-            }`}
+          <div 
+            ref={collectionsRef} 
+            className="relative"
+            onMouseEnter={() => setShowCollectionsMenu(true)}
+            onMouseLeave={() => setShowCollectionsMenu(false)}
           >
-            Collections
-            {activeSection === 'collections' && (
-              <span className="absolute -bottom-[26px] left-0 right-0 h-[1px] bg-accent-light opacity-60" />
+            <a
+              onClick={() => handleNavClick('collections')}
+              className={`nav-link text-base font-normal transition-colors duration-300 cursor-pointer relative ${
+                activeSection === 'collections' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              Collections
+              {activeSection === 'collections' && (
+                <span className="absolute -bottom-[26px] left-0 right-0 h-[1px] bg-accent-light opacity-60" />
+              )}
+            </a>
+            {showCollectionsMenu && (
+              <div className="absolute top-full pt-6 left-0 w-64">
+                <div className="glass-strong rounded-2xl shadow-2xl border border-purple-500/20 overflow-hidden animate-slideUp">
+                  {categories.map((cat, i) => (
+                    <div
+                      key={i}
+                      onClick={() => {
+                        setShowCollectionsMenu(false)
+                        if (onSearch) onSearch(cat.query)
+                      }}
+                      className="px-4 py-3 hover:bg-purple-500/10 cursor-pointer border-b border-purple-500/10 last:border-0 transition-all duration-200 flex items-center gap-3"
+                    >
+                      <span className="text-2xl">{cat.icon}</span>
+                      <span className="text-sm text-text-primary">{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-          </a>
+          </div>
           <a
             onClick={() => handleNavClick('tech')}
             className={`nav-link text-base font-normal transition-colors duration-300 cursor-pointer relative ${

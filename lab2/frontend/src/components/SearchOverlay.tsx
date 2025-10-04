@@ -41,6 +41,8 @@ const SearchOverlay = ({
 
   useEffect(() => {
     if (isVisible && searchTerm) {
+      setResults([])
+      setAllResults([])
       performSearch()
     }
   }, [isVisible, searchTerm])
