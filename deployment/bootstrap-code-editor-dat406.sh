@@ -1,5 +1,5 @@
 #!/bin/bash
-# DAT406 Workshop - Code Editor Bootstrap Script (Updated v2.1)
+# DAT406 Workshop - Code Editor Bootstrap Script (v3.0 - Fixed Timing)
 # Sets up VS Code Server + Lab 1 (Jupyter) + Lab 2 (Full Stack) Environment
 # Usage: ./bootstrap-code-editor-dat406.sh [PASSWORD]
 
@@ -38,11 +38,11 @@ check_success() {
     fi
 }
 
-log "Starting DAT406 Code Editor Bootstrap"
+log "Starting DAT406 Code Editor Bootstrap v3.0 (Fixed Timing)"
 log "Password: ${CODE_EDITOR_PASSWORD:0:4}****"
 
 # ============================================================================
-# STEP 1: SYSTEM PACKAGES (CRITICAL FIRST)
+# STEP 1: SYSTEM PACKAGES
 # ============================================================================
 
 log "Installing base packages..."
@@ -52,8 +52,6 @@ dnf install --skip-broken -y \
     python3.13 python3.13-pip python3.13-devel python3.13-wheel \
     gcc gcc-c++ make postgresql16
 check_success "Base packages installation"
-
-# Note: curl is already installed as curl-minimal on AL2023
 
 # Install Node.js 20.x
 log "Installing Node.js 20.x..."
@@ -107,14 +105,14 @@ log "Setting up workspace directory..."
 mkdir -p "$HOME_FOLDER"
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER"
 
-# Clone repository if URL provided (skip if private/unavailable)
+# Clone repository
 if [ ! -z "$REPO_URL" ] && [ "$REPO_URL" != "none" ]; then
     if [ ! -d "$HOME_FOLDER/$REPO_NAME" ]; then
-        log "Attempting to clone repository..."
+        log "Cloning repository..."
         if sudo -u "$CODE_EDITOR_USER" git clone "$REPO_URL" "$HOME_FOLDER/$REPO_NAME" 2>/dev/null; then
             log "Repository cloned successfully"
         else
-            warn "Repository clone failed (may be private) - creating directory structure"
+            warn "Repository clone failed - creating directory structure"
             sudo -u "$CODE_EDITOR_USER" mkdir -p "$HOME_FOLDER/$REPO_NAME"/{lab1,lab2/{backend,frontend,config},data,deployment,docs}
         fi
     else
@@ -123,7 +121,7 @@ if [ ! -z "$REPO_URL" ] && [ "$REPO_URL" != "none" ]; then
 fi
 
 # ============================================================================
-# STEP 5: CODE EDITOR INSTALLATION (BEFORE EVERYTHING ELSE)
+# STEP 5: CODE EDITOR INSTALLATION
 # ============================================================================
 
 log "Installing Code Editor..."
@@ -159,10 +157,13 @@ server {
     
     location / {
         proxy_pass http://127.0.0.1:8080/;
-        proxy_set_header Host $host;
+        proxy_set_header Host $http_host;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection upgrade;
         proxy_set_header Accept-Encoding gzip;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 86400;
     }
 }
@@ -206,49 +207,78 @@ systemctl start "code-editor@$CODE_EDITOR_USER"
 check_success "Code Editor service creation"
 
 # ============================================================================
-# STEP 8: WAIT FOR CODE EDITOR (CRITICAL)
+# STEP 8: WAIT FOR CODE EDITOR (CRITICAL - INCREASED WAIT TIME)
 # ============================================================================
 
-log "Waiting for Code Editor to initialize..."
-sleep 20
+log "Waiting for Code Editor to fully initialize..."
+sleep 30  # Initial wait increased from 20 to 30 seconds
 
-MAX_RETRIES=30
+MAX_RETRIES=40
 RETRY_COUNT=0
+CODE_EDITOR_READY=false
+
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/ | grep -q "200\|302\|401\|403"; then
-        log "Code Editor is responding"
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/ 2>/dev/null || echo "000")
+    
+    # Code Editor returns 302 (redirect) when ready
+    if [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "200" ]; then
+        log "✅ Code Editor is responding (HTTP $HTTP_CODE)"
+        CODE_EDITOR_READY=true
+        sleep 5  # Extra stability wait
         break
     else
         RETRY_COUNT=$((RETRY_COUNT + 1))
         if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-            error "Code Editor failed to start"
+            error "Code Editor failed to start after $MAX_RETRIES attempts (HTTP: $HTTP_CODE)"
         fi
-        log "Waiting for Code Editor... ($RETRY_COUNT/$MAX_RETRIES)"
+        log "Waiting for Code Editor... ($RETRY_COUNT/$MAX_RETRIES) [HTTP: $HTTP_CODE]"
         sleep 5
     fi
 done
 
+if [ "$CODE_EDITOR_READY" = "false" ]; then
+    error "Code Editor did not become ready"
+fi
+
 # ============================================================================
-# STEP 9: VS CODE EXTENSIONS (AFTER SERVICE IS UP)
+# STEP 9: VS CODE EXTENSIONS (ONLY AFTER SERVICE IS CONFIRMED READY)
 # ============================================================================
 
-log "Installing VS Code Extensions..."
+log "Code Editor confirmed running - installing VS Code Extensions..."
 
 install_extension() {
     local EXT_ID=$1
     local EXT_NAME=$2
     log "Installing: $EXT_NAME"
-    sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" 2>&1 || warn "$EXT_NAME may require manual install"
+    
+    # Retry extension install up to 3 times with increasing delays
+    local INSTALL_RETRY=0
+    while [ $INSTALL_RETRY -lt 3 ]; do
+        if sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" 2>&1 | grep -q "successfully installed\|already installed"; then
+            log "✅ $EXT_NAME installed"
+            return 0
+        fi
+        INSTALL_RETRY=$((INSTALL_RETRY + 1))
+        sleep $((INSTALL_RETRY * 2))  # Exponential backoff: 2s, 4s, 6s
+    done
+    warn "$EXT_NAME may require manual install"
 }
 
-# Essential extensions for Lab 1 and Lab 2
+# Install extensions one by one with small delays
 install_extension "ms-python.python" "Python"
+sleep 1
 install_extension "ms-python.vscode-pylance" "Pylance"
-install_extension "ms-toolsai.jupyter" "Jupyter"  # CRITICAL for Lab 1 notebooks in VS Code
+sleep 1
+install_extension "ms-toolsai.jupyter" "Jupyter"
+sleep 1
 install_extension "dbaeumer.vscode-eslint" "ESLint"
+sleep 1
 install_extension "esbenp.prettier-vscode" "Prettier"
+sleep 1
 install_extension "bradlc.vscode-tailwindcss" "Tailwind CSS"
+sleep 1
 install_extension "amazonwebservices.aws-toolkit-vscode" "AWS Toolkit"
+sleep 1
 install_extension "amazonwebservices.amazon-q-vscode" "Amazon Q"
 
 # Configure settings
@@ -275,9 +305,10 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 VSCODE_SETTINGS
 
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$SETTINGS_DIR"
+log "✅ VS Code extensions and configuration complete"
 
 # ============================================================================
-# STEP 10: PYTHON SETUP
+# STEP 10: PYTHON SETUP (AFTER CODE EDITOR IS READY)
 # ============================================================================
 
 log "Setting up Python 3.13..."
@@ -365,7 +396,6 @@ if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
     log "Setting up Lab 2 React frontend..."
     cd "$HOME_FOLDER/$REPO_NAME/lab2/frontend"
     
-    # Install dependencies
     if sudo -u "$CODE_EDITOR_USER" npm install 2>/dev/null; then
         log "Lab 2 Frontend dependencies installed"
     else
@@ -408,7 +438,7 @@ fi
 # Create .env files if we have DB credentials
 if [ ! -z "$DB_HOST" ] && [ ! -z "$DB_USER" ]; then
     
-    # ========== LAB 2 BACKEND .env ==========
+    # Lab 2 Backend .env
     log "Creating Lab 2 Backend .env file..."
     cat > "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env" << ENV_BACKEND
 # Database Configuration
@@ -429,33 +459,26 @@ PGDATABASE='$DB_NAME'
 # AWS Configuration
 AWS_REGION='$AWS_REGION'
 
-# Bedrock Models (Updated for DAT406)
+# Bedrock Models
 BEDROCK_EMBEDDING_MODEL='$BEDROCK_EMBEDDING_MODEL'
 BEDROCK_CHAT_MODEL='$BEDROCK_CHAT_MODEL'
 ENV_BACKEND
 
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env"
     chmod 600 "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env"
-    log "Lab 2 Backend .env created"
     
-    # ========== LAB 2 FRONTEND .env ==========
+    # Lab 2 Frontend .env
     log "Creating Lab 2 Frontend .env file..."
     cat > "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env" << ENV_FRONTEND
-# API Configuration
 VITE_API_URL=http://localhost:8000
-
-# AWS Configuration
 VITE_AWS_REGION=$AWS_REGION
-
-# Feature Flags
 VITE_ENABLE_LAB2=true
 ENV_FRONTEND
 
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
     chmod 644 "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
-    log "Lab 2 Frontend .env created"
     
-    # ========== ROOT .env (for compatibility) ==========
+    # Root .env
     log "Creating root .env file..."
     cat > "$HOME_FOLDER/$REPO_NAME/.env" << ENV_ROOT
 DB_HOST='$DB_HOST'
@@ -477,7 +500,7 @@ ENV_ROOT
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/.env"
     chmod 600 "$HOME_FOLDER/$REPO_NAME/.env"
     
-    # ========== .pgpass for psql CLI ==========
+    # .pgpass for psql CLI
     cat > "/home/$CODE_EDITOR_USER/.pgpass" << PGPASS
 $DB_HOST:$DB_PORT:$DB_NAME:$DB_USER:$DB_PASSWORD
 PGPASS
@@ -515,12 +538,33 @@ start-frontend() {
     npm run dev
 }
 
-# Jupyter for Lab 1 (can run in VS Code or browser)
+# Jupyter for Lab 1
 start-jupyter() {
     cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab1
     jupyter lab --ip=0.0.0.0 --port=8888 --no-browser
 }
 BASHRC
+
+# ============================================================================
+# FINAL VERIFICATION
+# ============================================================================
+
+log "Performing final verification..."
+
+# Verify Code Editor is still running
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/ 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "200" ]; then
+    log "✅ Code Editor verified running (HTTP $HTTP_CODE)"
+else
+    warn "Code Editor may not be fully ready (HTTP $HTTP_CODE)"
+fi
+
+# Verify nginx is running
+if systemctl is-active --quiet nginx; then
+    log "✅ Nginx verified running"
+else
+    warn "Nginx is not running"
+fi
 
 # ============================================================================
 # SUMMARY
@@ -551,27 +595,11 @@ echo ""
 echo "Database:"
 echo "  🗄️ Host: $DB_HOST"
 echo "  🗄️ Database: $DB_NAME"
-echo "  🗄️ Environment files created in lab2/backend and lab2/frontend"
+echo "  🗄️ Environment files created"
 echo ""
 echo "Bedrock Models:"
 echo "  🤖 Chat: $BEDROCK_CHAT_MODEL"
 echo "  🔢 Embeddings: $BEDROCK_EMBEDDING_MODEL"
-echo ""
-echo "Quick Start Commands (in VS Code terminal):"
-echo "  • workshop   - Go to workshop root"
-echo "  • lab1       - Go to Lab 1 (open .ipynb files in VS Code)"
-echo "  • lab2       - Go to Lab 2"
-echo "  • backend    - Go to Lab 2 backend"
-echo "  • frontend   - Go to Lab 2 frontend"
-echo "  • start-jupyter    - Start Jupyter Lab in browser (optional)"
-echo "  • start-backend    - Start FastAPI server (Lab 2)"
-echo "  • start-frontend   - Start React dev server (Lab 2)"
-echo ""
-echo "Lab 1 Instructions:"
-echo "  1. In VS Code, navigate to lab1/ folder"
-echo "  2. Open the .ipynb notebook file"
-echo "  3. VS Code will use the Jupyter extension to run it"
-echo "  4. Select 'Python 3.13' kernel when prompted"
 echo ""
 echo "Access via CloudFront URL with token: $CODE_EDITOR_PASSWORD"
 log "============================================================"
