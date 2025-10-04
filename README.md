@@ -188,6 +188,35 @@ GET /api/health
 6. **AWS Integration** - Use Bedrock for embeddings (Titan v2) and chat (Claude Sonnet 4)
 7. **Real-time UX** - Build responsive search interfaces
 
+## Multi-Agent System
+
+Aurora AI uses an **Agents as Tools** pattern with specialized agents:
+
+### Orchestrator Agent
+Routes customer queries to the appropriate specialist based on intent analysis.
+
+### Specialized Agents
+
+1. **Inventory Agent** (`inventory_agent.py`)
+   - Stock level analysis and monitoring
+   - Restocking recommendations
+   - Low inventory alerts
+   - Out-of-stock product identification
+
+2. **Recommendation Agent** (`recommendation_agent.py`)
+   - Personalized product suggestions
+   - Feature-based matching
+   - Budget-conscious recommendations
+   - Category-specific guidance
+
+3. **Pricing Agent** (`pricing_agent.py`)
+   - Price analysis and optimization
+   - Deal identification
+   - Bundle recommendations
+   - Best value suggestions
+
+Each agent connects directly to Aurora PostgreSQL for real-time data access.
+
 ## MCP Server Integration
 
 Connect AI assistants to Aurora database using Model Context Protocol.
