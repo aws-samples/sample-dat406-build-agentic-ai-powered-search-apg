@@ -6,8 +6,6 @@ import { useState, useEffect, createContext, useContext } from 'react'
 import Header from './components/Header'
 import AIAssistant from './components/AIAssistant'
 import SearchOverlay from './components/SearchOverlay'
-import ProductModal from './components/ProductModal'
-import { Product } from './services/types'
 import './styles/premium-heading-styles.css'
 
 // Theme Context (locked to dark mode)
@@ -24,31 +22,14 @@ export const useTheme = () => {
   return context
 }
 
-// Premium products for showcase rotation
-const premiumProducts = [
-  { name: 'Apple AirPods Pro 2', price: '$249', icon: '🎧', desc: 'Active Noise Cancellation' },
-  { name: 'Sony WH-1000XM5', price: '$399', icon: '🎧', desc: 'Industry Leading ANC' },
-  { name: 'MacBook Pro 16" M3 Max', price: '$3,999', icon: '💻', desc: '48GB Unified Memory' },
-  { name: 'iPhone 15 Pro Max', price: '$1,199', icon: '📱', desc: 'Titanium Design' },
-  { name: 'Apple Vision Pro', price: '$3,499', icon: '🥽', desc: 'Spatial Computing' },
-  { name: 'Bose QuietComfort Ultra', price: '$429', icon: '🎧', desc: 'Immersive Audio' },
-  { name: 'iPad Pro 12.9" M2', price: '$1,299', icon: '📱', desc: 'Liquid Retina XDR' },
-  { name: 'Samsung Galaxy S24 Ultra', price: '$1,299', icon: '📱', desc: '200MP Camera System' },
-  { name: 'Dell XPS 15 OLED', price: '$2,499', icon: '💻', desc: '4K OLED Touch Display' },
-  { name: 'Apple Watch Ultra 2', price: '$799', icon: '⌚', desc: 'Precision GPS' },
-]
-
 type Section = 'shop' | 'collections' | 'tech'
 
 function App() {
   const [theme] = useState<Theme>('dark')
   const [activeSection, setActiveSection] = useState<Section>('shop')
-  const [currentProductIndex, setCurrentProductIndex] = useState(0)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [showcaseKey, setShowcaseKey] = useState(0)
   const [searchOverlayVisible, setSearchOverlayVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [backgroundImage, setBackgroundImage] = useState<string>('/backgrounds/bg-1.jpeg')
+  const backgroundImage = '/backgrounds/bg-1.jpeg'
 
   // Apply dark theme to document
   useEffect(() => {
@@ -56,17 +37,7 @@ function App() {
     document.documentElement.classList.remove('light')
   }, [])
 
-  // Rotate products in hero showcase
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setShowcaseKey(prev => prev + 1)
-      setCurrentProductIndex((prev) => (prev + 1) % premiumProducts.length)
-    }, 3500)
 
-    return () => clearInterval(interval)
-  }, [])
-
-  const currentProduct = premiumProducts[currentProductIndex]
 
   return (
     <ThemeContext.Provider value={{ theme }}>
@@ -246,14 +217,6 @@ function App() {
 
         {/* AI Assistant */}
         <AIAssistant />
-
-        {/* Product Modal */}
-        {selectedProduct && (
-          <ProductModal
-            product={selectedProduct}
-            onClose={() => setSelectedProduct(null)}
-          />
-        )}
       </div>
     </ThemeContext.Provider>
   )
