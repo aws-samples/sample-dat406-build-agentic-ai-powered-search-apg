@@ -178,24 +178,15 @@ GET /api/health
 **AI**: Amazon Bedrock (Titan Embeddings v2, Claude Sonnet 4)  
 **Search**: HNSW index • Trigram index • Cosine similarity
 
-## Performance Metrics
-
-- **Search Latency**: 50-150ms average
-- **Autocomplete**: <50ms with trigram index
-- **Similarity Scores**: 60-95% for relevant results
-- **Vector Dimensions**: 1024 (Titan Embeddings v2)
-- **Database Size**: 21,704 products with embeddings
-
 ## Learning Outcomes
 
 1. **Vector Embeddings** - Generate and store semantic embeddings with Titan v2
 2. **Similarity Search** - Use pgvector for fast nearest neighbor search
 3. **HNSW Indexing** - Optimize vector search performance
-4. **Hybrid Search** - Combine vector search with traditional filters
-5. **Multi-Agent Systems** - Orchestrator with specialized agents (Agents as Tools pattern)
-6. **Custom MCP Tools** - Extend Aurora PostgreSQL MCP with business logic
-7. **AWS Integration** - Use Bedrock for embeddings (Titan v2) and chat (Claude Sonnet 4)
-8. **Real-time UX** - Build responsive search interfaces
+4. **Multi-Agent Systems** - Orchestrator with specialized agents (Agents as Tools pattern)
+5. **Custom MCP Tools** - Extend Aurora PostgreSQL MCP with business logic
+6. **AWS Integration** - Use Bedrock for embeddings (Titan v2) and chat (Claude Sonnet 4)
+7. **Real-time UX** - Build responsive search interfaces
 
 ## MCP Server Integration
 
