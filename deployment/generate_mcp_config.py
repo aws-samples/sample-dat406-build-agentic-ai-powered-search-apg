@@ -1,25 +1,42 @@
 #!/usr/bin/env python3
 """
 Generate mcp-server-config.json from environment variables
-Run this from your backend directory after activating venv
+Run this from anywhere - loads from .env or environment
 """
 import json
 import os
 import sys
+from pathlib import Path
 
-# Load from config.settings
+# Try to load .env file if it exists
 try:
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from config import settings
+    from dotenv import load_dotenv
+    # Look for .env in backend or root
+    backend_env = Path(__file__).parent.parent / 'lab2' / 'backend' / '.env'
+    root_env = Path(__file__).parent.parent / '.env'
     
-    db_cluster_arn = getattr(settings, 'DB_CLUSTER_ARN', '')
-    db_secret_arn = getattr(settings, 'DB_SECRET_ARN', '')
-    db_name = settings.DB_NAME
-    aws_region = settings.AWS_REGION
-    
-except Exception as e:
-    print(f"Error loading settings: {e}")
-    print("Make sure you're running this from the backend directory with venv activated")
+    if backend_env.exists():
+        load_dotenv(backend_env)
+    elif root_env.exists():
+        load_dotenv(root_env)
+except ImportError:
+    pass  # python-dotenv not installed, use environment variables
+
+# Load from environment variables
+db_cluster_arn = os.getenv('DB_CLUSTER_ARN', '')
+db_secret_arn = os.getenv('DB_SECRET_ARN', '')
+db_name = os.getenv('DB_NAME', 'postgres')
+aws_region = os.getenv('AWS_REGION', 'us-west-2')
+
+if not db_cluster_arn or not db_secret_arn:
+    print("❌ Error: Missing required environment variables")
+    print("\nRequired:")
+    print("  DB_CLUSTER_ARN")
+    print("  DB_SECRET_ARN")
+    print("\nOptional:")
+    print("  DB_NAME (default: postgres)")
+    print("  AWS_REGION (default: us-west-2)")
+    print("  AWS_PROFILE (default: default)")
     sys.exit(1)
 
 # Get AWS profile from environment or use default
@@ -58,6 +75,7 @@ print(f"✅ MCP config written to: {output_path}")
 print(f"\nConfiguration:")
 print(f"  Database: {db_name}")
 print(f"  Region: {aws_region}")
-print(f"  Cluster ARN: {db_cluster_arn[:50]}...")
-print(f"  Secret ARN: {db_secret_arn[:50]}...")
+print(f"  Cluster ARN: {db_cluster_arn[:50] if len(db_cluster_arn) > 50 else db_cluster_arn}...")
+print(f"  Secret ARN: {db_secret_arn[:50] if len(db_secret_arn) > 50 else db_secret_arn}...")
 print(f"  AWS Profile: {aws_profile}")
+print(f"\n💡 Tip: Set environment variables or create .env file with DB credentials")
