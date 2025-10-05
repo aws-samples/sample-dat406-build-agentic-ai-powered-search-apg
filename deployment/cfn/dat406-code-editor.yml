@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'DAT406 - Code Editor with GitHub Bootstrap - FIXED VERSION with proper timeouts and signaling'
+Description: 'DAT406 - Code Editor with Two-Stage Bootstrap (SIMPLIFIED)'
 
 Parameters:
   TemplateName:
@@ -50,10 +50,13 @@ Parameters:
     Default: https://github.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg.git
     Description: GitHub repository URL
     
-  BootstrapScriptUrl:
+  EnvironmentBootstrapUrl:
     Type: String
-    Default: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-code-editor-dat406.sh
-    Description: URL to the bootstrap script
+    Description: URL to Stage 1 bootstrap script (Code Editor + VS Code)
+    
+  LabsBootstrapUrl:
+    Type: String
+    Description: URL to Stage 2 bootstrap script (Lab 1 + Lab 2)
     
   VPCId:
     Type: String
@@ -127,7 +130,7 @@ Resources:
       Name: !Sub
       - ${InstanceName}-${RandomGUID}
       - RandomGUID: !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId ]]]]
-      Description: Code Editor user credentials
+      Description: Code Editor credentials
       GenerateSecretString:
         PasswordLength: 16
         SecretStringTemplate: !Sub '{"username":"${CodeEditorUser}"}'
@@ -155,14 +158,12 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
+                Action: secretsmanager:GetSecretValue
                 Resource: !Ref CodeEditorSecret
 
   SecretPlaintextLambda:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Get plaintext secret
       Handler: index.lambda_handler
       Runtime: python3.13
       MemorySize: 128
@@ -172,31 +173,24 @@ Resources:
       Role: !GetAtt SecretPlaintextLambdaRole.Arn
       Code:
         ZipFile: |
-          import boto3
-          import cfnresponse
-          import json
-          import logging
-
+          import boto3, cfnresponse, json, logging
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
-
+          
           def lambda_handler(event, context):
               try:
                   if event['RequestType'] == 'Delete':
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                       return
-
-                  secret_arn = event['ResourceProperties']['SecretArn']
+                  
                   client = boto3.client('secretsmanager')
-                  response = client.get_secret_value(SecretId=secret_arn)
+                  response = client.get_secret_value(SecretId=event['ResourceProperties']['SecretArn'])
                   secret = json.loads(response['SecretString'])
                   
-                  responseData = {
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
                       'username': secret.get('username', ''),
                       'password': secret.get('password', '')
-                  }
-                  
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+                  })
               except Exception as e:
                   logger.error(e)
                   cfnresponse.send(event, context, cfnresponse.FAILED, {})
@@ -258,7 +252,7 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
       Policies:
-        - PolicyName: CodeEditorPermissions
+        - PolicyName: WorkshopPermissions
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -282,7 +276,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/ec2/${TemplateName}/*'
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/*'
 
   CodeEditorInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -291,14 +285,8 @@ Resources:
         - !Ref CodeEditorRole
 
   # ==========================================
-  # CLOUDWATCH LOG GROUPS
+  # CLOUDWATCH LOG GROUP
   # ==========================================
-  BootstrapLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/ec2/${TemplateName}/bootstrap'
-      RetentionInDays: 7
-
   SSMDocumentLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -306,7 +294,7 @@ Resources:
       RetentionInDays: 7
 
   # ==========================================
-  # SSM DOCUMENT - WITH ENHANCED SIGNALING
+  # SIMPLIFIED SSM DOCUMENT - TWO STAGE BOOTSTRAP
   # ==========================================
   CodeEditorSSMDoc:
     Type: AWS::SSM::Document
@@ -314,11 +302,15 @@ Resources:
       DocumentType: Command
       Content:
         schemaVersion: '2.2'
-        description: DAT406 Code Editor Bootstrap with enhanced CloudFormation signaling
+        description: DAT406 Two-Stage Bootstrap (Environment + Labs)
         parameters:
           CodeEditorPassword:
             type: String
-          BootstrapScriptUrl:
+          CodeEditorUser:
+            type: String
+          EnvironmentBootstrapUrl:
+            type: String
+          LabsBootstrapUrl:
             type: String
           RepoUrl:
             type: String
@@ -334,10 +326,6 @@ Resources:
             type: String
           BedrockChatModel:
             type: String
-          PythonVersion:
-            type: String
-          PostgreSQLVersion:
-            type: String
           WaitHandle:
             type: String
         mainSteps:
@@ -347,89 +335,50 @@ Resources:
               name: AmazonCloudWatchAgent
               action: Install
 
-          - name: RunGitHubBootstrap
+          - name: RunTwoStageBootstrap
             action: aws:runShellScript
             inputs:
-              timeoutSeconds: 3600
+              timeoutSeconds: 600
               runCommand:
                 - '#!/bin/bash'
                 - 'set -euo pipefail'
+                - 'exec > >(tee /var/log/bootstrap-main.log) 2>&1'
                 - !Sub |
-                  # Enable detailed logging
-                  exec > >(tee /var/log/bootstrap-execution.log) 2>&1
-                  set -x
+                  echo "========================================"
+                  echo "DAT406 Two-Stage Bootstrap"
+                  echo "========================================"
                   
-                  echo "=== DAT406 Bootstrap with Enhanced Signaling ==="
-                  echo "Timestamp: $(date)"
-                  
-                  # Set environment variables
-                  export PYTHON_VERSION="{{ PythonVersion }}"
-                  export POSTGRESQL_VERSION="{{ PostgreSQLVersion }}"
+                  # Export all parameters as environment variables
                   export CODE_EDITOR_PASSWORD="{{ CodeEditorPassword }}"
-                  export REPO_URL="{{ RepoUrl }}"
+                  export CODE_EDITOR_USER="{{ CodeEditorUser }}"
                   export HOME_FOLDER="{{ HomeFolder }}"
+                  export REPO_URL="{{ RepoUrl }}"
                   export DB_SECRET_ARN="{{ DBSecretArn }}"
                   export DB_CLUSTER_ENDPOINT="{{ DBClusterEndpoint }}"
                   export DB_NAME="{{ DBName }}"
                   export AWS_REGION="${AWS::Region}"
-                  export AWS_ACCOUNTID="${AWS::AccountId}"
                   export BEDROCK_EMBEDDING_MODEL="{{ BedrockEmbeddingModel }}"
                   export BEDROCK_CHAT_MODEL="{{ BedrockChatModel }}"
                   export CFN_WAIT_HANDLE="{{ WaitHandle }}"
+                  export STAGE2_SCRIPT_URL="{{ LabsBootstrapUrl }}"
                   
-                  # Function to signal CloudFormation with retry
-                  signal_cloudformation() {
-                      local STATUS=$1
-                      local REASON=$2
-                      local WAIT_HANDLE="{{ WaitHandle }}"
-                      
-                      echo "Signaling CloudFormation: $STATUS - $REASON"
-                      
-                      for attempt in {1..5}; do
-                          if curl -X PUT -H 'Content-Type:' \
-                              --data-binary "{\"Status\":\"$STATUS\",\"Reason\":\"$REASON\",\"UniqueId\":\"CodeEditor-$(date +%s)\",\"Data\":\"$STATUS\"}" \
-                              --max-time 10 \
-                              "$WAIT_HANDLE" 2>&1 | tee /tmp/cfn-signal-$attempt.log; then
-                              echo "✅ Successfully signaled CloudFormation (attempt $attempt)"
-                              return 0
-                          else
-                              echo "Failed to signal (attempt $attempt/5)"
-                              sleep 2
-                          fi
-                      done
-                      
-                      echo "ERROR: Failed to signal after 5 attempts"
-                      return 1
-                  }
+                  # Download and run Stage 1: Environment Bootstrap
+                  echo "Downloading Stage 1: Environment Bootstrap..."
+                  curl -fsSL "{{ EnvironmentBootstrapUrl }}" -o /tmp/bootstrap-environment.sh
                   
-                  # Download bootstrap script
-                  echo "Downloading bootstrap script..."
-                  if ! curl -fsSL "{{ BootstrapScriptUrl }}" -o /tmp/bootstrap-code-editor-dat406.sh; then
-                      echo "ERROR: Failed to download bootstrap script"
-                      signal_cloudformation "FAILURE" "Bootstrap Download Failed"
+                  if [ ! -f /tmp/bootstrap-environment.sh ]; then
+                      echo "ERROR: Failed to download environment bootstrap script"
                       exit 1
                   fi
                   
-                  chmod +x /tmp/bootstrap-code-editor-dat406.sh
-                  echo "Script downloaded ($(wc -l < /tmp/bootstrap-code-editor-dat406.sh) lines)"
+                  chmod +x /tmp/bootstrap-environment.sh
+                  echo "Executing Stage 1..."
                   
-                  # Execute bootstrap script
-                  echo "Executing bootstrap script..."
-                  /tmp/bootstrap-code-editor-dat406.sh
-                  BOOTSTRAP_EXIT_CODE=$?
+                  # Run Stage 1 (includes CloudFormation signaling + triggers Stage 2)
+                  /tmp/bootstrap-environment.sh
                   
-                  if [ $BOOTSTRAP_EXIT_CODE -eq 0 ]; then
-                      echo "=== BOOTSTRAP SUCCESS ==="
-                      signal_cloudformation "SUCCESS" "Bootstrap Complete - All services verified"
-                  else
-                      echo "ERROR: Bootstrap failed (exit $BOOTSTRAP_EXIT_CODE)"
-                      signal_cloudformation "FAILURE" "Bootstrap Failed (exit $BOOTSTRAP_EXIT_CODE)"
-                      exit 1
-                  fi
-                  
-                  # Cleanup
-                  rm -f /tmp/bootstrap-code-editor-dat406.sh
-                  echo "Bootstrap completed at $(date)"
+                  echo "Stage 1 complete - CloudFormation signaled"
+                  echo "Stage 2 running in background - check /var/log/bootstrap-labs.log"
 
   # ==========================================
   # LAMBDA FOR RUNNING SSM DOCUMENT
@@ -458,94 +407,75 @@ Resources:
                   - ssm:GetCommandInvocation
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/${CodeEditorSSMDoc}'
-                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${CodeEditorInstance}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
                   - '*'
 
   RunSSMDocLambda:
     Type: AWS::Lambda::Function
     Properties:
-      Description: Run SSM document on EC2 instance
       Handler: index.lambda_handler
       Runtime: python3.13
       MemorySize: 128
-      Timeout: 1850
+      Timeout: 900
       Environment:
         Variables:
-          RetrySleep: 2900
-          AbortTimeRemaining: 3200
+          RetrySleep: 5000
+          AbortTimeRemaining: 60000
       Architectures:
         - arm64
       Role: !GetAtt SSMDocLambdaRole.Arn
       Code:
         ZipFile: |
-          import boto3
-          import cfnresponse
-          import logging
-          import time
-          import os
-
+          import boto3, cfnresponse, logging, time, os
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
-
+          
           def lambda_handler(event, context):
               if event['RequestType'] != 'Create':
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData={}, reason='No action to take')
-              else:
-                  sleep_ms = int(os.environ.get('RetrySleep'))
-                  abort_time_remaining_ms = int(os.environ.get('AbortTimeRemaining'))
-                  resource_properties = event['ResourceProperties']
-                  instance_id = resource_properties['InstanceId']
-                  document_name = resource_properties['DocumentName']
-                  cloudwatch_log_group_name = resource_properties['CloudWatchLogGroupName']
-
-                  logger.info(f'Running SSM Document {document_name} on instance {instance_id}')
-
-                  del resource_properties['ServiceToken']
-                  if 'ServiceTimeout' in resource_properties:
-                      del resource_properties['ServiceTimeout']
-                  del resource_properties['InstanceId']
-                  del resource_properties['DocumentName']
-                  del resource_properties['CloudWatchLogGroupName']
-
-                  parameters = {}
-                  for key, value in resource_properties.items():
-                      parameters[key] = [value]
-
-                  retry = True
-                  attempt_no = 0
-                  time_remaining_ms = context.get_remaining_time_in_millis()
-                  ssm = boto3.client('ssm')
-
-                  while (retry == True):
-                      attempt_no += 1
-                      logger.info(f'Attempt: {attempt_no}. Time Remaining: {time_remaining_ms/1000}s')
-                      try:
-                          response = ssm.send_command(
-                              InstanceIds = [instance_id],
-                              DocumentName = document_name,
-                              CloudWatchOutputConfig = {'CloudWatchLogGroupName': cloudwatch_log_group_name, 'CloudWatchOutputEnabled': True},
-                              Parameters = parameters
-                          )
-                          command_id = response['Command']['CommandId']
-                          responseData = {'CommandId': command_id}
-                          cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, reason='OK')
-                          retry = False
-
-                      except ssm.exceptions.InvalidInstanceId as e:
-                          time_remaining_ms = context.get_remaining_time_in_millis()
-                          if (time_remaining_ms > abort_time_remaining_ms):
-                              logger.info(f'Instance not ready. Sleeping: {sleep_ms/1000}s')
-                              time.sleep(sleep_ms/1000)
-                              retry = True
-                          else:
-                              logger.info(f'Instance not ready, timed out.')
-                              cfnresponse.send(event, context, cfnresponse.FAILED, responseData={}, reason='Timed out')
-                              retry = False
-
-                      except Exception as e:
-                          logger.error(e, exc_info=True)
-                          cfnresponse.send(event, context, cfnresponse.FAILED, responseData={}, reason=str(e))
-                          retry = False
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  return
+              
+              sleep_ms = int(os.environ.get('RetrySleep', 5000))
+              abort_ms = int(os.environ.get('AbortTimeRemaining', 60000))
+              props = event['ResourceProperties']
+              instance_id = props['InstanceId']
+              document_name = props['DocumentName']
+              log_group = props['CloudWatchLogGroupName']
+              
+              # Remove non-SSM parameters
+              for key in ['ServiceToken', 'ServiceTimeout', 'InstanceId', 'DocumentName', 'CloudWatchLogGroupName']:
+                  props.pop(key, None)
+              
+              parameters = {k: [v] for k, v in props.items()}
+              
+              ssm = boto3.client('ssm')
+              retry = True
+              attempt = 0
+              
+              while retry:
+                  attempt += 1
+                  time_remaining = context.get_remaining_time_in_millis()
+                  logger.info(f'Attempt {attempt}, Time remaining: {time_remaining/1000}s')
+                  
+                  try:
+                      response = ssm.send_command(
+                          InstanceIds=[instance_id],
+                          DocumentName=document_name,
+                          CloudWatchOutputConfig={'CloudWatchLogGroupName': log_group, 'CloudWatchOutputEnabled': True},
+                          Parameters=parameters
+                      )
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'CommandId': response['Command']['CommandId']})
+                      return
+                  except ssm.exceptions.InvalidInstanceId:
+                      if time_remaining > abort_ms:
+                          time.sleep(sleep_ms / 1000)
+                      else:
+                          cfnresponse.send(event, context, cfnresponse.FAILED, {}, 'Instance not ready timeout')
+                          return
+                  except Exception as e:
+                      logger.error(e)
+                      cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+                      return
 
   # ==========================================
   # EC2 INSTANCE
@@ -569,11 +499,6 @@ Resources:
       SecurityGroupIds:
         - !Ref SecurityGroup
       IamInstanceProfile: !Ref CodeEditorInstanceProfile
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          mkdir -p ${HomeFolder}
-          echo "Bootstrap will start via SSM" > /tmp/userdata.log
       Tags:
         - Key: Name
           Value: !Sub '${TemplateName}-code-editor'
@@ -590,12 +515,14 @@ Resources:
       - CodeEditorSSMDoc
     Properties:
       ServiceToken: !GetAtt RunSSMDocLambda.Arn
-      ServiceTimeout: 1850
+      ServiceTimeout: 900
       InstanceId: !Ref CodeEditorInstance
       DocumentName: !Ref CodeEditorSSMDoc
       CloudWatchLogGroupName: !Ref SSMDocumentLogGroup
       CodeEditorPassword: !GetAtt SecretPlaintext.password
-      BootstrapScriptUrl: !Ref BootstrapScriptUrl
+      CodeEditorUser: !Ref CodeEditorUser
+      EnvironmentBootstrapUrl: !Ref EnvironmentBootstrapUrl
+      LabsBootstrapUrl: !Ref LabsBootstrapUrl
       RepoUrl: !Ref RepoUrl
       HomeFolder: !Ref HomeFolder
       DBSecretArn: !Ref DBSecretArn
@@ -603,8 +530,6 @@ Resources:
       DBName: !Ref DBName
       BedrockEmbeddingModel: !Ref BedrockEmbeddingModel
       BedrockChatModel: !Ref BedrockChatModel
-      PythonVersion: !Ref PythonVersion
-      PostgreSQLVersion: !Ref PostgreSQLVersion
       WaitHandle: !Ref WaitHandle
 
   # ==========================================
@@ -640,7 +565,7 @@ Resources:
             QueryStringBehavior: all
 
   # ==========================================
-  # WAIT HANDLE - INCREASED TIMEOUT
+  # WAIT CONDITION - REDUCED TO 10 MINUTES
   # ==========================================
   WaitHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
@@ -650,7 +575,7 @@ Resources:
     DependsOn: RunCodeEditorSSMDoc
     Properties:
       Handle: !Ref WaitHandle
-      Timeout: '3600'
+      Timeout: '600'
       Count: 1
 
   # ==========================================
@@ -682,53 +607,33 @@ Resources:
 # ==========================================
 Outputs:
   URL:
-    Description: Code Editor URL (with token authentication)
+    Description: Code Editor URL
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}/?folder=${HomeFolder}&tkn=${SecretPlaintext.password}'
-    
-  ReactAppURL:
-    Description: Blaize Bazaar Application URL
-    Value: !Sub 'https://${CloudFrontDistribution.DomainName}/app/'
     
   Username:
     Description: Username
     Value: !GetAtt SecretPlaintext.username
     
   Password:
-    Description: Password (use for token authentication)
+    Description: Password
     Value: !GetAtt SecretPlaintext.password
     
   CloudFrontURL:
-    Description: CloudFront URL (base)
+    Description: CloudFront base URL
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
-    
-  TokenAuthURL:
-    Description: Direct token authentication URL
-    Value: !Sub 'https://${CloudFrontDistribution.DomainName}/?tkn=${SecretPlaintext.password}'
     
   InstanceId:
     Description: EC2 Instance ID
     Value: !Ref CodeEditorInstance
     
-  PythonVersion:
-    Description: Python version installed
-    Value: !Ref PythonVersion
-    
-  PostgreSQLVersion:
-    Description: PostgreSQL client version
-    Value: !Ref PostgreSQLVersion
-
   BootstrapLogs:
-    Description: CloudWatch Logs for bootstrap execution
+    Description: CloudWatch Logs
     Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/${SSMDocumentLogGroup}'
     
-  SSMDocument:
-    Description: SSM Document name
-    Value: !Ref CodeEditorSSMDoc
+  Stage1Log:
+    Description: Stage 1 bootstrap log on instance
+    Value: /var/log/bootstrap-main.log
     
-  SecurityGroup:
-    Description: Security Group ID
-    Value: !Ref SecurityGroup
-    
-  WaitConditionData:
-    Description: Wait condition data
-    Value: !GetAtt WaitCondition.Data
+  Stage2Log:
+    Description: Stage 2 bootstrap log on instance
+    Value: /var/log/bootstrap-labs.log
