@@ -167,7 +167,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.lambda_handler
-      Runtime: python3.13
+      Runtime: python3.12
       MemorySize: 128
       Timeout: 30
       Architectures:
@@ -357,8 +357,6 @@ Resources:
             type: String
           BedrockChatModel:
             type: String
-          WaitHandle:
-            type: String
         mainSteps:
           - name: InstallCloudWatchAgent
             action: aws:configurePackage
@@ -390,7 +388,6 @@ Resources:
                   export AWS_REGION="${AWS::Region}"
                   export BEDROCK_EMBEDDING_MODEL="{{ BedrockEmbeddingModel }}"
                   export BEDROCK_CHAT_MODEL="{{ BedrockChatModel }}"
-                  export CFN_WAIT_HANDLE="{{ WaitHandle }}"
                   export STAGE2_SCRIPT_URL="{{ LabsBootstrapUrl }}"
                   
                   # Download and run Stage 1: Environment Bootstrap
@@ -445,7 +442,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.lambda_handler
-      Runtime: python3.13
+      Runtime: python3.12
       MemorySize: 128
       Timeout: 900
       Environment:
@@ -587,7 +584,6 @@ Resources:
       DBName: !Ref DBName
       BedrockEmbeddingModel: !Ref BedrockEmbeddingModel
       BedrockChatModel: !Ref BedrockChatModel
-      WaitHandle: !Ref WaitHandle
 
   # ==========================================
   # CLOUDFRONT CACHE POLICY
@@ -596,9 +592,9 @@ Resources:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        DefaultTTL: 86400
-        MaxTTL: 31536000
-        MinTTL: 1
+        DefaultTTL: 0
+        MaxTTL: 86400
+        MinTTL: 0
         Name: !Sub
         - ${InstanceName}-${RandomGUID}
         - RandomGUID: !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId ]]]]
@@ -622,25 +618,11 @@ Resources:
             QueryStringBehavior: all
 
   # ==========================================
-  # WAIT CONDITION - REDUCED TO 10 MINUTES
-  # ==========================================
-  WaitHandle:
-    Type: AWS::CloudFormation::WaitConditionHandle
-
-  WaitCondition:
-    Type: AWS::CloudFormation::WaitCondition
-    DependsOn: RunCodeEditorSSMDoc
-    Properties:
-      Handle: !Ref WaitHandle
-      Timeout: '600'
-      Count: 1
-
-  # ==========================================
   # CLOUDFRONT DISTRIBUTION
   # ==========================================
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
-    DependsOn: WaitCondition
+    DependsOn: RunCodeEditorSSMDoc
     Properties:
       DistributionConfig:
         Enabled: true
