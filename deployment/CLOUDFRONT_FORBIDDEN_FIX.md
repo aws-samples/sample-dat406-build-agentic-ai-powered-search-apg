@@ -63,10 +63,14 @@ fi
 
 ### 3. **Health Check Script** (`verify-code-editor-health.sh`)
 
-New diagnostic script for troubleshooting:
+New diagnostic script for troubleshooting (available system-wide):
 
 ```bash
-sudo /workshop/sample-dat406-build-agentic-ai-powered-search-apg/deployment/verify-code-editor-health.sh
+# Run from anywhere (installed to /usr/local/bin/)
+verify-code-editor-health.sh
+
+# Or from the repository
+/workshop/sample-dat406-build-agentic-ai-powered-search-apg/deployment/verify-code-editor-health.sh
 ```
 
 Checks:
@@ -126,7 +130,7 @@ Checks:
 
 2. **SSH to EC2 and run health check:**
    ```bash
-   sudo /workshop/sample-dat406-build-agentic-ai-powered-search-apg/deployment/verify-code-editor-health.sh
+   verify-code-editor-health.sh
    ```
 
 3. **Check bootstrap logs:**
