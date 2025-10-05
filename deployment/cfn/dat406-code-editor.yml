@@ -175,27 +175,56 @@ Resources:
       Role: !GetAtt SecretPlaintextLambdaRole.Arn
       Code:
         ZipFile: |
-          import boto3, cfnresponse, json, logging
+          import boto3
+          import json
+          import logging
+          import urllib3
+          
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
+          http = urllib3.PoolManager()
+          
+          def send_response(event, context, response_status, response_data={}, reason=None):
+              response_body = {
+                  'Status': response_status,
+                  'Reason': reason or f'See CloudWatch Log Stream: {context.log_stream_name}',
+                  'PhysicalResourceId': event.get('PhysicalResourceId', context.log_stream_name),
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': response_data
+              }
+              
+              json_response = json.dumps(response_body)
+              headers = {'content-type': '', 'content-length': str(len(json_response))}
+              
+              try:
+                  http.request('PUT', event['ResponseURL'], body=json_response, headers=headers)
+              except Exception as e:
+                  logger.error(f"Failed to send response: {e}")
           
           def lambda_handler(event, context):
               try:
+                  logger.info(f"Event: {json.dumps(event)}")
+                  
                   if event['RequestType'] == 'Delete':
-                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      send_response(event, context, 'SUCCESS')
                       return
                   
+                  secret_arn = event['ResourceProperties']['SecretArn']
                   client = boto3.client('secretsmanager')
-                  response = client.get_secret_value(SecretId=event['ResourceProperties']['SecretArn'])
+                  response = client.get_secret_value(SecretId=secret_arn)
                   secret = json.loads(response['SecretString'])
                   
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                  response_data = {
                       'username': secret.get('username', ''),
                       'password': secret.get('password', '')
-                  })
+                  }
+                  
+                  send_response(event, context, 'SUCCESS', response_data)
               except Exception as e:
-                  logger.error(e)
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+                  logger.error(f"Error: {e}", exc_info=True)
+                  send_response(event, context, 'FAILED', reason=str(e))
 
   SecretPlaintext:
     Type: Custom::SecretPlaintext
@@ -428,13 +457,39 @@ Resources:
       Role: !GetAtt SSMDocLambdaRole.Arn
       Code:
         ZipFile: |
-          import boto3, cfnresponse, logging, time, os
+          import boto3
+          import json
+          import logging
+          import time
+          import os
+          import urllib3
+          
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
+          http = urllib3.PoolManager()
+          
+          def send_response(event, context, response_status, response_data={}, reason=None):
+              response_body = {
+                  'Status': response_status,
+                  'Reason': reason or f'See CloudWatch Log Stream: {context.log_stream_name}',
+                  'PhysicalResourceId': event.get('PhysicalResourceId', context.log_stream_name),
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': response_data
+              }
+              
+              json_response = json.dumps(response_body)
+              headers = {'content-type': '', 'content-length': str(len(json_response))}
+              
+              try:
+                  http.request('PUT', event['ResponseURL'], body=json_response, headers=headers)
+              except Exception as e:
+                  logger.error(f"Failed to send response: {e}")
           
           def lambda_handler(event, context):
               if event['RequestType'] != 'Create':
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  send_response(event, context, 'SUCCESS')
                   return
               
               sleep_ms = int(os.environ.get('RetrySleep', 5000))
@@ -466,17 +521,17 @@ Resources:
                           CloudWatchOutputConfig={'CloudWatchLogGroupName': log_group, 'CloudWatchOutputEnabled': True},
                           Parameters=parameters
                       )
-                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {'CommandId': response['Command']['CommandId']})
+                      send_response(event, context, 'SUCCESS', {'CommandId': response['Command']['CommandId']})
                       return
                   except ssm.exceptions.InvalidInstanceId:
                       if time_remaining > abort_ms:
                           time.sleep(sleep_ms / 1000)
                       else:
-                          cfnresponse.send(event, context, cfnresponse.FAILED, {}, 'Instance not ready timeout')
+                          send_response(event, context, 'FAILED', reason='Instance not ready timeout')
                           return
                   except Exception as e:
-                      logger.error(e)
-                      cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+                      logger.error(e, exc_info=True)
+                      send_response(event, context, 'FAILED', reason=str(e))
                       return
 
   # ==========================================
