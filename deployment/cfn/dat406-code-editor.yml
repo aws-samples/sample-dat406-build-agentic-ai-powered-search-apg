@@ -346,6 +346,7 @@ Resources:
           PostgreSQLVersion:
             type: String
             default: !Ref PostgreSQLVersion
+
         mainSteps:
           - name: InstallCloudWatchAgent
             action: aws:configurePackage
@@ -406,6 +407,7 @@ Resources:
                     echo "Blaize Bazaar app with Strands SDK ready"
                     echo "Python ${PythonVersion} installed"
                     echo "PostgreSQL ${PostgreSQLVersion} client configured"
+                    
                   else
                     echo "ERROR: Bootstrap script failed"
                     exit 1
@@ -598,6 +600,7 @@ Resources:
       PythonVersion: !Ref PythonVersion
       PostgreSQLVersion: !Ref PostgreSQLVersion
 
+
   # ==========================================
   # CLOUDFRONT CACHE POLICY
   # ==========================================
@@ -605,9 +608,9 @@ Resources:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        DefaultTTL: 86400
-        MaxTTL: 31536000
-        MinTTL: 1
+        DefaultTTL: 0
+        MaxTTL: 86400
+        MinTTL: 0
         Name: !Sub
         - ${InstanceName}-${RandomGUID}
         - RandomGUID: !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId ]]]]
@@ -631,98 +634,11 @@ Resources:
             QueryStringBehavior: all
 
   # ==========================================
-  # WAIT FOR CODE EDITOR READINESS
-  # ==========================================
-  WaitForCodeEditorLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-  WaitForCodeEditorLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Wait for Code Editor to be ready before CloudFront creation
-      Handler: index.lambda_handler
-      Runtime: python3.13
-      MemorySize: 128
-      Timeout: 900
-      Architectures:
-        - arm64
-      Role: !GetAtt WaitForCodeEditorLambdaRole.Arn
-      Code:
-        ZipFile: |
-          import urllib.request
-          import time
-          import cfnresponse
-          import logging
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          def lambda_handler(event, context):
-              if event['RequestType'] == 'Delete':
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                  return
-
-              if event['RequestType'] != 'Create':
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                  return
-
-              origin_url = event['ResourceProperties']['OriginUrl']
-              max_attempts = 60
-              attempt = 0
-
-              logger.info(f'Waiting for Code Editor at {origin_url} to be ready...')
-
-              while attempt < max_attempts:
-                  try:
-                      attempt += 1
-                      logger.info(f'Attempt {attempt}/{max_attempts}')
-                      
-                      req = urllib.request.Request(origin_url, method='HEAD')
-                      with urllib.request.urlopen(req, timeout=10) as response:
-                          status = response.status
-                          logger.info(f'HTTP Status: {status}')
-                          
-                          # Code Editor returns 302 (redirect) when ready
-                          if status in [200, 302]:
-                              logger.info('Code Editor is ready!')
-                              time.sleep(10)  # Extra stability wait
-                              cfnresponse.send(event, context, cfnresponse.SUCCESS, 
-                                             {'Status': 'Ready', 'Attempts': attempt})
-                              return
-                  
-                  except Exception as e:
-                      logger.info(f'Not ready yet: {str(e)}')
-                  
-                  if attempt < max_attempts:
-                      time.sleep(15)  # Wait 15 seconds between attempts
-
-              logger.error('Code Editor did not become ready in time')
-              cfnresponse.send(event, context, cfnresponse.FAILED, 
-                             {}, 'Code Editor not ready after 15 minutes')
-
-  WaitForCodeEditor:
-    Type: Custom::WaitForCodeEditorLambda
-    DependsOn: RunCodeEditorSSMDoc
-    Properties:
-      ServiceToken: !GetAtt WaitForCodeEditorLambda.Arn
-      OriginUrl: !Sub 'http://${CodeEditorInstance.PublicDnsName}/'
-
-  # ==========================================
   # CLOUDFRONT DISTRIBUTION
   # ==========================================
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
-    DependsOn: WaitForCodeEditor
+    DependsOn: RunCodeEditorSSMDoc
     Properties:
       DistributionConfig:
         Enabled: true
@@ -793,6 +709,6 @@ Outputs:
     Description: Security Group ID
     Value: !Ref SecurityGroup
     
-  ReadinessCheck:
-    Description: Code Editor readiness verification status
-    Value: !GetAtt WaitForCodeEditor.Status
+  SSMCommandId:
+    Description: SSM Command ID for bootstrap
+    Value: !GetAtt RunCodeEditorSSMDoc.CommandId

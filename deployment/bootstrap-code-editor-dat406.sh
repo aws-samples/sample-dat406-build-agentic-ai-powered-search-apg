@@ -241,6 +241,31 @@ if [ "$CODE_EDITOR_READY" = "false" ]; then
 fi
 
 # ============================================================================
+# OPTIONAL EARLY SIGNAL: Signal CloudFormation now that critical services are up
+# This ensures we don't timeout even if extension installation is slow
+# ============================================================================
+
+if [ ! -z "${CFN_WAIT_HANDLE:-}" ] && [ "${SIGNAL_EARLY:-true}" = "true" ]; then
+    log "🎯 Critical services ready - sending early CloudFormation signal..."
+    
+    for attempt in {1..3}; do
+        if curl -X PUT -H 'Content-Type:' \
+            --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"Code Editor Ready - Core services running\",\"UniqueId\":\"CodeEditor-Early-$(date +%s)\",\"Data\":\"Continuing with extensions\"}" \
+            --max-time 10 \
+            "$CFN_WAIT_HANDLE" 2>&1 > /tmp/cfn-early-signal.log; then
+            log "✅ Early CloudFormation signal sent successfully"
+            export SIGNAL_EARLY=false  # Don't signal again at the end
+            break
+        else
+            warn "Early signal attempt $attempt failed - will try again at end"
+            sleep 2
+        fi
+    done
+    
+    log "Continuing with VS Code extensions installation (non-blocking)..."
+fi
+
+# ============================================================================
 # STEP 9: VS CODE EXTENSIONS (ONLY AFTER SERVICE IS CONFIRMED READY)
 # ============================================================================
 
@@ -663,7 +688,56 @@ else
 fi
 
 # ============================================================================
-# SUMMARY
+# STEP 16: SIGNAL CLOUDFORMATION SUCCESS (CRITICAL FOR WAITCONDITION!)
+# ============================================================================
+
+log "Checking if CloudFormation signaling is required..."
+
+if [ ! -z "${CFN_WAIT_HANDLE:-}" ] && [ "${SIGNAL_EARLY:-false}" != "false" ]; then
+    log "CFN_WAIT_HANDLE detected - signaling CloudFormation WaitCondition"
+    
+    SIGNAL_SUCCESS=false
+    SIGNAL_ATTEMPTS=5
+    
+    for attempt in $(seq 1 $SIGNAL_ATTEMPTS); do
+        log "Signaling CloudFormation... (attempt $attempt/$SIGNAL_ATTEMPTS)"
+        
+        SIGNAL_RESPONSE=$(curl -X PUT -H 'Content-Type:' \
+            --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"Bootstrap Complete - All services verified\",\"UniqueId\":\"CodeEditor-$(date +%s)\",\"Data\":\"Bootstrap v3.0 Complete\"}" \
+            -w "\nHTTP_CODE:%{http_code}" \
+            --max-time 10 \
+            "$CFN_WAIT_HANDLE" 2>&1)
+        
+        SIGNAL_HTTP_CODE=$(echo "$SIGNAL_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+        
+        if [ "$SIGNAL_HTTP_CODE" = "200" ]; then
+            log "✅ Successfully signaled CloudFormation (HTTP 200)"
+            echo "$SIGNAL_RESPONSE" > /tmp/cfn-signal-success.log
+            SIGNAL_SUCCESS=true
+            break
+        else
+            warn "Signal attempt $attempt failed (HTTP: ${SIGNAL_HTTP_CODE:-unknown})"
+            echo "$SIGNAL_RESPONSE" > /tmp/cfn-signal-attempt-$attempt.log
+            
+            if [ $attempt -lt $SIGNAL_ATTEMPTS ]; then
+                sleep $((attempt * 2))  # Exponential backoff: 2s, 4s, 6s, 8s, 10s
+            fi
+        fi
+    done
+    
+    if [ "$SIGNAL_SUCCESS" = "false" ]; then
+        error "CRITICAL: Failed to signal CloudFormation after $SIGNAL_ATTEMPTS attempts. Stack will timeout! Check logs at /tmp/cfn-signal-*.log"
+    fi
+    
+    log "✅ CloudFormation WaitCondition signaled successfully"
+elif [ ! -z "${CFN_WAIT_HANDLE:-}" ] && [ "${SIGNAL_EARLY:-false}" = "false" ]; then
+    log "ℹ️  Early CloudFormation signal was already sent - skipping final signal"
+else
+    log "ℹ️  CFN_WAIT_HANDLE not set - running in development mode (no CloudFormation signal)"
+fi
+
+# ============================================================================
+# STEP 17: SUMMARY
 # ============================================================================
 
 log "==================== Bootstrap Complete ===================="
