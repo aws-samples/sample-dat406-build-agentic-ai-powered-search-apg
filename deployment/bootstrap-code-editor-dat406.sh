@@ -546,24 +546,120 @@ start-jupyter() {
 BASHRC
 
 # ============================================================================
+# CREATE HEALTH CHECK SCRIPT
+# ============================================================================
+
+log "Creating health check script..."
+cat > /usr/local/bin/verify-code-editor-health.sh << 'HEALTHCHECK'
+#!/bin/bash
+# Health check script for Code Editor
+set -euo pipefail
+
+CODE_EDITOR_USER="participant"
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo "=========================================="
+echo "Code Editor Health Check"
+echo "=========================================="
+
+# 1. Check systemd service
+echo -n "Code Editor Service: "
+if systemctl is-active --quiet "code-editor@$CODE_EDITOR_USER"; then
+    echo -e "${GREEN}RUNNING${NC}"
+else
+    echo -e "${RED}STOPPED${NC}"
+    exit 1
+fi
+
+# 2. Check nginx service
+echo -n "Nginx Service: "
+if systemctl is-active --quiet nginx; then
+    echo -e "${GREEN}RUNNING${NC}"
+else
+    echo -e "${RED}STOPPED${NC}"
+    exit 1
+fi
+
+# 3. Check Code Editor direct access
+echo -n "Code Editor (port 8080): "
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/ 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "200" ]; then
+    echo -e "${GREEN}HTTP $HTTP_CODE${NC}"
+else
+    echo -e "${RED}HTTP $HTTP_CODE (FAILED)${NC}"
+    exit 1
+fi
+
+# 4. Check nginx proxy
+echo -n "Nginx Proxy (port 80): "
+NGINX_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/ 2>/dev/null || echo "000")
+if [ "$NGINX_CODE" = "302" ] || [ "$NGINX_CODE" = "200" ]; then
+    echo -e "${GREEN}HTTP $NGINX_CODE${NC}"
+else
+    echo -e "${RED}HTTP $NGINX_CODE (FAILED)${NC}"
+    exit 1
+fi
+
+# 5. Check token file
+echo -n "Token File: "
+if [ -f "/home/$CODE_EDITOR_USER/.code-editor-server/data/token" ]; then
+    echo -e "${GREEN}EXISTS${NC}"
+else
+    echo -e "${RED}MISSING${NC}"
+    exit 1
+fi
+
+echo ""
+echo -e "${GREEN}✅ All health checks passed${NC}"
+HEALTHCHECK
+
+chmod +x /usr/local/bin/verify-code-editor-health.sh
+log "Health check script created at /usr/local/bin/verify-code-editor-health.sh"
+
+# ============================================================================
 # FINAL VERIFICATION
 # ============================================================================
 
 log "Performing final verification..."
 
-# Verify Code Editor is still running
+# Verify Code Editor service status
+if systemctl is-active --quiet "code-editor@$CODE_EDITOR_USER"; then
+    log "✅ Code Editor service is active"
+else
+    error "Code Editor service is not running. Check: journalctl -u code-editor@$CODE_EDITOR_USER -n 50"
+fi
+
+# Verify Code Editor is responding
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/ 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "200" ]; then
     log "✅ Code Editor verified running (HTTP $HTTP_CODE)"
 else
-    warn "Code Editor may not be fully ready (HTTP $HTTP_CODE)"
+    error "Code Editor not responding (HTTP $HTTP_CODE). Check: journalctl -u code-editor@$CODE_EDITOR_USER -n 50"
 fi
 
 # Verify nginx is running
 if systemctl is-active --quiet nginx; then
     log "✅ Nginx verified running"
 else
-    warn "Nginx is not running"
+    error "Nginx is not running. Check: systemctl status nginx"
+fi
+
+# Verify nginx can proxy to Code Editor
+NGINX_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/ 2>/dev/null || echo "000")
+if [ "$NGINX_CODE" = "302" ] || [ "$NGINX_CODE" = "200" ]; then
+    log "✅ Nginx proxy verified (HTTP $NGINX_CODE)"
+else
+    error "Nginx proxy failing (HTTP $NGINX_CODE). Code Editor may not be accessible via CloudFront"
+fi
+
+# Verify token file
+if [ -f "/home/$CODE_EDITOR_USER/.code-editor-server/data/token" ]; then
+    TOKEN_PERMS=$(stat -c "%a" "/home/$CODE_EDITOR_USER/.code-editor-server/data/token" 2>/dev/null || stat -f "%A" "/home/$CODE_EDITOR_USER/.code-editor-server/data/token")
+    log "✅ Token file exists (permissions: $TOKEN_PERMS)"
+else
+    error "Token file missing at /home/$CODE_EDITOR_USER/.code-editor-server/data/token"
 fi
 
 # ============================================================================
@@ -602,4 +698,7 @@ echo "  🤖 Chat: $BEDROCK_CHAT_MODEL"
 echo "  🔢 Embeddings: $BEDROCK_EMBEDDING_MODEL"
 echo ""
 echo "Access via CloudFront URL with token: $CODE_EDITOR_PASSWORD"
+echo ""
+echo "Health Check:"
+echo "  🔍 Run: verify-code-editor-health.sh (available system-wide)"
 log "============================================================"

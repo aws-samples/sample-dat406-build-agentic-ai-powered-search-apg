@@ -1,0 +1,131 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DAT406 - RDS Version Helper Lambda for Aurora PostgreSQL 17.5'
+
+Resources:
+  # Lambda Role
+  RDSVersionLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RDSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - rds:DescribeDBEngineVersions
+                Resource: '*'
+
+  # Lambda Function for Aurora PostgreSQL 17.5
+  RDSVersionLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: 'DAT406 - Helper function to get Aurora PostgreSQL 17.5'
+      Handler: index.lambda_handler
+      Runtime: python3.13
+      Timeout: 60
+      Role: !GetAtt RDSVersionLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import json
+          
+          def lambda_handler(event, context):
+              """
+              Get Aurora PostgreSQL 17.5 specifically for DAT406 workshop
+              """
+              try:
+                  # Handle CloudFormation Delete
+                  if event['RequestType'] == 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+                  
+                  # Get parameters
+                  properties = event['ResourceProperties']
+                  engine = properties.get('Engine', 'aurora-postgresql')
+                  major_version = properties.get('EngineMajorVersion', '17')
+                  
+                  # Initialize RDS client
+                  rds = boto3.client('rds')
+                  
+                  # For DAT406, we specifically want Aurora PostgreSQL 17.5
+                  if engine == 'aurora-postgresql' and major_version == '17':
+                      engine_version = '17.5'
+                      print(f"Using Aurora PostgreSQL 17.5 for DAT406 workshop")
+                  else:
+                      # Fallback logic for other versions
+                      filters = [
+                          {
+                              'Name': 'engine',
+                              'Values': [engine]
+                          },
+                          {
+                              'Name': 'engine-mode',
+                              'Values': ['provisioned']
+                          }
+                      ]
+                      
+                      # Query RDS for engine versions
+                      response = rds.describe_db_engine_versions(
+                          Engine=engine,
+                          Filters=filters,
+                          MaxRecords=100
+                      )
+                      
+                      # Filter by major version
+                      versions = []
+                      for version in response['DBEngineVersions']:
+                          version_str = version['EngineVersion']
+                          if version_str.startswith(str(major_version) + '.'):
+                              versions.append({
+                                  'version': version_str,
+                                  'version_numeric': [int(x) for x in version_str.split('.')]
+                              })
+                      
+                      if versions:
+                          # Sort to get the latest
+                          versions.sort(key=lambda x: x['version_numeric'], reverse=True)
+                          engine_version = versions[0]['version']
+                      else:
+                          # Default fallback
+                          engine_version = f"{major_version}.0"
+                  
+                  print(f"Selected engine version: {engine} {engine_version}")
+                  
+                  # Return the version
+                  response_data = {
+                      'EngineVersion': engine_version,
+                      'Engine': engine,
+                      'MajorVersion': major_version
+                  }
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  # On error, use 17.5 for DAT406
+                  response_data = {
+                      'EngineVersion': '17.5',
+                      'Engine': 'aurora-postgresql',
+                      'MajorVersion': '17'
+                  }
+                  print(f"Using fallback version: Aurora PostgreSQL 17.5")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+
+Outputs:
+  RDSVersionLambdaFunction:
+    Description: Lambda function ARN for RDS version helper
+    Value: !GetAtt RDSVersionLambdaFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-lambda-arn'

@@ -1,0 +1,314 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >
+  Main template for DAT406 workshop - Build agentic AI-powered search with Amazon Aurora PostgreSQL 17.5 and Strands SDK
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Workshop Configuration
+        Parameters:
+          - WorkshopName
+          - ParticipantRoleArn
+      - Label:
+          default: Workshop Assets
+        Parameters:
+          - AssetsBucketName
+          - AssetsBucketPrefix
+          - GitHubRepo
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcCIDR
+          - PublicSubnetACidr
+          - PublicSubnetBCidr
+          - PrivateSubnetACidr
+          - PrivateSubnetBCidr
+      - Label:
+          default: Database Configuration
+        Parameters:
+          - DBVersion
+          - DBInstanceSize
+      - Label:
+          default: Code Editor Configuration
+        Parameters:
+          - CodeEditorInstanceType
+          - CodeEditorVolumeSize
+      - Label:
+          default: AI Configuration
+        Parameters:
+          - BedrockEmbeddingModel
+      - Label:
+          default: Environment Configuration
+        Parameters:
+          - IsWorkshopStudioEnv
+          - PythonVersion
+          - PostgreSQLVersion
+
+Parameters:
+  WorkshopName:
+    Type: String
+    Default: dat406-agentic-search
+    Description: Workshop identifier
+    
+  ParticipantRoleArn:
+    Type: String
+    Description: Workshop Studio participant role ARN
+    Default: ''
+    
+  AssetsBucketName:
+    Type: String
+    Description: Workshop Studio assets bucket
+    
+  AssetsBucketPrefix:
+    Type: String
+    Description: Workshop Studio assets prefix
+    Default: ''
+    
+  GitHubRepo:
+    Type: String
+    Default: https://github.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg.git
+    Description: GitHub repository URL
+    
+  VpcCIDR:
+    Type: String
+    Default: 10.215.0.0/16
+    Description: CIDR block for VPC
+    
+  PublicSubnetACidr:
+    Type: String
+    Default: 10.215.10.0/24
+    Description: CIDR block for Public Subnet A
+    
+  PublicSubnetBCidr:
+    Type: String
+    Default: 10.215.20.0/24
+    Description: CIDR block for Public Subnet B
+    
+  PrivateSubnetACidr:
+    Type: String
+    Default: 10.215.30.0/24
+    Description: CIDR block for Private Subnet A
+    
+  PrivateSubnetBCidr:
+    Type: String
+    Default: 10.215.40.0/24
+    Description: CIDR block for Private Subnet B
+    
+  DBVersion:
+    Type: String
+    Default: '17'
+    Description: Aurora PostgreSQL major version
+    AllowedValues:
+      - '16'
+      - '17'
+      
+  DBInstanceSize:
+    Type: String
+    Default: 'db.r6gd.4xlarge'
+    Description: Database instance class
+    AllowedValues:
+      - 'db.r6g.xlarge'
+      - 'db.r6g.2xlarge'
+      - 'db.r6gd.2xlarge'
+      - 'db.r6g.4xlarge'
+      - 'db.r6gd.4xlarge'
+      - 'db.r6g.8xlarge'
+      - 'db.r6gd.8xlarge'
+    
+  CodeEditorInstanceType:
+    Type: String
+    Default: c6g.2xlarge
+    Description: Instance type for Code Editor
+    AllowedValues:
+      - t4g.medium
+      - t4g.large
+      - t4g.xlarge
+      - c6g.xlarge
+      - c6g.2xlarge
+      - c6g.4xlarge
+      
+  CodeEditorVolumeSize:
+    Type: Number
+    Default: 100
+    Description: Code Editor instance volume size in GB
+    MinValue: 40
+    MaxValue: 500
+    
+  BedrockEmbeddingModel:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Bedrock model for embeddings (used by Strands SDK)
+  
+  BedrockChatModel:
+    Type: String
+    Default: us.anthropic.claude-sonnet-4-20250514-v1:0
+    Description: Bedrock chat model for AI agents (used by Strands SDK)
+    
+  IsWorkshopStudioEnv:
+    Type: String
+    Default: 'yes'
+    AllowedValues:
+      - 'yes'
+      - 'no'
+    Description: Running in Workshop Studio?
+    
+  PythonVersion:
+    Type: String
+    Default: '3.13'
+    Description: Python version for the workshop
+    
+  PostgreSQLVersion:
+    Type: String
+    Default: '17.5'
+    Description: Aurora PostgreSQL version
+
+Resources:
+  # ==========================================
+  # VPC STACK - Network infrastructure
+  # ==========================================
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}dat406-vpc.yml'
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        VpcName: !Sub '${WorkshopName}-vpc'
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnetACidr: !Ref PublicSubnetACidr
+        PublicSubnetBCidr: !Ref PublicSubnetBCidr
+        PrivateSubnetACidr: !Ref PrivateSubnetACidr
+        PrivateSubnetBCidr: !Ref PrivateSubnetBCidr
+      Tags:
+        - Key: Workshop
+          Value: DAT406
+
+  # ==========================================
+  # RDS VERSION HELPER LAMBDA
+  # ==========================================
+  RDSVersionStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}dat406-rds-version.yml'
+      Tags:
+        - Key: Workshop
+          Value: DAT406
+
+  # ==========================================
+  # DATABASE STACK - Aurora PostgreSQL 17.5 with pgvector
+  # ==========================================
+  APGStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - RDSVersionStack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}dat406-database.yml'
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        VPC: !GetAtt VPCStack.Outputs.VPC
+        VpcCIDR: !Ref VpcCIDR
+        PrivateSubnets: !GetAtt VPCStack.Outputs.PrivateSubnets
+        DBVersion: !Ref DBVersion
+        DBInstanceSize: !Ref DBInstanceSize
+        DBPort: 5432
+        AssetsBucketName: !Ref AssetsBucketName
+        AssetsBucketPrefix: !Ref AssetsBucketPrefix
+        RDSVersionLambdaFunction: !GetAtt RDSVersionStack.Outputs.RDSVersionLambdaFunction
+      Tags:
+        - Key: Workshop
+          Value: DAT406
+      TimeoutInMinutes: 30
+
+  # ==========================================
+  # CODE EDITOR STACK - Workshop IDE with Blaize Bazaar
+  # ==========================================
+  CodeEditorStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - APGStack
+    Properties:
+      TemplateURL: !Sub 'https://${AssetsBucketName}.s3.amazonaws.com/${AssetsBucketPrefix}dat406-code-editor.yml'
+      Parameters:
+        TemplateName: !Ref WorkshopName
+        CodeEditorUser: participant
+        InstanceName: !Sub '${WorkshopName}-editor'
+        InstanceVolumeSize: !Ref CodeEditorVolumeSize
+        InstanceType: !Ref CodeEditorInstanceType
+        InstanceOperatingSystem: AmazonLinux-2023
+        HomeFolder: /workshop
+        RepoUrl: !Ref GitHubRepo
+        BootstrapScriptUrl: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-code-editor-dat406.sh
+        VPCId: !GetAtt VPCStack.Outputs.VPC
+        SubnetId: !GetAtt VPCStack.Outputs.PublicSubnetA
+        VpcCIDR: !Ref VpcCIDR
+        DBSecretArn: !GetAtt APGStack.Outputs.RDSSecrets
+        DBClusterEndpoint: !GetAtt APGStack.Outputs.APGClusterEP
+        DBName: postgres
+        BedrockEmbeddingModel: !Ref BedrockEmbeddingModel
+        BedrockChatModel: !Ref BedrockChatModel
+        PythonVersion: !Ref PythonVersion
+        PostgreSQLVersion: !Ref PostgreSQLVersion
+      Tags:
+        - Key: Workshop
+          Value: DAT406
+      TimeoutInMinutes: 30
+
+Outputs:
+  # Primary Access Point
+  WorkshopURL:
+    Description: 'VS Code IDE - Your workshop environment (Click to access)'
+    Value: !GetAtt CodeEditorStack.Outputs.URL
+    
+  BlaizeBazaarURL:
+    Description: 'Blaize Bazaar Application URL'
+    Value: !GetAtt CodeEditorStack.Outputs.ReactAppURL
+    
+  Username:
+    Description: 'VS Code Username'
+    Value: !GetAtt CodeEditorStack.Outputs.Username
+    
+  Password:
+    Description: 'VS Code Password (save this!)'
+    Value: !GetAtt CodeEditorStack.Outputs.Password
+    
+  # Database Information
+  DatabaseEndpoint:
+    Description: 'Aurora PostgreSQL Endpoint (auto-configured)'
+    Value: !GetAtt APGStack.Outputs.APGClusterEP
+    
+  DatabaseVersion:
+    Description: 'Aurora PostgreSQL Version'
+    Value: !GetAtt APGStack.Outputs.APGVersion
+    
+  DatabaseSecretArn:
+    Description: 'Database credentials in Secrets Manager'
+    Value: !GetAtt APGStack.Outputs.RDSSecrets
+    
+  # Workshop Information
+  Region:
+    Description: 'AWS Region'
+    Value: !Ref AWS::Region
+    
+  WorkshopName:
+    Description: 'Workshop Identifier'
+    Value: !Ref WorkshopName
+    
+  PythonVersion:
+    Description: 'Python Version Used'
+    Value: !Ref PythonVersion
+    
+  PostgreSQLVersion:
+    Description: 'PostgreSQL Version Used'
+    Value: !Ref PostgreSQLVersion
+    
+  BedrockEmbeddingModel:
+    Description: 'Bedrock Embedding Model for Strands SDK'
+    Value: !Ref BedrockEmbeddingModel
+  
+  BedrockChatModel:
+    Description: 'Bedrock Chat Model for AI Agents'
+    Value: !Ref BedrockChatModel
