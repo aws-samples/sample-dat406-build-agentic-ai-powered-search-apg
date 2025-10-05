@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'DAT406 - Code Editor with GitHub Bootstrap for Blaize Bazaar with Strands SDK (Python 3.13)'
+Description: 'DAT406 - Code Editor with GitHub Bootstrap - FIXED VERSION with proper timeouts and signaling'
 
 Parameters:
   TemplateName:
@@ -83,21 +83,21 @@ Parameters:
   BedrockEmbeddingModel:
     Type: String
     Default: amazon.titan-embed-text-v2:0
-    Description: Bedrock embedding model (for Strands SDK)
+    Description: Bedrock embedding model
   
   BedrockChatModel:
     Type: String
     Default: us.anthropic.claude-sonnet-4-20250514-v1:0
-    Description: Bedrock chat model for AI agents
+    Description: Bedrock chat model
     
   PythonVersion:
     Type: String
     Default: '3.13'
-    Description: Python version for the workshop
+    Description: Python version
     
   PostgreSQLVersion:
     Type: String
-    Default: '17.5'
+    Default: '16'
     Description: PostgreSQL client version
 
 Conditions:
@@ -106,7 +106,6 @@ Conditions:
     - !Equals [!Select [0, !Split ['.', !Ref InstanceType]], 'c6g']
     - !Equals [!Select [0, !Split ['.', !Ref InstanceType]], 'm6g']
     - !Equals [!Select [0, !Split ['.', !Ref InstanceType]], 'r6g']
-  HasRepoUrl: !Not [!Equals [!Ref RepoUrl, '']]
 
 Mappings:
   ArmImage:
@@ -115,25 +114,6 @@ Mappings:
   AmdImage:
     AmazonLinux-2023:
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
-  AWSRegionsPrefixListID:
-    us-east-1:
-      PrefixList: pl-3b927c52
-    us-east-2:
-      PrefixList: pl-b6a144df
-    us-west-1:
-      PrefixList: pl-4ea04527
-    us-west-2:
-      PrefixList: pl-82a045eb
-    eu-west-1:
-      PrefixList: pl-4fa04526
-    eu-central-1:
-      PrefixList: pl-a3a144ca
-    ap-southeast-1:
-      PrefixList: pl-31a34658
-    ap-southeast-2:
-      PrefixList: pl-b8a742d1
-    ap-northeast-1:
-      PrefixList: pl-58a04531
 
 Resources:
   # ==========================================
@@ -170,39 +150,59 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: SecretAccess
+        - PolicyName: GetSecretValue
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Action: secretsmanager:GetSecretValue
+                Action:
+                  - secretsmanager:GetSecretValue
                 Resource: !Ref CodeEditorSecret
 
   SecretPlaintextLambda:
     Type: AWS::Lambda::Function
     Properties:
+      Description: Get plaintext secret
       Handler: index.lambda_handler
       Runtime: python3.13
+      MemorySize: 128
+      Timeout: 30
+      Architectures:
+        - arm64
       Role: !GetAtt SecretPlaintextLambdaRole.Arn
       Code:
         ZipFile: |
           import boto3
-          import json
           import cfnresponse
+          import json
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
           def lambda_handler(event, context):
               try:
                   if event['RequestType'] == 'Delete':
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                       return
+
+                  secret_arn = event['ResourceProperties']['SecretArn']
                   client = boto3.client('secretsmanager')
-                  response = client.get_secret_value(SecretId=event['ResourceProperties']['SecretArn'])
+                  response = client.get_secret_value(SecretId=secret_arn)
                   secret = json.loads(response['SecretString'])
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, secret, noEcho=True)
+                  
+                  responseData = {
+                      'username': secret.get('username', ''),
+                      'password': secret.get('password', '')
+                  }
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
               except Exception as e:
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, str(e))
+                  logger.error(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
 
   SecretPlaintext:
-    Type: Custom::SecretPlaintextLambda
+    Type: Custom::SecretPlaintext
     Properties:
       ServiceToken: !GetAtt SecretPlaintextLambda.Arn
       SecretArn: !Ref CodeEditorSecret
@@ -213,33 +213,33 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Sub '${TemplateName} Code Editor security group'
+      GroupDescription: !Sub 'Code Editor security group for ${TemplateName}'
       VpcId: !Ref VPCId
       SecurityGroupIngress:
-        - Description: CloudFront access
-          IpProtocol: tcp
+        - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          SourcePrefixListId: !FindInMap [AWSRegionsPrefixListID, !Ref 'AWS::Region', PrefixList]
-        - Description: VPC access for HTTP
-          IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref VpcCIDR
-        - Description: Development server port
-          IpProtocol: tcp
-          FromPort: 5173
-          ToPort: 5173
-          CidrIp: !Ref VpcCIDR
-        - Description: API server port
-          IpProtocol: tcp
-          FromPort: 8000
-          ToPort: 8000
-          CidrIp: !Ref VpcCIDR
-      SecurityGroupEgress:
-        - Description: Allow all outbound
-          IpProtocol: -1
           CidrIp: 0.0.0.0/0
+          Description: HTTP from anywhere
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS for CloudFormation signaling
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP for package downloads
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: !Ref VpcCIDR
+          Description: PostgreSQL
+      Tags:
+        - Key: Name
+          Value: !Sub '${TemplateName}-code-editor-sg'
 
   # ==========================================
   # IAM ROLE
@@ -252,34 +252,37 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: [ec2.amazonaws.com, ssm.amazonaws.com]
+              Service: ec2.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
-        - arn:aws:iam::aws:policy/ReadOnlyAccess
       Policies:
-        - PolicyName: WorkshopAccess
+        - PolicyName: CodeEditorPermissions
           PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action:
+                  - rds:*
+                  - rds-db:connect
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - secretsmanager:GetSecretValue
                   - secretsmanager:DescribeSecret
-                Resource:
-                  - !Ref CodeEditorSecret
-                  - !Ref DBSecretArn
+                Resource: !Ref DBSecretArn
               - Effect: Allow
                 Action:
                   - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
                 Resource: '*'
               - Effect: Allow
                 Action:
-                  - rds:DescribeDBClusters
-                  - rds:DescribeDBInstances
-                Resource: '*'
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/ec2/${TemplateName}/*'
 
   CodeEditorInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -303,7 +306,7 @@ Resources:
       RetentionInDays: 7
 
   # ==========================================
-  # SSM DOCUMENT
+  # SSM DOCUMENT - WITH ENHANCED SIGNALING
   # ==========================================
   CodeEditorSSMDoc:
     Type: AWS::SSM::Document
@@ -311,42 +314,32 @@ Resources:
       DocumentType: Command
       Content:
         schemaVersion: '2.2'
-        description: DAT406 Code Editor Bootstrap with Strands SDK (Python 3.13)
+        description: DAT406 Code Editor Bootstrap with enhanced CloudFormation signaling
         parameters:
           CodeEditorPassword:
             type: String
-            default: 'defaultPassword'
           BootstrapScriptUrl:
             type: String
-            default: !Ref BootstrapScriptUrl
           RepoUrl:
             type: String
-            default: !Ref RepoUrl
           HomeFolder:
             type: String
-            default: !Ref HomeFolder
           DBSecretArn:
             type: String
-            default: !Ref DBSecretArn
           DBClusterEndpoint:
             type: String
-            default: !Ref DBClusterEndpoint
           DBName:
             type: String
-            default: !Ref DBName
           BedrockEmbeddingModel:
             type: String
-            default: !Ref BedrockEmbeddingModel
           BedrockChatModel:
             type: String
-            default: !Ref BedrockChatModel
           PythonVersion:
             type: String
-            default: !Ref PythonVersion
           PostgreSQLVersion:
             type: String
-            default: !Ref PostgreSQLVersion
-
+          WaitHandle:
+            type: String
         mainSteps:
           - name: InstallCloudWatchAgent
             action: aws:configurePackage
@@ -357,20 +350,19 @@ Resources:
           - name: RunGitHubBootstrap
             action: aws:runShellScript
             inputs:
-              timeoutSeconds: 1800
+              timeoutSeconds: 3600
               runCommand:
                 - '#!/bin/bash'
                 - 'set -euo pipefail'
                 - !Sub |
-                  echo "=== DAT406 GitHub Bootstrap with Strands SDK ==="
-                  echo "Bootstrap URL: {{ BootstrapScriptUrl }}"
-                  echo "Repository URL: {{ RepoUrl }}"
-                  echo "Python Version: {{ PythonVersion }}"
-                  echo "PostgreSQL Version: {{ PostgreSQLVersion }}"
-                  echo "Timestamp: $(date)"
-                  echo
+                  # Enable detailed logging
+                  exec > >(tee /var/log/bootstrap-execution.log) 2>&1
+                  set -x
                   
-                  # Set environment variables for the bootstrap script
+                  echo "=== DAT406 Bootstrap with Enhanced Signaling ==="
+                  echo "Timestamp: $(date)"
+                  
+                  # Set environment variables
                   export PYTHON_VERSION="{{ PythonVersion }}"
                   export POSTGRESQL_VERSION="{{ PostgreSQLVersion }}"
                   export CODE_EDITOR_PASSWORD="{{ CodeEditorPassword }}"
@@ -382,40 +374,62 @@ Resources:
                   export AWS_REGION="${AWS::Region}"
                   export AWS_ACCOUNTID="${AWS::AccountId}"
                   export BEDROCK_EMBEDDING_MODEL="{{ BedrockEmbeddingModel }}"
+                  export BEDROCK_CHAT_MODEL="{{ BedrockChatModel }}"
+                  export CFN_WAIT_HANDLE="{{ WaitHandle }}"
                   
-                  # Download and execute the bootstrap script
+                  # Function to signal CloudFormation with retry
+                  signal_cloudformation() {
+                      local STATUS=$1
+                      local REASON=$2
+                      local WAIT_HANDLE="{{ WaitHandle }}"
+                      
+                      echo "Signaling CloudFormation: $STATUS - $REASON"
+                      
+                      for attempt in {1..5}; do
+                          if curl -X PUT -H 'Content-Type:' \
+                              --data-binary "{\"Status\":\"$STATUS\",\"Reason\":\"$REASON\",\"UniqueId\":\"CodeEditor-$(date +%s)\",\"Data\":\"$STATUS\"}" \
+                              --max-time 10 \
+                              "$WAIT_HANDLE" 2>&1 | tee /tmp/cfn-signal-$attempt.log; then
+                              echo "✅ Successfully signaled CloudFormation (attempt $attempt)"
+                              return 0
+                          else
+                              echo "Failed to signal (attempt $attempt/5)"
+                              sleep 2
+                          fi
+                      done
+                      
+                      echo "ERROR: Failed to signal after 5 attempts"
+                      return 1
+                  }
+                  
+                  # Download bootstrap script
                   echo "Downloading bootstrap script..."
-                  curl -fsSL "{{ BootstrapScriptUrl }}" -o /tmp/bootstrap-code-editor-dat406.sh
-                  
-                  if [ ! -f /tmp/bootstrap-code-editor-dat406.sh ]; then
-                    echo "ERROR: Failed to download bootstrap script"
-                    exit 1
+                  if ! curl -fsSL "{{ BootstrapScriptUrl }}" -o /tmp/bootstrap-code-editor-dat406.sh; then
+                      echo "ERROR: Failed to download bootstrap script"
+                      signal_cloudformation "FAILURE" "Bootstrap Download Failed"
+                      exit 1
                   fi
                   
                   chmod +x /tmp/bootstrap-code-editor-dat406.sh
-                  echo "Script downloaded successfully ($(wc -l < /tmp/bootstrap-code-editor-dat406.sh) lines)"
-                  echo
+                  echo "Script downloaded ($(wc -l < /tmp/bootstrap-code-editor-dat406.sh) lines)"
                   
-                  # Execute the bootstrap script
+                  # Execute bootstrap script
                   echo "Executing bootstrap script..."
                   /tmp/bootstrap-code-editor-dat406.sh
+                  BOOTSTRAP_EXIT_CODE=$?
                   
-                  if [ $? -eq 0 ]; then
-                    echo
-                    echo "=== BOOTSTRAP SUCCESS ==="
-                    echo "Code Editor should now be accessible"
-                    echo "Blaize Bazaar app with Strands SDK ready"
-                    echo "Python ${PythonVersion} installed"
-                    echo "PostgreSQL ${PostgreSQLVersion} client configured"
-                    
+                  if [ $BOOTSTRAP_EXIT_CODE -eq 0 ]; then
+                      echo "=== BOOTSTRAP SUCCESS ==="
+                      signal_cloudformation "SUCCESS" "Bootstrap Complete - All services verified"
                   else
-                    echo "ERROR: Bootstrap script failed"
-                    exit 1
+                      echo "ERROR: Bootstrap failed (exit $BOOTSTRAP_EXIT_CODE)"
+                      signal_cloudformation "FAILURE" "Bootstrap Failed (exit $BOOTSTRAP_EXIT_CODE)"
+                      exit 1
                   fi
                   
-                  # Clean up
+                  # Cleanup
                   rm -f /tmp/bootstrap-code-editor-dat406.sh
-                  echo "Bootstrap execution completed successfully"
+                  echo "Bootstrap completed at $(date)"
 
   # ==========================================
   # LAMBDA FOR RUNNING SSM DOCUMENT
@@ -440,15 +454,12 @@ Resources:
               - Effect: Allow
                 Action:
                   - ssm:SendCommand
-                Resource:
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/${CodeEditorSSMDoc}
-                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/AmazonCloudWatch-ManageAgent
-                  - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${CodeEditorInstance}
-              - Effect: Allow
-                Action:
                   - ssm:ListCommandInvocations
                   - ssm:GetCommandInvocation
-                Resource: '*'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:document/${CodeEditorSSMDoc}'
+                  - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${CodeEditorInstance}'
+                  - '*'
 
   RunSSMDocLambda:
     Type: AWS::Lambda::Function
@@ -457,7 +468,7 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.13
       MemorySize: 128
-      Timeout: 900
+      Timeout: 1850
       Environment:
         Variables:
           RetrySleep: 2900
@@ -487,7 +498,7 @@ Resources:
                   document_name = resource_properties['DocumentName']
                   cloudwatch_log_group_name = resource_properties['CloudWatchLogGroupName']
 
-                  logger.info(f'Running GitHub Bootstrap SSM Document {document_name} on EC2 instance {instance_id}')
+                  logger.info(f'Running SSM Document {document_name} on instance {instance_id}')
 
                   del resource_properties['ServiceToken']
                   if 'ServiceTimeout' in resource_properties:
@@ -523,11 +534,11 @@ Resources:
                       except ssm.exceptions.InvalidInstanceId as e:
                           time_remaining_ms = context.get_remaining_time_in_millis()
                           if (time_remaining_ms > abort_time_remaining_ms):
-                              logger.info(f'Instance {instance_id} not ready. Sleeping: {sleep_ms/1000}s')
+                              logger.info(f'Instance not ready. Sleeping: {sleep_ms/1000}s')
                               time.sleep(sleep_ms/1000)
                               retry = True
                           else:
-                              logger.info(f'Instance {instance_id} not ready, timed out.')
+                              logger.info(f'Instance not ready, timed out.')
                               cfnresponse.send(event, context, cfnresponse.FAILED, responseData={}, reason='Timed out')
                               retry = False
 
@@ -562,17 +573,12 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           mkdir -p ${HomeFolder}
-          echo "Python version target: ${PythonVersion}" > /tmp/bootstrap.log
-          echo "PostgreSQL version target: ${PostgreSQLVersion}" >> /tmp/bootstrap.log
+          echo "Bootstrap will start via SSM" > /tmp/userdata.log
       Tags:
         - Key: Name
           Value: !Sub '${TemplateName}-code-editor'
         - Key: Workshop
           Value: DAT406
-        - Key: PythonVersion
-          Value: !Ref PythonVersion
-        - Key: PostgreSQLVersion
-          Value: !Ref PostgreSQLVersion
 
   # ==========================================
   # RUN SSM DOCUMENT
@@ -584,7 +590,7 @@ Resources:
       - CodeEditorSSMDoc
     Properties:
       ServiceToken: !GetAtt RunSSMDocLambda.Arn
-      ServiceTimeout: 905
+      ServiceTimeout: 1850
       InstanceId: !Ref CodeEditorInstance
       DocumentName: !Ref CodeEditorSSMDoc
       CloudWatchLogGroupName: !Ref SSMDocumentLogGroup
@@ -599,7 +605,7 @@ Resources:
       BedrockChatModel: !Ref BedrockChatModel
       PythonVersion: !Ref PythonVersion
       PostgreSQLVersion: !Ref PostgreSQLVersion
-
+      WaitHandle: !Ref WaitHandle
 
   # ==========================================
   # CLOUDFRONT CACHE POLICY
@@ -608,9 +614,9 @@ Resources:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        DefaultTTL: 0
-        MaxTTL: 86400
-        MinTTL: 0
+        DefaultTTL: 86400
+        MaxTTL: 31536000
+        MinTTL: 1
         Name: !Sub
         - ${InstanceName}-${RandomGUID}
         - RandomGUID: !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId ]]]]
@@ -634,11 +640,25 @@ Resources:
             QueryStringBehavior: all
 
   # ==========================================
+  # WAIT HANDLE - INCREASED TIMEOUT
+  # ==========================================
+  WaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  WaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: RunCodeEditorSSMDoc
+    Properties:
+      Handle: !Ref WaitHandle
+      Timeout: '3600'
+      Count: 1
+
+  # ==========================================
   # CLOUDFRONT DISTRIBUTION
   # ==========================================
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
-    DependsOn: RunCodeEditorSSMDoc
+    DependsOn: WaitCondition
     Properties:
       DistributionConfig:
         Enabled: true
@@ -694,7 +714,7 @@ Outputs:
     Value: !Ref PythonVersion
     
   PostgreSQLVersion:
-    Description: PostgreSQL client version installed
+    Description: PostgreSQL client version
     Value: !Ref PostgreSQLVersion
 
   BootstrapLogs:
@@ -702,13 +722,13 @@ Outputs:
     Value: !Sub 'https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logsV2:log-groups/log-group/${SSMDocumentLogGroup}'
     
   SSMDocument:
-    Description: SSM Document name for troubleshooting
+    Description: SSM Document name
     Value: !Ref CodeEditorSSMDoc
     
   SecurityGroup:
     Description: Security Group ID
     Value: !Ref SecurityGroup
     
-  SSMCommandId:
-    Description: SSM Command ID for bootstrap
-    Value: !GetAtt RunCodeEditorSSMDoc.CommandId
+  WaitConditionData:
+    Description: Wait condition data
+    Value: !GetAtt WaitCondition.Data
