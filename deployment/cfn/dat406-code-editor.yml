@@ -52,10 +52,12 @@ Parameters:
     
   EnvironmentBootstrapUrl:
     Type: String
+    Default: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-environment.sh
     Description: URL to Stage 1 bootstrap script (Code Editor + VS Code)
     
   LabsBootstrapUrl:
     Type: String
+    Default: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-labs.sh
     Description: URL to Stage 2 bootstrap script (Lab 1 + Lab 2)
     
   VPCId:
