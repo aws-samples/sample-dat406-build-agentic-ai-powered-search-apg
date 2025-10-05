@@ -649,6 +649,10 @@ Outputs:
     Description: Code Editor URL
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}/?folder=${HomeFolder}&tkn=${SecretPlaintext.password}'
     
+  ReactAppURL:
+    Description: Blaize Bazaar Application URL
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}/'
+    
   Username:
     Description: Username
     Value: !GetAtt SecretPlaintext.username
