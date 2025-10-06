@@ -296,7 +296,9 @@ Resources:
                 Action:
                   - secretsmanager:GetSecretValue
                   - secretsmanager:DescribeSecret
-                Resource: !Ref DBSecretArn
+                Resource:
+                  - !Ref DBSecretArn
+                  - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:apgpg-pgvector-secret-*'
               - Effect: Allow
                 Action:
                   - bedrock:InvokeModel
