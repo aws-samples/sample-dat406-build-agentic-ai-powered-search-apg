@@ -101,7 +101,7 @@ function App() {
                     <button 
                       className="btn-secondary"
                       onClick={() => {
-                        const bubble = document.querySelector('.floating-bubble') as HTMLElement
+                        const bubble = document.querySelector('[alt="Chat"]')?.parentElement as HTMLElement
                         if (bubble) bubble.click()
                       }}
                     >

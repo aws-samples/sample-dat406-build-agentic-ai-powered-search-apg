@@ -16,15 +16,16 @@ interface ProductCardProps {
   }
   onAddToCart?: (product: any) => void
   highlighted?: boolean
+  aiRecommended?: boolean
 }
 
-const ProductCard = ({ product, onAddToCart, highlighted = false }: ProductCardProps) => {
+const ProductCard = ({ product, onAddToCart, highlighted = false, aiRecommended = true }: ProductCardProps) => {
   const isImageUrl = product.image.startsWith('http')
   const productUrl = `https://amazon.com/dp/${product.id}`
   
   return (
     <div
-      className="rounded-xl p-3 flex items-center gap-3 animate-slideUp transition-all duration-300 hover:scale-[1.02] group"
+      className="rounded-xl p-3 flex items-center gap-3 animate-slideUp transition-all duration-300 hover:scale-[1.02] group relative"
       style={{
         background: 'rgba(30, 30, 40, 0.4)',
         border: '1px solid rgba(106, 27, 154, 0.2)',
@@ -39,6 +40,13 @@ const ProductCard = ({ product, onAddToCart, highlighted = false }: ProductCardP
         e.currentTarget.style.borderColor = 'rgba(106, 27, 154, 0.2)'
       }}
     >
+      {/* AI Badge */}
+      {aiRecommended && (
+        <div className="absolute top-1 right-1 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 backdrop-blur-sm z-10">
+          <span className="text-[9px] text-purple-300 font-medium">✨ AI Pick</span>
+        </div>
+      )}
+      
       {/* Product Image - Clickable */}
       <a
         href={productUrl}

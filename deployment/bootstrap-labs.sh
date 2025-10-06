@@ -306,7 +306,8 @@ fi
 
 log "Configuring bash environment..."
 
-cat >> "/home/$CODE_EDITOR_USER/.bashrc" << 'BASHRC'
+# Create temp file with bash configuration
+cat > /tmp/bashrc_append.txt << 'BASHRC'
 
 # ============================================================================
 # DAT406 Workshop Environment
@@ -365,7 +366,9 @@ if [ -f /tmp/workshop-ready.json ]; then
 fi
 BASHRC
 
-chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.bashrc"
+# Append to user's .bashrc with proper permissions
+sudo -u "$CODE_EDITOR_USER" bash -c "cat /tmp/bashrc_append.txt >> /home/$CODE_EDITOR_USER/.bashrc"
+rm -f /tmp/bashrc_append.txt
 log "✅ Bash environment configured"
 
 # ============================================================================

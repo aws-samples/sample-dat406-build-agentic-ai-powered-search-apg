@@ -17,9 +17,18 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
   const [suggestions, setSuggestions] = useState<Array<{text: string, category: string}>>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showCollectionsMenu, setShowCollectionsMenu] = useState(false)
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const { theme } = useTheme()
   const searchRef = useRef<HTMLDivElement>(null)
   const collectionsRef = useRef<HTMLDivElement>(null)
+
+  const placeholders = [
+    'laptop under $800 for gaming',
+    'wireless headphones with noise cancellation',
+    'camera for travel photography',
+    '4K monitor under $500',
+    'ergonomic keyboard for programming'
+  ]
 
   const categories = [
     { icon: '🔌', name: 'Cables & Chargers', query: 'cable charger' },
@@ -29,6 +38,13 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
     { icon: '🎧', name: 'Headphones', query: 'headphones earbuds' },
     { icon: '🎮', name: 'Gaming', query: 'gaming' },
   ]
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -161,15 +177,28 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
 
         {/* Right Side - Search & Theme Toggle */}
         <div className="flex items-center gap-4">
-          <div className="relative w-60" ref={searchRef}>
+          <div className="flex items-center gap-2">
+            <div className="relative w-[450px] group" ref={searchRef}>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search products..."
+              placeholder={`Try: "${placeholders[placeholderIndex]}"`}
               className="w-full px-3 py-2 text-sm input-field rounded-lg"
             />
+            {/* AI Badge */}
+            {!searchQuery && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30">
+                <span className="text-[10px] text-purple-300 font-medium">✨ AI-Powered</span>
+              </div>
+            )}
+            {/* AI Hint Tooltip - Shows on hover */}
+            {!searchQuery && (
+              <div className="absolute -bottom-8 left-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs text-purple-400 whitespace-nowrap">
+                💡 Semantic Search: Understands intent, not just keywords
+              </div>
+            )}
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
@@ -196,6 +225,18 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
                 ))}
               </div>
             )}
+            </div>
+            <button
+              onClick={() => searchQuery.trim() && onSearch?.(searchQuery)}
+              disabled={!searchQuery.trim()}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: searchQuery.trim() ? 'linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%)' : 'rgba(255, 255, 255, 0.1)',
+                color: 'white'
+              }}
+            >
+              Search
+            </button>
           </div>
 
           {/* GitHub Link */}

@@ -14,6 +14,8 @@ interface Message {
   timestamp: Date
   products?: ChatProduct[]
   suggestions?: string[]
+  agent?: 'search' | 'pricing' | 'recommendation' | 'orchestrator'
+  agentStatus?: 'thinking' | 'complete'
 }
 
 const AIAssistant = () => {
@@ -32,6 +34,8 @@ const AIAssistant = () => {
   const [backendOnline, setBackendOnline] = useState(true)
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
+  const [extendedThinking, setExtendedThinking] = useState(false)
+  const [activeAgent, setActiveAgent] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -100,19 +104,33 @@ const AIAssistant = () => {
     setIsLoading(true)
 
     // Add loading message
+    setActiveAgent('Aurora AI')
     const loadingMessage: Message = {
       role: 'assistant',
       content: '✨ Finding the perfect products for you...',
-      timestamp: new Date()
+      timestamp: new Date(),
+      agentStatus: 'thinking'
     }
     setMessages(prev => [...prev, loadingMessage])
 
     try {
-      // Call real backend API with conversation history
-      const response = await sendChatMessage(messageText, messages.slice(0, -1))
+      // Call real backend API with full conversation history (before adding user message)
+      const historyBeforeUser = messages.slice(0, -1)  // Exclude loading message
+      const response = await sendChatMessage(messageText, historyBeforeUser, extendedThinking)
 
       // Remove loading message
       setMessages(prev => prev.slice(0, -1))
+      setActiveAgent(null)
+
+      // Determine which agent responded based on user query intent
+      let agentType: 'search' | 'pricing' | 'recommendation' | 'orchestrator' = 'search'
+      const queryLower = messageText.toLowerCase()
+      
+      if (queryLower.includes('cheap') || queryLower.includes('price') || queryLower.includes('deal') || queryLower.includes('cost') || queryLower.includes('value')) {
+        agentType = 'pricing'
+      } else if (queryLower.includes('recommend') || queryLower.includes('suggest') || queryLower.includes('best') || queryLower.includes('top')) {
+        agentType = 'recommendation'
+      }
 
       // Add AI response (products already formatted by chat service)
       const aiMessage: Message = {
@@ -121,6 +139,8 @@ const AIAssistant = () => {
         timestamp: new Date(),
         products: response.products,
         suggestions: response.suggestions,
+        agent: agentType,
+        agentStatus: 'complete'
       }
 
       setMessages(prev => [...prev, aiMessage])
@@ -131,6 +151,7 @@ const AIAssistant = () => {
       
       // Remove loading message
       setMessages(prev => prev.slice(0, -1))
+      setActiveAgent(null)
       
       // Add error message
       const errorMessage: Message = {
@@ -173,7 +194,11 @@ const AIAssistant = () => {
               <div>
                 <div className="font-medium text-lg text-text-primary">Aurora AI</div>
                 <div className="text-xs text-text-secondary flex items-center gap-1">
-                  {isLoading ? (
+                  {activeAgent ? (
+                    <div className="flex items-center gap-1 text-purple-400 animate-pulse">
+                      Analyzing your request...
+                    </div>
+                  ) : isLoading ? (
                     <div className="flex items-center gap-1">
                       <span className="typing-dot"></span>
                       <span className="typing-dot"></span>
@@ -212,6 +237,15 @@ const AIAssistant = () => {
           <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4 custom-scrollbar">
             {messages.map((message, index) => (
               <div key={index} className="flex flex-col gap-3">
+                {/* Agent Attribution */}
+                {message.role === 'assistant' && message.agent && (
+                  <div className="flex items-center gap-2 text-xs text-text-secondary ml-1">
+                    {message.agent === 'search' && <span>🔍 Search Agent</span>}
+                    {message.agent === 'pricing' && <span>💰 Pricing Agent</span>}
+                    {message.agent === 'recommendation' && <span>⭐ Recommendation Agent</span>}
+                    {message.agent === 'orchestrator' && <span>🧠 Orchestrator</span>}
+                  </div>
+                )}
                 {/* Message Bubble */}
                 <div
                   className={`max-w-[85%] px-[18px] py-[14px] rounded-2xl text-base leading-relaxed animate-slideUp ${
@@ -239,7 +273,8 @@ const AIAssistant = () => {
                         key={product.id}
                         product={product}
                         onAddToCart={addToCart}
-                        highlighted={idx === 0} // Highlight first product
+                        highlighted={idx === 0}
+                        aiRecommended={idx === 0} // Only first product gets AI Pick badge
                       />
                     ))}
                   </div>
@@ -298,26 +333,49 @@ const AIAssistant = () => {
           </div>
 
           {/* Input */}
-          <div className="px-6 py-6 border-t border-accent-light/20 flex gap-3">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={isLoading ? 'Searching...' : 'Ask for products...'}
-              disabled={isLoading}
-              className="flex-1 px-[14px] py-[14px] input-field rounded-xl text-sm disabled:opacity-50"
-            />
-            <button
-              onClick={() => handleSend()}
-              disabled={!inputValue.trim() || isLoading}
-              className="px-6 py-[14px] rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%)'
-              }}
-            >
-              {isLoading ? <span className="animate-spin">⏳</span> : <Send className="h-4 w-4 text-white" />}
-            </button>
+          <div className="px-6 py-4 border-t border-accent-light/20">
+            {/* Extended Thinking Toggle */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-text-secondary">
+                🧠 Extended Thinking {extendedThinking && <span className="text-accent-light">(+1-2s)</span>}
+              </span>
+              <button
+                onClick={() => setExtendedThinking(!extendedThinking)}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent-light focus:ring-offset-2"
+                style={{
+                  background: extendedThinking 
+                    ? 'linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%)'
+                    : 'rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    extendedThinking ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={isLoading ? 'Searching...' : 'Ask for products...'}
+                disabled={isLoading}
+                className="flex-1 px-[14px] py-[14px] input-field rounded-xl text-sm disabled:opacity-50"
+              />
+              <button
+                onClick={() => handleSend()}
+                disabled={!inputValue.trim() || isLoading}
+                className="px-6 py-[14px] rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%)'
+                }}
+              >
+                {isLoading ? <span className="animate-spin">⏳</span> : <Send className="h-4 w-4 text-white" />}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -352,10 +410,11 @@ const AIAssistant = () => {
         {/* Chat Icon */}
         <div
           onClick={() => setIsOpen(!isOpen)}
-          className="w-[100px] h-[100px] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 animate-float relative overflow-hidden"
+          className="w-[100px] h-[100px] rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-110 animate-float relative overflow-hidden group"
           style={{
             boxShadow: '0 8px 32px rgba(106, 27, 154, 0.5)'
           }}
+          title="Powered by AWS Strands SDK & MCP"
         >
           <img src="/chat-icon.jpeg" alt="Chat" className="w-full h-full object-cover" />
 
@@ -364,6 +423,20 @@ const AIAssistant = () => {
               {cart.length}
             </div>
           )}
+          
+          {/* Hover Tooltip */}
+          <div className="absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+            <div 
+              className="px-3 py-2 rounded-lg text-xs font-medium text-white"
+              style={{
+                background: 'rgba(10, 10, 15, 0.95)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(186, 104, 200, 0.3)'
+              }}
+            >
+              🔌 Powered by AWS Strands SDK & MCP
+            </div>
+          </div>
         </div>
       </div>
 

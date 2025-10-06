@@ -303,6 +303,12 @@ Aurora AI uses an **Agents as Tools** pattern with specialized agents:
 ### Orchestrator Agent
 Routes customer queries to the appropriate specialist based on intent analysis.
 
+**🧠 Enhanced with Claude Sonnet 4's Extended Thinking**
+- Optional deeper reasoning capability
+- Reflects between tool calls for better decisions
+- Adapts strategy based on results
+- [Learn more →](./lab2/backend/EXTENDED_THINKING.md) | [Demo Guide →](./DEMO_GUIDE.md)
+
 ### Specialized Agents
 
 #### 1. **Inventory Agent** (`inventory_agent.py`)

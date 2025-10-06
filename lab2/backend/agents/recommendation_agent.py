@@ -2,7 +2,7 @@
 Product Recommendation Agent - Suggests products based on user preferences
 """
 from strands import Agent, tool
-from services.mcp_tool_wrappers import get_trending_products_tool
+from services.mcp_tool_direct import get_trending_products_direct
 
 
 @tool
@@ -19,7 +19,7 @@ def product_recommendation_agent(query: str) -> str:
     """
     try:
         # Get trending products from custom MCP tool
-        trending_data = get_trending_products_tool(limit=15)
+        trending_data = get_trending_products_direct(limit=15)
         
         agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",

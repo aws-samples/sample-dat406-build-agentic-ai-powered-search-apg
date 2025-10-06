@@ -33,9 +33,9 @@ export interface ChatResponse {
 /**
  * Send a chat message to the backend and get AI response with products
  */
-export async function sendChatMessage(query: string, conversationHistory: ChatMessage[] = []): Promise<ChatResponse> {
+export async function sendChatMessage(query: string, conversationHistory: ChatMessage[] = [], enableThinking: boolean = false): Promise<ChatResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chat`, {
+    const response = await fetch(`${API_BASE_URL}/api/chat?enable_thinking=${enableThinking}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

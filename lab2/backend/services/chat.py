@@ -138,12 +138,15 @@ CRITICAL RULES - FOLLOW EXACTLY:
 4. Use LIMIT 5 in every SELECT query
 5. After the query completes, format results and STOP
 
-CONTEXT AWARENESS:
-- If user asks "other brands", "similar items", or "different price range", they want alternatives in the SAME category from previous results
-- Infer the category from conversation history (e.g., if they searched "gift ideas", they want more gifts)
-- For "other brands": Query diverse products in the same general category
+CONTEXT AWARENESS - CRITICAL:
+- ALWAYS check CONVERSATION HISTORY before responding
+- If user asks "cheapest one", "best one", "recommend one", look at PREVIOUS messages to understand what product category they're referring to
+- If previous message showed headphones, "cheapest one" means cheapest headphone
+- If previous message showed cameras, "best one" means best camera
+- Extract the category/product type from conversation history and use it in your query
+- For "other brands": Query diverse products in the same category from history
 - For "similar items": Query the same category with similar characteristics
-- For "different price range": Provide both budget and premium options with suggestions
+- For "different price range": Provide both budget and premium options
 
 MANDATORY QUERY FORMAT:
 ```sql
@@ -151,7 +154,7 @@ SELECT "productId", product_description as name, price, stars, reviews,
        category_name as category, quantity, imgurl as image_url
 FROM bedrock_integration.product_catalog 
 WHERE product_description ILIKE '%SEARCH_TERM%' 
-  AND price < MAX_PRICE
+  AND price > 0
   AND quantity > 0
 ORDER BY stars DESC, reviews DESC
 LIMIT 5
@@ -249,6 +252,31 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
                 if len(tools) == 0:
                     raise RuntimeError("No database tools available from MCP server")
                 
+                # Build conversation context with product info
+                conversation_context = ""
+                if conversation_history:
+                    # Include last 4 exchanges for context
+                    recent_history = conversation_history[-8:]  # Last 4 user+assistant pairs
+                    for msg in recent_history:
+                        role = msg.get('role', 'user')
+                        content = msg.get('content', '')
+                        # Truncate long responses but keep key info
+                        if len(content) > 500:
+                            content = content[:500] + "..."
+                        conversation_context += f"{role.upper()}: {content}\n\n"
+                
+                # Prepend context to current message
+                full_message = message
+                if conversation_context:
+                    full_message = f"""CONVERSATION HISTORY (use this to understand context):
+{conversation_context}
+---
+CURRENT USER QUERY: {message}
+
+IMPORTANT: If the user asks about "cheapest", "best", "recommend", etc., look at the CONVERSATION HISTORY above to understand what product category they're referring to."""
+                    logger.info(f"📜 Including conversation history ({len(recent_history)} messages)")
+                    logger.info(f"📝 Full context: {full_message[:300]}...")
+                
                 # Create agent
                 agent = self.Agent(
                     model=self.model_id,
@@ -256,9 +284,9 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
                     system_prompt=self._get_system_prompt()
                 )
                 
-                # Invoke agent
+                # Invoke agent with full context
                 logger.info(f"🔍 Agent searching database...")
-                response = agent(message)
+                response = agent(full_message)
                 response_text = str(response)
                 
                 logger.info(f"✅ Agent completed")

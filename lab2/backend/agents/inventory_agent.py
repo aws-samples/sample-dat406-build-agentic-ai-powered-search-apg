@@ -2,7 +2,7 @@
 Inventory Restock Agent - Monitors stock levels and suggests restocking
 """
 from strands import Agent, tool
-from services.mcp_tool_wrappers import get_inventory_health_tool
+from services.mcp_tool_direct import get_inventory_health_direct, restock_product_direct
 
 
 @tool
@@ -18,10 +18,8 @@ def inventory_restock_agent(query: str) -> str:
         Restocking recommendations or restock confirmation
     """
     try:
-        from services.mcp_tool_wrappers import restock_product_tool
-        
         # Get inventory data from custom MCP tool
-        inventory_data = get_inventory_health_tool()
+        inventory_data = get_inventory_health_direct()
         
         agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -37,14 +35,14 @@ Guidelines:
 5. Keep response under 200 words - no repetition
 
 For restock requests:
-- Use restock_product_tool(product_id, quantity) to add stock
+- Use restock_product_direct(product_id, quantity) to add stock
 - Confirm the action with old and new quantities
 
 Format:
 - Summary stats
 - Top priority items (if names provided)
 - Recommended actions""",
-            tools=[restock_product_tool]
+            tools=[restock_product_direct]
         )
         
         response = agent(f"{query}\n\nInventory Health Data:\n{inventory_data}")

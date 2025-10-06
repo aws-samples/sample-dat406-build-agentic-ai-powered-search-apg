@@ -3,7 +3,19 @@ Custom MCP Tools for Aurora PostgreSQL
 Extends base MCP with business-specific functionality
 """
 from typing import Dict, Any, List
+from decimal import Decimal
 import json
+
+
+def convert_decimals(obj):
+    """Convert Decimal objects to float for JSON serialization"""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_decimals(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_decimals(item) for item in obj]
+    return obj
 
 
 class CustomMCPTools:
@@ -44,7 +56,7 @@ class CustomMCPTools:
         
         results = await self.db.fetch_all(query, limit)
         
-        products = [dict(row) for row in results]
+        products = [convert_decimals(dict(row)) for row in results]
         
         return {
             "status": "success",
@@ -76,7 +88,7 @@ class CustomMCPTools:
         """
         
         stats = await self.db.fetch_one(stats_query)
-        stats_dict = dict(stats)
+        stats_dict = convert_decimals(dict(stats))
         
         # Get critical items (low stock with high demand)
         critical_query = """
@@ -104,15 +116,8 @@ class CustomMCPTools:
         return {
             "status": "success",
             "health_score": health_score,
-            "statistics": {
-                "total_products": stats_dict['total_products'],
-                "out_of_stock": stats_dict['out_of_stock'],
-                "low_stock": stats_dict['low_stock'],
-                "healthy_stock": stats_dict['healthy_stock'],
-                "avg_quantity": float(stats_dict['avg_quantity']) if stats_dict['avg_quantity'] else 0,
-                "total_quantity": stats_dict['total_quantity']
-            },
-            "critical_items": [dict(row) for row in critical_items],
+            "statistics": stats_dict,
+            "critical_items": [convert_decimals(dict(row)) for row in critical_items],
             "alerts": self._generate_inventory_alerts(stats_dict)
         }
     
@@ -158,7 +163,7 @@ class CustomMCPTools:
             """
             results = await self.db.fetch_all(query)
         
-        categories = [dict(row) for row in results]
+        categories = [convert_decimals(dict(row)) for row in results]
         
         # Calculate overall statistics
         overall_query = """
@@ -173,17 +178,11 @@ class CustomMCPTools:
         """
         
         overall = await self.db.fetch_one(overall_query)
-        overall_dict = dict(overall)
+        overall_dict = convert_decimals(dict(overall))
         
         return {
             "status": "success",
-            "overall": {
-                "total_products": overall_dict['total_products'],
-                "min_price": float(overall_dict['min_price']) if overall_dict['min_price'] else 0,
-                "max_price": float(overall_dict['max_price']) if overall_dict['max_price'] else 0,
-                "avg_price": float(overall_dict['avg_price']) if overall_dict['avg_price'] else 0,
-                "median_price": float(overall_dict['median_price']) if overall_dict['median_price'] else 0
-            },
+            "overall": overall_dict,
             "by_category": categories,
             "filter": category if category else "all"
         }

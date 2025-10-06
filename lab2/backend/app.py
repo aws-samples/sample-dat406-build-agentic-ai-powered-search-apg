@@ -5,6 +5,7 @@ FastAPI app with semantic search (Lab 1) and multi-agent system (Lab 2)
 
 import time
 import logging
+import json
 from contextlib import asynccontextmanager
 from typing import List
 
@@ -95,6 +96,18 @@ async def lifespan(app: FastAPI):
         
         # Set chat service logger to INFO
         logging.getLogger('services.chat').setLevel(logging.INFO)
+        
+        # Initialize direct MCP tools with pre-fetched data
+        from services.mcp_tools import CustomMCPTools
+        from services.mcp_tool_direct import set_mcp_tools
+        mcp = CustomMCPTools(db_service)
+        mcp_data = {
+            "inventory_health": json.dumps(await mcp.get_inventory_health(), indent=2),
+            "trending_products": json.dumps(await mcp.get_trending_products(50), indent=2),
+            "price_statistics": json.dumps(await mcp.get_price_statistics(), indent=2)
+        }
+        set_mcp_tools(mcp_data)
+        logger.info("✅ Direct MCP tools initialized")
         
         # Initialize Lab 2 agents if available
         if LAB2_AVAILABLE:
@@ -750,11 +763,17 @@ async def chat(request: ChatRequest):
 async def agent_query(
     query: str,
     agent_type: str = "orchestrator",
+    enable_thinking: bool = False,
     db: DatabaseService = Depends(get_db_service)
 ):
     """
     Query specialized agents (inventory, recommendation, pricing)
     Uses custom MCP tools to provide data to agents
+    
+    Args:
+        query: User query
+        agent_type: Type of agent (orchestrator, inventory, recommendation, pricing)
+        enable_thinking: Enable Claude Sonnet 4's extended thinking (default: False)
     """
     try:
         from agents.orchestrator import create_orchestrator
@@ -797,24 +816,23 @@ async def agent_query(
             price_stats = await mcp_tools.get_price_statistics()
             context = json.dumps(price_stats, indent=2)
         
-        # Use orchestrator or specific agent (always pass context)
+        # Use orchestrator or specific agent
         if agent_type == "orchestrator":
-            # Orchestrator will call specialized agents with context
             if "inventory" in query.lower() or "stock" in query.lower():
-                response = inventory_restock_agent(query, context)
+                response = inventory_restock_agent(query)
             elif "recommend" in query.lower() or "suggest" in query.lower():
-                response = product_recommendation_agent(query, context)
+                response = product_recommendation_agent(query)
             elif "price" in query.lower() or "deal" in query.lower():
-                response = price_optimization_agent(query, context)
+                response = price_optimization_agent(query)
             else:
-                orchestrator = create_orchestrator()
+                orchestrator = create_orchestrator(enable_interleaved_thinking=enable_thinking)
                 response = orchestrator(query)
         elif agent_type == "inventory":
-            response = inventory_restock_agent(query, context)
+            response = inventory_restock_agent(query)
         elif agent_type == "recommendation":
-            response = product_recommendation_agent(query, context)
+            response = product_recommendation_agent(query)
         elif agent_type == "pricing":
-            response = price_optimization_agent(query, context)
+            response = price_optimization_agent(query)
         else:
             raise HTTPException(status_code=400, detail="Invalid agent type")
         
