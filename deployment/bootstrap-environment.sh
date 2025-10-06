@@ -152,6 +152,13 @@ log "✅ Nginx configured and running"
 
 log "Creating Code Editor systemd service..."
 
+# Stop and disable the installer's default service
+if systemctl is-active --quiet "code-editor@$CODE_EDITOR_USER"; then
+    log "Stopping installer's default Code Editor service..."
+    systemctl stop "code-editor@$CODE_EDITOR_USER" || true
+    systemctl disable "code-editor@$CODE_EDITOR_USER" || true
+fi
+
 # Get AWS region from environment or EC2 metadata
 AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo 'us-west-2')}"
 log "AWS Region: $AWS_REGION"
