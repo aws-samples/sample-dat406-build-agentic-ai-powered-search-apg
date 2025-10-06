@@ -99,10 +99,8 @@ else
     error "Code Editor binary not found"
 fi
 
-# Configure token
-sudo -u "$CODE_EDITOR_USER" mkdir -p "/home/$CODE_EDITOR_USER/.code-editor-server/data"
-echo -n "$CODE_EDITOR_PASSWORD" > "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
-chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+# Configure token (will be set after service is created)
+log "Token will be configured after service creation"
 
 # ============================================================================
 # STEP 5: NGINX CONFIGURATION (~10 sec)
@@ -164,6 +162,14 @@ EOF
 
 systemctl daemon-reload
 systemctl enable "code-editor@$CODE_EDITOR_USER"
+
+# Create token file BEFORE starting service
+log "Creating token file with correct password..."
+sudo -u "$CODE_EDITOR_USER" mkdir -p "/home/$CODE_EDITOR_USER/.code-editor-server/data"
+echo -n "$CODE_EDITOR_PASSWORD" > "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+chmod 600 "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+
 systemctl start "code-editor@$CODE_EDITOR_USER"
 log "✅ Code Editor service started"
 
