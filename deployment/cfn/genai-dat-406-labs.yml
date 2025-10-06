@@ -241,8 +241,8 @@ Resources:
         InstanceOperatingSystem: AmazonLinux-2023
         HomeFolder: /workshop
         RepoUrl: !Ref GitHubRepo
-        EnvironmentBootstrapUrl: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-code-editor-dat406.sh
-        LabsBootstrapUrl: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-code-editor-dat406.sh
+        EnvironmentBootstrapUrl: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-environment.sh
+        LabsBootstrapUrl: https://raw.githubusercontent.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg/main/deployment/bootstrap-labs.sh
         VPCId: !GetAtt VPCStack.Outputs.VPC
         SubnetId: !GetAtt VPCStack.Outputs.PublicSubnetA
         VpcCIDR: !Ref VpcCIDR
