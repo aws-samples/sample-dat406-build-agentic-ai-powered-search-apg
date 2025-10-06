@@ -206,6 +206,9 @@ else
         "seaborn>=0.12.0" \
         "boto3>=1.28.0" \
         tqdm \
+        pandarallel \
+        plotly \
+        kaleido \
         python-dotenv \
         "ipykernel>=6.25.0" \
         "jupyter>=1.0.0" \
@@ -261,7 +264,26 @@ else
 fi
 
 # ============================================================================
-# STEP 7: LAB 2 - FRONTEND DEPENDENCIES (~8 min)
+# STEP 7: INSTALL UV/UVX FOR MCP (~30 sec)
+# ============================================================================
+
+log "Installing uv/uvx for MCP..."
+if command -v uv &>/dev/null; then
+    log "✅ uv already installed"
+else
+    if command -v curl &>/dev/null; then
+        sudo -u "$CODE_EDITOR_USER" bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' || {
+            log "curl installation failed, trying pip..."
+            sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user uv
+        }
+    else
+        sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user uv
+    fi
+    log "✅ uv/uvx installed"
+fi
+
+# ============================================================================
+# STEP 8: LAB 2 - FRONTEND DEPENDENCIES (~8 min)
 # ============================================================================
 
 if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
@@ -279,7 +301,7 @@ else
 fi
 
 # ============================================================================
-# STEP 8: BASH ENVIRONMENT CONFIGURATION (~5 sec)
+# STEP 9: BASH ENVIRONMENT CONFIGURATION (~5 sec)
 # ============================================================================
 
 log "Configuring bash environment..."
@@ -347,7 +369,7 @@ chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.bashrc"
 log "✅ Bash environment configured"
 
 # ============================================================================
-# STEP 9: CREATE STATUS MARKER (~1 sec)
+# STEP 10: CREATE STATUS MARKER (~1 sec)
 # ============================================================================
 
 log "Creating completion status marker..."
@@ -378,7 +400,7 @@ chmod 644 /tmp/workshop-ready.json
 log "✅ Status marker created: /tmp/workshop-ready.json"
 
 # ============================================================================
-# STEP 10: FINAL VERIFICATION (~5 sec)
+# STEP 11: FINAL VERIFICATION (~5 sec)
 # ============================================================================
 
 log "Performing final verification..."

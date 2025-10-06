@@ -34,14 +34,28 @@ log "=========================================="
 
 log "Installing essential system packages..."
 dnf update -y -q
-dnf install -y -q \
+dnf install --skip-broken -y -q \
+    curl \
+    gnupg \
+    whois \
+    argon2 \
+    unzip \
     nginx \
-    python3.13 \
-    nodejs \
+    openssl \
+    jq \
     git \
     wget \
-    jq \
-    unzip
+    python3.13 \
+    python3.13-pip \
+    python3.13-setuptools \
+    python3.13-devel \
+    python3.13-wheel \
+    python3.13-tkinter \
+    gcc \
+    gcc-c++ \
+    make \
+    postgresql16 \
+    nodejs
 
 log "✅ System packages installed"
 
@@ -222,25 +236,28 @@ install_extension() {
     local EXT_ID=$1
     local EXT_NAME=$2
     
-    for retry in {1..3}; do
-        if sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" --force 2>&1 | grep -q "successfully installed\|already installed"; then
+    log "Installing extension: $EXT_NAME ($EXT_ID)..."
+    
+    if [ -f "$CODE_EDITOR_CMD" ]; then
+        sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" --force 2>&1 | tee -a /tmp/extension_install.log || true
+        
+        if grep -q "successfully installed" /tmp/extension_install.log 2>/dev/null; then
             log "  ✅ $EXT_NAME"
             return 0
         fi
-        sleep 3
-    done
+    fi
+    
     warn "  ⚠️  $EXT_NAME may require manual install"
+    return 1
 }
 
-# Install critical extensions first
+# Install essential extensions
 install_extension "ms-python.python" "Python"
-sleep 2
 install_extension "ms-python.vscode-pylance" "Pylance"
-sleep 2
 install_extension "ms-toolsai.jupyter" "Jupyter"
-sleep 2
-
-# Install other extensions
+install_extension "ms-toolsai.vscode-jupyter-cell-tags" "Jupyter Cell Tags"
+install_extension "ms-toolsai.jupyter-keymap" "Jupyter Keymap"
+install_extension "ms-toolsai.jupyter-renderers" "Jupyter Renderers"
 install_extension "dbaeumer.vscode-eslint" "ESLint"
 install_extension "esbenp.prettier-vscode" "Prettier"
 install_extension "bradlc.vscode-tailwindcss" "Tailwind CSS"
@@ -260,35 +277,39 @@ sudo -u "$CODE_EDITOR_USER" mkdir -p "$SETTINGS_DIR"
 cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 {
     "python.defaultInterpreterPath": "/usr/bin/python3.13",
-    "python.terminal.activateEnvironment": false,
+    "python.terminal.activateEnvironment": true,
+    "python.linting.enabled": true,
     "python.globalModuleInstallation": true,
+    "jupyter.jupyterServerType": "local",
     "jupyter.kernels.filter": [],
-    "jupyter.notebookFileRoot": "${workspaceFolder}",
-    "notebook.defaultKernel": "python3",
-    "terminal.integrated.defaultProfile.linux": "bash",
-    "terminal.integrated.cwd": "/workshop",
-    "files.autoSave": "afterDelay",
-    "workbench.startupEditor": "none",
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "aws.telemetry": false,
-    "telemetry.telemetryLevel": "off",
+    "jupyter.notebookFileRoot": "/workshop",
     "jupyter.askForKernelRestart": false,
+    "notebook.defaultKernel": "python3",
     "notebook.cellToolbarLocation": {
         "default": "right",
         "jupyter-notebook": "left"
     },
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.cwd": "/workshop",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+    "workbench.startupEditor": "none",
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "git.enabled": false,
+    "git.autorefresh": false,
+    "git.autofetch": false,
+    "scm.defaultViewMode": "tree",
+    "aws.telemetry": false,
+    "amazonQ.telemetry": false,
+    "telemetry.telemetryLevel": "off",
     "extensions.autoCheckUpdates": false,
     "extensions.autoUpdate": false,
     "extensions.ignoreRecommendations": true,
     "security.workspace.trust.enabled": false,
     "security.workspace.trust.startupPrompt": "never",
     "security.workspace.trust.banner": "never",
-    "security.workspace.trust.emptyWindow": false,
-    "git.enabled": false,
-    "git.autorefresh": false,
-    "git.autofetch": false,
-    "scm.defaultViewMode": "tree"
+    "security.workspace.trust.emptyWindow": false
 }
 VSCODE_SETTINGS
 
@@ -319,11 +340,28 @@ update-alternatives --set python3 /usr/bin/python3.13
 # Upgrade pip
 sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user --upgrade pip -q
 
-# Set AWS region for user environment
-log "Configuring AWS region for user environment..."
-cat >> "/home/$CODE_EDITOR_USER/.bashrc" << EOF
+# Set AWS region and workshop shortcuts for user environment
+log "Configuring AWS region and workshop shortcuts..."
+cat >> "/home/$CODE_EDITOR_USER/.bashrc" << 'EOF'
+
+# AWS Configuration
 export AWS_REGION="$AWS_REGION"
 export AWS_DEFAULT_REGION="$AWS_REGION"
+
+# Workshop shortcuts
+alias workshop='cd /workshop'
+alias lab1='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab1'
+alias lab2='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2'
+
+# Load .env file if it exists
+if [ -f /workshop/.env ]; then
+    set -a
+    source /workshop/.env
+    set +a
+fi
+
+# Add local bin to PATH
+export PATH="$HOME/.local/bin:$PATH"
 EOF
 
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.bashrc"
