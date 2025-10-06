@@ -217,18 +217,24 @@ install_extension() {
     local EXT_NAME=$2
     
     for retry in {1..3}; do
-        if sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" 2>&1 | grep -q "successfully installed\|already installed"; then
+        if sudo -u "$CODE_EDITOR_USER" "$CODE_EDITOR_CMD" --install-extension "$EXT_ID" --force 2>&1 | grep -q "successfully installed\|already installed"; then
             log "  ✅ $EXT_NAME"
             return 0
         fi
-        sleep 2
+        sleep 3
     done
     warn "  ⚠️  $EXT_NAME may require manual install"
 }
 
+# Install critical extensions first
 install_extension "ms-python.python" "Python"
+sleep 2
 install_extension "ms-python.vscode-pylance" "Pylance"
+sleep 2
 install_extension "ms-toolsai.jupyter" "Jupyter"
+sleep 2
+
+# Install other extensions
 install_extension "dbaeumer.vscode-eslint" "ESLint"
 install_extension "esbenp.prettier-vscode" "Prettier"
 install_extension "bradlc.vscode-tailwindcss" "Tailwind CSS"
@@ -248,6 +254,11 @@ sudo -u "$CODE_EDITOR_USER" mkdir -p "$SETTINGS_DIR"
 cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 {
     "python.defaultInterpreterPath": "/usr/bin/python3.13",
+    "python.terminal.activateEnvironment": false,
+    "python.globalModuleInstallation": true,
+    "jupyter.kernels.filter": [],
+    "jupyter.notebookFileRoot": "${workspaceFolder}",
+    "notebook.defaultKernel": "python3",
     "terminal.integrated.defaultProfile.linux": "bash",
     "terminal.integrated.cwd": "/workshop",
     "files.autoSave": "afterDelay",
@@ -260,11 +271,35 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
     "notebook.cellToolbarLocation": {
         "default": "right",
         "jupyter-notebook": "left"
-    }
+    },
+    "extensions.autoCheckUpdates": false,
+    "extensions.autoUpdate": false,
+    "extensions.ignoreRecommendations": true,
+    "security.workspace.trust.enabled": false,
+    "security.workspace.trust.startupPrompt": "never",
+    "security.workspace.trust.banner": "never",
+    "security.workspace.trust.emptyWindow": false,
+    "git.enabled": false,
+    "git.autorefresh": false,
+    "git.autofetch": false,
+    "scm.defaultViewMode": "tree"
 }
 VSCODE_SETTINGS
 
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$SETTINGS_DIR"
+
+# Create Python environment file for workspace
+log "Creating Python environment configuration..."
+mkdir -p "$HOME_FOLDER/.vscode"
+cat > "$HOME_FOLDER/.vscode/settings.json" << 'WORKSPACE_SETTINGS'
+{
+    "python.defaultInterpreterPath": "/usr/bin/python3.13",
+    "jupyter.kernels.filter": [],
+    "notebook.defaultKernel": "python3"
+}
+WORKSPACE_SETTINGS
+
+chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/.vscode"
 log "✅ VS Code settings configured"
 
 # ============================================================================
