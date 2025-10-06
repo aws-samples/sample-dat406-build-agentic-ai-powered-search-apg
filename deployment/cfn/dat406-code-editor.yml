@@ -635,6 +635,19 @@ Resources:
           OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
           TargetOriginId: !Sub 'origin-${AWS::StackName}'
           ViewerProtocolPolicy: allow-all
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 500
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 502
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 503
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 504
+            ErrorCachingMinTTL: 0
         Origins:
           - DomainName: !GetAtt CodeEditorInstance.PublicDnsName
             Id: !Sub 'origin-${AWS::StackName}'
