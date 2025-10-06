@@ -101,19 +101,36 @@ chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER"
 # ============================================================================
 
 log "Installing Code Editor..."
-export CodeEditorUser="$CODE_EDITOR_USER"
-curl -fsSL https://code-editor.amazonaws.com/content/code-editor-server/dist/aws-workshop-studio/install.sh | bash -s --
 
-# Find binary
-if [ -f "/home/$CODE_EDITOR_USER/.local/bin/code-editor-server" ]; then
-    CODE_EDITOR_CMD="/home/$CODE_EDITOR_USER/.local/bin/code-editor-server"
+# Manual installation to avoid installer's default service
+CODE_EDITOR_VERSION="v1.101.0"
+if [ "$(uname -m)" = "aarch64" ]; then
+    CODE_EDITOR_ARCH="linux-arm64"
+else
+    CODE_EDITOR_ARCH="linux-x64"
+fi
+
+CODE_EDITOR_DIR="/home/$CODE_EDITOR_USER/.local/lib/code-editor-$CODE_EDITOR_VERSION-$CODE_EDITOR_ARCH"
+CODE_EDITOR_CMD="/home/$CODE_EDITOR_USER/.local/bin/code-editor-server"
+
+# Download and extract
+sudo -u "$CODE_EDITOR_USER" mkdir -p "$CODE_EDITOR_DIR"
+sudo -u "$CODE_EDITOR_USER" mkdir -p "/home/$CODE_EDITOR_USER/.local/bin"
+
+curl -fsSL "https://code-editor.amazonaws.com/content/code-editor-server/dist/aws-workshop-studio/code-editor-server-$CODE_EDITOR_ARCH.tar.gz" \
+    -o "/tmp/code-editor.tar.gz"
+
+sudo -u "$CODE_EDITOR_USER" tar -xzf "/tmp/code-editor.tar.gz" -C "$CODE_EDITOR_DIR"
+rm -f "/tmp/code-editor.tar.gz"
+
+# Create symlink
+sudo -u "$CODE_EDITOR_USER" ln -sf "$CODE_EDITOR_DIR/dist/bin/code-editor-server" "$CODE_EDITOR_CMD"
+
+if [ -f "$CODE_EDITOR_CMD" ]; then
     log "✅ Code Editor installed at: $CODE_EDITOR_CMD"
 else
     error "Code Editor binary not found"
 fi
-
-# Configure token (will be set after service is created)
-log "Token will be configured after service creation"
 
 # ============================================================================
 # STEP 5: NGINX CONFIGURATION (~10 sec)
@@ -152,12 +169,7 @@ log "✅ Nginx configured and running"
 
 log "Creating Code Editor systemd service..."
 
-# Stop and disable the installer's default service
-if systemctl is-active --quiet "code-editor@$CODE_EDITOR_USER"; then
-    log "Stopping installer's default Code Editor service..."
-    systemctl stop "code-editor@$CODE_EDITOR_USER" || true
-    systemctl disable "code-editor@$CODE_EDITOR_USER" || true
-fi
+# No installer service to stop since we did manual installation
 
 # Get AWS region from environment or EC2 metadata
 AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo 'us-west-2')}"
@@ -187,16 +199,15 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable "code-editor@$CODE_EDITOR_USER"
-
-# Create token file BEFORE starting service
+# Create token file BEFORE enabling/starting service
 log "Creating token file with correct password..."
 sudo -u "$CODE_EDITOR_USER" mkdir -p "/home/$CODE_EDITOR_USER/.code-editor-server/data"
 echo -n "$CODE_EDITOR_PASSWORD" > "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
 chmod 600 "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
 
+systemctl daemon-reload
+systemctl enable "code-editor@$CODE_EDITOR_USER"
 systemctl start "code-editor@$CODE_EDITOR_USER"
 log "✅ Code Editor service started"
 
@@ -205,11 +216,12 @@ log "✅ Code Editor service started"
 # ============================================================================
 
 log "Waiting for Code Editor to initialize..."
-sleep 10
+sleep 15
 
-MAX_RETRIES=20
+MAX_RETRIES=30
 RETRY_COUNT=0
 CODE_EDITOR_READY=false
+RESTART_ATTEMPTED=false
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/ 2>/dev/null || echo "000")
@@ -219,6 +231,11 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         CODE_EDITOR_READY=true
         sleep 3
         break
+    elif [ "$HTTP_CODE" = "403" ] && [ $RETRY_COUNT -eq 10 ] && [ "$RESTART_ATTEMPTED" = "false" ]; then
+        warn "HTTP 403 detected - restarting Code Editor service..."
+        systemctl restart "code-editor@$CODE_EDITOR_USER"
+        RESTART_ATTEMPTED=true
+        sleep 10
     else
         RETRY_COUNT=$((RETRY_COUNT + 1))
         if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
