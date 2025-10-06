@@ -112,6 +112,7 @@ if [ ! -z "$DB_HOST" ] && [ ! -z "$DB_USER" ]; then
     # Root .env
     cat > "$HOME_FOLDER/$REPO_NAME/.env" << ENV_ROOT
 # Database Configuration
+DB_SECRET_ARN='$DB_SECRET_ARN'
 DB_HOST='$DB_HOST'
 DB_PORT='$DB_PORT'
 DB_NAME='$DB_NAME'
