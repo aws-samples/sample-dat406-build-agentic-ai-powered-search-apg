@@ -92,9 +92,23 @@ fi
 # STEP 3: CREATE .ENV FILES (~5 sec)
 # ============================================================================
 
+log "Creating environment configuration files..."
+
+# Always create Lab 2 Frontend .env (doesn't need DB credentials)
+if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
+    cat > "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env" << ENV_FRONTEND
+VITE_API_URL=http://localhost:8000
+VITE_AWS_REGION=$AWS_REGION
+VITE_ENABLE_LAB2=true
+ENV_FRONTEND
+
+    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
+    chmod 644 "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
+    log "✅ Lab 2 Frontend .env created"
+fi
+
+# Create DB-dependent .env files only if credentials are available
 if [ ! -z "$DB_HOST" ] && [ ! -z "$DB_USER" ]; then
-    log "Creating environment configuration files..."
-    
     # Root .env
     cat > "$HOME_FOLDER/$REPO_NAME/.env" << ENV_ROOT
 # Database Configuration
@@ -155,19 +169,6 @@ ENV_BACKEND
         log "✅ Lab 2 Backend .env created"
     fi
     
-    # Lab 2 Frontend .env
-    if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
-        cat > "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env" << ENV_FRONTEND
-VITE_API_URL=http://localhost:8000
-VITE_AWS_REGION=$AWS_REGION
-VITE_ENABLE_LAB2=true
-ENV_FRONTEND
-
-        chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
-        chmod 644 "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
-        log "✅ Lab 2 Frontend .env created"
-    fi
-    
     # .pgpass for psql CLI
     cat > "/home/$CODE_EDITOR_USER/.pgpass" << PGPASS
 $DB_HOST:$DB_PORT:$DB_NAME:$DB_USER:$DB_PASSWORD
@@ -176,9 +177,9 @@ PGPASS
     chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.pgpass"
     log "✅ .pgpass created for psql CLI"
-    
 else
-    warn "Skipping .env file creation (database credentials not available)"
+    warn "Database credentials not available - backend .env and .pgpass not created"
+    warn "Lab 1 and Lab 2 backend will require manual database configuration"
 fi
 
 # ============================================================================
