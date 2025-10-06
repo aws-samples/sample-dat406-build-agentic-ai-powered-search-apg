@@ -39,7 +39,6 @@ dnf install -y -q \
     python3.13 \
     nodejs \
     git \
-    curl \
     wget \
     jq \
     unzip
