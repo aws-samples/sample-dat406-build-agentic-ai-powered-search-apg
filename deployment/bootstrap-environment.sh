@@ -138,6 +138,11 @@ log "✅ Nginx configured and running"
 # ============================================================================
 
 log "Creating Code Editor systemd service..."
+
+# Get AWS region from environment or EC2 metadata
+AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo 'us-west-2')}"
+log "AWS Region: $AWS_REGION"
+
 cat > /etc/systemd/system/code-editor@.service << EOF
 [Unit]
 Description=AWS Code Editor Server
@@ -150,6 +155,8 @@ Group=%i
 WorkingDirectory=$HOME_FOLDER
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/$CODE_EDITOR_USER/.local/bin
 Environment=HOME=/home/$CODE_EDITOR_USER
+Environment=AWS_REGION=$AWS_REGION
+Environment=AWS_DEFAULT_REGION=$AWS_REGION
 ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-workspace $HOME_FOLDER --default-folder $HOME_FOLDER --connection-token $CODE_EDITOR_PASSWORD
 Restart=always
 RestartSec=10
@@ -312,6 +319,15 @@ update-alternatives --set python3 /usr/bin/python3.13
 
 # Upgrade pip
 sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user --upgrade pip -q
+
+# Set AWS region for user environment
+log "Configuring AWS region for user environment..."
+cat >> "/home/$CODE_EDITOR_USER/.bashrc" << EOF
+export AWS_REGION="$AWS_REGION"
+export AWS_DEFAULT_REGION="$AWS_REGION"
+EOF
+
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.bashrc"
 
 log "✅ Python 3.13 configured"
 
