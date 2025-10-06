@@ -77,6 +77,12 @@ cd - > /dev/null
 
 log "✅ AWS CLI installed: $(aws --version)"
 
+# Set Python 3.13 as default
+log "Setting Python 3.13 as default..."
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 1
+update-alternatives --set python3 /usr/bin/python3.13
+log "✅ Python 3.13 set as default"
+
 # ============================================================================
 # STEP 3: USER SETUP (~10 sec)
 # ============================================================================
@@ -104,13 +110,21 @@ log "Installing Code Editor..."
 export CodeEditorUser="$CODE_EDITOR_USER"
 curl -fsSL https://code-editor.amazonaws.com/content/code-editor-server/dist/aws-workshop-studio/install.sh | bash -s --
 
-# Find binary
+# Find Code Editor binary
 if [ -f "/home/$CODE_EDITOR_USER/.local/bin/code-editor-server" ]; then
     CODE_EDITOR_CMD="/home/$CODE_EDITOR_USER/.local/bin/code-editor-server"
     log "✅ Code Editor installed at: $CODE_EDITOR_CMD"
 else
     error "Code Editor binary not found"
 fi
+
+# Configure authentication token
+log "Configuring authentication token..."
+sudo -u "$CODE_EDITOR_USER" mkdir -p "/home/$CODE_EDITOR_USER/.code-editor-server/data"
+echo -n "$CODE_EDITOR_PASSWORD" > "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+chmod 600 "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
+log "✅ Token configured"
 
 # ============================================================================
 # STEP 5: NGINX CONFIGURATION (~10 sec)
@@ -189,23 +203,17 @@ WantedBy=multi-user.target
 EOF
 
 # Create token file BEFORE enabling/starting service
-log "Creating Code Editor data directory with correct token..."
-sudo -u "$CODE_EDITOR_USER" mkdir -p "/home/$CODE_EDITOR_USER/.code-editor-server/data"
-echo -n "$CODE_EDITOR_PASSWORD" > "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
-chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.code-editor-server"
-chmod 600 "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
-
 systemctl daemon-reload
 systemctl enable "code-editor@$CODE_EDITOR_USER"
 systemctl start "code-editor@$CODE_EDITOR_USER"
 log "✅ Code Editor service started"
 
 # ============================================================================
-# STEP 7: WAIT FOR CODE EDITOR (~30 sec)
+# STEP 7: WAIT FOR CODE EDITOR TO FULLY START
 # ============================================================================
 
 log "Waiting for Code Editor to initialize..."
-sleep 15
+sleep 20
 
 MAX_RETRIES=30
 RETRY_COUNT=0
@@ -346,10 +354,7 @@ log "✅ VS Code settings configured"
 # STEP 10: PYTHON SETUP (~10 sec)
 # ============================================================================
 
-log "Setting up Python 3.13..."
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.13 1
-update-alternatives --set python3 /usr/bin/python3.13
-
+log "Upgrading pip..."
 # Upgrade pip
 sudo -u "$CODE_EDITOR_USER" python3.13 -m pip install --user --upgrade pip -q
 
@@ -463,12 +468,24 @@ if [ ! -z "${STAGE2_SCRIPT_URL}" ]; then
     curl -fsSL "$STAGE2_SCRIPT_URL" -o /tmp/bootstrap-labs.sh
     chmod +x /tmp/bootstrap-labs.sh
     
-    # Run Stage 2 in background
-    nohup /tmp/bootstrap-labs.sh > /var/log/bootstrap-labs.log 2>&1 &
-    STAGE2_PID=$!
+    # Export environment variables for Stage 2
+    export CODE_EDITOR_USER="$CODE_EDITOR_USER"
+    export HOME_FOLDER="$HOME_FOLDER"
+    export REPO_URL="${REPO_URL:-https://github.com/aws-samples/sample-dat406-build-agentic-ai-powered-search-apg.git}"
+    export DB_SECRET_ARN="${DB_SECRET_ARN:-}"
+    export DB_CLUSTER_ENDPOINT="${DB_CLUSTER_ENDPOINT:-}"
+    export DB_NAME="${DB_NAME:-postgres}"
+    export AWS_REGION="$AWS_REGION"
+    export BEDROCK_EMBEDDING_MODEL="${BEDROCK_EMBEDDING_MODEL:-amazon.titan-embed-text-v2:0}"
+    export BEDROCK_CHAT_MODEL="${BEDROCK_CHAT_MODEL:-us.anthropic.claude-sonnet-4-20250514-v1:0}"
+    
+    # Run Stage 2 in background with sudo to write to /var/log
+    sudo -E bash -c 'nohup /tmp/bootstrap-labs.sh > /var/log/bootstrap-labs.log 2>&1 &'
+    sleep 1
+    STAGE2_PID=$(pgrep -f bootstrap-labs.sh | tail -1)
     
     log "✅ Stage 2 triggered (PID: $STAGE2_PID)"
-    log "   Monitor: tail -f /var/log/bootstrap-labs.log"
+    log "   Monitor: sudo tail -f /var/log/bootstrap-labs.log"
 else
     warn "STAGE2_SCRIPT_URL not set - Stage 2 will not run"
 fi
