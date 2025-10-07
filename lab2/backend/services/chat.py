@@ -15,13 +15,13 @@ import re
 
 import boto3
 
-# Configure logging levels - reduce verbosity
-logging.getLogger("strands").setLevel(logging.WARNING)  # Only show warnings/errors
-logging.getLogger("strands.models.bedrock").setLevel(logging.WARNING)  # Hide verbose bedrock logs
-logging.getLogger("strands.tools.mcp").setLevel(logging.WARNING)  # Hide tool calls
-logging.getLogger("strands.tools.registry").setLevel(logging.WARNING)  # Hide registry logs
-logging.getLogger("strands.agent").setLevel(logging.WARNING)  # Hide agent logs
-logging.getLogger("strands.event_loop").setLevel(logging.WARNING)  # Hide event loop logs
+# Configure logging levels - show agent activity
+logging.getLogger("strands").setLevel(logging.INFO)  # Show agent activity
+logging.getLogger("strands.models.bedrock").setLevel(logging.INFO)  # Show bedrock calls
+logging.getLogger("strands.tools.mcp").setLevel(logging.INFO)  # Show tool calls
+logging.getLogger("strands.tools.registry").setLevel(logging.INFO)  # Show registry
+logging.getLogger("strands.agent").setLevel(logging.INFO)  # Show agent logs
+logging.getLogger("strands.event_loop").setLevel(logging.INFO)  # Show event loop
 logging.getLogger("botocore").setLevel(logging.WARNING)  # Reduce AWS noise
 logging.getLogger("urllib3").setLevel(logging.WARNING)  # Reduce HTTP noise
 
@@ -100,11 +100,20 @@ class EnhancedChatService:
         args = server_config['args']
         env_vars = server_config.get('env', {})
         
-        # Add suppression flags
+        # Pass AWS credentials from current environment (not profile)
+        # MCP subprocess needs explicit credentials
         env_vars.update({
+            "AWS_ACCESS_KEY_ID": os.environ.get('AWS_ACCESS_KEY_ID', ''),
+            "AWS_SECRET_ACCESS_KEY": os.environ.get('AWS_SECRET_ACCESS_KEY', ''),
+            "AWS_SESSION_TOKEN": os.environ.get('AWS_SESSION_TOKEN', ''),
+            "AWS_DEFAULT_REGION": self.db_region,
+            "AWS_REGION": self.db_region,
             "PYTHONWARNINGS": "ignore",
             "UV_NO_PROGRESS": "1"
         })
+        
+        # Remove AWS_PROFILE if present (we're using explicit credentials)
+        env_vars.pop('AWS_PROFILE', None)
         
         logger.info(f"Loading MCP config from: {config_path}")
         

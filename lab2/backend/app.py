@@ -42,13 +42,13 @@ except ImportError:
 
 # Configure logging for Strands SDK
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(levelname)s | %(name)s | %(message)s",
     handlers=[logging.StreamHandler()]
 )
 
 # Configure the root strands logger
-logging.getLogger("strands").setLevel(logging.DEBUG)
+logging.getLogger("strands").setLevel(logging.INFO)
 
 # Configure app logger
 logger = logging.getLogger(__name__)
@@ -288,8 +288,11 @@ async def semantic_search(
     start_time = time.time()
     
     try:
+        logger.info(f"🔍 Semantic search: '{request.query}' (limit={request.limit})")
+        
         # Generate query embedding
         query_embedding = embeddings.generate_embedding(request.query)
+        logger.info(f"✅ Generated embedding vector (1024 dimensions)")
         
         # Perform vector similarity search
         query = """
@@ -322,6 +325,8 @@ async def semantic_search(
             request.limit
         )
         
+        logger.info(f"📦 Found {len(results)} products")
+        
         # Convert to response model
         search_results = []
         for row in results:
@@ -330,6 +335,7 @@ async def semantic_search(
             search_results.append(search_result)
         
         search_time_ms = (time.time() - start_time) * 1000
+        logger.info(f"⚡ Search completed in {search_time_ms:.2f}ms")
         
         return SearchResponse(
             query=request.query,
@@ -340,7 +346,7 @@ async def semantic_search(
         )
         
     except Exception as e:
-        logger.error(f"Search failed: {e}")
+        logger.error(f"❌ Search failed: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
@@ -393,6 +399,8 @@ async def browse_category(
 ):
     """Fast category browsing without embeddings"""
     try:
+        logger.info(f"📂 Category browse: '{category_query}' (limit={limit})")
+        
         query = """
             SELECT 
                 "productId",
@@ -413,6 +421,7 @@ async def browse_category(
         """
         
         results = await db.fetch_all(query, f"%{category_query}%", f"%{category_query}%", limit)
+        logger.info(f"📦 Found {len(results)} products in category")
         
         return {
             "results": [
@@ -426,7 +435,7 @@ async def browse_category(
             "search_type": "category"
         }
     except Exception as e:
-        logger.error(f"Category browse failed: {e}")
+        logger.error(f"❌ Category browse failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

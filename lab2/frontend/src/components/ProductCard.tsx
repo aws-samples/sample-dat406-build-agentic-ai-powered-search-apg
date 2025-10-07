@@ -19,7 +19,7 @@ interface ProductCardProps {
   aiRecommended?: boolean
 }
 
-const ProductCard = ({ product, onAddToCart, highlighted = false, aiRecommended = true }: ProductCardProps) => {
+const ProductCard = ({ product, onAddToCart, aiRecommended = true }: ProductCardProps) => {
   const isImageUrl = product.image.startsWith('http')
   const productUrl = `https://amazon.com/dp/${product.id}`
   

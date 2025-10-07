@@ -94,17 +94,31 @@ fi
 
 log "Creating environment configuration files..."
 
+# Get CloudFront URL from EC2 metadata or environment
+CLOUDFRONT_URL="${CLOUDFRONT_URL:-}"
+if [ -z "$CLOUDFRONT_URL" ]; then
+    # Try to get from EC2 tags or metadata
+    CLOUDFRONT_URL=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$(ec2-metadata --instance-id | cut -d ' ' -f 2)" "Name=key,Values=CloudFrontURL" --query 'Tags[0].Value' --output text 2>/dev/null || echo "")
+fi
+
 # Always create Lab 2 Frontend .env (doesn't need DB credentials)
 if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
+    if [ -n "$CLOUDFRONT_URL" ]; then
+        API_URL="${CLOUDFRONT_URL}/ports/8000"
+    else
+        API_URL="http://localhost:8000"
+    fi
+    
     cat > "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env" << ENV_FRONTEND
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=$API_URL
 VITE_AWS_REGION=$AWS_REGION
 VITE_ENABLE_LAB2=true
+CLOUDFRONT_URL=$CLOUDFRONT_URL
 ENV_FRONTEND
 
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
     chmod 644 "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env"
-    log "✅ Lab 2 Frontend .env created"
+    log "✅ Lab 2 Frontend .env created (API: $API_URL)"
 fi
 
 # Create DB-dependent .env files only if credentials are available
@@ -171,6 +185,9 @@ AWS_DEFAULT_REGION=$AWS_REGION
 # Bedrock Models
 BEDROCK_EMBEDDING_MODEL=$BEDROCK_EMBEDDING_MODEL
 BEDROCK_CHAT_MODEL=$BEDROCK_CHAT_MODEL
+
+# CloudFront URL
+CLOUDFRONT_URL=$CLOUDFRONT_URL
 ENV_BACKEND
 
         chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/backend/.env"
@@ -293,7 +310,55 @@ else
 fi
 
 # ============================================================================
-# STEP 8: LAB 2 - FRONTEND DEPENDENCIES (~8 min)
+# STEP 8: GENERATE MCP CONFIG (~5 sec)
+# ============================================================================
+
+if [ ! -z "$DB_CLUSTER_ARN" ] && [ ! -z "$DB_SECRET_ARN" ]; then
+    log "Generating MCP server configuration..."
+    
+    mkdir -p "$HOME_FOLDER/$REPO_NAME/lab2/config"
+    
+    cat > "$HOME_FOLDER/$REPO_NAME/lab2/config/mcp-server-config.json" << MCP_CONFIG
+{
+  "mcpServers": {
+    "awslabs.postgres-mcp-server": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--with",
+        "awslabs.postgres-mcp-server",
+        "awslabs.postgres-mcp-server",
+        "--resource_arn",
+        "$DB_CLUSTER_ARN",
+        "--secret_arn",
+        "$DB_SECRET_ARN",
+        "--database",
+        "$DB_NAME",
+        "--region",
+        "$AWS_REGION",
+        "--readonly",
+        "True"
+      ],
+      "env": {
+        "AWS_REGION": "$AWS_REGION",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+MCP_CONFIG
+
+    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER/$REPO_NAME/lab2/config/mcp-server-config.json"
+    chmod 644 "$HOME_FOLDER/$REPO_NAME/lab2/config/mcp-server-config.json"
+    log "✅ MCP server config generated"
+else
+    warn "DB_CLUSTER_ARN or DB_SECRET_ARN not set - MCP config not generated"
+fi
+
+# ============================================================================
+# STEP 9: LAB 2 - FRONTEND DEPENDENCIES (~8 min)
 # ============================================================================
 
 if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
@@ -311,7 +376,7 @@ else
 fi
 
 # ============================================================================
-# STEP 9: BASH ENVIRONMENT CONFIGURATION (~5 sec)
+# STEP 10: BASH ENVIRONMENT CONFIGURATION (~5 sec)
 # ============================================================================
 
 log "Configuring bash environment..."
@@ -339,7 +404,11 @@ alias frontend='cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/l
 # Lab Service Shortcuts
 start-backend() {
     cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2/backend
-    echo "Starting FastAPI backend on http://localhost:8000"
+    
+    # Generate MCP config from environment
+    python3 generate_mcp_config.py 2>/dev/null || echo "⚠️  MCP config generation skipped"
+    
+    echo "🚀 Starting FastAPI backend on http://localhost:8000"
     uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 }
 
@@ -360,11 +429,11 @@ psql-workshop() {
     psql -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE
 }
 
-# AWS Credentials for MCP (boto3 needs these)
-export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id 2>/dev/null || echo "")
-export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key 2>/dev/null || echo "")
-export AWS_SESSION_TOKEN=$(aws configure get aws_session_token 2>/dev/null || echo "")
+# AWS Region for boto3
 export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
+
+# Note: EC2 instances use IAM role for credentials automatically
+# No need to export AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY
 
 # Display workshop info on login
 if [ -f /tmp/workshop-ready.json ]; then
@@ -388,7 +457,7 @@ rm -f /tmp/bashrc_append.txt
 log "✅ Bash environment configured"
 
 # ============================================================================
-# STEP 10: CREATE STATUS MARKER (~1 sec)
+# STEP 11: CREATE STATUS MARKER (~1 sec)
 # ============================================================================
 
 log "Creating completion status marker..."
@@ -419,7 +488,7 @@ chmod 644 /tmp/workshop-ready.json
 log "✅ Status marker created: /tmp/workshop-ready.json"
 
 # ============================================================================
-# STEP 11: FINAL VERIFICATION (~5 sec)
+# STEP 12: FINAL VERIFICATION (~5 sec)
 # ============================================================================
 
 log "Performing final verification..."

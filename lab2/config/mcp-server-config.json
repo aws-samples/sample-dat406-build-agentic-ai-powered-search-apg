@@ -19,7 +19,6 @@
         "True"
       ],
       "env": {
-        "AWS_PROFILE": "default",
         "AWS_REGION": "us-west-2",
         "FASTMCP_LOG_LEVEL": "ERROR"
       },

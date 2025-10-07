@@ -32,7 +32,6 @@ const SearchOverlay = ({
 }: SearchOverlayProps) => {
   const [results, setResults] = useState<SearchResult[]>([])
   const [allResults, setAllResults] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(false)
   const [latency, setLatency] = useState('0ms')
   const [minPrice, setMinPrice] = useState<number>(0)
   const [maxPrice, setMaxPrice] = useState<number>(10000)
@@ -48,7 +47,6 @@ const SearchOverlay = ({
   }, [isVisible, searchTerm])
 
   const performSearch = async () => {
-    setLoading(true)
     const startTime = performance.now()
     
     try {
@@ -59,15 +57,15 @@ const SearchOverlay = ({
       let response
       if (isCategorySearch) {
         // Fast category browse without embeddings
-        const res = await fetch(`http://localhost:8000/api/products/category/${encodeURIComponent(searchTerm)}?limit=10`)
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+        const res = await fetch(`${apiUrl}/api/products/category/${encodeURIComponent(searchTerm)}?limit=10`)
         response = await res.json()
         setIsSemanticSearch(false)
       } else {
         // Semantic search with embeddings
         response = await apiClient.search({
           query: searchTerm,
-          limit: 10,
-          min_similarity: 0.0
+          limit: 10
         })
         setIsSemanticSearch(true)
       }
@@ -76,28 +74,39 @@ const SearchOverlay = ({
       setLatency(`${Math.round(endTime - startTime)}ms`)
       
       console.log('Search response:', response)
+      console.log('Response structure:', JSON.stringify(response, null, 2).substring(0, 500))
+      
+      if (!response || !response.results || !Array.isArray(response.results)) {
+        console.error('Invalid response structure:', response)
+        setResults([])
+        setAllResults([])
+        return
+      }
       
       // Transform API response to SearchResult format
-      const transformedResults: SearchResult[] = response.results.map(r => ({
-        id: r.product.productId,
-        name: r.product.product_description,
-        category: r.product.category_name || 'General',
-        price: r.product.price || 0,
-        icon: r.product.imgurl || '', // Use actual image URL
-        similarity: r.product.similarity_score,
-        stars: r.product.stars || 0,
-        reviews: r.product.reviews || 0,
-        productUrl: r.product.producturl || '' // Add Amazon URL
-      }))
+      const transformedResults: SearchResult[] = response.results.map((r: any) => {
+        // Handle both formats: {product: {...}} and direct product object
+        const product = r.product || r
+        return {
+          id: product.productId || product.id || '',
+          name: product.product_description || product.name || '',
+          category: product.category_name || product.category || 'General',
+          price: product.price || 0,
+          icon: product.imgurl || product.image_url || '',
+          similarity: product.similarity_score || r.similarity_score || 0,
+          stars: product.stars || 0,
+          reviews: product.reviews || 0,
+          productUrl: product.producturl || product.productUrl || ''
+        }
+      })
       
       console.log('Transformed results:', transformedResults)
+      console.log('Number of results:', transformedResults.length)
       setAllResults(transformedResults)
       setResults(transformedResults)
     } catch (error) {
       console.error('Search failed:', error)
       setResults([])
-    } finally {
-      setLoading(false)
     }
   }
 
