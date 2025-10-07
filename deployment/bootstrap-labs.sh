@@ -44,6 +44,9 @@ if [ ! -z "$REPO_URL" ] && [ "$REPO_URL" != "none" ]; then
     if [ ! -d "$HOME_FOLDER/$REPO_NAME" ]; then
         if sudo -u "$CODE_EDITOR_USER" git clone "$REPO_URL" "$HOME_FOLDER/$REPO_NAME" 2>/dev/null; then
             log "✅ Repository cloned successfully"
+            # Remove .git to disable source control for participants
+            rm -rf "$HOME_FOLDER/$REPO_NAME/.git"
+            log "✅ Source control disabled for participant use"
         else
             warn "Repository clone failed - creating directory structure"
             sudo -u "$CODE_EDITOR_USER" mkdir -p "$HOME_FOLDER/$REPO_NAME"/{lab1,lab2/{backend,frontend,config},data,deployment,docs}
