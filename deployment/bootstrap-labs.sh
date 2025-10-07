@@ -96,14 +96,18 @@ log "Creating environment configuration files..."
 
 # Get CloudFront URL from EC2 metadata or environment
 CLOUDFRONT_URL="${CLOUDFRONT_URL:-}"
-if [ -z "$CLOUDFRONT_URL" ]; then
+if [ -z "$CLOUDFRONT_URL" ] || [ "$CLOUDFRONT_URL" = "None" ]; then
     # Try to get from EC2 tags or metadata
     CLOUDFRONT_URL=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$(ec2-metadata --instance-id | cut -d ' ' -f 2)" "Name=key,Values=CloudFrontURL" --query 'Tags[0].Value' --output text 2>/dev/null || echo "")
+    # If still None or empty, set to empty string
+    if [ "$CLOUDFRONT_URL" = "None" ] || [ -z "$CLOUDFRONT_URL" ]; then
+        CLOUDFRONT_URL=""
+    fi
 fi
 
 # Always create Lab 2 Frontend .env (doesn't need DB credentials)
 if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
-    if [ -n "$CLOUDFRONT_URL" ]; then
+    if [ -n "$CLOUDFRONT_URL" ] && [ "$CLOUDFRONT_URL" != "None" ]; then
         API_URL="${CLOUDFRONT_URL}/ports/8000"
     else
         API_URL="http://localhost:8000"
@@ -413,9 +417,8 @@ start-backend() {
 }
 
 start-frontend() {
-    cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2/frontend
-    echo "Starting React frontend on http://localhost:5173"
-    npm run dev
+    cd /workshop/sample-dat406-build-agentic-ai-powered-search-apg/lab2
+    ./START_FRONTEND.sh
 }
 
 start-jupyter() {

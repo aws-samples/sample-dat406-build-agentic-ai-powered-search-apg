@@ -24,7 +24,7 @@ class SearchRequest(BaseModel):
         description="Maximum number of results to return"
     )
     min_similarity: float = Field(
-        default=0.5,
+        default=0.0,
         ge=0,
         le=1,
         description="Minimum similarity score threshold (0-1)"

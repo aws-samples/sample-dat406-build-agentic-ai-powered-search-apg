@@ -65,7 +65,8 @@ const SearchOverlay = ({
         // Semantic search with embeddings
         response = await apiClient.search({
           query: searchTerm,
-          limit: 10
+          limit: 10,
+          min_similarity: 0.0
         })
         setIsSemanticSearch(true)
       }

@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   
   server: {
-    host: '0.0.0.0',  // Listen on all interfaces (required for Workshop Studio)
+    host: true,  // Allow all hosts (required for CloudFront)
     port: 5173,
     strictPort: true,
     

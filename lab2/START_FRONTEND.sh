@@ -14,6 +14,16 @@ if [ -z "$CLOUDFRONT_URL" ]; then
     fi
 fi
 
+echo "🛠️  Building frontend for production..."
+NODE_ENV=production npm run build
+
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed!"
+    exit 1
+fi
+
+echo "✅ Build complete!"
+echo ""
 echo "🚀 Starting frontend server on port 5173..."
 if [ -n "$CLOUDFRONT_URL" ]; then
     echo "🌐 Access at: ${CLOUDFRONT_URL}/ports/5173/"

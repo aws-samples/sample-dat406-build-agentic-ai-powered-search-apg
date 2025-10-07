@@ -34,6 +34,7 @@ export interface SearchFilters {
 export interface SearchQuery {
   query: string
   limit?: number
+  min_similarity?: number
   filters?: SearchFilters
 }
 
