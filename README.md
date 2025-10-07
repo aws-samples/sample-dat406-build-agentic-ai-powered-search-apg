@@ -100,7 +100,10 @@
 - ✅ Create HNSW indexes for vector similarity
 - ✅ Execute semantic search queries
 
-[📖 Start Lab 1 →](./lab1/README.md)
+**Start Lab 1:**
+```bash
+start-jupyter
+```
 
 ### Lab 2: Full-Stack Application
 **Duration**: 80 minutes | **Location**: `lab2/`
@@ -110,50 +113,49 @@
 - ✅ Multi-agent system (Agents as Tools pattern)
 - ✅ Model Context Protocol (MCP) integration
 
-[📖 Start Lab 2 →](./lab2/README.md)
-
-**📚 Complete Guide**: [WORKSHOP_GUIDE.md](./WORKSHOP_GUIDE.md)
+**Start Lab 2:**
+```bash
+start-backend   # Terminal 1
+start-frontend  # Terminal 2
+```
 
 ---
 
 ## ⚡ Quick Start
 
-### Prerequisites
+### Workshop Participants
+
+Everything is pre-configured! Just run:
 
 ```bash
-✓ Python 3.13+
-✓ Node.js 18+
-✓ Aurora PostgreSQL 17.5 with pgvector
-✓ AWS Account with Bedrock access (Titan Embeddings v2, Claude Sonnet 4)
+# Lab 1: Jupyter Notebooks
+start-jupyter
+
+# Lab 2: Full-Stack App
+start-backend   # Terminal 1
+start-frontend  # Terminal 2
 ```
 
-### Backend Setup
+**All commands work from any directory!**
 
-```bash
-cd backend
-python3.13 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+### Local Development
 
-# Configure .env with Aurora credentials
-cp .env.example .env
+**Prerequisites:**
+- Python 3.13+
+- Node.js 18+
+- Aurora PostgreSQL 17.5 with pgvector
+- AWS Account with Bedrock access
 
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
-```
+**Setup:**
+1. Configure `.env` files (auto-generated in workshop)
+2. Install dependencies: `pip install -r requirements.txt`
+3. Run: `uvicorn app:app --reload` (backend)
+4. Run: `npm run dev` (frontend)
 
-**Backend URL**: `http://localhost:8000`  
-**API Docs**: `http://localhost:8000/docs`
-
-### Frontend Setup
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
-
-**Frontend URL**: `http://localhost:5173`
+**URLs:**
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:5173`
+- API Docs: `http://localhost:8000/docs`
 
 ---
 
@@ -307,7 +309,6 @@ Routes customer queries to the appropriate specialist based on intent analysis.
 - Optional deeper reasoning capability
 - Reflects between tool calls for better decisions
 - Adapts strategy based on results
-- [Learn more →](./lab2/backend/EXTENDED_THINKING.md) | [Demo Guide →](./DEMO_GUIDE.md)
 
 ### Specialized Agents
 
@@ -362,7 +363,7 @@ curl http://localhost:8000/api/mcp/inventory
 curl http://localhost:8000/api/mcp/pricing
 ```
 
-**See [ARCHITECTURE_GUIDE.md](./ARCHITECTURE_GUIDE.md) for implementation details.**
+**Implementation:** MCP config auto-generated during deployment with correct AWS account ARNs.
 
 ---
 
@@ -391,45 +392,51 @@ blaize-bazaar/
 
 ---
 
-## ⚙️ Configuration
+## 🤖 Deployment Automation
 
-### Backend Environment Variables
+### Bootstrap Script
 
+The `deployment/bootstrap-labs.sh` script automatically:
+
+1. ✅ Fetches DB credentials from AWS Secrets Manager
+2. ✅ Calculates DB_CLUSTER_ARN from AWS account ID
+3. ✅ Creates `.env` files (root, backend, frontend)
+4. ✅ Generates MCP config with correct ARNs
+5. ✅ Installs all Python/Node dependencies
+6. ✅ Configures bash aliases (`start-backend`, `start-frontend`, `start-jupyter`)
+
+### Configuration Files Created
+
+**`.env` (root & backend):**
 ```bash
-# Database
-DB_HOST=your-aurora-cluster.region.rds.amazonaws.com
-DB_PORT=5432
+DB_CLUSTER_ARN=arn:aws:rds:REGION:ACCOUNT:cluster:apg-pgvector-dat406
+DB_SECRET_ARN=arn:aws:secretsmanager:REGION:ACCOUNT:secret:...
+DB_HOST=cluster.region.rds.amazonaws.com
 DB_NAME=postgres
-DB_USER=postgres
-DB_PASSWORD=your-password
-
-# AWS
 AWS_REGION=us-west-2
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-
-# Bedrock
 BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
-BEDROCK_CHAT_MODEL=us.anthropic.claude-3-7-sonnet-20250219-v1:0
+BEDROCK_CHAT_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
 ```
 
-### Frontend Environment Variables
-
+**`.env` (frontend):**
 ```bash
 VITE_API_URL=http://localhost:8000
+VITE_AWS_REGION=us-west-2
 ```
 
----
+**`lab2/config/mcp-server-config.json`:**
+Auto-generated with correct DB_CLUSTER_ARN and DB_SECRET_ARN.
 
-## 🤝 Contributing
+### IAM Role Requirements
 
-Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+EC2 instance needs:
+- `rds-data:ExecuteStatement` on cluster
+- `secretsmanager:GetSecretValue` on secret
+- `bedrock:InvokeModel` for Titan/Claude
 
----
+### Zero Manual Configuration
 
-## 📄 License
-
-This project is licensed under the MIT License - see [LICENSE](./LICENSE) file for details.
+Participants just run `start-backend` and everything works!
 
 ---
 
@@ -437,8 +444,13 @@ This project is licensed under the MIT License - see [LICENSE](./LICENSE) file f
 
 For questions or issues:
 - 📝 Open an issue on GitHub
-- 🔧 Check [MCP_SETUP.md](./MCP_SETUP.md) for MCP configuration
-- 📚 Review [WORKSHOP_GUIDE.md](./WORKSHOP_GUIDE.md) for complete instructions
+- 👨‍🏫 Ask your workshop instructor
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see [LICENSE](./LICENSE) file for details.
 
 ---
 
