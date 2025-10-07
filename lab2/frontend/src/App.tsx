@@ -29,7 +29,7 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>('shop')
   const [searchOverlayVisible, setSearchOverlayVisible] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const backgroundImage = '/backgrounds/bg-1.png'
+  const backgroundImage = `${import.meta.env.BASE_URL}backgrounds/bg-1.png`
 
   // Apply dark theme to document
   useEffect(() => {
@@ -178,15 +178,7 @@ function App() {
                 <p className="text-text-secondary text-lg">Production-grade AI search powered by AWS</p>
               </div>
               
-              {/* Architecture Diagram */}
-              <div className="mb-16 card p-8">
-                <img 
-                  src="/architecture.png" 
-                  alt="Architecture Diagram" 
-                  className="w-full h-auto rounded-2xl"
-                  style={{ maxHeight: '600px', objectFit: 'contain' }}
-                />
-              </div>
+              {/* Architecture Diagram - Removed (image not available) */}
 
               {/* Technology Stack - Smaller Tiles */}
               <div className="text-center mb-8">

@@ -189,7 +189,7 @@ const AIAssistant = () => {
                }}>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden">
-                <img src="/chat-icon.jpeg" alt="Aurora AI" className="w-full h-full object-cover" />
+                <img src={`${import.meta.env.BASE_URL}chat-icon.jpeg`} alt="Aurora AI" className="w-full h-full object-cover" />
               </div>
               <div>
                 <div className="font-medium text-lg text-text-primary">Aurora AI</div>
@@ -416,7 +416,7 @@ const AIAssistant = () => {
           }}
           title="Powered by AWS Strands SDK & MCP"
         >
-          <img src="/chat-icon.jpeg" alt="Chat" className="w-full h-full object-cover" />
+          <img src={`${import.meta.env.BASE_URL}chat-icon.jpeg`} alt="Chat" className="w-full h-full object-cover" />
 
           {cart.length > 0 && (
             <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold animate-pulse">

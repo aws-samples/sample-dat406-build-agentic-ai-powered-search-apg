@@ -31,7 +31,7 @@ class EmbeddingService:
             service_name="bedrock-runtime",
             region_name=settings.AWS_REGION
         )
-        self.model_id = "cohere.embed-english-v3"
+        self.model_id = settings.BEDROCK_EMBEDDING_MODEL
         self.embedding_dimension = 1024
         
         logger.info(f"Initialized embeddings service: {self.model_id}")
@@ -63,12 +63,9 @@ class EmbeddingService:
         text = text[:max_length].strip()
         
         try:
-            # Prepare request body for Cohere
+            # Prepare request body for Titan
             request_body = {
-                "texts": [text],
-                "input_type": "search_query",
-                "embedding_types": ["float"],
-                "truncate": "END"
+                "inputText": text
             }
             
             # Call Bedrock API
@@ -82,14 +79,8 @@ class EmbeddingService:
             # Parse response
             response_body = json.loads(response['body'].read())
             
-            # Extract embedding vector
-            if 'embeddings' in response_body:
-                if 'float' in response_body['embeddings']:
-                    embedding = response_body['embeddings']['float'][0]
-                else:
-                    embedding = response_body['embeddings'][0]
-            else:
-                embedding = []
+            # Extract embedding vector (Titan format)
+            embedding = response_body.get('embedding', [])
             
             if not embedding or len(embedding) != self.embedding_dimension:
                 raise ValueError(
