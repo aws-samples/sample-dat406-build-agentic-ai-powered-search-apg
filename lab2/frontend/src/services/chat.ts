@@ -27,6 +27,7 @@ export interface ChatResponse {
   response: string
   products: ChatProduct[]
   suggestions?: string[]
+  agent_chain?: Array<{agent: string, action: string, status: string}>
 }
 
 /**

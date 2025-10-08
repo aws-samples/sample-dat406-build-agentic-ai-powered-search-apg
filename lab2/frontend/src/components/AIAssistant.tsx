@@ -16,6 +16,7 @@ interface Message {
   suggestions?: string[]
   agent?: 'search' | 'pricing' | 'recommendation' | 'orchestrator'
   agentStatus?: 'thinking' | 'complete'
+  agentChain?: Array<{agent: string, action: string, status: string}>
 }
 
 const AIAssistant = () => {
@@ -122,14 +123,17 @@ const AIAssistant = () => {
       setMessages(prev => prev.slice(0, -1))
       setActiveAgent(null)
 
-      // Determine which agent responded based on user query intent
-      let agentType: 'search' | 'pricing' | 'recommendation' | 'orchestrator' = 'search'
-      const queryLower = messageText.toLowerCase()
-      
-      if (queryLower.includes('cheap') || queryLower.includes('price') || queryLower.includes('deal') || queryLower.includes('cost') || queryLower.includes('value')) {
-        agentType = 'pricing'
-      } else if (queryLower.includes('recommend') || queryLower.includes('suggest') || queryLower.includes('best') || queryLower.includes('top')) {
-        agentType = 'recommendation'
+      // Determine agent type - use orchestrator if agent chain is present
+      let agentType: 'search' | 'pricing' | 'recommendation' | 'orchestrator' = 'orchestrator'
+      if (!response.agent_chain || response.agent_chain.length === 0) {
+        const queryLower = messageText.toLowerCase()
+        if (queryLower.includes('cheap') || queryLower.includes('price') || queryLower.includes('deal') || queryLower.includes('cost') || queryLower.includes('value')) {
+          agentType = 'pricing'
+        } else if (queryLower.includes('recommend') || queryLower.includes('suggest') || queryLower.includes('best') || queryLower.includes('top')) {
+          agentType = 'recommendation'
+        } else {
+          agentType = 'search'
+        }
       }
 
       // Add AI response (products already formatted by chat service)
@@ -140,7 +144,8 @@ const AIAssistant = () => {
         products: response.products,
         suggestions: response.suggestions,
         agent: agentType,
-        agentStatus: 'complete'
+        agentStatus: 'complete',
+        agentChain: response.agent_chain
       }
 
       setMessages(prev => [...prev, aiMessage])
@@ -237,8 +242,25 @@ const AIAssistant = () => {
           <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4 custom-scrollbar">
             {messages.map((message, index) => (
               <div key={index} className="flex flex-col gap-3">
-                {/* Agent Attribution */}
-                {message.role === 'assistant' && message.agent && (
+                {/* Agent Chain Visualization */}
+                {message.role === 'assistant' && message.agentChain && message.agentChain.length > 0 && (
+                  <div className="ml-1 mb-2">
+                    <div className="text-xs text-text-secondary mb-2">🔄 Agent Chain:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {message.agentChain.map((step, idx) => (
+                        <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs" 
+                             style={{background: 'rgba(106, 27, 154, 0.1)', border: '1px solid rgba(186, 104, 200, 0.2)'}}>
+                          <span className="text-green-400">✓</span>
+                          <span className="text-text-primary">{step.agent}</span>
+                          <span className="text-text-secondary">→ {step.action}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Agent Attribution (fallback for single agent) */}
+                {message.role === 'assistant' && message.agent && !message.agentChain && (
                   <div className="flex items-center gap-2 text-xs text-text-secondary ml-1">
                     {message.agent === 'search' && <span>🔍 Search Agent</span>}
                     {message.agent === 'pricing' && <span>💰 Pricing Agent</span>}
@@ -434,7 +456,7 @@ const AIAssistant = () => {
                 border: '1px solid rgba(186, 104, 200, 0.3)'
               }}
             >
-              🔌 Powered by AWS Strands SDK & MCP
+              🤖 Multi-Agent Orchestrator + AWS Strands
             </div>
           </div>
         </div>

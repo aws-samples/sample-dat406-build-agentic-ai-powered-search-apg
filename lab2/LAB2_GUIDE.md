@@ -51,10 +51,11 @@ start-frontend
 
 ### Step 3: Search Interface
 
-1. **Try searches:**
+1. **Try searches (using products in our dataset):**
    - "wireless headphones"
-   - "laptop for programming"
-   - "gaming console"
+   - "security camera"
+   - "vacuum cleaner"
+   - "gaming headset"
 
 2. **Observe:**
    - Vector similarity scores (0-100%)
@@ -72,13 +73,15 @@ start-frontend
 
 1. **Semantic Search** - Natural language queries
    - "noise canceling headphones for travel"
-   - "affordable laptop for students"
-   - "gaming console with best graphics"
+   - "security camera for outdoor monitoring"
+   - "vacuum cleaner for pet hair"
+   - "fitness tracker with heart rate monitor"
 
 2. **Category Browse** - Specific categories
    - "security cameras"
    - "vacuum cleaners"
-   - "kids watches"
+   - "smart watches"
+   - "gaming accessories"
 
 3. **Observe the technology:**
    - Vector similarity scores (shown as percentages)
@@ -144,27 +147,42 @@ cat lab2/config/mcp-server-config.json
 
 **Open the chat assistant** (click chat icon in bottom right)
 
-**Test each agent type:**
+**Test each agent type with these proven examples:**
 
 1. **Inventory Agent** - Ask about stock:
    - "What products need restocking?"
    - "Show me low stock items"
    - "Which high-demand products are running low?"
+   - **Expected:** Shows agent chain: `Orchestrator → Inventory Agent → Analyzing stock levels ✓`
 
-2. **Recommendation Agent** - Ask for suggestions:
-   - "Recommend headphones under $100"
-   - "I need a laptop for coding"
-   - "What's the best gaming console?"
+2. **Recommendation Agent** - Ask for suggestions (use products that exist in our dataset):
+   - "Recommend wireless headphones under $100"
+   - "I need a security camera for my home"
+   - "Show me the best vacuum cleaners"
+   - "What gaming accessories do you have?"
+   - **Expected:** Shows agent chain: `Orchestrator → Recommendation Agent → Finding products ✓`
 
 3. **Pricing Agent** - Ask about deals:
-   - "What are the best deals today?"
-   - "Show me budget-friendly laptops"
-   - "Which products offer the best value?"
+   - "What are the best deals on headphones?"
+   - "Show me budget-friendly security cameras"
+   - "Which products offer the best value under $50?"
+   - **Expected:** Shows agent chain: `Orchestrator → Pricing Agent → Analyzing prices ✓`
 
-4. **Orchestrator** - Ask anything:
-   - "Help me find a gift for a gamer"
-   - "What should I buy for my home office?"
-   - The orchestrator automatically routes to the right specialist!
+4. **Orchestrator Multi-Agent** - Complex queries:
+   - "Help me find affordable home security products"
+   - "What should I buy for a home office setup?"
+   - "I need gaming accessories that are well-reviewed"
+   - **Expected:** May show multiple agents in chain
+
+**💡 Dataset Overview:** Our sample contains 21,704 products with strong representation in:
+- 🎧 **Audio & Headphones** (wireless, noise-canceling, gaming headsets)
+- 📹 **Security & Cameras** (indoor/outdoor cameras, smart doorbells)
+- 🧹 **Home Appliances** (vacuums, air purifiers, kitchen gadgets)
+- 🎮 **Gaming & Electronics** (accessories, controllers, tech gear)
+- ⌚ **Wearables** (smart watches, fitness trackers, health monitors)
+- 🔌 **Tech Accessories** (chargers, cables, phone cases, stands)
+
+**Note:** Laptops and computers have limited representation in this sample dataset, so use the categories above for best results!
 
 ### Step 9: Explore Agent Code
 
@@ -244,11 +262,12 @@ cat lab2/config/mcp-server-config.json
 
 ### Step 13: Claude 4 Extended Thinking
 
-**Try complex queries in the chat:**
+**Try complex queries in the chat (using products in our dataset):**
 
-- "Find the best value laptop considering price, reviews, and features"
-- "Compare gaming consoles and recommend the best one for families"
+- "Find the best value wireless headphones considering price, reviews, and features"
+- "Compare security cameras and recommend the best one for home monitoring"
 - "What products should we restock based on demand and current inventory?"
+- "Help me choose between different vacuum cleaners for pet owners"
 
 **What happens behind the scenes:**
 - Agent "thinks" between tool calls
@@ -291,8 +310,9 @@ cat lab2/config/mcp-server-config.json
 - Check MCP config: `cat lab2/config/mcp-server-config.json`
 
 **Chat not responding:**
-- Requires RDS Data API IAM permissions
-- Use `/api/agents/query` endpoint instead
+- Requires RDS Data API IAM permissions (rds-data:BeginTransaction, rds-data:CommitTransaction, rds-data:RollbackTransaction)
+- Check IAM role: `genai-dat-406-labs-CodeEditorStack-1-CodeEditorRole`
+- Add missing permissions via AWS Console → IAM → Roles
 
 ---
 

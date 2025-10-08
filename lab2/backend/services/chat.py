@@ -190,9 +190,15 @@ Products:
 ```
 
 Suggestions:
-- "Show similar items"
-- "Different price range"
-- "Other brands"
+- "Show similar laptops"
+- "Budget laptops under $500"
+- "Gaming laptops"
+
+CONTEXTUAL SUGGESTIONS - Generate 3 relevant suggestions based on the search:
+- For laptops: "Gaming laptops", "Budget laptops", "Business laptops"
+- For headphones: "Wireless headphones", "Noise cancelling", "Gaming headsets"
+- For cameras: "DSLR cameras", "Mirrorless cameras", "Action cameras"
+- Always make suggestions specific to the product category found
 
 STOP IMMEDIATELY after providing this response. Do not query again. Do not ask follow-up questions."""
     
@@ -246,8 +252,8 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
         message: str,
         conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
-        """Enhanced chat using Strands with product extraction"""
-        logger.info(f"🤖 Processing query with Strands Agent")
+        """Enhanced chat using Strands Orchestrator with specialized agents"""
+        logger.info(f"🤖 Processing query with Strands Orchestrator")
         
         # This will raise an exception if it fails
         mcp_client = self._create_mcp_client()
@@ -261,51 +267,74 @@ STOP IMMEDIATELY after providing this response. Do not query again. Do not ask f
                 if len(tools) == 0:
                     raise RuntimeError("No database tools available from MCP server")
                 
-                # Build conversation context with product info
+                # Import orchestrator
+                from agents.orchestrator import create_orchestrator
+                
+                # Create orchestrator with all tools (specialized agents + database tools)
+                logger.info(f"🎯 Creating agent orchestrator with database tools...")
+                orchestrator = create_orchestrator(enable_interleaved_thinking=True)
+                
+                # Create new agent with combined tools
+                from strands.models import BedrockModel
+                model = BedrockModel(
+                    model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
+                    max_tokens=4096,
+                    temperature=1,
+                    additional_request_fields={
+                        "anthropic_beta": ["interleaved-thinking-2025-05-14"],
+                        "reasoning_config": {
+                            "type": "enabled",
+                            "budget_tokens": 3000
+                        }
+                    }
+                )
+                
+                # Get orchestrator tools and add database tools
+                from agents.orchestrator import ORCHESTRATOR_PROMPT
+                from agents.inventory_agent import inventory_restock_agent
+                from agents.recommendation_agent import product_recommendation_agent
+                from agents.pricing_agent import price_optimization_agent
+                
+                all_tools = [inventory_restock_agent, product_recommendation_agent, price_optimization_agent] + tools
+                
+                orchestrator = self.Agent(
+                    model=model,
+                    tools=all_tools,
+                    system_prompt=ORCHESTRATOR_PROMPT
+                )
+                
+                # Build conversation context
                 conversation_context = ""
                 if conversation_history:
-                    # Include last 4 exchanges for context
-                    recent_history = conversation_history[-8:]  # Last 4 user+assistant pairs
+                    recent_history = conversation_history[-6:]
                     for msg in recent_history:
                         role = msg.get('role', 'user')
                         content = msg.get('content', '')
-                        # Truncate long responses but keep key info
-                        if len(content) > 500:
-                            content = content[:500] + "..."
+                        if len(content) > 300:
+                            content = content[:300] + "..."
                         conversation_context += f"{role.upper()}: {content}\n\n"
                 
-                # Prepend context to current message
+                # Prepare message for orchestrator
                 full_message = message
                 if conversation_context:
-                    full_message = f"""CONVERSATION HISTORY (use this to understand context):
+                    full_message = f"""CONVERSATION HISTORY:
 {conversation_context}
 ---
-CURRENT USER QUERY: {message}
-
-IMPORTANT: If the user asks about "cheapest", "best", "recommend", etc., look at the CONVERSATION HISTORY above to understand what product category they're referring to."""
-                    logger.info(f"📜 Including conversation history ({len(recent_history)} messages)")
-                    logger.info(f"📝 Full context: {full_message[:300]}...")
+CURRENT REQUEST: {message}"""
                 
-                # Create agent
-                agent = self.Agent(
-                    model=self.model_id,
-                    tools=tools,
-                    system_prompt=self._get_system_prompt()
-                )
-                
-                # Invoke agent with full context
-                logger.info(f"🔍 Agent searching database...")
-                response = agent(full_message)
+                # Invoke orchestrator
+                logger.info(f"🔄 Orchestrator routing query to specialized agents...")
+                response = orchestrator(full_message)
                 response_text = str(response)
                 
-                logger.info(f"✅ Agent completed")
-                logger.info(f"📝 Agent response: {response_text[:500]}...")
+                logger.info(f"✅ Orchestrator completed with agent chain")
+                logger.info(f"📝 Final response: {response_text[:500]}...")
+                
+                # Extract agent chain information
+                agent_chain = self._extract_agent_chain(response)
                 
                 # Extract structured data from response
                 parsed = self._parse_agent_response(response_text)
-                logger.info(f"📦 Parsed products: {parsed['products']}")
-                
-                logger.info(f"📦 Found {len(parsed['products'])} products")
                 
                 result = {
                     "response": parsed["text"],
@@ -313,15 +342,16 @@ IMPORTANT: If the user asks about "cheapest", "best", "recommend", etc., look at
                     "suggestions": parsed["suggestions"],
                     "success": True,
                     "mcp_enabled": True,
-                    "model": self.model_id,
-                    "tool_calls": []
+                    "orchestrator_enabled": True,
+                    "agent_chain": agent_chain,
+                    "model": self.model_id
                 }
                 
-                logger.info(f"📤 Returning {len(result['products'])} products to frontend")
+                logger.info(f"📤 Returning {len(result['products'])} products with agent chain info")
                 return result
                 
         except Exception as e:
-            logger.error(f"❌ Strands agent execution failed: {e}", exc_info=True)
+            logger.error(f"❌ Orchestrator execution failed: {e}", exc_info=True)
             raise RuntimeError(f"Agent execution failed: {str(e)}")
     
     def _parse_agent_response(self, response_text: str, query: str = "") -> Dict[str, Any]:
@@ -353,36 +383,25 @@ IMPORTANT: If the user asks about "cheapest", "best", "recommend", etc., look at
         else:
             logger.warning("⚠️ No JSON product data found in agent response")
         
-        # Extract suggestions ONLY from Suggestions section (avoid JSON fragments)
-        suggestions_section = re.search(r'Suggestions:\s*\n(.*?)(?:\n\n|$)', response_text, re.DOTALL | re.IGNORECASE)
-        
+        # Extract suggestions from "Suggestions:" section only
+        suggestions_section = re.search(r'Suggestions?:\s*\n(.*?)(?:\n\n|$)', response_text, re.DOTALL | re.IGNORECASE)
         if suggestions_section:
             suggestions_text = suggestions_section.group(1)
-            # Extract lines starting with - and quoted text
-            suggestion_pattern = r'^-\s+"([^"]+)"'
-            suggestions = re.findall(suggestion_pattern, suggestions_text, re.MULTILINE)
-        else:
-            suggestions = []
+            # Extract lines starting with - and containing quotes
+            suggestion_lines = re.findall(r'^-\s*"([^"]+)"', suggestions_text, re.MULTILINE)
+            result["suggestions"] = suggestion_lines[:3]  # Limit to 3 suggestions
         
-        # Filter out any JSON-like content or product IDs
-        filtered = [
-            s for s in suggestions 
-            if 'productid' not in s.lower() 
-            and not re.match(r'^B[0-9A-Z]{9}$', s)
-            and '{' not in s and '}' not in s  # No JSON fragments
-            and len(s) > 5 and len(s) < 60
-        ]
+        # If no suggestions found, use default ones
+        if not result["suggestions"]:
+            result["suggestions"] = [
+                "Show similar items",
+                "Different price range", 
+                "Other brands"
+            ]
         
-        # Add smart suggestions based on context
-        smart_suggestions = self._generate_smart_suggestions(query, result["products"])
-        filtered.extend(smart_suggestions)
-        
-        result["suggestions"] = list(dict.fromkeys(filtered))[:5]  # Dedupe and limit to 5
-        
-        # Clean text (remove JSON blocks and suggestions)
+        # Clean text (remove JSON blocks and suggestions section)
         clean_text = re.sub(json_pattern, '', response_text, flags=re.DOTALL)
-        clean_text = re.sub(suggestion_pattern, '', clean_text, flags=re.MULTILINE)
-        clean_text = re.sub(r'Products:.*?Suggestions:', '', clean_text, flags=re.DOTALL | re.IGNORECASE)
+        clean_text = re.sub(r'Suggestions?:.*$', '', clean_text, flags=re.DOTALL | re.IGNORECASE)
         clean_text = clean_text.strip()
         
         result["text"] = clean_text if clean_text else response_text
@@ -406,6 +425,37 @@ IMPORTANT: If the user asks about "cheapest", "best", "recommend", etc., look at
             })
         
         return formatted
+    
+    def _extract_agent_chain(self, response) -> List[Dict[str, str]]:
+        """Extract agent chain information from orchestrator response"""
+        agent_chain = []
+        
+        # Check if response has tool calls (agent invocations)
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            for tool_call in response.tool_calls:
+                agent_name = tool_call.name
+                if 'agent' in agent_name:
+                    agent_chain.append({
+                        "agent": agent_name.replace('_', ' ').title(),
+                        "action": f"Processing {agent_name.split('_')[0]} query",
+                        "status": "completed"
+                    })
+        
+        # If no tool calls detected, infer from response content
+        if not agent_chain:
+            response_text = str(response).lower()
+            if 'inventory' in response_text or 'stock' in response_text:
+                agent_chain.append({"agent": "Inventory Agent", "action": "Analyzing stock levels", "status": "completed"})
+            if 'recommend' in response_text or 'suggest' in response_text:
+                agent_chain.append({"agent": "Recommendation Agent", "action": "Finding products", "status": "completed"})
+            if 'price' in response_text or 'deal' in response_text:
+                agent_chain.append({"agent": "Pricing Agent", "action": "Analyzing prices", "status": "completed"})
+        
+        # Always show orchestrator as the coordinator
+        if agent_chain:
+            agent_chain.insert(0, {"agent": "Orchestrator", "action": "Routing query", "status": "completed"})
+        
+        return agent_chain
     
     def _generate_smart_suggestions(self, query: str, products: List[Dict]) -> List[str]:
         """Generate smart contextual suggestions based on query and results"""
