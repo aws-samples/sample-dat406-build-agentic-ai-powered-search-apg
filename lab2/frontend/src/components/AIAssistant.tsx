@@ -36,7 +36,12 @@ const AIAssistant = () => {
       role: 'assistant',
       content: '✨ I\'m Aurora AI. I can help you find products, compare options, and get recommendations. What are you looking for?',
       timestamp: new Date(),
-      suggestions: ['🎧 Premium headphones', '💻 Laptops', '📱 Smartphones']
+      suggestions: [
+        '🎧 Wireless headphones under $100',
+        '📦 What products need restocking?',
+        '💰 Show me the best deals',
+        '⭐ Recommend top-rated products'
+      ]
     }
   ])
   const [inputValue, setInputValue] = useState('')

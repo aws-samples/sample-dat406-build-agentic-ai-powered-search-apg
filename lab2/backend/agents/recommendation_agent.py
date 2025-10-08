@@ -1,57 +1,56 @@
 """
 Product Recommendation Agent - Suggests products based on user preferences
 """
-from strands import Agent, tool
-from services.mcp_agent_tools import get_trending_products
+from strands import tool
 
 
 @tool
 def product_recommendation_agent(query: str) -> str:
     """
     Provide personalized product recommendations based on user preferences.
-    Uses custom MCP tool 'get_trending_products' for data.
+    Returns instructions for the orchestrator to query the database.
     
     Args:
         query: User's product inquiry with preferences
     
     Returns:
-        Personalized product recommendations with reasoning
+        Instructions for orchestrator to use run_query MCP tool
     """
-    try:
-        # Get trending products from custom MCP tool
-        trending_data = get_trending_products(limit=15)
-        
-        agent = Agent(
-            model="us.anthropic.claude-sonnet-4-20250514-v1:0",
-            system_prompt="""You are a product recommendation specialist for Blaize Bazaar.
+    # Extract search terms and constraints from query
+    query_lower = query.lower()
+    
+    # Determine product category
+    if any(word in query_lower for word in ['headphone', 'earbud', 'audio']):
+        category = 'headphone'
+    elif any(word in query_lower for word in ['camera', 'security']):
+        category = 'camera'
+    elif any(word in query_lower for word in ['vacuum', 'clean']):
+        category = 'vacuum'
+    elif any(word in query_lower for word in ['gaming', 'game', 'controller']):
+        category = 'gaming'
+    else:
+        category = query_lower.split()[0] if query_lower else 'product'
+    
+    # Extract price constraint
+    price_constraint = ''
+    if 'under' in query_lower:
+        import re
+        price_match = re.search(r'under\s+\$?(\d+)', query_lower)
+        if price_match:
+            price_constraint = f" AND price <= {price_match.group(1)}"
+    
+    return f"""INSTRUCTION: Use the 'run_query' MCP tool to search our database.
 
-Your expertise:
-- Understand user preferences (budget, features, brand, use case)
-- Match products to user needs based on ratings, reviews, and features
-- Provide 3-5 tailored recommendations
-- Explain why each product fits the user's requirements
+OUR CATALOG HAS: Headphones, cameras, vacuums, gaming gear, wearables, tech accessories (21,704 products)
 
-IMPORTANT: If the product context is empty or doesn't contain relevant products:
-- Politely inform the user that the specific product category is not currently available
-- Suggest alternative categories that ARE available in our catalog
-- Offer to help with products we do have in stock
+SQL Query:
+SELECT "productId", product_description as name, price, stars, reviews, 
+       category_name as category, quantity, imgurl as image_url
+FROM bedrock_integration.product_catalog 
+WHERE product_description ILIKE '%{category}%'{price_constraint}
+  AND price > 0
+  AND quantity > 0
+ORDER BY stars DESC, reviews DESC
+LIMIT 5
 
-When recommending products:
-1. Consider user's budget constraints
-2. Prioritize highly-rated products (4+ stars)
-3. Match features to stated use case
-4. Highlight best value options
-5. Mention any standout features or benefits
-
-Format recommendations as:
-- Product name
-- Price
-- Rating & review count
-- Why it's a good fit
-- Key features"""
-        )
-        
-        response = agent(f"{query}\n\nTrending Products Data:\n{trending_data}")
-        return str(response)
-    except Exception as e:
-        return f"Error in recommendation agent: {str(e)}"
+After getting results, format as JSON and provide recommendations."""}

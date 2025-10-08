@@ -10,6 +10,8 @@ from .pricing_agent import price_optimization_agent
 
 ORCHESTRATOR_PROMPT = """You are the main assistant for Blaize Bazaar e-commerce platform.
 
+OUR CATALOG: 21,704 products including headphones, security cameras, vacuums, gaming gear, wearables, and tech accessories.
+
 You coordinate specialized agents to handle different types of requests:
 
 1. **inventory_restock_agent** - Use for:
