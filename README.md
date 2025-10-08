@@ -1,4 +1,6 @@
-# Blaize Bazaar - Agentic Search Platform
+# DAT406: Build Agentic AI-Powered Search with Amazon Aurora PostgreSQL
+
+## Blaize Bazaar - Production-Grade Agentic Search Platform
 
 <div align="center">
 
@@ -92,8 +94,17 @@
 
 ## 📚 Workshop Structure
 
+**Total Duration:** 2 hours (120 minutes)  
+**Level:** 400 (Expert)  
+**Format:** Hands-on workshop
+
+### Introduction (15 minutes)
+- Workshop overview and architecture
+- Use case: E-commerce product search
+- Technology stack introduction
+
 ### Lab 1: Semantic Search Foundation
-**Duration**: 20 minutes | **Location**: `lab1/`
+**Duration:** 20 minutes | **Location:** `lab1/` | **Guide:** [LAB1_GUIDE.md](lab1/LAB1_GUIDE.md)
 
 - ✅ Load 21,704 products into Aurora PostgreSQL 17.5
 - ✅ Generate embeddings with Amazon Bedrock Titan v2
@@ -105,8 +116,8 @@
 start-jupyter
 ```
 
-### Lab 2: Full-Stack Application
-**Duration**: 80 minutes | **Location**: `lab2/`
+### Lab 2: Full-Stack Agentic Application
+**Duration:** 80 minutes | **Location:** `lab2/` | **Guide:** [LAB2_GUIDE.md](lab2/LAB2_GUIDE.md)
 
 - ✅ FastAPI backend with semantic search API
 - ✅ React frontend with AI chat assistant
@@ -118,6 +129,11 @@ start-jupyter
 start-backend   # Terminal 1
 start-frontend  # Terminal 2
 ```
+
+### Q&A and Wrap-up (5 minutes)
+- Review key learnings
+- Discussion and questions
+- Next steps and resources
 
 ---
 
