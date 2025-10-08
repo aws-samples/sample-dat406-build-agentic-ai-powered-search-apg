@@ -94,5 +94,6 @@ class ChatResponse(BaseModel):
     products: List[Dict] = []
     suggestions: List[str] = []
     tool_calls: List[Dict] = []
+    agent_execution: Optional[Dict] = None
     model: str = ""
     success: bool = True

@@ -23,11 +23,91 @@ export interface ChatProduct {
   reviews?: number
 }
 
+export interface AgentExecution {
+  agent_steps: Array<{agent: string, action: string, status: string, timestamp: number, duration_ms: number}>
+  tool_calls: Array<{tool: string, params?: string, timestamp: number, duration_ms: number, status: string}>
+  reasoning_steps: Array<{step: string, content: string, timestamp: number}>
+  total_duration_ms: number
+  success_rate: number
+}
+
 export interface ChatResponse {
   response: string
   products: ChatProduct[]
   suggestions?: string[]
-  agent_chain?: Array<{agent: string, action: string, status: string}>
+  agent_execution?: AgentExecution
+}
+
+/**
+ * Send a chat message with streaming support
+ */
+export async function sendChatMessageStreaming(
+  query: string,
+  conversationHistory: ChatMessage[] = [],
+  onUpdate: (data: any) => void
+): Promise<ChatResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: query,
+        conversation_history: conversationHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    let finalResponse: ChatResponse | null = null
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              onUpdate(data)
+              
+              if (data.type === 'complete') {
+                finalResponse = {
+                  response: data.response.response,
+                  products: data.response.products || [],
+                  suggestions: data.response.suggestions || [],
+                  agent_execution: data.response.agent_execution
+                }
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e)
+            }
+          }
+        }
+      }
+    }
+
+    return finalResponse || {
+      response: 'Response completed',
+      products: [],
+      suggestions: []
+    }
+  } catch (error) {
+    console.error('Streaming chat error:', error)
+    throw error
+  }
 }
 
 /**
@@ -71,6 +151,7 @@ export async function sendChatMessage(query: string, conversationHistory: ChatMe
       response: data.response || 'I found some products for you!',
       products: chatProducts,
       suggestions: data.suggestions || generateSmartSuggestions(query, chatProducts),
+      agent_execution: data.agent_execution
     }
   } catch (error) {
     console.error('Chat API error:', error)

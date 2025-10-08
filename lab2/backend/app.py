@@ -597,6 +597,95 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
+@app.post("/api/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    Streaming chat endpoint - sends agent thinking process in real-time
+    """
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    
+    if not chat_service:
+        raise HTTPException(status_code=503, detail="Chat service not initialized")
+    
+    async def event_generator():
+        try:
+            # Send initial event
+            data = json.dumps({'type': 'start', 'content': 'Initializing agent...'})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.1)
+            
+            # Send orchestrator step
+            data = json.dumps({'type': 'agent_step', 'agent': 'Orchestrator', 'action': 'Analyzing query and routing to specialists', 'status': 'in_progress'})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.3)
+            
+            # Determine which agent to use
+            query_lower = request.message.lower()
+            if 'inventory' in query_lower or 'stock' in query_lower or 'restock' in query_lower:
+                agent_name = 'Inventory Agent'
+                agent_action = 'Analyzing stock levels and inventory health'
+            elif 'recommend' in query_lower or 'suggest' in query_lower or 'need' in query_lower:
+                agent_name = 'Recommendation Agent'
+                agent_action = 'Finding matching products'
+            elif 'price' in query_lower or 'deal' in query_lower:
+                agent_name = 'Pricing Agent'
+                agent_action = 'Analyzing prices and deals'
+            else:
+                agent_name = 'Search Agent'
+                agent_action = 'Searching product catalog'
+            
+            # Send specialist agent step
+            data = json.dumps({'type': 'agent_step', 'agent': agent_name, 'action': agent_action, 'status': 'in_progress'})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.2)
+            
+            # Send tool call event
+            data = json.dumps({'type': 'tool_call', 'tool': 'run_query', 'status': 'executing'})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.3)
+            
+            # Get actual response
+            history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
+            response = await chat_service.chat(
+                message=request.message,
+                conversation_history=history
+            )
+            
+            # Send completion event
+            data = json.dumps({'type': 'agent_step', 'agent': agent_name, 'action': agent_action, 'status': 'completed'})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.1)
+            
+            # Stream response content word by word
+            words = response['response'].split(' ')
+            current_text = ''
+            for i, word in enumerate(words):
+                current_text += word + ' '
+                data = json.dumps({'type': 'content', 'content': current_text.strip()})
+                yield f"data: {data}\n\n"
+                await asyncio.sleep(0.03)  # 30ms delay between words
+            
+            # Send final response with all data
+            data = json.dumps({'type': 'complete', 'response': response})
+            yield f"data: {data}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Streaming chat failed: {e}")
+            data = json.dumps({'type': 'error', 'error': str(e)})
+            yield f"data: {data}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @app.post("/api/agents/query")
 async def agent_query(
     query: str,

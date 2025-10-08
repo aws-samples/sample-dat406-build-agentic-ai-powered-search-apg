@@ -6,7 +6,17 @@ import { Send, ShoppingCart, X, AlertCircle } from 'lucide-react'
 import ProductCard from './ProductCard'
 import CartModal from './CartModal'
 import CheckoutModal from './CheckoutModal'
-import { sendChatMessage, ChatProduct, checkBackendHealth } from '../services/chat'
+import AgentWorkflowVisualizer from './AgentWorkflowVisualizer'
+import MarkdownMessage from './MarkdownMessage'
+import { sendChatMessageStreaming, ChatProduct, checkBackendHealth } from '../services/chat'
+
+interface AgentExecution {
+  agent_steps: Array<{agent: string, action: string, status: string, timestamp: number, duration_ms: number}>
+  tool_calls: Array<{tool: string, params?: string, timestamp: number, duration_ms: number, status: string}>
+  reasoning_steps: Array<{step: string, content: string, timestamp: number}>
+  total_duration_ms: number
+  success_rate: number
+}
 
 interface Message {
   role: 'user' | 'assistant'
@@ -16,7 +26,7 @@ interface Message {
   suggestions?: string[]
   agent?: 'search' | 'pricing' | 'recommendation' | 'orchestrator'
   agentStatus?: 'thinking' | 'complete'
-  agentChain?: Array<{agent: string, action: string, status: string}>
+  agentExecution?: AgentExecution
 }
 
 const AIAssistant = () => {
@@ -104,28 +114,108 @@ const AIAssistant = () => {
     setInputValue('')
     setIsLoading(true)
 
-    // Add loading message
+    // Add loading message with agent workflow
     setActiveAgent('Aurora AI')
     const loadingMessage: Message = {
       role: 'assistant',
-      content: '✨ Finding the perfect products for you...',
+      content: '✨ Analyzing your request...',
       timestamp: new Date(),
-      agentStatus: 'thinking'
+      agentStatus: 'thinking',
+      agentExecution: {
+        agent_steps: [
+          { agent: 'Orchestrator', action: 'Analyzing query and routing to specialists', status: 'in_progress', timestamp: Date.now(), duration_ms: 0 }
+        ],
+        tool_calls: [],
+        reasoning_steps: [],
+        total_duration_ms: 0,
+        success_rate: 0
+      }
     }
     setMessages(prev => [...prev, loadingMessage])
+    
+    // Simulate agent steps appearing
+    setTimeout(() => {
+      setMessages(prev => {
+        const updated = [...prev]
+        const lastMsg = updated[updated.length - 1]
+        if (lastMsg.agentStatus === 'thinking' && lastMsg.agentExecution) {
+          lastMsg.agentExecution.agent_steps.push({
+            agent: 'Analyzing',
+            action: 'Processing with specialized agents',
+            status: 'in_progress',
+            timestamp: Date.now(),
+            duration_ms: 0
+          })
+        }
+        return updated
+      })
+    }, 500)
 
     try {
-      // Call real backend API with full conversation history (before adding user message)
+      // Call streaming API for real-time updates
       const historyBeforeUser = messages.slice(0, -1)  // Exclude loading message
-      const response = await sendChatMessage(messageText, historyBeforeUser, extendedThinking)
+      
+      const response = await sendChatMessageStreaming(
+        messageText,
+        historyBeforeUser,
+        (data) => {
+          // Handle streaming updates
+          if (data.type === 'agent_step') {
+            setMessages(prev => {
+              const updated = [...prev]
+              const lastMsg = updated[updated.length - 1]
+              if (lastMsg.agentStatus === 'thinking' && lastMsg.agentExecution) {
+                // Update or add agent step
+                const existingStep = lastMsg.agentExecution.agent_steps.find(s => s.agent === data.agent)
+                if (existingStep) {
+                  existingStep.status = data.status
+                } else {
+                  lastMsg.agentExecution.agent_steps.push({
+                    agent: data.agent,
+                    action: data.action,
+                    status: data.status,
+                    timestamp: Date.now(),
+                    duration_ms: 0
+                  })
+                }
+              }
+              return updated
+            })
+          } else if (data.type === 'tool_call') {
+            setMessages(prev => {
+              const updated = [...prev]
+              const lastMsg = updated[updated.length - 1]
+              if (lastMsg.agentStatus === 'thinking' && lastMsg.agentExecution) {
+                lastMsg.agentExecution.tool_calls.push({
+                  tool: data.tool,
+                  timestamp: Date.now(),
+                  duration_ms: 0,
+                  status: data.status
+                })
+              }
+              return updated
+            })
+          } else if (data.type === 'content') {
+            // Update message content as it streams
+            setMessages(prev => {
+              const updated = [...prev]
+              const lastMsg = updated[updated.length - 1]
+              if (lastMsg.agentStatus === 'thinking') {
+                lastMsg.content = data.content
+              }
+              return updated
+            })
+          }
+        }
+      )
 
       // Remove loading message
       setMessages(prev => prev.slice(0, -1))
       setActiveAgent(null)
 
-      // Determine agent type - use orchestrator if agent chain is present
+      // Determine agent type - use orchestrator if agent execution is present
       let agentType: 'search' | 'pricing' | 'recommendation' | 'orchestrator' = 'orchestrator'
-      if (!response.agent_chain || response.agent_chain.length === 0) {
+      if (!response.agent_execution || response.agent_execution.agent_steps.length === 0) {
         const queryLower = messageText.toLowerCase()
         if (queryLower.includes('cheap') || queryLower.includes('price') || queryLower.includes('deal') || queryLower.includes('cost') || queryLower.includes('value')) {
           agentType = 'pricing'
@@ -137,6 +227,8 @@ const AIAssistant = () => {
       }
 
       // Add AI response (products already formatted by chat service)
+      console.log('🔍 Agent execution received:', response.agent_execution)
+      
       const aiMessage: Message = {
         role: 'assistant',
         content: response.response,
@@ -145,8 +237,10 @@ const AIAssistant = () => {
         suggestions: response.suggestions,
         agent: agentType,
         agentStatus: 'complete',
-        agentChain: response.agent_chain
+        agentExecution: response.agent_execution
       }
+      
+      console.log('💬 Message with agent execution:', aiMessage)
 
       setMessages(prev => [...prev, aiMessage])
       setBackendOnline(true)
@@ -242,31 +336,12 @@ const AIAssistant = () => {
           <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4 custom-scrollbar">
             {messages.map((message, index) => (
               <div key={index} className="flex flex-col gap-3">
-                {/* Agent Chain Visualization */}
-                {message.role === 'assistant' && message.agentChain && message.agentChain.length > 0 && (
-                  <div className="ml-1 mb-2">
-                    <div className="text-xs text-text-secondary mb-2">🔄 Agent Chain:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {message.agentChain.map((step, idx) => (
-                        <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs" 
-                             style={{background: 'rgba(106, 27, 154, 0.1)', border: '1px solid rgba(186, 104, 200, 0.2)'}}>
-                          <span className="text-green-400">✓</span>
-                          <span className="text-text-primary">{step.agent}</span>
-                          <span className="text-text-secondary">→ {step.action}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Agent Attribution (fallback for single agent) */}
-                {message.role === 'assistant' && message.agent && !message.agentChain && (
-                  <div className="flex items-center gap-2 text-xs text-text-secondary ml-1">
-                    {message.agent === 'search' && <span>🔍 Search Agent</span>}
-                    {message.agent === 'pricing' && <span>💰 Pricing Agent</span>}
-                    {message.agent === 'recommendation' && <span>⭐ Recommendation Agent</span>}
-                    {message.agent === 'orchestrator' && <span>🧠 Orchestrator</span>}
-                  </div>
+                {/* Agent Workflow Visualization */}
+                {message.role === 'assistant' && message.agentExecution && (
+                  <AgentWorkflowVisualizer 
+                    execution={message.agentExecution}
+                    isActive={message.agentStatus === 'thinking'}
+                  />
                 )}
                 {/* Message Bubble */}
                 <div
@@ -280,11 +355,14 @@ const AIAssistant = () => {
                       ? 'linear-gradient(135deg, rgba(106, 27, 154, 0.1) 0%, rgba(186, 104, 200, 0.05) 100%)'
                       : 'linear-gradient(135deg, #6a1b9a 0%, #ba68c8 100%)',
                     border: message.role === 'assistant' ? '1px solid rgba(186, 104, 200, 0.2)' : 'none',
-                    color: message.role === 'user' ? 'white' : undefined,
-                    whiteSpace: 'pre-wrap'
+                    color: message.role === 'user' ? 'white' : undefined
                   }}
                 >
-                  {message.content}
+                  {message.role === 'assistant' ? (
+                    <MarkdownMessage content={message.content} />
+                  ) : (
+                    <span style={{ whiteSpace: 'pre-wrap' }}>{message.content}</span>
+                  )}
                 </div>
 
                 {/* Product Cards */}
