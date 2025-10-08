@@ -2,7 +2,7 @@
 Inventory Restock Agent - Monitors stock levels and suggests restocking
 """
 from strands import Agent, tool
-from services.mcp_tool_direct import get_inventory_health_direct, restock_product_direct
+from services.mcp_agent_tools import get_inventory_health, restock_product
 
 
 @tool
@@ -19,7 +19,7 @@ def inventory_restock_agent(query: str) -> str:
     """
     try:
         # Get inventory data from custom MCP tool
-        inventory_data = get_inventory_health_direct()
+        inventory_data = get_inventory_health()
         
         agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -42,7 +42,7 @@ Format:
 - Summary stats
 - Top priority items (if names provided)
 - Recommended actions""",
-            tools=[restock_product_direct]
+            tools=[restock_product]
         )
         
         response = agent(f"{query}\n\nInventory Health Data:\n{inventory_data}")

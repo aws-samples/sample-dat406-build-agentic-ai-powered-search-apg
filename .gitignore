@@ -9,17 +9,18 @@ venv/
 ENV/
 .venv
 *.egg-info/
-dist/
 build/
 
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
 
-# Environment
+# Environment files (contain credentials)
 .env
 .env.local
 .env.*.local
+lab2/backend/.env
+lab2/frontend/.env
 
 # IDE
 .vscode/
@@ -38,18 +39,20 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+package-lock.json
 
 # Build outputs
 dist/
+lab2/frontend/dist/
 *.log
 
 # Database
 *.db
 *.sqlite
 
-# MCP Config (auto-generated)
+# MCP Config (auto-generated with account-specific ARNs)
 lab2/config/mcp-server-config.json
 
-# Participant changes
+# Participant changes (notebooks will be modified during workshop)
 lab1/*.ipynb
 lab1/**/*.ipynb

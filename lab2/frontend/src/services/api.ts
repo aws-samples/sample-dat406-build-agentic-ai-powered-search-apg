@@ -66,14 +66,6 @@ class ApiClient {
     return response.data
   }
 
-  async autocomplete(query: string): Promise<{suggestions: Array<{text: string, category: string}>}> {
-    if (!query || query.trim().length < 2) {
-      return { suggestions: [] }
-    }
-    const response = await this.client.get(`/api/autocomplete?q=${encodeURIComponent(query)}`)
-    return response.data
-  }
-
   async getProduct(productId: string): Promise<Product> {
     const response = await this.client.get<Product>(`/api/products/${productId}`)
     return response.data

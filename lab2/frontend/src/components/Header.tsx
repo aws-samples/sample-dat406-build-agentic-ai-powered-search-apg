@@ -14,8 +14,7 @@ interface HeaderProps {
 
 const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) => {
   const [searchQuery, setSearchQuery] = useState('')
-  const [suggestions, setSuggestions] = useState<Array<{text: string, category: string}>>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
+
   const [showCollectionsMenu, setShowCollectionsMenu] = useState(false)
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const { theme } = useTheme()
@@ -48,9 +47,6 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false)
-      }
       if (collectionsRef.current && !collectionsRef.current.contains(e.target as Node)) {
         setShowCollectionsMenu(false)
       }
@@ -59,23 +55,7 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  useEffect(() => {
-    if (searchQuery.length >= 2) {
-      const timer = setTimeout(async () => {
-        try {
-          const result = await apiClient.autocomplete(searchQuery)
-          setSuggestions(result.suggestions)
-          setShowSuggestions(true)
-        } catch (error) {
-          console.error('Autocomplete failed:', error)
-        }
-      }, 300)
-      return () => clearTimeout(timer)
-    } else {
-      setSuggestions([])
-      setShowSuggestions(false)
-    }
-  }, [searchQuery])
+
 
   const handleNavClick = (section: 'shop' | 'collections' | 'tech') => {
     if (onNavigate) {
@@ -207,24 +187,7 @@ const Header = ({ activeSection = 'shop', onNavigate, onSearch }: HeaderProps) =
                 ✕
               </button>
             )}
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full mt-2 w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
-                {suggestions.map((s, i) => (
-                  <div
-                    key={i}
-                    onClick={() => {
-                      setSearchQuery(s.text)
-                      setShowSuggestions(false)
-                      if (onSearch) onSearch(s.text)
-                    }}
-                    className="px-4 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0"
-                  >
-                    <div className="text-sm text-gray-900 dark:text-white">{s.text}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{s.category}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+
             </div>
             <button
               onClick={() => searchQuery.trim() && onSearch?.(searchQuery)}

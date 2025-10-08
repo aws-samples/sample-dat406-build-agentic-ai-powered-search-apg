@@ -306,10 +306,7 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource: '*'
-              - Effect: Allow
-                Action:
-                  - ec2:DescribeTags
-                Resource: '*'
+
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup

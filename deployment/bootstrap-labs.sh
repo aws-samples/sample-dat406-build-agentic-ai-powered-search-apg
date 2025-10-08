@@ -110,11 +110,8 @@ fi
 
 # Always create Lab 2 Frontend .env (doesn't need DB credentials)
 if [ -d "$HOME_FOLDER/$REPO_NAME/lab2/frontend" ]; then
-    if [ -n "$CLOUDFRONT_URL" ] && [ "$CLOUDFRONT_URL" != "None" ]; then
-        API_URL="${CLOUDFRONT_URL}/ports/8000"
-    else
-        API_URL="http://localhost:8000"
-    fi
+    # Use relative path for CloudFront compatibility
+    API_URL="/ports/8000"
     
     cat > "$HOME_FOLDER/$REPO_NAME/lab2/frontend/.env" << ENV_FRONTEND
 VITE_API_URL=$API_URL

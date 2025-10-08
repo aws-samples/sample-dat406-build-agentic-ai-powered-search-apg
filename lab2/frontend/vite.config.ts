@@ -25,5 +25,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // Cache busting: Add hash to filenames for workshop reliability
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]'
+      }
+    }
   },
 })

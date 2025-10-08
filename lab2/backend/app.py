@@ -30,15 +30,9 @@ from services.embeddings import EmbeddingService
 from services.bedrock import BedrockService
 from services.chat import ChatService
 
-# Lab 2 imports (optional)
-try:
-    from agents.search_agent import SearchAgent  # type: ignore
-    from agents.inventory_agent import InventoryAgent  # type: ignore
-    from agents.recommendation_agent import RecommendationAgent  # type: ignore
-    LAB2_AVAILABLE = True
-except ImportError:
-    LAB2_AVAILABLE = False
-    logging.warning("Lab 2 agents not available - MCP features disabled")
+# Lab 2 agents use Strands SDK function pattern (not class-based)
+# Agents are available via /api/agents/query endpoint
+LAB2_AVAILABLE = True
 
 # Configure logging for Strands SDK
 logging.basicConfig(
@@ -61,10 +55,7 @@ embedding_service: EmbeddingService = None
 bedrock_service: BedrockService = None
 chat_service: ChatService = None
 
-# Lab 2 agents (optional)
-search_agent = None  # type: ignore
-inventory_agent = None  # type: ignore
-recommendation_agent = None  # type: ignore
+# Lab 2 agents use function pattern - no global instances needed
 
 
 @asynccontextmanager
@@ -98,8 +89,8 @@ async def lifespan(app: FastAPI):
         logging.getLogger('services.chat').setLevel(logging.INFO)
         
         # Initialize direct MCP tools with pre-fetched data
-        from services.mcp_tools import CustomMCPTools
-        from services.mcp_tool_direct import set_mcp_tools
+        from services.mcp_database import CustomMCPTools
+        from services.mcp_agent_tools import set_mcp_tools
         mcp = CustomMCPTools(db_service)
         mcp_data = {
             "inventory_health": json.dumps(await mcp.get_inventory_health(), indent=2),
@@ -109,15 +100,8 @@ async def lifespan(app: FastAPI):
         set_mcp_tools(mcp_data)
         logger.info("✅ Direct MCP tools initialized")
         
-        # Initialize Lab 2 agents if available
-        if LAB2_AVAILABLE:
-            try:
-                search_agent = SearchAgent(db_service, embedding_service)
-                inventory_agent = InventoryAgent(db_service)
-                recommendation_agent = RecommendationAgent(db_service, embedding_service)
-                logger.info("✅ Lab 2 agents initialized")
-            except Exception as e:
-                logger.warning(f"Lab 2 agents initialization failed: {e}")
+        # Lab 2 agents use Strands SDK function pattern
+        logger.info("✅ Lab 2 agents available via /api/agents/query")
         
         logger.info("🚀 DAT406 Workshop API is ready!")
         
@@ -229,12 +213,8 @@ async def health_check(
         health_status["status"] = "degraded"
     
     # Check MCP if Lab 2 is available
-    if LAB2_AVAILABLE and search_agent:
-        try:
-            # Simple check that agent is initialized
-            health_status["mcp"] = "connected"
-        except Exception:
-            health_status["mcp"] = "disconnected"
+    if LAB2_AVAILABLE:
+        health_status["mcp"] = "available"
     
     return HealthResponse(**health_status)
 
@@ -242,36 +222,6 @@ async def health_check(
 # ============================================================================
 # LAB 1: SEMANTIC SEARCH ENDPOINTS
 # ============================================================================
-
-@app.get("/api/autocomplete")
-async def autocomplete(
-    q: str = Query(..., min_length=2),
-    limit: int = Query(default=5, ge=1, le=10),
-    db: DatabaseService = Depends(get_db_service),
-):
-    """Fast autocomplete using trigram similarity"""
-    try:
-        query = """
-            SELECT DISTINCT 
-                LEFT(product_description, 60) as suggestion,
-                category_name
-            FROM bedrock_integration.product_catalog
-            WHERE product_description ILIKE %s
-            LIMIT %s
-        """
-        
-        results = await db.fetch_all(query, f"%{q}%", limit)
-        
-        return {
-            "suggestions": [
-                {"text": dict(r)["suggestion"], "category": dict(r)["category_name"]}
-                for r in results
-            ]
-        }
-    except Exception as e:
-        logger.error(f"Autocomplete failed: {e}")
-        return {"suggestions": []}
-
 
 @app.post("/api/search", response_model=SearchResponse)
 async def semantic_search(
@@ -508,129 +458,8 @@ async def list_products(
 # LAB 2: MULTI-AGENT ENDPOINTS (Optional)
 # ============================================================================
 
-if LAB2_AVAILABLE:
-    
-    @app.post("/api/agent/search", response_model=AgentResponse)
-    async def agent_search(
-        request: SearchRequest,
-    ):
-        """
-        LAB 2: Agent-based search using MCP
-        """
-        if not search_agent:
-            raise HTTPException(status_code=503, detail="Search agent not available")
-        
-        start_time = time.time()
-        
-        try:
-            response = await search_agent.search(
-                query=request.query,
-                limit=request.limit
-            )
-            
-            execution_time_ms = (time.time() - start_time) * 1000
-            
-            return AgentResponse(
-                agent_name="SearchAgent",
-                response=response.get("message", "Search completed"),
-                data=response.get("data"),
-                execution_time_ms=execution_time_ms,
-                tools_used=response.get("tools_used", [])
-            )
-            
-        except Exception as e:
-            logger.error(f"Agent search failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Agent search failed: {str(e)}")
-    
-    
-    @app.get("/api/inventory/analyze", response_model=AgentResponse)
-    async def analyze_inventory():
-        """
-        LAB 2: Analyze inventory using inventory agent
-        """
-        if not inventory_agent:
-            raise HTTPException(status_code=503, detail="Inventory agent not available")
-        
-        start_time = time.time()
-        
-        try:
-            response = await inventory_agent.analyze_inventory()
-            
-            execution_time_ms = (time.time() - start_time) * 1000
-            
-            return AgentResponse(
-                agent_name="InventoryAgent",
-                response=response.get("message", "Analysis completed"),
-                data=response.get("data"),
-                execution_time_ms=execution_time_ms,
-                tools_used=response.get("tools_used", [])
-            )
-            
-        except Exception as e:
-            logger.error(f"Inventory analysis failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Inventory analysis failed: {str(e)}")
-    
-    
-    @app.get("/api/inventory/low-stock", response_model=List[Product])
-    async def get_low_stock(
-        threshold: int = Query(default=10, ge=0),
-        db: DatabaseService = Depends(get_db_service),
-    ):
-        """
-        LAB 2: Get products with low stock
-        """
-        try:
-            query = """
-                SELECT 
-                    "productId",
-                    product_description,
-                    imgurl,
-                    producturl,
-                    stars,
-                    reviews,
-                    price,
-                    category_id,
-                    isbestseller,
-                    boughtinlastmonth,
-                    category_name,
-                    quantity
-                FROM bedrock_integration.product_catalog
-                WHERE quantity <= $1 AND quantity > 0
-                ORDER BY quantity ASC, reviews DESC
-                LIMIT 50
-            """
-            
-            results = await db.fetch_all(query, threshold)
-            
-            return [Product(**dict(row)) for row in results]
-            
-        except Exception as e:
-            logger.error(f"Failed to fetch low stock products: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch low stock: {str(e)}")
-    
-    
-    @app.post("/api/recommendations", response_model=List[ProductWithScore])
-    async def get_recommendations(
-        request: RecommendationRequest,
-    ):
-        """
-        LAB 2: Get product recommendations using recommendation agent
-        """
-        if not recommendation_agent:
-            raise HTTPException(status_code=503, detail="Recommendation agent not available")
-        
-        try:
-            recommendations = await recommendation_agent.get_recommendations(
-                product_id=request.productId,
-                limit=request.limit,
-                exclude_same=request.exclude_same_product
-            )
-            
-            return recommendations
-            
-        except Exception as e:
-            logger.error(f"Recommendations failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Recommendations failed: {str(e)}")
+# Lab 2 agents use Strands SDK function pattern - available via /api/agents/query
+# No class-based agent endpoints needed
 
 
 # ============================================================================
@@ -662,7 +491,7 @@ async def list_mcp_tools(
 ):
     """List all custom MCP tools available"""
     try:
-        from services.mcp_tools import CustomMCPTools
+        from services.mcp_database import CustomMCPTools
         mcp_tools = CustomMCPTools(db)
         return await mcp_tools.list_custom_tools()
     except Exception as e:
@@ -677,7 +506,7 @@ async def get_trending(
 ):
     """Get trending products using custom MCP tool"""
     try:
-        from services.mcp_tools import CustomMCPTools
+        from services.mcp_database import CustomMCPTools
         mcp_tools = CustomMCPTools(db)
         return await mcp_tools.get_trending_products(limit)
     except Exception as e:
@@ -691,7 +520,7 @@ async def get_inventory_health_endpoint(
 ):
     """Get inventory health using custom MCP tool"""
     try:
-        from services.mcp_tools import CustomMCPTools
+        from services.mcp_database import CustomMCPTools
         mcp_tools = CustomMCPTools(db)
         return await mcp_tools.get_inventory_health()
     except Exception as e:
@@ -706,7 +535,7 @@ async def get_price_stats(
 ):
     """Get price statistics using custom MCP tool"""
     try:
-        from services.mcp_tools import CustomMCPTools
+        from services.mcp_database import CustomMCPTools
         mcp_tools = CustomMCPTools(db)
         return await mcp_tools.get_price_statistics(category)
     except Exception as e:
@@ -721,7 +550,7 @@ async def restock_product_endpoint(
 ):
     """Restock a product using custom MCP tool"""
     try:
-        from services.mcp_tools import CustomMCPTools
+        from services.mcp_database import CustomMCPTools
         mcp_tools = CustomMCPTools(db)
         return await mcp_tools.restock_product(
             product_id=request["product_id"],
@@ -789,7 +618,7 @@ async def agent_query(
         from agents.inventory_agent import inventory_restock_agent
         from agents.recommendation_agent import product_recommendation_agent
         from agents.pricing_agent import price_optimization_agent
-        from services.mcp_tools import CustomMCPTools
+        from services.mcp_database import CustomMCPTools
         
         # Initialize custom MCP tools
         mcp_tools = CustomMCPTools(db)

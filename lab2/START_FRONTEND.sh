@@ -32,4 +32,7 @@ else
 fi
 echo ""
 
-npx http-server dist -p 5173 --cors
+# Serve with cache control headers:
+# - index.html: no-cache (always check for updates)
+# - assets/*: max-age=31536000 (1 year, safe because filenames have hashes)
+npx http-server dist -p 5173 --cors -c-1

@@ -2,7 +2,7 @@
 Price Optimization Agent - Analyzes pricing and suggests deals
 """
 from strands import Agent, tool
-from services.mcp_tool_direct import get_price_statistics_direct
+from services.mcp_agent_tools import get_price_statistics
 
 
 @tool
@@ -19,7 +19,7 @@ def price_optimization_agent(query: str) -> str:
     """
     try:
         # Get price statistics from custom MCP tool
-        price_stats = get_price_statistics_direct()
+        price_stats = get_price_statistics()
         
         agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
