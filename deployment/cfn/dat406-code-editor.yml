@@ -291,6 +291,8 @@ Resources:
                 Action:
                   - rds:*
                   - rds-db:connect
+                  - rds-data:ExecuteStatement
+                  - rds-data:BatchExecuteStatement
                 Resource: '*'
               - Effect: Allow
                 Action:
@@ -303,6 +305,10 @@ Resources:
                 Action:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeTags
                 Resource: '*'
               - Effect: Allow
                 Action:
