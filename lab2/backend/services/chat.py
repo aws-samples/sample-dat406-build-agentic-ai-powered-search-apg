@@ -331,13 +331,18 @@ CURRENT REQUEST: {message}"""
                 response_text = str(response)
                 
                 logger.info(f"✅ Orchestrator completed with agent chain")
-                logger.info(f"📝 Final response: {response_text[:500]}...")
+                logger.info(f"📝 Final response length: {len(response_text)} chars")
+                logger.info(f"📝 Response preview: {response_text[:300]}...")
                 
                 # Extract detailed agent execution information
                 agent_execution = self._extract_agent_chain(response, start_time)
                 
                 # Extract structured data from response
                 parsed = self._parse_agent_response(response_text)
+                
+                if not parsed["products"]:
+                    logger.warning(f"⚠️ No products extracted. Response may not contain JSON product data.")
+                    logger.warning(f"💡 Tip: Orchestrator should call run_query tool to get products from database.")
                 
                 result = {
                     "response": parsed["text"],
@@ -449,11 +454,31 @@ CURRENT REQUEST: {message}"""
         
         # Check if response has tool calls (agent invocations)
         if hasattr(response, 'tool_calls') and response.tool_calls:
+            logger.info(f"🔍 Extracting {len(response.tool_calls)} tool calls from response")
+            
             for idx, tool_call in enumerate(response.tool_calls):
-                agent_name = tool_call.name
+                tool_name = tool_call.name
                 tool_start = start_time + (idx + 1) * 100
                 
-                if 'inventory' in agent_name:
+                logger.info(f"  Tool {idx+1}: {tool_name}")
+                
+                # Extract tool parameters if available
+                tool_params = None
+                if hasattr(tool_call, 'input') and tool_call.input:
+                    if isinstance(tool_call.input, dict):
+                        # For database queries, extract SQL
+                        if 'query' in tool_call.input:
+                            query = tool_call.input['query']
+                            if 'SELECT' in query:
+                                tool_params = query[:50] + '...' if len(query) > 50 else query
+                        elif 'sql' in tool_call.input:
+                            sql = tool_call.input['sql']
+                            tool_params = sql[:50] + '...' if len(sql) > 50 else sql
+                    elif isinstance(tool_call.input, str):
+                        tool_params = tool_call.input[:50]
+                
+                # Specialized agent detection
+                if 'inventory' in tool_name:
                     agent_steps.append({
                         "agent": "Inventory Agent",
                         "action": "Analyzing stock levels and inventory health",
@@ -467,7 +492,7 @@ CURRENT REQUEST: {message}"""
                         "duration_ms": 120,
                         "status": "success"
                     })
-                elif 'recommendation' in agent_name:
+                elif 'recommendation' in tool_name:
                     agent_steps.append({
                         "agent": "Recommendation Agent",
                         "action": "Finding matching products",
@@ -475,14 +500,7 @@ CURRENT REQUEST: {message}"""
                         "timestamp": tool_start,
                         "duration_ms": 220
                     })
-                    tool_calls.append({
-                        "tool": "run_query",
-                        "params": "SELECT with vector similarity",
-                        "timestamp": tool_start + 30,
-                        "duration_ms": 150,
-                        "status": "success"
-                    })
-                elif 'price' in agent_name or 'pricing' in agent_name:
+                elif 'price' in tool_name or 'pricing' in tool_name:
                     agent_steps.append({
                         "agent": "Pricing Agent",
                         "action": "Analyzing prices and deals",
@@ -493,6 +511,33 @@ CURRENT REQUEST: {message}"""
                     tool_calls.append({
                         "tool": "get_price_statistics",
                         "timestamp": tool_start + 25,
+                        "duration_ms": 100,
+                        "status": "success"
+                    })
+                
+                # MCP database tools
+                if tool_name == 'run_query':
+                    tool_calls.append({
+                        "tool": "run_query",
+                        "params": tool_params or "Product search",
+                        "timestamp": tool_start + 30,
+                        "duration_ms": 150,
+                        "status": "success"
+                    })
+                elif tool_name == 'get_table_schema':
+                    tool_calls.append({
+                        "tool": "get_table_schema",
+                        "timestamp": tool_start + 20,
+                        "duration_ms": 80,
+                        "status": "success"
+                    })
+                
+                # Custom MCP tools
+                elif tool_name in ['get_trending_products', 'get_inventory_health', 'get_price_statistics', 'restock_product']:
+                    tool_calls.append({
+                        "tool": tool_name,
+                        "params": tool_params,
+                        "timestamp": tool_start + 20,
                         "duration_ms": 100,
                         "status": "success"
                     })
@@ -536,6 +581,8 @@ CURRENT REQUEST: {message}"""
             })
         
         total_duration = time.time() - start_time
+        
+        logger.info(f"📊 Extracted {len(agent_steps)} agent steps and {len(tool_calls)} tool calls")
         
         return {
             "agent_steps": agent_steps,
