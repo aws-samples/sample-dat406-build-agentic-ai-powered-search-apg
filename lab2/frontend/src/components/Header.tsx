@@ -4,7 +4,6 @@
  */
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../App'
-import { apiClient } from '../services/api'
 
 interface HeaderProps {
   activeSection?: 'shop' | 'collections' | 'tech'

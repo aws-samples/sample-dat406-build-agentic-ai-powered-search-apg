@@ -293,6 +293,9 @@ Resources:
                   - rds-db:connect
                   - rds-data:ExecuteStatement
                   - rds-data:BatchExecuteStatement
+                  - "rds-data:BeginTransaction"
+                  - "rds-data:CommitTransaction"
+                  - "rds-data:RollbackTransaction"
                 Resource: '*'
               - Effect: Allow
                 Action:
