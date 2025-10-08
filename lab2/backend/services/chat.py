@@ -353,17 +353,25 @@ IMPORTANT: If the user asks about "cheapest", "best", "recommend", etc., look at
         else:
             logger.warning("⚠️ No JSON product data found in agent response")
         
-        # Extract suggestions (lines starting with - )
-        suggestion_pattern = r'^-\s+"([^"]+)"'
-        suggestions = re.findall(suggestion_pattern, response_text, re.MULTILINE)
+        # Extract suggestions ONLY from Suggestions section (avoid JSON fragments)
+        suggestions_section = re.search(r'Suggestions:\s*\n(.*?)(?:\n\n|$)', response_text, re.DOTALL | re.IGNORECASE)
         
-        # Also extract inline suggestions from quotes (e.g., "show me smartphones")
-        inline_pattern = r'"([^"]+?)"'
-        inline_suggestions = re.findall(inline_pattern, response_text)
+        if suggestions_section:
+            suggestions_text = suggestions_section.group(1)
+            # Extract lines starting with - and quoted text
+            suggestion_pattern = r'^-\s+"([^"]+)"'
+            suggestions = re.findall(suggestion_pattern, suggestions_text, re.MULTILINE)
+        else:
+            suggestions = []
         
-        # Combine and filter out productId references
-        all_suggestions = suggestions + [s for s in inline_suggestions if len(s) > 5 and len(s) < 50]
-        filtered = [s for s in all_suggestions if 'productid' not in s.lower() and not re.match(r'^B[0-9A-Z]{9}$', s)]
+        # Filter out any JSON-like content or product IDs
+        filtered = [
+            s for s in suggestions 
+            if 'productid' not in s.lower() 
+            and not re.match(r'^B[0-9A-Z]{9}$', s)
+            and '{' not in s and '}' not in s  # No JSON fragments
+            and len(s) > 5 and len(s) < 60
+        ]
         
         # Add smart suggestions based on context
         smart_suggestions = self._generate_smart_suggestions(query, result["products"])
