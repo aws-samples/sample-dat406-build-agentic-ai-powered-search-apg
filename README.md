@@ -33,7 +33,7 @@
 
 ## 🚀 Overview
 
-Enterprise AI commerce platform demonstrating intelligent product discovery through **semantic search** and **multi-agent orchestration**. Built on **Amazon Aurora PostgreSQL 17.5** with pgvector 0.8.0, **Amazon Bedrock**, and modern full-stack technologies.
+Blaize Bazaar is an enterprise AI e-commerce platform demonstrating intelligent product discovery through **semantic search** and **multi-agent orchestration**. Built on **Amazon Aurora PostgreSQL 17.5** with pgvector 0.8.0, **Amazon Bedrock**, and modern full-stack technologies.
 
 ### ✨ Core Capabilities
 
@@ -42,7 +42,6 @@ Enterprise AI commerce platform demonstrating intelligent product discovery thro
 | 🔍 **Semantic Search** | pgvector 0.8.0 HNSW | Natural language product queries with sub-10ms latency |
 | 🤖 **Agentic AI** | Claude Sonnet 4 | Multi-agent orchestration with Agents as Tools pattern |
 | 🔌 **MCP Integration** | PostgreSQL MCP Server | Custom business logic tools for Aurora database |
-| ⚡ **Real-time Autocomplete** | Trigram indexes | Instant search suggestions as you type |
 | 🎯 **Smart Filtering** | Vector + SQL hybrid | Dynamic price, rating, and category filters |
 | 📊 **Analytics Dashboard** | FastAPI + React | Real-time inventory and pricing insights |
 
