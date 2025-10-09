@@ -214,11 +214,6 @@ CREATE INDEX idx_product_fts
 ON bedrock_integration.product_catalog
 USING GIN (to_tsvector('english', product_description));
 
--- Autocomplete (trigram)
-CREATE INDEX idx_product_trgm 
-ON bedrock_integration.product_catalog
-USING GIN (product_description gin_trgm_ops);
-
 -- Filter optimization
 CREATE INDEX idx_product_category ON product_catalog(category_name);
 CREATE INDEX idx_product_price ON product_catalog(price) WHERE price > 0;
