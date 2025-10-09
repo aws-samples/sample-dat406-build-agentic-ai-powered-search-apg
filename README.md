@@ -39,7 +39,7 @@ Blaize Bazaar is an enterprise AI e-commerce platform demonstrating intelligent 
 
 | Feature | Technology | Description |
 |---------|-----------|-------------|
-| 🔍 **Semantic Search** | pgvector 0.8.0 HNSW | Natural language product queries with sub-10ms latency |
+| 🔍 **Semantic Search** | pgvector 0.8.0 HNSW | Natural language product queries low latency |
 | 🤖 **Agentic AI** | Claude Sonnet 4 | Multi-agent orchestration with Agents as Tools pattern |
 | 🔌 **MCP Integration** | PostgreSQL MCP Server | Custom business logic tools for Aurora database |
 
