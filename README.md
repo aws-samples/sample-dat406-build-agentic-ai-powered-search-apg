@@ -140,9 +140,6 @@ start-frontend  # Terminal 2: React on port 5173
 Everything is pre-configured via bootstrap scripts! All commands work from any directory:
 
 ```bash
-# Lab 1: Jupyter Notebooks
-start-jupyter
-
 # Lab 2: Backend + Frontend
 start-backend   # Terminal 1
 start-frontend  # Terminal 2
