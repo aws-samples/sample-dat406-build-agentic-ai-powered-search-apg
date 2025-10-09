@@ -563,6 +563,6 @@ You've built a production-ready semantic search system. Now take these skills to
 
 ---
 
-**Questions?** Ask your workshop instructors or TAs!  
+**Questions?** Ask your workshop instructors!  
 **Found a bug?** Create an issue in the workshop repository  
 **Want to share?** Tweet with #AWSreInvent #DAT406
