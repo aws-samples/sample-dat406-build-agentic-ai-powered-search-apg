@@ -107,8 +107,7 @@ Build the semantic search engine:
 
 **Quick Start:**
 ```bash
-start-jupyter
-# Opens Lab 1 notebook at http://localhost:8888
+Run through all cells from top to bottom in VSCode Editor
 ```
 
 ### Lab 2: Full-Stack Agentic Application (80 min)
