@@ -174,8 +174,8 @@ cp .env.example .env
 # Edit .env with your database credentials and AWS settings
 
 # 4. Start services
-cd lab2/backend && uvicorn app:app --reload  # Backend
-cd lab2/frontend && npm run dev              # Frontend
+cd lab2/backend && uvicorn app:app --reload    # Backend
+cd lab2/frontend && npm run build              # Frontend
 ```
 
 **Access URLs (Local):**
