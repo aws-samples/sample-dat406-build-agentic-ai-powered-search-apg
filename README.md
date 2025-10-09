@@ -175,7 +175,7 @@ cp .env.example .env
 
 # 4. Start services
 cd lab2/backend && uvicorn app:app --reload    # Backend
-cd lab2/frontend && npm run build              # Frontend
+cd lab2/frontend && npm run dev                # Frontend
 ```
 
 **Access URLs (Local):**
