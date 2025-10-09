@@ -364,7 +364,7 @@ curl http://localhost:8000/api/mcp/pricing
 
 By completing this workshop, you will:
 
-1. ✅ **Master Vector Embeddings** - Generate and store semantic embeddings at scale
+1. ✅ **Understand Vector Embeddings** - Generate and store semantic embeddings at scale
 2. ✅ **Build Semantic Search** - Implement sub-10ms vector similarity search with HNSW
 3. ✅ **Design Multi-Agent Systems** - Orchestrator + specialized agents (Agents as Tools)
 4. ✅ **Extend MCP Servers** - Create custom tools for Aurora PostgreSQL
