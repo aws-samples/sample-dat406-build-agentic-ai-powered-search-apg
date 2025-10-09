@@ -1,35 +1,74 @@
-# HTTP & Networking
-httpx>=0.25.0
+# Lab 1: AI-Powered Semantic Product Search with pgvector 0.8.0
+# Requirements for Jupyter Notebook environment
+# Python 3.10+
 
-# Database
-psycopg[binary,pool]>=3.1.0
-pgvector>=0.2.0
-sqlparse>=0.4.0
+# =============================================================================
+# Core AWS SDK - For Amazon Bedrock API calls
+# =============================================================================
+boto3>=1.34.0
+botocore>=1.34.0
 
-# Data Science
-pandas>=2.0.0
-numpy<2.0
-pandarallel>=1.6.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
-scikit-learn>=1.3.0
-mplcursors>=0.5.0
+# =============================================================================
+# Database Connectivity - PostgreSQL with pgvector support
+# =============================================================================
+psycopg[binary]>=3.1.0          # Modern PostgreSQL driver
+psycopg-pool>=3.2.0              # Connection pooling
+pgvector>=0.2.4                  # Vector similarity search extension
 
-# AWS
-boto3>=1.28.0
+# =============================================================================
+# Data Processing and Analysis
+# =============================================================================
+pandas>=2.0.0                    # Data manipulation
+numpy>=1.24.0                    # Numerical computing
+pandarallel>=1.6.5               # Parallel processing for pandas
 
-# Utilities & Progress
-tqdm>=4.65.0
-python-dotenv>=1.0.0
+# =============================================================================
+# Progress Bars and UI
+# =============================================================================
+tqdm>=4.65.0                     # Progress bars for loops
 
-# Jupyter & Notebooks
-ipykernel>=6.25.0
+# =============================================================================
+# Visualization
+# =============================================================================
+matplotlib>=3.7.0                # Plotting library
+seaborn>=0.12.0                  # Statistical visualizations
+scikit-learn>=1.3.0              # ML utilities (TSNE dimensionality reduction)
+
+# =============================================================================
+# Jupyter Widgets - Interactive UI components
+# =============================================================================
+ipywidgets>=8.0.0                # Interactive widgets for search interface
+ipython>=8.12.0                  # Enhanced Python shell
+
+# =============================================================================
+# Jupyter Environment (if not already installed)
+# =============================================================================
 jupyter>=1.0.0
-jupyterlab>=4.0.0
-ipywidgets>=8.0.0
+notebook>=7.0.0
 
-# FastAPI (for backend)
-fastapi>=0.100.0
-uvicorn>=0.23.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
+# =============================================================================
+# Utility Packages
+# =============================================================================
+python-dateutil>=2.8.0           # Date/time utilities
+pytz>=2023.3                     # Timezone handling
+
+# =============================================================================
+# Optional Performance Enhancements
+# =============================================================================
+# numba>=0.57.0                  # JIT compiler for numpy (optional)
+
+# =============================================================================
+# Development Tools (Optional - uncomment if needed)
+# =============================================================================
+# black>=23.0.0                  # Code formatting
+# flake8>=6.0.0                  # Linting
+# jupyter-contrib-nbextensions   # Additional notebook extensions
+
+# =============================================================================
+# Notes:
+# =============================================================================
+# 1. pgvector 0.8.0+ features require PostgreSQL with pgvector extension
+# 2. pandarallel requires sufficient RAM for parallel embedding generation
+# 3. All packages tested on Python 3.10+ and Jupyter Notebook 7.0+
+# 4. Install with: pip install -r requirements.txt --break-system-packages
+#    (if using system Python, otherwise use virtual environment)
