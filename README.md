@@ -388,69 +388,6 @@ The workshop environment is fully automated via `deployment/bootstrap-labs.sh`:
 5. ✅ Installs Python and Node.js dependencies
 6. ✅ Configures bash aliases for quick commands
 
-**Configuration Files Created:**
-
-`.env` (Backend):
-```bash
-DB_CLUSTER_ARN=arn:aws:rds:{region}:{account}:cluster:apg-pgvector-dat406
-DB_SECRET_ARN=arn:aws:secretsmanager:{region}:{account}:secret:...
-DB_HOST=cluster.{region}.rds.amazonaws.com
-AWS_REGION=us-west-2
-BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
-BEDROCK_CHAT_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
-```
-
-`.env` (Frontend):
-```bash
-VITE_API_URL=/ports/8000
-VITE_AWS_REGION=us-west-2
-```
-
-`lab2/config/mcp-server-config.json`:
-```json
-{
-  "mcpServers": {
-    "awslabs.postgres-mcp-server": {
-      "command": "uv",
-      "args": ["--resource_arn", "{DB_CLUSTER_ARN}", ...]
-    }
-  }
-}
-```
-
-### IAM Permissions Required
-
-EC2 instance role must have:
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "rds-data:ExecuteStatement",
-        "rds:DescribeDBClusters"
-      ],
-      "Resource": "arn:aws:rds:*:*:cluster:apg-pgvector-dat406"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "secretsmanager:GetSecretValue",
-      "Resource": "arn:aws:secretsmanager:*:*:secret:apg-pgvector-secret-dat406-*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "bedrock:InvokeModel",
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-### Zero Manual Configuration
-
-Participants simply run `start-backend` and `start-frontend` - everything works immediately!
-
 ---
 
 ## 📁 Project Structure
@@ -539,14 +476,14 @@ SET hnsw.iterative_scan = 'relaxed_order';  -- Just works!
 ## 🤝 Support & Resources
 
 ### Workshop Support
-- 👨‍🏫 Ask your workshop instructor or TAs
+- 👨‍🏫 Ask your workshop instructors
 - 📧 Refer to lab guides in `lab1/` and `lab2/`
 
 ### Additional Resources
 - 📘 [Aurora PostgreSQL Documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/)
 - 📗 [pgvector 0.8.0 Blog Post](https://aws.amazon.com/blogs/database/supercharging-vector-search-performance-and-relevance-with-pgvector-0-8-0-on-amazon-aurora-postgresql/)
 - 📙 [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-- 📕 [Model Context Protocol Specification](https://modelcontextprotocol.io/)
+- 📕 [AWS Labs MCP Servers](https://awslabs.github.io/mcp/)
 
 ### Community
 - 🐛 Report issues on GitHub
