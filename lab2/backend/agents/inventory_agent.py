@@ -2,7 +2,7 @@
 Inventory Restock Agent - Monitors stock levels and suggests restocking
 """
 from strands import Agent, tool
-from services.mcp_agent_tools import get_inventory_health, restock_product
+from services.mcp_agent_tools import get_inventory_health, restock_product, run_query
 
 
 @tool
@@ -18,34 +18,34 @@ def inventory_restock_agent(query: str) -> str:
         Restocking recommendations or restock confirmation
     """
     try:
-        # Get inventory data from custom MCP tool
-        inventory_data = get_inventory_health()
-        
         agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             system_prompt="""You are an inventory management specialist for Blaize Bazaar.
-            
-Analyze stock levels and provide ONE concise restocking report.
+
+You have access to these tools:
+- get_inventory_health() - Get current stock statistics
+- restock_product(product_id, quantity) - Add stock to a product
+- run_query(sql) - Execute custom inventory queries
+
+Workflow:
+1. Call get_inventory_health() to see current stock levels
+2. Analyze the data and identify issues
+3. Provide recommendations or execute restock if requested
 
 Guidelines:
-1. LOW STOCK: quantity < 10 | OUT OF STOCK: quantity = 0
-2. Prioritize by stars and reviews
-3. Reorder quantities: High demand (100+ reviews) = 50 units, Medium (50-100) = 30 units, Low (<50) = 20 units
-4. List critical items with product IDs if available
-5. Keep response under 200 words - no repetition
-
-For restock requests:
-- Use restock_product_direct(product_id, quantity) to add stock
-- Confirm the action with old and new quantities
+- LOW STOCK: quantity < 10 | OUT OF STOCK: quantity = 0
+- Prioritize by stars and reviews
+- Reorder quantities: High demand (100+ reviews) = 50 units, Medium (50-100) = 30 units, Low (<50) = 20 units
+- Keep response under 200 words
 
 Format:
 - Summary stats
-- Top priority items (if names provided)
+- Top priority items
 - Recommended actions""",
-            tools=[restock_product]
+            tools=[get_inventory_health, restock_product, run_query]
         )
         
-        response = agent(f"{query}\n\nInventory Health Data:\n{inventory_data}")
+        response = agent(query)
         return str(response)
     except Exception as e:
         return f"Error in inventory agent: {str(e)}"

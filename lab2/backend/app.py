@@ -88,17 +88,10 @@ async def lifespan(app: FastAPI):
         # Set chat service logger to INFO
         logging.getLogger('services.chat').setLevel(logging.INFO)
         
-        # Initialize direct MCP tools with pre-fetched data
-        from services.mcp_database import CustomMCPTools
-        from services.mcp_agent_tools import set_mcp_tools
-        mcp = CustomMCPTools(db_service)
-        mcp_data = {
-            "inventory_health": json.dumps(await mcp.get_inventory_health(), indent=2),
-            "trending_products": json.dumps(await mcp.get_trending_products(50), indent=2),
-            "price_statistics": json.dumps(await mcp.get_price_statistics(), indent=2)
-        }
-        set_mcp_tools(mcp_data)
-        logger.info("✅ Direct MCP tools initialized")
+        # Initialize direct MCP tools with database service reference (live data)
+        from services.mcp_agent_tools import set_db_service
+        set_db_service(db_service)
+        logger.info("✅ Direct MCP tools initialized with live database access")
         
         # Lab 2 agents use Strands SDK function pattern
         logger.info("✅ Lab 2 agents available via /api/agents/query")
@@ -707,53 +700,11 @@ async def agent_query(
         from agents.inventory_agent import inventory_restock_agent
         from agents.recommendation_agent import product_recommendation_agent
         from agents.pricing_agent import price_optimization_agent
-        from services.mcp_database import CustomMCPTools
         
-        # Initialize custom MCP tools
-        mcp_tools = CustomMCPTools(db)
-        
-        # Get relevant context using custom MCP tools
-        context = ""
-        
-        # Extract category/product type from query
-        query_lower = query.lower()
-        category_filter = ""
-        
-        # Detect product categories
-        if any(word in query_lower for word in ["headphone", "earbud", "audio"]):
-            category_filter = "AND category_name ILIKE '%Headphones%'"
-        elif any(word in query_lower for word in ["laptop", "computer", "pc"]):
-            category_filter = "AND (category_name ILIKE '%Computer%' OR category_name ILIKE '%Tablet%' OR product_description ILIKE '%laptop%')"
-        elif any(word in query_lower for word in ["phone", "smartphone", "mobile"]):
-            category_filter = "AND (category_name ILIKE '%Phone%' OR product_description ILIKE '%phone%')"
-        
-        # Use custom MCP tools to get context
-        import json
-        
-        if "inventory" in query_lower or "stock" in query_lower or "restock" in query_lower:
-            # Use get_inventory_health custom MCP tool
-            inventory_health = await mcp_tools.get_inventory_health()
-            context = json.dumps(inventory_health, indent=2)
-        elif "recommend" in query_lower or "suggest" in query_lower or "need" in query_lower:
-            # Use get_trending_products custom MCP tool
-            trending = await mcp_tools.get_trending_products(limit=15)
-            context = json.dumps(trending, indent=2)
-        elif "price" in query_lower or "deal" in query_lower or "bundle" in query_lower:
-            # Use get_price_statistics custom MCP tool
-            price_stats = await mcp_tools.get_price_statistics()
-            context = json.dumps(price_stats, indent=2)
-        
-        # Use orchestrator or specific agent
+        # Agents now handle their own tool calls - no need to pre-fetch context
         if agent_type == "orchestrator":
-            if "inventory" in query.lower() or "stock" in query.lower():
-                response = inventory_restock_agent(query)
-            elif "recommend" in query.lower() or "suggest" in query.lower():
-                response = product_recommendation_agent(query)
-            elif "price" in query.lower() or "deal" in query.lower():
-                response = price_optimization_agent(query)
-            else:
-                orchestrator = create_orchestrator(enable_interleaved_thinking=enable_thinking)
-                response = orchestrator(query)
+            orchestrator = create_orchestrator(enable_interleaved_thinking=enable_thinking)
+            response = orchestrator(query)
         elif agent_type == "inventory":
             response = inventory_restock_agent(query)
         elif agent_type == "recommendation":
@@ -766,7 +717,8 @@ async def agent_query(
         return {
             "response": str(response),
             "agent_type": agent_type,
-            "success": True
+            "success": True,
+            "note": "Agents use live database tools for fresh data"
         }
         
     except Exception as e:
