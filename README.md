@@ -35,6 +35,8 @@
 
 Blaize Bazaar is an enterprise AI e-commerce platform demonstrating intelligent product discovery through **semantic search** and **multi-agent orchestration**. Built on **Amazon Aurora PostgreSQL 17.5** with pgvector 0.8.0, **Amazon Bedrock**, and modern full-stack technologies.
 
+> ⚠️ **Important:** The examples in this repository are for demonstration and educational purposes only. They demonstrate concepts and techniques but are not intended for direct use in production. Always apply proper security and testing procedures before using in production environments.
+
 ### ✨ Core Capabilities
 
 | Feature | Technology | Description |

@@ -88,10 +88,10 @@ async def lifespan(app: FastAPI):
         # Set chat service logger to INFO
         logging.getLogger('services.chat').setLevel(logging.INFO)
         
-        # Initialize direct MCP tools with database service reference (live data)
-        from services.mcp_agent_tools import set_db_service
+        # Initialize agent tools with database service reference (live data)
+        from services.agent_tools import set_db_service
         set_db_service(db_service)
-        logger.info("✅ Direct MCP tools initialized with live database access")
+        logger.info("✅ Agent tools initialized with live database access")
         
         # Lab 2 agents use Strands SDK function pattern
         logger.info("✅ Lab 2 agents available via /api/agents/query")
@@ -482,13 +482,13 @@ async def general_exception_handler(request, exc):
 async def list_mcp_tools(
     db: DatabaseService = Depends(get_db_service)
 ):
-    """List all custom MCP tools available"""
+    """List all custom business logic tools available"""
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp_tools = CustomMCPTools(db)
-        return await mcp_tools.list_custom_tools()
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(db)
+        return await logic.list_custom_tools()
     except Exception as e:
-        logger.error(f"Failed to list MCP tools: {e}")
+        logger.error(f"Failed to list tools: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -497,11 +497,11 @@ async def get_trending(
     limit: int = Query(default=10, ge=1, le=50),
     db: DatabaseService = Depends(get_db_service)
 ):
-    """Get trending products using custom MCP tool"""
+    """Get trending products using business logic"""
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp_tools = CustomMCPTools(db)
-        return await mcp_tools.get_trending_products(limit)
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(db)
+        return await logic.get_trending_products(limit)
     except Exception as e:
         logger.error(f"Failed to get trending products: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -511,11 +511,11 @@ async def get_trending(
 async def get_inventory_health_endpoint(
     db: DatabaseService = Depends(get_db_service)
 ):
-    """Get inventory health using custom MCP tool"""
+    """Get inventory health using business logic"""
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp_tools = CustomMCPTools(db)
-        return await mcp_tools.get_inventory_health()
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(db)
+        return await logic.get_inventory_health()
     except Exception as e:
         logger.error(f"Failed to get inventory health: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -526,11 +526,11 @@ async def get_price_stats(
     category: str = Query(default=None),
     db: DatabaseService = Depends(get_db_service)
 ):
-    """Get price statistics using custom MCP tool"""
+    """Get price statistics using business logic"""
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp_tools = CustomMCPTools(db)
-        return await mcp_tools.get_price_statistics(category)
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(db)
+        return await logic.get_price_statistics(category)
     except Exception as e:
         logger.error(f"Failed to get price statistics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -541,11 +541,11 @@ async def restock_product_endpoint(
     request: dict,
     db: DatabaseService = Depends(get_db_service)
 ):
-    """Restock a product using custom MCP tool"""
+    """Restock a product using business logic"""
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp_tools = CustomMCPTools(db)
-        return await mcp_tools.restock_product(
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(db)
+        return await logic.restock_product(
             product_id=request["product_id"],
             quantity=request["quantity"]
         )

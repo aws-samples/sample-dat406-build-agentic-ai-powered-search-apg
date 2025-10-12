@@ -2,7 +2,7 @@
 Product Recommendation Agent - Suggests products based on user preferences
 """
 from strands import Agent, tool
-from services.mcp_agent_tools import get_trending_products, run_query
+from services.agent_tools import get_trending_products, run_query
 
 
 @tool
@@ -56,4 +56,4 @@ Format:
         response = agent(query)
         return str(response)
     except Exception as e:
-        return f"Error in recommendation agent: {str(e)}"}
+        return f"Error in recommendation agent: {str(e)}"

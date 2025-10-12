@@ -2,7 +2,7 @@
 Inventory Restock Agent - Monitors stock levels and suggests restocking
 """
 from strands import Agent, tool
-from services.mcp_agent_tools import get_inventory_health, restock_product, run_query
+from services.agent_tools import get_inventory_health, restock_product, run_query
 
 
 @tool

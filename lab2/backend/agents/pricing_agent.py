@@ -2,7 +2,7 @@
 Price Optimization Agent - Analyzes pricing and suggests deals
 """
 from strands import Agent, tool
-from services.mcp_agent_tools import get_price_statistics, run_query
+from services.agent_tools import get_price_statistics, run_query
 
 
 @tool

@@ -1,6 +1,6 @@
 """
-Custom MCP Tools for Aurora PostgreSQL
-Extends base MCP with business-specific functionality
+Business Logic Layer for Blaize Bazaar
+Contains custom business logic for inventory, pricing, and trending analysis
 """
 from typing import Dict, Any, List
 from decimal import Decimal
@@ -18,8 +18,8 @@ def convert_decimals(obj):
     return obj
 
 
-class CustomMCPTools:
-    """Custom tools that extend Aurora PostgreSQL MCP"""
+class BusinessLogic:
+    """Business logic layer for custom analytics and operations"""
     
     def __init__(self, db_service):
         self.db = db_service

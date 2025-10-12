@@ -1,5 +1,6 @@
 """
-Direct MCP Tools - Live database access for agents
+Strands SDK Tools for Agents
+Provides @tool decorated functions for agent use with live database access
 """
 from strands import tool
 import json
@@ -29,9 +30,9 @@ def get_inventory_health() -> str:
         return json.dumps({"error": "Database service not initialized"})
     
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp = CustomMCPTools(_db_service)
-        result = _run_async(mcp.get_inventory_health())
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(_db_service)
+        result = _run_async(logic.get_inventory_health())
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -43,9 +44,9 @@ def get_trending_products(limit: int = 10) -> str:
         return json.dumps({"error": "Database service not initialized"})
     
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp = CustomMCPTools(_db_service)
-        result = _run_async(mcp.get_trending_products(limit))
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(_db_service)
+        result = _run_async(logic.get_trending_products(limit))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -57,9 +58,9 @@ def get_price_statistics(category: str = None) -> str:
         return json.dumps({"error": "Database service not initialized"})
     
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp = CustomMCPTools(_db_service)
-        result = _run_async(mcp.get_price_statistics(category))
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(_db_service)
+        result = _run_async(logic.get_price_statistics(category))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -71,9 +72,9 @@ def restock_product(product_id: str, quantity: int) -> str:
         return json.dumps({"error": "Database service not initialized"})
     
     try:
-        from services.mcp_database import CustomMCPTools
-        mcp = CustomMCPTools(_db_service)
-        result = _run_async(mcp.restock_product(product_id, quantity))
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(_db_service)
+        result = _run_async(logic.restock_product(product_id, quantity))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
