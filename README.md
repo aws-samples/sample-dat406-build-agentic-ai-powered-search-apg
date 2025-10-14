@@ -64,7 +64,7 @@ Build production-grade vector search over 21,704 products with Aurora PostgreSQL
 
 **Technical Implementation:**
 - **Vector Storage**: 1024-dimensional Titan Embeddings v2 via Amazon Bedrock
-- **HNSW Indexing**: M=16, ef_construction=64 for sub-10ms similarity search
+- **HNSW Indexing**: M=16, ef_construction=64 for similarity search
 - **Automatic Iterative Scanning**: pgvector 0.8.0's new feature for guaranteed complete results
 - **Hybrid Indexes**: GIN full-text search + trigram similarity for lexical matching
 
@@ -80,7 +80,7 @@ cd /workshop/lab1/notebook
 
 **Learning Outcomes:**
 - Generate and store semantic embeddings at scale
-- Implement sub-10ms vector similarity search with HNSW
+- Implement vector similarity search with HNSW
 - Optimize database performance for hybrid vector+SQL queries
 
 ---
@@ -150,7 +150,7 @@ start-frontend  # Terminal 2: npm run dev on port 5173
 
 **Performance-Optimized Indexes:**
 ```sql
--- Vector similarity (sub-10ms queries)
+-- Vector similarity
 CREATE INDEX idx_product_embedding_hnsw 
 ON product_catalog USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
