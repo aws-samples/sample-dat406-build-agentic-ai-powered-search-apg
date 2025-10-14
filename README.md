@@ -13,6 +13,12 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
+### Architecture & Capabilities
+[![Architecture](https://img.shields.io/badge/Architecture-Multi--Agent-6a1b9a?style=flat-square&labelColor=4a148c)](README.md)
+[![Search](https://img.shields.io/badge/Search-Vector%20Powered-ba68c8?style=flat-square&labelColor=6a1b9a)](README.md)
+[![AI](https://img.shields.io/badge/AI-Semantic%20%7C%20Agentic-8e24aa?style=flat-square&labelColor=4a148c)](README.md)
+[![Database](https://img.shields.io/badge/Database-pgvector%20HNSW-9c27b0?style=flat-square&labelColor=6a1b9a)](README.md)
+
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Workshop Level](https://img.shields.io/badge/Level-400_Expert-orange?style=for-the-badge)]()
 [![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol-00ADD8?style=for-the-badge)](https://modelcontextprotocol.io/)
@@ -64,7 +70,7 @@ Build enterprise-grade vector search over 21,704 products with Aurora PostgreSQL
 
 **Technical Implementation:**
 - **Vector Storage**: 1024-dimensional Titan Embeddings v2 via Amazon Bedrock
-- **HNSW Indexing**: M=16, ef_construction=64 for similarity search
+- **HNSW Indexing**: M=16, ef_construction=64 for fast similarity search
 - **Automatic Iterative Scanning**: pgvector 0.8.0's new feature for guaranteed complete results
 - **Hybrid Indexes**: GIN full-text search + trigram similarity for lexical matching
 
@@ -80,7 +86,7 @@ cd /workshop/lab1/notebook
 
 **Learning Outcomes:**
 - Generate and store semantic embeddings at scale
-- Implement vector similarity search with HNSW
+- Implement fast vector similarity search with HNSW
 - Optimize database performance for hybrid vector+SQL queries
 
 ---
@@ -150,7 +156,7 @@ start-frontend  # Terminal 2: npm run dev on port 5173
 
 **Performance-Optimized Indexes:**
 ```sql
--- Vector similarity
+-- Vector similarity search
 CREATE INDEX idx_product_embedding_hnsw 
 ON product_catalog USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
@@ -314,7 +320,7 @@ SET hnsw.iterative_scan = 'relaxed_order';
 By completing this workshop, you will:
 
 1. ✅ **Master Vector Embeddings** - Generate and store at scale with Titan v2
-2. ✅ **Build Semantic Search** - Sub-10ms HNSW similarity search
+2. ✅ **Build Semantic Search** - Fast HNSW similarity search
 3. ✅ **Design Multi-Agent Systems** - Orchestrator + specialists (Agents as Tools)
 4. ✅ **Extend MCP Servers** - Custom tools for Aurora PostgreSQL
 5. ✅ **Integrate AWS AI** - Bedrock for embeddings and conversational AI
