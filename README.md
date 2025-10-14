@@ -1,34 +1,33 @@
-# DAT406: Build Agentic AI-Powered Search with Amazon Aurora PostgreSQL
-
-## Blaize Bazaar - Enterprise-Grade Agentic Search Platform
+# DAT406 - Build Agentic AI-Powered Search with Amazon Aurora PostgreSQL
 
 <div align="center">
 
-[![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17.5-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![React](https://img.shields.io/badge/React-18+-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://reactjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+### Platform & Infrastructure
+[![AWS Aurora](https://img.shields.io/badge/Aurora_PostgreSQL-17.5-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/rds/aurora/)
+[![pgvector](https://img.shields.io/badge/pgvector-0.8.0_HNSW-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![Bedrock](https://img.shields.io/badge/Amazon_Bedrock-Titan_v2_|_Claude_4-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/bedrock/)
 
-[![AWS](https://img.shields.io/badge/AWS-Aurora%20%7C%20Bedrock-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+### Languages & Frameworks
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
-[![Architecture](https://img.shields.io/badge/Architecture-Multi--Agent-6a1b9a?style=flat-square&labelColor=4a148c)](README.md)
-[![Search](https://img.shields.io/badge/Search-Vector%20Powered-ba68c8?style=flat-square&labelColor=6a1b9a)](README.md)
-[![AI](https://img.shields.io/badge/AI-Semantic%20%7C%20Agentic-8e24aa?style=flat-square&labelColor=4a148c)](README.md)
-[![Database](https://img.shields.io/badge/Database-pgvector%20HNSW-9c27b0?style=flat-square&labelColor=6a1b9a)](README.md)
-
-</div>
-
----
-
-<div align="center">
-
-### 🎯 **DAT406 Workshop** | Build Agentic AI-Powered Search with Amazon Aurora PostgreSQL
-**AWS re:Invent 2025** • **Level 400 (Expert)** • **Duration: 2 Hours**
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![Workshop Level](https://img.shields.io/badge/Level-400_Expert-orange?style=for-the-badge)]()
+[![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol-00ADD8?style=for-the-badge)](https://modelcontextprotocol.io/)
 
 </div>
 
+> ⚠️ **WARNING**: For demonstration and educational purposes only. Not intended for production use.
+
+## 🚀 Quick Start
+
+**Workshop Duration**: 2 hours | **Lab 1**: 20 min | **Lab 2**: 80 min
+
+Build enterprise-grade agentic AI applications with semantic search, multi-agent orchestration, and Model Context Protocol integration. Leverage Amazon Aurora PostgreSQL 17.5 with pgvector 0.8.0, Amazon Bedrock, and modern full-stack technologies.
+
+<<<<<<< HEAD
 ---
 
 ## 🚀 Overview
@@ -67,152 +66,139 @@ Blaize Bazaar is an enterprise AI e-commerce platform demonstrating intelligent 
     │ Titan v2    │   │  17.5 + pgvector 0.8  │
     │ Claude 4    │   │  HNSW • Trigram       │
     └─────────────┘   └───────────────────────┘
+=======
+**Pre-configured Workshop Environment**:
+```bash
+start-backend   # Terminal 1: FastAPI backend (port 8000)
+start-frontend  # Terminal 2: React frontend (port 5173)
+>>>>>>> dacb4e6 (updates)
 ```
 
-### 🎯 Multi-Agent System (Agents as Tools)
+## 📁 Repository Structure
 
 ```
-┌──────────────────────────────────────────┐
-│       Orchestrator Agent (Claude)        │
-│     Intent Analysis & Task Routing       │
-└────────────┬─────────────────────────────┘
-             │
-       ┌─────┴─────┬──────────────┐
-       ▼           ▼              ▼
-  ┌─────────┐ ┌─────────┐  ┌──────────┐
-  │Inventory│ │  Reco   │  │ Pricing  │
-  │  Agent  │ │ Agent   │  │  Agent   │
-  └────┬────┘ └────┬────┘  └────┬─────┘
-       └──────────┴─────────────┘
-                   │
-                   ▼
-          Aurora PostgreSQL
-          (MCP Tools Layer)
+├── lab1/                           # Lab 1: Semantic Search Foundation
+│   ├── notebook/
+│   │   └── Lab_1_Enhanced_Final.ipynb
+│   └── requirements.txt
+├── lab2/                           # Lab 2: Full-Stack Agentic Application
+│   ├── backend/                    # FastAPI + Multi-Agent System
+│   │   ├── agents/                # Inventory, Recommendation, Pricing
+│   │   ├── services/              # Search, MCP, Bedrock
+│   │   └── app.py
+│   ├── frontend/                   # React + TypeScript UI
+│   │   └── src/
+│   ├── config/                     # MCP Server Configuration
+│   └── LAB2_GUIDE.md
+├── deployment/                     # Bootstrap & Setup Scripts
+│   ├── bootstrap-environment.sh
+│   └── bootstrap-labs.sh
+└── data/
+    └── amazon-products-curated-10k.csv  # 21,704 products
 ```
+
+## 🎯 Labs
+
+### Lab 1: Semantic Search Foundation (20 min)
+
+Build production-grade vector search over 21,704 products with Aurora PostgreSQL 17.5 and pgvector 0.8.0.
+
+**Technical Implementation:**
+- **Vector Storage**: 1024-dimensional Titan Embeddings v2 via Amazon Bedrock
+- **HNSW Indexing**: M=16, ef_construction=64 for sub-10ms similarity search
+- **Automatic Iterative Scanning**: pgvector 0.8.0's new feature for guaranteed complete results
+- **Hybrid Indexes**: GIN full-text search + trigram similarity for lexical matching
+
+```bash
+cd /workshop/lab1/notebook
+# Open Lab_1_Enhanced_Final.ipynb in VS Code
+```
+
+**Key Concepts:**
+- Distance metrics: L2 (`<->`), cosine (`<=>`), inner product (`<#>`)
+- Index optimization: HNSW vs IVFFlat trade-offs
+- pgvector 0.8.0 eliminates manual `ef_search` tuning with iterative scanning
+
+**Learning Outcomes:**
+- Generate and store semantic embeddings at scale
+- Implement sub-10ms vector similarity search with HNSW
+- Optimize database performance for hybrid vector+SQL queries
 
 ---
 
-## 📚 Workshop Structure
+### Lab 2: Full-Stack Agentic Application (80 min)
 
-**Total Duration:** 2 hours | **Level:** 400 (Expert) | **Format:** Hands-on
+Build complete AI-powered e-commerce platform with conversational search, multi-agent orchestration, and Model Context Protocol.
 
-### Lab 1: Semantic Search Foundation (20 min)
-**📂 Location:** `lab1/` | **📖 Guide:** [LAB1_GUIDE.md](lab1/LAB1_GUIDE.md)
-
-Build the semantic search engine:
-- ✅ Load 21,704 Amazon products into Aurora PostgreSQL 17.5
-- ✅ Generate 1024-dimensional embeddings with Bedrock Titan v2
-- ✅ Create optimized HNSW indexes for vector similarity search
-- ✅ Execute semantic queries with interactive UI comparison
-
-**Quick Start:**
-```bash
-Run through all cells from top to bottom in VSCode Editor
+**Architecture:**
+```
+React 18 Frontend (TypeScript, Tailwind)
+         ↓
+FastAPI Backend (Python 3.13)
+    ↓           ↓
+Orchestrator → Specialized Agents (Agents as Tools)
+    ↓           ↓           ↓
+Inventory   Recommendation  Pricing
+    └───────────┴───────────┘
+              ↓
+Aurora PostgreSQL (MCP Tools Layer)
 ```
 
-### Lab 2: Full-Stack Agentic Application (80 min)
-**📂 Location:** `lab2/` | **📖 Guide:** [LAB2_GUIDE.md](lab2/LAB2_GUIDE.md)
+**Technical Implementation:**
+- **Multi-Agent System**: Orchestrator (Claude Sonnet 4) with extended thinking + specialized agents
+- **Agents as Tools Pattern**: Focused agents for inventory, pricing, and recommendations
+- **MCP Integration**: Custom tools extending Aurora PostgreSQL MCP Server
+- **Real-time Features**: Autocomplete, smart filters, semantic search API
 
-Build the complete AI-powered application:
-- ✅ FastAPI backend with semantic search REST API
-- ✅ React + TypeScript frontend with modern UI
-- ✅ Multi-agent system with specialized agents
-- ✅ Model Context Protocol (MCP) custom tools
-- ✅ Real-time autocomplete and smart filters
-
-**Quick Start:**
 ```bash
-start-backend   # Terminal 1: FastAPI on port 8000
-start-frontend  # Terminal 2: React on port 5173
+cd /workshop/lab2
+start-backend   # Terminal 1: uvicorn app:app on port 8000
+start-frontend  # Terminal 2: npm run dev on port 5173
 ```
 
 **Access Points:**
 - 🌐 Frontend: `<CloudFront-URL>/ports/5173/`
-- 🔌 Backend API: `<CloudFront-URL>/ports/8000/`
-- 📚 API Docs: `<CloudFront-URL>/ports/8000/docs`
+- 🔌 API Docs: `<CloudFront-URL>/ports/8000/docs`
 
----
+**Key Concepts:**
+- **Agentic Architecture**: Orchestrator analyzes intent → routes to specialist agents
+- **MCP Tools**: `get_trending_products`, `get_inventory_health`, `get_price_statistics`
+- **Agent Pattern**: Each agent connects directly to Aurora for real-time insights
+- **Extended Thinking**: Claude Sonnet 4's advanced reasoning for complex queries
 
-## ⚡ Quick Start
-
-### Workshop Participants
-
-Everything is pre-configured via bootstrap scripts! All commands work from any directory:
-
-```bash
-# Lab 2: Backend + Frontend
-start-backend   # Terminal 1
-start-frontend  # Terminal 2
-
-# Utilities
-workshop        # Navigate to workshop root
-lab1           # Navigate to Lab 1
-lab2           # Navigate to Lab 2
-```
-
-### Local Development Setup
-
-**Prerequisites:**
-- Python 3.13+ with pip
-- Node.js 18+ with npm
-- Aurora PostgreSQL 17.5 with pgvector 0.8.0
-- AWS Account with Bedrock access (us-west-2)
-
-**Installation:**
-```bash
-# 1. Clone repository
-git clone <repo-url>
-cd sample-dat406-build-agentic-ai-powered-search-apg
-
-# 2. Install dependencies
-pip install -r lab1/requirements.txt
-pip install -r lab2/backend/requirements.txt
-cd lab2/frontend && npm install
-
-# 3. Configure environment
-cp .env.example .env
-# Edit .env with your database credentials and AWS settings
-
-# 4. Start services
-cd lab2/backend && uvicorn app:app --reload    # Backend
-cd lab2/frontend && npm run dev                # Frontend
-```
-
-**Access URLs (Local):**
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
-- API Docs: `http://localhost:8000/docs`
+**Learning Outcomes:**
+- Design multi-agent systems with Agents as Tools pattern
+- Extend MCP servers with custom business logic
+- Integrate AWS AI services (Bedrock Titan v2, Claude Sonnet 4)
+- Deploy full-stack AI applications (FastAPI + React)
 
 ---
 
 ## 🗄️ Database Schema
 
-**Table:** `bedrock_integration.product_catalog`
+**Table**: `bedrock_integration.product_catalog`
 
 | Column | Type | Index | Description |
 |--------|------|-------|-------------|
-| `productId` | VARCHAR(255) | PRIMARY KEY | Unique product identifier |
-| `product_description` | TEXT | GIN, Trigram | Full product details for search |
-| `embedding` | VECTOR(1024) | HNSW | Titan v2 semantic embedding |
-| `price` | NUMERIC(10,2) | B-tree | Product price in USD |
+| `productId` | VARCHAR(255) | PRIMARY KEY | Unique identifier |
+| `product_description` | TEXT | GIN, Trigram | Full product details |
+| `embedding` | VECTOR(1024) | HNSW | Titan v2 semantic vector |
+| `price` | NUMERIC(10,2) | B-tree | Price in USD |
 | `stars` | NUMERIC(3,2) | — | Rating (0.0-5.0) |
-| `reviews` | INTEGER | — | Number of customer reviews |
-| `quantity` | INTEGER | — | Available stock quantity |
+| `reviews` | INTEGER | — | Customer review count |
+| `quantity` | INTEGER | — | Available stock |
 | `category_name` | VARCHAR(255) | B-tree | Product category |
 
-### 📊 Performance-Optimized Indexes
-
+**Performance-Optimized Indexes:**
 ```sql
--- Vector similarity search (sub-10ms queries)
+-- Vector similarity (sub-10ms queries)
 CREATE INDEX idx_product_embedding_hnsw 
-ON bedrock_integration.product_catalog 
-USING hnsw (embedding vector_cosine_ops)
+ON product_catalog USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 64);
 
 -- Full-text search
 CREATE INDEX idx_product_fts 
-ON bedrock_integration.product_catalog
-USING GIN (to_tsvector('english', product_description));
+ON product_catalog USING GIN (to_tsvector('english', product_description));
 
 -- Filter optimization
 CREATE INDEX idx_product_category ON product_catalog(category_name);
@@ -224,12 +210,11 @@ CREATE INDEX idx_product_price ON product_catalog(price) WHERE price > 0;
 ## 🔌 API Reference
 
 ### Search Endpoints
-
 ```bash
 # Semantic search with filters
 POST /api/search
 {
-  "query": "wireless gaming headphones with noise cancellation",
+  "query": "wireless gaming headphones noise cancellation",
   "limit": 10,
   "min_similarity": 0.3,
   "filters": {
@@ -244,23 +229,9 @@ POST /api/search
 GET /api/autocomplete?q=headphone&limit=5
 ```
 
-### Product Endpoints
-
-```bash
-# Get product details
-GET /api/products/{product_id}
-
-# List products with filters
-GET /api/products?limit=20&category=Electronics&min_stars=4.0
-```
-
 ### MCP Custom Tools
-
 ```bash
-# List all custom tools
-GET /api/mcp/tools
-
-# Trending products (by sales velocity)
+# Trending products by sales velocity
 GET /api/mcp/trending?limit=5
 
 # Inventory health metrics
@@ -268,16 +239,15 @@ GET /api/mcp/inventory
 
 # Price statistics by category
 GET /api/mcp/pricing
+
+# List all custom tools
+GET /api/mcp/tools
 ```
 
 ### System Health
-
 ```bash
-# Health check
-GET /api/health
-
-# Database connectivity
-GET /api/health/db
+GET /api/health      # Overall health check
+GET /api/health/db   # Database connectivity
 ```
 
 ---
@@ -285,65 +255,53 @@ GET /api/health/db
 ## 🤖 Multi-Agent Architecture
 
 ### Orchestrator Agent (Claude Sonnet 4)
-**Role:** Intent analysis and task routing  
-**Features:**
-- 🧠 Extended thinking capability for complex queries
-- 🔄 Adaptive strategy based on tool responses
+**Capabilities:**
+- 🧠 Extended thinking for complex query analysis
+- 🔄 Adaptive task routing based on tool responses
 - 📊 Context-aware agent selection
 
-### Specialized Agents (Agents as Tools Pattern)
+### Specialized Agents (Agents as Tools)
 
-#### 1. **Inventory Agent**
+**1. Inventory Agent**
 ```python
 ✓ Real-time stock monitoring
 ✓ Low inventory alerts (<10 units)
-✓ Out-of-stock identification
 ✓ Restocking recommendations
 ```
 
-#### 2. **Recommendation Agent**
+**2. Recommendation Agent**
 ```python
 ✓ Personalized product suggestions
 ✓ Feature-based matching
 ✓ Budget-conscious alternatives
-✓ Cross-category recommendations
 ```
 
-#### 3. **Pricing Agent**
+**3. Pricing Agent**
 ```python
 ✓ Price trend analysis
 ✓ Deal identification (>20% off)
-✓ Bundle optimization
 ✓ Value-for-money rankings
 ```
 
-**Data Access:** Each agent connects directly to Aurora PostgreSQL for real-time insights.
+**Data Access:** Direct Aurora PostgreSQL connection per agent for real-time insights.
 
 ---
 
-## 🔌 Model Context Protocol (MCP)
+## 🔧 Model Context Protocol (MCP)
 
-Extends the [Aurora PostgreSQL MCP Server](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) with custom business logic.
+Extends [Aurora PostgreSQL MCP Server](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) with custom business logic.
 
 ### Base MCP Tools (Out-of-the-Box)
-- `run_query` - Execute SQL queries
-- `get_table_schema` - Database schema inspection
+- `run_query` - SQL execution
+- `get_table_schema` - Schema inspection
 
-### Custom MCP Tools (Blaize Bazaar)
+### Custom Tools (Blaize Bazaar)
 - `get_trending_products` - Sales velocity analysis
 - `get_inventory_health` - Stock statistics & alerts
-- `get_price_statistics` - Category-wise pricing analytics
-- `list_custom_tools` - Tool discovery endpoint
+- `get_price_statistics` - Category-wise pricing
+- `list_custom_tools` - Tool discovery
 
-**Configuration:** Auto-generated during deployment with correct AWS account ARNs.
-
-**Testing:**
-```bash
-curl http://localhost:8000/api/mcp/tools
-curl http://localhost:8000/api/mcp/trending?limit=5
-curl http://localhost:8000/api/mcp/inventory
-curl http://localhost:8000/api/mcp/pricing
-```
+**Auto-configured** during deployment with correct AWS account ARNs.
 
 ---
 
@@ -351,12 +309,44 @@ curl http://localhost:8000/api/mcp/pricing
 
 | Layer | Technologies |
 |-------|-------------|
-| **Frontend** | React 18 • TypeScript 5 • Tailwind CSS • Vite • Lucide Icons |
-| **Backend** | FastAPI • Python 3.13 • psycopg3 • boto3 • Pydantic |
-| **Database** | Aurora PostgreSQL 17.5 • pgvector 0.8.0 |
+| **Database** | Aurora PostgreSQL 17.5 • pgvector 0.8.0 (HNSW) |
 | **AI/ML** | Amazon Bedrock (Titan Embeddings v2, Claude Sonnet 4) |
+| **Backend** | FastAPI • Python 3.13 • psycopg3 • boto3 • Pydantic |
+| **Frontend** | React 18 • TypeScript 5 • Tailwind CSS • Vite • Lucide Icons |
 | **Search** | HNSW indexes • Trigram indexes • Cosine similarity |
 | **Agent Framework** | Strands AI • Agents as Tools pattern |
+
+---
+
+## 💡 Key Technical Insights
+
+### Why pgvector 0.8.0?
+
+**Automatic Iterative Scanning** eliminates manual tuning:
+
+**Before (0.7.x):**
+```sql
+SET hnsw.ef_search = 40;  -- Manual tuning required
+-- Risk: May miss results with strict filters
+```
+
+**After (0.8.0):**
+```sql
+SET hnsw.iterative_scan = 'relaxed_order';
+-- Guarantees complete results with minimal latency
+-- 100% recall across all queries
+```
+
+### Why Agents as Tools?
+
+| Traditional Approach | Agents as Tools |
+|---------------------|-----------------|
+| Monolithic agent | Orchestrator + specialists |
+| All capabilities in one | Focused expertise per agent |
+| Hard to maintain | Easy independent updates |
+| Sequential execution | Parallel execution possible |
+
+**Benefits:** 🎯 Domain expertise • 🔄 Easy maintenance • ⚡ Better performance • 📈 Scalable architecture
 
 ---
 
@@ -364,136 +354,52 @@ curl http://localhost:8000/api/mcp/pricing
 
 By completing this workshop, you will:
 
-1. ✅ **Understand Vector Embeddings** - Generate and store semantic embeddings at scale
-2. ✅ **Build Semantic Search** - Implement sub-10ms vector similarity search with HNSW
-3. ✅ **Design Multi-Agent Systems** - Orchestrator + specialized agents (Agents as Tools)
-4. ✅ **Extend MCP Servers** - Create custom tools for Aurora PostgreSQL
-5. ✅ **Integrate AWS AI Services** - Bedrock for embeddings (Titan v2) and chat (Claude 4)
-6. ✅ **Optimize Database Performance** - Index strategies for hybrid vector+SQL queries
-7. ✅ **Deploy Full-Stack AI Apps** - FastAPI + React enterprise architecture
+1. ✅ **Master Vector Embeddings** - Generate and store at scale with Titan v2
+2. ✅ **Build Semantic Search** - Sub-10ms HNSW similarity search
+3. ✅ **Design Multi-Agent Systems** - Orchestrator + specialists (Agents as Tools)
+4. ✅ **Extend MCP Servers** - Custom tools for Aurora PostgreSQL
+5. ✅ **Integrate AWS AI** - Bedrock for embeddings and conversational AI
+6. ✅ **Optimize Database Performance** - Index strategies for hybrid queries
+7. ✅ **Deploy Full-Stack AI** - FastAPI + React enterprise architecture
 
 ---
 
 ## 🚀 Deployment Automation
 
-### Bootstrap Scripts
+**Bootstrap Process** (`deployment/bootstrap-labs.sh`):
 
-The workshop environment is fully automated via `deployment/bootstrap-labs.sh`:
-
-**Automated Setup:**
-1. ✅ Fetches database credentials from AWS Secrets Manager
-2. ✅ Calculates `DB_CLUSTER_ARN` from AWS account metadata
-3. ✅ Generates `.env` files (root, backend, frontend)
-4. ✅ Creates MCP configuration with correct ARNs
-5. ✅ Installs Python and Node.js dependencies
-6. ✅ Configures bash aliases for quick commands
+1. ✅ Fetch database credentials from AWS Secrets Manager
+2. ✅ Calculate `DB_CLUSTER_ARN` from AWS account metadata
+3. ✅ Generate `.env` files (root, backend, frontend)
+4. ✅ Create MCP configuration with correct ARNs
+5. ✅ Install Python and Node.js dependencies
+6. ✅ Configure bash aliases (`start-backend`, `start-frontend`)
 
 ---
 
-## 📁 Project Structure
+## 📚 Resources
 
-```
-sample-dat406-build-agentic-ai-powered-search-apg/
-├── lab1/                           # Lab 1: Semantic Search
-│   ├── Lab_1_Enhanced_Final.ipynb  # Main notebook
-│   ├── requirements.txt            # Python dependencies
-│   └── LAB1_GUIDE.md              # Step-by-step guide
-│
-├── lab2/                           # Lab 2: Full Application
-│   ├── backend/                    # FastAPI Backend
-│   │   ├── app.py                 # Main application
-│   │   ├── models/                # Pydantic models
-│   │   ├── services/              # Business logic
-│   │   │   ├── search_service.py  # Semantic search
-│   │   │   ├── mcp_service.py     # MCP tools
-│   │   │   └── bedrock_service.py # Bedrock integration
-│   │   ├── agents/                # Multi-agent system
-│   │   │   ├── inventory_agent.py
-│   │   │   ├── recommendation_agent.py
-│   │   │   └── pricing_agent.py
-│   │   └── requirements.txt
-│   │
-│   ├── frontend/                   # React Frontend
-│   │   ├── src/
-│   │   │   ├── components/        # React components
-│   │   │   ├── services/          # API client
-│   │   │   └── styles/            # Tailwind CSS
-│   │   ├── package.json
-│   │   └── vite.config.ts
-│   │
-│   ├── config/                     # MCP Configuration
-│   │   └── mcp-server-config.json # Auto-generated
-│   │
-│   └── LAB2_GUIDE.md              # Step-by-step guide
-│
-├── data/                           # Sample Data
-│   └── amazon-products-curated-10k.csv
-│
-├── deployment/                     # Bootstrap Scripts
-│   ├── bootstrap-environment.sh   # Stage 1: Code Editor setup
-│   └── bootstrap-labs.sh          # Stage 2: Labs installation
-│
-└── docs/                          # Documentation
-    └── architecture/
-```
-
----
-
-## 💡 Key Insights
-
-### Why pgvector 0.8.0?
-
-**Automatic Iterative Scanning:**
-- Eliminates manual `ef_search` tuning
-- Guarantees complete results across all queries
-- 100% recall with minimal latency overhead
-
-**Before (pgvector 0.7.x):**
-```sql
--- Might miss results with strict filters
-SET hnsw.ef_search = 40;  -- Manual tuning required
-```
-
-**After (pgvector 0.8.0):**
-```sql
--- Always returns complete results
-SET hnsw.iterative_scan = 'relaxed_order';  -- Just works!
-```
-
-### Why Agents as Tools Pattern?
-
-**Traditional Approach:** Monolithic agent with all capabilities  
-**Agents as Tools:** Orchestrator delegates to specialists
-
-**Benefits:**
-- 🎯 **Focused Expertise** - Each agent masters one domain
-- 🔄 **Easy Maintenance** - Update agents independently
-- ⚡ **Better Performance** - Parallel execution possible
-- 📈 **Scalable** - Add new agents without refactoring
-
----
-
-## 🤝 Support & Resources
-
-### Workshop Support
-- 👨‍🏫 Ask your workshop instructors
-- 📧 Refer to lab guides in `lab1/` and `lab2/`
-
-### Additional Resources
 - 📘 [Aurora PostgreSQL Documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/)
 - 📗 [pgvector 0.8.0 Blog Post](https://aws.amazon.com/blogs/database/supercharging-vector-search-performance-and-relevance-with-pgvector-0-8-0-on-amazon-aurora-postgresql/)
 - 📙 [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - 📕 [AWS Labs MCP Servers](https://awslabs.github.io/mcp/)
+- 📔 [Model Context Protocol](https://modelcontextprotocol.io/)
 
-### Community
-- 🐛 Report issues on GitHub
-- 💬 Join the discussion in workshop Slack
+---
+
+## ⭐ Like This Workshop?
+
+If you find this helpful:
+- **Star this repository** to show support
+- **Fork it** to customize for your use cases
+- **Report issues** to help improve
+- **Share it** with your community
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+MIT License - see [LICENSE](./LICENSE) for details
 
 ---
 
@@ -501,9 +407,8 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 **© 2025 Shayon Sanyal | AWS re:Invent 2025 | DAT406 Workshop**
 
-[![GitHub](https://img.shields.io/badge/GitHub-Blaize--Bazaar-181717?style=flat-square&logo=github)](https://github.com)
+[![GitHub](https://img.shields.io/badge/GitHub-aws--samples-181717?style=flat-square&logo=github)](https://github.com/aws-samples)
 [![AWS](https://img.shields.io/badge/AWS-Workshop-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com)
-[![Aurora](https://img.shields.io/badge/Aurora-PostgreSQL%2017.5-336791?style=flat-square&logo=postgresql&logoColor=white)](https://aws.amazon.com/rds/aurora/)
 
 **⭐ Star this repo if you found it helpful! ⭐**
 
