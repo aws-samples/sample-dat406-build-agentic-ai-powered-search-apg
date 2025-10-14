@@ -319,13 +319,13 @@ SET hnsw.iterative_scan = 'relaxed_order';
 
 By completing this workshop, you will:
 
-1. ✅ **Understand Vector Embeddings** - Generate and store at scale with Titan v2
-2. ✅ **Build Semantic Search** - Fast HNSW similarity search
-3. ✅ **Design Multi-Agent Systems** - Orchestrator + specialists (Agents as Tools)
-4. ✅ **Extend MCP Servers** - Custom tools for Aurora PostgreSQL
-5. ✅ **Integrate AWS AI** - Bedrock for embeddings and conversational AI
-6. ✅ **Optimize Database Performance** - Index strategies for hybrid queries
-7. ✅ **Deploy Full-Stack AI** - FastAPI + React enterprise architecture
+1. **Understand Vector Embeddings** - Generate and store at scale with Titan v2
+2. **Build Semantic Search** - Fast HNSW similarity search
+3. **Design Multi-Agent Systems** - Orchestrator + specialists (Agents as Tools)
+4. **Extend MCP Servers** - Custom tools for Aurora PostgreSQL
+5. **Integrate AWS AI** - Bedrock for embeddings and conversational AI
+6. **Optimize Database Performance** - Index strategies for hybrid queries
+7. **Deploy Full-Stack AI** - FastAPI + React enterprise architecture
 
 ---
 
