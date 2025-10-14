@@ -60,7 +60,7 @@ start-frontend  # Terminal 2: React frontend (port 5173)
 
 ### Lab 1: Semantic Search Foundation (20 min)
 
-Build production-grade vector search over 21,704 products with Aurora PostgreSQL 17.5 and pgvector 0.8.0.
+Build enterprise-grade vector search over 21,704 products with Aurora PostgreSQL 17.5 and pgvector 0.8.0.
 
 **Technical Implementation:**
 - **Vector Storage**: 1024-dimensional Titan Embeddings v2 via Amazon Bedrock
