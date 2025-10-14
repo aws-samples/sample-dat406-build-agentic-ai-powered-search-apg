@@ -27,51 +27,10 @@
 
 Build enterprise-grade agentic AI applications with semantic search, multi-agent orchestration, and Model Context Protocol integration. Leverage Amazon Aurora PostgreSQL 17.5 with pgvector 0.8.0, Amazon Bedrock, and modern full-stack technologies.
 
-<<<<<<< HEAD
----
-
-## 🚀 Overview
-
-Blaize Bazaar is an enterprise AI e-commerce platform demonstrating intelligent product discovery through **semantic search** and **multi-agent orchestration**. Built on **Amazon Aurora PostgreSQL 17.5** with pgvector 0.8.0, **Amazon Bedrock**, and modern full-stack technologies.
-
-> ⚠️ Important Notice: For demonstration and educational purposes only. Not intended for production use.
-
-### ✨ Core Capabilities
-
-| Feature | Technology | Description |
-|---------|-----------|-------------|
-| 🔍 **Semantic Search** | pgvector 0.8.0 HNSW | Natural language product queries low latency |
-| 🤖 **Agentic AI** | Claude Sonnet 4 | Multi-agent orchestration with Agents as Tools pattern |
-| 🔌 **MCP Integration** | PostgreSQL MCP Server | Custom business logic tools for Aurora database |
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│      React 18 + TypeScript + Tailwind      │
-│      Modern UI • Real-time Search          │
-└──────────────────┬──────────────────────────┘
-                   │ REST API
-                   ▼
-┌─────────────────────────────────────────────┐
-│      FastAPI + Python 3.13 Backend         │
-│      Vector Search • Multi-Agent System     │
-└──────────┬─────────────────┬────────────────┘
-           │                 │
-           ▼                 ▼
-    ┌─────────────┐   ┌───────────────────────┐
-    │   Bedrock   │   │  Aurora PostgreSQL    │
-    │ Titan v2    │   │  17.5 + pgvector 0.8  │
-    │ Claude 4    │   │  HNSW • Trigram       │
-    └─────────────┘   └───────────────────────┘
-=======
 **Pre-configured Workshop Environment**:
 ```bash
 start-backend   # Terminal 1: FastAPI backend (port 8000)
 start-frontend  # Terminal 2: React frontend (port 5173)
->>>>>>> dacb4e6 (updates)
 ```
 
 ## 📁 Repository Structure
