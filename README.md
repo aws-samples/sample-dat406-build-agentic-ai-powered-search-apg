@@ -6,16 +6,14 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 
 <br/>
 
-[![Aurora PostgreSQL 17.9](https://img.shields.io/badge/Aurora_PostgreSQL-17.9_·_pgvector-2D72D9?style=flat-square&logo=postgresql&logoColor=white)](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
+[![Aurora PostgreSQL 18.3](https://img.shields.io/badge/Aurora_PostgreSQL-18.3_·_pgvector-2D72D9?style=flat-square&logo=postgresql&logoColor=white)](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
 [![Bedrock AgentCore](https://img.shields.io/badge/Bedrock-AgentCore-FF9900?style=flat-square)](https://aws.amazon.com/bedrock/agentcore/)
 [![Strands Agents](https://img.shields.io/badge/Strands-Agents_SDK-232F3E?style=flat-square)](https://strandsagents.com)
 [![MCP](https://img.shields.io/badge/MCP-postgres--mcp--server-4A154B?style=flat-square)](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server)
-[![Python 3.14 / 3.13 fallback](https://img.shields.io/badge/Python-3.14_%2F_3.13_fallback-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 
-[![Builder's Session](https://img.shields.io/badge/AWS_Summit-Builder%27s_Session-FF9900?style=flat-square)](https://aws.amazon.com/events/summits/)
 [![Level 400](https://img.shields.io/badge/Level-400_·_Expert-A8423A?style=flat-square)](#builders-session-60-min)
 [![License: MIT](https://img.shields.io/github/license/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=00b300&label=License)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=informational)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/commits/main)
 [![Stars](https://img.shields.io/github/stars/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=yellow)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/stargazers)
 
 </div>
@@ -208,7 +206,7 @@ Three persona-scoped skills loaded per turn by the SkillRouter to shape voice an
 
 | Layer            | Technology                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Database         | **Aurora PostgreSQL Serverless v2** (engine 17.9) · elastic ACU scaling · standard PostgreSQL primitives throughout (extension, schemas, SQL) |
+| Database         | **Aurora PostgreSQL Serverless v2** (engine 18.3) · elastic ACU scaling · standard PostgreSQL primitives throughout (extension, schemas, SQL) |
 | Vector retrieval | pgvector 0.8.0 · `vector(1024)` column · HNSW (m=16, ef_construction=64, `vector_cosine_ops`) · `<=>` cosine operator |
 | Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
@@ -216,7 +214,7 @@ Three persona-scoped skills loaded per turn by the SkillRouter to shape voice an
 | Agent framework  | Strands Agents SDK – `Agent`, `@tool`, `GraphBuilder`, `BeforeToolCallEvent` hooks                                       |
 | Agent infra      | Bedrock AgentCore – Runtime (`@app.entrypoint` → `InvokeAgentRuntime`) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (MCP tool catalog, Cognito-JWT auth with shopper identity passthrough) · Identity     |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
-| Backend          | FastAPI · Python 3.14 (3.13 fallback) · psycopg3 · boto3 · SSE streaming                                                  |
+| Backend          | FastAPI · Python 3.14 · psycopg3 · boto3 · SSE streaming                                                  |
 | Frontend         | React 18 · TypeScript 5 · Vite · Tailwind · Framer Motion 12                                                             |
 | Editorial system | Fraunces Variable (display) · Inter (body) · JetBrains Mono (code) · cream / espresso / terracotta palette               |
 

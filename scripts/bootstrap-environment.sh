@@ -172,34 +172,23 @@ else
 fi
 
 # ----------------------------------------------------------------------------
-# Python: prefer 3.14, fall back to 3.13 if AL2023 doesn't yet package it.
+# Python 3.14 — the single supported interpreter for this workshop.
 #
-# We probe with `dnf install` for each candidate in order and take the first
-# that succeeds. PY_VER (e.g. "3.14") is then used for update-alternatives so
-# /usr/bin/python3 points at the chosen interpreter. Downstream scripts call
-# `python3` (the alternative), never a pinned python3.X, so they follow this
-# choice automatically. Rationale: a fresh CPython minor can lag on AL2023
-# packaging and on C-extension wheels (psycopg, pydantic-core); the fallback
-# guarantees provisioning never bricks on a missing python3.14 package.
+# PY_VER is used for update-alternatives so /usr/bin/python3 points at the
+# chosen interpreter. Downstream scripts call `python3` (the alternative),
+# never a pinned python3.X, so they follow this choice automatically.
 # ----------------------------------------------------------------------------
-log "Installing Python (prefer 3.14, fall back to 3.13)..."
-PY_VER=""
-for cand in 3.14 3.13; do
-    if dnf install --skip-broken -y -q \
-        "python${cand}" \
-        "python${cand}-pip" \
-        "python${cand}-setuptools" \
-        "python${cand}-devel" \
-        "python${cand}-wheel" \
-        "python${cand}-tkinter" 2>/dev/null \
-        && command -v "python${cand}" >/dev/null 2>&1; then
-        PY_VER="$cand"
-        break
-    fi
-    warn "python${cand} not available — trying next candidate"
-done
-if [ -z "$PY_VER" ]; then
-    error "No supported Python (3.14 or 3.13) could be installed — backend cannot start"
+log "Installing Python 3.14..."
+PY_VER="3.14"
+if ! dnf install --skip-broken -y -q \
+    "python${PY_VER}" \
+    "python${PY_VER}-pip" \
+    "python${PY_VER}-setuptools" \
+    "python${PY_VER}-devel" \
+    "python${PY_VER}-wheel" \
+    "python${PY_VER}-tkinter" 2>/dev/null \
+    || ! command -v "python${PY_VER}" >/dev/null 2>&1; then
+    error "Python ${PY_VER} could not be installed — backend cannot start"
 fi
 log "✅ Python ${PY_VER} installed"
 
@@ -850,7 +839,7 @@ EOF
 
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.bashrc"
 
-log "✅ Python 3.13 configured"
+log "✅ Python ${PY_VER} configured"
 
 # ============================================================================
 # STEP 11: FINAL VERIFICATION (~5 sec)
@@ -973,7 +962,7 @@ log "=========================================="
 echo ""
 echo "✅ Code Editor ready and accessible"
 echo "✅ VS Code extensions installed"
-echo "✅ Python 3.13 configured"
+echo "✅ Python ${PY_VER} configured"
 echo "✅ CloudFormation signaled (stack continues)"
 echo "⏳ Stage 2 running in background (Labs setup)"
 echo ""

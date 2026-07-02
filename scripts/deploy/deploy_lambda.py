@@ -133,8 +133,8 @@ def create_or_update_lambda_function(function_name, role_arn, handler, files, de
       
       # NOTE: 'Runtime' is the AWS Lambda managed-runtime identifier, NOT the
       # EC2 box's interpreter. It is pinned to a Lambda-SUPPORTED version and
-      # is independent of the python3.14/3.13 choice the bootstrap makes for
-      # the code-editor host. Do not bump this to 3.14 until AWS Lambda
+      # is independent of the python3.14 the bootstrap installs on the
+      # code-editor host. Do not bump this to 3.14 until AWS Lambda
       # publishes a python3.14 runtime (CreateFunction rejects unsupported
       # runtimes). python3.13 is the latest Lambda-supported line as of now.
       config_params = {

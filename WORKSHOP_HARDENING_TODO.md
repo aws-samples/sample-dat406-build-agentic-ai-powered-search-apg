@@ -20,7 +20,7 @@ The current session is hardened and stable. In brief, already done:
   gate + dry-run, model-access preflight.
 - **Embeddings: Cohere Embed English v3** (`cohere.embed-english-v3`),
   **Rerank: Cohere Rerank v3.5** (`us.cohere.rerank-v3-5:0`), chat on Claude
-  Opus 4.6 / routing on Haiku 4.5. Aurora PostgreSQL 17.9 + pgvector 0.8.0.
+  Opus 4.6 / routing on Haiku 4.5. Aurora PostgreSQL 18.3 + pgvector 0.8.0.
 - Content: references appendix, tip taxonomy, exercise table, run-of-show.
 
 If you're hardening the 60-min session specifically, the only standing gate
