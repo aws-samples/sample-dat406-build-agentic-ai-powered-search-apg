@@ -10,13 +10,13 @@ Supporting changes span intent classification (new `SUPPORT_KEYWORDS` and `SEARC
 
 ## Architecture
 
-The architecture follows the existing Strands SDK multi-agent pattern: an Orchestrator Agent (Claude Haiku 4.5) classifies intent and dispatches to specialist agents (each Claude Opus 4.6), which are defined as `@tool` decorated functions.
+The architecture follows the existing Strands SDK multi-agent pattern: an Orchestrator Agent (Claude Sonnet 4.6) classifies intent and dispatches to specialist agents (each Claude Opus 4.6), which are defined as `@tool` decorated functions.
 
 ```mermaid
 graph TD
     User[User Query] --> Chat[ChatService / FastAPI]
     Chat --> IC[Intent Classifier]
-    IC --> Orch[Orchestrator Agent<br/>Claude Haiku 4.5]
+    IC --> Orch[Orchestrator Agent<br/>Claude Sonnet 4.6]
 
     Orch -->|product search| SA[Search Agent]
     Orch -->|trending/recs| RA[Recommendation Agent]
@@ -45,7 +45,7 @@ graph TD
 
     %% AgentCore Gateway path (alternative to direct orchestrator)
     Chat -.->|gateway mode| GW[AgentCore Gateway<br/>MCP Server]
-    GW --> GWOrch[Gateway Orchestrator<br/>Claude Haiku 4.5]
+    GW --> GWOrch[Gateway Orchestrator<br/>Claude Sonnet 4.6]
     GWOrch -->|MCPClient + streamable HTTP| GW
     GW -.-> SP
     GW -.-> GRP

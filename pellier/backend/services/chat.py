@@ -695,7 +695,7 @@ CURRENT REQUEST: {message}"""
             # instead of synthesizing fake spans (see Bug 3 audit note).
             from services.otel_trace_extractor import extract_agent_execution_from_otel
 
-            agent_execution = extract_agent_execution_from_otel()
+            agent_execution = extract_agent_execution_from_otel(session_id=session_id)
 
             if agent_execution.get("otel_enabled") and agent_execution.get("trace_id"):
                 logger.info(f"✨ OpenTelemetry trace_id: {agent_execution['trace_id']}")
@@ -1320,6 +1320,9 @@ CURRENT REQUEST: {message}"""
             'recommendation': 'Curator',
             'pricing': 'Value Analyst',
             'inventory': 'Stock Keeper',
+            'floor_check': 'Stock Keeper',
+            'running_low': 'Stock Keeper',
+            'restock_shelf': 'Stock Keeper',
             'support': 'Experience Guide',
             'search': 'Style Advisor',
             'find_pieces': 'Style Advisor',
@@ -1347,10 +1350,10 @@ CURRENT REQUEST: {message}"""
             classifier picks one specialist; that specialist runs
             directly via its factory. One LLM call per turn. Voice
             preserved (no paraphrase cycle).
-          - ``'agents_as_tools'`` — Atelier Pattern I. Haiku orchestrator
+          - ``'agents_as_tools'`` — Atelier Pattern I. Sonnet orchestrator
             + five ``@tool`` specialists. Two LLM calls per turn.
           - ``'graph'`` — Atelier Pattern II. Real Strands
-            ``GraphBuilder`` DAG: Haiku router node + 5 specialist
+            ``GraphBuilder`` DAG: Sonnet router node + 5 specialist
             nodes; conditional edges route the turn to exactly one
             specialist. Exposed through ``GraphAgentAdapter`` so the
             downstream streaming/hook pipeline treats it identically
@@ -1769,11 +1772,11 @@ CURRENT REQUEST: {message}"""
         #
         # The previous ``[ROUTING DIRECTIVE: call the X tool]`` prefix
         # injection was deleted in the three-pattern refactor. It
-        # existed to override Haiku's routing in Pattern I when the
-        # Haiku orchestrator drifted from the classifier's verdict —
+        # existed to override Pattern I routing when the
+        # orchestrator drifted from the classifier's verdict —
         # a workaround for the "Agents-as-Tools paraphrases" failure
         # mode. Pattern I now runs with the unmodified user message;
-        # Pattern III skips Haiku entirely and dispatches by the
+        # Pattern III skips the router LLM entirely and dispatches by the
         # classifier directly.
         intent_t0 = time.perf_counter()
         intent = classify_intent(message)
@@ -1788,7 +1791,7 @@ CURRENT REQUEST: {message}"""
         logger.info(f"🎯 Intent: {intent} → {intent_hint}")
 
         # --- Skill router ---------------------------------------------------
-        # One LLM call to Haiku 4.5 decides which skills to inject into the
+        # One LLM call to Sonnet 4.6 decides which skills to inject into the
         # reasoning specialists' system prompts for this turn. Runs after
         # intent classification so the triage fast-path (greetings, meta,
         # thanks) short-circuits before reaching here.
@@ -2014,12 +2017,12 @@ CURRENT REQUEST: {message}"""
 
         # --- Persona preamble ContextVar ------------------------------
         # Mirrors the skill-loading pattern above. The orchestrator
-        # (Haiku, dispatcher) paraphrases the user message when routing
+        # (Sonnet, dispatcher) paraphrases the user message when routing
         # to a specialist, which frequently strips the PERSONA CONTEXT
         # block from the ``query`` arg. Stashing the preamble in a
         # ContextVar lets the specialist read it directly when building
         # its system prompt, so the shopper's history is always visible
-        # even when Haiku's routing forwards only the short phrase.
+        # even when Pattern I routing forwards only the short phrase.
         persona_token = None
         if persona_preamble:
             try:
@@ -2073,7 +2076,7 @@ CURRENT REQUEST: {message}"""
         # time. The adapter looks like an ``Agent`` to the pipeline:
         # callable, exposes ``callback_handler`` / ``add_hook`` /
         # ``trace_attributes`` / ``session_manager``. A real
-        # Strands ``Graph`` with a Haiku router + 5 specialist nodes
+        # Strands ``Graph`` with a Sonnet router + 5 specialist nodes
         # runs under the hood.
         if pattern == "graph":
             try:
@@ -2236,6 +2239,7 @@ CURRENT REQUEST: {message}"""
         products_sent = []
         products_buffered = []  # Hold products until text streams first
         current_tool = None
+        timed_out = False
         price_limit = self._extract_price_limit(message)
         # Drop the products buffer when a write tool succeeded — the
         # customer just filed a return / restocked a shelf and any
@@ -2254,7 +2258,9 @@ CURRENT REQUEST: {message}"""
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=120)
             except asyncio.TimeoutError:
+                timed_out = True
                 yield {"type": "error", "error": "Agent execution timed out"}
+                task.cancel()
                 break
 
             if "_done" in event:
@@ -2338,11 +2344,11 @@ CURRENT REQUEST: {message}"""
                     # ``last_specialist_text`` capture here — it used
                     # to snapshot specialist prose so the empty-
                     # response recovery ladder (workaround #3) could
-                    # recover it when Haiku's final cycle came back
+                    # recover it when the router's final cycle came back
                     # blank. Dispatcher has no paraphrase cycle;
                     # Agents-as-Tools still runs but no longer needs
-                    # the promotion path because the orchestrator's
-                    # Haiku output is the user-facing reply, period.
+                    # the promotion path because the orchestrator output
+                    # is the user-facing reply, period.
 
                 tool_ms = int(
                     (time.time() - tool_starts.pop(tool_name, time.time())) * 1000
@@ -2386,7 +2392,11 @@ CURRENT REQUEST: {message}"""
 
         # --- Await orchestrator completion ---
         try:
-            await task
+            try:
+                await task
+            except asyncio.CancelledError:
+                if not timed_out:
+                    raise
         finally:
             # Reset ContextVars as soon as the orchestrator is done —
             # specialists can no longer run, so nothing else needs the
@@ -2395,6 +2405,13 @@ CURRENT REQUEST: {message}"""
             _reset_skill_token()
             _reset_persona_token()
             _reset_session_token()
+
+        if timed_out:
+            try:
+                db_query_log_var.reset(db_token)
+            except Exception:
+                pass
+            return
 
         if orchestrator_error[0]:
             yield {"type": "error", "error": str(orchestrator_error[0])}
@@ -2424,8 +2441,8 @@ CURRENT REQUEST: {message}"""
         # Minimal empty-response fallback. The aggressive recovery
         # ladder (specialist-over-orchestrator promotion and the
         # pre/post content_reset buffer walk) was deleted in the
-        # three-pattern refactor — it existed to compensate for Haiku's
-        # paraphrase in Pattern I, but the Dispatcher has no paraphrase
+        # three-pattern refactor — it existed to compensate for Pattern I
+        # paraphrase, but the Dispatcher has no paraphrase
         # cycle and the Graph mode routes deterministically. A single
         # generic line covers the pathological case where Bedrock
         # itself returns nothing at all.
@@ -2549,7 +2566,7 @@ CURRENT REQUEST: {message}"""
         # synthesize agent_steps.
         try:
             from services.otel_trace_extractor import extract_agent_execution_from_otel
-            agent_execution = extract_agent_execution_from_otel()
+            agent_execution = extract_agent_execution_from_otel(session_id=session_id)
         except Exception as e:
             logger.error(f"OTEL extraction raised: {e}")
             agent_execution = {

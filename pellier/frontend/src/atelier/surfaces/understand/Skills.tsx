@@ -37,7 +37,7 @@ function filterSkillsByPersona(skills: Skill[], filter: PersonaFilter): Skill[] 
 /* -----------------------------------------------------------------------
  * Skill Router Demo Card
  *
- * Live demonstration of the SkillRouter (Haiku 4.5 at temperature 0.0).
+ * Live demonstration of the SkillRouter (Sonnet 4.6 at temperature 0.0).
  * Mirrors the Tools page's DiscoveryDemoCard pattern: type a query,
  * see what the router would decide for that turn (which skills to
  * load + which it considered and why it rejected them).
@@ -150,7 +150,7 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
 
   return (
     <ExpCard>
-      <Eyebrow label="Live skill router · Haiku 4.5 @ 0.0" />
+      <Eyebrow label="Live skill router · Sonnet 4.6 @ 0.0" />
       <h3
         style={{
           fontFamily: 'var(--at-serif)',
@@ -171,7 +171,7 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
           marginBottom: '16px',
         }}
       >
-        The same call shape that fires before every chat turn. Haiku at
+        The same call shape that fires before every chat turn. Sonnet at
         temperature 0.0 is deterministic – try the same query twice and
         get the same routing.
       </p>
@@ -750,7 +750,7 @@ const Skills: React.FC = () => {
       <EditorialTitle
         eyebrow="Understand · Skills · three persona-tied files"
         title="Persona-specific knowledge the agents load."
-        summary="Three Markdown files. One per persona. Loaded per turn by the SkillRouter – Haiku 4.5 at 0.0, deterministic classification – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
+        summary="Three Markdown files. One per persona. Loaded per turn by the SkillRouter – Sonnet 4.6 at 0.0, deterministic classification – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
       />
       <ExpCard>
         <Eyebrow label="Two routers · different jobs" />

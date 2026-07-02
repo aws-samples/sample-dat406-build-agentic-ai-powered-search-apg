@@ -92,7 +92,7 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 
 - [x] 2.4 **[P0] C4: Multi-agent orchestrator** [blocked by: 2.3, `customer-support-agent` spec]
   - Acceptance: Req 2.4.6–2.4.8 and 4.3.1.
-  - Modify `pellier/backend/agents/orchestrator.py` to define the orchestrator inside a `# === CHALLENGE 4: START/END ===` block: Haiku 4.5 model id exactly as steering specifies, `temperature=0.0`, tools list `[search_agent, product_recommendation_agent, price_optimization_agent, inventory_restock_agent, customer_support_agent]` (symbol import for the last), `system_prompt=copy.ORCHESTRATOR_SYSTEM_PROMPT` enforcing priority `pricing > inventory > support > search > recommendation`.
+  - Modify `pellier/backend/agents/orchestrator.py` to define the orchestrator inside a `# === CHALLENGE 4: START/END ===` block: Sonnet 4.6 model id exactly as steering specifies, `temperature=0.0`, tools list `[search_agent, product_recommendation_agent, price_optimization_agent, inventory_restock_agent, customer_support_agent]` (symbol import for the last), `system_prompt=copy.ORCHESTRATOR_SYSTEM_PROMPT` enforcing priority `pricing > inventory > support > search > recommendation`.
   - Files: `orchestrator.py` (modify), `solutions/closing-marcos-gap/agents/orchestrator.py` (new drop-in mirror), `copy.py` (add `ORCHESTRATOR_SYSTEM_PROMPT`).
   - Test verification: `tests/backend/test_orchestrator_routing.py` — five representative queries (one per specialist intent) each route to the expected specialist via stubbed Bedrock; routing is observable via span tags from `otel_trace_extractor`. Add `test_priority_order_on_ambiguous_queries` that injects a query matching both pricing and inventory and asserts pricing (higher priority) fires.
   - Done when: routing tests green, including `test_priority_order_on_ambiguous_queries`.
@@ -365,7 +365,7 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 - [x] Cognito + AgentCore Identity is real — 3.1, 3.2, 3.3, 3.8
 - [x] Preferences persist via `agentcore_memory.py` — 2.6, 3.4
 - [x] httpOnly cookies only (no localStorage) — 3.3, 5.1
-- [x] Orchestrator Haiku 4.5 @ 0.0, specialists Opus 4.6 @ 0.2 — 2.3, 2.4
+- [x] Orchestrator Sonnet 4.6 @ 0.0, specialists Opus 4.6 @ 0.2 — 2.3, 2.4
 - [x] Tool pattern enforced — 2.2, 7.4
 - [x] Defers to `catalog-enrichment` and `customer-support-agent` — tasks 2.1, 2.2, 3.6, 2.4
 

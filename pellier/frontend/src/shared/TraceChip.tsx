@@ -16,6 +16,7 @@
  */
 import React from 'react'
 import { lookupVocab } from './agentVocabulary'
+import { routePath } from '../utils/assetPath'
 
 export interface TraceChipProps {
   /** Tool name, dot-separated. e.g. "memory.recall", "inventory.live". */
@@ -81,7 +82,7 @@ export const TraceChip: React.FC<TraceChipProps> = ({
   if (linkToAtelier) {
     return (
       <a
-        href={vocab.atelierPath}
+        href={routePath(vocab.atelierPath)}
         title={`${vocab.label} — ${vocab.description}`}
         data-testid={`trace-chip-${tool}`}
         style={baseStyle}

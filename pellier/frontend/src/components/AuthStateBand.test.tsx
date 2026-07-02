@@ -39,6 +39,7 @@ import type { Preferences } from '../services/types'
 // at the module boundary lets us avoid mounting AuthProvider + the JWT flow.
 let mockUser: { sub: string; email: string; givenName?: string } | null = null
 let mockPreferences: Preferences | null = null
+let mockIsLoading = false
 
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
@@ -47,7 +48,8 @@ vi.mock('../contexts/AuthContext', () => ({
     accessToken: null,
     login: () => {},
     logout: () => {},
-    loading: false,
+    loading: mockIsLoading,
+    isLoading: mockIsLoading,
     preferences: mockPreferences,
   }),
 }))
@@ -100,6 +102,7 @@ function setJustSignedInCookie() {
 beforeEach(() => {
   mockUser = null
   mockPreferences = null
+  mockIsLoading = false
   clearAllCookies()
   try {
     window.sessionStorage.clear()
@@ -252,6 +255,28 @@ describe('AuthStateBand — just_signed_in cookie (Design decision #2)', () => {
     // authenticated mount.
     expect(document.cookie).not.toMatch(/just_signed_in/)
     expect(screen.getByTestId('active-modal')).toHaveTextContent('none')
+  })
+
+  it('waits for auth hydration before consuming the cookie', () => {
+    mockUser = null
+    mockPreferences = null
+    mockIsLoading = true
+    setJustSignedInCookie()
+
+    const { rerender } = renderBand()
+    expect(document.cookie).toMatch(/just_signed_in/)
+    expect(screen.getByTestId('active-modal')).toHaveTextContent('none')
+
+    mockIsLoading = false
+    mockUser = { sub: 'abc', email: 'ada@example.com', givenName: 'Ada' }
+    rerender(
+      <UIProvider>
+        <Harness />
+      </UIProvider>,
+    )
+
+    expect(document.cookie).not.toMatch(/just_signed_in/)
+    expect(screen.getByTestId('active-modal')).toHaveTextContent('preferences')
   })
 })
 

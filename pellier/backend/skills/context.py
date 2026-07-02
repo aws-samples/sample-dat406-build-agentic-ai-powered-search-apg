@@ -2,7 +2,7 @@
 Per-request skill context — a ``ContextVar`` that carries the
 currently-loaded skills through the agent pipeline.
 
-The orchestrator (Haiku, dispatcher) runs in a background thread and
+The orchestrator (Sonnet, dispatcher) runs in a background thread and
 constructs its specialist agents inside ``@tool``-decorated functions.
 Those specialists need access to the skills the router decided to
 load for this turn, but we don't want to plumb ``loaded_skills`` as
@@ -79,7 +79,7 @@ def inject_skills(
     support, etc.) right before constructing their Strands Agent.
     The orchestrator does NOT call this — skills inject into the
     reasoning specialists that compose the editorial reply, not the
-    Haiku dispatcher.
+    Sonnet dispatcher.
 
     If ``loaded_skills`` is omitted, reads from the ContextVar. The
     ContextVar path is the normal one; the explicit-param path exists

@@ -44,22 +44,12 @@ MODELS = [
         },
     },
     {
-        "name": "Claude Sonnet 4.6 (Opus fallback)",
+        "name": "Claude Sonnet 4.6",
         "model_id": "global.anthropic.claude-sonnet-4-6",
-        # Fallback for the editorial agents when Opus 4.6 is unavailable.
-        # Not independently required; it only needs to work IF Opus doesn't.
-        "required": False,
-        "role": "editorial_fallback",
-        "body": {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 16,
-            "messages": [{"role": "user", "content": "Say hi."}],
-        },
-    },
-    {
-        "name": "Claude Haiku 4.5",
-        "model_id": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-        "required": True,  # reporting/routing specialists at runtime
+        # Hard-required: routing, reporting specialists, structured extraction,
+        # and the Claude Code Bedrock lane all use Sonnet.
+        "required": True,
+        "role": "sonnet",
         "body": {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 16,
@@ -250,7 +240,7 @@ def main():
 
     # --- Editorial resolution: Opus OR Sonnet must work ---
     opus_ok = results.get("Claude Opus 4.6", (False,))[0]
-    sonnet_name = "Claude Sonnet 4.6 (Opus fallback)"
+    sonnet_name = "Claude Sonnet 4.6"
     sonnet_ok = results.get(sonnet_name, (False,))[0]
     sonnet_id = results.get(sonnet_name, (False, None, ""))[2]
 
@@ -268,25 +258,20 @@ def main():
     else:
         print("\033[31mEditorial agents: NEITHER Opus 4.6 nor Sonnet 4.6 is accessible.\033[0m")
 
-    # --- Claude Code CLI resolution: independent of the app's editorial model ---
-    haiku_name = "Claude Haiku 4.5"
-    haiku_ok = results.get(haiku_name, (False,))[0]
-    haiku_id = results.get(haiku_name, (False, None, ""))[2]
+    # --- Sonnet role defaults: app routing/reporting + Claude Code CLI ---
     print()
     if sonnet_ok:
-        print("Claude Code CLI: \033[32mSonnet 4.6\033[0m (primary).")
+        print("Routing/reporting + Claude Code CLI: \033[32mSonnet 4.6\033[0m.")
         if args.write_env:
+            _upsert_env(args.write_env, "BEDROCK_SONNET_MODEL", sonnet_id)
+            _upsert_env(args.write_env, "BEDROCK_ROUTER_MODEL", sonnet_id)
+            _upsert_env(args.write_env, "BEDROCK_REPORTING_MODEL", sonnet_id)
             _upsert_env(args.write_env, "CLAUDE_CODE_MODEL", sonnet_id)
-            print(f"  → wrote CLAUDE_CODE_MODEL={sonnet_id} to {args.write_env}")
-    elif haiku_ok:
-        print("Claude Code CLI: \033[33mSonnet 4.6 unavailable → falling back to Haiku 4.5\033[0m.")
-        if args.write_env:
-            _upsert_env(args.write_env, "CLAUDE_CODE_MODEL", haiku_id)
-            print(f"  → wrote CLAUDE_CODE_MODEL={haiku_id} to {args.write_env}")
+            print(f"  → wrote Sonnet defaults + CLAUDE_CODE_MODEL={sonnet_id} to {args.write_env}")
     else:
-        print("\033[31mClaude Code CLI: neither Sonnet 4.6 nor Haiku 4.5 is accessible.\033[0m")
+        print("\033[31mRouting/reporting + Claude Code CLI: Sonnet 4.6 is not accessible.\033[0m")
 
-    # --- Hard-required models (Haiku, Rerank, Embed) ---
+    # --- Hard-required models (Sonnet, Rerank, Embed) ---
     hard = [m["name"] for m in MODELS if m.get("required", True)]
     hard_missing = [n for n in hard if not results.get(n, (False,))[0]]
 

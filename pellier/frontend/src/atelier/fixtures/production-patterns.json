@@ -55,7 +55,7 @@
       "role": "What the agent will and will not do, enforced at the edge",
       "summary": "Bedrock Guardrails layers content filters, denied-topic blocks, and PII redaction in front of every model call. Pellier's allow-list of categories and tags inside the StructuredExtractor is the same idea at the application layer – a whitelist that drops hallucinated values before they reach the SQL WHERE clause.",
       "shipped": true,
-      "shippedNote": "The Haiku-driven structured extractor whitelists categories and tags before they touch SQL – see services/structured_extract.py.",
+      "shippedNote": "The Sonnet-driven structured extractor whitelists categories and tags before they touch SQL – see services/structured_extract.py.",
       "category": "policy",
       "layers": [
         {
@@ -76,10 +76,10 @@
         {
           "name": "Application allow-lists",
           "where": "services/structured_extract.py",
-          "what": "Categories and tags from Haiku are whitelisted against KNOWN_CATEGORIES / KNOWN_TAGS before they reach the SQL WHERE clause – hallucinated values are silently dropped"
+          "what": "Categories and tags from Sonnet are whitelisted against KNOWN_CATEGORIES / KNOWN_TAGS before they reach the SQL WHERE clause – hallucinated values are silently dropped"
         }
       ],
-      "codeSnippet": "# Application-layer allow-list (already shipped)\ncat_set = {c.lower(): c for c in KNOWN_CATEGORIES}\ncategories = [\n    cat_set[c.lower()]\n    for c in parsed.get(\"categories\", []) or []\n    if isinstance(c, str) and c.lower() in cat_set\n]\n\n# Bedrock Guardrail at the model boundary\nresponse = bedrock.invoke_model(\n    modelId=settings.BEDROCK_HAIKU_MODEL,\n    body=json.dumps(body),\n    guardrailIdentifier=\"pellier-shopper-guardrail\",\n    guardrailVersion=\"1\",\n)",
+      "codeSnippet": "# Application-layer allow-list (already shipped)\ncat_set = {c.lower(): c for c in KNOWN_CATEGORIES}\ncategories = [\n    cat_set[c.lower()]\n    for c in parsed.get(\"categories\", []) or []\n    if isinstance(c, str) and c.lower() in cat_set\n]\n\n# Bedrock Guardrail at the model boundary\nresponse = bedrock.invoke_model(\n    modelId=settings.BEDROCK_REPORTING_MODEL,\n    body=json.dumps(body),\n    guardrailIdentifier=\"pellier-shopper-guardrail\",\n    guardrailVersion=\"1\",\n)",
       "crossLinks": [
         { "label": "Performance · search strategies", "to": "/atelier/performance" }
       ]

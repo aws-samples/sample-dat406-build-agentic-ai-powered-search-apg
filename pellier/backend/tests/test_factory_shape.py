@@ -78,10 +78,26 @@ def _tool_names(agent: Agent) -> set[str]:
 def test_factory_returns_real_agent(name: str, factory, expected_tools: set[str]) -> None:
     agent = factory()
     assert isinstance(agent, Agent), f"{name}: factory must return a Strands Agent"
+    assert agent.name == name, (
+        f"{name}: factory must set Agent.name so OTEL specialistRoute is stable"
+    )
     tools = _tool_names(agent)
     assert expected_tools.issubset(tools), (
         f"{name}: missing tools {expected_tools - tools}; got {sorted(tools)}"
     )
+
+
+def test_inventory_tool_names_render_as_stock_keeper() -> None:
+    """Streaming trace labels SHALL name Stock Keeper for inventory tools.
+
+    The SSE proof parser in Act I prints ``agent: ...`` from these labels;
+    missing tool-name entries fall back to Style Advisor and make a correct
+    floor_check run look broken.
+    """
+    from services.chat import EnhancedChatService
+
+    for tool_name in ("inventory", "floor_check", "running_low", "restock_shelf"):
+        assert EnhancedChatService._tool_to_agent_name(tool_name) == "Stock Keeper"
 
 
 @pytest.mark.parametrize("name,factory,_tools", SPECIALIST_SPECS, ids=[s[0] for s in SPECIALIST_SPECS])

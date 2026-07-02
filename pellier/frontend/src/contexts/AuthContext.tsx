@@ -84,6 +84,10 @@ export function useAuth() {
 const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN || ''
 const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID || ''
 const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI || (typeof window !== 'undefined' ? `${window.location.origin}/` : '/')
+const LEGACY_ACCESS_TOKEN_KEY = 'pellier-access-token'
+const LEGACY_ID_TOKEN_KEY = 'pellier-id-token'
+const AUTH_SESSION_MARKER_KEY = 'pellier-auth-session'
+const JUST_SIGNED_IN_COOKIE = 'just_signed_in'
 // === END LEGACY WIRE IT LIVE ===
 
 function parseTokenFromHash(): { accessToken: string; idToken: string } | null {
@@ -109,6 +113,18 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   }
 }
 
+function getLegacyAccessToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY)
+}
+
+function hasCookie(name: string): boolean {
+  if (typeof document === 'undefined') return false
+  return document.cookie
+    .split(';')
+    .some(cookie => cookie.trim().startsWith(`${name}=`))
+}
+
 // Shape returned by GET /api/auth/me (see Req 3.1.3). The server returns
 // camelCase fields matching the `User` wire type in services/types.ts.
 interface MeResponse {
@@ -130,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
-    return localStorage.getItem('pellier-access-token')
+    return localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY)
   })
   const [loading, setLoading] = useState(true)
   const [preferences, setPreferences] = useState<Preferences | null>(null)
@@ -144,16 +160,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const refresh = useCallback(async () => {
     try {
+      const token = getLegacyAccessToken()
+      const headers: Record<string, string> = {}
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
       const meRes = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
+        headers,
       })
       if (!meRes.ok) {
         setUser(null)
         setPreferences(null)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
+        }
         return
       }
       const me = (await meRes.json()) as MeResponse
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTH_SESSION_MARKER_KEY, '1')
+      }
       setUser({
         sub: me.userId ?? me.user_id ?? '',
         email: me.email,
@@ -176,6 +204,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // stale state. The caller can retry via its own error path.
       setUser(null)
       setPreferences(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
+      }
     }
   }, [])
 
@@ -220,8 +251,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Legacy implicit-grant path.
       const tokens = parseTokenFromHash()
       if (tokens) {
-        localStorage.setItem('pellier-access-token', tokens.accessToken)
-        localStorage.setItem('pellier-id-token', tokens.idToken)
+        localStorage.setItem(LEGACY_ACCESS_TOKEN_KEY, tokens.accessToken)
+        localStorage.setItem(LEGACY_ID_TOKEN_KEY, tokens.idToken)
         if (!cancelled) setAccessToken(tokens.accessToken)
 
         const claims = decodeJwtPayload(tokens.idToken)
@@ -243,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (accessToken) {
         const idToken =
           typeof window !== 'undefined'
-            ? localStorage.getItem('pellier-id-token')
+            ? localStorage.getItem(LEGACY_ID_TOKEN_KEY)
             : null
         if (idToken) {
           const claims = decodeJwtPayload(idToken)
@@ -257,22 +288,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               })
             }
           } else if (typeof window !== 'undefined') {
-            localStorage.removeItem('pellier-access-token')
-            localStorage.removeItem('pellier-id-token')
+            localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY)
+            localStorage.removeItem(LEGACY_ID_TOKEN_KEY)
             if (!cancelled) setAccessToken(null)
           }
         }
       }
 
-      // Cookie-backed /api/auth/me path — only fire when we have
-      // evidence of an active Cognito session (legacy token present
-      // or an auth callback just ran). Firing on every cold mount
-      // produces a noisy 401 for every storefront visit, which is
-      // the common case now that personas replaced Cognito as the
-      // primary sign-in mechanism. When Cognito IS wired, the hash
-      // path above populates user/accessToken and we still want to
-      // cross-check server claims.
-      if (tokens || accessToken) {
+      // Cookie-backed /api/auth/me path. This must run even when the
+      // URL hash is empty because the current Cognito code flow stores
+      // tokens in httpOnly cookies on /api/auth/callback. The optional
+      // bearer header inside refresh() preserves the legacy implicit
+      // flow when localStorage tokens are present.
+      const shouldRefresh =
+        !!tokens ||
+        !!accessToken ||
+        !!getLegacyAccessToken() ||
+        hasCookie(JUST_SIGNED_IN_COOKIE) ||
+        (typeof window !== 'undefined' &&
+          localStorage.getItem(AUTH_SESSION_MARKER_KEY) === '1')
+
+      if (shouldRefresh) {
         await refresh()
       }
 
@@ -305,8 +341,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('pellier-access-token')
-      localStorage.removeItem('pellier-id-token')
+      localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY)
+      localStorage.removeItem(LEGACY_ID_TOKEN_KEY)
+      localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
     }
     setUser(null)
     setAccessToken(null)

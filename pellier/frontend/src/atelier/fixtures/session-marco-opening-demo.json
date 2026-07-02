@@ -170,7 +170,7 @@
       "products": [],
       "confidence": {
         "percentage": 96,
-        "reasoning": "Deterministic aggregate. Claude Haiku 4.5 at 0.1 \u2014 no variance, sub-200ms."
+        "reasoning": "Deterministic aggregate. Claude Sonnet 4.6 at 0.1 \u2014 low-variance numerical answer."
       },
       "memoryPills": [
         {
@@ -180,7 +180,7 @@
       ],
       "meta": {
         "agent": "Value Analyst",
-        "model": "Claude Haiku 4.5 \u00b7 0.1",
+        "model": "Claude Sonnet 4.6 \u00b7 0.1",
         "latencyMs": 168
       }
     },
@@ -320,7 +320,7 @@
       "index": 11,
       "category": "managed",
       "title": "Response composition",
-      "description": "Claude Haiku 4.5 at 0.1 \u2014 fast, deterministic numerical answer",
+      "description": "Claude Sonnet 4.6 at 0.1 \u2014 deterministic numerical answer",
       "status": "complete",
       "durationMs": 74,
       "agent": "Value Analyst"
@@ -355,7 +355,7 @@
         "title": "The arc",
         "paragraphs": [
           "Marco arrived with a clear plan \u2014 ten days in Goa, linen \u2014 and walked through the catalog in four turns. Three landed cleanly. The fourth didn't.",
-          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.6 for the opening ask, Curator on Claude Opus 4.6 with the-packing-list skill loaded for pairings, Value Analyst on Claude Haiku 4.5 for the price range. All three specialists running on their declared models; no normalization."
+          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.6 for the opening ask, Curator on Claude Opus 4.6 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
         ]
       },
       {
@@ -407,7 +407,7 @@
         },
         {
           "label": "Models used",
-          "value": "Claude Opus 4.6, Claude Haiku 4.5"
+          "value": "Claude Opus 4.6, Claude Sonnet 4.6"
         },
         {
           "label": "Unresolved",

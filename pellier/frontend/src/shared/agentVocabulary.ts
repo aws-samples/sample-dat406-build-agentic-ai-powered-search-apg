@@ -144,18 +144,6 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
 
 /** Skills router — loaded skill chips in Boutique chat attribution. */
 const SKILL_VOCABULARY: Record<string, AgentToolEntry> = {
-  'skill.style-advisor': {
-    name: 'skill.style-advisor' as AgentToolName,
-    label: 'Style Advisor',
-    description: 'Personal styling and wardrobe pairing for the active shopper.',
-    atelierPath: '/atelier/skills',
-  },
-  'skill.gift-concierge': {
-    name: 'skill.gift-concierge' as AgentToolName,
-    label: 'Gift Concierge',
-    description: 'Gift-ready picks with wrapping and occasion context.',
-    atelierPath: '/atelier/skills',
-  },
   'skill.packing-list': {
     name: 'skill.packing-list' as AgentToolName,
     label: 'The Packing List',

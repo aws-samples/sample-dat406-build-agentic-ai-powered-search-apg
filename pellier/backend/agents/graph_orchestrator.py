@@ -35,7 +35,7 @@ def get_graph_structure() -> Dict[str, Any]:
             "label": "Orchestrator",
             "type": "decision",
             "description": "Analyzes query intent and routes to one specialist agent",
-            "model": "Claude Haiku 4.5",
+            "model": "Claude Sonnet 4.6",
         },
         {
             "id": "recommendation",
@@ -49,14 +49,14 @@ def get_graph_structure() -> Dict[str, Any]:
             "label": "Price Optimization",
             "type": "agent",
             "description": "Price analysis, deals, and discount finder",
-            "model": "Claude Haiku 4.5",
+            "model": "Claude Sonnet 4.6",
         },
         {
             "id": "inventory",
             "label": "Inventory & Restock",
             "type": "agent",
             "description": "Stock levels, restocking, and availability",
-            "model": "Claude Haiku 4.5",
+            "model": "Claude Sonnet 4.6",
         },
         {
             "id": "support",
@@ -89,8 +89,8 @@ def get_graph_structure() -> Dict[str, Any]:
         "edges": edges,
         "description": (
             "The orchestrator routes each user query to one specialist agent. "
-            "The Orchestrator (Haiku 4.5) classifies intent and dispatches to "
+            "The Orchestrator (Sonnet 4.6) classifies intent and dispatches to "
             "Recommendation, Pricing, Inventory, Customer Support, or Search "
-            "(Opus for editorial specialists, Haiku for reporting specialists)."
+            "(Opus for editorial specialists, Sonnet for reporting specialists)."
         ),
     }

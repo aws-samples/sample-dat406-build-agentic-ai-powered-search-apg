@@ -57,14 +57,14 @@ const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   },
   {
     agent: 'Value Analyst',
-    model: 'Claude Haiku 4.5 · 0.1',
+    model: 'Claude Sonnet 4.6 · 0.1',
     tool: 'price_intelligence',
-    outcome: '"$88 to $285, median $148" - sub-200ms',
+    outcome: '"$88 to $285, median $148"',
     sessionId: 'marco-opening-demo',
   },
   {
     agent: 'Stock Keeper',
-    model: 'Claude Haiku 4.5 · 0.0',
+    model: 'Claude Sonnet 4.6 · 0.0',
     tool: 'floor_check',
     outcome:
       'Opening demo: Dispatcher matches stock intent; floor_check still stubbed → fall-through telemetry (no tool). Midpoint: same Boutique pill - real warehouse breakdown after the build.',
@@ -185,7 +185,7 @@ const JOURNEYS: PersonaJourney[] = [
       "Returning customer. Natural fabrics, linen, travel-ready, warm tones. Marco's arc anchors pgvector cosine over Cohere Embed v4. Turn 4 is the Builder's Session: same hero pill ships stub telemetry in opening demo, then a real floor_check replay in midpoint.",
     turns: attachPills(MARCO_TURNS_META, PERSONA_HERO_PILLS.marco, PERSONA_TURN_TRACES.marco),
     capstoneNote:
-      "Claude Opus 4.6 turns at ~1200ms. Claude Haiku 4.5 turns at ~150ms. That's the architectural lesson, made visible - and Turn 4 is where the wiring exercise lands.",
+      "Claude Opus 4.6 handles editorial turns; Claude Sonnet 4.6 handles routing and reporting turns. That architectural split is visible here - and Turn 4 is where the wiring exercise lands.",
   },
   {
     id: 'anna',

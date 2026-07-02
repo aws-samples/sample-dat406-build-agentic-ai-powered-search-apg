@@ -87,6 +87,7 @@ def build_recommendation_agent() -> Agent:
     # literal constraints ("under $100", "for a home office") — the
     # exact regime where vector-alone wears thin.
     return Agent(
+        name="recommendation",
         model=BedrockModel(
             model_id=settings.BEDROCK_OPUS_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_OPUS,

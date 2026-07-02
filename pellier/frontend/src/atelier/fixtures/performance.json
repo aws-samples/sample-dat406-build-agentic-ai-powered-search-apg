@@ -105,10 +105,10 @@
       "isShipped": false
     },
     {
-      "strategy": "agentic (Haiku → filter → vector → rerank)",
+      "strategy": "agentic (Sonnet → filter → vector → rerank)",
       "recallAt5": 0.96,
       "p50Ms": 2300,
-      "costPerThousandUsd": 1.28,
+      "costPerThousandUsd": 8.18,
       "isShipped": true
     }
   ],

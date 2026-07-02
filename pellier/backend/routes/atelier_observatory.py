@@ -22,7 +22,7 @@ Endpoints:
     GET  /observatory          — dashboard summary
     GET  /architecture         — system architecture diagram payload
     GET  /build-state          — shipped vs exercise maps for agents and tools
-    POST /skills/route         — Live skill router demo (Haiku 4.5 @ 0.0)
+    POST /skills/route         — Live skill router demo (Sonnet 4.6 @ 0.0)
     GET  /policies             — Cedar policies for the Write-path surface
     GET  /tool-audit/recent    — Recent rows from pellier.tool_audit
 """

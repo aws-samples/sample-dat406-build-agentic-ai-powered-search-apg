@@ -1,5 +1,5 @@
 """
-Structured query extraction via Claude Haiku 4.5.
+Structured query extraction via Claude Sonnet 4.6.
 
 Path 2 retrieval — the agentic upgrade to hybrid+rerank — splits a
 shopper query into:
@@ -15,16 +15,15 @@ filters (with ``hnsw.iterative_scan`` so a strict WHERE doesn't drop
 the candidate count below ``ef_search``), then sends a smaller pool
 through Cohere Rerank using ``soft_signal`` as the query.
 
-Why Haiku 4.5 specifically:
+Why Sonnet 4.6 specifically:
 
-  - Latency: ~150–300 ms at temperature 0 for a JSON-shaped output
-    against a 6-category / 28-tag enum. Cheap to add to every
-    retrieval turn.
-  - Determinism at T=0: the reporting persona, not the editorial one.
-  - Already configured at ``config.BEDROCK_HAIKU_MODEL``; no new
+  - Reliable JSON-shaped output at temperature 0 against a
+    6-category / 28-tag enum.
+  - Determinism at T=0: the reporting path, not the editorial one.
+  - Already configured at ``config.BEDROCK_REPORTING_MODEL``; no new
     model wiring.
 
-Failure mode: if Haiku returns malformed JSON or an unknown enum
+Failure mode: if Sonnet returns malformed JSON or an unknown enum
 value, the caller drops the filter and falls back to vector+rerank
 with the raw query. The empty-extract path is *not* an error — it's
 a query that has no structured signal (e.g. "something nice"), and
@@ -46,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 # Catalog facets — kept in sync with pellier.product_catalog seed data.
 # If migrations add a category or tag, update both lists. The enum
-# whitelist below uses these to drop hallucinated values from Haiku.
+# whitelist below uses these to drop hallucinated model values.
 KNOWN_CATEGORIES: List[str] = [
     "Accessories",
     "Apparel",
@@ -100,7 +99,7 @@ def _build_prompt(query: str) -> str:
 
 
 class StructuredExtractor:
-    """Haiku-backed query → structured filters extractor.
+    """Sonnet-backed query → structured filters extractor.
 
     Synchronous boto3 invoke under the hood; the caller offloads to a
     worker thread when running inside the FastAPI event loop. Cost and
@@ -112,7 +111,7 @@ class StructuredExtractor:
             "bedrock-runtime",
             region_name=region or settings.AWS_REGION,
         )
-        self.model_id = settings.BEDROCK_HAIKU_MODEL
+        self.model_id = settings.BEDROCK_REPORTING_MODEL
 
     def extract(self, query: str) -> Dict[str, Any]:
         """Extract filters + soft_signal. On any failure, return an
@@ -169,7 +168,7 @@ class StructuredExtractor:
 
     @staticmethod
     def _parse_json(text: str) -> Dict[str, Any]:
-        # Defensive: Haiku at T=0 returns clean JSON, but strip code
+        # Defensive: Sonnet at T=0 returns clean JSON, but strip code
         # fences in case the system prompt was ignored.
         if text.startswith("```"):
             text = text.strip("`")

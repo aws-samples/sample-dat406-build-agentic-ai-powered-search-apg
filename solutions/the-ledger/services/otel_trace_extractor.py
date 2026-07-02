@@ -60,9 +60,9 @@ _SPECIALIST_TOOL_NAMES = frozenset(
 # Requirement 2.5.4 and 5.4.1. The orchestrator streaming path attaches
 # ``trace_attributes`` (session.id, user.id, runtime, workshop) to the
 # Strands Agent before invocation — see ``services.agentcore_runtime.
-# _run_orchestrator_inprocess``. Those attributes flow onto every span
-# Strands emits during the run, so the functions below can reconstruct a
-# per-request trace without any additional wiring.
+# _run_orchestrator_inprocess``. Strands may only copy those attributes
+# onto spans owned by that Agent, so session filtering first finds the
+# tagged span's trace id, then keeps every span in that OTEL trace.
 #
 # ⏩ SHORT ON TIME? Run:
 #    cp solutions/the-ledger/services/otel_trace_extractor.py pellier/backend/services/otel_trace_extractor.py
@@ -270,7 +270,45 @@ def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
     }
 
 
-def extract_agent_execution_from_otel() -> Dict[str, Any]:
+def _span_trace_id(span: Any) -> Optional[int]:
+    """Return the OpenTelemetry trace id for ``span`` when available."""
+    context = getattr(span, "context", None)
+    trace_id = getattr(context, "trace_id", None)
+    if trace_id:
+        return trace_id
+    return None
+
+
+def _filter_spans_for_session(spans: List[Any], session_id: Optional[str]) -> List[Any]:
+    """Return spans in traces tagged for ``session_id`` when supplied."""
+    if not session_id:
+        return spans
+
+    wanted = str(session_id)
+    directly_tagged = [
+        span
+        for span in spans
+        if str((getattr(span, "attributes", None) or {}).get("session.id") or "")
+        == wanted
+    ]
+    directly_tagged_ids = {id(span) for span in directly_tagged}
+    tagged_trace_ids = {
+        trace_id
+        for span in directly_tagged
+        for trace_id in [_span_trace_id(span)]
+        if trace_id is not None
+    }
+    if not tagged_trace_ids:
+        return directly_tagged
+
+    return [
+        span
+        for span in spans
+        if _span_trace_id(span) in tagged_trace_ids or id(span) in directly_tagged_ids
+    ]
+
+
+def extract_agent_execution_from_otel(session_id: Optional[str] = None) -> Dict[str, Any]:
     """Backward-compatible bridge used by ``services.chat`` and the
     existing ``AgentReasoningTraces`` frontend component.
 
@@ -292,6 +330,8 @@ def extract_agent_execution_from_otel() -> Dict[str, Any]:
         reason = f"Failed to read finished spans: {e}. {_INIT_ORDER_HINT}"
         logger.error(reason)
         return _failed_execution(reason)
+
+    spans = _filter_spans_for_session(spans, session_id)
 
     if not spans:
         return _empty_execution()
@@ -338,7 +378,6 @@ def extract_agent_execution_from_otel() -> Dict[str, Any]:
                 }
             )
 
-    # extract_trace already cleared the exporter; do not clear twice.
     return {
         "agent_steps": agent_steps,
         "tool_calls": tool_calls,
@@ -354,7 +393,7 @@ def extract_agent_execution_from_otel() -> Dict[str, Any]:
     }
 
 
-def get_waterfall_data() -> Dict[str, Any]:
+def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
     """Return the current trace in the shape
     ``{ spans, totalMs, specialistRoute, waterfall, span_count, otel_enabled }``
     for the ``/api/traces/waterfall`` endpoint and the ``/inspector`` view.
@@ -388,6 +427,7 @@ def get_waterfall_data() -> Dict[str, Any]:
             "reason": reason,
         }
 
+    finished = _filter_spans_for_session(finished, session_id)
     trace = extract_trace(finished)
     # Legacy waterfall shape for AgentReasoningTraces keeps the same
     # start/duration fields as the new spans list.

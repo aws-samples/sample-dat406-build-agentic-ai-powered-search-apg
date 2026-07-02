@@ -15,7 +15,7 @@ The Atelier is an editorial-luxury AI observatory surface layered into the exist
 - **Session**: A single conversation between a persona and the agentic system, identified by a short hex ID (e.g., #7F5A).
 - **Persona**: A mock customer profile (e.g., Marco) used as the demo identity in the Atelier; selected via Settings.
 - **Agent**: One of 5 peer specialist agents (Search, Recommendation, Pricing, Inventory, Customer Support), all Claude Opus 4.6 at temperature 0.2.
-- **Skill**: A runtime-injected persona-routed capability (style-advisor or gift-concierge), routed by the SkillRouter (Claude Haiku 4.5).
+- **Skill**: A runtime-injected persona-routed capability (style-advisor or gift-concierge), routed by the SkillRouter (Claude Sonnet 4.6).
 - **Routing_Pattern**: One of 3 orchestration strategies: Dispatcher (storefront default), Agents-as-Tools, or Graph.
 - **Tool**: One of 9 named functions registered in tool_registry with pgvector embeddings for semantic discovery.
 - **STM**: Short-term memory managed by AgentCore — ephemeral, session-scoped conversation state.

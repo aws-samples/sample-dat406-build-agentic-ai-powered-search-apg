@@ -3,7 +3,7 @@
 Asserts three things, in order of importance:
 
 1. **The workarounds are gone.** The three band-aids that used to
-   compensate for Haiku's paraphrase in Pattern I are structurally
+   compensate for the Pattern I orchestrator's paraphrase are structurally
    absent from the chat path:
 
      - No ``[ROUTING DIRECTIVE:]`` prefix injection
@@ -22,7 +22,7 @@ Asserts three things, in order of importance:
 
 3. **Atelier behavior is unchanged at the wire level.** The default
    pattern (absent / None) is ``'agents_as_tools'`` so existing
-   Atelier clients keep hitting the Haiku orchestrator.
+   Atelier clients keep hitting the Sonnet orchestrator.
 
 End-to-end behavior (real Bedrock calls, persona-aware responses)
 is verified manually via the four storefront scenarios in Phase 2's
@@ -83,7 +83,7 @@ def test_no_routing_directive_injection(chat_module_source: str) -> None:
     """
     assert "ROUTING DIRECTIVE" not in chat_module_source, (
         "chat.py still injects a [ROUTING DIRECTIVE:] prefix into user "
-        "messages — this was a workaround for Haiku's paraphrase in "
+        "messages — this was a workaround for the Pattern I paraphrase in "
         "Pattern I. The Dispatcher (Pattern III) doesn't need it, and "
         "Pattern I runs without it now."
     )
@@ -102,7 +102,7 @@ def test_no_specialist_prose_promotion(chat_module_source: str) -> None:
         assert phrase not in chat_module_source, (
             f"chat.py still references {phrase!r} — this was part of "
             f"the workaround #2 promotion branch that substituted the "
-            f"specialist's prose when Haiku's paraphrase was short. "
+            f"specialist's prose when the Pattern I paraphrase was short. "
             f"Not needed in the three-pattern model."
         )
 
@@ -227,7 +227,7 @@ def test_orchestrator_constructed_only_for_agents_as_tools() -> None:
     """The legacy ``orchestrator = create_orchestrator()`` construction
     inside ``chat_stream()`` must sit inside the ``agents_as_tools``
     branch, not run unconditionally. Otherwise dispatcher turns pay for
-    a Haiku instance they never use.
+    a Sonnet router instance they never use.
 
     Scoped to ``chat_stream()`` specifically — the non-streaming
     ``_strands_enhanced_chat()`` legacy path has its own separate

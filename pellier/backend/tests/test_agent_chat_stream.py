@@ -336,6 +336,56 @@ def test_chat_emits_session_then_chunk_then_done_events(
     ]
 
 
+def test_chat_done_event_surfaces_runtime_gateway_receipt(
+    client: TestClient,
+    signer: _Signer,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Authenticated Runtime turns SHALL surface the JWT/Gateway receipt
+    in the SSE ``done`` trace payload."""
+    token = signer.sign(_access_claims(sub="user-gateway"))
+
+    async def _runtime_run_agent(
+        message: str,
+        session_id: str,
+        user_id: Optional[str] = None,
+        auth_token: Optional[str] = None,
+    ) -> str:
+        assert user_id == "user-gateway"
+        assert auth_token == token
+        import services.agentcore_runtime as rt
+
+        rt._store_managed_runtime_receipt(
+            session_id,
+            rail="gateway-mcp",
+            auth_token_present=bool(auth_token),
+        )
+        return "gateway-backed response"
+
+    import routes.agent as agent_module
+
+    monkeypatch.setattr(agent_module, "run_agent", _runtime_run_agent)
+    monkeypatch.setattr(runtime_module, "run_agent", _runtime_run_agent)
+
+    with client.stream(
+        "POST",
+        "/api/agent/chat",
+        json={"message": "process Theo return", "session_id": "sess-gateway"},
+        cookies={ACCESS_TOKEN_COOKIE: token},
+    ) as resp:
+        assert resp.status_code == 200
+        events = _parse_sse(resp.read().decode("utf-8"))
+
+    assert [e["event"] for e in events] == ["session", "chunk", "done"]
+    trace = events[-1]["data"]["trace"]
+    assert trace["traceKind"] == "managed-runtime-receipt"
+    assert trace["runtime"] == "agentcore-managed"
+    assert trace["rail"] == "gateway-mcp"
+    assert trace["jwtPassthrough"] is True
+    assert trace["gatewayPassthrough"] is True
+    assert trace["spans"] == []
+
+
 def test_chat_anonymous_request_uses_anon_namespace(
     client: TestClient, agent_calls: List[Dict[str, Any]], memory: AgentCoreMemory
 ) -> None:

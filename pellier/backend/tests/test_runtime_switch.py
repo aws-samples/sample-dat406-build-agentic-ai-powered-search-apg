@@ -338,7 +338,7 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
             return None
 
         def read(self) -> bytes:
-            return b'{"response":"runtime ok"}'
+            return b'{"response":"runtime ok","rail":"gateway-mcp"}'
 
     def _fake_urlopen(request: Any, timeout: int = 0) -> _Resp:
         captured["url"] = request.full_url
@@ -383,3 +383,10 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
         "session_id": "sess-runtime",
         "user_id": "user-123",
     }
+    trace = rt.get_latest_trace("sess-runtime")
+    assert trace["traceKind"] == "managed-runtime-receipt"
+    assert trace["runtime"] == "agentcore-managed"
+    assert trace["rail"] == "gateway-mcp"
+    assert trace["jwtPassthrough"] is True
+    assert trace["gatewayPassthrough"] is True
+    assert trace["spans"] == []

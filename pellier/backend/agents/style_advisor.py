@@ -93,6 +93,7 @@ def build_search_agent() -> Agent:
     # description. Model choice is an architectural decision; see the
     # Workshop Studio repo's content/ model-mix sidebar.
     return Agent(
+        name="search",
         model=BedrockModel(
             model_id=settings.BEDROCK_OPUS_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_OPUS,

@@ -3,7 +3,7 @@
 Validates Requirement 2.4.6-2.4.8 and 4.3.1 from
 `.kiro/specs/pellier-storefront/requirements.md`:
 
-  2.4.6  The orchestrator is constructed with Haiku 4.5 model id exactly,
+  2.4.6  The orchestrator is constructed with Sonnet 4.6 model id exactly,
          temperature=0.0, and five specialist tools following the Strands
          "Agents as Tools" pattern.
   2.4.7  Intent classification priority: pricing > inventory > support >
@@ -76,7 +76,7 @@ _SEARCH = re.compile(
 def _route(query: str) -> str:
     """Return the tool_name of the specialist a priority-respecting
     orchestrator would call for `query`. Mirrors the logic the
-    ORCHESTRATOR_SYSTEM_PROMPT asks Haiku 4.5 to perform."""
+    ORCHESTRATOR_SYSTEM_PROMPT asks Sonnet 4.6 to perform."""
     if _PRICING.search(query):
         return "pricing"
     if _INVENTORY.search(query):
@@ -95,7 +95,7 @@ def _route(query: str) -> str:
 
 class _StubBedrockModel:
     """Swap for `BedrockModel`. Captures kwargs so the test can assert
-    the Haiku 4.5 model id and temperature=0.0 are wired exactly."""
+    the Sonnet 4.6 model id and temperature=0.0 are wired exactly."""
 
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
@@ -242,10 +242,10 @@ def orchestrator_factory(monkeypatch: pytest.MonkeyPatch, stubbed_specialists):
 # ---------------------------------------------------------------------------
 
 
-def test_orchestrator_uses_haiku_4_5_at_temperature_0_0(
+def test_orchestrator_uses_sonnet_4_6_at_temperature_0_0(
     orchestrator_factory,
 ) -> None:
-    """The orchestrator SHALL wrap BedrockModel with the exact Haiku 4.5
+    """The orchestrator SHALL wrap BedrockModel with the exact Sonnet 4.6
     model id and `temperature=0.0` per Req 2.4.6."""
     orchestrator_factory()
 
@@ -253,8 +253,8 @@ def test_orchestrator_uses_haiku_4_5_at_temperature_0_0(
     assert isinstance(model, _StubBedrockModel)
     assert (
         model.kwargs.get("model_id")
-        == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
-    ), f"Haiku 4.5 model id mismatch: {model.kwargs.get('model_id')!r}"
+        == "global.anthropic.claude-sonnet-4-6"
+    ), f"Sonnet 4.6 model id mismatch: {model.kwargs.get('model_id')!r}"
     assert model.kwargs.get("temperature") == 0.0
 
 
@@ -301,7 +301,7 @@ def test_orchestrator_system_prompt_enforces_priority_order(
         "recommendation",
     ):
         assert tool_name in prompt, (
-            f"system_prompt SHALL mention {tool_name!r} so Haiku can "
+            f"system_prompt SHALL mention {tool_name!r} so Sonnet can "
             f"pick it; current prompt missing it"
         )
 

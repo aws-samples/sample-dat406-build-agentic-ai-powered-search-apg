@@ -557,7 +557,7 @@ const StorefrontProductionCard: React.FC = () => (
       </li>
     </ul>
     <pre style={SNIPPET_STYLE}>
-      {`triage (rules) → intent (rules) → low confidence? → classifier / Haiku T=0
+      {`triage (rules) → intent (rules) → low confidence? → classifier / Sonnet T=0
                               → else → one specialist (one LLM call)`}
     </pre>
   </ExpCard>

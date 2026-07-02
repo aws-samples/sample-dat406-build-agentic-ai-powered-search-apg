@@ -10,10 +10,10 @@
   {
     "name": "Agents-as-Tools",
     "slug": "agents-as-tools",
-    "description": "Haiku orchestrator + specialists as @tool. Two LLM calls per turn. Atelier teaching path and in-process /api/agent/chat – not the Boutique hot path.",
+    "description": "Sonnet orchestrator + specialists as @tool. Two LLM calls per turn. Atelier teaching path and in-process /api/agent/chat – not the Boutique hot path.",
     "isActive": false,
     "agents": ["Style Advisor", "Curator", "Value Analyst", "Stock Keeper", "Experience Guide"],
-    "codeSnippet": "@tool\ndef stock_keeper(query: str) -> str:\n    return Agent(..., tools=[floor_check])(query)\n\norchestrator = Agent(model=haiku, tools=[stock_keeper, ...])"
+    "codeSnippet": "@tool\ndef stock_keeper(query: str) -> str:\n    return Agent(..., tools=[floor_check])(query)\n\norchestrator = Agent(model=sonnet, tools=[stock_keeper, ...])"
   },
   {
     "name": "Graph",

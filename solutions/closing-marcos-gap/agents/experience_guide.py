@@ -129,6 +129,7 @@ def build_support_agent() -> Agent:
     # Opus for tone when handling a return; steady temperature because
     # policy is policy.
     return Agent(
+        name="support",
         model=BedrockModel(
             model_id=settings.BEDROCK_OPUS_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_OPUS,

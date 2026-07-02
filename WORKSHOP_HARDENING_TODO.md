@@ -20,7 +20,7 @@ The current session is hardened and stable. In brief, already done:
   gate + dry-run, model-access preflight.
 - **Embeddings: Cohere Embed English v3** (`cohere.embed-english-v3`),
   **Rerank: Cohere Rerank v3.5** (`us.cohere.rerank-v3-5:0`), chat on Claude
-  Opus 4.6 / routing on Haiku 4.5. Aurora PostgreSQL 18.3 + pgvector 0.8.0.
+  Opus 4.6 / routing on Sonnet 4.6. Aurora PostgreSQL 18.3 + pgvector 0.8.0.
 - Content: references appendix, tip taxonomy, exercise table, run-of-show.
 
 If you're hardening the 60-min session specifically, the only standing gate
@@ -90,7 +90,7 @@ hit a p95 target without dropping recall@10 below a threshold.
 
 ### F. Query understanding made visible  ·  build: S  ·  extends existing
 The agentic pipeline already emits `{categories, tags, price_max, in_stock,
-soft_signal}` via Haiku-extract. Surface the parsed JSON + a "which field was
+soft_signal}` via Sonnet-extract. Surface the parsed JSON + a "which field was
 used in SQL vs vector vs FTS vs rerank" table. **400-level:** demystifies the
 query-understanding step. *(Also a 60-min cosmetic candidate.)*
 
@@ -184,7 +184,7 @@ never touches them.
 - [ ] **Confirm AgentCore Memory** is available in the event account/region —
   the health gate hard-requires `AGENTCORE_MEMORY_ID`.
 - [ ] **Verify Bedrock model access** for Embed English v3 + Rerank v3.5 +
-  Claude Opus 4.6 / Haiku 4.5 in the event region (`check_model_access.py`).
+  Claude Opus 4.6 / Sonnet 4.6 in the event region (`check_model_access.py`).
 - [ ] **Pin the live Beeswax/warehouse numbers** for the run-of-show success
   check: `psql` the seeded DB for BK-01 Beeswax quantity pre- and
   post-shipment-UPDATE, and make the run-of-show metric match observed data

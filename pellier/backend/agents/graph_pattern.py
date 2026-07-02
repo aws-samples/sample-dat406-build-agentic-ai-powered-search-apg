@@ -13,7 +13,7 @@ the dataclass repr, not the winning specialist's prose — and it has no
 
 ``GraphAgentAdapter`` bridges the two. It:
 
-  1. Builds a router node (Haiku classifier) + five specialist nodes
+  1. Builds a router node (Sonnet classifier) + five specialist nodes
      (search / recommendation / pricing / inventory / support) via the
      existing factories. The router's prose picks one specialist; five
      conditional edges fan out so exactly one specialist runs per turn.
@@ -46,7 +46,7 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
-# Deterministic router prompt. Kept tight — Haiku's whole job here is
+# Deterministic router prompt. Kept tight — Sonnet's whole job here is
 # to emit exactly one of the five specialist tokens. Any other output
 # falls through to ``search`` as a safe default.
 _ROUTER_SYSTEM_PROMPT = (
@@ -66,12 +66,10 @@ _VALID_ROUTES = ("search", "recommendation", "pricing", "inventory", "support")
 
 
 def _build_router_agent() -> Agent:
-    """Small Haiku agent that outputs one specialist token."""
+    """Small Sonnet agent that outputs one specialist token."""
     return Agent(
         model=BedrockModel(
-            model_id=settings.BEDROCK_HAIKU_MODEL
-            if hasattr(settings, "BEDROCK_HAIKU_MODEL")
-            else "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            model_id=settings.BEDROCK_ROUTER_MODEL,
             max_tokens=16,
             temperature=0.0,
         ),

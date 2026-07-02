@@ -440,7 +440,7 @@ const RelatedCard: React.FC = () => (
           <code style={CODE_INLINE}>the-packing-list</code>,{' '}
           <code style={CODE_INLINE}>the-gift-table</code>, and{' '}
           <code style={CODE_INLINE}>the-makers-shelf</code>. Loaded per-turn by
-          SkillRouter (Haiku 4.5 · 0.0). Injected into the specialist&apos;s system
+          SkillRouter (Sonnet 4.6 · 0.0). Injected into the specialist&apos;s system
           prompt – they change voice and handling, not routing.
         </p>
         <Link
@@ -727,7 +727,7 @@ const Agents: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Agents · five peers · Opus 4.6 + Haiku 4.5 · T 0.0–0.4"
+        eyebrow="Understand · Agents · five peers · Opus 4.6 + Sonnet 4.6 · T 0.0–0.4"
         title="The cast of five."
         summary="Five peer specialists – routing sits in Dispatcher (classify_intent) ahead of each turn. Four are shipped reference in the workshop image (including Experience Guide for Theo's write path). Stock Keeper stays exercise until you wire floor_check in Part I; saving the tool body updates build-state and promotes Stock Keeper to shipped."
       />

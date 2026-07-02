@@ -661,14 +661,15 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
  *      column stays the static fixture value (we'd need labeled data
  *      to compute it live) but the p50Ms + products refresh, and the
  *      agentic row also surfaces extractedFilters chips so participants
- *      can see what Haiku pulled out and which filter-degradation step
+ *      can see what Sonnet pulled out and which filter-degradation step
  *      the pipeline ended up using.
  *
  * The teaching beat: workshop participants can see the rerank lift in
  * dollars AND latency AND product mix differences. The agentic row
  * adds a fourth axis — filter respect. A "$100 milestone gift" query
  * is the canonical case: only the agentic strategy actually keeps
- * results under $100 because Haiku extracted price_max_usd=100 into
+ * results under $100 because the structured extractor wrote
+ * price_max_usd=100 into
  * a WHERE clause; the other three rank but never filter, so a $185
  * candle can still surface in the top-5.
  * ----------------------------------------------------------------------- */
@@ -676,7 +677,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
 /* -----------------------------------------------------------------------
  * Extracted Filters Strip — receipt for the agentic strategy
  *
- * Renders Haiku's structured extraction below the agentic row: category
+ * Renders the Sonnet structured extraction below the agentic row: category
  * pills, tag pills, optional price ceiling, optional in-stock badge,
  * the soft_signal phrase, and which filter-degradation step the
  * pipeline ended up using. The degradation badge is the honest one —
@@ -753,7 +754,7 @@ const ExtractedFiltersStrip: React.FC<ExtractedFiltersStripProps> = ({
           gap: '6px',
         }}
       >
-        <span style={labelStyle}>Haiku extract ·</span>
+        <span style={labelStyle}>Sonnet extract ·</span>
         {filters.categories.length > 0 &&
           filters.categories.map((c) => (
             <span key={`cat-${c}`} style={chipStyle}>
@@ -876,7 +877,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
       // p50Ms + costPerThousandUsd + products. We merge those onto the
       // fixture's recallAt5 + isShipped so the card stays whole. The
       // agentic strategy additionally carries extractedFilters surfacing
-      // what Haiku pulled out and which filter-degradation step ran.
+      // what Sonnet pulled out and which filter-degradation step ran.
       const merged: PerformanceData['searchStrategies'] = strategies.map((s) => {
         const live = (j.strategies || []).find(
           (l: { strategy: string }) => l.strategy === s.strategy,
@@ -932,7 +933,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         }}
       >
         Vector finds meaning. Postgres FTS finds literals. Cohere Rerank reads
-        the union and picks. The agentic row goes one step further: Haiku 4.5
+        the union and picks. The agentic row goes one step further: Sonnet 4.6
         at T=0 splits the query into structured filters (categories, tags,
         price ceiling, in-stock) and a residual taste phrase, then the
         WHERE-clause filters run with{' '}
@@ -1132,11 +1133,11 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                       </td>
                     </tr>
                   )}
-                  {/* Agentic-only: surface the structured filters Haiku
+                  {/* Agentic-only: surface the structured filters Sonnet
                       extracted, the soft_signal the reranker scored
                       against, and which filter-degradation step the
                       pipeline ended up using. This is the receipt for
-                      "Haiku → filter → vector → rerank". */}
+                      "Sonnet → filter → vector → rerank". */}
                   {s.extractedFilters && (
                     <tr style={{ backgroundColor: rowBg }}>
                       <td colSpan={5} style={{ padding: '0 12px 14px' }}>
@@ -1183,7 +1184,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           predicate, runs cosine over only the rows that pass, and lets
           Cohere Rerank score against the residual taste phrase ("milestone
           gift for a homeowner"). The chips above are the receipt – you
-          can see exactly what Haiku extracted, which filter-degradation
+          can see exactly what Sonnet extracted, which filter-degradation
           step ran when the strict filter was too tight, and what soft
           signal the reranker actually scored.
         </p>
@@ -1191,7 +1192,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
 
       {/* Postgres FTS gotcha — kept as a teaching foil for the hybrid (RRF)
           row. The agentic strategy bypasses this entire class of bug
-          because Haiku owns the lexical decomposition, but participants
+          because Sonnet owns the lexical decomposition, but participants
           still need to know the failure mode if they ever deploy plain
           FTS. */}
       <div
@@ -1231,7 +1232,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
             HybridSearch._build_or_tsquery
           </code>{' '}
           to keep the row alive for comparison, but Anna's production
-          path is the agentic row (bottom of the table above): Haiku owns
+          path is the agentic row (bottom of the table above): Sonnet owns
           the structured decomposition, and FTS doesn't have to guess.
         </p>
       </div>

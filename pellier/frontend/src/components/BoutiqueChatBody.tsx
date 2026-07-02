@@ -60,8 +60,6 @@ function relativeTime(ts: Date): string {
 
 /** Dot-notation trace labels for loaded skills (same register as memory.recall). */
 const SKILL_TRACE: Record<string, string> = {
-  'style-advisor': 'skill.style-advisor',
-  'gift-concierge': 'skill.gift-concierge',
   'the-packing-list': 'skill.packing-list',
   'the-gift-table': 'skill.gift-table',
   'the-makers-shelf': 'skill.makers-shelf',

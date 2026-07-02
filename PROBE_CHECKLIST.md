@@ -46,7 +46,7 @@ the NodeSource fix regressed; stop and fix bootstrap before anything else.
 ## 1. Provisioning health (Gate #1: the 4 fresh-account fixes + model access)
 
 ```bash
-python3 scripts/check_model_access.py        # Gate #5: Bedrock access (Opus/Sonnet, Haiku, Embed v4, Rerank v3.5)
+python3 scripts/check_model_access.py        # Gate #5: Bedrock access (Opus, Sonnet, Embed v4, Rerank v3.5)
 bash scripts/health-gate.sh                  # 6 checks; READY only if catalog=40, warehouse seeded, memory+runtime set
 cat /var/log/pellier-agentcore.log           # the STEP-16 provisioning transcript
 ```

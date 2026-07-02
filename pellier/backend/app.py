@@ -299,7 +299,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In enterprise deployments, specify actual origins
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1137,7 +1137,7 @@ async def list_skills():
 async def compare_search_strategies(query: str):
     """Run the same query through four retrieval strategies, return
     per-strategy timing + top-5 product names + (when present) the
-    structured filters Haiku extracted.
+    structured filters Sonnet extracted.
 
     Surfaces Anna's anchor-capability comparison live to the
     Atelier Performance page so workshop participants can see the
@@ -1151,8 +1151,8 @@ async def compare_search_strategies(query: str):
          No reranker pass. Kept as a teaching foil — pure lexical
          loses on conversational queries with this corpus.
       3. **hybrid + rerank** — same as #2 plus Cohere Rerank v3.5.
-      4. **agentic (Haiku → filter → vector → rerank)** — Anna's
-         shipped path. Haiku 4.5 extracts {categories, tags,
+      4. **agentic (Sonnet → filter → vector → rerank)** — Anna's
+         shipped path. Sonnet 4.6 extracts {categories, tags,
          price_max, in_stock, soft_signal} at T=0; pgvector cosine
          runs over the filtered candidate set with
          ``hnsw.iterative_scan = 'relaxed_order'`` so filtered recall
@@ -1173,7 +1173,8 @@ async def compare_search_strategies(query: str):
 
     Cost numbers are static (workshop-known fixtures: vector + hybrid
     are effectively free per query, rerank adds ~$1 per 1000 queries,
-    Haiku at T=0 with a 400-token cap is roughly $0.10 per 1000
+    the agentic row adds one Sonnet structured-extraction call on top
+    of rerank.
     queries on the workshop's prompt size).
     """
     import asyncio
@@ -1254,7 +1255,7 @@ async def compare_search_strategies(query: str):
             for r in rerank_pool[:5]
         ]
 
-    # Strategy 4: agentic — Haiku-extracted filters → filtered vector
+    # Strategy 4: agentic — Sonnet-extracted filters → filtered vector
     # → rerank with soft_signal. The boto3 calls are synchronous, so
     # they run on a worker thread to keep the event loop responsive.
     t0 = time.time()
@@ -1269,7 +1270,7 @@ async def compare_search_strategies(query: str):
     else:
         soft_embedding = query_embedding
 
-    # Try the strictest filter set first; if Haiku over-constrained the
+    # Try the strictest filter set first; if Sonnet over-constrained the
     # query, peel filters back in priority order — drop tags before
     # categories before price — until the pool is large enough to
     # actually rerank against. This is the same pattern production
@@ -1343,9 +1344,9 @@ async def compare_search_strategies(query: str):
                 "products": rerank_products,
             },
             {
-                "strategy": "agentic (Haiku → filter → vector → rerank)",
+                "strategy": "agentic (Sonnet → filter → vector → rerank)",
                 "p50Ms": agentic_ms,
-                "costPerThousandUsd": 1.28,
+                "costPerThousandUsd": 8.18,
                 "products": agentic_products,
                 "extractedFilters": {
                     "categories": extracted.get("categories", []),
@@ -1604,12 +1605,12 @@ async def atelier_catalog():
     """
     # Agent definitions — matches imports in backend/agents/*.py
     agents = [
-        {"name": "orchestrator", "model": "Haiku", "role": "ROUTES"},
+        {"name": "orchestrator", "model": "Sonnet", "role": "SONNET · ROUTES"},
         {"name": "search", "model": "Opus", "role": "OPUS · 3 GRANTS"},
         {"name": "recommendation", "model": "Opus", "role": "OPUS · 4 GRANTS"},
-        {"name": "pricing", "model": "Opus", "role": "OPUS · 3 GRANTS"},
+        {"name": "pricing", "model": "Sonnet", "role": "SONNET · 3 GRANTS"},
         {"name": "support", "model": "Opus", "role": "OPUS · 2 GRANTS"},
-        {"name": "inventory", "model": "Opus", "role": "OPUS · 3 GRANTS"},
+        {"name": "inventory", "model": "Sonnet", "role": "SONNET · 3 GRANTS"},
     ]
 
     # Tool catalog — headline + description + typical p50.
@@ -1889,7 +1890,7 @@ async def get_tracing_status():
 
 
 @app.get("/api/traces/waterfall")
-async def get_trace_waterfall():
+async def get_trace_waterfall(session_id: Optional[str] = Query(None)):
     """Get waterfall timing data from captured OTEL spans.
 
     Always returns HTTP 200 with a structured payload. When OTEL is not
@@ -1899,7 +1900,7 @@ async def get_trace_waterfall():
     """
     try:
         from services.otel_trace_extractor import get_waterfall_data
-        return get_waterfall_data()
+        return get_waterfall_data(session_id=session_id)
     except Exception as e:
         logger.error(f"get_waterfall_data raised: {e}")
         return {

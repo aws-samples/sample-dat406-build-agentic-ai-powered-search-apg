@@ -23,7 +23,7 @@
     "role": "Price intelligence – deals, comparisons, value-per-dollar across collections.",
     "status": "shipped",
     "tools": ["price_intelligence", "explore_collection", "find_pieces"],
-    "model": "Claude Haiku 4.5",
+    "model": "Claude Sonnet 4.6",
     "temperature": 0.1
   },
   {
@@ -32,7 +32,7 @@
     "role": "Inventory – stock levels, restock operations, low-stock alerts.",
     "status": "exercise",
     "tools": ["floor_check", "restock_shelf", "running_low"],
-    "model": "Claude Haiku 4.5",
+    "model": "Claude Sonnet 4.6",
     "temperature": 0.0,
     "exerciseFiles": ["pellier/backend/agents/stock_keeper.py"]
   },

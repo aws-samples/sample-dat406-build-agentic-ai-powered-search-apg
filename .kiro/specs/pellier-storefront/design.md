@@ -47,7 +47,7 @@ graph TB
     APP[app.py + routes/*]
     MW[cognito_auth middleware]
     ACID[agentcore_identity]
-    ORCH[orchestrator Haiku 4.5 @ 0.0]
+    ORCH[orchestrator Sonnet 4.6 @ 0.0]
     SPEC[5 specialists Opus 4.6 @ 0.2]
     TOOLS[agent_tools @tool fns]
     HS[HybridSearchService]
@@ -155,7 +155,7 @@ sequenceDiagram
   participant U as User
   participant API as POST /api/agent/chat
   participant ID as AgentCoreIdentity
-  participant O as Orchestrator (Haiku @ 0.0)
+  participant O as Orchestrator (Sonnet @ 0.0)
   participant S as product_recommendation_agent (Opus @ 0.2)
   participant T as get_trending_products
   participant DB as Aurora
@@ -536,7 +536,7 @@ product_recommendation_agent = Agent(
 
 ```python
 orchestrator = Agent(
-    model=BedrockModel(model_id='global.anthropic.claude-haiku-4-5-20251001-v1:0'),
+    model=BedrockModel(model_id='global.anthropic.claude-sonnet-4-6'),
     temperature=0.0,
     tools=[
         search_agent,

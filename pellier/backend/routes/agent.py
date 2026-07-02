@@ -191,12 +191,14 @@ async def _stream_agent_response(
         )
 
     # --- 5. Done event (with trace) -------------------------------------
-    # The in-process Strands path populates the trace via
+    # The in-process Strands path populates OTEL spans via
     # ``otel_trace_extractor.extract_trace`` inside
-    # ``_run_orchestrator_inprocess``. For the managed runtime path the
-    # trace is empty (the runtime owns its own trace pipeline) and the
-    # client's inspector simply shows nothing.
-    trace = get_latest_trace()
+    # ``_run_orchestrator_inprocess``. For the managed Runtime path the
+    # backend cannot see inside the Runtime's OTEL collector, so
+    # ``run_agent_on_runtime`` stores a small receipt instead: runtime
+    # rail, JWT passthrough, and whether the container reported
+    # Gateway/MCP execution.
+    trace = get_latest_trace(context.session_id)
     yield _sse_event(
         "done",
         {

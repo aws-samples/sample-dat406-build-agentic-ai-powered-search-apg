@@ -171,7 +171,7 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
 
         orchestrator = Agent(
             model=BedrockModel(
-                model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+                model_id=settings.BEDROCK_ROUTER_MODEL,
                 max_tokens=4096,
                 temperature=0.0,
             ),
@@ -237,7 +237,7 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
         # This is the production pattern for large tool catalogs.
         orchestrator = Agent(
             model=BedrockModel(
-                model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+                model_id=settings.BEDROCK_ROUTER_MODEL,
                 max_tokens=4096,
                 temperature=0.0,
             ),

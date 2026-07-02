@@ -28,7 +28,7 @@ class Skill(BaseModel):
 
     name: str = Field(
         ...,
-        description="Canonical name from frontmatter, e.g. 'style-advisor'.",
+        description="Canonical name from frontmatter, e.g. 'the-packing-list'.",
     )
     description: str = Field(
         ...,

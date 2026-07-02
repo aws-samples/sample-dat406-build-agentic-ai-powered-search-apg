@@ -92,6 +92,7 @@ export async function sendChatMessageStreaming(
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
       method: 'POST',
+      credentials: 'include',
       headers: getAuthHeaders(),
       body: JSON.stringify({
         message: query,
@@ -175,6 +176,7 @@ export async function sendChatMessage(query: string, conversationHistory: ChatMe
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat?enable_thinking=${enableThinking}`, {
       method: 'POST',
+      credentials: 'include',
       headers: getAuthHeaders(),
       body: JSON.stringify({ 
         message: query,

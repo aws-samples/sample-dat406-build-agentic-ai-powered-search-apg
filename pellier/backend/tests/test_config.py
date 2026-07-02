@@ -272,6 +272,10 @@ def test_bedrock_model_ids_have_spec_defaults(
         "BEDROCK_EMBEDDING_MODEL",
         "BEDROCK_RERANK_MODEL",
         "BEDROCK_CHAT_MODEL",
+        "BEDROCK_OPUS_MODEL",
+        "BEDROCK_SONNET_MODEL",
+        "BEDROCK_ROUTER_MODEL",
+        "BEDROCK_REPORTING_MODEL",
     )
 
     # Point env_file at a path that doesn't exist so pydantic-settings
@@ -283,11 +287,12 @@ def test_bedrock_model_ids_have_spec_defaults(
     assert s.BEDROCK_EMBEDDING_MODEL == "us.cohere.embed-v4:0"
     assert s.BEDROCK_RERANK_MODEL == "us.cohere.rerank-v3-5:0"
     assert s.BEDROCK_CHAT_MODEL == "global.anthropic.claude-opus-4-6-v1"
-    # Per-agent model mix should also default cleanly. BEDROCK_SONNET_MODEL is
-    # now the real Sonnet 4.6 (the Opus→Sonnet fallback target), not an Opus alias.
-    assert s.BEDROCK_SONNET_MODEL == "global.anthropic.claude-sonnet-4-6"
-    assert s.BEDROCK_HAIKU_MODEL == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+    # Per-agent model mix should also default cleanly. Sonnet owns routing,
+    # structured extraction, and reporting; no third model family is in the path.
     assert s.BEDROCK_OPUS_MODEL == "global.anthropic.claude-opus-4-6-v1"
+    assert s.BEDROCK_SONNET_MODEL == "global.anthropic.claude-sonnet-4-6"
+    assert s.BEDROCK_ROUTER_MODEL == "global.anthropic.claude-sonnet-4-6"
+    assert s.BEDROCK_REPORTING_MODEL == "global.anthropic.claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------

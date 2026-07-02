@@ -369,6 +369,35 @@ def test_extract_user_returns_none_on_invalid_token(
 
 
 # ---------------------------------------------------------------------------
+# services.auth.get_current_user — optional cookie-aware dependency
+# ---------------------------------------------------------------------------
+
+
+def test_optional_get_current_user_accepts_cookie_backed_user(
+    monkeypatch: pytest.MonkeyPatch,
+    auth_service: CognitoAuthService,
+    signer: _Signer,
+) -> None:
+    """The legacy optional dependency SHALL delegate to CognitoAuthService
+    so code-flow httpOnly cookies work on /api/chat and related routes."""
+    from services import cognito_auth as cognito_mod
+    from services.auth import get_current_user
+
+    monkeypatch.setattr(cognito_mod, "_default_service", auth_service)
+    token = signer.sign(_valid_access_claims(sub="cookie-backed-user"))
+    req = _make_request(cookies={ACCESS_TOKEN_COOKIE: token})
+
+    user = _run(get_current_user(req))
+
+    assert user == {
+        "sub": "cookie-backed-user",
+        "email": "shopper@example.com",
+        "given_name": "Avery",
+        "access_token": token,
+    }
+
+
+# ---------------------------------------------------------------------------
 # require_user — FastAPI dependency integration ("Done when")
 # ---------------------------------------------------------------------------
 

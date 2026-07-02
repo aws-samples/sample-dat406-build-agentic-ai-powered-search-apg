@@ -6,7 +6,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 
 ## Glossary
 
-- **Orchestrator**: The top-level Strands Agent (Claude Haiku 4.5, model ID `global.anthropic.claude-haiku-4-5-20251001-v1:0`) that classifies user intent and routes queries to one specialist agent.
+- **Orchestrator**: The top-level Strands Agent (Claude Sonnet 4.6, model ID `global.anthropic.claude-sonnet-4-6`) that classifies user intent and routes queries to one specialist agent.
 - **Customer_Support_Agent**: A new Strands specialist agent (using `settings.BEDROCK_CHAT_MODEL`, currently `global.anthropic.claude-opus-4-6-v1`) defined as a `@tool` function named `customer_support_agent` in `agents/experience_guide.py`. Handles return policies, product search for support contexts, and troubleshooting queries.
 - **get_return_policy**: A `@tool` decorated function in `services/agent_tools.py` that returns return policy details for a given product category by querying the `pellier.return_policies` Aurora PostgreSQL table.
 - **return_policies table**: An Aurora PostgreSQL table (`pellier.return_policies`) seeded by the bootstrap script with 21 rows (20 product categories + a default). Columns: `category_name`, `return_window_days`, `conditions`, `refund_method`.

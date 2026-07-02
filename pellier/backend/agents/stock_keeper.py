@@ -125,12 +125,13 @@ def build_inventory_agent() -> Agent:
     unchanged by consolidating the five factories onto the same
     substrate.
     """
-    # Stock Keeper — Haiku 4.5 at 0.0. Pure factual lookups (warehouse,
+    # Stock Keeper — Sonnet 4.6 at 0.0. Pure factual lookups (warehouse,
     # count, ETA). Zero variance. Fastest config in the system.
     return Agent(
+        name="inventory",
         model=BedrockModel(
-            model_id=settings.BEDROCK_HAIKU_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_HAIKU,
+            model_id=settings.BEDROCK_REPORTING_MODEL,
+            max_tokens=settings.AGENT_MAX_TOKENS_SONNET,
             temperature=0.0,
         ),
         system_prompt=inject_persona_preamble(

@@ -209,7 +209,7 @@
       "index": 12,
       "category": "teaching",
       "title": "Skill Router Check",
-      "description": "Evaluated style-advisor activation \u2014 not triggered (no styling question detected)",
+      "description": "Evaluated persona-skill activation \u2014 not triggered (no styling question detected)",
       "status": "complete",
       "durationMs": 28
     },

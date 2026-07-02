@@ -2,7 +2,7 @@
 SkillRouter — one-call LLM decider.
 
 Given a user message and the registry's library of skills, the router
-asks a fast model (Haiku 4.5) which skills to load for this turn. One
+asks Sonnet 4.6 which skills to load for this turn. One
 LLM call. No embeddings, no scoring, no multi-call cascades. The skill
 descriptions ARE the activation contract — the router trusts them.
 
@@ -13,7 +13,7 @@ The output feeds two consumers:
     Atelier UI can render the live activation log and the storefront
     can render the minimal attribution line
 
-Parse behavior is defensive on purpose: Haiku at temperature 0.0 is
+Parse behavior is defensive on purpose: Sonnet at temperature 0.0 is
 reliable, but the workshop is unforgiving of demo-time parse errors.
 """
 from __future__ import annotations
@@ -30,11 +30,9 @@ from .registry import SkillRegistry
 
 logger = logging.getLogger(__name__)
 
-# Fast, cheap routing model. Haiku 4.5 lands ~280-400ms per call which
-# sits under our per-turn budget. Kept separate from the orchestrator
-# model id (which is also Haiku today) so the two can diverge later
-# without touching the router.
-_ROUTER_MODEL_ID = settings.BEDROCK_HAIKU_MODEL
+# Routing model. Kept separate from the orchestrator model id so the two
+# can diverge later without touching the router.
+_ROUTER_MODEL_ID = settings.BEDROCK_ROUTER_MODEL
 
 
 _ROUTER_PROMPT_HEADER = """You are a skill router for an editorial boutique's AI agent.
@@ -85,7 +83,7 @@ class SkillRouter:
         """
         Build (or return cached) the Strands Agent used for routing.
 
-        We construct a tool-free Agent with Haiku 4.5 at temperature 0.0
+        We construct a tool-free Agent with Sonnet 4.6 at temperature 0.0
         and a fixed system prompt. The skill library is baked into the
         system prompt at construction time; when a skill is added at
         runtime we'd need to reset this cache (not a v1 concern — the
@@ -100,7 +98,7 @@ class SkillRouter:
         self._agent = Agent(
             model=BedrockModel(
                 model_id=self._model_id,
-                max_tokens=settings.ROUTER_MAX_TOKENS_HAIKU,
+                max_tokens=settings.ROUTER_MAX_TOKENS_SONNET,
                 temperature=0.0,
             ),
             system_prompt=self._build_prompt(),
@@ -240,7 +238,7 @@ def _extract_json_object(raw: str) -> Optional[dict]:
     Pull the first JSON object out of a model response.
 
     Strategy:
-      1. Strip markdown fences (\`\`\`json ... \`\`\`)
+      1. Strip markdown fences (```json ... ```)
       2. Find the first '{' and walk to its matching '}'
       3. json.loads the resulting substring
       4. Return None on any failure

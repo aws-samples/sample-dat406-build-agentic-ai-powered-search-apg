@@ -104,7 +104,7 @@ class ChatRequest(BaseModel):
         description=(
             "Agent orchestration pattern for this turn. "
             "'dispatcher' — Storefront production path; direct specialist invocation. "
-            "'agents_as_tools' — Atelier Pattern I; Haiku orchestrator + @tool specialists. "
+            "'agents_as_tools' — Atelier Pattern I; Sonnet orchestrator + @tool specialists. "
             "'graph' — Atelier Pattern II (commit 2); Strands GraphBuilder with conditional edges. "
             "None defaults to 'agents_as_tools' for backwards compatibility."
         ),

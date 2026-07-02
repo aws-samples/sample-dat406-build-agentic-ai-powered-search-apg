@@ -13,7 +13,7 @@ The tool reads skills from the default /skills/ directory, constructs
 a ``SkillRouter``, and prints the ``RouterDecision`` in a readable
 format — what loaded, what was considered with reasons, elapsed ms.
 
-Test cases are grounded in the actual 92-product Pellier catalog
+Test cases are grounded in the actual 40-product Pellier catalog
 (run ``_catalog_inspect.py`` before retiring if the catalog changes).
 Each case pairs a query against the skill(s) we expect to load, with
 a short rationale the router should agree with.
@@ -30,52 +30,45 @@ from .router import SkillRouter
 # ``(query, expected_skills_set, rationale)`` where rationale is a
 # human note about why this case demonstrates the skill contract.
 #
-# Style-advisor triggers:
-#   - recommending / describing a piece in catalog language
-# Gift-concierge triggers:
-#   - the purchase is for someone else, especially with an occasion
+# Actual runtime skills:
+#   - the-packing-list: travel packing, warm-weather capsules, repeat wear
+#   - the-gift-table: gift intent, milestones, housewarming, budgets
+#   - the-makers-shelf: ceramics, textiles, slow-craft home goods
 # Negative cases:
 #   - inventory / pricing / policy / spec-sheet factual queries
 TEST_CASES: list[tuple[str, set[str], str]] = [
     # --- Single-skill positives --------------------------------------------
     (
-        "a linen piece for slow Sundays",
-        {"style-advisor"},
-        "Self-purchase, descriptive brief — matches 'Linen Camp Shirt (Sage)' "
-        "or 'Wide-Leg Linen Trousers'; style-advisor shapes voice.",
-    ),
-    (
-        "something to wear for warm evenings out",
-        {"style-advisor"},
-        "Evening-tag territory — Silk Slip Midi, Sundress in Washed Linen, "
-        "Cashmere-Blend Cardigan. Recommendation request, no gift signal.",
-    ),
-    (
-        "what goes with the Cashmere-Blend Cardigan?",
-        {"style-advisor"},
-        "Styling question against a real product (the cardigan is catalog row "
-        "in Outerwear, $158 Forest). 'What goes with' is classic style-advisor.",
-    ),
-
-    # --- Two-skill positives (gift + style) --------------------------------
-    (
-        "gift for my mom's 60th, around $200",
-        {"style-advisor", "gift-concierge"},
-        "Milestone gift in the $150-$250 band — Silk Slip Midi ($228), "
-        "Knit Column Dress ($198), Saddle Bag ($348 stretch). Both skills apply.",
-    ),
-    (
-        "something my partner would love for our anniversary",
-        {"style-advisor", "gift-concierge"},
-        "Milestone gift with no product named — Silk Scarf ($148), Brass Cuff "
-        "($88), or evening dresses. Both voice and gift logic needed.",
+        "what should I pack for 10 days in Lisbon with only a carry-on?",
+        {"the-packing-list"},
+        "Travel packing ask — packable, repeat-wear pieces belong to The Packing List.",
     ),
     (
         "housewarming gift under $80",
-        {"style-advisor", "gift-concierge"},
-        "Casual gift, Home category — Soy Candle ($58), Linen Napkin Set ($68), "
-        "Ceramic Vase ($78). Gift-concierge for occasion etiquette; style-advisor "
-        "for editorial voice.",
+        {"the-gift-table"},
+        "Gift intent + housewarming + budget — The Gift Table should frame the occasion.",
+    ),
+    (
+        "hand-thrown ceramic pieces for a morning coffee ritual",
+        {"the-makers-shelf"},
+        "Ceramics + ritual language — The Maker's Shelf should lead with material/process.",
+    ),
+
+    # --- Multi-skill positives ----------------------------------------------
+    (
+        "housewarming gift for a friend who loves handmade ceramics, around $200",
+        {"the-gift-table", "the-makers-shelf"},
+        "Housewarming gift plus handmade ceramics should load gift framing and craft knowledge.",
+    ),
+    (
+        "a gift for my partner's anniversary that packs well for a weekend trip",
+        {"the-gift-table", "the-packing-list"},
+        "Gift milestone plus travel/packing constraints should load both relevant overlays.",
+    ),
+    (
+        "packable linen outfit for warm evenings in Lisbon",
+        {"the-packing-list"},
+        "Travel + packable + warm-weather capsule language belongs to The Packing List.",
     ),
 
     # --- Negatives: transactional / factual --------------------------------
@@ -83,7 +76,7 @@ TEST_CASES: list[tuple[str, set[str], str]] = [
         "is the Italian Linen Camp Shirt in stock?",
         set(),
         "Inventory question against a real Editor's Pick ($128). Neither skill "
-        "applies — the spec-sheet negative on style-advisor kicks in.",
+        "applies — spec-sheet lookups stay with the base tool path.",
     ),
     (
         "how do I return an order?",
@@ -94,7 +87,7 @@ TEST_CASES: list[tuple[str, set[str], str]] = [
         "what's the Linen Duvet Cover made of?",
         set(),
         "Factual spec-sheet query against a real Home product ($248 Flax). "
-        "Style-advisor negative bullet explicitly excludes material questions.",
+        "Material lookup alone should stay with the base agent/tool result.",
     ),
     (
         "what's the cheapest bag you have?",

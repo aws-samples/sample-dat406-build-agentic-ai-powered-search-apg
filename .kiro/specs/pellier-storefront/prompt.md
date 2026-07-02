@@ -191,7 +191,7 @@ All authenticated endpoints require valid Cognito JWT via `Authorization: Bearer
 
 Challenge files ship with complete solution code in `# === CHALLENGE N: START/END ===` blocks per `workshop-content.md` steering.
 
-Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Temperature follows `coding-standards.md` (0.0 for orchestrator with Claude Haiku 4.5, 0.2 for specialists with Claude Opus 4.6).
+Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Temperature follows `coding-standards.md` (0.0 for orchestrator with Claude Sonnet 4.6, 0.2 for specialists with Claude Opus 4.6).
 
 ### Module 1 — Smart Search (Workshop 30 min / Builders 15 min)
 
@@ -214,7 +214,7 @@ Tool and agent naming follows `coding-standards.md` and `workshop-content.md` st
   - System prompt emphasizes warm, editorial, catalog-style reasoning — grounded in specific product attributes
 
 - **C4:** Multi-agent orchestrator in `pellier/backend/agents/orchestrator.py`
-  - Uses Claude Haiku 4.5 via `BedrockModel(model_id='global.anthropic.claude-haiku-4-5-20251001-v1:0')` with `temperature=0.0`
+  - Uses Claude Sonnet 4.6 via `BedrockModel(model_id='global.anthropic.claude-sonnet-4-6')` with `temperature=0.0`
   - Routes via Strands "Agents as Tools" pattern
   - Intent classification priority per `coding-standards.md`: pricing > inventory > support > search > recommendation (default)
   - Routes to five specialists: `search_agent`, `product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`, `customer_support_agent` (last one defined in `customer-support-agent` spec)
@@ -255,10 +255,10 @@ Sections:
 
 ### `design.md`
 
-- **Architecture diagram** (Mermaid): browser → Cognito Hosted UI → FastAPI → (AgentCore Identity → AgentCore Memory → AgentCore Runtime → AgentCore Gateway → Aurora pgvector → Bedrock: Opus 4.6 + Haiku 4.5 + Cohere Embed v4 + Cohere Rerank v3.5)
+- **Architecture diagram** (Mermaid): browser → Cognito Hosted UI → FastAPI → (AgentCore Identity → AgentCore Memory → AgentCore Runtime → AgentCore Gateway → Aurora pgvector → Bedrock: Opus 4.6 + Sonnet 4.6 + Cohere Embed v4 + Cohere Rerank v3.5)
 - **Sequence diagrams:**
   1. Vector search (query → embedding → pgvector similarity → ranked results)
-  2. Agent reasoning with tool use (user message → orchestrator (Haiku) → specialist (Opus) → tool call → response with trace)
+  2. Agent reasoning with tool use (user message → orchestrator (Sonnet) → specialist (Opus) → tool call → response with trace)
   3. Multi-turn conversation with STM
   4. **Full auth + preferences flow** — diagram every step from sign-in click through Cognito redirect, Google OAuth, callback, JWT cookies, preferences fetch, save, product grid re-sort
 - **Component tree** for React frontend
@@ -328,7 +328,7 @@ Before delivering the spec, verify:
 - [ ] Auth uses real Cognito + AgentCore Identity (not simulation)
 - [ ] Preferences persist to AgentCore Memory (via `agentcore_memory.py`) keyed by verified Cognito user_id
 - [ ] httpOnly Secure cookies for tokens (no localStorage)
-- [ ] Orchestrator uses Claude Haiku 4.5 at temperature 0.0 per `coding-standards.md`
+- [ ] Orchestrator uses Claude Sonnet 4.6 at temperature 0.0 per `coding-standards.md`
 - [ ] Specialists use Claude Opus 4.6 at temperature 0.2 per `coding-standards.md`
 - [ ] Tools use `@tool` decorator, return JSON strings, handle errors per `coding-standards.md`
 - [ ] Spec defers to `catalog-enrichment` for product table DDL + tagging

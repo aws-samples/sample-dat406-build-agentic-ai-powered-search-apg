@@ -270,7 +270,7 @@ export function CuratedBanner({ givenName, prefs, onAdjust }: CuratedBannerProps
 
 // --- AuthStateBand (the state-router entry point) -----------------------
 export default function AuthStateBand() {
-  const { user, preferences } = useAuth()
+  const { user, preferences, isLoading } = useAuth()
   const { openModal } = useUI()
 
   // Hydrate the dismissal flag from sessionStorage synchronously so the
@@ -293,6 +293,7 @@ export default function AuthStateBand() {
   // AND the user is signed in AND has no preferences, open the preferences
   // modal. Runs whenever the cookie is first observed for this mount.
   useEffect(() => {
+    if (isLoading) return
     if (hasReadCookie.current) return
     hasReadCookie.current = true
 
@@ -304,7 +305,7 @@ export default function AuthStateBand() {
     if (wasJustSignedIn && user !== null && preferences === null) {
       openModal('preferences')
     }
-  }, [user, preferences, openModal])
+  }, [isLoading, user, preferences, openModal])
 
   const signedIn = user !== null
 

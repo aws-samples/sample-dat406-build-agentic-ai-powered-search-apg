@@ -63,11 +63,10 @@ class Settings(BaseSettings):
     # See the Workshop Studio repo's content/90-appendix/01-reference/
     # (the cast table) for the rationale:
     #
-    #   Claude Opus 4.6  — editorial specialists (Style Advisor, Curator,
-    #                 Experience Guide). Needs voice + personality.
-    #   Claude Haiku 4.5 — reporting specialists (Value Analyst, Stock Keeper)
-    #                 and routing (Orchestrator, SkillRouter). Needs
-    #                 speed + determinism.
+    #   Claude Opus 4.6   — editorial specialists (Style Advisor, Curator,
+    #                  Experience Guide). Needs voice + personality.
+    #   Claude Sonnet 4.6 — routing, structured extraction, and reporting
+    #                  specialists (Value Analyst, Stock Keeper).
     #
     # Model IDs follow Bedrock cross-region inference profile naming.
     # Editorial agents (Style Advisor, Curator, Experience Guide) read
@@ -78,12 +77,13 @@ class Settings(BaseSettings):
     # into .env so editorial agents fall back to Sonnet 4.6 cleanly — no code
     # path change, no per-request retry. BEDROCK_SONNET_MODEL is the canonical
     # fallback target (real Sonnet 4.6, not an Opus alias).
-    BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-4-6"
-    BEDROCK_HAIKU_MODEL: str = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
     BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
+    BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-4-6"
+    BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-4-6"
+    BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-4-6"
 
     # Legacy alias — kept for tests + scripts that still reference it.
-    # Prefer BEDROCK_OPUS_MODEL / BEDROCK_HAIKU_MODEL in agent factories.
+    # Prefer the role-specific Opus/Sonnet settings in agent factories.
     BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
 
     # max_tokens is a safety ceiling, not a target — billing and latency track
@@ -92,8 +92,8 @@ class Settings(BaseSettings):
     # for 2-4 sentences; these values just guard against a runaway response and
     # must clear the longest expected reply so it never truncates mid-sentence.
     AGENT_MAX_TOKENS_OPUS: int = 1200       # editorial agents (Style, Experience, Curator)
-    AGENT_MAX_TOKENS_HAIKU: int = 2048      # Stock Keeper + Value Analyst (richer reveals)
-    ROUTER_MAX_TOKENS_HAIKU: int = 320      # router/classifier — tiny structured output
+    AGENT_MAX_TOKENS_SONNET: int = 2048     # Stock Keeper + Value Analyst (richer reveals)
+    ROUTER_MAX_TOKENS_SONNET: int = 320     # router/classifier — tiny structured output
     
     # ========================================
     # Application Configuration

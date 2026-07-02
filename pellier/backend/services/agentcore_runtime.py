@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections import OrderedDict
 from typing import Any, Dict, Optional
 
 from config import settings
@@ -38,13 +39,24 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
-# Latest trace extracted on the in-process streaming path. The SSE
-# handler (Task 3.5) and the ``/inspector`` view read this after each
-# orchestrator run so the waterfall shows the just-finished request.
+# Latest trace extracted on the in-process streaming path. The scalar
+# value preserves backwards compatibility for older callers; the keyed
+# map lets the SSE route return the trace for the session it just served
+# instead of whatever request finished most recently in this process.
 _latest_trace: Dict[str, Any] = {"spans": [], "totalMs": 0, "specialistRoute": ""}
+_LATEST_TRACES_BY_SESSION_MAX = 32
+_latest_traces_by_session: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 
 
-def get_latest_trace() -> Dict[str, Any]:
+def _store_latest_trace(session_id: str, trace: Dict[str, Any]) -> None:
+    """Keep a bounded per-session trace cache for recent SSE turns."""
+    _latest_traces_by_session[session_id] = trace
+    _latest_traces_by_session.move_to_end(session_id)
+    while len(_latest_traces_by_session) > _LATEST_TRACES_BY_SESSION_MAX:
+        _latest_traces_by_session.popitem(last=False)
+
+
+def get_latest_trace(session_id: Optional[str] = None) -> Dict[str, Any]:
     """Return the most recent ``{spans, totalMs, specialistRoute}``
     captured by ``_run_orchestrator_inprocess``.
 
@@ -52,7 +64,32 @@ def get_latest_trace() -> Dict[str, Any]:
     the orchestrator finishes so the frontend can render the waterfall
     without a second round-trip to the extractor.
     """
+    if session_id and session_id in _latest_traces_by_session:
+        _latest_traces_by_session.move_to_end(session_id)
+        return _latest_traces_by_session[session_id]
     return _latest_trace
+
+
+def _store_managed_runtime_receipt(
+    session_id: str,
+    *,
+    rail: str,
+    auth_token_present: bool,
+) -> None:
+    """Expose a truthful managed-runtime receipt without synthesizing OTEL spans."""
+    global _latest_trace
+    _latest_trace = {
+        "spans": [],
+        "totalMs": 0,
+        "specialistRoute": "",
+        "otel_enabled": False,
+        "traceKind": "managed-runtime-receipt",
+        "runtime": "agentcore-managed",
+        "rail": rail,
+        "jwtPassthrough": auth_token_present,
+        "gatewayPassthrough": rail == "gateway-mcp",
+    }
+    _store_latest_trace(session_id, _latest_trace)
 
 
 async def _run_orchestrator_inprocess(
@@ -99,6 +136,7 @@ async def _run_orchestrator_inprocess(
 
         global _latest_trace
         _latest_trace = extract_trace()
+        _store_latest_trace(session_id, _latest_trace)
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("trace extraction skipped: %s", exc)
 
@@ -204,9 +242,24 @@ async def run_agent_on_runtime(
         try:
             parsed = json.loads(raw)
             if isinstance(parsed, dict) and "response" in parsed:
+                _store_managed_runtime_receipt(
+                    session_id,
+                    rail=str(parsed.get("rail") or "runtime"),
+                    auth_token_present=bool(auth_token),
+                )
                 return str(parsed["response"])
+            _store_managed_runtime_receipt(
+                session_id,
+                rail="runtime",
+                auth_token_present=bool(auth_token),
+            )
             return raw
         except json.JSONDecodeError:
+            _store_managed_runtime_receipt(
+                session_id,
+                rail="runtime",
+                auth_token_present=bool(auth_token),
+            )
             return raw
     except urllib.error.HTTPError as exc:  # pragma: no cover - SDK error path
         detail = exc.read().decode("utf-8", errors="replace")[:500]

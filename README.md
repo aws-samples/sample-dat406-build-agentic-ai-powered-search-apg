@@ -182,11 +182,11 @@ Five specialist agents + one orchestrator. Three orchestration patterns ship in 
 | ------------------ | ----------------------------------------------- | ---------------- |
 | **Style Advisor**      | Interprets intent, runs semantic search         | Claude Opus 4.6  |
 | **Curator**            | Pairing, palette, occasion, editorial picks     | Claude Opus 4.6  |
-| **Value Analyst**      | Price intelligence, deals, percentile context   | Claude Haiku 4.5 |
-| **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Haiku 4.5 |
+| **Value Analyst**      | Price intelligence, deals, percentile context   | Claude Sonnet 4.6 |
+| **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 4.6 |
 | **Experience Guide**   | Returns, care, post-purchase                    | Claude Opus 4.6  |
 
-Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Haiku; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents and **`BEDROCK_HAIKU_MODEL`** for reporting/routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the editorial *fallback target* – real Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`), which the model-access preflight writes into `BEDROCK_OPUS_MODEL` when Opus 4.6 isn't reachable on the account; **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. The Atelier surfaces the mix.
+Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-4-6`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 4.6 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. The Atelier surfaces the mix.
 
 ### Tools
 
@@ -210,7 +210,7 @@ Three persona-scoped skills loaded per turn by the SkillRouter to shape voice an
 | Vector retrieval | pgvector 0.8.0 · `vector(1024)` column · HNSW (m=16, ef_construction=64, `vector_cosine_ops`) · `<=>` cosine operator |
 | Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
-| Models           | Claude Opus 4.6 (`global.anthropic.claude-opus-4-6-v1`, editorial · `T=0.2–0.4`) · Claude Haiku 4.5 (`global.anthropic.claude-haiku-4-5-20251001-v1:0`, reporting · `T=0.0–0.1`) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`us.cohere.rerank-v3-5:0`, inference profile) |
+| Models           | Claude Opus 4.6 (`global.anthropic.claude-opus-4-6-v1`, editorial · `T=0.2–0.4`) · Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`, reporting · `T=0.0–0.1`) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`us.cohere.rerank-v3-5:0`, inference profile) |
 | Agent framework  | Strands Agents SDK – `Agent`, `@tool`, `GraphBuilder`, `BeforeToolCallEvent` hooks                                       |
 | Agent infra      | Bedrock AgentCore – Runtime (`@app.entrypoint` → `InvokeAgentRuntime`) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (MCP tool catalog, Cognito-JWT auth with shopper identity passthrough) · Identity     |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |

@@ -792,9 +792,8 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 # instance role (the same ambient-credential chain psql/boto3/agentcore already
 # use) — no Anthropic API key, no per-participant login, nothing to paste.
 # Model: the model-access preflight writes CLAUDE_CODE_MODEL into the backend
-# .env. Claude Code uses Sonnet 4.6 first and falls back to Haiku 4.5 only if
-# Sonnet is not available. This lane is independent of the app's Opus/Sonnet
-# editorial model resolution.
+# .env. Claude Code uses Sonnet 4.6 through Bedrock. This lane is
+# independent of the app's Opus/Sonnet editorial model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-4-6}}
 export AWS_REGION=${AWS_REGION:-us-east-1}

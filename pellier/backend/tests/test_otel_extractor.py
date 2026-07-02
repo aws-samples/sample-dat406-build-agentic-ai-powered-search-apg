@@ -27,6 +27,7 @@ Runnable from the repo root per ``pytest.ini``:
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Any, Iterable
 
 import pytest
@@ -86,7 +87,7 @@ def otel_spans(monkeypatch: pytest.MonkeyPatch) -> Iterable[InMemorySpanExporter
 
 class _StubBedrockModel:
     """Swap for ``BedrockModel``. Captures kwargs so the test can assert
-    the Haiku 4.5 model id is still wired."""
+    the Sonnet 4.6 router model id is still wired."""
 
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
@@ -340,6 +341,103 @@ def test_extract_trace_returns_empty_shape_when_no_spans(
     assert trace["otel_enabled"] is True
 
 
+def _emit_session_trace(session_id: str, specialist: str) -> None:
+    """Emit a minimal Strands-shaped trace tagged to one session.
+
+    Strands only applies ``Agent.trace_attributes`` to spans owned by
+    that Agent. In production, the orchestrator span carries
+    ``session.id`` while the specialist and leaf tool spans usually do
+    not, so these tests must recover the children by OTEL trace id.
+    """
+    tracer = otel_trace.get_tracer(f"test-session-{session_id}")
+    with tracer.start_as_current_span("invoke_agent orchestrator") as root:
+        root.set_attribute("gen_ai.agent.name", "orchestrator")
+        root.set_attribute("session.id", session_id)
+        with tracer.start_as_current_span(f"execute_tool {specialist}") as span:
+            span.set_attribute("gen_ai.tool.name", specialist)
+            with tracer.start_as_current_span("execute_tool find_pieces") as leaf:
+                leaf.set_attribute("gen_ai.tool.name", "find_pieces")
+
+
+def test_agent_execution_filters_by_session_and_keeps_trace_children(
+    otel_spans: InMemorySpanExporter,
+) -> None:
+    """SSE trace extraction SHALL return the full requested trace even
+    when only the orchestrator span is tagged with ``session.id``."""
+    from services.otel_trace_extractor import extract_agent_execution_from_otel
+
+    _emit_session_trace("sess-a", "search")
+    _emit_session_trace("sess-b", "recommendation")
+
+    execution = extract_agent_execution_from_otel(session_id="sess-b")
+
+    assert execution["otel_enabled"] is True
+    assert execution["span_count"] == 3
+    assert execution["specialistRoute"] == "recommendation"
+    assert {
+        s["attributes"].get("session.id")
+        for s in execution["spans"]
+    } == {"sess-b", None}
+    assert otel_spans.get_finished_spans()
+
+
+def test_agent_execution_does_not_clear_other_sessions(
+    otel_spans: InMemorySpanExporter,
+) -> None:
+    """A session-filtered read SHALL NOT drain another active session's
+    spans from the shared exporter."""
+    from services.otel_trace_extractor import extract_agent_execution_from_otel
+
+    _emit_session_trace("sess-a", "search")
+    _emit_session_trace("sess-b", "inventory")
+
+    second = extract_agent_execution_from_otel(session_id="sess-b")
+    first = extract_agent_execution_from_otel(session_id="sess-a")
+
+    assert second["specialistRoute"] == "inventory"
+    assert first["specialistRoute"] == "search"
+    assert first["span_count"] == 3
+    assert otel_spans.get_finished_spans()
+
+
+def test_agent_execution_missing_session_keeps_existing_spans(
+    otel_spans: InMemorySpanExporter,
+) -> None:
+    """A mismatched session id returns an empty payload without clearing
+    traces that may still be needed by another request."""
+    from services.otel_trace_extractor import extract_agent_execution_from_otel
+
+    _emit_session_trace("sess-old", "search")
+
+    execution = extract_agent_execution_from_otel(session_id="sess-missing")
+
+    assert execution["otel_enabled"] is True
+    assert execution["spans"] == []
+    assert otel_spans.get_finished_spans()
+
+
+def test_waterfall_filters_by_session_and_keeps_trace_children(
+    otel_spans: InMemorySpanExporter,
+) -> None:
+    """The inspector endpoint uses the same trace-id expansion as the
+    SSE payload."""
+    from services.otel_trace_extractor import get_waterfall_data
+
+    _emit_session_trace("sess-water-a", "search")
+    _emit_session_trace("sess-water-b", "inventory")
+
+    trace = get_waterfall_data(session_id="sess-water-a")
+
+    assert trace["otel_enabled"] is True
+    assert trace["span_count"] == 3
+    assert trace["specialistRoute"] == "search"
+    assert {
+        s["attributes"].get("session.id")
+        for s in trace["spans"]
+    } == {"sess-water-a", None}
+    assert otel_spans.get_finished_spans()
+
+
 def test_agentcore_runtime_drains_trace_after_inprocess_run(
     otel_spans: InMemorySpanExporter,
     stubbed_orchestrator,
@@ -365,3 +463,64 @@ def test_agentcore_runtime_drains_trace_after_inprocess_run(
     assert any(s["kind"] == "orchestrator" for s in trace["spans"])
     assert any(s["kind"] == "specialist" for s in trace["spans"])
     assert any(s["kind"] == "tool" for s in trace["spans"])
+
+
+def test_agentcore_runtime_keeps_latest_trace_by_session(
+    monkeypatch: pytest.MonkeyPatch,
+    otel_spans: InMemorySpanExporter,
+    stubbed_orchestrator,
+    stubbed_specialists,
+) -> None:
+    """Concurrent or back-to-back sessions SHALL not overwrite the done
+    event trace for an earlier session."""
+    import asyncio
+
+    import services.agentcore_runtime as rt
+
+    monkeypatch.setattr(
+        rt,
+        "_latest_trace",
+        {"spans": [], "totalMs": 0, "specialistRoute": ""},
+    )
+    monkeypatch.setattr(rt, "_latest_traces_by_session", OrderedDict())
+
+    asyncio.run(
+        rt.run_agent(
+            message="first session request",
+            session_id="sess-keyed-1",
+            user_id="user-1",
+        )
+    )
+    first_trace = rt.get_latest_trace("sess-keyed-1")
+
+    asyncio.run(
+        rt.run_agent(
+            message="second session request",
+            session_id="sess-keyed-2",
+            user_id="user-2",
+        )
+    )
+    second_trace = rt.get_latest_trace("sess-keyed-2")
+
+    assert first_trace["spans"]
+    assert second_trace["spans"]
+    assert rt.get_latest_trace("sess-keyed-1") == first_trace
+    assert rt.get_latest_trace() == second_trace
+
+
+def test_agentcore_runtime_bounds_latest_trace_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The per-session latest trace map SHALL stay bounded on workshop
+    boxes that handle many turns."""
+    import services.agentcore_runtime as rt
+
+    monkeypatch.setattr(rt, "_latest_traces_by_session", OrderedDict())
+    monkeypatch.setattr(rt, "_LATEST_TRACES_BY_SESSION_MAX", 2)
+
+    rt._store_latest_trace("sess-1", {"spans": ["one"]})
+    rt._store_latest_trace("sess-2", {"spans": ["two"]})
+    rt._store_latest_trace("sess-3", {"spans": ["three"]})
+
+    assert list(rt._latest_traces_by_session) == ["sess-2", "sess-3"]
+    assert rt.get_latest_trace("sess-1") == rt._latest_trace

@@ -5,9 +5,9 @@ active shopper's LTM preamble through the agent pipeline.
 Problem this solves: the chat pipeline builds a ``PERSONA CONTEXT``
 block (the shopper's name, known-facts, and past-order list) and
 prepends it to the orchestrator's ``full_message``. But when the
-orchestrator (Haiku, dispatcher) routes to a specialist via the
+orchestrator (Sonnet, dispatcher) routes to a specialist via the
 Strands "Agents as Tools" pattern, it passes only the ``query``
-argument to the ``@tool`` function — and Haiku's paraphrase of the
+argument to the ``@tool`` function — and the Pattern I paraphrase of the
 query frequently strips the preamble. The specialist then answers
 without ever seeing the shopper's history.
 

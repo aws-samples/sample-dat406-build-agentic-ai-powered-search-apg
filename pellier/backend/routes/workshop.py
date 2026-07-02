@@ -11,7 +11,7 @@ storefront-shaped SSE events (product cards, cart ops, badges) for
         "events": [
           {"type": "plan",  "steps": [...], ...},
           {"type": "step",  "index": 0, "state": "active"},
-          {"type": "panel", "tag": "LLM · HAIKU · INTENT", ...},
+          {"type": "panel", "tag": "LLM · SONNET · INTENT", ...},
           ...
           {"type": "response", "text": "...", "citations": [...]}
         ]
