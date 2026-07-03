@@ -2,8 +2,8 @@
  * Observatory — Default /atelier landing: intro + where to go next.
  *
  * The dismissible AtelierWelcome band plus a short EditorialTitle orient
- * the attendee; a single row of deep links follows the sidebar learning
- * sequence so participants move from narrative map to replay to system map.
+ * the attendee; a single row of deep links sends participants back to
+ * the required path or into reference views.
  */
 
 import React from 'react';
@@ -18,11 +18,11 @@ const CTA_ITEMS: Array<{
   hint: string;
 }> = [
   {
-    to: '/atelier/persona-journeys',
-    testId: 'observatory-cta-persona-journeys',
+    to: '/atelier/proof-board',
+    testId: 'observatory-cta-proof-board',
     step: '01',
-    title: 'Persona journeys',
-    hint: 'Zoom out to Marco, Anna, and Theo: 15 Boutique turns across three Aurora capabilities.',
+    title: 'Proof Board',
+    hint: 'Return to the required path: build, evidence proof, governance read, and terminal fallbacks.',
   },
   {
     to: '/atelier/sessions',
@@ -46,9 +46,9 @@ const Observatory: React.FC = () => {
       <AtelierWelcome />
 
       <EditorialTitle
-        eyebrow="Observe · Observatory · system overview"
+        eyebrow="Reference · Observatory · system overview"
         title="The wide-angle view."
-        summary="A lightweight lobby before you drill in. Start with the persona story, replay one journey in depth, then open the architecture map once the moving parts have names."
+        summary="Use this as a reference surface after the required proof path is moving. The Proof Board remains the workshop starting point."
       />
 
       <section aria-label="Where to go next">
@@ -61,7 +61,7 @@ const Observatory: React.FC = () => {
             margin: '0 0 14px',
           }}
         >
-          Start here
+          Reference paths
         </p>
         <div
           style={{

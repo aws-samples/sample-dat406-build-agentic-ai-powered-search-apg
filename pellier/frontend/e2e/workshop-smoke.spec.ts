@@ -8,10 +8,11 @@
  *
  *   1. Home page loads without console errors.
  *   2. Fonts are self-hosted — no requests to fonts.gstatic.com.
- *   3. Triage fast-path: "hi" produces a reply instantly, without
- *      routing to the specialist chain.
- *   4. Real query produces streaming tokens + a non-empty reply.
- *   5. ?reset=1 clears persisted state.
+ *   3. Persona sign-in opens the current storefront persona dropdown.
+ *   4. Triage fast-path in ChatDrawer: "hi" produces a reply instantly,
+ *      without routing to the specialist chain.
+ *   5. Real query produces streaming tokens + a non-empty reply.
+ *   6. ?reset=1 clears persisted state.
  *
  * Runs on macOS, Windows, and Ubuntu runners — see
  * .github/workflows/workshop-smoke.yml.
@@ -27,6 +28,33 @@
 import { expect, test } from '@playwright/test';
 
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:8000';
+
+async function clearBrowserState(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+}
+
+async function signInAsMarco(page: import('@playwright/test').Page) {
+  await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+  await clearBrowserState(page);
+  await page.reload({ waitUntil: 'networkidle' });
+
+  await page.getByTestId('persona-pill').click();
+  await page.getByTestId('persona-option-marco').click();
+  await expect(page.getByTestId('persona-pill')).toContainText(/Marco/i);
+}
+
+async function openChatDrawer(page: import('@playwright/test').Page) {
+  await page.keyboard.press('Control+K');
+  const drawer = page.getByTestId('chat-drawer');
+  if (!(await drawer.isVisible().catch(() => false))) {
+    await page.keyboard.press('Meta+K');
+  }
+  await expect(drawer).toBeVisible({ timeout: 5000 });
+  return drawer;
+}
 
 test.describe('Workshop production build smoke', () => {
   test('home page loads without console errors', async ({ page }) => {
@@ -62,47 +90,34 @@ test.describe('Workshop production build smoke', () => {
     ).toHaveLength(0);
   });
 
+  test('persona sign-in updates the storefront to Marco', async ({ page }) => {
+    await signInAsMarco(page);
+    await expect(page.getByTestId('persona-pill')).toContainText(/Marco/i);
+    await expect(page.getByTestId('boutique-hero-marco-pill-band')).toBeVisible();
+  });
+
   test('triage fast-path: "hi" replies instantly without LLM calls', async ({
     page,
   }) => {
-    await page.goto(BASE_URL);
-    // Clear any persisted chat state from prior runs.
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
+    await signInAsMarco(page);
+    const drawer = await openChatDrawer(page);
 
-    // Cmd+K on macOS, Ctrl+K elsewhere. Try both to stay
-    // platform-agnostic — Playwright's key mapping varies by runner.
-    await page.keyboard.press('Control+K');
-    const modal = page.locator('[data-testid=concierge-modal]');
-    if (!(await modal.isVisible().catch(() => false))) {
-      await page.keyboard.press('Meta+K');
-    }
-    await modal.waitFor({ state: 'visible', timeout: 5000 });
-
-    const input = page.locator('.ec-input-field').first();
+    const input = drawer.locator('.cd-input').first();
     await input.fill('hi');
     await page.keyboard.press('Enter');
 
     // Triage reply should land in under 3 seconds — no LLM in loop.
-    const body = page.locator('.ec-msg-body').first();
-    await expect(body).toContainText("I'm Pellier", { timeout: 3000 });
+    const body = page.locator('.ec-msg-body').last();
+    await expect(body).toContainText(/I'm Pellier/i, { timeout: 3000 });
   });
 
   test('real query: streaming tokens land, reply is non-empty', async ({
     page,
   }) => {
-    await page.goto(BASE_URL);
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
+    await signInAsMarco(page);
+    const drawer = await openChatDrawer(page);
 
-    await page.keyboard.press('Control+K');
-    const modal = page.locator('[data-testid=concierge-modal]');
-    if (!(await modal.isVisible().catch(() => false))) {
-      await page.keyboard.press('Meta+K');
-    }
-    await modal.waitFor({ state: 'visible', timeout: 5000 });
-
-    const input = page.locator('.ec-input-field').first();
+    const input = drawer.locator('.cd-input').first();
     await input.fill('find me a linen shirt under $150');
     await page.keyboard.press('Enter');
 

@@ -1,17 +1,19 @@
 # Workshop smoke: production-build E2E on macOS, Windows, and Ubuntu.
 #
-# Goal: catch regressions that would break a re:Invent demo before the
+# Goal: catch regressions that would break a workshop delivery before the
 # room. Unlike e2e.yml (Cognito auth against a dev pool), this runs
 # the PRODUCTION BUILD path — one process, one port, self-hosted
 # fonts, `?reset=1`, triage fast-path — with no AWS secrets required.
 #
-# The triage + font + reset specs run everywhere. The "real query"
-# spec requires Bedrock access and is gated on AWS credentials being
-# configured via OIDC; on runs without creds it's skipped.
+# The specs run without Cognito or AWS credentials. The real-query
+# check accepts the app's graceful fallback response when Bedrock is
+# not available.
 
 name: workshop-smoke
 
 on:
+  push:
+    branches: [mainline, main]
   pull_request:
     branches: [mainline, main]
   workflow_dispatch: {}

@@ -21,6 +21,7 @@ const atelierRoutes: RouteObject[] = [
     element: true as unknown as React.ReactNode,
     children: [
       { index: true, element: true as unknown as React.ReactNode },
+      { path: 'proof-board', element: true as unknown as React.ReactNode },
       { path: 'sessions', element: true as unknown as React.ReactNode },
       {
         path: 'sessions/:id',
@@ -85,6 +86,7 @@ const sessionTabArb = fc.constantFrom('chat', 'telemetry', 'brief')
 const atelierPathArb: fc.Arbitrary<string> = fc.oneof(
   // Static leaf routes
   fc.constant('/atelier'),
+  fc.constant('/atelier/proof-board'),
   fc.constant('/atelier/sessions'),
   fc.constant('/atelier/architecture'),
   fc.constant('/atelier/agents'),

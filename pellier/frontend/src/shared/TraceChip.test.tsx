@@ -15,7 +15,7 @@ describe('TraceChip', () => {
 
     expect(screen.getByTestId('trace-chip-memory.recall')).toHaveAttribute(
       'href',
-      '/ports/8000/atelier/memory',
+      '/ports/8000/atelier/proof-board#runtime-gateway-policy',
     )
   })
 })

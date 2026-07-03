@@ -26,6 +26,7 @@ function prettifySegment(segment: string): string {
   // Known labels
   const labels: Record<string, string> = {
     atelier: 'Atelier',
+    'proof-board': 'Proof Board',
     sessions: 'Sessions',
     observatory: 'Observatory',
     'persona-journeys': 'Persona Journeys',
@@ -112,6 +113,7 @@ const TopBar: React.FC = () => {
         {/* Persona switcher */}
         <button
           type="button"
+          data-testid="atelier-persona-switcher"
           onClick={() => setPersonaModalOpen(true)}
           aria-label={`Switch persona${persona?.display_name ? ` from ${persona.display_name}` : ''}`}
           title="Switch persona"

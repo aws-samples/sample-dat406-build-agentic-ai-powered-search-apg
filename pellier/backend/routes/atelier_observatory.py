@@ -20,11 +20,13 @@ Endpoints:
     GET  /performance          — metrics and benchmarks
     GET  /evaluations          — agent scorecards
     GET  /observatory          — dashboard summary
-    GET  /architecture         — system architecture diagram payload
-    GET  /build-state          — shipped vs exercise maps for agents and tools
-    POST /skills/route         — Live skill router demo (Sonnet 4.6 @ 0.0)
-    GET  /policies             — Cedar policies for the Write-path surface
-    GET  /tool-audit/recent    — Recent rows from pellier.tool_audit
+    GET  /architecture         - system architecture diagram payload
+    GET  /build-state          - shipped vs exercise maps for agents and tools
+    GET  /readiness            - workshop readiness checks for live pillars
+    GET  /proof-board          - required-path evidence cards and fallbacks
+    POST /skills/route         - Live skill router demo (Sonnet 4.6 @ 0.0)
+    GET  /policies             - Cedar policies for the Write-path surface
+    GET  /tool-audit/recent    - Recent rows from pellier.tool_audit
 """
 
 from __future__ import annotations
@@ -162,6 +164,455 @@ def _floor_check_is_workshop_stub() -> bool:
     if "received_product_query" in src:
         return True
     return False
+
+
+def _configured(value: Any) -> bool:
+    """True when an env/config value is present and non-empty."""
+    return bool(str(value or "").strip())
+
+
+def _readiness_check(
+    *,
+    check_id: str,
+    label: str,
+    state: str,
+    detail: str,
+    required: bool = True,
+    href: str | None = None,
+) -> dict[str, Any]:
+    """Small serializable readiness row used by Atelier and tests."""
+    out: dict[str, Any] = {
+        "id": check_id,
+        "label": label,
+        "state": state,
+        "detail": detail,
+        "required": required,
+    }
+    if href:
+        out["href"] = href
+    return out
+
+
+async def _workshop_counts() -> dict[str, int] | None:
+    """Return the live counts used by the readiness and proof panels.
+
+    None means the database is unavailable. The caller decides whether
+    that is a hard fail or a pending proof state.
+    """
+    try:
+        from app import db_service
+        if db_service is None:
+            return None
+        row = await db_service.fetch_one(
+            """
+            SELECT
+              (SELECT count(*) FROM pellier.product_catalog)::int AS catalog_count,
+              (SELECT count(*) FROM pellier.warehouse_inventory)::int AS warehouse_count,
+              (SELECT count(*) FROM pellier.tool_audit)::int AS audit_count
+            """
+        )
+        if not row:
+            return None
+        d = dict(row)
+        return {
+            "catalog_count": int(d.get("catalog_count") or 0),
+            "warehouse_count": int(d.get("warehouse_count") or 0),
+            "audit_count": int(d.get("audit_count") or 0),
+        }
+    except Exception as exc:
+        logger.warning("Atelier readiness counts unavailable: %s", exc)
+        return None
+
+
+async def _latest_audit_row(
+    *,
+    tool: str | None = None,
+    caller: str | None = None,
+) -> dict[str, Any] | None:
+    """Return the latest tool_audit row for a tool/caller filter."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    if tool:
+        clauses.append("tool = %s")
+        params.append(tool)
+    if caller:
+        clauses.append("caller = %s")
+        params.append(caller)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    try:
+        from app import db_service
+        if db_service is None:
+            return None
+        row = await db_service.fetch_one(
+            f"""
+            SELECT audit_id,
+                   session_id,
+                   tool,
+                   caller,
+                   args,
+                   result,
+                   latency_ms,
+                   created_at
+              FROM pellier.tool_audit
+              {where}
+             ORDER BY audit_id DESC
+             LIMIT 1
+            """,
+            *params,
+        )
+        if not row:
+            return None
+        d = dict(row)
+        if d.get("created_at") is not None:
+            d["created_at"] = d["created_at"].isoformat()
+        return d
+    except Exception as exc:
+        logger.warning("Atelier latest audit row unavailable: %s", exc)
+        return None
+
+
+def _latest_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
+    """Return the latest managed Runtime/Gateway receipt, if one exists."""
+    try:
+        from services.agentcore_runtime import get_latest_trace
+
+        trace = get_latest_trace(session_id)
+    except Exception as exc:
+        logger.debug("Managed receipt unavailable: %s", exc)
+        return {
+            "present": False,
+            "traceKind": "",
+            "runtime": "",
+            "rail": "",
+            "jwtPassthrough": False,
+            "gatewayPassthrough": False,
+        }
+    return {
+        "present": trace.get("traceKind") == "managed-runtime-receipt",
+        "traceKind": trace.get("traceKind", ""),
+        "runtime": trace.get("runtime", ""),
+        "rail": trace.get("rail", ""),
+        "jwtPassthrough": bool(trace.get("jwtPassthrough")),
+        "gatewayPassthrough": bool(trace.get("gatewayPassthrough")),
+    }
+
+
+async def _collect_readiness() -> dict[str, Any]:
+    """Collect cheap workshop readiness checks without calling Bedrock."""
+    from config import settings
+
+    counts = await _workshop_counts()
+    checks: list[dict[str, Any]] = []
+
+    if counts is None:
+        checks.append(_readiness_check(
+            check_id="aurora",
+            label="Aurora PostgreSQL",
+            state="fail",
+            detail="Database unavailable to the backend.",  # copy-allow: atelier-readiness-detail
+            href="/atelier/search",
+        ))
+    else:
+        catalog_count = counts["catalog_count"]
+        warehouse_count = counts["warehouse_count"]
+        audit_count = counts["audit_count"]
+        checks.append(_readiness_check(
+            check_id="aurora",
+            label="Aurora PostgreSQL",
+            state="pass" if catalog_count >= 40 and warehouse_count > 0 else "fail",
+            detail=(
+                f"Catalog {catalog_count} products, warehouse "
+                f"{warehouse_count} rows, audit ledger {audit_count} rows."
+            ),
+            href="/atelier/search",
+        ))
+
+    cognito_ready = all([
+        _configured(settings.cognito_pool_id_resolved),
+        _configured(settings.COGNITO_CLIENT_ID),
+        _configured(settings.COGNITO_DOMAIN),
+    ])
+    checks.append(_readiness_check(
+        check_id="identity",
+        label="Cognito identity",
+        state="pass" if cognito_ready else "fail",
+        detail=(
+            "User pool, app client, and domain configured for JWT passthrough."  # copy-allow: atelier-readiness-detail
+            if cognito_ready
+            else "Missing Cognito pool/client/domain; managed Runtime and Gateway JWT paths cannot run."
+        ),
+        href="/atelier/production-patterns",
+    ))
+
+    checks.append(_readiness_check(
+        check_id="memory",
+        label="AgentCore Memory",
+        state="pass" if _configured(settings.AGENTCORE_MEMORY_ID) else "fail",
+        detail=(
+            "AGENTCORE_MEMORY_ID set for working and semantic memory."
+            if _configured(settings.AGENTCORE_MEMORY_ID)
+            else "AGENTCORE_MEMORY_ID empty; memory surfaces fall back where possible."
+        ),
+        href="/atelier/memory",
+    ))
+
+    checks.append(_readiness_check(
+        check_id="runtime",
+        label="AgentCore Runtime",
+        state="pass" if _configured(settings.AGENTCORE_RUNTIME_ENDPOINT) else "fail",
+        detail=(
+            "Runtime endpoint configured; chat can use the managed rail when USE_AGENTCORE_RUNTIME=true."
+            if _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
+            else "AGENTCORE_RUNTIME_ENDPOINT empty; managed runtime invoke cannot be demonstrated."
+        ),
+        href="/atelier/proof-board#runtime-gateway-policy",
+    ))
+
+    checks.append(_readiness_check(
+        check_id="gateway",
+        label="AgentCore Gateway",
+        state="pass" if _configured(settings.AGENTCORE_GATEWAY_URL) else "fail",
+        detail=(
+            "Gateway URL configured; MCP tool calls can receive the caller JWT."
+            if _configured(settings.AGENTCORE_GATEWAY_URL)
+            else "AGENTCORE_GATEWAY_URL empty; Gateway/JWT tool calls cannot run."
+        ),
+        href="/atelier/proof-board#runtime-gateway-policy",
+    ))
+
+    policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
+    checks.append(_readiness_check(
+        check_id="policy",
+        label="AgentCore Policy",
+        state="pass" if _configured(policy_engine_id) else "warn",
+        detail=(
+            "Managed Cedar policy engine configured for Gateway enforcement."  # copy-allow: atelier-readiness-detail
+            if _configured(policy_engine_id)
+            else "Policy engine id empty; guided policy reads still work, but live Gateway ENFORCE is not visible."
+        ),
+        required=False,
+        href="/atelier/write-path",
+    ))
+
+    model_ids = {
+        "opus": settings.BEDROCK_OPUS_MODEL,
+        "sonnet": settings.BEDROCK_SONNET_MODEL,
+        "router": settings.BEDROCK_ROUTER_MODEL,
+        "reporting": settings.BEDROCK_REPORTING_MODEL,
+        "embedding": settings.BEDROCK_EMBEDDING_MODEL,
+        "rerank": settings.BEDROCK_RERANK_MODEL,
+    }
+    model_ready = all(_configured(v) for v in model_ids.values())
+    checks.append(_readiness_check(
+        check_id="models",
+        label="Bedrock models",
+        state="pass" if model_ready else "fail",
+        detail=(
+            "Opus, Sonnet, Cohere Embed, and Cohere Rerank model ids are configured."  # copy-allow: atelier-readiness-detail
+            if model_ready
+            else "One or more model ids are empty; run the model-access preflight."
+        ),
+        href="/atelier/settings",
+    ))
+
+    blocking = [c for c in checks if c["required"] and c["state"] == "fail"]
+    warnings = [c for c in checks if c["state"] == "warn"]
+    status = "ready" if not blocking and not warnings else "attention"
+    if blocking:
+        status = "not_ready"
+
+    return {
+        "status": status,
+        "checks": checks,
+        "counts": counts or {},
+        "models": model_ids,
+    }
+
+
+def _card_status(condition: bool, fallback: str = "pending") -> str:
+    return "complete" if condition else fallback
+
+
+async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
+    """Build the Atelier proof-card payload.
+
+    The Proof Board is deliberately a read model. It reports evidence
+    from source files, env/config, recent traces, and ``tool_audit``.
+    It never calls Bedrock, Gateway, or the Runtime.
+    """
+    from config import settings
+
+    readiness = await _collect_readiness()
+    counts = readiness.get("counts") or {}
+    floor_check_wired = not _floor_check_is_workshop_stub()
+    latest_floor_check = await _latest_audit_row(tool="floor_check")
+    latest_process_return = await _latest_audit_row(tool="process_return")
+    latest_audit = await _latest_audit_row()
+    latest_gateway = await _latest_audit_row(caller="gateway")
+    managed_receipt = _latest_managed_receipt(session_id)
+    policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
+
+    runtime_configured = _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
+    gateway_configured = _configured(settings.AGENTCORE_GATEWAY_URL)
+    policy_configured = _configured(policy_engine_id)
+    identity_configured = all([
+        _configured(settings.cognito_pool_id_resolved),
+        _configured(settings.COGNITO_CLIENT_ID),
+        _configured(settings.COGNITO_DOMAIN),
+    ])
+
+    cards = [
+        {
+            "id": "marco-floor-check",
+            "act": "Act I",
+            "title": "Wire Marco to floor_check",
+            "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
+            "required": True,
+            "surface": "Code Editor + Boutique",
+            "summary": "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
+            "evidence": [
+                "floor_check source no longer returns the workshop stub" if floor_check_wired else "floor_check still looks like the workshop stub",
+                (
+                    f"Latest floor_check row: audit_id {latest_floor_check.get('audit_id')}"
+                    if latest_floor_check
+                    else "No floor_check row found yet"
+                ),
+            ],
+            "fallback": {
+                "label": "Terminal fallback",
+                "command": (
+                    "curl -s http://localhost:8000/api/agent/chat "
+                    "-H 'Content-Type: application/json' "
+                    "-d '{\"message\":\"Marco needs the floor count for the Kyoto Linen Overshirt in cedar, size M\",\"session_id\":\"marco-proof\"}'"
+                ),
+            },
+            "links": [
+                {"label": "Tools", "to": "/atelier/tools"},
+                {"label": "Sessions", "to": "/atelier/sessions"},
+            ],
+        },
+        {
+            "id": "retrieval-comparison",
+            "act": "Act II",
+            "title": "Compare retrieval strategies",
+            "status": _card_status(int(counts.get("catalog_count") or 0) >= 40, "needs_data"),
+            "required": True,
+            "surface": "Boutique + Aurora",
+            "summary": "Hybrid search, pgvector, full-text search, and rerank are visible for one shopper query.",
+            "evidence": [
+                f"Catalog rows: {counts.get('catalog_count', 0)}",
+                f"Embedding model: {settings.BEDROCK_EMBEDDING_MODEL}",
+                f"Rerank model: {settings.BEDROCK_RERANK_MODEL}",
+            ],
+            "fallback": {
+                "label": "Terminal fallback",
+                "command": (
+                    "curl -s 'http://localhost:8000/api/search/explain?q=linen%20travel%20shirt&limit=5'"
+                ),
+            },
+            "links": [
+                {"label": "Search", "to": "/atelier/search"},
+                {"label": "Performance", "to": "/atelier/performance"},
+            ],
+        },
+        {
+            "id": "audit-ledger",
+            "act": "Act II",
+            "title": "Prove the tool_audit ledger",
+            "status": _card_status(bool(latest_process_return), "needs_run" if latest_audit else "pending"),
+            "required": True,
+            "surface": "Aurora SQL",
+            "summary": "A write-path action is reconstructible from pellier.tool_audit without depending on a UI panel.",
+            "evidence": [
+                (
+                    f"Latest process_return row: audit_id {latest_process_return.get('audit_id')}"
+                    if latest_process_return
+                    else "No process_return row found yet"
+                ),
+                (
+                    f"Latest audit row: {latest_audit.get('tool')} by {latest_audit.get('caller')}"
+                    if latest_audit
+                    else "No audit rows found yet"
+                ),
+            ],
+            "fallback": {
+                "label": "SQL fallback",
+                "command": (
+                    "psql \"$DATABASE_URL\" -c \"SELECT audit_id, session_id, tool, caller, args, result "
+                    "FROM pellier.tool_audit WHERE tool = 'process_return' ORDER BY audit_id DESC LIMIT 3;\""
+                ),
+            },
+            "links": [
+                {"label": "Write-path", "to": "/atelier/write-path"},
+            ],
+        },
+        {
+            "id": "runtime-gateway-policy",
+            "act": "Act II",
+            "title": "Inspect Runtime, Gateway, and Policy",
+            "status": _card_status(runtime_configured and gateway_configured and identity_configured, "needs_config"),
+            "required": False,
+            "surface": "Managed governance",
+            "summary": "Runtime receives the caller JWT, Gateway discovers tools, and Policy defines the Cedar boundary.",
+            "evidence": [
+                "Runtime endpoint configured" if runtime_configured else "Runtime endpoint missing",
+                "Gateway URL configured" if gateway_configured else "Gateway URL missing",
+                "Cognito configured" if identity_configured else "Cognito config incomplete",
+                "Policy engine configured" if policy_configured else "Policy engine not configured",
+            ],
+            "fallback": {
+                "label": "Config check",
+                "command": "grep -E 'COGNITO|AGENTCORE_(RUNTIME|GATEWAY|POLICY)' pellier/backend/.env",
+            },
+            "links": [
+                {"label": "Write-path", "to": "/atelier/write-path"},
+                {"label": "Production patterns", "to": "/atelier/production-patterns"},
+            ],
+        },
+        {
+            "id": "managed-rail",
+            "act": "Act III",
+            "title": "Fast-finisher managed rail",
+            "status": _card_status(bool(managed_receipt.get("present")), "available"),
+            "required": False,
+            "surface": "Runtime receipt",
+            "summary": "After a managed Runtime turn, the receipt shows whether the request used JWT passthrough and Gateway/MCP.",
+            "evidence": [
+                (
+                    f"Managed receipt rail: {managed_receipt.get('rail')}"
+                    if managed_receipt.get("present")
+                    else "No managed Runtime receipt yet"
+                ),
+                f"JWT passthrough: {managed_receipt.get('jwtPassthrough')}",
+                f"Gateway passthrough: {managed_receipt.get('gatewayPassthrough')}",
+                (
+                    f"Latest gateway audit row: audit_id {latest_gateway.get('audit_id')}"
+                    if latest_gateway
+                    else "No caller='gateway' audit row found yet"
+                ),
+            ],
+            "fallback": {
+                "label": "Terminal fallback",
+                "command": (
+                    "curl -N http://localhost:8000/api/agent/chat "
+                    "-H 'Content-Type: application/json' "
+                    "-H \"Authorization: Bearer $ACCESS_TOKEN\" "
+                    "-d '{\"message\":\"Check floor inventory for BK-01\",\"session_id\":\"managed-proof\"}'"
+                ),
+            },
+            "links": [
+                {"label": "Proof Board", "to": "/atelier/proof-board#managed-rail"},
+                {"label": "Sessions", "to": "/atelier/sessions"},
+            ],
+        },
+    ]
+
+    return {
+        "status": readiness["status"],
+        "readiness": readiness,
+        "managedReceipt": managed_receipt,
+        "cards": cards,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -803,6 +1254,44 @@ async def get_build_state():
     except Exception as exc:
         logger.error("Failed to build build-state: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load build state")  # copy-allow: atelier-error-detail
+
+
+@router.get("/readiness")
+async def get_workshop_readiness():
+    """Return cheap readiness checks for the live workshop pillars.
+
+    This is the API version of ``scripts/health-gate.sh`` for the
+    Atelier. It does not call Bedrock, Runtime, Gateway, or Policy; it
+    only reads config and small Aurora counts so participants can open
+    the panel without triggering managed services.
+    """
+    try:
+        return await _collect_readiness()
+    except Exception as exc:
+        logger.error("Failed to build readiness payload: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to load readiness")  # copy-allow: atelier-error-detail
+
+
+@router.get("/proof-board")
+async def get_proof_board(
+    session_id: Optional[str] = Query(
+        default=None,
+        description="Optional session id for the latest managed Runtime receipt",
+    ),
+):
+    """Return required-path proof cards plus terminal fallbacks.
+
+    The payload is intentionally operational: each card has a stable
+    ``id`` for URL anchors, a status, short evidence lines, and a
+    curl/SQL fallback. The frontend renders it at
+    ``/atelier/proof-board`` and Boutique trace chips deep-link to
+    individual anchors.
+    """
+    try:
+        return await _collect_proof_board(session_id=session_id)
+    except Exception as exc:
+        logger.error("Failed to build proof-board payload: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to load proof board")  # copy-allow: atelier-error-detail
 
 
 class AtelierSkillRouteRequest(BaseModel):

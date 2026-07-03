@@ -33,6 +33,7 @@ import ChatTab from './atelier/surfaces/observe/ChatTab'
 import TelemetryTab from './atelier/surfaces/observe/TelemetryTab'
 import BriefTab from './atelier/surfaces/observe/BriefTab'
 import Observatory from './atelier/surfaces/observe/Observatory'
+import ProofBoard from './atelier/surfaces/observe/ProofBoard'
 import PersonaJourneys from './atelier/surfaces/observe/PersonaJourneys'
 import ArchitectureIndex from './atelier/surfaces/understand/ArchitectureIndex'
 import ArchitectureDetail from './atelier/surfaces/understand/ArchitectureDetail'
@@ -181,7 +182,8 @@ function App() {
                     The frame renders the 240px sidebar + canvas grid with
                     React Router <Outlet /> for surface rendering. */}
                 <Route path="/atelier" element={<AtelierFrame />}>
-                  <Route index element={<Navigate to="observatory" replace />} />
+                  <Route index element={<Navigate to="proof-board" replace />} />
+                  <Route path="proof-board" element={<ProofBoard />} />
                   <Route path="sessions" element={<SessionsList />} />
                   <Route path="sessions/:id" element={<SessionView />}>
                     <Route index element={<Navigate to="chat" replace />} />
