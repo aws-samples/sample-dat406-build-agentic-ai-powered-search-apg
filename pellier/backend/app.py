@@ -243,7 +243,7 @@ async def lifespan(app: FastAPI):
         # Initialize agent tools. The concierge uses pure pgvector
         # semantic search (``VectorSearch.vector_search``); the hybrid
         # + rerank pipeline was removed when the concierge switched
-        # to the Module 1 teaching surface.
+        # to the baseline retrieval teaching surface.
         from services.agent_tools import set_db_service, set_main_loop
         set_db_service(db_service)
         # Capture the running lifespan loop (get_running_loop is the correct,
@@ -291,7 +291,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Pellier Boutique API",
-    description="Agentic AI-Powered Search with Amazon Aurora PostgreSQL and pgvector",
+    description="Governed agentic AI search with Aurora, RDS, and Bedrock AgentCore",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -330,7 +330,7 @@ app.include_router(agent_router)
 app.include_router(products_router)
 app.include_router(search_router)
 
-# DAT406 /workshop telemetry surface (Week 1) — returns flat
+# Workshop telemetry surface — returns flat
 # {session_id, events: list[dict]} payloads for the panel renderer.
 # Intentionally separate from /api/agent/chat so the boutique SSE
 # stream isn't reshaped for the workshop's replay needs.
@@ -1834,7 +1834,7 @@ async def get_current_persona(session_id: Optional[str] = Query(default=None)):
 
 
 # NOTE: the legacy /api/atelier/status endpoint (multi-module stub detection
-# for the 120-min re:Invent workshop) was removed for the Builder's Session.
+# for an older workshop draft) was removed from the current required path.
 # The Atelier progress strip reads GET /api/atelier/build-state instead, which
 # tracks only the single floor_check exercise. See
 # routes/atelier_observatory.py::get_build_state.

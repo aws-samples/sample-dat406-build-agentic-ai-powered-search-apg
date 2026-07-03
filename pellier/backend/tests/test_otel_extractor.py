@@ -1,9 +1,9 @@
-"""Trace-extraction tests for Challenge 8.
+"""Trace-extraction tests for OTEL extraction.
 
 Validates Requirement 2.5.4 and 5.4.1 from
 `.kiro/specs/pellier-storefront/requirements.md`:
 
-  2.5.4  The C8 challenge block in ``services/otel_trace_extractor.py``
+  2.5.4  The OTEL challenge block in ``services/otel_trace_extractor.py``
          SHALL extract OpenTelemetry spans produced by the agent run
          and format them for the ``/inspector`` view as
          ``{ spans, totalMs, specialistRoute }`` where every span has

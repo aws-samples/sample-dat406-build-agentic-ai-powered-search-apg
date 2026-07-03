@@ -134,7 +134,7 @@
   {
     "numeral": 13,
     "functionName": "escalate_to_stylist",
-    "description": "Honest escape hatch – agent calls this when the ask is outside what the catalog tools or policy can answer (deep personal-style coaching, out-of-policy returns, catalog misses). Emits a structured handoff payload that the chat renders as a stylist contact card. Pure UI, no DB write, no real human on the other end for the workshop. Builder's Session teaches this as 'when the agent shouldn't try to answer.'",
+    "description": "Honest escape hatch – agent calls this when the ask is outside what the catalog tools or policy can answer (deep personal-style coaching, out-of-policy returns, catalog misses). Emits a structured handoff payload that the chat renders as a stylist contact card. Pure UI, no DB write, no real human on the other end for the workshop. The workshop teaches this as 'when the agent shouldn't try to answer.'",
     "status": "shipped",
     "mutationType": "read",
     "signature": "escalate_to_stylist(reason, customer_id) -> str",

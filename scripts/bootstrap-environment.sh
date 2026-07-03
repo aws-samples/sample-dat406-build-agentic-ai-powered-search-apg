@@ -550,7 +550,7 @@ install_extension() {
     return 1
 }
 
-# Install essential extensions for the 60-min Builder's Session.
+# Install essential extensions for the hands-on workshop.
 # No Jupyter — there are no notebooks in the lab content.
 # No Amazon Q extension — the MCP demo runs from the integrated terminal
 # (the Q extension is being retired, and Act III §02 reads the config +
@@ -683,13 +683,13 @@ cat > "$HOME_FOLDER/scripts/welcome.sh" << 'WELCOME_EOF'
 clear
 
 cat << EOF
-  Pellier Builder's Session
-  Build agentic AI-powered search with Aurora PostgreSQL
+  Pellier governed agentic AI search
+  Build governed search with Aurora, RDS, and Bedrock AgentCore
 
   START       Keep the lab guide open. Work primarily in this terminal and
               the Boutique shopper view.
 
-  BUILD       Exercise 1: wire floor_check in
+  BUILD       Required path: wire floor_check in
               pellier/backend/services/agent_tools.py.
 
   MEASURE     Compare retrieval strategies for Anna's query.
@@ -699,12 +699,12 @@ cat << EOF
   ATELIER     Use Atelier only when a step names a specific verification or
               comparison view.
 
-  FILE        agent_tools.py is open. Find the floor_check CHALLENGE markers,
+  FILE        agent_tools.py is open. Find the floor_check WORKSHOP markers,
               implement, save, then test in Boutique.
 
 EOF
 
-# Auto-open the one file participants edit in the Builder's Session.
+# Auto-open the one file participants edit in the workshop.
 code /workshop/sample-pellier-agentic-search-apg/pellier/backend/services/agent_tools.py 2>/dev/null || true
 
 # Exit cleanly so task completes
@@ -785,7 +785,7 @@ log "Upgrading pip and installing workshop dependencies..."
 sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user --upgrade pip -q
 
 # Install backend dependencies from requirements.txt — boto3, FastAPI,
-# Strands SDK, psycopg, etc. The Builder's Session needs all of these
+# Strands SDK, psycopg, etc. The workshop app needs all of these
 # at runtime; the pip install must succeed for the pellier service to
 # start.
 REQUIREMENTS="$HOME_FOLDER/$REPO_NAME/pellier/backend/requirements.txt"

@@ -10,30 +10,29 @@ Pellier is a hands-on workshop application that teaches developers how to build 
 
 ## Delivery Format
 
-- **60-min Builder's Session (AWS Summit)** — the storefront ships fully wired except one tool body. Participants do two mandatory builds and two optional fast-finishers; everything else is observe / measure / read.
+- **Governed agentic AI search workshop** — the storefront ships mostly wired. Participants complete the required Marco inventory path, compare retrieval strategies, prove the audit ledger in SQL, and inspect Runtime, Gateway, Memory, and Policy as guided governance surfaces.
 
 Lab guide content lives in the separate Workshop Studio repo
-(`build-agentic-ai-powered-search-with-amazon-aurora-and-amazon-rds-builders`),
+(`build-governed-agentic-ai-search-with-aurora-rds-bedrock-agentcore`),
 the source of truth for all session content. This repo is the running app.
 
 ## Session Structure
 
-Three Acts. Two mandatory builds, two optional fast-finishers.
+Three Acts. Required path first, optional deeper reads after the evidence proof lands.
 
-- **Act I: The Boutique** (~28 min)
-  - Observe Marco's broken Turn 4
-  - **Exercise 1 (mandatory):** wire the `floor_check` tool body against `pellier.warehouse_inventory`
-  - Measure vector / hybrid / hybrid+rerank for Anna's anchor query
+- **Act I: The Boutique**
+  - Observe Marco's broken warehouse turn
+  - **Required build:** wire the `floor_check` tool body against `pellier.warehouse_inventory`
+  - Replay Marco end to end and compare vector / hybrid / hybrid+rerank / agentic retrieval for Anna's anchor query
   - *Optional fast-finisher:* edit Anna's skill rule and prove it via SQL
-- **Act II: The Ledger** (~11 min)
+- **Act II: The Ledger**
   - Read memory substrates (AgentCore STM) + long-term taste in Aurora
   - Invoke the managed AgentCore Runtime
-  - **Exercise 2 (mandatory):** `SELECT` from `pellier.tool_audit` to reconstruct the agent's actions
+  - **Required proof:** `SELECT` from `pellier.tool_audit` to reconstruct the agent's actions
   - *Optional fast-finisher:* add a `logger.info` observability hook on the Runtime path
-- **Act III: The Concierge** (~7 min, read-only)
+- **Act III: The Concierge**
   - Dispatcher + specialists routing (production default for curated intents)
-  - MCP contract + AgentCore Gateway (managed tool catalog, JWT identity passthrough)
-  - Bedrock Knowledge Bases comparison
+  - Gateway / MCP boundary and JWT identity passthrough
 
 ## Key Directories
 
@@ -59,4 +58,4 @@ Three Acts. Two mandatory builds, two optional fast-finishers.
 
 Real Amazon Cognito + AgentCore Identity (not simulated). Cognito User Pool with hosted UI federated to Google + Apple + email/password. JWT validated via Cognito JWKS. AgentCore Identity wraps verified user context for agents and scopes AgentCore Memory keys by user_id. The shopper's JWT is also passed through to the AgentCore Gateway so MCP tool calls carry the caller's identity.
 
-The Builder's Session runs in demo auth mode by default (`AUTH_MODE=demo`); the Cognito/JWT path is fully wired and used for the signed-in Gateway demo.
+The workshop runs in demo auth mode by default (`AUTH_MODE=demo`); the Cognito/JWT path is fully wired and used for the signed-in Gateway demo.

@@ -8,10 +8,10 @@
 - Priority tags: **[P0]** primary deliverable, **[P1]** storefront supporting, **[P2]** lower priority (Storyboard/Discover route stubs per Requirement 1.13).
 - Sibling-spec blockers are flagged inline with **[blocked by: ...]**.
 
-### Challenge block markers
+### Exercise block markers
 
-- Python files use `# === CHALLENGE N: START ===` and `# === CHALLENGE N: END ===`.
-- TypeScript/JavaScript files (`.ts`, `.tsx`, `.js`) use `// === CHALLENGE N: START ===` and `// === CHALLENGE N: END ===`.
+- Python files use `# === REFERENCE: START ===` and `# === REFERENCE: END ===`.
+- TypeScript/JavaScript files (`.ts`, `.tsx`, `.js`) use `// === REFERENCE: START ===` and `// === REFERENCE: END ===`.
 - Both forms must include matching END markers.
 - The corresponding `solutions/moduleM/<relative path>` file must match the code between the markers byte-for-byte (enforced by Task 7.4).
 
@@ -42,9 +42,9 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 - [x] 1.1 **[P0] Centralize user-facing copy (backend + frontend)**
   - Acceptance: satisfies Req 1.12 and 7.2.1, 7.2.2.
   - Create `pellier/backend/storefront_copy.py` and `pellier/frontend/src/copy.ts`.
-  - Move every customer-facing string that will be authored in later tasks into these two modules (announcement bar, 8 intents, 9 reasoning-chip templates, sign-in strip copy, curated banner copy, status strip copy, category chip labels, refinement chip labels, Storyboard teasers, footer columns, auth modal copy, preferences modal copy, error envelopes).
+  - Move every customer-facing string that will be authored in later tasks into these two sections (announcement bar, 8 intents, 9 reasoning-chip templates, sign-in strip copy, curated banner copy, status strip copy, category chip labels, refinement chip labels, Storyboard teasers, footer columns, auth modal copy, preferences modal copy, error envelopes).
   - Test verification: add `frontend/src/__tests__/copy.test.ts` that regex-scans `copy.ts` for forbidden words (Req 1.12.2), emojis, and em dashes. Same check on the Python side via `tests/backend/test_copy_compliance.py`.
-  - Done when: both copy modules compile, the copy compliance tests pass, and no other task's PR contains a hardcoded user-facing string.
+  - Done when: both copy sections compile, the copy compliance tests pass, and no other task's PR contains a hardcoded user-facing string.
 
 - [x] 1.2 **[P0] Extend shared TypeScript types**
   - Acceptance: matches Data Models section of `design.md`.
@@ -66,79 +66,79 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 
 ---
 
-## Layer 2 — Backend services (C1–C8 challenge scaffolds + auth middleware prerequisites)
+## Layer 2 — Backend services (Capability 1–Capability 8 exercise scaffolds + auth middleware prerequisites)
 
-- [x] 2.1 **[P0] C1: Vector search — `_vector_search` on HybridSearchService** [blocked by: `catalog-enrichment`]
+- [x] 2.1 **[P0] Capability 1: Vector search — `_vector_search` on HybridSearchService** [blocked by: `catalog-enrichment`]
   - Acceptance: Req 2.3.1–2.3.6; wraps query patterns from `database.md`.
-  - Modify `pellier/backend/services/hybrid_search.py` to add `async def _vector_search(self, embedding, limit, ef_search, iterative_scan=True)` inside a `# === CHALLENGE 1: START ===` / `# === CHALLENGE 1: END ===` block with the complete solution: CTE embedding, `SET LOCAL hnsw.ef_search`, conditional `SET LOCAL hnsw.iterative_scan = 'relaxed_order'`, parameterized placeholders, `quantity > 0` filter, cosine `<=>` ordering, `1 - distance` as similarity. Call `sql_query_logger` with parameterized args only (Req 5.4.2, 5.3.3).
+  - Modify `pellier/backend/services/hybrid_search.py` to add `async def _vector_search(self, embedding, limit, ef_search, iterative_scan=True)` inside a `# === REFERENCE: START ===` / `# === REFERENCE: END ===` block with the complete solution: CTE embedding, `SET LOCAL hnsw.ef_search`, conditional `SET LOCAL hnsw.iterative_scan = 'relaxed_order'`, parameterized placeholders, `quantity > 0` filter, cosine `<=>` ordering, `1 - distance` as similarity. Call `sql_query_logger` with parameterized args only (Req 5.4.2, 5.3.3).
   - Files: `hybrid_search.py` (modify), `solutions/the-quiet-search/services/hybrid_search.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_vector_search.py` — mocks psycopg; asserts the CTE shape, the two `SET LOCAL` calls with the passed values, the `iterative_scan` branch, the parameterized-only call pattern, and the `limit` bound.
-  - Done when: `POST /api/search` with `query="linen shirt"` returns ≥5 results in <500ms p95 against the seeded catalog (Req 5.1.1) and the challenge block text matches verbatim between `services/hybrid_search.py` and `solutions/the-quiet-search/services/hybrid_search.py`.
+  - Done when: `POST /api/search` with `query="linen shirt"` returns ≥5 results in <500ms p95 against the seeded catalog (Req 5.1.1) and the exercise block text matches verbatim between `services/hybrid_search.py` and `solutions/the-quiet-search/services/hybrid_search.py`.
 
-- [x] 2.2 **[P0] C2: `get_trending_products` tool** [blocked by: `catalog-enrichment`]
+- [x] 2.2 **[P0] Capability 2: `get_trending_products` tool** [blocked by: `catalog-enrichment`]
   - Acceptance: Req 2.4.1–2.4.2 and coding-standards tool pattern.
-  - **Pre-existing context:** the 9 tools listed in `workshop-content.md` steering already exist in `pellier/backend/services/agent_tools.py`. C2 wraps ONLY `get_trending_products` in a challenge block — participants delete and reimplement that one function; the other 8 tools remain as-is.
-  - Modify `pellier/backend/services/agent_tools.py` by carving the existing `get_trending_products()` body into a `# === CHALLENGE 2: START/END ===` block: `@tool` decorated, `_db_service` availability check, `_run_async()` bridging, returns `json.dumps(...)`, returns `json.dumps({"error": str(e)})` on exception.
+  - **Pre-existing context:** the 9 tools listed in `workshop-content.md` steering already exist in `pellier/backend/services/agent_tools.py`. Capability 2 wraps ONLY `get_trending_products` in a exercise block — participants delete and reimplement that one function; the other 8 tools remain as-is.
+  - Modify `pellier/backend/services/agent_tools.py` by carving the existing `get_trending_products()` body into a `# === REFERENCE: START/END ===` block: `@tool` decorated, `_db_service` availability check, `_run_async()` bridging, returns `json.dumps(...)`, returns `json.dumps({"error": str(e)})` on exception.
   - Files: `agent_tools.py` (modify), `solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py` (drop-in mirror).
   - Test verification: `tests/backend/test_agent_tools.py::test_get_trending_products` — happy path returns ≥3 products as valid JSON; `_db_service=None` returns an error envelope; raised exception returns `{"error": ...}`.
   - Done when: tool callable from a REPL returns a parseable JSON string with ≥3 products.
 
-- [x] 2.3 **[P0] C3: `product_recommendation_agent` specialist** [blocked by: 2.2]
+- [x] 2.3 **[P0] Capability 3: `product_recommendation_agent` specialist** [blocked by: 2.2]
   - Acceptance: Req 2.4.3–2.4.5. **All 4 tools this agent uses (`search_products`, `get_trending_products`, `compare_products`, `get_product_by_category`) already exist in `agent_tools.py` today; no scaffolding work here for those tools — only wire them into the Strands Agent.**
-  - Modify `pellier/backend/agents/curator.py` to define `product_recommendation_agent` inside a `# === CHALLENGE 3: START/END ===` block: `Agent(model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL), temperature=0.2, tools=[search_products, get_trending_products, compare_products, get_product_by_category], system_prompt=copy.RECOMMENDATION_SYSTEM_PROMPT)`.
+  - Modify `pellier/backend/agents/curator.py` to define `product_recommendation_agent` inside a `# === REFERENCE: START/END ===` block: `Agent(model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL), temperature=0.2, tools=[search_products, get_trending_products, compare_products, get_product_by_category], system_prompt=copy.RECOMMENDATION_SYSTEM_PROMPT)`.
   - Files: `curator.py` (modify), `solutions/closing-marcos-gap/agents/curator.py` (new drop-in mirror), `copy.py` (add `RECOMMENDATION_SYSTEM_PROMPT`).
   - Test verification: `tests/backend/test_c3_recommendation_relevance.py` — stubbed Bedrock returns a canned answer mentioning `Sundress in Washed Linen`; test parses the response, looks up the product's `tags`, asserts overlap with `{evening, warm, dresses, outerwear}`. Assert the Straw Tote would fail this check.
   - Done when: `"something for warm evenings out"` produces a recommendation whose tags intersect the evening/warm set (Req 2.4.5).
 
-- [x] 2.4 **[P0] C4: Multi-agent orchestrator** [blocked by: 2.3, `customer-support-agent` spec]
+- [x] 2.4 **[P0] Capability 4: Multi-agent orchestrator** [blocked by: 2.3, `customer-support-agent` spec]
   - Acceptance: Req 2.4.6–2.4.8 and 4.3.1.
-  - Modify `pellier/backend/agents/orchestrator.py` to define the orchestrator inside a `# === CHALLENGE 4: START/END ===` block: Sonnet 4.6 model id exactly as steering specifies, `temperature=0.0`, tools list `[search_agent, product_recommendation_agent, price_optimization_agent, inventory_restock_agent, customer_support_agent]` (symbol import for the last), `system_prompt=copy.ORCHESTRATOR_SYSTEM_PROMPT` enforcing priority `pricing > inventory > support > search > recommendation`.
+  - Modify `pellier/backend/agents/orchestrator.py` to define the orchestrator inside a `# === REFERENCE: START/END ===` block: Sonnet 4.6 model id exactly as steering specifies, `temperature=0.0`, tools list `[search_agent, product_recommendation_agent, price_optimization_agent, inventory_restock_agent, customer_support_agent]` (symbol import for the last), `system_prompt=copy.ORCHESTRATOR_SYSTEM_PROMPT` enforcing priority `pricing > inventory > support > search > recommendation`.
   - Files: `orchestrator.py` (modify), `solutions/closing-marcos-gap/agents/orchestrator.py` (new drop-in mirror), `copy.py` (add `ORCHESTRATOR_SYSTEM_PROMPT`).
   - Test verification: `tests/backend/test_orchestrator_routing.py` — five representative queries (one per specialist intent) each route to the expected specialist via stubbed Bedrock; routing is observable via span tags from `otel_trace_extractor`. Add `test_priority_order_on_ambiguous_queries` that injects a query matching both pricing and inventory and asserts pricing (higher priority) fires.
   - Done when: routing tests green, including `test_priority_order_on_ambiguous_queries`.
 
-- [x] 2.5 **[P1] C5: AgentCore Runtime migration**
+- [x] 2.5 **[P1] Capability 5: AgentCore Runtime migration**
   - Acceptance: Req 2.5.1 and Design "Runtime selection switch".
-  - Modify `pellier/backend/services/agentcore_runtime.py` to add `async def run_agent_on_runtime(message, session_id, user_id)` inside a `# === CHALLENGE 5: START/END ===` block. Add `USE_AGENTCORE_RUNTIME: bool = False` to `backend/config.py` via `pydantic-settings`. Update `app.py` (or the `/api/agent/chat` route — created in 3.5) to branch on the env var.
+  - Modify `pellier/backend/services/agentcore_runtime.py` to add `async def run_agent_on_runtime(message, session_id, user_id)` inside a `# === REFERENCE: START/END ===` block. Add `USE_AGENTCORE_RUNTIME: bool = False` to `backend/config.py` via `pydantic-settings`. Update `app.py` (or the `/api/agent/chat` route — created in 3.5) to branch on the env var.
   - Files: `agentcore_runtime.py` (modify), `config.py` (modify), `solutions/the-ledger/services/agentcore_runtime.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_runtime_switch.py` — with `USE_AGENTCORE_RUNTIME=false` the in-process Strands orchestrator handles the request; with `=true` the runtime path is called (mocked).
   - Done when: flipping `USE_AGENTCORE_RUNTIME=true` in `backend/.env` and restarting routes `/api/agent/chat` through runtime without further code changes.
 
-- [x] 2.6 **[P0] C6: AgentCore STM Memory (session history + user preferences)**
+- [x] 2.6 **[P0] Capability 6: AgentCore STM Memory (session history + user preferences)**
   - Acceptance: Req 2.5.2, 4.3.2, 4.4.1, 6.2.1.
-  - Modify `pellier/backend/services/agentcore_memory.py` to implement `AgentCoreMemory` with `append_session_turn`, `get_session_history`, `get_user_preferences`, `set_user_preferences` inside a `# === CHALLENGE 6: START/END ===` block. Key schemes: `user:{user_id}:session:{session_id}` for authenticated sessions, `anon:{session_id}` for anonymous. No cross-namespace merge; anon namespace left orphaned on sign-in (Req 4.3.3).
+  - Modify `pellier/backend/services/agentcore_memory.py` to implement `AgentCoreMemory` with `append_session_turn`, `get_session_history`, `get_user_preferences`, `set_user_preferences` inside a `# === REFERENCE: START/END ===` block. Key schemes: `user:{user_id}:session:{session_id}` for authenticated sessions, `anon:{session_id}` for anonymous. No cross-namespace merge; anon namespace left orphaned on sign-in (Req 4.3.3).
   - Files: `agentcore_memory.py` (modify), `solutions/the-ledger/services/agentcore_memory.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_agentcore_memory.py` — round-trip preference save/load; session history append-and-read; assert anon namespace is not accessible via user key and vice versa.
   - Done when: `POST /api/user/preferences` and `/api/agent/chat` (from 3.4, 3.5) exercise this service end-to-end.
 
-- [x] 2.7 **[P1] C7: AgentCore MCP Gateway**
+- [x] 2.7 **[P1] Capability 7: AgentCore MCP Gateway**
   - Acceptance: Req 2.5.3.
-  - Modify `pellier/backend/services/agentcore_gateway.py` to expose the 9 tools via MCP streamable HTTP inside a `# === CHALLENGE 7: START/END ===` block. Tool signatures and JSON envelopes identical to `agent_tools.py`.
+  - Modify `pellier/backend/services/agentcore_gateway.py` to expose the 9 tools via MCP streamable HTTP inside a `# === REFERENCE: START/END ===` block. Tool signatures and JSON envelopes identical to `agent_tools.py`.
   - Files: `agentcore_gateway.py` (modify), `solutions/the-ledger/services/agentcore_gateway.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_gateway.py` — MCP client can discover all 9 tools and invoke `get_trending_products` returning the same JSON shape as the in-process call.
   - Done when: discovery returns the full 9-tool list with names matching `workshop-content.md` exactly (Req 2.2.3).
 
-- [x] 2.8 **[P1] C8: OpenTelemetry trace extraction**
+- [x] 2.8 **[P1] Capability 8: OpenTelemetry trace extraction**
   - Acceptance: Req 2.5.4, 5.4.1.
-  - Modify `pellier/backend/services/otel_trace_extractor.py` to produce `{ spans: Span[], totalMs: number, specialistRoute: string }` for a given run inside a `# === CHALLENGE 8: START/END ===` block. Wire it into the orchestrator's streaming path so each request produces an extractable trace.
+  - Modify `pellier/backend/services/otel_trace_extractor.py` to produce `{ spans: Span[], totalMs: number, specialistRoute: string }` for a given run inside a `# === REFERENCE: START/END ===` block. Wire it into the orchestrator's streaming path so each request produces an extractable trace.
   - Files: `otel_trace_extractor.py` (modify), `solutions/the-ledger/services/otel_trace_extractor.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_otel_extractor.py` — run the orchestrator with a stubbed Bedrock, assert the extractor returns at least one orchestrator span, one specialist span, and one tool span.
   - Done when: the `/inspector` view (existing frontend component) renders the extractor output.
 
 ---
 
-## Layer 3 — Backend Challenge 9 scaffolds (auth + identity)
+## Layer 3 — Backend Exercise 9 scaffolds (auth + identity)
 
-- [x] 3.1 **[P0] C9.1: Cognito JWT validation middleware**
+- [x] 3.1 **[P0] Capability 9.1: Cognito JWT validation middleware**
   - Acceptance: Req 4.2.1–4.2.4, 5.3.1–5.3.3.
-  - Create `pellier/backend/services/cognito_auth.py` inside a `# === CHALLENGE 9.1: START/END ===` block: `CognitoAuthService` with JWKS client (1h TTL cache), `validate_jwt(token) -> VerifiedUser`, `extract_user(request)` reading `Authorization: Bearer` then `access_token` cookie, and a FastAPI `require_user` dependency setting `request.state.user`.
+  - Create `pellier/backend/services/cognito_auth.py` inside a `# === REFERENCE: START/END ===` block: `CognitoAuthService` with JWKS client (1h TTL cache), `validate_jwt(token) -> VerifiedUser`, `extract_user(request)` reading `Authorization: Bearer` then `access_token` cookie, and a FastAPI `require_user` dependency setting `request.state.user`.
   - Files: `cognito_auth.py` (new), `config.py` (add `COGNITO_POOL_ID`, `COGNITO_REGION`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET`, `COGNITO_DOMAIN`, `APP_BASE_URL`, `OAUTH_REDIRECT_URI`), `solutions/the-ledger/services/cognito_auth.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_cognito_auth.py` — valid token passes; expired / wrong `iss` / wrong `aud` / wrong `token_use` / unsigned-by-JWKS all fail; JWKS fetch is called once for N concurrent validations (cache hit).
   - Done when: a protected endpoint returns 401 without a token and returns `request.state.user` populated with a valid one.
 
-- [x] 3.2 **[P0] C9.2: AgentCore Identity wrapper**
+- [x] 3.2 **[P0] Capability 9.2: AgentCore Identity wrapper**
   - Acceptance: Req 4.3.1–4.3.3.
-  - Create `pellier/backend/services/agentcore_identity.py` inside a `# === CHALLENGE 9.2: START/END ===` block: `AgentCoreIdentityService` with `get_verified_user_context(request)` returning `UserContext(user_id | None, session_id, namespace)`. Namespace uses `user:{user_id}:session:{session_id}` when authenticated, `anon:{session_id}` otherwise.
+  - Create `pellier/backend/services/agentcore_identity.py` inside a `# === REFERENCE: START/END ===` block: `AgentCoreIdentityService` with `get_verified_user_context(request)` returning `UserContext(user_id | None, session_id, namespace)`. Namespace uses `user:{user_id}:session:{session_id}` when authenticated, `anon:{session_id}` otherwise.
   - Files: `agentcore_identity.py` (new), `solutions/the-ledger/services/agentcore_identity.py` (new drop-in mirror).
   - Test verification: `tests/backend/test_agentcore_identity.py` — authenticated request yields user namespace; unauthenticated yields anon namespace; `user_id` in `UserContext` equals `request.state.user.user_id`.
   - Done when: the orchestrator consumes `UserContext` to scope `agentcore_memory` calls (wired in 3.5).
@@ -164,7 +164,7 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 
 - [x] 3.5 **[P0] `/api/agent/chat` SSE + `/api/agent/session/{id}`**
   - Acceptance: Req 3.4.1–3.4.4; stream-start-only JWT validation per Error Handling row and Sequence Diagram #2 note.
-  - Create (or extend) `pellier/backend/routes/agent.py` to stream SSE from `orchestrator` (C4) or `run_agent_on_runtime` (C5) based on `USE_AGENTCORE_RUNTIME`. Validate the JWT exactly once at stream start; do not re-check per chunk. Resolve `UserContext` via `AgentCoreIdentityService` (3.2). First SSE event includes `session_id` when one is auto-generated.
+  - Create (or extend) `pellier/backend/routes/agent.py` to stream SSE from `orchestrator` (Capability 4) or `run_agent_on_runtime` (Capability 5) based on `USE_AGENTCORE_RUNTIME`. Validate the JWT exactly once at stream start; do not re-check per chunk. Resolve `UserContext` via `AgentCoreIdentityService` (3.2). First SSE event includes `session_id` when one is auto-generated.
   - Test verification: `tests/backend/test_agent_chat_stream.py` — mid-stream token expiry does not abort the stream; session continuity works with `session_id` passed in subsequent calls; anonymous requests fall to `anon:{session_id}` namespace.
   - Done when: frontend can chat for a full multi-turn conversation with memory and tokens that remain in cookies only (Req 5.3.1).
 
@@ -174,7 +174,7 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
   - Test verification: `tests/backend/test_products_personalized.py` — with seeded catalog and known tags, Sundress/Cardigan top the list for `{vibe: ['creative'], occasions: ['evening']}`; anon request returns editorial order.
   - Done when: flipping `personalized=true` observably changes the returned ordering.
 
-- [x] 3.7 **[P0] `POST /api/search` endpoint (wire C1)** [blocked by: 2.1]
+- [x] 3.7 **[P0] `POST /api/search` endpoint (wire Capability 1)** [blocked by: 2.1]
   - Acceptance: Req 3.3.6, 5.1.1, and `SearchResponse` shape from 1.3.
   - Create or extend `pellier/backend/routes/search.py` with `POST /api/search`. Embed the query via `EmbeddingService`, call `HybridSearchService._vector_search`, return `SearchResponse` (camelCase fields).
   - Test verification: `tests/backend/test_search_endpoint.py` — timing fields are populated; p95 < 500ms smoke test against seeded catalog.
@@ -265,11 +265,11 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 
 ---
 
-## Layer 5 — Frontend Challenge 9 scaffolds (auth + preferences UIs)
+## Layer 5 — Frontend Exercise 9 scaffolds (auth + preferences UIs)
 
-- [x] 5.1 **[P0] C9.3: `auth.ts` helpers + `useAuth()` extension**
+- [x] 5.1 **[P0] Capability 9.3: `auth.ts` helpers + `useAuth()` extension**
   - Acceptance: Req 2.6.5, Design `frontend/src/utils/auth.ts` signatures.
-  - Create `pellier/frontend/src/utils/auth.ts` inside a `# === CHALLENGE 9.3: START/END ===` block (use JS-style `// === CHALLENGE 9.3: START ===` markers to match the file type).
+  - Create `pellier/frontend/src/utils/auth.ts` inside a `# === REFERENCE: START/END ===` block (use JS-style `// === REFERENCE: START ===` markers to match the file type).
     - Exports: `redirectToSignIn(provider, opts?)`, `openSignInChooser(opts?)`, `redirectToLogout()`, `useAuth()`.
     - Extend `contexts/AuthContext.tsx` (existing) rather than replace it; expose `user`, `preferences`, `refresh()`, `savePreferences(p)`, `isLoading`.
     - `services/api.ts` 401 interceptor: call `/api/auth/refresh`; on success retry once; on failure call `openSignInChooser({ returnTo: window.location.pathname + window.location.search })`.
@@ -277,16 +277,16 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
   - Test verification: `auth.test.ts` — `openSignInChooser` routes to `/signin?returnTo=...`; the 401 interceptor retries once after a successful refresh; a second 401 falls through to the chooser.
   - Done when: E2E refresh test (`e2e/auth-refresh.spec.ts`) passes and the fail test (`e2e/auth-refresh-fail.spec.ts`) lands on `/signin` with all three providers visible.
 
-- [x] 5.2 **[P0] C9.4a: `AuthModal.tsx`** [blocked by: 5.1]
+- [x] 5.2 **[P0] Capability 9.4a: `AuthModal.tsx`** [blocked by: 5.1]
   - Acceptance: Req 2.6.6 for the auth modal, `storefront.md` auth modal spec.
-  - Create `pellier/frontend/src/components/AuthModal.tsx` inside a `// === CHALLENGE 9.4: START ===` block: centered cream rounded-3xl card, glass backdrop. Header: B mark + `Welcome to Pellier` + `Sign in for a storefront built for you`. Body: `PERSONALIZED VISIONS` eyebrow + italic `Let the storefront find you.`. Three buttons: `Continue with Google`, `Continue with Apple`, `Continue with email` — each calling `redirectToSignIn(<provider>)` with `returnTo` from the current URL. Disclaimer line + `Secured by AgentCore Identity` 10px mono footer.
+  - Create `pellier/frontend/src/components/AuthModal.tsx` inside a `// === REFERENCE: START ===` block: centered cream rounded-3xl card, glass backdrop. Header: B mark + `Welcome to Pellier` + `Sign in for a storefront built for you`. Body: `PERSONALIZED VISIONS` eyebrow + italic `Let the storefront find you.`. Three buttons: `Continue with Google`, `Continue with Apple`, `Continue with email` — each calling `redirectToSignIn(<provider>)` with `returnTo` from the current URL. Disclaimer line + `Secured by AgentCore Identity` 10px mono footer.
   - When opened from the chooser (`/signin?returnTo=...`), all three providers visible, no provider preselected.
   - Test verification: `AuthModal.test.tsx` — three buttons invoke `redirectToSignIn` with the correct provider; modal uses `UIContext.activeModal === 'auth'`.
   - Done when: click-through to Cognito Hosted UI works end-to-end.
 
-- [x] 5.3 **[P0] C9.4b: `PreferencesModal.tsx`** [blocked by: 5.1]
+- [x] 5.3 **[P0] Capability 9.4b: `PreferencesModal.tsx`** [blocked by: 5.1]
   - Acceptance: Req 2.6.6 for the preferences modal, `storefront.md` preferences onboarding spec.
-  - Create `pellier/frontend/src/components/PreferencesModal.tsx` inside a `// === CHALLENGE 9.4: START ===` block: four groups with chip UI per steering.
+  - Create `pellier/frontend/src/components/PreferencesModal.tsx` inside a `// === REFERENCE: START ===` block: four groups with chip UI per steering.
     - Group 1 Vibe: 6 cards (Minimal, Bold, Serene, Adventurous, Creative, Classic) with 2-word descriptors.
     - Group 2 Colors: 5 pill chips with gradient swatches.
     - Group 3 Occasions: 6 pill chips.
@@ -345,8 +345,8 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 
 - [x] 7.4 **[P0] Drop-in solutions parity**
   - Acceptance: Req 2.7.1–2.7.3.
-  - Add `tests/backend/test_solutions_parity.py` — for each challenge file, confirm the code inside its `# === CHALLENGE N: START/END ===` block matches the contents of the corresponding `solutions/moduleM/<relative path>` file byte-for-byte (ignoring trailing newline).
-  - Done when: drift between challenge blocks and solutions is detected by CI.
+  - Add `tests/backend/test_solutions_parity.py` — for each exercise file, confirm the code inside its `# === REFERENCE: START/END ===` block matches the contents of the corresponding `solutions/moduleM/<relative path>` file byte-for-byte (ignoring trailing newline).
+  - Done when: drift between exercise blocks and solutions is detected by CI.
 
 ---
 
@@ -358,8 +358,8 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 - [x] Hero rotation pauses on hover, progress bar resumes from pause — 4.3
 - [x] Product grid re-sorts on preference change — 4.6, 3.6, 5.3
 - [x] Parallax timing matches `storefront.md` — 4.6
-- [x] 9 challenges total (1/3/5 split) — 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, (3.1 + 3.2 + 5.1 + 5.2 + 5.3 for C9)
-- [x] C9 is four files with challenge blocks — 3.1, 3.2, 5.1, 5.2, 5.3
+- [x] 9 exercises total (1/3/5 split) — 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, (3.1 + 3.2 + 5.1 + 5.2 + 5.3 for Capability 9)
+- [x] Capability 9 is four files with exercise blocks — 3.1, 3.2, 5.1, 5.2, 5.3
 - [x] Storyboard is 3-card grid — 4.8
 - [x] Storyboard and Discover routes render — 4.11, 4.12
 - [x] Cognito + AgentCore Identity is real — 3.1, 3.2, 3.3, 3.8

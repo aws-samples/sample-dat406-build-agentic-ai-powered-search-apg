@@ -3,7 +3,7 @@
 #
 # Participants who sign in as one of these users immediately see a personalized
 # storefront (reinforces the agentic AI story before they touch the preferences
-# modal). Critical for the Builders Session C9 demo.
+# modal). Critical for the Builders Session auth flow demo.
 #
 # Requires env vars:
 #   COGNITO_USER_POOL_ID

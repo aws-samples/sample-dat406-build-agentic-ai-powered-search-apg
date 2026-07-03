@@ -1,7 +1,7 @@
 /**
- * PreferencesModal - Challenge 9.4b solution drop-in.
+ * PreferencesModal - preferences modal solution drop-in.
  *
- * This file mirrors the code inside the `// === CHALLENGE 9.4: START/END ===`
+ * This file mirrors the code inside the `// === REFERENCE: START/END ===`
  * block in `pellier/frontend/src/components/PreferencesModal.tsx`
  * byte-for-byte so a participant can `cp
  * solutions/the-ledger/frontend/components/PreferencesModal.tsx
@@ -24,7 +24,7 @@ import type {
 } from '../services/types'
 import { useAuth } from '../utils/auth'
 
-// === CHALLENGE 9.4: START ===
+// === REFERENCE: START ===
 // --- Design tokens (storefront.md) ---------------------------------------
 const CREAM = '#fbf4e8'
 const CREAM_WARM = '#f5e8d3'
@@ -604,4 +604,4 @@ export default function PreferencesModal() {
     </div>
   )
 }
-// === CHALLENGE 9.4: END ===
+// === REFERENCE: END ===

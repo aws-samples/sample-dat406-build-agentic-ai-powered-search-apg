@@ -982,14 +982,14 @@ write_status_json "in_progress" "pending" ""
 log "✅ Status marker created"
 
 # ============================================================================
-# STEP 16: BUILDERS FORMAT — Pre-apply everything participants don't build
+# STEP 16: WORKSHOP FORMAT — Pre-apply everything participants don't build
 # ============================================================================
 #
-# The 60-min Builder's Session has one coding exercise: wire the
-# floor_check tool body in services/agent_tools.py. Stock Keeper's
-# system prompt and orchestrator are already in place. AgentCore STM
-# + Runtime are pre-provisioned; participants verify STM continuity
-# and walk through the Runtime entrypoint + invoke path in-room.
+# The required path wires the floor_check tool body in
+# services/agent_tools.py and then proves the same production path
+# through retrieval, memory, Runtime, Gateway, Policy, and the Aurora
+# audit ledger. Stock Keeper's system prompt and orchestrator are
+# already in place before participants arrive.
 #
 # This block copies finished reference files from solutions/ into
 # their runtime locations under pellier/backend/ and pellier/frontend/.
@@ -997,15 +997,15 @@ log "✅ Status marker created"
 # you add new pre-applies, double-check both src and dest exist.
 #
 # Solutions directory layout:
-#   solutions/the-quiet-search/   — Module 01 reference (observe-only)
-#   solutions/closing-marcos-gap/ — Module 02 (the only edited module)
-#   solutions/the-ledger/    — Module 03 reference (observe-only)
+#   solutions/the-quiet-search/   — retrieval reference (observe-only)
+#   solutions/closing-marcos-gap/ — the required-path (the only edited module)
+#   solutions/the-ledger/    — governance reference (observe-only)
 #
 # Files we explicitly do NOT copy (participants build these):
 #   inside agent_tools.py — the floor_check tool body only
 if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     log "=========================================="
-    log "Builders Session: pre-applying reference files"
+    log "Workshop: pre-applying reference files"
     log "=========================================="
 
     copy_solution() {
@@ -1032,7 +1032,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     # ---- agent_tools.py builders variant ----
     # Wires restock_shelf + running_low (everything Stock Keeper-adjacent
     # except floor_check itself). Participants will edit this file in
-    # Module 02 to add the floor_check body — and only that body.
+    # the required-path to add the floor_check body — and only that body.
     copy_solution "solutions/closing-marcos-gap/services/agent_tools_builders_preapply.py" \
                   "pellier/backend/services/agent_tools.py" "Agent tools (builders variant)"
 
@@ -1186,7 +1186,7 @@ EOF
         # Write both so the deployed Gateway is reachable for the opt-in Gateway
         # demo. NOTE: this does NOT change the default execution path — the chat
         # service only uses the Gateway orchestrator when pattern == "agents_as_tools"
-        # (an explicit opt-in), so the Builder's Session still runs in-process by
+        # (an explicit opt-in), so the required workshop path still runs in-process by
         # default. The Gateway authorizer is Cognito JWT (CUSTOM_JWT), so a live
         # invoke needs a bearer token, not the placeholder x-api-key.
         upsert_env "AGENTCORE_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"

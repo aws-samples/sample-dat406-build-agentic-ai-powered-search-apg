@@ -8,7 +8,7 @@ Validates the storefront spec's configuration contract from
 Covered assertions:
 
   * ``USE_AGENTCORE_RUNTIME`` defaults to ``False`` so a fresh clone
-    runs the in-process Strands orchestrator from Challenge 4 without
+    runs the in-process Strands orchestrator from in-process orchestrator without
     any env setup (Req 2.5.1 runtime selection switch).
   * Every Cognito/OAuth key added by Tasks 2.5 and 3.1 is declared on
     ``Settings`` with an ``Optional`` typing, so the backend can still
@@ -166,7 +166,7 @@ def test_auth_env_vars_load_from_env(
     from config import Settings
 
     _clear_env(monkeypatch, "COGNITO_USER_POOL_ID")
-    monkeypatch.setenv("COGNITO_POOL_ID", "us-east-1_ABC123")
+    monkeypatch.setenv("COGNITO_POOL_ID", "us-east-1_ABvector-search23")
     monkeypatch.setenv("COGNITO_REGION", "us-east-1")
     monkeypatch.setenv("COGNITO_CLIENT_ID", "client-xyz")
     monkeypatch.setenv("COGNITO_CLIENT_SECRET", "secret-xyz")
@@ -182,7 +182,7 @@ def test_auth_env_vars_load_from_env(
 
     s = Settings()
 
-    assert s.COGNITO_POOL_ID == "us-east-1_ABC123"
+    assert s.COGNITO_POOL_ID == "us-east-1_ABvector-search23"
     assert s.COGNITO_REGION == "us-east-1"
     assert s.COGNITO_CLIENT_ID == "client-xyz"
     assert s.COGNITO_CLIENT_SECRET == "secret-xyz"

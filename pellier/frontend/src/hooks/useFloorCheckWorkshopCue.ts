@@ -5,7 +5,7 @@ interface BuildStateResponse {
 }
 
 /**
- * Whether the Builder's Session gap for Stock Keeper is still "open"
+ * Whether the workshop gap for Stock Keeper is still "open"
  * (floor_check treated as exercise by /api/atelier/build-state).
  *
  * Defaults to true when the endpoint is missing or errors — workshop

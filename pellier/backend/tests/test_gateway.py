@@ -1,4 +1,4 @@
-"""Tests for `services.agentcore_gateway` (Module 3 — Challenge 7).
+"""Tests for `services.agentcore_gateway`.
 
 Covers Requirement 2.5.3 and 2.2.3 from
 `.kiro/specs/pellier-storefront/requirements.md`:

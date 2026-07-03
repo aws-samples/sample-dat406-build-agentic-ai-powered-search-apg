@@ -10,7 +10,7 @@ rather than declaring every endpoint inline.
   * ``products`` (Task 3.6) — ``/api/products`` editorial + personalized list,
                               ``/api/products/{id}``, ``/api/inventory``.
   * ``search``   (Task 3.7) — ``POST /api/search`` boutique vector search
-                              wrapping the C1 ``vector_search`` method.
+                              wrapping the vector-search ``vector_search`` method.
   * ``workshop``  (Week 1)   — ``POST /api/atelier/query`` + ``/api/atelier/resume``
                                flat replay payloads for the Atelier telemetry surface.
   * ``boutique`` (pre-W3)    — ``GET /api/storefront/briefing`` + ``/pulse``

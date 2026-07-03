@@ -20,7 +20,7 @@ The Atelier is an editorial-luxury AI observatory surface layered into the exist
 - **Tool**: One of 9 named functions registered in tool_registry with pgvector embeddings for semantic discovery.
 - **STM**: Short-term memory managed by AgentCore — ephemeral, session-scoped conversation state.
 - **LTM**: Long-term memory stored in Aurora pgvector — semantic recall across sessions, customer preferences, behavioral patterns.
-- **Workshop_Progress_Strip**: A visual bar showing shipped (solid) vs exercise (dashed) segments for challenges.
+- **Workshop_Progress_Strip**: A visual bar showing shipped (solid) vs exercise (dashed) segments for exercises.
 - **Eyebrow**: A small monospace uppercase label (JetBrains Mono, 9-10px, letter-spacing 0.22em) used as a section identifier throughout the Atelier design system.
 - **Exp_Card**: An elevated cream card with a 1px border, 14px border-radius, and a short burgundy accent line at the top-left.
 - **Status_Pill**: A small rounded pill label indicating shipped (sage green) or exercise (burgundy) state.

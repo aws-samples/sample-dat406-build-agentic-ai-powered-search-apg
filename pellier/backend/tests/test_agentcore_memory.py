@@ -1,4 +1,4 @@
-"""Tests for ``services.agentcore_memory.AgentCoreMemory`` (Challenge 6).
+"""Tests for ``services.agentcore_memory.AgentCoreMemory`` (AgentCore Memory).
 
 Validates Requirements 2.5.2, 4.3.2, 4.3.3, 4.4.1, and 6.2.1 from
 ``.kiro/specs/pellier-storefront/requirements.md``:

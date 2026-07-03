@@ -35,8 +35,7 @@ Design notes
   reaching into module globals — same pattern ``cognito_auth`` uses
   for its service instance.
 
-Routes are NOT part of any workshop challenge block. This file ships
-without ``# === CHALLENGE ... ===`` markers.
+Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
 
 from __future__ import annotations
@@ -67,7 +66,7 @@ def get_agentcore_memory() -> AgentCoreMemory:
     """FastAPI-friendly accessor for the shared ``AgentCoreMemory``.
 
     A process-wide instance keeps the in-memory fallback dicts coherent
-    across requests when ``AGENTCORE_MEMORY_ID`` is unset (workshop pre-C9
+    across requests when ``AGENTCORE_MEMORY_ID`` is unset (workshop legacy auth
     path). Tests override this dependency to inject isolated instances.
     """
     global _default_memory

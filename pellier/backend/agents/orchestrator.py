@@ -33,7 +33,7 @@ from boutique_copy import ORCHESTRATOR_SYSTEM_PROMPT
 from config import settings
 
 
-# === CHALLENGE 4: Multi-Agent Orchestrator — START ===
+# === REFERENCE: Multi-Agent Orchestrator — START ===
 # Requirements 2.4.6-2.4.8, 4.3.1. Routes every shopper query to exactly
 # one specialist using the Strands "Agents as Tools" pattern. Uses Sonnet
 # 4.6 at temperature 0.0 for deterministic routing. Priority order
@@ -63,7 +63,7 @@ def create_orchestrator():
             support,
         ],
     )
-# === CHALLENGE 4: Multi-Agent Orchestrator — END ===
+# === REFERENCE: Multi-Agent Orchestrator — END ===
 
 
 GUARDRAILS_PROMPT_SUFFIX = """

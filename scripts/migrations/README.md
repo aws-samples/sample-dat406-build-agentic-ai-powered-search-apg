@@ -1,6 +1,6 @@
 # Pellier fresh-cluster migrations
 
-Idempotent SQL migrations for the Builder's Session and workshop app.
+Idempotent SQL migrations for the Pellier workshop app.
 Numbered in apply order; running a migration twice is safe.
 
 Every operational table lives under the `pellier` schema. Older
@@ -34,6 +34,8 @@ FKs.
    tables in the `pellier` schema.
 8. **`008_search_performance_indexes.sql`** — adds `pg_trgm` + GIN trigram
    indexes on `lower(name)` and `lower(category)` for fuzzy ILIKE paths.
+9. **`009_return_policies.sql`** — creates and seeds
+   `pellier.return_policies` for the `returns_and_care` tool.
 
 ## Run
 
@@ -53,7 +55,8 @@ for migration in \
     005_theo_returns.sql \
     006_warehouse_inventory.sql \
     007_chat_session_tables.sql \
-    008_search_performance_indexes.sql
+    008_search_performance_indexes.sql \
+    009_return_policies.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

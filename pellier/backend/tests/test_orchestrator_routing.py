@@ -1,4 +1,4 @@
-"""Routing tests for the Challenge 4 multi-agent orchestrator.
+"""Routing tests for the in-process orchestrator multi-agent orchestrator.
 
 Validates Requirement 2.4.6-2.4.8 and 4.3.1 from
 `.kiro/specs/pellier-storefront/requirements.md`:
@@ -375,7 +375,7 @@ def test_representative_query_routes_to_expected_specialist(
 
     # Tool-call log mirrors what a Strands BeforeToolCallEvent hook
     # would emit - included so Req 4.3.1 observability is visible
-    # without depending on C8's otel extractor being implemented.
+    # without depending on OTEL's otel extractor being implemented.
     assert len(_StubAgent.tool_call_log) == 1
     assert _StubAgent.tool_call_log[0]["tool"] == expected_tool
     assert _StubAgent.tool_call_log[0]["query"] == query

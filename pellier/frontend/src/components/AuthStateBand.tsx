@@ -313,7 +313,7 @@ export default function AuthStateBand() {
     if (!user) return ''
     if (user.givenName && user.givenName.trim().length > 0) return user.givenName
     // Fallback to email local-part so the banner reads cleanly before the
-    // given_name claim lands (pre-C9 ID tokens may not carry it).
+    // given_name claim lands (legacy auth ID tokens may not carry it).
     const local = user.email?.split('@')[0] ?? ''
     return local.length > 0 ? local : 'there'
   }, [user])

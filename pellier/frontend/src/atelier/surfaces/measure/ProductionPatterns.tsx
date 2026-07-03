@@ -2,7 +2,7 @@
  * ProductionPatterns — Four production patterns underneath every shipped agent.
  *
  * Identity, Guardrails, Multi-tenancy & STM hygiene, Tool publishing & discovery.
- * The default builder path runs without any of them by design — they're the
+ * The required workshop path runs without all of them by design — they're the
  * seams you reach for once the prototype is real.
  *
  * This surface consolidates two cards that previously lived under Architecture

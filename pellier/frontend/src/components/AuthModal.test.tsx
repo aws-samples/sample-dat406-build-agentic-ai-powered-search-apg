@@ -1,5 +1,5 @@
 /**
- * AuthModal tests - Challenge 9.4a verification.
+ * AuthModal tests - sign-in modal verification.
  *
  * Validates Requirement 2.6.6 (auth modal half) and the
  * `storefront.md` "Auth modal" spec.

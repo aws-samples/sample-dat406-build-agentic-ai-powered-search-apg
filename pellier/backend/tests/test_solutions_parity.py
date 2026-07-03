@@ -11,10 +11,10 @@ stale solution, restart uvicorn, and the verification step fails
 with no obvious cause. This test is the CI tripwire for that
 contract.
 
-The Builder's Session contract
-------------------------------
+Workshop solution contract
+--------------------------
 
-The 60-minute Builder's Session has one coding exercise:
+The required workshop path has one starter-code gap:
 ``floor_check`` inside ``services/agent_tools.py``. The specialist
 agents are pre-applied by bootstrap; the copy solution is a full
 agent_tools drop-in with the same public tools and a wired
@@ -298,21 +298,21 @@ def test_extract_flag_ignores_nested_assignments(tmp_path: Path) -> None:
     [(p[0], p[1]) for p in _PAIRS],
     ids=[p[0] for p in _PAIRS],
 )
-def test_live_file_has_challenge_markers(
+def test_live_file_has_workshop_markers(
     label: str, live_path: Path
 ) -> None:
-    """Every live challenge file MUST carry at least one
-    ``# === CHALLENGE ... START ===`` marker. Without the marker
+    """Every live participant-edit file MUST carry at least one
+    ``# === WORKSHOP ... START ===`` marker. Without the marker
     participants have no visual anchor for where to edit, and the
     Atelier's Code Editor won't know where to focus.
     """
     src = live_path.read_text()
-    # Matches "# === CHALLENGE ... START ===" in a tolerant way —
+    # Matches "# === WORKSHOP ... START ===" in a tolerant way —
     # whitespace variation, any label body, either dash or unicode em dash.
-    pattern = re.compile(r"# ===\s*CHALLENGE.*START\s*===", re.IGNORECASE)
+    pattern = re.compile(r"# ===\s*WORKSHOP.*START\s*===", re.IGNORECASE)
     matches = pattern.findall(src)
     assert matches, (
-        f"[{label}] No CHALLENGE markers found in "
+        f"[{label}] No WORKSHOP markers found in "
         f"{live_path.relative_to(_REPO_ROOT)}. Participants need a "
         f"visual anchor to find the build site."
     )

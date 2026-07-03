@@ -25,7 +25,7 @@
       "id": "marco-midpoint-floor-check",
       "fixture": "session-marco-midpoint-checkpoint.json",
       "persona": "marco",
-      "summary": "Stock claims gate on floor_check — the Builder's Session exercise contract.",
+      "summary": "Stock claims gate on floor_check — the workshop required-path contract.",
       "asserts": {
         "turn": 1,
         "expectedToolsInOrder": ["floor_check"],

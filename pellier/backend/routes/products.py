@@ -61,8 +61,7 @@ Design notes
   We use ``model_dump(by_alias=True)`` at the edge so TypeScript
   consumers in Task 4.6 can keep their existing types.
 
-Routes are NOT part of any workshop challenge block. This file ships
-without ``# === CHALLENGE ... ===`` markers.
+Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 /**
- * PreferencesModal tests - Challenge 9.4b verification.
+ * PreferencesModal tests - preferences modal verification.
  *
  * Validates Requirement 2.6.6 (preferences modal half) and the
  * `storefront.md` "Preferences onboarding modal" spec.

@@ -1,13 +1,12 @@
 """
-AgentCore Runtime migration — Challenge 5.
+AgentCore Runtime bridge.
 
 Migrates the orchestrator from in-process Strands execution to AgentCore
 Runtime. When ``settings.USE_AGENTCORE_RUNTIME`` is ``False`` (the
-default), every request stays on the local Strands orchestrator from
-Challenge 4. When flipped to ``True``, the same request is forwarded to
-the AgentCore Runtime via ``run_agent_on_runtime`` with no other code
-changes — the route handler calls :func:`run_agent` which routes based
-on the flag (see Design "Runtime selection switch").
+default), every request stays on the local Strands orchestrator. When
+flipped to ``True``, the same request is forwarded to the AgentCore
+Runtime via ``run_agent_on_runtime`` with no other code changes — the
+route handler calls :func:`run_agent` which routes based on the flag.
 
 Two public entry points:
 
@@ -16,12 +15,12 @@ Two public entry points:
         Branches on ``settings.USE_AGENTCORE_RUNTIME``.
 
     run_agent_on_runtime(message, session_id, user_id, auth_token)
-        Challenge 5 implementation. Invokes the CUSTOM_JWT AgentCore
+        Managed-runtime implementation. Invokes the CUSTOM_JWT AgentCore
         Runtime over the raw HTTPS data plane with the Cognito token as a
         Bearer header (there is no ``bedrock-agentcore-runtime`` boto3
         client) and returns the response.
 
-The in-process path stays routed through Challenge 4's
+The in-process path stays routed through ``agents.orchestrator`` and its
 ``create_orchestrator`` so participants can watch the request move
 from local execution to managed runtime by flipping one env var.
 """
@@ -97,7 +96,7 @@ async def _run_orchestrator_inprocess(
     session_id: str,
     user_id: Optional[str],
 ) -> str:
-    """Run the Challenge 4 orchestrator in-process (the pre-C5 path).
+    """Run the local Strands orchestrator in-process.
 
     ``create_orchestrator`` builds a Strands :class:`Agent` whose
     ``__call__`` is blocking, so the invocation is offloaded to a
@@ -108,11 +107,11 @@ async def _run_orchestrator_inprocess(
     orchestrator = create_orchestrator()
     if orchestrator is None:
         return (
-            "The orchestrator isn't wired up yet. Complete Challenge 4 "
+            "The orchestrator isn't wired up yet. Wire the orchestrator "
             "to enable multi-agent routing."
         )
 
-    # Attach trace attributes so the otel_trace_extractor (C8) can tag
+    # Attach trace attributes so the otel_trace_extractor (OTEL) can tag
     # spans with session + user context from the same dispatcher the
     # runtime path uses.
     try:
@@ -143,12 +142,10 @@ async def _run_orchestrator_inprocess(
     return str(response)
 
 
-# === CHALLENGE 5: AgentCore Runtime — START ===
-# Requirement 2.5.1 and Design "Runtime selection switch". Participants
-# replace this body to invoke the AgentCore Runtime SDK. When the
-# feature flag ``USE_AGENTCORE_RUNTIME`` is ``True``, the ``/api/agent/
-# chat`` route (Task 3.5) forwards every request here instead of
-# running Strands locally.
+# === REFERENCE: AgentCore Runtime — START ===
+# Runtime selection reference. When the feature flag
+# ``USE_AGENTCORE_RUNTIME`` is ``True``, the ``/api/agent/chat`` route
+# forwards every request here instead of running Strands locally.
 #
 # The runtime contract is a JSON payload ``{"prompt", "session_id",
 # "user_id"}``; the Runtime container unpacks it in the ``@app.entry
@@ -167,7 +164,7 @@ async def run_agent_on_runtime(
 
     Args:
         message: Shopper prompt (one turn).
-        session_id: Session identifier for STM continuity (C6).
+        session_id: Session identifier for STM continuity (STM).
         user_id: Verified Cognito ``sub`` when the caller is signed
             in; ``None`` for anonymous shoppers.
         auth_token: Raw Cognito access token forwarded to the Runtime
@@ -268,7 +265,7 @@ async def run_agent_on_runtime(
     except Exception as exc:  # pragma: no cover - SDK error path
         logger.error("AgentCore Runtime invocation failed: %s", exc)
         return json.dumps({"error": "runtime_unavailable"})
-# === CHALLENGE 5: AgentCore Runtime — END ===
+# === REFERENCE: AgentCore Runtime — END ===
 
 
 async def run_agent(

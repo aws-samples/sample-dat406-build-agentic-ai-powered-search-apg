@@ -1,7 +1,7 @@
 """
 AgentCoreIdentityService — verified user context for the orchestrator.
 
-Challenge 9.2 (Requirements 4.3.1–4.3.3). Builds a ``UserContext`` that
+AgentCore Identity (Requirements 4.3.1–4.3.3). Builds a ``UserContext`` that
 pairs the verified Cognito ``user_id`` (when present) with a stable
 ``session_id`` and the exact namespace string ``agentcore_memory`` keys
 on. Callers hand the context straight into
@@ -9,12 +9,12 @@ on. Callers hand the context straight into
 ``AgentCoreMemory.get_session_history`` so a single definition of the
 namespace format lives in one place.
 
-This is the backend half of Challenge 9's four-file capstone:
+This is the backend half of the governed auth and identity path:
 
-    9.1  services/cognito_auth.py
-    9.2  services/agentcore_identity.py         ← this file
-    9.3  frontend/src/utils/auth.ts
-    9.4  frontend/src/components/{AuthModal,PreferencesModal}.tsx
+    services/cognito_auth.py
+    services/agentcore_identity.py         ← this file
+    frontend/src/utils/auth.ts
+    frontend/src/components/{AuthModal,PreferencesModal}.tsx
 
 Key design choices (Req 4.3):
 
@@ -40,8 +40,8 @@ Key design choices (Req 4.3):
     AgentCore Memory's TTL sweep.
 
 The workshop ``solutions/the-ledger/services/agentcore_identity.py`` file
-mirrors the CHALLENGE 9.2 block below byte-for-byte (enforced by Task
-7.4).
+mirrors the reference block below byte-for-byte (enforced by solution
+parity tests).
 """
 from __future__ import annotations
 
@@ -61,14 +61,14 @@ from services.cognito_auth import (
 logger = logging.getLogger(__name__)
 
 
-# === CHALLENGE 9.2: AgentCore Identity — START ===
+# === REFERENCE: AgentCore Identity — START ===
 # Requirements 4.3.1–4.3.3 and Design "services/agentcore_identity.py".
 #
-# Participants delete this block and reimplement ``AgentCoreIdentityService``
-# so the orchestrator can scope ``agentcore_memory`` calls by verified
-# user. The tests at ``tests/test_agentcore_identity.py`` build synthetic
-# FastAPI ``Request`` objects with and without ``request.state.user`` to
-# exercise the authenticated + anonymous branches.
+# Reference implementation for ``AgentCoreIdentityService`` so the
+# orchestrator can scope ``agentcore_memory`` calls by verified user.
+# Tests at ``tests/test_agentcore_identity.py`` build synthetic FastAPI
+# ``Request`` objects with and without ``request.state.user`` to exercise
+# the authenticated + anonymous branches.
 #
 # Namespace scheme (must match services/agentcore_memory.py byte-for-byte):
 #
@@ -104,7 +104,7 @@ class AgentCoreIdentityService:
     """Resolve a verified ``UserContext`` from an incoming FastAPI request.
 
     The service is stateless. It delegates JWT validation to
-    ``CognitoAuthService`` (Challenge 9.1) and only owns the namespace
+    ``CognitoAuthService`` (Cognito JWT validation) and only owns the namespace
     computation so the scheme lives in exactly one place.
     """
 
@@ -226,4 +226,4 @@ def get_agentcore_identity_service() -> AgentCoreIdentityService:
     if _default_service is None:
         _default_service = AgentCoreIdentityService()
     return _default_service
-# === CHALLENGE 9.2: AgentCore Identity — END ===
+# === REFERENCE: AgentCore Identity — END ===

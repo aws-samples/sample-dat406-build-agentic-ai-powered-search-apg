@@ -1,17 +1,17 @@
 """
 CognitoAuthService — JWT validation middleware for the storefront backend.
 
-Challenge 9.1 (Requirements 4.2.1–4.2.4, 5.3.1–5.3.3). Verifies Amazon
+Cognito JWT validation (Requirements 4.2.1–4.2.4, 5.3.1–5.3.3). Verifies Amazon
 Cognito access tokens against the pool's JWKS endpoint and exposes a
 FastAPI dependency ``require_user`` that populates ``request.state.user``
 with a ``VerifiedUser``.
 
-This is the backend half of Challenge 9's four-file capstone:
+This is the backend half of the governed auth and identity path:
 
-    9.1  services/cognito_auth.py          ← this file
-    9.2  services/agentcore_identity.py
-    9.3  frontend/src/utils/auth.ts
-    9.4  frontend/src/components/{AuthModal,PreferencesModal}.tsx
+    services/cognito_auth.py          ← this file
+    services/agentcore_identity.py
+    frontend/src/utils/auth.ts
+    frontend/src/components/{AuthModal,PreferencesModal}.tsx
 
 Key design choices (Req 4.2):
 
@@ -26,7 +26,7 @@ Key design choices (Req 4.2):
     failures with the exception class only.
 
 The workshop ``solutions/the-ledger/services/cognito_auth.py`` file mirrors
-the CHALLENGE 9.1 block here byte-for-byte (enforced by Task 7.4).
+the reference block here byte-for-byte (enforced by solution parity tests).
 """
 from __future__ import annotations
 
@@ -46,12 +46,11 @@ from models import VerifiedUser
 logger = logging.getLogger(__name__)
 
 
-# === CHALLENGE 9.1: Cognito JWT validation — START ===
+# === REFERENCE: Cognito JWT validation — START ===
 # Requirements 4.2.1–4.2.4, 5.3.1–5.3.3 and Design "services/cognito_auth.py".
 #
-# Participants delete this block and reimplement ``CognitoAuthService``
-# + ``require_user`` using PyJWT + the Cognito JWKS endpoint. The tests
-# at ``tests/test_cognito_auth.py`` mint synthetic JWTs signed by a
+# Reference implementation for ``CognitoAuthService`` + ``require_user``.
+# Tests at ``tests/test_cognito_auth.py`` mint synthetic JWTs signed by a
 # locally generated RSA key and patch ``_fetch_jwks`` so no live Cognito
 # call is required.
 #
@@ -274,4 +273,4 @@ async def require_user(
         raise HTTPException(status_code=401, detail="auth_failed")
     request.state.user = user
     return user
-# === CHALLENGE 9.1: Cognito JWT validation — END ===
+# === REFERENCE: Cognito JWT validation — END ===

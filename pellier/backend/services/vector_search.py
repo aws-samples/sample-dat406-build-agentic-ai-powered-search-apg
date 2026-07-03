@@ -1,12 +1,12 @@
 """
 Vector Search Service — pgvector semantic search.
 
-The Module 1 teaching surface is pure pgvector cosine similarity. The
+The retrieval teaching surface is pure pgvector cosine similarity. The
 earlier hybrid (vector + keyword + RRF) and Cohere Rerank branches were
 removed after the concierge switched to semantic-only retrieval.
 
-``VectorSearch.vector_search`` is the canonical ``CHALLENGE 1`` block
-referenced from ``agent_tools.find_pieces`` and from
+``VectorSearch.vector_search`` is the canonical pgvector reference
+called by ``agent_tools.find_pieces`` and covered by
 ``tests/test_vector_search.py``.
 """
 import logging
@@ -35,7 +35,7 @@ class VectorSearch:
         iterative_scan: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Semantic vector similarity search using pgvector (Module 1 — Challenge 1).
+        Semantic vector similarity search using pgvector (retrieval reference).
 
         This is the core of semantic search — it finds products whose meaning
         is similar to the query, even when exact keywords don't match.
@@ -64,7 +64,7 @@ class VectorSearch:
             List of product dicts with similarity scores.
 
         """
-        # === CHALLENGE 1: START ===
+        # === REFERENCE: START ===
         sql = """
             WITH query_embedding AS (
                 SELECT %s::vector as emb
@@ -133,7 +133,7 @@ class VectorSearch:
             logger.debug(f"sql_query_logger append failed: {log_err}")
 
         return results
-        # === CHALLENGE 1: END ===
+        # === REFERENCE: END ===
 
     async def vector_search_filtered(
         self,

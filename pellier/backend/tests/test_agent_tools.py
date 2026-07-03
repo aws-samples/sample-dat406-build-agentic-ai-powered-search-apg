@@ -1,4 +1,4 @@
-"""Tests for `services.agent_tools.whats_trending` (Module 2 — Challenge 2).
+"""Tests for `services.agent_tools.whats_trending`.
 
 Covers Requirement 2.4.1 and 2.4.2 from
 `.kiro/specs/pellier-storefront/requirements.md` and the coding-standards

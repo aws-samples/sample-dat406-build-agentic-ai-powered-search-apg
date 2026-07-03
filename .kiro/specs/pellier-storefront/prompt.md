@@ -2,7 +2,7 @@
 
 **For:** AWS re:Invent 2026 workshop **Build Agentic AI-Powered Search with Amazon Aurora PostgreSQL** (2-hour Workshop + 1-hour Builders Session).
 
-**What this produces:** `requirements.md`, `design.md`, and `tasks.md` specifying the full Pellier storefront — UI, backend, authentication, personalization, and the nine workshop challenges.
+**What this produces:** `requirements.md`, `design.md`, and `tasks.md` specifying the full Pellier storefront — UI, backend, authentication, personalization, and the nine workshop exercises.
 
 **Prerequisites:**
 Repo-wide conventions are captured in `.kiro/steering/`:
@@ -37,9 +37,9 @@ This spec references but does not duplicate their scope.
 
 # Kiro Spec Request
 
-You are building the **Pellier Storefront** feature — the full customer-facing application that participants extend through nine progressive challenges during a 2-hour Workshop or 1-hour Builders Session.
+You are building the **Pellier Storefront** feature — the full customer-facing application that participants extend through nine progressive exercises during a 2-hour Workshop or 1-hour Builders Session.
 
-This spec covers the storefront UI, the FastAPI backend that powers it, the Cognito + AgentCore Identity authentication flow, the personalization engine, and the nine challenge scaffolds. It does NOT cover the data catalog pipeline (see `catalog-enrichment` spec) or the customer support specialist agent (see `customer-support-agent` spec). Reference them where relevant.
+This spec covers the storefront UI, the FastAPI backend that powers it, the Cognito + AgentCore Identity authentication flow, the personalization engine, and the nine exercise scaffolds. It does NOT cover the data catalog pipeline (see `catalog-enrichment` spec) or the customer support specialist agent (see `customer-support-agent` spec). Reference them where relevant.
 
 All repo-wide conventions (tech stack, tool/agent naming, coding standards, database patterns, design tokens, copy rules, nav structure, intents, product tags, auth UX) live in `.kiro/steering/`. Do not restate them — use them.
 
@@ -116,7 +116,7 @@ Each card contains:
 
 When the user is authenticated with saved preferences, the backend sorts products by **match score** (count of overlapping tags with user preferences). Products are tagged per the table in `storefront.md` steering. Frontend re-renders the grid on preference save, triggering parallax re-observation.
 
-Preferences are stored in AgentCore Memory keyed by the verified Cognito user_id (from Challenge 9).
+Preferences are stored in AgentCore Memory keyed by the verified Cognito user_id (from Exercise 9).
 
 ---
 
@@ -138,8 +138,8 @@ FastAPI → Exchange code at Cognito /oauth2/token
        → Redirect to /
 Every authenticated API call:
        → Authorization: Bearer <access_token> OR cookie
-       → FastAPI JWT middleware validates via JWKS (Challenge 9.1)
-       → AgentCore Identity wraps context with verified user_id (Challenge 9.2)
+       → FastAPI JWT middleware validates via JWKS (Exercise 9.1)
+       → AgentCore Identity wraps context with verified user_id (Exercise 9.2)
        → AgentCore Memory scoped by user_id via agentcore_memory.py
        → Agents receive verified user context
        → Personalization reads prefs from AgentCore Memory
@@ -187,53 +187,53 @@ All authenticated endpoints require valid Cognito JWT via `Authorization: Bearer
 
 ---
 
-## The nine workshop challenges
+## The nine workshop exercises
 
-Challenge files ship with complete solution code in `# === CHALLENGE N: START/END ===` blocks per `workshop-content.md` steering.
+Exercise files ship with complete solution code in `# === REFERENCE: START/END ===` blocks per `workshop-content.md` steering.
 
 Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Temperature follows `coding-standards.md` (0.0 for orchestrator with Claude Sonnet 4.6, 0.2 for specialists with Claude Opus 4.6).
 
-### Module 1 — Smart Search (Workshop 30 min / Builders 15 min)
+### Section 1 — Smart Search (Workshop 30 min / Builders 15 min)
 
-- **C1:** `_vector_search(self, embedding, limit, ef_search, iterative_scan=True)` on `HybridSearchService` in `pellier/backend/services/hybrid_search.py`
+- **Capability 1:** `_vector_search(self, embedding, limit, ef_search, iterative_scan=True)` on `HybridSearchService` in `pellier/backend/services/hybrid_search.py`
   - pgvector cosine distance (`<=>`) with CTE pattern per `database.md` steering
   - HNSW `ef_search` per-query tuning via `SET LOCAL`
   - Iterative scan `'relaxed_order'` when `iterative_scan=True`
   - Caller passes pre-computed embedding (the service does not call Bedrock itself)
 
-### Module 2 — Agentic AI (Workshop 40 min / Builders 20 min)
+### Section 2 — Agentic AI (Workshop 40 min / Builders 20 min)
 
-- **C2:** `get_trending_products()` in `pellier/backend/services/agent_tools.py`, `@tool`-decorated per `coding-standards.md`
+- **Capability 2:** `get_trending_products()` in `pellier/backend/services/agent_tools.py`, `@tool`-decorated per `coding-standards.md`
   - Returns JSON-serialized string via `json.dumps()`
   - Handles `_db_service` unavailability and error cases per coding-standards error pattern
   - Uses `_run_async()` helper for async-to-sync bridging
 
-- **C3:** `product_recommendation_agent` in `pellier/backend/agents/curator.py`
+- **Capability 3:** `product_recommendation_agent` in `pellier/backend/agents/curator.py`
   - Strands Agent wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with `temperature=0.2`
   - Tools: `search_products`, `get_trending_products`, `compare_products`, `get_product_by_category`
   - System prompt emphasizes warm, editorial, catalog-style reasoning — grounded in specific product attributes
 
-- **C4:** Multi-agent orchestrator in `pellier/backend/agents/orchestrator.py`
+- **Capability 4:** Multi-agent orchestrator in `pellier/backend/agents/orchestrator.py`
   - Uses Claude Sonnet 4.6 via `BedrockModel(model_id='global.anthropic.claude-sonnet-4-6')` with `temperature=0.0`
   - Routes via Strands "Agents as Tools" pattern
   - Intent classification priority per `coding-standards.md`: pricing > inventory > support > search > recommendation (default)
   - Routes to five specialists: `search_agent`, `product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`, `customer_support_agent` (last one defined in `customer-support-agent` spec)
 
-### Module 3 — Production Patterns (Workshop 40 min / Builders 15 min)
+### Section 3 — Production Patterns (Workshop 40 min / Builders 15 min)
 
 Infrastructure-out ordering.
 
-- **C5:** AgentCore Runtime deployment in `pellier/backend/services/agentcore_runtime.py` — migrate orchestrator from local Strands to AgentCore Runtime
-- **C6:** AgentCore STM Memory in `pellier/backend/services/agentcore_memory.py` — multi-turn session memory + user preferences keyed by Cognito user_id (from C9)
-- **C7:** AgentCore MCP Gateway in `pellier/backend/services/agentcore_gateway.py` — expose tools via MCP for external agent consumers
-- **C8:** OpenTelemetry in `pellier/backend/services/otel_trace_extractor.py` — agent trace extraction for `/inspector` view
-- **C9 (THE CAPSTONE):** Agent Identity — Cognito + AgentCore Identity. Four files:
+- **Capability 5:** AgentCore Runtime deployment in `pellier/backend/services/agentcore_runtime.py` — migrate orchestrator from local Strands to AgentCore Runtime
+- **Capability 6:** AgentCore STM Memory in `pellier/backend/services/agentcore_memory.py` — multi-turn session memory + user preferences keyed by Cognito user_id (from Capability 9)
+- **Capability 7:** AgentCore MCP Gateway in `pellier/backend/services/agentcore_gateway.py` — expose tools via MCP for external agent consumers
+- **Capability 8:** OpenTelemetry in `pellier/backend/services/otel_trace_extractor.py` — agent trace extraction for `/inspector` view
+- **Capability 9 (THE CAPSTONE):** Agent Identity — Cognito + AgentCore Identity. Four files:
   1. `pellier/backend/services/cognito_auth.py` — JWKS client, JWT validator, FastAPI middleware extracting verified `user_id` into `request.state.user`
   2. `pellier/backend/services/agentcore_identity.py` — AgentCore Identity wrapper; `get_verified_user_context(request)` returns user_id + session_id namespace
   3. `pellier/frontend/src/utils/auth.ts` — Cognito hosted UI redirect helpers, `useAuth()` context, silent token refresh
   4. `pellier/frontend/src/components/AuthModal.tsx` + `pellier/frontend/src/components/PreferencesModal.tsx` — auth and preferences UIs per `storefront.md` steering
 
-**Why C9 is the capstone:** participants spent M1 retrieving data, M2 reasoning over it, early M3 deploying it. C9 closes the loop by wiring real identity to the personalization they've seen working the entire workshop.
+**Why Capability 9 is the capstone:** participants spent M1 retrieving data, M2 reasoning over it, early M3 deploying it. Capability 9 closes the loop by wiring real identity to the personalization they've seen working the entire workshop.
 
 ---
 
@@ -246,7 +246,7 @@ User stories for both audiences (shopper + workshop participant) with EARS-forma
 Sections:
 
 1. **Shopper experience** — every storefront feature (hero stage, sign-in strip/curated banner, product grid with parallax, intent rotation, reasoning chips, refinement panel, Storyboard, footer, ⌘K pill)
-2. **Workshop participant experience** — read-and-test vs build expectations per format, time budgets, "done when" signals, challenge file structure
+2. **Workshop participant experience** — read-and-test vs build expectations per format, time budgets, "done when" signals, exercise file structure
 3. **Backend API** — every endpoint with request/response schemas
 4. **Authentication** — Cognito User Pool config, IdP federation (Google + Apple + email/password), JWT middleware, AgentCore Identity integration, preferences persistence
 5. **Non-functional** — sub-500ms search latency, sub-2s agent response, sub-200ms auth check, parallax at 60fps, responsive breakpoints (mobile/tablet/desktop)
@@ -282,24 +282,24 @@ Group by layer:
 - Sign-in strip + curated banner with auth-state-driven show/hide
 - Storyboard 3-card grid
 - Footer expansion to 5 columns with About content
-- AuthModal + PreferencesModal components (C9 deliverables)
+- AuthModal + PreferencesModal components (Capability 9 deliverables)
 
 **[Backend services]**
 
-- Challenge scaffolds C1–C8 with `# === CHALLENGE N: START/END ===` blocks and complete solution code
+- Exercise scaffolds Capability 1–Capability 8 with `# === REFERENCE: START/END ===` blocks and complete solution code
 - `/api/auth/*` routes
 - `/api/user/preferences` routes with JWT middleware
 - `/api/products?personalized=true` reading from AgentCore Memory via `agentcore_memory.py`
 
-**[Backend challenge 9 scaffolds]**
+**[Backend exercise 9 scaffolds]**
 
-- `cognito_auth.py` (C9.1)
-- `agentcore_identity.py` (C9.2)
+- `cognito_auth.py` (Capability 9.1)
+- `agentcore_identity.py` (Capability 9.2)
 
-**[Frontend challenge 9 scaffolds]**
+**[Frontend exercise 9 scaffolds]**
 
-- `auth.ts` with `useAuth()` context (C9.3)
-- `AuthModal.tsx`, `PreferencesModal.tsx` (C9.4)
+- `auth.ts` with `useAuth()` context (Capability 9.3)
+- `AuthModal.tsx`, `PreferencesModal.tsx` (Capability 9.4)
 
 **[Configuration]**
 
@@ -322,8 +322,8 @@ Before delivering the spec, verify:
 - [ ] Intent rotation pauses on hover; progress bar freezes and resumes
 - [ ] Product grid re-sorts by preference match when prefs change
 - [ ] Parallax specifications match `storefront.md` (1100–1200ms ease-out-expo, 220ms stagger, threshold 0.05)
-- [ ] Challenge count: 9 total (1 in M1, 3 in M2, 5 in M3)
-- [ ] C9 is four files (two backend + two frontend), all with challenge blocks
+- [ ] Exercise count: 9 total (1 in M1, 3 in M2, 5 in M3)
+- [ ] Capability 9 is four files (two backend + two frontend), all with exercise blocks
 - [ ] Storyboard is a 3-card grid (not a single editorial block)
 - [ ] Auth uses real Cognito + AgentCore Identity (not simulation)
 - [ ] Preferences persist to AgentCore Memory (via `agentcore_memory.py`) keyed by verified Cognito user_id

@@ -182,7 +182,7 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'pgvector semantic search',
     capabilityRole: 'Foundation · Capability 1',
     blurb:
-      "Returning customer. Natural fabrics, linen, travel-ready, warm tones. Marco's arc anchors pgvector cosine over Cohere Embed v4. Turn 4 is the Builder's Session: same hero pill ships stub telemetry in opening demo, then a real floor_check replay in midpoint.",
+      "Returning customer. Natural fabrics, linen, travel-ready, warm tones. Marco's arc anchors pgvector cosine over Cohere Embed v4. Turn 4 is the workshop build: same hero pill ships stub telemetry in opening demo, then a real floor_check replay after the required path lands.",
     turns: attachPills(MARCO_TURNS_META, PERSONA_HERO_PILLS.marco, PERSONA_TURN_TRACES.marco),
     capstoneNote:
       "Claude Opus 4.6 handles editorial turns; Claude Sonnet 4.6 handles routing and reporting turns. That architectural split is visible here - and Turn 4 is where the wiring exercise lands.",
@@ -193,7 +193,7 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'hybrid + Cohere Rerank v3.5',
     capabilityRole: 'Capability 2 · when pure vector wears thin',
     blurb:
-      "Gift-giver - observe & learn only. Her five Boutique hero strings are a live demo of Capability 2 (hybrid + rerank); there is no Builder's Session wiring exercise on this arc. Use Sessions and Observatory to study spans and cost.",
+      "Gift-giver - observe & learn only. Her five Boutique hero strings are a live demo of Capability 2 (hybrid + rerank); there is no required wiring exercise on this arc. Use Sessions and Observatory to study spans and cost.",
     turns: attachPills(ANNA_TURNS_META, PERSONA_HERO_PILLS.anna, PERSONA_TURN_TRACES.anna),
     capstoneNote:
       "Recall@5 jumps ~20 points; p50 doubles; cost goes 6×. The Performance card lets you decide - there's no universally right answer per query class.",
@@ -204,7 +204,7 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'Aurora as agent system-of-record',
     capabilityRole: 'Capability 3 · writes leave a paper trail',
     blurb:
-      "Slow-craft buyer - observe & learn only. This arc demonstrates Capability 3 (writes + tool_audit / Cedar). No participant coding checkpoint on Theo in the Builder's Session; replay session fixtures to see the paper trail.",
+      "Slow-craft buyer - observe & learn only. This arc demonstrates Capability 3 (writes + tool_audit / Cedar). No participant coding checkpoint on Theo in the required path; replay session fixtures to see the paper trail.",
     turns: attachPills(THEO_TURNS_META, PERSONA_HERO_PILLS.theo, PERSONA_TURN_TRACES.theo),
     capstoneNote:
       'Every mutation is reconstructible from tool_audit - see Write-path.',

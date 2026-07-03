@@ -1,5 +1,5 @@
 """
-AgentCore Runtime — deployment entrypoint (Builder's Session + Workshop C5).
+AgentCore Runtime — deployment entrypoint for the governed workshop path.
 
 Wraps the orchestrator for execution in an AgentCore Runtime container. This
 file is the BYO entrypoint deployed by the new @aws/agentcore Node CLI (0.18,

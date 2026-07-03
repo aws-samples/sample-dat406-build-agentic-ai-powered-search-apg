@@ -11,7 +11,7 @@
  * The "stylist" address is a placeholder for whatever escalation
  * channel a production deployment wires in (live chat, email queue,
  * CX ticket). For the workshop it's a mailto — pure UI, no real
- * human on the other end. Builder's Session teaches this as the
+ * human on the other end. The workshop teaches this as the
  * escape hatch every agent needs but most demos skip.
  */
 import { motion } from 'framer-motion'

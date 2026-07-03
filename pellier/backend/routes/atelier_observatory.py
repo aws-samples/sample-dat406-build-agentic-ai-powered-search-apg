@@ -127,7 +127,7 @@ def _load_fixture(name: str) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Tool / build state helpers (fixtures + Builder's Session live overlay)
+# Tool / build state helpers (fixtures + workshop live overlay)
 # ---------------------------------------------------------------------------
 
 
@@ -773,9 +773,9 @@ async def get_build_state():
     """Shipped vs exercise for agents and tools (fixtures + live lab overlay).
 
     Loads ``agents.json`` / ``tools.json`` then, when ``floor_check`` in
-    ``services.agent_tools`` is no longer the Builder's Session stub,
+    ``services.agent_tools`` is no longer the workshop starter stub,
     marks ``floor_check`` and **Stock Keeper** as shipped so the Atelier
-    progress strip matches a completed Part I exercise.
+    progress strip matches a completed required-path exercise.
 
     Shape matches ``BuildStateApiResponse`` in the frontend ``useBuildState`` hook.
     """

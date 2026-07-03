@@ -290,7 +290,7 @@ export default function ProductCard({
         {/* Trace chips — small mono pills naming the tools/signals
             that surfaced this product. Reads as the agent citing its
             sources, inline on the card, and shares vocabulary with
-            the /atelier observatory so a re:Invent demo can pivot
+            the /atelier observatory so a workshop demo can pivot
             between the consumer surface and the developer surface
             without translating language. */}
         {traceChips.length > 0 && (

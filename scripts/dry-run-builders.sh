@@ -32,7 +32,7 @@ TOOLS="${REPO}/pellier/backend/services/agent_tools.py"
 # defines process_return, escalate_to_stylist, etc.). The dry-run mirrors that
 # exactly — it patches the body in place rather than swapping the whole file,
 # so it can't drift from the live participant artifact. BODY is the canonical
-# reference body (same one Module 02's paste-only escape hatch uses).
+# reference body (same one the required-path's paste-only escape hatch uses).
 BODY="${REPO}/solutions/closing-marcos-gap/services/floor_check_tool_body.py"
 KEEP=false
 [[ "${1:-}" == "--keep" ]] && KEEP=true
@@ -63,7 +63,7 @@ restore() {
 trap restore EXIT
 
 echo "════════════════════════════════════════════════════════════"
-echo " Pellier Builder's Session — end-to-end dry run"
+echo " Pellier workshop — end-to-end dry run"
 echo " base=${BASE}  repo=${REPO}"
 echo "════════════════════════════════════════════════════════════"
 
@@ -107,8 +107,8 @@ src = open(tools_path).read()
 body_lines = open(body_path).read().splitlines()
 body = "\n".join(l for l in body_lines if not l.lstrip().startswith("# Paste"))
 body = body.strip("\n")
-start = "# === CHALLENGE · Stock Keeper · floor_check: START ==="
-end   = "# === CHALLENGE · Stock Keeper · floor_check: END ==="
+start = "# === WORKSHOP · Stock Keeper · floor_check: START ==="
+end   = "# === WORKSHOP · Stock Keeper · floor_check: END ==="
 pat = re.compile(re.escape(start) + r".*?" + re.escape(end), re.DOTALL)
 repl = start + "\n" + body + "\n    " + end
 new, n = pat.subn(repl, src)

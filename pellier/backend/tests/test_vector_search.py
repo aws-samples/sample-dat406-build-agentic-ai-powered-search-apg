@@ -1,4 +1,4 @@
-"""Tests for `VectorSearch.vector_search` (Module 1 reference implementation).
+"""Tests for `VectorSearch.vector_search` retrieval reference.
 
 The Boutique's semantic-search path. psycopg is mocked so these tests
 run offline without a live Aurora instance. The assertions check the

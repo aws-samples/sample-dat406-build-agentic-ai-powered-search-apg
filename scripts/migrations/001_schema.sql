@@ -1,4 +1,4 @@
--- Pellier Builder's Session — schema bootstrap (runs FIRST).
+-- Pellier workshop — schema bootstrap (runs FIRST).
 --
 -- pellier-database.yml provisions an empty Aurora cluster. This
 -- migration is the bridge between "empty cluster" and "schema ready

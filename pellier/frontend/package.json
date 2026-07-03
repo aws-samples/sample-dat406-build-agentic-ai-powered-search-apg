@@ -1,7 +1,7 @@
 {
   "name": "pellier-frontend",
   "version": "1.0.0",
-  "description": "Pellier - Agentic AI-Powered Search Frontend",
+  "description": "Pellier - Governed Agentic AI Search Frontend",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -5,7 +5,7 @@
  * smooth vertical crossfade. Each line reads like a concierge aside —
  * the agent quietly surfacing what it noticed while watching the floor.
  *
- * Restyled for re:Invent: a pulse dot on the left, a small-caps-style
+ * Restyled for the workshop: a pulse dot on the left, a small-caps-style
  * verb (NOTICING / PAIRING / …) in sans semibold + wide tracking — same
  * register as the hero "Summer Edit / No. 06" eyebrow, but in deep
  * terracotta (`var(--accent)`). Body in cream, mono trace on the right.

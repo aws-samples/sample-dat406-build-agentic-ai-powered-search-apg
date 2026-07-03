@@ -1,4 +1,4 @@
-"""Relevance test for the Challenge 3 `recommendation` agent.
+"""Relevance test for the recommendation specialist `recommendation` agent.
 
 Validates Requirement 2.4.3-2.4.5 from
 `.kiro/specs/pellier-storefront/requirements.md`:

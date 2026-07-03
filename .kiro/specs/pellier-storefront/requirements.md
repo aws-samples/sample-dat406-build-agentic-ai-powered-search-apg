@@ -2,11 +2,11 @@
 
 ## Introduction
 
-This spec defines the full customer-facing Pellier storefront and the workshop scaffolding that AWS re:Invent 2026 participants extend through nine progressive challenges. It covers the storefront UI, the FastAPI backend that powers it, the Cognito + AgentCore Identity authentication flow, the preference-based personalization engine, and the nine challenge scaffolds across three modules.
+This spec defines the full customer-facing Pellier storefront and the workshop scaffolding that AWS re:Invent 2026 participants extend through nine progressive exercises. It covers the storefront UI, the FastAPI backend that powers it, the Cognito + AgentCore Identity authentication flow, the preference-based personalization engine, and the nine exercise scaffolds across three sections.
 
 Repo-wide conventions live in `.kiro/steering/` and are authoritative:
 
-- `project.md` — modules, directories, database overview
+- `project.md` — sections, directories, database overview
 - `tech.md` — stack, model IDs, dependencies
 - `coding-standards.md` — Python and TypeScript patterns, agent/tool naming, temperatures
 - `database.md` — schema, pgvector patterns
@@ -24,7 +24,7 @@ No other steering conflicts surfaced.
 
 ### Scope boundaries
 
-- **In scope:** storefront UI, backend API, auth flow, preferences engine, C1–C9 challenge scaffolds, visible acceptance criteria.
+- **In scope:** storefront UI, backend API, auth flow, preferences engine, Capabilities 1-9 exercise scaffolds, visible acceptance criteria.
 - **Out of scope (own specs):**
   - Product table DDL, tagging pipeline, embedding generation → `catalog-enrichment`
   - Customer support specialist agent → `customer-support-agent`
@@ -35,7 +35,7 @@ No other steering conflicts surfaced.
 Two distinct audiences consume this product:
 
 - **Shoppers** — visitors to the storefront during demos and self-exploration.
-- **Workshop participants** — developers completing the 2-hour Workshop or 1-hour Builders Session by editing code between `# === CHALLENGE N: START/END ===` blocks.
+- **Workshop participants** — developers completing the 2-hour Workshop or 1-hour Builders Session by editing code between `# === REFERENCE: START/END ===` blocks.
 
 Requirements below are grouped by audience where the distinction matters.
 
@@ -206,78 +206,78 @@ Requirements below are grouped by audience where the distinction matters.
 
 **Acceptance criteria (EARS):**
 
-- 2.1.1 WHEN a participant opens a challenge file THEN they SHALL find a single `# === CHALLENGE N: START ===` and matching `# === CHALLENGE N: END ===` block per challenge.
-- 2.1.2 WHEN the Workshop format is delivered THEN participants SHALL delete the code between the blocks and reimplement from hints across all 9 challenges within 110 minutes of content time (M1 30 min + M2 40 min + M3 40 min).
-- 2.1.3 WHEN the Builders Session format is delivered THEN participants SHALL build C1 only and read-and-test C2 through C9 within 50 minutes of content time (M1 15 min + M2 20 min + M3 15 min).
-- 2.1.4 WHEN a participant pastes the drop-in solution `cp solutions/moduleN/path/file.py pellier/backend/path/file.py` and restarts the backend THEN the challenge SHALL pass its verification without further edits.
+- 2.1.1 WHEN a participant opens a exercise file THEN they SHALL find a single `# === REFERENCE: START ===` and matching `# === REFERENCE: END ===` block per exercise.
+- 2.1.2 WHEN the Workshop format is delivered THEN participants SHALL delete the code between the blocks and reimplement from hints across all 9 exercises within 110 minutes of content time (M1 30 min + M2 40 min + M3 40 min).
+- 2.1.3 WHEN the Builders Session format is delivered THEN participants SHALL build Capability 1 only and read-and-test Capability 2 through Capability 9 within 50 minutes of content time (M1 15 min + M2 20 min + M3 15 min).
+- 2.1.4 WHEN a participant pastes the drop-in solution `cp solutions/moduleN/path/file.py pellier/backend/path/file.py` and restarts the backend THEN the exercise SHALL pass its verification without further edits.
 
-### Requirement 2.2 — Challenge file structure
+### Requirement 2.2 — Exercise file structure
 
-**User story:** As a workshop participant, I want challenge blocks and hints placed consistently so I can find where to edit.
+**User story:** As a workshop participant, I want exercise blocks and hints placed consistently so I can find where to edit.
 
 **Acceptance criteria (EARS):**
 
-- 2.2.1 WHEN a challenge file ships THEN the `# === CHALLENGE N: START ===` marker SHALL appear on a line by itself, followed by complete solution code, followed by `# === CHALLENGE N: END ===` on a line by itself.
-- 2.2.2 WHEN a challenge block is present THEN the solution code between the markers SHALL be functional on its own; removing the block and replacing with hints SHALL produce the participant-facing state.
-- 2.2.3 WHEN agent/tool names appear in challenge code THEN they SHALL match the exact names in `workshop-content.md` steering (tools: `search_products`, `get_trending_products`, `get_price_analysis`, `get_product_by_category`, `get_inventory_health`, `get_low_stock_products`, `restock_product`, `compare_products`, `get_return_policy`; agents: `search_agent`, `product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`, `customer_support_agent`).
+- 2.2.1 WHEN a exercise file ships THEN the `# === REFERENCE: START ===` marker SHALL appear on a line by itself, followed by complete solution code, followed by `# === REFERENCE: END ===` on a line by itself.
+- 2.2.2 WHEN a exercise block is present THEN the solution code between the markers SHALL be functional on its own; removing the block and replacing with hints SHALL produce the participant-facing state.
+- 2.2.3 WHEN agent/tool names appear in exercise code THEN they SHALL match the exact names in `workshop-content.md` steering (tools: `search_products`, `get_trending_products`, `get_price_analysis`, `get_product_by_category`, `get_inventory_health`, `get_low_stock_products`, `restock_product`, `compare_products`, `get_return_policy`; agents: `search_agent`, `product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`, `customer_support_agent`).
 - 2.2.4 WHEN a tool is authored THEN it SHALL use the `@tool` decorator from `strands`, return a JSON-serialized string, check `_db_service` availability, use `_run_async()` for async DB calls, and return `json.dumps({"error": str(e)})` on exception — per `coding-standards.md`.
 
-### Requirement 2.3 — Module 1: Smart Search (C1)
+### Requirement 2.3 — Section 1: Smart Search (Capability 1)
 
 **User story:** As a workshop participant, I want to implement pgvector similarity search so I understand retrieval end-to-end.
 
 **Acceptance criteria (EARS):**
 
-- 2.3.1 WHEN C1 is opened at `pellier/backend/services/hybrid_search.py` THEN the challenge block SHALL contain the method signature `async def _vector_search(self, embedding, limit, ef_search, iterative_scan=True)` on `HybridSearchService`.
-- 2.3.2 WHEN C1 is implemented THEN the query SHALL use the CTE pattern `WITH query_embedding AS (SELECT %s::vector as emb)` per `database.md` and `<=>` cosine distance for similarity.
-- 2.3.3 WHEN C1 runs THEN it SHALL call `SET LOCAL hnsw.ef_search = %s` using the passed `ef_search` value.
-- 2.3.4 WHEN `iterative_scan=True` THEN C1 SHALL call `SET LOCAL hnsw.iterative_scan = 'relaxed_order'`.
-- 2.3.5 WHEN C1 runs THEN the method SHALL accept a pre-computed embedding from the caller and SHALL NOT call Bedrock Embed itself.
-- 2.3.6 WHEN C1 is done THEN the verification step SHALL be: query `linen shirt` returns ≥5 results in <500ms with non-zero similarity scores.
+- 2.3.1 WHEN Capability 1 is opened at `pellier/backend/services/hybrid_search.py` THEN the exercise block SHALL contain the method signature `async def _vector_search(self, embedding, limit, ef_search, iterative_scan=True)` on `HybridSearchService`.
+- 2.3.2 WHEN Capability 1 is implemented THEN the query SHALL use the CTE pattern `WITH query_embedding AS (SELECT %s::vector as emb)` per `database.md` and `<=>` cosine distance for similarity.
+- 2.3.3 WHEN Capability 1 runs THEN it SHALL call `SET LOCAL hnsw.ef_search = %s` using the passed `ef_search` value.
+- 2.3.4 WHEN `iterative_scan=True` THEN Capability 1 SHALL call `SET LOCAL hnsw.iterative_scan = 'relaxed_order'`.
+- 2.3.5 WHEN Capability 1 runs THEN the method SHALL accept a pre-computed embedding from the caller and SHALL NOT call Bedrock Embed itself.
+- 2.3.6 WHEN Capability 1 is done THEN the verification step SHALL be: query `linen shirt` returns ≥5 results in <500ms with non-zero similarity scores.
 
-### Requirement 2.4 — Module 2: Agentic AI (C2–C4)
+### Requirement 2.4 — Section 2: Agentic AI (Capability 2–Capability 4)
 
 **User story:** As a workshop participant, I want to add a tool, build a specialist agent, and wire an orchestrator so I see the Agents-as-Tools pattern concretely.
 
 **Acceptance criteria (EARS):**
 
-- 2.4.1 WHEN C2 is opened at `pellier/backend/services/agent_tools.py` THEN the challenge block SHALL implement `get_trending_products()` as `@tool`-decorated, returning a JSON string of the top-trending products; it SHALL check `_db_service` availability, use `_run_async()`, and return `json.dumps({"error": str(e)})` on exception.
-- 2.4.2 WHEN C2 is done THEN the verification SHALL be: calling the tool directly in a REPL returns a parseable JSON string with ≥3 products.
-- 2.4.3 WHEN C3 is opened at `pellier/backend/agents/curator.py` THEN the challenge block SHALL instantiate `product_recommendation_agent` as a Strands `Agent` wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with `temperature=0.2` and tools `[search_products, get_trending_products, compare_products, get_product_by_category]`.
-- 2.4.4 WHEN C3's system prompt is authored THEN it SHALL emphasize warm, editorial, catalog-style reasoning grounded in specific product attributes.
-- 2.4.5 WHEN C3 is done THEN the verification SHALL be: calling the agent with `something for warm evenings out` returns a response that names at least one specific product (brand + color + price) AND that product's `tags` column SHALL include at least one of `evening`, `warm`, `dresses`, or `outerwear` (so relevance, not just mention, is checked). Expected matches include Sundress in Washed Linen or Cashmere-Blend Cardigan; an irrelevant recommendation such as Signature Straw Tote SHALL fail verification.
-- 2.4.6 WHEN C4 is opened at `pellier/backend/agents/orchestrator.py` THEN the challenge block SHALL instantiate the orchestrator with `BedrockModel(model_id='global.anthropic.claude-sonnet-4-6')`, `temperature=0.0`, and five specialist tools following the Strands "Agents as Tools" pattern.
-- 2.4.7 WHEN C4 routes a query THEN intent classification priority SHALL be `pricing > inventory > support > search > recommendation (default)` per `coding-standards.md`.
-- 2.4.8 WHEN C4 is done THEN the verification SHALL be: five representative queries (one per specialist intent) each route to the expected specialist, observable via trace logs.
+- 2.4.1 WHEN Capability 2 is opened at `pellier/backend/services/agent_tools.py` THEN the exercise block SHALL implement `get_trending_products()` as `@tool`-decorated, returning a JSON string of the top-trending products; it SHALL check `_db_service` availability, use `_run_async()`, and return `json.dumps({"error": str(e)})` on exception.
+- 2.4.2 WHEN Capability 2 is done THEN the verification SHALL be: calling the tool directly in a REPL returns a parseable JSON string with ≥3 products.
+- 2.4.3 WHEN Capability 3 is opened at `pellier/backend/agents/curator.py` THEN the exercise block SHALL instantiate `product_recommendation_agent` as a Strands `Agent` wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with `temperature=0.2` and tools `[search_products, get_trending_products, compare_products, get_product_by_category]`.
+- 2.4.4 WHEN Capability 3's system prompt is authored THEN it SHALL emphasize warm, editorial, catalog-style reasoning grounded in specific product attributes.
+- 2.4.5 WHEN Capability 3 is done THEN the verification SHALL be: calling the agent with `something for warm evenings out` returns a response that names at least one specific product (brand + color + price) AND that product's `tags` column SHALL include at least one of `evening`, `warm`, `dresses`, or `outerwear` (so relevance, not just mention, is checked). Expected matches include Sundress in Washed Linen or Cashmere-Blend Cardigan; an irrelevant recommendation such as Signature Straw Tote SHALL fail verification.
+- 2.4.6 WHEN Capability 4 is opened at `pellier/backend/agents/orchestrator.py` THEN the exercise block SHALL instantiate the orchestrator with `BedrockModel(model_id='global.anthropic.claude-sonnet-4-6')`, `temperature=0.0`, and five specialist tools following the Strands "Agents as Tools" pattern.
+- 2.4.7 WHEN Capability 4 routes a query THEN intent classification priority SHALL be `pricing > inventory > support > search > recommendation (default)` per `coding-standards.md`.
+- 2.4.8 WHEN Capability 4 is done THEN the verification SHALL be: five representative queries (one per specialist intent) each route to the expected specialist, observable via trace logs.
 
-### Requirement 2.5 — Module 3: Production Patterns (C5–C8)
+### Requirement 2.5 — Section 3: Production Patterns (Capability 5–Capability 8)
 
 **User story:** As a workshop participant, I want to layer production patterns on top of the working agent so I see the path from prototype to deployable.
 
 **Acceptance criteria (EARS):**
 
-- 2.5.1 WHEN C5 is opened at `pellier/backend/services/agentcore_runtime.py` THEN the challenge block SHALL migrate the orchestrator from local Strands execution to AgentCore Runtime and expose a `run_agent_on_runtime(message, session_id)` entry point.
-- 2.5.2 WHEN C6 is opened at `pellier/backend/services/agentcore_memory.py` THEN the challenge block SHALL implement two concerns: (a) short-term memory for multi-turn session history keyed by `session_id`, (b) persistent user preferences keyed by `user:{user_id}:preferences` where `user_id` comes from verified Cognito JWT (delivered by C9).
-- 2.5.3 WHEN C7 is opened at `pellier/backend/services/agentcore_gateway.py` THEN the challenge block SHALL expose the agent tools via the MCP streamable HTTP transport so an external agent client can discover and invoke them.
-- 2.5.4 WHEN C8 is opened at `pellier/backend/services/otel_trace_extractor.py` THEN the challenge block SHALL extract OpenTelemetry spans produced by the agent run and format them for the `/inspector` view.
+- 2.5.1 WHEN Capability 5 is opened at `pellier/backend/services/agentcore_runtime.py` THEN the exercise block SHALL migrate the orchestrator from local Strands execution to AgentCore Runtime and expose a `run_agent_on_runtime(message, session_id)` entry point.
+- 2.5.2 WHEN Capability 6 is opened at `pellier/backend/services/agentcore_memory.py` THEN the exercise block SHALL implement two concerns: (a) short-term memory for multi-turn session history keyed by `session_id`, (b) persistent user preferences keyed by `user:{user_id}:preferences` where `user_id` comes from verified Cognito JWT (delivered by Capability 9).
+- 2.5.3 WHEN Capability 7 is opened at `pellier/backend/services/agentcore_gateway.py` THEN the exercise block SHALL expose the agent tools via the MCP streamable HTTP transport so an external agent client can discover and invoke them.
+- 2.5.4 WHEN Capability 8 is opened at `pellier/backend/services/otel_trace_extractor.py` THEN the exercise block SHALL extract OpenTelemetry spans produced by the agent run and format them for the `/inspector` view.
 
-### Requirement 2.6 — Module 3 Capstone: Agent Identity (C9)
+### Requirement 2.6 — Section 3 Capstone: Agent Identity (Capability 9)
 
 **User story:** As a workshop participant, I want to wire real Cognito + AgentCore Identity into the storefront so personalization is bound to my verified user, closing the loop from retrieval through reasoning to identity.
 
 **Acceptance criteria (EARS):**
 
-- 2.6.1 WHEN C9 ships THEN it SHALL span exactly four files, each with its own `# === CHALLENGE 9.N: START/END ===` block:
+- 2.6.1 WHEN Capability 9 ships THEN it SHALL span exactly four files, each with its own `# === REFERENCE.N: START/END ===` block:
   1. `pellier/backend/services/cognito_auth.py`
   2. `pellier/backend/services/agentcore_identity.py`
   3. `pellier/frontend/src/utils/auth.ts`
   4. `pellier/frontend/src/components/AuthModal.tsx` + `pellier/frontend/src/components/PreferencesModal.tsx` (both gated by block 9.4)
-- 2.6.2 WHEN C9.1 is done THEN `cognito_auth.py` SHALL provide a JWKS client with 1-hour TTL cache, a JWT validator, and a FastAPI middleware/dependency that extracts the verified `user_id`, `email`, and `given_name` into `request.state.user`.
-- 2.6.3 WHEN C9.1 validates a token THEN it SHALL reject expired tokens, tokens with invalid `iss`, `aud`, or `token_use`, and tokens signed with keys not in the Cognito JWKS.
-- 2.6.4 WHEN C9.2 is done THEN `agentcore_identity.py` SHALL expose `get_verified_user_context(request)` returning `user_id` + a session namespace usable by `agentcore_memory.py`.
-- 2.6.5 WHEN C9.3 is done THEN `auth.ts` SHALL provide Cognito Hosted UI redirect helpers for `google`, `apple`, and `email`, a `useAuth()` React context, and silent token refresh via the `refresh_token` cookie.
-- 2.6.6 WHEN C9.4 is done THEN `AuthModal.tsx` SHALL render exactly the structure in `storefront.md` (three provider buttons, disclaimer, `Secured by AgentCore Identity` 10px mono footer) and `PreferencesModal.tsx` SHALL render the four preference groups (Vibe 6 cards, Colors 5 pill chips, Where 6 pill chips, Categories 6 pill chips) with the selected-chip visual state from `storefront.md`.
-- 2.6.7 WHEN C9 is done THEN the capstone verification SHALL be: sign in with Google, save preferences, observe the product grid re-sort by match score, sign out, confirm Account button returns to `Account` and the sign-in strip reappears.
+- 2.6.2 WHEN Capability 9.1 is done THEN `cognito_auth.py` SHALL provide a JWKS client with 1-hour TTL cache, a JWT validator, and a FastAPI middleware/dependency that extracts the verified `user_id`, `email`, and `given_name` into `request.state.user`.
+- 2.6.3 WHEN Capability 9.1 validates a token THEN it SHALL reject expired tokens, tokens with invalid `iss`, `aud`, or `token_use`, and tokens signed with keys not in the Cognito JWKS.
+- 2.6.4 WHEN Capability 9.2 is done THEN `agentcore_identity.py` SHALL expose `get_verified_user_context(request)` returning `user_id` + a session namespace usable by `agentcore_memory.py`.
+- 2.6.5 WHEN Capability 9.3 is done THEN `auth.ts` SHALL provide Cognito Hosted UI redirect helpers for `google`, `apple`, and `email`, a `useAuth()` React context, and silent token refresh via the `refresh_token` cookie.
+- 2.6.6 WHEN Capability 9.4 is done THEN `AuthModal.tsx` SHALL render exactly the structure in `storefront.md` (three provider buttons, disclaimer, `Secured by AgentCore Identity` 10px mono footer) and `PreferencesModal.tsx` SHALL render the four preference groups (Vibe 6 cards, Colors 5 pill chips, Where 6 pill chips, Categories 6 pill chips) with the selected-chip visual state from `storefront.md`.
+- 2.6.7 WHEN Capability 9 is done THEN the capstone verification SHALL be: sign in with Google, save preferences, observe the product grid re-sort by match score, sign out, confirm Account button returns to `Account` and the sign-in strip reappears.
 
 ### Requirement 2.7 — Drop-in solutions path
 
@@ -285,8 +285,8 @@ Requirements below are grouped by audience where the distinction matters.
 
 **Acceptance criteria (EARS):**
 
-- 2.7.1 WHEN a participant runs `cp solutions/moduleN/<relative path> pellier/backend/<relative path>` THEN the copied file SHALL contain the complete solution code identical to what lives inside the `# === CHALLENGE N: START/END ===` block.
-- 2.7.2 WHEN the backend is restarted after a drop-in paste THEN the challenge verification step SHALL pass without further edits.
+- 2.7.1 WHEN a participant runs `cp solutions/moduleN/<relative path> pellier/backend/<relative path>` THEN the copied file SHALL contain the complete solution code identical to what lives inside the `# === REFERENCE: START/END ===` block.
+- 2.7.2 WHEN the backend is restarted after a drop-in paste THEN the exercise verification step SHALL pass without further edits.
 - 2.7.3 WHEN solutions are organized on disk THEN they SHALL live under the named module folders: `solutions/the-quiet-search/`, `solutions/closing-marcos-gap/`, and `solutions/the-ledger/` (per `project.md`).
 
 ---
@@ -328,7 +328,7 @@ Requirements below are grouped by audience where the distinction matters.
 - 3.3.3 WHEN `GET /api/products?personalized=true` is called with a valid JWT AND the user has no saved preferences THEN the backend SHALL return the default editorial order.
 - 3.3.4 WHEN `GET /api/products?category=<name>` is called THEN the backend SHALL filter to the named category with `ILIKE` per `database.md`.
 - 3.3.5 WHEN `GET /api/products/{id}` is called THEN the backend SHALL return the product row or `404`.
-- 3.3.6 WHEN `POST /api/search` is called with `{ query: string }` THEN the backend SHALL embed the query, call `HybridSearchService._vector_search()` (C1 implementation), and return ranked results.
+- 3.3.6 WHEN `POST /api/search` is called with `{ query: string }` THEN the backend SHALL embed the query, call `HybridSearchService._vector_search()` (Capability 1 implementation), and return ranked results.
 
 ### Requirement 3.4 — Agent endpoints
 
@@ -336,7 +336,7 @@ Requirements below are grouped by audience where the distinction matters.
 
 **Acceptance criteria (EARS):**
 
-- 3.4.1 WHEN `POST /api/agent/chat` is called with `{ message: string, session_id?: string }` THEN the backend SHALL run the orchestrator (C4, and C5 on AgentCore Runtime once C5 is in place) and stream the response as Server-Sent Events.
+- 3.4.1 WHEN `POST /api/agent/chat` is called with `{ message: string, session_id?: string }` THEN the backend SHALL run the orchestrator (Capability 4, and Capability 5 on AgentCore Runtime once Capability 5 is in place) and stream the response as Server-Sent Events.
 - 3.4.2 WHEN the request includes a valid JWT THEN the agent SHALL receive the verified user context via `agentcore_identity.get_verified_user_context(request)` and scope memory reads/writes to `user:{user_id}`.
 - 3.4.3 WHEN `session_id` is omitted THEN the backend SHALL generate one and return it in the first SSE event.
 - 3.4.4 WHEN `GET /api/agent/session/{id}` is called with a valid JWT THEN the backend SHALL return the multi-turn history from AgentCore Memory for that session, scoped to the verified user.
@@ -432,7 +432,7 @@ Requirements below are grouped by audience where the distinction matters.
 
 **Acceptance criteria (EARS):**
 
-- 5.4.1 WHEN C8 is complete THEN every agent run SHALL emit OpenTelemetry spans extractable by `otel_trace_extractor.py` for the `/inspector` view.
+- 5.4.1 WHEN Capability 8 is complete THEN every agent run SHALL emit OpenTelemetry spans extractable by `otel_trace_extractor.py` for the `/inspector` view.
 - 5.4.2 WHEN SQL is executed by the search service THEN it SHALL log via `sql_query_logger.py` with parameterized placeholders (not interpolated values) per `database.md`.
 
 ---
@@ -450,7 +450,7 @@ Requirements below are grouped by audience where the distinction matters.
 
 **Acceptance criteria (EARS):**
 
-- 6.2.1 WHEN session history or user preferences are stored THEN they SHALL use `pellier/backend/services/agentcore_memory.py` (implemented by C6) — not the product DB, not Redis, not in-process dicts in production paths.
+- 6.2.1 WHEN session history or user preferences are stored THEN they SHALL use `pellier/backend/services/agentcore_memory.py` (implemented by Capability 6) — not the product DB, not Redis, not in-process dicts in production paths.
 
 ---
 
@@ -460,7 +460,7 @@ Requirements below are grouped by audience where the distinction matters.
 
 **Acceptance criteria (EARS):**
 
-- 7.1.1 WHEN the orchestrator (C4) references `customer_support_agent` THEN the specialist's implementation SHALL be sourced from `.kiro/specs/customer-support-agent/` without duplication in this spec.
+- 7.1.1 WHEN the orchestrator (Capability 4) references `customer_support_agent` THEN the specialist's implementation SHALL be sourced from `.kiro/specs/customer-support-agent/` without duplication in this spec.
 - 7.1.2 WHEN this spec's tasks create the orchestrator routing THEN the five-specialist tool list SHALL include a symbol import for `customer_support_agent`, even if the specialist code itself is owned by the other spec.
 
 ### Requirement 7.2 — Configuration and copy centralization
@@ -491,8 +491,8 @@ Requirements below are grouped by audience where the distinction matters.
 - [x] Intent rotation pauses on hover; progress bar freezes and resumes (1.3.6, 1.3.7).
 - [x] Grid re-sorts on preference change (1.6.6, 3.3.2).
 - [x] Parallax matches `storefront.md` timing (1.6.2, 1.6.3).
-- [x] 9 challenges total, 1/3/5 split (2.3, 2.4, 2.5, 2.6).
-- [x] C9 is four files (2.6.1).
+- [x] 9 exercises total, 1/3/5 split (2.3, 2.4, 2.5, 2.6).
+- [x] Capability 9 is four files (2.6.1).
 - [x] Storyboard is 3-card grid (1.9.1).
 - [x] Storyboard and Discover routes render minimal index pages (1.13).
 - [x] Real Cognito + AgentCore Identity (4.1–4.3).
@@ -511,7 +511,7 @@ Requirements complete. Revision incorporates:
 
 - Resolved path-prefix and Aurora-version conflicts (Introduction).
 - Personalization scoring clarified as equal-weight tag overlap with weighted scoring flagged as Take It Further (3.3.2, 3.3.2.1).
-- C3 verification tightened to require tag-level relevance (2.4.5).
+- Capability 3 verification tightened to require tag-level relevance (2.4.5).
 - Anonymous → authenticated session handoff flagged as Take It Further (4.3.3.1).
 - Preferences-modal "once per fresh sign-in" signal deferred to `design.md` (1.4.4).
 - Storyboard and Discover minimal index routes added (1.13).

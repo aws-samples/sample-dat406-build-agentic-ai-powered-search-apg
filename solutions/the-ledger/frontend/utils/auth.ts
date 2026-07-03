@@ -1,7 +1,7 @@
 /**
- * utils/auth.ts — Challenge 9.3 solution drop-in.
+ * utils/auth.ts — auth utility solution drop-in.
  *
- * This file mirrors the code inside the `// === CHALLENGE 9.3: START/END ===`
+ * This file mirrors the code inside the `// === REFERENCE: START/END ===`
  * block in `pellier/frontend/src/utils/auth.ts` byte-for-byte so a
  * participant can `cp solutions/the-ledger/frontend/utils/auth.ts
  * pellier/frontend/src/utils/auth.ts` and restart the frontend to
@@ -9,7 +9,7 @@
  * is documentation, not part of the challenge block.
  */
 
-// === CHALLENGE 9.3: START ===
+// === REFERENCE: START ===
 import { useAuth as useAuthFromContext } from '../contexts/AuthContext'
 
 export type SignInProvider = 'google' | 'apple' | 'email'
@@ -90,4 +90,4 @@ export async function redirectToLogout(): Promise<void> {
  * import from one place per the design document.
  */
 export const useAuth = useAuthFromContext
-// === CHALLENGE 9.3: END ===
+// === REFERENCE: END ===

@@ -20,8 +20,8 @@ It is a Strands `@tool` whose body is currently a stub. The work lives **between
 these two marker comments** (search the file for them):
 
 ```
-# === CHALLENGE · Stock Keeper · floor_check: START ===
-# === CHALLENGE · Stock Keeper · floor_check: END ===
+# === WORKSHOP · Stock Keeper · floor_check: START ===
+# === WORKSHOP · Stock Keeper · floor_check: END ===
 ```
 
 Replace the stubbed `return json.dumps({... "error": "floor_check is in stub

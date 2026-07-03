@@ -56,7 +56,7 @@ _SPECIALIST_TOOL_NAMES = frozenset(
 )
 
 
-# === CHALLENGE 8: Observability — START ===
+# === REFERENCE: Observability — START ===
 # Requirement 2.5.4 and 5.4.1. The orchestrator streaming path attaches
 # ``trace_attributes`` (session.id, user.id, runtime, workshop) to the
 # Strands Agent before invocation — see ``services.agentcore_runtime.
@@ -488,4 +488,4 @@ def _failed_execution(reason: str) -> Dict[str, Any]:
         "otel_enabled": False,
         "reason": reason,
     }
-# === CHALLENGE 8: Observability — END ===
+# === REFERENCE: Observability — END ===

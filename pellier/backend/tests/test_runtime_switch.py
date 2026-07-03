@@ -1,4 +1,4 @@
-"""Runtime-switch tests for the Challenge 5 dispatcher.
+"""Runtime-switch tests for the runtime bridge dispatcher.
 
 Validates Requirement 2.5.1 from
 `.kiro/specs/pellier-storefront/requirements.md` and Design
@@ -7,7 +7,7 @@ Validates Requirement 2.5.1 from
   2.5.1  When ``settings.USE_AGENTCORE_RUNTIME`` is ``False`` (the
          default), ``services.agentcore_runtime.run_agent`` SHALL
          dispatch to the in-process Strands orchestrator produced by
-         ``agents.orchestrator.create_orchestrator`` (Challenge 4).
+         ``agents.orchestrator.create_orchestrator`` (in-process orchestrator).
          When flipped to ``True`` the same call SHALL forward the
          request to ``run_agent_on_runtime`` so a single env var flip
          migrates ``/api/agent/chat`` from local execution to the
@@ -37,7 +37,7 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# In-process orchestrator stub (Challenge 4 path)
+# In-process orchestrator stub (in-process orchestrator path)
 # ---------------------------------------------------------------------------
 
 
@@ -152,7 +152,7 @@ def test_run_agent_dispatches_to_inprocess_when_flag_false(
     # Runtime path was not taken.
     assert stub_runtime_call == []
 
-    # Dispatcher attached trace attributes so the otel extractor (C8)
+    # Dispatcher attached trace attributes so the otel extractor (OTEL)
     # sees the session + user context on the in-process path too.
     assert stub.trace_attributes == {
         "session.id": "sess-1",
@@ -236,7 +236,7 @@ def test_run_agent_runtime_passes_none_user_id_through(
 ) -> None:
     """Anonymous requests SHALL reach the runtime path with
     ``user_id=None`` so the runtime entrypoint can fall back to
-    ``"anonymous"`` itself (C5 contract in ``agentcore_runtime.py``)."""
+    ``"anonymous"`` itself (runtime contract in ``agentcore_runtime.py``)."""
     import asyncio
 
     import services.agentcore_runtime as rt

@@ -1,16 +1,16 @@
 """
 Hybrid Search Service — pgvector semantic search.
 
-Only ``_vector_search`` survives today. The Module 1 teaching surface
+Only ``_vector_search`` survives today. The retrieval teaching surface
 is pure pgvector cosine similarity — the earlier hybrid (vector +
 keyword + RRF) and Cohere Rerank branches were removed after the
 concierge switched to semantic-only retrieval.
 
 The class name is retained (rather than renamed to ``VectorSearch``)
 because ``HybridSearchService._vector_search`` is the canonical
-``CHALLENGE 1`` block referenced from ``agent_tools.search_products``
-and from ``tests/test_vector_search.py``. Renaming would ripple into
-the solutions parity diff and workshop module status check.
+pgvector reference called by the search tools and covered by
+``tests/test_vector_search.py``. Renaming would ripple into the
+solutions parity diff and recovery docs.
 """
 import logging
 import time
@@ -38,7 +38,7 @@ class HybridSearchService:
         iterative_scan: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Semantic vector similarity search using pgvector (Module 1 — Challenge 1).
+        Semantic vector similarity search using pgvector (retrieval reference).
 
         This is the core of semantic search — it finds products whose meaning
         is similar to the query, even when exact keywords don't match.
@@ -69,7 +69,7 @@ class HybridSearchService:
         ⏩ SHORT ON TIME? Run:
            cp solutions/the-quiet-search/services/hybrid_search.py pellier/backend/services/hybrid_search.py
         """
-        # === CHALLENGE 1: START ===
+        # === REFERENCE: START ===
         sql = """
             WITH query_embedding AS (
                 SELECT %s::vector as emb
@@ -133,4 +133,4 @@ class HybridSearchService:
             logger.debug(f"sql_query_logger append failed: {log_err}")
 
         return results
-        # === CHALLENGE 1: END ===
+        # === REFERENCE: END ===

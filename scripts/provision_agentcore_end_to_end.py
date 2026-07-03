@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Provision full AgentCore managed path for Builder's Session.
+Provision the full AgentCore managed path for the Pellier workshop.
 
 This script is strict by design:
   - Deploy 4 MCP Lambda servers.

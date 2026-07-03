@@ -1,5 +1,5 @@
 /**
- * PreferencesModal - Challenge 9.4b surface.
+ * PreferencesModal - preferences modal surface.
  *
  * Validates Requirement 2.6.6 (preferences modal half) and the
  * `storefront.md` "Preferences onboarding modal" spec.
@@ -52,7 +52,7 @@ import type {
 import { useAuth } from '../utils/auth'
 import { cssVar as c } from '../design/cssVars'
 
-// === CHALLENGE 9.4: START ===
+// === REFERENCE: START ===
 // --- Design tokens → Daylight via `cssVars` / bridge --------------------
 
 const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
@@ -623,4 +623,4 @@ export default function PreferencesModal() {
     </div>
   )
 }
-// === CHALLENGE 9.4: END ===
+// === REFERENCE: END ===

@@ -91,7 +91,7 @@ def _ensure_execution_role_arn() -> str | None:
         role = iam.create_role(
             RoleName=ROLE_NAME,
             AssumeRolePolicyDocument=json.dumps(trust),
-            Description="Pellier AgentCore Runtime execution role (Builder's Session)",
+            Description="Pellier AgentCore Runtime execution role (workshop)",
         )["Role"]["Arn"]
         for policy_arn in (
             "arn:aws:iam::aws:policy/AmazonBedrockFullAccess",

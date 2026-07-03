@@ -1,5 +1,5 @@
 """
-Take It Further - Module 1 Challenge 1.
+Take It Further - retrieval reference.
 
 Drop-in replacement for services/hybrid_search.py that wires Cohere Rerank v3.5
 (Amazon Bedrock) on top of the pgvector cosine-similarity + full-text candidate

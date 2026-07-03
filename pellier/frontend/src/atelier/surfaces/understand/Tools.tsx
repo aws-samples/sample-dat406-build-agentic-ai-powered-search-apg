@@ -3,7 +3,7 @@
  *
  * WorkshopProgressStrip: one segment per tool; shipped vs exercise from
  * build state (`/api/atelier/build-state`) with live overlay when
- * `floor_check` is wired — matches Builder's Session Part I.
+ * `floor_check` is wired — matches the workshop required path.
  *
  * Shipped tools: solid borders, sage status.
  * Exercise tools: dashed borders, burgundy status.
@@ -1234,7 +1234,7 @@ const Tools: React.FC = () => {
       <EditorialTitle
         eyebrow="Understand · Tools · thirteen functions · pgvector-discoverable"
         title="The toolkit, by what each does."
-        summary="Thirteen tools in the registry. Twelve ship as reference in the Builder's Session image; floor_check is the sole hands-on wire in Part I. Each tool has an embedding – discovery ranks by cosine similarity. Replacing the stub updates GET /api/atelier/build-state so Stock Keeper and floor_check read as shipped."
+        summary="Thirteen tools in the registry. Twelve ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. Each tool has an embedding – discovery ranks by cosine similarity. Replacing the stub updates GET /api/atelier/build-state so Stock Keeper and floor_check read as shipped."
       />
 
       {loading && <LoadingState />}

@@ -233,7 +233,7 @@ const CODE_READ: Array<{ step: string; path: string; body: string }> = [
   },
   {
     step: 'The baseline: pure pgvector',
-    path: 'services/vector_search.py — VectorSearch.vector_search (CHALLENGE 1)',
+    path: 'services/vector_search.py — VectorSearch.vector_search (reference)',
     body: 'Marco’s path. One CTE binds the query vector once; the <=> operator is HNSW cosine distance; similarity = 1 − distance. SET LOCAL hnsw.ef_search tunes recall per query; iterative_scan protects recall when WHERE clauses are strict.',
   },
   {

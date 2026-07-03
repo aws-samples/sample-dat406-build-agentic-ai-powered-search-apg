@@ -1,5 +1,5 @@
 {
-  "summary": "Four production patterns sit underneath every shipped agent: identity (who is asking), guardrails (what they can ask for), multi-tenancy hygiene (how their data stays separate), and tool publishing (how the agent finds the right capability). The default builder path runs without any of them by design – they're the seams you reach for once the prototype is real.",
+  "summary": "Four production patterns sit underneath every shipped agent: identity (who is asking), guardrails (what they can ask for), multi-tenancy hygiene (how their data stays separate), and tool publishing (how the agent finds the right capability). The required workshop path runs without all of them by design - they're the seams you reach for once the prototype is real.",
   "patterns": [
     {
       "numeral": "I",
@@ -130,7 +130,7 @@
         {
           "name": "AgentCore Gateway (MCP)",
           "where": "Configured via AGENTCORE_GATEWAY_URL – falls back to in-process when unset",
-          "purpose": "Lets multiple agents (re:Invent advanced track, ops tools, internal copilots) share one Lambda-backed tool surface. Each tool is published once, discovered over MCP, called by ARN.",
+          "purpose": "Lets multiple agents (advanced workshop path, ops tools, internal copilots) share one Lambda-backed tool surface. Each tool is published once, discovered over MCP, called by ARN.",
           "tradeoff": "Adds a network hop and a deploy step. Worth it when more than one agent needs the same capability."
         },
         {

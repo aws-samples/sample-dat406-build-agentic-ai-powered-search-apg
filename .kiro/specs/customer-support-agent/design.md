@@ -62,7 +62,7 @@ graph TD
 
 1. **Aurora-backed return policy table** — Return policies are stored in `pellier.return_policies`, seeded by the bootstrap script alongside the product catalog. The `get_return_policy` tool queries this table using the same `_db_service` + `_run_async` pattern as every other tool. This keeps the "everything lives in Aurora" narrative clean.
 
-2. **`search_products` rename** — Every other data tool follows `verb_noun` naming (`get_trending_products`, `restock_product`). Renaming `semantic_product_search` to `search_products` aligns with this convention. This is a codebase-wide find-and-replace affecting `agent_tools.py`, all agent modules, `chat.py`, and prompts.
+2. **`search_products` rename** — Every other data tool follows `verb_noun` naming (`get_trending_products`, `restock_product`). Renaming `semantic_product_search` to `search_products` aligns with this convention. This is a codebase-wide find-and-replace affecting `agent_tools.py`, all agent sections, `chat.py`, and prompts.
 
 3. **Search Agent promotion** — The frontend already has a `'search'` AgentType with full identity styling. Promoting it to a real backend agent means the frontend identity requires no changes — only the backend needs a new `agents/search_agent.py` and routing updates.
 

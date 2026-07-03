@@ -1,7 +1,7 @@
 """``/api/search`` route — storefront vector search (Task 3.7).
 
 Implements Requirement 3.3.6 and 5.1.1 of the pellier-storefront
-spec and wires Challenge 1 (``VectorSearch.vector_search`` from
+spec and wires vector search reference (``VectorSearch.vector_search`` from
 Task 2.1) into the public HTTP surface with the ``StorefrontSearchResponse``
 wire shape from Task 1.3.
 
@@ -55,8 +55,7 @@ Design notes
   ``catalog-enrichment`` sibling spec. This route issues read-only
   queries through ``VectorSearch.vector_search`` — no writes.
 
-Routes are NOT part of any workshop challenge block. This file ships
-without ``# === CHALLENGE ... ===`` markers.
+Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
 
 from __future__ import annotations
@@ -195,7 +194,7 @@ async def storefront_search(
       1. Embed the query via ``EmbeddingService.embed_query``
          (Cohere Embed v4 ``input_type=search_query``).
       2. Call ``VectorSearch.vector_search`` with the pre-computed
-         vector. ``vector_search`` is the C1 method from Task 2.1 — it
+         vector. ``vector_search`` is the vector-search method from Task 2.1 — it
          owns ``SET LOCAL hnsw.ef_search``, the ``iterative_scan``
          branch, and the ``<=>`` cosine ordering.
       3. Project rows onto ``StorefrontProduct`` and assemble

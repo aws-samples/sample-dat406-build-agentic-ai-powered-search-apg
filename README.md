@@ -1,4 +1,4 @@
-# Pellier – Agentic AI-Powered Search with Amazon Aurora PostgreSQL & Amazon Bedrock AgentCore
+# Pellier - Governed Agentic AI Search with Aurora, RDS, and Bedrock AgentCore
 
 <div align="center">
 
@@ -12,22 +12,22 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 [![MCP](https://img.shields.io/badge/MCP-postgres--mcp--server-4A154B?style=flat-square)](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 
-[![Level 400](https://img.shields.io/badge/Level-400_·_Expert-A8423A?style=flat-square)](#builders-session-60-min)
+[![Level 400](https://img.shields.io/badge/Level-400_·_Expert-A8423A?style=flat-square)](#workshop-path)
 [![License: MIT](https://img.shields.io/github/license/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=00b300&label=License)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=yellow)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/stargazers)
 
 </div>
 
-> Educational reference implementation for the AWS Summit Builder's Session.
+> Educational reference implementation for a governed agentic AI search workshop.
 > Not intended for production deployment without security hardening.
 
-**Contents:** [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Builder's Session](#builders-session-60-min) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
+**Contents:** [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
 
 ---
 
 ## Who this is for
 
-This is a **400-level (expert)** Builder's Session. "Level 400" is the AWS depth scale — 100 is introductory, 400 is the deepest expert tier. That refers to the **concepts on screen** (agentic orchestration, pgvector retrieval, AgentCore, MCP), not the amount of code you write.
+This is a **400-level (expert)** workshop application. "Level 400" is the AWS depth scale — 100 is introductory, 400 is the deepest expert tier. That refers to the **concepts on screen** (agentic orchestration, pgvector retrieval, AgentCore, MCP), not the amount of code you write.
 
 **You will be comfortable here if you:**
 - Read Python and SQL (you don't need to write much of either)
@@ -55,7 +55,7 @@ The two surfaces share design tokens, presence pill, trace chips, and a typed ag
 
 ### What it demonstrates
 
-Every claim in the Builder's Session abstract maps to something runnable in this repo:
+Every claim in the workshop abstract maps to something runnable in this repo:
 
 | Claim | Where it lives |
 |---|---|
@@ -154,19 +154,19 @@ The app moves to `/app/`, `GET /app` 307-redirects to `/app/`, and the real API 
 
 ---
 
-## Builder's Session (60 min)
+## Workshop path
 
-This repo is the source of truth for the application behind the **60-minute Builder's Session** (AWS Summit), framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The mandatory path is the `floor_check` tool body (Act I) plus three participant-authored SQL queries against `pellier.tool_audit` (Act II): raw row, JSONB extraction, and the DENY-absence proof. Optional skill-edit and `logger.info` observability beats round out tables that finish early. Everything else is observe / measure / read.
+This repo is the source of truth for the application behind the **governed agentic AI search workshop**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Runtime, Gateway, Memory, Policy, and MCP are exposed as guided governance reads and optional deeper inspection surfaces. Exact pacing and participant wording live in the separate Workshop Studio repo.
 
 The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The session is structured as:
 
-| Section | Time | What attendees do |
-|---|---|---|
-| Introduction | 5 min | Open the workspace and land in Boutique + Atelier — both already running, nothing to set up or start. Frame the architecture and the single function you'll implement. **What 400-level means here:** depth of concepts, not volume of code — the app is pre-built; you implement one function, then observe / measure / read |
-| Act I: The Boutique | 30 min | Observe Marco's broken Turn 4 → wire `floor_check` (Exercise 1) → measure vector / hybrid / hybrid+rerank / agentic for Anna's anchor query |
-| Act II: The Ledger | 12 min | Read memory substrates (AgentCore STM) via `/api/agent/session/{id}` + inspect long-term taste in Aurora → invoke managed Runtime, then author three queries against `pellier.tool_audit` – raw row → JSONB extraction → DENY-absence proof (Exercise 2); optional `logger.info` observability beat |
-| Act III: The Concierge | 8 min | Read the dispatcher + specialists pattern → read the `awslabs.postgres-mcp-server` config + verify from the terminal, compare to Bedrock Knowledge Bases (read-only, take-home friendly) |
-| Close | 5 min | What this maps to in your stack, wrap-up, and Q&A |
+| Section | What attendees do |
+|---|---|
+| Introduction | Open the workspace and land in Boutique + Atelier — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
+| Act I: The Boutique | Observe Marco's broken warehouse turn → wire the `floor_check` tool path → replay Marco end to end → compare vector / hybrid / hybrid+rerank / agentic retrieval for Anna's anchor query. |
+| Act II: The Ledger | Read memory substrates (AgentCore STM + Aurora long-term taste), invoke the managed Runtime, then query `pellier.tool_audit` to reconstruct the governed tool path and ALLOW/DENY boundary. |
+| Act III: The Concierge | Inspect dispatcher + specialists, MCP config, AgentCore Gateway, JWT passthrough, and Cedar policy as the production topology around the same tool pattern. |
+| Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.
 
@@ -259,7 +259,6 @@ The lab manual, CloudFormation templates, and prereq images live in the separate
 
 - [Aurora PostgreSQL with pgvector](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
 - [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
-- [Amazon Bedrock Knowledge Bases (Aurora as vector store)](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-setup-rds.html)
 - [Model Context Protocol (MCP) specification](https://modelcontextprotocol.io/)
 - [Strands Agents SDK](https://strandsagents.com/latest/)
 - [pgvector 0.8.0 performance on Aurora](https://aws.amazon.com/blogs/database/supercharging-vector-search-performance-and-relevance-with-pgvector-0-8-0-on-amazon-aurora-postgresql/)

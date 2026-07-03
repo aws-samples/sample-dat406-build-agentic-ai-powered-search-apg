@@ -40,8 +40,7 @@ Design notes
   ``"invalid_state"`` / ``"refresh_failed"``) with an appropriate
   status. Token fragments are never logged (Req 5.3.3).
 
-Routes are NOT part of any workshop challenge block. This file ships
-without ``# === CHALLENGE ... ===`` markers.
+Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
 
 from __future__ import annotations

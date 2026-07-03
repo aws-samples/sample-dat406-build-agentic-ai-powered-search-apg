@@ -2,7 +2,7 @@
  * agentVocabulary — canonical names + one-line glossaries for every
  * agent concept that appears on BOTH the Boutique and the Atelier.
  *
- * One source of truth so a re:Invent attendee crossing between the
+ * One source of truth so a workshop participant crossing between the
  * shopper-facing storefront and the operator-facing observatory sees
  * the same chip with the same name in both places. When a name needs
  * to change, change it here and both surfaces update.

@@ -3,7 +3,7 @@
  *
  * Provides an abstraction layer that can be backed by:
  *   1. Fixture data (default — reads status from agents.json / tools.json)
- *   2. GET /api/atelier/build-state — merges overlays (Builder's Session: when
+ *   2. GET /api/atelier/build-state — merges overlays (workshop: when
  *      floor_check is no longer the workshop stub in agent_tools.py, promotes
  *      floor_check plus Stock Keeper to shipped without editing JSON fixtures).
  *   3. File-existence checks via a future backend probe
@@ -113,7 +113,7 @@ export function useBuildState(): BuildStateResult {
   }, [fetchBuildState]);
 
   // After wiring floor_check locally, revisit the tab or focus the window so
-  // build-state re-fetches once uvicorn has reloaded (Builder's Session flow).
+  // build-state re-fetches once uvicorn has reloaded (workshop flow).
   useEffect(() => {
     const refetchBuildState = () => {
       fetchBuildState();

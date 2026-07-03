@@ -39,8 +39,8 @@ Design notes
     - ``error``    — emitted instead of ``done`` when the agent call
                      raises; stream ends immediately after
 * **Runtime dispatch.** ``services.agentcore_runtime.run_agent`` branches
-  on ``settings.USE_AGENTCORE_RUNTIME`` so this route handles both C4
-  (in-process Strands) and C5 (managed runtime) without branching here.
+  on ``settings.USE_AGENTCORE_RUNTIME`` so this route handles both in-process
+  (in-process Strands) and runtime (managed runtime) without branching here.
   Since ``run_agent`` returns a single string rather than an async
   iterator, we emit the full response as a single ``chunk`` event plus
   a ``done`` trailer. The wire shape is ready for a streamed
@@ -51,8 +51,7 @@ Design notes
   agent response completes. A failed write does not fail the stream —
   it is logged and the user-visible stream still closes cleanly.
 
-Routes are NOT part of any workshop challenge block. This file ships
-without ``# === CHALLENGE ... ===`` markers.
+Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
 
 from __future__ import annotations
@@ -143,7 +142,7 @@ async def _stream_agent_response(
     )
 
     # --- 2. Agent invocation --------------------------------------------
-    # ``run_agent`` branches on ``USE_AGENTCORE_RUNTIME`` (C5) so this
+    # ``run_agent`` branches on ``USE_AGENTCORE_RUNTIME`` (runtime) so this
     # handler stays single-path. Any exception raised by the
     # orchestrator is caught and surfaced as an ``error`` event — we
     # never leak a stack trace to the client (Req 3.1.5 style envelope).

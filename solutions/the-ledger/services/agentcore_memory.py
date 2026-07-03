@@ -9,7 +9,7 @@ durable preferences. Episodic and procedural memory live elsewhere
 (Aurora `pellier.customer_episodic_seed` and `pellier.tool_audit`
 respectively) — see the four-substrate model in lab-content-audit.md §1.
 
-Challenge 6 (Requirements 2.5.2, 4.3.2, 4.4.1, 6.2.1). Exposes a single
+AgentCore Memory (Requirements 2.5.2, 4.3.2, 4.4.1, 6.2.1). Exposes a single
 ``AgentCoreMemory`` class with four async methods:
 
     append_session_turn(session_ns, turn)
@@ -28,7 +28,7 @@ IDs must match ``[a-zA-Z0-9][a-zA-Z0-9-_]*``. The preferences key has
 no session-id component so colons are fine there.
 
 The authenticated session namespace is built by
-``services.agentcore_identity.AgentCoreIdentityService`` (Challenge 9.2)
+``services.agentcore_identity.AgentCoreIdentityService`` (AgentCore Identity)
 and passed verbatim into ``append_session_turn`` /
 ``get_session_history``. This module never infers a namespace from a
 raw ``user_id`` + ``session_id`` pair, so a future change to the
@@ -36,15 +36,15 @@ namespace format only touches the identity service.
 
 When ``settings.AGENTCORE_MEMORY_ID`` is set the class routes calls
 through the ``bedrock-agentcore`` SDK's ``MemorySessionManager``. When
-unset (the workshop default before C9) it falls back to a process-local
-``dict`` so ``POST /api/user/preferences`` and ``POST /api/agent/chat``
-work end-to-end offline — identical pattern to the Challenge 5 runtime
-fallback in ``agentcore_runtime.py``.
+unset it falls back to a process-local ``dict`` so
+``POST /api/user/preferences`` and ``POST /api/agent/chat`` work
+end-to-end offline — the same fail-soft pattern used by the runtime
+bridge in ``agentcore_runtime.py``.
 
 The legacy helper functions ``create_agentcore_session_manager``,
 ``get_user_memories``, and ``search_episodic_memories`` are retained
-outside the challenge block because ``app.py`` and ``services/chat.py``
-import them directly for the pre-C9 "wire it live" demo surface.
+outside the reference class because ``app.py`` and ``services/chat.py``
+import them directly for older memory demo endpoints.
 """
 from __future__ import annotations
 
@@ -57,15 +57,14 @@ from models import Preferences
 logger = logging.getLogger(__name__)
 
 
-# === CHALLENGE 6: AgentCore Memory (STM) — START ===
+# === REFERENCE: AgentCore Memory (STM) — START ===
 # Requirements 2.5.2, 4.3.2, 4.4.1, 6.2.1, and Design sequence #3
 # (Multi-turn conversation with STM).
 #
-# Participants delete this block and reimplement ``AgentCoreMemory``
-# using the ``bedrock-agentcore`` SDK's ``MemorySessionManager``. The
-# in-memory ``dict`` fallback keeps the workshop runnable offline (no
-# AgentCore Memory resource provisioned) by mirroring the exact same
-# namespace contract in memory.
+# Reference implementation for ``AgentCoreMemory`` using the
+# ``bedrock-agentcore`` SDK's ``MemorySessionManager``. The in-memory
+# ``dict`` fallback keeps the workshop runnable offline by mirroring the
+# same namespace contract in memory.
 #
 # Key schemes (strict — never silently merged, per Req 4.3.3):
 #
@@ -500,7 +499,7 @@ class AgentCoreMemory:
             if pref:
                 preferences.append(str(pref))
         return preferences
-# === CHALLENGE 6: AgentCore Memory (STM) — END ===
+# === REFERENCE: AgentCore Memory (STM) — END ===
 
 
 
@@ -508,11 +507,11 @@ class AgentCoreMemory:
 # Legacy helpers
 # ---------------------------------------------------------------------------
 #
-# These are NOT part of Challenge 6. ``app.py`` and ``services/chat.py``
-# import them directly for the older AgentCore Memory demo endpoints
-# (``/api/user/memories``, episodic memory panel). They stay out of the
-# challenge block so participants can reimplement ``AgentCoreMemory``
-# without breaking the demo surface.
+# These are support helpers outside the ``AgentCoreMemory`` class.
+# ``app.py`` and ``services/chat.py`` import them directly for the older
+# AgentCore Memory demo endpoints (``/api/user/memories``, episodic
+# memory panel). They stay out of the reference block so
+# ``AgentCoreMemory`` can evolve without breaking that demo surface.
 
 
 def create_agentcore_session_manager(

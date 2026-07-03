@@ -1,8 +1,8 @@
 # Solutions — drop-in replacements
 
 Copy a solution file over its runtime counterpart and the backend
-auto-restarts. These are the reference implementations and "⏩ out of
-time" escape hatches for the 60-min Builder's Session.
+auto-restarts. These are the reference implementations and "short on
+time" escape hatches for the governed workshop path.
 
 ```
 solutions/
@@ -13,10 +13,10 @@ solutions/
 
 ---
 
-## Builder's Session — 60 min
+## Workshop required path
 
 **One mandatory code build, one mandatory SQL proof, two optional
-fast-finishers.** The cp commands below are the "⏩ out of time" escape
+fast-finishers.** The cp commands below are the "short on time" escape
 hatches referenced from each lab page.
 
 ### Exercise 1 (mandatory) — `floor_check` body (Act I)
@@ -78,7 +78,7 @@ cp solutions/the-ledger/services/agentcore_runtime_with_invoke_log.py \
 
 ## What bootstrap pre-applies (reference)
 
-The Builder's Session ships with everything **already wired except** the
+The workshop image ships with everything **already wired except** the
 `floor_check` tool body — participants edit only that one function. At
 provision time `scripts/bootstrap-labs.sh` (the `WORKSHOP_FORMAT=builders`
 block) copies the reference files below into place. This list mirrors the

@@ -175,7 +175,7 @@ class Settings(BaseSettings):
     # 4a — Identity (Cognito)
     #
     # Historical name was COGNITO_USER_POOL_ID.
-    # The storefront spec (Req 4.1, 4.2, Challenge 9.1) standardises on
+    # The storefront spec standardises on
     # COGNITO_POOL_ID. Both are accepted; `cognito_pool_id_resolved` picks
     # whichever is set so existing .env files keep working.
     COGNITO_USER_POOL_ID: Optional[str] = None
@@ -203,8 +203,8 @@ class Settings(BaseSettings):
     # 4e — Runtime
     AGENTCORE_RUNTIME_ENDPOINT: Optional[str] = None
 
-    # Challenge 5 feature flag. When False (default) the `/api/agent/chat`
-    # endpoint runs the in-process Strands orchestrator from Challenge 4.
+    # Runtime feature flag. When False (default) the `/api/agent/chat`
+    # endpoint runs the in-process Strands orchestrator.
     # When True it forwards every request through
     # `services.agentcore_runtime.run_agent_on_runtime` so participants
     # can migrate from local execution to managed runtime by flipping

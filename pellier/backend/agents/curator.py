@@ -66,12 +66,12 @@ def build_recommendation_agent() -> Agent:
     for setting those ContextVars before invoking this factory — the
     chat pipeline in ``services/chat.py`` does so on every turn.
 
-    === CHALLENGE 3: START ===
+    === REFERENCE: START ===
     inject_skills() and inject_persona_preamble() are no-ops when
     their ContextVars are empty (the common case in atelier smoke
     tests and anonymous sessions), so this factory produces the same
     agent as before in those scenarios.
-    === CHALLENGE 3: END ===
+    === REFERENCE: END ===
     """
     # Curator — Claude Opus 4.6 at 0.4. Recommendations carry "taste";
     # skills shape voice. Warm model, warm temperature.

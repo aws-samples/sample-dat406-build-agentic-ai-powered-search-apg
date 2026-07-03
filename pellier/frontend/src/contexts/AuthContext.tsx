@@ -2,7 +2,7 @@
  * AuthContext — Cognito OAuth2 login + AgentCore Identity-backed preferences.
  *
  * Originally seeded in Lab 4a with the implicit grant (token-in-hash) flow
- * against Cognito Hosted UI. Task 5.1 (Challenge 9.3) extends this context
+ * against Cognito Hosted UI. Task 5.1 (auth utility) extends this context
  * to be the single source of truth for:
  *
  *   - `user`               — Cognito claims (sub, email, givenName)
@@ -77,9 +77,9 @@ export function useAuth() {
 }
 
 // === LEGACY WIRE IT LIVE (Lab 4a implicit flow) ===
-// Kept for the pre-C9 path where there is no backend `/api/auth/*`.
+// Kept for the legacy auth path where there is no backend `/api/auth/*`.
 // Participants configure these from CloudFormation outputs; when unset,
-// `login()` and `logout()` no-op (the C9 route via `utils/auth.ts` +
+// `login()` and `logout()` no-op (the auth flow route via `utils/auth.ts` +
 // `/api/auth/signin` should be used instead).
 const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN || ''
 const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID || ''
@@ -242,7 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // On mount: the legacy hash flow populates `accessToken` directly from
-  // the Cognito Hosted UI redirect; the new C9 flow populates state via
+  // the Cognito Hosted UI redirect; the new auth flow flow populates state via
   // `/api/auth/me`. Run both so the component works in either mode.
   useEffect(() => {
     let cancelled = false

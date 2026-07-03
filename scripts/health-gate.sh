@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# health-gate.sh — one-shot post-boot readiness check for the Builder's Session
+# health-gate.sh — one-shot post-boot readiness check for the workshop
 # =============================================================================
 # Prints one PASS/FAIL line per check and a single overall verdict. Safe to
 # re-run any time (read-only). Intended to run at the end of bootstrap and to
@@ -17,7 +17,8 @@
 #      into a named cause.)
 #   5. AGENTCORE_MEMORY_ID set in .env            (required — Memory pillar)
 #   6. AGENTCORE_RUNTIME_ENDPOINT set in .env     (required — Runtime pillar)
-#   7. AGENTCORE_POLICY_ENGINE_ID set in .env     (warn — Policy pillar; the
+#   7. AGENTCORE_GATEWAY_URL set in .env          (required — Gateway/JWT path)
+#   8. AGENTCORE_POLICY_ENGINE_ID set in .env     (warn — Policy pillar; the
 #      Act II managed-Cedar exercise won't enforce at the Gateway without it)
 #
 # Exit 0 only if all REQUIRED checks pass. The Node check is a WARN (not a
@@ -126,7 +127,15 @@ else
   ok=false
 fi
 
-# 6. Managed AgentCore Policy engine (4th pillar). WARN, not fail: the backend
+# 6. AgentCore Gateway endpoint (required for the managed Gateway/JWT path).
+if [[ -n "${AGENTCORE_GATEWAY_URL:-${MCP_GATEWAY_URL:-}}" ]]; then
+  pass "AGENTCORE_GATEWAY_URL set"
+else
+  fail "AGENTCORE_GATEWAY_URL empty — Gateway/JWT tool calls cannot run"
+  ok=false
+fi
+
+# 7. Managed AgentCore Policy engine (4th pillar). WARN, not fail: the backend
 # and storefront run fine without it, but the Act II managed-Cedar exercise
 # (process_return gated to reason=damaged at the Gateway) won't ENFORCE — so
 # surface it loudly rather than report a false-green "READY".

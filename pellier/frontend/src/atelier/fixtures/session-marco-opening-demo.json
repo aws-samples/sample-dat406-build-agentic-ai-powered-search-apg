@@ -338,7 +338,7 @@
       "index": 13,
       "category": "teaching",
       "title": "Routing fall-through \u2014 Stock Keeper stubbed",
-      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build \u2014 Builder's Session \u00b7 Part I \u00b7 wire floor_check.",
+      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build \u2014 required path \u00b7 wire floor_check.",
       "status": "complete",
       "durationMs": 4,
       "agent": null,

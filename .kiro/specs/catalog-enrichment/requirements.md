@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The Pellier e-commerce demo application requires a comprehensive catalog overhaul to transition from a uniform, over-populated product catalog (1,008 products, 24 categories, 42 each, uniform quality) to a curated, query-backward-designed catalog (~446 products, variable per category, realistic distributions). The enrichment ensures every scripted demo query across 4 workshop modules returns 3–5 meaningful results, while introducing missing product categories (headphones, insulated drinkware, gift sets) and realistic quality/inventory distributions for teaching purposes.
+The Pellier e-commerce demo application requires a comprehensive catalog overhaul to transition from a uniform, over-populated product catalog (1,008 products, 24 categories, 42 each, uniform quality) to a curated, query-backward-designed catalog (~446 products, variable per category, realistic distributions). The enrichment ensures every scripted demo query across 4 workshop sections returns 3–5 meaningful results, while introducing missing product categories (headphones, insulated drinkware, gift sets) and realistic quality/inventory distributions for teaching purposes.
 
 ## Glossary
 
@@ -167,9 +167,9 @@ The Pellier e-commerce demo application requires a comprehensive catalog overhau
 4. THE Load_Script SHALL run VACUUM ANALYZE on the product_catalog table after all data loading and adjustments are complete.
 5. IF the Enriched_Catalog file is not found at the expected path, THEN THE Load_Script SHALL fall back to the Source_Catalog at `data/product-catalog-cohere-v4.csv` and log a warning.
 
-### Requirement 14: Verification — Module 1 Keyword vs Semantic Queries
+### Requirement 14: Verification — Section 1 Keyword vs Semantic Queries
 
-**User Story:** As a workshop facilitator, I want all Module 1 scripted queries to return the expected results, so that the keyword-vs-semantic search demonstration works correctly during the workshop.
+**User Story:** As a workshop facilitator, I want all Section 1 scripted queries to return the expected results, so that the keyword-vs-semantic search demonstration works correctly during the workshop.
 
 #### Acceptance Criteria
 
@@ -179,9 +179,9 @@ The Pellier e-commerce demo application requires a comprehensive catalog overhau
 4. WHEN the query "gift for someone who loves cooking" is executed as a semantic search against the Enriched_Catalog, THE database SHALL return at least 4 results including the Lodge Cast Iron Gift Set (PKITC0043) and Victorinox Chef's Knife (PKITC0010).
 5. WHEN the query "comfortable shoes for standing all day" is executed as a semantic search against the Enriched_Catalog, THE database SHALL return at least 4 results including Skechers Go Walk Joy (PWSHO0019) and Clarks Cloudsteppers (PWSHO0009).
 
-### Requirement 15: Verification — Module 2 Agent Tool Queries
+### Requirement 15: Verification — Section 2 Agent Tool Queries
 
-**User Story:** As a workshop facilitator, I want all Module 2 scripted queries to return the expected results through agent tools, so that the semantic search tool demonstrations work correctly during the workshop.
+**User Story:** As a workshop facilitator, I want all Section 2 scripted queries to return the expected results through agent tools, so that the semantic search tool demonstrations work correctly during the workshop.
 
 #### Acceptance Criteria
 
@@ -191,9 +191,9 @@ The Pellier e-commerce demo application requires a comprehensive catalog overhau
 4. WHEN the `search_products` tool is invoked with query "noise canceling headphones", THE tool SHALL return at least 3 results including Sony WH-1000XM5, Apple AirPods Pro 2, and Anker Soundcore Life Q20+.
 5. WHEN the `get_price_analysis` tool is invoked for the Laptops category, THE tool SHALL return a price range spanning from approximately $499 to $3,000.
 
-### Requirement 16: Verification — Module 3 Multi-Agent Queries
+### Requirement 16: Verification — Section 3 Multi-Agent Queries
 
-**User Story:** As a workshop facilitator, I want all Module 3 scripted queries to return the expected results through the multi-agent system, so that the recommendation, pricing, and inventory agent demonstrations work correctly during the workshop.
+**User Story:** As a workshop facilitator, I want all Section 3 scripted queries to return the expected results through the multi-agent system, so that the recommendation, pricing, and inventory agent demonstrations work correctly during the workshop.
 
 #### Acceptance Criteria
 
@@ -204,9 +204,9 @@ The Pellier e-commerce demo application requires a comprehensive catalog overhau
 5. WHEN the recommendation agent processes "leather bag under $200", THE agent SHALL return results including products with enriched leather material descriptions from Womens Bags (PWBAG0001 in Black Leather, PWBAG0002 in Brown Leather).
 6. WHEN the recommendation agent processes "show me trending beauty products", THE agent SHALL return results including Burt's Bees Essential Holiday Gift Set (PBEAU0043, 5621 reviews) among the top beauty products.
 
-### Requirement 17: Verification — Module 4 AgentCore Queries
+### Requirement 17: Verification — Section 4 AgentCore Queries
 
-**User Story:** As a workshop facilitator, I want all Module 4 scripted queries to work correctly with the Cedar authorization policy and session memory, so that the AgentCore demonstrations function as designed.
+**User Story:** As a workshop facilitator, I want all Section 4 scripted queries to work correctly with the Cedar authorization policy and session memory, so that the AgentCore demonstrations function as designed.
 
 #### Acceptance Criteria
 

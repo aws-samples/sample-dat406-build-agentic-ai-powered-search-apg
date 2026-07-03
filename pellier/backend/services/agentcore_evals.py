@@ -8,7 +8,7 @@ graduation path — opt in by flipping ``AGENTCORE_EVALS_ENABLED=true``
 and supplying a dataset ARN in ``backend/.env``.
 
 The single entry point :func:`submit_evaluation_job` accepts the same
-agent runtime ARN the Challenge 5 path already targets, plus the dataset
+agent runtime ARN the runtime bridge path already targets, plus the dataset
 ARN the workshop facilitator provisions ahead of the prod-cutover demo.
 It returns a structured envelope so the Atelier Measure surface can
 render either ``configured: false`` (no flag) or ``configured: true``
@@ -63,7 +63,7 @@ async def submit_evaluation_job(
     Args:
         agent_runtime_arn: The deployed agent under evaluation. Defaults
             to ``settings.AGENTCORE_RUNTIME_ENDPOINT`` so the same ARN
-            the Challenge 5 path targets is reused.
+            the runtime bridge path targets is reused.
         dataset_arn: The Evals dataset ARN to score against. Defaults
             to ``settings.AGENTCORE_EVALS_DATASET_ARN``.
         job_role_arn: IAM role for the eval job. Defaults to

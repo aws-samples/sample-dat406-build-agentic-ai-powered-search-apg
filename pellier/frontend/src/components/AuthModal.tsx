@@ -1,5 +1,5 @@
 /**
- * AuthModal - Challenge 9.4a surface.
+ * AuthModal - sign-in modal surface.
  *
  * Validates Requirement 2.6.6 (auth modal half) and the
  * `storefront.md` "Auth modal (entry point)" spec.
@@ -35,7 +35,7 @@ import { useUI } from '../contexts/UIContext'
 import { redirectToSignIn, type SignInProvider } from '../utils/auth'
 import { cssVar as c } from '../design/cssVars'
 
-// === CHALLENGE 9.4: START ===
+// === REFERENCE: START ===
 // --- Design tokens (storefront.md) ---------------------------------------
 
 const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
@@ -301,4 +301,4 @@ export default function AuthModal() {
     </div>
   )
 }
-// === CHALLENGE 9.4: END ===
+// === REFERENCE: END ===

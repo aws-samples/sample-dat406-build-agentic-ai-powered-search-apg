@@ -514,14 +514,14 @@ class EnhancedChatService:
 
         Routes based on workshop_mode:
         - 'legacy'/'search': Chat disabled
-        - 'agentic'/None: Full multi-agent orchestrator (Module 2)
-        - 'production': Full orchestrator + AgentCore services (Module 3)
+        - 'agentic'/None: Full multi-agent orchestrator
+        - 'production': Full orchestrator + AgentCore services
         """
         try:
             # Workshop mode routing
             if workshop_mode in ("legacy", "search"):
                 return {
-                    "response": "Chat is not available in this workshop mode. Progress to Module 2 to unlock agentic AI.",
+                    "response": "Chat is not available in this workshop mode. Switch to the agentic or production mode to unlock the governed assistant.",
                     "products": [],
                     "suggestions": [],
                     "tool_calls": [],
@@ -1403,7 +1403,7 @@ CURRENT REQUEST: {message}"""
 
         # Workshop mode: chat disabled for legacy/search
         if workshop_mode in ("legacy", "search"):
-            yield {"type": "content", "content": "Chat is not available in this workshop mode. Progress to Module 2 to unlock agentic AI."}
+            yield {"type": "content", "content": "Chat is not available in this workshop mode. Switch to the agentic or production mode to unlock the governed assistant."}
             yield {"type": "complete", "response": {"response": "Chat is not available in this workshop mode.", "products": [], "suggestions": [], "success": True}}
             return
 
@@ -1597,7 +1597,7 @@ CURRENT REQUEST: {message}"""
         # @tool symbols directly. This is the production shape — tools
         # live in the Gateway, the orchestrator pulls them at runtime.
         # When the Gateway URL is unset (local dev, Workshop Studio
-        # before Module 3c lands), we fall back to the in-process
+        # before the managed Gateway path is provisioned), we fall back to the in-process
         # orchestrator silently. Guardrails flag is respected on the
         # fallback path; gateway path honors guardrails via its own
         # prompt extensions (future work).

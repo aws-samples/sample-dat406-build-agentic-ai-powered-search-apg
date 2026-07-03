@@ -1,8 +1,8 @@
-"""``/api/atelier/*`` — telemetry-replay endpoint for the DAT406 /atelier route.
+"""``/api/atelier/*`` — telemetry-replay endpoint for the Atelier route.
 
-This router is the backend half of the PostgresConf Builders Session
-(DAT406) telemetry surface. Unlike ``/api/agent/chat`` — which streams
-storefront-shaped SSE events (product cards, cart ops, badges) for
+This router is the backend half of the workshop telemetry surface. Unlike
+``/api/agent/chat`` — which streams storefront-shaped SSE events
+(product cards, cart ops, badges) for
 ``ConciergeModal`` — this endpoint returns a single flat replay payload:
 
     POST /api/atelier/query
@@ -32,10 +32,9 @@ endpoint mint one. The value round-trips to ``AgentContext.session_id``
 and is echoed back in the response so the SPA can persist it to
 localStorage (same key the other chat surfaces use).
 
-Week 1 scope: the endpoint wires up the AgentContext + orchestrator hand-off
-and returns a minimally populated events list (a canned PLAN card + the
-orchestrator's final text as a ``response`` event). Panels #1-11 arrive
-as the specialists and orchestrator get instrumented in Weeks 2-6.
+Scope: the endpoint wires up the AgentContext + orchestrator hand-off
+and returns either live telemetry or fixture-backed replay events for the
+Atelier workshop views.
 """
 
 from __future__ import annotations

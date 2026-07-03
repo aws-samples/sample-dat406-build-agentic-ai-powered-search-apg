@@ -7,13 +7,13 @@ This design realizes the requirements in `requirements.md`. It specifies archite
 Sibling specs own adjacent scope and are referenced, not duplicated:
 
 - `catalog-enrichment` — product table DDL, `tags text[]` column, embedding pipeline, seed catalog.
-- `customer-support-agent` — the customer support specialist wrapped by the orchestrator in C4.
+- `customer-support-agent` — the customer support specialist wrapped by the orchestrator in Capability 4.
 
 ### Repo fit
 
 - Backend root: `pellier/backend/` with sibling packages `agents/`, `services/`, `models/`. All repo files referenced below already exist unless marked `new`.
 - Frontend root: `pellier/frontend/src/` with `components/`, `contexts/`, `hooks/`, `services/`, `utils/`.
-- The existing `AuthContext.tsx`, `Header.tsx`, `LoginButton.tsx`, and `SignInPage.tsx` are the starting points that Challenge 9.3/9.4 extend. This design does not introduce a second auth layer.
+- The existing `AuthContext.tsx`, `Header.tsx`, `LoginButton.tsx`, and `SignInPage.tsx` are the starting points that Exercise 9.3/9.4 extend. This design does not introduce a second auth layer.
 - Observability hooks into the existing `services/sql_query_logger.py` (confirmed in repo) and `services/otel_trace_extractor.py`.
 
 ### Design decisions worth calling out
@@ -122,7 +122,7 @@ Browser ──Bearer/Cookie──▶ FastAPI route
 
 ## Sequence Diagrams
 
-### 1. Vector search (C1 result path)
+### 1. Vector search (Capability 1 result path)
 
 ```mermaid
 sequenceDiagram
@@ -148,7 +148,7 @@ sequenceDiagram
   R-->>C: JSON ranked results (p95 < 500ms)
 ```
 
-### 2. Agent reasoning with tool use (C3 + C4 path)
+### 2. Agent reasoning with tool use (Capability 3 + Capability 4 path)
 
 ```mermaid
 sequenceDiagram
@@ -183,7 +183,7 @@ sequenceDiagram
   Note over API,O: JWT is validated once at stream start.<br/>Server does NOT re-check per chunk.<br/>If the token expires mid-stream, the stream<br/>completes normally; silent refresh (Req 4.2.4)<br/>fires on the next request.
 ```
 
-### 3. Multi-turn conversation with STM (C6 path)
+### 3. Multi-turn conversation with STM (Capability 6 path)
 
 ```mermaid
 sequenceDiagram
@@ -257,7 +257,7 @@ sequenceDiagram
 
 ```
 App.tsx
-└── <AuthProvider>                 (existing contexts/AuthContext.tsx, extended by C9.3)
+└── <AuthProvider>                 (existing contexts/AuthContext.tsx, extended by Capability 9.3)
     └── <CartProvider>
         └── <UIProvider>           (controls ⌘K + modal singleton visibility)
             └── <Routes>
@@ -295,8 +295,8 @@ App.tsx
 ├── <CommandPill/>                  fixed bottom-right
 └── <Modals singleton/>
     ├── <ConciergeModal/>
-    ├── <AuthModal/>                (C9.4)
-    ├── <PreferencesModal/>         (C9.4)
+    ├── <AuthModal/>                (Capability 9.4)
+    ├── <PreferencesModal/>         (Capability 9.4)
     ├── <CartModal/>                (existing)
     └── <CheckoutModal/>            (existing)
 
@@ -469,7 +469,7 @@ class SearchResponse(BaseModel):
 
 ### Backend
 
-#### `services/hybrid_search.py` — `HybridSearchService` (C1 lives here)
+#### `services/hybrid_search.py` — `HybridSearchService` (Capability 1 lives here)
 
 ```python
 class HybridSearchService:
@@ -480,7 +480,7 @@ class HybridSearchService:
         """Top-level entry. Embeds via EmbeddingService, calls _vector_search,
            then optional rerank via Cohere Rerank v3.5."""
 
-    # C1 — between # === CHALLENGE 1: START/END === markers
+    # Capability 1 — between # === REFERENCE: START/END === markers
     async def _vector_search(
         self,
         embedding: list[float],
@@ -503,14 +503,14 @@ class HybridSearchService:
 
 Already exists. Wraps Cohere Embed v4 via Bedrock. Used by search and by preference re-ranking extensions.
 
-#### `services/agent_tools.py` — `@tool` functions (C2 lives here)
+#### `services/agent_tools.py` — `@tool` functions (Capability 2 lives here)
 
 All tools follow `coding-standards.md` exactly: `@tool` decorator from `strands`, return JSON strings, check `_db_service` availability, use `_run_async()`, catch and return `json.dumps({"error": str(e)})`.
 
 Tools (names per `workshop-content.md`):
 
 - `search_products(query: str, limit: int = 20) -> str`
-- `get_trending_products() -> str` **[C2]**
+- `get_trending_products() -> str` **[Capability 2]**
 - `get_price_analysis(product_id: str) -> str`
 - `get_product_by_category(category: str) -> str`
 - `get_inventory_health() -> str`
@@ -519,7 +519,7 @@ Tools (names per `workshop-content.md`):
 - `compare_products(ids: list[str]) -> str`
 - `get_return_policy(category: str) -> str`
 
-#### `agents/curator.py` — `product_recommendation_agent` (C3)
+#### `agents/curator.py` — `product_recommendation_agent` (Capability 3)
 
 ```python
 product_recommendation_agent = Agent(
@@ -532,7 +532,7 @@ product_recommendation_agent = Agent(
 
 `copy.RECOMMENDATION_SYSTEM_PROMPT` emphasizes warm, editorial, catalog-style reasoning grounded in specific product attributes (Req 2.4.4). No customer-facing copy forbidden words appear in responses (Req 1.12.2).
 
-#### `agents/orchestrator.py` — Multi-agent orchestrator (C4)
+#### `agents/orchestrator.py` — Multi-agent orchestrator (Capability 4)
 
 ```python
 orchestrator = Agent(
@@ -551,7 +551,7 @@ orchestrator = Agent(
 
 Routing tests (see Testing Strategy) assert one representative query per specialist intent lands on the expected specialist.
 
-#### `services/agentcore_runtime.py` (C5)
+#### `services/agentcore_runtime.py` (Capability 5)
 
 Exposes `run_agent_on_runtime(message: str, session_id: str, user_id: str | None) -> AsyncIterator[str]` that migrates the orchestrator from in-process Strands to AgentCore Runtime.
 
@@ -559,14 +559,14 @@ Exposes `run_agent_on_runtime(message: str, session_id: str, user_id: str | None
 
 ```python
 if settings.USE_AGENTCORE_RUNTIME:
-    stream = run_agent_on_runtime(message, session_id, user_id)   # C5
+    stream = run_agent_on_runtime(message, session_id, user_id)   # Capability 5
 else:
-    stream = run_orchestrator_inprocess(message, session_id, user_id)  # C4 in-process Strands
+    stream = run_orchestrator_inprocess(message, session_id, user_id)  # Capability 4 in-process Strands
 ```
 
-Before C5 completion, the in-process Strands orchestrator handles all requests. Participants flip `USE_AGENTCORE_RUNTIME=true` in `backend/.env` as part of C5 verification; no other route-handler changes are needed.
+Before Capability 5 completion, the in-process Strands orchestrator handles all requests. Participants flip `USE_AGENTCORE_RUNTIME=true` in `backend/.env` as part of Capability 5 verification; no other route-handler changes are needed.
 
-#### `services/agentcore_memory.py` (C6)
+#### `services/agentcore_memory.py` (Capability 6)
 
 ```python
 class AgentCoreMemory:
@@ -582,15 +582,15 @@ Namespaces:
 - Session (anonymous): `anon:{session_id}` — **never** merged on later sign-in (Req 4.3.3).
 - Preferences: `user:{user_id}:preferences`.
 
-#### `services/agentcore_gateway.py` (C7)
+#### `services/agentcore_gateway.py` (Capability 7)
 
 Exposes the tools defined in `agent_tools.py` via the MCP streamable HTTP transport for external clients. Same tool signatures, same JSON envelope.
 
-#### `services/otel_trace_extractor.py` (C8)
+#### `services/otel_trace_extractor.py` (Capability 8)
 
 Already exists. Extracts OpenTelemetry spans produced during an agent run and maps them into the `/inspector` view's expected shape: `{ spans: Span[], totalMs: number, specialistRoute: string }`.
 
-#### `services/cognito_auth.py` (C9.1 — new)
+#### `services/cognito_auth.py` (Capability 9.1 — new)
 
 ```python
 class CognitoAuthService:
@@ -614,7 +614,7 @@ async def require_user(request: Request, svc: CognitoAuthService = Depends()) ->
 
 Middleware wraps all `/api/user/*`, `/api/agent/*`, and `/api/auth/me`. Public endpoints (`/api/products`, `/api/search`) optionally call `extract_user` to personalize when a token is present.
 
-#### `services/agentcore_identity.py` (C9.2 — new)
+#### `services/agentcore_identity.py` (Capability 9.2 — new)
 
 ```python
 class AgentCoreIdentityService:
@@ -630,7 +630,7 @@ class UserContext:
 
 ### Frontend
 
-#### `frontend/src/utils/auth.ts` (C9.3 — new)
+#### `frontend/src/utils/auth.ts` (Capability 9.3 — new)
 
 ```ts
 export function redirectToSignIn(
@@ -705,12 +705,12 @@ All error envelopes live in `copy.py` / `copy.ts`. Token payloads are never logg
 ### Backend (pytest)
 
 - **Unit**
-  - `test_vector_search.py` — C1: asserts CTE shape, `SET LOCAL` calls, returns ranked results; property-tests that the `limit` parameter bounds result count.
-  - `test_agent_tools.py` — C2: tools return valid JSON, handle `_db_service=None`, handle exceptions via `json.dumps({"error": …})`.
+  - `test_vector_search.py` — Capability 1: asserts CTE shape, `SET LOCAL` calls, returns ranked results; property-tests that the `limit` parameter bounds result count.
+  - `test_agent_tools.py` — Capability 2: tools return valid JSON, handle `_db_service=None`, handle exceptions via `json.dumps({"error": …})`.
   - `test_personalization.py` — `match_score` returns expected counts; `sort_personalized` preserves default order on ties; weighted-variant hook verified.
-  - `test_cognito_auth.py` — C9.1: valid token passes; expired, wrong `iss`, wrong `aud`, wrong `token_use`, unsigned-by-JWKS all fail. JWKS cache is populated once for N concurrent calls.
+  - `test_cognito_auth.py` — Capability 9.1: valid token passes; expired, wrong `iss`, wrong `aud`, wrong `token_use`, unsigned-by-JWKS all fail. JWKS cache is populated once for N concurrent calls.
 - **Integration**
-  - `test_orchestrator_routing.py` — C4: five representative queries route to expected specialists per priority order. Uses stubbed Bedrock.
+  - `test_orchestrator_routing.py` — Capability 4: five representative queries route to expected specialists per priority order. Uses stubbed Bedrock.
   - `test_preferences_api.py` — GET/POST round-trip via `agentcore_memory`.
   - `test_products_personalized.py` — with seeded catalog + known tags, assert Sundress/Cardigan top the list for `vibe=['creative'] + occasions=['evening']`.
   - `test_c3_recommendation_relevance.py` — Req 2.4.5: run `product_recommendation_agent` with query `"something for warm evenings out"`, parse the response, assert the named product's `tags` column intersects `{evening, warm, dresses, outerwear}`.

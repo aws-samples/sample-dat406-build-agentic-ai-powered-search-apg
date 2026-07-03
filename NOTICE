@@ -1,5 +1,5 @@
-Pellier — Agentic AI-Powered Search with Amazon Aurora PostgreSQL & Amazon Bedrock AgentCore
-============================================================================================
+Pellier - Governed Agentic AI Search with Aurora, RDS, and Bedrock AgentCore
+============================================================================
 
 Copyright (c) 2026 Amazon Web Services.
 Licensed under the MIT License. See the LICENSE file for the full terms.
@@ -9,7 +9,7 @@ Author / creator
 Shayon Sanyal <shayons@amazon.com>
 
 Conceived, designed, built, and curated by Shayon Sanyal as the reference
-implementation behind the AWS Summit Builder's Session of the same name.
+implementation behind the governed agentic AI search workshop of the same name.
 
 Attribution & reuse (required)
 ------------------------------
@@ -29,6 +29,6 @@ workshops, and internal forks: carry the credit with the work.
 
 Canonical attribution line (copy this)
 ---------------------------------------
-  "Based on Pellier — Agentic AI-Powered Search by Shayon Sanyal
+  "Based on Pellier - Governed Agentic AI Search by Shayon Sanyal
    (https://github.com/aws-samples/sample-pellier-agentic-search-apg),
    © 2026 Amazon Web Services, MIT License."

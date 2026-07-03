@@ -10,7 +10,7 @@ discovered dynamically over the wire.
 
 This module has two sides:
 
-1. **Server side (Challenge 7)** — exposes the 13 `agent_tools.py`
+1. **Server side (Gateway adapter)** — exposes the 13 `agent_tools.py`
    tools via the MCP streamable HTTP transport so external agent
    clients (or AgentCore Gateway itself) can discover and invoke them.
    Signatures and JSON envelopes are identical to the in-process
@@ -33,7 +33,7 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
-# === CHALLENGE 7: START ===
+# === REFERENCE: START ===
 # Expose the 13 Strands @tool functions via MCP streamable HTTP so an external
 # agent client (or the AgentCore Gateway) can discover and invoke them with
 # the same signatures and JSON envelopes used by the in-process orchestrator.
@@ -196,7 +196,7 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
     except Exception as e:
         logger.warning("Gateway orchestrator setup failed: %s", e)
         return None
-# === CHALLENGE 7: END ===
+# === REFERENCE: END ===
 
 
 def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str] = None):

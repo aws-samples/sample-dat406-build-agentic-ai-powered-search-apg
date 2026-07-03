@@ -1,4 +1,4 @@
-# Module 05 — Ship It: Deploy to AgentCore
+# Deploy to AgentCore
 
 Deploy Pellier's multi-agent system to production using Amazon Bedrock AgentCore.
 

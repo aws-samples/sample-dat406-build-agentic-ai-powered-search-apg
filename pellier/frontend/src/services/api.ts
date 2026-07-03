@@ -1,7 +1,7 @@
 /**
  * API client for Pellier Backend.
  *
- * Task 5.1 (Challenge 9.3) adds a 401 response interceptor that:
+ * Task 5.1 (auth utility) adds a 401 response interceptor that:
  *   1. Calls /api/auth/refresh on any 401 response.
  *   2. On refresh success, retries the original request exactly once
  *      (flagged via a `_retry` marker on the Axios request config).

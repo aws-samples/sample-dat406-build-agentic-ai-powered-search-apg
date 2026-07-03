@@ -186,7 +186,7 @@ def _wire_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "COGNITO_USER_POOL_ID", POOL_ID, raising=False)
     monkeypatch.setattr(settings, "COGNITO_REGION", REGION, raising=False)
     monkeypatch.setattr(settings, "COGNITO_CLIENT_ID", CLIENT_ID, raising=False)
-    # Force the in-process (C4) path so no runtime SDK is ever invoked.
+    # Force the in-process (in-process) path so no runtime SDK is ever invoked.
     monkeypatch.setattr(settings, "USE_AGENTCORE_RUNTIME", False, raising=False)
 
 
@@ -409,7 +409,7 @@ def test_chat_anonymous_request_uses_anon_namespace(
     assert session_event["data"]["namespace"] == f"anon-{session_id}"
 
     # Orchestrator was called with ``user_id=None`` so ``run_agent_on_runtime``
-    # can fall back to the "anonymous" tag itself (C5 contract).
+    # can fall back to the "anonymous" tag itself (runtime contract).
     assert agent_calls[0]["user_id"] is None
 
     # The turn pair was written under the anon namespace, not any

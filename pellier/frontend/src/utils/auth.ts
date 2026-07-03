@@ -1,5 +1,5 @@
 /**
- * utils/auth.ts — Challenge 9.3 surface.
+ * utils/auth.ts — auth utility surface.
  *
  * Browser-side helpers for the Cognito Hosted UI + AgentCore Identity flow
  * and a thin re-export of the `useAuth()` React hook from AuthContext.
@@ -33,7 +33,7 @@
  * `openSignInChooser({ returnTo: ... })` when refresh fails.
  */
 
-// === CHALLENGE 9.3: START ===
+// === REFERENCE: START ===
 import { useAuth as useAuthFromContext } from '../contexts/AuthContext'
 
 export type SignInProvider = 'google' | 'apple' | 'email'
@@ -114,4 +114,4 @@ export async function redirectToLogout(): Promise<void> {
  * import from one place per the design document.
  */
 export const useAuth = useAuthFromContext
-// === CHALLENGE 9.3: END ===
+// === REFERENCE: END ===

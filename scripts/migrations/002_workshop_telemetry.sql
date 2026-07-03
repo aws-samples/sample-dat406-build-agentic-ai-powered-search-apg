@@ -2,7 +2,7 @@
 -- Migration 002 — workshop telemetry, audit, customers, and orders
 -- =========================================================================
 -- This migration is IDEMPOTENT — safe to re-run. It adds six tables that
--- back the PostgresConf Builders Session /workshop route. Every table
+-- back the workshop telemetry and audit routes. Every table
 -- lives under the ``pellier`` schema so the workshop has one schema —
 -- the "Aurora as agent system-of-record" anchor for Theo doesn't have
 -- to span ``public`` and ``pellier``:

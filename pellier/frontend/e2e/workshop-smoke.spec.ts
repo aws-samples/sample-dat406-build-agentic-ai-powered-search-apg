@@ -1,5 +1,5 @@
 /**
- * E2E: Workshop smoke test — the re:Invent readiness gate.
+ * E2E: Workshop smoke test — the readiness gate.
  *
  * This suite runs against the PRODUCTION BUILD served by FastAPI on
  * port 8000 (one process, one port). It exercises the demo path a

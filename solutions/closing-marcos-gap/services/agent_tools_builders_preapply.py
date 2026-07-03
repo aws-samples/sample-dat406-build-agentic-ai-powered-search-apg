@@ -5,11 +5,11 @@ Provides @tool decorated functions for agent use with live database access.
 Two retrieval entry points:
 
   - ``find_pieces`` — Marco's foundation. Pure pgvector cosine
-    similarity over the product catalog. Module 1 teaching surface.
+    similarity over the product catalog. It is the retrieval teaching surface.
 
   - ``find_pieces_hybrid`` — Anna's anchor capability. Hybrid
     pgvector + Postgres FTS (tsvector + ts_rank_cd) with RRF merge, then Cohere Rerank v3.5
-    on the top 30. Module 1 hybrid teaching surface; granted only to
+    on the top 30. This is the hybrid retrieval teaching surface; granted only to
     the Curator agent (curator.py).
 """
 from strands import tool
@@ -124,7 +124,7 @@ def floor_check(product_query: str = "") -> str:
         product_query: Product name (or partial name) to check stock
             for. Empty string falls back to the aggregate summary mode.
     """
-    # === CHALLENGE · Stock Keeper · floor_check: START ===
+    # === WORKSHOP · Stock Keeper · floor_check: START ===
     # WORKSHOP_EXERCISE_STUB
     #
     # Wire this tool to BusinessLogic.floor_check() so Stock Keeper
@@ -155,7 +155,7 @@ def floor_check(product_query: str = "") -> str:
         "hint": "Implement the tool body or run the cp command.",
         "received_product_query": product_query,
     })
-    # === CHALLENGE · Stock Keeper · floor_check: END ===
+    # === WORKSHOP · Stock Keeper · floor_check: END ===
 
 @tool
 def whats_trending(limit: int = 5, category: str = None) -> str:
@@ -266,7 +266,7 @@ def process_return(customer_id: str, product_id: int, reason: str) -> str:
 # a production deployment would wire in (live chat, email queue, CX
 # ticket). The tool emits a structured handoff payload that the chat
 # surface renders as a contact card — pure UI, no real human on the
-# other end for the workshop. Builder's Session teaches this as the
+# other end for the workshop. The workshop teaches this as the
 # escape hatch every agent needs but most demos skip.
 @tool
 def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
@@ -405,7 +405,7 @@ def find_pieces(
 
         vector = VectorSearch(_db_service)
 
-        # Concierge uses pure pgvector semantic search — the Module 1
+        # Concierge uses pure pgvector semantic search — the baseline retrieval
         # teaching surface. The hybrid + rerank pipeline was removed
         # when the concierge switched to semantic-only retrieval.
         pool_size = 30 if category else 20
