@@ -578,7 +578,7 @@ def get_user_memories(user_id: str) -> List[Dict[str, Any]]:
         # to []). Long-term records only exist on a memory created WITH an
         # extraction strategy; Pellier's is STM-only, so this returns [] in
         # practice — kept correct for when a strategy is added.
-        client = boto3.client("bedrock-agentcore", region_name=settings.AWS_REGION)
+        client = boto3.client("bedrock-agentcore", region_name=settings.aws_region_resolved)
         response = client.list_memory_records(
             memoryId=settings.AGENTCORE_MEMORY_ID,
             namespace=f"user-{user_id}",
@@ -625,7 +625,7 @@ def search_episodic_memories(
 
         mgr = MemorySessionManager(
             memory_id=settings.AGENTCORE_MEMORY_ID,
-            region_name=settings.AWS_REGION,
+            region_name=settings.aws_region_resolved,
         )
         memory_session = mgr.create_memory_session(
             actor_id=user_id,

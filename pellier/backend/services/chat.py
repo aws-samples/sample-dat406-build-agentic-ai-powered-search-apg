@@ -461,7 +461,7 @@ class EnhancedChatService:
         from config import settings
         
         self.model_id = settings.BEDROCK_CHAT_MODEL
-        self.region = settings.AWS_REGION
+        self.region = settings.aws_region_resolved
         self.bedrock = boto3.client('bedrock-runtime', region_name=self.region)
         self.session_storage_dir = "/tmp/pellier-sessions"
         self.db_service = db_service

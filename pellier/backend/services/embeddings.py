@@ -45,7 +45,7 @@ class EmbeddingService:
         """Initialize embeddings service with Bedrock client."""
         self.bedrock_runtime = boto3.client(
             service_name="bedrock-runtime",
-            region_name=settings.AWS_REGION
+            region_name=settings.aws_region_resolved
         )
         self.model_id = settings.BEDROCK_EMBEDDING_MODEL
         self.embedding_dimension = 1024
@@ -304,7 +304,7 @@ class EmbeddingService:
                 "status": "healthy",
                 "model_id": self.model_id,
                 "embedding_dimension": len(embedding),
-                "region": settings.AWS_REGION
+                "region": settings.aws_region_resolved
             }
 
         except Exception as e:

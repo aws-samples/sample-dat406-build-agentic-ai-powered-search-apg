@@ -52,7 +52,7 @@ def create_analytics_agent():
 
         # Initialize Code Interpreter with sandboxed execution
         code_interpreter = AgentCoreCodeInterpreter(
-            region_name=settings.AWS_REGION,
+            region_name=settings.aws_region_resolved,
         )
 
         agent = Agent(

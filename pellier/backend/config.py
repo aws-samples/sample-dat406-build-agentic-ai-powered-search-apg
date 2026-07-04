@@ -260,12 +260,14 @@ class Settings(BaseSettings):
     @property
     def aws_region_resolved(self) -> str:
         """
-        Get AWS region, preferring AWS_REGION over AWS_DEFAULT_REGION.
+        Get AWS region. Prefer AWS_DEFAULT_REGION when set so the repo's
+        local .env can override an ambient shell AWS_REGION from another
+        tool/session.
         
         Returns:
             str: AWS region name
         """
-        return self.AWS_REGION or self.AWS_DEFAULT_REGION or "us-west-2"
+        return self.AWS_DEFAULT_REGION or self.AWS_REGION or "us-west-2"
 
     @property
     def cognito_pool_id_resolved(self) -> Optional[str]:
@@ -363,8 +365,8 @@ def validate_config() -> None:
         raise ValueError("DB_PASSWORD is required")
     
     # Validate AWS configuration
-    if not settings.AWS_REGION:
-        raise ValueError("AWS_REGION is required")
+    if not settings.aws_region_resolved:
+        raise ValueError("AWS region is required")
     
     # Validate pool sizes
     if settings.DB_POOL_MIN_SIZE > settings.DB_POOL_MAX_SIZE:

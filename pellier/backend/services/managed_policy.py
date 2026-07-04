@@ -62,7 +62,7 @@ def _region() -> str:
         from config import settings
         return settings.aws_region_resolved
     except Exception:
-        return os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+        return os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-west-2"
 
 
 def list_managed_policies() -> Dict[str, Any]:

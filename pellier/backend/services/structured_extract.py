@@ -109,7 +109,7 @@ class StructuredExtractor:
     def __init__(self, region: Optional[str] = None):
         self.client = boto3.client(
             "bedrock-runtime",
-            region_name=region or settings.AWS_REGION,
+            region_name=region or settings.aws_region_resolved,
         )
         self.model_id = settings.BEDROCK_REPORTING_MODEL
 
