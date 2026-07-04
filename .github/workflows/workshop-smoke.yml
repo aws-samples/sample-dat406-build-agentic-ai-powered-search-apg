@@ -71,10 +71,10 @@ jobs:
         working-directory: pellier/frontend
         run: npx playwright install --with-deps chromium
 
-      # Launch uvicorn in the background. The OS-specific spawn is a
-      # hair different — Windows needs `start /B` via PowerShell, POSIX
-      # can use `nohup ... &`. actions/exec doesn't expose a clean
-      # cross-platform pattern, so we split the step.
+      # POSIX runners keep the nohup'ed uvicorn process alive across the
+      # next step. Windows does not reliably preserve the background
+      # process, so the Windows Playwright step starts and stops uvicorn
+      # inside the same PowerShell process below.
       - name: Start uvicorn (POSIX)
         if: runner.os != 'Windows'
         working-directory: pellier/backend
@@ -86,31 +86,64 @@ jobs:
           done
           echo "uvicorn did not start"; cat /tmp/uvicorn.log; exit 1
 
-      - name: Start uvicorn (Windows)
-        if: runner.os == 'Windows'
-        working-directory: pellier/backend
-        shell: pwsh
-        run: |
-          Start-Process -NoNewWindow -FilePath "uvicorn" `
-            -ArgumentList "app:app", "--host", "0.0.0.0", "--port", "8000" `
-            -RedirectStandardOutput $env:TEMP\uvicorn.log `
-            -RedirectStandardError  $env:TEMP\uvicorn.err
-          for ($i=0; $i -lt 40; $i++) {
-            try {
-              $r = Invoke-WebRequest -Uri http://localhost:8000/api/health -UseBasicParsing -TimeoutSec 2
-              if ($r.StatusCode -eq 200) { exit 0 }
-            } catch {}
-            Start-Sleep -Seconds 1
-          }
-          Write-Host "uvicorn did not start"
-          Get-Content $env:TEMP\uvicorn.log -ErrorAction SilentlyContinue
-          exit 1
-
       - name: Run Playwright smoke specs
+        if: runner.os != 'Windows'
         working-directory: pellier/frontend
         env:
           E2E_BASE_URL: http://localhost:8000
         run: npx playwright test e2e/workshop-smoke.spec.ts
+
+      - name: Run Playwright smoke specs (Windows)
+        if: runner.os == 'Windows'
+        working-directory: pellier/frontend
+        shell: pwsh
+        env:
+          E2E_BASE_URL: http://localhost:8000
+        run: |
+          $out = Join-Path $env:TEMP "uvicorn.log"
+          $err = Join-Path $env:TEMP "uvicorn.err"
+          $proc = Start-Process -PassThru -NoNewWindow -FilePath "python" `
+            -ArgumentList "-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", "8000" `
+            -WorkingDirectory "..\backend" `
+            -RedirectStandardOutput $out `
+            -RedirectStandardError  $err
+
+          $ready = $false
+          for ($i=0; $i -lt 40; $i++) {
+            if ($proc.HasExited) {
+              Write-Host "uvicorn exited before becoming ready"
+              Get-Content $out -ErrorAction SilentlyContinue
+              Get-Content $err -ErrorAction SilentlyContinue
+              exit 1
+            }
+            try {
+              $r = Invoke-WebRequest -Uri http://localhost:8000/api/health -UseBasicParsing -TimeoutSec 2
+              if ($r.StatusCode -eq 200) {
+                $ready = $true
+                break
+              }
+            } catch {}
+            Start-Sleep -Seconds 1
+          }
+
+          if (-not $ready) {
+            Write-Host "uvicorn did not start"
+            Get-Content $out -ErrorAction SilentlyContinue
+            Get-Content $err -ErrorAction SilentlyContinue
+            if (-not $proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force
+            }
+            exit 1
+          }
+
+          npx playwright test e2e/workshop-smoke.spec.ts
+          $playwrightExit = $LASTEXITCODE
+
+          if (-not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force
+          }
+
+          exit $playwrightExit
 
       - name: Upload Playwright report
         if: always()
