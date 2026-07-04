@@ -151,12 +151,14 @@ class AgentCoreMemory:
             return None
 
         try:
+            import boto3
             from bedrock_agentcore.memory import MemorySessionManager
 
             _SDK_AVAILABLE = True
             self._sdk_manager = MemorySessionManager(
                 memory_id=self._memory_id,
                 region_name=self._region,
+                boto3_session=boto3.Session(region_name=self._region),
             )
             return self._sdk_manager
         except ImportError:
@@ -528,10 +530,12 @@ def create_agentcore_session_manager(
         return None
 
     try:
+        import boto3
         from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
         from bedrock_agentcore.memory.integrations.strands.session_manager import (
             AgentCoreMemorySessionManager,
         )
+        region = settings.aws_region_resolved
 
         config = AgentCoreMemoryConfig(
             memory_id=settings.AGENTCORE_MEMORY_ID,
@@ -542,7 +546,8 @@ def create_agentcore_session_manager(
 
         session_manager = AgentCoreMemorySessionManager(
             config,
-            region_name=settings.AWS_REGION,
+            region_name=region,
+            boto_session=boto3.Session(region_name=region),
         )
 
         logger.info(
