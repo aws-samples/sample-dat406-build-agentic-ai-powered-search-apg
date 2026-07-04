@@ -224,6 +224,7 @@ class Settings(BaseSettings):
     # ========================================
     DEBUG: bool = False
     DEVELOPMENT_MODE: bool = True
+    PELLIER_SMOKE_MODE: bool = False
 
     # Show SQL queries in logs
     SHOW_SQL: bool = False

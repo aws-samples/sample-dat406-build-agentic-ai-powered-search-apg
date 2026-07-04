@@ -51,45 +51,76 @@ jobs:
       E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
       E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
       E2E_AWS_REGION: ${{ secrets.E2E_AWS_REGION }}
+      E2E_AWS_ROLE_ARN: ${{ secrets.E2E_AWS_ROLE_ARN }}
       E2E_BASE_URL: http://localhost:5173
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check required E2E secrets
+        id: e2e_config
+        shell: bash
+        run: |
+          missing=()
+          for name in E2E_COGNITO_POOL_ID E2E_COGNITO_CLIENT_ID E2E_TEST_USER_EMAIL E2E_TEST_USER_PASSWORD E2E_AWS_REGION E2E_AWS_ROLE_ARN; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Missing E2E secrets: ${missing[*]}"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip Cognito E2E when secrets are absent
+        if: steps.e2e_config.outputs.configured != 'true'
+        run: echo "Skipping Cognito E2E because the required GitHub Actions secrets are not configured."
+
       - name: Configure AWS credentials (OIDC)
+        if: steps.e2e_config.outputs.configured == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.E2E_AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.E2E_AWS_REGION }}
+          role-to-assume: ${{ env.E2E_AWS_ROLE_ARN }}
+          aws-region: ${{ env.E2E_AWS_REGION }}
 
       - name: Set up Python
+        if: steps.e2e_config.outputs.configured == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
 
       - name: Install Python deps
+        if: steps.e2e_config.outputs.configured == 'true'
         run: pip install boto3
 
       - name: Set up Node
+        if: steps.e2e_config.outputs.configured == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Install frontend deps
+        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         run: npm ci
 
       - name: Install Playwright browsers
+        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         run: npx playwright install --with-deps chromium
 
       # Bootstrap BEFORE starting the app so that any AWS error fails fast
       # without leaving a running dev server behind.
       - name: Bootstrap Cognito dev pool test user
+        if: steps.e2e_config.outputs.configured == 'true'
         run: python tests/e2e/bootstrap_cognito_dev_pool.py
 
       - name: Start backend
+        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/backend
         run: |
           pip install -r requirements.txt
@@ -104,6 +135,7 @@ jobs:
           exit 1
 
       - name: Start frontend
+        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         run: |
           nohup npm run dev -- --host 0.0.0.0 --port 5173 >/tmp/frontend.log 2>&1 &
@@ -116,6 +148,7 @@ jobs:
           exit 1
 
       - name: Run Playwright
+        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         # All four E2E specs per Task 7.3. The three specs beyond the
         # happy path are scaffolding - they skip when env vars are not
@@ -131,11 +164,11 @@ jobs:
       # Teardown runs even on failure so the dev pool stays tidy. A missing
       # user is treated as success by the script.
       - name: Tear down Cognito dev pool test user
-        if: always()
+        if: always() && steps.e2e_config.outputs.configured == 'true'
         run: python tests/e2e/teardown_cognito_dev_pool.py
 
       - name: Upload Playwright report
-        if: always()
+        if: always() && steps.e2e_config.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

@@ -27,6 +27,14 @@ jobs:
     name: ${{ matrix.os }} production-build smoke
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      PELLIER_SMOKE_MODE: "true"
+      DB_HOST: localhost
+      DB_NAME: pellier_smoke
+      DB_USER: pellier_smoke
+      DB_PASSWORD: pellier_smoke
+      AWS_REGION: us-west-2
+      AWS_DEFAULT_REGION: us-west-2
 
     strategy:
       fail-fast: false

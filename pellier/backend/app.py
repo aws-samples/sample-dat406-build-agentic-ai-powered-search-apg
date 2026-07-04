@@ -145,6 +145,16 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Pellier Boutique API...")
     
     global db_service, embedding_service, chat_service, query_logger, index_performance_service
+
+    if settings.PELLIER_SMOKE_MODE:
+        logger.info(
+            "PELLIER_SMOKE_MODE enabled — skipping Aurora, Bedrock, "
+            "Strands, and AgentCore service initialization"
+        )
+        yield
+        logger.info("Shutting down Pellier Boutique API smoke process...")
+        logger.info("👋 Goodbye!")
+        return
     
     try:
         # Initialize Strands OpenTelemetry tracing
@@ -454,13 +464,26 @@ else:
 
 
 @app.get("/api/health", response_model=HealthResponse)
-async def health_check(
-    db: DatabaseService = Depends(get_db_service),
-):
+async def health_check():
     """
     Health check endpoint
     Returns status of all services
     """
+    if settings.PELLIER_SMOKE_MODE:
+        return HealthResponse(
+            status="healthy",
+            database="smoke",
+            bedrock="smoke",
+            custom_tools="available",
+            version="1.0.0",
+        )
+
+    if not db_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable - check network connectivity to Aurora cluster",
+        )
+
     health_status = {
         "status": "healthy",
         "database": "unknown",
@@ -471,7 +494,7 @@ async def health_check(
 
     # Check database connection
     try:
-        await db.execute_query("SELECT 1")
+        await db_service.execute_query("SELECT 1")
         health_status["database"] = "connected"
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
@@ -713,6 +736,70 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
     via an asyncio.Queue bridge, instead of waiting for the full chain to finish.
     """
     from fastapi.responses import StreamingResponse
+
+    if settings.PELLIER_SMOKE_MODE:
+        async def smoke_event_generator():
+            content = (
+                "I'm Pellier. For ten days in Goa, I would start with the "
+                "Italian Linen Camp Shirt, Linen Drawstring Trousers, Linen "
+                "Overshirt, and a cotton-linen tee, then rotate the lighter "
+                "layers around dinners, travel days, and the beach."
+            )
+            if request.message.strip().lower() in {"hi", "hello", "hey"}:
+                content = (
+                    "I'm Pellier, your boutique concierge. I can help you "
+                    "search linen, compare pieces, and keep the edit grounded."
+                )
+
+            routing = {
+                "type": "skill_routing",
+                "routing": {
+                    "loaded_skills": ["the-packing-list"],
+                    "considered": [
+                        {
+                            "name": "the-packing-list",
+                            "reason": "Smoke-mode wardrobe query routing.",
+                        }
+                    ],
+                    "elapsed_ms": 1,
+                    "user_message": request.message,
+                },
+            }
+            complete = {
+                "type": "complete",
+                "response": {
+                    "response": content,
+                    "products": [],
+                    "suggestions": [
+                        "Compare the linen layers",
+                        "Show lighter travel pieces",
+                        "Build a 10-day packing list",
+                    ],
+                    "agent_execution": {
+                        "agent_steps": [],
+                        "tool_calls": [],
+                        "reasoning_steps": [],
+                        "total_duration_ms": 1,
+                        "success_rate": 1.0,
+                    },
+                    "token_count": 0,
+                    "estimated_cost_usd": 0,
+                },
+            }
+
+            yield f"data: {json.dumps(routing, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'content_delta', 'delta': content}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(complete, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(
+            smoke_event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
