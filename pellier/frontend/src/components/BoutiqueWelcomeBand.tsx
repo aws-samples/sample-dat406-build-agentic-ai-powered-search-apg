@@ -8,14 +8,14 @@
  *
  *   1. You can just ask. (hero search bar, ⌘K, mic)
  *   2. Pick a persona. (header pill — Marco/Anna/Theo)
- *   3. Peek the wires. (Atelier toggle in the header)
+ *   3. Save the thread. (saved pieces, sizing, restocks)
  *
  * Dismiss persists in sessionStorage so returning attendees inside
  * the same browser session skip past it. Fresh tabs or re-opened
  * tabs get the intro again so every live demo starts clean.
  */
 import { useState } from 'react'
-import { X, Sparkles, UserCircle2, Microscope } from 'lucide-react'
+import { X, Sparkles, UserCircle2, Heart } from 'lucide-react'
 
 const DISMISS_KEY = 'boutique-welcome-dismissed'
 
@@ -232,8 +232,8 @@ export default function BoutiqueWelcomeBand() {
               margin: 0,
             }}
           >
-            Ask in your own words, let the active persona shape the floor, and
-            open the Atelier when the recommendation needs a paper trail.
+            Ask in your own words, let the active profile shape the floor, and
+            keep the thread as your taste, sizing, and saved pieces evolve.
           </p>
         </div>
 
@@ -251,23 +251,23 @@ export default function BoutiqueWelcomeBand() {
             verb="Ask Pellier"
             title="Ask naturally."
             description={
-              "Type or speak the way a shopper would. Pellier reads intent, inventory, memory, and context together."
+              "Type or speak the way you would to a stylist. Pellier turns occasion, fit, and availability into a focused edit."
             }
           />
           <Pillar
             icon={<UserCircle2 size={18} strokeWidth={2} />}
-            verb="Pick a persona"
+            verb="Choose a profile"
             title="Let taste travel."
             description={
-              'Marco, Anna, and Theo each reshape the hero, grid, and concierge with visible signals.'
+              'Marco, Anna, and Theo each reshape the hero, product floor, and concierge around a different visit.'
             }
           />
           <Pillar
-            icon={<Microscope size={18} strokeWidth={2} />}
-            verb="Peek the wires"
-            title="Follow the proof."
+            icon={<Heart size={18} strokeWidth={2} />}
+            verb="Save the thread"
+            title="Pick up easily."
             description={
-              'The Atelier keeps the trace: decisions, tools, memory reads, and governed handoffs.'
+              'Saved pieces, restocks, sizes, and recent questions carry into the next conversation.'
             }
           />
         </div>

@@ -1,81 +1,34 @@
 /**
- * AnnouncementBar — Live Floor Strip above the sticky header.
+ * AnnouncementBar — storefront service strip above the sticky header.
  *
  * Cycles through editorial "just in" findings every 5 seconds with a
  * smooth vertical crossfade. Each line reads like a concierge aside —
  * the agent quietly surfacing what it noticed while watching the floor.
  *
- * Restyled for the workshop: a pulse dot on the left, a small-caps-style
- * verb (NOTICING / PAIRING / …) in sans semibold + wide tracking — same
- * register as the hero "Summer Edit / No. 06" eyebrow, but in deep
- * terracotta (`var(--accent)`). Body in cream, mono trace on the right.
+ * A pulse dot on the left, a small-caps-style verb (NEW ARRIVALS /
+ * RESTOCKED / SERVICE) in sans semibold + wide tracking, and body copy
+ * in cream. The Boutique keeps this retail-facing; Atelier carries the
+ * proof and trace vocabulary.
  *
- * Falls back to the static ANNOUNCEMENT copy as the first item so the
- * shipping/returns line still appears in the rotation.
+ * Copy lives in copy.ts so the rotating strip stays aligned with the
+ * current catalog and proof language.
  */
 import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ANNOUNCEMENT } from '../copy'
+import { LIVE_FLOOR_FINDINGS } from '../copy'
 import { cssVar as c } from '../design/cssVars'
 
 const MONO_STACK = 'var(--mono)'
 
 const CYCLE_MS = 5000
 
-interface Finding {
-  /** Uppercase sans label that leads the copy ("Noticing", "Pairing"). */
-  verb?: string
-  /** Body text. */
-  text: string
-  /** Mono trace stamp on the right ("trace · inventory.search · 2.1s ago"). */
-  trace?: string
-}
-
-const FINDINGS: Finding[] = [
-  { text: ANNOUNCEMENT },
-  {
-    verb: 'Noticing',
-    text: 'linen searches up 60% since Thursday — three new pieces just landed in the Summer Edit.',
-    trace: 'trace · inventory.search · 2.1s ago',
-  },
-  {
-    verb: 'Just spotted',
-    text: 'the Pellier Linen Shirt back in all sizes after a 9-day wait.',
-    trace: 'trace · inventory.watch · 28s ago',
-  },
-  {
-    verb: 'Trending',
-    text: 'Cashmere-Blend Cardigan moving 4× faster this week — 2 left in your size.',
-    trace: 'trace · trend.signal · 12s ago',
-  },
-  {
-    verb: 'Holding',
-    text: 'last 2 pairs of the Leather Slide Sandal in 42 — saved for shoppers who looked twice.',
-    trace: 'trace · memory.holds · 47s ago',
-  },
-  {
-    verb: 'Pairing',
-    text: 'shoppers who liked the Oxford are reaching for the Camp Shirt 73% of the time.',
-    trace: 'trace · pairing.score · 1.4s ago',
-  },
-  {
-    verb: 'Restocked',
-    text: 'Ceramic Tumbler Set is back after selling out twice this month.',
-    trace: 'trace · inventory.watch · 6s ago',
-  },
-  {
-    verb: 'Watching',
-    text: 'Wide-Leg Linen Trousers in Terracotta — third week running as a bestseller.',
-    trace: 'trace · trend.signal · 33s ago',
-  },
-]
-
 export default function AnnouncementBar() {
   const [index, setIndex] = useState(0)
+  const finding = LIVE_FLOOR_FINDINGS[index]
 
   useEffect(() => {
     const t = setInterval(() => {
-      setIndex((i) => (i + 1) % FINDINGS.length)
+      setIndex((i) => (i + 1) % LIVE_FLOOR_FINDINGS.length)
     }, CYCLE_MS)
     return () => clearInterval(t)
   }, [])
@@ -83,7 +36,7 @@ export default function AnnouncementBar() {
   return (
     <div
       role="region"
-      aria-label="Live floor — agent observations"
+      aria-label="Storefront announcements"
       aria-live="polite"
       data-testid="announcement-bar"
       className="w-full relative overflow-hidden"
@@ -150,7 +103,7 @@ export default function AnnouncementBar() {
               maxWidth: '100%',
             }}
           >
-            {FINDINGS[index].verb ? (
+            {finding.verb ? (
               <span
                 style={{
                   fontFamily: 'var(--sans)',
@@ -163,7 +116,7 @@ export default function AnnouncementBar() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {FINDINGS[index].verb}
+                {finding.verb}
               </span>
             ) : null}
             <span
@@ -175,9 +128,9 @@ export default function AnnouncementBar() {
                 textOverflow: 'ellipsis',
               }}
             >
-              {FINDINGS[index].text}
+              {finding.text}
             </span>
-            {FINDINGS[index].trace ? (
+            {finding.trace ? (
               <span
                 aria-hidden="true"
                 style={{
@@ -191,7 +144,7 @@ export default function AnnouncementBar() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {FINDINGS[index].trace}
+                {finding.trace}
               </span>
             ) : null}
           </span>

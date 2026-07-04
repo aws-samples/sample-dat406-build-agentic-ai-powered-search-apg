@@ -321,8 +321,7 @@ export default function ProductCard({
         {/* Reasoning chip (Req 1.6.5 step 8) */}
         {product.reasoning ? <ReasoningChip chip={product.reasoning} /> : null}
 
-        {/* Provenance labels — shopper-facing names, with the raw tool
-            trace preserved in the tooltip and deep link. */}
+        {/* Shopper-facing recommendation signals. */}
         {traceChips.length > 0 && (
           <div
             data-testid={`product-card-traces-${product.id}`}
@@ -337,14 +336,13 @@ export default function ProductCard({
                 fontWeight: 600,
               }}
             >
-              Pellier signal
+              Why this piece
             </span>
             <span className="flex flex-wrap gap-1.5">
             {traceChips.map((trace) => (
               <TraceChip
                 key={trace}
                 tool={trace}
-                linkToAtelier
                 variant="provenance"
                 labelMode="label"
                 compact

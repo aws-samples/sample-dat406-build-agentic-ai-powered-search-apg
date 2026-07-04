@@ -25,7 +25,6 @@ import {
 } from '../data/personaCurations'
 import { LOCAL_PERSONAS } from '../data/personas'
 import { getPersonaPhoto } from '../data/personaPhotos'
-import { useFloorCheckWorkshopCue } from '../hooks/useFloorCheckWorkshopCue'
 import { useVoiceSearch } from '../hooks/useVoiceSearch'
 import { PresencePill } from '../shared'
 import { asset } from '../utils/assetPath'
@@ -40,38 +39,28 @@ const PERSONA_HERO_IMAGES: Record<string, string> = {
   theo: asset('/products/hero-theo.png'),
 }
 
-// Trust strip restyled as Agent Capabilities \u2014 each claim names
-// something unusual about the agent (not table-stakes retail). Retail
-// boilerplate (shipping, free-over-$150) lives in the footer service
-// strip; this strip stays focused on the five agent capabilities the
-// Atelier actually teaches and a participant can verify. Phrasing is
-// terse on purpose so all five fit in roughly two lines on standard
-// viewports without wrapping individual pills:
-//   - Reads live inventory       \u2192 Stock Keeper / floor_check (tools)
-//   - Remembers your taste       \u2192 AgentCore Memory (STM + LTM)
-//   - Cites tools and skills     \u2192 Under the hood trace chips
-//   - Refuses out-of-policy asks \u2192 Cedar policies + tool_audit (write path)
-//   - Hands off to a stylist     \u2192 escalate_to_stylist tool (escape hatch)
+// Customer-service trust strip. Technical proof belongs in Atelier; the
+// Boutique names the value a shopper would care about.
 interface CapabilityItem {
-  /** Bold lead clause \u2014 agent capability. */
+  /** Bold lead clause. */
   lead: string
   /** Optional trailing clause \u2014 kept for forward compatibility. */
   trail?: string
 }
 const TRUST_ITEMS: CapabilityItem[] = [
-  { lead: 'Reads live inventory' },
-  { lead: 'Remembers your taste' },
-  { lead: 'Cites tools and skills' },
-  { lead: 'Refuses out-of-policy asks' },
-  { lead: 'Hands off to a stylist' },
+  { lead: 'Live stock checked' },
+  { lead: 'Tailored to your taste' },
+  { lead: 'Gift-ready wrapping' },
+  { lead: 'Natural fibers' },
+  { lead: 'Stylist handoff' },
 ]
 
 // Visual treatment per because-chip kind. Same dashed-italic shell, just
 // a different eyebrow label color so the categories are scannable.
 const BECAUSE_KIND_LABEL: Record<BecauseChip['kind'], string> = {
-  memory: 'memory',
-  trend: 'trend',
-  inventory: 'inventory',
+  memory: 'saved',
+  trend: 'popular',
+  inventory: 'stock',
   weather: 'weather',
 }
 
@@ -84,31 +73,31 @@ const PERSONA_GATEWAY_COPY: Record<
   }
 > = {
   marco: {
-    focus: 'Travel wardrobe',
+    focus: 'Travel edit',
     bullets: [
-      'Natural fibers and packability',
-      'Styling and outfit pairing',
-      'Fit-forward recommendations',
+      'Linen, light layers, and packable accessories',
+      'Warm-weather outfits for ten days in Goa',
+      'Size-aware picks from saved pieces',
     ],
-    learn: 'Learn: semantic retrieval in action',
+    learn: "Starts with Marco's saved linen preferences",
   },
   anna: {
-    focus: 'Thoughtful gifting',
+    focus: 'Gift edit',
     bullets: [
-      'Budget-aware gift curation',
-      'Hybrid retrieval with rerank',
-      'Gift-ready pairings and bundles',
+      'Gift-ready pieces across price bands',
+      'Candles, ceramics, and wrapped pairings',
+      'Shortlists for milestones and housewarmings',
     ],
-    learn: 'Learn: hybrid + rerank decisioning',
+    learn: "Starts with Anna's gifting shortlist",
   },
   theo: {
-    focus: 'Home + slow craft',
+    focus: 'Home rituals',
     bullets: [
-      'Ceramics, rituals, and care',
-      'Write-path behaviors (returns)',
-      'Traceable tool-and-audit flow',
+      'Ceramics, stoneware, and washed linen',
+      'Slow-craft objects for daily rituals',
+      'Care and service after purchase',
     ],
-    learn: 'Learn: writes, policy, and audit trail',
+    learn: "Starts with Theo's slow-craft taste",
   },
 }
 
@@ -116,7 +105,7 @@ export default function BoutiqueHero() {
   const { openDrawerWithQuery } = useUI()
   const { persona, switchPersona, switching } = usePersona()
   const isSignedIn = Boolean(persona)
-  const { showBuilderSessionGap } = useFloorCheckWorkshopCue()
+  const showBuilderSessionGap = false
   const suggestions = heroPillsForPersona(persona?.id)
   const becauseChips = becauseChipsForPersona(persona?.id)
   const heroImage = PERSONA_HERO_IMAGES[persona?.id ?? 'fresh'] ?? PERSONA_HERO_IMAGES.fresh
@@ -154,13 +143,9 @@ export default function BoutiqueHero() {
     [isSignedIn, openDrawerWithQuery],
   )
 
-  const heroHeadline = splitHeadlineAtRe('Search, re:Engineered.')
+  const heroHeadline = splitHeadlineAtRe('Pellier Summer Edit.')
 
-  /** Marco + exercise: align "Your exercise" eyebrow over Turn 4 pill on wide viewports. */
-  const marcoBuilderSessionBand =
-    persona?.id === 'marco' &&
-    showBuilderSessionGap &&
-    suggestions[3] === MARCO_BUILDER_SESSION_QUERY
+  const marcoBuilderSessionBand = false
 
   return (
     <>
@@ -283,9 +268,9 @@ export default function BoutiqueHero() {
                 </>
               ) : (
                 <>
-                  This workshop runs through three guided personas.
+                  Start with a shopper profile.
                   <br />
-                  Choose one to begin the Boutique and Atelier journey.
+                  Pellier will tailor the floor around that visit.
                 </>
               )}
             </p>
@@ -396,9 +381,8 @@ export default function BoutiqueHero() {
               </div>
                 </form>
 
-                {/* Marco + exercise (lg): labels absolutely positioned on the same
-                baseline — Try asking centered in the gap between pills 2 & 3,
-                "Your exercise" centered over pill 4 (track scales with %). */}
+                {/* Marco availability variant (lg): labels absolutely positioned on the same
+                baseline so the featured availability question aligns with the fourth pill. */}
                 <div className="mt-0 w-full min-w-0">
               {marcoBuilderSessionBand ? (
                 <>
@@ -456,7 +440,7 @@ export default function BoutiqueHero() {
                             letterSpacing: '0.16em',
                           }}
                         >
-                          ▸ Your exercise · Turn 4
+                          Featured question
                         </span>
                       </div>
 
@@ -554,14 +538,13 @@ export default function BoutiqueHero() {
                             marginRight: '8px',
                           }}
                         >
-                          Your task
+                          Concierge note
                         </span>
-                        Wire{' '}
+                        Pellier checks{' '}
                         <span className="font-mono text-[12px] font-semibold text-[#1f1410]">
-                          floor_check
+                          current availability
                         </span>{' '}
-                        so Stock Keeper can answer this turn from live inventory — the lab guide
-                        walks you through it step by step.
+                        before answering this warehouse question.
                       </p>
                     </div>
                   </div>
@@ -586,7 +569,7 @@ export default function BoutiqueHero() {
                         letterSpacing: '0.16em',
                       }}
                     >
-                      ▸ Your exercise · Turn 4
+                      Featured question
                     </span>
                   </div>
                   <div
@@ -671,14 +654,13 @@ export default function BoutiqueHero() {
                         marginRight: '8px',
                       }}
                     >
-                      Your task
+                      Concierge note
                     </span>
-                    Wire{' '}
+                    Pellier checks{' '}
                     <span className="font-mono text-[12px] font-semibold text-[#1f1410]">
-                      floor_check
+                      current availability
                     </span>{' '}
-                    so Stock Keeper can answer this turn from live inventory — the lab guide
-                    walks you through it step by step.
+                    before answering this warehouse question.
                   </p>
                 </>
               ) : (
@@ -696,7 +678,7 @@ export default function BoutiqueHero() {
                     Try asking
                   </div>
 
-                  {(persona?.id === 'anna' || persona?.id === 'theo') && (
+                  {false && (persona?.id === 'anna' || persona?.id === 'theo') && (
                     <p
                       data-testid="boutique-hero-observe-hint"
                       className="mx-auto mt-2 max-w-[640px] text-center font-sans"
@@ -708,19 +690,19 @@ export default function BoutiqueHero() {
                     >
                       {persona?.id === 'anna' ? (
                         <>
-                          Observe &amp; learn — hybrid + rerank demo.{' '}
+                          Try a gift-ready edit.{' '}
                           <strong style={{ color: '#1f1410', fontWeight: 600 }}>
-                            No participant exercise
+                            Pellier will shortlist
                           </strong>{' '}
-                          on this persona.
+                          pieces by occasion, budget, and presentation.
                         </>
                       ) : (
                         <>
-                          Observe &amp; learn — write path + audit trail demo.{' '}
+                          Try a home ritual edit.{' '}
                           <strong style={{ color: '#1f1410', fontWeight: 600 }}>
-                            No participant exercise
+                            Pellier will consider
                           </strong>{' '}
-                          on this persona.
+                          care, returns, and post-purchase context.
                         </>
                       )}
                     </p>
@@ -886,7 +868,7 @@ export default function BoutiqueHero() {
             ) : (
               <div className="mt-8 md:mt-10 w-full" style={{ maxWidth: '920px' }}>
                 <div
-                  className="rounded-2xl p-4 md:p-6"
+                  className="rounded-[8px] p-4 md:p-6"
                   style={{
                     background: 'rgba(31, 20, 16, 0.9)',
                     border: '1px solid rgba(251, 244, 232, 0.16)',
@@ -903,7 +885,7 @@ export default function BoutiqueHero() {
                       color: 'rgba(251, 244, 232, 0.72)',
                     }}
                   >
-                    Guided Boutique Journeys
+                    Personal Shopping Profiles
                   </div>
                   <div
                     className="mb-3 text-center font-sans uppercase"
@@ -914,7 +896,7 @@ export default function BoutiqueHero() {
                       fontWeight: 600,
                     }}
                   >
-                    Choose a persona to begin
+                    Choose a customer profile
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {LOCAL_PERSONAS.map((p) => {
@@ -926,7 +908,7 @@ export default function BoutiqueHero() {
                           type="button"
                           disabled={switching}
                           onClick={() => void switchPersona(p.id)}
-                          className="rounded-[12px] border cursor-pointer text-left transition-all duration-fade ease-out hover:-translate-y-[1px] hover:shadow-[0_8px_18px_rgba(31,20,16,0.12)] hover:border-[rgba(31,20,16,0.28)] hover:bg-[#f8f0e5] disabled:opacity-60 disabled:cursor-wait"
+                          className="rounded-[8px] border cursor-pointer text-left transition-all duration-fade ease-out hover:-translate-y-[1px] hover:shadow-[0_8px_18px_rgba(31,20,16,0.12)] hover:border-[rgba(31,20,16,0.28)] hover:bg-[#f8f0e5] disabled:opacity-60 disabled:cursor-wait"
                           style={{
                             fontFamily: 'var(--sans)',
                             color: '#1f1410',
@@ -1029,7 +1011,7 @@ export default function BoutiqueHero() {
                               fontWeight: 500,
                             }}
                           >
-                            {profile?.learn ?? 'Learn: persona-guided agent flow'}
+                            {profile?.learn ?? 'Starts with saved taste'}
                           </div>
                           <div
                             style={{
@@ -1039,7 +1021,7 @@ export default function BoutiqueHero() {
                               color: '#1f1410',
                             }}
                           >
-                            {switching ? 'Signing in...' : `Sign in as ${p.display_name} →`}
+                            {switching ? 'Opening edit...' : `Shop as ${p.display_name} →`}
                           </div>
                         </button>
                       )

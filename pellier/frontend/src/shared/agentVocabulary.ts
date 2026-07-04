@@ -49,95 +49,95 @@ interface AgentToolEntry {
 export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
   'memory.recall': {
     name: 'memory.recall',
-    label: 'Memory recall',
+    label: 'Saved taste',
     description:
-      'The agent surfacing something it remembers about you from a previous session.',
+      'A preference or saved piece from an earlier visit shaped this recommendation.',
     atelierPath: '/atelier/proof-board#runtime-gateway-policy',
   },
   'memory.seed': {
     name: 'memory.seed',
-    label: 'Memory seed',
+    label: 'Learns as you shop',
     description:
-      'First-time-visitor onboarding — the agent hasn’t learned your taste yet, but it will.',
+      'A first visit starts with broad signals and becomes more personal as you save and ask.',
     atelierPath: '/atelier/proof-board#runtime-gateway-policy',
   },
   'memory.write': {
     name: 'memory.write',
-    label: 'Memory write',
+    label: 'Taste saved',
     description:
-      'The agent recording a new fact about you (saved item, size, taste signal) for next time.',
+      'A new size, saved item, or taste signal is kept for the next visit.',
     atelierPath: '/atelier/proof-board#runtime-gateway-policy',
   },
   'inventory.live': {
     name: 'inventory.live',
-    label: 'Live inventory',
-    description: 'A live read against the catalog — what is actually in stock right now.',
+    label: 'In stock',
+    description: 'The recommendation is grounded in what is available right now.',
     atelierPath: '/atelier/proof-board#marco-floor-check',
   },
   'inventory.watch': {
     name: 'inventory.watch',
-    label: 'Inventory watch',
-    description: 'The agent tracking restocks and surfacing them when something you wanted returns.',
+    label: 'Restock watch',
+    description: 'A piece you may care about has returned or changed availability.',
     atelierPath: '/atelier/proof-board#marco-floor-check',
   },
   'inventory.search': {
     name: 'inventory.search',
-    label: 'Inventory search',
-    description: 'A semantic search over the catalog driven by a shopper’s natural-language query.',
+    label: 'Catalog match',
+    description: 'The catalog was matched to the words and intent in your request.',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'trend.signal': {
     name: 'trend.signal',
-    label: 'Trend signal',
-    description: 'Aggregated shopping behavior — what is moving fast across the floor right now.',
+    label: 'Trending',
+    description: 'This piece is moving quickly across the boutique right now.',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'pairing.score': {
     name: 'pairing.score',
-    label: 'Pairing score',
-    description: 'How well two pieces go together — palette, weight, occasion, style memory.',
+    label: 'Pairs well',
+    description: 'Palette, weight, occasion, and saved taste suggest these pieces work together.',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'palette.match': {
     name: 'palette.match',
     label: 'Palette match',
-    description: 'A color-and-tone match between a candidate piece and a shopper’s saved palette.',
+    description: 'The color and tone fit the palette already present in the edit.',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'memory.holds': {
     name: 'memory.holds',
-    label: 'Memory holds',
-    description: 'Items the agent is keeping in your bag from a previous session.',
+    label: 'Bag hold',
+    description: 'A piece from an earlier visit is still being held in your bag.',
     atelierPath: '/atelier/proof-board#runtime-gateway-policy',
   },
   'experience.return': {
     name: 'experience.return',
-    label: 'Returns & experience',
-    description: 'The Experience Guide handling a return, refund, or post-purchase issue.',
+    label: 'Return update',
+    description: 'A return, refund, or post-purchase request influenced this visit.',
     atelierPath: '/atelier/proof-board#audit-ledger',
   },
   'weather.lookup': {
     name: 'weather.lookup',
-    label: 'Weather lookup',
+    label: 'Weather-aware',
     description: 'A live weather call to ground a recommendation in the conditions you’re shopping for.',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'tag.match': {
     name: 'tag.match',
-    label: 'Tag match',
+    label: 'Category match',
     description: 'A direct match against the product taxonomy (linen, travel, ceramic, etc).',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'curator.signal': {
     name: 'curator.signal',
-    label: 'Curator signal',
-    description: 'An editorial pick — a piece our human curators are reaching for this week.',
+    label: "Editor's pick",
+    description: 'An editorial pick our curators are reaching for this week.',
     atelierPath: '/atelier/proof-board#retrieval-comparison',
   },
   'tool.transparency': {
     name: 'tool.transparency',
-    label: 'Tool transparency',
-    description: 'Every recommendation cites the tool that produced it. No black box.',
+    label: 'Why it fits',
+    description: 'The Boutique names the signal behind each recommendation.',
     atelierPath: '/atelier/proof-board#audit-ledger',
   },
 }
@@ -185,10 +185,14 @@ export function lookupVocab(name: string): AgentToolEntry {
     // but use the canonical entry for the description + atelierPath.
     return { ...known, name: name as AgentToolName }
   }
+  const fallbackLabel = canonical
+    .replace(/^tool\./, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (ch) => ch.toUpperCase())
   return {
     name: name as AgentToolName,
-    label: canonical,
-    description: 'An agent tool call. See the Atelier for details.',
+    label: fallbackLabel,
+    description: 'A catalog or service check used to prepare this recommendation.',
     atelierPath: '/atelier/tools',
   }
 }

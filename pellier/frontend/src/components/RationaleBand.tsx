@@ -13,7 +13,6 @@
  * rationale clause. No new tokens — same accent / espresso / Fraunces.
  */
 import { usePersona } from '../contexts/PersonaContext'
-import { SurfaceCrossLink } from '../shared'
 import type { CSSProperties } from 'react'
 
 interface PersonaRationale {
@@ -83,19 +82,6 @@ export default function RationaleBand() {
         </span>
         {r.text}
       </p>
-      {/* "How this works" → drops the developer into the Atelier's
-          Architecture index, where every concept the rationale touches
-          (memory, tools, agents, routing) is explained one-screen-deep.
-          Sits at the foot of the rationale so it feels like a
-          continuation of the agent's voice, not a marketing CTA. */}
-      <div className="mt-3 ml-5">
-        <SurfaceCrossLink
-          direction="to-atelier"
-          href="/atelier/architecture"
-          label="How this works · in the Atelier"
-          italic={false}
-        />
-      </div>
     </div>
   )
 }

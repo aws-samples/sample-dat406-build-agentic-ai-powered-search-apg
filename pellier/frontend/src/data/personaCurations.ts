@@ -511,7 +511,7 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
     },
     {
       kind: 'trend',
-      text: 'terracotta is up 4× this week',
+      text: 'terracotta is moving four times faster this week',
       query: 'Show me terracotta pieces',
     },
   ],
@@ -546,7 +546,7 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
   fresh: [
     {
       kind: 'trend',
-      text: 'linen searches up 60% since Thursday',
+      text: 'linen requests are up 60% since Thursday',
       query: 'Show me trending linen pieces',
     },
     {
@@ -595,7 +595,7 @@ export const PERSONA_MEMORY_HANDOFF: Record<string, MemoryHandoffContent> = {
     items: [
       { tool: 'memory.recall', text: 'Linen Camp Shirt · size 41 · saved' },
       { tool: 'memory.holds', text: 'Wide-Leg Trouser · in bag, 2 left' },
-      { tool: 'inventory.watch', text: 'Slide Sandal · back in 42' },
+      { tool: 'inventory.watch', text: 'Slide Sandal · size 42 is back' },
     ],
   },
   anna: {
@@ -603,7 +603,7 @@ export const PERSONA_MEMORY_HANDOFF: Record<string, MemoryHandoffContent> = {
     title: 'You were pairing a candle with something to wrap. I kept the shortlist.',
     items: [
       { tool: 'memory.recall', text: 'Beeswax Tapers · saved as gift candidate' },
-      { tool: 'pairing.score', text: 'Linen Tea Towel · 0.91 match with the tapers' },
+      { tool: 'pairing.score', text: 'Linen Tea Towel · pairs with the tapers' },
       { tool: 'inventory.watch', text: 'Fig Candle · back in stock today' },
     ],
   },
@@ -622,7 +622,7 @@ export const PERSONA_MEMORY_HANDOFF: Record<string, MemoryHandoffContent> = {
     items: [
       { tool: 'memory.seed', text: "I'll remember saved items, sizes, and the queries you return to" },
       { tool: 'inventory.live', text: 'Live stock and restocks, surfaced before you ask' },
-      { tool: 'tool.transparency', text: 'Every recommendation cites the source it came from' },
+      { tool: 'tool.transparency', text: 'Each recommendation explains why it belongs in the edit' },
     ],
     cta: 'Try a query',
   },

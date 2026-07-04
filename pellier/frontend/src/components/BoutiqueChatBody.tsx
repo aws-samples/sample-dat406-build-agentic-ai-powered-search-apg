@@ -11,7 +11,6 @@
  * All styling comes from storefront-chat.css (the ``ec-*`` classes).
  */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AgentChatMessage } from '../hooks/useAgentChat'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
@@ -21,8 +20,7 @@ import ProductArtifactCard from './ProductArtifactCard'
 import StylistHandoffCard from './StylistHandoffCard'
 import { TraceChip } from '../shared/TraceChip'
 import { resolveCover } from './BoutiqueWelcome'
-import { PERSONA_HERO_PILLS, MARCO_BUILDER_SESSION_QUERY } from '../data/personaCurations'
-import { useFloorCheckWorkshopCue } from '../hooks/useFloorCheckWorkshopCue'
+import { PERSONA_HERO_PILLS } from '../data/personaCurations'
 import { useCatalogStats } from '../hooks/useCatalogStats'
 import { imageSrc } from '../utils/assetPath'
 import '../styles/boutique-chat.css'
@@ -206,7 +204,6 @@ export default function BoutiqueChatBody({
   addToCart,
   persona,
 }: BoutiqueChatBodyProps) {
-  const { showBuilderSessionGap } = useFloorCheckWorkshopCue()
   const lastAssistantIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant') return i
@@ -235,7 +232,6 @@ export default function BoutiqueChatBody({
                 persona={persona}
                 isLastAssistantMessage={index === lastAssistantIndex}
                 onFollowUp={(text) => void sendMessage(text)}
-                showBuilderSessionGap={showBuilderSessionGap}
               />
             )}
           </motion.div>
@@ -268,14 +264,12 @@ function AgentMessage({
   onFollowUp,
   persona,
   isLastAssistantMessage,
-  showBuilderSessionGap,
 }: {
   message: AgentChatMessage
   addToCart: BoutiqueChatBodyProps['addToCart']
   onFollowUp: (text: string) => void
   persona: PersonaSnapshot | null
   isLastAssistantMessage: boolean
-  showBuilderSessionGap: boolean
 }) {
   const isThinking = message.agentStatus === 'thinking' && !message.content
   const isStreaming = message.agentStatus === 'streaming'
@@ -304,18 +298,13 @@ function AgentMessage({
       .values(),
   )
   const loadedSkills = message.skillRouting?.loaded_skills ?? []
-  const showAnnaRetrievalLink =
-    persona?.id === 'anna' &&
-    dedupedToolCalls.some((toolCall) =>
-      toolCall.tool.toLowerCase().includes('find_pieces_hybrid'),
-    )
   const hasAttribution = loadedSkills.length > 0 || dedupedToolCalls.length > 0
   const attributionSummary = [
     loadedSkills.length > 0
-      ? `${loadedSkills.length} skill${loadedSkills.length === 1 ? '' : 's'}`
+      ? `${loadedSkills.length} specialty edit${loadedSkills.length === 1 ? '' : 's'}`
       : null,
     dedupedToolCalls.length
-      ? `${dedupedToolCalls.length} tool${dedupedToolCalls.length === 1 ? '' : 's'}`
+      ? `${dedupedToolCalls.length} check${dedupedToolCalls.length === 1 ? '' : 's'}`
       : null,
   ].filter(Boolean).join(' · ')
   const durationSec = message.agentExecution?.total_duration_ms
@@ -348,7 +337,7 @@ function AgentMessage({
             onClick={() => setAttributionOpen((open) => !open)}
           >
             <span className="ec-worked-dot" aria-hidden="true" />
-            <span className="ec-worked-title">Under the hood</span>
+            <span className="ec-worked-title">Match details</span>
             <span className="ec-worked-summary">{attributionSummary}</span>
             <span className={`ec-worked-chevron ${attributionOpen ? 'ec-worked-chevron-open' : ''}`}>
               &#x25BE;
@@ -359,10 +348,10 @@ function AgentMessage({
             <div className="ec-worked-body">
               {loadedSkills.length > 0 && (
                 <div className="ec-worked-section">
-                  <div className="ec-worked-section-label">Skills</div>
+                  <div className="ec-worked-section-label">Specialty edit</div>
                   <div className="ec-msg-attribution">
                     {loadedSkills.map((skill) => (
-                      <TraceChip key={skill} tool={skillTraceTool(skill)} compact />
+                      <TraceChip key={skill} tool={skillTraceTool(skill)} compact labelMode="label" />
                     ))}
                   </div>
                 </div>
@@ -370,7 +359,7 @@ function AgentMessage({
 
               {dedupedToolCalls.length > 0 && (
                 <div className="ec-worked-section">
-                  <div className="ec-worked-section-label">Tools</div>
+                  <div className="ec-worked-section-label">Catalog checks</div>
                   <div className="ec-toolcalls">
                     {dedupedToolCalls.map((tc, i) => {
                       const isActive = tc.status !== 'success' && tc.status !== 'error'
@@ -382,7 +371,7 @@ function AgentMessage({
                           <span className="ec-toolcall-indicator">
                             {isActive ? '\u25CF' : '\u2713'}
                           </span>
-                          <TraceChip tool={toolTraceTool(tc.tool)} compact />
+                          <TraceChip tool={toolTraceTool(tc.tool)} compact labelMode="label" />
                           {tc.duration_ms > 0 && (
                             <span className="ec-toolcall-meta">
                               {tc.duration_ms < 1000
@@ -395,13 +384,6 @@ function AgentMessage({
                     })}
                   </div>
                 </div>
-              )}
-
-              {showAnnaRetrievalLink && (
-                <Link className="ec-worked-link" to="/atelier/performance">
-                  Compare retrieval strategies in Atelier
-                  <span aria-hidden="true">↗</span>
-                </Link>
               )}
             </div>
           )}
@@ -507,31 +489,16 @@ function AgentMessage({
       {/* Follow-up chips */}
       {isComplete && isLastAssistantMessage && (
         <div className="ec-followups">
-          {followupsForPersona(persona).map((chip) => {
-            const workshopMarcoChip =
-              persona?.id === 'marco' &&
-              showBuilderSessionGap &&
-              chip === MARCO_BUILDER_SESSION_QUERY
-            return (
-              <button
-                key={chip}
-                type="button"
-                className={
-                  workshopMarcoChip
-                    ? 'ec-followup ec-followup-workshop'
-                    : 'ec-followup'
-                }
-                title={
-                  workshopMarcoChip
-                    ? 'Your exercise: wire floor_check so Stock Keeper can answer this turn from live inventory.'
-                    : undefined
-                }
-                onClick={() => onFollowUp(chip)}
-              >
-                {chip}
-              </button>
-            )
-          })}
+          {followupsForPersona(persona).map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              className="ec-followup"
+              onClick={() => onFollowUp(chip)}
+            >
+              {chip}
+            </button>
+          ))}
         </div>
       )}
     </div>

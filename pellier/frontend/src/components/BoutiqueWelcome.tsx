@@ -9,8 +9,7 @@
  *   → "Or tell me what you're after" prompt → P.S. close (hero 4–5 of 5)
  *
  * When a persona is active, greeting + picks + P.S. chips swap per
- * persona. Marco surfaces the Builder&apos;s Session exercise cue;
- * Anna and Theo surface explicit observe-only cues (no participant task).
+ * persona.
  *
  * All picks and P.S. suggestions fire `onSend(text)` on click, which
  * the parent wires to `useAgentChat.sendMessage`.
@@ -19,11 +18,7 @@ import '../styles/boutique-welcome.css'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
 import { useCatalogStats, type CatalogStats } from '../hooks/useCatalogStats'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
-import {
-  PERSONA_HERO_PILLS,
-  MARCO_BUILDER_SESSION_QUERY,
-} from '../data/personaCurations'
-import { useFloorCheckWorkshopCue } from '../hooks/useFloorCheckWorkshopCue'
+import { PERSONA_HERO_PILLS } from '../data/personaCurations'
 import type { BoutiqueProduct } from '../services/types'
 import { imageSrc } from '../utils/assetPath'
 
@@ -267,13 +262,10 @@ function copyForPersona(persona?: PersonaSnapshot | null): PersonaCopy {
 
 export default function BoutiqueWelcome({ onSend, persona }: BoutiqueWelcomeProps) {
   const copy = copyForPersona(persona)
-  const { showBuilderSessionGap } = useFloorCheckWorkshopCue()
   const tod = timeOfDay()
   const firstName = persona ? persona.display_name.split(' ')[0] : ''
   const greeting = `${TOD_GREETING[tod]}${copy.greetingSuffix(firstName)}.`
   const stats = useCatalogStats()
-  const showMarcoBuilderCue =
-    persona?.id === 'marco' && showBuilderSessionGap
 
   // Resolve cover product + eyebrow per persona. Anna's gift branch
   // diverges from Marco/Fresh (who get the global standout); the
@@ -316,48 +308,15 @@ export default function BoutiqueWelcome({ onSend, persona }: BoutiqueWelcomeProp
         </h2>
         <p className="sf-context">{copy.context(stats)}</p>
 
-        {showMarcoBuilderCue && (
-          <p className="sf-workshop-cue-marco">
-            <span className="sf-workshop-cue-tag">▸ Your exercise</span>
-            Turn&nbsp;4 in your hero row asks for a live warehouse lookup. Wire{' '}
-            <code className="sf-workshop-code">floor_check</code> so Stock Keeper can answer it —
-            the lab guide walks you through it step by step.
-          </p>
-        )}
-
-        {persona?.id === 'anna' && (
-          <div className="sf-observe-cue" data-testid="boutique-welcome-observe-anna">
-            <span className="sf-observe-cue-label">Observe · demonstration only</span>
-            <p className="sf-observe-cue-body">
-              Anna&apos;s five hero prompts are here so you can <strong>watch</strong>{' '}
-              hybrid retrieval + rerank behave in chat. There is <strong>no participant wiring
-              task</strong> on this persona — follow along in Atelier Sessions or open{' '}
-              <strong>Observatory</strong> if you want the wide-angle telemetry.
-            </p>
-          </div>
-        )}
-
-        {persona?.id === 'theo' && (
-          <div className="sf-observe-cue" data-testid="boutique-welcome-observe-theo">
-            <span className="sf-observe-cue-label">Observe · demonstration only</span>
-            <p className="sf-observe-cue-body">
-              Theo surfaces the write path Experience Guide demonstrates (returns, inventory
-              updates, <code className="sf-workshop-code">tool_audit</code>). Treat this arc as{' '}
-              <strong>watch and learn</strong> — no Builder&apos;s Session coding checkpoint on Theo;
-              replay turns in Atelier when you want the audit trail visible.
-            </p>
-          </div>
-        )}
-
         {/* Pre-vetted picks */}
         <div className="sf-section">
           <div className="sf-section-head">
             <span className="sf-eyebrow-sm sf-eyebrow-red">
               <span className="sf-dot" />
-              {persona && persona.id !== 'fresh' ? 'Curated for you' : 'Pre-vetted picks'}
+              {persona && persona.id !== 'fresh' ? 'Curated for you' : 'Good places to start'}
             </span>
-            <span className="sf-count sf-count-hero" title="Hero journey · steps 1–3 of 5">
-              1–3 · 5
+            <span className="sf-count sf-count-hero" title="Suggested starters">
+              Pellier picks
             </span>
           </div>
           <div className="sf-actions-stack">
@@ -385,41 +344,30 @@ export default function BoutiqueWelcome({ onSend, persona }: BoutiqueWelcomeProp
         <div className="sf-postscript">
           <p className="sf-postscript-lead">
             <span className="sf-ps-mark">P.S.</span>
-            <span className="sf-ps-dash">&mdash;</span>
-            <span className="sf-postscript-range" title="Hero journey · steps 4–5 of 5">
-              4–5 · 5
+            <span className="sf-ps-dash">-</span>
+            <span className="sf-postscript-range" title="More suggestions">
+              More ideas
             </span>{' '}
             {persona && persona.id !== 'fresh'
               ? " If nothing comes to mind, here's what you've been asking lately:"
               : " If nothing comes to mind, here's what others have been asking lately:"}
           </p>
           <div className="sf-postscript-list">
-            {copy.ps.map((suggestion) => {
-              const isMarcoWarehouse =
-                showMarcoBuilderCue && suggestion === MARCO_BUILDER_SESSION_QUERY
-              return (
-                <button
-                  key={suggestion}
-                  type="button"
-                  className={
-                    isMarcoWarehouse
-                      ? 'sf-overheard sf-overheard-workshop-marco'
-                      : 'sf-overheard'
-                  }
-                  onClick={() => onSend(suggestion)}
-                >
-                  {isMarcoWarehouse && (
-                    <span className="sf-overheard-workshop-chip">Your exercise · Turn 4</span>
-                  )}
-                  <span className="sf-overheard-line">
-                    <span className="sf-overheard-bullet">&middot;</span>
-                    <span className="sf-overheard-quote">
-                      &ldquo;{suggestion}&rdquo;
-                    </span>
+            {copy.ps.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                className="sf-overheard"
+                onClick={() => onSend(suggestion)}
+              >
+                <span className="sf-overheard-line">
+                  <span className="sf-overheard-bullet">&middot;</span>
+                  <span className="sf-overheard-quote">
+                    &ldquo;{suggestion}&rdquo;
                   </span>
-                </button>
-              )
-            })}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       </div>

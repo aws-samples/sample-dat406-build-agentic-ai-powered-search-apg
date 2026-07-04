@@ -19,7 +19,7 @@ import type { CSSProperties } from 'react'
 import { useUI } from '../contexts/UIContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { memoryHandoffForPersona } from '../data/personaCurations'
-import { TraceChip, SurfaceCrossLink } from '../shared'
+import { TraceChip } from '../shared'
 
 const RESUME_QUERY: Record<string, string> = {
   marco: 'Pick up where I left off — show me the linen pieces I was deciding between',
@@ -128,10 +128,8 @@ export default function MemoryHandoffCard() {
                   key={item.tool}
                   className="flex flex-wrap items-start gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0"
                 >
-                  {/* Trace pill — deep-links to the Atelier explainer */}
                   <TraceChip
                     tool={item.tool}
-                    linkToAtelier
                     compact
                     variant="provenance"
                     labelMode="label"
@@ -150,17 +148,6 @@ export default function MemoryHandoffCard() {
                 </li>
               ))}
             </ul>
-            {/* Atelier handoff — for an attendee curious how durable
-                memory actually works under the hood, this drops them on
-                the Memory substrate explainer in one click. */}
-            <div className="mt-1">
-              <SurfaceCrossLink
-                direction="to-atelier"
-                href="/atelier/memory"
-                label="See how the agent's memory works"
-                italic={false}
-              />
-            </div>
           </div>
 
           {/* CTA — opens the drawer with a persona-tailored resume query.

@@ -13,7 +13,43 @@
 
 // Announcement bar (Requirement 1.1.2) - rendered verbatim.
 export const ANNOUNCEMENT =
-  "Free shipping on orders over $150 \u00b7 Returns within 30 days \u00b7 Summer Edit No. 06 is now live";
+  "Complimentary shipping over $150 · Returns within 30 days · Summer Edit No. 06 is now live";
+
+export interface LiveFloorFinding {
+  /** Uppercase sans label that leads the copy. */
+  verb?: string;
+  /** Body text. */
+  text: string;
+  /** Mono trace stamp on the right. */
+  trace?: string;
+}
+
+export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
+  {
+    verb: "New arrivals",
+    text: "Alba Linen Lounge Set, Olive Branch Vessel, and Santal & Fig Candle just joined the Summer Edit.",
+  },
+  {
+    verb: "Restocked",
+    text: "Italian Linen Camp Shirt is back in Indigo and Oat, with the full size run available today.",
+  },
+  {
+    verb: "Travel edit",
+    text: "Packable linen, leather carry, and sun-ready accessories for long weekends and warm-weather escapes.",
+  },
+  {
+    verb: "Gift service",
+    text: "Candles, ceramics, and wrapped objects are ready for housewarmings, milestones, and just-because notes.",
+  },
+  {
+    verb: "Concierge",
+    text: "Ask for a packing list, a gift shortlist, or a home ritual and Pellier will build the edit with you.",
+  },
+  {
+    verb: "Service",
+    text: "Secure checkout, careful packaging, complimentary shipping over $150, and easy 30-day returns.",
+  },
+];
 
 export const PAGE_TITLE = "Pellier - Summer Edit No. 06";
 
@@ -58,6 +94,11 @@ export const HERO_HEADLINE = {
   TITLE_TOP: "Search,", // copy-allow: search-as-verb
   TITLE_BOTTOM: "re:Engineered.",
   SUBHEADLINE: "Tell Pellier what you're looking for. Watch the pieces find you.",
+} as const;
+
+export const BOUTIQUE_HERO_SIGNED_OUT = {
+  LINE_1: "Choose a shopper profile to begin.",
+  LINE_2: "Pellier will tailor the floor around that visit.",
 } as const;
 
 // Product grid section header that reveals on scroll (parallax).
@@ -210,7 +251,7 @@ export const CATEGORY_CHIPS = [
 // Refinement panel (Requirement 1.8.1)
 export const REFINEMENT = {
   // Single-letter mark inside the brand circle. "P" matches the
-  // header wordmark — the refinement chip and the header speak with
+  // header wordmark - the refinement chip and the header speak with
   // the same brand voice.
   B_MARK_PREFIX: "P",
   PROMPT: "Pellier here, want me to narrow this down?",
@@ -317,6 +358,29 @@ export const DISCOVER_PAGE_SIGNED_OUT =
   "Discover is tailored to you. Sign in and watch the boutique tune itself.";
 export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
 
+export const ABOUT_BRIEF = {
+  EYEBROW: "About",
+  TITLE_LINES: ["A boutique surface.", "A proof surface."],
+  LABEL: "Boutique + Atelier",
+  PARAGRAPHS: [
+    "Pellier is a working boutique built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while the Atelier shows how each answer was built.",
+    "Every recommendation is grounded in Aurora PostgreSQL, shaped by specialist agents, checked against tools and inventory, and traceable back to the signals that produced it. The promise is simple: recommendations can feel personal without becoming invisible.",
+  ],
+  STACK: [
+    "Aurora PostgreSQL",
+    "pgvector",
+    "Amazon Bedrock",
+    "AgentCore",
+    "Strands SDK",
+    "Claude",
+    "Cohere Embed v4",
+    "Amazon Transcribe",
+    "Cedar",
+  ],
+  COLOPHON:
+    "Built for teams who want agentic experiences that are practical, governed, and inspectable.",
+} as const;
+
 // Footer \u2014 three live columns + a brand + a bottom strip.
 //
 // Earlier iterations carried four product/editorial columns with a
@@ -327,26 +391,26 @@ export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
 // Fewer promises, every promise kept.
 export const FOOTER = {
   BRAND: {
-    TAGLINE: "Carefully curated goods from makers who care about craft",
+    TAGLINE: "Curated goods for travel, gifting, and home rituals",
   },
   EXPLORE: {
     HEADING: "Explore",
     ITEMS: [
-      { label: "The floor", href: "/#shop" },
-      { label: "Discover", href: "/discover" },
-      { label: "Storyboard", href: "/storyboard" },
+      { label: "Shop", href: "/#shop" },
+      { label: "Stories", href: "/storyboard" },
+      { label: "About", href: "/about" },
     ],
   },
   STORYBOARD: {
-    HEADING: "Storyboard",
+    HEADING: "Stories",
     COPY: "Field notes from a slower kind of shopping \u2014 one short essay at a time.",
-    CTA_LABEL: "Read the latest",
+    CTA_LABEL: "Read the stories",
     CTA_HREF: "/storyboard",
   },
   ATELIER: {
-    HEADING: "Atelier",
-    COPY: "Behind the curtain \u2014 every tool call, every reasoning step, on display.",
-    CTA_LABEL: "Open the Atelier",
+    HEADING: "Workroom",
+    COPY: "A behind-the-scenes look at how the Pellier experience is assembled.",
+    CTA_LABEL: "See the workroom",
     CTA_HREF: "/atelier",
   },
   BOTTOM_STRIP: {
@@ -354,7 +418,7 @@ export const FOOTER = {
     /** Centered service line \u2014 retail boilerplate moved out of the
      * hero capabilities strip so the strip can stay focused on agent
      * claims. Lives in the footer where shipping/returns info belongs. */
-    SERVICE: "Ships in 1\u20132 days \u00b7 Free over $150",
+    SERVICE: "Free shipping over $150 | Returns within 30 days | Secure checkout",
     /** Right-hand credit in the footer strip (replaces workshop banner). */
     ATTRIBUTION: "\u00a9 Shayon Sanyal",
   },
