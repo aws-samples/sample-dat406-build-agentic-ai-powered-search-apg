@@ -8,8 +8,8 @@
  * non-standard zoom levels). Parallax is back, but the stuck-invisible bug
  * is impossible now because BOTH defenses must fail simultaneously:
  *
- *   1. Visible pre-reveal — opacity starts at 0.05, not 0. Cards render as
- *      ghostly-but-legible even if the observer never fires.
+ *   1. Visible pre-reveal — opacity stays at 1. Cards remain legible even if
+ *      the observer never fires; the reveal motion comes from transform only.
  *   2. Safety timeout — 500ms after mount, force-reveal fires regardless of
  *      observer state. Normal-path reveals clear the timeout; only unusual
  *      observer stalls reach it.
@@ -113,9 +113,9 @@ const GRID_COLUMNS = 3
 // the final state. 500ms is long enough to see a normal observer fire first.
 const SAFETY_TIMEOUT_MS = 500
 
-// Pre-reveal opacity. Crucially >0 so a stalled observer leaves cards
-// ghostly-but-legible rather than entirely invisible.
-const PRE_REVEAL_OPACITY = 0.36
+// Pre-reveal opacity. Keep this at 1 so a stalled observer never hides
+// product content; the reveal still reads through translate/scale.
+const PRE_REVEAL_OPACITY = 1
 
 // Apple-style ease-out-expo. Don't substitute — `ease-out` reads as too
 // mechanical at this duration.
@@ -230,7 +230,7 @@ export default function ProductCard({
         <img
           src={imageSrc(product.imageUrl)}
           alt={product.name}
-          loading="lazy"
+          loading="eager"
           className="w-full h-full object-cover transition-transform ease-out"
           style={{
             transitionDuration: '600ms',
