@@ -49,6 +49,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 package-lock.json
+!pellier/frontend/package-lock.json
 
 # Build outputs
 dist/
