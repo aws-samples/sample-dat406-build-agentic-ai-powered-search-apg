@@ -351,6 +351,7 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
     arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/pellier-abc"
     monkeypatch.setattr(rt.settings, "AGENTCORE_RUNTIME_ENDPOINT", arn)
     monkeypatch.setattr(rt.settings, "AWS_REGION", "us-east-1", raising=False)
+    monkeypatch.setattr(rt.settings, "AWS_DEFAULT_REGION", "us-east-1", raising=False)
 
     result = asyncio.run(
         rt.run_agent_on_runtime(

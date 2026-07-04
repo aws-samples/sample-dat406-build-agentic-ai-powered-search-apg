@@ -108,7 +108,7 @@ async def submit_evaluation_job(
 
     client = boto3.client(
         "bedrock-agentcore",
-        region_name=getattr(settings, "aws_region_resolved", settings.AWS_REGION),
+        region_name=settings.aws_region_resolved,
     )
 
     payload = {

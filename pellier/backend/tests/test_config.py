@@ -195,18 +195,36 @@ def test_cognito_region_falls_back_to_aws_region(
     monkeypatch: pytest.MonkeyPatch, _db_env: None
 ) -> None:
     """When ``COGNITO_REGION`` is unset, ``cognito_region_resolved``
-    SHALL return ``AWS_REGION`` — Cognito pools are regional and the
-    workshop provisions them in the same region as the rest of the
-    stack (Req 4.1.4)."""
+    SHALL return the resolved AWS region. ``AWS_DEFAULT_REGION`` wins when
+    both region env vars exist so a local .env can override a stale parent
+    shell ``AWS_REGION``."""
     from config import Settings
 
     _clear_env(monkeypatch, "COGNITO_REGION")
     monkeypatch.setenv("AWS_REGION", "eu-west-1")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-west-1")
 
     s = Settings()
 
     assert s.COGNITO_REGION is None
     assert s.cognito_region_resolved == "eu-west-1"
+
+
+def test_aws_default_region_overrides_ambient_aws_region(
+    monkeypatch: pytest.MonkeyPatch, _db_env: None
+) -> None:
+    """Local VSCode shells can inherit AWS_REGION from other tooling. The
+    backend SHALL prefer AWS_DEFAULT_REGION so ``pellier/backend/.env`` can
+    keep Aurora, Bedrock, AgentCore, and Cognito in one region."""
+    from config import Settings
+
+    monkeypatch.setenv("AWS_REGION", "us-east-2")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-west-2")
+
+    s = Settings()
+
+    assert s.aws_region_resolved == "us-west-2"
+    assert s.cognito_region_resolved == "us-west-2"
 
 
 def test_cognito_pool_id_resolved_prefers_new_name(
