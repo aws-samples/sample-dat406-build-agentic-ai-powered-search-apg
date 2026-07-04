@@ -4,7 +4,7 @@
  * Two-part closer before the footer:
  *
  *   1. About band — editorial portrait left, "About" eyebrow,
- *      curator credit, philosophy paragraph, and tech-stack chips.
+ *      Boutique/Atelier positioning, and tech-stack chips.
  *   2. Colophon strip — single centered italic line on a slightly
  *      darker warm ground, doubling as the visual page-end signal.
  */
@@ -84,9 +84,9 @@ export default function EditorialBrief() {
                   fontWeight: 400,
                 }}
               >
-                Built to feel
+                A boutique surface.
                 <br />
-                like a real boutique.
+                A proof surface.
               </h2>
 
               {/* Brand mark */}
@@ -100,7 +100,7 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Pellier Atelier
+                Boutique + Atelier
               </div>
 
               {/* Philosophy */}
@@ -113,11 +113,27 @@ export default function EditorialBrief() {
                   color: '#4a3a2e',
                 }}
               >
-                Pellier is a working reference for agentic commerce: elegant on
-                the surface, inspectable underneath. Every recommendation can be
-                traced to retrieval signals, tool execution, and policy-aware
-                decisions. The interface stays quiet and premium; the system
-                behind it stays explicit, testable, and production-minded.
+                Pellier is a working boutique built to show governed agentic
+                search in motion. Shoppers ask in natural language: a linen
+                shirt for Goa, a thoughtful gift, a slow-craft object for home.
+                The storefront answers with pieces that feel personal, while the
+                Atelier shows how each answer was built.
+              </p>
+
+              <p
+                className="font-sans"
+                style={{
+                  fontSize: '15px',
+                  lineHeight: 1.7,
+                  maxWidth: '520px',
+                  color: '#4a3a2e',
+                }}
+              >
+                Every recommendation is grounded in Aurora PostgreSQL, shaped
+                by specialist agents, checked against tools and inventory, and
+                traceable back to the signals that produced it. The promise is
+                simple: recommendations can feel personal without becoming
+                invisible.
               </p>
 
               {/* Stack */}
@@ -126,7 +142,7 @@ export default function EditorialBrief() {
                 style={{ maxWidth: '520px' }}
               >
                 {[
-                  'Amazon Aurora',
+                  'Aurora PostgreSQL',
                   'pgvector',
                   'Amazon Bedrock',
                   'AgentCore',
@@ -172,7 +188,8 @@ export default function EditorialBrief() {
             letterSpacing: '0.01em',
           }}
         >
-          Designed for teams building agentic systems with taste.
+          Built for teams who want agentic experiences that are practical,
+          governed, and inspectable.
         </p>
       </div>
     </>
