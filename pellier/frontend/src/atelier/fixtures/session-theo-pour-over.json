@@ -15,7 +15,7 @@
     },
     {
       "role": "assistant",
-      "content": "Three worth reaching for: the Stoneware Pour-Over Set ($95) \u2014 hand-thrown, ash-grey, built for a slow pour. The Ceramic Tumblers in charcoal ($78) pair with it \u2014 same kiln run, no two quite alike. And the Woven Mat Set ($42) under both of them finishes the table.",
+      "content": "Three worth reaching for: the Stoneware Pour-Over Set ($95) - hand-thrown, ash-grey, built for a slow pour. The Ceramic Tumblers in charcoal ($78) pair with it - same kiln run, no two quite alike. And the Woven Mat Set ($42) under both of them finishes the table.",
       "timestamp": "2026-05-25T18:10:05Z",
       "plan": {
         "flowSummary": "Dispatcher \u2192 Curator + the-makers-shelf \u2192 find_pieces",
@@ -66,7 +66,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8 \u00b7 0.4",
+        "model": "Claude Opus 4.8",
         "skill": "the-makers-shelf",
         "latencyMs": 1412
       }
@@ -94,7 +94,7 @@
     {
       "index": 3,
       "category": "owned",
-      "title": "Memory Recall \u2014 Semantic",
+      "title": "Memory Recall - Semantic",
       "description": "Loaded Theo's maker-collector profile from AgentCore Memory: stoneware, hand-thrown, slow-living tags. Used to weight retrieval.",
       "status": "complete",
       "durationMs": 36
@@ -103,7 +103,7 @@
       "index": 4,
       "category": "both",
       "title": "find_pieces",
-      "description": "Claude Opus 4.8 \u00b7 0.4 \u2014 slow-craft search",
+      "description": "Claude Opus 4.8 - slow-craft search",
       "status": "complete",
       "durationMs": 284,
       "sql": "SELECT name, brand, price, 1 - (embedding <=> $1::vector) AS similarity\nFROM product_catalog\nWHERE category ILIKE '%Home Decor%'\n  AND quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 10;",
@@ -112,7 +112,7 @@
     {
       "index": 5,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
+      "title": "Memory Write - Working",
       "description": "Wrote turn-scoped context to AgentCore Memory: hand-thrown ceramics for a slower morning routine.",
       "status": "complete",
       "durationMs": 22
@@ -127,7 +127,7 @@
         "numeral": "i.",
         "title": "The ritual",
         "paragraphs": [
-          "Theo arrived looking for ceramics with patina, not polish. The Curator, with the-makers-shelf skill loaded, returned three pieces from the same kiln register \u2014 pour-over, tumblers, mat \u2014 a composed table rather than a set of objects."
+          "Theo arrived looking for ceramics with patina, not polish. The Curator, with the-makers-shelf skill loaded, returned three pieces from the same kiln register - pour-over, tumblers, mat - a composed table rather than a set of objects."
         ]
       }
     ],

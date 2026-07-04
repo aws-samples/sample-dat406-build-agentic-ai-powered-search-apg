@@ -83,7 +83,7 @@
     },
     {
       "role": "assistant",
-      "content": "The Camp Shirt pairs beautifully with a few pieces from the collection. The Linen Drawstring Trousers in oat keep the same tonal register \u2014 relaxed, warm, breathable. For cooler evenings, the Washed Cotton Overshirt layers over it without adding bulk. And the Leather Weekender ties the whole travel wardrobe together.",
+      "content": "The Camp Shirt pairs beautifully with a few pieces from the collection. The Linen Drawstring Trousers in oat keep the same tonal register - relaxed, warm, breathable. For cooler evenings, the Washed Cotton Overshirt layers over it without adding bulk. And the Leather Weekender ties the whole travel wardrobe together.",
       "timestamp": "2026-05-25T17:10:48Z",
       "toolCalls": [
         {
@@ -96,7 +96,7 @@
       ],
       "confidence": {
         "percentage": 92,
-        "reasoning": "Complementary pairing query \u2014 style_match found high-similarity companions from Marco's travel-linen cluster."
+        "reasoning": "Complementary pairing query - style_match found high-similarity companions from Marco's travel-linen cluster."
       },
       "memoryPills": [
         {
@@ -156,7 +156,7 @@
     {
       "index": 6,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
+      "title": "Memory Write - Working",
       "description": "Stored current intent and product interest in working memory (AgentCore Memory \u00b7 session turns)",
       "status": "complete",
       "durationMs": 45
@@ -164,7 +164,7 @@
     {
       "index": 7,
       "category": "owned",
-      "title": "Memory Recall \u2014 Semantic",
+      "title": "Memory Recall - Semantic",
       "description": "Retrieved Marco's durable preferences from semantic memory: minimal, warm tones, linen",
       "status": "complete",
       "durationMs": 62,
@@ -200,7 +200,7 @@
     {
       "index": 11,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
+      "title": "Memory Write - Working",
       "description": "Updated working memory with camp-shirt pairing interest and warm-evening occasion",
       "status": "complete",
       "durationMs": 38
@@ -209,7 +209,7 @@
       "index": 12,
       "category": "teaching",
       "title": "Skill Router Check",
-      "description": "Evaluated persona-skill activation \u2014 not triggered (no styling question detected)",
+      "description": "Evaluated persona-skill activation - not triggered (no styling question detected)",
       "status": "complete",
       "durationMs": 28
     },
@@ -231,7 +231,7 @@
         "numeral": "i.",
         "title": "The Request",
         "paragraphs": [
-          "Marco arrived with a simple ask: something linen for warm evenings out. Behind that six-word query, the system recognized a returning customer with three prior orders and a clear preference profile \u2014 minimal aesthetics, warm tones, and a deep affinity for linen.",
+          "Marco arrived with a simple ask: something linen for warm evenings out. Behind that six-word query, the system recognized a returning customer with three prior orders and a clear preference profile - minimal aesthetics, warm tones, and a deep affinity for linen.",
           "The Dispatcher routed the request through three specialists in sequence: Search for semantic discovery, Recommendation for preference-weighted ranking, and Pricing for value verification."
         ],
         "tracePills": [
@@ -272,7 +272,7 @@
         "numeral": "iii.",
         "title": "Memory at Work",
         "paragraphs": [
-          "Semantic memory recalled Marco's durable preferences \u2014 minimal, warm tones, linen \u2014 which the Recommendation agent used to weight candidates. Working memory tracked the evolving conversation context, noting the shift from general browsing to specific interest in camp-shirt pairings."
+          "Semantic memory recalled Marco's durable preferences - minimal, warm tones, linen - which the Recommendation agent used to weight candidates. Working memory tracked the evolving conversation context, noting the shift from general browsing to specific interest in camp-shirt pairings."
         ],
         "memoryRows": [
           {

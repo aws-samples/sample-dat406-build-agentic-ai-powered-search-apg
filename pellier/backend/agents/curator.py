@@ -73,8 +73,9 @@ def build_recommendation_agent() -> Agent:
     agent as before in those scenarios.
     === REFERENCE: END ===
     """
-    # Curator — Claude Opus 4.8 at 0.4. Recommendations carry "taste";
-    # skills shape voice. Warm model, warm temperature.
+    # Curator — Claude Opus 4.8. Recommendations carry "taste";
+    # Bedrock rejects the deprecated temperature field for this model,
+    # so we rely on the model default.
     #
     # Tool-grant note: the Curator gets ``find_pieces_hybrid`` (Anna's
     # anchor capability — pgvector + Postgres FTS + Cohere Rerank). Other
@@ -91,7 +92,6 @@ def build_recommendation_agent() -> Agent:
         model=BedrockModel(
             model_id=settings.BEDROCK_OPUS_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
-            temperature=0.4,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(RECOMMENDATION_SYSTEM_PROMPT)

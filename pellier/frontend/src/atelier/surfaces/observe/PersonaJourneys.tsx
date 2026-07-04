@@ -43,14 +43,14 @@ interface PersonaJourney {
 const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   {
     agent: 'Style Advisor',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces',
     outcome: '3 linen pieces with editorial voice',
     sessionId: 'marco-opening-demo',
   },
   {
     agent: 'Curator (the-packing-list)',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces → style_match',
     outcome: 'Complementary pieces; voice mentions packability',
     sessionId: 'marco-opening-demo',
@@ -73,7 +73,7 @@ const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   },
   {
     agent: 'Style Advisor (the-packing-list)',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'escalate_to_stylist',
     outcome:
       'Capstone - human-stylist handoff. Catalog tools cannot dress a body for an occasion; escalate_to_stylist is the honest fallback.',
@@ -84,7 +84,7 @@ const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
 const ANNA_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   {
     agent: 'Curator (the-gift-table)',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces_hybrid',
     outcome:
       'Vector → Postgres FTS → RRF → Rerank v3.5. Four SSE telemetry spans visible.',
@@ -92,28 +92,28 @@ const ANNA_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   },
   {
     agent: 'Curator',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces_hybrid',
     outcome: 'Soft "beautiful" + literal "$100" - hybrid handles both.',
     sessionId: 'anna-under-100',
   },
   {
     agent: 'Curator',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces_hybrid',
     outcome: 'Candle as anchor + "with something else" reranks the band.',
     sessionId: 'anna-candle-pairing',
   },
   {
     agent: 'Curator',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces_hybrid',
     outcome: 'Beeswax Taper Candles at rank 1 - Cohere reads "wrap-ready" intent.',
     sessionId: 'anna-birthday-gift',
   },
   {
     agent: 'Curator (the-gift-table)',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'escalate_to_stylist',
     outcome:
       'Capstone - human-stylist handoff for sympathy gifting. Hybrid retrieval can find candles; it cannot read the room.',
@@ -124,28 +124,28 @@ const ANNA_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
 const THEO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   {
     agent: 'Curator (the-makers-shelf)',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces',
     outcome: 'Stoneware Pour-Over Set at rank 1 - patina vibe matches.',
     sessionId: 'theo-pour-over',
   },
   {
     agent: 'Curator',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces → style_match',
     outcome: 'Ceramic Tumblers + Woven Mat Set - same kiln register.',
     sessionId: 'theo-pour-over-pairing',
   },
   {
     agent: 'Style Advisor',
-    model: 'Claude Opus 4.8 · 0.4',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces',
     outcome: 'Washed-linen pieces with patina-leaning prose.',
     sessionId: 'theo-linen-seasons',
   },
   {
     agent: 'Experience Guide',
-    model: 'Claude Opus 4.8 · 0.2',
+    model: 'Claude Opus 4.8',
     tool: 'find_pieces → returns_and_care → process_return',
     outcome:
       'Three writes in one transaction · returns row + product_catalog decrement + tool_audit · Cedar + SQL gated',
@@ -153,7 +153,7 @@ const THEO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   },
   {
     agent: 'Experience Guide (the-makers-shelf)',
-    model: 'Claude Opus 4.8 · 0.2',
+    model: 'Claude Opus 4.8',
     tool: 'escalate_to_stylist',
     outcome:
       'Capstone - exception-return handoff. Outside the standard window; process_return refuses, escalate_to_stylist is the honest fallback.',

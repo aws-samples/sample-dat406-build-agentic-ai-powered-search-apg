@@ -85,7 +85,7 @@ def main():
     parser.add_argument("--gateway-url", required=True, help="AgentCore Gateway URL")
     parser.add_argument("--cognito-pool-id", required=True, help="Cognito User Pool ID")
     parser.add_argument("--cognito-client-id", required=True, help="Cognito App Client ID")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-west-2"))
     args = parser.parse_args()
 
     print(f"\n{'='*60}")

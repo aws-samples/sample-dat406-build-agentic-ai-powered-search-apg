@@ -89,15 +89,14 @@ def build_search_agent() -> Agent:
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Callers set those ContextVars before invoking.
     """
-    # Style Advisor — Claude Opus 4.8 at 0.4. Editorial voice + fit/fabric
-    # description. Model choice is an architectural decision; see the
-    # Workshop Studio repo's content/ model-mix sidebar.
+    # Style Advisor — Claude Opus 4.8. Editorial voice + fit/fabric
+    # description. Bedrock rejects the deprecated temperature field for
+    # this model, so we rely on the model default.
     return Agent(
         name="search",
         model=BedrockModel(
             model_id=settings.BEDROCK_OPUS_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
-            temperature=0.4,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_SEARCH_SYSTEM_PROMPT)

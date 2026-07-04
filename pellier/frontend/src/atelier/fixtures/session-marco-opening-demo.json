@@ -15,7 +15,7 @@
     },
     {
       "role": "assistant",
-      "content": "Goa in linen \u2014 you'll want pieces that breathe, pack flat, and forgive a ten-day wear. Three I'd pull: the Pellier Linen Shirt in ecru ($148), the Linen Drawstring Trousers in oat ($118), and the Italian Linen Camp Shirt in indigo ($228). All three crumple honestly rather than crease \u2014 that's the tell of real linen, not a blend.",
+      "content": "Goa in linen - you'll want pieces that breathe, pack flat, and forgive a ten-day wear. Three I'd pull: the Pellier Linen Shirt in ecru ($148), the Linen Drawstring Trousers in oat ($118), and the Italian Linen Camp Shirt in indigo ($228). All three crumple honestly rather than crease - that's the tell of real linen, not a blend.",
       "timestamp": "2026-05-25T17:00:04Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -62,7 +62,7 @@
       "memoryPills": [
         {
           "tier": "working",
-          "content": "Planning 10 days in Goa \u2014 linen, travels well"
+          "content": "Planning 10 days in Goa - linen, travels well"
         },
         {
           "tier": "semantic",
@@ -71,7 +71,7 @@
       ],
       "meta": {
         "agent": "Style Advisor",
-        "model": "Claude Opus 4.8 \u00b7 0.4",
+        "model": "Claude Opus 4.8",
         "latencyMs": 1312
       }
     },
@@ -82,7 +82,7 @@
     },
     {
       "role": "assistant",
-      "content": "The Hadley pairs beautifully with the Drawstring Trousers in oat \u2014 same washed-linen family, same tonal register, they read as a considered set rather than an accident. For layering when the evening cools, the Washed Cotton Overshirt in ecru picks up the same muted palette without adding bulk. And the Leather Weekender ties the whole packing list together \u2014 the kind of bag that earns its patina on the trip.",
+      "content": "The Hadley pairs beautifully with the Drawstring Trousers in oat - same washed-linen family, same tonal register, they read as a considered set rather than an accident. For layering when the evening cools, the Washed Cotton Overshirt in ecru picks up the same muted palette without adding bulk. And the Leather Weekender ties the whole packing list together - the kind of bag that earns its patina on the trip.",
       "timestamp": "2026-05-25T17:00:38Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -138,7 +138,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8 \u00b7 0.4",
+        "model": "Claude Opus 4.8",
         "skill": "the-packing-list",
         "latencyMs": 1428
       }
@@ -150,7 +150,7 @@
     },
     {
       "role": "assistant",
-      "content": "Linen shirts in the catalog run from $88 to $285. Median is $148. The Pellier sits right at the median; the Italian Linen Camp Shirt ($228) is in the upper third. Under $100 there are two \u2014 both cotton-linen blends rather than pure linen.",
+      "content": "Linen shirts in the catalog run from $88 to $285. Median is $148. The Pellier sits right at the median; the Italian Linen Camp Shirt ($228) is in the upper third. Under $100 there are two - both cotton-linen blends rather than pure linen.",
       "timestamp": "2026-05-25T17:01:03Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -170,7 +170,7 @@
       "products": [],
       "confidence": {
         "percentage": 96,
-        "reasoning": "Deterministic aggregate. Claude Sonnet 4.6 at 0.1 \u2014 low-variance numerical answer."
+        "reasoning": "Deterministic aggregate. Claude Sonnet 4.6 at 0.1 - low-variance numerical answer."
       },
       "memoryPills": [
         {
@@ -191,7 +191,7 @@
     },
     {
       "role": "assistant",
-      "content": "I can help with style and recommendations, but I don't have real-time stock visibility for individual warehouses yet. I can tell you the Hadley shirt (Pellier Linen Shirt in ecru) is in the catalog and marked in-stock system-wide \u2014 but which warehouse holds it, and how many are on the floor, sits outside what I can answer right now.",
+      "content": "I can help with style and recommendations, but I don't have real-time stock visibility for individual warehouses yet. I can tell you the Hadley shirt (Pellier Linen Shirt in ecru) is in the catalog and marked in-stock system-wide - but which warehouse holds it, and how many are on the floor, sits outside what I can answer right now.",
       "timestamp": "2026-05-25T17:01:24Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -203,18 +203,18 @@
       "products": [],
       "confidence": {
         "percentage": 0,
-        "reasoning": "Stock intent matched by the Dispatcher (keywords: warehouse, available, at the). Stock Keeper is in stub state \u2014 no agent invoked. Fall-through returned the voice-matched non-answer."
+        "reasoning": "Stock intent matched by the Dispatcher (keywords: warehouse, available, at the). Stock Keeper is in stub state - no agent invoked. Fall-through returned the voice-matched non-answer."
       },
       "memoryPills": [
         {
           "tier": "working",
-          "content": "Asked about warehouse stock \u2014 not answered"
+          "content": "Asked about warehouse stock - not answered"
         }
       ],
       "meta": {
         "agent": null,
         "model": null,
-        "note": "Pattern III fall-through \u2014 Stock Keeper is the workshop build",
+        "note": "Pattern III fall-through - Stock Keeper is the workshop build",
         "latencyMs": 72
       }
     },
@@ -237,7 +237,7 @@
     {
       "index": 2,
       "category": "owned",
-      "title": "Memory Recall \u2014 Semantic",
+      "title": "Memory Recall - Semantic",
       "description": "Loaded Marco's durable preferences from AgentCore Memory: natural fibers, warm neutrals, pieces that soften. Used to weight retrieval candidates.",
       "status": "complete",
       "durationMs": 38
@@ -255,8 +255,8 @@
     {
       "index": 4,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
-      "description": "Wrote turn-scoped context to AgentCore Memory: planning 10 days in Goa \u2014 linen, travels well.",
+      "title": "Memory Write - Working",
+      "description": "Wrote turn-scoped context to AgentCore Memory: planning 10 days in Goa - linen, travels well.",
       "status": "complete",
       "durationMs": 24
     },
@@ -264,7 +264,7 @@
       "index": 5,
       "category": "managed",
       "title": "Response composition",
-      "description": "Claude Opus 4.8 at 0.4 \u2014 editorial voice, 3 pieces",
+      "description": "Claude Opus 4.8 - editorial voice, 3 pieces",
       "status": "complete",
       "durationMs": 938,
       "agent": "Style Advisor"
@@ -320,7 +320,7 @@
       "index": 11,
       "category": "managed",
       "title": "Response composition",
-      "description": "Claude Sonnet 4.6 at 0.1 \u2014 deterministic numerical answer",
+      "description": "Claude Sonnet 4.6 at 0.1 - deterministic numerical answer",
       "status": "complete",
       "durationMs": 74,
       "agent": "Value Analyst"
@@ -337,8 +337,8 @@
     {
       "index": 13,
       "category": "teaching",
-      "title": "Routing fall-through \u2014 Stock Keeper stubbed",
-      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build \u2014 required path \u00b7 wire floor_check.",
+      "title": "Routing fall-through - Stock Keeper stubbed",
+      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build - required path \u00b7 wire floor_check.",
       "status": "complete",
       "durationMs": 4,
       "agent": null,
@@ -354,7 +354,7 @@
         "numeral": "i.",
         "title": "The arc",
         "paragraphs": [
-          "Marco arrived with a clear plan \u2014 ten days in Goa, linen \u2014 and walked through the catalog in four turns. Three landed cleanly. The fourth didn't.",
+          "Marco arrived with a clear plan - ten days in Goa, linen - and walked through the catalog in four turns. Three landed cleanly. The fourth didn't.",
           "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.8 for the opening ask, Curator on Claude Opus 4.8 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
         ]
       },
@@ -362,7 +362,7 @@
         "numeral": "ii.",
         "title": "The gap",
         "paragraphs": [
-          "Turn 4 \u2014 the warehouse-stock question \u2014 sits outside the system's current reach. The Dispatcher matched the intent, routed to Stock Keeper, and Stock Keeper answered with a voice-matched non-answer because the agent ships in stub state.",
+          "Turn 4 - the warehouse-stock question - sits outside the system's current reach. The Dispatcher matched the intent, routed to Stock Keeper, and Stock Keeper answered with a voice-matched non-answer because the agent ships in stub state.",
           "This is the workshop build. Participants wire floor_check (and in the full Workshop format, restock_shelf and running_low). Once wired, the same Turn 4 pill returns a real warehouse + count + ETA."
         ]
       },
@@ -411,7 +411,7 @@
         },
         {
           "label": "Unresolved",
-          "value": "1 \u2014 stock"
+          "value": "1 - stock"
         }
       ]
     }

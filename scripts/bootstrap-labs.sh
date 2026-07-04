@@ -12,7 +12,7 @@ CODE_EDITOR_USER="${CODE_EDITOR_USER:-participant}"
 HOME_FOLDER="${HOME_FOLDER:-/workshop}"
 REPO_NAME="sample-pellier-agentic-search-apg"
 REPO_PATH="$HOME_FOLDER/$REPO_NAME"
-AWS_REGION="${AWS_REGION:-us-east-1}"
+AWS_REGION="${AWS_REGION:-us-west-2}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
@@ -271,10 +271,10 @@ fi
 # every shopper query is embedded live before the pgvector search (the cache
 # only covers the catalog corpus). The same preflight also resolves the
 # independent Claude Code CLI model for Exercise 1.
-log "Preflight: checking Bedrock model access (us-east-1)..."
+log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
-        export AWS_REGION='${AWS_REGION:-us-east-1}'
+        export AWS_REGION='${AWS_REGION:-us-west-2}'
         cd '$REPO_PATH'
         python3 scripts/check_model_access.py --write-env '$REPO_PATH/pellier/backend/.env'
     " 2>&1 | tee /var/log/model-access-preflight.log; then
@@ -785,7 +785,7 @@ agentcore() {
 alias psql='psql'
 
 # AWS Region for boto3
-export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
 
 # Claude Code CLI → Amazon Bedrock (Claude Code lane, Ex 1).
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
@@ -796,7 +796,7 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 # independent of the app's Opus/Sonnet editorial model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-4-6}}
-export AWS_REGION=${AWS_REGION:-us-east-1}
+export AWS_REGION=${AWS_REGION:-us-west-2}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix
 # and warns once at startup ("Auto-update failed: no write permission..."). The

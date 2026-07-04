@@ -71,7 +71,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8 \u00b7 0.4",
+        "model": "Claude Opus 4.8",
         "skill": "the-makers-shelf",
         "latencyMs": 1136
       }
@@ -99,7 +99,7 @@
     {
       "index": 3,
       "category": "owned",
-      "title": "Memory Recall \u2014 Semantic",
+      "title": "Memory Recall - Semantic",
       "description": "Loaded Theo's maker-collector profile from AgentCore Memory: stoneware, hand-thrown, slow-living tags. Used to weight companion candidates.",
       "status": "complete",
       "durationMs": 34
@@ -107,7 +107,7 @@
     {
       "index": 4,
       "category": "owned",
-      "title": "Memory Recall \u2014 Episodic",
+      "title": "Memory Recall - Episodic",
       "description": "Read Aurora episodic memory: Theo bought Stoneware Pour-Over Set 22d ago. Confirms the anchor product is owned, not aspirational.",
       "status": "complete",
       "durationMs": 48,
@@ -137,7 +137,7 @@
       "index": 7,
       "category": "both",
       "title": "editorial composition",
-      "description": "Claude Opus 4.8 \u00b7 0.4 \u2014 same-kiln pairing voice",
+      "description": "Claude Opus 4.8 - same-kiln pairing voice",
       "status": "complete",
       "durationMs": 736,
       "agent": "Curator"
@@ -145,7 +145,7 @@
     {
       "index": 8,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
+      "title": "Memory Write - Working",
       "description": "Wrote turn-scoped context to AgentCore Memory: pairing the pour-over set with companion pieces.",
       "status": "complete",
       "durationMs": 23

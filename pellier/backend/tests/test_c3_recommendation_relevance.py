@@ -4,7 +4,7 @@ Validates Requirement 2.4.3-2.4.5 from
 `.kiro/specs/pellier-storefront/requirements.md`:
 
   2.4.3  The specialist is a Strands `Agent` wrapping `BedrockModel` with
-         `temperature=0.2` and the four tools
+         the Opus 4.8 support factory and the four tools
          `[find_pieces, whats_trending, side_by_side,
          explore_collection]`.
   2.4.4  The system prompt emphasizes warm, editorial, catalog-style
@@ -165,7 +165,8 @@ def test_curator_is_constructed_with_per_agent_model_mix_and_five_tools(
     documented in the Workshop Studio repo's content/ model-mix sidebar:
 
       - Claude Opus 4.8 (BEDROCK_OPUS_MODEL)
-      - temperature 0.4 (warm — recommendations carry "taste")
+      - no temperature field; Bedrock rejects that deprecated field for
+        Opus 4.8
       - exactly five tools: find_pieces_hybrid + whats_trending +
         side_by_side + explore_collection + escalate_to_stylist.
 
@@ -182,7 +183,9 @@ def test_curator_is_constructed_with_per_agent_model_mix_and_five_tools(
     kwargs = _StubAgent.last_kwargs
     assert "model" in kwargs, "Agent SHALL be constructed with a model= kwarg"
     assert isinstance(kwargs["model"], _StubBedrockModel)
-    assert kwargs["model"].kwargs.get("temperature") == 0.4
+    assert kwargs["model"].kwargs["model_id"] == "global.anthropic.claude-opus-4-8"
+    assert kwargs["model"].kwargs["max_tokens"] == 1200
+    assert "temperature" not in kwargs["model"].kwargs
 
     tool_names = [getattr(t, "__name__", repr(t)) for t in kwargs.get("tools", [])]
     # Strands @tool produces a DecoratedFunctionTool; unwrap to expose the

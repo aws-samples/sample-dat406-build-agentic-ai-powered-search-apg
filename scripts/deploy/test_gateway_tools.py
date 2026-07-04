@@ -58,7 +58,7 @@ def main():
     parser = argparse.ArgumentParser(description="Test AgentCore Gateway tool discovery")
     parser.add_argument("--gateway-url", required=True, help="AgentCore Gateway URL")
     parser.add_argument("--token", required=True, help="JWT token for authentication")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-west-2"))
     args = parser.parse_args()
 
     print(f"\n{'='*60}")

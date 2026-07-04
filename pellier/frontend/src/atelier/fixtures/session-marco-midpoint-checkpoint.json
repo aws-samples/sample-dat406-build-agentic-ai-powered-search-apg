@@ -15,7 +15,7 @@
     },
     {
       "role": "assistant",
-      "content": "Yes \u2014 Brooklyn (BK-01) has 8 of the Hadley (Pellier Linen Shirt in ecru) on the floor right now. Also 4 at Austin (ATX-02) and 12 at Portland (PDX-01). Ship window from Brooklyn to your zip is 1\u20132 business days.",
+      "content": "Yes - Brooklyn (BK-01) has 8 of the Hadley (Pellier Linen Shirt in ecru) on the floor right now. Also 4 at Austin (ATX-02) and 12 at Portland (PDX-01). Ship window from Brooklyn to your zip is 1\u20132 business days.",
       "timestamp": "2026-05-25T17:24:02Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -43,7 +43,7 @@
       ],
       "confidence": {
         "percentage": 99,
-        "reasoning": "Deterministic warehouse lookup. Claude Sonnet 4.6 at 0.0 \u2014 low variance. The tool participants just wrote is visible in the trace."
+        "reasoning": "Deterministic warehouse lookup. Claude Sonnet 4.6 at 0.0 - low variance. The tool participants just wrote is visible in the trace."
       },
       "memoryPills": [
         {
@@ -55,7 +55,7 @@
         "agent": "Stock Keeper",
         "model": "Claude Sonnet 4.6 \u00b7 0.0",
         "latencyMs": 184,
-        "note": "This is the checkpoint turn \u2014 floor_check is participant-authored code"
+        "note": "This is the checkpoint turn - floor_check is participant-authored code"
       }
     }
   ],
@@ -73,7 +73,7 @@
       "index": 2,
       "category": "both",
       "title": "Warehouse stock lookup",
-      "description": "floor_check \u2014 participant-authored tool, running on Claude Sonnet 4.6 at 0.0",
+      "description": "floor_check - participant-authored tool, running on Claude Sonnet 4.6 at 0.0",
       "status": "complete",
       "durationMs": 142,
       "agent": "Stock Keeper",
@@ -82,7 +82,7 @@
     {
       "index": 3,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
+      "title": "Memory Write - Working",
       "description": "Wrote turn-scoped result to AgentCore Memory: Hadley shirt confirmed at Brooklyn warehouse (8 units).",
       "status": "complete",
       "durationMs": 22
@@ -91,7 +91,7 @@
       "index": 4,
       "category": "managed",
       "title": "Response composition",
-      "description": "Claude Sonnet 4.6 at 0.0 \u2014 3 warehouses summarized",
+      "description": "Claude Sonnet 4.6 at 0.0 - 3 warehouses summarized",
       "status": "complete",
       "durationMs": 42,
       "agent": "Stock Keeper"
@@ -107,7 +107,7 @@
         "title": "The checkpoint",
         "paragraphs": [
           "Same question, different answer. Participants wired floor_check; the Dispatcher routed Turn 4 straight to Stock Keeper; Claude Sonnet 4.6 at 0.0 returned the warehouse breakdown.",
-          "The code behind this response is yours. The tool you wrote just shipped a real answer to a real question \u2014 and nothing about the Boutique changed. That's the whole lesson: capability is composable."
+          "The code behind this response is yours. The tool you wrote just shipped a real answer to a real question - and nothing about the Boutique changed. That's the whole lesson: capability is composable."
         ]
       }
     ],

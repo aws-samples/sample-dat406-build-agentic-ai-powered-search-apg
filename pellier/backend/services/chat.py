@@ -756,7 +756,7 @@ CURRENT REQUEST: {message}"""
                 single_prompt += GUARDRAILS_SUFFIX
 
             agent = Agent(
-                model=BedrockModel(model_id=self.model_id, max_tokens=8192, temperature=0.0),
+                model=BedrockModel(model_id=self.model_id, max_tokens=8192),
                 system_prompt=single_prompt,
                 tools=[find_pieces, whats_trending, price_intelligence]
             )
@@ -973,7 +973,6 @@ CURRENT REQUEST: {message}"""
                 model=BedrockModel(
                     model_id=self.model_id,
                     max_tokens=8192,
-                    temperature=0.0
                 ),
                 system_prompt=single_prompt,
                 tools=[find_pieces, whats_trending, price_intelligence]

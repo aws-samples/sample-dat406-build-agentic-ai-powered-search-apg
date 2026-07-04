@@ -125,15 +125,14 @@ def build_support_agent() -> Agent:
     actual order history; both injections are no-ops for anonymous
     sessions.
     """
-    # Experience Guide — Claude Opus 4.8 at 0.2. Empathy + concrete policy.
-    # Opus for tone when handling a return; steady temperature because
-    # policy is policy.
+    # Experience Guide — Claude Opus 4.8. Opus for tone when handling a
+    # return. Bedrock rejects the deprecated temperature field for this
+    # model, so we rely on the model default.
     return Agent(
         name="support",
         model=BedrockModel(
             model_id=settings.BEDROCK_OPUS_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
-            temperature=0.2,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_SUPPORT_SYSTEM_PROMPT)

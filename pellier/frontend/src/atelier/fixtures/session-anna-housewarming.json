@@ -46,7 +46,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8 · 0.4",
+        "model": "Claude Opus 4.8",
         "skill": "the-gift-table",
         "latencyMs": 1480,
         "note": "Curator's hybrid retrieval can find candles all day – but the right sympathy gift depends on the friendship, not the catalog. Escalation is the honest answer."
@@ -111,7 +111,7 @@
       "index": 7,
       "category": "both",
       "title": "Editorial acknowledgement",
-      "description": "Claude Opus 4.8 · 0.4 – empathy first, concrete next step second",
+      "description": "Claude Opus 4.8 – empathy first, concrete next step second",
       "status": "complete",
       "durationMs": 1248,
       "agent": "Curator"

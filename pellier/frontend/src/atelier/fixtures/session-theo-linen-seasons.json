@@ -55,7 +55,7 @@
         },
         {
           "tier": "episodic",
-          "content": "Bought Linen Throw, Oat ($118) 47d ago \u2014 linen affinity confirmed"
+          "content": "Bought Linen Throw, Oat ($118) 47d ago - linen affinity confirmed"
         },
         {
           "tier": "skill",
@@ -64,7 +64,7 @@
       ],
       "meta": {
         "agent": "Style Advisor",
-        "model": "Claude Opus 4.8 \u00b7 0.4",
+        "model": "Claude Opus 4.8",
         "skill": "the-makers-shelf",
         "latencyMs": 1194
       }
@@ -92,7 +92,7 @@
     {
       "index": 3,
       "category": "owned",
-      "title": "Memory Recall \u2014 Semantic",
+      "title": "Memory Recall - Semantic",
       "description": "Loaded Theo's maker-collector profile from AgentCore Memory: tactile materials, slow-living tags. Used to weight home-leaning linen.",
       "status": "complete",
       "durationMs": 35
@@ -100,7 +100,7 @@
     {
       "index": 4,
       "category": "owned",
-      "title": "Memory Recall \u2014 Episodic",
+      "title": "Memory Recall - Episodic",
       "description": "Read Aurora episodic memory: Linen Throw, Oat purchased 47d ago. Confirms linen affinity and steers retrieval toward home goods.",
       "status": "complete",
       "durationMs": 50,
@@ -120,7 +120,7 @@
       "index": 6,
       "category": "both",
       "title": "editorial composition",
-      "description": "Claude Opus 4.8 \u00b7 0.4 \u2014 patina and softening language",
+      "description": "Claude Opus 4.8 - patina and softening language",
       "status": "complete",
       "durationMs": 892,
       "agent": "Style Advisor"
@@ -128,7 +128,7 @@
     {
       "index": 7,
       "category": "owned",
-      "title": "Memory Write \u2014 Working",
+      "title": "Memory Write - Working",
       "description": "Wrote turn-scoped context to AgentCore Memory: looking for linen pieces that soften over seasons.",
       "status": "complete",
       "durationMs": 23

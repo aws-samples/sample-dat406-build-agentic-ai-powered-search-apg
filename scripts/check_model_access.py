@@ -16,16 +16,9 @@ import os
 
 import boto3
 
-# The workshop's models are cross-region inference profiles (us.* / global.*)
-# that are validated from us-east-1. Default there, but honor an AWS_REGION
-# override and warn loudly if it points elsewhere so a region mismatch is visible.
-REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
-if REGION != "us-east-1":
-    print(
-        f"⚠️  AWS_REGION={REGION} – this workshop's model access is validated in "
-        f"us-east-1 (us.*/global.* inference profiles). Results may not reflect "
-        f"the actual deploy region.\n"
-    )
+# Keep the model-access preflight in the same region as Aurora, Gateway,
+# Runtime, and Cognito for local and workshop runs.
+REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2"
 
 MODELS = [
     {
@@ -75,7 +68,7 @@ MODELS = [
         # inaccessible, /api/health reports bedrock:inaccessible and search fails.
         #
         # Cohere Embed v4 (enabled in Workshop Studio). The backend calls this in
-        # us-east-1 via config.BEDROCK_EMBEDDING_MODEL = "us.cohere.embed-v4:0",
+        # the configured region via config.BEDROCK_EMBEDDING_MODEL = "us.cohere.embed-v4:0",
         # so the probe must only accept forms that MATCH that config: the US
         # cross-region inference profile and (if the account exposes it) the bare
         # on-demand id. We deliberately do NOT probe eu./apac./global. — a non-US

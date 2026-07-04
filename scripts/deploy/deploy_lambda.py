@@ -176,7 +176,7 @@ def main():
   global iam_client, lambda_client
 
   parser = argparse.ArgumentParser(description="Deploy Lambda function to AWS")
-  parser.add_argument('--region', help="AWS Region to use.", default=os.getenv("AWS_REGION", "us-east-1"))
+  parser.add_argument('--region', help="AWS Region to use.", default=os.getenv("AWS_REGION", "us-west-2"))
   parser.add_argument('--server-name', default='pellier-mcp-server', help='The name of the server deployed by this function.')
   parser.add_argument('--db-cluster-arn', help="Aurora PostgreSQL DB cluster ARN")
   parser.add_argument('--secret-arn', help="AWS Secrets Manager secret ARN")

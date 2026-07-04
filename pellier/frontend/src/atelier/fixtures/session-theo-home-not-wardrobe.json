@@ -50,7 +50,7 @@
       ],
       "meta": {
         "agent": "Experience Guide",
-        "model": "Claude Opus 4.8 · 0.2",
+        "model": "Claude Opus 4.8",
         "skill": "the-makers-shelf",
         "latencyMs": 1462,
         "note": "Cedar policy enforces the return window. process_return refuses beyond it. escalate_to_stylist is the honest exit for durability-expectation exceptions a human should weigh."
@@ -124,7 +124,7 @@
       "index": 8,
       "category": "both",
       "title": "Empathetic acknowledgement",
-      "description": "Claude Opus 4.8 · 0.2 – empathy for the durability claim; concrete next step",
+      "description": "Claude Opus 4.8 – empathy for the durability claim; concrete next step",
       "status": "complete",
       "durationMs": 1238,
       "agent": "Experience Guide"

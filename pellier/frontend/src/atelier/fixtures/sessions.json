@@ -19,18 +19,18 @@
     "routingPattern": "Dispatcher",
     "timestamp": "2026-05-25T17:24:00Z",
     "status": "complete",
-    "tagline": "Stock check \u2013 after the build"
+    "tagline": "Stock check - after the build"
   },
   {
     "id": "marco-capstone",
     "personaId": "marco",
-    "openingQuery": "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding \u2013 not product cards.",
+    "openingQuery": "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding - not product cards.",
     "elapsedMs": 3680,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
     "timestamp": "2026-05-25T17:34:00Z",
     "status": "complete",
-    "tagline": "Honest fallback \u2013 stylist handoff"
+    "tagline": "Honest fallback - stylist handoff"
   },
   {
     "id": "anna-morning-ritual",
@@ -123,7 +123,7 @@
   {
     "id": "theo-ceramics-return",
     "personaId": "theo",
-    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return \u2013 my customer id is 'theo'.",
+    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return - my customer id is 'theo'.",
     "elapsedMs": 2140,
     "agentCount": 1,
     "routingPattern": "Dispatcher",
