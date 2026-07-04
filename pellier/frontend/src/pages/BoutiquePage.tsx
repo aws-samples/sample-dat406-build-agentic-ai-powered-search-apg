@@ -15,7 +15,7 @@
  * The hero occupies the entire viewport so the first impression is
  * the search bar. Scrolling reveals the editorial product showcase.
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
@@ -98,6 +98,7 @@ export default function BoutiquePage() {
     [gridProducts, personaId],
   )
   const personaInterests = personaId ? PERSONA_INTERESTS[personaId] : undefined
+  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
   const isPersonalized =
     !!personaInterests &&
     Object.keys(personaInterests.tagWeights).length > 0
@@ -156,7 +157,12 @@ export default function BoutiquePage() {
 
       <Header current="home" onNavigate={handleNavigate} />
 
-      <main>
+      <main
+        style={{
+          background:
+            'linear-gradient(180deg, var(--cream-warm) 0%, var(--cream-50, #fbf8f2) 34%, var(--cream-warm) 100%)',
+        }}
+      >
         {/* ── ACT 1: Full-viewport hero ── */}
         <BoutiqueHero />
 
@@ -177,15 +183,21 @@ export default function BoutiquePage() {
         {/* ── ACT 2: Below the fold ── */}
         <section
           id="shop"
-          className="w-full bg-cream-50"
+          className="w-full"
           aria-label="Featured products"
-          style={{ scrollMarginTop: 84 }}
+          style={{
+            '--boutique-accent': personaAccent,
+            scrollMarginTop: 84,
+            background:
+              'linear-gradient(180deg, var(--cream-50, #fbf8f2) 0%, var(--cream-warm) 48%, var(--cream-50, #fbf8f2) 100%)',
+            borderTop: '1px solid rgba(31,20,16,0.06)',
+          } as CSSProperties}
         >
           {/* Featured product: large image + editorial title */}
           <div className="max-w-[1440px] mx-auto px-container-x pt-16 md:pt-24 pb-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
               {/* Left: featured image */}
-              <div className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-warm-md">
+              <div className="relative aspect-[4/5] rounded-[8px] overflow-hidden shadow-warm-md">
                 <img
                   src={imageSrc(featuredProduct.imageUrl)}
                   alt={featuredProduct.name}
@@ -198,6 +210,14 @@ export default function BoutiquePage() {
                   aria-hidden="true"
                   style={{
                     background: 'linear-gradient(180deg, rgba(247,243,238,0.05) 0%, rgba(59,47,47,0.12) 100%)',
+                  }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0 top-0 h-[4px] w-full"
+                  style={{
+                    background:
+                      'linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--boutique-accent) 82%, var(--cream-warm)) 50%, transparent 100%)',
                   }}
                 />
               </div>
@@ -307,14 +327,16 @@ export default function BoutiquePage() {
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     fontWeight: 500,
-                    color: '#1f1410',
+                    color: 'color-mix(in srgb, var(--boutique-accent) 70%, var(--ink))',
                     padding: '6px 12px',
                     borderRadius: 999,
-                    background: 'var(--cream-warm)',
-                    border: '1px solid rgba(31,20,16,0.12)',
+                    background:
+                      'color-mix(in srgb, var(--boutique-accent) 8%, var(--cream-warm))',
+                    border:
+                      '1px solid color-mix(in srgb, var(--boutique-accent) 18%, transparent)',
                   }}
                 >
-                  <span aria-hidden style={{ color: '#a8423a', fontSize: '7px' }}>
+                  <span aria-hidden style={{ color: personaAccent, fontSize: '7px' }}>
                     &#9679;
                   </span>
                   <span>For {persona.display_name.split(' ')[0]}</span>
@@ -346,6 +368,7 @@ export default function BoutiquePage() {
                   product={product}
                   index={index % 3}
                   onAddToBag={handleAddToBag}
+                  accentColor={personaAccent}
                 />
               ))}
             </div>

@@ -55,8 +55,8 @@ export default function SurfaceToggle() {
       aria-label={SURFACE_TOGGLE.ARIA_LABEL}
       className="inline-flex items-center rounded-full p-[3px]"
       style={{
-        background: 'rgba(45, 24, 16, 0.06)',
-        border: '1px solid color-mix(in srgb, var(--ink-quiet) 21%, transparent)',
+        background: 'rgba(45, 24, 16, 0.045)',
+        border: '1px solid color-mix(in srgb, var(--ink-quiet) 16%, transparent)',
       }}
     >
       {SEGMENTS.map((seg, i) => {
@@ -72,10 +72,10 @@ export default function SurfaceToggle() {
               refs.current[i] = el
             }}
             onKeyDown={(e) => handleKeyDown(e, i)}
-            className="px-3.5 sm:px-4 py-1 rounded-full text-[12.5px] font-medium transition-colors"
+            className="px-3 sm:px-3.5 py-1 rounded-full text-[12px] font-medium transition-colors"
             style={{
               background: isActive ? c.ink : 'transparent',
-              color: isActive ? c.bg : c.ink2,
+              color: isActive ? c.bg : 'color-mix(in srgb, var(--ink) 68%, transparent)',
             }}
           >
             {seg.label}

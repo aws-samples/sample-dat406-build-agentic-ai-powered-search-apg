@@ -15,6 +15,7 @@
  * Clicking the CTA opens the chat drawer with a persona-appropriate
  * resume query.
  */
+import type { CSSProperties } from 'react'
 import { useUI } from '../contexts/UIContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { memoryHandoffForPersona } from '../data/personaCurations'
@@ -34,6 +35,7 @@ export default function MemoryHandoffCard() {
   const content = memoryHandoffForPersona(personaId)
   const ctaLabel = content.cta ?? 'Pick up where I left off'
   const isFresh = !personaId || personaId === 'fresh'
+  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
 
   const handleCta = () => {
     const query = RESUME_QUERY[personaId ?? 'fresh'] ?? RESUME_QUERY.fresh
@@ -45,19 +47,26 @@ export default function MemoryHandoffCard() {
       data-testid="memory-handoff"
       data-persona={personaId ?? 'fresh'}
       aria-label="Pick up where you left off"
-      className="w-full bg-cream-50"
+      className="w-full"
+      style={{
+        background:
+          'linear-gradient(180deg, var(--cream-warm) 0%, var(--cream-50, #fbf8f2) 100%)',
+      }}
     >
-      <div className="max-w-[1100px] mx-auto px-container-x py-10 md:py-12">
+      <div className="max-w-[1120px] mx-auto px-container-x py-8 md:py-10">
         <div
           data-testid="memory-handoff-card"
-          className="grid items-start gap-6 md:gap-8 shadow-warm-sm"
+          className="grid grid-cols-1 items-start gap-5 md:gap-6 lg:grid-cols-[auto_1fr_auto] shadow-warm-sm"
           style={{
-            gridTemplateColumns: 'auto 1fr auto',
+            '--trace-accent': personaAccent,
             background: 'color-mix(in srgb, var(--cream-warm) 65%, #ffffff)',
-            border: '1px solid color-mix(in srgb, var(--accent) 18%, var(--rule-1))',
-            borderRadius: 18,
-            padding: '28px 32px',
-          }}
+            border:
+              '1px solid color-mix(in srgb, var(--trace-accent) 18%, var(--rule-1))',
+            borderRadius: 8,
+            padding: '24px 28px',
+            boxShadow:
+              'inset 3px 0 0 color-mix(in srgb, var(--trace-accent) 78%, var(--cream-warm)), 0 8px 26px rgba(31,20,16,0.06)',
+          } as CSSProperties}
         >
           {/* Persona-keyed glyph — espresso disc + cream "P" (matches header wordmark). */}
           <div
@@ -77,6 +86,8 @@ export default function MemoryHandoffCard() {
               fontWeight: 600,
               letterSpacing: '-0.02em',
               flexShrink: 0,
+              boxShadow:
+                '0 0 0 3px color-mix(in srgb, var(--trace-accent) 12%, transparent)',
             }}
           >
             P
@@ -90,7 +101,7 @@ export default function MemoryHandoffCard() {
               style={{
                 fontSize: 'var(--dl-fs-eyebrow)',
                 letterSpacing: '0.12em',
-                color: 'var(--accent)',
+                color: 'color-mix(in srgb, var(--trace-accent) 78%, var(--ink))',
               }}
             >
               {content.eyebrow}
@@ -118,7 +129,13 @@ export default function MemoryHandoffCard() {
                   className="flex flex-wrap items-start gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0"
                 >
                   {/* Trace pill — deep-links to the Atelier explainer */}
-                  <TraceChip tool={item.tool} linkToAtelier compact />
+                  <TraceChip
+                    tool={item.tool}
+                    linkToAtelier
+                    compact
+                    variant="provenance"
+                    labelMode="label"
+                  />
                   <p
                     className="m-0 min-w-0 flex-1 font-sans text-ink-soft"
                     style={{
@@ -162,7 +179,7 @@ export default function MemoryHandoffCard() {
               letterSpacing: '0.04em',
               border: 0,
               whiteSpace: 'nowrap',
-              alignSelf: isFresh ? 'flex-end' : 'center',
+              alignSelf: isFresh ? 'flex-start' : 'center',
             }}
           >
             {ctaLabel}

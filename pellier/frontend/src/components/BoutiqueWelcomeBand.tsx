@@ -2,9 +2,9 @@
  * BoutiqueWelcomeBand — dismissible editorial welcome under the hero.
  *
  * Symmetric with AtelierWelcome (which lives atop /atelier/sessions).
- * Sits between the BoutiqueHero photograph and the Weekend Edit
- * section, teaching the three things a first-visit shopper should
- * know before they scroll further:
+ * Sits between the BoutiqueHero photograph and the memory handoff.
+ * This is intentionally compact: the hero owns the drama, and the
+ * memory card owns the agentic proof moment.
  *
  *   1. You can just ask. (hero search bar, ⌘K, mic)
  *   2. Pick a persona. (header pill — Marco/Anna/Theo)
@@ -40,19 +40,19 @@ function Pillar({ icon, verb, title, description }: PillarProps) {
       style={{
         background: '#FAF3E8',
         border: '1px solid rgba(31, 20, 16, 0.08)',
-        borderRadius: '14px',
-        padding: '22px 22px 20px',
+        borderRadius: '8px',
+        padding: '16px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
+        gap: '8px',
       }}
     >
       {/* Icon tile */}
       <div
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: '10px',
+          width: 34,
+          height: 34,
+          borderRadius: '8px',
           background: 'rgba(168, 66, 58, 0.10)',
           display: 'flex',
           alignItems: 'center',
@@ -68,8 +68,8 @@ function Pillar({ icon, verb, title, description }: PillarProps) {
       <div
         style={{
           fontFamily: 'var(--mono)',
-          fontSize: '10.5px',
-          letterSpacing: '0.22em',
+          fontSize: '10px',
+          letterSpacing: '0.18em',
           textTransform: 'uppercase',
           color: '#a8423a',
           fontWeight: 600,
@@ -82,7 +82,7 @@ function Pillar({ icon, verb, title, description }: PillarProps) {
       <div
         className="font-display italic"
         style={{
-          fontSize: '20px',
+          fontSize: '18px',
           fontWeight: 400,
           letterSpacing: '-0.01em',
           color: '#1f1410',
@@ -96,8 +96,8 @@ function Pillar({ icon, verb, title, description }: PillarProps) {
       <p
         className="font-sans"
         style={{
-          fontSize: '13.5px',
-          lineHeight: 1.6,
+          fontSize: '13px',
+          lineHeight: 1.55,
           color: 'var(--ink-soft)',
           margin: 0,
         }}
@@ -128,14 +128,14 @@ export default function BoutiqueWelcomeBand() {
       className="w-full"
       style={{
         background:
-          'linear-gradient(180deg, #FAF3E8 0%, #F2E7D1 100%)',
+          'linear-gradient(180deg, #FAF3E8 0%, #F7EFE3 100%)',
         borderTop: '1px solid rgba(31, 20, 16, 0.06)',
         borderBottom: '1px solid rgba(31, 20, 16, 0.06)',
       }}
     >
       <div
         className="max-w-[1440px] mx-auto px-container-x"
-        style={{ padding: '48px 0 56px', position: 'relative' }}
+        style={{ padding: '34px 0 38px', position: 'relative' }}
       >
         {/* Dismiss button — absolute to the band content */}
         <button
@@ -171,7 +171,7 @@ export default function BoutiqueWelcomeBand() {
         {/* Header block */}
         <div
           className="px-container-x"
-          style={{ maxWidth: '780px', marginBottom: '28px' }}
+          style={{ maxWidth: '820px', marginBottom: '20px' }}
         >
           {/* Eyebrow */}
           <div
@@ -196,8 +196,8 @@ export default function BoutiqueWelcomeBand() {
             <span
               className="font-sans"
               style={{
-                fontSize: '11px',
-                letterSpacing: '0.22em',
+                fontSize: '10.5px',
+                letterSpacing: '0.18em',
                 textTransform: 'uppercase',
                 color: '#a8423a',
                 fontWeight: 600,
@@ -211,31 +211,29 @@ export default function BoutiqueWelcomeBand() {
           <h2
             className="font-display italic"
             style={{
-              fontSize: 'clamp(32px, 4vw, 48px)',
+              fontSize: 'clamp(28px, 3.4vw, 40px)',
               fontWeight: 400,
               lineHeight: 1.08,
-              letterSpacing: '-0.02em',
+              letterSpacing: 0,
               color: '#1f1410',
               margin: '0 0 14px',
             }}
           >
-            Three ways to shop the floor.
+            A quieter way to shop.
           </h2>
 
           {/* Summary */}
           <p
             className="font-sans"
             style={{
-              fontSize: '16px',
-              lineHeight: 1.65,
+              fontSize: '15px',
+              lineHeight: 1.58,
               color: 'var(--ink-soft)',
               margin: 0,
             }}
           >
-            A boutique with a concierge. Tell Pellier what you&rsquo;re after and
-            watch the pieces find you — or browse the editorial floor the old
-            way. Every seam is intentional, and the wires are visible if you
-            peek behind the curtain.
+            Ask in your own words, let the active persona shape the floor, and
+            open the Atelier when the recommendation needs a paper trail.
           </p>
         </div>
 
@@ -244,32 +242,32 @@ export default function BoutiqueWelcomeBand() {
           className="px-container-x"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '18px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+            gap: '12px',
           }}
         >
           <Pillar
             icon={<Sparkles size={18} strokeWidth={2} />}
             verb="Ask Pellier"
-            title="Search that understands."
+            title="Ask naturally."
             description={
-              "Type or speak your own words — \"a linen shirt for warm evenings,\" \"a gift for someone who runs.\" Pellier reads the catalog and pulls what fits."
+              "Type or speak the way a shopper would. Pellier reads intent, inventory, memory, and context together."
             }
           />
           <Pillar
             icon={<UserCircle2 size={18} strokeWidth={2} />}
             verb="Pick a persona"
-            title="Let Pellier remember you."
+            title="Let taste travel."
             description={
-              'Top-right pill switches you to Marco, Anna, or Theo. The cover, the grid, and the concierge tune themselves to each signal in real time.'
+              'Marco, Anna, and Theo each reshape the hero, grid, and concierge with visible signals.'
             }
           />
           <Pillar
             icon={<Microscope size={18} strokeWidth={2} />}
             verb="Peek the wires"
-            title="Open the Atelier."
+            title="Follow the proof."
             description={
-              "Curious how the magic works? Toggle to the Atelier in the header and watch every reasoning step, tool call, and memory read as it happens."
+              'The Atelier keeps the trace: decisions, tools, memory reads, and governed handoffs.'
             }
           />
         </div>

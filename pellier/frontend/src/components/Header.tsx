@@ -224,11 +224,12 @@ function PersonaDropdown() {
               size="sm"
             />
             <span
-              className="text-cream-50"
+              className="text-cream-50 truncate"
               style={{
                 fontFamily: 'var(--sans)',
                 fontSize: 13,
                 fontWeight: 500,
+                maxWidth: 118,
               }}
             >
               {persona.display_name}
@@ -382,14 +383,14 @@ export default function Header({
       data-testid="sticky-header"
       className="sticky top-0 z-40 w-full border-b border-sand/50"
       style={{
-        background: 'rgba(247, 243, 238, 0.9)',
+        background: 'rgba(247, 243, 238, 0.92)',
         WebkitBackdropFilter: 'blur(12px)',
         backdropFilter: 'blur(12px)',
       }}
     >
       <nav
         aria-label="Primary"
-        className="relative h-[64px]"
+        className="relative h-[60px]"
         style={{ padding: '0 clamp(16px, 4vw, 48px)' }}
       >
         {/*
@@ -403,9 +404,9 @@ export default function Header({
          * cluster (the previous absolute-positioned approach collided
          * with "About" + the persona pill at narrower desktop widths).
          */}
-        <div className="h-full max-w-[1440px] mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+        <div className="h-full max-w-[1440px] mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-5">
           {/* Left: four text nav items */}
-          <div className="flex items-center gap-6 min-w-0">
+          <div className="flex items-center gap-5 min-w-0">
             {navItems.map(({ item, label }) => (
               <NavLink
                 key={item}
@@ -423,24 +424,28 @@ export default function Header({
           </div>
 
           {/* Right: search, persona dropdown, wishlist, bag, surface toggle */}
-          <div className="flex items-center gap-2 justify-end min-w-0">
+          <div className="flex items-center gap-1.5 justify-end min-w-0">
             {persona && (
-              <IconButton
-                icon={<Search className="w-5 h-5" />}
-                ariaLabel="Search — ask Pellier"
-                onClick={handleSearchClick}
-                size="md"
-              />
+              <div className="hidden lg:block">
+                <IconButton
+                  icon={<Search className="w-5 h-5" />}
+                  ariaLabel="Search — ask Pellier"
+                  onClick={handleSearchClick}
+                  size="md"
+                />
+              </div>
             )}
 
             <PersonaDropdown />
 
-            <IconButton
-              icon={<Heart className="w-5 h-5" />}
-              ariaLabel="Wishlist"
-              onClick={handleWishlistClick}
-              size="md"
-            />
+            <div className="hidden xl:block">
+              <IconButton
+                icon={<Heart className="w-5 h-5" />}
+                ariaLabel="Wishlist"
+                onClick={handleWishlistClick}
+                size="md"
+              />
+            </div>
 
             <div className="relative">
               <IconButton
@@ -459,7 +464,7 @@ export default function Header({
               )}
             </div>
 
-            <div className="hidden sm:block ml-1">
+            <div className="hidden md:block ml-1">
               <SurfaceToggle />
             </div>
           </div>

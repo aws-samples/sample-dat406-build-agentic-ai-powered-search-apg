@@ -12,7 +12,7 @@
  * Mobile (<768px): typography column fills full width, gradient overlay
  * ensures readability against the photograph's underlying composition.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useState, type CSSProperties } from 'react'
 import { Sparkles, Mic, Send, MicOff } from 'lucide-react'
 import { useUI } from '../contexts/UIContext'
 import { usePersona } from '../contexts/PersonaContext'
@@ -120,6 +120,7 @@ export default function BoutiqueHero() {
   const suggestions = heroPillsForPersona(persona?.id)
   const becauseChips = becauseChipsForPersona(persona?.id)
   const heroImage = PERSONA_HERO_IMAGES[persona?.id ?? 'fresh'] ?? PERSONA_HERO_IMAGES.fresh
+  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
   const [searchValue, setSearchValue] = useState('')
 
   // Amazon Transcribe voice search — interim transcripts fill the
@@ -167,6 +168,7 @@ export default function BoutiqueHero() {
       data-testid="boutique-hero"
       aria-label="Search and discover"
       className="relative min-h-[820px] py-10 md:py-14"
+      style={{ '--boutique-accent': personaAccent } as CSSProperties}
     >
       {/* ── Editorial photo + wash — clipped so tall images never spill beyond
            the viewport. Foreground avoids overflow:hidden so Marco pill rails
@@ -180,6 +182,14 @@ export default function BoutiqueHero() {
         <div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-[#f7f0e6]/20 to-[#f7f0e6]/45"
           aria-hidden="true"
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 h-36"
+          aria-hidden="true"
+          style={{
+            background:
+              'linear-gradient(0deg, color-mix(in srgb, var(--boutique-accent) 10%, transparent) 0%, transparent 78%)',
+          }}
         />
       </div>
 
@@ -842,7 +852,8 @@ export default function BoutiqueHero() {
                         gap: 10,
                         padding: '10px 16px',
                         borderRadius: 999,
-                        border: '1px dashed rgba(154, 52, 18, 0.35)',
+                        border:
+                          '1px dashed color-mix(in srgb, var(--boutique-accent) 34%, transparent)',
                         background: 'rgba(255,250,240,0.78)',
                         fontFamily: "'Fraunces', Georgia, serif",
                         fontStyle: 'italic',
@@ -859,7 +870,8 @@ export default function BoutiqueHero() {
                           fontWeight: 600,
                           letterSpacing: '0.22em',
                           textTransform: 'uppercase',
-                          color: 'var(--accent)',
+                          color:
+                            'color-mix(in srgb, var(--boutique-accent) 78%, var(--ink))',
                         }}
                       >
                         {BECAUSE_KIND_LABEL[chip.kind]}
@@ -1050,7 +1062,11 @@ export default function BoutiqueHero() {
     <div
       data-testid="boutique-hero-trust"
       className="w-full border-b border-sand/40"
-      style={{ background: 'var(--cream-warm)' }}
+      style={{
+        '--boutique-accent': personaAccent,
+        background:
+          'linear-gradient(180deg, var(--cream-warm) 0%, color-mix(in srgb, var(--boutique-accent) 4%, var(--cream-warm)) 100%)',
+      } as CSSProperties}
     >
       <div className="max-w-[1200px] mx-auto px-6 py-5 flex flex-col items-center justify-center gap-3 lg:flex-row lg:justify-between">
         <div className="shrink-0">
@@ -1075,7 +1091,7 @@ export default function BoutiqueHero() {
                   aria-hidden="true"
                   style={{
                     marginRight: '12px',
-                    color: 'var(--accent)',
+                    color: 'color-mix(in srgb, var(--boutique-accent) 72%, var(--ink))',
                     fontSize: '6px',
                     lineHeight: 1,
                   }}

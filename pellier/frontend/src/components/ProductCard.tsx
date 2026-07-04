@@ -32,7 +32,7 @@
  * classes. Card chrome uses shadow-warm-sm / shadow-warm-md tokens. The
  * parallax observer logic and safety defenses are preserved unchanged.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Star } from 'lucide-react'
 
 import type { BoutiqueBadge, BoutiqueProduct } from '../services/types'
@@ -60,6 +60,8 @@ interface ProductCardProps {
    * every card shows traceability without requiring data migration.
    */
   traces?: string[]
+  /** Optional persona or surface accent used for provenance details. */
+  accentColor?: string
 }
 
 /**
@@ -113,7 +115,7 @@ const SAFETY_TIMEOUT_MS = 500
 
 // Pre-reveal opacity. Crucially >0 so a stalled observer leaves cards
 // ghostly-but-legible rather than entirely invisible.
-const PRE_REVEAL_OPACITY = 0.05
+const PRE_REVEAL_OPACITY = 0.36
 
 // Apple-style ease-out-expo. Don't substitute — `ease-out` reads as too
 // mechanical at this duration.
@@ -131,8 +133,10 @@ export default function ProductCard({
   index,
   onAddToBag,
   traces,
+  accentColor,
 }: ProductCardProps) {
   const traceChips = traces ?? deriveTraces(product)
+  const personaAccent = accentColor ?? 'var(--accent)'
   const [hovered, setHovered] = useState(false)
   // `isVisible` starts as `prefersReducedMotion` so users with reduced-motion
   // skip the pre-reveal ghost state entirely — first paint is the final state.
@@ -202,20 +206,24 @@ export default function ProductCard({
       data-index={index}
       data-revealed={isVisible}
       className={`
-        bg-cream-50 rounded-xl overflow-hidden flex flex-col
+        bg-cream-50 rounded-[8px] overflow-hidden flex flex-col
+        border border-[rgba(31,20,16,0.08)]
         shadow-warm-sm transition-shadow duration-fade ease-out
         ${hovered ? 'shadow-warm-md' : 'shadow-warm-sm'}
       `}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        '--trace-accent': personaAccent,
         opacity: isVisible ? 1 : PRE_REVEAL_OPACITY,
         transform: isVisible
           ? 'translateY(0) scale(1)'
           : 'translateY(56px) scale(0.975)',
         transition: `opacity 1100ms ${REVEAL_EASE}, transform 1200ms ${REVEAL_EASE}, box-shadow 180ms ease-out`,
         willChange: 'opacity, transform',
-      }}
+        background:
+          'linear-gradient(180deg, rgba(255,252,248,0.98) 0%, var(--cream-warm) 100%)',
+      } as CSSProperties}
     >
       {/* --- Image panel --------------------------------------------- */}
       <div className="relative aspect-[4/5] bg-sand overflow-hidden">
@@ -240,11 +248,24 @@ export default function ProductCard({
               'linear-gradient(180deg, rgba(247,243,238,0.08) 0%, rgba(196,69,54,0.08) 100%)',
           }}
         />
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-[3px] w-full"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--trace-accent) 72%, var(--cream-warm)) 22%, color-mix(in srgb, var(--trace-accent) 88%, var(--ink)) 50%, color-mix(in srgb, var(--trace-accent) 72%, var(--cream-warm)) 78%, transparent 100%)',
+          }}
+        />
         {/* Optional top-left badge (Req 1.6.5 step 2) */}
         {product.badge ? (
           <span
             data-testid={`product-card-badge-${product.id}`}
             className="absolute top-3 left-3 bg-cream-50 text-espresso px-2.5 py-1 text-[10px] tracking-[0.12em] font-sans rounded-full"
+            style={{
+              border: '1px solid color-mix(in srgb, var(--trace-accent) 24%, transparent)',
+              color: 'color-mix(in srgb, var(--trace-accent) 78%, var(--ink))',
+              boxShadow: '0 2px 8px rgba(31, 20, 16, 0.08)',
+            }}
           >
             {BADGE_LABEL[product.badge]}
           </span>
@@ -252,19 +273,32 @@ export default function ProductCard({
       </div>
 
       {/* --- Text block ---------------------------------------------- */}
-      <div className="p-5 flex flex-col gap-2.5">
+      <div className="p-5 flex flex-col gap-3">
         {/* Brand + color row (Req 1.6.5 step 4) */}
-        <div className="flex justify-between gap-3 text-[11px] tracking-[0.08em] text-ink-quiet font-sans uppercase">
-          <span>{product.brand}</span>
+        <div className="flex justify-between gap-3 text-[11px] tracking-[0.1em] text-ink-quiet font-sans uppercase">
+          <span>{product.category}</span>
           <span>{product.color}</span>
         </div>
 
         {/* Product name — Fraunces italic (Req 1.6.5 step 5). Size bumps
             20→22px at ≥1024px via `.product-name` in index.css so the
             breakpoint happens in CSS, not React. */}
-        <h3 className="product-name text-espresso">
-          {product.name}
-        </h3>
+        <div>
+          <p
+            className="font-sans uppercase text-ink-quiet"
+            style={{
+              fontSize: 10.5,
+              letterSpacing: '0.16em',
+              fontWeight: 600,
+              margin: '0 0 4px',
+            }}
+          >
+            {product.brand}
+          </p>
+          <h3 className="product-name text-espresso">
+            {product.name}
+          </h3>
+        </div>
 
         {/* Price + rating row (Req 1.6.5 step 6) */}
         <div className="flex items-center justify-between text-sm text-ink-soft font-sans">
@@ -287,26 +321,36 @@ export default function ProductCard({
         {/* Reasoning chip (Req 1.6.5 step 8) */}
         {product.reasoning ? <ReasoningChip chip={product.reasoning} /> : null}
 
-        {/* Trace chips — small mono pills naming the tools/signals
-            that surfaced this product. Reads as the agent citing its
-            sources, inline on the card, and shares vocabulary with
-            the /atelier observatory so a workshop demo can pivot
-            between the consumer surface and the developer surface
-            without translating language. */}
+        {/* Provenance labels — shopper-facing names, with the raw tool
+            trace preserved in the tooltip and deep link. */}
         {traceChips.length > 0 && (
           <div
             data-testid={`product-card-traces-${product.id}`}
-            className="flex flex-wrap gap-1.5 mt-1"
+            className="flex flex-col gap-2 mt-0.5"
             aria-label="Why this was surfaced"
           >
+            <span
+              className="font-sans uppercase text-ink-quiet"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.16em',
+                fontWeight: 600,
+              }}
+            >
+              Pellier signal
+            </span>
+            <span className="flex flex-wrap gap-1.5">
             {traceChips.map((trace) => (
-              // The TraceChip looks up the canonical tool name (the
-              // segment before " · ") in agentVocabulary, so the
-              // tooltip surfaces a glossary line and the chip
-              // deep-links to the Atelier explainer page even when
-              // the visible label carries a trailing score/value.
-              <TraceChip key={trace} tool={trace} linkToAtelier />
+              <TraceChip
+                key={trace}
+                tool={trace}
+                linkToAtelier
+                variant="provenance"
+                labelMode="label"
+                compact
+              />
             ))}
+            </span>
           </div>
         )}
 
@@ -316,7 +360,7 @@ export default function ProductCard({
           data-testid={`product-card-add-${product.id}`}
           onClick={() => onAddToBag?.(product)}
           className="
-            mt-1.5 w-full rounded-full bg-espresso text-cream-50 border border-espresso
+            mt-1 w-full rounded-full bg-espresso text-cream-50 border border-espresso
             py-2.5 px-3.5 text-[13px] tracking-[0.06em] cursor-pointer
             font-sans font-medium transition-colors duration-fade ease-out
             hover:bg-dusk hover:text-cream-50 hover:border-dusk

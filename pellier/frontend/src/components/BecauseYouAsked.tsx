@@ -18,6 +18,7 @@
 import { Card } from '../design/primitives'
 import { usePersona } from '../contexts/PersonaContext'
 import { editorialForPersona } from '../data/personaCurations'
+import type { CSSProperties } from 'react'
 
 const PERSONA_HEADLINES: Record<string, { eyebrow: string; headline: string }> = {
   marco: {
@@ -46,12 +47,19 @@ export default function BecauseYouAsked() {
   const cards = editorialForPersona(personaId)
   const copy = (personaId && PERSONA_HEADLINES[personaId]) || DEFAULT_HEADLINE
   const isPersonalized = !!personaId && personaId !== 'fresh' && personaId in PERSONA_HEADLINES
+  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
 
   return (
     <section
       data-testid="because-you-asked"
       aria-label="Because you asked"
-      className="w-full bg-cream-50 py-16 md:py-20 lg:py-24"
+      className="w-full py-16 md:py-20 lg:py-24"
+      style={{
+        '--boutique-accent': personaAccent,
+        background:
+          'linear-gradient(180deg, var(--cream-50, #fbf8f2) 0%, var(--cream-warm) 100%)',
+        borderTop: '1px solid rgba(31,20,16,0.06)',
+      } as CSSProperties}
     >
       <div className="max-w-[1440px] mx-auto px-container-x">
         {/* Section header */}
@@ -88,14 +96,16 @@ export default function BecauseYouAsked() {
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 fontWeight: 500,
-                color: '#1f1410',
+                color: 'color-mix(in srgb, var(--boutique-accent) 70%, var(--ink))',
                 padding: '6px 12px',
                 borderRadius: 999,
-                background: 'var(--cream-warm)',
-                border: '1px solid rgba(31,20,16,0.12)',
+                background:
+                  'color-mix(in srgb, var(--boutique-accent) 8%, var(--cream-warm))',
+                border:
+                  '1px solid color-mix(in srgb, var(--boutique-accent) 18%, transparent)',
               }}
             >
-              <span aria-hidden style={{ color: '#a8423a', fontSize: '7px' }}>
+              <span aria-hidden style={{ color: personaAccent, fontSize: '7px' }}>
                 &#9679;
               </span>
               <span>For {persona.display_name.split(' ')[0]}</span>
@@ -113,7 +123,10 @@ export default function BecauseYouAsked() {
           }}
         >
           {cards.map((card) => (
-            <Card key={card.category} className="p-6">
+            <Card
+              key={card.category}
+              className="p-6 rounded-[8px] border border-[rgba(31,20,16,0.07)]"
+            >
               {/* Category eyebrow */}
               <p className="text-[10px] font-sans font-semibold tracking-[0.2em] uppercase text-accent mb-3">
                 {card.category}
