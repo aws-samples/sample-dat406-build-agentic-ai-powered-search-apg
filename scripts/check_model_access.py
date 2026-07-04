@@ -18,7 +18,7 @@ import boto3
 
 # Keep the model-access preflight in the same region as Aurora, Gateway,
 # Runtime, and Cognito for local and workshop runs.
-REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2"
+REGION = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-west-2"
 
 MODELS = [
     {

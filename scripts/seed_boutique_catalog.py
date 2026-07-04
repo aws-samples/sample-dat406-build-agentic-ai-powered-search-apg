@@ -602,7 +602,7 @@ def main():
     parser.add_argument("--csv-only", action="store_true", help="Write CSV + embeddings cache only, no DB connection")
     parser.add_argument("--from-cache", action="store_true", help="Seed using committed embeddings cache (no Bedrock calls) — preferred for workshops")
     parser.add_argument("--skip-embeddings", action="store_true", help="Skip Cohere embedding generation (zero vectors)")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-west-2"), help="AWS region")
+    parser.add_argument("--region", default=os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION", "us-west-2"), help="AWS region")
     args = parser.parse_args()
 
     products = ALL_PRODUCTS

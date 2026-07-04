@@ -195,8 +195,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--region",
-        default=os.getenv("AWS_REGION", "us-west-2"),
-        help="AWS region for Bedrock (default: $AWS_REGION or us-west-2)",
+        default=os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION", "us-west-2"),
+        help="AWS region for Bedrock (default: $AWS_DEFAULT_REGION, $AWS_REGION, or us-west-2)",
     )
     args = parser.parse_args()
 
