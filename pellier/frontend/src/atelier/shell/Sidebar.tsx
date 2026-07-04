@@ -59,9 +59,15 @@ const Sidebar: React.FC = () => {
   const avatarColor = persona?.avatar_color ?? '#a8423a';
 
   // Build dynamic nav sections with live shipped/total badges from build state.
-  // The first three sections follow the participant workshop flow. The
-  // broader Atelier taxonomy stays available under Reference for extra time.
+  // Observatory is the landing orientation, followed by the three participant
+  // acts. The broader Atelier taxonomy stays available under Reference.
   const navSections: NavSection[] = [
+    {
+      eyebrow: 'OBSERVATORY',
+      items: [
+        { label: 'Observatory', path: 'observatory' },
+      ],
+    },
     {
       eyebrow: 'ACT I · BUILD',
       items: [
@@ -94,7 +100,6 @@ const Sidebar: React.FC = () => {
     {
       eyebrow: 'REFERENCE',
       items: [
-        { label: 'Observatory', path: 'observatory' },
         { label: 'Persona Journeys', path: 'persona-journeys' },
         { label: 'Architecture', path: 'architecture', badge: '8' },
         {

@@ -182,7 +182,7 @@ function App() {
                     The frame renders the 240px sidebar + canvas grid with
                     React Router <Outlet /> for surface rendering. */}
                 <Route path="/atelier" element={<AtelierFrame />}>
-                  <Route index element={<Navigate to="proof-board" replace />} />
+                  <Route index element={<Navigate to="observatory" replace />} />
                   <Route path="proof-board" element={<ProofBoard />} />
                   <Route path="sessions" element={<SessionsList />} />
                   <Route path="sessions/:id" element={<SessionView />}>
