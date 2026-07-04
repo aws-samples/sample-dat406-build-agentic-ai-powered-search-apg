@@ -1043,7 +1043,7 @@ async def get_filter_categories():
 
 @app.post("/api/performance/iterative-scan")
 async def compare_iterative_scan(request: Request):
-    """Compare filtered HNSW with and without iterative scan (pgvector 0.8.0)"""
+    """Compare filtered HNSW with and without iterative scan (pgvector 0.8.1)"""
     if not index_performance_service:
         raise HTTPException(status_code=503, detail="Index performance service not initialized")
     body = await request.json()

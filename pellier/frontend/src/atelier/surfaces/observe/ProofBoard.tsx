@@ -6,11 +6,12 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { EditorialTitle, Eyebrow } from '../../components';
 
 type CheckState = 'pass' | 'warn' | 'fail';
 type CardStatus = 'complete' | 'needs_build' | 'needs_run' | 'needs_data' | 'needs_config' | 'pending' | 'available';
+type TraceStepState = 'pass' | 'warn' | 'pending';
 
 interface ReadinessCheck {
   id: string;
@@ -28,6 +29,10 @@ interface ManagedReceipt {
   rail: string;
   jwtPassthrough: boolean;
   gatewayPassthrough: boolean;
+  policyConfigured?: boolean;
+  gatewayAuditPresent?: boolean;
+  latestGatewayAuditId?: number | null;
+  latestGatewayAuditAt?: string;
 }
 
 interface ProofCard {
@@ -38,6 +43,8 @@ interface ProofCard {
   required: boolean;
   surface: string;
   summary: string;
+  evidenceSource?: string;
+  lastUpdated?: string | null;
   evidence: string[];
   fallback: {
     label: string;
@@ -82,6 +89,27 @@ const CHECK_TONE: Record<CheckState, { label: string; color: string; bg: string 
   fail: { label: 'Fix', color: 'var(--at-red-1)', bg: 'rgba(168, 66, 58, 0.12)' },
 };
 
+const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: string; border: string }> = {
+  pass: {
+    label: 'Seen',
+    color: 'var(--at-green-1)',
+    bg: 'rgba(73, 116, 88, 0.12)',
+    border: 'rgba(73, 116, 88, 0.28)',
+  },
+  warn: {
+    label: 'Gap',
+    color: '#7c5b18',
+    bg: 'rgba(184, 138, 58, 0.14)',
+    border: 'rgba(184, 138, 58, 0.32)',
+  },
+  pending: {
+    label: 'Pending',
+    color: 'var(--at-ink-3)',
+    bg: 'rgba(31, 20, 16, 0.05)',
+    border: 'var(--at-card-border)',
+  },
+};
+
 const CODE_STYLE: React.CSSProperties = {
   margin: 0,
   padding: '12px 14px',
@@ -95,6 +123,18 @@ const CODE_STYLE: React.CSSProperties = {
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
 };
+
+function formatTimestamp(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
 
 function statusPill(status: CardStatus) {
   const tone = STATUS_TONE[status];
@@ -230,65 +270,164 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
   );
 };
 
-const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => (
-  <section
-    aria-label="Gateway JWT trace receipt"
-    style={{
-      border: '1px solid var(--at-card-border)',
-      borderRadius: '8px',
-      background: 'var(--at-cream-2)',
-      padding: '16px 18px',
-      marginBottom: '30px',
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-      gap: '14px',
-    }}
-  >
-    {[
-      ['Receipt', receipt.present ? 'Managed turn seen' : 'No managed turn yet'],
-      ['Rail', receipt.rail || 'pending'],
-      ['JWT passthrough', receipt.jwtPassthrough ? 'true' : 'false'],
-      ['Gateway passthrough', receipt.gatewayPassthrough ? 'true' : 'false'],
-    ].map(([label, value]) => (
-      <div key={label}>
-        <div
+const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState }> = ({
+  label,
+  detail,
+  state,
+}) => {
+  const tone = TRACE_TONE[state];
+  return (
+    <div
+      style={{
+        border: `1px solid ${tone.border}`,
+        borderRadius: '8px',
+        background: tone.bg,
+        minHeight: '96px',
+        padding: '12px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
+      <div
+        className="font-mono"
+        style={{
+          color: tone.color,
+          fontSize: '10px',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          marginBottom: '8px',
+        }}
+      >
+        {tone.label}
+      </div>
+      <div
+        style={{
+          color: 'var(--at-ink-1)',
+          fontFamily: 'var(--at-sans)',
+          fontSize: '14px',
+          fontWeight: 650,
+          lineHeight: 1.25,
+          marginBottom: '6px',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          color: 'var(--at-ink-2)',
+          fontFamily: 'var(--at-sans)',
+          fontSize: '12px',
+          lineHeight: 1.35,
+        }}
+      >
+        {detail}
+      </div>
+    </div>
+  );
+};
+
+const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
+  const gatewayAuditAt = formatTimestamp(receipt.latestGatewayAuditAt);
+  const traceSteps: Array<{ label: string; detail: string; state: TraceStepState }> = [
+    {
+      label: 'Cognito user',
+      detail: receipt.jwtPassthrough ? 'Caller JWT forwarded' : 'Signed-in JWT not observed',
+      state: receipt.jwtPassthrough ? 'pass' : 'pending',
+    },
+    {
+      label: 'Runtime',
+      detail: receipt.present ? receipt.runtime || 'Managed receipt present' : 'No managed receipt',
+      state: receipt.present ? 'pass' : 'pending',
+    },
+    {
+      label: 'Gateway',
+      detail: receipt.gatewayPassthrough ? receipt.rail || 'Gateway MCP rail' : 'Gateway hop not observed',
+      state: receipt.gatewayPassthrough ? 'pass' : 'pending',
+    },
+    {
+      label: 'Cedar decision',
+      detail: receipt.policyConfigured ? 'Policy engine configured' : 'Policy engine id missing',
+      state: receipt.policyConfigured ? (receipt.present ? 'pass' : 'pending') : 'warn',
+    },
+    {
+      label: 'Tool result',
+      detail: receipt.gatewayAuditPresent ? `Gateway audit ${receipt.latestGatewayAuditId}` : 'No Gateway ALLOW row',
+      state: receipt.gatewayAuditPresent ? 'pass' : receipt.present ? 'warn' : 'pending',
+    },
+    {
+      label: 'Aurora audit',
+      detail: gatewayAuditAt ? `tool_audit at ${gatewayAuditAt}` : 'DENY leaves no tool_audit row',
+      state: receipt.gatewayAuditPresent ? 'pass' : receipt.present ? 'warn' : 'pending',
+    },
+  ];
+
+  return (
+    <section
+      aria-label="Gateway JWT trace receipt"
+      style={{
+        border: '1px solid var(--at-card-border)',
+        borderRadius: '8px',
+        background: 'var(--at-cream-2)',
+        padding: '18px 20px',
+        marginBottom: '30px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '14px',
+          flexWrap: 'wrap',
+          marginBottom: '14px',
+        }}
+      >
+        <Eyebrow label="Gateway/JWT trace receipt" />
+        <span
           className="font-mono"
           style={{
-            fontSize: '10px',
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
             color: 'var(--at-ink-3)',
-            marginBottom: '5px',
+            fontSize: '11px',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
           }}
         >
-          {label}
-        </div>
-        <div
-          style={{
-            color: 'var(--at-ink-1)',
-            fontFamily: 'var(--at-sans)',
-            fontSize: '14px',
-            fontWeight: 600,
-          }}
-        >
-          {value}
-        </div>
+          {receipt.present ? receipt.traceKind || 'managed receipt' : 'managed rail pending'}
+        </span>
       </div>
-    ))}
-  </section>
-);
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: '10px',
+        }}
+      >
+        {traceSteps.map((step) => (
+          <TraceStep key={step.label} {...step} />
+        ))}
+      </div>
+    </section>
+  );
+};
 
-const ProofCardView: React.FC<{ card: ProofCard }> = ({ card }) => (
+const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
+  card,
+  highlighted = false,
+}) => {
+  const lastUpdated = formatTimestamp(card.lastUpdated);
+  return (
   <article
     id={card.id}
     data-testid={`proof-card-${card.id}`}
     style={{
-      border: '1px solid var(--at-card-border)',
+      border: highlighted ? '1px solid var(--at-red-1)' : '1px solid var(--at-card-border)',
       borderRadius: '8px',
-      background: 'var(--at-card-bg)',
+      background: highlighted ? 'color-mix(in srgb, var(--at-card-bg) 86%, var(--at-red-1) 14%)' : 'var(--at-card-bg)',
       padding: '22px 24px',
       scrollMarginTop: '80px',
-      boxShadow: '0 2px 10px rgba(45, 24, 16, 0.04)',
+      boxShadow: highlighted
+        ? '0 0 0 3px rgba(168, 66, 58, 0.12), 0 2px 10px rgba(45, 24, 16, 0.04)'
+        : '0 2px 10px rgba(45, 24, 16, 0.04)',
     }}
   >
     <div
@@ -359,6 +498,70 @@ const ProofCardView: React.FC<{ card: ProofCard }> = ({ card }) => (
     >
       {card.summary}
     </p>
+    {(card.evidenceSource || lastUpdated) && (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: '8px',
+          margin: '0 0 14px',
+        }}
+      >
+        {card.evidenceSource && (
+          <div>
+            <div
+              className="font-mono"
+              style={{
+                color: 'var(--at-ink-3)',
+                fontSize: '9.5px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}
+            >
+              Evidence source
+            </div>
+            <div
+              style={{
+                color: 'var(--at-ink-2)',
+                fontFamily: 'var(--at-mono)',
+                fontSize: '11.5px',
+                lineHeight: 1.45,
+                wordBreak: 'break-word',
+              }}
+            >
+              {card.evidenceSource}
+            </div>
+          </div>
+        )}
+        {lastUpdated && (
+          <div>
+            <div
+              className="font-mono"
+              style={{
+                color: 'var(--at-ink-3)',
+                fontSize: '9.5px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}
+            >
+              Last updated
+            </div>
+            <div
+              style={{
+                color: 'var(--at-ink-2)',
+                fontFamily: 'var(--at-mono)',
+                fontSize: '11.5px',
+                lineHeight: 1.45,
+              }}
+            >
+              {lastUpdated}
+            </div>
+          </div>
+        )}
+      </div>
+    )}
     <ul
       style={{
         margin: '0 0 16px',
@@ -408,9 +611,125 @@ const ProofCardView: React.FC<{ card: ProofCard }> = ({ card }) => (
       ))}
     </div>
   </article>
-);
+  );
+};
+
+function groupCardsByAct(cards: ProofCard[]) {
+  const groups = new Map<string, ProofCard[]>();
+  for (const card of cards) {
+    const items = groups.get(card.act) ?? [];
+    items.push(card);
+    groups.set(card.act, items);
+  }
+  return Array.from(groups.entries());
+}
+
+const ProofRail: React.FC<{
+  eyebrow: string;
+  title: string;
+  summary: string;
+  cards: ProofCard[];
+  activeAnchor: string;
+}> = ({ eyebrow, title, summary, cards, activeAnchor }) => {
+  if (!cards.length) return null;
+  const groupedCards = groupCardsByAct(cards);
+  return (
+    <section aria-label={title} style={{ marginBottom: '36px' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '14px',
+          flexWrap: 'wrap',
+          marginBottom: '10px',
+        }}
+      >
+        <div>
+          <Eyebrow label={eyebrow} />
+          <h2
+            style={{
+              margin: '6px 0 0',
+              color: 'var(--at-ink-1)',
+              fontFamily: 'var(--at-serif)',
+              fontSize: '24px',
+              fontWeight: 400,
+              lineHeight: 1.15,
+            }}
+          >
+            {title}
+          </h2>
+        </div>
+        <span
+          className="font-mono"
+          style={{
+            color: 'var(--at-ink-3)',
+            fontSize: '11px',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {cards.length} cards
+        </span>
+      </div>
+      <p
+        style={{
+          color: 'var(--at-ink-2)',
+          fontFamily: 'var(--at-sans)',
+          fontSize: '14px',
+          lineHeight: 1.55,
+          margin: '0 0 16px',
+          maxWidth: '760px',
+        }}
+      >
+        {summary}
+      </p>
+      {groupedCards.map(([act, actCards]) => (
+        <div key={act} style={{ marginBottom: '20px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '12px',
+            }}
+          >
+            <Eyebrow label={act} />
+            <span
+              className="font-mono"
+              style={{
+                color: 'var(--at-ink-3)',
+                fontSize: '11px',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {actCards.length} cards
+            </span>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            {actCards.map((card) => (
+              <ProofCardView
+                key={card.id}
+                card={card}
+                highlighted={activeAnchor === card.id}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+};
 
 const ProofBoard: React.FC = () => {
+  const location = useLocation();
   const [data, setData] = useState<ProofBoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -440,14 +759,17 @@ const ProofBoard: React.FC = () => {
     };
   }, []);
 
-  const groupedCards = useMemo(() => {
-    const groups = new Map<string, ProofCard[]>();
-    for (const card of data?.cards ?? []) {
-      const items = groups.get(card.act) ?? [];
-      items.push(card);
-      groups.set(card.act, items);
-    }
-    return Array.from(groups.entries());
+  const activeAnchor = useMemo(() => {
+    if (!location.hash) return '';
+    return decodeURIComponent(location.hash.replace(/^#/, ''));
+  }, [location.hash]);
+
+  const rails = useMemo(() => {
+    const cards = data?.cards ?? [];
+    return {
+      required: cards.filter((card) => card.required),
+      optional: cards.filter((card) => !card.required),
+    };
   }, [data]);
 
   return (
@@ -485,42 +807,20 @@ const ProofBoard: React.FC = () => {
           <ReadinessPanel checks={data.readiness.checks} />
           <ReceiptStrip receipt={data.managedReceipt} />
 
-          {groupedCards.map(([act, cards]) => (
-            <section key={act} aria-label={act} style={{ marginBottom: '34px' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '14px',
-                }}
-              >
-                <Eyebrow label={act} />
-                <span
-                  className="font-mono"
-                  style={{
-                    color: 'var(--at-ink-3)',
-                    fontSize: '11px',
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {cards.length} cards
-                </span>
-              </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                  gap: '16px',
-                }}
-              >
-                {cards.map((card) => (
-                  <ProofCardView key={card.id} card={card} />
-                ))}
-              </div>
-            </section>
-          ))}
+          <ProofRail
+            eyebrow="Required path"
+            title="Required rail"
+            summary="These cards are the facilitator-grade proof checkpoints for the core workshop path."
+            cards={rails.required}
+            activeAnchor={activeAnchor}
+          />
+          <ProofRail
+            eyebrow="Fast-finisher path"
+            title="Optional managed rail"
+            summary="These cards are available after the required SQL proof when the account has Runtime, Gateway, and Policy configured."
+            cards={rails.optional}
+            activeAnchor={activeAnchor}
+          />
         </>
       )}
     </div>

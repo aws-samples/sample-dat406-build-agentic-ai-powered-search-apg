@@ -498,7 +498,7 @@ Requirements below are grouped by audience where the distinction matters.
 - [x] Real Cognito + AgentCore Identity (4.1–4.3).
 - [x] Preferences persist to AgentCore Memory (4.4.1, 6.2.1).
 - [x] httpOnly cookies only (5.3.1).
-- [x] Orchestrator Sonnet 4.6 @ 0.0, specialists Opus 4.6 @ 0.2 (2.4.3, 2.4.6).
+- [x] Orchestrator Sonnet 4.6 @ 0.0, specialists Opus 4.8 @ 0.2 (2.4.3, 2.4.6).
 - [x] Tool pattern enforced (2.2.4).
 - [x] Defers to `catalog-enrichment` and `customer-support-agent` (6.1, 7.1).
 - [x] Agent/tool names match steering (2.2.3).

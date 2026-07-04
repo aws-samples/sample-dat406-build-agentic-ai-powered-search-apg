@@ -191,7 +191,7 @@ All authenticated endpoints require valid Cognito JWT via `Authorization: Bearer
 
 Exercise files ship with complete solution code in `# === REFERENCE: START/END ===` blocks per `workshop-content.md` steering.
 
-Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Temperature follows `coding-standards.md` (0.0 for orchestrator with Claude Sonnet 4.6, 0.2 for specialists with Claude Opus 4.6).
+Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Temperature follows `coding-standards.md` (0.0 for orchestrator with Claude Sonnet 4.6, 0.2 for specialists with Claude Opus 4.8).
 
 ### Section 1 — Smart Search (Workshop 30 min / Builders 15 min)
 
@@ -255,7 +255,7 @@ Sections:
 
 ### `design.md`
 
-- **Architecture diagram** (Mermaid): browser → Cognito Hosted UI → FastAPI → (AgentCore Identity → AgentCore Memory → AgentCore Runtime → AgentCore Gateway → Aurora pgvector → Bedrock: Opus 4.6 + Sonnet 4.6 + Cohere Embed v4 + Cohere Rerank v3.5)
+- **Architecture diagram** (Mermaid): browser → Cognito Hosted UI → FastAPI → (AgentCore Identity → AgentCore Memory → AgentCore Runtime → AgentCore Gateway → Aurora pgvector → Bedrock: Opus 4.8 + Sonnet 4.6 + Cohere Embed v4 + Cohere Rerank v3.5)
 - **Sequence diagrams:**
   1. Vector search (query → embedding → pgvector similarity → ranked results)
   2. Agent reasoning with tool use (user message → orchestrator (Sonnet) → specialist (Opus) → tool call → response with trace)
@@ -329,7 +329,7 @@ Before delivering the spec, verify:
 - [ ] Preferences persist to AgentCore Memory (via `agentcore_memory.py`) keyed by verified Cognito user_id
 - [ ] httpOnly Secure cookies for tokens (no localStorage)
 - [ ] Orchestrator uses Claude Sonnet 4.6 at temperature 0.0 per `coding-standards.md`
-- [ ] Specialists use Claude Opus 4.6 at temperature 0.2 per `coding-standards.md`
+- [ ] Specialists use Claude Opus 4.8 at temperature 0.2 per `coding-standards.md`
 - [ ] Tools use `@tool` decorator, return JSON strings, handle errors per `coding-standards.md`
 - [ ] Spec defers to `catalog-enrichment` for product table DDL + tagging
 - [ ] Spec defers to `customer-support-agent` for the customer support specialist

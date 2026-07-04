@@ -29,8 +29,8 @@ if REGION != "us-east-1":
 
 MODELS = [
     {
-        "name": "Claude Opus 4.6",
-        "model_id": "global.anthropic.claude-opus-4-6-v1",
+        "name": "Claude Opus 4.8",
+        "model_id": "global.anthropic.claude-opus-4-8",
         # Editorial specialists (Style Advisor, Curator, Experience Guide).
         # NOT hard-required: if Opus is denied but the Sonnet 4.6 fallback
         # below passes, the session still runs (editorial agents fall back to
@@ -58,7 +58,7 @@ MODELS = [
     },
     {
         "name": "Cohere Rerank v3.5",
-        "model_id": "us.cohere.rerank-v3-5:0",  # cross-region inference profile (no on-demand by bare ID)
+        "model_id": "cohere.rerank-v3-5:0",
         "required": True,  # Anna's rerank proof + find_pieces at runtime
         "body": {
             "api_version": 2,
@@ -239,7 +239,7 @@ def main():
         print(f"  {tag}  {model['name']:<42} ({shown_id})")
 
     # --- Editorial resolution: Opus OR Sonnet must work ---
-    opus_ok = results.get("Claude Opus 4.6", (False,))[0]
+    opus_ok = results.get("Claude Opus 4.8", (False,))[0]
     sonnet_name = "Claude Sonnet 4.6"
     sonnet_ok = results.get(sonnet_name, (False,))[0]
     sonnet_id = results.get(sonnet_name, (False, None, ""))[2]
@@ -247,16 +247,16 @@ def main():
     editorial_ok = opus_ok or sonnet_ok
     print()
     if opus_ok:
-        print("Editorial agents: \033[32mOpus 4.6\033[0m (primary).")
+        print("Editorial agents: \033[32mOpus 4.8\033[0m (primary).")
     elif sonnet_ok:
-        print("Editorial agents: \033[33mOpus 4.6 unavailable → falling back to Sonnet 4.6\033[0m.")
+        print("Editorial agents: \033[33mOpus 4.8 unavailable → falling back to Sonnet 4.6\033[0m.")
         if args.write_env:
             _upsert_env(args.write_env, "BEDROCK_OPUS_MODEL", sonnet_id)
             print(f"  → wrote BEDROCK_OPUS_MODEL={sonnet_id} to {args.write_env}")
         else:
             print(f"  → set BEDROCK_OPUS_MODEL={sonnet_id} in pellier/backend/.env")
     else:
-        print("\033[31mEditorial agents: NEITHER Opus 4.6 nor Sonnet 4.6 is accessible.\033[0m")
+        print("\033[31mEditorial agents: NEITHER Opus 4.8 nor Sonnet 4.6 is accessible.\033[0m")
 
     # --- Sonnet role defaults: app routing/reporting + Claude Code CLI ---
     print()

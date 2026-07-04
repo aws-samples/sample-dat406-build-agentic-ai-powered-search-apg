@@ -42,7 +42,7 @@
       ],
       "meta": {
         "agent": "Style Advisor",
-        "model": "Claude Opus 4.6 · 0.4",
+        "model": "Claude Opus 4.8 · 0.4",
         "skill": "the-packing-list",
         "latencyMs": 1462,
         "note": "Style Advisor recognizes this is outside catalog capability and escalates rather than returning irrelevant cards."
@@ -107,7 +107,7 @@
       "index": 7,
       "category": "both",
       "title": "Editorial acknowledgement",
-      "description": "Claude Opus 4.6 · 0.4 – empathetic one-paragraph confirmation; tool result is the load-bearing artifact, not the prose",
+      "description": "Claude Opus 4.8 · 0.4 – empathetic one-paragraph confirmation; tool result is the load-bearing artifact, not the prose",
       "status": "complete",
       "durationMs": 1244,
       "agent": "Style Advisor"

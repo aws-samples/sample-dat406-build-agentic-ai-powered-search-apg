@@ -53,9 +53,7 @@ class Settings(BaseSettings):
     BEDROCK_EMBEDDING_MODEL: str = "us.cohere.embed-v4:0"
 
     # Rerank model for hybrid search (Cohere Rerank v3.5).
-    # Like Embed v4, Rerank v3.5 has no on-demand throughput by bare model
-    # ID — invoke via a cross-region inference profile (us.* / eu.* / apac.*).
-    BEDROCK_RERANK_MODEL: str = "us.cohere.rerank-v3-5:0"
+    BEDROCK_RERANK_MODEL: str = "cohere.rerank-v3-5:0"
 
     # --- Agent model config ---
     #
@@ -63,7 +61,7 @@ class Settings(BaseSettings):
     # See the Workshop Studio repo's content/90-appendix/01-reference/
     # (the cast table) for the rationale:
     #
-    #   Claude Opus 4.6   — editorial specialists (Style Advisor, Curator,
+    #   Claude Opus 4.8   — editorial specialists (Style Advisor, Curator,
     #                  Experience Guide). Needs voice + personality.
     #   Claude Sonnet 4.6 — routing, structured extraction, and reporting
     #                  specialists (Value Analyst, Stock Keeper).
@@ -72,19 +70,19 @@ class Settings(BaseSettings):
     # Editorial agents (Style Advisor, Curator, Experience Guide) read
     # BEDROCK_OPUS_MODEL. It is intentionally env-OVERRIDABLE: the model-access
     # preflight (scripts/check_model_access.py, run in bootstrap) detects
-    # whether Opus 4.6 is reachable on the account, and if it is NOT, writes
+    # whether Opus 4.8 is reachable on the account, and if it is NOT, writes
     #   BEDROCK_OPUS_MODEL=global.anthropic.claude-sonnet-4-6
     # into .env so editorial agents fall back to Sonnet 4.6 cleanly — no code
     # path change, no per-request retry. BEDROCK_SONNET_MODEL is the canonical
     # fallback target (real Sonnet 4.6, not an Opus alias).
-    BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
+    BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-8"
     BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-4-6"
     BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-4-6"
     BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-4-6"
 
     # Legacy alias — kept for tests + scripts that still reference it.
     # Prefer the role-specific Opus/Sonnet settings in agent factories.
-    BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
+    BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-4-8"
 
     # max_tokens is a safety ceiling, not a target — billing and latency track
     # tokens actually generated, so a higher cap costs nothing unless a reply

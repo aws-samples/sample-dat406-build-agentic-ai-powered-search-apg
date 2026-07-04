@@ -365,7 +365,7 @@ Start tasks 1.x in parallel with sibling-spec work; gate catalog-dependent tasks
 - [x] Cognito + AgentCore Identity is real — 3.1, 3.2, 3.3, 3.8
 - [x] Preferences persist via `agentcore_memory.py` — 2.6, 3.4
 - [x] httpOnly cookies only (no localStorage) — 3.3, 5.1
-- [x] Orchestrator Sonnet 4.6 @ 0.0, specialists Opus 4.6 @ 0.2 — 2.3, 2.4
+- [x] Orchestrator Sonnet 4.6 @ 0.0, specialists Opus 4.8 @ 0.2 — 2.3, 2.4
 - [x] Tool pattern enforced — 2.2, 7.4
 - [x] Defers to `catalog-enrichment` and `customer-support-agent` — tasks 2.1, 2.2, 3.6, 2.4
 

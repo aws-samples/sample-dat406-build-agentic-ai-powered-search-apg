@@ -12,7 +12,7 @@ inclusion: always
 - All tools check `_db_service` availability before DB operations
 - Async DB calls use `_run_async()` helper for sync-to-async bridging
 - Error handling returns `json.dumps({"error": str(e)})` consistently
-- Model references use `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-6-v1`)
+- Model references use `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-8`)
 - Orchestrator uses `global.anthropic.claude-sonnet-4-6` with `temperature=0.0`
 - Specialist agents use `temperature=0.2`
 

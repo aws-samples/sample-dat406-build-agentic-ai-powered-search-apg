@@ -77,7 +77,7 @@
       "capability": "Sparse vectors",
       "knob": "sparsevec",
       "productionUse": "Represents very high-dimensional sparse signals such as lexical weights, feature hashes, or hybrid scoring features without storing every zero.",
-      "smokeResult": "Type probe: sparsevec is available in the live pgvector 0.8.0 extension.",
+      "smokeResult": "Type probe: sparsevec is available in the live pgvector 0.8.1 extension.",
       "tradeoff": "Best for sparse feature spaces, not a replacement for Pellier's dense Cohere embeddings.",
       "status": "available"
     }

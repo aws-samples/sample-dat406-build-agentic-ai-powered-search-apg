@@ -254,8 +254,8 @@ def test_bedrock_model_ids_have_spec_defaults(
     """The IN-CODE Bedrock model defaults SHALL match the spec:
 
       - Cohere Embed v4 (us.cohere.embed-v4:0)
-      - Cohere Rerank v3.5 (us.cohere.rerank-v3-5:0)
-      - Claude Opus 4.6 (global.anthropic.claude-opus-4-6-v1) for the
+      - Cohere Rerank v3.5 (cohere.rerank-v3-5:0)
+      - Claude Opus 4.8 (global.anthropic.claude-opus-4-8) for the
         legacy BEDROCK_CHAT_MODEL alias and editorial-agent default
 
     Settings normally loads ``.env`` via SettingsConfigDict, which would
@@ -285,11 +285,11 @@ def test_bedrock_model_ids_have_spec_defaults(
     s = Settings(_env_file=nonexistent_env)
 
     assert s.BEDROCK_EMBEDDING_MODEL == "us.cohere.embed-v4:0"
-    assert s.BEDROCK_RERANK_MODEL == "us.cohere.rerank-v3-5:0"
-    assert s.BEDROCK_CHAT_MODEL == "global.anthropic.claude-opus-4-6-v1"
+    assert s.BEDROCK_RERANK_MODEL == "cohere.rerank-v3-5:0"
+    assert s.BEDROCK_CHAT_MODEL == "global.anthropic.claude-opus-4-8"
     # Per-agent model mix should also default cleanly. Sonnet owns routing,
     # structured extraction, and reporting; no third model family is in the path.
-    assert s.BEDROCK_OPUS_MODEL == "global.anthropic.claude-opus-4-6-v1"
+    assert s.BEDROCK_OPUS_MODEL == "global.anthropic.claude-opus-4-8"
     assert s.BEDROCK_SONNET_MODEL == "global.anthropic.claude-sonnet-4-6"
     assert s.BEDROCK_ROUTER_MODEL == "global.anthropic.claude-sonnet-4-6"
     assert s.BEDROCK_REPORTING_MODEL == "global.anthropic.claude-sonnet-4-6"

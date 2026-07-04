@@ -504,7 +504,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
         }}
       >
         {[
-          ['pgvector', '0.8.0'],
+          ['pgvector', '0.8.1'],
           ['iterative scan', 'relaxed_order'],
           ['baseline HNSW', '536 KB'],
         ].map(([label, value]) => (

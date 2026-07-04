@@ -635,7 +635,7 @@ def main() -> int:
     }
     client_secret_arn = os.environ.get("COGNITO_CLIENT_SECRET_ARN", "").strip() or None
     db_name = os.environ.get("DB_NAME", "pellier")
-    model_id = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-6-v1")
+    model_id = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8")
 
     result: dict[str, Any] = {
         "status": "failed",

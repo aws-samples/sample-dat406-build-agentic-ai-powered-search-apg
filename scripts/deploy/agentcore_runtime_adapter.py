@@ -70,7 +70,7 @@ try:
     # is empty we surface a clear error rather than letting MCPClient
     # crash on an empty URL.
     GATEWAY_URL = os.environ.get("MCP_GATEWAY_URL", "")
-    MODEL_ID = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-6-v1")
+    MODEL_ID = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8")
 
     # The orchestrator prompt is intentionally compact: AgentCore Runtime
     # bills on token usage, and the heavy lifting (search, pricing,

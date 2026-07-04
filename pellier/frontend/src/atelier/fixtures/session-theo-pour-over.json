@@ -66,7 +66,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.6 \u00b7 0.4",
+        "model": "Claude Opus 4.8 \u00b7 0.4",
         "skill": "the-makers-shelf",
         "latencyMs": 1412
       }
@@ -103,7 +103,7 @@
       "index": 4,
       "category": "both",
       "title": "find_pieces",
-      "description": "Claude Opus 4.6 \u00b7 0.4 \u2014 slow-craft search",
+      "description": "Claude Opus 4.8 \u00b7 0.4 \u2014 slow-craft search",
       "status": "complete",
       "durationMs": 284,
       "sql": "SELECT name, brand, price, 1 - (embedding <=> $1::vector) AS similarity\nFROM product_catalog\nWHERE category ILIKE '%Home Decor%'\n  AND quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 10;",

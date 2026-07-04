@@ -48,7 +48,7 @@ graph TB
     MW[cognito_auth middleware]
     ACID[agentcore_identity]
     ORCH[orchestrator Sonnet 4.6 @ 0.0]
-    SPEC[5 specialists Opus 4.6 @ 0.2]
+    SPEC[5 specialists Opus 4.8 @ 0.2]
     TOOLS[agent_tools @tool fns]
     HS[HybridSearchService]
     EMB[EmbeddingService Cohere Embed v4]
@@ -523,7 +523,7 @@ Tools (names per `workshop-content.md`):
 
 ```python
 product_recommendation_agent = Agent(
-    model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL),  # Opus 4.6
+    model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL),  # Opus 4.8
     temperature=0.2,
     tools=[search_products, get_trending_products, compare_products, get_product_by_category],
     system_prompt=copy.RECOMMENDATION_SYSTEM_PROMPT,

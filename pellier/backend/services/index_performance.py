@@ -513,13 +513,13 @@ class IndexPerformanceService:
             },
             "sql_examples": {
                 "sq": f"CREATE INDEX ON pellier.product_catalog USING hnsw ((embedding::halfvec({dim})) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64);",
-                "bq": f"-- pgvector 0.8.0+ required for binary quantization\n-- Binary quantization trades accuracy for massive memory savings\n-- Best for initial candidate retrieval with re-ranking",
+                "bq": f"-- pgvector 0.8.1+ required for binary quantization\n-- Binary quantization trades accuracy for massive memory savings\n-- Best for initial candidate retrieval with re-ranking",
             },
             "note": "SQ/BQ sizes are estimated — cannot create additional indexes on shared Aurora cluster.",
         }
 
     # ================================================================
-    # Feature: pgvector 0.8.0 Iterative Scans
+    # Feature: pgvector 0.8.1 Iterative Scans
     # ================================================================
 
     async def get_distinct_categories(self) -> List[str]:
@@ -549,7 +549,7 @@ class IndexPerformanceService:
         of candidates, then applies WHERE filters. If the filter is selective,
         most candidates are discarded, returning fewer results than requested.
 
-        Iterative scan (pgvector 0.8.0+) continues the HNSW traversal until
+        Iterative scan (pgvector 0.8.1+) continues the HNSW traversal until
         LIMIT is satisfied or max_scan_tuples is reached.
         """
         results: Dict[str, Any] = {
@@ -616,7 +616,7 @@ class IndexPerformanceService:
                 except Exception as e:
                     results["pgvector_080_available"] = False
                     results["with_iterative_scan"] = {
-                        "error": f"pgvector 0.8.0 required: {e}",
+                        "error": f"pgvector 0.8.1 required: {e}",
                         "results": [],
                         "result_count": 0,
                     }

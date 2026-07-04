@@ -47,7 +47,7 @@ class VectorSearch:
             - HNSW tuning: SET LOCAL hnsw.ef_search = {int}  (per-query accuracy knob;
               Postgres disallows binds on utility statements — value coerced to int first)
             - Iterative scan: SET LOCAL hnsw.iterative_scan = 'relaxed_order'
-              (pgvector 0.8.0 — prevents overfiltering when WHERE clauses are strict)
+              (pgvector 0.8.1 — prevents overfiltering when WHERE clauses are strict)
             - In-stock filter: quantity > 0
             - Parameterized placeholders only — never f-string values into SQL.
 
@@ -58,7 +58,7 @@ class VectorSearch:
             embedding: Query embedding vector (1024 floats from Cohere Embed v4)
             limit: Maximum number of results
             ef_search: HNSW search parameter (higher = better recall, slower)
-            iterative_scan: Enable pgvector 0.8.0 iterative scanning (default: True)
+            iterative_scan: Enable pgvector 0.8.1 iterative scanning (default: True)
 
         Returns:
             List of product dicts with similarity scores.

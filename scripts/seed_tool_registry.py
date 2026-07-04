@@ -9,8 +9,9 @@ embeds the description via Cohere Embed v4, and UPSERTs into the
 ``pellier.tools`` table created in migration 002.
 
 Idempotent: rerunning replaces descriptions + embeddings in place
-(``ON CONFLICT (tool_id) DO UPDATE``). Run after ``seed-database.sh``
-and migration 001.
+(``ON CONFLICT (tool_id) DO UPDATE``), re-enables the canonical tools,
+and disables older non-canonical rows without deleting them. Run after
+``seed-database.sh`` and migration 001.
 
 Usage:
     PGPASSWORD="$DB_PASSWORD" python scripts/seed_tool_registry.py
@@ -243,6 +244,7 @@ def main() -> int:
 
     successes = 0
     failures = 0
+    disabled_legacy = 0
     try:
         with psycopg.connect(**conn_params, autocommit=False) as conn:
             register_vector(conn)
@@ -266,16 +268,29 @@ def main() -> int:
                     except Exception as exc:
                         failures += 1
                         logger.error("✗ upsert %s: %s", s["tool_id"], exc)
+                canonical_ids = [s["tool_id"] for s in specs]
+                placeholders = ", ".join(["%s"] * len(canonical_ids))
+                cur.execute(
+                    f"""
+                    UPDATE pellier.tools
+                       SET enabled = false
+                     WHERE enabled = true
+                       AND tool_id NOT IN ({placeholders})
+                    """,
+                    canonical_ids,
+                )
+                disabled_legacy = cur.rowcount
             conn.commit()
     except Exception as exc:
         logger.error("DB connection or transaction failed: %s", exc)
         return 1
 
     logger.info(
-        "Done. %d succeeded, %d failed (total %d).",
+        "Done. %d succeeded, %d failed (total %d); disabled %d legacy rows.",
         successes,
         failures,
         len(specs),
+        disabled_legacy,
     )
     if failures > 0:
         return 2

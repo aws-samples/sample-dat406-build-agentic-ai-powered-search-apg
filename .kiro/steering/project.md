@@ -49,7 +49,7 @@ Three Acts. Required path first, optional deeper reads after the evidence proof 
 
 - Amazon Aurora PostgreSQL (latest available at session time; currently 18.3) Serverless v2 (0–16 ACU, scale-to-zero)
 - Schema: `pellier` (product_catalog, warehouse_inventory, customers, customer_episodic_seed, tool_audit, and supporting tables)
-- pgvector 0.8.0 with HNSW indexes for 1024-dim Cohere Embed v4 vectors
+- pgvector 0.8.1 with HNSW indexes for 1024-dim Cohere Embed v4 vectors
 - 40 curated products (10 signed-out baseline + 10 per persona) with pre-generated embeddings
 - Session management: AgentCore Memory (STM) via `agentcore_memory.py`
 - User preferences stored in AgentCore Memory keyed by verified Cognito user_id

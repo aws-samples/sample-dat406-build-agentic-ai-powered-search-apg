@@ -460,6 +460,12 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         _configured(settings.COGNITO_CLIENT_ID),
         _configured(settings.COGNITO_DOMAIN),
     ])
+    managed_receipt.update({
+        "policyConfigured": policy_configured,
+        "gatewayAuditPresent": bool(latest_gateway),
+        "latestGatewayAuditId": latest_gateway.get("audit_id") if latest_gateway else None,
+        "latestGatewayAuditAt": latest_gateway.get("created_at") if latest_gateway else "",
+    })
 
     cards = [
         {
@@ -470,6 +476,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "required": True,
             "surface": "Code Editor + Boutique",
             "summary": "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
+            "evidenceSource": "services.agent_tools.floor_check + pellier.tool_audit",
+            "lastUpdated": latest_floor_check.get("created_at") if latest_floor_check else None,
             "evidence": [
                 "floor_check source no longer returns the workshop stub" if floor_check_wired else "floor_check still looks like the workshop stub",
                 (
@@ -499,6 +507,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "required": True,
             "surface": "Boutique + Aurora",
             "summary": "Hybrid search, pgvector, full-text search, and rerank are visible for one shopper query.",
+            "evidenceSource": "config.py + pellier.product_catalog",
             "evidence": [
                 f"Catalog rows: {counts.get('catalog_count', 0)}",
                 f"Embedding model: {settings.BEDROCK_EMBEDDING_MODEL}",
@@ -523,6 +532,12 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "required": True,
             "surface": "Aurora SQL",
             "summary": "A write-path action is reconstructible from pellier.tool_audit without depending on a UI panel.",
+            "evidenceSource": "pellier.tool_audit",
+            "lastUpdated": (
+                latest_process_return.get("created_at")
+                if latest_process_return
+                else latest_audit.get("created_at") if latest_audit else None
+            ),
             "evidence": [
                 (
                     f"Latest process_return row: audit_id {latest_process_return.get('audit_id')}"
@@ -554,6 +569,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "required": False,
             "surface": "Managed governance",
             "summary": "Runtime receives the caller JWT, Gateway discovers tools, and Policy defines the Cedar boundary.",
+            "evidenceSource": "pellier/backend/.env + managed policy config",
             "evidence": [
                 "Runtime endpoint configured" if runtime_configured else "Runtime endpoint missing",
                 "Gateway URL configured" if gateway_configured else "Gateway URL missing",
@@ -577,6 +593,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "required": False,
             "surface": "Runtime receipt",
             "summary": "After a managed Runtime turn, the receipt shows whether the request used JWT passthrough and Gateway/MCP.",
+            "evidenceSource": "AgentCore Runtime trace + pellier.tool_audit caller=gateway",
+            "lastUpdated": latest_gateway.get("created_at") if latest_gateway else None,
             "evidence": [
                 (
                     f"Managed receipt rail: {managed_receipt.get('rail')}"

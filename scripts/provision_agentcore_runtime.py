@@ -235,7 +235,7 @@ def _render_templates(role_arn: str) -> bool:
         "COGNITO_CLIENT": cognito_client,
         "MCP_GATEWAY_URL": mcp_gateway_url,
         "AGENT_MODEL_ID": os.environ.get(
-            "AGENT_MODEL_ID", "global.anthropic.claude-opus-4-6-v1"
+            "AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8"
         ),
         "AWS_ACCOUNT": aws_account,
         "AWS_REGION": REGION,

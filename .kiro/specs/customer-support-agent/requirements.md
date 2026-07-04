@@ -7,7 +7,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 ## Glossary
 
 - **Orchestrator**: The top-level Strands Agent (Claude Sonnet 4.6, model ID `global.anthropic.claude-sonnet-4-6`) that classifies user intent and routes queries to one specialist agent.
-- **Customer_Support_Agent**: A new Strands specialist agent (using `settings.BEDROCK_CHAT_MODEL`, currently `global.anthropic.claude-opus-4-6-v1`) defined as a `@tool` function named `customer_support_agent` in `agents/experience_guide.py`. Handles return policies, product search for support contexts, and troubleshooting queries.
+- **Customer_Support_Agent**: A new Strands specialist agent (using `settings.BEDROCK_CHAT_MODEL`, currently `global.anthropic.claude-opus-4-8`) defined as a `@tool` function named `customer_support_agent` in `agents/experience_guide.py`. Handles return policies, product search for support contexts, and troubleshooting queries.
 - **get_return_policy**: A `@tool` decorated function in `services/agent_tools.py` that returns return policy details for a given product category by querying the `pellier.return_policies` Aurora PostgreSQL table.
 - **return_policies table**: An Aurora PostgreSQL table (`pellier.return_policies`) seeded by the bootstrap script with 21 rows (20 product categories + a default). Columns: `category_name`, `return_window_days`, `conditions`, `refund_method`.
 - **search_products**: The `@tool` decorated function in `services/agent_tools.py` that performs hybrid AI search (semantic + keyword + reranking). Renamed from `semantic_product_search` for naming consistency — every other data tool follows a `get_*` or `verb_noun` pattern, and `search_products` matches that convention.
@@ -17,7 +17,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 - **SUPPORT_KEYWORDS**: A set of keywords in `services/chat.py` used by the `classify_intent` function to detect customer support intent (e.g., "return", "refund", "policy", "support", "warranty", "troubleshoot").
 - **AgentType_Enum**: The `AgentType` enum in `services/context_manager.py` that lists all agent types for context management and prompt routing.
 - **Frontend_AgentIdentity**: The agent identity system in `frontend/src/utils/agentIdentity.ts` that defines agent types, colors, icons, and display names for the chat UI.
-- **Search_Agent**: A new Strands specialist agent (using `settings.BEDROCK_CHAT_MODEL`, currently `global.anthropic.claude-opus-4-6-v1`) defined as a `@tool` function named `search_agent` in `agents/search_agent.py`. Handles explicit product search queries using `search_products`, `get_product_by_category`, and `compare_products` tools. Promotes the existing frontend-only "Search Agent" identity to a real backend agent.
+- **Search_Agent**: A new Strands specialist agent (using `settings.BEDROCK_CHAT_MODEL`, currently `global.anthropic.claude-opus-4-8`) defined as a `@tool` function named `search_agent` in `agents/search_agent.py`. Handles explicit product search queries using `search_products`, `get_product_by_category`, and `compare_products` tools. Promotes the existing frontend-only "Search Agent" identity to a real backend agent.
 - **SEARCH_KEYWORDS**: A set of keywords in `services/chat.py` used by the `classify_intent` function to detect product search intent (e.g., "search for", "looking for", "where can I", "compare", "browse"). Checked with the LOWEST priority (after pricing, inventory, and support keywords), with unmatched queries defaulting to "recommendation".
 - **AgentCore_Gateway**: The Bedrock AgentCore Gateway MCP server that exposes registered tools via streamable HTTP transport. The existing `services/agentcore_gateway.py` module provides `create_gateway_orchestrator()` (discovers all tools via MCP), `create_gateway_orchestrator_with_semantic_search()` (uses `x_amz_bedrock_agentcore_search` for query-time tool discovery), and `list_gateway_tools()`. Configured via `AGENTCORE_GATEWAY_URL` and `AGENTCORE_GATEWAY_API_KEY` in `config.py`.
 
@@ -43,7 +43,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 #### Acceptance Criteria
 
 1. THE Customer_Support_Agent SHALL be defined as a `@tool` decorated function named `customer_support_agent` in `agents/experience_guide.py`, following the same pattern as the existing specialist agents (`product_recommendation_agent` in `agents/curator.py`, `price_optimization_agent` in `agents/pricing_agent.py`, `inventory_restock_agent` in `agents/stock_keeper.py`).
-2. THE Customer_Support_Agent SHALL use the model ID referenced by `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-6-v1`), consistent with the other specialist agents.
+2. THE Customer_Support_Agent SHALL use the model ID referenced by `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-8`), consistent with the other specialist agents.
 3. THE Customer_Support_Agent SHALL have access to the get_return_policy tool and the search_products tool from the Agent_Tools_Module.
 4. THE Customer_Support_Agent SHALL accept a `query` string parameter and return a string response.
 5. THE Customer_Support_Agent SHALL include a system prompt that instructs the model to act as a customer support specialist for Pellier, using get_return_policy for return/refund questions and search_products for product-related support queries.
@@ -70,10 +70,10 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 
 #### Acceptance Criteria
 
-1. THE `get_graph_structure` function in `agents/graph_orchestrator.py` SHALL include a new node for the Customer_Support_Agent with id "support", label "Customer Support", type "agent", a description referencing return policies and troubleshooting, and model "Claude Opus 4.6".
+1. THE `get_graph_structure` function in `agents/graph_orchestrator.py` SHALL include a new node for the Customer_Support_Agent with id "support", label "Customer Support", type "agent", a description referencing return policies and troubleshooting, and model "Claude Opus 4.8".
 2. THE `get_graph_structure` function SHALL include a new edge from the "router" node to the "support" node with a descriptive label such as "support queries".
 3. THE `get_graph_structure` description text SHALL be updated to mention the Customer_Support_Agent and Search_Agent alongside the existing agents.
-4. THE `get_graph_structure` function SHALL include a new node for the Search_Agent with id "search", label "Product Search", type "agent", a description referencing product search, category browsing, and product comparison, and model "Claude Opus 4.6".
+4. THE `get_graph_structure` function SHALL include a new node for the Search_Agent with id "search", label "Product Search", type "agent", a description referencing product search, category browsing, and product comparison, and model "Claude Opus 4.8".
 5. THE `get_graph_structure` function SHALL include a new edge from the "router" node to the "search" node with a descriptive label such as "search queries".
 
 ### ~~Requirement 5: Exa MCP Tool Integration (Optional / Stretch)~~
@@ -162,7 +162,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 #### Acceptance Criteria
 
 1. THE Search_Agent SHALL be defined as a `@tool` decorated function named `search_agent` in `agents/search_agent.py`, following the same pattern as the existing specialist agents (`product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`).
-2. THE Search_Agent SHALL use the Strands SDK `Agent` class with `BedrockModel` configured with `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-6-v1`), max_tokens=4096, and temperature=0.2, consistent with the other specialist agents.
+2. THE Search_Agent SHALL use the Strands SDK `Agent` class with `BedrockModel` configured with `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-8`), max_tokens=4096, and temperature=0.2, consistent with the other specialist agents.
 3. THE Search_Agent SHALL have access to the `search_products`, `get_product_by_category`, and `compare_products` tools from the Agent_Tools_Module.
 4. THE Search_Agent SHALL include a system prompt instructing the model to act as Pellier's Product Search Specialist, using `search_products` for natural language and intent-based queries, `get_product_by_category` for category browsing, and `compare_products` for side-by-side product comparisons.
 5. THE Search_Agent SHALL accept a `query` string parameter and return a string response.

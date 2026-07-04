@@ -280,7 +280,7 @@ export OAUTH_ISSUER_URL="https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNI
 DISCOVERY_URL="${OAUTH_ISSUER_URL}/.well-known/openid-configuration"
 
 # Default model the orchestrator uses inside the Runtime.
-export AGENT_MODEL_ID="${AGENT_MODEL_ID:-global.anthropic.claude-opus-4-6-v1}"
+export AGENT_MODEL_ID="${AGENT_MODEL_ID:-global.anthropic.claude-opus-4-8}"
 export AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 
 BACKEND_DIR="$(cd "$SCRIPT_DIR/../../pellier/backend" && pwd)"   # absolute (code-location)

@@ -17,8 +17,8 @@ Why Cohere Rerank v3.5 specifically:
     extra spend worth it?" question has a real answer instead of
     a hand-wave.
   - Already configured in config.py as
-    ``BEDROCK_RERANK_MODEL = "us.cohere.rerank-v3-5:0"`` (cross-region
-    inference profile) so wiring is a single import away.
+    ``BEDROCK_RERANK_MODEL = "cohere.rerank-v3-5:0"`` so wiring is a
+    single import away.
 
 This module deliberately keeps the rerank step decoupled from the
 retrieval step: a Bedrock outage degrades Anna's path to plain

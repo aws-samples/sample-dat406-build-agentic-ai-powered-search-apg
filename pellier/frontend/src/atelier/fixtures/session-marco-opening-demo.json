@@ -71,7 +71,7 @@
       ],
       "meta": {
         "agent": "Style Advisor",
-        "model": "Claude Opus 4.6 \u00b7 0.4",
+        "model": "Claude Opus 4.8 \u00b7 0.4",
         "latencyMs": 1312
       }
     },
@@ -138,7 +138,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.6 \u00b7 0.4",
+        "model": "Claude Opus 4.8 \u00b7 0.4",
         "skill": "the-packing-list",
         "latencyMs": 1428
       }
@@ -264,7 +264,7 @@
       "index": 5,
       "category": "managed",
       "title": "Response composition",
-      "description": "Claude Opus 4.6 at 0.4 \u2014 editorial voice, 3 pieces",
+      "description": "Claude Opus 4.8 at 0.4 \u2014 editorial voice, 3 pieces",
       "status": "complete",
       "durationMs": 938,
       "agent": "Style Advisor"
@@ -355,7 +355,7 @@
         "title": "The arc",
         "paragraphs": [
           "Marco arrived with a clear plan \u2014 ten days in Goa, linen \u2014 and walked through the catalog in four turns. Three landed cleanly. The fourth didn't.",
-          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.6 for the opening ask, Curator on Claude Opus 4.6 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
+          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.8 for the opening ask, Curator on Claude Opus 4.8 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
         ]
       },
       {
@@ -407,7 +407,7 @@
         },
         {
           "label": "Models used",
-          "value": "Claude Opus 4.6, Claude Sonnet 4.6"
+          "value": "Claude Opus 4.8, Claude Sonnet 4.6"
         },
         {
           "label": "Unresolved",

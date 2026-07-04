@@ -5,7 +5,7 @@
     "role": "Interprets intent, searches the catalog, and curates options.",
     "status": "shipped",
     "tools": ["find_pieces", "explore_collection", "side_by_side", "style_match", "escalate_to_stylist"],
-    "model": "Claude Opus 4.6",
+    "model": "Claude Opus 4.8",
     "temperature": 0.4
   },
   {
@@ -14,7 +14,7 @@
     "role": "Personalized recommendations, trending picks, gift curation. Reads persona memory.",
     "status": "shipped",
     "tools": ["find_pieces", "whats_trending", "side_by_side", "explore_collection"],
-    "model": "Claude Opus 4.6",
+    "model": "Claude Opus 4.8",
     "temperature": 0.4
   },
   {
@@ -42,7 +42,7 @@
     "role": "Returns, care instructions, post-purchase support.",
     "status": "shipped",
     "tools": ["returns_and_care", "find_pieces", "process_return", "escalate_to_stylist"],
-    "model": "Claude Opus 4.6",
+    "model": "Claude Opus 4.8",
     "temperature": 0.2
   }
 ]

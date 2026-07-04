@@ -19,7 +19,7 @@ fileMatchPattern: "**/*.sql,**/seed-database*,**/business_logic*,**/database*,**
 
 ## pgvector
 
-- Extension: pgvector 0.8.0
+- Extension: pgvector 0.8.1
 - Index type: HNSW with `vector_cosine_ops`
 - Operator: `<=>` (cosine distance) — lower is more similar
 - Similarity: `1 - (embedding <=> query_embedding)`

@@ -89,7 +89,7 @@ def build_search_agent() -> Agent:
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Callers set those ContextVars before invoking.
     """
-    # Style Advisor — Claude Opus 4.6 at 0.4. Editorial voice + fit/fabric
+    # Style Advisor — Claude Opus 4.8 at 0.4. Editorial voice + fit/fabric
     # description. Model choice is an architectural decision; see the
     # Workshop Studio repo's content/ model-mix sidebar.
     return Agent(

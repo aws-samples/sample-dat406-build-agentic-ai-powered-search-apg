@@ -64,7 +64,7 @@
       ],
       "meta": {
         "agent": "Style Advisor",
-        "model": "Claude Opus 4.6 \u00b7 0.4",
+        "model": "Claude Opus 4.8 \u00b7 0.4",
         "skill": "the-makers-shelf",
         "latencyMs": 1194
       }
@@ -120,7 +120,7 @@
       "index": 6,
       "category": "both",
       "title": "editorial composition",
-      "description": "Claude Opus 4.6 \u00b7 0.4 \u2014 patina and softening language",
+      "description": "Claude Opus 4.8 \u00b7 0.4 \u2014 patina and softening language",
       "status": "complete",
       "durationMs": 892,
       "agent": "Style Advisor"
