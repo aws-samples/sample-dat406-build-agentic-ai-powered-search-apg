@@ -1635,11 +1635,13 @@ const AgentsCard: React.FC = () => (
   </ExpCard>
 );
 
-/** Skills card — three persona skills (`skills.json` bundles) */
+/** Skills card — prompt overlays (`skills.json` bundles) */
 const SKILLS_LIST = [
   'the-packing-list',
   'the-gift-table',
   'the-makers-shelf',
+  'the-care-card',
+  'the-proof-counter',
 ];
 
 function activeSkillsForSession(session: SessionDetail): Set<string> {

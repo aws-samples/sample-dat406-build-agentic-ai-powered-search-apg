@@ -193,7 +193,7 @@ echo "  EXPERIENCE_LAMBDA_ARN=$EXPERIENCE_LAMBDA_ARN"
 # ------------------------------------------------------------------
 # Gateway is a managed MCP front-door for tool catalogs. It enforces
 # Cognito JWT auth on every tool call, then proxies to the registered
-# Lambda targets. Once it's up, the orchestrator can discover all 13
+# Lambda targets. Once it's up, the orchestrator can discover published
 # tools dynamically via `MCPClient.list_tools_sync()` instead of
 # importing them from `services.agent_tools`.
 #

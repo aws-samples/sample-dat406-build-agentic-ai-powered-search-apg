@@ -133,6 +133,28 @@
   },
   {
     "numeral": 13,
+    "functionName": "preference_snapshot",
+    "description": "Read-only shopper memory receipt. Returns safe profile summary, recent order anchors, and persona memory facts from Aurora.",
+    "status": "shipped",
+    "mutationType": "read",
+    "signature": "preference_snapshot(customer_id, persona, limit) -> str",
+    "usedBy": ["Curator"],
+    "invocationCount": 0,
+    "version": "1.0.0"
+  },
+  {
+    "numeral": 14,
+    "functionName": "trace_receipt",
+    "description": "Read-only proof receipt from pellier.tool_audit. Shows tool, caller rail, ALLOW row, arguments, result summary, and latency for inspection.",
+    "status": "shipped",
+    "mutationType": "read",
+    "signature": "trace_receipt(session_id, tool_name, caller, limit) -> str",
+    "usedBy": ["Curator", "Experience Guide"],
+    "invocationCount": 0,
+    "version": "1.0.0"
+  },
+  {
+    "numeral": 15,
     "functionName": "escalate_to_stylist",
     "description": "Honest escape hatch – agent calls this when the ask is outside what the catalog tools or policy can answer (deep personal-style coaching, out-of-policy returns, catalog misses). Emits a structured handoff payload that the chat renders as a stylist contact card. Pure UI, no DB write, no real human on the other end for the workshop. The workshop teaches this as 'when the agent shouldn't try to answer.'",
     "status": "shipped",

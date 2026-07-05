@@ -35,7 +35,7 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you implement **one function** (`floor_check`), then run a series of **observe / measure / read** steps that prove how the production system behaves. The five agents, 13 tools, database, and managed runtime are pre-wired *on purpose* — so your attention goes to the agentic pattern, not the plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you implement **one function** (`floor_check`), then run a series of **observe / measure / read** steps that prove how the production system behaves. The five agents, 15 tools, database, and managed runtime are pre-wired *on purpose* — so your attention goes to the agentic pattern, not the plumbing.
 
 > **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** You only need to complete the one guided exercise to succeed. Everything else is there to explore at your own pace.
 
@@ -59,7 +59,7 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | Claim | Where it lives |
 |---|---|
 | **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
-| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 13 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
+| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
 | **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · the shopper's JWT is passed through (`Authorization: Bearer`) so tool calls carry the caller's identity · in-process tools stay the default; Gateway is the demonstrable side-path (Atelier Card 7) |
 | **Personalization** | Long-term taste in `pellier.customers` + `pellier.customer_episodic_seed` · session-scoped working memory (AgentCore STM) + durable taste extracted by a `USER_PREFERENCE` semantic strategy (`get_semantic_memories`, surfaced in the Atelier) — both via Bedrock AgentCore Memory |
@@ -189,17 +189,17 @@ Per-agent model choice is an architectural decision – Stock Keeper's terse war
 
 ### Tools
 
-13 `@tool` functions across the agent set:
+15 `@tool` functions across the agent set:
 
-`find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` · `price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` · `restock_shelf` · `running_low` · `returns_and_care` · `process_return` · `escalate_to_stylist`
+`find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` · `price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` · `restock_shelf` · `running_low` · `returns_and_care` · `process_return` · `preference_snapshot` · `trace_receipt` · `escalate_to_stylist`
 
 The tool registry is itself stored in Aurora pgvector; the orchestrator uses cosine similarity to discover the right tool from a natural-language query – the same primitive that powers product search, applied to capabilities.
 
 ### Skills
 
-Three persona-scoped skills loaded per turn by the SkillRouter to shape voice and handling without changing product selection:
+Five skills loaded per turn by the SkillRouter to shape voice, handling, proof, and care language without changing product selection:
 
-[`skills/the-packing-list/`](skills/the-packing-list/) (Marco) · [`skills/the-gift-table/`](skills/the-gift-table/) (Anna) · [`skills/the-makers-shelf/`](skills/the-makers-shelf/) (Theo)
+[`skills/the-packing-list/`](skills/the-packing-list/) (Marco) · [`skills/the-gift-table/`](skills/the-gift-table/) (Anna) · [`skills/the-makers-shelf/`](skills/the-makers-shelf/) (Theo) · [`skills/the-care-card/`](skills/the-care-card/) (shared care/returns) · [`skills/the-proof-counter/`](skills/the-proof-counter/) (shared proof/audit)
 
 ### Stack
 
@@ -236,7 +236,7 @@ sample-pellier-agentic-search-apg/
 │           ├── atelier/                     Operator's surface
 │           └── data/                        showcaseProducts.ts (40), personaCurations.ts
 │
-├── skills/                                Per-persona Strands skills (3)
+├── skills/                                Strands skills (5)
 ├── solutions/                             Reference implementations (drop-in escape hatches)
 │   ├── the-quiet-search/                    Semantic search reference (observe-only)
 │   ├── closing-marcos-gap/                  floor_check + Stock Keeper (Exercise 1)

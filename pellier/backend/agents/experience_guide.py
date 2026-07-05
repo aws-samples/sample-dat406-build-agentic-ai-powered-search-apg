@@ -29,6 +29,7 @@ from services.agent_tools import (
     find_pieces,
     process_return,
     returns_and_care,
+    trace_receipt,
 )
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
@@ -54,6 +55,10 @@ _SUPPORT_SYSTEM_PROMPT = (
     "tool accepts that canonical set; SQL enforces that the customer "
     "must have ordered the product. If reason='damaged', the catalog "
     "quantity decrements by 1 in the same transaction.\n"
+    "  - trace_receipt: read the latest pellier.tool_audit receipt when "
+    "the shopper or operator asks whether the return/write was recorded, "
+    "which caller rail ran, or how to inspect the governed proof. This is "
+    "read-only; it does not process a return.\n"
     "  - escalate_to_stylist: the honest escape hatch. Use ONLY when "
     "process_return cannot handle the case — Cedar rejected the reason, "
     "the customer doesn't own the product, the window has closed, or the "
@@ -137,7 +142,13 @@ def build_support_agent() -> Agent:
         system_prompt=inject_persona_preamble(
             inject_skills(_SUPPORT_SYSTEM_PROMPT)
         ),
-        tools=[returns_and_care, find_pieces, process_return, escalate_to_stylist],
+        tools=[
+            returns_and_care,
+            find_pieces,
+            process_return,
+            trace_receipt,
+            escalate_to_stylist,
+        ],
     )
 
 

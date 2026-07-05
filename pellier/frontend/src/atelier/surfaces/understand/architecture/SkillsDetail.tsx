@@ -1,8 +1,8 @@
 /**
  * SkillsDetail — Architecture detail page for Skills.
  *
- * Three persona-resident skills (the-packing-list, the-gift-table,
- * the-makers-shelf); source-of-truth slugs live in skills.json and each
+ * Five skills: three persona-resident overlays plus two shared proof/care
+ * overlays. Source-of-truth slugs live in skills.json and each
  * /skills/<slug>/SKILL.md file at repo root.
  *
  * Requirements: 7.1, 7.6, 7.7
@@ -29,7 +29,7 @@ const SkillsDetail: React.FC = () => {
       conceptName="Skills"
       category="live"
       title="Skills, persona-routed."
-      prose="Three skills – the-packing-list (Marco), the-gift-table (Anna), the-makers-shelf (Theo) – load when the SkillRouter (Claude Sonnet 4.6) binds a turn to persona arc. Markdown briefs live under /skills/<slug>/SKILL.md; they are not separate agents."
+      prose="Five skills – three persona overlays plus the shared Care Card and Proof Counter – load when the SkillRouter (Claude Sonnet 4.6) binds a turn to a specific handling style. Markdown briefs live under /skills/<slug>/SKILL.md; they are not separate agents."
       cheatSheet={[
         {
           numeral: 'i.',
@@ -41,13 +41,13 @@ const SkillsDetail: React.FC = () => {
         },
         {
           numeral: 'iii.',
-          text: 'Skills are persona-routed: the same conversation with different personas may activate different skills based on their context and preferences.',
+          text: 'Skills are turn-routed: persona context can activate Marco/Anna/Theo overlays, while care and proof language can activate shared overlays.',
         },
       ]}
       liveState={{
         label: 'Current skill activation state. The SkillRouter evaluates each turn and activates skills based on persona context.',
         values: [
-          { label: 'Skills available', value: '3' },
+          { label: 'Skills available', value: '5' },
           { label: 'Router model', value: 'Claude Sonnet 4.6 (global.anthropic.claude-sonnet-4-6)' },
           { label: 'Active', value: 'None' },
         ],
@@ -58,8 +58,8 @@ const SkillsDetail: React.FC = () => {
       {!loading && !error && !concept && <DetailEmptyState conceptName="Skills" />}
       {!loading && !error && concept && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Three persona skills — matches skills.json + /skills/<slug>/SKILL.md bundles */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
+          {/* Five skills — matches skills.json + /skills/<slug>/SKILL.md bundles */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             <SkillCard
               name="the-packing-list"
               trigger="Travel wardrobes, pack-flat pieces, natural fibers, weekender bags"
@@ -77,6 +77,18 @@ const SkillsDetail: React.FC = () => {
               trigger="Hand-thrown ceramics, kiln language, slow craft, patina, studio provenance"
               description="Theo's slow-craft framing – imperfect glazes as feature, care that honors the object."
               example='"Hand-thrown ceramics for a slower morning routine."'
+            />
+            <SkillCard
+              name="the-care-card"
+              trigger="Returns, damaged items, repair, care, warranty, what-now moments"
+              description="Post-purchase language – clear boundaries, concrete next step, no invented policy."
+              example='"The bowl arrived damaged. What now?"'
+            />
+            <SkillCard
+              name="the-proof-counter"
+              trigger="Why this, how do you know, audit receipts, memory proof, Gateway traces"
+              description="Governed explanations – name the memory source, tool receipt, row, or policy boundary."
+              example='"How do you know this fits my taste?"'
             />
           </div>
 

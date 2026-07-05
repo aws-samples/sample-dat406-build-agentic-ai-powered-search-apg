@@ -32,12 +32,12 @@ def seeder_module():
 
 
 def test_tool_specs_match_gateway_name_list(seeder_module) -> None:
-    """Seeder MUST load exactly the 13 Gateway tool names, in the same order."""
+    """Seeder MUST load exactly the 15 Gateway tool names, in the same order."""
     from services.agentcore_gateway import GATEWAY_TOOL_NAMES
 
     specs = seeder_module._load_tool_specs()
     assert [s["tool_id"] for s in specs] == list(GATEWAY_TOOL_NAMES)
-    assert len(specs) == 13
+    assert len(specs) == 15
 
 
 def test_every_tool_has_nonempty_description(seeder_module) -> None:

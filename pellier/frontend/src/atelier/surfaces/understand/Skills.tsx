@@ -1,5 +1,5 @@
 /**
- * Skills — the 3 persona-tied skills loaded by the SkillRouter.
+ * Skills — the 5 prompt overlays loaded by the SkillRouter.
  *
  * One card per skill. Each card shows:
  *   · display name (Fraunces) + persona chip
@@ -20,13 +20,14 @@ import { useAtelierData } from '../../hooks/useAtelierData';
 import type { Skill } from '../../types';
 import { routeSkillsOffline, routerQueryForSkill } from './skillsRouterUtils';
 
-type PersonaFilter = 'all' | 'marco' | 'anna' | 'theo';
+type PersonaFilter = 'all' | 'marco' | 'anna' | 'theo' | 'shared';
 
 const PERSONA_FILTER_OPTIONS = [
   { id: 'all' as const, label: 'All personas' },
   { id: 'marco' as const, label: 'Marco' },
   { id: 'anna' as const, label: 'Anna' },
   { id: 'theo' as const, label: 'Theo' },
+  { id: 'shared' as const, label: 'Shared' },
 ];
 
 function filterSkillsByPersona(skills: Skill[], filter: PersonaFilter): Skill[] {
@@ -64,6 +65,8 @@ const EXAMPLES: { label: string; query: string }[] = [
   { label: "Marco's Turn 2", query: 'What would go with the Hadley shirt?' },
   { label: "Anna's gift query", query: 'wrap-ready gifts with no extra effort' },
   { label: "Theo's pairing query", query: 'what goes well with the pour-over set?' },
+  { label: 'Care path', query: 'The bowl arrived damaged. What now?' },
+  { label: 'Proof path', query: 'How do you know this fits my taste?' },
 ];
 
 interface SkillRouterDemoCardProps {
@@ -720,6 +723,7 @@ const Skills: React.FC = () => {
       marco: skills.filter((s) => s.persona === 'marco').length,
       anna: skills.filter((s) => s.persona === 'anna').length,
       theo: skills.filter((s) => s.persona === 'theo').length,
+      shared: skills.filter((s) => s.persona === 'shared').length,
     }),
     [skills],
   );
@@ -748,9 +752,9 @@ const Skills: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Skills · three persona-tied files"
+        eyebrow="Understand · Skills · five prompt overlays"
         title="Persona-specific knowledge the agents load."
-        summary="Three Markdown files. One per persona. Loaded per turn by the SkillRouter – Sonnet 4.6 at 0.0, deterministic classification – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
+        summary="Five Markdown files. Three are persona-tied; two are shared proof and care overlays. Loaded per turn by the SkillRouter – Sonnet 4.6 at 0.0, deterministic classification – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
       />
       <ExpCard>
         <Eyebrow label="Two routers · different jobs" />

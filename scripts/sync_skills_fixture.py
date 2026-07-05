@@ -31,12 +31,21 @@ SKILL_UI_META: dict[str, dict[str, object]] = {
         "signals": ["hand-thrown", "ceramic", "kiln", "slow", "ritual", "patina"],
         "loadedBy": ["Curator", "Experience Guide"],
     },
+    "the-care-card": {
+        "signals": ["return", "repair", "care", "damaged", "warranty", "what now"],
+        "loadedBy": ["Experience Guide"],
+    },
+    "the-proof-counter": {
+        "signals": ["why", "proof", "receipt", "audit", "trace", "memory"],
+        "loadedBy": ["Curator", "Experience Guide"],
+    },
 }
 
 PERSONA_DISPLAY = {
     "marco": "Marco",
     "anna": "Anna",
     "theo": "Theo",
+    "shared": "Shared",
 }
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """seed_tool_registry.py — Populate the ``pellier.tools`` table for /workshop card 7.
 
-Loads the 13 canonical tool names from
+Loads the 15 canonical tool names from
 ``pellier/backend/services/agentcore_gateway.py:GATEWAY_TOOL_NAMES``,
 pulls each tool's docstring as the description (single source of truth —
 the Gateway uses the same docstring for its MCP ``description`` field),
@@ -21,7 +21,7 @@ Environment (same as ``scripts/generate-embeddings.py``):
     AWS_REGION — defaults to us-west-2
 
 Exit codes:
-    0  — all 13 tools seeded (or already in place with no drift)
+    0  — all 15 tools seeded (or already in place with no drift)
     1  — config/DB failure before seeding started
     2  — partial seed (some rows failed — tools table may be inconsistent)
 """
@@ -65,7 +65,7 @@ EMBEDDING_DIMENSION = 1024
 # workflow the workshop surfaces via the Cedar policy hook. Kept narrow
 # and deliberate — ``restock_shelf`` writes inventory state and
 # ``process_return`` writes returns + adjusts catalog quantity; the
-# other 11 are read-only.
+# other 13 are read-only.
 SENSITIVE_TOOLS = {"restock_shelf", "process_return"}
 
 # Which "specialist" owns each tool. Names match the five
@@ -82,6 +82,8 @@ TOOL_OWNER: Dict[str, str] = {
     # Curator — recommendations + trending + hybrid retrieval
     "whats_trending":      "curator",
     "find_pieces_hybrid":  "curator",
+    "preference_snapshot": "curator",
+    "trace_receipt":       "curator",
     # Value Analyst — pricing intelligence
     "price_intelligence":  "value_analyst",
     # Stock Keeper — inventory reads + writes
@@ -95,7 +97,7 @@ TOOL_OWNER: Dict[str, str] = {
 
 
 def _load_tool_specs() -> List[Dict[str, Any]]:
-    """Import the 13 @tool functions and collect (name, description) pairs.
+    """Import the 15 @tool functions and collect (name, description) pairs.
 
     We import from ``services.agentcore_gateway`` to keep the tool name
     list authoritative — if a tool is added/removed there, rerunning

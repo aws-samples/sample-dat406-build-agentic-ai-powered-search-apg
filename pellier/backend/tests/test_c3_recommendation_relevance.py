@@ -158,7 +158,7 @@ def stubbed_specialist(monkeypatch: pytest.MonkeyPatch):
 # ---------------------------------------------------------------------------
 
 
-def test_curator_is_constructed_with_per_agent_model_mix_and_five_tools(
+def test_curator_is_constructed_with_per_agent_model_mix_and_seven_tools(
     stubbed_specialist,
 ) -> None:
     """Building the Curator SHALL match the per-agent model mix
@@ -167,12 +167,14 @@ def test_curator_is_constructed_with_per_agent_model_mix_and_five_tools(
       - Claude Opus 4.8 (BEDROCK_OPUS_MODEL)
       - no temperature field; Bedrock rejects that deprecated field for
         Opus 4.8
-      - exactly five tools: find_pieces_hybrid + whats_trending +
-        side_by_side + explore_collection + escalate_to_stylist.
+      - exactly seven tools: find_pieces_hybrid + whats_trending +
+        preference_snapshot + trace_receipt + side_by_side +
+        explore_collection + escalate_to_stylist.
 
     ``find_pieces_hybrid`` is the Curator's anchor capability (Anna's
     pgvector + Postgres FTS + Cohere Rerank pipeline). Other specialists keep
-    plain ``find_pieces``. ``escalate_to_stylist`` is the honest fallback when
+    plain ``find_pieces``. ``preference_snapshot`` and ``trace_receipt`` are
+    read-only proof tools; ``escalate_to_stylist`` is the honest fallback when
     the catalog tools can't answer (sympathy gifting, sentimental milestones,
     deep style coaching beyond the catalog).
     """
@@ -198,10 +200,12 @@ def test_curator_is_constructed_with_per_agent_model_mix_and_five_tools(
     assert set(unwrapped) == {
         "find_pieces_hybrid",
         "whats_trending",
+        "preference_snapshot",
+        "trace_receipt",
         "side_by_side",
         "explore_collection",
         "escalate_to_stylist",
-    }, f"expected the five Curator tools, got {unwrapped!r} / {tool_names!r}"
+    }, f"expected the seven Curator tools, got {unwrapped!r} / {tool_names!r}"
 
 
 def test_agent_system_prompt_references_recommendation_voice(

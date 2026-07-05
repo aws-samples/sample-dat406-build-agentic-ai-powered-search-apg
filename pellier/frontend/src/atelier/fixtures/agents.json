@@ -13,7 +13,7 @@
     "name": "Curator",
     "role": "Personalized recommendations, trending picks, gift curation. Reads persona memory.",
     "status": "shipped",
-    "tools": ["find_pieces", "whats_trending", "side_by_side", "explore_collection"],
+    "tools": ["find_pieces_hybrid", "whats_trending", "preference_snapshot", "trace_receipt", "side_by_side", "explore_collection"],
     "model": "Claude Opus 4.8",
     "temperature": 0.4
   },
@@ -41,7 +41,7 @@
     "name": "Experience Guide",
     "role": "Returns, care instructions, post-purchase support.",
     "status": "shipped",
-    "tools": ["returns_and_care", "find_pieces", "process_return", "escalate_to_stylist"],
+    "tools": ["returns_and_care", "find_pieces", "process_return", "trace_receipt", "escalate_to_stylist"],
     "model": "Claude Opus 4.8",
     "temperature": 0.2
   }

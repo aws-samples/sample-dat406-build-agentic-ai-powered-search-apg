@@ -34,7 +34,7 @@ import services.business_logic as business_logic_module
 
 
 # ---------------------------------------------------------------------------
-# Exact 13-tool list from `.kiro/steering/coding-standards.md` and
+# Exact 15-tool list from `.kiro/steering/coding-standards.md` and
 # `workshop-content.md` (Req 2.2.3). The gateway MUST discover exactly
 # these names.
 # ---------------------------------------------------------------------------
@@ -52,6 +52,8 @@ EXPECTED_TOOL_NAMES = {
     "returns_and_care",
     "style_match",
     "process_return",
+    "preference_snapshot",
+    "trace_receipt",
     "escalate_to_stylist",
 }
 
@@ -158,7 +160,7 @@ def _run(coro):
 
 
 # ---------------------------------------------------------------------------
-# Req 2.2.3 + 2.5.3 — Discovery returns all 13 tools by exact name
+# Req 2.2.3 + 2.5.3 — Discovery returns all 15 tools by exact name
 # ---------------------------------------------------------------------------
 
 
@@ -177,8 +179,8 @@ def test_build_mcp_server_returns_fastmcp_with_streamable_http_app() -> None:
     assert callable(app)  # Starlette apps are ASGI callables
 
 
-def test_discovery_returns_exactly_the_thirteen_tools_by_exact_name() -> None:
-    """Discovery SHALL return the 13 tools the Atelier Tools surface ships."""
+def test_discovery_returns_exactly_the_fifteen_tools_by_exact_name() -> None:
+    """Discovery SHALL return the 15 tools the Atelier Tools surface ships."""
     server = gateway.build_mcp_server()
 
     tools = _run(server.list_tools())
@@ -189,9 +191,9 @@ def test_discovery_returns_exactly_the_thirteen_tools_by_exact_name() -> None:
         f"Missing: {EXPECTED_TOOL_NAMES - names}. "
         f"Unexpected: {names - EXPECTED_TOOL_NAMES}."
     )
-    # Exactly 13 — five Style Advisor, two Curator, one Value Analyst,
-    # three Stock Keeper, two Experience Guide.
-    assert len(tools) == 13
+    # Exactly 15 — the original shopper/tool surface plus two read-only
+    # proof tools.
+    assert len(tools) == 15
 
 
 def test_each_discovered_tool_exposes_an_input_schema() -> None:
@@ -328,4 +330,4 @@ def test_mcp_invocation_through_call_tool_returns_valid_json_envelope(
 
 def test_gateway_tool_names_constant_matches_expected() -> None:
     assert set(gateway.GATEWAY_TOOL_NAMES) == EXPECTED_TOOL_NAMES
-    assert len(gateway.GATEWAY_TOOL_NAMES) == 13
+    assert len(gateway.GATEWAY_TOOL_NAMES) == 15

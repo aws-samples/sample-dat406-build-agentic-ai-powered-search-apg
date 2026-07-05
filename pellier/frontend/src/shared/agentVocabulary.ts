@@ -162,6 +162,18 @@ const SKILL_VOCABULARY: Record<string, AgentToolEntry> = {
     description: 'Hand-thrown ceramics and slow-living home pieces.',
     atelierPath: '/atelier/skills',
   },
+  'skill.care-card': {
+    name: 'skill.care-card' as AgentToolName,
+    label: 'The Care Card',
+    description: 'Care, return, and post-purchase handling guidance.',
+    atelierPath: '/atelier/skills',
+  },
+  'skill.proof-counter': {
+    name: 'skill.proof-counter' as AgentToolName,
+    label: 'The Proof Counter',
+    description: 'Grounded proof, memory, and audit-receipt guidance.',
+    atelierPath: '/atelier/skills',
+  },
 }
 
 /**

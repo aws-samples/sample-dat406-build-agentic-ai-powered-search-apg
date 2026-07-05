@@ -337,7 +337,7 @@ def test_floor_check_builder_contract() -> None:
     regression. A participant who completes the exercise and runs the full
     suite should therefore see this as ``SKIPPED``, never as a failure. The
     real verification of a correct wire is the Atelier Tools strip flipping
-    12/13 -> 13/13 and Marco's Brooklyn turn returning a real quantity, both
+    14/15 -> 15/15 and Marco's Brooklyn turn returning a real quantity, both
     in the lab guide. See CLAUDE.md ("How the participant verifies").
     """
     live_src = _function_source(_BACKEND / "services" / "agent_tools.py", "floor_check")
@@ -367,7 +367,7 @@ def test_floor_check_builder_contract() -> None:
             "floor_check has been wired in services/agent_tools.py — this is "
             "the expected end state of the exercise, not a regression. The "
             "starter-stub guard only applies to the shipped repo. Verify your "
-            "wire via the Atelier Tools 13/13 strip and Marco's Brooklyn turn."
+            "wire via the Atelier Tools 15/15 strip and Marco's Brooklyn turn."
         )
 
     # Shipped starter state: the live + preapply builder files carry the stub.

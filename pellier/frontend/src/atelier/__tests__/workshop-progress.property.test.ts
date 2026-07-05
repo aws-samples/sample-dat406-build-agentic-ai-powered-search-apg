@@ -13,7 +13,7 @@
  * solid/dashed styling, or mislabelled the shipped/total fraction would
  * fail here. (A previous version of this file asserted only arithmetic on
  * the generated Segment[] and never mounted the component, which left the
- * strip's rendering — the "X/13 shipped" surface — without DOM coverage.)
+ * strip's rendering — the "X/15 shipped" surface — without DOM coverage.)
  *
  * **Validates: Requirements 8.1, 9.1, 17.3**
  */

@@ -6,8 +6,8 @@ Creates a gateway with 4 Lambda targets: search, pricing, recommendations,
 experience. The ``search`` target now also exposes ``find_pieces_hybrid``
 (vector + FTS + Cohere Rerank), and the new ``experience`` target carries
 the two Theo-flow tools — ``process_return`` and ``escalate_to_stylist`` —
-that previously stayed in-process. Together these surface every backend
-``@tool`` (13 of 13) over Gateway, closing the gateway-vs-backend asymmetry.
+that previously stayed in-process. Together these surface the managed
+Gateway tool targets used by the deployment path.
 Adapted from DAT403 deploy_gateway_simple.py for Pellier.
 """
 import boto3

@@ -43,14 +43,14 @@ const ToolRegistryDetail: React.FC = () => {
         },
         {
           numeral: 'iii.',
-          text: 'Fixture labels on the Understand · Tools surface: twelve shipped baseline; floor_check is the required-path exercise until its stub is replaced - then /api/atelier/build-state reflects shipped.',
+          text: 'Fixture labels on the Understand · Tools surface: fourteen shipped baseline; floor_check is the required-path exercise until its stub is replaced - then /api/atelier/build-state reflects shipped.',
         },
       ]}
       liveState={{
         label: 'Current tool registry state. Aurora ranks tool descriptions for the workshop discovery demo; optional Gateway publishes the callable surface over MCP.',
         values: [
-          { label: 'Tools registered', value: '13' },
-          { label: 'Shipped (baseline image)', value: '12' },
+          { label: 'Tools registered', value: '15' },
+          { label: 'Shipped (baseline image)', value: '14' },
           { label: 'Index', value: 'HNSW' },
         ],
       }}
@@ -115,6 +115,8 @@ LIMIT 5;`}</pre>
                   { name: 'returns_and_care', status: 'shipped' },
                   { name: 'restock_shelf', status: 'shipped' },
                   { name: 'process_return', status: 'shipped' },
+                  { name: 'preference_snapshot', status: 'shipped' },
+                  { name: 'trace_receipt', status: 'shipped' },
                   { name: 'escalate_to_stylist', status: 'shipped' },
                 ].map((tool) => (
                   <div

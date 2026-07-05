@@ -1323,8 +1323,19 @@ CURRENT REQUEST: {message}"""
             'running_low': 'Stock Keeper',
             'restock_shelf': 'Stock Keeper',
             'support': 'Experience Guide',
+            'returns_and_care': 'Experience Guide',
+            'process_return': 'Experience Guide',
+            'trace_receipt': 'Curator',
             'search': 'Style Advisor',
             'find_pieces': 'Style Advisor',
+            'find_pieces_hybrid': 'Curator',
+            'whats_trending': 'Curator',
+            'preference_snapshot': 'Curator',
+            'price_intelligence': 'Value Analyst',
+            'explore_collection': 'Style Advisor',
+            'side_by_side': 'Style Advisor',
+            'style_match': 'Style Advisor',
+            'escalate_to_stylist': 'Experience Guide',
         }.get(tool_name, 'Style Advisor')
 
     async def chat_stream(

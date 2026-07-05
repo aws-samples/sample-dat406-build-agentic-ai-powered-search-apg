@@ -80,6 +80,8 @@ export function discoveryQueryForTool(tool: Tool): string {
     floor_check: 'is this sku on the floor at Brooklyn warehouse',
     restock_shelf: 'restock low inventory on the shelf',
     process_return: 'process a customer return with audit',
+    preference_snapshot: 'what do you remember about this shopper',
+    trace_receipt: 'show me the tool audit receipt for this call',
   };
   return presets[tool.functionName] ?? tool.description;
 }

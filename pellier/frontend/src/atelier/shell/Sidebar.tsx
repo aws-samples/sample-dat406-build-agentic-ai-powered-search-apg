@@ -77,7 +77,7 @@ const Sidebar: React.FC = () => {
           path: 'tools',
           badge: buildState.toolTotal > 0
             ? `${buildState.toolShipped}/${buildState.toolTotal}`
-            : '12/13',
+            : '14/15',
         },
         { label: 'Sessions', path: 'sessions' },
       ],
@@ -109,7 +109,7 @@ const Sidebar: React.FC = () => {
             ? `${buildState.agentShipped}/${buildState.agentTotal}`
             : '4/5',
         },
-        { label: 'Skills', path: 'skills', badge: '3' },
+        { label: 'Skills', path: 'skills', badge: '5' },
         { label: 'Performance', path: 'performance' },
         { label: 'Evaluations', path: 'evaluations' },
       ],

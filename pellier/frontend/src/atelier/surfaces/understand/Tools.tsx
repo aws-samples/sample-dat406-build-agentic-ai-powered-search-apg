@@ -1232,9 +1232,9 @@ const Tools: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Tools · thirteen functions · pgvector-discoverable"
+        eyebrow="Understand · Tools · fifteen functions · pgvector-discoverable"
         title="The toolkit, by what each does."
-        summary="Thirteen tools in the registry. Twelve ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. Each tool has an embedding – discovery ranks by cosine similarity. Replacing the stub updates GET /api/atelier/build-state so Stock Keeper and floor_check read as shipped."
+        summary="Fifteen tools in the registry. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. Each tool has an embedding – discovery ranks by cosine similarity. Replacing the stub updates GET /api/atelier/build-state so Stock Keeper and floor_check read as shipped."
       />
 
       {loading && <LoadingState />}

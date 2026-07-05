@@ -151,12 +151,14 @@ class AgentCoreMemory:
             return None
 
         try:
+            import boto3
             from bedrock_agentcore.memory import MemorySessionManager
 
             _SDK_AVAILABLE = True
             self._sdk_manager = MemorySessionManager(
                 memory_id=self._memory_id,
                 region_name=self._region,
+                boto3_session=boto3.Session(region_name=self._region),
             )
             return self._sdk_manager
         except ImportError:
@@ -528,10 +530,12 @@ def create_agentcore_session_manager(
         return None
 
     try:
+        import boto3
         from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
         from bedrock_agentcore.memory.integrations.strands.session_manager import (
             AgentCoreMemorySessionManager,
         )
+        region = settings.aws_region_resolved
 
         config = AgentCoreMemoryConfig(
             memory_id=settings.AGENTCORE_MEMORY_ID,
@@ -542,7 +546,8 @@ def create_agentcore_session_manager(
 
         session_manager = AgentCoreMemorySessionManager(
             config,
-            region_name=settings.AWS_REGION,
+            region_name=region,
+            boto_session=boto3.Session(region_name=region),
         )
 
         logger.info(
@@ -573,7 +578,7 @@ def get_user_memories(user_id: str) -> List[Dict[str, Any]]:
         # to []). Long-term records only exist on a memory created WITH an
         # extraction strategy; Pellier's is STM-only, so this returns [] in
         # practice — kept correct for when a strategy is added.
-        client = boto3.client("bedrock-agentcore", region_name=settings.AWS_REGION)
+        client = boto3.client("bedrock-agentcore", region_name=settings.aws_region_resolved)
         response = client.list_memory_records(
             memoryId=settings.AGENTCORE_MEMORY_ID,
             namespace=f"user-{user_id}",
@@ -620,7 +625,7 @@ def search_episodic_memories(
 
         mgr = MemorySessionManager(
             memory_id=settings.AGENTCORE_MEMORY_ID,
-            region_name=settings.AWS_REGION,
+            region_name=settings.aws_region_resolved,
         )
         memory_session = mgr.create_memory_session(
             actor_id=user_id,

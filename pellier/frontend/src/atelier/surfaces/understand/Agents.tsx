@@ -426,7 +426,7 @@ const RelatedCard: React.FC = () => (
           }}
         >
           Skills{' '}
-          <span style={{ color: 'var(--at-red-1)' }}>· three persona skills</span>
+          <span style={{ color: 'var(--at-red-1)' }}>· five skills</span>
         </div>
         <p
           style={{

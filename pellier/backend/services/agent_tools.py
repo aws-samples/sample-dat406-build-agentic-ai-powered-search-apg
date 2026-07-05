@@ -103,6 +103,305 @@ def _curate_milestone_home_gift(query: str, products: list[dict]) -> list[dict]:
     return products
 
 
+_PERSONA_CUSTOMER_IDS = {
+    "marco": "CUST-MARCO",
+    "anna": "CUST-ANNA",
+    "theo": "CUST-THEO",
+    "fresh": "CUST-FRESH",
+}
+
+
+def _json_default(value):
+    """JSON fallback for timestamps, decimals, and driver-native values."""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if hasattr(value, "__float__"):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            pass
+    return str(value)
+
+
+def _infer_customer_id(customer_id: str = "", persona: str = "") -> str:
+    """Resolve a customer id from explicit args or the active persona preamble."""
+    raw_customer = (customer_id or "").strip()
+    if raw_customer:
+        if raw_customer.upper().startswith("CUST-"):
+            return raw_customer.upper()
+        mapped = _PERSONA_CUSTOMER_IDS.get(raw_customer.lower())
+        if mapped:
+            return mapped
+        return raw_customer
+
+    raw_persona = (persona or "").strip().lower()
+    if raw_persona in _PERSONA_CUSTOMER_IDS:
+        return _PERSONA_CUSTOMER_IDS[raw_persona]
+
+    try:
+        from services.persona_context import get_persona_preamble
+
+        preamble = get_persona_preamble()
+    except Exception:
+        preamble = ""
+
+    match = re.search(r"\bCUST-[A-Z0-9_-]+\b", preamble)
+    if match:
+        return match.group(0)
+
+    preamble_lower = preamble.lower()
+    for persona_id, mapped in _PERSONA_CUSTOMER_IDS.items():
+        if re.search(rf"\b{re.escape(persona_id)}\b", preamble_lower):
+            return mapped
+    return ""
+
+
+@tool
+def preference_snapshot(customer_id: str = "", persona: str = "", limit: int = 5) -> str:
+    """Read a safe shopper preference snapshot from Aurora memory tables.
+
+    Use when the shopper asks what Pellier remembers, why a recommendation
+    reflects their taste, or which prior orders informed the turn. This is
+    read-only: it reads pellier.customers, pellier.orders, and
+    pellier.customer_episodic_seed, then returns a compact receipt of the
+    profile summary, recent order anchors, and memory facts.
+
+    Args:
+        customer_id: Optional explicit customer id such as CUST-MARCO.
+            If omitted, the tool infers it from persona or the active
+            persona preamble.
+        persona: Optional persona alias: marco, anna, theo, or fresh.
+        limit: Maximum number of order and memory rows to return.
+    """
+    if not _db_service:
+        return json.dumps({"error": "Database service not initialized"})
+
+    try:
+        resolved_customer = _infer_customer_id(customer_id, persona)
+        if not resolved_customer:
+            return json.dumps({
+                "status": "no_customer_context",
+                "message": (
+                    "No customer_id or persona context was available for "
+                    "a preference snapshot."
+                ),
+                "read_only": True,
+            })
+
+        safe_limit = max(1, min(int(limit or 5), 10))
+
+        customer = _run_async(_db_service.fetch_one(
+            """
+            SELECT id, name, preferences_summary
+              FROM pellier.customers
+             WHERE id = %s
+            """,
+            resolved_customer,
+        ))
+        orders = _run_async(_db_service.fetch_all(
+            """
+            SELECT o.product_id,
+                   pc.name,
+                   pc.brand,
+                   pc.category,
+                   pc.color,
+                   pc.price,
+                   o.quantity,
+                   o.placed_at
+              FROM pellier.orders o
+              JOIN pellier.product_catalog pc
+                ON pc."productId" = o.product_id
+             WHERE o.customer_id = %s
+             ORDER BY o.placed_at DESC
+             LIMIT %s
+            """,
+            resolved_customer,
+            safe_limit,
+        ))
+        facts = _run_async(_db_service.fetch_all(
+            """
+            SELECT summary_text, ts_offset_days
+              FROM pellier.customer_episodic_seed
+             WHERE customer_id = %s
+             ORDER BY ts_offset_days DESC
+             LIMIT %s
+            """,
+            resolved_customer,
+            safe_limit,
+        ))
+
+        if not customer:
+            return json.dumps({
+                "status": "not_found",
+                "customer_id": resolved_customer,
+                "read_only": True,
+            })
+
+        payload = {
+            "status": "success",
+            "read_only": True,
+            "customer": {
+                "id": customer.get("id"),
+                "name": customer.get("name"),
+                "preferences_summary": customer.get("preferences_summary"),
+            },
+            "recent_orders": [
+                {
+                    "product_id": row.get("product_id"),
+                    "name": row.get("name"),
+                    "brand": row.get("brand"),
+                    "category": row.get("category"),
+                    "color": row.get("color"),
+                    "price": row.get("price"),
+                    "quantity": row.get("quantity"),
+                    "placed_at": row.get("placed_at"),
+                }
+                for row in orders
+            ],
+            "memory_facts": [
+                {
+                    "summary": row.get("summary_text"),
+                    "ts_offset_days": row.get("ts_offset_days"),
+                }
+                for row in facts
+            ],
+            "sources": [
+                "pellier.customers",
+                "pellier.orders",
+                "pellier.customer_episodic_seed",
+            ],
+        }
+        return json.dumps(payload, indent=2, default=_json_default)
+    except Exception as e:
+        logger.error("preference_snapshot error: %s", e)
+        return json.dumps({"error": str(e)})
+
+
+def _result_summary(result):
+    """Small, stable summary of a JSONB tool result for receipt displays."""
+    if isinstance(result, dict):
+        status = result.get("status") or result.get("type")
+        if status is None and "error" in result:
+            status = "error"
+        return {
+            "status": status or "recorded",
+            "keys": sorted(str(k) for k in result.keys())[:10],
+        }
+    if isinstance(result, list):
+        return {"status": "recorded", "items": len(result)}
+    if result is None:
+        return {"status": "pending", "keys": []}
+    return {"status": "recorded", "type": type(result).__name__}
+
+
+@tool
+def trace_receipt(
+    session_id: str = "",
+    tool_name: str = "",
+    caller: str = "",
+    limit: int = 3,
+) -> str:
+    """Read recent tool_audit receipts for a session, tool, or caller rail.
+
+    Use when the shopper or operator asks how Pellier knows, what tool ran,
+    whether a Gateway call produced an ALLOW receipt, or how to compare the
+    in-process ``caller='agent'`` rail with the managed ``caller='gateway'``
+    rail. This is read-only: it reads pellier.tool_audit and returns compact
+    receipts. No matching row means no ALLOW receipt was written; for governed
+    Gateway demonstrations that is the expected shape of a DENY or missing
+    invocation.
+
+    Args:
+        session_id: Optional exact session id to inspect.
+        tool_name: Optional tool name such as floor_check or process_return.
+        caller: Optional caller rail: agent or gateway.
+        limit: Maximum receipts to return.
+    """
+    if not _db_service:
+        return json.dumps({"error": "Database service not initialized"})
+
+    try:
+        safe_limit = max(1, min(int(limit or 3), 10))
+        filters = []
+        params = []
+
+        clean_session = (session_id or "").strip()
+        clean_tool = (tool_name or "").strip()
+        clean_caller = (caller or "").strip().lower()
+
+        if clean_session:
+            filters.append("session_id = %s")
+            params.append(clean_session)
+        if clean_tool:
+            filters.append("tool = %s")
+            params.append(clean_tool)
+        if clean_caller:
+            filters.append("caller = %s")
+            params.append(clean_caller)
+
+        where = f"WHERE {' AND '.join(filters)}" if filters else ""
+        rows = _run_async(_db_service.fetch_all(
+            f"""
+            SELECT audit_id,
+                   session_id,
+                   tool,
+                   caller,
+                   args,
+                   result,
+                   latency_ms,
+                   created_at
+              FROM pellier.tool_audit
+              {where}
+             ORDER BY audit_id DESC
+             LIMIT %s
+            """,
+            *params,
+            safe_limit,
+        ))
+
+        receipts = [
+            {
+                "audit_id": row.get("audit_id"),
+                "session_id": row.get("session_id"),
+                "tool": row.get("tool"),
+                "caller": row.get("caller"),
+                "decision": "ALLOW",
+                "args": row.get("args"),
+                "result_summary": _result_summary(row.get("result")),
+                "latency_ms": row.get("latency_ms"),
+                "created_at": row.get("created_at"),
+            }
+            for row in rows
+        ]
+
+        if not receipts:
+            return json.dumps({
+                "status": "no_allow_receipt",
+                "read_only": True,
+                "filters": {
+                    "session_id": clean_session or None,
+                    "tool_name": clean_tool or None,
+                    "caller": clean_caller or None,
+                },
+                "interpretation": (
+                    "No pellier.tool_audit ALLOW row matched these filters. "
+                    "For governed Gateway checks, a no-row result is the "
+                    "observable DENY/missing-invocation boundary."
+                ),
+            }, indent=2)
+
+        return json.dumps({
+            "status": "success",
+            "read_only": True,
+            "count": len(receipts),
+            "receipts": receipts,
+            "source": "pellier.tool_audit",
+        }, indent=2, default=_json_default)
+    except Exception as e:
+        logger.error("trace_receipt error: %s", e)
+        return json.dumps({"error": str(e)})
+
+
 @tool
 def floor_check(product_query: str = "") -> str:
     """Inventory check across the catalog and three warehouses (BK-01 Brooklyn, ATX-02 Austin, PDX-01 Portland).
@@ -144,7 +443,7 @@ def floor_check(product_query: str = "") -> str:
     # Verify (live, the real check):
     #   Click Marco's Turn 4 pill in the Boutique — Stock Keeper answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Atelier Tools strip flip from 12/13 to 13/13 shipped.
+    #   Atelier Tools strip flip from 14/15 to 15/15 shipped.
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it

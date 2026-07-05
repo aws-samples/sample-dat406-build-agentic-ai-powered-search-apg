@@ -27,6 +27,8 @@ from strands.models import BedrockModel
 from config import settings
 from services.agent_tools import (
     find_pieces_hybrid,
+    preference_snapshot,
+    trace_receipt,
     whats_trending,
     side_by_side,
     explore_collection,
@@ -99,6 +101,8 @@ def build_recommendation_agent() -> Agent:
         tools=[
             find_pieces_hybrid,
             whats_trending,
+            preference_snapshot,
+            trace_receipt,
             side_by_side,
             explore_collection,
             escalate_to_stylist,

@@ -34,6 +34,8 @@ from .router import SkillRouter
 #   - the-packing-list: travel packing, warm-weather capsules, repeat wear
 #   - the-gift-table: gift intent, milestones, housewarming, budgets
 #   - the-makers-shelf: ceramics, textiles, slow-craft home goods
+#   - the-care-card: returns, damage, repair, care, post-purchase handling
+#   - the-proof-counter: proof, memory, audit receipts, trace inspection
 # Negative cases:
 #   - inventory / pricing / policy / spec-sheet factual queries
 TEST_CASES: list[tuple[str, set[str], str]] = [
@@ -52,6 +54,16 @@ TEST_CASES: list[tuple[str, set[str], str]] = [
         "hand-thrown ceramic pieces for a morning coffee ritual",
         {"the-makers-shelf"},
         "Ceramics + ritual language — The Maker's Shelf should lead with material/process.",
+    ),
+    (
+        "the bowl arrived damaged, what now?",
+        {"the-care-card"},
+        "Damaged-item post-purchase handling belongs to The Care Card.",
+    ),
+    (
+        "how do you know this fits my taste?",
+        {"the-proof-counter"},
+        "Proof / memory explanation should load The Proof Counter.",
     ),
 
     # --- Multi-skill positives ----------------------------------------------
@@ -80,8 +92,8 @@ TEST_CASES: list[tuple[str, set[str], str]] = [
     ),
     (
         "how do I return an order?",
-        set(),
-        "Policy query — support agent territory, no skills load.",
+        {"the-care-card"},
+        "Return-policy handling should load The Care Card.",
     ),
     (
         "what's the Linen Duvet Cover made of?",

@@ -144,7 +144,7 @@ def floor_check(product_query: str = "") -> str:
     # Verify (live, the real check):
     #   Click Marco's Turn 4 pill in the Boutique — Stock Keeper answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Atelier Tools strip flip from 12/13 to 13/13 shipped.
+    #   Atelier Tools strip flip from 14/15 to 15/15 shipped.
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it

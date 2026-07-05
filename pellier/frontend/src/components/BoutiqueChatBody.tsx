@@ -61,6 +61,8 @@ const SKILL_TRACE: Record<string, string> = {
   'the-packing-list': 'skill.packing-list',
   'the-gift-table': 'skill.gift-table',
   'the-makers-shelf': 'skill.makers-shelf',
+  'the-care-card': 'skill.care-card',
+  'the-proof-counter': 'skill.proof-counter',
 }
 
 function skillTraceTool(canonical: string): string {

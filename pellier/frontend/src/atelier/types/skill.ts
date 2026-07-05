@@ -1,7 +1,7 @@
 /**
  * Atelier Observatory — Skill type
  *
- * Represents one of the 3 persona-tied skills loaded by the SkillRouter
+ * Represents one of the 5 skills loaded by the SkillRouter
  * per turn. Mirrors the YAML + Markdown structure of the live
  * `/skills/<name>/SKILL.md` files.
  */
@@ -11,9 +11,9 @@ export interface Skill {
   name: string;
   /** Human-readable title for the card. */
   displayName: string;
-  /** Persona id that triggers this skill. */
-  persona: 'marco' | 'anna' | 'theo';
-  /** Display name of the persona (for the card chip). */
+  /** Persona id or shared overlay that triggers this skill. */
+  persona: 'marco' | 'anna' | 'theo' | 'shared';
+  /** Display name of the persona/scope (for the card chip). */
   personaDisplayName: string;
   /** One-line description from SKILL.md frontmatter. */
   description: string;
@@ -25,6 +25,6 @@ export interface Skill {
   body: string;
   /** Signal keywords the SkillRouter watches for. */
   signals: string[];
-  /** Live (loaded) vs stubbed (not yet wired). All 3 skills are live in the workshop default. */
+  /** Live (loaded) vs stubbed (not yet wired). All 5 skills are live in the workshop default. */
   status: 'live' | 'stub';
 }
