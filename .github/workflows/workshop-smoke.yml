@@ -98,10 +98,11 @@ jobs:
         working-directory: pellier/frontend
         shell: pwsh
         env:
-          E2E_BASE_URL: http://localhost:8000
+          E2E_BASE_URL: http://127.0.0.1:8000
         run: |
           $out = Join-Path $env:TEMP "uvicorn.log"
           $err = Join-Path $env:TEMP "uvicorn.err"
+          $health = "http://127.0.0.1:8000/api/health"
           $proc = Start-Process -PassThru -NoNewWindow -FilePath "python" `
             -ArgumentList "-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", "8000" `
             -WorkingDirectory "..\backend" `
@@ -116,13 +117,11 @@ jobs:
               Get-Content $err -ErrorAction SilentlyContinue
               exit 1
             }
-            try {
-              $r = Invoke-WebRequest -Uri http://localhost:8000/api/health -UseBasicParsing -TimeoutSec 2
-              if ($r.StatusCode -eq 200) {
-                $ready = $true
-                break
-              }
-            } catch {}
+            curl.exe -fsS $health | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+              $ready = $true
+              break
+            }
             Start-Sleep -Seconds 1
           }
 
