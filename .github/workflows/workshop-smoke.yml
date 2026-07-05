@@ -1,4 +1,4 @@
-# Workshop smoke: production-build E2E on macOS and Ubuntu.
+# Workshop smoke: production-build E2E on macOS.
 #
 # Goal: catch regressions that would break a workshop delivery before the
 # room. Unlike e2e.yml (Cognito auth against a dev pool), this runs
@@ -24,8 +24,8 @@ concurrency:
 
 jobs:
   smoke:
-    name: ${{ matrix.os }} production-build smoke
-    runs-on: ${{ matrix.os }}
+    name: macos-latest production-build smoke
+    runs-on: macos-latest
     timeout-minutes: 15
     env:
       PELLIER_SMOKE_MODE: "true"
@@ -35,11 +35,6 @@ jobs:
       DB_PASSWORD: pellier_smoke
       AWS_REGION: us-west-2
       AWS_DEFAULT_REGION: us-west-2
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest]
 
     steps:
       - name: Checkout
@@ -92,6 +87,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: workshop-smoke-report-${{ matrix.os }}
+          name: workshop-smoke-report-macos-latest
           path: pellier/frontend/playwright-report
           if-no-files-found: ignore

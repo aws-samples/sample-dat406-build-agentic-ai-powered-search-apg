@@ -14,7 +14,7 @@
  *   5. Real query produces streaming tokens + a non-empty reply.
  *   6. ?reset=1 clears persisted state.
  *
- * Runs on macOS and Ubuntu runners — see
+ * Runs on the macOS runner — see
  * .github/workflows/workshop-smoke.yml.
  *
  * NOTE: does not require Cognito or AWS creds. Bedrock is required
