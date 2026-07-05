@@ -36,6 +36,9 @@ FKs.
    indexes on `lower(name)` and `lower(category)` for fuzzy ILIKE paths.
 9. **`009_return_policies.sql`** — creates and seeds
    `pellier.return_policies` for the `returns_and_care` tool.
+10. **`010_governed_receipts.sql`** — creates
+   `pellier.governed_receipts` and seeds the deterministic governed
+   forensic incident used by the two-hour workshop.
 
 ## Run
 
@@ -56,7 +59,8 @@ for migration in \
     006_warehouse_inventory.sql \
     007_chat_session_tables.sql \
     008_search_performance_indexes.sql \
-    009_return_policies.sql
+    009_return_policies.sql \
+    010_governed_receipts.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -97,4 +101,6 @@ SELECT COUNT(*) FROM pellier.customers;                -- at least 5
 SELECT COUNT(*) FROM pellier.orders;                   -- at least 20
 SELECT COUNT(*) FROM pellier.customer_episodic_seed;   -- 9
 SELECT COUNT(*) FROM pellier.warehouse_inventory;      -- 120
+SELECT COUNT(*) FROM pellier.governed_receipts
+ WHERE session_id = 'gateway-marco-for-theo-incident'; -- 1
 ```

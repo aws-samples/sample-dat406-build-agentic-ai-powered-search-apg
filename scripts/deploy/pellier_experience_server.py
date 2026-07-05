@@ -30,7 +30,8 @@ from common.types import resolve_invocation
 
 logger = logging.getLogger(__name__)
 
-REGION = os.environ.get("REGION", "us-west-2")
+REGION = os.environ.get("REGION", "us-east-1")
+DB_REGION = os.environ.get("DB_REGION", REGION)
 DB_CLUSTER_ARN = os.environ.get("DB_CLUSTER_ARN", "")
 SECRET_ARN = os.environ.get("SECRET_ARN", "")
 DATABASE = os.environ.get("DATABASE", "postgres")
@@ -47,7 +48,7 @@ ALLOWED_RETURN_REASONS = {
     "other",
 }
 
-rds_client = boto3.client("rds-data", region_name=REGION)
+rds_client = boto3.client("rds-data", region_name=DB_REGION)
 
 
 def _row_to_dict(record: list, columns: list[str]) -> dict:

@@ -118,12 +118,15 @@ CREATE INDEX IF NOT EXISTS tools_description_emb_idx
     ON pellier.tools USING hnsw (description_emb vector_cosine_ops);
 
 -- -- pellier.tool_audit --------------------------------------------------
--- Unified audit log. One row per ALLOWed tool call — reads and writes
--- alike. The Strands BeforeToolCallEvent hook in
--- services/policy_hook.py INSERTs a placeholder row before the tool
--- body runs, and the matching AfterToolCallEvent UPDATEs it with
--- result + latency_ms. DENY decisions skip audit (the tool never
--- ran) and live in policy_hook's per-session decision deque instead.
+-- Unified execution log. One row means a tool actually ran. The
+-- in-process Strands rail writes caller='agent' rows through
+-- services/tool_audit_writer.py; the managed Gateway rail writes
+-- caller='gateway' rows from the Lambda-backed tool target after Cedar
+-- has already allowed the call. A Gateway/Cedar DENY leaves no
+-- tool_audit row because the Lambda never executes. The ordinary
+-- in-process rail is not a Cedar rail and must not be used as proof of
+-- DENY absence.
+--
 -- Half the teaching story on the workshop is that
 -- ``SELECT * FROM pellier.tool_audit WHERE session_id = ...``
 -- rebuilds the entire turn for debugging — Act II: Exercise 2 — and

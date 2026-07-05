@@ -1,5 +1,5 @@
 /**
- * Tools — Registered tool functions surface (fixture-backed).
+ * Tools — Registered tool functions surface with compact agent ownership.
  *
  * WorkshopProgressStrip: one segment per tool; shipped vs exercise from
  * build state (`/api/atelier/build-state`) with live overlay when
@@ -7,13 +7,13 @@
  *
  * Shipped tools: solid borders, sage status.
  * Exercise tools: dashed borders, burgundy status.
- * "Related" callout card linking to Agents and Architecture · Tool Registry.
+ * The old standalone Agents surface is folded into this page as a compact
+ * roster so participants see "who owns what" without opening another route.
  *
  * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 16.3
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import {
   EditorialTitle,
   ExpCard,
@@ -26,7 +26,7 @@ import type { Segment } from '../../components/WorkshopProgressStrip';
 import { useAtelierData } from '../../hooks/useAtelierData';
 import { useBuildState } from '../../hooks/useBuildState';
 import { useToolDiscovery } from '../../hooks/useToolDiscovery';
-import type { Tool, ToolDiscoveryResult } from '../../types';
+import type { Agent, Tool, ToolDiscoveryResult } from '../../types';
 import {
   DISCOVERY_EXAMPLES,
   discoveryQueryForTool,
@@ -35,7 +35,7 @@ import {
 } from './toolsDiscoveryUtils';
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
-  fontFamily: 'var(--dl-font-mono)',
+  fontFamily: 'var(--at-mono)',
   fontSize: '12.5px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
@@ -844,175 +844,214 @@ const ToolFilterBar: React.FC<{
 );
 
 /* -----------------------------------------------------------------------
- * Related callout card — links to Agents and Architecture · Tool Registry
+ * Agent roster — compact ownership map folded into the Tools surface
  * ----------------------------------------------------------------------- */
 
-const RelatedCard: React.FC = () => (
-  <ExpCard>
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '130px 1fr 1fr',
-        gap: '24px',
-        alignItems: 'start',
-      }}
-    >
-      {/* Label */}
-      <div
-        style={{
-          fontFamily: 'var(--at-mono)',
-          fontSize: '11px',
-          letterSpacing: '0.22em',
-          textTransform: 'uppercase' as const,
-          color: 'var(--at-ink-2)',
-          fontWeight: 500,
-          paddingTop: '4px',
-          lineHeight: 1.6,
-        }}
-      >
-        Adjacent
-        <br />
-        to tools
-      </div>
+interface AgentRosterProps {
+  agents: Agent[];
+  tools: Tool[];
+  onToolSelect: (functionName: string) => void;
+}
 
-      {/* Agents cell */}
+const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }) => {
+  const toolsByName = useMemo(
+    () => new Map(tools.map((tool) => [tool.functionName, tool])),
+    [tools],
+  );
+  const writeToolCount = tools.filter((tool) => tool.mutationType === 'write').length;
+
+  return (
+    <ExpCard>
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          borderLeft: '1px solid var(--at-card-border)',
-          paddingLeft: '24px',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '18px',
+          marginBottom: '16px',
         }}
       >
-        <div
-          style={{
-            fontFamily: 'var(--at-serif)',
-            fontWeight: 400,
-            fontSize: '20px',
-            color: 'var(--at-ink-1)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Agents{' '}
-          <span style={{ color: 'var(--at-red-1)' }}>· five peers</span>
-        </div>
-        <p
-          style={{
-            fontFamily: 'var(--at-sans)',
-            fontSize: '15px',
-            color: 'var(--at-ink-2)',
-            lineHeight: 1.6,
-            margin: 0,
-          }}
-        >
-          Five specialist agents invoke these tools. Each agent has a curated
-          tool set – Style Advisor uses find_pieces and explore_collection;
-          Curator uses find_pieces_hybrid and side_by_side. The registry lets
-          agents discover tools they weren't explicitly given.
-        </p>
-        <Link
-          to="/atelier/agents"
-          style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '12px',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase' as const,
-            color: 'var(--at-red-1)',
-            textDecoration: 'none',
-            fontWeight: 500,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '4px',
-          }}
-        >
-          Open Agents surface
-          <span
-            aria-hidden="true"
-            style={{ fontFamily: 'var(--at-serif)' }}
-          >
-            →
-          </span>
-        </Link>
-      </div>
-
-      {/* Architecture · Tool Registry cell */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px',
-          borderLeft: '1px solid var(--at-card-border)',
-          paddingLeft: '24px',
-        }}
-      >
-        <div
-          style={{
-            fontFamily: 'var(--at-serif)',
-            fontWeight: 400,
-            fontSize: '20px',
-            color: 'var(--at-ink-1)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Tool Registry{' '}
-          <span style={{ color: 'var(--at-red-1)' }}>· architecture</span>
-        </div>
-        <p
-          style={{
-            fontFamily: 'var(--at-sans)',
-            fontSize: '15px',
-            color: 'var(--at-ink-2)',
-            lineHeight: 1.6,
-            margin: 0,
-          }}
-        >
-          The{' '}
-          <code
+        <div>
+          <Eyebrow label="Agents & tools" variant="muted" />
+          <h3
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '13.5px',
+              fontFamily: 'var(--at-serif)',
+              fontWeight: 400,
+              fontSize: '24px',
+              letterSpacing: '-0.012em',
+              lineHeight: 1.15,
               color: 'var(--at-ink-1)',
-              background: 'var(--at-cream-2)',
-              padding: '1px 6px',
-              borderRadius: 4,
+              margin: '9px 0 0',
             }}
           >
-            tool_registry
-          </code>{' '}
-          table stores each tool's name, description, and a 1024-dim Cohere
-          Embed v4 embedding. Discovery is a single pgvector cosine query – the
-          same primitive that powers product search, applied to capabilities.
-        </p>
-        <Link
-          to="/atelier/architecture/tool-registry"
+            Five specialists, one registry.
+          </h3>
+        </div>
+        <div
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '12px',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase' as const,
-            color: 'var(--at-red-1)',
-            textDecoration: 'none',
-            fontWeight: 500,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '4px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            gap: '8px',
           }}
         >
-          Open Tool Registry detail
-          <span
-            aria-hidden="true"
-            style={{ fontFamily: 'var(--at-serif)' }}
-          >
-            →
-          </span>
-        </Link>
+          {[
+            `${agents.length} agents`,
+            `${tools.length} tools`,
+            `${writeToolCount} write`,
+          ].map((label) => (
+            <span
+              key={label}
+              style={{
+                fontFamily: 'var(--at-mono)',
+                fontSize: '11px',
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--at-ink-2)',
+                border: '1px solid var(--at-rule-2)',
+                borderRadius: '999px',
+                padding: '5px 9px',
+                background: 'var(--at-cream-2)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
       </div>
-    </div>
-  </ExpCard>
-);
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: '10px',
+        }}
+      >
+        {agents.map((agent) => {
+          const isExercise = agent.status === 'exercise';
+          const shippedOwned = agent.tools.filter(
+            (toolName) => toolsByName.get(toolName)?.status === 'shipped',
+          ).length;
+
+          return (
+            <article
+              key={agent.name}
+              style={{
+                border: isExercise
+                  ? '1.5px dashed var(--at-rule-3)'
+                  : '1px solid var(--at-rule-1)',
+                borderRadius: '8px',
+                background: isExercise ? 'transparent' : 'var(--at-cream-2)',
+                padding: '14px 14px 13px',
+                minHeight: '210px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--at-mono)',
+                      fontSize: '10px',
+                      letterSpacing: '0.16em',
+                      textTransform: 'uppercase',
+                      color: 'var(--at-red-1)',
+                    }}
+                  >
+                    {agent.numeral}
+                  </span>
+                  <h4
+                    style={{
+                      fontFamily: 'var(--at-serif)',
+                      fontWeight: 400,
+                      fontSize: '19px',
+                      lineHeight: 1.1,
+                      color: 'var(--at-ink-1)',
+                      margin: '3px 0 0',
+                    }}
+                  >
+                    {agent.name}
+                  </h4>
+                </div>
+                <StatusPill status={agent.status} />
+              </div>
+
+              <p
+                style={{
+                  fontFamily: 'var(--at-sans)',
+                  fontSize: '13px',
+                  lineHeight: 1.45,
+                  color: 'var(--at-ink-2)',
+                  margin: 0,
+                }}
+              >
+                {agent.role}
+              </p>
+
+              <div
+                style={{
+                  fontFamily: 'var(--at-mono)',
+                  fontSize: '10.5px',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--at-ink-4)',
+                }}
+              >
+                {agent.model} · {shippedOwned}/{agent.tools.length} shipped
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '5px',
+                  marginTop: 'auto',
+                }}
+              >
+                {agent.tools.map((toolName) => {
+                  const tool = toolsByName.get(toolName);
+                  const toolIsExercise = tool?.status === 'exercise';
+                  return (
+                    <button
+                      key={`${agent.name}-${toolName}`}
+                      type="button"
+                      onClick={() => onToolSelect(toolName)}
+                      disabled={!tool}
+                      style={{
+                        fontFamily: 'var(--at-mono)',
+                        fontSize: '11px',
+                        borderRadius: '999px',
+                        border: toolIsExercise
+                          ? '1px dashed var(--at-red-1)'
+                          : '1px solid var(--at-rule-2)',
+                        background: toolIsExercise ? 'transparent' : 'var(--at-cream-1)',
+                        color: toolIsExercise ? 'var(--at-red-1)' : 'var(--at-ink-1)',
+                        padding: '3px 7px',
+                        cursor: tool ? 'pointer' : 'default',
+                      }}
+                    >
+                      {toolName}
+                    </button>
+                  );
+                })}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </ExpCard>
+  );
+};
 
 /* -----------------------------------------------------------------------
  * Loading state
@@ -1156,6 +1195,9 @@ const Tools: React.FC = () => {
   const { data, loading, error, refetch } = useAtelierData<Tool[]>({
     key: 'tools',
   });
+  const { data: agentData } = useAtelierData<Agent[]>({
+    key: 'agents',
+  });
   const buildState = useBuildState();
   const [filter, setFilter] = useState<ToolFilter>('all');
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
@@ -1175,6 +1217,14 @@ const Tools: React.FC = () => {
       return { ...tool, status: override };
     }
     return tool;
+  });
+
+  const agents: Agent[] = (agentData ?? []).map((agent) => {
+    const override = buildState.agentStatus[agent.name];
+    if (override && override !== agent.status) {
+      return { ...agent, status: override };
+    }
+    return agent;
   });
 
   const filterCounts = useMemo(
@@ -1232,9 +1282,9 @@ const Tools: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Tools · fifteen functions · pgvector-discoverable"
-        title="The toolkit, by what each does."
-        summary="Fifteen tools in the registry. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. Each tool has an embedding – discovery ranks by cosine similarity. Replacing the stub updates GET /api/atelier/build-state so Stock Keeper and floor_check read as shipped."
+        eyebrow="Understand · Tools · five agents · fifteen functions"
+        title="The toolkit, by owner and action."
+        summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."
       />
 
       {loading && <LoadingState />}
@@ -1245,6 +1295,12 @@ const Tools: React.FC = () => {
 
       {!loading && !error && tools.length > 0 && (
         <>
+          {agents.length > 0 && (
+            <div style={{ marginBottom: '28px' }}>
+              <AgentRoster agents={agents} tools={tools} onToolSelect={focusTool} />
+            </div>
+          )}
+
           {/* Workshop Progress Strip */}
           <div style={{ marginBottom: '28px' }}>
             <WorkshopProgressStrip
@@ -1320,9 +1376,6 @@ const Tools: React.FC = () => {
               ))
             )}
           </div>
-
-          {/* Related callout card */}
-          <RelatedCard />
         </>
       )}
     </div>

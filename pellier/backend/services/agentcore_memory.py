@@ -168,7 +168,7 @@ class AgentCoreMemory:
                     "in-memory fallback. If you provisioned an AgentCore Memory "
                     "resource, make sure uvicorn is launched from the venv where "
                     "``pip install -e .`` ran (e.g. "
-                    "``pellier/backend/.venv/bin/uvicorn app:app``)."
+                    "``pellier/backend/.venv/bin/python -m uvicorn app:app``)."
                 )
             _SDK_AVAILABLE = False
             return None
@@ -457,9 +457,8 @@ class AgentCoreMemory:
 
         Returns ``[]`` (never raises, never fabricates) when the SDK or
         ``AGENTCORE_MEMORY_ID`` is unavailable, the strategy has not
-        extracted yet, or no records exist — the Atelier route treats an
-        empty list as "fall back to the fixture", so the panel stays honest
-        (``fixture``, not a fake ``live``).
+        extracted yet, or no records exist. The Atelier route renders the
+        empty live state with a caveat instead of substituting seeded text.
         """
         import json as _json
 
@@ -481,7 +480,7 @@ class AgentCoreMemory:
         except Exception as exc:  # pragma: no cover - SDK error path
             logger.warning(
                 "AgentCore get_semantic_memories failed for %s: %s — "
-                "panel will fall back to fixture",
+                "semantic panel will show an empty live state",
                 actor_id,
                 exc,
             )

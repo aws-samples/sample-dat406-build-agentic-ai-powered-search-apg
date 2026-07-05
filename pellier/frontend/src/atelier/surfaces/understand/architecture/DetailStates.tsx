@@ -106,7 +106,7 @@ export const DetailErrorState: React.FC<DetailErrorStateProps> = ({ message, onR
 );
 
 /* -----------------------------------------------------------------------
- * Empty state — fixture fallback message
+ * Empty state
  * ----------------------------------------------------------------------- */
 
 interface DetailEmptyStateProps {
@@ -146,7 +146,7 @@ export const DetailEmptyState: React.FC<DetailEmptyStateProps> = ({ conceptName 
         marginTop: '8px',
       }}
     >
-      Check that the architecture fixture data is available and try again.
+      Check that the architecture reference data is available and try again.
     </p>
   </div>
 );

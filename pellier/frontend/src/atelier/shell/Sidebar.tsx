@@ -1,14 +1,12 @@
 /**
  * Sidebar — Espresso-colored left navigation for the Atelier Observatory.
  *
- * Three sections (OBSERVE, UNDERSTAND, EVALUATE), a Settings divider,
- * and a persona footer. Uses React Router `<NavLink>` for active state
- * highlighting (espresso-2 bg, 2px burgundy accent bar, full-opacity icon).
+ * Workshop-first left navigation for Atelier.
  *
- * UNDERSTAND items follow the learning arc:
- *   Architecture (the map) → Agents (the characters) →
- *   Skills (persona-specific knowledge) → Tools (what they reach for) →
- *   Routing (how requests find them) → Memory (what persists between turns).
+ * The broader Atelier routes still exist for deep links and reference tests,
+ * but the sidebar only advertises surfaces the governed lab asks
+ * participants to open. Atelier should read as an observation surface, not a
+ * second app to wander through.
  *
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.13
  */
@@ -60,18 +58,19 @@ const Sidebar: React.FC = () => {
 
   // Build dynamic nav sections with live shipped/total badges from build state.
   // Observatory is the landing orientation, followed by the three participant
-  // acts. The broader Atelier taxonomy stays available under Reference.
+  // acts. Reference-only routes remain deep-linkable but are not advertised.
   const navSections: NavSection[] = [
     {
-      eyebrow: 'OBSERVATORY',
+      eyebrow: 'START HERE',
       items: [
         { label: 'Observatory', path: 'observatory' },
+        { label: 'Architecture', path: 'architecture' },
+        { label: 'Proof Board', path: 'proof-board', liveDot: true },
       ],
     },
     {
       eyebrow: 'ACT I · BUILD',
       items: [
-        { label: 'Proof Board', path: 'proof-board', liveDot: true },
         {
           label: 'Tools',
           path: 'tools',
@@ -80,12 +79,13 @@ const Sidebar: React.FC = () => {
             : '14/15',
         },
         { label: 'Sessions', path: 'sessions' },
+        { label: 'Skills', path: 'skills', badge: '5' },
+        { label: 'Search', path: 'search' },
       ],
     },
     {
       eyebrow: 'ACT II · PROVE',
       items: [
-        { label: 'Search', path: 'search' },
         { label: 'Memory', path: 'memory' },
         { label: 'Write-path', path: 'write-path' },
       ],
@@ -94,24 +94,6 @@ const Sidebar: React.FC = () => {
       eyebrow: 'ACT III · EXTEND',
       items: [
         { label: 'Routing', path: 'routing', badge: '3' },
-        { label: 'Production Patterns', path: 'production-patterns', badge: '4' },
-      ],
-    },
-    {
-      eyebrow: 'REFERENCE',
-      items: [
-        { label: 'Persona Journeys', path: 'persona-journeys' },
-        { label: 'Architecture', path: 'architecture', badge: '8' },
-        {
-          label: 'Agents',
-          path: 'agents',
-          badge: buildState.agentTotal > 0
-            ? `${buildState.agentShipped}/${buildState.agentTotal}`
-            : '4/5',
-        },
-        { label: 'Skills', path: 'skills', badge: '5' },
-        { label: 'Performance', path: 'performance' },
-        { label: 'Evaluations', path: 'evaluations' },
       ],
     },
   ];
@@ -208,19 +190,6 @@ const Sidebar: React.FC = () => {
           </div>
         ))}
 
-        {/* Divider */}
-        <div
-          style={{
-            margin: '8px 20px',
-            height: '1px',
-            background: 'rgba(250, 243, 232, 0.12)',
-          }}
-        />
-
-        {/* Settings */}
-        <SidebarNavItem
-          item={{ label: 'Settings', path: 'settings' }}
-        />
       </nav>
 
       {/* Persona footer */}

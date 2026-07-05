@@ -799,6 +799,12 @@ if [ -f "$REQUIREMENTS" ]; then
         warn "  see /var/log/pellier-pip-install.log"
     else
         log "✅ Backend dependencies installed"
+        if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe" 2>/dev/null; then
+            log "✅ Amazon Transcribe SDK available to backend Python"
+        else
+            warn "amazon-transcribe is missing from backend Python — voice search will fail"
+            warn "  see /var/log/pellier-pip-install.log"
+        fi
     fi
 else
     warn "requirements.txt missing at $REQUIREMENTS — backend will not start"

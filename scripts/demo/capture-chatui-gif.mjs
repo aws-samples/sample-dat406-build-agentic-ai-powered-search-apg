@@ -15,7 +15,7 @@
 //
 // Servers must be running:
 //   npm --prefix pellier/frontend run dev          # → http://localhost:5173
-//   cd pellier/backend && uvicorn app:app --reload --host 0.0.0.0 --port 8000
+//   cd pellier/backend && python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 //
 // Tweakable knobs at the top of main().
 

@@ -85,6 +85,11 @@ EXPECTED_TOOL_NAMES = {
 }
 
 
+def _region_from_arn(arn: str, fallback: str) -> str:
+    match = re.match(r"^arn:[^:]+:[^:]+:([^:]+):", arn or "")
+    return match.group(1) if match else fallback
+
+
 def _run(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     proc = subprocess.run(
         cmd,
@@ -633,6 +638,10 @@ def main() -> int:
         "AGENTCORE_ROLE_ARN": _require_env("AGENTCORE_ROLE_ARN"),
         "COGNITO_TEST_CREDENTIALS_SECRET_ARN": _require_env("COGNITO_TEST_CREDENTIALS_SECRET_ARN"),
     }
+    db_region = os.environ.get("DB_REGION", "").strip() or _region_from_arn(
+        required["DB_CLUSTER_ARN"],
+        required["AWS_REGION"],
+    )
     client_secret_arn = os.environ.get("COGNITO_CLIENT_SECRET_ARN", "").strip() or None
     db_name = os.environ.get("DB_NAME", "pellier")
     model_id = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8")
@@ -649,7 +658,7 @@ def main() -> int:
     }
 
     try:
-        _ensure_data_api_enabled(required["AWS_REGION"], required["DB_CLUSTER_ARN"])
+        _ensure_data_api_enabled(db_region, required["DB_CLUSTER_ARN"])
 
         lambda_arns: dict[str, str] = {}
         for surface, cfg in EXPECTED_TARGETS.items():
@@ -662,6 +671,8 @@ def main() -> int:
                 cfg["server_name"],
                 "--db-cluster-arn",
                 required["DB_CLUSTER_ARN"],
+                "--db-region",
+                db_region,
                 "--secret-arn",
                 required["DB_SECRET_ARN"],
                 "--database",
@@ -756,7 +767,10 @@ def main() -> int:
             cwd=repo,
         )
         gateway_url = gateway_url_proc.stdout.strip()
-        result["gateway"] = {"gateway_id": gateway_id, "gateway_url": gateway_url}
+        result["gateway"] = {
+            "gateway_id": gateway_id,
+            "gateway_url": gateway_url,
+        }
 
         targets_proc = _run(
             [
@@ -862,6 +876,7 @@ def main() -> int:
                 cwd=repo,
             )
             gateway_arn = gateway_arn_proc.stdout.strip()
+            result["gateway"]["gateway_arn"] = gateway_arn
             policy_proc = _run(
                 [
                     "python3", str(deploy_dir / "deploy_policy.py"),

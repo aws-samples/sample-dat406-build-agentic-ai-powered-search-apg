@@ -10,6 +10,7 @@ function normalizeBasePath(raw: string | undefined): string {
 
 const workshopBase = normalizeBasePath(process.env.VITE_BASE_PATH)
 const transcribeWsProxyPrefix = workshopBase ? `${workshopBase}/ws` : '/ws'
+const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8000'
 
 // Configuration for AWS Workshop Studio with CloudFront + VSCode Server
 export default defineConfig({
@@ -54,11 +55,11 @@ export default defineConfig({
     // API + Transcribe WebSocket proxy (Workshop Studio: browser cannot open :8000)
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: backendTarget,
         changeOrigin: true,
       },
       [transcribeWsProxyPrefix]: {
-        target: 'http://localhost:8000',
+        target: backendTarget,
         changeOrigin: true,
         ws: true,
         rewrite: (path) => '/ws' + path.slice(transcribeWsProxyPrefix.length),

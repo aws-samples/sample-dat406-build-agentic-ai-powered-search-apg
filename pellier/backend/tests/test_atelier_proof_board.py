@@ -19,6 +19,21 @@ class _ProofDB:
                 "warehouse_count": 120,
                 "audit_count": 7,
             }
+        if "FROM pellier.governed_receipts" in query:
+            return {
+                "receipt_id": 505,
+                "audit_id": 303,
+                "session_id": "gateway-marco-for-theo-incident",
+                "principal_id": "CUST-MARCO",
+                "principal_label": "Marco (Cognito JWT)",
+                "tool": "process_return",
+                "caller": "gateway",
+                "decision": "ALLOW",
+                "args": {"customer_id": "theo", "product_id": "37", "reason": "damaged"},
+                "policy_engine_id": "policy-1",
+                "policy_name": "process_return_damaged_only",
+                "created_at": None,
+            }
         if params == ("floor_check",):
             return {
                 "audit_id": 101,
@@ -129,12 +144,77 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     body = r.json()
 
     assert body["managedReceipt"]["jwtPassthrough"] is True
+    assert body["managedReceipt"]["governedPrincipalId"] == "CUST-MARCO"
+    assert body["managedReceipt"]["governedDecision"] == "ALLOW"
     cards = {c["id"]: c for c in body["cards"]}
     assert cards["marco-floor-check"]["status"] == "complete"
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
     assert "process_return" in cards["audit-ledger"]["fallback"]["command"]
+
+
+def test_build_state_reports_stock_keeper_midpoint(monkeypatch) -> None:
+    monkeypatch.setattr(
+        atelier_observatory,
+        "_stock_keeper_definition_is_workshop_stub",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        atelier_observatory,
+        "_floor_check_is_workshop_stub",
+        lambda: True,
+    )
+    client = _client(_ProofDB())
+
+    r = client.get("/api/atelier/build-state")
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["agents"]["Stock Keeper"] == "shipped"
+    assert body["tools"]["floor_check"] == "exercise"
+
+
+def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
+    async def _empty(_persona: str) -> list:
+        return []
+
+    async def _episodic(_persona: str) -> list:
+        return [{"id": "ep-1", "content": "order", "substrate": "episodic"}]
+
+    async def _procedural() -> list:
+        return [{"id": "pr-1", "content": "floor_check", "substrate": "procedural"}]
+
+    monkeypatch.setattr(
+        atelier_observatory,
+        "_load_live_working",
+        _empty,
+    )
+    monkeypatch.setattr(
+        atelier_observatory,
+        "_load_live_semantic",
+        _empty,
+    )
+    monkeypatch.setattr(
+        atelier_observatory,
+        "_load_live_episodic",
+        _episodic,
+    )
+    monkeypatch.setattr(
+        atelier_observatory,
+        "_load_live_procedural",
+        _procedural,
+    )
+    client = _client(_ProofDB())
+
+    r = client.get("/api/atelier/memory/marco")
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["semantic"]["source"] == "settling"
+    assert body["semantic"]["items"] == []
+    assert "asynchronous" in body["semantic"]["caveat"]
+    assert body["episodic"]["source"] == "live"
 
 
 def test_readiness_missing_database_is_not_ready(monkeypatch) -> None:

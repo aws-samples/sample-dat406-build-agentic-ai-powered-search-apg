@@ -10,8 +10,9 @@
  *   procedural — Aurora tool_audit aggregate patterns
  *
  * Each substrate carries an explicit ``source`` so the UI can show
- * provenance honestly (live read vs. fixture vs. sketch over a
- * partial schema).
+ * provenance honestly. The governed workshop memory surface does not use
+ * static memory data; semantic memory can be in a settling state while
+ * AgentCore USER_PREFERENCE extraction has not produced records yet.
  */
 
 export type MemorySubstrate = 'working' | 'semantic' | 'episodic' | 'procedural';
@@ -19,13 +20,10 @@ export type MemorySubstrate = 'working' | 'semantic' | 'episodic' | 'procedural'
 /**
  * Provenance of the items in a substrate panel.
  *
- *   live    — read from the real source on this request
- *   fixture — served from a per-persona JSON fixture (DB unreachable
- *             or no rows for this persona; AgentCore not provisioned)
- *   sketch  — derived from a partial schema (e.g. tool_audit lacks
- *             intent/persona columns today). Honest about the gap.
+ *   live     - read from the real source on this request
+ *   settling - read succeeded, but async extraction has not produced records
  */
-export type MemorySource = 'live' | 'fixture' | 'sketch';
+export type MemorySource = 'live' | 'settling';
 
 export interface MemoryItem {
   id: string;
@@ -48,7 +46,7 @@ export interface MemorySubstratePanel {
   source: MemorySource;
   /** Items to render. May be empty (cold start, fresh persona, etc.). */
   items: MemoryItem[];
-  /** Optional one-line caption shown when the panel is sketch-only. */
+/** Optional one-line caption shown when a live source is empty or warming. */
   caveat?: string;
 }
 

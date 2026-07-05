@@ -1,21 +1,18 @@
-"""episodic_memory — Aurora-backed fixture for the workshop's MEMORY · EPISODIC panel.
+"""episodic_memory — Aurora-backed episodic recall for memory panels.
 
 Teaching frame: AgentCore Memory owns session history in production.
 The Atelier demo needs deterministic, pre-seeded episodes so a
-workshop attendee picking "Marco" sees continuity without provisioning
-an AgentCore Memory resource. This module is the OFFLINE FALLBACK —
-the table it reads from is ``pellier.customer_episodic_seed``, seeded by
-migration 003.
+workshop attendee picking "Marco" sees continuity from a real database
+read. The table it reads from is ``pellier.customer_episodic_seed``,
+seeded by migration 003, and later code can blend in orders / returns.
 
 Two callers:
 
 - ``routes/workshop.py`` — invokes ``emit_memory_episodic_panel`` when
   the turn's customer_id is not anonymous so the right-rail telemetry
   tab shows a real MEMORY · EPISODIC card on the resume turn.
-- ``services/agentcore_memory`` (future) — may delegate here when the
-  real AgentCore store returns an empty namespace for a seeded demo
-  customer. Not wired today; this module stays pure-read so the
-  dependency direction remains one-way.
+- ``routes/atelier_observatory.py`` — the Memory page uses direct Aurora
+  reads for episodic state and keeps AgentCore for working / semantic memory.
 
 Failure semantics: on any DB or schema error we emit a skipped panel
 with the error in ``meta`` (same pattern as the Gateway panel) rather

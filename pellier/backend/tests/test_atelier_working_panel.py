@@ -7,8 +7,8 @@ persona's latest storefront session, so the Atelier panel and that API
 agree. Before the fix the overlay scanned the in-memory ``_SESSION_STORE``
 for a ``user-{customer_id}-session-`` prefix — a namespace the anonymous
 storefront never writes (it writes ``anon-{session_id}``) and a store the
-SDK path never populates on a provisioned box — so the panel always fell
-back to its fixture even after the participant made real turns.
+SDK path never populates on a provisioned box — so the panel stayed empty
+after the participant made real turns.
 
 These tests pin the corrected contract:
   * resolve the persona's latest session from ``pellier.tool_audit``
@@ -16,8 +16,8 @@ These tests pin the corrected contract:
   * rebuild the anonymous namespace ``anon-{session_id}``;
   * read it back via ``AgentCoreMemory.get_session_history`` (same path
     the section-3 API uses);
-  * degrade to ``None`` (honest fixture fallback) on no session, empty
-    history, or DB error — never a fabricated ``live``.
+  * degrade to ``[]`` on no session, empty history, or DB error — never a
+    fabricated record and never static memory data.
 
 Uses a stub ``app.db_service`` and a patched ``get_session_history`` so
 the suite runs offline without Aurora or AgentCore.
@@ -109,38 +109,36 @@ def test_working_overlay_resolves_session_and_reads_anon_namespace(
     assert params == ("persona-marco-%",)
 
 
-def test_working_overlay_returns_none_when_no_session(
+def test_working_overlay_returns_empty_when_no_session(
     monkeypatch, patch_memory
 ) -> None:
-    """No tool_audit row for the persona → None so the panel keeps its
-    fixture (a persona who never shopped this session)."""
+    """No tool_audit row for the persona → empty live panel."""
     db = _StubDB(row=None)
     import app
 
     monkeypatch.setattr(app, "db_service", db, raising=False)
     patch_memory([{"role": "user", "content": "unused"}])
 
-    assert _run(ao._load_live_working("marco")) is None
+    assert _run(ao._load_live_working("marco")) == []
 
 
-def test_working_overlay_returns_none_when_history_empty(
+def test_working_overlay_returns_empty_when_history_empty(
     monkeypatch, patch_memory
 ) -> None:
-    """Session resolved but history reads back empty → None (honest
-    fixture, never a fabricated live)."""
+    """Session resolved but history reads back empty → empty live panel."""
     db = _StubDB(row={"session_id": "persona-marco-abc123"})
     import app
 
     monkeypatch.setattr(app, "db_service", db, raising=False)
     patch_memory([])
 
-    assert _run(ao._load_live_working("marco")) is None
+    assert _run(ao._load_live_working("marco")) == []
 
 
-def test_working_overlay_returns_none_on_db_error(
+def test_working_overlay_returns_empty_on_db_error(
     monkeypatch, patch_memory
 ) -> None:
-    """A DB failure is swallowed into None — the panel is a teaching
+    """A DB failure is swallowed into [] — the panel is a teaching
     overlay and must not 500 the memory route."""
     db = _StubDB(raise_exc=RuntimeError("aurora unreachable"))
     import app
@@ -148,15 +146,15 @@ def test_working_overlay_returns_none_on_db_error(
     monkeypatch.setattr(app, "db_service", db, raising=False)
     patch_memory([{"role": "user", "content": "unused"}])
 
-    assert _run(ao._load_live_working("marco")) is None
+    assert _run(ao._load_live_working("marco")) == []
 
 
-def test_working_overlay_returns_none_for_unknown_persona(monkeypatch) -> None:
+def test_working_overlay_returns_empty_for_unknown_persona(monkeypatch) -> None:
     """An unknown persona never touches the DB."""
     db = _StubDB(row={"session_id": "persona-x-1"})
     import app
 
     monkeypatch.setattr(app, "db_service", db, raising=False)
 
-    assert _run(ao._load_live_working("nobody")) is None
+    assert _run(ao._load_live_working("nobody")) == []
     assert db.calls == []

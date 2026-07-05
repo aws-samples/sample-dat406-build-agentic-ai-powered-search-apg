@@ -34,7 +34,7 @@ falls back to system Chrome at
 ```bash
 # 1. start the dev servers (two terminals)
 npm --prefix pellier/frontend run dev
-cd pellier/backend && uvicorn app:app --reload --host 0.0.0.0 --port 8000
+cd pellier/backend && python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 
 # 2. capture
 node scripts/demo/capture-chatui-gif.mjs

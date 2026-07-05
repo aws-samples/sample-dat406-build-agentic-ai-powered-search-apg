@@ -14,11 +14,10 @@ contract.
 Workshop solution contract
 --------------------------
 
-The required workshop path has one starter-code gap:
-``floor_check`` inside ``services/agent_tools.py``. The specialist
-agents are pre-applied by bootstrap; the copy solution is a full
-agent_tools drop-in with the same public tools and a wired
-``floor_check`` body.
+The governed workshop path has two starter-code gaps:
+the Stock Keeper definition in ``agents/stock_keeper.py`` and
+``floor_check`` inside ``services/agent_tools.py``. The copy solutions
+are drop-ins that make each stage safe to recover during a live room.
 
 What this test enforces
 -----------------------
@@ -28,7 +27,8 @@ For every ``(live_path, solution_path)`` pair:
   1. Both files exist.
   2. Both files parse as valid Python (``ast.parse`` smoke).
   3. Live/builder-preapply ``floor_check`` keeps the starter stub.
-  4. The inventory solution keeps the ``product_query`` signature and
+  4. The Stock Keeper definition solution flips its stub flag.
+  5. The inventory solution keeps the ``product_query`` signature and
      calls ``BusinessLogic.floor_check(product_query=...)``.
 
 Scope table
@@ -65,6 +65,12 @@ _SOLUTIONS = _REPO_ROOT / "solutions"
 # ---------------------------------------------------------------------------
 
 _PAIRS = [
+    (
+        "stock-keeper-definition",
+        _BACKEND / "agents" / "stock_keeper.py",
+        _SOLUTIONS / "waking-the-stock-keeper" / "agents" / "stock_keeper_solution.py",
+        "_INVENTORY_AGENT_STUBBED",
+    ),
     (
         "stock-keeper-tools",
         _BACKEND / "services" / "agent_tools.py",

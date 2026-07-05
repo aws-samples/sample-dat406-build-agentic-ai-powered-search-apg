@@ -31,6 +31,15 @@ const proofBoardPayload = {
     rail: 'gateway-mcp',
     jwtPassthrough: true,
     gatewayPassthrough: true,
+    governedReceiptPresent: true,
+    latestGovernedReceiptId: 505,
+    governedPrincipalId: 'CUST-MARCO',
+    governedPrincipalLabel: 'Marco (Cognito JWT)',
+    governedDecision: 'ALLOW',
+    governedTool: 'process_return',
+    governedArgs: { customer_id: 'theo', product_id: '37', reason: 'damaged' },
+    gatewayAuditPresent: true,
+    latestGatewayAuditId: 303,
   },
   cards: [
     {
@@ -88,12 +97,14 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Build, prove, then extend.')).toBeInTheDocument();
+    expect(await screen.findByText('Required evidence, in order.')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('Aurora PostgreSQL')).toBeInTheDocument();
     });
     expect(screen.getByText('AgentCore Gateway')).toBeInTheDocument();
     expect(screen.getByText('gateway-mcp')).toBeInTheDocument();
+    expect(screen.getByText('Marco (Cognito JWT)')).toBeInTheDocument();
+    expect(screen.getByText('ALLOW')).toBeInTheDocument();
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to floor_check',
     );

@@ -29,6 +29,7 @@ BACKEND = REPO_ROOT / "pellier" / "backend"
 DEPLOY = REPO_ROOT / "scripts" / "deploy"
 
 DEPLOY_POLICY = DEPLOY / "deploy_policy.py"
+WORKSHOP_POLICY_RULE = DEPLOY / "workshop_policy_rule.py"
 EXPERIENCE_LAMBDA = DEPLOY / "pellier_experience_server.py"
 DEPLOY_GATEWAY = DEPLOY / "deploy_gateway.py"
 PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
@@ -139,6 +140,16 @@ def test_deploy_policy_compiles_and_exposes_helpers() -> None:
                "create_pellier_policies", "attach_engine_to_gateway",
                "create_action_policy_with_fallback", "_extract_suggested_action"):
         assert hasattr(mod, fn), f"deploy_policy.py must define {fn}"
+
+
+def test_workshop_policy_rule_is_resettable_participant_policy() -> None:
+    src = WORKSHOP_POLICY_RULE.read_text()
+    assert "workshop_final_sale_forbid" in src
+    assert "delete_policy" in src, "participant policy must be removable by reset"
+    assert "process_return" in src and "product_id" in src
+    assert "FINAL_SALE_PRODUCT_ID = 37" in src
+    assert "context.input.product_id ==" in src
+    assert "create_action_policy_with_fallback" in src
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,45 @@ hand them a finished answer or take shortcuts that skip the learning.
 
 Read this whole file before you edit anything.
 
-## The only task you should do here
+## The only tasks you should do here
+
+The governed workshop has two scoped Stock Keeper build sites. Work only on the
+site the participant names in their prompt.
+
+### Task A: complete the Stock Keeper definition
+
+Complete the scaffold in:
+
+```
+pellier/backend/agents/stock_keeper.py
+```
+
+The work lives between these two marker comments:
+
+```
+# === WORKSHOP · Stock Keeper · definition: START ===
+# === WORKSHOP · Stock Keeper · definition: END ===
+```
+
+Fill only the marked definition fields. Do not edit imports, helper functions,
+the `inventory(...)` tool wrapper, or code outside the markers.
+
+Field meanings:
+
+1. The stub flag tells the dispatcher whether to return the deterministic
+   "specialist not fully configured yet" answer.
+2. The system-instructions field should use the Stock Keeper instructions
+   already defined in this module.
+3. The model field should use the reporting model setting, not the editorial
+   Opus setting.
+4. The max-token field should use the reporting/Sonnet ceiling.
+5. The tools field should bind the Stock Keeper tools imported at the top of
+   the file.
+
+There is no temperature field in this code path. Do not add one. The current
+Sonnet profile rejects the deprecated temperature kwarg.
+
+### Task B: wire the `floor_check` tool body
 
 Wire the **`floor_check`** tool body in:
 
@@ -56,18 +94,19 @@ exercise. Instead, derive the body from what is already in the file:
      argument: strip it, and pass `None` (not `""`) when it is empty, so the
      "no query" path is reached cleanly.
 
-That is roughly six lines. Write them yourself from the pattern above; don't
-fetch them from `solutions/`.
+Write the smallest body that follows that pattern. Do not fetch it from
+`solutions/`.
 
 ## Hard rules — do not violate
 
-- **Edit only** the body between the `floor_check` START/END markers in
-  `agent_tools.py`. Nothing else.
+- **Edit only** the marker region the participant names: the Stock Keeper
+  definition markers in `stock_keeper.py` or the `floor_check` START/END
+  markers in `agent_tools.py`. Nothing else.
 - **Never** modify, read-to-copy, or `cp` from `solutions/` — especially
   `solutions/closing-marcos-gap/`. That directory is the reference answer and is
   off-limits for this exercise.
-- **Do not** edit other tools, other files, the docstring, the decorator, the
-  function signature, or any file under `tests/`.
+- **Do not** edit other tools, other files, docstrings, decorators, function
+  signatures, or any file under `tests/`.
 - **Do not** run `git` commands, install packages, restart services, or change
   config. The backend auto-reloads on save (~1s); that is all that is needed.
 - If you get stuck after a try or two, **say so plainly** and tell the
@@ -79,10 +118,14 @@ fetch them from `solutions/`.
 After they save, the body is verified two ways — both already covered in the lab
 guide, identical to the manual path:
 
-- Atelier → **UNDERSTAND → Tools** strip flips from **12/13** to **13/13 shipped**.
-- Boutique → Marco's **Turn 4** pill ("Is the Hadley shirt at the Brooklyn
-  warehouse?") returns a real Brooklyn (`BK-01`) quantity instead of the stub
-  envelope.
+- After Task A, `curl -s http://localhost:8000/api/atelier/build-state |
+  python3 -m json.tool` reports **Stock Keeper** as `shipped` while
+  `floor_check` remains `exercise`.
+- After Task B, Atelier → **UNDERSTAND → Tools** strip flips from **14/15** to
+  **15/15 shipped**.
+- After Task B, Boutique → Marco's **Turn 4** pill ("Is the Hadley shirt at the
+  Brooklyn warehouse?") returns a real Brooklyn (`BK-01`) quantity instead of
+  the stub envelope.
 
 Do **not** point them at `pytest tests/test_solutions_parity.py::test_floor_check_builder_contract`
 to verify the wire. That test is a **repo guard**, not a build check: it asserts

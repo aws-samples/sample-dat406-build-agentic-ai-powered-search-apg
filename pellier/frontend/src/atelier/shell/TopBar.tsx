@@ -30,7 +30,7 @@ function prettifySegment(segment: string): string {
     sessions: 'Sessions',
     observatory: 'Observatory',
     'persona-journeys': 'Persona Journeys',
-    architecture: 'Architecture',
+    architecture: 'Architecture Brief',
     agents: 'Agents',
     skills: 'Skills',
     tools: 'Tools',

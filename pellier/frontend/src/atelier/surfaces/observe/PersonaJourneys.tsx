@@ -196,7 +196,7 @@ const JOURNEYS: PersonaJourney[] = [
       "Gift-giver - observe & learn only. Her five Boutique hero strings are a live demo of Capability 2 (hybrid + rerank); there is no required wiring exercise on this arc. Use Sessions and Observatory to study spans and cost.",
     turns: attachPills(ANNA_TURNS_META, PERSONA_HERO_PILLS.anna, PERSONA_TURN_TRACES.anna),
     capstoneNote:
-      "Recall@5 jumps ~20 points; p50 doubles; cost goes 6×. The Performance card lets you decide - there's no universally right answer per query class.",
+      "Recall@5 jumps ~20 points; p50 doubles; cost goes 6×. The Proof Board keeps the required retrieval checkpoint - there's no universally right answer per query class.",
   },
   {
     id: 'theo',
@@ -435,7 +435,7 @@ const PersonaJourneys: React.FC = () => (
         background: 'var(--dl-ink)',
         border: '1px solid color-mix(in srgb, var(--dl-accent-soft) 18%, transparent)',
         borderRadius: 'var(--dl-r-lg)',
-        fontFamily: 'var(--dl-font-mono)',
+        fontFamily: 'var(--at-mono)',
         fontSize: '12.5px',
         lineHeight: 1.6,
         color: 'var(--dl-accent-soft)',

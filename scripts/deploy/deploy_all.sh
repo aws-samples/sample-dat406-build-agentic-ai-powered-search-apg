@@ -32,6 +32,7 @@ set -euo pipefail
 #   PGHOSTARN          Aurora cluster ARN (search/pricing/rec Lambdas need it)
 #   PGSECRET           Secrets Manager ARN holding the Aurora master credentials
 #   PGDATABASE         Database name (typically `postgres`)
+#   DB_REGION          Aurora/Data API region (defaults to AWS_REGION)
 #   AWS_REGION         AgentCore GA region — `us-west-2` for this workshop
 #   COGNITO_POOL       Cognito User Pool id (Gateway auth + Runtime auth)
 #   COGNITO_CLIENT     Cognito User Pool *client* id (allowed on the Runtime JWT)
@@ -97,6 +98,7 @@ if [ "${#_missing[@]}" -gt 0 ]; then
     return 1 2>/dev/null || exit 1
 fi
 echo "✅ Provisioning inputs validated."
+DB_REGION="${DB_REGION:-$AWS_REGION}"
 echo ""
 
 # ------------------------------------------------------------------
@@ -110,6 +112,7 @@ echo "=== [1/8] Deploying Search Lambda ==="
 uv run "$SCRIPT_DIR/deploy_lambda.py" \
   --server-name pellier-search-server \
   --db-cluster-arn "$PGHOSTARN" \
+  --db-region "$DB_REGION" \
   --secret-arn "$PGSECRET" \
   --database "$PGDATABASE" \
   --mcp-server-path "$SCRIPT_DIR/pellier_search_server.py" \
@@ -130,6 +133,7 @@ echo "=== [2/8] Deploying Pricing Lambda ==="
 uv run "$SCRIPT_DIR/deploy_lambda.py" \
   --server-name pellier-pricing-server \
   --db-cluster-arn "$PGHOSTARN" \
+  --db-region "$DB_REGION" \
   --secret-arn "$PGSECRET" \
   --database "$PGDATABASE" \
   --mcp-server-path "$SCRIPT_DIR/pellier_pricing_server.py" \
@@ -150,6 +154,7 @@ echo "=== [3/8] Deploying Recommendation Lambda ==="
 uv run "$SCRIPT_DIR/deploy_lambda.py" \
   --server-name pellier-recommend-server \
   --db-cluster-arn "$PGHOSTARN" \
+  --db-region "$DB_REGION" \
   --secret-arn "$PGSECRET" \
   --database "$PGDATABASE" \
   --mcp-server-path "$SCRIPT_DIR/pellier_recommend_server.py" \
@@ -176,6 +181,7 @@ echo "=== [4/8] Deploying Experience Lambda ==="
 uv run "$SCRIPT_DIR/deploy_lambda.py" \
   --server-name pellier-experience-server \
   --db-cluster-arn "$PGHOSTARN" \
+  --db-region "$DB_REGION" \
   --secret-arn "$PGSECRET" \
   --database "$PGDATABASE" \
   --mcp-server-path "$SCRIPT_DIR/pellier_experience_server.py" \

@@ -330,7 +330,7 @@ const EmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Check that the architecture fixture data is available and try again.
+      Check that the architecture reference data is available and try again.
     </p>
   </div>
 );
@@ -345,14 +345,23 @@ const ArchitectureIndex: React.FC = () => {
     key: 'architecture',
   });
 
-  const concepts = data ?? [];
+  const labSlugs = new Set([
+    'grounding',
+    'state-management',
+    'skills',
+    'memory',
+    'tool-registry',
+    'runtime',
+    'mcp',
+  ]);
+  const concepts = (data ?? []).filter((concept) => labSlugs.has(concept.slug));
 
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1400px' }}>
       <EditorialTitle
-        eyebrow="Understand · Architecture"
-        title="Architecture"
-        summary="Eight architecture lenses for Pellier. Some are live in the app path, some are optional AgentCore infrastructure, and some are workshop teaching surfaces. Each card says where the idea appears in the codebase."
+        eyebrow="Start Here · Architecture Brief"
+        title="The governed path, compact."
+        summary="A short map of the pieces the labs ask you to prove: Aurora grounding, dispatcher routing, skills, tool registry, memory, Runtime, and Gateway. Use it as orientation, then return to Code Editor or Boutique."
       />
 
       {loading && <LoadingState />}

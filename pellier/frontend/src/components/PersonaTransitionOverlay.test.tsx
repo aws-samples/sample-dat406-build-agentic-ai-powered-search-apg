@@ -57,15 +57,16 @@ describe('PersonaTransitionOverlay', () => {
   it('renders nothing when lastTransition is null', () => {
     const { container } = render(<PersonaTransitionOverlay />)
     // Portal mounts inside document.body, not the container.
-    expect(document.body.textContent).not.toContain('Welcome back')
+    expect(document.body.textContent).not.toContain('Welcome,')
     expect(container.innerHTML).toBe('')
   })
 
   it('shows the sign-in card with the persona name and tagline', () => {
     mockTransition = { id: 1, kind: 'sign-in', persona: marco() }
     render(<PersonaTransitionOverlay />)
-    expect(screen.getByText(/Welcome back, Marco\./)).toBeInTheDocument()
+    expect(screen.getByText(/Welcome, Marco\./)).toBeInTheDocument()
     expect(screen.getByText(/Your thread is still warm/)).toBeInTheDocument()
+    expect(screen.getByAltText('Marco Silva profile')).toBeInTheDocument()
     expect(screen.getByText(/SIGNED IN/i)).toBeInTheDocument()
   })
 
@@ -81,7 +82,7 @@ describe('PersonaTransitionOverlay', () => {
     }
     mockTransition = { id: 10, kind: 'sign-in', persona: theo }
     render(<PersonaTransitionOverlay />)
-    expect(screen.getByText(/Welcome back, Theo\./)).toBeInTheDocument()
+    expect(screen.getByText(/Welcome, Theo\./)).toBeInTheDocument()
     expect(screen.getByText(/Quiet pieces, kept ready/)).toBeInTheDocument()
   })
 

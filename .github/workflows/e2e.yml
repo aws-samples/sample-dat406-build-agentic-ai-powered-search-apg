@@ -124,7 +124,7 @@ jobs:
         working-directory: pellier/backend
         run: |
           pip install -r requirements.txt
-          nohup uvicorn app:app --host 0.0.0.0 --port 8000 >/tmp/backend.log 2>&1 &
+          nohup python -m uvicorn app:app --host 0.0.0.0 --port 8000 >/tmp/backend.log 2>&1 &
           # Wait for /healthz (or /) to respond before moving on.
           for i in $(seq 1 30); do
             if curl -sSf http://localhost:8000/ >/dev/null; then exit 0; fi

@@ -37,7 +37,6 @@ import ProofBoard from './atelier/surfaces/observe/ProofBoard'
 import PersonaJourneys from './atelier/surfaces/observe/PersonaJourneys'
 import ArchitectureIndex from './atelier/surfaces/understand/ArchitectureIndex'
 import ArchitectureDetail from './atelier/surfaces/understand/ArchitectureDetail'
-import Agents from './atelier/surfaces/understand/Agents'
 import Tools from './atelier/surfaces/understand/Tools'
 import Search from './atelier/surfaces/understand/Search'
 import Skills from './atelier/surfaces/understand/Skills'
@@ -193,7 +192,7 @@ function App() {
                   </Route>
                   <Route path="architecture" element={<ArchitectureIndex />} />
                   <Route path="architecture/:concept" element={<ArchitectureDetail />} />
-                  <Route path="agents" element={<Agents />} />
+                  <Route path="agents" element={<Navigate to="/atelier/tools" replace />} />
                   <Route path="tools" element={<Tools />} />
                   <Route path="search" element={<Search />} />
                   <Route path="skills" element={<Skills />} />

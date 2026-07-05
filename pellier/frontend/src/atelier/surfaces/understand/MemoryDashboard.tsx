@@ -3,9 +3,8 @@
  *
  * Shows the live state of working / semantic / episodic / procedural
  * memory for the active persona. Each substrate panel carries a
- * provenance pill ('live' | 'fixture' | 'sketch') so attendees see
- * which reads hit the real source on this request and which fell
- * back to a teaching fixture.
+ * provenance pill so attendees can see whether it read live or is waiting
+ * for asynchronous extraction. Empty means no records yet, not static data.
  */
 
 import React, { useState } from 'react';
@@ -30,8 +29,7 @@ import type {
 
 const SOURCE_COPY: Record<MemorySubstratePanel['source'], { label: string; bg: string; fg: string }> = {
   live: { label: 'Live', bg: 'var(--at-status-shipped-bg)', fg: 'var(--at-status-shipped-text)' },
-  fixture: { label: 'Fixture', bg: 'var(--at-cream-2)', fg: 'var(--at-ink-2)' },
-  sketch: { label: 'Sketch', bg: 'var(--at-cream-2)', fg: 'var(--at-ink-4)' },
+  settling: { label: 'Settling', bg: 'var(--at-status-exercise-bg)', fg: 'var(--at-status-exercise-text)' },
 };
 
 const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ source }) => {
@@ -295,8 +293,8 @@ const EmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Start a conversation in the boutique to build memory, or check that the
-      memory fixture data is available.
+      Start a conversation in the Boutique, or check that AgentCore Memory and
+      Aurora are reachable.
     </p>
   </div>
 );
@@ -326,32 +324,23 @@ function isMemoryPersona(id: string | undefined): id is MemoryPersona {
 const MemoryDashboard: React.FC = () => {
   // Default the local picker to whichever persona is signed in via the
   // top-right switcher. Attendees who haven't signed in (or are on a
-  // persona without seeded memory fixtures) land on Marco — the only
-  // fully-shipped arc — instead of an empty dashboard.
+  // persona without live records yet) land on Marco, the required path persona.
   const { persona: activePersona } = usePersona();
   const initialPersona: MemoryPersona = isMemoryPersona(activePersona?.id)
     ? (activePersona!.id as MemoryPersona)
     : 'marco';
   const [persona, setPersona] = useState<MemoryPersona>(initialPersona);
 
-  // source: 'api' so the dashboard hits /api/atelier/memory/{persona}
-  // and gets the live overlays from the backend (episodic + procedural
-  // from Aurora, working + semantic from AgentCore Memory). Defaults
-  // to 'fixture', which would render every panel as fixture/sketch even
-  // when the database is connected.
+  // Memory is live-only. Disable the static fallback so an API failure is visible.
   const { data, loading, error, refetch } = useAtelierData<MemoryState>({
     key: `memory-${persona}`,
     source: 'api',
+    allowFixtureFallback: false,
   });
 
   const personaCounts = { marco: 1, anna: 1, theo: 1 } as Record<MemoryPersona, number>;
 
-  const hasData =
-    data != null &&
-    (data.working.items.length > 0 ||
-      data.semantic.items.length > 0 ||
-      data.episodic.items.length > 0 ||
-      data.procedural.items.length > 0);
+  const hasData = data != null;
 
   const liveCount = data
     ? [data.working, data.semantic, data.episodic, data.procedural].filter(
@@ -429,7 +418,7 @@ const MemoryDashboard: React.FC = () => {
           to="/atelier/architecture/memory"
           style={{ color: 'var(--at-burgundy)', textDecoration: 'none' }}
         >
-          → Read the architecture brief on Memory
+          → Architecture brief: Memory
         </Link>
       </div>
     </div>

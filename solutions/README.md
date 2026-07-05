@@ -6,20 +6,33 @@ time" escape hatches for the governed workshop path.
 
 ```
 solutions/
-├── the-quiet-search/   → semantic search reference (observe-only)
-├── closing-marcos-gap/ → floor_check + Stock Keeper (Exercise 1)
-└── the-ledger/         → AgentCore production + audit ledger (Exercise 2)
+├── waking-the-stock-keeper/ → Stock Keeper definition scaffold solution
+├── closing-marcos-gap/      → floor_check + Stock Keeper tool solution
+├── the-quiet-search/        → retrieval references + HNSW rebuild SQL
+├── the-ledger/              → AgentCore production + audit ledger
+└── the-concierge/           → Gateway/MCP and Cedar rule references
 ```
 
 ---
 
 ## Workshop required path
 
-**One mandatory code build, one mandatory SQL proof, two optional
-fast-finishers.** The cp commands below are the "short on time" escape
-hatches referenced from each lab page.
+**Two mandatory Act I code checkpoints, one mandatory retrieval/index
+proof, two SQL proofs, and one Cedar reset path.** The cp commands below are the
+"short on time" escape hatches referenced from each lab page.
 
-### Exercise 1 (mandatory) — `floor_check` body (Act I)
+### Exercise 1A (mandatory) — Stock Keeper definition (Act I)
+
+Replaces the governed starter scaffold in `stock_keeper.py` with the
+working Stock Keeper definition. It leaves `floor_check` stubbed so the
+midpoint still proves the tool layer separately.
+
+```bash
+cp solutions/waking-the-stock-keeper/agents/stock_keeper_solution.py \
+   pellier/backend/agents/stock_keeper.py
+```
+
+### Exercise 1B (mandatory) — `floor_check` body (Act I)
 
 Replaces the stubbed `floor_check` tool body with the working
 implementation that calls `BusinessLogic.floor_check()` against
@@ -32,6 +45,16 @@ cp solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py \
 
 Paste-only option (just the 9-line body, between `START` / `END`
 markers): `solutions/closing-marcos-gap/services/floor_check_tool_body.py`.
+
+### Exercise 1C (mandatory) — HNSW index rebuild (Act I)
+
+After participants drop `pellier.product_catalog_embedding_hnsw`, this
+reference rebuilds the exact provisioned pgvector HNSW index and refreshes
+planner statistics.
+
+```bash
+psql -f solutions/the-quiet-search/sql/hnsw_index_lab.sql
+```
 
 ### Exercise 2 (mandatory) — author three queries against `pellier.tool_audit` (Act II)
 
@@ -54,6 +77,28 @@ Bare `psql` picks up the `PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` /
 is needed. It prints the most recent allowed `process_return` session, the
 raw rows, and a JSONB-extracted view; pass an optional customer override
 with `-v customer=<customer_id>` (e.g. `-v customer=theo`).
+
+### Exercise 3 (mandatory) — forensic incident (Act II)
+
+Reconstructs the seeded governed incident: Marco is the authenticated
+principal, but the tool arguments processed a return for Theo. The SQL
+joins `pellier.governed_receipts`, `pellier.tool_audit`,
+`pellier.customers`, `pellier.product_catalog`, and `pellier.orders`.
+
+```bash
+psql -f solutions/the-ledger/sql/forensic_incident.sql
+```
+
+### Exercise 4 (mandatory) — participant Cedar rule (Act III)
+
+The lab has participants author a second `forbid` rule and apply it
+with `scripts/deploy/workshop_policy_rule.py`. The reference Cedar shape
+is here for facilitator recovery:
+
+```bash
+cat solutions/the-concierge/policies/final_sale_forbid.cedar
+python3 scripts/deploy/workshop_policy_rule.py reset
+```
 
 ### Optional fast-finisher A — Anna skill edit (Act I)
 
@@ -78,13 +123,14 @@ cp solutions/the-ledger/services/agentcore_runtime_with_invoke_log.py \
 
 ## What bootstrap pre-applies (reference)
 
-The workshop image ships with everything **already wired except** the
-`floor_check` tool body — participants edit only that one function. At
-provision time `scripts/bootstrap-labs.sh` (the `WORKSHOP_FORMAT=builders`
-block) copies the reference files below into place. This list mirrors the
-actual `copy_solution` calls in that script — it is for transparency and
-manual recovery, not an in-room step. (Keep it in sync if you add a
-pre-apply.)
+The builder-session image ships with everything **already wired except**
+the `floor_check` tool body. The governed two-hour branch deliberately
+keeps the Stock Keeper definition scaffolded too. At provision time
+`scripts/bootstrap-labs.sh` (the `WORKSHOP_FORMAT=builders` block) copies
+the reference files below into place for the one-hour builder flow. This
+list mirrors the actual `copy_solution` calls in that script — it is for
+transparency and manual recovery, not an in-room step. (Keep it in sync if
+you add a pre-apply.)
 
 Dispatcher + specialists (the agents Marco's turns 2/5 use) — note Stock
 Keeper is **not** copied here; it ships live in the repo:
@@ -126,6 +172,5 @@ copy them, because those files already ship live in the repo. They are
 here as readable reference implementations for the Act I rerank
 comparison and the Act III MCP read.
 
-The only file participants change in-room is the `floor_check` body in
-`pellier/backend/services/agent_tools.py` (Exercise 1, with the
-`agent_tools_floor_check_solution.py` escape hatch above).
+In the governed branch, participants complete the Stock Keeper definition,
+wire the `floor_check` body, and rebuild the HNSW index by hand.

@@ -2,11 +2,10 @@
  * PersonaTransitionOverlay — full-screen celebration for sign-in /
  * sign-out moments.
  *
- * Reads PersonaContext.lastTransition. On sign-in: cream card with
- * sans "Welcome back, {name}." (same register as BoutiqueWelcome)
- * + a persona-specific tag line + animated red-1 check. On sign-out:
- * smaller farewell card
- * with "See you soon, {name}." — mirrored but quieter.
+ * Reads PersonaContext.lastTransition. On sign-in: a smooth, centered
+ * portrait lockup, a concise "Welcome, {name}." line, and a
+ * persona-specific tag. On sign-out: smaller farewell card with the
+ * same profile treatment.
  *
  * Auto-dismisses after 2400ms (sign-in) / 1600ms (sign-out). Click
  * anywhere on the overlay to dismiss early. Press Escape to dismiss
@@ -19,8 +18,8 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check } from 'lucide-react'
 import { usePersona } from '../contexts/PersonaContext'
+import { getPersonaPhoto } from '../data/personaPhotos'
 
 const SIGN_IN_DURATION_MS = 2400
 const SIGN_OUT_DURATION_MS = 1600
@@ -45,6 +44,8 @@ function welcomeTagFor(personaId: string): string {
 
 export default function PersonaTransitionOverlay() {
   const { lastTransition, clearTransition } = usePersona()
+  const photoUrl = lastTransition ? getPersonaPhoto(lastTransition.persona.id) : undefined
+  const firstName = lastTransition?.persona.display_name.split(' ')[0] ?? ''
 
   useEffect(() => {
     if (!lastTransition) return
@@ -93,26 +94,64 @@ export default function PersonaTransitionOverlay() {
 
           <motion.div
             className="relative"
-            initial={{ opacity: 0, scale: 0.96, y: 14 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: -6 }}
-            transition={{ type: 'spring', stiffness: 240, damping: 26 }}
+            initial={{ opacity: 0, scale: 0.88, y: 24, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.96, y: -8, filter: 'blur(6px)' }}
+            transition={{ type: 'spring', stiffness: 210, damping: 26, mass: 0.86 }}
             style={{
-              maxWidth: lastTransition.kind === 'sign-in' ? 460 : 380,
+              maxWidth: lastTransition.kind === 'sign-in' ? 440 : 380,
               width: '92vw',
             }}
           >
             <div
               className="text-center"
               style={{
-                background: 'var(--cream-1)',
+                background:
+                  'linear-gradient(180deg, rgba(255,252,247,0.98) 0%, rgba(247,239,226,0.98) 100%)',
                 border: '1px solid var(--rule-1)',
                 borderRadius: 18,
-                boxShadow: '0 24px 80px -16px rgba(31, 20, 16, 0.35)',
+                overflow: 'visible',
+                boxShadow:
+                  '0 28px 80px -20px rgba(31, 20, 16, 0.5), 0 8px 28px rgba(31,20,16,0.18)',
                 padding:
-                  lastTransition.kind === 'sign-in' ? '36px 40px 32px' : '28px 36px 24px',
+                  lastTransition.kind === 'sign-in' ? '34px 34px 32px' : '28px 30px 26px',
               }}
             >
+              <motion.div
+                initial={{ scale: 0.72, y: 12, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                transition={{ delay: 0.12, type: 'spring', stiffness: 210, damping: 20 }}
+                style={{
+                  width: lastTransition.kind === 'sign-in' ? 112 : 82,
+                  height: lastTransition.kind === 'sign-in' ? 112 : 82,
+                  borderRadius: '50%',
+                  margin: '0 auto 18px',
+                  background: lastTransition.persona.avatar_color,
+                  border: '4px solid rgba(255,250,240,0.94)',
+                  boxShadow:
+                    '0 18px 38px rgba(31,20,16,0.28), 0 0 0 1px rgba(31,20,16,0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  color: 'var(--cream-1)',
+                  fontFamily: "'Fraunces Variable', 'Fraunces', Georgia, serif",
+                  fontSize: lastTransition.kind === 'sign-in' ? 42 : 30,
+                  fontWeight: 650,
+                  lineHeight: 1,
+                }}
+              >
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={`${lastTransition.persona.display_name} profile`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  lastTransition.persona.avatar_initial
+                )}
+              </motion.div>
+
               {/* Mono eyebrow — same register as the welcome card */}
               <div
                 style={{
@@ -122,7 +161,7 @@ export default function PersonaTransitionOverlay() {
                   textTransform: 'uppercase',
                   color: 'var(--red-1)',
                   fontWeight: 500,
-                  marginBottom: 18,
+                  marginBottom: 14,
                 }}
               >
                 <span aria-hidden>●</span>&nbsp;&nbsp;
@@ -132,49 +171,6 @@ export default function PersonaTransitionOverlay() {
                 &nbsp;&nbsp;<span aria-hidden>●</span>
               </div>
 
-              {/* Animated check / dash. Sign-in is a red-1 outlined
-                  circle with a check; sign-out is a thinner ink ring
-                  with a long-dash — less celebratory. */}
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.15, type: 'spring', stiffness: 220 }}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  margin: '0 auto 14px',
-                  background:
-                    lastTransition.kind === 'sign-in'
-                      ? 'var(--red-1)'
-                      : 'transparent',
-                  border:
-                    lastTransition.kind === 'sign-in'
-                      ? 'none'
-                      : '1px solid var(--ink-3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {lastTransition.kind === 'sign-in' ? (
-                  <Check
-                    className="h-5 w-5"
-                    style={{ color: 'var(--cream-1)', strokeWidth: 2.5 }}
-                  />
-                ) : (
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 16,
-                      height: 1,
-                      background: 'var(--ink-3)',
-                      display: 'block',
-                    }}
-                  />
-                )}
-              </motion.div>
-
               {/* Sans greeting — matches .sf-greeting on BoutiqueWelcome
                   (readable; avoid heavy italic Fraunces on cream). */}
               <h2
@@ -182,7 +178,7 @@ export default function PersonaTransitionOverlay() {
                   fontFamily: 'var(--sans)',
                   fontStyle: 'normal',
                   fontWeight: 400,
-                  fontSize: lastTransition.kind === 'sign-in' ? 30 : 24,
+                  fontSize: lastTransition.kind === 'sign-in' ? 34 : 25,
                   lineHeight: 1.15,
                   letterSpacing: '-0.015em',
                   color: 'var(--ink-1)',
@@ -191,13 +187,13 @@ export default function PersonaTransitionOverlay() {
               >
                 {lastTransition.kind === 'sign-in' ? (
                   <>
-                    Welcome back,{' '}
-                    {lastTransition.persona.display_name.split(' ')[0]}.
+                    Welcome,{' '}
+                    {firstName}.
                   </>
                 ) : (
                   <>
                     See you soon,{' '}
-                    {lastTransition.persona.display_name.split(' ')[0]}.
+                    {firstName}.
                   </>
                 )}
               </h2>

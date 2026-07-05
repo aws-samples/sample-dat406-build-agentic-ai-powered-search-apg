@@ -97,6 +97,15 @@ else
   ok=false
 fi
 
+# 3b. Governed forensic receipt seed
+receipt_n="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id = 'gateway-marco-for-theo-incident';" || echo '')"
+if [[ "${receipt_n:-0}" =~ ^[0-9]+$ ]] && (( receipt_n == 1 )); then
+  pass "Governed forensic receipt seeded"
+else
+  fail "Governed forensic receipt missing (got: ${receipt_n:-none}). Run 'reset-governed'."
+  ok=false
+fi
+
 # 4. Node version (warn — root-cause diagnostic for the managed pillars below).
 # The @aws/agentcore CLI is Node-based and requires Node >= 20; on Node 18 it
 # crashes at module load (regex `v`/unicodeSets flag) BEFORE doing any work, so
@@ -115,7 +124,7 @@ fi
 if [[ -n "${AGENTCORE_MEMORY_ID:-}" ]]; then
   pass "AGENTCORE_MEMORY_ID set"
 else
-  fail "AGENTCORE_MEMORY_ID is empty — STM will fall back to Aurora session tables"
+  fail "AGENTCORE_MEMORY_ID is empty — working and semantic memory cannot show managed records"
   ok=false
 fi
 
@@ -133,6 +142,12 @@ if [[ -n "${AGENTCORE_GATEWAY_URL:-${MCP_GATEWAY_URL:-}}" ]]; then
 else
   fail "AGENTCORE_GATEWAY_URL empty — Gateway/JWT tool calls cannot run"
   ok=false
+fi
+
+if [[ -n "${AGENTCORE_GATEWAY_ARN:-${GATEWAY_ARN:-}}" ]]; then
+  pass "AGENTCORE_GATEWAY_ARN set"
+else
+  warn "AGENTCORE_GATEWAY_ARN empty — the participant Cedar apply helper needs it. Re-run AgentCore provisioning or set it from get-gateway."
 fi
 
 # 7. Managed AgentCore Policy engine (4th pillar). WARN, not fail: the backend

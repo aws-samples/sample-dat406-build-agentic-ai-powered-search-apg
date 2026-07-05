@@ -81,12 +81,12 @@ describe('Routing surface · LangGraph comparison card', () => {
     ).toContain('StateGraph');
   });
 
-  it('frames the "three patterns, not one graph" editorial header', () => {
+  it('frames the dispatcher-first editorial header', () => {
     renderRouting();
-    // The serif header anchors the editorial difference. A copy edit that
-    // drops "graph" from the header should trip this assertion.
+    // The serif header anchors the required path. A copy edit that
+    // stops naming Dispatcher first should trip this assertion.
     expect(
-      screen.getByText(/three patterns, not one graph/i),
+      screen.getByText(/dispatcher first/i),
     ).toBeInTheDocument();
   });
 

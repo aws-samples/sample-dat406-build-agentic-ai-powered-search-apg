@@ -30,6 +30,7 @@ import pytest
 from strands import Agent
 
 from agents.experience_guide import build_support_agent, support
+from agents import stock_keeper as stock_keeper_module
 from agents.stock_keeper import build_inventory_agent, inventory
 from agents.value_analyst import build_pricing_agent, pricing
 from agents.curator import build_recommendation_agent, recommendation
@@ -69,6 +70,13 @@ def _tool_names(agent: Agent) -> set[str]:
     return set(registry.keys()) if isinstance(registry, dict) else set()
 
 
+def _is_governed_inventory_scaffold(name: str) -> bool:
+    """The governed workshop ships Stock Keeper as a definition exercise."""
+    return name == "inventory" and bool(
+        getattr(stock_keeper_module, "_INVENTORY_AGENT_STUBBED", False)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Factory contract
 # ---------------------------------------------------------------------------
@@ -76,6 +84,11 @@ def _tool_names(agent: Agent) -> set[str]:
 
 @pytest.mark.parametrize("name,factory,expected_tools", SPECIALIST_SPECS, ids=[s[0] for s in SPECIALIST_SPECS])
 def test_factory_returns_real_agent(name: str, factory, expected_tools: set[str]) -> None:
+    if _is_governed_inventory_scaffold(name):
+        with pytest.raises(RuntimeError, match="Stock Keeper definition"):
+            factory()
+        return
+
     agent = factory()
     assert isinstance(agent, Agent), f"{name}: factory must return a Strands Agent"
     assert agent.name == name, (
@@ -108,6 +121,11 @@ def test_factory_anonymous_has_no_persona_wrapper(name: str, factory, _tools: se
     assert persona_preamble_var.get() == "", (
         "persona ContextVar leaked into a later test — earlier test forgot to reset"
     )
+    if _is_governed_inventory_scaffold(name):
+        with pytest.raises(RuntimeError, match="Stock Keeper definition"):
+            factory()
+        return
+
     prompt = factory().system_prompt or ""
     assert PERSONA_WRAPPER not in prompt, (
         f"{name}: anonymous prompt unexpectedly contains the persona wrapper"
@@ -121,6 +139,11 @@ def test_factory_honors_persona_contextvar(name: str, factory, _tools: set[str])
         "PERSONA CONTEXT — TestShopper (CUST-TEST)\nKnown: likes linen\n---"
     )
     try:
+        if _is_governed_inventory_scaffold(name):
+            with pytest.raises(RuntimeError, match="Stock Keeper definition"):
+                factory()
+            return
+
         prompt = factory().system_prompt or ""
         assert PERSONA_WRAPPER in prompt, (
             f"{name}: factory did not inject persona wrapper when ContextVar was set"

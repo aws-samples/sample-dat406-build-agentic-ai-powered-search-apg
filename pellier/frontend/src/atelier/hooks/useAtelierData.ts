@@ -1,10 +1,11 @@
 /**
  * Atelier Observatory — Central data-fetching hook
  *
- * Abstracts fixture vs. API data loading for all Atelier surfaces.
+ * Abstracts static reference data vs. API loading for Atelier surfaces.
  * In fixture mode (default), dynamically imports from /fixtures/ based on key.
- * In API mode, fetches from /api/atelier/* endpoints with transparent fallback
- * to fixture data when the API is unavailable.
+ * In API mode, fetches from /api/atelier/* endpoints. Most reference surfaces
+ * can fall back to static data during local development; live-only surfaces
+ * such as Memory pass allowFixtureFallback=false so API failures are visible.
  *
  * Requirements: 16.1, 16.2, 16.4, 16.5
  */
@@ -17,6 +18,7 @@ export interface UseAtelierDataOptions {
   key: string;
   params?: Record<string, string>;
   source?: DataSource;
+  allowFixtureFallback?: boolean;
 }
 
 export interface UseAtelierDataResult<T> {
@@ -56,9 +58,6 @@ const fixtureImporters: Record<string, () => Promise<{ default: unknown }>> = {
   tools: () => import('../fixtures/tools.json'),
   skills: () => import('../fixtures/skills.json'),
   routing: () => import('../fixtures/routing.json'),
-  'memory-marco': () => import('../fixtures/memory-marco.json'),
-  'memory-anna': () => import('../fixtures/memory-anna.json'),
-  'memory-theo': () => import('../fixtures/memory-theo.json'),
   performance: () => import('../fixtures/performance.json'),
   evaluations: () => import('../fixtures/evaluations.json'),
   observatory: () => import('../fixtures/observatory.json'),
@@ -119,7 +118,12 @@ function buildApiUrl(key: string, params?: Record<string, string>): string {
 export function useAtelierData<T = unknown>(
   options: UseAtelierDataOptions,
 ): UseAtelierDataResult<T> {
-  const { key, params, source = 'fixture' } = options;
+  const {
+    key,
+    params,
+    source = 'fixture',
+    allowFixtureFallback = true,
+  } = options;
 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,7 +148,8 @@ export function useAtelierData<T = unknown>(
           setData(module.default as T);
         }
       } else {
-        // API mode with transparent fallback to fixtures
+        // API mode. Reference surfaces may opt into a static fallback; live
+        // surfaces pass allowFixtureFallback=false and surface the API error.
         try {
           const url = buildApiUrl(key, params);
           const response = await fetch(url);
@@ -159,8 +164,19 @@ export function useAtelierData<T = unknown>(
           if (currentRequestId === requestIdRef.current) {
             setData(json as T);
           }
-        } catch {
-          // API failed — transparently fall back to fixture data
+        } catch (apiErr) {
+          if (!allowFixtureFallback) {
+            if (currentRequestId === requestIdRef.current) {
+              const message =
+                apiErr instanceof Error
+                  ? apiErr.message
+                  : 'API request failed';
+              setError(message);
+              setData(null);
+            }
+            return;
+          }
+          // API failed — fall back only for reference surfaces that allow it.
           const importer = fixtureImporters[key];
           if (importer) {
             try {
@@ -200,7 +216,7 @@ export function useAtelierData<T = unknown>(
         setLoading(false);
       }
     }
-  }, [key, params, source]);
+  }, [key, params, source, allowFixtureFallback]);
 
   useEffect(() => {
     fetchData();

@@ -603,7 +603,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
           backgroundColor: 'var(--dl-ink)',
           border: '1px solid color-mix(in srgb, var(--dl-accent-soft) 18%, transparent)',
           borderRadius: 'var(--dl-r-lg)',
-          fontFamily: 'var(--dl-font-mono)',
+          fontFamily: 'var(--at-mono)',
           fontSize: '13px',
           lineHeight: 1.6,
           color: 'var(--dl-accent-soft)',

@@ -47,7 +47,11 @@ from routes import (
     user_router,
     workshop_router,
 )
-from routes.transcribe import router as transcribe_router
+from routes.transcribe import (
+    TRANSCRIBE_REGION,
+    router as transcribe_router,
+    transcribe_runtime_status,
+)
 
 # Configure logging for Strands SDK
 logging.basicConfig(
@@ -250,16 +254,14 @@ async def lifespan(app: FastAPI):
         # Set chat service logger to INFO
         logging.getLogger('services.chat').setLevel(logging.INFO)
 
-        # Initialize agent tools. The concierge uses pure pgvector
-        # semantic search (``VectorSearch.vector_search``); the hybrid
-        # + rerank pipeline was removed when the concierge switched
-        # to the baseline retrieval teaching surface.
+        # Initialize agent tools. Retrieval tools cover vector, hybrid,
+        # rerank-backed reads, and the governed write-path tools.
         from services.agent_tools import set_db_service, set_main_loop
         set_db_service(db_service)
         # Capture the running lifespan loop (get_running_loop is the correct,
         # non-deprecated call here — we are inside the async startup hook).
         set_main_loop(asyncio.get_running_loop())
-        logger.info("✅ Agent tools initialized with pgvector semantic search")
+        logger.info("✅ Agent tools initialized for retrieval, inventory, and write-path actions")
 
         # Wire the tool_audit writer the same way. Theo's anchor
         # capability persists every mutation to Aurora's pellier.tool_audit
@@ -280,6 +282,19 @@ async def lifespan(app: FastAPI):
         # a glance what the process can actually route to. Keeps parity
         # with the skills loader's "✅ Loaded N skills..." line.
         _log_agent_and_tool_inventory()
+
+        voice_status = transcribe_runtime_status()
+        if voice_status["sdk_available"]:
+            logger.info(
+                "✅ Voice WebSocket mounted at /ws/transcribe (Amazon Transcribe Streaming, region=%s, python=%s)",
+                TRANSCRIBE_REGION,
+                voice_status["python"],
+            )
+        else:
+            logger.warning(
+                "⚠️ Voice WebSocket mounted at /ws/transcribe but amazon-transcribe is not installed for python=%s",
+                voice_status["python"],
+            )
 
         logger.info("🚀 Pellier Boutique API is ready!")
         

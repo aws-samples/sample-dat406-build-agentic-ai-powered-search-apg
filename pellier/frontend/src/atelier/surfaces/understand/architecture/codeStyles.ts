@@ -1,7 +1,7 @@
 import type React from 'react';
 
 export const ARCHITECTURE_CODE_BLOCK: React.CSSProperties = {
-  fontFamily: 'var(--dl-font-mono)',
+  fontFamily: 'var(--at-mono)',
   fontSize: '12.5px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',

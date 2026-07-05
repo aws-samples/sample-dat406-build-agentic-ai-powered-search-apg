@@ -301,15 +301,16 @@ def trace_receipt(
     caller: str = "",
     limit: int = 3,
 ) -> str:
-    """Read recent tool_audit receipts for a session, tool, or caller rail.
+    """Read recent tool_audit and governed receipts for a session, tool, or caller rail.
 
     Use when the shopper or operator asks how Pellier knows, what tool ran,
     whether a Gateway call produced an ALLOW receipt, or how to compare the
     in-process ``caller='agent'`` rail with the managed ``caller='gateway'``
-    rail. This is read-only: it reads pellier.tool_audit and returns compact
-    receipts. No matching row means no ALLOW receipt was written; for governed
-    Gateway demonstrations that is the expected shape of a DENY or missing
-    invocation.
+    rail. This is read-only: it reads pellier.tool_audit as the execution
+    ledger and, when present, pellier.governed_receipts as the identity /
+    Cedar decision receipt. No matching tool_audit row means no ALLOW
+    execution receipt was written; for governed Gateway demonstrations that is
+    the expected shape of a DENY or missing invocation.
 
     Args:
         session_id: Optional exact session id to inspect.
@@ -374,7 +375,49 @@ def trace_receipt(
             for row in rows
         ]
 
-        if not receipts:
+        governed_receipts = []
+        try:
+            governed_rows = _run_async(_db_service.fetch_all(
+                f"""
+                SELECT receipt_id,
+                       audit_id,
+                       session_id,
+                       principal_id,
+                       principal_label,
+                       tool,
+                       caller,
+                       decision,
+                       args,
+                       policy_name,
+                       created_at
+                  FROM pellier.governed_receipts
+                  {where}
+                 ORDER BY receipt_id DESC
+                 LIMIT %s
+                """,
+                *params,
+                safe_limit,
+            ))
+            governed_receipts = [
+                {
+                    "receipt_id": row.get("receipt_id"),
+                    "audit_id": row.get("audit_id"),
+                    "session_id": row.get("session_id"),
+                    "principal_id": row.get("principal_id"),
+                    "principal_label": row.get("principal_label"),
+                    "tool": row.get("tool"),
+                    "caller": row.get("caller"),
+                    "decision": row.get("decision"),
+                    "args": row.get("args"),
+                    "policy_name": row.get("policy_name"),
+                    "created_at": row.get("created_at"),
+                }
+                for row in governed_rows
+            ]
+        except Exception:
+            governed_receipts = []
+
+        if not receipts and not governed_receipts:
             return json.dumps({
                 "status": "no_allow_receipt",
                 "read_only": True,
@@ -395,7 +438,8 @@ def trace_receipt(
             "read_only": True,
             "count": len(receipts),
             "receipts": receipts,
-            "source": "pellier.tool_audit",
+            "governed_receipts": governed_receipts,
+            "sources": ["pellier.tool_audit", "pellier.governed_receipts"],
         }, indent=2, default=_json_default)
     except Exception as e:
         logger.error("trace_receipt error: %s", e)

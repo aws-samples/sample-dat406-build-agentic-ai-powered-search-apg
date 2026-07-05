@@ -124,6 +124,13 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     setError(null)
     lastFinalRef.current = ''
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      const msg = 'Voice search needs a browser with microphone access.'
+      setError(msg)
+      onError?.(msg)
+      return
+    }
+
     // 1. Request mic permission
     let stream: MediaStream
     try {
@@ -149,7 +156,13 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     //    Transcribe, so the search bar stays empty.
     let audioContext: AudioContext
     try {
-      audioContext = new AudioContext()
+      const AudioContextCtor =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!AudioContextCtor) {
+        throw new Error('AudioContext unavailable')
+      }
+      audioContext = new AudioContextCtor()
       if (audioContext.state === 'suspended') {
         await audioContext.resume()
       }
@@ -165,8 +178,10 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
 
     // 3. Open WebSocket to backend
     let ws: WebSocket
+    let wsUrl: string
     try {
-      ws = new WebSocket(getTranscribeWebSocketUrl())
+      wsUrl = getTranscribeWebSocketUrl()
+      ws = new WebSocket(wsUrl)
       ws.binaryType = 'arraybuffer'
     } catch (err) {
       const msg = 'Could not connect to voice service.'
@@ -200,7 +215,8 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     }
 
     ws.onerror = () => {
-      const msg = 'Voice service connection error.'
+      console.warn('Voice service connection error', { url: wsUrl })
+      const msg = 'Voice service is not reachable. Check that the local backend is running, then try again.'
       setError(msg)
       onError?.(msg)
       stopListening()

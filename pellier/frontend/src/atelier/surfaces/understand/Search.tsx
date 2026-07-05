@@ -14,10 +14,9 @@
  * RERANK stage produces. The reordering between FUSION and RERANK is the
  * teaching moment, and it is live data — nothing here is fabricated.
  *
- * This is the *mechanism* view. Performance (EVALUATE · Performance) keeps
- * the *outcome* view — which products win, how fast, at what cost. A
- * code-read walkthrough at the bottom ties the panels back to the real
- * files so a participant can read the layering for themselves.
+ * This is the mechanism view. The Proof Board keeps the required retrieval
+ * checkpoint. A code-read walkthrough at the bottom ties the panels back to
+ * the real files so a participant can read the layering for themselves.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -27,7 +26,7 @@ import { useSearchExplain } from '../../hooks/useSearchExplain';
 import type { SearchStage, SearchTagClass } from '../../types';
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
-  fontFamily: 'var(--dl-font-mono)',
+  fontFamily: 'var(--at-mono)',
   fontSize: '12.5px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
@@ -375,7 +374,7 @@ const CodeReadCard: React.FC = () => (
       }}
     >
       <Link
-        to="/atelier/performance"
+        to="/atelier/proof-board#retrieval-comparison"
         style={{
           fontFamily: 'var(--at-mono)',
           fontSize: '12px',
@@ -389,7 +388,7 @@ const CodeReadCard: React.FC = () => (
           gap: '6px',
         }}
       >
-        See the outcome view · Performance
+        See the required proof · Proof Board
         <span aria-hidden="true" style={{ fontFamily: 'var(--at-serif)' }}>
           →
         </span>
@@ -444,7 +443,7 @@ const Search: React.FC = () => {
       <EditorialTitle
         eyebrow="Understand · Search · embed → vector ∥ lexical → RRF → rerank"
         title="How one query becomes a ranking."
-        summary="Anna's hybrid-search-and-rerank path runs live but is usually invisible. Type a query and watch the real pipeline: a Cohere Embed v4 vector, a pgvector HNSW cosine branch and a Postgres full-text branch running in parallel, Reciprocal Rank Fusion merging the two, and Cohere Rerank v3.5 reordering the survivors. The SQL is the SQL that ran; the reordering is live. This is the mechanism view – Performance keeps the outcome view."
+        summary="Anna's hybrid-search-and-rerank path runs live but is usually invisible. Type a query and watch the real pipeline: a Cohere Embed v4 vector, a pgvector HNSW cosine branch and a Postgres full-text branch running in parallel, Reciprocal Rank Fusion merging the two, and Cohere Rerank v3.5 reordering the survivors. The SQL is the SQL that ran; the reordering is live. The Proof Board keeps the required checkpoint."
       />
 
       {/* Query form + examples */}

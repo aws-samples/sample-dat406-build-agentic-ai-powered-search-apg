@@ -403,7 +403,7 @@ def test_get_user_preferences_sdk_path_uses_correct_signature() -> None:
 # ``get_user_preferences`` serves. get_semantic_memories returns the bare
 # ``preference`` strings, reads via ``namespace_prefix`` against
 # ``/pellier/preferences/{actor_id}/``, and degrades to ``[]`` (never raises,
-# never fabricates) so the route can fall back to the honest fixture.
+# never fabricates) so the route can render an empty live semantic panel.
 
 
 class _SemRecord:
@@ -418,8 +418,8 @@ class _SemRecord:
 
 def test_get_semantic_memories_returns_empty_without_sdk(memory) -> None:
     """With no ``AGENTCORE_MEMORY_ID`` (autouse fixture nulls it), the
-    method SHALL return ``[]`` so the route falls back to the fixture —
-    never a fabricated ``live`` panel."""
+    method SHALL return ``[]`` so the route renders no live semantic
+    records — never fabricated prose."""
     assert _run(memory.get_semantic_memories("CUST-MARCO")) == []
 
 
@@ -483,7 +483,7 @@ def test_get_semantic_memories_skips_malformed_and_empty_records() -> None:
 
 
 def test_get_semantic_memories_returns_empty_on_sdk_error() -> None:
-    """An SDK exception SHALL be swallowed into ``[]`` (honest fallback),
+    """An SDK exception SHALL be swallowed into ``[]`` (empty live state),
     never propagated — the route must not 500 because extraction is flaky."""
 
     class _BoomManager:

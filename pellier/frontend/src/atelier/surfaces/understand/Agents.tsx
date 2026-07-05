@@ -487,7 +487,7 @@ const RelatedCard: React.FC = () => (
           }}
         >
           Routing{' '}
-          <span style={{ color: 'var(--at-red-1)' }}>· three patterns</span>
+          <span style={{ color: 'var(--at-red-1)' }}>· checkpoint</span>
         </div>
         <p
           style={{
@@ -498,12 +498,10 @@ const RelatedCard: React.FC = () => (
             margin: 0,
           }}
         >
-          Three patterns:{' '}
-          <code style={CODE_INLINE}>Dispatcher</code> (active in the boutique),{' '}
-          <code style={CODE_INLINE}>Agents-as-Tools</code>,{' '}
-          <code style={CODE_INLINE}>Graph</code>. The first classifies intent
-          ahead of each turn; the other two re-shape how specialists collaborate.
-          None of the five specialists is a lead – that's the routing layer's job.
+          The required path uses <code style={CODE_INLINE}>Dispatcher</code>:
+          one classified intent, one specialist owner. Agents-as-Tools and Graph
+          are contrast patterns for collaboration or ordered state; they are not
+          extra required paths.
         </p>
         <Link
           to="/atelier/routing"

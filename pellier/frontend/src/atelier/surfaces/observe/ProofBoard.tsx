@@ -33,6 +33,14 @@ interface ManagedReceipt {
   gatewayAuditPresent?: boolean;
   latestGatewayAuditId?: number | null;
   latestGatewayAuditAt?: string;
+  governedReceiptPresent?: boolean;
+  latestGovernedReceiptId?: number | null;
+  latestGovernedReceiptAt?: string;
+  governedPrincipalId?: string;
+  governedPrincipalLabel?: string;
+  governedDecision?: string;
+  governedTool?: string;
+  governedArgs?: Record<string, unknown>;
 }
 
 interface ProofCard {
@@ -329,11 +337,17 @@ const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState
 
 const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
   const gatewayAuditAt = formatTimestamp(receipt.latestGatewayAuditAt);
+  const governedAt = formatTimestamp(receipt.latestGovernedReceiptAt);
+  const customerId = typeof receipt.governedArgs?.customer_id === 'string'
+    ? receipt.governedArgs.customer_id
+    : '';
   const traceSteps: Array<{ label: string; detail: string; state: TraceStepState }> = [
     {
       label: 'Cognito user',
-      detail: receipt.jwtPassthrough ? 'Caller JWT forwarded' : 'Signed-in JWT not observed',
-      state: receipt.jwtPassthrough ? 'pass' : 'pending',
+      detail: receipt.governedPrincipalLabel
+        ? receipt.governedPrincipalLabel
+        : receipt.jwtPassthrough ? 'Caller JWT forwarded' : 'Signed-in JWT not observed',
+      state: receipt.governedReceiptPresent || receipt.jwtPassthrough ? 'pass' : 'pending',
     },
     {
       label: 'Runtime',
@@ -347,17 +361,25 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
     },
     {
       label: 'Cedar decision',
-      detail: receipt.policyConfigured ? 'Policy engine configured' : 'Policy engine id missing',
-      state: receipt.policyConfigured ? (receipt.present ? 'pass' : 'pending') : 'warn',
+      detail: receipt.governedDecision
+        ? `${receipt.governedDecision}${governedAt ? ` at ${governedAt}` : ''}`
+        : receipt.policyConfigured ? 'Policy engine configured' : 'Policy engine id missing',
+      state: receipt.governedReceiptPresent
+        ? 'pass'
+        : receipt.policyConfigured ? (receipt.present ? 'pass' : 'pending') : 'warn',
     },
     {
       label: 'Tool result',
-      detail: receipt.gatewayAuditPresent ? `Gateway audit ${receipt.latestGatewayAuditId}` : 'No Gateway ALLOW row',
+      detail: receipt.gatewayAuditPresent
+        ? `${receipt.governedTool || 'Gateway tool'} audit ${receipt.latestGatewayAuditId}`
+        : 'No Gateway ALLOW row',
       state: receipt.gatewayAuditPresent ? 'pass' : receipt.present ? 'warn' : 'pending',
     },
     {
       label: 'Aurora audit',
-      detail: gatewayAuditAt ? `tool_audit at ${gatewayAuditAt}` : 'DENY leaves no tool_audit row',
+      detail: gatewayAuditAt
+        ? `tool_audit at ${gatewayAuditAt}${customerId ? ` for ${customerId}` : ''}`
+        : 'Gateway DENY leaves no tool_audit row',
       state: receipt.gatewayAuditPresent ? 'pass' : receipt.present ? 'warn' : 'pending',
     },
   ];
@@ -382,7 +404,7 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
           marginBottom: '14px',
         }}
       >
-        <Eyebrow label="Gateway/JWT trace receipt" />
+        <Eyebrow label="Optional Gateway/JWT receipt" />
         <span
           className="font-mono"
           style={{
@@ -392,7 +414,7 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
             textTransform: 'uppercase',
           }}
         >
-          {receipt.present ? receipt.traceKind || 'managed receipt' : 'managed rail pending'}
+          {receipt.present ? receipt.traceKind || 'managed receipt' : 'after SQL proof'}
         </span>
       </div>
       <div
@@ -776,8 +798,8 @@ const ProofBoard: React.FC = () => {
     <div style={{ padding: '40px 48px', maxWidth: '1180px' }}>
       <EditorialTitle
         eyebrow="Required path · proof board"
-        title="Build, prove, then extend."
-        summary="Use this board as the Atelier starting point. Each card maps the workshop flow to live evidence and keeps the terminal fallback next to the UI proof."
+        title="Required evidence, in order."
+        summary="Use this board only when the lab asks for an Atelier check. Required cards come first; managed Runtime and Gateway receipt evidence stays in the optional rail."
       />
 
       {loading && (
@@ -805,7 +827,6 @@ const ProofBoard: React.FC = () => {
       {data && (
         <>
           <ReadinessPanel checks={data.readiness.checks} />
-          <ReceiptStrip receipt={data.managedReceipt} />
 
           <ProofRail
             eyebrow="Required path"
@@ -814,6 +835,7 @@ const ProofBoard: React.FC = () => {
             cards={rails.required}
             activeAnchor={activeAnchor}
           />
+          <ReceiptStrip receipt={data.managedReceipt} />
           <ProofRail
             eyebrow="Fast-finisher path"
             title="Optional managed rail"

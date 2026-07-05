@@ -1,8 +1,9 @@
 """``/api/atelier/*`` — Atelier Observatory read-only API endpoints.
 
 This router provides the backend data layer for the Atelier Observatory
-frontend surfaces. All endpoints are read-only and return fixture data
-initially, with graceful degradation when the database is unavailable.
+frontend surfaces. Most endpoints are read-only reference payloads with
+graceful degradation when a live dependency is unavailable; the memory
+surface is live-only and never serves static memory data.
 
 Endpoints are additive to the existing ``routes/workshop.py`` router
 (which also mounts at ``/api/atelier/``). No path conflicts — workshop
@@ -166,6 +167,16 @@ def _floor_check_is_workshop_stub() -> bool:
     return False
 
 
+def _stock_keeper_definition_is_workshop_stub() -> bool:
+    """True when the Stock Keeper definition still carries the starter stub."""
+    try:
+        from agents import stock_keeper
+
+        return bool(getattr(stock_keeper, "_INVENTORY_AGENT_STUBBED", False))
+    except Exception:
+        return True
+
+
 def _configured(value: Any) -> bool:
     """True when an env/config value is present and non-empty."""
     return bool(str(value or "").strip())
@@ -271,6 +282,61 @@ async def _latest_audit_row(
         return None
 
 
+async def _latest_governed_receipt(
+    *,
+    tool: str | None = None,
+    caller: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Return the latest governed identity/policy receipt, if present."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    if session_id:
+        clauses.append("session_id = %s")
+        params.append(session_id)
+    if tool:
+        clauses.append("tool = %s")
+        params.append(tool)
+    if caller:
+        clauses.append("caller = %s")
+        params.append(caller)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    try:
+        from app import db_service
+        if db_service is None:
+            return None
+        row = await db_service.fetch_one(
+            f"""
+            SELECT receipt_id,
+                   audit_id,
+                   session_id,
+                   principal_id,
+                   principal_label,
+                   tool,
+                   caller,
+                   decision,
+                   args,
+                   policy_engine_id,
+                   policy_name,
+                   created_at
+              FROM pellier.governed_receipts
+              {where}
+             ORDER BY receipt_id DESC
+             LIMIT 1
+            """,
+            *params,
+        )
+        if not row:
+            return None
+        d = dict(row)
+        if d.get("created_at") is not None:
+            d["created_at"] = d["created_at"].isoformat()
+        return d
+    except Exception as exc:
+        logger.debug("Atelier governed receipt unavailable: %s", exc)
+        return None
+
+
 def _latest_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
     """Return the latest managed Runtime/Gateway receipt, if one exists."""
     try:
@@ -351,7 +417,7 @@ async def _collect_readiness() -> dict[str, Any]:
         detail=(
             "AGENTCORE_MEMORY_ID set for working and semantic memory."
             if _configured(settings.AGENTCORE_MEMORY_ID)
-            else "AGENTCORE_MEMORY_ID empty; memory surfaces fall back where possible."
+            else "AGENTCORE_MEMORY_ID empty; working and semantic memory cannot show managed records."
         ),
         href="/atelier/memory",
     ))
@@ -449,6 +515,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     latest_process_return = await _latest_audit_row(tool="process_return")
     latest_audit = await _latest_audit_row()
     latest_gateway = await _latest_audit_row(caller="gateway")
+    latest_governed = await _latest_governed_receipt(caller="gateway")
     managed_receipt = _latest_managed_receipt(session_id)
     policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
 
@@ -465,6 +532,14 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         "gatewayAuditPresent": bool(latest_gateway),
         "latestGatewayAuditId": latest_gateway.get("audit_id") if latest_gateway else None,
         "latestGatewayAuditAt": latest_gateway.get("created_at") if latest_gateway else "",
+        "governedReceiptPresent": bool(latest_governed),
+        "latestGovernedReceiptId": latest_governed.get("receipt_id") if latest_governed else None,
+        "latestGovernedReceiptAt": latest_governed.get("created_at") if latest_governed else "",
+        "governedPrincipalId": latest_governed.get("principal_id") if latest_governed else "",
+        "governedPrincipalLabel": latest_governed.get("principal_label") if latest_governed else "",
+        "governedDecision": latest_governed.get("decision") if latest_governed else "",
+        "governedTool": latest_governed.get("tool") if latest_governed else "",
+        "governedArgs": latest_governed.get("args") if latest_governed else {},
     })
 
     cards = [
@@ -521,7 +596,6 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             },
             "links": [
                 {"label": "Search", "to": "/atelier/search"},
-                {"label": "Performance", "to": "/atelier/performance"},
             ],
         },
         {
@@ -582,7 +656,6 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             },
             "links": [
                 {"label": "Write-path", "to": "/atelier/write-path"},
-                {"label": "Production patterns", "to": "/atelier/production-patterns"},
             ],
         },
         {
@@ -607,6 +680,11 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                     f"Latest gateway audit row: audit_id {latest_gateway.get('audit_id')}"
                     if latest_gateway
                     else "No caller='gateway' audit row found yet"
+                ),
+                (
+                    f"Latest governed receipt: {latest_governed.get('principal_label')} -> {latest_governed.get('decision')}"
+                    if latest_governed
+                    else "No governed identity/policy receipt found yet"
                 ),
             ],
             "fallback": {
@@ -846,47 +924,78 @@ _PERSONA_TO_CUSTOMER_ID = {
 }
 
 
-async def _load_live_episodic(persona: str) -> Optional[list]:
-    """Read the persona's episodic seed rows from Aurora.
-
-    Returns a list of episodic items in the 4-substrate shape, or None
-    when the database is unavailable / no rows exist for the persona.
-    """
+async def _load_live_episodic(persona: str) -> list:
+    """Read persona events, orders, and returns from Aurora."""
     customer_id = _PERSONA_TO_CUSTOMER_ID.get(persona.lower())
     if not customer_id:
-        return None
+        return []
     try:
         from app import db_service
         if db_service is None:
-            return None
+            return []
         rows = await db_service.fetch_all(
             """
-            SELECT id, summary_text, ts_offset_days
-              FROM pellier.customer_episodic_seed
-             WHERE customer_id = %s
-             ORDER BY ts_offset_days DESC NULLS LAST, id DESC
+            WITH events AS (
+                SELECT
+                    'seed-' || id::text AS id,
+                    summary_text AS content,
+                    ts_offset_days,
+                    NULL::timestamptz AS happened_at
+                  FROM pellier.customer_episodic_seed
+                 WHERE customer_id = %s
+                UNION ALL
+                SELECT
+                    'order-' || o.id::text AS id,
+                    'Ordered ' || pc.name || ' (' || pc.color || ')' AS content,
+                    NULL::int AS ts_offset_days,
+                    o.placed_at AS happened_at
+                  FROM pellier.orders o
+                  JOIN pellier.product_catalog pc
+                    ON pc."productId" = o.product_id
+                 WHERE o.customer_id = %s
+                UNION ALL
+                SELECT
+                    'return-' || r.id::text AS id,
+                    'Return ' || r.status || ' for ' || pc.name || ' - reason: ' || r.reason AS content,
+                    NULL::int AS ts_offset_days,
+                    r.requested_at AS happened_at
+                  FROM pellier.returns r
+                  JOIN pellier.product_catalog pc
+                    ON pc."productId" = r.product_id
+                 WHERE r.customer_id = %s
+            )
+            SELECT id, content, ts_offset_days, happened_at
+              FROM events
+             ORDER BY happened_at DESC NULLS LAST,
+                      ts_offset_days DESC NULLS LAST,
+                      id DESC
              LIMIT 20
             """,
             customer_id,
+            customer_id,
+            customer_id,
         )
         if not rows:
-            return None
+            return []
         items = []
         for r in rows:
             d = dict(r)
             items.append({
                 "id": f"ep-live-{d.get('id')}",
-                "content": d.get("summary_text", ""),
+                "content": d.get("content", ""),
                 "substrate": "episodic",
                 "tsOffsetDays": d.get("ts_offset_days"),
+                "timestamp": d.get("happened_at").isoformat()
+                if d.get("happened_at") is not None
+                else None,
             })
         return items
     except Exception as exc:
         logger.warning("Live episodic read failed for %s: %s", persona, exc)
-        return None
+        return []
 
 
-async def _load_live_procedural() -> Optional[list]:
+async def _load_live_procedural() -> list:
     """Aggregate live tool_audit rows into procedural patterns.
 
     Every ALLOWed tool call writes to pellier.tool_audit (reads and
@@ -898,7 +1007,7 @@ async def _load_live_procedural() -> Optional[list]:
     try:
         from app import db_service
         if db_service is None:
-            return None
+            return []
         rows = await db_service.fetch_all(
             """
             SELECT tool,
@@ -911,7 +1020,7 @@ async def _load_live_procedural() -> Optional[list]:
             """,
         )
         if not rows:
-            return None
+            return []
         items = []
         for i, r in enumerate(rows):
             d = dict(r)
@@ -926,10 +1035,10 @@ async def _load_live_procedural() -> Optional[list]:
         return items
     except Exception as exc:
         logger.warning("Live procedural read failed: %s", exc)
-        return None
+        return []
 
 
-async def _load_live_working(persona: str) -> Optional[list]:
+async def _load_live_working(persona: str) -> list:
     """Read the persona's most recent storefront working-memory turns.
 
     This panel is persona-scoped and carries no session id, so we
@@ -940,20 +1049,20 @@ async def _load_live_working(persona: str) -> Optional[list]:
     this persona, rebuild the anonymous namespace the storefront wrote
     under (``anon-{session_id}``), and read it back through
     ``AgentCoreMemory.get_session_history`` — which transparently serves
-    the live AgentCore SDK on a provisioned box and the in-memory
-    fallback otherwise. This is the SAME data ``GET
+    the live AgentCore SDK on a provisioned box or the process-local
+    live session buffer used for offline local development. This is the
+    SAME data ``GET
     /api/agent/session/{id}`` returns, so the panel and that API agree.
 
-    Returns ``None`` (panel falls back to its fixture) when the persona
-    has no storefront session yet or the read comes back empty — an
-    honest ``fixture`` pill, never a fabricated ``live`` one.
+    Returns ``[]`` when the persona has no storefront session yet or the
+    read comes back empty. No fixture data is used.
     """
     if persona.lower() not in _PERSONA_TO_CUSTOMER_ID:
-        return None
+        return []
     try:
         from app import db_service
         if db_service is None:
-            return None
+            return []
         # Scope to this persona so a different persona's later tool call
         # (e.g. Anna carrying over) can't shadow Marco's session — the
         # same guard the section-3 psql query uses.
@@ -968,10 +1077,10 @@ async def _load_live_working(persona: str) -> Optional[list]:
             f"persona-{persona.lower()}-%",
         )
         if not row:
-            return None
+            return []
         session_id = dict(row).get("session_id")
         if not session_id:
-            return None
+            return []
 
         from services.agentcore_identity import AgentCoreIdentityService
         from services.agentcore_memory import AgentCoreMemory
@@ -984,9 +1093,9 @@ async def _load_live_working(persona: str) -> Optional[list]:
         turns = await memory.get_session_history(namespace)
     except Exception as exc:
         logger.warning("Live working read failed for %s: %s", persona, exc)
-        return None
+        return []
     if not turns:
-        return None
+        return []
     items = []
     for i, t in enumerate(turns[-6:]):
         items.append({
@@ -998,7 +1107,7 @@ async def _load_live_working(persona: str) -> Optional[list]:
     return items
 
 
-async def _load_live_semantic(persona: str) -> Optional[list]:
+async def _load_live_semantic(persona: str) -> list:
     """Read durable, *extracted* preferences from AgentCore Memory.
 
     These are the semantic records a ``USER_PREFERENCE`` extraction
@@ -1008,24 +1117,22 @@ async def _load_live_semantic(persona: str) -> Optional[list]:
     dedicated ``get_semantic_memories`` method (NOT
     ``get_user_preferences``, which serves storefront personalization).
 
-    Returns one item per extracted preference string, or None when the
+    Returns one item per extracted preference string, or [] when the
     strategy has not produced records yet (SDK absent, extraction still
-    settling, or memory unprovisioned). The route falls back to the
-    fixture on None, so the panel reads ``fixture`` — never a fake
-    ``live`` — until real extraction lands.
+    settling, or memory unprovisioned). No fixture data is used.
     """
     customer_id = _PERSONA_TO_CUSTOMER_ID.get(persona.lower())
     if not customer_id:
-        return None
+        return []
     try:
         from services.agentcore_memory import AgentCoreMemory
         memory = AgentCoreMemory()
         preferences = await memory.get_semantic_memories(customer_id)
     except Exception as exc:
         logger.warning("Live semantic read failed for %s: %s", persona, exc)
-        return None
+        return []
     if not preferences:
-        return None
+        return []
     items = []
     for idx, pref in enumerate(preferences):
         text = str(pref).strip()
@@ -1036,16 +1143,24 @@ async def _load_live_semantic(persona: str) -> Optional[list]:
             "content": text[:200],
             "substrate": "semantic",
         })
-    return items or None
+    return items
 
 
-def _empty_substrate(label: str, store: str) -> dict:
-    return {
+def _live_substrate(
+    label: str,
+    store: str,
+    caveat: str = "",
+    source: str = "live",
+) -> dict:
+    panel = {
         "label": label,
         "store": store,
-        "source": "fixture",
+        "source": source,
         "items": [],
     }
+    if caveat:
+        panel["caveat"] = caveat
+    return panel
 
 
 @router.get("/memory/{persona}")
@@ -1057,14 +1172,13 @@ async def get_memory(persona: str):
                    latest storefront session (resolved from
                    pellier.tool_audit, read back under anon-{sid} via
                    the same path as GET /api/agent/session/{id}); live
-                   when that session has turns, otherwise the fixture.
+                   when that session has turns.
       semantic   — AgentCore Memory long-term records under
                    /pellier/preferences/{customer_id}/, extracted by a
                    USER_PREFERENCE strategy; live when the strategy has
-                   produced records, otherwise the fixture.
+                   produced records.
       episodic   — pellier.customer_episodic_seed rows; live when the
-                   DB is reachable and the persona has rows, otherwise
-                   the fixture (used by personas with no seed data).
+                   DB is reachable and the persona has rows.
       procedural — pellier.tool_audit aggregate (calls + avg latency
                    per tool, every ALLOWed call - reads and writes
                    alike). Promotes to 'live' when the aggregate
@@ -1082,77 +1196,51 @@ async def get_memory(persona: str):
         _sem_customer_id = _PERSONA_TO_CUSTOMER_ID.get(persona.lower(), persona)
         _sem_store = f"/pellier/preferences/{_sem_customer_id}/"
 
-        data = _load_fixture(f"memory-{persona.lower()}")
-        if data is None:
-            data = {
-                "persona": persona,
-                "working": _empty_substrate(
-                    "Working - AgentCore Memory",
-                    f"anon-persona-{persona}-{{sid}}",
+        data = {
+            "persona": persona,
+            "working": _live_substrate(
+                "Working - AgentCore Memory",
+                f"anon-persona-{persona}-{{sid}}",
+                "No live session turns found yet. Create a Boutique turn for this persona, then reload.",
+            ),
+            "semantic": _live_substrate(
+                "Semantic - AgentCore Memory",
+                _sem_store,
+                (
+                    "No USER_PREFERENCE records found yet. Extraction is "
+                    "asynchronous after conversation; this panel stays empty "
+                    "until AgentCore Memory has durable preference records."
                 ),
-                "semantic": _empty_substrate(
-                    "Semantic - AgentCore Memory",
-                    _sem_store,
-                ),
-                "episodic": _empty_substrate(
-                    "Episodic - Aurora",
-                    "pellier.customer_episodic_seed",
-                ),
-                "procedural": {
-                    **_empty_substrate(
-                        "Procedural - Aurora",
-                        "pellier.tool_audit (aggregate)",
-                    ),
-                    "source": "sketch",
-                    "caveat": (
-                        "tool_audit records every ALLOWed tool call but "
-                        "lacks intent / persona_id / success columns "
-                        "today - this panel sketches the shape the "
-                        "aggregate will take once they land."
-                    ),
-                },
-            }
-        else:
-            # Hand-edited fixtures may still be on the legacy stm/ltm
-            # shape during the migration. Normalize to a safe empty
-            # 4-substrate shell so downstream overlays don't KeyError.
-            for key, label, store in (
-                ("working", "Working - AgentCore Memory",
-                 f"anon-persona-{persona}-{{sid}}"),
-                ("semantic", "Semantic - AgentCore Memory",
-                 _sem_store),
-                ("episodic", "Episodic - Aurora",
-                 "pellier.customer_episodic_seed"),
-                ("procedural", "Procedural - Aurora",
-                 "pellier.tool_audit (aggregate)"),
-            ):
-                if key not in data or not isinstance(data.get(key), dict):
-                    data[key] = _empty_substrate(label, store)
+                "settling",
+            ),
+            "episodic": _live_substrate(
+                "Episodic - Aurora",
+                "pellier.customer_episodic_seed + orders + returns",
+                "No live Aurora events found for this persona yet.",
+            ),
+            "procedural": _live_substrate(
+                "Procedural - Aurora",
+                "pellier.tool_audit (aggregate)",
+                "No live tool_audit rows found yet. Run a turn that calls a tool, then reload.",
+            ),
+        }
 
-        # Live overlays - each promotes source to 'live' on success.
-        ep_live = await _load_live_episodic(persona)
-        if ep_live:
-            data["episodic"]["items"] = ep_live
-            data["episodic"]["source"] = "live"
+        data["working"]["items"] = await _load_live_working(persona)
+        if data["working"]["items"]:
+            data["working"].pop("caveat", None)
 
-        proc_live = await _load_live_procedural()
-        if proc_live:
-            data["procedural"]["items"] = proc_live
-            data["procedural"]["source"] = "live"
-            # Caveat persists even when source flips to 'live' - the
-            # items are real aggregates from tool_audit, but the
-            # schema gap (no intent/persona/success columns) is real
-            # too and worth teaching.
-
-        wk_live = await _load_live_working(persona)
-        if wk_live:
-            data["working"]["items"] = wk_live
-            data["working"]["source"] = "live"
-
-        sem_live = await _load_live_semantic(persona)
-        if sem_live:
-            data["semantic"]["items"] = sem_live
+        data["semantic"]["items"] = await _load_live_semantic(persona)
+        if data["semantic"]["items"]:
             data["semantic"]["source"] = "live"
+            data["semantic"].pop("caveat", None)
+
+        data["episodic"]["items"] = await _load_live_episodic(persona)
+        if data["episodic"]["items"]:
+            data["episodic"].pop("caveat", None)
+
+        data["procedural"]["items"] = await _load_live_procedural()
+        if data["procedural"]["items"]:
+            data["procedural"].pop("caveat", None)
 
         return data
     except Exception as exc:
@@ -1241,10 +1329,10 @@ async def get_architecture():
 async def get_build_state():
     """Shipped vs exercise for agents and tools (fixtures + live lab overlay).
 
-    Loads ``agents.json`` / ``tools.json`` then, when ``floor_check`` in
-    ``services.agent_tools`` is no longer the workshop starter stub,
-    marks ``floor_check`` and **Stock Keeper** as shipped so the Atelier
-    progress strip matches a completed required-path exercise.
+    Loads ``agents.json`` / ``tools.json`` then overlays live workshop
+    state from source files. Stock Keeper is shipped once its definition
+    scaffold is completed; ``floor_check`` is shipped once the tool body
+    no longer returns the starter stub.
 
     Shape matches ``BuildStateApiResponse`` in the frontend ``useBuildState`` hook.
     """
@@ -1263,6 +1351,9 @@ async def get_build_state():
             status = tool.get("status")
             if isinstance(fn, str) and isinstance(status, str):
                 tool_map[fn] = status
+
+        if not _stock_keeper_definition_is_workshop_stub():
+            agent_map["Stock Keeper"] = "shipped"
 
         if not _floor_check_is_workshop_stub():
             tool_map["floor_check"] = "shipped"

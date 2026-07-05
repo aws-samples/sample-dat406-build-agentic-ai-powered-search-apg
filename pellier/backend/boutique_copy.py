@@ -25,7 +25,7 @@ ANNOUNCEMENT = (
     "\u00b7 Summer Edit No. 06 is now live"
 )
 
-PAGE_TITLE = "Pellier - Summer Edit No. 06"
+PAGE_TITLE = "Pellier Summer Edit"
 
 # Top nav (Requirement 1.2.1)
 NAV = {

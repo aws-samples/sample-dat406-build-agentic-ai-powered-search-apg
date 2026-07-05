@@ -2,10 +2,7 @@
  * MemoryDetail - Architecture detail page for Memory.
  *
  * Four substrates (working / semantic / episodic / procedural), each
- * shown in its own panel with explicit provenance: 'live' when the
- * panel was just read from the real source, 'fixture' when it fell
- * back to a per-persona JSON, 'sketch' when the source schema is
- * partial (e.g. tool_audit lacks intent / persona_id columns).
+ * shown in its own panel with honest provenance.
  */
 
 import React from 'react';
@@ -20,20 +17,18 @@ import type {
 } from '../../../types';
 import { ARCHITECTURE_CODE_BLOCK } from './codeStyles';
 
-/* Personas with seeded memory fixtures. Anonymous / unknown personas
- * fall through to Marco — the only fully-shipped persona arc — rather
- * than rendering an empty grid that looks broken. */
+/* Anonymous / unknown personas fall through to Marco, the required path
+ * persona, so the brief starts from the workshop's primary memory path. */
 const MEMORY_PERSONA_IDS: ReadonlySet<string> = new Set(['marco', 'anna', 'theo']);
 
 /* -----------------------------------------------------------------------
  * Source pill - tiny chip beside each panel header so attendees can
- * see at a glance which substrate is reading live vs. falling back.
+ * see whether each substrate read live or is waiting on async extraction.
  * ----------------------------------------------------------------------- */
 
 const SOURCE_COPY: Record<MemorySubstratePanel['source'], { label: string; bg: string; fg: string }> = {
   live: { label: 'Live', bg: 'var(--at-status-shipped-bg)', fg: 'var(--at-status-shipped-text)' },
-  fixture: { label: 'Fixture', bg: 'var(--at-cream-2)', fg: 'var(--at-ink-2)' },
-  sketch: { label: 'Sketch', bg: 'var(--at-cream-2)', fg: 'var(--at-ink-4)' },
+  settling: { label: 'Settling', bg: 'var(--at-status-exercise-bg)', fg: 'var(--at-status-exercise-text)' },
 };
 
 const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ source }) => {
@@ -62,9 +57,7 @@ const SourcePill: React.FC<{ source: MemorySubstratePanel['source'] }> = ({ sour
 };
 
 /* -----------------------------------------------------------------------
- * Provenance legend - one-liner that explains what Live / Fixture /
- * Sketch mean on the source pills, so the chip isn't a mystery the
- * first time an attendee lands on this page.
+ * Provenance legend - one-liner that explains the Live source pill.
  * ----------------------------------------------------------------------- */
 
 const ProvenanceLegend: React.FC = () => (
@@ -84,15 +77,9 @@ const ProvenanceLegend: React.FC = () => (
       <SourcePill source="live" />
       <span>read from the real source on this request</span>
     </span>
-    <span style={{ color: 'var(--at-ink-4)' }}>·</span>
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-      <SourcePill source="fixture" />
-      <span>fell back to seeded JSON</span>
-    </span>
-    <span style={{ color: 'var(--at-ink-4)' }}>·</span>
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-      <SourcePill source="sketch" />
-      <span>backing schema is partial today</span>
+      <SourcePill source="settling" />
+      <span>read succeeded, but async extraction has not produced records yet</span>
     </span>
   </span>
 );
@@ -322,22 +309,17 @@ const TierCard: React.FC<TierCardProps> = ({
 const MemoryDetail: React.FC = () => {
   // Track the global persona from the top-right switcher so the panels
   // reflect the active customer. Anonymous / unknown ids fall back to
-  // Marco (the only fully-shipped persona arc) rather than rendering
-  // an empty grid that would look broken to a workshop attendee.
+  // Marco, the required-path persona.
   const { persona } = usePersona();
   const activePersonaId =
     persona && MEMORY_PERSONA_IDS.has(persona.id) ? persona.id : 'marco';
 
-  // source: 'api' so the page hits /api/atelier/memory/{persona} and
-  // gets the backend's live overlays (episodic from pellier.customer_episodic_seed,
-  // procedural from the pellier.tool_audit aggregate, working/semantic from
-  // AgentCore Memory). Without this, the hook defaults to 'fixture' and
-  // every panel reads from local JSON regardless of whether the database
-  // is reachable — which is what made the source pills show
-  // Fixture / Fixture / Fixture / Sketch even when Aurora was connected.
+  // Memory is live-only. Disable the static fallback so API failures do not
+  // silently render non-live memory data.
   const { data, loading, error, refetch } = useAtelierData<MemoryState>({
     key: `memory-${activePersonaId}`,
     source: 'api',
+    allowFixtureFallback: false,
   });
 
   const liveCount = data
@@ -427,7 +409,7 @@ history = await memory.get_session_history(ns)`}
               category="live"
               title="Extracted preferences"
               role="Learned from turns, read on every relevant turn"
-              prose={`Stable taste signals - fabric, palette, occasion - a USER_PREFERENCE strategy extracts from conversation into durable AgentCore Memory records under /pellier/preferences/{actorId}/. Because extraction is asynchronous, each shopper's preferences are pre-seeded so they read instantly; the panel reads the learned preference strings, falling back to a fixture until they land.`}
+              prose={`Stable taste signals - fabric, palette, occasion - a USER_PREFERENCE strategy extracts from conversation into durable AgentCore Memory records under /pellier/preferences/{actorId}/. Extraction is asynchronous; when no records exist yet, the semantic panel shows Settling rather than calling the state live or showing seeded prose.`}
               codeSnippet={`# Semantic - AgentCore Memory (USER_PREFERENCE)
 prefs = await memory.get_semantic_memories(
     actor_id  # e.g. "CUST-MARCO"
@@ -619,8 +601,8 @@ const MemoryEmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Start a conversation in the boutique to build memory, or check that the
-      memory fixture data is available.
+      Start a conversation in the Boutique, or check that AgentCore Memory and
+      Aurora are reachable.
     </p>
   </div>
 );

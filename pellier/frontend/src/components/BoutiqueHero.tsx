@@ -48,11 +48,11 @@ interface CapabilityItem {
   trail?: string
 }
 const TRUST_ITEMS: CapabilityItem[] = [
-  { lead: 'Live stock checked' },
-  { lead: 'Tailored to your taste' },
-  { lead: 'Gift-ready wrapping' },
-  { lead: 'Natural fibers' },
-  { lead: 'Stylist handoff' },
+  { lead: 'Inventory checked live' },
+  { lead: 'Preferences carried forward' },
+  { lead: 'Gift wrap available' },
+  { lead: 'Linen, cotton, leather' },
+  { lead: 'Stylist handoff available' },
 ]
 
 // Visual treatment per because-chip kind. Same dashed-italic shell, just
@@ -91,7 +91,7 @@ const PERSONA_GATEWAY_COPY: Record<
     learn: "Starts with Anna's gifting shortlist",
   },
   theo: {
-    focus: 'Home rituals',
+    focus: 'Home edit',
     bullets: [
       'Ceramics, stoneware, and washed linen',
       'Slow-craft objects for daily rituals',
@@ -111,16 +111,24 @@ export default function BoutiqueHero() {
   const heroImage = PERSONA_HERO_IMAGES[persona?.id ?? 'fresh'] ?? PERSONA_HERO_IMAGES.fresh
   const personaAccent = persona?.avatar_color ?? 'var(--accent)'
   const [searchValue, setSearchValue] = useState('')
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const hasSearchValue = Boolean(searchValue.trim())
 
   // Amazon Transcribe voice search — interim transcripts fill the
   // search bar, final transcript auto-fires the query.
   const { isListening, startListening, stopListening } = useVoiceSearch({
-    onInterimTranscript: (text) => setSearchValue(text),
+    onInterimTranscript: (text) => {
+      setSearchValue(text)
+      setVoiceError(null)
+    },
     onFinalTranscript: (text) => {
       if (!isSignedIn) return
+      setVoiceError(null)
       setSearchValue('')
       openDrawerWithQuery(text)
     },
+    onError: (message) => setVoiceError(message),
   })
 
   const handleSubmit = useCallback(
@@ -143,7 +151,16 @@ export default function BoutiqueHero() {
     [isSignedIn, openDrawerWithQuery],
   )
 
-  const heroHeadline = splitHeadlineAtRe('Pellier Summer Edit.')
+  const handleVoiceClick = useCallback(() => {
+    if (isListening) {
+      stopListening()
+      return
+    }
+    setVoiceError(null)
+    startListening()
+  }, [isListening, startListening, stopListening])
+
+  const heroHeadline = splitHeadlineAtRe('Pellier Summer Edit')
 
   const marcoBuilderSessionBand = false
 
@@ -335,20 +352,20 @@ export default function BoutiqueHero() {
 
                 {/* Right button: Send when typing, Mic when empty, MicOff when listening */}
                 <button
-                  type={searchValue.trim() ? 'submit' : 'button'}
+                  type={hasSearchValue && !isListening ? 'submit' : 'button'}
                   onClick={
-                    searchValue.trim()
+                    isListening
+                      ? stopListening
+                      : hasSearchValue
                       ? undefined // form submit handles it
-                      : isListening
-                        ? stopListening
-                        : startListening
+                      : handleVoiceClick
                   }
                   aria-label={
-                    searchValue.trim()
+                    isListening
+                      ? 'Stop listening'
+                      : hasSearchValue
                       ? 'Send'
-                      : isListening
-                        ? 'Stop listening'
-                        : 'Voice search'
+                      : 'Voice search'
                   }
                   className="
                     absolute right-[7px] top-1/2 -translate-y-1/2
@@ -370,15 +387,29 @@ export default function BoutiqueHero() {
                     animation: isListening ? 'pulse 1.5s ease-in-out infinite' : 'none',
                   }}
                 >
-                  {searchValue.trim() ? (
-                    <Send size={20} strokeWidth={2} />
-                  ) : isListening ? (
+                  {isListening ? (
                     <MicOff size={20} strokeWidth={1.75} />
+                  ) : hasSearchValue ? (
+                    <Send size={20} strokeWidth={2} />
                   ) : (
                     <Mic size={20} strokeWidth={1.75} />
                   )}
                 </button>
               </div>
+              {(isListening || voiceError) && (
+                <div
+                  className="mt-3 text-center font-sans"
+                  style={{
+                    color: voiceError ? '#9f2d1c' : '#5c4438',
+                    fontSize: '13px',
+                    lineHeight: 1.4,
+                  }}
+                  role={voiceError ? 'alert' : 'status'}
+                  aria-live="polite"
+                >
+                  {voiceError ?? 'Listening with Amazon Transcribe'}
+                </div>
+              )}
                 </form>
 
                 {/* Marco availability variant (lg): labels absolutely positioned on the same
@@ -866,167 +897,327 @@ export default function BoutiqueHero() {
                 )}
               </>
             ) : (
-              <div className="mt-8 md:mt-10 w-full" style={{ maxWidth: '920px' }}>
+              <div className="mt-8 md:mt-10 w-full" style={{ maxWidth: '1080px' }}>
                 <div
-                  className="rounded-[8px] p-4 md:p-6"
-                  style={{
-                    background: 'rgba(31, 20, 16, 0.9)',
-                    border: '1px solid rgba(251, 244, 232, 0.16)',
-                    boxShadow:
-                      '0 10px 28px rgba(31, 20, 16, 0.28), inset 0 1px 0 rgba(251,244,232,0.06)',
-                  }}
+                  className="mb-4 flex flex-col items-center gap-2 md:flex-row md:items-end md:justify-between"
+                  style={{ color: '#1f1410' }}
                 >
-                  <div
-                    className="mb-2 text-center"
-                    style={{
-                      fontFamily: "'Fraunces', Georgia, serif",
-                      fontSize: '13px',
-                      fontStyle: 'italic',
-                      color: 'rgba(251, 244, 232, 0.72)',
-                    }}
-                  >
-                    Personal Shopping Profiles
+                  <div className="text-center md:text-left">
+                    <div
+                      className="font-sans uppercase"
+                      style={{
+                        fontSize: '11px',
+                        letterSpacing: '0.22em',
+                        color: 'rgba(31,20,16,0.58)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Personal shopping profiles
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 3,
+                        fontFamily: "'Fraunces Variable', 'Fraunces', Georgia, serif",
+                        fontSize: '20px',
+                        fontStyle: 'italic',
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      Choose the customer edit to open.
+                    </div>
                   </div>
                   <div
-                    className="mb-3 text-center font-sans uppercase"
+                    className="hidden md:block"
                     style={{
+                      fontFamily: 'var(--mono)',
                       fontSize: '11px',
-                      letterSpacing: '0.18em',
-                      color: 'rgba(251, 244, 232, 0.78)',
-                      fontWeight: 600,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: 'rgba(31,20,16,0.55)',
                     }}
                   >
-                    Choose a customer profile
+                    3 profiles · live catalog · memory scoped
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {LOCAL_PERSONAS.map((p) => {
-                      const profile = PERSONA_GATEWAY_COPY[p.id]
-                      const photoUrl = getPersonaPhoto(p.id)
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          disabled={switching}
-                          onClick={() => void switchPersona(p.id)}
-                          className="rounded-[8px] border cursor-pointer text-left transition-all duration-fade ease-out hover:-translate-y-[1px] hover:shadow-[0_8px_18px_rgba(31,20,16,0.12)] hover:border-[rgba(31,20,16,0.28)] hover:bg-[#f8f0e5] disabled:opacity-60 disabled:cursor-wait"
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {LOCAL_PERSONAS.map((p) => {
+                    const profile = PERSONA_GATEWAY_COPY[p.id]
+                    const profileImage =
+                      PERSONA_HERO_IMAGES[p.id] ?? PERSONA_HERO_IMAGES.fresh
+                    const photoUrl = getPersonaPhoto(p.id)
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        disabled={switching}
+                        data-selected={selectedPersonaId === p.id ? 'true' : undefined}
+                        onClick={() => {
+                          setSelectedPersonaId(p.id)
+                          void switchPersona(p.id).finally(() => {
+                            window.setTimeout(() => setSelectedPersonaId(null), 260)
+                          })
+                        }}
+                        className="group cursor-pointer overflow-hidden rounded-[8px] border text-left transition-all duration-fade ease-out hover:-translate-y-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(31,20,16,0.22)] disabled:cursor-wait disabled:opacity-60"
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          position: 'relative',
+                          zIndex: selectedPersonaId === p.id ? 3 : 1,
+                          transform:
+                            selectedPersonaId === p.id
+                              ? 'translateY(-8px) scale(1.035)'
+                              : undefined,
+                          fontFamily: 'var(--sans)',
+                          color: '#1f1410',
+                          background:
+                            'linear-gradient(180deg, rgba(255,252,247,0.98) 0%, rgba(247,239,226,0.96) 100%)',
+                          borderColor: 'rgba(31,20,16,0.16)',
+                          minHeight: '356px',
+                          boxShadow:
+                            selectedPersonaId === p.id
+                              ? '0 30px 70px rgba(31,20,16,0.34), 0 8px 18px rgba(31,20,16,0.16), inset 0 1px 0 rgba(255,255,255,0.7)'
+                              : '0 18px 42px rgba(31,20,16,0.18), 0 2px 8px rgba(31,20,16,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
+                          transition:
+                            'transform 520ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 520ms cubic-bezier(0.16, 1, 0.3, 1), border-color 360ms ease',
+                        }}
+                      >
+                        <div
                           style={{
-                            fontFamily: 'var(--sans)',
-                            color: '#1f1410',
-                            padding: '12px 12px 11px',
-                            background:
-                              'linear-gradient(180deg, rgba(255,252,248,0.98) 0%, rgba(250,243,232,0.95) 100%)',
-                            borderColor: 'rgba(31,20,16,0.15)',
-                            minHeight: '172px',
-                            boxShadow:
-                              '0 1px 8px rgba(31, 20, 16, 0.05), inset 0 0 0 1px rgba(255,255,255,0.42)',
+                            position: 'relative',
+                            height: 138,
+                            overflow: 'hidden',
+                            background: p.avatar_color,
                           }}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span
-                                style={{
-                                  width: 30,
-                                  height: 30,
-                                  borderRadius: '999px',
-                                  overflow: 'hidden',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: p.avatar_color,
-                                  color: '#fff',
-                                  border: `1px solid ${p.avatar_color}`,
-                                  boxShadow: '0 1px 3px rgba(31,20,16,0.18)',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {photoUrl ? (
-                                  <img
-                                    src={photoUrl}
-                                    alt={`${p.display_name} persona`}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                  />
-                                ) : (
-                                  <span style={{ fontSize: 12, fontWeight: 600 }}>{p.avatar_initial}</span>
-                                )}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: '10px',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.16em',
-                                  color: 'rgba(31,20,16,0.58)',
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {profile?.focus ?? p.role_tag}
-                              </span>
-                            </div>
+                          <img
+                            src={profileImage}
+                            alt=""
+                            aria-hidden="true"
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                            style={{
+                              objectPosition: 'center',
+                              filter: 'brightness(0.86) saturate(0.95) contrast(1.05)',
+                            }}
+                          />
+                          <div
+                            aria-hidden="true"
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background:
+                                'linear-gradient(180deg, rgba(31,20,16,0.18) 0%, rgba(31,20,16,0.72) 100%)',
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: 14,
+                              right: 14,
+                              bottom: 13,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              color: 'var(--cream-warm)',
+                            }}
+                          >
                             <span
                               style={{
-                                fontSize: '8px',
-                                fontWeight: 600,
-                                letterSpacing: '0.12em',
+                                width: 68,
+                                height: 68,
+                                borderRadius: '999px',
+                                overflow: 'hidden',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: p.avatar_color,
+                                color: '#fff',
+                                border: '3px solid rgba(255,250,240,0.92)',
+                                boxShadow:
+                                  '0 14px 28px rgba(31,20,16,0.34), 0 0 0 1px rgba(31,20,16,0.12)',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {photoUrl ? (
+                                <img
+                                  src={photoUrl}
+                                  alt={`${p.display_name} profile`}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span style={{ fontSize: 18, fontWeight: 700 }}>
+                                  {p.avatar_initial}
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              style={{
+                                fontFamily: 'var(--mono)',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                letterSpacing: '0.18em',
+                                lineHeight: 1.2,
                                 textTransform: 'uppercase',
-                                color: p.avatar_color,
-                                border: `1px solid ${p.avatar_color}33`,
-                                background: `${p.avatar_color}14`,
-                                borderRadius: 999,
-                                padding: '2px 7px',
+                                whiteSpace: 'nowrap',
+                                maxWidth: 180,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {profile?.focus ?? p.role_tag}
+                            </span>
+                          </div>
+                          <span
+                            style={{
+                              position: 'absolute',
+                              right: 12,
+                              top: 12,
+                              fontFamily: 'var(--mono)',
+                              fontSize: '9px',
+                              fontWeight: 700,
+                              letterSpacing: '0.12em',
+                              textTransform: 'uppercase',
+                              color: '#1f1410',
+                              border: '1px solid rgba(255,250,240,0.7)',
+                              background: 'rgba(255,250,240,0.84)',
+                              borderRadius: 999,
+                              padding: '5px 8px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {p.role_tag}
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: '18px 18px 16px',
+                            display: 'flex',
+                            flex: 1,
+                            flexDirection: 'column',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'baseline',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                            }}
+                          >
+                            <h3
+                              style={{
+                                margin: 0,
+                                fontFamily:
+                                  "'Fraunces Variable', 'Fraunces', Georgia, serif",
+                                fontSize: '26px',
+                                lineHeight: 1,
+                                fontStyle: 'italic',
+                                fontWeight: 500,
+                                color: '#1f1410',
+                              }}
+                            >
+                              {p.display_name}
+                            </h3>
+                            <span
+                              style={{
+                                fontFamily: 'var(--mono)',
+                                fontSize: '10px',
+                                color: 'rgba(31,20,16,0.54)',
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {p.role_tag}
+                              {p.stats.orders} orders
                             </span>
                           </div>
-                          <div
+
+                          <p
                             style={{
-                              marginTop: 8,
-                              fontSize: '17px',
-                              lineHeight: 1.15,
-                              fontWeight: 600,
-                              color: '#1f1410',
-                              fontFamily: "'Fraunces', Georgia, serif",
-                            }}
-                          >
-                            {p.display_name}
-                          </div>
-                          <div
-                            style={{
-                              marginTop: 8,
-                              fontSize: '12.5px',
+                              margin: '10px 0 0',
+                              minHeight: 38,
+                              fontSize: '13px',
                               lineHeight: 1.45,
-                              color: 'rgba(31,20,16,0.8)',
-                            }}
-                          >
-                            {(profile?.bullets ?? [p.blurb]).map((bullet) => (
-                              <div key={bullet}>• {bullet}</div>
-                            ))}
-                          </div>
-                          <div
-                            style={{
-                              marginTop: 8,
-                              fontSize: '11px',
-                              lineHeight: 1.35,
-                              color: 'rgba(31,20,16,0.62)',
-                              fontWeight: 500,
+                              color: 'rgba(31,20,16,0.72)',
                             }}
                           >
                             {profile?.learn ?? 'Starts with saved taste'}
-                          </div>
+                          </p>
+
                           <div
                             style={{
-                              marginTop: 9,
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              color: '#1f1410',
+                              marginTop: 14,
+                              display: 'grid',
+                              gap: 8,
+                              minHeight: 96,
                             }}
                           >
-                            {switching ? 'Opening edit...' : `Shop as ${p.display_name} →`}
+                            {(profile?.bullets ?? [p.blurb]).slice(0, 3).map((bullet) => (
+                              <div
+                                key={bullet}
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '8px 1fr',
+                                  gap: 9,
+                                  alignItems: 'start',
+                                  fontSize: '13px',
+                                  lineHeight: 1.35,
+                                  color: 'rgba(31,20,16,0.82)',
+                                }}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  style={{
+                                    width: 6,
+                                    height: 6,
+                                    marginTop: 6,
+                                    borderRadius: '999px',
+                                    background: p.avatar_color,
+                                  }}
+                                />
+                                <span>{bullet}</span>
+                              </div>
+                            ))}
                           </div>
-                        </button>
-                      )
-                    })}
-                  </div>
+
+                          <div
+                            style={{
+                              marginTop: 'auto',
+                              paddingTop: 13,
+                              borderTop: '1px solid rgba(31,20,16,0.12)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontFamily: 'var(--mono)',
+                                fontSize: '10px',
+                                color: 'rgba(31,20,16,0.54)',
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {p.stats.visits} visits · {p.stats.last_seen_days}d ago
+                            </span>
+                            <span
+                              className="transition-transform duration-fade group-hover:translate-x-1"
+                              style={{
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                color: '#1f1410',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {switching ? 'Opening...' : 'Open edit ->'}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -1035,7 +1226,7 @@ export default function BoutiqueHero() {
       </div>
     </section>
 
-    {/* Capabilities strip — four agent claims, no retail filler.
+    {/* Capabilities strip - concrete boutique signals, no retail filler.
         Reads live inventory in Aurora · remembers your taste across
         sessions · cites every source it used · hands off to a human
         stylist when it should. The shipping/returns boilerplate moved

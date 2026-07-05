@@ -10,12 +10,18 @@ import shutil
 import logging
 from subprocess import run as Run
 from pathlib import Path
+import re
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 iam_client = None
 lambda_client = None
+
+
+def _region_from_arn(arn: str, fallback: str) -> str:
+  match = re.match(r"^arn:[^:]+:[^:]+:([^:]+):", arn or "")
+  return match.group(1) if match else fallback
 
 def create_iam_role(role_name, trust_policy, policy_document):
   try:
@@ -179,6 +185,7 @@ def main():
   parser.add_argument('--region', help="AWS Region to use.", default=os.getenv("AWS_REGION", "us-west-2"))
   parser.add_argument('--server-name', default='pellier-mcp-server', help='The name of the server deployed by this function.')
   parser.add_argument('--db-cluster-arn', help="Aurora PostgreSQL DB cluster ARN")
+  parser.add_argument('--db-region', help="AWS Region for the Aurora Data API endpoint")
   parser.add_argument('--secret-arn', help="AWS Secrets Manager secret ARN")
   parser.add_argument('--database', help="The name of the database to connect to", default="postgres")
   parser.add_argument('--mcp-server-path', default='./', help='Path to the MCP server entrypoint file.')
@@ -282,7 +289,8 @@ def main():
         raise FileNotFoundError(f"Type definition file not found: {types_path}")
 
     # Build environment variables, only include DB vars if provided
-    env_vars = {'REGION': args.region}
+    db_region = args.db_region or _region_from_arn(args.db_cluster_arn, args.region)
+    env_vars = {'REGION': args.region, 'DB_REGION': db_region}
     if args.db_cluster_arn:
       env_vars['DB_CLUSTER_ARN'] = args.db_cluster_arn
     if args.secret_arn:

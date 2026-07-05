@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
+import { Mic, MicOff, X } from 'lucide-react'
 import { useUI } from '../contexts/UIContext'
 import { useLayout } from '../contexts/LayoutContext'
 import { useCart } from '../contexts/CartContext'
@@ -30,6 +30,7 @@ import {
   useAgentChat,
   type AgentChatMessage,
 } from '../hooks/useAgentChat'
+import { useVoiceSearch } from '../hooks/useVoiceSearch'
 import BoutiqueChatBody from './BoutiqueChatBody'
 import BoutiqueWelcome from './BoutiqueWelcome'
 import '../styles/chat-drawer.css'
@@ -78,6 +79,7 @@ export default function ChatDrawer() {
 
   const isOpen = activeModal === 'drawer'
   const [isMac, setIsMac] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
 
@@ -130,6 +132,19 @@ export default function ChatDrawer() {
     initialMessages,
     persistKey: 'pellier-drawer-storefront',
     sessionId: currentSessionId,
+  })
+
+  const { isListening, startListening, stopListening } = useVoiceSearch({
+    onInterimTranscript: (text) => {
+      setInputValue(text)
+      setVoiceError(null)
+    },
+    onFinalTranscript: (text) => {
+      setInputValue(text)
+      setVoiceError(null)
+      inputRef.current?.focus()
+    },
+    onError: (message) => setVoiceError(message),
   })
 
   // Clear the conversation when the persona changes so the new
@@ -236,13 +251,29 @@ export default function ChatDrawer() {
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
+      if (e.key === 'Enter' && !e.shiftKey && !isLoading && !isListening) {
         e.preventDefault()
         sendMessage()
       }
     },
-    [isLoading, sendMessage],
+    [isLoading, isListening, sendMessage],
   )
+
+  const handleVoiceClick = useCallback(() => {
+    if (isLoading) return
+    if (isListening) {
+      stopListening()
+      return
+    }
+    setVoiceError(null)
+    startListening()
+  }, [isLoading, isListening, startListening, stopListening])
+
+  useEffect(() => {
+    if (!isOpen && isListening) {
+      stopListening()
+    }
+  }, [isOpen, isListening, stopListening])
 
   const hasUserMessages = messages.some(m => m.role === 'user')
   const keycap = isMac ? '⌘K' : 'Ctrl+K'
@@ -353,7 +384,9 @@ export default function ChatDrawer() {
                   onChange={e => setInputValue(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder={
-                    hasUserMessages
+                    isListening
+                      ? 'Listening with Amazon Transcribe...'
+                      : hasUserMessages
                       ? 'Continue the conversation…'
                       : "Tell Pellier what you're looking for…"
                   }
@@ -361,8 +394,19 @@ export default function ChatDrawer() {
                 />
                 <button
                   type="button"
+                  className={`cd-voice ${isListening ? 'is-listening' : ''}`}
+                  disabled={isLoading}
+                  aria-label={isListening ? 'Stop listening' : 'Use microphone'}
+                  aria-pressed={isListening}
+                  onClick={handleVoiceClick}
+                  title={isListening ? 'Stop listening' : 'Use microphone'}
+                >
+                  {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+                <button
+                  type="button"
                   className="cd-send"
-                  disabled={!inputValue.trim() || isLoading}
+                  disabled={!inputValue.trim() || isLoading || isListening}
                   aria-label="Send"
                   onClick={() => sendMessage()}
                 >
@@ -370,7 +414,13 @@ export default function ChatDrawer() {
                 </button>
               </div>
               <div className="cd-foot-meta">
-                <span>Esc to close · {keycap} to focus</span>
+                <span>
+                  {voiceError
+                    ? voiceError
+                    : isListening
+                      ? 'Listening with Amazon Transcribe'
+                      : `Esc to close · ${keycap} to focus`}
+                </span>
                 <span>Conversation persists this session</span>
               </div>
             </div>

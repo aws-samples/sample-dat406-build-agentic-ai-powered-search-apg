@@ -18,6 +18,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import sys
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -30,6 +32,22 @@ router = APIRouter()
 SAMPLE_RATE = 16000
 MEDIA_ENCODING = "pcm"
 LANGUAGE_CODE = "en-US"
+TRANSCRIBE_REGION = os.getenv("TRANSCRIBE_REGION", "us-east-1")
+
+
+def transcribe_runtime_status() -> dict[str, str | bool]:
+    """Return the active backend interpreter's voice-search readiness."""
+    try:
+        import amazon_transcribe  # noqa: F401
+
+        sdk_available = True
+    except ImportError:
+        sdk_available = False
+    return {
+        "sdk_available": sdk_available,
+        "python": sys.executable,
+        "region": TRANSCRIBE_REGION,
+    }
 
 
 async def _transcribe_stream(
@@ -45,7 +63,7 @@ async def _transcribe_stream(
         from amazon_transcribe.handlers import TranscriptResultStreamHandler
         from amazon_transcribe.model import TranscriptEvent
 
-        client = TranscribeStreamingClient(region="us-east-1")
+        client = TranscribeStreamingClient(region=TRANSCRIBE_REGION)
 
         stream = await client.start_stream_transcription(
             language_code=LANGUAGE_CODE,
@@ -95,11 +113,19 @@ async def _transcribe_stream(
         await asyncio.gather(handler_task, feed_task, return_exceptions=True)
 
     except ImportError:
+        python_path = transcribe_runtime_status()["python"]
         logger.warning(
-            "amazon-transcribe SDK not installed. "
-            "Install with: pip install amazon-transcribe"
+            "amazon-transcribe SDK not available in backend interpreter %s. "
+            "Start the backend with pellier/backend/.venv/bin/python -m uvicorn or install the dependency there.",
+            python_path,
         )
-        yield {"type": "error", "text": "Voice search requires amazon-transcribe SDK. Install with: pip install amazon-transcribe"}
+        yield {
+            "type": "error",
+            "text": (
+                "Voice search requires amazon-transcribe in the backend Python "
+                "environment. Start the backend with pellier/backend/.venv/bin/python -m uvicorn."
+            ),
+        }
     except Exception as exc:
         logger.exception("Transcribe streaming error: %s", exc)
         yield {"type": "error", "text": f"Transcribe error: {str(exc)[:200]}"}
@@ -118,7 +144,7 @@ async def websocket_transcribe(websocket: WebSocket):
         { "type": "done" }
     """
     await websocket.accept()
-    logger.info("🎤 Transcribe WebSocket connected")
+    logger.info("🎤 Transcribe WebSocket connected (region=%s)", TRANSCRIBE_REGION)
 
     # Async generator that yields audio chunks from the WebSocket
     audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()

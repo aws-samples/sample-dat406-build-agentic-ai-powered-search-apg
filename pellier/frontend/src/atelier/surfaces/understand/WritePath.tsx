@@ -49,7 +49,7 @@ interface ToolAuditRow {
 }
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
-  fontFamily: 'var(--dl-font-mono)',
+  fontFamily: 'var(--at-mono)',
   fontSize: '12.5px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
@@ -63,7 +63,7 @@ const DARK_CODE_BLOCK: React.CSSProperties = {
 };
 
 const DARK_INLINE_CODE: React.CSSProperties = {
-  fontFamily: 'var(--dl-font-mono)',
+  fontFamily: 'var(--at-mono)',
   fontSize: '11.5px',
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',

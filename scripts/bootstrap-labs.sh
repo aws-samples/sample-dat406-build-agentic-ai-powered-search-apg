@@ -12,7 +12,7 @@ CODE_EDITOR_USER="${CODE_EDITOR_USER:-participant}"
 HOME_FOLDER="${HOME_FOLDER:-/workshop}"
 REPO_NAME="sample-pellier-agentic-search-apg"
 REPO_PATH="$HOME_FOLDER/$REPO_NAME"
-AWS_REGION="${AWS_REGION:-us-west-2}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
@@ -192,7 +192,7 @@ chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH"
 # we want to catch it here before the seeder runs and hits
 # ModuleNotFoundError.
 log "Verifying Python dependencies..."
-if sudo -u "$CODE_EDITOR_USER" python3 -c "import boto3, fastapi, uvicorn, psycopg, strands" 2>/dev/null; then
+if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
     log "✅ Backend dependencies verified"
 else
     warn "Some backend dependencies are missing — re-running pip install"
@@ -200,7 +200,7 @@ else
         sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user \
             -r "$REPO_PATH/pellier/backend/requirements.txt" 2>&1 \
             | tee -a /var/log/pellier-pip-install.log >/dev/null
-        if sudo -u "$CODE_EDITOR_USER" python3 -c "import boto3, fastapi, uvicorn, psycopg, strands" 2>/dev/null; then
+        if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
             log "✅ Backend dependencies recovered"
         else
             warn "Backend dependencies still missing after retry — pellier service will fail to start"
@@ -274,7 +274,7 @@ fi
 log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
-        export AWS_REGION='${AWS_REGION:-us-west-2}'
+        export AWS_REGION='${AWS_REGION:-us-east-1}'
         cd '$REPO_PATH'
         python3 scripts/check_model_access.py --write-env '$REPO_PATH/pellier/backend/.env'
     " 2>&1 | tee /var/log/model-access-preflight.log; then
@@ -397,7 +397,8 @@ setup_database() {
             006_warehouse_inventory.sql \
             007_chat_session_tables.sql \
             008_search_performance_indexes.sql \
-            009_return_policies.sql
+            009_return_policies.sql \
+            010_governed_receipts.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -460,8 +461,9 @@ fi
 # strategy that promotes conversation turns into durable semantic records
 # under /pellier/preferences/{actorId}/. We then pre-bake preference-
 # expressing turns for the three personas so async extraction (~150s) has
-# produced durable records by the time participants open the Atelier — the
-# Semantic panel reads them live instead of serving a fixture.
+# produced durable records by the time participants open the Atelier. The
+# Semantic panel reads AgentCore records live and stays empty if extraction
+# has not landed yet.
 #
 # Why a temp script (not python3 -c): the seed copy contains apostrophes and
 # nested dicts; a quoted heredoc keeps the body literal and avoids the
@@ -654,13 +656,13 @@ def main():
         sys.exit(1)
 
     # Pre-bake only once the strategy is ACTIVE, so events are extraction-
-    # eligible. If it never activates, skip pre-bake (panel stays on the
-    # honest fixture) but still hand back the id so STM works.
+    # eligible. If it never activates, skip pre-bake but still hand back
+    # the id so STM works; the semantic panel will show an empty live state.
     if wait_strategy_active(ctrl, mem_id):
         data_client = boto3.client("bedrock-agentcore", region_name=REGION)
         prebake(data_client, mem_id)
     else:
-        log("  skipping pre-bake (strategy not ACTIVE); semantic panel will use fixture")
+        log("  skipping pre-bake (strategy not ACTIVE); semantic panel will show no records yet")
 
     # ONLY the id on stdout.
     print(mem_id)
@@ -687,7 +689,7 @@ if [ -n "$AGENTCORE_MEMORY_ID" ]; then
     log "✅ AgentCore Memory provisioned: $AGENTCORE_MEMORY_ID"
     log "   USER_PREFERENCE strategy attached; persona preference turns pre-baked."
     log "   Semantic extraction is async (~150s) — the Atelier Semantic panel"
-    log "   reads 'fixture' until the first records land, then flips to 'live'."
+    log "   reads AgentCore records live and stays empty until records land."
     upsert_env "AGENTCORE_MEMORY_ID" "$AGENTCORE_MEMORY_ID" "$REPO_PATH/.env"
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
 else
@@ -785,7 +787,7 @@ agentcore() {
 alias psql='psql'
 
 # AWS Region for boto3
-export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
+export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 
 # Claude Code CLI → Amazon Bedrock (Claude Code lane, Ex 1).
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
@@ -796,7 +798,7 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
 # independent of the app's Opus/Sonnet editorial model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-5}}
-export AWS_REGION=${AWS_REGION:-us-west-2}
+export AWS_REGION=${AWS_REGION:-us-east-1}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix
 # and warns once at startup ("Auto-update failed: no write permission..."). The
@@ -825,6 +827,7 @@ cat >> "/home/$CODE_EDITOR_USER/.bashrc" << 'ALS'
 # never run these. Restart only if you want a clean bounce.
 alias start-backend='sudo systemctl restart pellier && journalctl -fu pellier --no-pager'
 alias rebuild-frontend='bash /workshop/sample-pellier-agentic-search-apg/scripts/rebuild-frontend-builders.sh'
+alias reset-governed='bash /workshop/sample-pellier-agentic-search-apg/scripts/reset-governed-workshop.sh'
 ALS
 
 log "✅ Bash environment configured (.bashrc updated with psql support)"
@@ -852,7 +855,7 @@ if [ -n "$DB_HOST" ]; then
 fi
 
 # Verify Python packages
-if sudo -u "$CODE_EDITOR_USER" python3 -c "import fastapi, uvicorn, strands" 2>/dev/null; then
+if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, fastapi, strands, uvicorn" 2>/dev/null; then
     log "✅ Pellier Backend dependencies verified"
 else
     warn "⚠️  Some Pellier Backend dependencies may be missing"
@@ -881,7 +884,7 @@ rm -f /etc/systemd/system/pellier-backend.service \
       /etc/systemd/system/pellier-frontend.service \
       /etc/systemd/system/pellier-frontend-watcher.service
 
-# --- pellier.service: build frontend (best-effort), then run uvicorn ---
+# --- pellier.service: build frontend (best-effort), then run python -m uvicorn ---
 #
 # ONE unit for BOTH formats. The only per-format difference is whether
 # uvicorn carries --reload: builders participants edit .py files and want
@@ -891,7 +894,7 @@ rm -f /etc/systemd/system/pellier-backend.service \
 # RELOAD_ARGS is computed here so there is a single heredoc, not two.
 # --reload-dir pins the watch to the backend dir (avoids watching
 # frontend/node_modules and re-triggering on dist/ writes).
-if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
+if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-builders}" = "governed" ]; then
     UVICORN_RELOAD_ARGS="--reload --reload-dir $REPO_PATH/pellier/backend"
 else
     UVICORN_RELOAD_ARGS=""
@@ -910,6 +913,7 @@ WorkingDirectory=$REPO_PATH/pellier/backend
 EnvironmentFile=$REPO_PATH/.env
 Environment=PATH=/home/$CODE_EDITOR_USER/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=HOME=/home/$CODE_EDITOR_USER
+Environment=PYTHONUNBUFFERED=1
 # VITE_BASE_PATH is baked into the built bundle so asset URLs match
 # the CloudFront /ports/8000/* reverse-proxy prefix.
 Environment=VITE_BASE_PATH=/ports/8000/
@@ -921,7 +925,7 @@ Environment=VITE_BASE_PATH=/ports/8000/
 # `set -e` aborted bootstrap before uvicorn ever started.
 ExecStartPre=-/bin/bash -c 'cd $REPO_PATH/pellier/backend && python3 generate_mcp_config.py 2>/dev/null || true'
 ExecStartPre=-/bin/bash -c 'cd $REPO_PATH/pellier/frontend && npm run build || true'
-ExecStart=/home/$CODE_EDITOR_USER/.local/bin/uvicorn app:app --host 0.0.0.0 --port 8000 $UVICORN_RELOAD_ARGS
+ExecStart=/usr/bin/python3 -m uvicorn app:app --host 0.0.0.0 --port 8000 $UVICORN_RELOAD_ARGS
 Restart=always
 RestartSec=3
 StandardOutput=append:/tmp/pellier/uvicorn.log
@@ -1003,9 +1007,9 @@ log "✅ Status marker created"
 #
 # Files we explicitly do NOT copy (participants build these):
 #   inside agent_tools.py — the floor_check tool body only
-if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
+if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-builders}" = "governed" ]; then
     log "=========================================="
-    log "Workshop: pre-applying reference files"
+    log "Workshop: processing ${WORKSHOP_FORMAT:-builders} managed path"
     log "=========================================="
 
     copy_solution() {
@@ -1017,6 +1021,8 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
             warn "  builders: $label — source missing at $src (skipped)"
         fi
     }
+
+    if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
 
     # ---- Specialist agents that aren't Stock Keeper ----
     # Curator handles recommendation turns (find_pieces_hybrid, style_match).
@@ -1068,6 +1074,9 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     # dropped in here; the rest are not overwritten.
     copy_solution "solutions/the-ledger/frontend/agentIdentity.ts" \
                   "pellier/frontend/src/utils/agentIdentity.ts" "Frontend agent identity"
+    else
+        log "Governed format: preserving Stock Keeper and floor_check scaffolds for participant build"
+    fi
 
     # ---- AgentCore full managed path (warn-and-continue) ----
     #
@@ -1170,6 +1179,7 @@ EOF
     if [ "$AGENTCORE_OK" = true ]; then
         RUNTIME_ARN="$(jq -r '.runtime.runtime_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         GATEWAY_URL="$(jq -r '.gateway.gateway_url // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        GATEWAY_ARN="$(jq -r '.gateway.gateway_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         POLICY_ENGINE_ID="$(jq -r '.policy.policy_engine_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         MANAGED_STATUS="$(jq -r '.status // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         if [ -z "$RUNTIME_ARN" ] || [ -z "$GATEWAY_URL" ] || [ "$MANAGED_STATUS" != "ready" ]; then
@@ -1182,6 +1192,9 @@ EOF
     if [ "$AGENTCORE_OK" = true ]; then
         upsert_env "AGENTCORE_RUNTIME_ENDPOINT" "$RUNTIME_ARN" "$REPO_PATH/.env"
         upsert_env "MCP_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
+        if [ -n "$GATEWAY_ARN" ]; then
+            upsert_env "AGENTCORE_GATEWAY_ARN" "$GATEWAY_ARN" "$REPO_PATH/.env"
+        fi
         # The backend reads AGENTCORE_GATEWAY_URL (config.py), not MCP_GATEWAY_URL.
         # Write both so the deployed Gateway is reachable for the opt-in Gateway
         # demo. NOTE: this does NOT change the default execution path — the chat
@@ -1213,11 +1226,16 @@ EOF
         # Gateway+Policy invisible). AGENTCORE_RUNTIME_ENDPOINT stays unset
         # on purpose — the health gate keys the Runtime pillar off it.
         PARTIAL_GATEWAY_URL="$(jq -r '.gateway.gateway_url // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        PARTIAL_GATEWAY_ARN="$(jq -r '.gateway.gateway_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         PARTIAL_POLICY_ID="$(jq -r '.policy.policy_engine_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         if [ -n "$PARTIAL_GATEWAY_URL" ]; then
             upsert_env "MCP_GATEWAY_URL" "$PARTIAL_GATEWAY_URL" "$REPO_PATH/.env"
             upsert_env "AGENTCORE_GATEWAY_URL" "$PARTIAL_GATEWAY_URL" "$REPO_PATH/.env"
             log "Salvaged live Gateway endpoint into .env despite failed provisioning"
+        fi
+        if [ -n "$PARTIAL_GATEWAY_ARN" ]; then
+            upsert_env "AGENTCORE_GATEWAY_ARN" "$PARTIAL_GATEWAY_ARN" "$REPO_PATH/.env"
+            log "Salvaged live Gateway ARN into .env despite failed provisioning"
         fi
         if [ -n "$PARTIAL_POLICY_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$PARTIAL_POLICY_ID" "$REPO_PATH/.env"
@@ -1267,20 +1285,20 @@ EOF
     # once so it picks them up. systemd owns the process — no nohup, no PID
     # file, no second backend fighting for :8000. A restart failure is
     # non-fatal (the health gate reports it); --reload keeps the live-edit DX.
-    log "Restarting pellier service to pick up builders solutions + AgentCore env..."
+    log "Restarting pellier service to pick up ${WORKSHOP_FORMAT:-builders} env..."
     systemctl restart pellier || warn "pellier restart failed — check: journalctl -u pellier"
 
     sleep 8
     if systemctl is-active --quiet pellier; then
-        log "✅ Builders: pellier service running with --reload (systemd)"
+        log "✅ ${WORKSHOP_FORMAT:-builders}: pellier service running (systemd)"
     else
         warn "pellier service not active after restart — check: journalctl -u pellier"
     fi
 
-    log "✅ Builders solutions applied, pellier service restarted"
+    log "✅ ${WORKSHOP_FORMAT:-builders} managed path processed, pellier service restarted"
 fi
 
-if [ "${WORKSHOP_FORMAT:-builders}" != "builders" ]; then
+if [ "${WORKSHOP_FORMAT:-builders}" != "builders" ] && [ "${WORKSHOP_FORMAT:-builders}" != "governed" ]; then
     write_status_json "complete" "not_applicable" ""
 fi
 
@@ -1387,7 +1405,7 @@ echo "✅ Database setup complete (40 products + warehouse inventory)"
 echo "✅ MCP server config written to pellier/config/mcp-server-config.json"
 echo "✅ Bash environment configured (psql ready)"
 if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
-    echo "✅ pellier systemd service enabled — uvicorn --reload on :8000 (live .py edits)"
+    echo "✅ pellier systemd service enabled — python3 -m uvicorn --reload on :8000 (live .py edits)"
 else
     echo "✅ pellier systemd service enabled (single process on :8000)"
 fi

@@ -705,13 +705,10 @@ const DispatcherIntentCard: React.FC = () => (
 );
 
 /* -----------------------------------------------------------------------
- * LangGraph comparison card
+ * Routing comparison card
  *
- * Pins the editorial difference between Strands' three patterns and
- * LangGraph's single-graph mental model. Operators arriving from a
- * LangChain/LangGraph background ask the same question every workshop:
- * "where's the graph?" — this card answers it without the surface
- * pretending the comparison is a feature toggle.
+ * Keeps the comparison available as reference while making the required
+ * Dispatcher path the main point of the surface.
  * ----------------------------------------------------------------------- */
 
 interface LangGraphMapping {
@@ -743,7 +740,7 @@ const LANGGRAPH_MAPPINGS: LangGraphMapping[] = [
 
 const LangGraphComparisonCard: React.FC = () => (
   <ExpCard>
-    <Eyebrow label="Coming from LangGraph · the editorial difference" />
+    <Eyebrow label="Reference · when routing gets heavier" />
     <h3
       style={{
         fontFamily: 'var(--at-serif)',
@@ -753,7 +750,7 @@ const LangGraphComparisonCard: React.FC = () => (
         color: 'var(--at-ink-1)',
       }}
     >
-      Three patterns, not one graph.
+      Dispatcher first; graph only when the shape earns it.
     </h3>
     <p
       style={{
@@ -907,12 +904,12 @@ const Routing: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Routing · three patterns"
+        eyebrow="Act III · Routing checkpoint"
         title="How requests find their specialist."
         summary={
           activePattern
-            ? `Three orchestration strategies. ${activePattern.name} is the active pattern for boutique sessions – it classifies intent and dispatches to the best-fit specialist. The other two are alternative patterns you can explore.`
-            : 'Three orchestration strategies for routing requests to specialist agents. Each pattern takes a different approach to intent classification and agent coordination.'
+            ? `${activePattern.name} is the required storefront path: classify the turn, load any skill context, and hand off to one specialist. The other patterns are contrast points for when a turn needs collaboration or ordered state.`
+            : 'The required storefront path classifies each turn and gives it one specialist owner.'
         }
       />
 
@@ -931,7 +928,7 @@ const Routing: React.FC = () => {
           }}
         >
           <ExpCard>
-            <Eyebrow label="Explore patterns" />
+            <Eyebrow label="Required read" />
             <p
               style={{
                 fontFamily: 'var(--at-sans)',
@@ -941,9 +938,9 @@ const Routing: React.FC = () => {
                 margin: '8px 0 14px',
               }}
             >
-              Pick a pattern to compare orchestration styles. Boutique sessions use{' '}
-              <Emphasis>Dispatcher</Emphasis> today – the others are alternatives you
-              can trace in Observatory telemetry.
+              Boutique sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
+              buttons only to compare where the other patterns would fit; the lab
+              proof stays on the dispatcher path unless a step says Gateway rail.
             </p>
             <ModeStrip
               patterns={patterns.map((p) => p.name)}
@@ -1027,7 +1024,7 @@ const Routing: React.FC = () => {
           to="/atelier/architecture/state-management"
           style={{ color: 'var(--at-burgundy)', textDecoration: 'none' }}
         >
-          → Read the architecture brief on Routing & State
+          → Architecture brief: Routing & State
         </Link>
       </div>
     </div>

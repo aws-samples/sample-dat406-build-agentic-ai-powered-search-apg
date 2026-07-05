@@ -8,13 +8,14 @@
 --
 --   1. An agent (Experience Guide on Opus 4.8 at 0.2) calls a @tool
 --      that mutates Aurora — process_return.
---   2. Cedar gates the call BEFORE it executes (BeforeToolCallEvent).
---      Bad reason → DENY → no row written.
+--   2. On the managed Gateway rail, AgentCore Policy gates the call
+--      before the Lambda executes. Bad reason → DENY → no Gateway
+--      tool_audit row because the tool never ran.
 --   3. SQL gates ownership inside the transaction. Customer doesn't
 --      own the product → reject before INSERT.
 --   4. INSERT into pellier.returns + (if reason='damaged') UPDATE
 --      quantity in pellier.product_catalog. Both in one transaction.
---   5. AfterToolCallEvent persists the call to pellier.tool_audit so
+--   5. The execution rail persists the call to pellier.tool_audit so
 --      the mutation has a paper trail readable from /atelier — every
 --      mutation is reconstructible from a single SELECT.
 --

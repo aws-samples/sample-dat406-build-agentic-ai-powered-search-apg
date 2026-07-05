@@ -93,19 +93,19 @@ _INVENTORY_SYSTEM_PROMPT = (
 # WORKSHOP_EXERCISE_STUB
 #
 # Field 1: set False only after the definition fields below are complete.
-_INVENTORY_AGENT_STUBBED = True
+_INVENTORY_AGENT_STUBBED = False
 
 # Field 2: Stock Keeper's system instructions.
-_INVENTORY_SYSTEM_PROMPT_FOR_AGENT = ""
+_INVENTORY_SYSTEM_PROMPT_FOR_AGENT = _INVENTORY_SYSTEM_PROMPT
 
 # Field 3: the reporting model id for factual stock answers.
-_INVENTORY_MODEL_ID = ""
+_INVENTORY_MODEL_ID = settings.BEDROCK_REPORTING_MODEL
 
 # Field 4: the reporting max-token ceiling.
-_INVENTORY_MAX_TOKENS = 0
+_INVENTORY_MAX_TOKENS = settings.AGENT_MAX_TOKENS_SONNET
 
 # Field 5: the three tools Stock Keeper owns.
-_INVENTORY_TOOLS = []
+_INVENTORY_TOOLS = [floor_check, restock_shelf, running_low]
 #
 # Source delta: Stock Keeper has no temperature field. Sonnet 5 rejects the
 # deprecated temperature kwarg, so the correct definition omits it.

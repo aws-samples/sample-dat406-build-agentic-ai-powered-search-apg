@@ -51,7 +51,7 @@ export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   },
 ];
 
-export const PAGE_TITLE = "Pellier - Summer Edit No. 06";
+export const PAGE_TITLE = "Pellier Summer Edit";
 
 // Top nav (Requirement 1.2.1)
 export const NAV = {
@@ -91,8 +91,8 @@ export const SEARCH_PILL_PLACEHOLDER =
 // Hero headline block that sits above the rotating stage.
 export const HERO_HEADLINE = {
   EYEBROW: "Summer Edit \u00b7 No. 06",
-  TITLE_TOP: "Search,", // copy-allow: search-as-verb
-  TITLE_BOTTOM: "re:Engineered.",
+  TITLE_TOP: "Pellier",
+  TITLE_BOTTOM: "Summer Edit",
   SUBHEADLINE: "Tell Pellier what you're looking for. Watch the pieces find you.",
 } as const;
 

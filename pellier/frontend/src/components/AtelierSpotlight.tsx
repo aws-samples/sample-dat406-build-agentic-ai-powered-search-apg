@@ -43,7 +43,7 @@ const STEPS: SpotlightStep[] = [
     numeral: 'III',
     kicker: 'On the right',
     headline: 'The reasoning',
-    body: "Three tabs. Telemetry replays every panel the agent emitted. Architecture maps the seven building blocks. Performance shows where the system spends its time. Tap any card to go deeper.",
+    body: "Start with Observatory, then follow the act cards into Proof Board, Architecture, and Routing only when the lab asks for that checkpoint.",
   },
 ]
 

@@ -37,9 +37,6 @@ import rawAgents from '../fixtures/agents.json';
 import rawTools from '../fixtures/tools.json';
 import rawSkills from '../fixtures/skills.json';
 import rawRouting from '../fixtures/routing.json';
-import rawMemoryMarco from '../fixtures/memory-marco.json';
-import rawMemoryAnna from '../fixtures/memory-anna.json';
-import rawMemoryTheo from '../fixtures/memory-theo.json';
 import rawPerformance from '../fixtures/performance.json';
 import rawEvaluations from '../fixtures/evaluations.json';
 import rawObservatory from '../fixtures/observatory.json';
@@ -71,9 +68,6 @@ const fixtureEntries: [string, unknown][] = [
   ['tools', rawTools],
   ['skills', rawSkills],
   ['routing', rawRouting],
-  ['memory-marco', rawMemoryMarco],
-  ['memory-anna', rawMemoryAnna],
-  ['memory-theo', rawMemoryTheo],
   ['performance', rawPerformance],
   ['evaluations', rawEvaluations],
   ['observatory', rawObservatory],

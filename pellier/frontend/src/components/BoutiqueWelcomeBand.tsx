@@ -6,16 +6,16 @@
  * This is intentionally compact: the hero owns the drama, and the
  * memory card owns the agentic proof moment.
  *
- *   1. You can just ask. (hero search bar, ⌘K, mic)
- *   2. Pick a persona. (header pill — Marco/Anna/Theo)
- *   3. Save the thread. (saved pieces, sizing, restocks)
+ *   1. Describe the need. (hero search bar, command palette, mic)
+ *   2. Shop in profile. (header pill - Marco/Anna/Theo)
+ *   3. Continue the visit. (saved pieces, sizing, restocks)
  *
  * Dismiss persists in sessionStorage so returning attendees inside
  * the same browser session skip past it. Fresh tabs or re-opened
  * tabs get the intro again so every live demo starts clean.
  */
 import { useState } from 'react'
-import { X, Sparkles, UserCircle2, Heart } from 'lucide-react'
+import { X } from 'lucide-react'
 
 const DISMISS_KEY = 'boutique-welcome-dismissed'
 
@@ -28,13 +28,13 @@ function hasBeenDismissed(): boolean {
 }
 
 interface PillarProps {
-  icon: React.ReactNode
+  mark: string
   verb: string
   title: string
   description: string
 }
 
-function Pillar({ icon, verb, title, description }: PillarProps) {
+function Pillar({ mark, verb, title, description }: PillarProps) {
   return (
     <div
       style={{
@@ -47,21 +47,26 @@ function Pillar({ icon, verb, title, description }: PillarProps) {
         gap: '8px',
       }}
     >
-      {/* Icon tile */}
+      {/* Number mark */}
       <div
         style={{
-          width: 34,
-          height: 34,
+          width: 38,
+          height: 30,
           borderRadius: '8px',
-          background: 'rgba(168, 66, 58, 0.10)',
+          background: 'rgba(31, 20, 16, 0.04)',
+          border: '1px solid rgba(31, 20, 16, 0.10)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#a8423a',
+          fontFamily: 'var(--mono)',
+          fontSize: '11px',
+          letterSpacing: '0.12em',
+          fontWeight: 700,
           marginBottom: 2,
         }}
       >
-        {icon}
+        {mark}
       </div>
 
       {/* Verb (burgundy mono eyebrow) */}
@@ -219,7 +224,7 @@ export default function BoutiqueWelcomeBand() {
               margin: '0 0 14px',
             }}
           >
-            A quieter way to shop.
+            A storefront that remembers the visit.
           </h2>
 
           {/* Summary */}
@@ -232,8 +237,9 @@ export default function BoutiqueWelcomeBand() {
               margin: 0,
             }}
           >
-            Ask in your own words, let the active profile shape the floor, and
-            keep the thread as your taste, sizing, and saved pieces evolve.
+            Choose Marco, Anna, or Theo, then ask for the trip, gift, material,
+            size, or warehouse. Pellier keeps the edit tied to the active
+            shopper profile as the conversation moves.
           </p>
         </div>
 
@@ -247,27 +253,27 @@ export default function BoutiqueWelcomeBand() {
           }}
         >
           <Pillar
-            icon={<Sparkles size={18} strokeWidth={2} />}
-            verb="Ask Pellier"
-            title="Ask naturally."
+            mark="01"
+            verb="Describe the need"
+            title="Occasion, size, material."
             description={
-              "Type or speak the way you would to a stylist. Pellier turns occasion, fit, and availability into a focused edit."
+              'Ask for Goa linen, a housewarming gift, or stock in Brooklyn. Pellier turns the request into a focused catalog edit.'
             }
           />
           <Pillar
-            icon={<UserCircle2 size={18} strokeWidth={2} />}
-            verb="Choose a profile"
-            title="Let taste travel."
+            mark="02"
+            verb="Shop in profile"
+            title="One customer at a time."
             description={
-              'Marco, Anna, and Theo each reshape the hero, product floor, and concierge around a different visit.'
+              'The active profile carries taste, order history, saved pieces, and sizing into the hero, product floor, and concierge.'
             }
           />
           <Pillar
-            icon={<Heart size={18} strokeWidth={2} />}
-            verb="Save the thread"
-            title="Pick up easily."
+            mark="03"
+            verb="Continue the visit"
+            title="Context stays attached."
             description={
-              'Saved pieces, restocks, sizes, and recent questions carry into the next conversation.'
+              'Recent questions, favorites, inventory checks, and stylist handoffs stay with the same shopper thread.'
             }
           />
         </div>

@@ -2,7 +2,7 @@
  * Observatory — first stop inside Atelier.
  *
  * The page introduces why the Atelier exists, then narrows participants into
- * Act I, Act II, Act III before exposing the broader reference catalog.
+ * Act I, Act II, and Act III.
  */
 
 import React from 'react';
@@ -41,22 +41,22 @@ const PILLARS: PillarItem[] = [
     verb: 'Understand',
     title: 'Agents, Tools, Memory',
     description:
-      'Five specialists, ten tools, two memory tiers. Read how each piece works and which are shipped reference versus yours to wire.',
+      'Five specialists, 15 tools, five skills, and the memory surfaces that explain what persisted.',
   },
   {
     verb: 'Evaluate',
-    title: 'Performance & Routing',
+    title: 'Proof Board & Routing',
     description:
-      'P50 cold start, HNSW recall, router decisions, and the operational proof behind the boutique experience.',
+      'Required proof cards first, then the routing read when the lab asks for it.',
   },
 ];
 
 const ACTS: ActItem[] = [
   {
     act: 'Act I',
-    title: 'Build the governed tool path.',
+    title: 'Build Marco, then prove it.',
     summary:
-      'Wire Marco through the required floor_check checkpoint, then keep the tool definition and replay evidence close by.',
+      "Complete Stock Keeper, wire floor_check, shape Marco's skill, and compare Anna's retrieval path.",
     primary: {
       to: '/atelier/proof-board#marco-floor-check',
       label: 'Open Marco floor_check',
@@ -70,6 +70,16 @@ const ACTS: ActItem[] = [
         detail: 'Canonical tool registry',
       },
       {
+        to: '/atelier/skills',
+        label: 'Skills',
+        detail: 'Persona playbooks',
+      },
+      {
+        to: '/atelier/search',
+        label: 'Search',
+        detail: 'Retrieval comparison',
+      },
+      {
         to: '/atelier/sessions',
         label: 'Sessions',
         detail: 'Signed-in conversation replay',
@@ -79,24 +89,24 @@ const ACTS: ActItem[] = [
   },
   {
     act: 'Act II',
-    title: 'Prove retrieval and auditability.',
+    title: 'Prove memory and the ledger.',
     summary:
-      'Compare retrieval behavior, inspect the SQL audit proof, and connect each visible answer to its database trail.',
+      "Read Marco's session timeline, then prove Theo's return from Aurora tool_audit rows.",
     primary: {
-      to: '/atelier/proof-board#retrieval-comparison',
-      label: 'Open retrieval proof',
-      detail: 'Required comparison checkpoint',
+      to: '/atelier/proof-board#audit-ledger',
+      label: 'Open audit proof',
+      detail: 'Required SQL checkpoint',
     },
     secondary: [
       {
-        to: '/atelier/proof-board#audit-ledger',
-        label: 'Audit ledger',
-        detail: 'tool_audit SQL proof',
+        to: '/atelier/memory',
+        label: 'Memory',
+        detail: 'Working-memory readback',
       },
       {
-        to: '/atelier/search',
-        label: 'Search',
-        detail: 'Hybrid and vector evidence',
+        to: '/atelier/proof-board#retrieval-comparison',
+        label: 'Retrieval proof',
+        detail: 'Anna comparison checkpoint',
       },
       {
         to: '/atelier/write-path',
@@ -107,101 +117,26 @@ const ACTS: ActItem[] = [
   },
   {
     act: 'Act III',
-    title: 'Extend through Runtime, Gateway, and Policy.',
+    title: 'Place the managed boundary.',
     summary:
-      'Use the managed rail after the SQL proof to compare agent calls with Gateway-governed invocations.',
+      'Read routing, MCP, Gateway, and Policy after the required SQL proof is complete.',
     primary: {
-      to: '/atelier/proof-board#runtime-gateway-policy',
-      label: 'Open governed trace',
-      detail: 'Runtime/Gateway/Policy proof',
+      to: '/atelier/routing',
+      label: 'Open routing',
+      detail: 'Dispatcher checkpoint',
     },
     secondary: [
+      {
+        to: '/atelier/proof-board#runtime-gateway-policy',
+        label: 'Governed trace',
+        detail: 'Runtime/Gateway/Policy read',
+      },
       {
         to: '/atelier/proof-board#managed-rail',
         label: 'Managed rail',
         detail: 'Fast-finisher comparison',
       },
-      {
-        to: '/atelier/routing',
-        label: 'Routing',
-        detail: 'Intent to specialist handoff',
-      },
-      {
-        to: '/atelier/production-patterns',
-        label: 'Production Patterns',
-        detail: 'Operational reference',
-      },
     ],
-  },
-];
-
-const REFERENCE_LINKS: LinkItem[] = [
-  {
-    to: '/atelier/sessions',
-    label: 'Sessions',
-    detail: 'Replay shopper conversations turn by turn',
-    testId: 'observatory-reference-sessions',
-  },
-  {
-    to: '/atelier/persona-journeys',
-    label: 'Persona Journeys',
-    detail: 'Trace each shopper path through the boutique',
-  },
-  {
-    to: '/atelier/architecture',
-    label: 'Architecture',
-    detail: 'System map and component glossary',
-    testId: 'observatory-cta-architecture',
-  },
-  {
-    to: '/atelier/agents',
-    label: 'Agents',
-    detail: 'Specialists, shipped references, and build targets',
-  },
-  {
-    to: '/atelier/tools',
-    label: 'Tools',
-    detail: 'Tool contracts, ownership, and status',
-  },
-  {
-    to: '/atelier/skills',
-    label: 'Skills',
-    detail: 'Persona-aware prompt context',
-  },
-  {
-    to: '/atelier/search',
-    label: 'Search',
-    detail: 'Retrieval traces and ranking behavior',
-  },
-  {
-    to: '/atelier/routing',
-    label: 'Routing',
-    detail: 'Intent classification and specialist dispatch',
-  },
-  {
-    to: '/atelier/memory',
-    label: 'Memory',
-    detail: 'Short-term and long-term customer memory',
-  },
-  {
-    to: '/atelier/write-path',
-    label: 'Write-path',
-    detail: 'Cedar policy and audit persistence',
-  },
-  {
-    to: '/atelier/performance',
-    label: 'Performance',
-    detail: 'Latency, recall, and storage measurements',
-  },
-  {
-    to: '/atelier/evaluations',
-    label: 'Evaluations',
-    detail: 'Quality checks and grounding measures',
-  },
-  {
-    to: '/atelier/production-patterns',
-    label: 'Production Patterns',
-    detail: 'Managed deployment patterns and tradeoffs',
   },
 ];
 
@@ -241,54 +176,48 @@ const SectionEyebrow: React.FC<{ children: React.ReactNode }> = ({ children }) =
   </div>
 );
 
-const LinkCard: React.FC<LinkItem & { compact?: boolean }> = ({
+const ActionLink: React.FC<LinkItem & { primary?: boolean }> = ({
   to,
   label,
   detail,
   testId,
-  compact = false,
+  primary = false,
 }) => (
   <Link
     to={to}
     data-testid={testId}
     style={{
-      ...cardStyle,
       display: 'flex',
-      alignItems: compact ? 'center' : 'flex-start',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      gap: '14px',
-      minHeight: compact ? '82px' : '104px',
-      padding: compact ? '16px 18px' : '18px 20px',
+      gap: '12px',
+      padding: primary ? '12px 0 13px' : '10px 0',
       color: 'inherit',
       textDecoration: 'none',
-      transition: 'border-color 160ms ease, box-shadow 160ms ease',
-    }}
-    onMouseEnter={(event) => {
-      event.currentTarget.style.borderColor = 'var(--at-red-1)';
-      event.currentTarget.style.boxShadow = '0 4px 18px rgba(45, 24, 16, 0.08)';
-    }}
-    onMouseLeave={(event) => {
-      event.currentTarget.style.borderColor = 'var(--at-card-border)';
-      event.currentTarget.style.boxShadow = '0 2px 10px rgba(45, 24, 16, 0.04)';
+      borderTop: primary ? '1px solid var(--at-rule-1)' : 'none',
+      borderBottom: '1px solid var(--at-rule-1)',
     }}
   >
-    <span style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+    <span style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
       <span
-        className="font-display italic text-espresso"
+        className="font-sans"
         style={{
-          fontSize: compact ? '21px' : '24px',
-          lineHeight: 1.15,
-          fontWeight: 400,
-          letterSpacing: 0,
+          color: primary ? 'var(--at-red-1)' : 'var(--at-ink-1)',
+          fontSize: primary ? '15px' : '14px',
+          fontWeight: 650,
+          lineHeight: 1.25,
         }}
       >
         {label}
       </span>
       <span
-        className="font-sans text-ink-soft"
+        className="font-mono"
         style={{
-          fontSize: '13.5px',
-          lineHeight: 1.45,
+          color: 'var(--at-ink-3)',
+          fontSize: '10.5px',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          lineHeight: 1.35,
         }}
       >
         {detail}
@@ -296,9 +225,9 @@ const LinkCard: React.FC<LinkItem & { compact?: boolean }> = ({
     </span>
     <ArrowRight
       aria-hidden="true"
-      size={18}
+      size={16}
       strokeWidth={2}
-      style={{ color: 'var(--at-red-1)', flexShrink: 0, marginTop: compact ? 0 : '3px' }}
+      style={{ color: 'var(--at-red-1)', flexShrink: 0 }}
     />
   </Link>
 );
@@ -385,17 +314,17 @@ const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary })
       </p>
     </div>
 
-    <LinkCard {...primary} />
+    <ActionLink {...primary} primary />
 
     <div
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '10px',
+        columnGap: '18px',
       }}
     >
       {secondary.map((item) => (
-        <LinkCard key={`${act}-${item.to}-${item.label}`} {...item} compact />
+        <ActionLink key={`${act}-${item.to}-${item.label}`} {...item} />
       ))}
     </div>
   </article>
@@ -420,10 +349,10 @@ const Observatory: React.FC = () => {
           id="observatory-title"
           className="font-display italic text-espresso"
           style={{
-            fontSize: '56px',
+            fontSize: 'clamp(44px, 6vw, 76px)',
             fontWeight: 400,
-            lineHeight: 1.04,
-            letterSpacing: 0,
+            lineHeight: 1.05,
+            letterSpacing: '-0.015em',
             margin: '16px 0 14px',
             maxWidth: '820px',
           }}
@@ -441,7 +370,7 @@ const Observatory: React.FC = () => {
         >
           The Boutique is where shoppers ask. The Atelier is where you watch.
           Every agent decision, tool call, memory read, and routing hop shows up
-          here in editorial detail - so the magic has a paper trail.
+          here in governed, inspectable detail.
         </p>
         <div
           style={{
@@ -469,7 +398,7 @@ const Observatory: React.FC = () => {
             margin: '14px 0 8px',
           }}
         >
-          Start with the acts.
+          Start with the required path.
         </h2>
         <p
           className="font-sans text-ink-soft"
@@ -480,8 +409,8 @@ const Observatory: React.FC = () => {
             maxWidth: '720px',
           }}
         >
-          These are the three participant rails. The reference pages stay below
-          them so the first Atelier decision is always the next workshop act.
+          These are the three participant rails. Use them only when the lab asks
+          for an Atelier check, then return to Code Editor or the Boutique.
         </p>
         <div style={{ display: 'grid', gap: '16px' }}>
           {ACTS.map((item) => (
@@ -490,33 +419,6 @@ const Observatory: React.FC = () => {
         </div>
       </section>
 
-      <section aria-labelledby="reference-title">
-        <SectionEyebrow>Reference</SectionEyebrow>
-        <h2
-          id="reference-title"
-          className="font-display italic text-espresso"
-          style={{
-            fontSize: '34px',
-            fontWeight: 400,
-            lineHeight: 1.12,
-            letterSpacing: 0,
-            margin: '14px 0 18px',
-          }}
-        >
-          All other Atelier pages.
-        </h2>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '12px',
-          }}
-        >
-          {REFERENCE_LINKS.map((item) => (
-            <LinkCard key={`${item.to}-${item.label}`} {...item} compact />
-          ))}
-        </div>
-      </section>
     </div>
   );
 };

@@ -34,7 +34,7 @@ const PillarCard: React.FC<PillarCardProps> = ({ verb, title, description }) => 
     style={{
       background: 'var(--at-cream-2)',
       border: '1px solid var(--at-rule-1)',
-      borderRadius: '12px',
+      borderRadius: '8px',
       padding: '18px 20px',
       display: 'flex',
       flexDirection: 'column',
@@ -58,7 +58,7 @@ const PillarCard: React.FC<PillarCardProps> = ({ verb, title, description }) => 
       style={{
         fontSize: 'clamp(18px, 1.8vw, 22px)',
         fontWeight: 400,
-        letterSpacing: '-0.015em',
+        letterSpacing: 0,
         lineHeight: 1.2,
       }}
     >
@@ -100,7 +100,7 @@ export const AtelierWelcome: React.FC = () => {
         background:
           'linear-gradient(180deg, var(--at-cream-1) 0%, var(--at-cream-2) 100%)',
         border: '1px solid var(--at-rule-1)',
-        borderRadius: '16px',
+        borderRadius: '8px',
         padding: '32px 36px 30px',
         marginBottom: '36px',
         overflow: 'hidden',
@@ -178,7 +178,7 @@ export const AtelierWelcome: React.FC = () => {
           fontSize: 'clamp(44px, 6vw, 76px)',
           fontWeight: 400,
           lineHeight: 1.05,
-          letterSpacing: '-0.015em',
+          letterSpacing: 0,
           margin: '0 0 14px',
           maxWidth: '900px',
         }}
@@ -199,7 +199,7 @@ export const AtelierWelcome: React.FC = () => {
       >
         The Boutique is where shoppers ask. The Atelier is where you watch.
         Every agent decision, tool call, memory read, and routing hop shows
-        up here in editorial detail – so the magic has a paper trail.
+        up here in governed, inspectable detail.
       </p>
 
       {/* Pillar cards */}
@@ -218,12 +218,12 @@ export const AtelierWelcome: React.FC = () => {
         <PillarCard
           verb="Understand"
           title="Agents, Tools, Memory"
-          description="Five specialists, ten tools, two memory tiers. Read how each piece works and which are shipped reference versus yours to wire."
+          description="Five specialists, 15 tools, five skills, and the memory surfaces that explain what persisted."
         />
         <PillarCard
           verb="Evaluate"
-          title="Performance & Routing"
-          description="P50 cold start, HNSW recall, router decisions. The honest numbers behind the editorial copy."
+          title="Proof Board & Routing"
+          description="Required checkpoints first, then the routing read when the lab asks for it."
         />
       </div>
     </section>
