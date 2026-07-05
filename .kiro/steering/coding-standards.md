@@ -13,8 +13,8 @@ inclusion: always
 - Async DB calls use `_run_async()` helper for sync-to-async bridging
 - Error handling returns `json.dumps({"error": str(e)})` consistently
 - Model references use `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-8`)
-- Orchestrator uses `global.anthropic.claude-sonnet-4-6` with `temperature=0.0`
-- Specialist agents use `temperature=0.2`
+- Orchestrator uses `global.anthropic.claude-sonnet-5` with no temperature override
+- Specialist agents use the configured model profile with no temperature override
 
 ## TypeScript Frontend (pellier/frontend/)
 

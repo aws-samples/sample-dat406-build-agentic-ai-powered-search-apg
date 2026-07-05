@@ -38,7 +38,7 @@ function filterSkillsByPersona(skills: Skill[], filter: PersonaFilter): Skill[] 
 /* -----------------------------------------------------------------------
  * Skill Router Demo Card
  *
- * Live demonstration of the SkillRouter (Sonnet 4.6 at temperature 0.0).
+ * Live demonstration of the SkillRouter (Sonnet 5).
  * Mirrors the Tools page's DiscoveryDemoCard pattern: type a query,
  * see what the router would decide for that turn (which skills to
  * load + which it considered and why it rejected them).
@@ -153,7 +153,7 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
 
   return (
     <ExpCard>
-      <Eyebrow label="Live skill router · Sonnet 4.6 @ 0.0" />
+      <Eyebrow label="Live skill router · Sonnet 5" />
       <h3
         style={{
           fontFamily: 'var(--at-serif)',
@@ -174,9 +174,9 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
           marginBottom: '16px',
         }}
       >
-        The same call shape that fires before every chat turn. Sonnet at
-        temperature 0.0 is deterministic – try the same query twice and
-        get the same routing.
+        The same call shape that fires before every chat turn. The router
+        uses a tight JSON-only prompt so repeated queries should land on the
+        same skill decision.
       </p>
 
       {/* Example pills */}
@@ -754,7 +754,7 @@ const Skills: React.FC = () => {
       <EditorialTitle
         eyebrow="Understand · Skills · five prompt overlays"
         title="Persona-specific knowledge the agents load."
-        summary="Five Markdown files. Three are persona-tied; two are shared proof and care overlays. Loaded per turn by the SkillRouter – Sonnet 4.6 at 0.0, deterministic classification – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
+        summary="Five Markdown files. Three are persona-tied; two are shared proof and care overlays. Loaded per turn by the SkillRouter – Sonnet 5 with a JSON-only routing prompt – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
       />
       <ExpCard>
         <Eyebrow label="Two routers · different jobs" />

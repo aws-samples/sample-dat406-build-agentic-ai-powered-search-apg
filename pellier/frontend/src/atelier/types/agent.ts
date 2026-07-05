@@ -13,6 +13,5 @@ export interface Agent {
   status: 'shipped' | 'exercise';
   tools: string[];
   model: string;
-  temperature: number;
   exerciseFiles?: string[];
 }

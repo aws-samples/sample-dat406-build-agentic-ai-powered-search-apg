@@ -3,8 +3,8 @@
 Validates Requirement 2.4.6-2.4.8 and 4.3.1 from
 `.kiro/specs/pellier-storefront/requirements.md`:
 
-  2.4.6  The orchestrator is constructed with Sonnet 4.6 model id exactly,
-         temperature=0.0, and five specialist tools following the Strands
+  2.4.6  The orchestrator is constructed with Sonnet 5 model id exactly,
+         no temperature override, and five specialist tools following the Strands
          "Agents as Tools" pattern.
   2.4.7  Intent classification priority: pricing > inventory > support >
          search > recommendation (default), lifted from
@@ -76,7 +76,7 @@ _SEARCH = re.compile(
 def _route(query: str) -> str:
     """Return the tool_name of the specialist a priority-respecting
     orchestrator would call for `query`. Mirrors the logic the
-    ORCHESTRATOR_SYSTEM_PROMPT asks Sonnet 4.6 to perform."""
+    ORCHESTRATOR_SYSTEM_PROMPT asks Sonnet 5 to perform."""
     if _PRICING.search(query):
         return "pricing"
     if _INVENTORY.search(query):
@@ -95,7 +95,7 @@ def _route(query: str) -> str:
 
 class _StubBedrockModel:
     """Swap for `BedrockModel`. Captures kwargs so the test can assert
-    the Sonnet 4.6 model id and temperature=0.0 are wired exactly."""
+    the Sonnet 5 model id is wired exactly without a temperature field."""
 
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
@@ -242,20 +242,20 @@ def orchestrator_factory(monkeypatch: pytest.MonkeyPatch, stubbed_specialists):
 # ---------------------------------------------------------------------------
 
 
-def test_orchestrator_uses_sonnet_4_6_at_temperature_0_0(
+def test_orchestrator_uses_sonnet_5_without_temperature_override(
     orchestrator_factory,
 ) -> None:
-    """The orchestrator SHALL wrap BedrockModel with the exact Sonnet 4.6
-    model id and `temperature=0.0` per Req 2.4.6."""
+    """The orchestrator SHALL wrap BedrockModel with the exact Sonnet 5
+    model id and no temperature override per Req 2.4.6."""
     orchestrator_factory()
 
     model = _StubAgent.last_kwargs.get("model")
     assert isinstance(model, _StubBedrockModel)
     assert (
         model.kwargs.get("model_id")
-        == "global.anthropic.claude-sonnet-4-6"
-    ), f"Sonnet 4.6 model id mismatch: {model.kwargs.get('model_id')!r}"
-    assert model.kwargs.get("temperature") == 0.0
+        == "global.anthropic.claude-sonnet-5"
+    ), f"Sonnet 5 model id mismatch: {model.kwargs.get('model_id')!r}"
+    assert "temperature" not in model.kwargs
 
 
 def test_orchestrator_registers_exactly_five_specialists(

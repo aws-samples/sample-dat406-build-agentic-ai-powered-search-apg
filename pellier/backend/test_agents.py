@@ -223,7 +223,7 @@ def create_single_agent():
     from services.chat import SINGLE_AGENT_PROMPT
 
     return Agent(
-        model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=8192, temperature=0.0),
+        model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=8192),
         system_prompt=SINGLE_AGENT_PROMPT,
         tools=[find_pieces, whats_trending, price_intelligence],
     )

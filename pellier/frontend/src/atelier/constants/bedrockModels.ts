@@ -6,7 +6,7 @@
  */
 export const BEDROCK_INFERENCE_PROFILES = {
   CLAUDE_OPUS_48: 'global.anthropic.claude-opus-4-8',
-  CLAUDE_SONNET_46: 'global.anthropic.claude-sonnet-4-6',
+  CLAUDE_SONNET_5: 'global.anthropic.claude-sonnet-5',
   COHERE_EMBED_V4: 'us.cohere.embed-v4:0',
   COHERE_RERANK_V35: 'cohere.rerank-v3-5:0',
 } as const

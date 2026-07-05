@@ -74,15 +74,14 @@ def build_pricing_agent() -> Agent:
     atelier output (both injections are no-ops when their
     ContextVars are empty).
     """
-    # Value Analyst — Sonnet 4.6 at 0.1. Reports numbers and ranges.
-    # Fast + deterministic. The only thing worse than a slow price
-    # check is a wrong one.
+    # Value Analyst — Sonnet 5 reporting profile. Reports numbers and
+    # ranges with no temperature override. The only thing worse than a
+    # slow price check is a wrong one.
     return Agent(
         name="pricing",
         model=BedrockModel(
             model_id=settings.BEDROCK_REPORTING_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_SONNET,
-            temperature=0.1,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_PRICING_SYSTEM_PROMPT)

@@ -10,7 +10,7 @@ This is **not** the Dispatcher. The codebase has two routing patterns:
     object — the Dispatcher *is* the routing function.
 
   * **Orchestrator (Pattern I)** — the Atelier's "Agents as Tools"
-    teaching surface (this file). A Sonnet 4.6 Agent that sees each
+    teaching surface (this file). A Sonnet 5 Agent that sees each
     specialist as a ``@tool`` (search, recommendation, pricing,
     inventory, support) and picks one to call. Two LLM calls per turn
     (router + specialist). Useful for teaching the AaT pattern;
@@ -35,8 +35,8 @@ from config import settings
 
 # === REFERENCE: Multi-Agent Orchestrator — START ===
 # Requirements 2.4.6-2.4.8, 4.3.1. Routes every shopper query to exactly
-# one specialist using the Strands "Agents as Tools" pattern. Uses Sonnet
-# 4.6 at temperature 0.0 for deterministic routing. Priority order
+# one specialist using the Strands "Agents as Tools" pattern. Uses the Sonnet
+# router profile without a temperature override. Priority order
 # (pricing > inventory > support > search > recommendation) is enforced
 # by the system prompt in boutique_copy.ORCHESTRATOR_SYSTEM_PROMPT.
 #
@@ -52,7 +52,6 @@ def create_orchestrator():
         model=BedrockModel(
             model_id=settings.BEDROCK_ROUTER_MODEL,
             max_tokens=settings.ROUTER_MAX_TOKENS_SONNET,
-            temperature=0.0,
         ),
         system_prompt=ORCHESTRATOR_PROMPT,
         tools=[
@@ -84,7 +83,6 @@ def create_guarded_orchestrator():
         model=BedrockModel(
             model_id=settings.BEDROCK_ROUTER_MODEL,
             max_tokens=settings.ROUTER_MAX_TOKENS_SONNET,
-            temperature=0.0,
         ),
         system_prompt=ORCHESTRATOR_PROMPT + GUARDRAILS_PROMPT_SUFFIX,
         tools=[

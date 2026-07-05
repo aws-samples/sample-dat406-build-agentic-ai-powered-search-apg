@@ -71,7 +71,6 @@ def _build_router_agent() -> Agent:
         model=BedrockModel(
             model_id=settings.BEDROCK_ROUTER_MODEL,
             max_tokens=16,
-            temperature=0.0,
         ),
         system_prompt=_ROUTER_SYSTEM_PROMPT,
     )

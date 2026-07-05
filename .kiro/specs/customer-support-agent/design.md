@@ -10,13 +10,13 @@ Supporting changes span intent classification (new `SUPPORT_KEYWORDS` and `SEARC
 
 ## Architecture
 
-The architecture follows the existing Strands SDK multi-agent pattern: an Orchestrator Agent (Claude Sonnet 4.6) classifies intent and dispatches to specialist agents (each Claude Opus 4.8), which are defined as `@tool` decorated functions.
+The architecture follows the existing Strands SDK multi-agent pattern: an Orchestrator Agent (Claude Sonnet 5) classifies intent and dispatches to specialist agents (each Claude Opus 4.8), which are defined as `@tool` decorated functions.
 
 ```mermaid
 graph TD
     User[User Query] --> Chat[ChatService / FastAPI]
     Chat --> IC[Intent Classifier]
-    IC --> Orch[Orchestrator Agent<br/>Claude Sonnet 4.6]
+    IC --> Orch[Orchestrator Agent<br/>Claude Sonnet 5]
 
     Orch -->|product search| SA[Search Agent]
     Orch -->|trending/recs| RA[Recommendation Agent]
@@ -45,7 +45,7 @@ graph TD
 
     %% AgentCore Gateway path (alternative to direct orchestrator)
     Chat -.->|gateway mode| GW[AgentCore Gateway<br/>MCP Server]
-    GW --> GWOrch[Gateway Orchestrator<br/>Claude Sonnet 4.6]
+    GW --> GWOrch[Gateway Orchestrator<br/>Claude Sonnet 5]
     GWOrch -->|MCPClient + streamable HTTP| GW
     GW -.-> SP
     GW -.-> GRP
@@ -116,7 +116,7 @@ def customer_support_agent(query: str) -> str:
 - Tools: `get_return_policy`, `search_products`, optionally Exa MCP tools
 - System prompt: Instructs the model to use `get_return_policy` for return/refund questions, `search_products` for product-related support, and Exa for web troubleshooting (if available)
 - Follows the `_ensure_products_in_output` + `AfterToolCallEvent` hook pattern from existing agents
-- Model: `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096, temperature=0.2)`
+- Model: `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096)`
 
 ### 3. Search Agent (`agents/search_agent.py`)
 
@@ -136,7 +136,7 @@ def search_agent(query: str) -> str:
 - Tools: `search_products`, `get_product_by_category`, `compare_products`
 - System prompt: Instructs the model to use `search_products` for natural language queries, `get_product_by_category` for category browsing, `compare_products` for side-by-side comparisons
 - Same `_ensure_products_in_output` pattern as other agents
-- Model: `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096, temperature=0.2)`
+- Model: `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096)`
 
 ### 4. Orchestrator Updates (`agents/orchestrator.py`)
 

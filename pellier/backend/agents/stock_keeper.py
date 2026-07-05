@@ -125,14 +125,13 @@ def build_inventory_agent() -> Agent:
     unchanged by consolidating the five factories onto the same
     substrate.
     """
-    # Stock Keeper — Sonnet 4.6 at 0.0. Pure factual lookups (warehouse,
-    # count, ETA). Zero variance. Fastest config in the system.
+    # Stock Keeper — Sonnet 5 reporting profile. Pure factual lookups
+    # (warehouse, count, ETA), with no temperature override.
     return Agent(
         name="inventory",
         model=BedrockModel(
             model_id=settings.BEDROCK_REPORTING_MODEL,
             max_tokens=settings.AGENT_MAX_TOKENS_SONNET,
-            temperature=0.0,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_INVENTORY_SYSTEM_PROMPT)

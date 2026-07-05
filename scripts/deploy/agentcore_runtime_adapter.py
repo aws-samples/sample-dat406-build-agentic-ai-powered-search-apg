@@ -139,7 +139,7 @@ RULES:
         # config change (a new tool, a renamed schema) takes effect on
         # the next invocation without redeploying the Runtime.
         agent = Agent(
-            model=BedrockModel(model_id=MODEL_ID, max_tokens=4096, temperature=0.0),
+            model=BedrockModel(model_id=MODEL_ID, max_tokens=4096),
             system_prompt=ORCHESTRATOR_PROMPT,
             tools=[mcp_client],
         )

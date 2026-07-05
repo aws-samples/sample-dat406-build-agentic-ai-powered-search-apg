@@ -792,10 +792,10 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
 # instance role (the same ambient-credential chain psql/boto3/agentcore already
 # use) — no Anthropic API key, no per-participant login, nothing to paste.
 # Model: the model-access preflight writes CLAUDE_CODE_MODEL into the backend
-# .env. Claude Code uses Sonnet 4.6 through Bedrock. This lane is
+# .env. Claude Code uses Sonnet 5 through Bedrock. This lane is
 # independent of the app's Opus/Sonnet editorial model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-4-6}}
+export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-5}}
 export AWS_REGION=${AWS_REGION:-us-west-2}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix

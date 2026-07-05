@@ -243,10 +243,10 @@ Requirements below are grouped by audience where the distinction matters.
 
 - 2.4.1 WHEN Capability 2 is opened at `pellier/backend/services/agent_tools.py` THEN the exercise block SHALL implement `get_trending_products()` as `@tool`-decorated, returning a JSON string of the top-trending products; it SHALL check `_db_service` availability, use `_run_async()`, and return `json.dumps({"error": str(e)})` on exception.
 - 2.4.2 WHEN Capability 2 is done THEN the verification SHALL be: calling the tool directly in a REPL returns a parseable JSON string with ≥3 products.
-- 2.4.3 WHEN Capability 3 is opened at `pellier/backend/agents/curator.py` THEN the exercise block SHALL instantiate `product_recommendation_agent` as a Strands `Agent` wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with `temperature=0.2` and tools `[search_products, get_trending_products, compare_products, get_product_by_category]`.
+- 2.4.3 WHEN Capability 3 is opened at `pellier/backend/agents/curator.py` THEN the exercise block SHALL instantiate `product_recommendation_agent` as a Strands `Agent` wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with no temperature override and tools `[search_products, get_trending_products, compare_products, get_product_by_category]`.
 - 2.4.4 WHEN Capability 3's system prompt is authored THEN it SHALL emphasize warm, editorial, catalog-style reasoning grounded in specific product attributes.
 - 2.4.5 WHEN Capability 3 is done THEN the verification SHALL be: calling the agent with `something for warm evenings out` returns a response that names at least one specific product (brand + color + price) AND that product's `tags` column SHALL include at least one of `evening`, `warm`, `dresses`, or `outerwear` (so relevance, not just mention, is checked). Expected matches include Sundress in Washed Linen or Cashmere-Blend Cardigan; an irrelevant recommendation such as Signature Straw Tote SHALL fail verification.
-- 2.4.6 WHEN Capability 4 is opened at `pellier/backend/agents/orchestrator.py` THEN the exercise block SHALL instantiate the orchestrator with `BedrockModel(model_id='global.anthropic.claude-sonnet-4-6')`, `temperature=0.0`, and five specialist tools following the Strands "Agents as Tools" pattern.
+- 2.4.6 WHEN Capability 4 is opened at `pellier/backend/agents/orchestrator.py` THEN the exercise block SHALL instantiate the orchestrator with `BedrockModel(model_id='global.anthropic.claude-sonnet-5')`, no temperature override, and five specialist tools following the Strands "Agents as Tools" pattern.
 - 2.4.7 WHEN Capability 4 routes a query THEN intent classification priority SHALL be `pricing > inventory > support > search > recommendation (default)` per `coding-standards.md`.
 - 2.4.8 WHEN Capability 4 is done THEN the verification SHALL be: five representative queries (one per specialist intent) each route to the expected specialist, observable via trace logs.
 
@@ -498,7 +498,7 @@ Requirements below are grouped by audience where the distinction matters.
 - [x] Real Cognito + AgentCore Identity (4.1–4.3).
 - [x] Preferences persist to AgentCore Memory (4.4.1, 6.2.1).
 - [x] httpOnly cookies only (5.3.1).
-- [x] Orchestrator Sonnet 4.6 @ 0.0, specialists Opus 4.8 @ 0.2 (2.4.3, 2.4.6).
+- [x] Orchestrator Sonnet 5 with no temperature override, specialists Opus 4.8 (2.4.3, 2.4.6).
 - [x] Tool pattern enforced (2.2.4).
 - [x] Defers to `catalog-enrichment` and `customer-support-agent` (6.1, 7.1).
 - [x] Agent/tool names match steering (2.2.3).

@@ -272,8 +272,6 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
             <span style={{ color: 'var(--at-ink-1)', fontWeight: 500 }}>
               {agent.model}
             </span>
-            {' · '}
-            {agent.temperature}
           </span>
           <span
             style={{
@@ -440,7 +438,7 @@ const RelatedCard: React.FC = () => (
           <code style={CODE_INLINE}>the-packing-list</code>,{' '}
           <code style={CODE_INLINE}>the-gift-table</code>, and{' '}
           <code style={CODE_INLINE}>the-makers-shelf</code>. Loaded per-turn by
-          SkillRouter (Sonnet 4.6 · 0.0). Injected into the specialist&apos;s system
+          SkillRouter (Sonnet 5). Injected into the specialist&apos;s system
           prompt – they change voice and handling, not routing.
         </p>
         <Link
@@ -727,7 +725,7 @@ const Agents: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Agents · five peers · Opus 4.8 + Sonnet 4.6"
+        eyebrow="Understand · Agents · five peers · Opus 4.8 + Sonnet 5"
         title="The cast of five."
         summary="Five peer specialists – routing sits in Dispatcher (classify_intent) ahead of each turn. Four are shipped reference in the workshop image (including Experience Guide for Theo's write path). Stock Keeper stays exercise until you wire floor_check in the required path; saving the tool body updates build-state and promotes Stock Keeper to shipped."
       />

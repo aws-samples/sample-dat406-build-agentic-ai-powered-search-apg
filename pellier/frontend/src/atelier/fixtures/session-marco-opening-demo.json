@@ -170,7 +170,7 @@
       "products": [],
       "confidence": {
         "percentage": 96,
-        "reasoning": "Deterministic aggregate. Claude Sonnet 4.6 at 0.1 - low-variance numerical answer."
+        "reasoning": "Deterministic aggregate. Claude Sonnet 5 reporting profile - low-variance numerical answer."
       },
       "memoryPills": [
         {
@@ -180,7 +180,7 @@
       ],
       "meta": {
         "agent": "Value Analyst",
-        "model": "Claude Sonnet 4.6 \u00b7 0.1",
+        "model": "Claude Sonnet 5",
         "latencyMs": 168
       }
     },
@@ -320,7 +320,7 @@
       "index": 11,
       "category": "managed",
       "title": "Response composition",
-      "description": "Claude Sonnet 4.6 at 0.1 - deterministic numerical answer",
+      "description": "Claude Sonnet 5 reporting profile - deterministic numerical answer",
       "status": "complete",
       "durationMs": 74,
       "agent": "Value Analyst"
@@ -355,7 +355,7 @@
         "title": "The arc",
         "paragraphs": [
           "Marco arrived with a clear plan - ten days in Goa, linen - and walked through the catalog in four turns. Three landed cleanly. The fourth didn't.",
-          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.8 for the opening ask, Curator on Claude Opus 4.8 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
+          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.8 for the opening ask, Curator on Claude Opus 4.8 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 5 for the price range. All three specialists running on their declared models; no normalization."
         ]
       },
       {
@@ -407,7 +407,7 @@
         },
         {
           "label": "Models used",
-          "value": "Claude Opus 4.8, Claude Sonnet 4.6"
+          "value": "Claude Opus 4.8, Claude Sonnet 5"
         },
         {
           "label": "Unresolved",

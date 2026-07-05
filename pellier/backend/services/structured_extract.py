@@ -1,5 +1,5 @@
 """
-Structured query extraction via Claude Sonnet 4.6.
+Structured query extraction via Claude Sonnet 5.
 
 Path 2 retrieval — the agentic upgrade to hybrid+rerank — splits a
 shopper query into:
@@ -15,11 +15,10 @@ filters (with ``hnsw.iterative_scan`` so a strict WHERE doesn't drop
 the candidate count below ``ef_search``), then sends a smaller pool
 through Cohere Rerank using ``soft_signal`` as the query.
 
-Why Sonnet 4.6 specifically:
+Why Sonnet 5 specifically:
 
-  - Reliable JSON-shaped output at temperature 0 against a
-    6-category / 28-tag enum.
-  - Determinism at T=0: the reporting path, not the editorial one.
+  - Reliable JSON-shaped output against a 6-category / 28-tag enum.
+  - Reporting-profile behavior: the structured path, not the editorial one.
   - Already configured at ``config.BEDROCK_REPORTING_MODEL``; no new
     model wiring.
 
@@ -124,7 +123,6 @@ class StructuredExtractor:
         body = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 400,
-            "temperature": 0.0,
             "system": _SYSTEM_PROMPT,
             "messages": [
                 {"role": "user", "content": _build_prompt(query.strip())},
@@ -168,7 +166,7 @@ class StructuredExtractor:
 
     @staticmethod
     def _parse_json(text: str) -> Dict[str, Any]:
-        # Defensive: Sonnet at T=0 returns clean JSON, but strip code
+        # Defensive: Sonnet usually returns clean JSON, but strip code
         # fences in case the system prompt was ignored.
         if text.startswith("```"):
             text = text.strip("`")

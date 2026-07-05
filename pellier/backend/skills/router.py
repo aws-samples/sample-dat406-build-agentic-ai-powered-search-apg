@@ -2,7 +2,7 @@
 SkillRouter — one-call LLM decider.
 
 Given a user message and the registry's library of skills, the router
-asks Sonnet 4.6 which skills to load for this turn. One
+asks Sonnet 5 which skills to load for this turn. One
 LLM call. No embeddings, no scoring, no multi-call cascades. The skill
 descriptions ARE the activation contract — the router trusts them.
 
@@ -13,8 +13,8 @@ The output feeds two consumers:
     Atelier UI can render the live activation log and the storefront
     can render the minimal attribution line
 
-Parse behavior is defensive on purpose: Sonnet at temperature 0.0 is
-reliable, but the workshop is unforgiving of demo-time parse errors.
+Parse behavior is defensive on purpose: Sonnet is reliable, but the
+workshop is unforgiving of demo-time parse errors.
 """
 from __future__ import annotations
 
@@ -83,8 +83,8 @@ class SkillRouter:
         """
         Build (or return cached) the Strands Agent used for routing.
 
-        We construct a tool-free Agent with Sonnet 4.6 at temperature 0.0
-        and a fixed system prompt. The skill library is baked into the
+        We construct a tool-free Agent with Sonnet 5 and a fixed system
+        prompt. The skill library is baked into the
         system prompt at construction time; when a skill is added at
         runtime we'd need to reset this cache (not a v1 concern — the
         registry loads at boot).
@@ -99,7 +99,6 @@ class SkillRouter:
             model=BedrockModel(
                 model_id=self._model_id,
                 max_tokens=settings.ROUTER_MAX_TOKENS_SONNET,
-                temperature=0.0,
             ),
             system_prompt=self._build_prompt(),
             tools=[],

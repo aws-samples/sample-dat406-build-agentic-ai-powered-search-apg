@@ -47,7 +47,7 @@ graph TB
     APP[app.py + routes/*]
     MW[cognito_auth middleware]
     ACID[agentcore_identity]
-    ORCH[orchestrator Sonnet 4.6 @ 0.0]
+    ORCH[orchestrator Sonnet 5]
     SPEC[5 specialists Opus 4.8 @ 0.2]
     TOOLS[agent_tools @tool fns]
     HS[HybridSearchService]
@@ -155,7 +155,7 @@ sequenceDiagram
   participant U as User
   participant API as POST /api/agent/chat
   participant ID as AgentCoreIdentity
-  participant O as Orchestrator (Sonnet @ 0.0)
+  participant O as Orchestrator (Sonnet)
   participant S as product_recommendation_agent (Opus @ 0.2)
   participant T as get_trending_products
   participant DB as Aurora
@@ -524,7 +524,6 @@ Tools (names per `workshop-content.md`):
 ```python
 product_recommendation_agent = Agent(
     model=BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL),  # Opus 4.8
-    temperature=0.2,
     tools=[search_products, get_trending_products, compare_products, get_product_by_category],
     system_prompt=copy.RECOMMENDATION_SYSTEM_PROMPT,
 )
@@ -536,8 +535,7 @@ product_recommendation_agent = Agent(
 
 ```python
 orchestrator = Agent(
-    model=BedrockModel(model_id='global.anthropic.claude-sonnet-4-6'),
-    temperature=0.0,
+    model=BedrockModel(model_id='global.anthropic.claude-sonnet-5'),
     tools=[
         search_agent,
         product_recommendation_agent,

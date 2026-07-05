@@ -23,7 +23,7 @@ Add two new specialist agents (Customer Support and Search) to the Pellier multi
 - [x] 2. Refactor Recommendation Agent and create Search Agent
   - [x] 2.1 Refactor `product_recommendation_agent` in `pellier/backend/agents/curator.py`: remove `search_products` from tools list (keep only `get_trending_products` and `get_product_by_category`), remove the import, and update system prompt to focus on trending/popular/personalized recommendations
     - _Requirements: 11.8, 11.9, 11.10, 11.11_
-  - [x] 2.2 Create `pellier/backend/agents/search_agent.py` with a `@tool` decorated `search_agent` function using `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096, temperature=0.2)`, tools `[search_products, get_product_by_category, compare_products]`, system prompt for product search specialist, `_ensure_products_in_output` pattern with `AfterToolCallEvent` hook, error handling returning JSON error object
+  - [x] 2.2 Create `pellier/backend/agents/search_agent.py` with a `@tool` decorated `search_agent` function using `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096)`, tools `[search_products, get_product_by_category, compare_products]`, system prompt for product search specialist, `_ensure_products_in_output` pattern with `AfterToolCallEvent` hook, error handling returning JSON error object
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
   - [ ]\* 2.3 Write property test for `_ensure_products_in_output` (shared by all agents)
     - **Property 4: Product JSON appended when missing from agent output**
@@ -35,7 +35,7 @@ Add two new specialist agents (Customer Support and Search) to the Pellier multi
   - [ ]\* 3.2 Write property test for `get_return_policy`
     - **Property 1: Return policy lookup correctness**
     - **Validates: Requirements 1.2, 1.3**
-  - [x] 3.3 Create `pellier/backend/agents/experience_guide.py` with a `@tool` decorated `customer_support_agent` function using `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096, temperature=0.2)`, tools `[get_return_policy, search_products]`, system prompt for support specialist, `_ensure_products_in_output` pattern with `AfterToolCallEvent` hook, error handling, and optional Exa MCP integration (try/except with warning log if unavailable)
+  - [x] 3.3 Create `pellier/backend/agents/experience_guide.py` with a `@tool` decorated `customer_support_agent` function using `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL, max_tokens=4096)`, tools `[get_return_policy, search_products]`, system prompt for support specialist, `_ensure_products_in_output` pattern with `AfterToolCallEvent` hook, error handling, and optional Exa MCP integration (try/except with warning log if unavailable)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 5.1, 5.2, 5.3, 5.4_
 
 - [x] 4. Checkpoint - Ensure new agents and tools are correct

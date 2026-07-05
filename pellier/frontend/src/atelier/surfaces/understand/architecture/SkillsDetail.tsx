@@ -29,7 +29,7 @@ const SkillsDetail: React.FC = () => {
       conceptName="Skills"
       category="live"
       title="Skills, persona-routed."
-      prose="Five skills – three persona overlays plus the shared Care Card and Proof Counter – load when the SkillRouter (Claude Sonnet 4.6) binds a turn to a specific handling style. Markdown briefs live under /skills/<slug>/SKILL.md; they are not separate agents."
+      prose="Five skills – three persona overlays plus the shared Care Card and Proof Counter – load when the SkillRouter (Claude Sonnet 5) binds a turn to a specific handling style. Markdown briefs live under /skills/<slug>/SKILL.md; they are not separate agents."
       cheatSheet={[
         {
           numeral: 'i.',
@@ -37,7 +37,7 @@ const SkillsDetail: React.FC = () => {
         },
         {
           numeral: 'ii.',
-          text: 'The SkillRouter is a low-temperature Sonnet 4.6 classifier. Intent routing already chose the specialist; this second router only decides which skill overlays to inject for that turn.',
+          text: 'The SkillRouter is a Sonnet 5 classifier with a tight JSON-only prompt. Intent routing already chose the specialist; this second router only decides which skill overlays to inject for that turn.',
         },
         {
           numeral: 'iii.',
@@ -48,7 +48,7 @@ const SkillsDetail: React.FC = () => {
         label: 'Current skill activation state. The SkillRouter evaluates each turn and activates skills based on persona context.',
         values: [
           { label: 'Skills available', value: '5' },
-          { label: 'Router model', value: 'Claude Sonnet 4.6 (global.anthropic.claude-sonnet-4-6)' },
+          { label: 'Router model', value: 'Claude Sonnet 5 (global.anthropic.claude-sonnet-5)' },
           { label: 'Active', value: 'None' },
         ],
       }}

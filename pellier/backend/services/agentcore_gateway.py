@@ -175,7 +175,6 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
             model=BedrockModel(
                 model_id=settings.BEDROCK_ROUTER_MODEL,
                 max_tokens=4096,
-                temperature=0.0,
             ),
             system_prompt=(
                 "You are the Pellier shopping assistant. "
@@ -241,7 +240,6 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
             model=BedrockModel(
                 model_id=settings.BEDROCK_ROUTER_MODEL,
                 max_tokens=4096,
-                temperature=0.0,
             ),
             system_prompt=(
                 "You are the Pellier shopping assistant. "

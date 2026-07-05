@@ -191,7 +191,7 @@ All authenticated endpoints require valid Cognito JWT via `Authorization: Bearer
 
 Exercise files ship with complete solution code in `# === REFERENCE: START/END ===` blocks per `workshop-content.md` steering.
 
-Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Temperature follows `coding-standards.md` (0.0 for orchestrator with Claude Sonnet 4.6, 0.2 for specialists with Claude Opus 4.8).
+Tool and agent naming follows `coding-standards.md` and `workshop-content.md` steering. Model construction follows `coding-standards.md`: Sonnet 5 and Opus 4.8 are used without temperature overrides.
 
 ### Section 1 — Smart Search (Workshop 30 min / Builders 15 min)
 
@@ -209,12 +209,12 @@ Tool and agent naming follows `coding-standards.md` and `workshop-content.md` st
   - Uses `_run_async()` helper for async-to-sync bridging
 
 - **Capability 3:** `product_recommendation_agent` in `pellier/backend/agents/curator.py`
-  - Strands Agent wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with `temperature=0.2`
+  - Strands Agent wrapping `BedrockModel(model_id=settings.BEDROCK_CHAT_MODEL)` with no temperature override
   - Tools: `search_products`, `get_trending_products`, `compare_products`, `get_product_by_category`
   - System prompt emphasizes warm, editorial, catalog-style reasoning — grounded in specific product attributes
 
 - **Capability 4:** Multi-agent orchestrator in `pellier/backend/agents/orchestrator.py`
-  - Uses Claude Sonnet 4.6 via `BedrockModel(model_id='global.anthropic.claude-sonnet-4-6')` with `temperature=0.0`
+  - Uses Claude Sonnet 5 via `BedrockModel(model_id='global.anthropic.claude-sonnet-5')` with no temperature override
   - Routes via Strands "Agents as Tools" pattern
   - Intent classification priority per `coding-standards.md`: pricing > inventory > support > search > recommendation (default)
   - Routes to five specialists: `search_agent`, `product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`, `customer_support_agent` (last one defined in `customer-support-agent` spec)
@@ -255,7 +255,7 @@ Sections:
 
 ### `design.md`
 
-- **Architecture diagram** (Mermaid): browser → Cognito Hosted UI → FastAPI → (AgentCore Identity → AgentCore Memory → AgentCore Runtime → AgentCore Gateway → Aurora pgvector → Bedrock: Opus 4.8 + Sonnet 4.6 + Cohere Embed v4 + Cohere Rerank v3.5)
+- **Architecture diagram** (Mermaid): browser → Cognito Hosted UI → FastAPI → (AgentCore Identity → AgentCore Memory → AgentCore Runtime → AgentCore Gateway → Aurora pgvector → Bedrock: Opus 4.8 + Sonnet 5 + Cohere Embed v4 + Cohere Rerank v3.5)
 - **Sequence diagrams:**
   1. Vector search (query → embedding → pgvector similarity → ranked results)
   2. Agent reasoning with tool use (user message → orchestrator (Sonnet) → specialist (Opus) → tool call → response with trace)
@@ -328,8 +328,8 @@ Before delivering the spec, verify:
 - [ ] Auth uses real Cognito + AgentCore Identity (not simulation)
 - [ ] Preferences persist to AgentCore Memory (via `agentcore_memory.py`) keyed by verified Cognito user_id
 - [ ] httpOnly Secure cookies for tokens (no localStorage)
-- [ ] Orchestrator uses Claude Sonnet 4.6 at temperature 0.0 per `coding-standards.md`
-- [ ] Specialists use Claude Opus 4.8 at temperature 0.2 per `coding-standards.md`
+- [ ] Orchestrator uses Claude Sonnet 5 with no temperature override per `coding-standards.md`
+- [ ] Specialists use Claude Opus 4.8 with no temperature override per `coding-standards.md`
 - [ ] Tools use `@tool` decorator, return JSON strings, handle errors per `coding-standards.md`
 - [ ] Spec defers to `catalog-enrichment` for product table DDL + tagging
 - [ ] Spec defers to `customer-support-agent` for the customer support specialist

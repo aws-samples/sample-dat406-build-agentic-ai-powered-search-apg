@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     #
     #   Claude Opus 4.8   — editorial specialists (Style Advisor, Curator,
     #                  Experience Guide). Needs voice + personality.
-    #   Claude Sonnet 4.6 — routing, structured extraction, and reporting
+    #   Claude Sonnet 5 — routing, structured extraction, and reporting
     #                  specialists (Value Analyst, Stock Keeper).
     #
     # Model IDs follow Bedrock cross-region inference profile naming.
@@ -71,14 +71,14 @@ class Settings(BaseSettings):
     # BEDROCK_OPUS_MODEL. It is intentionally env-OVERRIDABLE: the model-access
     # preflight (scripts/check_model_access.py, run in bootstrap) detects
     # whether Opus 4.8 is reachable on the account, and if it is NOT, writes
-    #   BEDROCK_OPUS_MODEL=global.anthropic.claude-sonnet-4-6
-    # into .env so editorial agents fall back to Sonnet 4.6 cleanly — no code
+    #   BEDROCK_OPUS_MODEL=global.anthropic.claude-sonnet-5
+    # into .env so editorial agents fall back to Sonnet 5 cleanly — no code
     # path change, no per-request retry. BEDROCK_SONNET_MODEL is the canonical
-    # fallback target (real Sonnet 4.6, not an Opus alias).
+    # fallback target (real Sonnet 5, not an Opus alias).
     BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-8"
-    BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-4-6"
-    BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-4-6"
-    BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-4-6"
+    BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-5"
+    BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-5"
+    BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-5"
 
     # Legacy alias — kept for tests + scripts that still reference it.
     # Prefer the role-specific Opus/Sonnet settings in agent factories.

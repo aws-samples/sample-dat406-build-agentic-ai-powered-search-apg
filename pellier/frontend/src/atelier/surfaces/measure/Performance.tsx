@@ -933,8 +933,8 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         }}
       >
         Vector finds meaning. Postgres FTS finds literals. Cohere Rerank reads
-        the union and picks. The agentic row goes one step further: Sonnet 4.6
-        at T=0 splits the query into structured filters (categories, tags,
+        the union and picks. The agentic row goes one step further: Sonnet 5
+        splits the query into structured filters (categories, tags,
         price ceiling, in-stock) and a residual taste phrase, then the
         WHERE-clause filters run with{' '}
         <code style={{ fontFamily: 'var(--at-mono)', fontSize: '13px' }}>

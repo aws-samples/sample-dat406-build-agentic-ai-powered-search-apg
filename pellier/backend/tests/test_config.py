@@ -308,9 +308,9 @@ def test_bedrock_model_ids_have_spec_defaults(
     # Per-agent model mix should also default cleanly. Sonnet owns routing,
     # structured extraction, and reporting; no third model family is in the path.
     assert s.BEDROCK_OPUS_MODEL == "global.anthropic.claude-opus-4-8"
-    assert s.BEDROCK_SONNET_MODEL == "global.anthropic.claude-sonnet-4-6"
-    assert s.BEDROCK_ROUTER_MODEL == "global.anthropic.claude-sonnet-4-6"
-    assert s.BEDROCK_REPORTING_MODEL == "global.anthropic.claude-sonnet-4-6"
+    assert s.BEDROCK_SONNET_MODEL == "global.anthropic.claude-sonnet-5"
+    assert s.BEDROCK_ROUTER_MODEL == "global.anthropic.claude-sonnet-5"
+    assert s.BEDROCK_REPORTING_MODEL == "global.anthropic.claude-sonnet-5"
 
 
 # ---------------------------------------------------------------------------

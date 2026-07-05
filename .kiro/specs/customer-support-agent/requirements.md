@@ -6,7 +6,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 
 ## Glossary
 
-- **Orchestrator**: The top-level Strands Agent (Claude Sonnet 4.6, model ID `global.anthropic.claude-sonnet-4-6`) that classifies user intent and routes queries to one specialist agent.
+- **Orchestrator**: The top-level Strands Agent (Claude Sonnet 5, model ID `global.anthropic.claude-sonnet-5`) that classifies user intent and routes queries to one specialist agent.
 - **Customer_Support_Agent**: A new Strands specialist agent (using `settings.BEDROCK_CHAT_MODEL`, currently `global.anthropic.claude-opus-4-8`) defined as a `@tool` function named `customer_support_agent` in `agents/experience_guide.py`. Handles return policies, product search for support contexts, and troubleshooting queries.
 - **get_return_policy**: A `@tool` decorated function in `services/agent_tools.py` that returns return policy details for a given product category by querying the `pellier.return_policies` Aurora PostgreSQL table.
 - **return_policies table**: An Aurora PostgreSQL table (`pellier.return_policies`) seeded by the bootstrap script with 21 rows (20 product categories + a default). Columns: `category_name`, `return_window_days`, `conditions`, `refund_method`.
@@ -162,7 +162,7 @@ Pellier is a multi-agent e-commerce shopping assistant built with the Strands SD
 #### Acceptance Criteria
 
 1. THE Search_Agent SHALL be defined as a `@tool` decorated function named `search_agent` in `agents/search_agent.py`, following the same pattern as the existing specialist agents (`product_recommendation_agent`, `price_optimization_agent`, `inventory_restock_agent`).
-2. THE Search_Agent SHALL use the Strands SDK `Agent` class with `BedrockModel` configured with `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-8`), max_tokens=4096, and temperature=0.2, consistent with the other specialist agents.
+2. THE Search_Agent SHALL use the Strands SDK `Agent` class with `BedrockModel` configured with `settings.BEDROCK_CHAT_MODEL` (currently `global.anthropic.claude-opus-4-8`), max_tokens=4096, and no temperature override, consistent with the other specialist agents.
 3. THE Search_Agent SHALL have access to the `search_products`, `get_product_by_category`, and `compare_products` tools from the Agent_Tools_Module.
 4. THE Search_Agent SHALL include a system prompt instructing the model to act as Pellier's Product Search Specialist, using `search_products` for natural language and intent-based queries, `get_product_by_category` for category browsing, and `compare_products` for side-by-side product comparisons.
 5. THE Search_Agent SHALL accept a `query` string parameter and return a string response.

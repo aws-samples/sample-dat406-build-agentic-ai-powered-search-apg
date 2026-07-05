@@ -1801,7 +1801,7 @@ CURRENT REQUEST: {message}"""
         logger.info(f"🎯 Intent: {intent} → {intent_hint}")
 
         # --- Skill router ---------------------------------------------------
-        # One LLM call to Sonnet 4.6 decides which skills to inject into the
+        # One LLM call to Sonnet 5 decides which skills to inject into the
         # reasoning specialists' system prompts for this turn. Runs after
         # intent classification so the triage fast-path (greetings, meta,
         # thanks) short-circuits before reaching here.
