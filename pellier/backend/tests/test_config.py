@@ -219,12 +219,12 @@ def test_aws_default_region_overrides_ambient_aws_region(
     from config import Settings
 
     monkeypatch.setenv("AWS_REGION", "us-east-2")
-    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-west-2")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
     s = Settings()
 
-    assert s.aws_region_resolved == "us-west-2"
-    assert s.cognito_region_resolved == "us-west-2"
+    assert s.aws_region_resolved == "us-east-1"
+    assert s.cognito_region_resolved == "us-east-1"
 
 
 def test_cognito_pool_id_resolved_prefers_new_name(

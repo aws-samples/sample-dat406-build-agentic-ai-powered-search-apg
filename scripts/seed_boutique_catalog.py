@@ -23,7 +23,7 @@ Usage:
 
 Environment:
     DB_HOST, DB_NAME, DB_USER, DB_PASSWORD — Aurora connection
-    AWS_REGION — Bedrock region (default: us-west-2)
+    AWS_REGION — Bedrock region (default: us-east-1)
 
 Workshop note:
     The catalog embeddings never change between runs, so we generate them
@@ -354,7 +354,7 @@ def generate_embeddings(products: List[Product], region: str) -> None:
     import boto3
 
     # Region-derived cross-region inference profile prefix (us. / eu. / apac.).
-    group = (region or "us-west-2").split("-")[0]
+    group = (region or "us-east-1").split("-")[0]
     if group not in ("us", "eu", "apac"):
         group = "us"
     default_model = f"{group}.cohere.embed-v4:0"
@@ -602,7 +602,7 @@ def main():
     parser.add_argument("--csv-only", action="store_true", help="Write CSV + embeddings cache only, no DB connection")
     parser.add_argument("--from-cache", action="store_true", help="Seed using committed embeddings cache (no Bedrock calls) — preferred for workshops")
     parser.add_argument("--skip-embeddings", action="store_true", help="Skip Cohere embedding generation (zero vectors)")
-    parser.add_argument("--region", default=os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION", "us-west-2"), help="AWS region")
+    parser.add_argument("--region", default=os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION", "us-east-1"), help="AWS region")
     args = parser.parse_args()
 
     products = ALL_PRODUCTS

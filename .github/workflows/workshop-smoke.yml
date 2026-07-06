@@ -29,8 +29,8 @@ jobs:
       DB_NAME: pellier_smoke
       DB_USER: pellier_smoke
       DB_PASSWORD: pellier_smoke
-      AWS_REGION: us-west-2
-      AWS_DEFAULT_REGION: us-west-2
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
 
     steps:
       - name: Checkout

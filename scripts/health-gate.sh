@@ -76,7 +76,7 @@ _psql() {
   PGPASSWORD="${DB_PASSWORD:-}" psql \
     -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" \
     -U "${DB_USER:-postgres}" -d "${DB_NAME:-postgres}" \
-    -tAc "$1" 2>/dev/null
+    -X -q -tAc "$1" 2>/dev/null
 }
 
 # 2. Catalog count

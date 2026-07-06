@@ -108,7 +108,7 @@ def main():
     parser = argparse.ArgumentParser(description="Check AgentCore Runtime traces")
     parser.add_argument("--runtime-id", required=True, help="AgentCore Runtime ID")
     parser.add_argument("--last", type=int, default=5, help="Number of recent traces to show")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-west-2"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
     args = parser.parse_args()
 
     print(f"\n{'='*60}")

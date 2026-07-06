@@ -252,7 +252,7 @@ class MCPTarget:
 
 @dataclass
 class GatewayConfig:
-    region: str = "us-west-2"
+    region: str = "us-east-1"
     gateway_name: str = "pellier-gateway"
     targets: List[MCPTarget] = field(default_factory=list)
     cognito_user_pool_id: str = None
@@ -443,7 +443,7 @@ class BazaarGatewayDeployer:
 
 def main():
     parser = argparse.ArgumentParser(description="Deploy Pellier MCP servers to AgentCore Gateway")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-west-2"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
     parser.add_argument("--gateway-name", default="pellier-gateway")
     parser.add_argument("--search-lambda-arn", required=True)
     parser.add_argument("--pricing-lambda-arn", required=True)

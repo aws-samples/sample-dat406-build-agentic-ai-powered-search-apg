@@ -33,7 +33,7 @@ set -euo pipefail
 #   PGSECRET           Secrets Manager ARN holding the Aurora master credentials
 #   PGDATABASE         Database name (typically `postgres`)
 #   DB_REGION          Aurora/Data API region (defaults to AWS_REGION)
-#   AWS_REGION         AgentCore GA region — `us-west-2` for this workshop
+#   AWS_REGION         AgentCore, Bedrock, Cognito, and Aurora region — us-east-1
 #   COGNITO_POOL       Cognito User Pool id (Gateway auth + Runtime auth)
 #   COGNITO_CLIENT     Cognito User Pool *client* id (allowed on the Runtime JWT)
 #   AGENTCORE_ROLE_ARN Execution role with trust on bedrock-agentcore.amazonaws.com
