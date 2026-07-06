@@ -9,8 +9,6 @@ Runnable from the repo root:
 """
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,18 +19,15 @@ import services.rerank as rerank_module
 
 @pytest.fixture
 def mock_bedrock(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
-    """Stub boto3.client('bedrock-runtime') so .invoke_model is observable."""
+    """Stub boto3.client('bedrock-agent-runtime') so .rerank is observable."""
     client = MagicMock()
-    # Default: well-formed Cohere response, top_n results in input order.
-    body = {
+    # Default: well-formed Bedrock Agent Runtime response.
+    client.rerank.return_value = {
         "results": [
-            {"index": 0, "relevance_score": 0.95},
-            {"index": 2, "relevance_score": 0.71},
-            {"index": 1, "relevance_score": 0.34},
-        ]
-    }
-    client.invoke_model.return_value = {
-        "body": MagicMock(read=MagicMock(return_value=json.dumps(body).encode())),
+            {"index": 0, "relevanceScore": 0.95},
+            {"index": 2, "relevanceScore": 0.71},
+            {"index": 1, "relevanceScore": 0.34},
+        ],
     }
     monkeypatch.setattr(rerank_module.boto3, "client", lambda *_, **__: client)
     return client
@@ -45,7 +40,7 @@ def reset_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestRerankRequestShape:
-    """The Bedrock invoke_model body must match the Cohere v2 schema."""
+    """The Bedrock Agent Runtime request must match the rerank schema."""
 
     def test_request_body_includes_required_fields(
         self, mock_bedrock: MagicMock,
@@ -54,16 +49,14 @@ class TestRerankRequestShape:
         docs = ["doc one", "doc two", "doc three"]
         svc.rerank(query="my query", documents=docs, top_n=2)
 
-        # invoke_model called once with the right shape.
-        assert mock_bedrock.invoke_model.call_count == 1
-        kwargs = mock_bedrock.invoke_model.call_args.kwargs
-        # The body is a JSON string — parse it back.
-        body = json.loads(kwargs["body"])
-        assert body["query"] == "my query"
-        assert body["documents"] == docs
-        # top_n was 2 and we had 3 docs, so it should pass through 2.
-        assert body["top_n"] == 2
-        assert body["api_version"] == 2
+        assert mock_bedrock.rerank.call_count == 1
+        kwargs = mock_bedrock.rerank.call_args.kwargs
+        assert kwargs["queries"] == [{"type": "TEXT", "textQuery": {"text": "my query"}}]
+        assert [s["inlineDocumentSource"]["textDocument"]["text"] for s in kwargs["sources"]] == docs
+        assert kwargs["rerankingConfiguration"]["type"] == "BEDROCK_RERANKING_MODEL"
+        config = kwargs["rerankingConfiguration"]["bedrockRerankingConfiguration"]
+        assert config["numberOfResults"] == 2
+        assert config["modelConfiguration"]["modelArn"].endswith("/cohere.rerank-v3-5:0")
 
     def test_top_n_clamped_to_document_count(
         self, mock_bedrock: MagicMock,
@@ -71,17 +64,16 @@ class TestRerankRequestShape:
         svc = RerankService()
         docs = ["only doc"]
         svc.rerank(query="q", documents=docs, top_n=10)
-        body = json.loads(mock_bedrock.invoke_model.call_args.kwargs["body"])
-        # min(top_n=10, len(docs)=1) → 1
-        assert body["top_n"] == 1
+        config = mock_bedrock.rerank.call_args.kwargs["rerankingConfiguration"]["bedrockRerankingConfiguration"]
+        assert config["numberOfResults"] == 1
 
     def test_uses_configured_model_id(
         self, mock_bedrock: MagicMock,
     ) -> None:
         svc = RerankService()
         svc.rerank(query="q", documents=["doc"], top_n=1)
-        kwargs = mock_bedrock.invoke_model.call_args.kwargs
-        assert kwargs["modelId"] == svc.model_id
+        config = mock_bedrock.rerank.call_args.kwargs["rerankingConfiguration"]["bedrockRerankingConfiguration"]
+        assert config["modelConfiguration"]["modelArn"] == svc.model_arn
         # Verify it actually points to the rerank model, not something else.
         assert "rerank" in svc.model_id.lower()
 
@@ -104,7 +96,7 @@ class TestRerankResults:
         svc = RerankService()
         results = svc.rerank(query="q", documents=[], top_n=5)
         assert results == []
-        assert mock_bedrock.invoke_model.call_count == 0
+        assert mock_bedrock.rerank.call_count == 0
 
     def test_zero_top_n_returns_empty_without_calling_bedrock(
         self, mock_bedrock: MagicMock,
@@ -112,7 +104,7 @@ class TestRerankResults:
         svc = RerankService()
         results = svc.rerank(query="q", documents=["doc"], top_n=0)
         assert results == []
-        assert mock_bedrock.invoke_model.call_count == 0
+        assert mock_bedrock.rerank.call_count == 0
 
 
 class TestRerankFailureMode:
@@ -121,7 +113,7 @@ class TestRerankFailureMode:
         self, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         client = MagicMock()
-        client.invoke_model.side_effect = RuntimeError("Bedrock down")
+        client.rerank.side_effect = RuntimeError("Bedrock down")
         monkeypatch.setattr(rerank_module.boto3, "client", lambda *_, **__: client)
         svc = RerankService()
         # No exception — caller is responsible for falling back to RRF order.

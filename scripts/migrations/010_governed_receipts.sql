@@ -48,9 +48,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS governed_receipts_seed_incident_uidx
 --   args.customer_id = theo        (who the return was for)
 --   caller           = gateway     (Cedar evaluated before execution)
 --
--- Product is looked up by name so the seed survives productId reshuffles.
+-- Product is looked up by name so the seed survives product id reshuffles.
 WITH product AS (
-    SELECT "productId" AS product_id
+    SELECT product_id
       FROM pellier.product_catalog
      WHERE name = 'Wabi-Sabi Bowl'
      LIMIT 1

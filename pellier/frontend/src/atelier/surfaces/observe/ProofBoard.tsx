@@ -31,16 +31,20 @@ interface ManagedReceipt {
   gatewayPassthrough: boolean;
   policyConfigured?: boolean;
   gatewayAuditPresent?: boolean;
+  gatewayAuditAbsenceVerified?: boolean;
   latestGatewayAuditId?: number | null;
   latestGatewayAuditAt?: string;
   governedReceiptPresent?: boolean;
   latestGovernedReceiptId?: number | null;
   latestGovernedReceiptAt?: string;
+  governedAuditId?: number | null;
   governedPrincipalId?: string;
   governedPrincipalLabel?: string;
   governedDecision?: string;
   governedTool?: string;
+  governedPolicyName?: string;
   governedArgs?: Record<string, unknown>;
+  absenceCheckDetail?: string;
 }
 
 interface ProofCard {
@@ -341,6 +345,9 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
   const customerId = typeof receipt.governedArgs?.customer_id === 'string'
     ? receipt.governedArgs.customer_id
     : '';
+  const isDeny = receipt.governedDecision === 'DENY';
+  const absenceVerified = Boolean(receipt.gatewayAuditAbsenceVerified);
+  const receiptSeen = Boolean(receipt.present || receipt.governedReceiptPresent);
   const traceSteps: Array<{ label: string; detail: string; state: TraceStepState }> = [
     {
       label: 'Cognito user',
@@ -362,7 +369,7 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
     {
       label: 'Cedar decision',
       detail: receipt.governedDecision
-        ? `${receipt.governedDecision}${governedAt ? ` at ${governedAt}` : ''}`
+        ? `${receipt.governedDecision}${receipt.governedPolicyName ? ` via ${receipt.governedPolicyName}` : ''}${governedAt ? ` at ${governedAt}` : ''}`
         : receipt.policyConfigured ? 'Policy engine configured' : 'Policy engine id missing',
       state: receipt.governedReceiptPresent
         ? 'pass'
@@ -372,15 +379,23 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
       label: 'Tool result',
       detail: receipt.gatewayAuditPresent
         ? `${receipt.governedTool || 'Gateway tool'} audit ${receipt.latestGatewayAuditId}`
-        : 'No Gateway ALLOW row',
-      state: receipt.gatewayAuditPresent ? 'pass' : receipt.present ? 'warn' : 'pending',
+        : isDeny && absenceVerified
+          ? 'Cedar DENY: tool target did not execute'
+          : isDeny
+            ? 'DENY receipt present; absence check pending'
+            : 'No Gateway ALLOW row',
+      state: receipt.gatewayAuditPresent || (isDeny && absenceVerified)
+        ? 'pass'
+        : receiptSeen ? 'warn' : 'pending',
     },
     {
       label: 'Aurora audit',
       detail: gatewayAuditAt
         ? `tool_audit at ${gatewayAuditAt}${customerId ? ` for ${customerId}` : ''}`
-        : 'Gateway DENY leaves no tool_audit row',
-      state: receipt.gatewayAuditPresent ? 'pass' : receipt.present ? 'warn' : 'pending',
+        : absenceVerified
+          ? 'Gateway/Cedar DENY left no tool_audit row'
+          : 'No Gateway audit row for this receipt',
+      state: receipt.gatewayAuditPresent || absenceVerified ? 'pass' : receiptSeen ? 'warn' : 'pending',
     },
   ];
 
@@ -428,6 +443,18 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
           <TraceStep key={step.label} {...step} />
         ))}
       </div>
+      <p
+        style={{
+          margin: '12px 0 0',
+          color: 'var(--at-ink-3)',
+          fontFamily: 'var(--at-sans)',
+          fontSize: '12.5px',
+          lineHeight: 1.5,
+        }}
+      >
+        No-row DENY is scoped to the Gateway/Cedar rail. In-process tool calls can still write audit rows
+        because they execute before local return handling completes.
+      </p>
     </section>
   );
 };

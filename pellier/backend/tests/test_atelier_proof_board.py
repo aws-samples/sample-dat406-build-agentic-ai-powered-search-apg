@@ -34,6 +34,17 @@ class _ProofDB:
                 "policy_name": "process_return_damaged_only",
                 "created_at": None,
             }
+        if params == (303,):
+            return {
+                "audit_id": 303,
+                "session_id": "managed-proof",
+                "tool": "process_return",
+                "caller": "gateway",
+                "args": {"customer_id": "theo", "product_id": "37", "reason": "damaged"},
+                "result": {"status": "success"},
+                "latency_ms": 55,
+                "created_at": None,
+            }
         if params == ("floor_check",):
             return {
                 "audit_id": 101,
@@ -79,6 +90,31 @@ class _ProofDB:
         }
 
 
+class _DenyProofDB(_ProofDB):
+    async def fetch_one(self, query: str, *params: Any) -> dict | None:
+        if "FROM pellier.governed_receipts" in query and params[:1] == ("gateway-final-sale-proof",):
+            return {
+                "receipt_id": 606,
+                "audit_id": None,
+                "session_id": "gateway-final-sale-proof",
+                "principal_id": "CUST-MARCO",
+                "principal_label": "Marco (Cognito JWT)",
+                "tool": "process_return",
+                "caller": "gateway",
+                "decision": "DENY",
+                "args": {
+                    "customer_id": "theo",
+                    "product_id": 37,
+                    "reason": "damaged",
+                    "absence_verified": True,
+                },
+                "policy_engine_id": "policy-1",
+                "policy_name": "workshop_final_sale_forbid",
+                "created_at": None,
+            }
+        return await super().fetch_one(query, *params)
+
+
 def _client(stub_db: _ProofDB) -> TestClient:
     import app as app_module
 
@@ -94,6 +130,7 @@ def _configure_managed(monkeypatch) -> None:
     monkeypatch.setattr(settings, "COGNITO_POOL_ID", "pool-1", raising=False)
     monkeypatch.setattr(settings, "COGNITO_CLIENT_ID", "client-1", raising=False)
     monkeypatch.setattr(settings, "COGNITO_DOMAIN", "auth.example.com", raising=False)
+    monkeypatch.setattr(settings, "COGNITO_TEST_CREDENTIALS_SECRET_ARN", "secret-1", raising=False)
     monkeypatch.setattr(settings, "AGENTCORE_MEMORY_ID", "mem-1", raising=False)
     monkeypatch.setattr(settings, "AGENTCORE_RUNTIME_ENDPOINT", "runtime-arn", raising=False)
     monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_URL", "https://gateway.example/mcp", raising=False)
@@ -152,6 +189,21 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert cards["managed-rail"]["status"] == "complete"
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
     assert "process_return" in cards["audit-ledger"]["fallback"]["command"]
+
+
+def test_proof_board_scopes_gateway_deny_absence(monkeypatch) -> None:
+    _configure_managed(monkeypatch)
+    client = _client(_DenyProofDB())
+
+    r = client.get("/api/atelier/proof-board?session_id=gateway-final-sale-proof")
+    assert r.status_code == 200
+    receipt = r.json()["managedReceipt"]
+
+    assert receipt["governedDecision"] == "DENY"
+    assert receipt["governedAuditId"] is None
+    assert receipt["gatewayAuditPresent"] is False
+    assert receipt["gatewayAuditAbsenceVerified"] is True
+    assert "Gateway/Cedar DENY" in receipt["absenceCheckDetail"]
 
 
 def test_build_state_reports_stock_keeper_midpoint(monkeypatch) -> None:

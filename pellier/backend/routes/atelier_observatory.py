@@ -182,6 +182,15 @@ def _configured(value: Any) -> bool:
     return bool(str(value or "").strip())
 
 
+def _gateway_identity_configured(settings: Any) -> bool:
+    """True when the governed Gateway helper can mint a Cognito JWT."""
+    return all([
+        _configured(settings.cognito_pool_id_resolved),
+        _configured(settings.COGNITO_CLIENT_ID),
+        _configured(getattr(settings, "COGNITO_TEST_CREDENTIALS_SECRET_ARN", None)),
+    ])
+
+
 def _readiness_check(
     *,
     check_id: str,
@@ -279,6 +288,40 @@ async def _latest_audit_row(
         return d
     except Exception as exc:
         logger.warning("Atelier latest audit row unavailable: %s", exc)
+        return None
+
+
+async def _audit_row_by_id(audit_id: int | None) -> dict[str, Any] | None:
+    if not audit_id:
+        return None
+    try:
+        from app import db_service
+        if db_service is None:
+            return None
+        row = await db_service.fetch_one(
+            """
+            SELECT audit_id,
+                   session_id,
+                   tool,
+                   caller,
+                   args,
+                   result,
+                   latency_ms,
+                   created_at
+              FROM pellier.tool_audit
+             WHERE audit_id = %s
+             LIMIT 1
+            """,
+            int(audit_id),
+        )
+        if not row:
+            return None
+        d = dict(row)
+        if d.get("created_at") is not None:
+            d["created_at"] = d["created_at"].isoformat()
+        return d
+    except Exception as exc:
+        logger.warning("Atelier audit row lookup unavailable: %s", exc)
         return None
 
 
@@ -393,19 +436,15 @@ async def _collect_readiness() -> dict[str, Any]:
             href="/atelier/search",
         ))
 
-    cognito_ready = all([
-        _configured(settings.cognito_pool_id_resolved),
-        _configured(settings.COGNITO_CLIENT_ID),
-        _configured(settings.COGNITO_DOMAIN),
-    ])
+    cognito_ready = _gateway_identity_configured(settings)
     checks.append(_readiness_check(
         check_id="identity",
         label="Cognito identity",
         state="pass" if cognito_ready else "fail",
         detail=(
-            "User pool, app client, and domain configured for JWT passthrough."  # copy-allow: atelier-readiness-detail
+            "User pool, app client, and test credential secret configured for JWT passthrough."  # copy-allow: atelier-readiness-detail
             if cognito_ready
-            else "Missing Cognito pool/client/domain; managed Runtime and Gateway JWT paths cannot run."
+            else "Missing Cognito pool/client/test credential secret; Gateway JWT proof cannot run."
         ),
         href="/atelier/production-patterns",
     ))
@@ -515,31 +554,59 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     latest_process_return = await _latest_audit_row(tool="process_return")
     latest_audit = await _latest_audit_row()
     latest_gateway = await _latest_audit_row(caller="gateway")
-    latest_governed = await _latest_governed_receipt(caller="gateway")
+    latest_governed = (
+        await _latest_governed_receipt(caller="gateway", session_id=session_id)
+        if session_id
+        else None
+    )
+    if not latest_governed:
+        latest_governed = await _latest_governed_receipt(caller="gateway")
+    governed_audit = await _audit_row_by_id(
+        latest_governed.get("audit_id") if latest_governed else None
+    )
     managed_receipt = _latest_managed_receipt(session_id)
     policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
 
     runtime_configured = _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
     gateway_configured = _configured(settings.AGENTCORE_GATEWAY_URL)
     policy_configured = _configured(policy_engine_id)
-    identity_configured = all([
-        _configured(settings.cognito_pool_id_resolved),
-        _configured(settings.COGNITO_CLIENT_ID),
-        _configured(settings.COGNITO_DOMAIN),
-    ])
+    identity_configured = _gateway_identity_configured(settings)
+    governed_decision = latest_governed.get("decision") if latest_governed else ""
+    governed_audit_present = bool(governed_audit)
+    governed_absence_verified = bool(
+        latest_governed
+        and governed_decision == "DENY"
+        and latest_governed.get("audit_id") is None
+    )
     managed_receipt.update({
         "policyConfigured": policy_configured,
-        "gatewayAuditPresent": bool(latest_gateway),
-        "latestGatewayAuditId": latest_gateway.get("audit_id") if latest_gateway else None,
-        "latestGatewayAuditAt": latest_gateway.get("created_at") if latest_gateway else "",
+        "gatewayAuditPresent": governed_audit_present if latest_governed else bool(latest_gateway),
+        "gatewayAuditAbsenceVerified": governed_absence_verified,
+        "latestGatewayAuditId": (
+            governed_audit.get("audit_id")
+            if governed_audit
+            else latest_gateway.get("audit_id") if latest_gateway and not latest_governed else None
+        ),
+        "latestGatewayAuditAt": (
+            governed_audit.get("created_at")
+            if governed_audit
+            else latest_gateway.get("created_at") if latest_gateway and not latest_governed else ""
+        ),
         "governedReceiptPresent": bool(latest_governed),
         "latestGovernedReceiptId": latest_governed.get("receipt_id") if latest_governed else None,
         "latestGovernedReceiptAt": latest_governed.get("created_at") if latest_governed else "",
+        "governedAuditId": latest_governed.get("audit_id") if latest_governed else None,
         "governedPrincipalId": latest_governed.get("principal_id") if latest_governed else "",
         "governedPrincipalLabel": latest_governed.get("principal_label") if latest_governed else "",
-        "governedDecision": latest_governed.get("decision") if latest_governed else "",
+        "governedDecision": governed_decision,
         "governedTool": latest_governed.get("tool") if latest_governed else "",
+        "governedPolicyName": latest_governed.get("policy_name") if latest_governed else "",
         "governedArgs": latest_governed.get("args") if latest_governed else {},
+        "absenceCheckDetail": (
+            "Gateway/Cedar DENY: governed receipt has no audit_id and no tool_audit row was written."
+            if governed_absence_verified
+            else ""
+        ),
     })
 
     cards = [

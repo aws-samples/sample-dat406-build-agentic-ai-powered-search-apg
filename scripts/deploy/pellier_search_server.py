@@ -47,6 +47,7 @@ SCHEMA = "pellier"
 # Module-level clients for Lambda warm start reuse
 rds_client = boto3.client("rds-data", region_name=DB_REGION)
 bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
+bedrock_agent_runtime_client = boto3.client("bedrock-agent-runtime", region_name=REGION)
 
 
 def _execute_sql(sql: str, parameters: list = None) -> list[dict]:
@@ -318,21 +319,37 @@ def _bedrock_rerank(query: str, documents: list, top_n: int) -> list:
     """
     if not documents:
         return []
-    body = {
-        "query": query,
-        "documents": documents,
-        "top_n": min(top_n, len(documents)),
-        "api_version": 2,
-    }
+    model_id = "cohere.rerank-v3-5:0"
+    model_arn = f"arn:aws:bedrock:{REGION}::foundation-model/{model_id}"
+    sources = [
+        {
+            "type": "INLINE",
+            "inlineDocumentSource": {
+                "type": "TEXT",
+                "textDocument": {"text": document},
+            },
+        }
+        for document in documents
+    ]
     try:
-        response = bedrock_client.invoke_model(
-            modelId="cohere.rerank-v3-5:0",
-            body=json.dumps(body),
-            contentType="application/json",
-            accept="application/json",
+        response = bedrock_agent_runtime_client.rerank(
+            queries=[{"type": "TEXT", "textQuery": {"text": query}}],
+            sources=sources,
+            rerankingConfiguration={
+                "type": "BEDROCK_RERANKING_MODEL",
+                "bedrockRerankingConfiguration": {
+                    "modelConfiguration": {"modelArn": model_arn},
+                    "numberOfResults": min(top_n, len(sources)),
+                },
+            },
         )
-        payload = json.loads(response["body"].read())
-        return payload.get("results", [])
+        return [
+            {
+                "index": item.get("index"),
+                "relevance_score": item.get("relevanceScore", 0.0),
+            }
+            for item in response.get("results", [])
+        ]
     except Exception as exc:
         logger.warning(f"Cohere rerank failed: {exc}")
         return []

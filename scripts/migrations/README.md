@@ -14,8 +14,9 @@ FKs.
 ## Apply order
 
 1. **`001_schema.sql`** — creates `vector`, the `pellier` schema,
-   `pellier.product_catalog`, the HNSW index, and the `updated_at`
-   trigger. Run before `scripts/seed_boutique_catalog.py`.
+   `pellier.product_catalog`, the `product_id` SQL alias for the public
+   `productId` field, the HNSW index, and the `updated_at` trigger. Run
+   before `scripts/seed_boutique_catalog.py`.
 2. **`002_workshop_telemetry.sql`** — creates `pellier.{agent_trace_spans,
    tools, tool_audit, customers, orders, approvals}`. Run after the
    catalog seed because `pellier.orders.product_id` references
@@ -71,6 +72,19 @@ done
 
 Every file sets `ON_ERROR_STOP`, and bootstrap also passes
 `-v ON_ERROR_STOP=1`, so failures stop the setup.
+
+## Quick catalog read
+
+Use the backend Python environment for small catalog checks instead of
+hand-quoting the legacy public `productId` column:
+
+```sh
+python3 scripts/read_catalog_product.py --name-like beeswax
+python3 scripts/read_catalog_product.py --product-id 37
+```
+
+The helper reads `pellier.product_catalog.product_id`, the generated
+snake_case SQL alias created by `001_schema.sql`.
 
 ## `pg_cron` note
 

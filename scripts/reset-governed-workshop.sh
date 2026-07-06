@@ -9,7 +9,7 @@ set -euo pipefail
 
 REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
-AWS_REGION="${AWS_DEFAULT_REGION:-${AWS_REGION:-us-east-1}}"
+PYTHON="${REPO}/pellier/backend/.venv/bin/python"
 
 GREEN='\033[32m'; RED='\033[31m'; YEL='\033[33m'; NC='\033[0m'
 pass() { printf "  ${GREEN}[PASS]${NC} %s\n" "$1"; }
@@ -27,6 +27,10 @@ else
 fi
 
 cd "$REPO"
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON="python3"
+fi
+AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 
 _psql_file() {
   local file="$1"
@@ -67,9 +71,10 @@ ANALYZE pellier.product_catalog;
 pass "HNSW index present: product_catalog_embedding_hnsw"
 
 if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]] && [[ -f "$REPO/scripts/deploy/workshop_policy_rule.py" ]]; then
-  if python3 "$REPO/scripts/deploy/workshop_policy_rule.py" reset \
+  if "$PYTHON" "$REPO/scripts/deploy/workshop_policy_rule.py" \
       --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
-      --region "$AWS_REGION" >/tmp/pellier-governed-reset-policy.log 2>&1; then
+      --region "$AWS_REGION" \
+      reset >/tmp/pellier-governed-reset-policy.log 2>&1; then
     pass "Participant Cedar rule removed; shipped policy state restored"
   else
     warn "Could not reset participant Cedar rule; see /tmp/pellier-governed-reset-policy.log"

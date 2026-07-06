@@ -538,11 +538,10 @@ async def health_check():
 
 
 # NOTE: the old ``POST /api/search/image`` multi-modal endpoint and its
-# ``ImageSearchService`` backing have been removed — no frontend caller
-# was left after the storefront scope trimmed down to text-in search.
-# If image search returns, restore via a fresh ``routes/search.py``
-# handler using Bedrock Claude vision + pgvector; don't bring back the
-# global service singleton.
+# ``ImageSearchService`` backing remain removed. The required storefront path
+# is text-in search; the two-hour workshop close uses
+# ``scripts/demo_multimodal_image_search.py`` to show Cohere Embed v4 image
+# embeddings over the same pgvector column without restoring a product route.
 
 @app.get("/api/products/category/{category_query}")
 async def explore_collection(

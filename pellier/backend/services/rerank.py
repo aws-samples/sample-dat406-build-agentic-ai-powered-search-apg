@@ -43,19 +43,25 @@ logger = logging.getLogger(__name__)
 class RerankService:
     """Cohere Rerank v3.5 via Bedrock invoke_model.
 
-    Bedrock exposes Cohere Rerank as a standard invoke_model target;
-    the request body uses the Cohere Rerank API v2 schema. We send the
-    candidate documents as plain strings — the agent_tools wrapper
-    builds these from product fields (name/description/category) so
-    the reranker has enough signal to make a meaningful judgment.
+    Bedrock exposes Cohere Rerank through the Bedrock Agent Runtime
+    ``rerank`` operation. We send the candidate documents as inline text
+    sources — the agent_tools wrapper builds these from product fields
+    (name/description/category) so the reranker has enough signal to make
+    a meaningful judgment.
     """
 
     def __init__(self, region: Optional[str] = None):
+        self.region = region or settings.aws_region_resolved
         self.client = boto3.client(
-            "bedrock-runtime",
-            region_name=region or settings.aws_region_resolved,
+            "bedrock-agent-runtime",
+            region_name=self.region,
         )
         self.model_id = settings.BEDROCK_RERANK_MODEL
+        self.model_arn = (
+            self.model_id
+            if self.model_id.startswith("arn:")
+            else f"arn:aws:bedrock:{self.region}::foundation-model/{self.model_id}"
+        )
 
     def rerank(
         self,
@@ -112,24 +118,41 @@ class RerankService:
             if cached is not None:
                 return cached
 
-        # Cohere's v2 API expects a JSON body with these fields. The
-        # api_version is part of the body (not a Bedrock-level header).
-        body = {
-            "query": query,
-            "documents": documents,
-            "top_n": top_n,
-            "api_version": 2,
-        }
+        sources = [
+            {
+                "type": "INLINE",
+                "inlineDocumentSource": {
+                    "type": "TEXT",
+                    "textDocument": {"text": doc},
+                },
+            }
+            for doc in documents
+        ]
 
         try:
-            response = self.client.invoke_model(
-                modelId=self.model_id,
-                body=json.dumps(body),
-                contentType="application/json",
-                accept="application/json",
+            response = self.client.rerank(
+                queries=[
+                    {
+                        "type": "TEXT",
+                        "textQuery": {"text": query},
+                    }
+                ],
+                sources=sources,
+                rerankingConfiguration={
+                    "type": "BEDROCK_RERANKING_MODEL",
+                    "bedrockRerankingConfiguration": {
+                        "modelConfiguration": {"modelArn": self.model_arn},
+                        "numberOfResults": top_n,
+                    },
+                },
             )
-            payload = json.loads(response["body"].read())
-            results = payload.get("results", [])
+            results = [
+                {
+                    "index": item.get("index"),
+                    "relevance_score": item.get("relevanceScore", 0.0),
+                }
+                for item in response.get("results", [])
+            ]
             if cache and cache_key:
                 cache.set("rerank", cache_key, results, ttl=settings.RERANK_CACHE_TTL_SEC)
             return results

@@ -110,4 +110,38 @@ describe('ProofBoard', () => {
     );
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
+
+  it('renders Gateway/Cedar DENY as a verified no-row proof', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({
+          ...proofBoardPayload,
+          managedReceipt: {
+            ...proofBoardPayload.managedReceipt,
+            governedDecision: 'DENY',
+            governedPolicyName: 'workshop_final_sale_forbid',
+            gatewayAuditPresent: false,
+            gatewayAuditAbsenceVerified: true,
+            latestGatewayAuditId: null,
+            absenceCheckDetail: 'Gateway/Cedar DENY: governed receipt has no audit_id and no tool_audit row was written.',
+          },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    render(
+      <MemoryRouter>
+        <ProofBoard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/DENY via workshop_final_sale_forbid/)).toBeInTheDocument();
+    expect(screen.getByText('Cedar DENY: tool target did not execute')).toBeInTheDocument();
+    expect(screen.getByText('Gateway/Cedar DENY left no tool_audit row')).toBeInTheDocument();
+    expect(screen.getByText(/No-row DENY is scoped to the Gateway\/Cedar rail/)).toBeInTheDocument();
+  });
 });

@@ -51,10 +51,13 @@ CREATE SCHEMA IF NOT EXISTS pellier;
 --
 -- "productId" is text (the seeder casts integer IDs to strings) so a
 -- future SKU rename like "P-2026-04-127" lands in place. Quoted
--- camelCase column names match the FastAPI ORM expectations.
+-- camelCase column names match the FastAPI/API expectations. The generated
+-- product_id alias keeps participant SQL unquoted and snake_case without
+-- breaking the public productId payload shape.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS pellier.product_catalog (
     "productId"   text          PRIMARY KEY,
+    product_id    text          GENERATED ALWAYS AS ("productId") STORED,
     name          text          NOT NULL,
     brand         text          NOT NULL,
     color         text,
@@ -72,6 +75,11 @@ CREATE TABLE IF NOT EXISTS pellier.product_catalog (
     created_at    timestamptz   NOT NULL DEFAULT now(),
     updated_at    timestamptz   NOT NULL DEFAULT now()
 );
+
+-- Existing clusters created before product_id was added need the alias too.
+ALTER TABLE pellier.product_catalog
+    ADD COLUMN IF NOT EXISTS product_id text
+    GENERATED ALWAYS AS ("productId") STORED;
 
 -- updated_at trigger — cheap, idempotent, only fires on real changes.
 CREATE OR REPLACE FUNCTION pellier.set_updated_at()
@@ -116,6 +124,11 @@ CREATE INDEX IF NOT EXISTS product_catalog_embedding_hnsw
 -- Lightweight btree on category for boutique grid filters.
 CREATE INDEX IF NOT EXISTS product_catalog_category_idx
     ON pellier.product_catalog (category);
+
+-- Unique snake_case alias for SQL labs and joins. "productId" remains the
+-- primary key for backward compatibility with the app/API contract.
+CREATE UNIQUE INDEX IF NOT EXISTS product_catalog_product_id_uidx
+    ON pellier.product_catalog (product_id);
 
 -- ---------------------------------------------------------------------
 -- 5. Visibility

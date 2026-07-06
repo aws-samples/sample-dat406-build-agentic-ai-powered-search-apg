@@ -41,7 +41,7 @@ JOIN pellier.customers principal
 JOIN pellier.customers customer
   ON customer.id = gr.args->>'customer_id'
 JOIN pellier.product_catalog pc
-  ON pc."productId" = gr.args->>'product_id'
+  ON pc.product_id = gr.args->>'product_id'
 LEFT JOIN pellier.orders o
   ON o.customer_id = gr.args->>'customer_id'
  AND o.product_id = gr.args->>'product_id'
