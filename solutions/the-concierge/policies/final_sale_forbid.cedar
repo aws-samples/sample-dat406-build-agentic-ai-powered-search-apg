@@ -1,5 +1,5 @@
 // Participant rule: final-sale products cannot be returned through Gateway.
-// The workshop helper replaces ACTION_TOKEN and GATEWAY_ARN before applying.
+// The workshop helper replaces the action and gateway placeholders before applying.
 forbid(
   principal,
   action == AgentCore::Action::"ACTION_TOKEN",

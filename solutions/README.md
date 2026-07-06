@@ -91,13 +91,25 @@ psql -f solutions/the-ledger/sql/forensic_incident.sql
 
 ### Exercise 4 (mandatory) — participant Cedar rule (Act III)
 
-The lab has participants author a second `forbid` rule and apply it
-with `scripts/deploy/workshop_policy_rule.py`. The reference Cedar shape
-is here for facilitator recovery:
+The lab has participants edit `policies/workshop_final_sale_forbid.cedar`,
+validate it, and apply it with `scripts/deploy/workshop_policy_rule.py`.
+The reference Cedar shape is here for facilitator recovery:
 
 ```bash
 cat solutions/the-concierge/policies/final_sale_forbid.cedar
-python3 scripts/deploy/workshop_policy_rule.py reset
+cp solutions/the-concierge/policies/final_sale_forbid.cedar \
+   policies/workshop_final_sale_forbid.cedar
+python3 scripts/deploy/workshop_policy_rule.py \
+  --cedar-file policies/workshop_final_sale_forbid.cedar \
+  validate
+python3 scripts/deploy/workshop_policy_rule.py \
+  --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
+  --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
+  --cedar-file policies/workshop_final_sale_forbid.cedar \
+  apply
+python3 scripts/deploy/workshop_policy_rule.py \
+  --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
+  reset
 ```
 
 ### Optional fast-finisher A — Anna skill edit (Act I)

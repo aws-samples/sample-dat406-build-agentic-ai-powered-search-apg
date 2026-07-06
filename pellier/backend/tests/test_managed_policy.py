@@ -34,6 +34,8 @@ EXPERIENCE_LAMBDA = DEPLOY / "pellier_experience_server.py"
 DEPLOY_GATEWAY = DEPLOY / "deploy_gateway.py"
 PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
 DEPLOY_ALL = DEPLOY / "deploy_all.sh"
+STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_final_sale_forbid.cedar"
+SOLUTION_CEDAR = REPO_ROOT / "solutions" / "the-concierge" / "policies" / "final_sale_forbid.cedar"
 
 # Cedar action spelling is keyed on the Gateway TARGET name (what the Gateway
 # registers tools under), NOT the Lambda function name. The live GA engine
@@ -149,7 +151,41 @@ def test_workshop_policy_rule_is_resettable_participant_policy() -> None:
     assert "process_return" in src and "product_id" in src
     assert "FINAL_SALE_PRODUCT_ID = 37" in src
     assert "context.input.product_id ==" in src
+    assert "--cedar-file" in src
+    assert "validate" in src
+    assert "_validate_participant_cedar" in src
     assert "create_action_policy_with_fallback" in src
+
+
+def test_participant_cedar_file_contract() -> None:
+    assert STARTER_CEDAR.is_file(), "starter Cedar file must ship in the participant repo"
+    assert SOLUTION_CEDAR.is_file(), "solution Cedar file must ship for facilitator recovery"
+
+    starter = STARTER_CEDAR.read_text()
+    solution = SOLUTION_CEDAR.read_text()
+    for text in (starter, solution):
+        assert 'AgentCore::Action::"ACTION_TOKEN"' in text
+        assert 'AgentCore::Gateway::"GATEWAY_ARN"' in text
+        assert "context.input has product_id" in text
+
+    assert "false" in starter, "starter must require a participant edit"
+    assert "context.input.product_id == 37" in solution
+
+
+def test_workshop_policy_rule_validates_authored_cedar() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("workshop_policy_rule", WORKSHOP_POLICY_RULE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    starter = STARTER_CEDAR.read_text()
+    solution = SOLUTION_CEDAR.read_text()
+
+    assert "replace the starter false predicate" in "\n".join(
+        mod._validate_participant_cedar(starter, product_id=37)
+    )
+    assert mod._validate_participant_cedar(solution, product_id=37) == []
 
 
 # ---------------------------------------------------------------------------
