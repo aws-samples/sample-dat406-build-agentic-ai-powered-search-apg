@@ -42,6 +42,16 @@ export interface TraceChipProps {
   compact?: boolean
 }
 
+function withBoutiqueTraceContext(path: string, tool: string): string {
+  const [pathAndSearch, hash] = path.split('#')
+  const separator = pathAndSearch.includes('?') ? '&' : '?'
+  const params = new URLSearchParams({
+    from: 'boutique',
+    trace: tool,
+  })
+  return `${pathAndSearch}${separator}${params.toString()}${hash ? `#${hash}` : ''}`
+}
+
 export const TraceChip: React.FC<TraceChipProps> = ({
   tool,
   duration,
@@ -121,7 +131,7 @@ export const TraceChip: React.FC<TraceChipProps> = ({
   if (linkToAtelier) {
     return (
       <a
-        href={routePath(vocab.atelierPath)}
+        href={routePath(withBoutiqueTraceContext(vocab.atelierPath, tool))}
         title={`${vocab.label} — ${vocab.description}`}
         data-testid={`trace-chip-${tool}`}
         style={baseStyle}

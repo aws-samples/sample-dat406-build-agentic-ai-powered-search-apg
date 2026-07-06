@@ -551,7 +551,7 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
     },
     {
       kind: 'inventory',
-      text: 'three new arrivals just landed in the Summer Edit',
+      text: 'three new arrivals just landed in the Resort Edit',
       query: 'Show me what just arrived',
     },
   ],

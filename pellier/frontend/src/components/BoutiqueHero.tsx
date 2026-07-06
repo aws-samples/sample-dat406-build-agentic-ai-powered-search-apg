@@ -29,6 +29,7 @@ import { useVoiceSearch } from '../hooks/useVoiceSearch'
 import { PresencePill } from '../shared'
 import { asset } from '../utils/assetPath'
 import { splitHeadlineAtRe } from '../utils/headlineAccent'
+import '../styles/boutique-home.css'
 
 // Per-persona hero images (landscape, in public/products/).
 // Falls back to the fresh hero for unknown personas.
@@ -67,37 +68,53 @@ const BECAUSE_KIND_LABEL: Record<BecauseChip['kind'], string> = {
 const PERSONA_GATEWAY_COPY: Record<
   string,
   {
+    eyebrow: string
+    title: string
     focus: string
     bullets: string[]
+    proof: string[]
     learn: string
+    service: string
   }
 > = {
   marco: {
+    eyebrow: 'Customer edit',
+    title: "Marco's Travel Edit",
     focus: 'Travel edit',
     bullets: [
       'Linen, light layers, and packable accessories',
       'Warm-weather outfits for ten days in Goa',
       'Size-aware picks from saved pieces',
     ],
+    proof: ['Natural fibers', 'Warehouse check'],
     learn: "Starts with Marco's saved linen preferences",
+    service: 'Trip-ready wardrobe',
   },
   anna: {
+    eyebrow: 'Customer edit',
+    title: "Anna's Gift Edit",
     focus: 'Gift edit',
     bullets: [
       'Gift-ready pieces across price bands',
       'Candles, ceramics, and wrapped pairings',
       'Shortlists for milestones and housewarmings',
     ],
+    proof: ['Gift wrap', 'Budget aware'],
     learn: "Starts with Anna's gifting shortlist",
+    service: 'Wrapped and ready',
   },
   theo: {
+    eyebrow: 'Customer edit',
+    title: "Theo's Home Edit",
     focus: 'Home edit',
     bullets: [
       'Ceramics, stoneware, and washed linen',
       'Slow-craft objects for daily rituals',
       'Care and service after purchase',
     ],
+    proof: ['Care notes', 'Service history'],
     learn: "Starts with Theo's slow-craft taste",
+    service: 'Home objects and care',
   },
 }
 
@@ -160,7 +177,7 @@ export default function BoutiqueHero() {
     startListening()
   }, [isListening, startListening, stopListening])
 
-  const heroHeadline = splitHeadlineAtRe('Pellier Summer Edit')
+  const heroHeadline = splitHeadlineAtRe('Pellier Resort Edit')
 
   const marcoBuilderSessionBand = false
 
@@ -201,7 +218,7 @@ export default function BoutiqueHero() {
             className="min-w-0 w-full max-w-4xl py-12 md:py-0
                        flex flex-col items-center text-center"
           >
-            {/* Eyebrow — "• SUMMER EDIT • NO. 06 •" — matches
+            {/* Eyebrow — "• RESORT EDIT • NO. 06 •" — matches
                 WeekendEditorial eyebrow type treatment exactly, with
                 burgundy dot separators. */}
             <div
@@ -219,7 +236,7 @@ export default function BoutiqueHero() {
               >
                 &#9679;
               </span>
-              <span>Summer Edit</span>
+              <span>Resort Edit</span>
               <span
                 aria-hidden="true"
                 className="text-accent"
@@ -958,259 +975,70 @@ export default function BoutiqueHero() {
                             window.setTimeout(() => setSelectedPersonaId(null), 260)
                           })
                         }}
-                        className="group cursor-pointer overflow-hidden rounded-[8px] border text-left transition-all duration-fade ease-out hover:-translate-y-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(31,20,16,0.22)] disabled:cursor-wait disabled:opacity-60"
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          position: 'relative',
-                          zIndex: selectedPersonaId === p.id ? 3 : 1,
-                          transform:
-                            selectedPersonaId === p.id
-                              ? 'translateY(-8px) scale(1.035)'
-                              : undefined,
-                          fontFamily: 'var(--sans)',
-                          color: '#1f1410',
-                          background:
-                            'linear-gradient(180deg, rgba(255,252,247,0.98) 0%, rgba(247,239,226,0.96) 100%)',
-                          borderColor: 'rgba(31,20,16,0.16)',
-                          minHeight: '356px',
-                          boxShadow:
-                            selectedPersonaId === p.id
-                              ? '0 30px 70px rgba(31,20,16,0.34), 0 8px 18px rgba(31,20,16,0.16), inset 0 1px 0 rgba(255,255,255,0.7)'
-                              : '0 18px 42px rgba(31,20,16,0.18), 0 2px 8px rgba(31,20,16,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
-                          transition:
-                            'transform 520ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 520ms cubic-bezier(0.16, 1, 0.3, 1), border-color 360ms ease',
-                        }}
+                        aria-label={`Open ${profile?.title ?? p.display_name}`}
+                        className="bt-edit-card"
+                        style={{ '--bt-persona-accent': p.avatar_color } as CSSProperties}
                       >
-                        <div
-                          style={{
-                            position: 'relative',
-                            height: 138,
-                            overflow: 'hidden',
-                            background: p.avatar_color,
-                          }}
-                        >
+                        <div className="bt-edit-media">
                           <img
                             src={profileImage}
                             alt=""
                             aria-hidden="true"
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                            style={{
-                              objectPosition: 'center',
-                              filter: 'brightness(0.86) saturate(0.95) contrast(1.05)',
-                            }}
+                            className="bt-edit-media-img"
                           />
-                          <div
-                            aria-hidden="true"
-                            style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background:
-                                'linear-gradient(180deg, rgba(31,20,16,0.18) 0%, rgba(31,20,16,0.72) 100%)',
-                            }}
-                          />
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: 14,
-                              right: 14,
-                              bottom: 13,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 12,
-                              color: 'var(--cream-warm)',
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: 68,
-                                height: 68,
-                                borderRadius: '999px',
-                                overflow: 'hidden',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: p.avatar_color,
-                                color: '#fff',
-                                border: '3px solid rgba(255,250,240,0.92)',
-                                boxShadow:
-                                  '0 14px 28px rgba(31,20,16,0.34), 0 0 0 1px rgba(31,20,16,0.12)',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {photoUrl ? (
-                                <img
-                                  src={photoUrl}
-                                  alt={`${p.display_name} profile`}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <span style={{ fontSize: 18, fontWeight: 700 }}>
-                                  {p.avatar_initial}
-                                </span>
-                              )}
-                            </span>
-                            <span
-                              style={{
-                                fontFamily: 'var(--mono)',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                letterSpacing: '0.18em',
-                                lineHeight: 1.2,
-                                textTransform: 'uppercase',
-                                whiteSpace: 'nowrap',
-                                maxWidth: 180,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {profile?.focus ?? p.role_tag}
-                            </span>
-                          </div>
-                          <span
-                            style={{
-                              position: 'absolute',
-                              right: 12,
-                              top: 12,
-                              fontFamily: 'var(--mono)',
-                              fontSize: '9px',
-                              fontWeight: 700,
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
-                              color: '#1f1410',
-                              border: '1px solid rgba(255,250,240,0.7)',
-                              background: 'rgba(255,250,240,0.84)',
-                              borderRadius: 999,
-                              padding: '5px 8px',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <span className="bt-edit-avatar">
+                            {photoUrl ? (
+                              <img
+                                src={photoUrl}
+                                alt={`${p.display_name} profile`}
+                              />
+                            ) : (
+                              <span style={{ fontSize: 18, fontWeight: 700 }}>
+                                {p.avatar_initial}
+                              </span>
+                            )}
+                          </span>
+                          <span className="bt-edit-focus">
+                            {profile?.focus ?? p.role_tag}
+                          </span>
+                          <span className="bt-edit-role">
                             {p.role_tag}
                           </span>
                         </div>
 
-                        <div
-                          style={{
-                            padding: '18px 18px 16px',
-                            display: 'flex',
-                            flex: 1,
-                            flexDirection: 'column',
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'baseline',
-                              justifyContent: 'space-between',
-                              gap: 12,
-                            }}
-                          >
-                            <h3
-                              style={{
-                                margin: 0,
-                                fontFamily:
-                                  "'Fraunces Variable', 'Fraunces', Georgia, serif",
-                                fontSize: '26px',
-                                lineHeight: 1,
-                                fontStyle: 'italic',
-                                fontWeight: 500,
-                                color: '#1f1410',
-                              }}
-                            >
-                              {p.display_name}
-                            </h3>
-                            <span
-                              style={{
-                                fontFamily: 'var(--mono)',
-                                fontSize: '10px',
-                                color: 'rgba(31,20,16,0.54)',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {p.stats.orders} orders
-                            </span>
-                          </div>
+                        <div className="bt-edit-body">
+                          <p className="bt-edit-eyebrow">
+                            {profile?.eyebrow ?? 'Customer edit'}
+                          </p>
+                          <h3 className="bt-edit-title">
+                            {profile?.title ?? p.display_name}
+                          </h3>
 
-                          <p
-                            style={{
-                              margin: '10px 0 0',
-                              minHeight: 38,
-                              fontSize: '13px',
-                              lineHeight: 1.45,
-                              color: 'rgba(31,20,16,0.72)',
-                            }}
-                          >
+                          <p className="bt-edit-learn">
                             {profile?.learn ?? 'Starts with saved taste'}
                           </p>
 
-                          <div
-                            style={{
-                              marginTop: 14,
-                              display: 'grid',
-                              gap: 8,
-                              minHeight: 96,
-                            }}
-                          >
+                          <div className="bt-edit-proof-row" aria-label="Edit signals">
+                            {(profile?.proof ?? [p.role_tag]).map((signal) => (
+                              <span key={signal} className="bt-edit-proof">
+                                {signal}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="bt-edit-bullets">
                             {(profile?.bullets ?? [p.blurb]).slice(0, 3).map((bullet) => (
-                              <div
-                                key={bullet}
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: '8px 1fr',
-                                  gap: 9,
-                                  alignItems: 'start',
-                                  fontSize: '13px',
-                                  lineHeight: 1.35,
-                                  color: 'rgba(31,20,16,0.82)',
-                                }}
-                              >
-                                <span
-                                  aria-hidden="true"
-                                  style={{
-                                    width: 6,
-                                    height: 6,
-                                    marginTop: 6,
-                                    borderRadius: '999px',
-                                    background: p.avatar_color,
-                                  }}
-                                />
+                              <div key={bullet} className="bt-edit-bullet">
                                 <span>{bullet}</span>
                               </div>
                             ))}
                           </div>
 
-                          <div
-                            style={{
-                              marginTop: 'auto',
-                              paddingTop: 13,
-                              borderTop: '1px solid rgba(31,20,16,0.12)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 12,
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontFamily: 'var(--mono)',
-                                fontSize: '10px',
-                                color: 'rgba(31,20,16,0.54)',
-                                letterSpacing: '0.08em',
-                                textTransform: 'uppercase',
-                              }}
-                            >
-                              {p.stats.visits} visits · {p.stats.last_seen_days}d ago
+                          <div className="bt-edit-footer">
+                            <span className="bt-edit-service">
+                              {profile?.service ?? 'Personal edit'}
                             </span>
-                            <span
-                              className="transition-transform duration-fade group-hover:translate-x-1"
-                              style={{
-                                fontSize: '13px',
-                                fontWeight: 700,
-                                color: '#1f1410',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
+                            <span className="bt-edit-open">
                               {switching ? 'Opening...' : 'Open edit ->'}
                             </span>
                           </div>

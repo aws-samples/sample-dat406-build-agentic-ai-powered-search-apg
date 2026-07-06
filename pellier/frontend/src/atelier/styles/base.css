@@ -155,6 +155,75 @@
   padding: 32px 40px;
 }
 
+.atelier-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 40px;
+  border-bottom: 1px solid var(--at-rule-1);
+  background: color-mix(in srgb, var(--at-red-1) 6%, var(--at-cream-1));
+  color: var(--at-ink-1);
+}
+
+.atelier-context-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atelier-context-copy strong {
+  color: var(--at-ink-1);
+  font-weight: 700;
+}
+
+.atelier-context-kicker {
+  border: 1px solid color-mix(in srgb, var(--at-red-1) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--at-red-1) 9%, var(--at-cream-1));
+  color: color-mix(in srgb, var(--at-red-1) 86%, var(--at-ink-1));
+  font-family: var(--at-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.atelier-context-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.atelier-context-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 999px;
+  background: var(--at-cream-elev);
+  color: var(--at-ink-2) !important;
+  font-family: var(--at-sans);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.atelier-context-link:hover {
+  border-color: var(--at-rule-3);
+  color: var(--at-ink-1) !important;
+}
+
 /* -----------------------------------------------------------------------
  * Scrollbar — warm, minimal, matching the cream palette
  * ----------------------------------------------------------------------- */

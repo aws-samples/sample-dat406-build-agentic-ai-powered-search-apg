@@ -9,6 +9,7 @@
  * Used exclusively in BoutiqueChat. The atelier branch continues
  * to use ProductCardConcierge.
  */
+import { useState } from 'react'
 import { Heart } from 'lucide-react'
 import type { ChatProduct } from '../services/chat'
 import { imageSrc } from '../utils/assetPath'
@@ -21,12 +22,63 @@ interface ProductArtifactCardProps {
   onPrompt?: (prompt: string) => void
 }
 
+interface CommerceSignal {
+  label: string
+  value: string
+}
+
+function materialSignal(product: ChatProduct): string {
+  const text = `${product.name ?? ''} ${product.category ?? ''}`.toLowerCase()
+  if (/linen/.test(text)) return 'Linen'
+  if (/cotton/.test(text)) return 'Cotton'
+  if (/leather|suede/.test(text)) return 'Leather'
+  if (/ceramic|stoneware|clay/.test(text)) return 'Ceramic'
+  if (/wool|cashmere/.test(text)) return 'Wool'
+  if (/silk/.test(text)) return 'Silk'
+  if (/brass|metal/.test(text)) return 'Metal'
+  if (/candle|scent/.test(text)) return 'Scent'
+  return product.category ?? 'Pellier'
+}
+
+function serviceSignal(product: ChatProduct): string {
+  const text = `${product.name ?? ''} ${product.category ?? ''}`.toLowerCase()
+  if (/shirt|tee|dress|trouser|pants|pant|jacket|coat|overshirt|sweater|knit|wardrobe|wear/.test(text)) {
+    return 'Size guidance'
+  }
+  if (/gift|candle|vase|ceramic|stoneware|bowl|plate|home/.test(text)) {
+    return 'Gift wrap'
+  }
+  if (/linen|leather|wool|silk|ceramic|stoneware/.test(text)) {
+    return 'Care notes'
+  }
+  return 'Stylist help'
+}
+
+function availabilitySignal(product: ChatProduct): string {
+  if (product.inStock === false || product.quantity === 0) return 'Out of stock'
+  if (typeof product.quantity === 'number') {
+    if (product.quantity <= 3) return `Only ${product.quantity} left`
+    if (product.quantity <= 10) return `${product.quantity} available`
+    return 'In stock'
+  }
+  return 'Stock checked'
+}
+
+function commerceSignals(product: ChatProduct): CommerceSignal[] {
+  return [
+    { label: 'Stock', value: availabilitySignal(product) },
+    { label: 'Material', value: materialSignal(product) },
+    { label: 'Service', value: serviceSignal(product) },
+  ]
+}
+
 export default function ProductArtifactCard({
   product,
   onAddToCart,
   rankIndex = 0,
   onPrompt,
 }: ProductArtifactCardProps) {
+  const [saved, setSaved] = useState(false)
   const hasImage =
     product.image &&
     (product.image.startsWith('http') || product.image.startsWith('data:') || product.image.startsWith('/'))
@@ -72,7 +124,8 @@ export default function ProductArtifactCard({
     ? `Show ${productName} in another size or color.`
     : `Show ${productName} in another color.`
   const alternativesPrompt = `Show alternatives to ${productName} at a similar style and price.`
-  const whyMatchPrompt = `Why is ${productName} a ${matchLabel.toLowerCase()} match for this request?`
+  const stockPrompt = `Check live availability for ${productName}.`
+  const signals = commerceSignals(product)
 
   return (
     <div className="pa-card">
@@ -122,6 +175,14 @@ export default function ProductArtifactCard({
             <span className="pa-stock">{stockLabel}</span>
           )}
         </div>
+        <div className="pa-commerce" aria-label="Shopping details">
+          {signals.map((signal) => (
+            <span key={signal.label} className="pa-commerce-pill">
+              <span>{signal.label}</span>
+              <strong>{signal.value}</strong>
+            </span>
+          ))}
+        </div>
         <div className="pa-actions">
           <button
             type="button"
@@ -130,8 +191,14 @@ export default function ProductArtifactCard({
           >
             Add to bag
           </button>
-          <button type="button" className="pa-heart" aria-label="Save">
-            <Heart size={14} />
+          <button
+            type="button"
+            className={`pa-heart ${saved ? 'is-saved' : ''}`}
+            aria-label={saved ? 'Saved' : 'Save'}
+            aria-pressed={saved}
+            onClick={() => setSaved((value) => !value)}
+          >
+            <Heart size={14} fill={saved ? 'currentColor' : 'none'} />
           </button>
         </div>
         {onPrompt && (
@@ -153,9 +220,9 @@ export default function ProductArtifactCard({
             <button
               type="button"
               className="pa-quick"
-              onClick={() => onPrompt(whyMatchPrompt)}
+              onClick={() => onPrompt(stockPrompt)}
             >
-              Why this match?
+              Check stock
             </button>
           </div>
         )}

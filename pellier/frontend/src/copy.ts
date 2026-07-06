@@ -13,7 +13,7 @@
 
 // Announcement bar (Requirement 1.1.2) - rendered verbatim.
 export const ANNOUNCEMENT =
-  "Complimentary shipping over $150 · Returns within 30 days · Summer Edit No. 06 is now live";
+  "Complimentary shipping over $150 · Returns within 30 days · Resort Edit No. 06 is now live";
 
 export interface LiveFloorFinding {
   /** Uppercase sans label that leads the copy. */
@@ -27,7 +27,7 @@ export interface LiveFloorFinding {
 export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   {
     verb: "New arrivals",
-    text: "Alba Linen Lounge Set, Olive Branch Vessel, and Santal & Fig Candle just joined the Summer Edit.",
+    text: "Alba Linen Lounge Set, Olive Branch Vessel, and Santal & Fig Candle just joined the Resort Edit.",
   },
   {
     verb: "Restocked",
@@ -51,7 +51,7 @@ export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   },
 ];
 
-export const PAGE_TITLE = "Pellier Summer Edit";
+export const PAGE_TITLE = "Pellier Resort Edit";
 
 // Top nav (Requirement 1.2.1)
 export const NAV = {
@@ -90,9 +90,9 @@ export const SEARCH_PILL_PLACEHOLDER =
 
 // Hero headline block that sits above the rotating stage.
 export const HERO_HEADLINE = {
-  EYEBROW: "Summer Edit \u00b7 No. 06",
+  EYEBROW: "Resort Edit \u00b7 No. 06",
   TITLE_TOP: "Pellier",
-  TITLE_BOTTOM: "Summer Edit",
+  TITLE_BOTTOM: "Resort Edit",
   SUBHEADLINE: "Tell Pellier what you're looking for. Watch the pieces find you.",
 } as const;
 
@@ -103,7 +103,7 @@ export const BOUTIQUE_HERO_SIGNED_OUT = {
 
 // Product grid section header that reveals on scroll (parallax).
 export const PRODUCT_GRID_HEADER = {
-  EYEBROW: "Picked for your summer",
+  EYEBROW: "Picked for resort season",
   TITLE: "Things worth discovering",
   SORT_LABEL: "Sort: Most loved",
 } as const;
