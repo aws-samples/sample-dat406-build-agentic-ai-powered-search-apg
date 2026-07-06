@@ -84,6 +84,12 @@ EXPECTED_TOOL_NAMES = {
     ],
 }
 
+RUNTIME_ROLE_NAME = "pellier-agentcore-runtime-execution"
+RUNTIME_ROLE_MANAGED_POLICIES = (
+    "arn:aws:iam::aws:policy/AmazonBedrockFullAccess",
+    "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+)
+
 
 def _region_from_arn(arn: str, fallback: str) -> str:
     match = re.match(r"^arn:[^:]+:[^:]+:([^:]+):", arn or "")
@@ -142,6 +148,50 @@ def _require_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return value
+
+
+def _ensure_execution_role_arn(region: str) -> str:
+    """Return the Runtime execution role ARN, creating the standalone role if needed.
+
+    Workshop Studio can pass AGENTCORE_ROLE_ARN from infrastructure outputs. For
+    local/event dry runs, the participant role's iam_policy.json allows creating
+    and passing ``pellier-agentcore-runtime-*`` roles, so the provisioner should
+    recover instead of failing on an empty env var.
+    """
+    existing = (
+        os.environ.get("AGENTCORE_ROLE_ARN", "").strip()
+        or os.environ.get("AGENTCORE_EXECUTION_ROLE_ARN", "").strip()
+    )
+    if existing:
+        return existing
+
+    from botocore.exceptions import ClientError
+
+    iam = boto3.client("iam", region_name=region)
+    try:
+        role_arn = iam.get_role(RoleName=RUNTIME_ROLE_NAME)["Role"]["Arn"]
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") != "NoSuchEntity":
+            raise
+        trust = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"Service": "bedrock-agentcore.amazonaws.com"},
+                    "Action": "sts:AssumeRole",
+                }
+            ],
+        }
+        role_arn = iam.create_role(
+            RoleName=RUNTIME_ROLE_NAME,
+            AssumeRolePolicyDocument=json.dumps(trust),
+            Description="Pellier AgentCore Runtime execution role (workshop)",
+        )["Role"]["Arn"]
+
+    for policy_arn in RUNTIME_ROLE_MANAGED_POLICIES:
+        iam.attach_role_policy(RoleName=RUNTIME_ROLE_NAME, PolicyArn=policy_arn)
+    return role_arn
 
 
 def _compute_secret_hash(username: str, client_id: str, client_secret: str) -> str:
@@ -629,13 +679,14 @@ def main() -> int:
     deploy_dir = repo / "scripts" / "deploy"
     output_path = Path(args.output_json)
 
+    region = _require_env("AWS_REGION")
     required = {
-        "AWS_REGION": _require_env("AWS_REGION"),
+        "AWS_REGION": region,
         "DB_CLUSTER_ARN": _require_env("DB_CLUSTER_ARN"),
         "DB_SECRET_ARN": _require_env("DB_SECRET_ARN"),
         "COGNITO_POOL": _require_env("COGNITO_POOL"),
         "COGNITO_CLIENT": _require_env("COGNITO_CLIENT"),
-        "AGENTCORE_ROLE_ARN": _require_env("AGENTCORE_ROLE_ARN"),
+        "AGENTCORE_ROLE_ARN": _ensure_execution_role_arn(region),
         "COGNITO_TEST_CREDENTIALS_SECRET_ARN": _require_env("COGNITO_TEST_CREDENTIALS_SECRET_ARN"),
     }
     db_region = os.environ.get("DB_REGION", "").strip() or _region_from_arn(
