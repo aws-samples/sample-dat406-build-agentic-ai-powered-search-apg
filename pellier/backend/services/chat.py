@@ -912,7 +912,9 @@ CURRENT REQUEST: {message}"""
                 products_sent = parsed["products"]
 
             duration_ms = int((time.time() - start_time) * 1000)
-            token_count, estimated_cost, cost_breakdown = self._estimate_cost(response_text)
+            token_count, estimated_cost, cost_breakdown = self._cost_from_agent_execution(
+                agent_execution, response_text
+            )
             self._track_query(products_count=len(products_sent), duration_ms=duration_ms, agent_type="SearchAssistant")
             yield {
                 "type": "complete",
@@ -1267,10 +1269,49 @@ CURRENT REQUEST: {message}"""
         """Estimate token count and cost. Returns (token_count, cost_usd, breakdown)."""
         from services.embeddings import get_cache_stats
         token_count = int(len(text.split()) * 1.3)
-        llm_cost = round(token_count * 0.000003, 6)
+        rate_per_1k = _safe_float(
+            os.getenv("PELLIER_LLM_COST_PER_1K_TOKENS_USD", "0.003"),
+            0.003,
+        )
+        llm_cost = round(token_count * (rate_per_1k / 1000), 6)
         embedding_cost = get_cache_stats().get("total_embedding_cost_usd", 0.0)
         total_cost = round(llm_cost + embedding_cost, 6)
-        breakdown = {"llm_cost": llm_cost, "embedding_cost": embedding_cost}
+        breakdown = {
+            "llm_cost": llm_cost,
+            "embedding_cost": embedding_cost,
+            "token_source": "word_count_estimate",
+            "pricing_source": "PELLIER_LLM_COST_PER_1K_TOKENS_USD",
+            "rate_per_1k_tokens_usd": rate_per_1k,
+        }
+        return token_count, total_cost, breakdown
+
+    @staticmethod
+    def _cost_from_agent_execution(agent_execution: Dict[str, Any], text: str) -> tuple:
+        """Prefer real OTEL usage tokens, falling back to the legacy estimate."""
+        usage = (agent_execution or {}).get("usage") or {}
+        token_count = _safe_int(usage.get("total_tokens"), 0)
+        if token_count <= 0:
+            return ChatService._estimate_cost(text)
+
+        from services.embeddings import get_cache_stats
+
+        rate_per_1k = _safe_float(
+            os.getenv("PELLIER_LLM_COST_PER_1K_TOKENS_USD", "0.003"),
+            0.003,
+        )
+        llm_cost = round(token_count * (rate_per_1k / 1000), 6)
+        embedding_cost = get_cache_stats().get("total_embedding_cost_usd", 0.0)
+        total_cost = round(llm_cost + embedding_cost, 6)
+        breakdown = {
+            "llm_cost": llm_cost,
+            "embedding_cost": embedding_cost,
+            "token_source": "otel",
+            "pricing_source": "PELLIER_LLM_COST_PER_1K_TOKENS_USD",
+            "rate_per_1k_tokens_usd": rate_per_1k,
+            "prompt_tokens": _safe_int(usage.get("prompt_tokens"), 0),
+            "completion_tokens": _safe_int(usage.get("completion_tokens"), 0),
+            "usage_span_count": _safe_int(usage.get("span_count"), 0),
+        }
         return token_count, total_cost, breakdown
 
     def _error_response(self, error: str) -> Dict[str, Any]:
@@ -2583,14 +2624,27 @@ CURRENT REQUEST: {message}"""
                 "agent_steps": [], "tool_calls": [], "reasoning_steps": [],
                 "waterfall": [], "spans": [], "totalMs": 0,
                 "specialistRoute": "",
+                "trace_id": None,
+                "traceIds": [],
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "span_count": 0,
+                    "source": "unavailable",
+                },
                 "total_duration_ms": int((time.time() - start_time) * 1000),
                 "success_rate": 0,
                 "otel_enabled": False,
                 "reason": f"OTEL extraction raised: {e}",
             }
 
-        # Cost estimation
-        token_count, estimated_cost, cost_breakdown = self._estimate_cost(response_text)
+        # Token and cost accounting. Prefer real usage captured in
+        # Strands OTEL spans; fall back to the legacy word-count estimate
+        # when a provider does not emit usage attributes.
+        token_count, estimated_cost, cost_breakdown = self._cost_from_agent_execution(
+            agent_execution, response_text
+        )
         total_ms = int((time.time() - start_time) * 1000)
         self._track_query(products_count=len(products_sent), duration_ms=total_ms, agent_type="Orchestrator")
 

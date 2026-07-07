@@ -91,6 +91,21 @@ query_logger = None
 index_performance_service = None
 
 
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+SEARCH_STRATEGY_COST_PER_1000_USD = {
+    "vector": _float_env("PELLIER_COST_VECTOR_PER_1000_USD", 0.18),
+    "hybrid": _float_env("PELLIER_COST_HYBRID_PER_1000_USD", 0.18),
+    "rerank": _float_env("PELLIER_COST_RERANK_PER_1000_USD", 1.18),
+    "agentic": _float_env("PELLIER_COST_AGENTIC_PER_1000_USD", 8.18),
+}
+
+
 def _log_agent_and_tool_inventory() -> None:
     """Log the live specialist roster and tool catalogue at boot.
 
@@ -1272,11 +1287,9 @@ async def compare_search_strategies(query: str):
         ]
       }
 
-    Cost numbers are static (workshop-known fixtures: vector + hybrid
-    are effectively free per query, rerank adds ~$1 per 1000 queries,
-    the agentic row adds one Sonnet structured-extraction call on top
-    of rerank.
-    queries on the workshop's prompt size).
+    Cost numbers are workshop estimates sourced from
+    ``SEARCH_STRATEGY_COST_PER_1000_USD`` so the live endpoint and operator
+    copy have one backend source. They are not a billing export.
     """
     import asyncio
     import time
@@ -1429,25 +1442,25 @@ async def compare_search_strategies(query: str):
             {
                 "strategy": "vector only",
                 "p50Ms": vec_ms,
-                "costPerThousandUsd": 0.18,
+                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["vector"],
                 "products": vec_products,
             },
             {
                 "strategy": "hybrid (RRF)",
                 "p50Ms": hybrid_ms,
-                "costPerThousandUsd": 0.18,
+                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["hybrid"],
                 "products": hybrid_products,
             },
             {
                 "strategy": "hybrid + rerank",
                 "p50Ms": rerank_ms,
-                "costPerThousandUsd": 1.18,
+                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["rerank"],
                 "products": rerank_products,
             },
             {
                 "strategy": "agentic (Sonnet → filter → vector → rerank)",
                 "p50Ms": agentic_ms,
-                "costPerThousandUsd": 8.18,
+                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
                 "products": agentic_products,
                 "extractedFilters": {
                     "categories": extracted.get("categories", []),

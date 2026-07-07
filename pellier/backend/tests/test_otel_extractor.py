@@ -325,6 +325,38 @@ def test_extract_trace_span_kind_classification(
     assert trace["specialistRoute"] == "search"
 
 
+def test_extract_trace_surfaces_trace_id_and_usage(
+    otel_spans: InMemorySpanExporter,
+) -> None:
+    """Trace payloads SHALL carry the real OTEL trace id and token usage
+    when Strands emits ``gen_ai.usage.*`` attributes."""
+    from services.otel_trace_extractor import extract_trace
+
+    tracer = otel_trace.get_tracer("test-usage")
+    with tracer.start_as_current_span("invoke_agent orchestrator") as root:
+        root.set_attribute("gen_ai.agent.name", "orchestrator")
+        root.set_attribute("gen_ai.usage.prompt_tokens", 100)
+        root.set_attribute("gen_ai.usage.completion_tokens", 25)
+        root.set_attribute("gen_ai.usage.total_tokens", 125)
+        with tracer.start_as_current_span("invoke_agent recommendation") as child:
+            child.set_attribute("gen_ai.agent.name", "recommendation")
+            child.set_attribute("gen_ai.usage.input_tokens", 12)
+            child.set_attribute("gen_ai.usage.output_tokens", 8)
+
+    trace = extract_trace()
+
+    assert isinstance(trace["trace_id"], str)
+    assert len(trace["trace_id"]) == 32
+    assert trace["traceIds"] == [trace["trace_id"]]
+    assert trace["usage"] == {
+        "prompt_tokens": 112,
+        "completion_tokens": 33,
+        "total_tokens": 145,
+        "span_count": 2,
+        "source": "otel",
+    }
+
+
 def test_extract_trace_returns_empty_shape_when_no_spans(
     otel_spans: InMemorySpanExporter,
 ) -> None:

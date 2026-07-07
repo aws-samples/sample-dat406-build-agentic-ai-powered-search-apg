@@ -178,6 +178,95 @@ def _span_to_dict(span: Any, base_ms: int) -> Dict[str, Any]:
     }
 
 
+def _int_attr(attrs: Dict[str, Any], *keys: str) -> int:
+    """Return the first positive integer-like attribute value."""
+    for key in keys:
+        value = attrs.get(key)
+        if value is None:
+            continue
+        try:
+            if isinstance(value, bool):
+                continue
+            parsed = int(float(value))
+        except (TypeError, ValueError):
+            continue
+        if parsed > 0:
+            return parsed
+    return 0
+
+
+def _format_trace_id(trace_id: Optional[int]) -> Optional[str]:
+    """Render an OTEL trace id as the conventional 32-character hex string."""
+    if not trace_id:
+        return None
+    return f"{trace_id:032x}"
+
+
+def _trace_ids(spans: Iterable[Any]) -> List[str]:
+    """Return unique trace ids from ``spans`` in first-seen order."""
+    seen: set[str] = set()
+    out: List[str] = []
+    for span in spans:
+        trace_id = _format_trace_id(_span_trace_id(span))
+        if trace_id and trace_id not in seen:
+            seen.add(trace_id)
+            out.append(trace_id)
+    return out
+
+
+def _summarize_usage(spans: Iterable[Any]) -> Dict[str, Any]:
+    """Summarize model usage attributes captured on Strands OTEL spans.
+
+    Strands/OpenTelemetry versions vary on token attribute names. Keep
+    the aliases narrow and additive so the summary reports real span
+    usage when present, and an explicit ``unavailable`` source when not.
+    """
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+    usage_span_count = 0
+
+    for span in spans:
+        attrs = dict(getattr(span, "attributes", None) or {})
+        prompt = _int_attr(
+            attrs,
+            "gen_ai.usage.prompt_tokens",
+            "gen_ai.usage.input_tokens",
+            "llm.usage.prompt_tokens",
+            "llm.usage.input_tokens",
+            "input_tokens",
+        )
+        completion = _int_attr(
+            attrs,
+            "gen_ai.usage.completion_tokens",
+            "gen_ai.usage.output_tokens",
+            "llm.usage.completion_tokens",
+            "llm.usage.output_tokens",
+            "output_tokens",
+        )
+        total = _int_attr(
+            attrs,
+            "gen_ai.usage.total_tokens",
+            "llm.usage.total_tokens",
+            "total_tokens",
+        )
+        if not (prompt or completion or total):
+            continue
+        usage_span_count += 1
+        prompt_tokens += prompt
+        completion_tokens += completion
+        total_tokens += total or (prompt + completion)
+
+    source = "otel" if total_tokens > 0 else "unavailable"
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "span_count": usage_span_count,
+        "source": source,
+    }
+
+
 def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
     """Extract the current trace in the inspector's expected shape.
 
@@ -205,6 +294,9 @@ def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
                 "spans": [],
                 "totalMs": 0,
                 "specialistRoute": "",
+                "trace_id": None,
+                "traceIds": [],
+                "usage": _summarize_usage([]),
                 "otel_enabled": False,
                 "reason": OTEL_FAILURE_REASON,
             }
@@ -216,6 +308,9 @@ def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
                 "spans": [],
                 "totalMs": 0,
                 "specialistRoute": "",
+                "trace_id": None,
+                "traceIds": [],
+                "usage": _summarize_usage([]),
                 "otel_enabled": False,
                 "reason": f"Failed to read finished spans: {e}. {_INIT_ORDER_HINT}",
             }
@@ -227,6 +322,9 @@ def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
             "spans": [],
             "totalMs": 0,
             "specialistRoute": "",
+            "trace_id": None,
+            "traceIds": [],
+            "usage": _summarize_usage([]),
             "otel_enabled": OTEL_WORKING,
         }
 
@@ -238,6 +336,8 @@ def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
     total_ms = max(int((end_ns - base_ns) / 1_000_000), 0)
 
     out_spans = [_span_to_dict(s, base_ms) for s in finished]
+    trace_ids = _trace_ids(finished)
+    usage = _summarize_usage(finished)
 
     # Pick the first specialist span as the routing signal. Falls back
     # to the specialist nested agent span if no execute_tool span
@@ -266,6 +366,9 @@ def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
         "spans": out_spans,
         "totalMs": total_ms,
         "specialistRoute": specialist_route,
+        "trace_id": trace_ids[0] if trace_ids else None,
+        "traceIds": trace_ids,
+        "usage": usage,
         "otel_enabled": True,
     }
 
@@ -386,6 +489,9 @@ def extract_agent_execution_from_otel(session_id: Optional[str] = None) -> Dict[
         "spans": trace["spans"],
         "totalMs": trace["totalMs"],
         "specialistRoute": trace["specialistRoute"],
+        "trace_id": trace.get("trace_id"),
+        "traceIds": trace.get("traceIds", []),
+        "usage": trace.get("usage", _summarize_usage([])),
         "total_duration_ms": trace["totalMs"],
         "success_rate": 1.0,
         "otel_enabled": True,
@@ -406,6 +512,9 @@ def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
             "spans": [],
             "totalMs": 0,
             "specialistRoute": "",
+            "trace_id": None,
+            "traceIds": [],
+            "usage": _summarize_usage([]),
             "waterfall": [],
             "span_count": 0,
             "otel_enabled": False,
@@ -421,6 +530,9 @@ def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
             "spans": [],
             "totalMs": 0,
             "specialistRoute": "",
+            "trace_id": None,
+            "traceIds": [],
+            "usage": _summarize_usage([]),
             "waterfall": [],
             "span_count": 0,
             "otel_enabled": False,
@@ -446,6 +558,9 @@ def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
         "spans": trace["spans"],
         "totalMs": trace["totalMs"],
         "specialistRoute": trace["specialistRoute"],
+        "trace_id": trace.get("trace_id"),
+        "traceIds": trace.get("traceIds", []),
+        "usage": trace.get("usage", _summarize_usage([])),
         "waterfall": waterfall,
         "span_count": len(finished),
         "otel_enabled": True,
@@ -464,6 +579,9 @@ def _empty_execution() -> Dict[str, Any]:
         "spans": [],
         "totalMs": 0,
         "specialistRoute": "",
+        "trace_id": None,
+        "traceIds": [],
+        "usage": _summarize_usage([]),
         "total_duration_ms": 0,
         "success_rate": 0,
         "otel_enabled": True,
@@ -483,6 +601,9 @@ def _failed_execution(reason: str) -> Dict[str, Any]:
         "spans": [],
         "totalMs": 0,
         "specialistRoute": "",
+        "trace_id": None,
+        "traceIds": [],
+        "usage": _summarize_usage([]),
         "total_duration_ms": 0,
         "success_rate": 0,
         "otel_enabled": False,

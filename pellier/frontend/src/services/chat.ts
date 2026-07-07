@@ -57,6 +57,15 @@ export interface AgentExecution {
   agent_steps: Array<{agent: string, action: string, status: string, timestamp: number, duration_ms: number}>
   tool_calls: Array<{tool: string, params?: string, timestamp: number, duration_ms: number, status: string}>
   reasoning_steps: Array<{step: string, content: string, timestamp: number}>
+  trace_id?: string | null
+  traceIds?: string[]
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+    span_count: number
+    source: string
+  }
   total_duration_ms: number
   success_rate: number
   /** False when Strands' TracerProvider isn't SDK-backed. UI renders a
@@ -75,6 +84,16 @@ export interface ChatResponse {
   orchestrator_enabled?: boolean
   token_count?: number
   estimated_cost_usd?: number
+  cost_breakdown?: {
+    llm_cost?: number
+    embedding_cost?: number
+    token_source?: string
+    pricing_source?: string
+    rate_per_1k_tokens_usd?: number
+    prompt_tokens?: number
+    completion_tokens?: number
+    usage_span_count?: number
+  }
 }
 
 /**
@@ -147,7 +166,8 @@ export async function sendChatMessageStreaming(
                   suggestions: data.response?.suggestions || [],
                   agent_execution: data.response?.agent_execution,
                   token_count: data.response?.token_count,
-                  estimated_cost_usd: data.response?.estimated_cost_usd
+                  estimated_cost_usd: data.response?.estimated_cost_usd,
+                  cost_breakdown: data.response?.cost_breakdown
                 }
               }
             } catch {

@@ -126,6 +126,7 @@ export default function ChatDrawer() {
     isLoading,
     sendMessage,
     clearChat,
+    sessionCost,
   } = useAgentChat({
     mode: 'storefront',
     guardrailsEnabled,
@@ -342,6 +343,14 @@ export default function ChatDrawer() {
                   <span>
                     turn {String(turnCount).padStart(2, '0')}
                   </span>
+                  {sessionCost > 0 && (
+                    <>
+                      <span className="cd-meta-sep">·</span>
+                      <span>
+                        est. cost ${sessionCost.toFixed(6)}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <button
