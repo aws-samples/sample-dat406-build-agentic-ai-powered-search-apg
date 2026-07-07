@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
-"""Apply or reset the governed-workshop participant Cedar rule.
+"""Apply or reset the governed-workshop participant Cedar rules.
 
 The shipped policy set is created by deploy_policy.py. This helper never edits
-those baseline policies. It adds one separately named participant policy and
-can delete that policy again in one reset command.
+those baseline policies. It adds separately named participant policies and can
+delete them again in one reset command.
+
+Two participant rules are supported, selected with ``--rule``:
+
+* ``final_sale`` (default) — forbid process_return for final-sale product 37.
+  Gates on tool INPUT only (``context.input.product_id``).
+* ``identity_match`` — forbid process_return when the authenticated JWT
+  principal is not the customer the return is for. Gates on IDENTITY:
+  AgentCore Policy exposes JWT claims as principal tags, so the rule compares
+  ``principal.getTag("username")`` against ``context.input.customer_id``.
 
 Usage:
     python3 scripts/deploy/workshop_policy_rule.py show
@@ -13,6 +22,11 @@ Usage:
       --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
       --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
       --cedar-file policies/workshop_final_sale_forbid.cedar \
+      apply
+    python3 scripts/deploy/workshop_policy_rule.py --rule identity_match \
+      --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
+      --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
+      --cedar-file policies/workshop_identity_match_forbid.cedar \
       apply
     python3 scripts/deploy/workshop_policy_rule.py \
       --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" reset
@@ -24,6 +38,7 @@ import argparse
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -40,8 +55,16 @@ PARTICIPANT_POLICY_NAME = "workshop_final_sale_forbid"
 PARTICIPANT_POLICY_DESCRIPTION = (
     "Workshop participant rule: forbid process_return for final-sale product 37"
 )
+IDENTITY_POLICY_NAME = "workshop_identity_match_forbid"
+IDENTITY_POLICY_DESCRIPTION = (
+    "Workshop participant rule: forbid process_return when the JWT principal "
+    "is not the customer the return is for"
+)
+# reset must remove every participant-named policy, whichever rule was applied.
+PARTICIPANT_POLICY_NAMES = (PARTICIPANT_POLICY_NAME, IDENTITY_POLICY_NAME)
 EXPERIENCE_TARGET = deploy_policy.EXPERIENCE_TARGET
 FINAL_SALE_PRODUCT_ID = 37
+IDENTITY_CLAIM_TAG = "username"
 
 
 def _region(default: str = "us-east-1") -> str:
@@ -85,6 +108,33 @@ def _gateway_arn(value: str | None) -> str:
     return resolved
 
 
+def _gateway_id(value: str | None, gateway_arn: str | None = None) -> str:
+    resolved = (
+        value
+        or os.environ.get("AGENTCORE_GATEWAY_ID")
+        or os.environ.get("GATEWAY_ID")
+        or ""
+    ).strip()
+    if not resolved:
+        # The gateway id is the last path segment of the gateway ARN
+        # (arn:aws:bedrock-agentcore:...:gateway/<id>), so the ARN most
+        # environments already carry is enough.
+        arn = (
+            gateway_arn
+            or os.environ.get("AGENTCORE_GATEWAY_ARN")
+            or os.environ.get("GATEWAY_ARN")
+            or ""
+        ).strip()
+        if "/" in arn:
+            resolved = arn.rsplit("/", 1)[1]
+    if not resolved:
+        raise SystemExit(
+            "Missing gateway id. Pass --gateway-id or --gateway-arn, or set "
+            "AGENTCORE_GATEWAY_ID / AGENTCORE_GATEWAY_ARN."
+        )
+    return resolved
+
+
 def _candidate_actions(experience_target: str = EXPERIENCE_TARGET) -> list[str]:
     return [
         f"{experience_target}___process_return",
@@ -105,6 +155,35 @@ def build_final_sale_forbid(
         "when {\n"
         "  context.input has product_id &&\n"
         f"  context.input.product_id == {int(product_id)}\n"
+        "};"
+    )
+
+
+def build_identity_match_forbid(
+    *,
+    gateway_arn: str,
+    action_token: str,
+    claim_tag: str = IDENTITY_CLAIM_TAG,
+) -> str:
+    """Return the identity-mismatch Cedar rule.
+
+    AgentCore Policy creates an ``AgentCore::OAuthUser`` principal from the
+    validated JWT and exposes token claims as principal tags. The Cognito
+    ACCESS token carries the ``username`` claim (lowercase persona name), so
+    the rule can compare token identity to the tool's ``customer_id`` input.
+
+    Deliberately fail-open (hasTag guard inside ``when``): if this engine
+    revision does not surface the claim tag, the forbid simply never fires
+    and the room's happy path stays green. The fail-closed production shape
+    is the ``unless`` variant documented in the solution Cedar file.
+    """
+    return (
+        f'forbid(principal, action == AgentCore::Action::"{action_token}", '
+        f'resource == AgentCore::Gateway::"{gateway_arn}")\n'
+        "when {\n"
+        "  context.input has customer_id &&\n"
+        f'  principal.hasTag("{claim_tag}") &&\n'
+        f'  principal.getTag("{claim_tag}") != context.input.customer_id\n'
         "};"
     )
 
@@ -163,11 +242,76 @@ def _validate_participant_cedar(statement: str, *, product_id: int) -> list[str]
     return errors
 
 
+def _validate_identity_cedar(statement: str, *, claim_tag: str) -> list[str]:
+    """Static workshop validation for the identity-mismatch rule."""
+    uncommented = _strip_line_comments(statement)
+    compact = re.sub(r"\s+", " ", uncommented)
+    errors: list[str] = []
+    if "forbid(" not in uncommented:
+        errors.append("expected a forbid(...) rule")
+    if "AgentCore::Action::" not in uncommented:
+        errors.append("expected AgentCore::Action in the action clause")
+    if "AgentCore::Gateway::" not in uncommented:
+        errors.append("expected AgentCore::Gateway in the resource clause")
+    if not re.search(r"context\.input\s+has\s+customer_id", compact):
+        errors.append("expected guard: context.input has customer_id")
+    if f'principal.hasTag("{claim_tag}")' not in compact:
+        errors.append(
+            f'expected claim guard: principal.hasTag("{claim_tag}") — '
+            "guard the tag before reading it"
+        )
+    if not re.search(
+        rf'principal\.getTag\("{re.escape(claim_tag)}"\)\s*!=\s*context\.input\.customer_id',
+        compact,
+    ):
+        errors.append(
+            f'expected condition: principal.getTag("{claim_tag}") '
+            "!= context.input.customer_id"
+        )
+    when_match = re.search(r"when\s*\{(?P<body>.*?)\}\s*;", uncommented, re.S)
+    if when_match and re.search(r"\bfalse\b", when_match.group("body")):
+        errors.append("replace the starter false predicate in the when block")
+    return errors
+
+
+# Rule registry: name → (policy name/description, built-in Cedar builder,
+# static validator). apply/show/validate dispatch on args.rule through this.
+def _rule_spec(args: argparse.Namespace) -> dict[str, Any]:
+    rule = getattr(args, "rule", "final_sale")
+    if rule == "identity_match":
+        claim_tag = getattr(args, "claim_tag", IDENTITY_CLAIM_TAG)
+        return {
+            "policy_name": IDENTITY_POLICY_NAME,
+            "policy_description": IDENTITY_POLICY_DESCRIPTION,
+            "build": lambda gateway_arn, action_token: build_identity_match_forbid(
+                gateway_arn=gateway_arn,
+                action_token=action_token,
+                claim_tag=claim_tag,
+            ),
+            "validate": lambda statement: _validate_identity_cedar(
+                statement, claim_tag=claim_tag
+            ),
+        }
+    product_id = getattr(args, "product_id", FINAL_SALE_PRODUCT_ID)
+    return {
+        "policy_name": PARTICIPANT_POLICY_NAME,
+        "policy_description": PARTICIPANT_POLICY_DESCRIPTION,
+        "build": lambda gateway_arn, action_token: build_final_sale_forbid(
+            gateway_arn=gateway_arn,
+            action_token=action_token,
+            product_id=product_id,
+        ),
+        "validate": lambda statement: _validate_participant_cedar(
+            statement, product_id=product_id
+        ),
+    }
+
+
 def _participant_cedar_builder(
     *,
     cedar_file: str | None,
     gateway_arn: str,
-    product_id: int,
+    spec: dict[str, Any],
 ):
     template = _load_cedar_file(cedar_file)
 
@@ -179,13 +323,9 @@ def _participant_cedar_builder(
                 action_token=action_token,
             )
             if template is not None
-            else build_final_sale_forbid(
-                gateway_arn=gateway_arn,
-                action_token=action_token,
-                product_id=product_id,
-            )
+            else spec["build"](gateway_arn, action_token)
         )
-        errors = _validate_participant_cedar(statement, product_id=product_id)
+        errors = spec["validate"](statement)
         if errors:
             raise SystemExit(
                 "Cedar validation failed:\n"
@@ -210,11 +350,13 @@ def _list_policies(client: Any, engine_id: str) -> list[dict[str, Any]]:
             return policies
 
 
-def _participant_policies(client: Any, engine_id: str) -> list[dict[str, Any]]:
+def _participant_policies(
+    client: Any, engine_id: str, names: tuple[str, ...] = PARTICIPANT_POLICY_NAMES
+) -> list[dict[str, Any]]:
     return [
         policy
         for policy in _list_policies(client, engine_id)
-        if policy.get("name") == PARTICIPANT_POLICY_NAME
+        if policy.get("name") in names
     ]
 
 
@@ -223,17 +365,21 @@ def apply_rule(args: argparse.Namespace) -> int:
     engine_id = _policy_engine_id(args.policy_engine_id)
     gateway_arn = _gateway_arn(args.gateway_arn)
     client = _client(region)
+    spec = _rule_spec(args)
     cedar_builder = _participant_cedar_builder(
         cedar_file=args.cedar_file,
         gateway_arn=gateway_arn,
-        product_id=args.product_id,
+        spec=spec,
     )
     # Validate the participant-authored file before checking idempotency so an
     # existing policy does not hide a broken local edit.
     cedar_builder(_candidate_actions(args.experience_target)[0])
 
     existing = [
-        policy for policy in _participant_policies(client, engine_id)
+        policy
+        for policy in _participant_policies(
+            client, engine_id, names=(spec["policy_name"],)
+        )
         if policy.get("status") not in ("CREATE_FAILED", "FAILED")
     ]
     if existing:
@@ -245,13 +391,13 @@ def apply_rule(args: argparse.Namespace) -> int:
     policy_id, accepted_action = deploy_policy.create_action_policy_with_fallback(
         client,
         engine_id,
-        PARTICIPANT_POLICY_NAME,
-        PARTICIPANT_POLICY_DESCRIPTION,
+        spec["policy_name"],
+        spec["policy_description"],
         cedar_builder,
         _candidate_actions(args.experience_target),
     )
 
-    print("Participant final-sale forbid applied.")
+    print(f"Participant rule applied: {spec['policy_name']}")
     if accepted_action:
         print(f"ACTION_TOKEN={accepted_action}")
     print(f"POLICY_ID={policy_id}")
@@ -264,7 +410,7 @@ def reset_rule(args: argparse.Namespace) -> int:
     client = _client(region)
     policies = _participant_policies(client, engine_id)
     if not policies:
-        print("No participant final-sale policy found; shipped state already restored.")
+        print("No participant policy found; shipped state already restored.")
         return 0
 
     deleted = 0
@@ -274,7 +420,7 @@ def reset_rule(args: argparse.Namespace) -> int:
             continue
         client.delete_policy(policyEngineId=engine_id, policyId=policy_id)
         deleted += 1
-        print(f"Deleted participant policy {policy_id}")
+        print(f"Deleted participant policy {policy.get('name')} ({policy_id})")
 
     print(f"Reset complete. Removed {deleted} participant policy/policies.")
     return 0
@@ -286,10 +432,47 @@ def show_rule(args: argparse.Namespace) -> int:
     cedar_builder = _participant_cedar_builder(
         cedar_file=args.cedar_file,
         gateway_arn=gateway_arn,
-        product_id=args.product_id,
+        spec=_rule_spec(args),
     )
     print(cedar_builder(action_token))
     return 0
+
+
+def set_mode(args: argparse.Namespace) -> int:
+    """Re-attach the policy engine to the gateway in MONITOR or ENFORCE mode.
+
+    MONITOR evaluates every Cedar policy and logs the would-be decision but
+    never blocks the call — the standard staging step before flipping a new
+    rule to ENFORCE in production. deploy_policy.attach_engine_to_gateway
+    already carries the mode; this subcommand just makes the flip a
+    one-liner for the workshop room.
+    """
+    region = args.region
+    engine_id = _policy_engine_id(args.policy_engine_id)
+    gateway_id = _gateway_id(
+        getattr(args, "gateway_id", None), gateway_arn=args.gateway_arn
+    )
+    mode = args.set.upper()
+    client = _client(region)
+
+    engine = client.get_policy_engine(policyEngineId=engine_id)
+    engine_arn = engine["policyEngineArn"]
+
+    deploy_policy.attach_engine_to_gateway(client, gateway_id, engine_arn, mode=mode)
+
+    # update_gateway is asynchronous; read the mode back so the room gets a
+    # confirmed state, not an optimistic print.
+    for _ in range(18):
+        gw = client.get_gateway(gatewayIdentifier=gateway_id)
+        config = gw.get("policyEngineConfiguration") or {}
+        status = gw.get("status", "UNKNOWN")
+        if config.get("mode") == mode and status not in ("UPDATING",):
+            print(f"GATEWAY_POLICY_MODE={config.get('mode')}")
+            return 0
+        time.sleep(10)
+    print(f"Warning: gateway did not report mode {mode} yet; "
+          "check get_gateway policyEngineConfiguration.")
+    return 1
 
 
 def validate_rule(args: argparse.Namespace) -> int:
@@ -298,7 +481,7 @@ def validate_rule(args: argparse.Namespace) -> int:
     cedar_builder = _participant_cedar_builder(
         cedar_file=args.cedar_file,
         gateway_arn=gateway_arn,
-        product_id=args.product_id,
+        spec=_rule_spec(args),
     )
     cedar = cedar_builder(action_token)
     print("Cedar file passed workshop validation.")
@@ -331,10 +514,28 @@ def main() -> int:
             help="Gateway target name that owns process_return.",
         )
         target.add_argument(
+            "--rule",
+            choices=("final_sale", "identity_match"),
+            default=argparse.SUPPRESS if suppress_defaults else "final_sale",
+            help=(
+                "Which participant rule to build/validate/apply. final_sale "
+                "gates on tool input; identity_match gates on the JWT "
+                "principal's username tag vs context.input.customer_id."
+            ),
+        )
+        target.add_argument(
             "--product-id",
             type=int,
             default=argparse.SUPPRESS if suppress_defaults else FINAL_SALE_PRODUCT_ID,
             help="Final-sale productId to forbid through process_return.",
+        )
+        target.add_argument(
+            "--claim-tag",
+            default=argparse.SUPPRESS if suppress_defaults else IDENTITY_CLAIM_TAG,
+            help=(
+                "JWT claim tag the identity_match rule reads from the "
+                "principal (Cognito access tokens carry 'username')."
+            ),
         )
         target.add_argument(
             "--cedar-file",
@@ -359,6 +560,24 @@ def main() -> int:
         child = sub.add_parser(command, help=help_text)
         add_common_flags(child, suppress_defaults=True)
 
+    mode_parser = sub.add_parser(
+        "mode",
+        help="Flip the gateway's policy engine between MONITOR and ENFORCE.",
+    )
+    add_common_flags(mode_parser, suppress_defaults=True)
+    mode_parser.add_argument(
+        "--set",
+        required=True,
+        choices=("MONITOR", "ENFORCE", "monitor", "enforce"),
+        help="MONITOR logs would-be decisions without blocking; ENFORCE blocks.",
+    )
+    mode_parser.add_argument(
+        "--gateway-id",
+        default=argparse.SUPPRESS,
+        help="AgentCore Gateway id (default: AGENTCORE_GATEWAY_ID, or "
+             "derived from AGENTCORE_GATEWAY_ARN).",
+    )
+
     args = parser.parse_args()
     if args.command == "show":
         return show_rule(args)
@@ -368,6 +587,8 @@ def main() -> int:
         return apply_rule(args)
     if args.command == "reset":
         return reset_rule(args)
+    if args.command == "mode":
+        return set_mode(args)
     raise AssertionError(args.command)
 
 

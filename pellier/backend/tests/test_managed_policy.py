@@ -36,6 +36,10 @@ PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
 DEPLOY_ALL = DEPLOY / "deploy_all.sh"
 STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_final_sale_forbid.cedar"
 SOLUTION_CEDAR = REPO_ROOT / "solutions" / "the-concierge" / "policies" / "final_sale_forbid.cedar"
+IDENTITY_STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_identity_match_forbid.cedar"
+IDENTITY_SOLUTION_CEDAR = (
+    REPO_ROOT / "solutions" / "the-concierge" / "policies" / "identity_match_forbid.cedar"
+)
 
 # Cedar action spelling is keyed on the Gateway TARGET name (what the Gateway
 # registers tools under), NOT the Lambda function name. The live GA engine
@@ -186,6 +190,67 @@ def test_workshop_policy_rule_validates_authored_cedar() -> None:
         mod._validate_participant_cedar(starter, product_id=37)
     )
     assert mod._validate_participant_cedar(solution, product_id=37) == []
+
+
+def test_workshop_policy_rule_supports_monitor_enforce_staging() -> None:
+    """The MONITOR→ENFORCE rehearsal beat rides the same helper: one `mode`
+    subcommand that re-attaches the engine via deploy_policy and confirms
+    the gateway reports the new mode before declaring success."""
+    src = WORKSHOP_POLICY_RULE.read_text()
+    assert '"mode"' in src or "'mode'" in src
+    assert "MONITOR" in src and "ENFORCE" in src
+    assert "attach_engine_to_gateway" in src
+    # Must read the mode back (update_gateway is async) — no optimistic print.
+    assert "policyEngineConfiguration" in src
+    assert "GATEWAY_POLICY_MODE=" in src
+
+
+def test_identity_match_rule_is_second_participant_policy() -> None:
+    """The optional identity rail rides the same helper: separate policy name,
+    JWT-claim tag comparison against the tool input, removable by reset."""
+    src = WORKSHOP_POLICY_RULE.read_text()
+    assert "workshop_identity_match_forbid" in src
+    assert "--rule" in src and "identity_match" in src
+    # The identity comparison must read the JWT claim from the principal tag
+    # (AgentCore::OAuthUser exposes token claims as tags) — not from input.
+    assert "principal.hasTag(" in src
+    assert "principal.getTag(" in src
+    assert "context.input.customer_id" in src
+    # Both participant policies must fall inside reset's blast radius.
+    assert "PARTICIPANT_POLICY_NAMES" in src
+
+
+def test_identity_match_cedar_file_contract() -> None:
+    assert IDENTITY_STARTER_CEDAR.is_file(), "identity starter Cedar file must ship"
+    assert IDENTITY_SOLUTION_CEDAR.is_file(), "identity solution Cedar file must ship"
+
+    starter = IDENTITY_STARTER_CEDAR.read_text()
+    solution = IDENTITY_SOLUTION_CEDAR.read_text()
+    for text in (starter, solution):
+        assert 'AgentCore::Action::"ACTION_TOKEN"' in text
+        assert 'AgentCore::Gateway::"GATEWAY_ARN"' in text
+        assert "context.input has customer_id" in text
+
+    assert "false" in starter, "identity starter must require a participant edit"
+    assert 'principal.hasTag("username")' in solution
+    assert 'principal.getTag("username") != context.input.customer_id' in solution
+
+
+def test_identity_match_validator_accepts_solution_rejects_starter() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("workshop_policy_rule", WORKSHOP_POLICY_RULE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    starter = IDENTITY_STARTER_CEDAR.read_text()
+    solution = IDENTITY_SOLUTION_CEDAR.read_text()
+
+    starter_errors = "\n".join(mod._validate_identity_cedar(starter, claim_tag="username"))
+    assert "replace the starter false predicate" in starter_errors
+    assert mod._validate_identity_cedar(solution, claim_tag="username") == []
+    # The final-sale validator must NOT accept the identity file (distinct rules).
+    assert mod._validate_participant_cedar(solution, product_id=37) != []
 
 
 # ---------------------------------------------------------------------------
