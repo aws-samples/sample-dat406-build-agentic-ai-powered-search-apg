@@ -168,7 +168,7 @@ class AgentCoreMemory:
                     "in-memory fallback. If you provisioned an AgentCore Memory "
                     "resource, make sure uvicorn is launched from the venv where "
                     "``pip install -e .`` ran (e.g. "
-                    "``pellier/backend/.venv/bin/uvicorn app:app``)."
+                    "``pellier/backend/.venv/bin/python -m uvicorn app:app``)."
                 )
             _SDK_AVAILABLE = False
             return None

@@ -491,8 +491,8 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
         production scale, pgvector index settings and representation choices
         decide whether filtered search returns enough candidates, how much RAM
         the index wants, and how much recall you trade for speed. For this
-        workshop's 40-product catalog, halfvec and binary quantization are
-        mostly production-awareness knobs, not wins you need to ship today.
+        workshop corpus, halfvec and binary quantization are mostly
+        production-awareness knobs, not wins you need to ship today.
       </p>
 
       <div
@@ -637,10 +637,10 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
             marginTop: '8px',
           }}
         >
-          The boutique catalog has only 40 products, so full benchmarking would
-          be theater. The smoke probes prove the features exist on Aurora; the
-          workshop keeps the hands-on moment on agent tools and uses this card
-          to name the production knobs participants should tune at scale.
+          The workshop catalog now includes archive distractors, so the smoke
+          probes show real recall and latency movement. The hands-on lab still
+          keeps the required proof on agent tools; this card names the tuning
+          knobs participants should revisit as corpus size grows.
         </p>
       </div>
     </ExpCard>

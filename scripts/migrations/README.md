@@ -110,7 +110,7 @@ verifies via:
 \dt pellier.tool_audit
 \dt pellier.approvals
 
-SELECT COUNT(*) FROM pellier.product_catalog;          -- 40
+SELECT COUNT(*) FROM pellier.product_catalog;          -- 1000 by default
 SELECT COUNT(*) FROM pellier.customers;                -- at least 5
 SELECT COUNT(*) FROM pellier.orders;                   -- at least 20
 SELECT COUNT(*) FROM pellier.customer_episodic_seed;   -- 9

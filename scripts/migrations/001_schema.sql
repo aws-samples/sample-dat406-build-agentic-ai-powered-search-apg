@@ -100,20 +100,16 @@ CREATE TRIGGER product_catalog_set_updated_at
 -- 4. HNSW index for vector similarity search
 --
 -- m=16 / ef_construction=64 are pgvector's built-in defaults, and we
--- keep them deliberately. They are the right choice until a catalog
--- reaches roughly tens of thousands of vectors — only then does raising
--- m (graph connectivity) and ef_construction (build-time candidate
--- breadth) start to buy recall worth the larger index and slower build.
--- At 40 rows the index is effectively decorative; the lesson is *where*
--- the knob lives, not the value. The tunable that actually matters at
--- query time is `hnsw.ef_search` (the recall/latency dial), which the
--- backend SETs per query — see services/vector_search.py.
+-- keep them deliberately. They are the right workshop baseline for the
+-- expanded 1,000-row corpus: the plan flip is visible, build time stays
+-- short, and `hnsw.ef_search` remains the query-time recall/latency dial
+-- the backend SETs per query — see services/vector_search.py.
 --
 -- vector_cosine_ops matches the Cohere Embed v4 normalization we
 -- use at query time (the `<=>` operator in find_pieces / hybrid_search).
 --
 -- pgvector lets you build HNSW on an empty table — the index grows
--- incrementally as inserts arrive, so the 40-row seed inherits it
+-- incrementally as inserts arrive, so the catalog seed inherits it
 -- automatically. No REINDEX needed after seeding.
 -- ---------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS product_catalog_embedding_hnsw

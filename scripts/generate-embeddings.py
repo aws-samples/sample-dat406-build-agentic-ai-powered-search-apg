@@ -8,10 +8,11 @@ exist in the current pellier.product_catalog defined by
 scripts/migrations/001_schema.sql. Running it against the current schema
 will fail with "column does not exist".
 
-The authoritative seeder is scripts/seed_boutique_catalog.py — it
-generates Cohere Embed v4 embeddings for the 40 curated boutique
-products and INSERTs them into pellier.product_catalog with the
-matching column names. bootstrap-labs.sh calls that one.
+The authoritative seeder is scripts/seed_boutique_catalog.py — it loads
+the 40 curated Cohere Embed v4 vectors from the committed cache, derives
+archive distractor vectors, and INSERTs the expanded corpus into
+pellier.product_catalog with the matching column names. bootstrap-labs.sh
+calls that one.
 
 Kept here only as historical reference. Delete in a future cleanup.
 """

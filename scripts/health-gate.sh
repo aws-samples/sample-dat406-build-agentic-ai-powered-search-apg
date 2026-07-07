@@ -8,7 +8,7 @@
 #
 # Checks:
 #   1. Backend /api/health is green (DB connected)
-#   2. Catalog row count == expected (40)
+#   2. Catalog row count == expected (1,000 by default: 40 curated + 960 archive)
 #   3. Warehouse inventory present (~120 rows)
 #   4. node --version >= 20                       (warn — ROOT CAUSE diagnostic:
 #      the @aws/agentcore CLI needs Node 20; on Node 18 every agentcore command
@@ -29,7 +29,7 @@ set -uo pipefail
 
 REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
-EXPECTED_CATALOG="${EXPECTED_CATALOG:-40}"
+EXPECTED_CATALOG="${EXPECTED_CATALOG:-1000}"
 HEALTH_URL="${HEALTH_URL:-http://localhost:8000/api/health}"
 
 GREEN='\033[32m'; RED='\033[31m'; YEL='\033[33m'; NC='\033[0m'

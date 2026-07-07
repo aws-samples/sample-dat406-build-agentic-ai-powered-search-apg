@@ -80,8 +80,8 @@ CREATE INDEX IF NOT EXISTS returns_customer_idx
     ON pellier.returns (customer_id, requested_at DESC);
 
 -- Index for "how many returns has product X had" — feeds future
--- inventory-quality dashboards. Cheap on 40 products today, future-
--- proof on 40 million.
+-- inventory-quality dashboards. Cheap in the workshop corpus, future-
+-- proof on larger catalogs.
 CREATE INDEX IF NOT EXISTS returns_product_idx
     ON pellier.returns (product_id);
 

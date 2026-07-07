@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
-Seed the boutique catalog — 40 curated products with real Cohere Embed v4 embeddings.
+Seed the boutique catalog — 40 curated products plus generated archive
+distractors for retrieval evaluation.
 
-10 products per persona (Marco / Anna / Theo / Fresh), zero overlap.
-Each persona: 1 hero + 1 weekend edit featured + 8 grid = 10 total.
-Each product gets a 1024-dim embedding via Bedrock's Cohere Embed v4,
-stored in Aurora's pgvector column for HNSW-indexed similarity search.
+The curated set stays stable: 10 products per persona (Marco / Anna / Theo /
+Fresh), zero overlap, IDs 1-40. Workshop story, inventory, orders, returns, and
+final-sale policy all refer to those IDs.
+
+The governed retrieval lab adds high-ID archive distractors by default. Their
+embeddings are derived deterministically from the 40 committed Cohere Embed v4
+vectors, so fresh-account bootstrap still makes zero catalog-embedding Bedrock
+calls while the HNSW index and eval harness see a larger corpus.
 
 Usage:
     # Generate embeddings via Bedrock + seed directly into Aurora:
@@ -17,6 +22,9 @@ Usage:
     # PREFERRED FOR WORKSHOPS — seed from the committed embeddings cache,
     # no Bedrock embedding calls (deterministic, fast, no throttle/AccessDenied):
     python scripts/seed_boutique_catalog.py --from-cache
+
+    # Old 40-row shape for quick local debugging:
+    python scripts/seed_boutique_catalog.py --from-cache --no-distractors
 
     # Skip embedding generation (use zero vectors, for local dev):
     python scripts/seed_boutique_catalog.py --skip-embeddings --csv-only
@@ -38,10 +46,13 @@ Workshop note:
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import logging
+import math
 import os
+import random
 import sys
 import time
 from dataclasses import dataclass, field
@@ -56,12 +67,20 @@ logger = logging.getLogger(__name__)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-CSV_OUT = os.path.join(DATA_DIR, "boutique_catalog_40.csv")
+CSV_OUT_40 = os.path.join(DATA_DIR, "boutique_catalog_40.csv")
+CSV_OUT_EXPANDED = os.path.join(DATA_DIR, "boutique_catalog_expanded.csv")
 # Committed cache of precomputed 1024-dim embeddings, keyed by productId.
 # Generated once via --csv-only; loaded by --from-cache so the workshop
 # bootstrap never has to call Bedrock to embed the catalog.
 EMBED_CACHE = os.path.join(DATA_DIR, "embeddings_cache.json")
 EMBED_DIM = 1024
+
+# Curated products use IDs 1-40. Generated distractors live in a high numeric
+# range so persona/order/policy exercises can keep treating 1-40 as stable.
+CURATED_PRODUCT_COUNT = 40
+DISTRACTOR_ID_START = 1000
+DISTRACTOR_ID_END = 9999
+DEFAULT_DISTRACTOR_COUNT = 960
 
 # CSV column order matches the seed-database.sh temp_products schema
 CSV_FIELDS = [
@@ -107,6 +126,8 @@ class Product:
     persona: str = "fresh"  # which persona owns this product
     badge: Optional[str] = None
     embedding: Optional[List[float]] = None
+    source_product_id: Optional[int] = None
+    blend_product_id: Optional[int] = None
 
     @property
     def category_name(self) -> str:
@@ -137,6 +158,10 @@ class Product:
             f"Category: {self.category_name}. Tags: {tag_str}. "
             f"{context}"
         )
+
+    @property
+    def is_distractor(self) -> bool:
+        return self.source_product_id is not None
 
     def to_csv_row(self) -> dict:
         return {
@@ -336,6 +361,174 @@ ALL_PRODUCTS = FRESH_PRODUCTS + MARCO_PRODUCTS + ANNA_PRODUCTS + THEO_PRODUCTS
 
 
 # =========================================================================
+# GENERATED RETRIEVAL DISTRACTORS
+# =========================================================================
+
+COLOR_CYCLE = [
+    "Ivory", "Oat", "Flax", "Sage", "Clay", "Charcoal", "Chestnut", "Natural",
+]
+
+ARCHIVE_MOTIFS = [
+    "travel edit",
+    "gift edit",
+    "home ritual study",
+    "weekend capsule",
+    "tabletop archive",
+    "material study",
+    "quiet utility",
+    "small-batch run",
+]
+
+ARCHIVE_CAVEATS = [
+    "slightly more structured than the curated hero piece",
+    "not gift boxed by default",
+    "made for browsing comparison rather than a featured placement",
+    "kept as an archive variant with lower editorial priority",
+    "close in material language but tuned for a different use case",
+    "similar in tone, less exact for the shopper's stated occasion",
+]
+
+
+def _distractor_count_from_env(default: int = DEFAULT_DISTRACTOR_COUNT) -> int:
+    raw = os.getenv("PELLIER_DISTRACTOR_COUNT", str(default))
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        logger.warning("Invalid PELLIER_DISTRACTOR_COUNT=%r; using %d", raw, default)
+        return default
+
+
+def _distractor_name(base: Product, ordinal: int) -> str:
+    motif = ARCHIVE_MOTIFS[ordinal % len(ARCHIVE_MOTIFS)]
+    noun = {
+        CAT_APPAREL: "Garment",
+        CAT_ACCESSORIES: "Accessory",
+        CAT_HOME: "Object",
+        CAT_BEAUTY: "Apothecary",
+        CAT_FOOTWEAR: "Footwear",
+        CAT_GIFTS: "Gift Kit",
+    }.get(base.category_id, "Piece")
+    return f"Pellier Archive {noun} {ordinal + 1:03d} - {motif.title()}"
+
+
+def _distractor_tags(base: Product, ordinal: int) -> List[str]:
+    extra = [
+        "archive",
+        "comparison",
+        ARCHIVE_MOTIFS[ordinal % len(ARCHIVE_MOTIFS)].split()[0],
+    ]
+    tags: List[str] = []
+    for tag in [*base.tags, *extra]:
+        if tag not in tags:
+            tags.append(tag)
+    return tags[:8]
+
+
+def _distractor_description(base: Product, ordinal: int) -> str:
+    motif = ARCHIVE_MOTIFS[ordinal % len(ARCHIVE_MOTIFS)]
+    caveat = ARCHIVE_CAVEATS[ordinal % len(ARCHIVE_CAVEATS)]
+    tags = ", ".join(base.tags[:4])
+    return (
+        f"Archive variant adjacent to {base.category_name.lower()} searches for "
+        f"{motif}. It echoes {base.name}'s material signals ({tags}) and "
+        f"{base.color.lower()} palette, but is {caveat}. Use it as a retrieval "
+        "distractor: plausible enough to compete, not the canonical workshop item."
+    )
+
+
+def generate_distractor_products(
+    curated: List[Product],
+    count: int = DEFAULT_DISTRACTOR_COUNT,
+) -> List[Product]:
+    """Build deterministic high-ID archive rows for retrieval evaluation."""
+    if count <= 0:
+        return []
+    if not curated:
+        raise ValueError("curated products are required to generate distractors")
+
+    distractors: List[Product] = []
+    for idx in range(count):
+        base = curated[idx % len(curated)]
+        blend = curated[(idx * 7 + 11) % len(curated)]
+        product_id = DISTRACTOR_ID_START + idx
+        rng = random.Random(f"pellier-archive-product-{product_id}")
+        price_factor = 0.72 + (rng.random() * 0.68)
+        price = round(max(18.0, float(base.price) * price_factor), 2)
+        rating = round(max(3.7, min(4.8, float(base.rating) - 0.15 + rng.random() * 0.25)), 1)
+        reviews = max(12, int(float(base.reviews) * (0.15 + rng.random() * 0.45)))
+        distractors.append(
+            Product(
+                product_id,
+                _distractor_name(base, idx),
+                "Pellier Archive",
+                COLOR_CYCLE[idx % len(COLOR_CYCLE)],
+                price,
+                _distractor_description(base, idx),
+                base.category_id,
+                _distractor_tags(base, idx),
+                rating,
+                reviews,
+                base.imgPath,
+                quantity=35,
+                persona=base.persona,
+                source_product_id=base.productId,
+                blend_product_id=blend.productId,
+            )
+        )
+    return distractors
+
+
+def build_catalog(include_distractors: bool = True, distractor_count: int = DEFAULT_DISTRACTOR_COUNT) -> List[Product]:
+    """Return curated products plus optional generated archive distractors."""
+    curated = copy.deepcopy(ALL_PRODUCTS)
+    if not include_distractors:
+        return curated
+    return curated + generate_distractor_products(curated, distractor_count)
+
+
+def derive_distractor_embeddings(products: List[Product]) -> int:
+    """Attach deterministic derived embeddings to generated distractors.
+
+    The 40 curated vectors are real Cohere Embed v4 outputs from the committed
+    cache. Distractors live near those vectors with a small deterministic blend
+    and noise term. That keeps bootstrap offline while giving pgvector a corpus
+    large enough for recall, rerank, and HNSW tuning to become visible.
+    """
+    base_vectors = {
+        p.productId: p.embedding
+        for p in products
+        if not p.is_distractor and p.embedding and len(p.embedding) == EMBED_DIM
+    }
+    applied = 0
+    missing: List[int] = []
+    for p in products:
+        if not p.is_distractor:
+            continue
+        base = base_vectors.get(int(p.source_product_id or 0))
+        blend = base_vectors.get(int(p.blend_product_id or 0)) or base
+        if not base or not blend:
+            missing.append(p.productId)
+            continue
+        rng = random.Random(f"pellier-archive-embedding-{p.productId}")
+        values = [
+            (0.86 * float(base[i])) + (0.10 * float(blend[i])) + (0.012 * rng.uniform(-1.0, 1.0))
+            for i in range(EMBED_DIM)
+        ]
+        base_norm = math.sqrt(sum(float(v) * float(v) for v in base)) or 1.0
+        values_norm = math.sqrt(sum(v * v for v in values)) or 1.0
+        scale = base_norm / values_norm
+        p.embedding = [round(v * scale, 8) for v in values]
+        applied += 1
+    if missing:
+        logger.warning(
+            "Could not derive embeddings for %d distractors; missing base IDs: %s",
+            len(missing), missing[:12],
+        )
+    logger.info("Derived %d archive distractor embeddings", applied)
+    return applied
+
+
+# =========================================================================
 # EMBEDDING GENERATION
 # =========================================================================
 
@@ -503,11 +696,28 @@ def seed_database(products: List[Product]) -> None:
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
-            # Clear existing boutique products (IDs 1-40)
+            managed_product_ids = [str(p.productId) for p in products]
+            # Clear only stale rows in the managed ID ranges. Keeping current
+            # curated rows in place avoids ON DELETE CASCADE wiping
+            # warehouse_inventory when the seeder is rerun after migrations.
             cur.execute(
-                'DELETE FROM pellier.product_catalog WHERE "productId"::int BETWEEN 1 AND 40'
+                """
+                DELETE FROM pellier.product_catalog
+                WHERE "productId" ~ '^[0-9]+$'
+                  AND (
+                    "productId"::int BETWEEN 1 AND %s
+                    OR "productId"::int BETWEEN %s AND %s
+                  )
+                  AND NOT ("productId" = ANY(%s))
+                """,
+                (
+                    CURATED_PRODUCT_COUNT,
+                    DISTRACTOR_ID_START,
+                    DISTRACTOR_ID_END,
+                    managed_product_ids,
+                ),
             )
-            logger.info("Cleared existing boutique products (IDs 1-40)")
+            logger.info("Cleared stale managed catalog rows")
 
             for p in products:
                 tags_json = json.dumps(p.tags)
@@ -572,19 +782,35 @@ def print_summary(products: List[Product]) -> None:
         personas.setdefault(p.persona, []).append(p)
 
     total = len(products)
+    curated_total = sum(1 for p in products if not p.is_distractor)
+    distractor_total = total - curated_total
     print("\n" + "=" * 72)
-    print(f"BOUTIQUE CATALOG — {total} PRODUCTS (10 per persona)")
+    print(
+        "BOUTIQUE CATALOG — "
+        f"{curated_total} curated products + {distractor_total} archive distractors"
+    )
     print("=" * 72)
 
     for persona_id in ["fresh", "marco", "anna", "theo"]:
         items = personas.get(persona_id, [])
+        curated_items = [p for p in items if not p.is_distractor]
+        archive_items = [p for p in items if p.is_distractor]
         embedded = sum(1 for p in items if p.embedding)
-        print(f"\n  {persona_id.upper()} ({len(items)} products, {embedded} embedded)")
+        print(
+            f"\n  {persona_id.upper()} "
+            f"({len(curated_items)} curated, {len(archive_items)} archive, "
+            f"{embedded} embedded)"
+        )
         print(f"  {'─' * 60}")
-        for p in items:
+        for p in curated_items:
             badge = f" [{p.badge}]" if p.badge else ""
             emb = "✓" if p.embedding else "·"
             print(f"  {emb} {p.productId:>3}  ${p.price:>6.0f}  {p.name}{badge}")
+        if archive_items:
+            print(
+                f"      ... {len(archive_items)} archive distractors "
+                f"(IDs {archive_items[0].productId}-{archive_items[-1].productId})"
+            )
 
     total = len(products)
     total_embedded = sum(1 for p in products if p.embedding)
@@ -602,35 +828,61 @@ def main():
     parser.add_argument("--csv-only", action="store_true", help="Write CSV + embeddings cache only, no DB connection")
     parser.add_argument("--from-cache", action="store_true", help="Seed using committed embeddings cache (no Bedrock calls) — preferred for workshops")
     parser.add_argument("--skip-embeddings", action="store_true", help="Skip Cohere embedding generation (zero vectors)")
+    parser.add_argument(
+        "--distractor-count",
+        type=int,
+        default=_distractor_count_from_env(),
+        help=(
+            "Generated archive distractor rows to add above the 40 curated "
+            f"products (default: {DEFAULT_DISTRACTOR_COUNT}, env: "
+            "PELLIER_DISTRACTOR_COUNT)"
+        ),
+    )
+    parser.add_argument(
+        "--no-distractors",
+        action="store_true",
+        help="Seed only the original 40 curated products.",
+    )
     parser.add_argument("--region", default=os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION", "us-east-1"), help="AWS region")
     args = parser.parse_args()
 
-    products = ALL_PRODUCTS
+    include_distractors = not args.no_distractors
+    products = build_catalog(
+        include_distractors=include_distractors,
+        distractor_count=max(0, int(args.distractor_count)),
+    )
+    curated_products = [p for p in products if not p.is_distractor]
 
     if args.from_cache:
         # Workshop fast path: deterministic SQL load from precomputed vectors.
-        applied = load_embeddings_cache(products, EMBED_CACHE)
-        if applied < len(products):
+        # The cache stores the real 40 Cohere vectors; archive distractors are
+        # derived from those vectors below.
+        applied = load_embeddings_cache(curated_products, EMBED_CACHE)
+        if applied < len(curated_products):
             logger.warning(
                 "Only %d/%d products have cached embeddings — the rest seed "
                 "with zero vectors and will not surface in semantic search.",
-                applied, len(products),
+                applied, len(curated_products),
             )
     elif not args.skip_embeddings:
-        generate_embeddings(products, args.region)
+        generate_embeddings(curated_products, args.region)
         # Refresh the committed cache whenever we regenerate, so the next
         # --from-cache run stays in sync with the live model output.
-        write_embeddings_cache(products, EMBED_CACHE)
+        write_embeddings_cache(curated_products, EMBED_CACHE)
     else:
         logger.info("Skipping embedding generation (--skip-embeddings)")
+
+    if include_distractors and not args.skip_embeddings:
+        derive_distractor_embeddings(products)
 
     print_summary(products)
 
     if not args.csv_only:
         seed_database(products)
     else:
-        write_csv(products, CSV_OUT)
-        logger.info("CSV-only mode — wrote CSV + embeddings cache, skipped DB seeding")
+        csv_out = CSV_OUT_EXPANDED if include_distractors else CSV_OUT_40
+        write_csv(products, csv_out)
+        logger.info("CSV-only mode — wrote CSV, skipped DB seeding")
         logger.info("To seed Aurora from the cache, run: --from-cache")
 
 

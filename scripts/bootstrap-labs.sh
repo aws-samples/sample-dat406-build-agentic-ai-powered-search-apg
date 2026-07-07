@@ -349,16 +349,17 @@ setup_database() {
         fi
 
         # ---- 2. Boutique catalog seeder — 40 hand-curated products
-        # across the four personas (Marco / Anna / Theo / Fresh).
+        # across the four personas (Marco / Anna / Theo / Fresh), plus
+        # generated high-ID archive distractors for retrieval measurement.
         # Authoritative source for pellier.product_catalog.
         #
         # Embeddings come from the COMMITTED cache (data/embeddings_cache.json)
-        # via --from-cache. The catalog never changes between runs, so we
-        # generate Cohere Embed v4 vectors once (committed) instead of calling
-        # Bedrock on every account. This removes the slowest, most
-        # throttle-prone step from the bootstrap critical path and makes the
-        # seed a deterministic SQL load. To regenerate the cache after a
-        # catalog change, run `python scripts/seed_boutique_catalog.py --csv-only`
+        # via --from-cache. The cache stores the 40 real Cohere vectors; the
+        # archive distractors derive deterministic vectors from that committed
+        # cache. This removes the slowest, most throttle-prone step from the
+        # bootstrap critical path and makes the seed a deterministic SQL load.
+        # To regenerate the cache after a curated catalog change, run
+        # `python scripts/seed_boutique_catalog.py --csv-only --no-distractors`
         # on a machine with Bedrock access and commit the updated cache.
         #
         # Must run as $CODE_EDITOR_USER: psycopg is installed via
@@ -449,7 +450,7 @@ setup_frontend & PID_FE=$!
 setup_database & PID_DB=$!
 wait $PID_FE && log "✅ Frontend dependencies installed" || warn "Frontend install issues"
 if wait $PID_DB; then
-    log "✅ Database setup complete (40 boutique products, HNSW index, workshop tables)"
+    log "✅ Database setup complete (expanded catalog, HNSW index, workshop tables)"
 else
     warn "Database setup had issues - check /var/log/database-setup.log"
 fi
@@ -1401,7 +1402,7 @@ log "=========================================="
 echo ""
 echo "✅ Pellier Backend (FastAPI + Strands) installed"
 echo "✅ Pellier Frontend (React) dependencies installed"
-echo "✅ Database setup complete (40 products + warehouse inventory)"
+echo "✅ Database setup complete (expanded product corpus + warehouse inventory)"
 echo "✅ MCP server config written to pellier/config/mcp-server-config.json"
 echo "✅ Bash environment configured (psql ready)"
 if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then

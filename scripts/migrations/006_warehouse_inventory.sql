@@ -26,7 +26,7 @@
 -- Two tables:
 --   pellier.warehouses          — three locations (BK-01, ATX-02, PDX-01)
 --                                  with display name, city, ship window.
---   pellier.warehouse_inventory — per-warehouse, per-product stock.
+--   pellier.warehouse_inventory — per-warehouse, per-curated-product stock.
 --                                  PK on (warehouse_id, product_id).
 --
 -- The split:
@@ -214,9 +214,14 @@ CREATE INDEX IF NOT EXISTS warehouse_inventory_product_idx
     ON pellier.warehouse_inventory (product_id);
 
 -- ---------------------------------------------------------------------
--- Seed: deterministic 40/30/30 split of product_catalog.quantity
--- across BK-01 / ATX-02 / PDX-01.
+-- Seed: deterministic 40/30/30 split of curated product_catalog.quantity
+-- across BK-01 / ATX-02 / PDX-01. Generated archive distractors are
+-- retrieval-only and intentionally do not get warehouse rows.
 -- ---------------------------------------------------------------------
+DELETE FROM pellier.warehouse_inventory wi
+WHERE wi.product_id ~ '^[0-9]+$'
+  AND wi.product_id::int NOT BETWEEN 1 AND 40;
+
 INSERT INTO pellier.warehouse_inventory (warehouse_id, product_id, quantity)
 SELECT
     wh.id,
@@ -233,6 +238,8 @@ SELECT
     )
 FROM pellier.warehouses wh
 CROSS JOIN pellier.product_catalog pc
+WHERE pc."productId" ~ '^[0-9]+$'
+  AND pc."productId"::int BETWEEN 1 AND 40
 ON CONFLICT (warehouse_id, product_id) DO UPDATE SET
     quantity   = EXCLUDED.quantity,
     updated_at = now();

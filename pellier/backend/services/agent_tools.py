@@ -542,7 +542,7 @@ def restock_shelf(product_id: int, quantity: int) -> str:
     """Restock a specific product by adding inventory quantity. Use when an inventory manager needs to replenish stock for a product ID.
 
     Args:
-        product_id: Integer productId (1-40 in the boutique catalog).
+        product_id: Integer productId. Workshop inventory exercises use curated IDs 1-40.
         quantity: Units to add to current stock.
 
     """
@@ -580,7 +580,7 @@ def process_return(customer_id: str, product_id: int, reason: str) -> str:
     Args:
         customer_id: Salesforce-style customer ID (must exist in customers
             and must have an order for this product_id).
-        product_id: INTEGER productId (1-40 in the boutique catalog).
+        product_id: INTEGER productId. Workshop return exercises use ordered curated IDs.
         reason: One of 'damaged', 'wrong_size', 'not_as_described',
             'changed_mind', 'other'. The tool validates this canonical set;
             the managed Gateway policy can narrow which calls execute.
@@ -1126,7 +1126,7 @@ def style_match(product_id: int, limit: int = 5) -> str:
     matching, not keyword overlap. Great for "what goes with this?"
 
     Args:
-        product_id: The product to match against (1-40 in the curated catalog)
+        product_id: The product to match against. Curated catalog IDs are 1-40; archive distractors use high IDs.
         limit: Number of matches to return (default: 5)
 
     Returns:
@@ -1164,6 +1164,7 @@ def style_match(product_id: int, limit: int = 5) -> str:
             '1 - (embedding <=> %s::vector) AS similarity_score '
             'FROM pellier.product_catalog '
             'WHERE "productId" != %s '
+            "AND NOT (tags ? 'archive') "
             'ORDER BY embedding <=> %s::vector '
             'LIMIT %s',
             emb_literal, product_id_text,

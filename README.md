@@ -79,7 +79,7 @@ Sign in as one of the three returning customers and the entire storefront – he
 
 The **signed-out state** is the editorial baseline – a 10-piece grid anchored by the Nocturne Leather Weekender, no prior context, no profile embedding. It is the hero state, not a fourth persona.
 
-Each persona ships with 10 products carrying real Cohere Embed v4 1024-dim embeddings, generated at seed time by [`scripts/seed_boutique_catalog.py`](scripts/seed_boutique_catalog.py). 40 products total (10 signed-out baseline + 10 per persona); HNSW-indexed vector column on the `pellier.product_catalog` table.
+Each persona ships with 10 curated products carrying real Cohere Embed v4 1024-dim embeddings. Those 40 story products stay stable for persona grids, orders, inventory, and policy exercises. The governed retrieval lab expands `pellier.product_catalog` to 1,000 rows by adding generated high-ID archive distractors with deterministic derived vectors, so HNSW, rerank, and eval behavior are measurable without calling Bedrock during bootstrap. The app tags those rows as `archive` and excludes them from shopper-facing product tools; the standalone eval harness includes them deliberately.
 
 ---
 
@@ -93,12 +93,12 @@ cp pellier/backend/.env.example pellier/backend/.env
 # edit DB_HOST, DB_USER, DB_PASSWORD, AWS_REGION, BEDROCK_*
 set -a; source pellier/backend/.env; set +a
 
-# 2. Apply schema + seed 40-product catalog + required workshop tables (one-time)
+# 2. Apply schema + seed expanded catalog + required workshop tables (one-time)
 PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
   -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 \
   -f scripts/migrations/001_schema.sql
-python3 scripts/seed_boutique_catalog.py
+python3 scripts/seed_boutique_catalog.py --from-cache
 for migration in \
   002_workshop_telemetry.sql \
   003_persona_seed.sql \
@@ -245,7 +245,7 @@ sample-pellier-agentic-search-apg/
 │
 └── scripts/
     ├── migrations/                         Ordered fresh-cluster SQL (001-009)
-    ├── seed_boutique_catalog.py             40 products with Cohere embeddings
+    ├── seed_boutique_catalog.py             40 curated products + generated retrieval distractors
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
     └── bootstrap-labs.sh                    DB seed + frontend build + service start
 ```
