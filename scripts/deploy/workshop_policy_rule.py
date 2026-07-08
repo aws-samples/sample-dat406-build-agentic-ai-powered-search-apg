@@ -7,9 +7,9 @@ delete them again in one reset command.
 
 Two participant rules are supported, selected with ``--rule``:
 
-* ``final_sale`` (default) — forbid process_return for final-sale product 37.
+* ``final_sale`` (default) – forbid process_return for final-sale product 37.
   Gates on tool INPUT only (``context.input.product_id``).
-* ``identity_match`` — forbid process_return when the authenticated JWT
+* ``identity_match`` – forbid process_return when the authenticated JWT
   principal is not the customer the return is for. Gates on IDENTITY:
   AgentCore Policy exposes JWT claims as principal tags, so the rule compares
   ``principal.getTag("username")`` against ``context.input.customer_id``.
@@ -257,7 +257,7 @@ def _validate_identity_cedar(statement: str, *, claim_tag: str) -> list[str]:
         errors.append("expected guard: context.input has customer_id")
     if f'principal.hasTag("{claim_tag}")' not in compact:
         errors.append(
-            f'expected claim guard: principal.hasTag("{claim_tag}") — '
+            f'expected claim guard: principal.hasTag("{claim_tag}") – '
             "guard the tag before reading it"
         )
     if not re.search(
@@ -442,7 +442,7 @@ def set_mode(args: argparse.Namespace) -> int:
     """Re-attach the policy engine to the gateway in MONITOR or ENFORCE mode.
 
     MONITOR evaluates every Cedar policy and logs the would-be decision but
-    never blocks the call — the standard staging step before flipping a new
+    never blocks the call – the standard staging step before flipping a new
     rule to ENFORCE in production. deploy_policy.attach_engine_to_gateway
     already carries the mode; this subcommand just makes the flip a
     one-liner for the workshop room.
@@ -457,6 +457,20 @@ def set_mode(args: argparse.Namespace) -> int:
 
     engine = client.get_policy_engine(policyEngineId=engine_id)
     engine_arn = engine["policyEngineArn"]
+
+    # No-op when the gateway already reports the requested mode with this
+    # engine: update_gateway is a full-replace call that briefly flips the
+    # gateway to UPDATING, and the facilitator reset runs this on every pass.
+    current = client.get_gateway(gatewayIdentifier=gateway_id)
+    current_config = current.get("policyEngineConfiguration") or {}
+    if (
+        current_config.get("mode") == mode
+        and current_config.get("arn") == engine_arn
+        and current.get("status") not in ("UPDATING",)
+    ):
+        print(f"Gateway already in {mode} mode; nothing to do.")
+        print(f"GATEWAY_POLICY_MODE={mode}")
+        return 0
 
     deploy_policy.attach_engine_to_gateway(client, gateway_id, engine_arn, mode=mode)
 

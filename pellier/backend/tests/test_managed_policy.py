@@ -30,10 +30,12 @@ DEPLOY = REPO_ROOT / "scripts" / "deploy"
 
 DEPLOY_POLICY = DEPLOY / "deploy_policy.py"
 WORKSHOP_POLICY_RULE = DEPLOY / "workshop_policy_rule.py"
+GATEWAY_PROCESS_RETURN = DEPLOY / "gateway_process_return.py"
 EXPERIENCE_LAMBDA = DEPLOY / "pellier_experience_server.py"
 DEPLOY_GATEWAY = DEPLOY / "deploy_gateway.py"
 PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
 DEPLOY_ALL = DEPLOY / "deploy_all.sh"
+RESET_GOVERNED = REPO_ROOT / "scripts" / "reset-governed-workshop.sh"
 STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_final_sale_forbid.cedar"
 SOLUTION_CEDAR = REPO_ROOT / "solutions" / "the-concierge" / "policies" / "final_sale_forbid.cedar"
 IDENTITY_STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_identity_match_forbid.cedar"
@@ -203,6 +205,65 @@ def test_workshop_policy_rule_supports_monitor_enforce_staging() -> None:
     # Must read the mode back (update_gateway is async) — no optimistic print.
     assert "policyEngineConfiguration" in src
     assert "GATEWAY_POLICY_MODE=" in src
+
+
+def test_gateway_process_return_only_counts_authorization_errors_as_deny() -> None:
+    """The Gateway replay helper must not turn transport/tool failures into
+    fake Cedar DENY proofs."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("gateway_process_return", GATEWAY_PROCESS_RETURN)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert mod._is_authorization_denial(
+        RuntimeError("AuthorizeActionException: explicit deny")
+    )
+    assert mod._is_authorization_denial(
+        RuntimeError("AccessDeniedException: principal is not authorized")
+    )
+    assert mod._is_authorization_denial(
+        RuntimeError("access denied by policy")
+    )
+    assert not mod._is_authorization_denial(
+        RuntimeError("Connection refused while calling Gateway")
+    )
+
+    class Grouped(Exception):
+        def __init__(self, exceptions):
+            super().__init__("grouped")
+            self.exceptions = exceptions
+
+    assert mod._is_authorization_denial(
+        Grouped([RuntimeError("timeout"), RuntimeError("Authorization failed")])
+    )
+    assert not mod._is_authorization_denial(
+        Grouped([RuntimeError("timeout"), RuntimeError("tool not found")])
+    )
+
+    # The verbatim GA Gateway deny message (box-verified 2026-06-12) must
+    # classify as a Cedar denial even without the word "denied" surviving
+    # truncation.
+    assert mod._is_authorization_denial(
+        RuntimeError("Tool call not allowed due to policy enforcement [Policy")
+    )
+    # A rejected/expired bearer token is an auth-SETUP failure (Gateway JWT
+    # authorizer 401), not a Cedar decision — it must NOT count as deny.
+    assert not mod._is_authorization_denial(
+        RuntimeError("HTTP 401 Unauthorized: invalid bearer token")
+    )
+    assert not mod._is_authorization_denial(
+        RuntimeError("403 Forbidden from CloudFront")
+    )
+
+
+def test_governed_reset_restores_enforce_mode() -> None:
+    """Reset must recover from an interrupted MONITOR rehearsal."""
+    src = RESET_GOVERNED.read_text()
+    assert "workshop_policy_rule.py\" mode" in src
+    assert "--set ENFORCE" in src
+    assert "AGENTCORE_GATEWAY_ARN" in src
+    assert "Gateway Policy attachment restored to ENFORCE mode" in src
 
 
 def test_identity_match_rule_is_second_participant_policy() -> None:

@@ -904,11 +904,11 @@ const Routing: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Act III · Routing checkpoint"
+        eyebrow="Optional pattern read"
         title="How requests find their specialist."
         summary={
           activePattern
-            ? `${activePattern.name} is the required storefront path: classify the turn, load any skill context, and hand off to one specialist. The other patterns are contrast points for when a turn needs collaboration or ordered state.`
+            ? `${activePattern.name} is the storefront path: classify the turn, load any skill context, and hand off to one specialist. The other patterns are optional contrast points for turns that need collaboration or ordered state.`
             : 'The required storefront path classifies each turn and gives it one specialist owner.'
         }
       />
@@ -928,7 +928,7 @@ const Routing: React.FC = () => {
           }}
         >
           <ExpCard>
-            <Eyebrow label="Required read" />
+            <Eyebrow label="Optional contrast" />
             <p
               style={{
                 fontFamily: 'var(--at-sans)',
@@ -939,8 +939,8 @@ const Routing: React.FC = () => {
               }}
             >
               Boutique sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
-              buttons only to compare where the other patterns would fit; the lab
-              proof stays on the dispatcher path unless a step says Gateway rail.
+              buttons to compare where the other patterns would fit. The required
+              Act III proof is the Gateway/Cedar rail, not this comparison.
             </p>
             <ModeStrip
               patterns={patterns.map((p) => p.name)}

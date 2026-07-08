@@ -88,6 +88,20 @@ if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]] && [[ -f "$REPO/scripts/deploy/wor
   else
     warn "Could not reset participant Cedar rule; see /tmp/pellier-governed-reset-policy.log"
   fi
+
+  if [[ -n "${AGENTCORE_GATEWAY_ARN:-}" ]]; then
+    if "$PYTHON" "$REPO/scripts/deploy/workshop_policy_rule.py" mode \
+        --set ENFORCE \
+        --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
+        --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
+        --region "$AWS_REGION" >/tmp/pellier-governed-reset-mode.log 2>&1; then
+      pass "Gateway Policy attachment restored to ENFORCE mode"
+    else
+      warn "Could not confirm Gateway Policy ENFORCE mode; see /tmp/pellier-governed-reset-mode.log"
+    fi
+  else
+    warn "Gateway Policy mode reset skipped; AGENTCORE_GATEWAY_ARN not set"
+  fi
 else
   warn "Policy reset skipped; AGENTCORE_POLICY_ENGINE_ID not set"
 fi

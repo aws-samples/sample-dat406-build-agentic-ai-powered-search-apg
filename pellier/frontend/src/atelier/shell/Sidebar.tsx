@@ -87,13 +87,18 @@ const Sidebar: React.FC = () => {
       eyebrow: 'ACT II · PROVE',
       items: [
         { label: 'Memory', path: 'memory' },
-        { label: 'Write-path', path: 'write-path' },
       ],
     },
     {
-      eyebrow: 'ACT III · EXTEND',
+      eyebrow: 'ACT III · GOVERN',
       items: [
-        { label: 'Routing', path: 'routing', badge: '3' },
+        { label: 'Gateway & Policy', path: 'write-path' },
+      ],
+    },
+    {
+      eyebrow: 'OPTIONAL · PATTERNS',
+      items: [
+        { label: 'Routing', path: 'routing', badge: 'opt' },
       ],
     },
   ];

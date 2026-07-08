@@ -1,4 +1,4 @@
--- tool_audit_recap.sql — Act II: Exercise 2 (Aurora ledger proof)
+-- tool_audit_recap.sql – Act II: Exercise 4 (Aurora ledger proof)
 --
 -- Drops in for the in-room SQL proof when a participant runs out of time.
 -- The required workshop path uses the in-process storefront rail:
@@ -7,15 +7,15 @@
 -- Policy permits a Lambda-backed MCP tool call. This script pulls the most
 -- recent executed process_return for 'theo' and prints:
 --
---   1) raw row              — tool, caller, args, result, latency_ms
---   2) JSONB extraction     — args->>'reason', result->>'return_id', etc.
---   3) rail label           — caller='agent' means the required in-process rail
---   4) recent trail         — last few process_return rows for the customer
---   5) rail/reason aggregate — useful if the optional Gateway rail was invoked
---   6) Gateway no-row check — only meaningful after an attempted Gateway DENY
+--   1) raw row              – tool, caller, args, result, latency_ms
+--   2) JSONB extraction     – args->>'reason', result->>'return_id', etc.
+--   3) rail label           – caller='agent' means the required in-process rail
+--   4) recent trail         – last few process_return rows for the customer
+--   5) rail/reason aggregate – useful if the optional Gateway rail was invoked
+--   6) Gateway no-row check – only meaningful after an attempted Gateway DENY
 --
 -- Run (bare psql picks up the PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE
--- vars bootstrap exports — no connection string needed):
+-- vars bootstrap exports – no connection string needed):
 --   psql -f solutions/the-ledger/sql/tool_audit_recap.sql
 --
 -- Optional: override the customer (defaults to 'theo'):

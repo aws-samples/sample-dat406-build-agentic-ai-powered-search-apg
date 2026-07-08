@@ -37,7 +37,7 @@ function prettifySegment(segment: string): string {
     search: 'Search',
     routing: 'Routing',
     memory: 'Memory',
-    'write-path': 'Write-path',
+    'write-path': 'Gateway & Policy',
     performance: 'Performance',
     evaluations: 'Evaluations',
     'production-patterns': 'Production Patterns',

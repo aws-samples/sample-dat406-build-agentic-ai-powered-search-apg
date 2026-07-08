@@ -4,7 +4,7 @@
 // Goal: the authenticated principal may only file a return for itself. AgentCore
 // Policy exposes JWT claims as principal tags, so the Cognito access token's
 // `username` claim is comparable against the tool input. Forbid the call when
-// the token identity and the requested customer_id disagree — the Act II
+// the token identity and the requested customer_id disagree – the Act II
 // Marco-for-Theo mismatch, prevented before the tool executes.
 forbid(
   principal,

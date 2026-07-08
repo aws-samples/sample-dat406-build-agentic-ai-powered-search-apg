@@ -222,8 +222,8 @@ export const AtelierWelcome: React.FC = () => {
         />
         <PillarCard
           verb="Evaluate"
-          title="Proof Board & Routing"
-          description="Required checkpoints first, then the routing read when the lab asks for it."
+          title="Proof Board & Policy"
+          description="Required checkpoints first, then optional routing patterns when the lab asks for contrast."
         />
       </div>
     </section>

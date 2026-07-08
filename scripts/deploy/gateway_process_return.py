@@ -233,6 +233,43 @@ def _exception_summary(exc: BaseException) -> str:
     return str(exc)[:700]
 
 
+def _is_authorization_denial(exc: BaseException) -> bool:
+    """Return True only for Gateway/Cedar authorization failures.
+
+    The workshop proof depends on distinguishing a managed Policy DENY from
+    transport, auth, or tool-name failures. Treating every exception as DENY
+    would make a broken Gateway look like a successful policy exercise.
+    """
+    children = getattr(exc, "exceptions", None)
+    if children:
+        return any(_is_authorization_denial(child) for child in children)
+
+    haystack = f"{exc.__class__.__name__}: {exc}"
+    denial_markers = (
+        "AuthorizeActionException",
+        "AccessDeniedException",
+        "not authorized",
+        "is not authorized",
+        "authorization failed",
+        "Authorization failed",
+        # Verbatim GA Gateway deny lead-in (box-verified 2026-06-12):
+        # "Tool call not allowed due to policy enforcement [Policy evaluation
+        # denied due to <policy>-...]". Matched explicitly so the deny still
+        # classifies even if the bracketed detail is truncated.
+        "not allowed due to policy",
+        "policy enforcement",
+        "DENY",
+        "Denied",
+        "denied",
+        "access denied",
+    )
+    # Deliberately NOT matched: bare "Unauthorized"/"Forbidden". A rejected
+    # or expired Cognito token fails the Gateway's JWT authorizer with a 401
+    # at session initialize — an auth-setup problem, not a Cedar decision —
+    # and must surface as outcome "error", never a fake DENY proof.
+    return any(marker in haystack for marker in denial_markers)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Invoke process_return through AgentCore Gateway.")
     parser.add_argument("--customer-id", default="theo")
@@ -259,6 +296,23 @@ def main() -> int:
     try:
         payload = anyio.run(_call_gateway, args, token)
     except Exception as exc:
+        if not _is_authorization_denial(exc):
+            payload = {
+                "outcome": "error",
+                "tool": args.tool_name,
+                "arguments": {
+                    "customer_id": args.customer_id,
+                    "product_id": int(args.product_id),
+                    "reason": args.reason,
+                },
+                "error_type": exc.__class__.__name__,
+                "error": _exception_summary(exc),
+                "gateway_rail": True,
+                "tool_executed": False,
+                "cedar_denial": False,
+            }
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return 2
         payload = {
             "outcome": "deny",
             "tool": args.tool_name,
@@ -271,6 +325,7 @@ def main() -> int:
             "error": _exception_summary(exc),
             "gateway_rail": True,
             "tool_executed": False,
+            "cedar_denial": True,
         }
 
     if args.record_receipt:
