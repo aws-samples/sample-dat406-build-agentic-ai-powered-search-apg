@@ -144,7 +144,7 @@ const SkillCard: React.FC<{
       </p>
       <div
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '14px',
           color: 'var(--at-ink-1)',
           padding: '10px 14px',
@@ -168,7 +168,7 @@ const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const titleStyle: React.CSSProperties = {
-  fontFamily: 'var(--at-serif)', fontSize: '22px', fontWeight: 400,
+  fontFamily: 'var(--at-heading)', fontSize: '22px', fontWeight: 400,
   lineHeight: 1.15, color: 'var(--at-ink-1)', margin: 0,
 };
 

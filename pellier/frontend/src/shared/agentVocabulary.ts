@@ -114,7 +114,7 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
     name: 'experience.return',
     label: 'Return update',
     description: 'A return, refund, or post-purchase request influenced this visit.',
-    atelierPath: '/atelier/proof-board#audit-ledger',
+    atelierPath: '/atelier/audit-proof',
   },
   'weather.lookup': {
     name: 'weather.lookup',
@@ -138,7 +138,7 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
     name: 'tool.transparency',
     label: 'Why it fits',
     description: 'The Boutique names the signal behind each recommendation.',
-    atelierPath: '/atelier/proof-board#audit-ledger',
+    atelierPath: '/atelier/audit-proof',
   },
 }
 

@@ -404,9 +404,9 @@ export default function Header({
          * cluster (the previous absolute-positioned approach collided
          * with "About" + the persona pill at narrower desktop widths).
          */}
-        <div className="h-full max-w-[1440px] mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-5">
+        <div className="h-full max-w-[1440px] mx-auto grid grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[1fr_auto_1fr] items-center gap-3 lg:gap-5">
           {/* Left: four text nav items */}
-          <div className="flex items-center gap-5 min-w-0">
+          <div className="hidden lg:flex items-center gap-5 min-w-0">
             {navItems.map(({ item, label }) => (
               <NavLink
                 key={item}

@@ -133,7 +133,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '22px',
               fontWeight: 400,
               color: 'var(--at-ink-1)',
@@ -182,7 +182,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
       {/* Blurb */}
       <p
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '14px',
           lineHeight: 1.55,
           color: 'var(--at-ink-1)',
@@ -241,7 +241,7 @@ const StatChip: React.FC<StatChipProps> = ({ label, value }) => (
     </span>
     <span
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '16px',
         fontWeight: 400,
         color: 'var(--at-ink-1)',
@@ -297,7 +297,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '20px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -448,7 +448,7 @@ const Settings: React.FC = () => {
           <Eyebrow label="No personas" variant="muted" />
           <p
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '20px',
               color: 'var(--at-ink-1)',
               marginTop: '16px',

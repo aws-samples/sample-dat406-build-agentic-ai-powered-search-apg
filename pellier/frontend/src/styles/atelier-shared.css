@@ -19,9 +19,10 @@
 }
 
 .at-crumb {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.22em;
+  font-family: var(--at-heading);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--ink-4);
   display: flex;
@@ -32,7 +33,7 @@
 .at-crumb .at-here { color: var(--red-1); }
 
 .at-title {
-  font-family: var(--serif);
+  font-family: var(--at-display);
   font-weight: 400;
   font-size: 44px;
   line-height: 1;
@@ -43,9 +44,9 @@
 .at-title em { font-style: italic; }
 
 .at-sub {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 300;
+  font-family: var(--at-sans);
+  font-style: normal;
+  font-weight: 400;
   font-size: 16px;
   line-height: 1.55;
   color: var(--ink-3);
@@ -64,13 +65,13 @@
   margin-top: 14px;
 }
 .at-meta-label {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
+  font-family: var(--at-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--red-1);
   margin-right: 6px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ---- Section frame (the cream-1 box with burgundy tick) ---- */
@@ -97,10 +98,10 @@
 /* Section header (eyebrow + title + description) — standalone version
    used outside .at-frame too (e.g., the library/live-log columns). */
 .at-section-eyebrow {
-  font-family: var(--sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.22em;
+  font-family: var(--at-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--red-1);
   margin-bottom: 8px;
@@ -116,18 +117,18 @@
   background: var(--red-1);
 }
 .at-section-title {
-  font-family: var(--serif);
-  font-weight: 400;
+  font-family: var(--at-heading);
+  font-weight: 600;
   font-size: 26px;
-  letter-spacing: -0.015em;
+  letter-spacing: 0;
   color: var(--ink-1);
   margin: 0 0 6px;
 }
 .at-section-title em { font-style: italic; }
 .at-section-desc {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 300;
+  font-family: var(--at-sans);
+  font-style: normal;
+  font-weight: 400;
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--ink-3);
@@ -137,11 +138,11 @@
 
 /* ---- Status badges ---- */
 .at-badge {
-  font-family: var(--sans);
-  font-size: 9.5px;
-  letter-spacing: 0.2em;
+  font-family: var(--at-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 600;
   padding: 3px 9px;
   border-radius: 100px;
   white-space: nowrap;
@@ -191,10 +192,10 @@
   border-top: 1px solid var(--rule-2);
 }
 .at-cheat-title {
-  font-family: var(--serif);
-  font-weight: 400;
+  font-family: var(--at-heading);
+  font-weight: 600;
   font-size: 26px;
-  letter-spacing: -0.015em;
+  letter-spacing: 0;
   margin-bottom: 20px;
   color: var(--ink-1);
 }
@@ -229,17 +230,17 @@
   margin-bottom: 8px;
 }
 .at-cheat-name {
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--at-heading);
+  font-style: normal;
   font-size: 20px;
-  font-weight: 400;
-  letter-spacing: -0.005em;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--ink-1);
   margin-bottom: 6px;
 }
 .at-cheat-q {
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--at-sans);
+  font-style: normal;
   font-size: 13.5px;
   color: var(--ink-3);
   margin-bottom: 12px;
@@ -295,12 +296,12 @@
   gap: 2px;
 }
 .at-live-eyebrow {
-  font-family: var(--sans);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
+  font-family: var(--at-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(250, 243, 232, 0.65);
-  font-weight: 500;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -317,9 +318,9 @@
   50%      { opacity: 1;   transform: scale(1.1); }
 }
 .at-live-title {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 400;
+  font-family: var(--at-heading);
+  font-style: normal;
+  font-weight: 600;
   font-size: 17px;
   color: var(--cream-1);
   margin: 0;
@@ -363,7 +364,12 @@
   color: var(--ink-4);
   font-weight: 500;
 }
-.at-diagram-label { color: var(--ink-3); }
+.at-diagram-label {
+  color: var(--ink-3);
+  font-family: var(--at-heading);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 .at-diagram-meta { color: var(--ink-4); }
 .at-diagram-body {
   padding: 24px 26px;

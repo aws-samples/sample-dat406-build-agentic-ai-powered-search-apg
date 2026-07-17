@@ -78,7 +78,7 @@ const MetricPill: React.FC<MetricPillProps> = ({ label, value, highlight }) => (
       style={{
         fontFamily: 'var(--at-sans)',
         fontSize: '28px',
-        fontWeight: 300,
+        fontWeight: 400,
         letterSpacing: '-0.02em',
         lineHeight: 1,
         color: highlight ? 'var(--at-ink-1)' : 'var(--at-ink-1)',
@@ -238,7 +238,7 @@ const Scorecard: React.FC<ScorecardProps> = ({ card, index, isSelected, rowRef, 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
           <span
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontWeight: 400,
               fontSize: '24px',
               color: 'var(--at-red-1)',
@@ -250,7 +250,7 @@ const Scorecard: React.FC<ScorecardProps> = ({ card, index, isSelected, rowRef, 
           </span>
           <h3
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontWeight: 400,
               fontSize: '24px',
               letterSpacing: '-0.01em',
@@ -293,7 +293,7 @@ const Scorecard: React.FC<ScorecardProps> = ({ card, index, isSelected, rowRef, 
           style={{
             paddingTop: '16px',
             borderTop: '1px dashed var(--at-rule-2)',
-            fontFamily: 'var(--at-serif)',
+            fontFamily: 'var(--at-heading)',
             fontSize: '16px',
             color: 'var(--at-ink-2)',
             lineHeight: 1.5,
@@ -376,7 +376,7 @@ const EvaluationMethodsPanel: React.FC<{
         >
           <h3
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '22px',
               fontWeight: 400,
               margin: 0,
@@ -611,7 +611,7 @@ const MetricDetailCard: React.FC<{ metric: EvaluationMetric }> = ({ metric }) =>
     >
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '22px',
           fontWeight: 400,
           margin: 0,
@@ -760,7 +760,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '22px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -820,7 +820,7 @@ const EmptyState: React.FC = () => (
     <Eyebrow label="No evaluations" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -921,7 +921,7 @@ const Evaluations: React.FC = () => {
                   style={{
                     fontFamily: 'var(--at-sans)',
                     fontSize: '36px',
-                    fontWeight: 300,
+                    fontWeight: 400,
                     color: 'var(--at-ink-1)',
                     letterSpacing: '-0.02em',
                     marginTop: '4px',
@@ -950,7 +950,7 @@ const Evaluations: React.FC = () => {
                   style={{
                     fontFamily: 'var(--at-sans)',
                     fontSize: '36px',
-                    fontWeight: 300,
+                    fontWeight: 400,
                     color: 'var(--at-ink-1)',
                     letterSpacing: '-0.02em',
                     marginTop: '4px',
@@ -983,7 +983,7 @@ const Evaluations: React.FC = () => {
                   style={{
                     fontFamily: 'var(--at-sans)',
                     fontSize: '36px',
-                    fontWeight: 300,
+                    fontWeight: 400,
                     color: 'var(--at-ink-1)',
                     letterSpacing: '-0.02em',
                     marginTop: '4px',

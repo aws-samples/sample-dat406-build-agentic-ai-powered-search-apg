@@ -26,9 +26,11 @@ const AtelierContextBanner: React.FC = () => {
     return {
       label: vocab.label,
       trace,
-      section: anchorLabel(location.hash),
+      section: location.pathname.endsWith('/audit-proof')
+        ? 'audit ledger proof'
+        : anchorLabel(location.hash),
     };
-  }, [location.search, location.hash]);
+  }, [location.pathname, location.search, location.hash]);
 
   if (!context) return null;
 

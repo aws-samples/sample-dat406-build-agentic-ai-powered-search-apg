@@ -1,7 +1,7 @@
 /**
- * Eyebrow — Monospace uppercase label with burgundy dot.
+ * Eyebrow — Readable uppercase UI label with burgundy dot.
  *
- * Uses Daylight mono + small size tokens (--at-mono / --dl-fs-small).
+ * Uses Instrument Sans so longer workshop labels remain easy to scan.
  *
  * Requirements: 15.4
  */
@@ -31,14 +31,13 @@ export const Eyebrow: React.FC<EyebrowProps> = ({
         display: 'inline-flex',
         alignItems: 'center',
         gap: '8px',
-        fontFamily: 'var(--at-mono)',
-        fontSize: 'var(--dl-fs-small)',
-        fontWeight: 600,
+        fontFamily: 'var(--at-heading)',
+        fontSize: 'var(--at-eyebrow-size)',
+        fontWeight: 'var(--at-eyebrow-weight)',
         letterSpacing: 'var(--at-eyebrow-tracking)',
         textTransform: 'uppercase',
         color: textColor,
         lineHeight: 1,
-        fontFeatureSettings: "'calt' 1, 'liga' 1",
       }}
     >
       <span

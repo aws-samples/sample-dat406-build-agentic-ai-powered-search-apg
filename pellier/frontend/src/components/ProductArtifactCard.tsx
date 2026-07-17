@@ -13,6 +13,7 @@ import { useState } from 'react'
 import { Heart } from 'lucide-react'
 import type { ChatProduct } from '../services/chat'
 import { imageSrc } from '../utils/assetPath'
+import { productQuickActions } from '../utils/catalogFollowUps'
 import '../styles/product-artifact.css'
 
 interface ProductArtifactCardProps {
@@ -113,18 +114,7 @@ export default function ProductArtifactCard({
     return 'Related'
   })()
 
-  const categorySignal = `${product.category ?? ''} ${product.name ?? ''}`.toLowerCase()
-  const isApparelLike =
-    /shirt|tee|dress|trouser|pants|pant|jacket|coat|overshirt|sweater|knit|wardrobe|wear/.test(
-      categorySignal,
-    )
-  const swapLabel = isApparelLike ? 'Swap size/color' : 'Swap color'
-  const productName = (product.name || 'this piece').trim()
-  const swapPrompt = isApparelLike
-    ? `Show ${productName} in another size or color.`
-    : `Show ${productName} in another color.`
-  const alternativesPrompt = `Show alternatives to ${productName} at a similar style and price.`
-  const stockPrompt = `Check live availability for ${productName}.`
+  const quickActions = productQuickActions(product)
   const signals = commerceSignals(product)
 
   return (
@@ -203,27 +193,16 @@ export default function ProductArtifactCard({
         </div>
         {onPrompt && (
           <div className="pa-quick-actions">
-            <button
-              type="button"
-              className="pa-quick"
-              onClick={() => onPrompt(swapPrompt)}
-            >
-              {swapLabel}
-            </button>
-            <button
-              type="button"
-              className="pa-quick"
-              onClick={() => onPrompt(alternativesPrompt)}
-            >
-              Show alternatives
-            </button>
-            <button
-              type="button"
-              className="pa-quick"
-              onClick={() => onPrompt(stockPrompt)}
-            >
-              Check stock
-            </button>
+            {quickActions.map(action => (
+              <button
+                key={action.label}
+                type="button"
+                className="pa-quick"
+                onClick={() => onPrompt(action.prompt)}
+              >
+                {action.label}
+              </button>
+            ))}
           </div>
         )}
       </div>

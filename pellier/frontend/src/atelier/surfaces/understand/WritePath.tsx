@@ -100,9 +100,10 @@ const EnforcementDiagram: React.FC = () => {
     margin: '4px 0',
   };
   const layerLabel: React.CSSProperties = {
-    fontFamily: 'var(--at-mono)',
-    fontSize: '11px',
-    letterSpacing: '0.08em',
+    fontFamily: 'var(--at-heading)',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    letterSpacing: '0.04em',
     textTransform: 'uppercase' as const,
     color: 'var(--at-ink-3)',
     marginBottom: '6px',
@@ -112,9 +113,9 @@ const EnforcementDiagram: React.FC = () => {
       <Eyebrow label="Two-layer enforcement" />
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '24px',
-          fontWeight: 400,
+          fontWeight: 600,
           margin: '6px 0 16px',
           color: 'var(--at-ink-1)',
         }}
@@ -215,9 +216,9 @@ const PoliciesCard: React.FC = () => {
       <Eyebrow label={`Cedar policies · ${policies?.length ?? '–'} on the managed engine`} />
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '24px',
-          fontWeight: 400,
+          fontWeight: 600,
           margin: '6px 0 16px',
           color: 'var(--at-ink-1)',
         }}
@@ -279,10 +280,10 @@ const PoliciesCard: React.FC = () => {
               >
                 <strong
                   style={{
-                    fontFamily: 'var(--at-serif)',
+                    fontFamily: 'var(--at-heading)',
                     fontSize: '17px',
                     color: 'var(--at-ink-1)',
-                    fontWeight: 500,
+                    fontWeight: 600,
                   }}
                 >
                   {p.name}
@@ -345,9 +346,9 @@ const ToolAuditCard: React.FC = () => {
       <Eyebrow label={`tool_audit · last ${rows?.length ?? '–'} rows`} />
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '24px',
-          fontWeight: 400,
+          fontWeight: 600,
           margin: '6px 0 16px',
           color: 'var(--at-ink-1)',
         }}

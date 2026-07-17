@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation, Link } from 'react-router-dom'
-import { Send, X, GitCompare, AlertCircle } from 'lucide-react'
+import { Send, X, GitCompare, AlertCircle, RotateCcw } from 'lucide-react'
 import { useUI } from '../contexts/UIContext'
 import { useLayout } from '../contexts/LayoutContext'
 import { useCart } from '../contexts/CartContext'
@@ -29,44 +29,20 @@ import { useAgentChat, type AgentBadge, type AgentChatMessage } from '../hooks/u
 import { AGENT_IDENTITIES, type AgentType } from '../utils/agentIdentity'
 import ProductCardConcierge from './ProductCardConcierge'
 import MarkdownMessage from './MarkdownMessage'
+import ChatFailureCard from './ChatFailureCard'
+import TurnReceipt from './TurnReceipt'
 import { cssVar as c } from '../design/cssVars'
 
 // Warm palette → Daylight via `cssVars` / bridge.
 
-const WELCOME_STOREFRONT =
-  "Tell me what you're after. Linen for a slow Sunday, a piece that travels, a gift that lands."
 const WELCOME_WORKSHOP =
   "Workshop mode: every response includes agent routing, tool calls, and timings. Open Under the Hood on any reply."
 
-const SUGGESTIONS_STOREFRONT = [
-  'something for long summer walks',
-  'a linen piece that earns its golden hour',
-  'pieces that travel well',
-]
 const SUGGESTIONS_WORKSHOP = [
   'Find me the best linen shirt under $150',
   'What is low on stock right now?',
   'Compare the Sundress and the Cardigan',
 ]
-
-// Persona-tailored suggestion chips. Each array reflects the persona's
-// actual signals (orders, search_history, ltm_facts) from
-// docs/personas-config.json, so the concierge opens with prompts that
-// already feel like they "know" the shopper. Fresh visitor gets the
-// generic editorial chips.
-const SUGGESTIONS_BY_PERSONA: Record<string, string[]> = {
-  marco: [
-    'what did I buy last time?',
-    'something similar to what I bought last time',
-    'pieces that travel well for Lisbon',
-  ],
-  anna: [
-    'a thoughtful gift for my mother',
-    'something similar to what I bought last time',
-    'milestone pieces under $200',
-  ],
-  fresh: SUGGESTIONS_STOREFRONT,
-}
 
 // Session id read from the same localStorage key the chat service writes.
 function useSessionId(): string | null {
@@ -283,6 +259,18 @@ function UnderTheHood({ index, message, expanded, onToggle, guardrailsEnabled }:
               </div>
             ) : null}
 
+            {message.agentExecution?.trace_id && (
+              <div>
+                <span className="font-semibold" style={{ color: c.ink2 }}>
+                  Turn receipt
+                </span>
+                <TurnReceipt
+                  reference={message.agentExecution.trace_id}
+                  surface="atelier"
+                />
+              </div>
+            )}
+
             <div
               className="pt-1.5 mt-1"
               style={{ borderTop: '1px solid rgba(45, 24, 16, 0.06)' }}
@@ -300,7 +288,13 @@ function UnderTheHood({ index, message, expanded, onToggle, guardrailsEnabled }:
 }
 
 export default function ConciergeModal() {
-  const { activeModal, closeModal, openComparison, consumePendingQuery } = useUI()
+  const {
+    activeModal,
+    closeModal,
+    openModal,
+    openComparison,
+    consumePendingQuery,
+  } = useUI()
   const { workshopMode, guardrailsEnabled } = useLayout()
   const { addToCart } = useCart()
   const { persona } = usePersona()
@@ -314,39 +308,17 @@ export default function ConciergeModal() {
   // renders on atelier routes. Boutique chat is handled by ChatDrawer.
   const mode: 'storefront' | 'atelier' = 'atelier'
 
-  // Time-of-day greeting for the personalized storefront welcome. Boundaries
-  // match the house style guide's "Good morning/afternoon/evening" rotation.
-  const greeting = useMemo(() => {
-    const h = new Date().getHours()
-    if (h < 12) return 'Good morning'
-    if (h < 17) return 'Good afternoon'
-    return 'Good evening'
-  }, [])
-
-  // Initial welcome — per route mode, only used on first mount of this session.
-  const initialMessages = useMemo<AgentChatMessage[]>(() => {
-    let content: string
-    let suggestions: string[]
-    if (isWorkshopRoute) {
-      content = WELCOME_WORKSHOP
-      suggestions = SUGGESTIONS_WORKSHOP
-    } else if (persona) {
-      const firstName = persona.display_name.split(' ')[0]
-      content = `${greeting}, ${firstName}. ${WELCOME_STOREFRONT}`
-      suggestions = SUGGESTIONS_BY_PERSONA[persona.id] ?? SUGGESTIONS_STOREFRONT
-    } else {
-      content = WELCOME_STOREFRONT
-      suggestions = SUGGESTIONS_STOREFRONT
-    }
-    return [
+  const initialMessages = useMemo<AgentChatMessage[]>(
+    () => [
       {
         role: 'assistant',
-        content,
+        content: WELCOME_WORKSHOP,
         timestamp: new Date(),
-        suggestions,
+        suggestions: SUGGESTIONS_WORKSHOP,
       },
-    ]
-  }, [isWorkshopRoute, persona, greeting])
+    ],
+    [],
+  )
 
   const {
     messages,
@@ -355,6 +327,7 @@ export default function ConciergeModal() {
     isLoading,
     backendOnline,
     sendMessage,
+    retryMessage,
     clearChat,
   } = useAgentChat({
     mode,
@@ -378,6 +351,7 @@ export default function ConciergeModal() {
   }
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (!isOpen) return
     const t = setTimeout(() => {
@@ -454,7 +428,7 @@ export default function ConciergeModal() {
                   className="inline-flex items-center justify-center rounded-full font-semibold"
                   style={{ width: 32, height: 32, background: c.ink, color: c.bg, fontFamily: 'Fraunces, serif', fontSize: 15 }}
                 >
-                  B
+                  P
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap" style={{ fontFamily: 'Fraunces, serif', fontSize: 17, color: c.ink, fontWeight: 500 }}>
@@ -521,13 +495,14 @@ export default function ConciergeModal() {
                     clearChat(initialMessages)
                     setExpandedHoods(new Set())
                   }}
-                  className="px-2.5 py-1 rounded-lg text-[11px] transition-colors"
+                  aria-label="Reset conversation"
+                  className="p-2 rounded-lg transition-colors"
                   style={{ color: c.ink2 }}
                   onMouseEnter={e => (e.currentTarget.style.background = c.paper)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   title="Reset conversation"
                 >
-                  Reset
+                  <RotateCcw className="h-4 w-4" />
                 </button>
                 <button
                   onClick={closeModal}
@@ -555,7 +530,18 @@ export default function ConciergeModal() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   >
-                    {!(message.products && message.products.length > 0) && (
+                    {message.failure ? (
+                      <ChatFailureCard
+                        failure={message.failure}
+                        surface="atelier"
+                        onRetry={(query) => void retryMessage(query)}
+                        onEditRequest={(query) => {
+                          setInputValue(query)
+                          window.requestAnimationFrame(() => inputRef.current?.focus())
+                        }}
+                        onAuthenticate={() => openModal('auth')}
+                      />
+                    ) : !(message.products && message.products.length > 0) && (
                       <div className={message.role === 'assistant' ? 'self-start max-w-[90%]' : 'self-end max-w-[85%]'}>
                         <div
                           className={`px-4 py-3 text-[15px] leading-[1.7] ${
@@ -578,15 +564,13 @@ export default function ConciergeModal() {
                                 <motion.span className="w-2 h-2 rounded-full" style={{ background: c.muted }} animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.2 }} />
                                 <motion.span className="w-2 h-2 rounded-full" style={{ background: c.muted }} animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: 0.4 }} />
                               </div>
-                              <span className="text-[13px]" style={{ color: c.ink2 }}>Thinking...</span>
+                              <span className="text-[13px]" style={{ color: c.ink2 }}>Considering...</span>
                             </div>
                           ) : message.role === 'assistant' ? (
-                            // Streaming cursor intentionally removed —
-                            // see BoutiqueChatBody for rationale. The
-                            // prose growing in place is the indicator;
-                            // a blinking caret on top fights the
-                            // Claude-desktop feel we're matching.
-                            <MarkdownMessage content={message.content} />
+                            <MarkdownMessage
+                              content={message.content}
+                              streaming={message.agentStatus === 'streaming'}
+                            />
                           ) : (
                             <span style={{ whiteSpace: 'pre-wrap' }}>{message.content}</span>
                           )}
@@ -599,7 +583,10 @@ export default function ConciergeModal() {
                         {mode === 'atelier' && message.agent && <AgentBadgeRow message={message} />}
                         {message.content && (
                           <div style={{ color: c.ink2 }} className="text-sm font-light leading-relaxed">
-                            <MarkdownMessage content={message.content} />
+                            <MarkdownMessage
+                              content={message.content}
+                              streaming={message.agentStatus === 'streaming'}
+                            />
                           </div>
                         )}
                         <div className="flex flex-col gap-2">
@@ -695,6 +682,7 @@ export default function ConciergeModal() {
             <div className="px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(45, 24, 16, 0.08)' }}>
               <div className="flex gap-2.5">
                 <input
+                  ref={inputRef}
                   type="text"
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}

@@ -60,7 +60,12 @@ def _ensure_products_in_output(text: str, tool_results: list) -> str:
     return text
 
 
-def build_recommendation_agent() -> Agent:
+def build_recommendation_agent(
+    *,
+    model_id: str | None = None,
+    max_tokens: int | None = None,
+    allow_escalation: bool = True,
+) -> Agent:
     """Return a configured Recommendation specialist Agent.
 
     Reads the current turn's persona preamble and loaded skills from
@@ -89,24 +94,35 @@ def build_recommendation_agent() -> Agent:
     # queries blend soft semantic intent ("something beautiful") with
     # literal constraints ("under $100", "for a home office") — the
     # exact regime where vector-alone wears thin.
+    tools = [
+        find_pieces_hybrid,
+        whats_trending,
+        preference_snapshot,
+        trace_receipt,
+        side_by_side,
+        explore_collection,
+    ]
+    if allow_escalation:
+        tools.append(escalate_to_stylist)
+
+    prompt = RECOMMENDATION_SYSTEM_PROMPT
+    if not allow_escalation:
+        prompt += (
+            "\n<turn-policy>This is an ordinary catalog turn. Use one retrieval "
+            "tool and return the strongest grounded edit. A partial match is "
+            "still an answer; do not attempt a human handoff.</turn-policy>"
+        )
+
     return Agent(
         name="recommendation",
         model=BedrockModel(
-            model_id=settings.BEDROCK_OPUS_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
+            model_id=model_id or settings.BEDROCK_OPUS_MODEL,
+            max_tokens=max_tokens or settings.AGENT_MAX_TOKENS_OPUS,
         ),
         system_prompt=inject_persona_preamble(
-            inject_skills(RECOMMENDATION_SYSTEM_PROMPT)
+            inject_skills(prompt)
         ),
-        tools=[
-            find_pieces_hybrid,
-            whats_trending,
-            preference_snapshot,
-            trace_receipt,
-            side_by_side,
-            explore_collection,
-            escalate_to_stylist,
-        ],
+        tools=tools,
     )
 
 

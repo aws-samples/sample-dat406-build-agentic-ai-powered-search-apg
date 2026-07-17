@@ -5,6 +5,7 @@ FastAPI app for the Pellier workshop backend.
 
 import asyncio
 import os
+import re
 import time
 import logging
 import json
@@ -32,6 +33,7 @@ from services.database import DatabaseService
 from services.auth import get_current_user
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
+from services.chat_error_taxonomy import classify_chat_error
 from datetime import datetime
 from services.sql_query_logger import init_query_logger, get_query_logger, QueryLog
 from services.index_performance import get_index_performance_service
@@ -96,6 +98,35 @@ def _float_env(name: str, default: float) -> float:
         return float(os.environ.get(name, str(default)))
     except (TypeError, ValueError):
         return default
+
+
+SMOKE_THINKING_DELAY_SECONDS = max(
+    0.0,
+    _float_env("PELLIER_SMOKE_THINKING_DELAY_SECONDS", 0.35),
+)
+SMOKE_CHUNK_DELAY_SECONDS = max(
+    0.0,
+    _float_env("PELLIER_SMOKE_CHUNK_DELAY_SECONDS", 0.045),
+)
+
+
+def _editorial_stream_chunks(content: str, target_words: int = 3) -> List[str]:
+    """Split controlled smoke copy into exact, readable streaming phrases."""
+    words = re.findall(r"\S+\s*", content)
+    chunks: List[str] = []
+    phrase: List[str] = []
+
+    for word in words:
+        phrase.append(word)
+        punctuation_break = word.rstrip().endswith((",", ".", ";", ":", "?", "!"))
+        if len(phrase) >= target_words or (len(phrase) >= 2 and punctuation_break):
+            chunks.append("".join(phrase))
+            phrase = []
+
+    if phrase:
+        chunks.append("".join(phrase))
+
+    return chunks
 
 
 SEARCH_STRATEGY_COST_PER_1000_USD = {
@@ -818,7 +849,14 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             }
 
             yield f"data: {json.dumps(routing, ensure_ascii=False)}\n\n"
-            yield f"data: {json.dumps({'type': 'content_delta', 'delta': content}, ensure_ascii=False)}\n\n"
+            await asyncio.sleep(SMOKE_THINKING_DELAY_SECONDS)
+            for chunk in _editorial_stream_chunks(content):
+                yield (
+                    "data: "
+                    f"{json.dumps({'type': 'content_delta', 'delta': chunk}, ensure_ascii=False)}"
+                    "\n\n"
+                )
+                await asyncio.sleep(SMOKE_CHUNK_DELAY_SECONDS)
             yield f"data: {json.dumps(complete, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(
@@ -883,10 +921,17 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 user=effective_user or None,
                 pattern=request.pattern,
             ):
+                if event.get("type") == "error":
+                    event = classify_chat_error(
+                        event.get("error") or event.get("message") or event.get("code")
+                    )
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             logger.error(f"Streaming chat failed: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            yield (
+                "data: "
+                f"{json.dumps(classify_chat_error(e), ensure_ascii=False)}\n\n"
+            )
 
     return StreamingResponse(
         event_generator(),

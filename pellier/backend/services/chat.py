@@ -398,6 +398,24 @@ def _scan_for_escalation(result_str: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _allows_human_handoff(message: str) -> bool:
+    """Reserve the stylist tool for explicit or genuinely sensitive asks."""
+    normalized = (message or "").lower()
+    markers = (
+        "stylist",
+        "real person",
+        "human help",
+        "connect me with a person",
+        "body image",
+        "pregnan",
+        "cultural dress",
+        "religious dress",
+        "sympathy gift",
+        "condolence",
+    )
+    return any(marker in normalized for marker in markers)
+
+
 def _repair_json(raw: str) -> str:
     """Best-effort repair of common LLM JSON quirks."""
     # Remove trailing commas before ] or }
@@ -1921,7 +1939,7 @@ CURRENT REQUEST: {message}"""
                     # tool_audit row BEFORE the tool body runs (result/latency
                     # filled in by the After hook). This is the in-process rail's
                     # own audit — independent of the managed Gateway/Policy path,
-                    # so the Act II SQL proof works on the default (anonymous)
+            # so the Core Lab 3 SQL proof works on the default (anonymous)
                     # storefront turn with no token and no Gateway.
                     if tool_use_id and tool_name:
                         _tool_t0[tool_use_id] = time.perf_counter()
@@ -1961,7 +1979,7 @@ CURRENT REQUEST: {message}"""
                     # Aurora system-of-record write: UPDATE the placeholder row
                     # with the tool's result + latency. The stored result is the
                     # parsed text (JSON for tools like process_return), so
-                    # result->>'return_id' is queryable in the Act II proof.
+                    # result->>'return_id' is queryable in the Core Lab 3 proof.
                     if tool_use_id:
                         t0 = _tool_t0.pop(tool_use_id, None)
                         latency_ms = int((time.perf_counter() - t0) * 1000) if t0 else 0
@@ -1996,7 +2014,7 @@ CURRENT REQUEST: {message}"""
             # single gate. What the hooks above DO write is the Aurora
             # ``tool_audit`` evidence row for every tool the in-process rail
             # runs — audit, not enforcement. This is deliberately decoupled so
-            # the Act II "Aurora as system-of-record" SQL proof populates on the
+            # the Core Lab 3 "Aurora as system-of-record" SQL proof populates on the
             # ordinary storefront turn, independent of whether the managed
             # Gateway/Policy path provisioned. The Gateway Lambda writes its own
             # row on the authenticated rail; both rails feed the same ledger.
@@ -2255,17 +2273,25 @@ CURRENT REQUEST: {message}"""
             from agents.stock_keeper import build_inventory_agent
             from agents.experience_guide import build_support_agent
 
-            _DISPATCHER_FACTORIES = {
-                "search": build_search_agent,
-                "recommendation": build_recommendation_agent,
-                "pricing": build_pricing_agent,
-                "inventory": build_inventory_agent,
-                "support": build_support_agent,
-            }
-            # intent_hint is one of {pricing, inventory, support,
-            # search, recommendation} — guaranteed to be in the map.
-            factory = _DISPATCHER_FACTORIES[intent_hint]
-            orchestrator = factory()
+            allow_handoff = _allows_human_handoff(message)
+            if intent_hint == "search":
+                orchestrator = build_search_agent(
+                    model_id=settings.BEDROCK_SONNET_MODEL,
+                    max_tokens=min(settings.AGENT_MAX_TOKENS_SONNET, 900),
+                    allow_escalation=allow_handoff,
+                )
+            elif intent_hint == "recommendation":
+                orchestrator = build_recommendation_agent(
+                    model_id=settings.BEDROCK_SONNET_MODEL,
+                    max_tokens=min(settings.AGENT_MAX_TOKENS_SONNET, 900),
+                    allow_escalation=allow_handoff,
+                )
+            elif intent_hint == "pricing":
+                orchestrator = build_pricing_agent()
+            elif intent_hint == "inventory":
+                orchestrator = build_inventory_agent()
+            else:
+                orchestrator = build_support_agent()
             orchestrator.trace_attributes = trace_attributes
             if session_manager:
                 orchestrator.session_manager = session_manager

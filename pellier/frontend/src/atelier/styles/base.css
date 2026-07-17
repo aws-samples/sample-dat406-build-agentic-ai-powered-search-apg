@@ -66,11 +66,21 @@
 .atelier-root h5,
 .atelier-root h6 {
   margin: 0;
-  font-weight: 400;
-  /* Do not set font-family here — it overrides Tailwind `font-display`
-     (Fraunces / boutique hero headline stack) on EditorialTitle and
-     other headings. Unstyled headings inherit --at-sans from .atelier-root. */
   color: var(--at-ink-1);
+}
+
+/* Operational headings share one readable UI voice. Editorial headings opt
+ * into Fraunces with `font-display`; the exclusion keeps those page-level
+ * moments intact while overriding legacy inline serif styles elsewhere. */
+.atelier-root h1:not(.font-display),
+.atelier-root h2:not(.font-display),
+.atelier-root h3:not(.font-display),
+.atelier-root h4:not(.font-display),
+.atelier-root h5:not(.font-display),
+.atelier-root h6:not(.font-display) {
+  font-family: var(--at-heading) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
 }
 
 .atelier-root p {
@@ -134,7 +144,7 @@
  * Layout primitives
  * ----------------------------------------------------------------------- */
 
-/* Two-column shell: 240px sidebar + flexible canvas */
+/* Two-column shell: wide workshop navigator + flexible canvas */
 .atelier-frame {
   display: grid;
   grid-template-columns: var(--at-sidebar-width) 1fr;
@@ -179,7 +189,7 @@
 
 .atelier-context-copy strong {
   color: var(--at-ink-1);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .atelier-context-kicker {
@@ -213,7 +223,7 @@
   color: var(--at-ink-2) !important;
   font-family: var(--at-sans);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 7px 10px;
   text-decoration: none !important;
   white-space: nowrap;

@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { usePersona } from '../../contexts/PersonaContext';
 import { useBuildState } from '../hooks/useBuildState';
 import { StatusDot } from '../components/StatusDot';
@@ -24,6 +24,7 @@ import { StatusDot } from '../components/StatusDot';
 interface NavItemDef {
   label: string;
   path: string;
+  anchor?: string;
   badge?: string;
   liveDot?: boolean;
 }
@@ -50,55 +51,68 @@ const Sidebar: React.FC = () => {
   const { persona } = usePersona();
   const buildState = useBuildState();
 
-  const personaId = persona?.id ?? 'fresh';
-  const displayName = persona?.display_name ?? 'Marco';
-  const roleTag = persona?.role_tag ?? 'RETURNING CUSTOMER';
-  const avatarInitial = persona?.avatar_initial ?? 'M';
-  const avatarColor = persona?.avatar_color ?? '#a8423a';
+  const personaId = persona?.id ?? '';
+  const displayName = persona?.display_name ?? 'Choose profile';
+  const roleTag = persona?.role_tag ?? 'NO ACTIVE SHOPPER';
+  const avatarInitial = persona?.avatar_initial ?? '?';
+  const avatarColor = persona?.avatar_color ?? '#665f58';
 
-  // Build dynamic nav sections with live shipped/total badges from build state.
-  // Observatory is the landing orientation, followed by the three participant
-  // acts. Reference-only routes remain deep-linkable but are not advertised.
+  // Keep the same four-lab spine as Workshop Studio. Reference-only routes
+  // remain deep-linkable without competing with the required participant path.
   const navSections: NavSection[] = [
     {
       eyebrow: 'START HERE',
       items: [
-        { label: 'Observatory', path: 'observatory' },
-        { label: 'Architecture', path: 'architecture' },
         { label: 'Proof Board', path: 'proof-board', liveDot: true },
       ],
     },
     {
-      eyebrow: 'ACT I · BUILD',
+      eyebrow: 'CORE LAB 1 · BUILD AND TRACE',
       items: [
         {
-          label: 'Tools',
+          label: 'Tool Registry',
           path: 'tools',
           badge: buildState.toolTotal > 0
             ? `${buildState.toolShipped}/${buildState.toolTotal}`
             : '14/15',
         },
-        { label: 'Sessions', path: 'sessions' },
-        { label: 'Skills', path: 'skills', badge: '5' },
-        { label: 'Search', path: 'search' },
       ],
     },
     {
-      eyebrow: 'ACT II · PROVE',
+      eyebrow: 'CORE LAB 2 · MEASURE RETRIEVAL',
       items: [
-        { label: 'Memory', path: 'memory' },
+        { label: 'Retrieval Comparison', path: 'performance' },
       ],
     },
     {
-      eyebrow: 'ACT III · GOVERN',
+      eyebrow: 'CORE LAB 3 · QUERY EVIDENCE',
+      items: [
+        {
+          label: 'Audit Proof',
+          path: 'audit-proof',
+        },
+        { label: 'Memory', path: 'memory', badge: 'opt' },
+      ],
+    },
+    {
+      eyebrow: 'CORE LAB 4 · ENFORCE POLICY',
       items: [
         { label: 'Gateway & Policy', path: 'write-path' },
       ],
     },
     {
-      eyebrow: 'OPTIONAL · PATTERNS',
+      eyebrow: 'OPTIONAL LABS',
       items: [
-        { label: 'Routing', path: 'routing', badge: 'opt' },
+        { label: 'Routing Patterns', path: 'routing', badge: 'opt' },
+      ],
+    },
+    {
+      eyebrow: 'REFERENCE',
+      items: [
+        { label: 'Workshop Map', path: 'observatory' },
+        { label: 'Sessions', path: 'sessions' },
+        { label: 'Search Pipeline', path: 'search' },
+        { label: 'Architecture', path: 'architecture' },
       ],
     },
   ];
@@ -165,10 +179,10 @@ const Sidebar: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                fontFamily: 'var(--at-mono)',
+                fontFamily: 'var(--at-heading)',
                 fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: 'var(--at-eyebrow-tracking)',
+                fontWeight: 600,
+                letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 color: 'var(--at-red-1)',
                 lineHeight: 1,
@@ -243,8 +257,9 @@ const Sidebar: React.FC = () => {
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '16px',
+              fontWeight: 600,
               color: 'var(--at-sidebar-text-active)',
               lineHeight: 1.2,
               whiteSpace: 'nowrap',
@@ -256,10 +271,10 @@ const Sidebar: React.FC = () => {
           </div>
           <div
             style={{
-              fontFamily: 'var(--at-mono)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '11px',
-              fontWeight: 500,
-              letterSpacing: '0.18em',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
               textTransform: 'uppercase',
               color: 'var(--at-sidebar-text)',
               lineHeight: 1,
@@ -279,11 +294,24 @@ const Sidebar: React.FC = () => {
  * ----------------------------------------------------------------------- */
 
 const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
+  const { pathname, hash } = useLocation();
+  const itemPath = item.path.split('#', 1)[0];
+  const targetPath = `/atelier/${itemPath}`;
+  const routeIsActive = pathname === targetPath
+    || (
+      itemPath !== 'sessions'
+      && itemPath !== 'architecture'
+      && pathname.startsWith(`${targetPath}/`)
+    );
+  const isActive = item.anchor
+    ? routeIsActive && hash === `#${item.anchor}`
+    : routeIsActive && !(itemPath === 'proof-board' && hash);
+
   return (
-    <NavLink
+    <Link
       to={`/atelier/${item.path}`}
-      end={item.path === 'sessions' || item.path === 'architecture'}
-      style={({ isActive }) => ({
+      aria-current={isActive ? 'page' : undefined}
+      style={{
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
@@ -303,7 +331,7 @@ const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
           : '2px solid transparent',
         transition: 'background 0.15s, color 0.15s',
         position: 'relative',
-      })}
+      }}
     >
       <span style={{ flex: 1 }}>{item.label}</span>
 
@@ -324,7 +352,7 @@ const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
           {item.badge}
         </span>
       )}
-    </NavLink>
+    </Link>
   );
 };
 

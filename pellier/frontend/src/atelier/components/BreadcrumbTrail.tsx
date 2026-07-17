@@ -1,8 +1,8 @@
 /**
- * BreadcrumbTrail — Dot-separated JetBrains Mono uppercase breadcrumb from route path.
+ * BreadcrumbTrail — Dot-separated Instrument Sans breadcrumb from route path.
  *
  * Renders a navigation breadcrumb trail with dot separators in the
- * Atelier monospace style.
+ * Atelier UI-label style.
  *
  * Requirements: 15.3
  */
@@ -28,11 +28,10 @@ export const BreadcrumbTrail: React.FC<BreadcrumbTrailProps> = ({
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        fontFamily: 'var(--at-sans)',
-        fontSize: '13px',
+        fontFamily: 'var(--at-heading)',
+        fontSize: '12.5px',
         fontWeight: 600,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
+        letterSpacing: '0.02em',
         color: 'var(--at-ink-2)',
         lineHeight: 1,
       }}

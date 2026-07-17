@@ -1,7 +1,7 @@
 /* ========================================================================
  * Atelier Observatory — Typography scale
  *
- * Font stacks (--at-serif, --at-sans, --at-mono) resolve through
+ * Font stacks (--at-display, --at-heading, --at-sans, --at-mono) resolve through
  * styles/daylight-bridge.css → --dl-font-* (see daylight-tokens.css),
  * which use the same self-hosted Instrument Sans + Instrument Serif +
  * Fraunces + JetBrains faces imported in src/main.tsx.
@@ -33,9 +33,9 @@
 
   /* Section titles (e.g., card headings) */
   --at-section-size: 26px;
-  --at-section-weight: 400;
+  --at-section-weight: 600;
   --at-section-leading: 1.2;
-  --at-section-tracking: -0.015em;
+  --at-section-tracking: 0;
 
   /* Agent / tool card names */
   --at-card-title-size: 24px;
@@ -50,9 +50,9 @@
   --at-brief-leading: 1.65;
 
   /* Eyebrow labels */
-  --at-eyebrow-size: 9.5px;
-  --at-eyebrow-weight: 500;
-  --at-eyebrow-tracking: 0.22em;
+  --at-eyebrow-size: 11px;
+  --at-eyebrow-weight: 600;
+  --at-eyebrow-tracking: 0.08em;
 
   /* Monospace code / metadata */
   --at-mono-size: 11.5px;
@@ -71,7 +71,7 @@
  * ----------------------------------------------------------------------- */
 
 .at-text-display {
-  font-family: var(--at-serif);
+  font-family: var(--at-display);
   font-size: var(--at-display-size);
   font-weight: var(--at-display-weight);
   line-height: var(--at-display-leading);
@@ -80,7 +80,7 @@
 }
 
 .at-text-title {
-  font-family: var(--at-serif);
+  font-family: var(--at-display);
   font-size: var(--at-title-size);
   font-weight: var(--at-title-weight);
   line-height: var(--at-title-leading);
@@ -89,7 +89,7 @@
 }
 
 .at-text-section {
-  font-family: var(--at-serif);
+  font-family: var(--at-heading);
   font-size: var(--at-section-size);
   font-weight: var(--at-section-weight);
   line-height: var(--at-section-leading);
@@ -106,7 +106,7 @@
 }
 
 .at-text-brief {
-  font-family: var(--at-serif);
+  font-family: var(--at-sans);
   font-size: var(--at-brief-size);
   line-height: var(--at-brief-leading);
   font-weight: 400;
@@ -114,7 +114,7 @@
 }
 
 .at-text-eyebrow {
-  font-family: var(--at-mono);
+  font-family: var(--at-sans);
   font-size: var(--at-eyebrow-size);
   font-weight: var(--at-eyebrow-weight);
   letter-spacing: var(--at-eyebrow-tracking);
@@ -131,10 +131,10 @@
 }
 
 .at-text-tab {
-  font-family: var(--at-serif);
-  font-style: italic;
+  font-family: var(--at-heading);
   font-size: var(--at-tab-size);
-  font-weight: 400;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--at-ink-3);
   text-decoration: none;
   cursor: pointer;

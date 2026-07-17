@@ -1008,7 +1008,7 @@ const FooterStrip: React.FC<{ panels: TelemetryPanel[] }> = ({ panels }) => {
           >
             <span
               style={{
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 fontSize: '22px',
                 fontWeight: 400,
                 color: 'var(--at-ink-1)',

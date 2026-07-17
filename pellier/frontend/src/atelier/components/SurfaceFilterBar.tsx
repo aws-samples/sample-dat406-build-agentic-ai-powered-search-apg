@@ -33,9 +33,10 @@ export function SurfaceFilterBar<T extends string>({
     >
       <span
         style={{
-          fontFamily: 'var(--at-mono)',
-          fontSize: '11px',
-          letterSpacing: '0.14em',
+          fontFamily: 'var(--at-heading)',
+          fontSize: '11.5px',
+          fontWeight: 600,
+          letterSpacing: '0.06em',
           textTransform: 'uppercase',
           color: 'var(--at-ink-3)',
           marginRight: '4px',
@@ -51,8 +52,10 @@ export function SurfaceFilterBar<T extends string>({
             type="button"
             onClick={() => onChange(opt.id)}
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '12px',
+              fontFamily: 'var(--at-heading)',
+              fontSize: '12.5px',
+              fontWeight: active ? 600 : 500,
+              letterSpacing: 0,
               padding: '5px 12px',
               borderRadius: '999px',
               border: active ? '1px solid var(--at-ink-1)' : '1px solid var(--at-rule-2)',

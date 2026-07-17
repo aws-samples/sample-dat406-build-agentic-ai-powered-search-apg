@@ -1,13 +1,10 @@
 /**
  * MemoryHandoffCard — "Pick up where I left off."
  *
- * Sits between the BoutiqueWelcomeBand and the Weekend Edit. Surfaces
- * what the agent remembers about a returning shopper (saved item,
+ * Sits between the hero and the Weekend Edit after a shopper selects
+ * a returning profile. Surfaces what the agent remembers (saved item,
  * holds in bag, restock watches) with each line tagged by the tool
  * that produced it (`memory.recall`, `memory.holds`, `inventory.watch`).
- * For fresh visitors, the same slot reads as a "I'll learn as we go"
- * onboarding card so the layout rhythm stays consistent persona-to-
- * persona.
  *
  * Reuses the existing daylight palette — cream-warm background, accent
  * border, espresso italic title, mono tool stamps. No new tokens.
@@ -25,27 +22,28 @@ const RESUME_QUERY: Record<string, string> = {
   marco: 'Pick up where I left off — show me the linen pieces I was deciding between',
   anna: 'Pick up where I left off — the gift shortlist I was building',
   theo: 'Pick up where I left off — and tell me about the bowl return',
-  fresh: 'A thoughtful gift for someone who runs',
 }
 
 export default function MemoryHandoffCard() {
   const { openDrawerWithQuery } = useUI()
   const { persona } = usePersona()
-  const personaId = persona?.id ?? null
+  if (!persona || persona.id === 'fresh') return null
+
+  const personaId = persona.id
   const content = memoryHandoffForPersona(personaId)
   const ctaLabel = content.cta ?? 'Pick up where I left off'
-  const isFresh = !personaId || personaId === 'fresh'
-  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
+  const personaAccent = persona.avatar_color
 
   const handleCta = () => {
-    const query = RESUME_QUERY[personaId ?? 'fresh'] ?? RESUME_QUERY.fresh
+    const query = RESUME_QUERY[personaId]
+    if (!query) return
     openDrawerWithQuery(query)
   }
 
   return (
     <section
       data-testid="memory-handoff"
-      data-persona={personaId ?? 'fresh'}
+      data-persona={personaId}
       aria-label="Pick up where you left off"
       className="w-full"
       style={{
@@ -166,7 +164,7 @@ export default function MemoryHandoffCard() {
               letterSpacing: '0.04em',
               border: 0,
               whiteSpace: 'nowrap',
-              alignSelf: isFresh ? 'flex-start' : 'center',
+              alignSelf: 'center',
             }}
           >
             {ctaLabel}

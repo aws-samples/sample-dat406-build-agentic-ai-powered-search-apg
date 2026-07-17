@@ -150,7 +150,7 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
         >
           <span
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontWeight: 400,
               fontSize: '30px',
               color: 'var(--at-red-1)',
@@ -163,7 +163,7 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
             <h3
               style={{
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 fontWeight: 400,
                 fontSize: '24px',
                 letterSpacing: '-0.012em',
@@ -278,7 +278,7 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '16px',
               fontWeight: 400,
               color: 'var(--at-red-1)',
@@ -416,7 +416,7 @@ const RelatedCard: React.FC = () => (
       >
         <div
           style={{
-            fontFamily: 'var(--at-serif)',
+            fontFamily: 'var(--at-heading)',
             fontWeight: 400,
             fontSize: '20px',
             color: 'var(--at-ink-1)',
@@ -460,7 +460,7 @@ const RelatedCard: React.FC = () => (
           Open Skills surface
           <span
             aria-hidden="true"
-            style={{ fontFamily: 'var(--at-serif)' }}
+            style={{ fontFamily: 'var(--at-heading)' }}
           >
             →
           </span>
@@ -479,7 +479,7 @@ const RelatedCard: React.FC = () => (
       >
         <div
           style={{
-            fontFamily: 'var(--at-serif)',
+            fontFamily: 'var(--at-heading)',
             fontWeight: 400,
             fontSize: '20px',
             color: 'var(--at-ink-1)',
@@ -522,7 +522,7 @@ const RelatedCard: React.FC = () => (
           Open Routing surface
           <span
             aria-hidden="true"
-            style={{ fontFamily: 'var(--at-serif)' }}
+            style={{ fontFamily: 'var(--at-heading)' }}
           >
             →
           </span>
@@ -576,7 +576,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '22px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -635,7 +635,7 @@ const EmptyState: React.FC = () => (
     <Eyebrow label="No agents" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',

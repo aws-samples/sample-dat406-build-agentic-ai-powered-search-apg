@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic, MicOff, X } from 'lucide-react'
+import { MessageCircle, Mic, MicOff, Send, Trash2, X } from 'lucide-react'
 import { useUI } from '../contexts/UIContext'
 import { useLayout } from '../contexts/LayoutContext'
 import { useCart } from '../contexts/CartContext'
@@ -125,6 +125,7 @@ export default function ChatDrawer() {
     setInputValue,
     isLoading,
     sendMessage,
+    retryMessage,
     clearChat,
     sessionCost,
   } = useAgentChat({
@@ -375,6 +376,12 @@ export default function ChatDrawer() {
                 <BoutiqueChatBody
                   messages={messages}
                   sendMessage={sendMessage}
+                  retryMessage={retryMessage}
+                  onEditRequest={(text) => {
+                    setInputValue(text)
+                    window.requestAnimationFrame(() => inputRef.current?.focus())
+                  }}
+                  onAuthenticate={() => openModal('auth')}
                   addToCart={addToCart}
                   persona={persona}
                 />
@@ -417,9 +424,10 @@ export default function ChatDrawer() {
                   className="cd-send"
                   disabled={!inputValue.trim() || isLoading || isListening}
                   aria-label="Send"
+                  title="Send"
                   onClick={() => sendMessage()}
                 >
-                  Ask
+                  <Send size={16} />
                 </button>
               </div>
               <div className="cd-foot-meta">
@@ -456,7 +464,7 @@ export default function ChatDrawer() {
             className="cd-continue-main"
             onClick={() => openModal('drawer')}
           >
-            <span aria-hidden>💬</span>
+            <MessageCircle size={16} aria-hidden="true" />
             <span>Continue chat</span>
             <span className="cd-continue-key">{keycap}</span>
           </button>
@@ -467,7 +475,7 @@ export default function ChatDrawer() {
             aria-label="Clear chat"
             title="Clear chat"
           >
-            Clear
+            <Trash2 size={15} aria-hidden="true" />
           </button>
         </motion.div>
       )}

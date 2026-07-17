@@ -11,7 +11,7 @@ fake-Cedar gate — or a drift in the provisioning contract — trips here:
      definition={"cedar":...} / update_gateway policyEngineConfiguration ENFORCE)
      and the correct Cedar action spelling for process_return.
   3. The experience Lambda reconstructs the ``pellier.tool_audit`` evidence row
-     on the Gateway rail (so the Act II SQL proof survives).
+     on the Gateway rail (so the Core Lab 3 SQL proof survives).
   4. The deploy path (provisioner + deploy_all.sh) wires the policy step.
   5. The gateway execution role gets the four policy-EVALUATION permissions.
 

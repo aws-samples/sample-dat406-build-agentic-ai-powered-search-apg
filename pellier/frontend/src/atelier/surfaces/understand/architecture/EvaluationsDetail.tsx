@@ -126,7 +126,7 @@ const ScorecardCard: React.FC<{
 }> = ({ agent, accuracy, latencyP50, latencyP95, citationRate }) => (
   <ExpCard>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <span style={{ fontFamily: 'var(--at-serif)', fontSize: '18px', color: 'var(--at-ink-1)' }}>
+      <span style={{ fontFamily: 'var(--at-heading)', fontSize: '18px', color: 'var(--at-ink-1)' }}>
         {agent}
       </span>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -144,7 +144,7 @@ const MetricCell: React.FC<{ label: string; value: string }> = ({ label, value }
     <span style={{ fontFamily: 'var(--at-mono)', fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--at-ink-4)' }}>
       {label}
     </span>
-    <span style={{ fontFamily: 'var(--at-serif)', fontSize: '20px', fontWeight: 400, color: 'var(--at-ink-1)', letterSpacing: '-0.02em' }}>
+    <span style={{ fontFamily: 'var(--at-heading)', fontSize: '20px', fontWeight: 400, color: 'var(--at-ink-1)', letterSpacing: '-0.02em' }}>
       {value}
     </span>
   </div>
@@ -159,7 +159,7 @@ const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const titleStyle: React.CSSProperties = {
-  fontFamily: 'var(--at-serif)', fontSize: '22px', fontWeight: 400,
+  fontFamily: 'var(--at-heading)', fontSize: '22px', fontWeight: 400,
   lineHeight: 1.15, color: 'var(--at-ink-1)', margin: 0,
 };
 

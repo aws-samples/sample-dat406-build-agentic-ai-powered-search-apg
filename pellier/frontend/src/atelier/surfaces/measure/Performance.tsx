@@ -63,7 +63,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, unit, detail }) => (
         style={{
           fontFamily: 'var(--at-sans)',
           fontSize: '48px',
-          fontWeight: 300,
+          fontWeight: 400,
           letterSpacing: '-0.03em',
           lineHeight: 1,
           color: 'var(--at-ink-1)',
@@ -85,8 +85,8 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, unit, detail }) => (
     </div>
     <p
       style={{
-        fontFamily: 'var(--at-mono)',
-        fontSize: '12px',
+        fontFamily: 'var(--at-sans)',
+        fontSize: '12.5px',
         color: 'var(--at-ink-2)',
         marginTop: '8px',
         margin: '8px 0 0',
@@ -343,9 +343,9 @@ interface PgvectorComparisonProps {
 
 const PgvectorComparison: React.FC<PgvectorComparisonProps> = ({ strategies }) => {
   const headerStyle: React.CSSProperties = {
-    fontFamily: 'var(--at-mono)',
-    fontSize: '11px',
-    letterSpacing: '0.22em',
+    fontFamily: 'var(--at-heading)',
+    fontSize: '11.5px',
+    letterSpacing: '0.05em',
     textTransform: 'uppercase',
     color: 'var(--at-ink-2)',
     fontWeight: 500,
@@ -794,7 +794,7 @@ const ExtractedFiltersStrip: React.FC<ExtractedFiltersStripProps> = ({
         <span style={labelStyle}>Soft signal →</span>
         <span
           style={{
-            fontFamily: 'var(--at-serif)',
+            fontFamily: 'var(--at-heading)',
             fontSize: '14px',
             color: 'var(--at-ink-1)',
           }}
@@ -967,8 +967,8 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           aria-label="Query to run against all four search strategies"
           style={{
             flex: 1,
-            fontFamily: 'var(--at-mono)',
-            fontSize: '13px',
+            fontFamily: 'var(--at-sans)',
+            fontSize: '14px',
             padding: '10px 12px',
             border: '1px solid var(--at-card-border)',
             borderRadius: '4px',
@@ -981,9 +981,10 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           onClick={handleRun}
           disabled={running || !query.trim()}
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.18em',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '12px',
+            fontWeight: 600,
+            letterSpacing: 0,
             textTransform: 'uppercase',
             padding: '0 18px',
             border: '1px solid var(--at-ink-1)',
@@ -1345,9 +1346,9 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
         <span
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.22em',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '11.5px',
+            letterSpacing: '0.05em',
             textTransform: 'uppercase',
             color: 'var(--at-ink-2)',
             fontWeight: 500,
@@ -1364,16 +1365,16 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
             aria-pressed={activeWindow === w}
             aria-label={`Time window: ${w}`}
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '13px',
-              letterSpacing: '0.06em',
+              fontFamily: 'var(--at-heading)',
+              fontSize: '12.5px',
+              fontWeight: activeWindow === w ? 600 : 500,
+              letterSpacing: 0,
               padding: '5px 14px',
               borderRadius: '100px',
               border: activeWindow === w ? '1px solid var(--at-ink-1)' : '1px solid var(--at-card-border)',
               backgroundColor: activeWindow === w ? 'var(--at-ink-1)' : 'transparent',
               color: activeWindow === w ? 'var(--at-cream-1)' : 'var(--at-ink-1)',
               cursor: 'pointer',
-              fontWeight: activeWindow === w ? 600 : 400,
               transition: 'all 0.15s ease',
             }}
           >
@@ -1386,9 +1387,9 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.22em',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '11.5px',
+            letterSpacing: '0.05em',
             textTransform: 'uppercase',
             color: 'var(--at-ink-2)',
             fontWeight: 500,
@@ -1509,7 +1510,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '22px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -1521,8 +1522,8 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     </p>
     <p
       style={{
-        fontFamily: 'var(--at-mono)',
-        fontSize: '16px',
+        fontFamily: 'var(--at-sans)',
+        fontSize: '15px',
         color: 'var(--at-ink-2)',
         maxWidth: '480px',
         marginTop: '8px',
@@ -1569,7 +1570,7 @@ const EmptyState: React.FC = () => (
     <Eyebrow label="No data" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',

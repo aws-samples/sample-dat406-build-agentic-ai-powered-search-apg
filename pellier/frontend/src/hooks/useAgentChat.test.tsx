@@ -30,12 +30,21 @@ let releaseStream:
       suggestions: string[]
     }) => void)
   | null = null
+let nextStreamFailure:
+  | { code: 'request_timeout'; retryable: true; referenceId?: string }
+  | null = null
 
 vi.mock('../services/chat', () => ({
   checkBackendHealth: vi.fn().mockResolvedValue(true),
+  normalizeChatError: vi.fn((error: unknown) => error),
   sendChatMessageStreaming: vi.fn(
     (_q: string, _h: unknown, onUpdate: (d: unknown) => void) => {
       capturedOnUpdate = onUpdate
+      if (nextStreamFailure) {
+        const failure = nextStreamFailure
+        nextStreamFailure = null
+        return Promise.reject(failure)
+      }
       return new Promise(resolve => {
         releaseStream = resolve as typeof releaseStream
       })
@@ -55,6 +64,7 @@ describe('useAgentChat — StrictMode purity', () => {
   beforeEach(() => {
     capturedOnUpdate = null
     releaseStream = null
+    nextStreamFailure = null
     localStorage.clear()
   })
 
@@ -142,6 +152,54 @@ describe('useAgentChat — StrictMode purity', () => {
       const products = result.current.messages.at(-1)?.products
       expect(products).toHaveLength(1)
       expect(products?.[0]?.id).toBe(42)
+    })
+  })
+
+  it('records typed failures and retries without duplicating the user turn', async () => {
+    nextStreamFailure = {
+      code: 'request_timeout',
+      retryable: true,
+      referenceId: 'turn-timeout-1',
+    }
+    const { result } = renderHook(() => useAgentChat({ mode: 'storefront' }), {
+      wrapper,
+    })
+
+    await act(async () => {
+      await result.current.sendMessage('find a linen jacket')
+    })
+
+    await waitFor(() => {
+      expect(result.current.messages.at(-1)?.failure).toEqual({
+        code: 'request_timeout',
+        retryable: true,
+        query: 'find a linen jacket',
+        referenceId: 'turn-timeout-1',
+      })
+    })
+
+    act(() => {
+      void result.current.retryMessage('find a linen jacket')
+    })
+    await waitFor(() => expect(capturedOnUpdate).not.toBeNull())
+
+    expect(
+      result.current.messages.filter(message => message.role === 'user'),
+    ).toHaveLength(1)
+
+    act(() => {
+      releaseStream?.({
+        response: 'Here is the recovered answer.',
+        products: [],
+        suggestions: [],
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.messages.at(-1)?.content).toBe(
+        'Here is the recovered answer.',
+      )
+      expect(result.current.messages.at(-1)?.failure).toBeUndefined()
     })
   })
 })

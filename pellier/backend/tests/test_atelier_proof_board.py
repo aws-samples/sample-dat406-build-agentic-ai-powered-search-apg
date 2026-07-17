@@ -187,7 +187,14 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert cards["marco-floor-check"]["status"] == "complete"
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
+    assert cards["marco-floor-check"]["lab"] == "Core Lab 1: Build and Trace"
+    assert cards["retrieval-comparison"]["lab"] == "Core Lab 2: Measure Retrieval"
+    assert cards["retrieval-comparison"]["status"] == "available"
+    assert cards["audit-ledger"]["lab"] == "Core Lab 3: Query Evidence"
+    assert cards["runtime-gateway-policy"]["lab"] == "Core Lab 4: Enforce Policy"
+    assert all("act" not in card for card in cards.values())
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
+    assert "search-strategies/compare" in cards["retrieval-comparison"]["fallback"]["command"]
     assert "process_return" in cards["audit-ledger"]["fallback"]["command"]
 
 

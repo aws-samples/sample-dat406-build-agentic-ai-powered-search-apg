@@ -5,7 +5,7 @@ import ReactDOM from 'react-dom/client'
 // build time so the workshop runs on corporate networks that block
 // fonts.gstatic.com. Four families: Instrument Sans (UI), Instrument
 // Serif + Fraunces variable (editorial / display, incl. Fraunces italic),
-// JetBrains Mono (code + eyebrows). Ordered so the most visible
+// JetBrains Mono (code, SQL, IDs, and telemetry). Ordered so the most visible
 // weights load first.
 import '@fontsource-variable/fraunces'
 import '@fontsource-variable/fraunces/full-italic.css'

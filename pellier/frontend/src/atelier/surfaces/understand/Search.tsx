@@ -97,7 +97,7 @@ const StagePanel: React.FC<{ stage: SearchStage; index: number }> = ({
           </span>
           <h3
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontWeight: 400,
               fontSize: '22px',
               letterSpacing: '-0.012em',
@@ -268,7 +268,7 @@ const CodeReadCard: React.FC = () => (
     </span>
     <h3
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontWeight: 400,
         fontSize: '24px',
         letterSpacing: '-0.012em',
@@ -316,7 +316,7 @@ const CodeReadCard: React.FC = () => (
         >
           <span
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '20px',
               color: 'var(--at-red-1)',
               lineHeight: 1.2,
@@ -389,7 +389,7 @@ const CodeReadCard: React.FC = () => (
         }}
       >
         See the required proof · Proof Board
-        <span aria-hidden="true" style={{ fontFamily: 'var(--at-serif)' }}>
+        <span aria-hidden="true" style={{ fontFamily: 'var(--at-heading)' }}>
           →
         </span>
       </Link>
@@ -415,7 +415,6 @@ const Search: React.FC = () => {
   // Run the default query once on mount so the surface is never empty.
   useEffect(() => {
     explain(DEFAULT_QUERY);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = useCallback(

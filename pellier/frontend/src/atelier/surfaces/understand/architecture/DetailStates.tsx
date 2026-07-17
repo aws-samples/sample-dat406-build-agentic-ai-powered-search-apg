@@ -64,7 +64,7 @@ export const DetailErrorState: React.FC<DetailErrorStateProps> = ({ message, onR
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '20px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -127,7 +127,7 @@ export const DetailEmptyState: React.FC<DetailEmptyStateProps> = ({ conceptName 
     <Eyebrow label="No data" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '20px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',

@@ -197,10 +197,16 @@
   opacity: 0.5;
 }
 .cd-send {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   background: var(--ink);
   color: var(--cream);
   border: none;
-  padding: 7px 16px;
+  padding: 0;
   border-radius: 100px;
   font-family: var(--sans);
   font-size: 15px;
@@ -298,7 +304,11 @@
   font-weight: 500;
 }
 .cd-continue-clear {
-  padding: 0 14px;
+  width: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(247, 243, 238, 0.08);
   border-left: 1px solid rgba(247, 243, 238, 0.16);
   font-size: 13px;

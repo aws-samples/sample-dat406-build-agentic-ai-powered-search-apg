@@ -133,7 +133,7 @@ const NodeCard: React.FC<{
         >
           {nodeKey}
         </span>
-        <span style={{ fontFamily: 'var(--at-serif)', fontSize: '14px', color: 'var(--at-ink-1)' }}>
+        <span style={{ fontFamily: 'var(--at-heading)', fontSize: '14px', color: 'var(--at-ink-1)' }}>
           {name}
         </span>
       </div>
@@ -206,7 +206,7 @@ const ConceptEyebrow: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const sectionTitleStyle: React.CSSProperties = {
-  fontFamily: 'var(--at-serif)',
+  fontFamily: 'var(--at-heading)',
   fontSize: '22px',
   fontWeight: 400,
   lineHeight: 1.15,

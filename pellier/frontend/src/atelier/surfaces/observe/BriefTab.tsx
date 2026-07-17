@@ -110,7 +110,7 @@ const DropCapParagraph: React.FC<{ text: string }> = ({ text }) => {
   return (
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: 'var(--at-brief-size)',
         lineHeight: 'var(--at-brief-leading)',
         color: 'var(--at-ink-1)',
@@ -120,7 +120,7 @@ const DropCapParagraph: React.FC<{ text: string }> = ({ text }) => {
       <span
         style={{
           float: 'left',
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '52px',
           lineHeight: '42px',
           fontWeight: 400,
@@ -140,7 +140,7 @@ const DropCapParagraph: React.FC<{ text: string }> = ({ text }) => {
 const Paragraph: React.FC<{ text: string }> = ({ text }) => (
   <p
     style={{
-      fontFamily: 'var(--at-serif)',
+      fontFamily: 'var(--at-heading)',
       fontSize: 'var(--at-brief-size)',
       lineHeight: 'var(--at-brief-leading)',
       color: 'var(--at-ink-1)',
@@ -278,7 +278,7 @@ const MemoryRow: React.FC<{ tier: string; content: string }> = ({
       </span>
       <span
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '15px',
           lineHeight: 1.5,
           color: 'var(--at-ink-2)',
@@ -598,7 +598,7 @@ const BriefTab: React.FC = () => {
             </span>
             <span
               style={{
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 fontSize: '16px',
                 lineHeight: 1.4,
                 color: 'var(--at-ink-1)',

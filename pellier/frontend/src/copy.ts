@@ -526,6 +526,65 @@ export const ERRORS = {
   SEARCH_FALLBACK_LOADING: "Pellier is thinking...",
 } as const;
 
+export const CHAT_FAILURES = {
+  policy_denied: {
+    eyebrow: "Protected action",
+    title: "That action is not available.",
+    body: "A storefront rule kept your account and inventory unchanged. Adjust the request or choose another option.",
+  },
+  authentication_required: {
+    eyebrow: "Session refresh",
+    title: "Sign in again to continue.",
+    body: "Your conversation is saved. Refresh your session, then retry this request.",
+  },
+  rate_limited: {
+    eyebrow: "High demand",
+    title: "Pellier needs a brief moment.",
+    body: "Your conversation is saved. Try the request again in a few seconds.",
+  },
+  request_timeout: {
+    eyebrow: "Request paused",
+    title: "This took longer than expected.",
+    body: "Nothing was changed. Try again, or narrow the request for a faster answer.",
+  },
+  service_unavailable: {
+    eyebrow: "Temporarily unavailable",
+    title: "Pellier cannot complete this request yet.",
+    body: "Your conversation is saved. Try again in a moment without starting over.",
+  },
+  invalid_request: {
+    eyebrow: "Request needs detail",
+    title: "Pellier needs a different wording.",
+    body: "Adjust the request and send it again. Your earlier conversation will stay in place.",
+  },
+  stream_interrupted: {
+    eyebrow: "Response interrupted",
+    title: "The reply ended before it was complete.",
+    body: "Your conversation is saved. Retry the request to receive a complete answer.",
+  },
+  network_error: {
+    eyebrow: "Connection interrupted",
+    title: "Pellier cannot reach the boutique right now.",
+    body: "Your conversation is saved. Check the connection and try this request again.",
+  },
+  request_failed: {
+    eyebrow: "Request paused",
+    title: "Pellier could not complete that request.",
+    body: "Try again, or adjust the wording while keeping the rest of the conversation.",
+  },
+  TRY_AGAIN: "Try again",
+  EDIT_REQUEST: "Edit request",
+  SIGN_IN_AGAIN: "Sign in again",
+} as const;
+
+export const CHAT_TRUST = {
+  MATCH_DETAILS: "Match details",
+  TURN_RECEIPT: "Turn receipt",
+  VERIFIED: "Recorded",
+  COPY_REFERENCE: "Copy turn reference",
+  COPIED_REFERENCE: "Reference copied",
+} as const;
+
 export const ERROR_CODES = {
   AGENT_TIMEOUT: "agent_timeout",
   AUTH_FAILED: "auth_failed",

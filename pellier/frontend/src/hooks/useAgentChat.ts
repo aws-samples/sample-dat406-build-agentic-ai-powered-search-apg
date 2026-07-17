@@ -19,11 +19,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   checkBackendHealth,
+  normalizeChatError,
   sendChatMessageStreaming,
+  type ChatErrorCode,
   type ChatProduct,
 } from '../services/chat'
 import type { WorkshopMode } from '../contexts/LayoutContext'
 import { usePersona } from '../contexts/PersonaContext'
+import { createEditorialStreamController } from '../utils/editorialStream'
 
 export type ChatMode = 'storefront' | 'atelier'
 
@@ -55,6 +58,8 @@ export interface AgentExecution {
   /** Actionable failure string from the backend when otel_enabled is
    * false. Rendered verbatim in the banner. */
   reason?: string
+  trace_id?: string | null
+  traceIds?: string[]
 }
 
 /**
@@ -104,6 +109,13 @@ export type AgentBadge =
   | 'inventory'
   | 'support'
 
+export interface ChatFailure {
+  code: ChatErrorCode
+  retryable: boolean
+  query: string
+  referenceId?: string
+}
+
 export interface AgentChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -122,6 +134,8 @@ export interface AgentChatMessage {
    * The chat surface renders the StylistHandoffCard in place of the
    * usual product grid. */
   escalation?: StylistHandoff
+  /** Recoverable transport or governance outcome for this turn. */
+  failure?: ChatFailure
 }
 
 export interface UseAgentChatOptions {
@@ -150,44 +164,8 @@ export interface UseAgentChatReturn {
   backendOnline: boolean
   sessionCost: number
   sendMessage: (customText?: string) => Promise<void>
+  retryMessage: (text: string) => Promise<void>
   clearChat: (resetTo?: AgentChatMessage[]) => void
-}
-
-const CACHE_TTL = 5 * 60 * 1000
-const responseCache = new Map<
-  string,
-  {
-    response: string
-    products?: ChatProduct[]
-    suggestions?: string[]
-    agent: AgentBadge
-    timestamp: number
-  }
->()
-
-// Cache key includes the persona's customer_id: responses are personalized,
-// so persona A's answer must never be served to persona B for the same query.
-function cacheKey(query: string, customerId: string | null) {
-  return `${customerId ?? 'anon'}:${query.trim().toLowerCase()}`
-}
-
-function getCachedResponse(query: string, customerId: string | null) {
-  const cached = responseCache.get(cacheKey(query, customerId))
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached
-  return null
-}
-
-function setCachedResponse(
-  query: string,
-  customerId: string | null,
-  data: {
-    response: string
-    products?: ChatProduct[]
-    suggestions?: string[]
-    agent: AgentBadge
-  },
-) {
-  responseCache.set(cacheKey(query, customerId), { ...data, timestamp: Date.now() })
 }
 
 function mapProduct(p: any): ChatProduct {
@@ -347,8 +325,8 @@ export function useAgentChat(
     checkBackendHealth().then(setBackendOnline)
   }, [])
 
-  const sendMessage = useCallback(
-    async (customText?: string) => {
+  const runMessage = useCallback(
+    async (customText?: string, retrying = false) => {
       const text = (customText ?? inputValue).trim()
       if (!text || isLoading) return
 
@@ -366,22 +344,26 @@ export function useAgentChat(
         content: text,
         timestamp: new Date(),
       }
-      setMessages(prev => [...prev, userMessage])
+      let historyBeforeUser = messagesRef.current
+      const lastMessage = historyBeforeUser.at(-1)
+      const previousMessage = historyBeforeUser.at(-2)
+      const canReuseUserTurn =
+        retrying &&
+        lastMessage?.role === 'assistant' &&
+        lastMessage.failure?.query === text &&
+        previousMessage?.role === 'user' &&
+        previousMessage.content === text
+
+      if (canReuseUserTurn) {
+        const withoutFailure = historyBeforeUser.slice(0, -1)
+        historyBeforeUser = withoutFailure.slice(0, -1)
+        setMessages(withoutFailure)
+      } else {
+        setMessages(prev => [...prev, userMessage])
+      }
       setInputValue('')
       setIsLoading(true)
 
-      // Streaming delta buffer + rAF flush.
-      //
-      // Streaming text handling — direct state update per delta.
-      //
-      // Previous approach used a requestAnimationFrame buffer to batch
-      // deltas at 60fps. This caused a persistent "stuttering" bug
-      // where pre-tool tokens leaked through content_reset boundaries
-      // via stale rAF callbacks. The direct approach is simpler and
-      // React 18's automatic batching already coalesces rapid
-      // setState calls within the same microtask, so the render
-      // frequency is naturally throttled.
-      //
       // CRITICAL: every updater below must be PURE. React 18 StrictMode
       // double-invokes state updaters in dev to surface impurity — any
       // mutation of `prev[i]` leaks across invocations and doubles
@@ -422,25 +404,22 @@ export function useAgentChat(
         })
       }
 
-      // Cache check (keyed by persona so personalized answers don't leak)
-      const cached = getCachedResponse(text, persona?.customer_id ?? null)
-      if (cached) {
-        setMessages(prev => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: cached.response,
-            timestamp: new Date(),
-            products: cached.products,
-            suggestions: cached.suggestions,
-            agent: cached.agent,
-            agentStatus: 'complete',
-          },
-        ])
-        setIsLoading(false)
-        sendingRef.current = false
-        return
-      }
+      const editorialStream = createEditorialStreamController({
+        onAppend: appendDelta,
+        onReset: () => {
+          updateLast(lastMsg => ({
+            ...lastMsg,
+            content: '',
+            agentStatus:
+              lastMsg.agentStatus === 'streaming'
+                ? 'thinking'
+                : lastMsg.agentStatus,
+          }))
+        },
+        reducedMotion:
+          typeof window !== 'undefined' &&
+          window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+      })
 
       // Thinking placeholder. Atelier gets the full instrumentation shell;
       // storefront gets a lightweight shell so Boutique can show an optional
@@ -486,8 +465,6 @@ export function useAgentChat(
       setMessages(prev => [...prev, loadingMessage])
 
       try {
-        const historyBeforeUser = messagesRef.current
-
         const response = await sendChatMessageStreaming(
           text,
           historyBeforeUser,
@@ -606,19 +583,11 @@ export function useAgentChat(
               if (typeof window !== 'undefined' && (window as any).__PELLIER_DEBUG_DELTAS) {
                 console.log(`[delta] ${JSON.stringify(data.delta).slice(0, 40)}`)
               }
-              appendDelta(data.delta)
+              editorialStream.push(data.delta)
             } else if (data.type === 'content_reset') {
-              // Clear the bubble for Pattern I's post-tool response.
-              // Pattern III (dispatcher) skips this event server-side.
-              updateLast(lastMsg => ({
-                ...lastMsg,
-                content: '',
-                agentStatus:
-                  lastMsg.agentStatus === 'streaming'
-                    ? 'thinking'
-                    : lastMsg.agentStatus,
-              }))
+              editorialStream.reset()
             } else if (data.type === 'content') {
+              editorialStream.reset()
               updateLast(lastMsg => {
                 if (
                   lastMsg.agentStatus === 'streaming' &&
@@ -651,8 +620,8 @@ export function useAgentChat(
                 return {
                   ...lastMsg,
                   products: isDupe ? existing : [...existing, chatProduct],
-                  agentStatus: 'complete',
-                  agentExecution: showInstrumentation ? undefined : lastMsg.agentExecution,
+                  agentStatus: lastMsg.agentStatus,
+                  agentExecution: lastMsg.agentExecution,
                 }
               })
             } else if (data.type === 'runtime_timing') {
@@ -677,7 +646,7 @@ export function useAgentChat(
                 return {
                   ...lastMsg,
                   escalation: data.escalation as StylistHandoff,
-                  agentStatus: 'complete',
+                  agentStatus: lastMsg.agentStatus,
                 }
               })
             } else if (data.type === 'db_queries') {
@@ -706,6 +675,8 @@ export function useAgentChat(
           // adds a user-facing toggle in the Atelier for 'graph'.
           mode === 'storefront' ? 'dispatcher' : 'agents_as_tools',
         )
+
+        await editorialStream.settle()
 
         if (response.estimated_cost_usd) {
           setSessionCost(prev => prev + response.estimated_cost_usd!)
@@ -755,6 +726,7 @@ export function useAgentChat(
             suggestions: response.suggestions,
             agent: agentType,
             agentStatus: 'complete',
+            failure: undefined,
             agentExecution: showInstrumentation
               ? response.agent_execution
               : response.agent_execution
@@ -767,37 +739,43 @@ export function useAgentChat(
           }
         })
         setBackendOnline(true)
-
-        if (agentType) {
-          setCachedResponse(text, persona?.customer_id ?? null, {
-            response: response.response,
-            products: response.products,
-            suggestions: response.suggestions,
-            agent: agentType,
-          })
-        } else {
-          setCachedResponse(text, persona?.customer_id ?? null, {
-            response: response.response,
-            products: response.products,
-            suggestions: response.suggestions,
-            agent: 'search',
-          })
-        }
-      } catch {
+      } catch (error) {
+        editorialStream.cancel()
+        const chatError = normalizeChatError(error)
         updateLast(lastMsg => ({
           ...lastMsg,
-          content:
-            'Unable to connect. Please check that the backend is running.',
+          content: '',
           agentStatus: 'complete',
           agentExecution: undefined,
+          products: undefined,
+          suggestions: undefined,
+          failure: {
+            code: chatError.code,
+            retryable: chatError.retryable,
+            query: text,
+            referenceId: chatError.referenceId,
+          },
         }))
-        setBackendOnline(false)
+        setBackendOnline(
+          !['network_error', 'service_unavailable'].includes(chatError.code),
+        )
       } finally {
+        editorialStream.cancel()
         setIsLoading(false)
         sendingRef.current = false
       }
     },
     [inputValue, isLoading, mode, workshopMode, guardrailsEnabled, persona?.customer_id],
+  )
+
+  const sendMessage = useCallback(
+    (customText?: string) => runMessage(customText, false),
+    [runMessage],
+  )
+
+  const retryMessage = useCallback(
+    (text: string) => runMessage(text, true),
+    [runMessage],
   )
 
   const clearChat = useCallback(
@@ -809,7 +787,6 @@ export function useAgentChat(
         // switch). Clearing it here would orphan the AgentCore STM session
         // and force a new random id the backend doesn't know.
       }
-      responseCache.clear()
       setMessages(resetTo ?? initialMessages)
     },
     [persistKey, initialMessages],
@@ -824,6 +801,7 @@ export function useAgentChat(
     backendOnline,
     sessionCost,
     sendMessage,
+    retryMessage,
     clearChat,
   }
 }

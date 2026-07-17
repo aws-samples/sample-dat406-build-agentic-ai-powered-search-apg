@@ -2,11 +2,56 @@
  * Markdown Message Renderer - Formats agent responses with markdown
  */
 
+import { Children, cloneElement, isValidElement } from 'react'
+import '../styles/editorial-streaming.css'
+
 interface Props {
   content: string
+  streaming?: boolean
 }
 
-const MarkdownMessage = ({ content }: Props) => {
+const STREAMING_CARET = (
+  <span
+    key="editorial-streaming-caret"
+    className="editorial-streaming-caret"
+    data-testid="editorial-streaming-caret"
+    aria-hidden="true"
+  />
+)
+
+const appendStreamingCaret = (elements: JSX.Element[]) => {
+  if (elements.length === 0) return elements
+
+  const next = [...elements]
+  const lastIndex = next.length - 1
+  const last = next[lastIndex]
+
+  if (last.type === 'ul') {
+    const items = Children.toArray(last.props.children)
+    const finalItemIndex = items.length - 1
+    const finalItem = items[finalItemIndex]
+    if (isValidElement(finalItem)) {
+      items[finalItemIndex] = cloneElement(
+        finalItem,
+        {},
+        finalItem.props.children,
+        STREAMING_CARET,
+      )
+      next[lastIndex] = cloneElement(last, {}, items)
+      return next
+    }
+  }
+
+  next[lastIndex] = cloneElement(
+    last,
+    {},
+    last.props.children,
+    STREAMING_CARET,
+  )
+  return next
+}
+
+const MarkdownMessage = ({ content, streaming = false }: Props) => {
 
   const formatText = (text: string) => {
     // Replace stars with gold colored stars
@@ -114,11 +159,14 @@ const MarkdownMessage = ({ content }: Props) => {
         segKey++
       }
     })
-    return elements
+    return streaming ? appendStreamingCaret(elements) : elements
   }
 
   return (
-    <div className="space-y-1">
+    <div
+      className={`space-y-1 ${streaming ? 'editorial-streaming' : ''}`}
+      aria-busy={streaming}
+    >
       {renderContent(content)}
     </div>
   )

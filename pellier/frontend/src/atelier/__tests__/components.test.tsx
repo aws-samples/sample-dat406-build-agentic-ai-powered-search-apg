@@ -14,6 +14,10 @@ import { StatusPill } from '../components/StatusPill';
 import { StatusDot } from '../components/StatusDot';
 import { Eyebrow } from '../components/Eyebrow';
 import { CategoryBadge } from '../components/CategoryBadge';
+import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
+import { ModeStrip } from '../components/ModeStrip';
+import { SurfaceFilterBar } from '../components/SurfaceFilterBar';
+import { TabNav } from '../components/TabNav';
 
 // ---------------------------------------------------------------------------
 // ExpCard
@@ -89,8 +93,8 @@ describe('StatusPill', () => {
     expect(pill).toBeTruthy();
     expect(pill.style.backgroundColor).toBe('var(--at-status-shipped-bg)');
     expect(pill.style.color).toBe('var(--at-status-shipped-text)');
-    expect(pill.style.textTransform).toBe('uppercase');
-    expect(pill.style.fontFamily).toBe('var(--at-mono)');
+    expect(pill.style.fontFamily).toBe('var(--at-heading)');
+    expect(pill.style.fontWeight).toBe('600');
   });
 
   it('renders "Exercise" with burgundy styling', () => {
@@ -100,8 +104,8 @@ describe('StatusPill', () => {
     expect(pill).toBeTruthy();
     expect(pill.style.backgroundColor).toBe('var(--at-status-exercise-bg)');
     expect(pill.style.color).toBe('var(--at-status-exercise-text)');
-    expect(pill.style.textTransform).toBe('uppercase');
-    expect(pill.style.fontFamily).toBe('var(--at-mono)');
+    expect(pill.style.fontFamily).toBe('var(--at-heading)');
+    expect(pill.style.fontWeight).toBe('600');
   });
 });
 
@@ -159,10 +163,10 @@ describe('Eyebrow', () => {
     const eyebrow = screen.getByText('SESSIONS');
     expect(eyebrow).toBeTruthy();
 
-    expect(eyebrow.style.fontFamily).toBe('var(--at-mono)');
+    expect(eyebrow.style.fontFamily).toBe('var(--at-heading)');
     expect(eyebrow.style.textTransform).toBe('uppercase');
     expect(eyebrow.style.letterSpacing).toBe('var(--at-eyebrow-tracking)');
-    expect(eyebrow.style.fontSize).toBe('var(--dl-fs-small)');
+    expect(eyebrow.style.fontSize).toBe('var(--at-eyebrow-size)');
   });
 
   it('renders a burgundy dot before the label (default variant)', () => {
@@ -198,8 +202,8 @@ describe('CategoryBadge', () => {
     expect(badge).toBeTruthy();
     expect(badge.style.color).toBe('var(--at-cat-both)');
     expect(badge.style.backgroundColor).toBe('var(--at-red-soft)');
-    expect(badge.style.textTransform).toBe('uppercase');
-    expect(badge.style.fontFamily).toBe('var(--at-mono)');
+    expect(badge.style.fontFamily).toBe('var(--at-heading)');
+    expect(badge.style.fontWeight).toBe('600');
   });
 
   it('renders "Optional infra" badge with green color and green-soft background', () => {
@@ -224,5 +228,56 @@ describe('CategoryBadge', () => {
     const badge = screen.getByText('Workshop lens');
     expect(badge.style.color).toBe('var(--at-cat-teaching)');
     expect(badge.style.backgroundColor).toBe('rgba(31, 20, 16, 0.06)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Operational UI typography
+// ---------------------------------------------------------------------------
+describe('operational UI typography', () => {
+  it('uses the heading sans for tabs and mode controls', () => {
+    render(
+      <>
+        <TabNav
+          tabs={[
+            { id: 'chat', label: 'Chat' },
+            { id: 'telemetry', label: 'Telemetry' },
+          ]}
+          activeTab="chat"
+        />
+        <ModeStrip patterns={['Dispatcher', 'Graph']} active="Dispatcher" />
+      </>,
+    );
+
+    expect(screen.getByRole('tab', { name: 'Chat' }).style.fontFamily).toBe(
+      'var(--at-heading)',
+    );
+    expect(screen.getByRole('radio', { name: 'Dispatcher' }).style.fontFamily).toBe(
+      'var(--at-heading)',
+    );
+  });
+
+  it('uses the heading sans for filters and breadcrumbs', () => {
+    render(
+      <>
+        <SurfaceFilterBar
+          filter="all"
+          counts={{ all: 4, live: 2 }}
+          options={[
+            { id: 'all', label: 'All' },
+            { id: 'live', label: 'Live path' },
+          ]}
+          onChange={() => {}}
+        />
+        <BreadcrumbTrail segments={['Atelier', 'Tool Registry']} />
+      </>,
+    );
+
+    expect(screen.getByRole('button', { name: 'All (4)' }).style.fontFamily).toBe(
+      'var(--at-heading)',
+    );
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' }).style.fontFamily).toBe(
+      'var(--at-heading)',
+    );
   });
 });

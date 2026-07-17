@@ -1,0 +1,209 @@
+/* Shared request outcomes for Boutique and Atelier chat surfaces. */
+
+.turn-receipt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 5px 5px 5px 8px;
+  border: 1px solid rgba(31, 94, 76, 0.18);
+  border-radius: 6px;
+  background: rgba(231, 240, 234, 0.68);
+}
+
+.turn-receipt__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green-1, #1f5e4c);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.turn-receipt code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-3, #66574e);
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.turn-receipt__copy {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3, #66574e);
+  cursor: pointer;
+}
+
+.turn-receipt__copy:hover {
+  background: rgba(31, 20, 16, 0.06);
+  color: var(--ink-1, #1f1410);
+}
+
+.turn-receipt__copy:focus-visible {
+  outline: 2px solid var(--red-1, #9a3412);
+  outline-offset: 1px;
+}
+
+.turn-receipt--atelier {
+  margin-top: 8px;
+}
+
+.chat-failure {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 11px;
+  padding: 14px;
+  border: 1px solid rgba(135, 72, 48, 0.22);
+  border-radius: 8px;
+  background: rgba(247, 239, 228, 0.76);
+}
+
+.chat-failure--policy_denied {
+  border-color: rgba(31, 94, 76, 0.24);
+  background: rgba(231, 240, 234, 0.74);
+}
+
+.chat-failure--authentication_required,
+.chat-failure--rate_limited,
+.chat-failure--request_timeout {
+  border-color: rgba(161, 112, 36, 0.28);
+  background: rgba(249, 241, 217, 0.72);
+}
+
+.chat-failure--network_error,
+.chat-failure--service_unavailable,
+.chat-failure--stream_interrupted {
+  border-color: rgba(97, 87, 78, 0.22);
+  background: rgba(239, 237, 232, 0.78);
+}
+
+.chat-failure__icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(135, 72, 48, 0.1);
+  color: var(--red-1, #9a3412);
+}
+
+.chat-failure--policy_denied .chat-failure__icon {
+  background: rgba(31, 94, 76, 0.1);
+  color: var(--green-1, #1f5e4c);
+}
+
+.chat-failure__content {
+  min-width: 0;
+}
+
+.chat-failure__eyebrow {
+  margin-bottom: 3px;
+  color: var(--ink-4, #85766d);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chat-failure h4 {
+  margin: 0;
+  color: var(--ink-1, #1f1410);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.chat-failure p {
+  margin: 5px 0 0;
+  color: var(--ink-3, #66574e);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.chat-failure .chat-failure__reference {
+  overflow-wrap: anywhere;
+  color: var(--ink-4, #85766d);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.chat-failure__reference code {
+  color: var(--ink-2, #45372f);
+}
+
+.chat-failure__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.chat-failure__actions button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--ink-1, #1f1410);
+  border-radius: 6px;
+  background: var(--ink-1, #1f1410);
+  color: var(--cream-1, #fbf8f2);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-failure__actions .chat-failure__action--secondary {
+  border-color: rgba(31, 20, 16, 0.18);
+  background: transparent;
+  color: var(--ink-2, #45372f);
+}
+
+.chat-failure__actions button:hover {
+  border-color: var(--red-1, #9a3412);
+  background: var(--red-1, #9a3412);
+  color: var(--cream-1, #fbf8f2);
+}
+
+.chat-failure__actions button:focus-visible {
+  outline: 2px solid var(--red-1, #9a3412);
+  outline-offset: 2px;
+}
+
+.chat-failure--atelier {
+  max-width: 92%;
+  align-self: flex-start;
+}
+
+@media (max-width: 520px) {
+  .chat-failure {
+    grid-template-columns: 28px minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .chat-failure__icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .chat-failure--atelier {
+    max-width: 100%;
+  }
+}

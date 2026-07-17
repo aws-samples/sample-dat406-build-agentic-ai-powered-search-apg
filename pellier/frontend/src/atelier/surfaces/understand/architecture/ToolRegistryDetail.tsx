@@ -161,7 +161,7 @@ const SectionLabel: React.FC<{ label: string }> = ({ label }) => (
 );
 
 const titleStyle: React.CSSProperties = {
-  fontFamily: 'var(--at-serif)', fontSize: '22px', fontWeight: 400,
+  fontFamily: 'var(--at-heading)', fontSize: '22px', fontWeight: 400,
   lineHeight: 1.15, color: 'var(--at-ink-1)', margin: 0,
 };
 

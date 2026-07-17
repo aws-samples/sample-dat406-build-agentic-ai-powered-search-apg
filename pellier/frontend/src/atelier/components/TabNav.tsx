@@ -1,5 +1,5 @@
 /**
- * TabNav — Fraunces tab links with burgundy underline on active.
+ * TabNav — Instrument Sans tab links with burgundy underline on active.
  *
  * Used for session detail tab navigation (Chat, Telemetry, Brief)
  * and other tabbed interfaces.
@@ -49,10 +49,11 @@ export const TabNav: React.FC<TabNavProps> = ({
             aria-selected={isActive}
             onClick={() => onTabChange?.(tab.id)}
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: 'var(--at-tab-size)',
-              fontWeight: 400,
-              color: isActive ? 'var(--at-ink-1)' : 'var(--at-ink-1)',
+              fontWeight: isActive ? 600 : 500,
+              letterSpacing: 0,
+              color: isActive ? 'var(--at-ink-1)' : 'var(--at-ink-3)',
               background: 'none',
               border: 'none',
               borderBottom: isActive

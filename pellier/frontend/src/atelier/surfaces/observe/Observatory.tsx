@@ -1,8 +1,8 @@
 /**
- * Observatory — first stop inside Atelier.
+ * Observatory - workshop map and optional Atelier reference.
  *
- * The page introduces why the Atelier exists, then narrows participants into
- * Act I, Act II, and Act III.
+ * The page mirrors Workshop Studio's four Core Labs so participants never
+ * have to translate between two workshop taxonomies.
  */
 
 import React from 'react';
@@ -16,8 +16,8 @@ type LinkItem = {
   testId?: string;
 };
 
-type ActItem = {
-  act: string;
+type CoreLabItem = {
+  lab: string;
   title: string;
   summary: string;
   primary: LinkItem;
@@ -32,109 +32,111 @@ type PillarItem = {
 
 const PILLARS: PillarItem[] = [
   {
-    verb: 'Observe',
-    title: 'Sessions & Observatory',
+    verb: 'Verify',
+    title: 'Proof Board',
     description:
-      'Replay any shopper conversation turn-by-turn. See the wide-angle dashboard for live agent state, tool activity, and memory counts.',
+      'Read live evidence checkpoints in the same order as the four Core Labs, with a terminal or SQL fallback on every card.',
   },
   {
-    verb: 'Understand',
-    title: 'Agents, Tools, Memory',
+    verb: 'Inspect',
+    title: 'Tools, retrieval, memory, policy',
     description:
-      'Five specialists, 15 tools, five skills, and the memory surfaces that explain what persisted.',
+      'Open one focused view when the lab calls for it, then return to Boutique or Code Editor for the canonical proof.',
   },
   {
-    verb: 'Evaluate',
-    title: 'Proof Board & Routing',
+    verb: 'Explore',
+    title: 'Optional labs',
     description:
-      'Required proof cards first, then the routing read when the lab asks for it.',
+      'Routing and advanced search stay available after their named checkpoint without competing with the required path.',
   },
 ];
 
-const ACTS: ActItem[] = [
+const CORE_LABS: CoreLabItem[] = [
   {
-    act: 'Act I',
-    title: 'Build Marco, then prove it.',
+    lab: 'Core Lab 1',
+    title: 'Build and Trace',
     summary:
-      "Complete Stock Keeper, wire floor_check, shape Marco's skill, and compare Anna's retrieval path.",
+      "Complete Stock Keeper and floor_check, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
       to: '/atelier/proof-board#marco-floor-check',
-      label: 'Open Marco floor_check',
-      detail: 'Required proof checkpoint',
+      label: 'Open floor_check proof',
+      detail: 'Core Lab 1 checkpoint',
       testId: 'observatory-cta-proof-board',
     },
     secondary: [
       {
         to: '/atelier/tools',
-        label: 'Tools',
-        detail: 'Canonical tool registry',
-      },
-      {
-        to: '/atelier/skills',
-        label: 'Skills',
-        detail: 'Persona playbooks',
-      },
-      {
-        to: '/atelier/search',
-        label: 'Search',
-        detail: 'Retrieval comparison',
-      },
-      {
-        to: '/atelier/sessions',
-        label: 'Sessions',
-        detail: 'Signed-in conversation replay',
-        testId: 'observatory-cta-sessions',
+        label: 'Tool Registry',
+        detail: 'Optional before-and-after visual',
       },
     ],
   },
   {
-    act: 'Act II',
-    title: 'Prove memory and the ledger.',
+    lab: 'Core Lab 2',
+    title: 'Measure Retrieval',
     summary:
-      "Read Marco's session timeline, then prove Theo's return from Aurora tool_audit rows.",
+      "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
-      to: '/atelier/proof-board#audit-ledger',
+      to: '/atelier/performance',
+      label: 'Open retrieval comparison',
+      detail: 'Optional Atelier visual',
+    },
+    secondary: [
+      {
+        to: '/atelier/proof-board#retrieval-comparison',
+        label: 'Retrieval checkpoint',
+        detail: 'Core Lab 2 proof card',
+      },
+      {
+        to: '/atelier/search',
+        label: 'Search Pipeline',
+        detail: 'Optional mechanism read',
+      },
+    ],
+  },
+  {
+    lab: 'Core Lab 3',
+    title: 'Query Evidence',
+    summary:
+      "Trigger Theo's return, query tool_audit, and reconstruct the seeded principal-versus-customer mismatch from governed_receipts.",
+    primary: {
+      to: '/atelier/audit-proof',
       label: 'Open audit proof',
-      detail: 'Required SQL checkpoint',
+      detail: 'SQL remains canonical',
     },
     secondary: [
       {
         to: '/atelier/memory',
         label: 'Memory',
-        detail: 'Working-memory readback',
-      },
-      {
-        to: '/atelier/proof-board#retrieval-comparison',
-        label: 'Retrieval proof',
-        detail: 'Anna comparison checkpoint',
+        detail: 'Optional extension after Core Lab 3',
       },
       {
         to: '/atelier/write-path',
-        label: 'Write-path',
-        detail: 'Policy-backed audit writes',
+        label: 'Gateway & Policy',
+        detail: 'Optional boundary read',
       },
     ],
   },
   {
-    act: 'Act III',
-    title: 'Place the managed boundary.',
+    lab: 'Core Lab 4',
+    title: 'Enforce Policy',
     summary:
-      'Read routing, MCP, Gateway, and Policy after the required SQL proof is complete.',
+      'Apply one Cedar rule, prove DENY leaves a receipt but no execution row, confirm ALLOW still executes, and reset the participant policy.',
     primary: {
-      to: '/atelier/routing',
-      label: 'Open routing',
-      detail: 'Dispatcher checkpoint',
+      to: '/atelier/write-path',
+      label: 'Open Gateway & Policy',
+      detail: 'Optional Atelier visual',
     },
     secondary: [
       {
         to: '/atelier/proof-board#runtime-gateway-policy',
-        label: 'Governed trace',
-        detail: 'Runtime/Gateway/Policy read',
+        label: 'Policy checkpoint',
+        detail: 'Core Lab 4 proof card',
       },
       {
         to: '/atelier/proof-board#managed-rail',
         label: 'Managed rail',
-        detail: 'Fast-finisher comparison',
+        detail: 'Optional Runtime receipt',
       },
     ],
   },
@@ -204,7 +206,7 @@ const ActionLink: React.FC<LinkItem & { primary?: boolean }> = ({
         style={{
           color: primary ? 'var(--at-red-1)' : 'var(--at-ink-1)',
           fontSize: primary ? '15px' : '14px',
-          fontWeight: 650,
+          fontWeight: 600,
           lineHeight: 1.25,
         }}
       >
@@ -279,7 +281,7 @@ const PillarCard: React.FC<PillarItem> = ({ verb, title, description }) => (
   </article>
 );
 
-const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary }) => (
+const CoreLabCard: React.FC<CoreLabItem> = ({ lab, title, summary, primary, secondary }) => (
   <article
     style={{
       ...cardStyle,
@@ -289,7 +291,7 @@ const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary })
     }}
   >
     <div>
-      <SectionEyebrow>{act}</SectionEyebrow>
+      <SectionEyebrow>{lab}</SectionEyebrow>
       <h3
         className="font-display italic text-espresso"
         style={{
@@ -324,7 +326,7 @@ const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary })
       }}
     >
       {secondary.map((item) => (
-        <ActionLink key={`${act}-${item.to}-${item.label}`} {...item} />
+        <ActionLink key={`${lab}-${item.to}-${item.label}`} {...item} />
       ))}
     </div>
   </article>
@@ -336,11 +338,7 @@ const Observatory: React.FC = () => {
       <section
         aria-labelledby="observatory-title"
         style={{
-          border: '1px solid var(--at-rule-1)',
-          borderRadius: '8px',
-          background:
-            'linear-gradient(180deg, var(--at-cream-1) 0%, var(--at-cream-2) 100%)',
-          padding: '34px 36px 32px',
+          padding: '8px 0 4px',
           marginBottom: '34px',
         }}
       >
@@ -349,15 +347,15 @@ const Observatory: React.FC = () => {
           id="observatory-title"
           className="font-display italic text-espresso"
           style={{
-            fontSize: 'clamp(44px, 6vw, 76px)',
+            fontSize: '48px',
             fontWeight: 400,
             lineHeight: 1.05,
-            letterSpacing: '-0.015em',
+            letterSpacing: 0,
             margin: '16px 0 14px',
             maxWidth: '820px',
           }}
         >
-          The operator's side of the boutique.
+          The workshop, in one view.
         </h1>
         <p
           className="font-sans text-ink-soft"
@@ -368,9 +366,9 @@ const Observatory: React.FC = () => {
             maxWidth: '760px',
           }}
         >
-          The Boutique is where shoppers ask. The Atelier is where you watch.
-          Every agent decision, tool call, memory read, and routing hop shows up
-          here in governed, inspectable detail.
+          Boutique and Code Editor remain the primary work surfaces. Atelier is
+          the optional evidence layer: open the checkpoint named by the current
+          Core Lab, inspect it, then return to the required path.
         </p>
         <div
           style={{
@@ -409,12 +407,13 @@ const Observatory: React.FC = () => {
             maxWidth: '720px',
           }}
         >
-          These are the three participant rails. Use them only when the lab asks
-          for an Atelier check, then return to Code Editor or the Boutique.
+          The labels and order below match Workshop Studio exactly. Each card
+          points to the narrow Atelier view for that lab; terminal and SQL
+          commands remain the canonical proof.
         </p>
         <div style={{ display: 'grid', gap: '16px' }}>
-          {ACTS.map((item) => (
-            <ActCard key={item.act} {...item} />
+          {CORE_LABS.map((item) => (
+            <CoreLabCard key={item.lab} {...item} />
           ))}
         </div>
       </section>

@@ -7,6 +7,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { EditorialTitle, Eyebrow } from '../../components';
 
 type CheckState = 'pass' | 'warn' | 'fail';
@@ -49,7 +50,7 @@ interface ManagedReceipt {
 
 interface ProofCard {
   id: string;
-  act: string;
+  lab?: string;
   title: string;
   status: CardStatus;
   required: boolean;
@@ -73,6 +74,10 @@ interface ProofBoardPayload {
   };
   managedReceipt: ManagedReceipt;
   cards: ProofCard[];
+}
+
+interface ProofBoardProps {
+  focusCardId?: string;
 }
 
 const STATUS_LABEL: Record<CardStatus, string> = {
@@ -122,6 +127,18 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
   },
 };
 
+const CORE_LAB_BY_CARD_ID: Record<string, string> = {
+  'marco-floor-check': 'Core Lab 1: Build and Trace',
+  'retrieval-comparison': 'Core Lab 2: Measure Retrieval',
+  'audit-ledger': 'Core Lab 3: Query Evidence',
+  'runtime-gateway-policy': 'Core Lab 4: Enforce Policy',
+  'managed-rail': 'Core Lab 4: Enforce Policy',
+};
+
+function cardLab(card: ProofCard): string {
+  return card.lab ?? CORE_LAB_BY_CARD_ID[card.id] ?? 'Core Lab checkpoint';
+}
+
 const CODE_STYLE: React.CSSProperties = {
   margin: 0,
   padding: '12px 14px',
@@ -159,9 +176,10 @@ function statusPill(status: CardStatus) {
         padding: '4px 9px',
         color: tone.color,
         background: tone.bg,
-        fontFamily: 'var(--at-mono)',
-        fontSize: '10px',
-        letterSpacing: '0.14em',
+        fontFamily: 'var(--at-heading)',
+        fontSize: '11px',
+        fontWeight: 600,
+        letterSpacing: '0.03em',
         textTransform: 'uppercase',
         whiteSpace: 'nowrap',
       }}
@@ -182,9 +200,10 @@ const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => {
         padding: '3px 8px',
         color: tone.color,
         background: tone.bg,
-        fontFamily: 'var(--at-mono)',
-        fontSize: '10px',
-        letterSpacing: '0.14em',
+        fontFamily: 'var(--at-heading)',
+        fontSize: '11px',
+        fontWeight: 600,
+        letterSpacing: '0.03em',
         textTransform: 'uppercase',
       }}
     >
@@ -207,10 +226,11 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
       >
         <Eyebrow label="Readiness panel" />
         <span
-          className="font-mono"
           style={{
-            fontSize: '11px',
-            letterSpacing: '0.14em',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '11.5px',
+            fontWeight: 600,
+            letterSpacing: '0.04em',
             textTransform: 'uppercase',
             color: 'var(--at-ink-3)',
           }}
@@ -242,10 +262,11 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <CheckPill state={check.state} />
               <span
-                className="font-mono"
                 style={{
-                  fontSize: '10px',
-                  letterSpacing: '0.12em',
+                  fontFamily: 'var(--at-heading)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.03em',
                   textTransform: 'uppercase',
                   color: 'var(--at-ink-3)',
                 }}
@@ -257,9 +278,9 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
               style={{
                 margin: 0,
                 color: 'var(--at-ink-1)',
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 fontSize: '20px',
-                fontWeight: 400,
+                fontWeight: 600,
               }}
             >
               {check.label}
@@ -302,11 +323,12 @@ const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState
       }}
     >
       <div
-        className="font-mono"
         style={{
           color: tone.color,
-          fontSize: '10px',
-          letterSpacing: '0.14em',
+          fontFamily: 'var(--at-heading)',
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.03em',
           textTransform: 'uppercase',
           marginBottom: '8px',
         }}
@@ -318,7 +340,7 @@ const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState
           color: 'var(--at-ink-1)',
           fontFamily: 'var(--at-sans)',
           fontSize: '14px',
-          fontWeight: 650,
+          fontWeight: 600,
           lineHeight: 1.25,
           marginBottom: '6px',
         }}
@@ -489,48 +511,51 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
       }}
     >
       <span
-        className="font-mono"
         style={{
-          fontSize: '11px',
-          letterSpacing: '0.16em',
+          fontFamily: 'var(--at-heading)',
+          fontSize: '11.5px',
+          fontWeight: 600,
+          letterSpacing: '0.04em',
           textTransform: 'uppercase',
           color: 'var(--at-red-1)',
         }}
       >
-        {card.act}
+        {cardLab(card)}
       </span>
       {statusPill(card.status)}
       <span
-        className="font-mono"
         style={{
-          fontSize: '10px',
-          letterSpacing: '0.14em',
+          fontFamily: 'var(--at-heading)',
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.03em',
           textTransform: 'uppercase',
           color: 'var(--at-ink-3)',
         }}
       >
-        {card.required ? 'Required path' : 'Extra time'}
+        {card.required ? 'Required path' : 'Optional visual'}
       </span>
     </div>
     <h2
       style={{
         margin: '0 0 6px',
         color: 'var(--at-ink-1)',
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '26px',
         lineHeight: 1.15,
-        fontWeight: 400,
+        fontWeight: 600,
       }}
     >
       {card.title}
     </h2>
     <p
-      className="font-mono"
       style={{
         margin: '0 0 12px',
         color: 'var(--at-ink-3)',
-        fontSize: '11px',
-        letterSpacing: '0.08em',
+        fontFamily: 'var(--at-heading)',
+        fontSize: '11.5px',
+        fontWeight: 600,
+        letterSpacing: '0.04em',
         textTransform: 'uppercase',
       }}
     >
@@ -559,11 +584,12 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
         {card.evidenceSource && (
           <div>
             <div
-              className="font-mono"
               style={{
                 color: 'var(--at-ink-3)',
-                fontSize: '9.5px',
-                letterSpacing: '0.14em',
+                fontFamily: 'var(--at-heading)',
+                fontSize: '10.5px',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
                 textTransform: 'uppercase',
                 marginBottom: '4px',
               }}
@@ -586,11 +612,12 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
         {lastUpdated && (
           <div>
             <div
-              className="font-mono"
               style={{
                 color: 'var(--at-ink-3)',
-                fontSize: '9.5px',
-                letterSpacing: '0.14em',
+                fontFamily: 'var(--at-heading)',
+                fontSize: '10.5px',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
                 textTransform: 'uppercase',
                 marginBottom: '4px',
               }}
@@ -627,10 +654,11 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
     </ul>
     <div style={{ marginBottom: '16px' }}>
       <div
-        className="font-mono"
         style={{
-          fontSize: '10px',
-          letterSpacing: '0.16em',
+          fontFamily: 'var(--at-heading)',
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.04em',
           textTransform: 'uppercase',
           color: 'var(--at-ink-3)',
           marginBottom: '7px',
@@ -651,8 +679,9 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
             borderRadius: '999px',
             padding: '5px 10px',
             textDecoration: 'none',
-            fontFamily: 'var(--at-mono)',
-            fontSize: '12px',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '12.5px',
+            fontWeight: 600,
           }}
         >
           {link.label}
@@ -663,12 +692,13 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
   );
 };
 
-function groupCardsByAct(cards: ProofCard[]) {
+function groupCardsByLab(cards: ProofCard[]) {
   const groups = new Map<string, ProofCard[]>();
   for (const card of cards) {
-    const items = groups.get(card.act) ?? [];
+    const lab = cardLab(card);
+    const items = groups.get(lab) ?? [];
     items.push(card);
-    groups.set(card.act, items);
+    groups.set(lab, items);
   }
   return Array.from(groups.entries());
 }
@@ -681,7 +711,7 @@ const ProofRail: React.FC<{
   activeAnchor: string;
 }> = ({ eyebrow, title, summary, cards, activeAnchor }) => {
   if (!cards.length) return null;
-  const groupedCards = groupCardsByAct(cards);
+  const groupedCards = groupCardsByLab(cards);
   return (
     <section aria-label={title} style={{ marginBottom: '36px' }}>
       <div
@@ -700,9 +730,9 @@ const ProofRail: React.FC<{
             style={{
               margin: '6px 0 0',
               color: 'var(--at-ink-1)',
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontSize: '24px',
-              fontWeight: 400,
+              fontWeight: 600,
               lineHeight: 1.15,
             }}
           >
@@ -710,15 +740,16 @@ const ProofRail: React.FC<{
           </h2>
         </div>
         <span
-          className="font-mono"
           style={{
             color: 'var(--at-ink-3)',
-            fontSize: '11px',
-            letterSpacing: '0.12em',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '11.5px',
+            fontWeight: 600,
+            letterSpacing: '0.03em',
             textTransform: 'uppercase',
           }}
         >
-          {cards.length} cards
+          {cards.length} {cards.length === 1 ? 'card' : 'cards'}
         </span>
       </div>
       <p
@@ -733,8 +764,8 @@ const ProofRail: React.FC<{
       >
         {summary}
       </p>
-      {groupedCards.map(([act, actCards]) => (
-        <div key={act} style={{ marginBottom: '20px' }}>
+      {groupedCards.map(([lab, labCards]) => (
+        <div key={lab} style={{ marginBottom: '20px' }}>
           <div
             style={{
               display: 'flex',
@@ -743,17 +774,18 @@ const ProofRail: React.FC<{
               marginBottom: '12px',
             }}
           >
-            <Eyebrow label={act} />
+            <Eyebrow label={lab} />
             <span
-              className="font-mono"
               style={{
                 color: 'var(--at-ink-3)',
-                fontSize: '11px',
-                letterSpacing: '0.12em',
+                fontFamily: 'var(--at-heading)',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
                 textTransform: 'uppercase',
               }}
             >
-              {actCards.length} cards
+              {labCards.length} {labCards.length === 1 ? 'card' : 'cards'}
             </span>
           </div>
           <div
@@ -763,7 +795,7 @@ const ProofRail: React.FC<{
               gap: '16px',
             }}
           >
-            {actCards.map((card) => (
+            {labCards.map((card) => (
               <ProofCardView
                 key={card.id}
                 card={card}
@@ -777,7 +809,7 @@ const ProofRail: React.FC<{
   );
 };
 
-const ProofBoard: React.FC = () => {
+const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
   const location = useLocation();
   const [data, setData] = useState<ProofBoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -812,6 +844,8 @@ const ProofBoard: React.FC = () => {
     if (!location.hash) return '';
     return decodeURIComponent(location.hash.replace(/^#/, ''));
   }, [location.hash]);
+  const focusedCardId = focusCardId ?? activeAnchor;
+  const isAuditFocus = focusedCardId === 'audit-ledger';
 
   const rails = useMemo(() => {
     const cards = data?.cards ?? [];
@@ -820,18 +854,45 @@ const ProofBoard: React.FC = () => {
       optional: cards.filter((card) => !card.required),
     };
   }, [data]);
+  const focusedCard = useMemo(
+    () => data?.cards.find((card) => card.id === focusedCardId) ?? null,
+    [data, focusedCardId],
+  );
 
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1180px' }}>
+      {isAuditFocus && (
+        <Link
+          to="/atelier/proof-board"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '7px',
+            marginBottom: '24px',
+            color: 'var(--at-ink-2)',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '13px',
+            fontWeight: 600,
+            textDecoration: 'none',
+          }}
+        >
+          <ArrowLeft size={15} aria-hidden="true" />
+          All checkpoints
+        </Link>
+      )}
       <EditorialTitle
-        eyebrow="Required path · proof board"
-        title="Required evidence, in order."
-        summary="Use this board only when the lab asks for an Atelier check. Required cards come first; managed Runtime and Gateway receipt evidence stays in the optional rail."
+        eyebrow={isAuditFocus ? 'Core Lab 3 · Query Evidence' : 'Core Labs 1-4 · Proof Board'}
+        title={isAuditFocus ? 'Audit proof, row by row.' : 'Evidence checkpoints, in lab order.'}
+        summary={
+          isAuditFocus
+            ? 'A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present.'
+            : "Use this board only when a Core Lab asks for an Atelier check. Required-path checkpoints follow Workshop Studio's four-lab order; managed Runtime and Gateway receipt detail stays optional."
+        }
       />
 
       {loading && (
         <p className="font-mono" style={{ color: 'var(--at-ink-3)' }}>
-          Loading proof board...
+          {isAuditFocus ? 'Loading audit proof...' : 'Loading proof board...'}
         </p>
       )}
       {error && (
@@ -852,25 +913,49 @@ const ProofBoard: React.FC = () => {
       )}
 
       {data && (
-        <>
-          <ReadinessPanel checks={data.readiness.checks} />
+        isAuditFocus ? (
+          focusedCard ? (
+            <section
+              aria-label="Core Lab 3 audit evidence"
+              style={{ maxWidth: '860px' }}
+            >
+              <ProofCardView card={focusedCard} highlighted />
+            </section>
+          ) : (
+            <div
+              role="alert"
+              style={{
+                border: '1px solid var(--at-card-border)',
+                borderRadius: '8px',
+                padding: '18px 20px',
+                color: 'var(--at-ink-2)',
+                fontFamily: 'var(--at-sans)',
+              }}
+            >
+              The audit-ledger checkpoint is not available from this backend.
+            </div>
+          )
+        ) : (
+          <>
+            <ReadinessPanel checks={data.readiness.checks} />
 
-          <ProofRail
-            eyebrow="Required path"
-            title="Required rail"
-            summary="These cards are the facilitator-grade proof checkpoints for the core workshop path."
-            cards={rails.required}
-            activeAnchor={activeAnchor}
-          />
-          <ReceiptStrip receipt={data.managedReceipt} />
-          <ProofRail
-            eyebrow="Fast-finisher path"
-            title="Optional managed rail"
-            summary="These cards are available after the required SQL proof when the account has Runtime, Gateway, and Policy configured."
-            cards={rails.optional}
-            activeAnchor={activeAnchor}
-          />
-        </>
+            <ProofRail
+              eyebrow="Required path"
+              title="Core Lab checkpoints"
+              summary="These cards mirror evidence from the required path. Use their terminal or SQL fallbacks when you need canonical proof."
+              cards={rails.required}
+              activeAnchor={activeAnchor}
+            />
+            <ReceiptStrip receipt={data.managedReceipt} />
+            <ProofRail
+              eyebrow="Optional Core Lab 4 detail"
+              title="Managed boundary"
+              summary="Inspect these cards only when the account has Runtime, Gateway, and Policy configured and the required SQL proof is complete."
+              cards={rails.optional}
+              activeAnchor={activeAnchor}
+            />
+          </>
+        )
       )}
     </div>
   );

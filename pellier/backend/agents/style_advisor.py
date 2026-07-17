@@ -83,7 +83,12 @@ def _ensure_products_in_output(text: str, tool_results: list) -> str:
     return text
 
 
-def build_search_agent() -> Agent:
+def build_search_agent(
+    *,
+    model_id: str | None = None,
+    max_tokens: int | None = None,
+    allow_escalation: bool = True,
+) -> Agent:
     """Return a configured Search specialist Agent.
 
     Reads persona preamble + loaded skills from ContextVars at
@@ -92,22 +97,35 @@ def build_search_agent() -> Agent:
     # Style Advisor — Claude Opus 4.8. Editorial voice + fit/fabric
     # description. Bedrock rejects the deprecated temperature field for
     # this model, so we rely on the model default.
+    tools = [
+        find_pieces,
+        explore_collection,
+        side_by_side,
+        style_match,
+    ]
+    if allow_escalation:
+        tools.append(escalate_to_stylist)
+
+    prompt = _SEARCH_SYSTEM_PROMPT
+    if not allow_escalation:
+        prompt += (
+            "<turn-policy>This is an ordinary catalog turn. Use one retrieval "
+            "tool, return the closest relevant pieces, and stop. Do not broaden "
+            "into pairing tools unless the shopper explicitly asks what goes "
+            "with a named product. A partial catalog match is still an answer; "
+            "do not attempt a human handoff.</turn-policy>"
+        )
+
     return Agent(
         name="search",
         model=BedrockModel(
-            model_id=settings.BEDROCK_OPUS_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
+            model_id=model_id or settings.BEDROCK_OPUS_MODEL,
+            max_tokens=max_tokens or settings.AGENT_MAX_TOKENS_OPUS,
         ),
         system_prompt=inject_persona_preamble(
-            inject_skills(_SEARCH_SYSTEM_PROMPT)
+            inject_skills(prompt)
         ),
-        tools=[
-            find_pieces,
-            explore_collection,
-            side_by_side,
-            style_match,
-            escalate_to_stylist,
-        ],
+        tools=tools,
     )
 
 

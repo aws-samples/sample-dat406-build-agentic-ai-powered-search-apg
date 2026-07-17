@@ -5,11 +5,9 @@
  * persisted workshop chat messages from localStorage and renders the
  * agent_execution payload for a given session id (`?session=<id>`).
  *
- * Contrast with `/workshop`, which hosts the *live* AgentReasoningTraces
- * side panel and listens for `agent-execution-complete` events as they
- * stream. The inspector does not listen — it is the audit view, so it
- * only reflects what was captured up to the point the user navigated
- * here (Audit A option (a) gate).
+ * Unlike the live chat surfaces, the inspector does not listen for
+ * streaming events. It is the audit view, so it only reflects what was
+ * captured up to the point the user navigated here.
  *
  * Link origin: the Concierge modal's trace-ID footer in workshop mode
  * points here with the current session id.

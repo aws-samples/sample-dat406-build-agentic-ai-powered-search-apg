@@ -612,7 +612,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     cards = [
         {
             "id": "marco-floor-check",
-            "act": "Act I",
+            "lab": "Core Lab 1: Build and Trace",
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
             "required": True,
@@ -643,13 +643,17 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "retrieval-comparison",
-            "act": "Act II",
-            "title": "Compare retrieval strategies",
-            "status": _card_status(int(counts.get("catalog_count") or 0) >= 40, "needs_data"),
+            "lab": "Core Lab 2: Measure Retrieval",
+            "title": "Compare Anna's four retrieval strategies",
+            "status": (
+                "available"
+                if int(counts.get("catalog_count") or 0) >= 40
+                else "needs_data"
+            ),
             "required": True,
-            "surface": "Boutique + Aurora",
-            "summary": "Hybrid search, pgvector, full-text search, and rerank are visible for one shopper query.",
-            "evidenceSource": "config.py + pellier.product_catalog",
+            "surface": "Boutique + Code Editor",
+            "summary": "Vector, hybrid RRF, hybrid plus rerank, and Anna's agentic path are ready for one quality, latency, and cost comparison.",
+            "evidenceSource": "search-strategies/compare + pellier.product_catalog",
             "evidence": [
                 f"Catalog rows: {counts.get('catalog_count', 0)}",
                 f"Embedding model: {settings.BEDROCK_EMBEDDING_MODEL}",
@@ -658,22 +662,29 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "fallback": {
                 "label": "Terminal fallback",
                 "command": (
-                    "curl -s 'http://localhost:8000/api/search/explain?q=linen%20travel%20shirt&limit=5'"
+                    "curl -s 'http://localhost:8000/api/atelier/search-strategies/compare"
+                    "?query=A%20milestone%20gift%20for%20a%20new%20homeowner'"
                 ),
             },
             "links": [
-                {"label": "Search", "to": "/atelier/search"},
+                {"label": "Retrieval comparison", "to": "/atelier/performance"},
+                {"label": "Search pipeline", "to": "/atelier/search"},
             ],
         },
         {
             "id": "audit-ledger",
-            "act": "Act II",
+            "lab": "Core Lab 3: Query Evidence",
             "title": "Prove the tool_audit ledger",
-            "status": _card_status(bool(latest_process_return), "needs_run" if latest_audit else "pending"),
+            "status": (
+                "complete"
+                if latest_process_return and latest_governed
+                else "needs_run" if not latest_process_return
+                else "needs_data"
+            ),
             "required": True,
             "surface": "Aurora SQL",
-            "summary": "A write-path action is reconstructible from pellier.tool_audit without depending on a UI panel.",
-            "evidenceSource": "pellier.tool_audit",
+            "summary": "Theo's executed return and the seeded principal-versus-customer mismatch are reconstructible without depending on a UI panel.",
+            "evidenceSource": "pellier.tool_audit + pellier.governed_receipts",
             "lastUpdated": (
                 latest_process_return.get("created_at")
                 if latest_process_return
@@ -690,6 +701,11 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                     if latest_audit
                     else "No audit rows found yet"
                 ),
+                (
+                    f"Latest governed receipt: {latest_governed.get('principal_label')} -> {latest_governed.get('decision')}"
+                    if latest_governed
+                    else "No governed identity receipt found yet"
+                ),
             ],
             "fallback": {
                 "label": "SQL fallback",
@@ -704,9 +720,13 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "runtime-gateway-policy",
-            "act": "Act II",
-            "title": "Inspect Runtime, Gateway, and Policy",
-            "status": _card_status(runtime_configured and gateway_configured and identity_configured, "needs_config"),
+            "lab": "Core Lab 4: Enforce Policy",
+            "title": "Inspect the Gateway and Cedar boundary",
+            "status": (
+                "available"
+                if runtime_configured and gateway_configured and identity_configured
+                else "needs_config"
+            ),
             "required": False,
             "surface": "Managed governance",
             "summary": "Runtime receives the caller JWT, Gateway discovers tools, and Policy defines the Cedar boundary.",
@@ -727,8 +747,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "managed-rail",
-            "act": "Act III",
-            "title": "Fast-finisher managed rail",
+            "lab": "Core Lab 4: Enforce Policy",
+            "title": "Inspect the managed Runtime rail",
             "status": _card_status(bool(managed_receipt.get("present")), "available"),
             "required": False,
             "surface": "Runtime receipt",

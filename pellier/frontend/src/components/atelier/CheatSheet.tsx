@@ -12,9 +12,9 @@ import SectionEyebrow from './SectionEyebrow'
 export interface CheatSheetCell {
   /** Mono small-caps key, shown above the name. */
   key: string
-  /** Italic serif cell name (the distinguishing word — "Agents", "Shape", "Truth"). */
+  /** Semibold cell name (the distinguishing word — "Agents", "Shape", "Truth"). */
   name: string
-  /** Italic serif question in quotes below the name. */
+  /** Supporting question in quotes below the name. */
   question?: ReactNode
   /** Bullet-point list items — supports ReactNode for inline ``<em>``. */
   list: ReactNode[]

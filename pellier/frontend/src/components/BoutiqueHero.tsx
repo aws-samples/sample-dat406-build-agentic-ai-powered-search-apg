@@ -122,7 +122,6 @@ export default function BoutiqueHero() {
   const { openDrawerWithQuery } = useUI()
   const { persona, switchPersona, switching } = usePersona()
   const isSignedIn = Boolean(persona)
-  const showBuilderSessionGap = false
   const suggestions = heroPillsForPersona(persona?.id)
   const becauseChips = becauseChipsForPersona(persona?.id)
   const heroImage = PERSONA_HERO_IMAGES[persona?.id ?? 'fresh'] ?? PERSONA_HERO_IMAGES.fresh
@@ -179,7 +178,7 @@ export default function BoutiqueHero() {
 
   const heroHeadline = splitHeadlineAtRe('Pellier Resort Edit')
 
-  const marcoBuilderSessionBand = false
+  const marcoBuilderSessionBand = persona?.id === 'marco'
 
   return (
     <>
@@ -506,8 +505,6 @@ export default function BoutiqueHero() {
                       >
                         {suggestions.map((query, idx) => {
                           const isMarcoWarehouseExercise =
-                            persona?.id === 'marco' &&
-                            showBuilderSessionGap &&
                             query === MARCO_BUILDER_SESSION_QUERY
                           const label = heroPillLabel(persona?.id, idx, query)
                           return (
@@ -628,8 +625,6 @@ export default function BoutiqueHero() {
                   >
                     {suggestions.map((query, idx) => {
                       const isMarcoWarehouseExercise =
-                        persona?.id === 'marco' &&
-                        showBuilderSessionGap &&
                         query === MARCO_BUILDER_SESSION_QUERY
                       const label = heroPillLabel(persona?.id, idx, query)
                       return (
@@ -726,36 +721,6 @@ export default function BoutiqueHero() {
                     Try asking
                   </div>
 
-                  {false && (persona?.id === 'anna' || persona?.id === 'theo') && (
-                    <p
-                      data-testid="boutique-hero-observe-hint"
-                      className="mx-auto mt-2 max-w-[640px] text-center font-sans"
-                      style={{
-                        fontSize: '15px',
-                        lineHeight: 1.55,
-                        color: 'rgba(31, 20, 16, 0.82)',
-                      }}
-                    >
-                      {persona?.id === 'anna' ? (
-                        <>
-                          Try a gift-ready edit.{' '}
-                          <strong style={{ color: '#1f1410', fontWeight: 600 }}>
-                            Pellier will shortlist
-                          </strong>{' '}
-                          pieces by occasion, budget, and presentation.
-                        </>
-                      ) : (
-                        <>
-                          Try a home ritual edit.{' '}
-                          <strong style={{ color: '#1f1410', fontWeight: 600 }}>
-                            Pellier will consider
-                          </strong>{' '}
-                          care, returns, and post-purchase context.
-                        </>
-                      )}
-                    </p>
-                  )}
-
                   <div
                     data-testid="boutique-hero-pills"
                     className="mt-4 flex flex-wrap justify-center gap-2.5"
@@ -763,34 +728,18 @@ export default function BoutiqueHero() {
                     aria-label="Suggested queries"
                   >
                     {suggestions.map((query, idx) => {
-                      const isMarcoWarehouseExercise =
-                        persona?.id === 'marco' &&
-                        showBuilderSessionGap &&
-                        query === MARCO_BUILDER_SESSION_QUERY
                       const label = heroPillLabel(persona?.id, idx, query)
                       return (
                         <button
                           key={query}
                           type="button"
-                          data-testid={
-                            isMarcoWarehouseExercise
-                              ? 'boutique-hero-pill-marco-builder-session'
-                              : undefined
-                          }
-                          aria-describedby={
-                            isMarcoWarehouseExercise
-                              ? 'boutique-hero-marco-exercise-hint'
-                              : undefined
-                          }
                           aria-label={label === query ? undefined : query}
                           onClick={() => handlePillClick(query)}
                           className={[
                             'rounded-[10px] border transition-all duration-fade ease-out cursor-pointer',
                             'hover:border-[rgba(31,20,16,0.32)] hover:bg-[#f5eddf]',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(31,20,16,0.15)]',
-                            isMarcoWarehouseExercise
-                              ? 'border-dashed border-[rgba(196,69,54,0.55)] bg-[rgba(250,243,232,0.98)]'
-                              : 'border border-[rgba(31,20,16,0.18)]',
+                            'border border-[rgba(31,20,16,0.18)]',
                           ].join(' ')}
                           style={{
                             fontFamily: 'var(--sans)',
@@ -799,9 +748,7 @@ export default function BoutiqueHero() {
                             lineHeight: 1.35,
                             color: '#1f1410',
                             padding: '12px 20px',
-                            background: isMarcoWarehouseExercise
-                              ? 'rgba(255, 252, 247, 0.95)'
-                              : 'var(--cream-warm)',
+                            background: 'var(--cream-warm)',
                             width: '210px',
                             minHeight: '76px',
                             display: 'flex',

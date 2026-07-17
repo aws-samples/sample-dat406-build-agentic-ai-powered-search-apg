@@ -6,6 +6,170 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || ''
 
+export const CHAT_ERROR_CODES = [
+  'policy_denied',
+  'authentication_required',
+  'rate_limited',
+  'request_timeout',
+  'service_unavailable',
+  'invalid_request',
+  'stream_interrupted',
+  'network_error',
+  'request_failed',
+] as const
+
+export type ChatErrorCode = (typeof CHAT_ERROR_CODES)[number]
+
+const CHAT_ERROR_CODE_SET = new Set<string>(CHAT_ERROR_CODES)
+const STREAM_TIMEOUT_MS = 130_000
+
+export class ChatServiceError extends Error {
+  readonly code: ChatErrorCode
+  readonly status?: number
+  readonly retryable: boolean
+  readonly referenceId?: string
+
+  constructor(
+    message: string,
+    options: {
+      code: ChatErrorCode
+      status?: number
+      retryable?: boolean
+      referenceId?: string
+    },
+  ) {
+    super(message)
+    this.name = 'ChatServiceError'
+    this.code = options.code
+    this.status = options.status
+    this.retryable = options.retryable ?? isRetryableCode(options.code)
+    this.referenceId = options.referenceId
+  }
+}
+
+function isRetryableCode(code: ChatErrorCode): boolean {
+  return !['policy_denied', 'authentication_required', 'invalid_request'].includes(
+    code,
+  )
+}
+
+function isChatErrorCode(value: unknown): value is ChatErrorCode {
+  return typeof value === 'string' && CHAT_ERROR_CODE_SET.has(value)
+}
+
+function inferErrorCode(detail: string, status?: number): ChatErrorCode {
+  const normalized = detail.toLowerCase()
+  const policyMarkers = [
+    'authorizeactionexception',
+    'accessdeniedexception',
+    'explicit deny',
+    'not authorized',
+    'authorization failed',
+    'not allowed due to policy',
+    'policy enforcement',
+    'access denied by policy',
+  ]
+  if (policyMarkers.some(marker => normalized.includes(marker))) {
+    return 'policy_denied'
+  }
+  if (
+    status === 401 ||
+    status === 403 ||
+    normalized.includes('invalid bearer') ||
+    normalized.includes('expired token') ||
+    normalized.includes('token expired') ||
+    normalized.includes('401 unauthorized')
+  ) {
+    return 'authentication_required'
+  }
+  if (
+    status === 429 ||
+    normalized.includes('throttlingexception') ||
+    normalized.includes('rate limit') ||
+    normalized.includes('too many requests')
+  ) {
+    return 'rate_limited'
+  }
+  if (
+    status === 408 ||
+    status === 504 ||
+    normalized.includes('timed out') ||
+    normalized.includes('timeout')
+  ) {
+    return 'request_timeout'
+  }
+  if (
+    status === 503 ||
+    (status !== undefined && status >= 500) ||
+    normalized.includes('service unavailable') ||
+    normalized.includes('connection refused')
+  ) {
+    return 'service_unavailable'
+  }
+  if (status === 400 || status === 404 || status === 422) {
+    return 'invalid_request'
+  }
+  return 'request_failed'
+}
+
+function messageFromPayload(payload: unknown): string {
+  if (typeof payload === 'string') return payload
+  if (!payload || typeof payload !== 'object') return ''
+  const record = payload as Record<string, unknown>
+  for (const key of ['detail', 'message', 'error']) {
+    if (typeof record[key] === 'string') return record[key]
+  }
+  return ''
+}
+
+async function errorFromResponse(response: Response): Promise<ChatServiceError> {
+  let payload: unknown = null
+  let raw = ''
+  try {
+    raw = await response.text()
+    payload = raw ? JSON.parse(raw) : null
+  } catch {
+    payload = raw
+  }
+  const detail = messageFromPayload(payload) || `HTTP ${response.status}`
+  return new ChatServiceError(detail, {
+    code: inferErrorCode(detail, response.status),
+    status: response.status,
+  })
+}
+
+function errorFromStreamEvent(data: Record<string, unknown>): ChatServiceError {
+  const detail = messageFromPayload(data) || 'The response stream failed.'
+  const code = isChatErrorCode(data.code)
+    ? data.code
+    : inferErrorCode(detail)
+  return new ChatServiceError(detail, {
+    code,
+    retryable:
+      typeof data.retryable === 'boolean' ? data.retryable : undefined,
+    referenceId:
+      typeof data.reference_id === 'string' ? data.reference_id : undefined,
+  })
+}
+
+export function normalizeChatError(error: unknown): ChatServiceError {
+  if (error instanceof ChatServiceError) return error
+  if (error instanceof Error && error.name === 'AbortError') {
+    return new ChatServiceError('The response stream timed out.', {
+      code: 'request_timeout',
+    })
+  }
+  if (error instanceof TypeError) {
+    return new ChatServiceError(error.message || 'Network request failed.', {
+      code: 'network_error',
+    })
+  }
+  const detail = error instanceof Error ? error.message : String(error || '')
+  return new ChatServiceError(detail || 'The request failed.', {
+    code: inferErrorCode(detail),
+  })
+}
+
 /**
  * Get or create session ID for conversation persistence
  */
@@ -108,11 +272,15 @@ export async function sendChatMessageStreaming(
   customerId?: string | null,
   pattern?: 'dispatcher' | 'agents_as_tools' | 'graph' | null,
 ): Promise<ChatResponse> {
+  const controller = new AbortController()
+  const timeout = globalThis.setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
       method: 'POST',
       credentials: 'include',
       headers: getAuthHeaders(),
+      signal: controller.signal,
       body: JSON.stringify({
         message: query,
         conversation_history: conversationHistory.map(msg => ({
@@ -128,64 +296,87 @@ export async function sendChatMessageStreaming(
     })
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`)
+      throw await errorFromResponse(response)
     }
 
     const reader = response.body?.getReader()
+    if (!reader) {
+      throw new ChatServiceError('The response did not include a stream.', {
+        code: 'stream_interrupted',
+      })
+    }
+
     const decoder = new TextDecoder()
     let finalResponse: ChatResponse | null = null
     let lastContent = ''
+    let streamError: ChatServiceError | null = null
 
-    if (reader) {
-      let buffer = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+    const processLine = (line: string) => {
+      if (!line.startsWith('data:')) return
 
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
+      let data: Record<string, any>
+      try {
+        data = JSON.parse(line.slice(5).trimStart())
+      } catch {
+        return
+      }
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              onUpdate(data)
+      onUpdate(data)
+      if (data.type === 'error') {
+        streamError = errorFromStreamEvent(data)
+        return
+      }
 
-              // Track content updates
-              if (data.type === 'content') {
-                lastContent = data.content
-              } else if (data.type === 'content_delta') {
-                lastContent += data.delta
-              }
-
-              if (data.type === 'complete') {
-                finalResponse = {
-                  response: data.response?.response,
-                  products: data.response?.products || [],
-                  suggestions: data.response?.suggestions || [],
-                  agent_execution: data.response?.agent_execution,
-                  token_count: data.response?.token_count,
-                  estimated_cost_usd: data.response?.estimated_cost_usd,
-                  cost_breakdown: data.response?.cost_breakdown
-                }
-              }
-            } catch {
-              // Partial data, will be completed in next chunk
-            }
-          }
+      if (data.type === 'content') {
+        lastContent = data.content
+      } else if (data.type === 'content_delta') {
+        lastContent += data.delta
+      } else if (data.type === 'complete') {
+        finalResponse = {
+          response: data.response?.response,
+          products: data.response?.products || [],
+          suggestions: data.response?.suggestions || [],
+          agent_execution: data.response?.agent_execution,
+          orchestrator_enabled: data.response?.orchestrator_enabled,
+          token_count: data.response?.token_count,
+          estimated_cost_usd: data.response?.estimated_cost_usd,
+          cost_breakdown: data.response?.cost_breakdown,
         }
       }
     }
 
-    return finalResponse || {
-      response: lastContent || 'Response completed',
-      products: [],
-      suggestions: []
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      lines.forEach(processLine)
+      if (streamError) {
+        await reader.cancel()
+        throw streamError
+      }
     }
+
+    buffer += decoder.decode()
+    if (buffer.trim()) processLine(buffer)
+    if (streamError) throw streamError
+    if (!finalResponse) {
+      throw new ChatServiceError(
+        lastContent
+          ? 'The response stream ended before it was confirmed complete.'
+          : 'The response stream ended without a result.',
+        { code: 'stream_interrupted' },
+      )
+    }
+
+    return finalResponse
   } catch (error) {
-    console.error('Streaming chat error:', error)
-    throw error
+    throw normalizeChatError(error)
+  } finally {
+    globalThis.clearTimeout(timeout)
   }
 }
 
@@ -209,7 +400,7 @@ export async function sendChatMessage(query: string, conversationHistory: ChatMe
     })
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`)
+      throw await errorFromResponse(response)
     }
 
     const data = await response.json()
@@ -240,8 +431,7 @@ export async function sendChatMessage(query: string, conversationHistory: ChatMe
       agent_execution: data.agent_execution
     }
   } catch (error) {
-    console.error('Chat API error:', error)
-    throw error
+    throw normalizeChatError(error)
   }
 }
 
@@ -279,24 +469,61 @@ function generateSmartSuggestions(query: string, products: ChatProduct[]): strin
     return suggestions.slice(0, 3)
   }
   
-  // Query-type based fallbacks (no products returned)
-  if (lowerQuery.includes('watch') || lowerQuery.includes('rolex') || lowerQuery.includes('time')) {
-    return ['Luxury watches under $500', 'Best everyday watches', 'Show all watches']
-  }
-  
-  if (lowerQuery.includes('laptop') || lowerQuery.includes('macbook') || lowerQuery.includes('computer')) {
-    return ['Best for programming', 'Lightweight laptops', 'Show all laptops']
-  }
-  
-  if (lowerQuery.includes('phone') || lowerQuery.includes('iphone') || lowerQuery.includes('samsung')) {
-    return ['Latest smartphones', 'Best phone under $300', 'Show all smartphones']
+  // Catalog-aware fallbacks when a turn returns no product artifacts.
+  if (
+    lowerQuery.includes('gift') ||
+    lowerQuery.includes('birthday') ||
+    lowerQuery.includes('housewarming')
+  ) {
+    return [
+      'Keep the gift under $100',
+      'Show gift-ready pieces',
+      'Find something made to last',
+    ]
   }
 
-  if (lowerQuery.includes('shoe') || lowerQuery.includes('sneaker') || lowerQuery.includes('nike')) {
-    return ['Running shoes under $100', 'Best rated sneakers', 'Show all shoes']
+  if (
+    lowerQuery.includes('linen') ||
+    lowerQuery.includes('travel') ||
+    lowerQuery.includes('shirt')
+  ) {
+    return [
+      'Show lighter layers',
+      'Keep the edit under $150',
+      'Check current availability',
+    ]
   }
-  
-  return ["What's trending?", 'Best rated under $50', 'Show me something surprising']
+
+  if (
+    lowerQuery.includes('home') ||
+    lowerQuery.includes('ceramic') ||
+    lowerQuery.includes('candle') ||
+    lowerQuery.includes('table')
+  ) {
+    return [
+      'Show pieces for the table',
+      'Keep it under $100',
+      'What is in stock now?',
+    ]
+  }
+
+  if (
+    lowerQuery.includes('return') ||
+    lowerQuery.includes('refund') ||
+    lowerQuery.includes('exchange')
+  ) {
+    return [
+      'Check my recent order',
+      'Explain the return window',
+      'Connect me with a stylist',
+    ]
+  }
+
+  return [
+    "What's new this week?",
+    'Thoughtful picks under $100',
+    'Show me something unexpected',
+  ]
 }
 
 /**

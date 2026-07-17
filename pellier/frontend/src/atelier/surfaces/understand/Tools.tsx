@@ -134,10 +134,11 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
       >
         <h3
           style={{
-            fontFamily: 'var(--at-serif)',
-            fontWeight: 400,
-            fontSize: '24px',
-            letterSpacing: '-0.012em',
+            fontFamily: 'var(--at-heading)',
+            fontWeight: 600,
+            fontSize: '22px',
+            lineHeight: 1.25,
+            letterSpacing: 0,
             color: 'var(--at-ink-1)',
             margin: 0,
           }}
@@ -149,12 +150,12 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
         </h3>
         <span
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.22em',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '11.5px',
+            letterSpacing: '0.06em',
             textTransform: 'uppercase' as const,
             color: 'var(--at-ink-2)',
-            fontWeight: 500,
+            fontWeight: 600,
           }}
         >
           Live endpoint
@@ -196,8 +197,10 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
             disabled={loading}
             onClick={() => runExample(ex.query)}
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '12px',
+              fontFamily: 'var(--at-heading)',
+              fontSize: '12.5px',
+              fontWeight: 500,
+              letterSpacing: 0,
               padding: '5px 12px',
               borderRadius: '999px',
               border: '1px solid var(--at-rule-2)',
@@ -226,12 +229,12 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
         >
           <span
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '11px',
-              letterSpacing: '0.22em',
+              fontFamily: 'var(--at-heading)',
+              fontSize: '11.5px',
+              letterSpacing: '0.06em',
               textTransform: 'uppercase' as const,
               color: 'var(--at-red-1)',
-              fontWeight: 500,
+              fontWeight: 600,
               flexShrink: 0,
             }}
           >
@@ -258,11 +261,11 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
             type="submit"
             disabled={loading || !query.trim()}
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '12px',
-              letterSpacing: '0.18em',
+              fontFamily: 'var(--at-heading)',
+              fontSize: '12.5px',
+              letterSpacing: 0,
               textTransform: 'uppercase' as const,
-              fontWeight: 500,
+              fontWeight: 600,
               color: 'var(--at-cream-1)',
               backgroundColor: loading
                 ? 'var(--at-ink-4)'
@@ -334,7 +337,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
               {/* Rank */}
               <span
                 style={{
-                  fontFamily: 'var(--at-serif)',
+                  fontFamily: 'var(--at-heading)',
                   fontSize: '17px',
                   color: 'var(--at-red-1)',
                 }}
@@ -360,11 +363,11 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
               {/* Status */}
               <span
                 style={{
-                  fontFamily: 'var(--at-mono)',
-                  fontSize: '11px',
-                  letterSpacing: '0.16em',
+                  fontFamily: 'var(--at-heading)',
+                  fontSize: '11.5px',
+                  letterSpacing: '0.04em',
                   textTransform: 'uppercase' as const,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   color:
                     result.status === 'shipped'
                       ? 'var(--at-green-1)'
@@ -399,8 +402,8 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
       {usedOfflineFallback && results.length > 0 && (
         <p
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '12px',
+            fontFamily: 'var(--at-sans)',
+            fontSize: '12.5px',
             color: 'var(--at-ink-4)',
             margin: '0 0 8px',
           }}
@@ -541,7 +544,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
         {/* Numeral */}
         <span
           style={{
-            fontFamily: 'var(--at-serif)',
+            fontFamily: 'var(--at-heading)',
             fontWeight: 400,
             fontSize: '24px',
             color: 'var(--at-red-1)',
@@ -606,9 +609,9 @@ const ToolRow: React.FC<ToolRowProps> = ({
           {tool.mutationType === 'write' && (
             <span
               style={{
-                fontFamily: 'var(--at-mono)',
-                fontSize: '10px',
-                letterSpacing: '0.22em',
+                fontFamily: 'var(--at-heading)',
+                fontSize: '10.5px',
+                letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 color: 'var(--at-cream-1)',
                 backgroundColor: 'var(--at-red-1)',
@@ -680,13 +683,13 @@ const ToolRow: React.FC<ToolRowProps> = ({
           >
             <span
               style={{
-                fontFamily: 'var(--at-mono)',
+                fontFamily: 'var(--at-heading)',
                 fontSize: '11px',
-                letterSpacing: '0.22em',
+                letterSpacing: '0.06em',
                 textTransform: 'uppercase' as const,
                 color: 'var(--at-ink-2)',
                 marginRight: '4px',
-                fontWeight: 500,
+                fontWeight: 600,
               }}
             >
               Used by
@@ -695,7 +698,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
               <span
                 key={agent}
                 style={{
-                  fontFamily: 'var(--at-serif)',
+                  fontFamily: 'var(--at-heading)',
                   fontSize: '13px',
                   padding: '2px 9px',
                   background: isExercise
@@ -771,9 +774,9 @@ const ToolRow: React.FC<ToolRowProps> = ({
               onTryDiscovery();
             }}
             style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '11px',
-              letterSpacing: '0.14em',
+              fontFamily: 'var(--at-heading)',
+              fontSize: '12px',
+              letterSpacing: 0,
               textTransform: 'uppercase',
               fontWeight: 600,
               color: 'var(--at-cream-1)',
@@ -808,9 +811,10 @@ const ToolFilterBar: React.FC<{
   >
     <span
       style={{
-        fontFamily: 'var(--at-mono)',
-        fontSize: '11px',
-        letterSpacing: '0.18em',
+        fontFamily: 'var(--at-heading)',
+        fontSize: '11.5px',
+        fontWeight: 600,
+        letterSpacing: '0.06em',
         textTransform: 'uppercase',
         color: 'var(--at-ink-4)',
         marginRight: '4px',
@@ -826,8 +830,10 @@ const ToolFilterBar: React.FC<{
           type="button"
           onClick={() => onChange(opt.id)}
           style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '12px',
+            fontFamily: 'var(--at-heading)',
+            fontSize: '12.5px',
+            fontWeight: active ? 600 : 500,
+            letterSpacing: 0,
             padding: '5px 12px',
             borderRadius: '999px',
             border: active ? '1px solid var(--at-ink-1)' : '1px solid var(--at-rule-2)',
@@ -875,10 +881,10 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
           <Eyebrow label="Agents & tools" variant="muted" />
           <h3
             style={{
-              fontFamily: 'var(--at-serif)',
-              fontWeight: 400,
+              fontFamily: 'var(--at-heading)',
+              fontWeight: 600,
               fontSize: '24px',
-              letterSpacing: '-0.012em',
+              letterSpacing: 0,
               lineHeight: 1.15,
               color: 'var(--at-ink-1)',
               margin: '9px 0 0',
@@ -903,9 +909,10 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
             <span
               key={label}
               style={{
-                fontFamily: 'var(--at-mono)',
-                fontSize: '11px',
-                letterSpacing: '0.14em',
+                fontFamily: 'var(--at-heading)',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
                 textTransform: 'uppercase',
                 color: 'var(--at-ink-2)',
                 border: '1px solid var(--at-rule-2)',
@@ -972,7 +979,7 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
                   </span>
                   <h4
                     style={{
-                      fontFamily: 'var(--at-serif)',
+                      fontFamily: 'var(--at-heading)',
                       fontWeight: 400,
                       fontSize: '19px',
                       lineHeight: 1.1,
@@ -1104,7 +1111,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '22px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -1163,7 +1170,7 @@ const EmptyState: React.FC = () => (
     <Eyebrow label="No tools" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',

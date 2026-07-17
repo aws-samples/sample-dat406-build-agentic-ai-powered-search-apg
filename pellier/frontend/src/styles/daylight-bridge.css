@@ -62,9 +62,11 @@
 
   /* ---- Type stacks --------------------------------------------- */
   /* --dl-font-* stacks are self-hosted (see main.tsx + daylight-tokens). */
-  --serif: var(--dl-font-serif);
-  --sans:  var(--dl-font-sans);
-  --mono:  var(--dl-font-mono);
+  --display: var(--dl-font-display);
+  --heading: var(--dl-font-heading);
+  --serif:   var(--dl-font-serif);
+  --sans:    var(--dl-font-sans);
+  --mono:    var(--dl-font-mono);
 
   /* ---- Atelier aliases (--at-* family) ------------------------- */
   --at-cream-1:    var(--dl-bg);
@@ -86,7 +88,9 @@
   --at-espresso-2: #2a2724;
 
   /* Type aliases for the Atelier */
-  --at-serif: var(--dl-font-serif);
-  --at-sans:  var(--dl-font-sans);
-  --at-mono:  var(--dl-font-mono);
+  --at-display: var(--dl-font-display);
+  --at-heading: var(--dl-font-heading);
+  --at-serif:   var(--dl-font-serif);
+  --at-sans:    var(--dl-font-sans);
+  --at-mono:    var(--dl-font-mono);
 }

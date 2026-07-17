@@ -18,11 +18,15 @@ import type { CartItemOrigin } from '../contexts/CartContext'
 import MarkdownMessage from './MarkdownMessage'
 import ProductArtifactCard from './ProductArtifactCard'
 import StylistHandoffCard from './StylistHandoffCard'
+import ChatFailureCard from './ChatFailureCard'
+import TurnReceipt from './TurnReceipt'
 import { TraceChip } from '../shared/TraceChip'
 import { resolveCover } from './BoutiqueWelcome'
 import { PERSONA_HERO_PILLS } from '../data/personaCurations'
 import { useCatalogStats } from '../hooks/useCatalogStats'
 import { imageSrc } from '../utils/assetPath'
+import { catalogTurnFollowUps } from '../utils/catalogFollowUps'
+import { CHAT_TRUST } from '../copy'
 import '../styles/boutique-chat.css'
 import '../styles/boutique-welcome.css'
 
@@ -33,6 +37,9 @@ import '../styles/boutique-welcome.css'
 interface BoutiqueChatBodyProps {
   messages: AgentChatMessage[]
   sendMessage: (text?: string) => Promise<void>
+  retryMessage: (text: string) => Promise<void>
+  onEditRequest: (text: string) => void
+  onAuthenticate: () => void
   addToCart: (item: {
     productId: number
     name: string
@@ -155,9 +162,14 @@ const FOLLOWUPS_BY_PERSONA: Record<string, string[]> = {
   fresh: PERSONA_HERO_PILLS.fresh.slice(1),
 }
 
-function followupsForPersona(persona?: PersonaSnapshot | null): string[] {
-  if (!persona) return FOLLOWUPS_BY_PERSONA.fresh
-  return FOLLOWUPS_BY_PERSONA[persona.id] ?? FOLLOWUPS_BY_PERSONA.fresh
+function followupsForMessage(
+  message: AgentChatMessage,
+  persona?: PersonaSnapshot | null,
+): string[] {
+  const fallback = persona
+    ? FOLLOWUPS_BY_PERSONA[persona.id] ?? FOLLOWUPS_BY_PERSONA.fresh
+    : FOLLOWUPS_BY_PERSONA.fresh
+  return catalogTurnFollowUps(message.products ?? [], fallback)
 }
 
 // Time-of-day helper for cover eyebrow resolution. Duplicated from
@@ -203,6 +215,9 @@ function PersonaCoverBanner({ persona }: { persona: PersonaSnapshot | null }) {
 export default function BoutiqueChatBody({
   messages,
   sendMessage,
+  retryMessage,
+  onEditRequest,
+  onAuthenticate,
   addToCart,
   persona,
 }: BoutiqueChatBodyProps) {
@@ -234,6 +249,9 @@ export default function BoutiqueChatBody({
                 persona={persona}
                 isLastAssistantMessage={index === lastAssistantIndex}
                 onFollowUp={(text) => void sendMessage(text)}
+                onRetry={(text) => void retryMessage(text)}
+                onEditRequest={onEditRequest}
+                onAuthenticate={onAuthenticate}
               />
             )}
           </motion.div>
@@ -264,12 +282,18 @@ function AgentMessage({
   message,
   addToCart,
   onFollowUp,
+  onRetry,
+  onEditRequest,
+  onAuthenticate,
   persona,
   isLastAssistantMessage,
 }: {
   message: AgentChatMessage
   addToCart: BoutiqueChatBodyProps['addToCart']
   onFollowUp: (text: string) => void
+  onRetry: (text: string) => void
+  onEditRequest: (text: string) => void
+  onAuthenticate: () => void
   persona: PersonaSnapshot | null
   isLastAssistantMessage: boolean
 }) {
@@ -300,7 +324,9 @@ function AgentMessage({
       .values(),
   )
   const loadedSkills = message.skillRouting?.loaded_skills ?? []
-  const hasAttribution = loadedSkills.length > 0 || dedupedToolCalls.length > 0
+  const traceReference = message.agentExecution?.trace_id ?? undefined
+  const hasAttribution =
+    loadedSkills.length > 0 || dedupedToolCalls.length > 0 || !!traceReference
   const attributionSummary = [
     loadedSkills.length > 0
       ? `${loadedSkills.length} specialty edit${loadedSkills.length === 1 ? '' : 's'}`
@@ -308,6 +334,7 @@ function AgentMessage({
     dedupedToolCalls.length
       ? `${dedupedToolCalls.length} check${dedupedToolCalls.length === 1 ? '' : 's'}`
       : null,
+    traceReference ? 'recorded' : null,
   ].filter(Boolean).join(' · ')
   const durationSec = message.agentExecution?.total_duration_ms
     ? (message.agentExecution.total_duration_ms / 1000).toFixed(1)
@@ -319,7 +346,6 @@ function AgentMessage({
     orderedProducts.length > 0
       ? emphasizeProductMentionsAndPrices(message.content, orderedProducts)
       : message.content
-
   return (
     <div className="ec-msg-agent">
       {/* Eyebrow */}
@@ -339,7 +365,7 @@ function AgentMessage({
             onClick={() => setAttributionOpen((open) => !open)}
           >
             <span className="ec-worked-dot" aria-hidden="true" />
-            <span className="ec-worked-title">Match details</span>
+            <span className="ec-worked-title">{CHAT_TRUST.MATCH_DETAILS}</span>
             <span className="ec-worked-summary">{attributionSummary}</span>
             <span className={`ec-worked-chevron ${attributionOpen ? 'ec-worked-chevron-open' : ''}`}>
               &#x25BE;
@@ -387,9 +413,27 @@ function AgentMessage({
                   </div>
                 </div>
               )}
+
+              {traceReference && (
+                <div className="ec-worked-section">
+                  <div className="ec-worked-section-label">
+                    {CHAT_TRUST.TURN_RECEIPT}
+                  </div>
+                  <TurnReceipt reference={traceReference} />
+                </div>
+              )}
             </div>
           )}
         </div>
+      )}
+
+      {message.failure && (
+        <ChatFailureCard
+          failure={message.failure}
+          onRetry={onRetry}
+          onEditRequest={onEditRequest}
+          onAuthenticate={onAuthenticate}
+        />
       )}
 
       {/* Thinking state — inline dots when no reasoning yet */}
@@ -431,17 +475,10 @@ function AgentMessage({
         </div>
       )}
 
-      {/* Message body.
-       *
-       * Streaming cursor intentionally omitted — the prose itself grows
-       * in place which is enough of a tell. Adding a caret on top
-       * produced a distracting blink that didn't match the Claude
-       * desktop feel. The `ec-msg-streaming` class still applies its
-       * subtle breathing animation.
-       */}
+      {/* Message body grows phrase by phrase with a restrained editorial caret. */}
       {message.content && (
         <div className={`ec-msg-body ${isStreaming ? 'ec-msg-streaming' : ''}`}>
-          <MarkdownMessage content={displayContent} />
+          <MarkdownMessage content={displayContent} streaming={isStreaming} />
         </div>
       )}
 
@@ -489,9 +526,9 @@ function AgentMessage({
       )}
 
       {/* Follow-up chips */}
-      {isComplete && isLastAssistantMessage && (
+      {isComplete && isLastAssistantMessage && !message.failure && (
         <div className="ec-followups">
-          {followupsForPersona(persona).map((chip) => (
+          {followupsForMessage(message, persona).map((chip) => (
             <button
               key={chip}
               type="button"

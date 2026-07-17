@@ -401,16 +401,18 @@
   letter-spacing: inherit;
 }
 
-/* Streaming body — the prose grows in place, no cursor. We keep a
- * whisper of a breathing animation so the bubble feels live during
- * long tool-call pauses; the amplitude is small enough not to read
- * as motion while text is actually landing. */
+/* Streaming body — phrase-level prose with a restrained editorial caret. */
 .ec-msg-streaming {
   animation: streaming-breathe 2.4s ease-in-out infinite;
 }
 @keyframes streaming-breathe {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.96; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ec-msg-streaming {
+    animation: none;
+  }
 }
 
 /* Product artifacts stack */

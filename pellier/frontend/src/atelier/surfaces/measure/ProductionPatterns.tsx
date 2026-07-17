@@ -118,11 +118,12 @@ const PatternHeader: React.FC<{ pattern: ProductionPattern }> = ({ pattern }) =>
         <StatusPill shipped={pattern.shipped} />
       </div>
       <h2
-        className="font-display"
         style={{
+          fontFamily: 'var(--at-heading)',
           fontSize: '28px',
-          fontWeight: 400,
+          fontWeight: 600,
           lineHeight: 1.15,
+          letterSpacing: 0,
           color: 'var(--at-ink-1)',
           margin: 0,
         }}
@@ -131,7 +132,7 @@ const PatternHeader: React.FC<{ pattern: ProductionPattern }> = ({ pattern }) =>
       </h2>
       <p
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '17px',
           color: 'var(--at-ink-2)',
           marginTop: '6px',
@@ -637,7 +638,7 @@ const ToolPublishingCard: React.FC<{ pattern: ToolPublishingPattern }> = ({
             </p>
             <p
               style={{
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 fontSize: '13px',
                 color: 'var(--at-ink-2)',
                 marginTop: '6px',
@@ -713,7 +714,7 @@ const ErrorState: React.FC<{ message: string; onRetry: () => void }> = ({
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '22px',
         color: 'var(--at-ink-1)',
         marginTop: '16px',

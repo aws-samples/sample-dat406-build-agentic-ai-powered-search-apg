@@ -43,7 +43,7 @@ const STEPS: SpotlightStep[] = [
     numeral: 'III',
     kicker: 'On the right',
     headline: 'The reasoning',
-    body: "Start with Observatory, then follow the act cards into Proof Board, Architecture, and Routing only when the lab asks for that checkpoint.",
+    body: "Start with Proof Board, then follow the Core Lab map to the one Atelier view named by the workshop. Memory and Routing remain optional.",
   },
 ]
 

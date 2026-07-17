@@ -3,6 +3,55 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
+function createMemoryStorage(): Storage {
+  const values = new Map<string, string>()
+
+  return {
+    get length() {
+      return values.size
+    },
+    clear() {
+      values.clear()
+    },
+    getItem(key: string) {
+      return values.get(String(key)) ?? null
+    },
+    key(index: number) {
+      return Array.from(values.keys())[index] ?? null
+    },
+    removeItem(key: string) {
+      values.delete(String(key))
+    },
+    setItem(key: string, value: string) {
+      values.set(String(key), String(value))
+    },
+  }
+}
+
+// Node 26 exposes incomplete Web Storage globals unless it is started with
+// --localstorage-file. Install browser-shaped stores before application modules
+// load so Vitest consistently uses jsdom semantics on every supported Node.
+const localStorageStub = createMemoryStorage()
+const sessionStorageStub = createMemoryStorage()
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: localStorageStub,
+})
+Object.defineProperty(globalThis, 'sessionStorage', {
+  configurable: true,
+  value: sessionStorageStub,
+})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: localStorageStub,
+  })
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    value: sessionStorageStub,
+  })
+}
+
 // ResizeObserver polyfill — jsdom doesn't ship one. react-resizable-panels
 // calls ``new ResizeObserver(...)`` from Group's mount effect, which
 // throws "n is not a constructor" in tests without this shim. Minimal
@@ -33,4 +82,6 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 
 afterEach(() => {
   cleanup()
+  localStorageStub.clear()
+  sessionStorageStub.clear()
 })

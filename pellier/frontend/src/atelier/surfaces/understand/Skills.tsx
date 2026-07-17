@@ -156,7 +156,7 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
       <Eyebrow label="Live skill router · Sonnet 5" />
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '24px',
           fontWeight: 400,
           margin: '6px 0 14px',
@@ -530,7 +530,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
     <div style={{ display: 'grid', gridTemplateColumns: '38px 1fr auto', gap: '14px', alignItems: 'baseline', marginBottom: '14px' }}>
       <span
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '30px',
           color: 'var(--at-red-1)',
           letterSpacing: '-0.02em',
@@ -541,7 +541,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
       </span>
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontWeight: 400,
           fontSize: '24px',
           letterSpacing: '-0.012em',

@@ -14,6 +14,7 @@ import { addRecentlyViewed } from '../utils/recentlyViewed'
 import { type AgentType } from '../utils/agentIdentity'
 import { cssVar as c } from '../design/cssVars'
 import { imageSrc as resolveImageSrc } from '../utils/assetPath'
+import { productQuickActions } from '../utils/catalogFollowUps'
 
 interface Product {
   id: number
@@ -85,17 +86,8 @@ const ProductCardConcierge = ({
     if (rankIndex <= 2) return 'Strong match'
     return 'Related'
   })()
-  const categorySignal = `${product.category ?? ''} ${product.name ?? ''}`.toLowerCase()
-  const isApparelLike =
-    /shirt|tee|dress|trouser|pants|pant|jacket|coat|overshirt|sweater|knit|wardrobe|wear/.test(
-      categorySignal,
-    )
-  const swapLabel = isApparelLike ? 'Swap size/color' : 'Swap color'
+  const quickActions = productQuickActions(product)
   const productName = (product.name || 'this piece').trim()
-  const swapPrompt = isApparelLike
-    ? `Show ${productName} in another size or color.`
-    : `Show ${productName} in another color.`
-  const alternativesPrompt = `Show alternatives to ${productName} at a similar style and price.`
   const whyMatchPrompt = `Why is ${productName} a ${matchLabel.toLowerCase()} match for this request?`
 
   return (
@@ -229,30 +221,21 @@ const ProductCardConcierge = ({
         )}
         {onPrompt && (
           <div className="flex flex-wrap gap-1.5 mt-1">
-            <button
-              type="button"
-              onClick={() => onPrompt(swapPrompt)}
-              className="px-2 py-1 rounded-full text-[10px] transition-colors"
-              style={{
-                border: '1px solid rgba(45, 24, 16, 0.14)',
-                background: 'rgba(45, 24, 16, 0.03)',
-                color: c.ink2,
-              }}
-            >
-              {swapLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() => onPrompt(alternativesPrompt)}
-              className="px-2 py-1 rounded-full text-[10px] transition-colors"
-              style={{
-                border: '1px solid rgba(45, 24, 16, 0.14)',
-                background: 'rgba(45, 24, 16, 0.03)',
-                color: c.ink2,
-              }}
-            >
-              Show alternatives
-            </button>
+            {quickActions.slice(0, 2).map(action => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => onPrompt(action.prompt)}
+                className="px-2 py-1 rounded-full text-[10px] transition-colors"
+                style={{
+                  border: '1px solid rgba(45, 24, 16, 0.14)',
+                  background: 'rgba(45, 24, 16, 0.03)',
+                  color: c.ink2,
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
             <button
               type="button"
               onClick={() => onPrompt(whyMatchPrompt)}

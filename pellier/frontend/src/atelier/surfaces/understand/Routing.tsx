@@ -161,7 +161,7 @@ const RoutingCard: React.FC<RoutingCardProps> = ({
         >
           <span
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontWeight: 400,
               fontSize: '30px',
               color: 'var(--at-red-1)',
@@ -173,7 +173,7 @@ const RoutingCard: React.FC<RoutingCardProps> = ({
           </span>
           <h3
             style={{
-              fontFamily: 'var(--at-serif)',
+              fontFamily: 'var(--at-heading)',
               fontWeight: 400,
               fontSize: '24px',
               letterSpacing: '-0.012em',
@@ -337,7 +337,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
     <Eyebrow label="Something went wrong" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '22px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -396,7 +396,7 @@ const EmptyState: React.FC = () => (
     <Eyebrow label="No patterns" variant="muted" />
     <p
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         lineHeight: 1.35,
         color: 'var(--at-ink-1)',
@@ -494,7 +494,7 @@ const StorefrontProductionCard: React.FC = () => (
     <Eyebrow label="Storefront production · e-commerce concierge" />
     <h3
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         fontWeight: 400,
         margin: '6px 0 14px',
@@ -568,7 +568,7 @@ const DispatcherIntentCard: React.FC = () => (
     <Eyebrow label="Active dispatcher · intent → specialist" />
     <h3
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         fontWeight: 400,
         margin: '6px 0 14px',
@@ -640,7 +640,7 @@ const DispatcherIntentCard: React.FC = () => (
               style={{
                 padding: '10px',
                 borderBottom: '1px solid var(--at-card-border)',
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 color: 'var(--at-ink-1)',
                 whiteSpace: 'nowrap' as const,
               }}
@@ -743,7 +743,7 @@ const LangGraphComparisonCard: React.FC = () => (
     <Eyebrow label="Reference · when routing gets heavier" />
     <h3
       style={{
-        fontFamily: 'var(--at-serif)',
+        fontFamily: 'var(--at-heading)',
         fontSize: '24px',
         fontWeight: 400,
         margin: '6px 0 14px',
@@ -819,7 +819,7 @@ const LangGraphComparisonCard: React.FC = () => (
               style={{
                 padding: '10px',
                 borderBottom: '1px solid var(--at-card-border)',
-                fontFamily: 'var(--at-serif)',
+                fontFamily: 'var(--at-heading)',
                 color: 'var(--at-ink-1)',
                 verticalAlign: 'top' as const,
               }}
@@ -940,7 +940,7 @@ const Routing: React.FC = () => {
             >
               Boutique sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
               buttons to compare where the other patterns would fit. The required
-              Act III proof is the Gateway/Cedar rail, not this comparison.
+              Core Lab 4 proof is the Gateway/Cedar rail, not this comparison.
             </p>
             <ModeStrip
               patterns={patterns.map((p) => p.name)}

@@ -43,9 +43,9 @@ const PillarCard: React.FC<PillarCardProps> = ({ verb, title, description }) => 
   >
     <div
       style={{
-        fontFamily: 'var(--at-mono)',
-        fontSize: '10.5px',
-        letterSpacing: '0.22em',
+        fontFamily: 'var(--at-heading)',
+        fontSize: '11px',
+        letterSpacing: '0.08em',
         textTransform: 'uppercase',
         color: 'var(--at-red-1)',
         fontWeight: 600,
@@ -54,10 +54,10 @@ const PillarCard: React.FC<PillarCardProps> = ({ verb, title, description }) => 
       {verb}
     </div>
     <div
-      className="font-display italic text-espresso"
       style={{
+        fontFamily: 'var(--at-heading)',
         fontSize: 'clamp(18px, 1.8vw, 22px)',
-        fontWeight: 400,
+        fontWeight: 600,
         letterSpacing: 0,
         lineHeight: 1.2,
       }}
@@ -159,9 +159,9 @@ export const AtelierWelcome: React.FC = () => {
         />
         <span
           style={{
-            fontFamily: 'var(--at-mono)',
+            fontFamily: 'var(--at-heading)',
             fontSize: '11px',
-            letterSpacing: '0.22em',
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: 'var(--at-red-1)',
             fontWeight: 600,

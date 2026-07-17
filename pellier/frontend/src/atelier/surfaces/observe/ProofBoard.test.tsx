@@ -44,7 +44,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      act: 'Act I',
+      lab: 'Core Lab 1: Build and Trace',
       title: 'Wire Marco to floor_check',
       status: 'complete',
       required: true,
@@ -58,8 +58,23 @@ const proofBoardPayload = {
       links: [{ label: 'Tools', to: '/atelier/tools' }],
     },
     {
+      id: 'audit-ledger',
+      lab: 'Core Lab 3: Query Evidence',
+      title: 'Prove the audit trail in Aurora',
+      status: 'complete',
+      required: true,
+      surface: 'Aurora PostgreSQL',
+      summary: 'The live tool_audit ledger contains the expected identity, tool, and outcome.',
+      evidence: ['Latest audit row: audit_id 303'],
+      fallback: {
+        label: 'SQL fallback',
+        command: 'SELECT audit_id, caller, tool_name FROM pellier.tool_audit ORDER BY audit_id DESC;',
+      },
+      links: [{ label: 'Sessions', to: '/atelier/sessions' }],
+    },
+    {
       id: 'managed-rail',
-      act: 'Act III',
+      lab: 'Core Lab 4: Enforce Policy',
       title: 'Fast-finisher managed rail',
       status: 'available',
       required: false,
@@ -97,9 +112,11 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Required evidence, in order.')).toBeInTheDocument();
+    expect(await screen.findByText('Evidence checkpoints, in lab order.')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText('Aurora PostgreSQL')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Aurora PostgreSQL' }),
+      ).toBeInTheDocument();
     });
     expect(screen.getByText('AgentCore Gateway')).toBeInTheDocument();
     expect(screen.getByText('gateway-mcp')).toBeInTheDocument();
@@ -108,6 +125,9 @@ describe('ProofBoard', () => {
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to floor_check',
     );
+    expect(screen.getAllByText('Core Lab 1: Build and Trace')).toHaveLength(2);
+    expect(screen.getAllByText('Core Lab 4: Enforce Policy')).toHaveLength(2);
+    expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
 
@@ -143,5 +163,66 @@ describe('ProofBoard', () => {
     expect(screen.getByText('Cedar DENY: tool target did not execute')).toBeInTheDocument();
     expect(screen.getByText('Gateway/Cedar DENY left no tool_audit row')).toBeInTheDocument();
     expect(screen.getByText(/No-row DENY is scoped to the Gateway\/Cedar rail/)).toBeInTheDocument();
+  });
+
+  it('maps card ids to Core Labs while an older local backend is still running', async () => {
+    const cards = proofBoardPayload.cards.map(({ lab: _lab, ...card }) => card);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ ...proofBoardPayload, cards }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    render(
+      <MemoryRouter>
+        <ProofBoard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findAllByText('Core Lab 1: Build and Trace')).toHaveLength(2);
+    expect(screen.getAllByText('Core Lab 4: Enforce Policy')).toHaveLength(2);
+  });
+
+  it('renders Audit Proof as a focused Core Lab 3 evidence view', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify(proofBoardPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/atelier/audit-proof']}>
+        <ProofBoard focusCardId="audit-ledger" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Audit proof, row by row.')).toBeInTheDocument();
+    expect(screen.getByTestId('proof-card-audit-ledger')).toHaveTextContent(
+      'Prove the audit trail in Aurora',
+    );
+    expect(screen.getByText('SQL fallback')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'SELECT audit_id, caller, tool_name FROM pellier.tool_audit ORDER BY audit_id DESC;',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Workshop readiness' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('proof-card-marco-floor-check')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('proof-card-managed-rail')).not.toBeInTheDocument();
+    expect(screen.queryByText('Core Lab checkpoints')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'All checkpoints' })).toHaveAttribute(
+      'href',
+      '/atelier/proof-board',
+    );
   });
 });

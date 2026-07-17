@@ -315,7 +315,7 @@ const ToolCallChip: React.FC<{ tool: ToolCall }> = ({ tool }) => {
                     color: 'var(--at-ink-2)',
                   }}
                 >
-                  <span style={{ color: 'var(--at-red-1)', fontWeight: 700 }}>
+                  <span style={{ color: 'var(--at-red-1)', fontWeight: 600 }}>
                     {write.operation}
                   </span>
                   <span>

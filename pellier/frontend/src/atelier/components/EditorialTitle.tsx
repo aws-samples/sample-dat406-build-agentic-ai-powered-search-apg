@@ -37,9 +37,9 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
       <h1
         className="font-display italic text-espresso"
         style={{
-          fontSize: 'clamp(44px, 6vw, 76px)',
-          lineHeight: 1.05,
-          letterSpacing: '-0.015em',
+          fontSize: 'clamp(34px, 4.5vw, 56px)',
+          lineHeight: 1.08,
+          letterSpacing: 0,
           fontWeight: 400,
           margin: 0,
         }}

@@ -14,7 +14,7 @@ export interface SectionFrameProps {
   eyebrow?: string
   /** Section title — may include ``<em>`` markup. */
   title?: ReactNode
-  /** Italic serif description. */
+  /** Readable supporting description. */
   description?: ReactNode
   /** Body content. */
   children: ReactNode

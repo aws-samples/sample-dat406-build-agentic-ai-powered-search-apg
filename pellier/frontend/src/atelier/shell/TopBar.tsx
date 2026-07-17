@@ -27,6 +27,7 @@ function prettifySegment(segment: string): string {
   const labels: Record<string, string> = {
     atelier: 'Atelier',
     'proof-board': 'Proof Board',
+    'audit-proof': 'Audit Proof',
     sessions: 'Sessions',
     observatory: 'Observatory',
     'persona-journeys': 'Persona Journeys',
@@ -79,9 +80,9 @@ const TopBar: React.FC = () => {
   const { persona } = usePersona();
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
 
-  const avatarInitial = persona?.avatar_initial ?? 'M';
-  const avatarColor = persona?.avatar_color ?? '#a8423a';
-  const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Persona';
+  const avatarInitial = persona?.avatar_initial ?? '?';
+  const avatarColor = persona?.avatar_color ?? '#665f58';
+  const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Choose profile';
 
   return (
     <>
@@ -130,7 +131,7 @@ const TopBar: React.FC = () => {
           }}
         >
           {(() => {
-            const photoUrl = getPersonaPhoto(persona?.id);
+            const photoUrl = persona ? getPersonaPhoto(persona.id) : undefined;
             return photoUrl ? (
               <img
                 src={photoUrl}
@@ -177,9 +178,10 @@ const TopBar: React.FC = () => {
           >
             <span
               style={{
-                fontFamily: 'var(--at-mono)',
-                fontSize: '9px',
-                letterSpacing: '0.14em',
+                fontFamily: 'var(--at-heading)',
+                fontSize: '10px',
+                fontWeight: 600,
+                letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 color: 'var(--at-ink-4)',
               }}

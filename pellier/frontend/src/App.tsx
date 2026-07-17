@@ -9,7 +9,7 @@
  * AuthGate is exported so the Atelier surface can be gated when Cognito
  * is configured.
  */
-import { useEffect, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { CartProvider, useCart } from './contexts/CartContext'
@@ -21,40 +21,51 @@ import CartPanel from './components/CartPanel'
 import Toast from './components/Toast'
 import PersonaTransitionOverlay from './components/PersonaTransitionOverlay'
 import PreferencesModal from './components/PreferencesModal'
-import ConciergeModal from './components/ConciergeModal'
 import ChatDrawer from './components/ChatDrawer'
 import ComparisonHost from './components/ComparisonHost'
 import SignInPage from './components/SignInPage'
 import BoutiquePage from './pages/BoutiquePage'
-import AtelierFrame from './atelier/shell/AtelierFrame'
-import SessionsList from './atelier/surfaces/observe/SessionsList'
-import SessionView from './atelier/surfaces/observe/SessionView'
-import ChatTab from './atelier/surfaces/observe/ChatTab'
-import TelemetryTab from './atelier/surfaces/observe/TelemetryTab'
-import BriefTab from './atelier/surfaces/observe/BriefTab'
-import Observatory from './atelier/surfaces/observe/Observatory'
-import ProofBoard from './atelier/surfaces/observe/ProofBoard'
-import PersonaJourneys from './atelier/surfaces/observe/PersonaJourneys'
-import ArchitectureIndex from './atelier/surfaces/understand/ArchitectureIndex'
-import ArchitectureDetail from './atelier/surfaces/understand/ArchitectureDetail'
-import Tools from './atelier/surfaces/understand/Tools'
-import Search from './atelier/surfaces/understand/Search'
-import Skills from './atelier/surfaces/understand/Skills'
-import Routing from './atelier/surfaces/understand/Routing'
-import MemoryDashboard from './atelier/surfaces/understand/MemoryDashboard'
-import WritePath from './atelier/surfaces/understand/WritePath'
-import Performance from './atelier/surfaces/measure/Performance'
-import Evaluations from './atelier/surfaces/measure/Evaluations'
-import ProductionPatterns from './atelier/surfaces/measure/ProductionPatterns'
-import AtelierSettings from './atelier/surfaces/Settings'
-import InspectorPage from './pages/InspectorPage'
-import StoryboardPage from './pages/StoryboardPage'
-import DiscoverPage from './pages/DiscoverPage'
-import AboutPage from './pages/AboutPage'
-import AtelierComponentsPreview from './pages/AtelierComponentsPreview'
-import DesignSystemPreview from './pages/DesignSystemPreview'
 import { routerBasename } from './utils/assetPath'
 import './styles/premium-heading-styles.css'
+
+const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
+const AtelierFrame = lazy(() => import('./atelier/shell/AtelierFrame'))
+const SessionsList = lazy(() => import('./atelier/surfaces/observe/SessionsList'))
+const SessionView = lazy(() => import('./atelier/surfaces/observe/SessionView'))
+const ChatTab = lazy(() => import('./atelier/surfaces/observe/ChatTab'))
+const TelemetryTab = lazy(() => import('./atelier/surfaces/observe/TelemetryTab'))
+const BriefTab = lazy(() => import('./atelier/surfaces/observe/BriefTab'))
+const Observatory = lazy(() => import('./atelier/surfaces/observe/Observatory'))
+const ProofBoard = lazy(() => import('./atelier/surfaces/observe/ProofBoard'))
+const PersonaJourneys = lazy(() => import('./atelier/surfaces/observe/PersonaJourneys'))
+const ArchitectureIndex = lazy(
+  () => import('./atelier/surfaces/understand/ArchitectureIndex'),
+)
+const ArchitectureDetail = lazy(
+  () => import('./atelier/surfaces/understand/ArchitectureDetail'),
+)
+const Tools = lazy(() => import('./atelier/surfaces/understand/Tools'))
+const Search = lazy(() => import('./atelier/surfaces/understand/Search'))
+const Skills = lazy(() => import('./atelier/surfaces/understand/Skills'))
+const Routing = lazy(() => import('./atelier/surfaces/understand/Routing'))
+const MemoryDashboard = lazy(
+  () => import('./atelier/surfaces/understand/MemoryDashboard'),
+)
+const WritePath = lazy(() => import('./atelier/surfaces/understand/WritePath'))
+const Performance = lazy(() => import('./atelier/surfaces/measure/Performance'))
+const Evaluations = lazy(() => import('./atelier/surfaces/measure/Evaluations'))
+const ProductionPatterns = lazy(
+  () => import('./atelier/surfaces/measure/ProductionPatterns'),
+)
+const AtelierSettings = lazy(() => import('./atelier/surfaces/Settings'))
+const InspectorPage = lazy(() => import('./pages/InspectorPage'))
+const StoryboardPage = lazy(() => import('./pages/StoryboardPage'))
+const DiscoverPage = lazy(() => import('./pages/DiscoverPage'))
+const AboutPage = lazy(() => import('./pages/AboutPage'))
+const AtelierComponentsPreview = lazy(
+  () => import('./pages/AtelierComponentsPreview'),
+)
+const DesignSystemPreview = lazy(() => import('./pages/DesignSystemPreview'))
 
 // ---------------------------------------------------------------------------
 // AuthGate — Cognito-aware auth wrapper. Gates the Atelier surface when
@@ -133,6 +144,28 @@ function ModalRouteGuard() {
   return null
 }
 
+function AtelierConciergeSlot() {
+  const { pathname } = useLocation()
+  if (!pathname.startsWith('/atelier')) return null
+  return (
+    <Suspense fallback={null}>
+      <ConciergeModal />
+    </Suspense>
+  )
+}
+
+function RouteLoading() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading"
+      className="min-h-[40vh] flex items-center justify-center"
+    >
+      <span className="w-7 h-7 rounded-full border-2 border-black/10 border-t-black/50 animate-spin" />
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // App — provider chain + routes.
 // ---------------------------------------------------------------------------
@@ -164,10 +197,11 @@ function App() {
               }}
             >
               <ModalRouteGuard />
-              <ConciergeModal />
+              <AtelierConciergeSlot />
               <ChatDrawer />
               <ComparisonHost />
-              <Routes>
+              <Suspense fallback={<RouteLoading />}>
+                <Routes>
                 {/*
                  *   /           → BoutiquePage (storefront shell)
                  *   /atelier/*  → AtelierFrame (instrumentation, gated by AuthGate)
@@ -178,11 +212,15 @@ function App() {
                  */}
                 <Route path="/" element={<BoutiquePage />} />
                 {/* Atelier Observatory — nested routes under AtelierFrame shell.
-                    The frame renders the 240px sidebar + canvas grid with
+                    The frame renders the wide workshop sidebar + canvas grid with
                     React Router <Outlet /> for surface rendering. */}
                 <Route path="/atelier" element={<AtelierFrame />}>
-                  <Route index element={<Navigate to="observatory" replace />} />
+                  <Route index element={<Navigate to="proof-board" replace />} />
                   <Route path="proof-board" element={<ProofBoard />} />
+                  <Route
+                    path="audit-proof"
+                    element={<ProofBoard focusCardId="audit-ledger" />}
+                  />
                   <Route path="sessions" element={<SessionsList />} />
                   <Route path="sessions/:id" element={<SessionView />}>
                     <Route index element={<Navigate to="chat" replace />} />
@@ -226,7 +264,8 @@ function App() {
                 <Route path="/discover" element={<DiscoverPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           </UIProvider>
         </CartProvider>

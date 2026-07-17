@@ -257,7 +257,7 @@ const TierCard: React.FC<TierCardProps> = ({
       </div>
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '22px',
           fontWeight: 400,
           lineHeight: 1.15,

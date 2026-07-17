@@ -20,7 +20,6 @@ import { useNavigate } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
 import BoutiqueHero from '../components/BoutiqueHero'
-import BoutiqueWelcomeBand from '../components/BoutiqueWelcomeBand'
 import BecauseYouAsked from '../components/BecauseYouAsked'
 import MemoryHandoffCard from '../components/MemoryHandoffCard'
 import RationaleBand from '../components/RationaleBand'
@@ -166,19 +165,9 @@ export default function BoutiquePage() {
         {/* ── ACT 1: Full-viewport hero ── */}
         <BoutiqueHero />
 
-        {/* ── Welcome band — dismissible, sits between the hero and the
-             Weekend Edit. Symmetric with /atelier's AtelierWelcome so
-             first-visit shoppers get a one-glance orientation without
-             touching the photograph. ── */}
-        <BoutiqueWelcomeBand />
-
-        {/* ── Memory handoff card — the most demoable agentic moment on
-             the homepage. For returning personas, surfaces what the
-             agent remembers (saved item, holds in bag, restock watch)
-             with each line tool-tagged. Fresh visitors get a
-             learn-as-we-go variant in the same slot so the layout
-             rhythm stays consistent. ── */}
-        <MemoryHandoffCard />
+        {/* Memory is evidence of an active customer profile, never a
+            fabricated first-visit state. */}
+        {persona && persona.id !== 'fresh' && <MemoryHandoffCard />}
 
         {/* ── ACT 2: Below the fold ── */}
         <section

@@ -1,22 +1,29 @@
 /**
  * AtelierFrame — Root layout shell for the Atelier Observatory.
  *
- * Renders a 240px sidebar + flexible canvas grid. The canvas area
+ * Renders a 440px sidebar + flexible canvas grid. The canvas area
  * contains the TopBar and a React Router `<Outlet />` for nested
  * route rendering.
  *
  * Requirements: 1.1, 20.1
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import AtelierContextBanner from './AtelierContextBanner';
 import AtelierErrorBoundary from './AtelierErrorBoundary';
+import { useUI } from '../../contexts/UIContext';
 import '../styles/base.css';
 
 const AtelierFrame: React.FC = () => {
+  const { setChatSurface } = useUI();
+
+  useEffect(() => {
+    setChatSurface('concierge');
+  }, [setChatSurface]);
+
   // Key the error boundary on the pathname so a crash on one surface doesn't
   // strand the operator on every other surface — navigating remounts it,
   // clearing stale error state.

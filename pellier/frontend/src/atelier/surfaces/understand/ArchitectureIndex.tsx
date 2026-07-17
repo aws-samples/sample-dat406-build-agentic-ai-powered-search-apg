@@ -71,7 +71,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, onOpen }) => (
       {/* Title */}
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: 'var(--at-section-size)',
           fontWeight: 'var(--at-section-weight)',
           lineHeight: 'var(--at-section-leading)',
@@ -156,7 +156,7 @@ const LegendCard: React.FC = () => (
       <Eyebrow label="Category legend" variant="muted" />
       <h3
         style={{
-          fontFamily: 'var(--at-serif)',
+          fontFamily: 'var(--at-heading)',
           fontSize: '18px',
           fontWeight: 400,
           color: 'var(--at-ink-1)',

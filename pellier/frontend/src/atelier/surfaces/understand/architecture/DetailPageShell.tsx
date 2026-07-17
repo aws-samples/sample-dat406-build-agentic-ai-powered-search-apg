@@ -210,7 +210,7 @@ const LiveStateCallout: React.FC<LiveStateCalloutProps> = ({ label, values }) =>
               </span>
               <span
                 style={{
-                  fontFamily: 'var(--at-serif)',
+                  fontFamily: 'var(--at-heading)',
                   fontSize: '28px',
                   fontWeight: 400,
                   color: 'var(--at-ink-1)',
