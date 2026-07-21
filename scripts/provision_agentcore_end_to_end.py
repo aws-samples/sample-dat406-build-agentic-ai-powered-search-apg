@@ -63,20 +63,23 @@ EXPECTED_TARGETS = {
 
 EXPECTED_TOOL_NAMES = {
     "search": [
-        "semantic_search",
+        "find_pieces",
         "find_pieces_hybrid",
-        "get_inventory_health",
-        "get_low_stock_products",
-        "restock_product",
+        "explore_collection",
+        "floor_check",
+        "running_low",
+        "restock_shelf",
     ],
     "pricing": [
-        "find_deals",
-        "get_price_analysis",
-        "compare_products",
+        "price_intelligence",
+        "side_by_side",
     ],
     "recommendation": [
-        "get_recommendations",
-        "get_trending_products",
+        "preference_snapshot",
+        "trace_receipt",
+        "whats_trending",
+        "returns_and_care",
+        "style_match",
     ],
     "experience": [
         "process_return",
@@ -581,6 +584,9 @@ def _deploy_runtime_via_cli(
             "MCP_GATEWAY_URL": gateway_url,
             "AGENTCORE_GATEWAY_URL": gateway_url,
             "AGENT_MODEL_ID": model_id,
+            # The deployed entrypoint imports services.agentcore_gateway,
+            # which reads this Settings field rather than AGENT_MODEL_ID.
+            "BEDROCK_ROUTER_MODEL": model_id,
         },
         account_id=account_id,
         region=region,
@@ -632,10 +638,12 @@ def main() -> int:
         "COGNITO_CLIENT": _require_env("COGNITO_CLIENT"),
         "AGENTCORE_ROLE_ARN": _require_env("AGENTCORE_ROLE_ARN"),
         "COGNITO_TEST_CREDENTIALS_SECRET_ARN": _require_env("COGNITO_TEST_CREDENTIALS_SECRET_ARN"),
+        "WORKSHOP_ID": _require_env("WORKSHOP_ID"),
+        "AGENT_MODEL_ID": _require_env("AGENT_MODEL_ID"),
     }
     client_secret_arn = os.environ.get("COGNITO_CLIENT_SECRET_ARN", "").strip() or None
     db_name = os.environ.get("DB_NAME", "pellier")
-    model_id = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8")
+    model_id = required["AGENT_MODEL_ID"]
 
     result: dict[str, Any] = {
         "status": "failed",
@@ -903,6 +911,14 @@ def main() -> int:
             model_id=model_id,
             deploy_env=deploy_env,
         )
+        # Record the deployed resource immediately. Later control-plane checks
+        # or smoke invocation may fail, but operators still need the ARN to
+        # inspect and recover the READY Runtime.
+        result["runtime"] = {
+            "runtime_arn": runtime_arn,
+            "agent_model_id": model_id,
+            "mcp_gateway_url": gateway_url,
+        }
 
         runtime_lookup_proc = _run(
             [
@@ -932,26 +948,40 @@ def main() -> int:
             ]
         if not matched:
             raise RuntimeError(f"Runtime {args.runtime_name} not found in list-agent-runtimes")
+        control = boto3.client(
+            "bedrock-agentcore-control",
+            region_name=required["AWS_REGION"],
+        )
+        control.tag_resource(
+            resourceArn=runtime_arn,
+            tags={
+                "Project": "pellier",
+                "PellierWorkshopId": required["WORKSHOP_ID"],
+            },
+        )
         runtime_status = matched[0].get("status") or matched[0].get("agentRuntimeStatus") or "UNKNOWN"
         result["verification"]["runtime_control_plane_visible"] = True
         result["verification"]["runtime_status"] = runtime_status
 
-        smoke = _authenticated_runtime_smoke(
-            region=required["AWS_REGION"],
-            runtime_arn=runtime_arn,
-            user_pool_id=required["COGNITO_POOL"],
-            client_id=required["COGNITO_CLIENT"],
-            creds_secret_arn=required["COGNITO_TEST_CREDENTIALS_SECRET_ARN"],
-            client_secret_arn=client_secret_arn,
-        )
+        try:
+            smoke = _authenticated_runtime_smoke(
+                region=required["AWS_REGION"],
+                runtime_arn=runtime_arn,
+                user_pool_id=required["COGNITO_POOL"],
+                client_id=required["COGNITO_CLIENT"],
+                creds_secret_arn=required["COGNITO_TEST_CREDENTIALS_SECRET_ARN"],
+                client_secret_arn=client_secret_arn,
+            )
+        except Exception as exc:
+            result["status"] = "degraded"
+            result["verification"]["authenticated_runtime_invoke_smoke"] = False
+            result["verification"]["runtime_invoke_smoke_error"] = str(exc)
+            output_path.write_text(json.dumps(result, indent=2))
+            print(json.dumps(result), file=sys.stderr)
+            return 1
         result["verification"]["authenticated_runtime_invoke_smoke"] = True
         result["verification"]["runtime_invoke_smoke"] = smoke
 
-        result["runtime"] = {
-            "runtime_arn": runtime_arn,
-            "agent_model_id": model_id,
-            "mcp_gateway_url": gateway_url,
-        }
         result["status"] = "ready"
 
         output_path.write_text(json.dumps(result, indent=2))

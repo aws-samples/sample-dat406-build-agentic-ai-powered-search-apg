@@ -1,4 +1,4 @@
-# Pellier - Governed Agentic AI Search with Aurora, RDS, and Bedrock AgentCore
+# Pellier - Agentic AI-Powered Search with Aurora, RDS, and Bedrock AgentCore
 
 <div align="center">
 
@@ -6,7 +6,7 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 
 <br/>
 
-[![Aurora PostgreSQL 18.3](https://img.shields.io/badge/Aurora_PostgreSQL-18.3_·_pgvector-2D72D9?style=flat-square&logo=postgresql&logoColor=white)](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
+[![Aurora PostgreSQL 17.9](https://img.shields.io/badge/Aurora_PostgreSQL-17.9_·_pgvector-2D72D9?style=flat-square&logo=postgresql&logoColor=white)](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
 [![Bedrock AgentCore](https://img.shields.io/badge/Bedrock-AgentCore-FF9900?style=flat-square)](https://aws.amazon.com/bedrock/agentcore/)
 [![Strands Agents](https://img.shields.io/badge/Strands-Agents_SDK-232F3E?style=flat-square)](https://strandsagents.com)
 [![MCP](https://img.shields.io/badge/MCP-postgres--mcp--server-4A154B?style=flat-square)](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server)
@@ -17,7 +17,7 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 
 </div>
 
-> Educational reference implementation for a governed agentic AI search workshop.
+> Educational reference implementation for an L400 agentic AI search workshop.
 > Not intended for production deployment without security hardening.
 
 **Contents:** [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
@@ -61,7 +61,7 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
 | **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
-| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · the shopper's JWT is passed through (`Authorization: Bearer`) so tool calls carry the caller's identity · in-process tools stay the default; Gateway is the demonstrable side-path (Atelier Card 7) |
+| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · the shopper's JWT is passed through (`Authorization: Bearer`) so tool calls carry the caller's identity · in-process tools stay the default; Gateway is an optional production-extension path |
 | **Personalization** | Long-term taste in `pellier.customers` + `pellier.customer_episodic_seed` · session-scoped working memory (AgentCore STM) + durable taste extracted by a `USER_PREFERENCE` semantic strategy (`get_semantic_memories`, surfaced in the Atelier) — both via Bedrock AgentCore Memory |
 | **Managed agent runtime** | `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · `bedrock-agentcore:InvokeAgentRuntime` from `services/agentcore_runtime.py` · deploy path uses the pinned AgentCore CLI (`npx -y @aws/agentcore@0.18.0 deploy -y --json`) |
 
@@ -155,17 +155,18 @@ The app moves to `/app/`, `GET /app` 307-redirects to `/app/`, and the real API 
 
 ## Workshop path
 
-This repo is the source of truth for the application behind the **governed agentic AI search workshop**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Runtime, Gateway, Memory, Policy, and MCP are exposed as guided governance reads and optional deeper inspection surfaces. Exact pacing and participant wording live in the separate Workshop Studio repo.
+This repo is the source of truth for the application behind the **60-minute agentic AI search Builder's Session**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Runtime, Gateway, Memory, Policy, and MCP remain available as optional production extensions. Exact pacing and participant wording live in the separate Workshop Studio repo.
 
 The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The session is structured as:
 
 | Section | What attendees do |
 |---|---|
-| Introduction | Open the workspace and land in Boutique + Atelier — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
-| Act I: The Boutique | Observe Marco's broken warehouse turn → wire the `floor_check` tool path → replay Marco end to end → compare vector / hybrid / hybrid+rerank / agentic retrieval for Anna's anchor query. |
-| Act II: The Ledger | Read memory substrates (AgentCore STM + Aurora long-term taste), invoke the managed Runtime, then query `pellier.tool_audit` to reconstruct the governed tool path and ALLOW/DENY boundary. |
-| Act III: The Concierge | Inspect dispatcher + specialists, MCP config, AgentCore Gateway, JWT passthrough, and Cedar policy as the production topology around the same tool pattern. |
-| Close | Map the pattern to your own stack, wrap up, and Q&A. |
+| Start Here | Open Code Editor and Boutique, confirm readiness, and frame the request path and evidence standard. |
+| Core Lab 1: Build and Trace | Observe Marco's broken warehouse turn, wire `floor_check`, and prove a grounded Brooklyn quantity and ship window. |
+| Core Lab 2: Measure Retrieval | Compare vector, hybrid, hybrid plus rerank, and agentic retrieval for Anna's anchor query. |
+| Core Lab 3: Query Evidence | Generate a session-specific `process_return` receipt and query it from `pellier.tool_audit`. |
+| Optional Labs | Inspect memory, routing, Runtime, MCP, Gateway, and Policy after the shared core path. |
+| Summary | Connect the three proofs, map the pattern to another stack, and close. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.
 
@@ -239,9 +240,9 @@ sample-pellier-agentic-search-apg/
 ├── skills/                                Strands skills (5)
 ├── solutions/                             Reference implementations (drop-in escape hatches)
 │   ├── the-quiet-search/                    Semantic search reference (observe-only)
-│   ├── closing-marcos-gap/                  floor_check + Stock Keeper (Exercise 1)
-│   ├── the-ledger/                          AgentCore production + audit ledger (Exercise 2)
-│   └── the-concierge/                       MCP on the wire (Act III): local stdio vs managed Gateway
+│   ├── closing-marcos-gap/                  floor_check + Stock Keeper (Core Lab 1)
+│   ├── the-ledger/                          AgentCore production + audit ledger
+│   └── the-concierge/                       MCP: local stdio vs managed Gateway
 │
 └── scripts/
     ├── migrations/                         Ordered fresh-cluster SQL (001-009)

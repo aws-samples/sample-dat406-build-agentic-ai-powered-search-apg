@@ -58,49 +58,21 @@ const Sidebar: React.FC = () => {
   const avatarInitial = persona?.avatar_initial ?? 'M';
   const avatarColor = persona?.avatar_color ?? '#a8423a';
 
-  // Build dynamic nav sections with live shipped/total badges from build state.
-  // Observatory is the landing orientation, followed by the three participant
-  // acts. The broader Atelier taxonomy stays available under Reference.
+  // Build dynamic, product-oriented sections with live shipped/total badges.
+  // Workshop guides can deep-link to any route without encoding their lab
+  // sequence into the shared application shell.
   const navSections: NavSection[] = [
     {
-      eyebrow: 'OBSERVATORY',
+      eyebrow: 'EVIDENCE',
       items: [
         { label: 'Observatory', path: 'observatory' },
-      ],
-    },
-    {
-      eyebrow: 'ACT I · BUILD',
-      items: [
         { label: 'Proof Board', path: 'proof-board', liveDot: true },
-        {
-          label: 'Tools',
-          path: 'tools',
-          badge: buildState.toolTotal > 0
-            ? `${buildState.toolShipped}/${buildState.toolTotal}`
-            : '14/15',
-        },
         { label: 'Sessions', path: 'sessions' },
       ],
     },
     {
-      eyebrow: 'ACT II · PROVE',
+      eyebrow: 'SYSTEM',
       items: [
-        { label: 'Search', path: 'search' },
-        { label: 'Memory', path: 'memory' },
-        { label: 'Write-path', path: 'write-path' },
-      ],
-    },
-    {
-      eyebrow: 'ACT III · EXTEND',
-      items: [
-        { label: 'Routing', path: 'routing', badge: '3' },
-        { label: 'Production Patterns', path: 'production-patterns', badge: '4' },
-      ],
-    },
-    {
-      eyebrow: 'REFERENCE',
-      items: [
-        { label: 'Persona Journeys', path: 'persona-journeys' },
         { label: 'Architecture', path: 'architecture', badge: '8' },
         {
           label: 'Agents',
@@ -110,8 +82,36 @@ const Sidebar: React.FC = () => {
             : '4/5',
         },
         { label: 'Skills', path: 'skills', badge: '5' },
+        {
+          label: 'Tools',
+          path: 'tools',
+          badge: buildState.toolTotal > 0
+            ? `${buildState.toolShipped}/${buildState.toolTotal}`
+            : '14/15',
+        },
+      ],
+    },
+    {
+      eyebrow: 'RETRIEVAL & QUALITY',
+      items: [
+        { label: 'Search', path: 'search' },
         { label: 'Performance', path: 'performance' },
         { label: 'Evaluations', path: 'evaluations' },
+      ],
+    },
+    {
+      eyebrow: 'PRODUCTION',
+      items: [
+        { label: 'Routing', path: 'routing', badge: '3' },
+        { label: 'Memory', path: 'memory' },
+        { label: 'Write-path', path: 'write-path' },
+        { label: 'Production Patterns', path: 'production-patterns', badge: '4' },
+      ],
+    },
+    {
+      eyebrow: 'REFERENCE',
+      items: [
+        { label: 'Persona Journeys', path: 'persona-journeys' },
       ],
     },
   ];

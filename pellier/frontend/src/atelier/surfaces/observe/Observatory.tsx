@@ -1,8 +1,8 @@
 /**
  * Observatory — first stop inside Atelier.
  *
- * The page introduces why the Atelier exists, then narrows participants into
- * Act I, Act II, Act III before exposing the broader reference catalog.
+ * The page introduces why the Atelier exists, then groups its evidence by
+ * product domain before exposing the broader reference catalog.
  */
 
 import React from 'react';
@@ -16,8 +16,8 @@ type LinkItem = {
   testId?: string;
 };
 
-type ActItem = {
-  act: string;
+type DomainItem = {
+  group: string;
   title: string;
   summary: string;
   primary: LinkItem;
@@ -41,7 +41,7 @@ const PILLARS: PillarItem[] = [
     verb: 'Understand',
     title: 'Agents, Tools, Memory',
     description:
-      'Five specialists, ten tools, two memory tiers. Read how each piece works and which are shipped reference versus yours to wire.',
+      'Five specialists, fifteen tools, and four memory substrates. Read how each piece works and where its evidence lives.',
   },
   {
     verb: 'Evaluate',
@@ -51,16 +51,16 @@ const PILLARS: PillarItem[] = [
   },
 ];
 
-const ACTS: ActItem[] = [
+const DOMAINS: DomainItem[] = [
   {
-    act: 'Act I',
-    title: 'Build the governed tool path.',
+    group: 'Agent and tool evidence',
+    title: 'Inspect the tool path.',
     summary:
-      'Wire Marco through the required floor_check checkpoint, then keep the tool definition and replay evidence close by.',
+      'Connect the floor_check implementation, public tool contract, and replay evidence without assuming a particular lab sequence.',
     primary: {
       to: '/atelier/proof-board#marco-floor-check',
-      label: 'Open Marco floor_check',
-      detail: 'Required proof checkpoint',
+      label: 'Open floor_check evidence',
+      detail: 'Source, trace, and audit checkpoint',
       testId: 'observatory-cta-proof-board',
     },
     secondary: [
@@ -78,14 +78,14 @@ const ACTS: ActItem[] = [
     ],
   },
   {
-    act: 'Act II',
-    title: 'Prove retrieval and auditability.',
+    group: 'Retrieval and operations',
+    title: 'Compare retrieval and auditability.',
     summary:
       'Compare retrieval behavior, inspect the SQL audit proof, and connect each visible answer to its database trail.',
     primary: {
       to: '/atelier/proof-board#retrieval-comparison',
       label: 'Open retrieval proof',
-      detail: 'Required comparison checkpoint',
+      detail: 'Live comparison checkpoint',
     },
     secondary: [
       {
@@ -106,20 +106,20 @@ const ACTS: ActItem[] = [
     ],
   },
   {
-    act: 'Act III',
-    title: 'Extend through Runtime, Gateway, and Policy.',
+    group: 'Managed boundaries',
+    title: 'Inspect Runtime, Gateway, and Policy.',
     summary:
-      'Use the managed rail after the SQL proof to compare agent calls with Gateway-governed invocations.',
+      'Compare in-process agent calls with authenticated, policy-controlled Gateway invocations.',
     primary: {
       to: '/atelier/proof-board#runtime-gateway-policy',
-      label: 'Open governed trace',
+      label: 'Open managed trace',
       detail: 'Runtime/Gateway/Policy proof',
     },
     secondary: [
       {
         to: '/atelier/proof-board#managed-rail',
         label: 'Managed rail',
-        detail: 'Fast-finisher comparison',
+        detail: 'Invocation comparison',
       },
       {
         to: '/atelier/routing',
@@ -350,7 +350,7 @@ const PillarCard: React.FC<PillarItem> = ({ verb, title, description }) => (
   </article>
 );
 
-const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary }) => (
+const DomainCard: React.FC<DomainItem> = ({ group, title, summary, primary, secondary }) => (
   <article
     style={{
       ...cardStyle,
@@ -360,7 +360,7 @@ const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary })
     }}
   >
     <div>
-      <SectionEyebrow>{act}</SectionEyebrow>
+      <SectionEyebrow>{group}</SectionEyebrow>
       <h3
         className="font-display italic text-espresso"
         style={{
@@ -395,7 +395,7 @@ const ActCard: React.FC<ActItem> = ({ act, title, summary, primary, secondary })
       }}
     >
       {secondary.map((item) => (
-        <LinkCard key={`${act}-${item.to}-${item.label}`} {...item} compact />
+        <LinkCard key={`${group}-${item.to}-${item.label}`} {...item} compact />
       ))}
     </div>
   </article>
@@ -456,10 +456,10 @@ const Observatory: React.FC = () => {
         </div>
       </section>
 
-      <section aria-labelledby="workshop-path-title" style={{ marginBottom: '36px' }}>
-        <SectionEyebrow>Workshop path</SectionEyebrow>
+      <section aria-labelledby="evidence-domain-title" style={{ marginBottom: '36px' }}>
+        <SectionEyebrow>Evidence domains</SectionEyebrow>
         <h2
-          id="workshop-path-title"
+          id="evidence-domain-title"
           className="font-display italic text-espresso"
           style={{
             fontSize: '38px',
@@ -469,7 +469,7 @@ const Observatory: React.FC = () => {
             margin: '14px 0 8px',
           }}
         >
-          Start with the acts.
+          Choose the system boundary.
         </h2>
         <p
           className="font-sans text-ink-soft"
@@ -480,12 +480,12 @@ const Observatory: React.FC = () => {
             maxWidth: '720px',
           }}
         >
-          These are the three participant rails. The reference pages stay below
-          them so the first Atelier decision is always the next workshop act.
+          Start from the claim you need to verify, then follow its source,
+          runtime trace, or durable record.
         </p>
         <div style={{ display: 'grid', gap: '16px' }}>
-          {ACTS.map((item) => (
-            <ActCard key={item.act} {...item} />
+          {DOMAINS.map((item) => (
+            <DomainCard key={item.group} {...item} />
           ))}
         </div>
       </section>
@@ -503,7 +503,7 @@ const Observatory: React.FC = () => {
             margin: '14px 0 18px',
           }}
         >
-          All other Atelier pages.
+          Explore every Atelier surface.
         </h2>
         <div
           style={{

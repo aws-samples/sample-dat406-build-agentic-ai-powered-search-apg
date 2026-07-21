@@ -242,10 +242,6 @@ async def _append_boutique_stm_turn(
     if not session_id:
         return
     try:
-        from config import settings as _settings
-
-        if not _settings.AGENTCORE_MEMORY_ID:
-            return
         from services.agentcore_identity import AgentCoreIdentityService
         from services.agentcore_memory import AgentCoreMemory
 

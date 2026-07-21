@@ -10,22 +10,21 @@ Prints a clear pass/fail for each.
 """
 
 import json
-import sys
-
 import os
+import sys
 
 import boto3
 
 # Keep the model-access preflight in the same region as Aurora, Gateway,
 # Runtime, and Cognito for local and workshop runs.
-REGION = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-west-2"
+REGION = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
 
 MODELS = [
     {
         "name": "Claude Opus 4.8",
         "model_id": "global.anthropic.claude-opus-4-8",
         # Editorial specialists (Style Advisor, Curator, Experience Guide).
-        # NOT hard-required: if Opus is denied but the Sonnet 5 fallback
+        # NOT hard-required: if Opus is denied but a Sonnet fallback
         # below passes, the session still runs (editorial agents fall back to
         # Sonnet via BEDROCK_OPUS_MODEL). main() enforces "Opus OR Sonnet".
         "required": False,
@@ -37,12 +36,19 @@ MODELS = [
         },
     },
     {
-        "name": "Claude Sonnet 5",
-        "model_id": "global.anthropic.claude-sonnet-5",
+        "name": "Claude Sonnet",
+        "model_id_variants": [
+            "global.anthropic.claude-sonnet-5",
+            "global.anthropic.claude-sonnet-4-6",
+        ],
         # Hard-required: routing, reporting specialists, structured extraction,
-        # and the Claude Code Bedrock lane all use Sonnet.
+        # the AgentCore Runtime, and the Claude Code Bedrock lane all use the
+        # first Sonnet generation available in the workshop account.
         "required": True,
         "role": "sonnet",
+        "access_hint": (
+            "Enable Claude Sonnet 5 or Claude Sonnet 4.6 in Bedrock model access."
+        ),
         "body": {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 16,
@@ -85,6 +91,9 @@ MODELS = [
             "cohere.embed-v4:0",
         ],
         "required": True,
+        "access_hint": (
+            "Enable Cohere Embed v4 or check the US inference-profile prefix."
+        ),
         "body": {
             "texts": ["test"],
             "input_type": "search_query",
@@ -168,7 +177,7 @@ def check_model(client, model: dict) -> bool:
         print(
             "    None of the tried IDs are accessible. Variants attempted:\n"
             + "\n".join(f"        - {mid} → {s}" for mid, s, _ in results)
-            + "\n      Enable Cohere Embed v4 (Model access) or check the inference-profile prefix."
+            + f"\n      {model.get('access_hint', 'Enable one of these models in Bedrock model access.')}"
         )
     elif any(s == "no_ondemand" for _, s, _ in results):
         print(
@@ -204,17 +213,22 @@ def _upsert_env(env_path: str, key: str, value: str) -> None:
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    # When set, write the resolved editorial model (Opus, or Sonnet fallback)
-    # and the independent Claude Code CLI model to this .env.
+    # When set, persist every resolved model used by the app, Runtime, and
+    # Claude Code so later bootstrap stages cannot fall back to a denied ID.
     parser.add_argument("--write-env", default=None,
-                        help="Path to .env to update BEDROCK_OPUS_MODEL and CLAUDE_CODE_MODEL")
+                        help="Path to .env to update with resolved model IDs")
     args = parser.parse_args()
+
+    if args.write_env:
+        # Clear a stale success marker before making any live calls.
+        _upsert_env(args.write_env, "BEDROCK_MODEL_ACCESS_READY", "false")
 
     client = boto3.client("bedrock-runtime", region_name=REGION)
     print(f"Checking Bedrock model access in {REGION}...\n")
 
     results = {}  # name -> (passed, role, resolved_id)
     for model in MODELS:
+        model.pop("_resolved_id", None)
         passed = check_model(client, model)
         role = model.get("role")
         shown_id = model.get("_resolved_id") or model.get("model_id") \
@@ -233,7 +247,8 @@ def main():
 
     # --- Editorial resolution: Opus OR Sonnet must work ---
     opus_ok = results.get("Claude Opus 4.8", (False,))[0]
-    sonnet_name = "Claude Sonnet 5"
+    opus_id = results.get("Claude Opus 4.8", (False, None, ""))[2]
+    sonnet_name = "Claude Sonnet"
     sonnet_ok = results.get(sonnet_name, (False,))[0]
     sonnet_id = results.get(sonnet_name, (False, None, ""))[2]
 
@@ -242,27 +257,28 @@ def main():
     if opus_ok:
         print("Editorial agents: \033[32mOpus 4.8\033[0m (primary).")
     elif sonnet_ok:
-        print("Editorial agents: \033[33mOpus 4.8 unavailable → falling back to Sonnet 5\033[0m.")
-        if args.write_env:
-            _upsert_env(args.write_env, "BEDROCK_OPUS_MODEL", sonnet_id)
-            print(f"  → wrote BEDROCK_OPUS_MODEL={sonnet_id} to {args.write_env}")
-        else:
-            print(f"  → set BEDROCK_OPUS_MODEL={sonnet_id} in pellier/backend/.env")
+        print("Editorial agents: \033[33mOpus 4.8 unavailable → falling back to Sonnet\033[0m.")
     else:
-        print("\033[31mEditorial agents: NEITHER Opus 4.8 nor Sonnet 5 is accessible.\033[0m")
+        print("\033[31mEditorial agents: NEITHER Opus 4.8 nor a Sonnet fallback is accessible.\033[0m")
+
+    editorial_id = opus_id if opus_ok else sonnet_id
+    if editorial_ok and args.write_env:
+        _upsert_env(args.write_env, "BEDROCK_OPUS_MODEL", editorial_id)
+        print(f"  → wrote BEDROCK_OPUS_MODEL={editorial_id} to {args.write_env}")
 
     # --- Sonnet role defaults: app routing/reporting + Claude Code CLI ---
     print()
     if sonnet_ok:
-        print("Routing/reporting + Claude Code CLI: \033[32mSonnet 5\033[0m.")
+        print(f"Routing/reporting + Runtime + Claude Code CLI: \033[32m{sonnet_id}\033[0m.")
         if args.write_env:
             _upsert_env(args.write_env, "BEDROCK_SONNET_MODEL", sonnet_id)
             _upsert_env(args.write_env, "BEDROCK_ROUTER_MODEL", sonnet_id)
             _upsert_env(args.write_env, "BEDROCK_REPORTING_MODEL", sonnet_id)
             _upsert_env(args.write_env, "CLAUDE_CODE_MODEL", sonnet_id)
-            print(f"  → wrote Sonnet defaults + CLAUDE_CODE_MODEL={sonnet_id} to {args.write_env}")
+            _upsert_env(args.write_env, "AGENT_MODEL_ID", sonnet_id)
+            print(f"  → wrote app, Runtime, and Claude Code model IDs to {args.write_env}")
     else:
-        print("\033[31mRouting/reporting + Claude Code CLI: Sonnet 5 is not accessible.\033[0m")
+        print("\033[31mRouting/reporting + Runtime + Claude Code CLI: no Sonnet is accessible.\033[0m")
 
     # --- Hard-required models (Sonnet, Rerank, Embed) ---
     hard = [m["name"] for m in MODELS if m.get("required", True)]
@@ -270,6 +286,8 @@ def main():
 
     print()
     if editorial_ok and not hard_missing:
+        if args.write_env:
+            _upsert_env(args.write_env, "BEDROCK_MODEL_ACCESS_READY", "true")
         print("All required models accessible. Workshop is ready.")
     else:
         if hard_missing:

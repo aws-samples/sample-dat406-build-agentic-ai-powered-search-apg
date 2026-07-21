@@ -1,8 +1,8 @@
 /**
- * ProofBoard - workshop evidence surface.
+ * ProofBoard - system evidence surface.
  *
  * One route that maps the hands-on flow to concrete evidence:
- * readiness checks, required proof cards, and terminal fallbacks.
+ * readiness checks, evidence cards, and terminal fallbacks.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -37,7 +37,7 @@ interface ManagedReceipt {
 
 interface ProofCard {
   id: string;
-  act: string;
+  group: string;
   title: string;
   status: CardStatus;
   required: boolean;
@@ -183,7 +183,7 @@ const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => {
 
 const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
   return (
-    <section aria-label="Workshop readiness" style={{ marginBottom: '32px' }}>
+    <section aria-label="Environment readiness" style={{ marginBottom: '32px' }}>
       <div
         style={{
           display: 'flex',
@@ -238,7 +238,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
                   color: 'var(--at-ink-3)',
                 }}
               >
-                {check.required ? 'Required' : 'Guided'}
+                {check.required ? 'Baseline' : 'Managed'}
               </span>
             </div>
             <h3
@@ -448,7 +448,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
           color: 'var(--at-red-1)',
         }}
       >
-        {card.act}
+        {card.group}
       </span>
       {statusPill(card.status)}
       <span
@@ -460,7 +460,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
           color: 'var(--at-ink-3)',
         }}
       >
-        {card.required ? 'Required path' : 'Extra time'}
+        {card.required ? 'Core evidence' : 'Extended evidence'}
       </span>
     </div>
     <h2
@@ -614,12 +614,12 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
   );
 };
 
-function groupCardsByAct(cards: ProofCard[]) {
+function groupCards(cards: ProofCard[]) {
   const groups = new Map<string, ProofCard[]>();
   for (const card of cards) {
-    const items = groups.get(card.act) ?? [];
+    const items = groups.get(card.group) ?? [];
     items.push(card);
-    groups.set(card.act, items);
+    groups.set(card.group, items);
   }
   return Array.from(groups.entries());
 }
@@ -632,7 +632,7 @@ const ProofRail: React.FC<{
   activeAnchor: string;
 }> = ({ eyebrow, title, summary, cards, activeAnchor }) => {
   if (!cards.length) return null;
-  const groupedCards = groupCardsByAct(cards);
+  const groupedCards = groupCards(cards);
   return (
     <section aria-label={title} style={{ marginBottom: '36px' }}>
       <div
@@ -684,8 +684,8 @@ const ProofRail: React.FC<{
       >
         {summary}
       </p>
-      {groupedCards.map(([act, actCards]) => (
-        <div key={act} style={{ marginBottom: '20px' }}>
+      {groupedCards.map(([group, groupCards]) => (
+        <div key={group} style={{ marginBottom: '20px' }}>
           <div
             style={{
               display: 'flex',
@@ -694,7 +694,7 @@ const ProofRail: React.FC<{
               marginBottom: '12px',
             }}
           >
-            <Eyebrow label={act} />
+            <Eyebrow label={group} />
             <span
               className="font-mono"
               style={{
@@ -704,7 +704,7 @@ const ProofRail: React.FC<{
                 textTransform: 'uppercase',
               }}
             >
-              {actCards.length} cards
+              {groupCards.length} cards
             </span>
           </div>
           <div
@@ -714,7 +714,7 @@ const ProofRail: React.FC<{
               gap: '16px',
             }}
           >
-            {actCards.map((card) => (
+            {groupCards.map((card) => (
               <ProofCardView
                 key={card.id}
                 card={card}
@@ -775,9 +775,9 @@ const ProofBoard: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1180px' }}>
       <EditorialTitle
-        eyebrow="Required path · proof board"
-        title="Build, prove, then extend."
-        summary="Use this board as the Atelier starting point. Each card maps the workshop flow to live evidence and keeps the terminal fallback next to the UI proof."
+        eyebrow="Evidence · proof board"
+        title="Inspect evidence, then boundaries."
+        summary="Each card connects a system claim to live evidence and keeps a terminal fallback beside the visual proof."
       />
 
       {loading && (
@@ -808,16 +808,16 @@ const ProofBoard: React.FC = () => {
           <ReceiptStrip receipt={data.managedReceipt} />
 
           <ProofRail
-            eyebrow="Required path"
-            title="Required rail"
-            summary="These cards are the facilitator-grade proof checkpoints for the core workshop path."
+            eyebrow="Core evidence"
+            title="Application evidence"
+            summary="These cards cover the application, retrieval, and operational evidence available on the default execution path."
             cards={rails.required}
             activeAnchor={activeAnchor}
           />
           <ProofRail
-            eyebrow="Fast-finisher path"
-            title="Optional managed rail"
-            summary="These cards are available after the required SQL proof when the account has Runtime, Gateway, and Policy configured."
+            eyebrow="Extended evidence"
+            title="Managed boundaries"
+            summary="These cards become live when the environment has Runtime, Gateway, identity, and Policy configured."
             cards={rails.optional}
             activeAnchor={activeAnchor}
           />

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # ========================================
     # AWS Configuration
     # ========================================
-    AWS_REGION: str = "us-west-2"
+    AWS_REGION: str = "us-east-1"
     AWS_DEFAULT_REGION: Optional[str] = None
     
     # ========================================
@@ -181,10 +181,11 @@ class Settings(BaseSettings):
     COGNITO_REGION: Optional[str] = None  # defaults to AWS_REGION if unset
     COGNITO_CLIENT_ID: Optional[str] = None
     COGNITO_CLIENT_SECRET: Optional[str] = None
-    COGNITO_DOMAIN: Optional[str] = None  # e.g. "pellier.auth.us-west-2.amazoncognito.com"
+    COGNITO_DOMAIN: Optional[str] = None  # e.g. "pellier.auth.us-east-1.amazoncognito.com"
 
     # Storefront origin + OAuth callback (Req 3.1.1, 3.1.2, 7.2.3)
     APP_BASE_URL: Optional[str] = None  # e.g. "http://localhost:5173"
+    APP_BASE_PATH: str = ""  # e.g. "/ports/8000" behind Workshop Studio
     OAUTH_REDIRECT_URI: Optional[str] = None  # e.g. "http://localhost:8000/api/auth/callback"
 
     # 4b — Memory
@@ -268,7 +269,7 @@ class Settings(BaseSettings):
         Returns:
             str: AWS region name
         """
-        return self.AWS_DEFAULT_REGION or self.AWS_REGION or "us-west-2"
+        return self.AWS_DEFAULT_REGION or self.AWS_REGION or "us-east-1"
 
     @property
     def cognito_pool_id_resolved(self) -> Optional[str]:

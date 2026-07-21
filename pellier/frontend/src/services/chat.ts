@@ -18,16 +18,9 @@ function getSessionId(): string {
   return sessionId
 }
 
-// === WIRE IT LIVE (Lab 4a) ===
 function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const token = localStorage.getItem('pellier-access-token')
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
-// === END WIRE IT LIVE ===
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

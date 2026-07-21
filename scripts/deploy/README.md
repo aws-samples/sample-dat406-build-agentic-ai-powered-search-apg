@@ -99,7 +99,7 @@ uv run test_runtime.py --prompt "Find me running shoes under $50"
 | --------------------------------- | ---------------------------------------------- |
 | `pellier_search_server.py`         | Lambda MCP server for search + inventory       |
 | `pellier_pricing_server.py`        | Lambda MCP server for pricing                  |
-| `pellier_recommend_server.py` | Lambda MCP server for recommendations          |
+| `pellier_recommend_server.py` | Lambda MCP server for curation + evidence      |
 | `deploy_lambda.py`                | Lambda deployment script (adapted from DAT403) |
 | `deploy_gateway.py`               | AgentCore Gateway deployment                   |
 | `agentcore_runtime_adapter.py`    | Gateway-aware runtime entrypoint (alternate; not the deployed one) |
@@ -107,7 +107,7 @@ uv run test_runtime.py --prompt "Find me running shoes under $50"
 | `../../pellier/backend/pyproject.toml` | CodeZip deps for the BYO agent (0.18 uses uv, not requirements.txt) |
 | `deploy_all.sh`                   | End-to-end deployment script                   |
 | `test_runtime.py`                 | Smoke tests for deployed agent                 |
-| `requirements.txt`                | Runtime dependencies                           |
+| `requirements.txt`                | Pinned deployment-helper dependencies          |
 
 ## Where to look when something breaks
 

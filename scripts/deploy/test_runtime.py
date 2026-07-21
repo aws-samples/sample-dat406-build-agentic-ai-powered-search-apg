@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--runtime-id", required=True, help="AgentCore Runtime ID")
     parser.add_argument("--prompt", required=True, help="Prompt to send")
     parser.add_argument("--token", required=True, help="Cognito JWT token")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-west-2"))
+    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
     parser.add_argument("--stream", action="store_true", help="Use streaming response")
     args = parser.parse_args()
 

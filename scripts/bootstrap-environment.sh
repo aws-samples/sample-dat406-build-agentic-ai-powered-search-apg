@@ -8,10 +8,11 @@ set -euo pipefail
 # ============================================================================
 # PARAMETERS FROM ENVIRONMENT
 # ============================================================================
-CODE_EDITOR_PASSWORD="${CODE_EDITOR_PASSWORD:-defaultPassword}"
+CODE_EDITOR_PASSWORD="${CODE_EDITOR_PASSWORD:?CODE_EDITOR_PASSWORD must be supplied by the deployment}"
 CODE_EDITOR_USER="${CODE_EDITOR_USER:-participant}"
 HOME_FOLDER="${HOME_FOLDER:-/workshop}"
 REPO_NAME="${REPO_NAME:-sample-pellier-agentic-search-apg}"
+ORIGIN_VERIFY_TOKEN="${ORIGIN_VERIFY_TOKEN:-}"
 CFN_WAIT_HANDLE="${CFN_WAIT_HANDLE:-}"
 STAGE2_SCRIPT_URL="${STAGE2_SCRIPT_URL:-}"
 ASSETS_BUCKET_NAME="${ASSETS_BUCKET_NAME:-}"
@@ -141,15 +142,15 @@ if [ "$_node20_ok" = true ]; then
             warn "Global typescript install failed – @aws/agentcore deploy may fail with 'tsc: command not found'. Recover: 'sudo npm install -g typescript' then re-run scripts/deploy/deploy_all.sh."
         fi
 
-        # Claude Code CLI (global), for the Claude Code lane in
-        # Exercise 1. It runs entirely against Bedrock via the box's instance
+        # Claude Code CLI (global), for the optional Claude Code lane in
+        # Core Lab 1. It runs entirely against Bedrock via the box's instance
         # role (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_MODEL are exported in the
         # participant .bashrc by bootstrap-labs), so there is NO per-participant
         # login — the same ambient-credential model the rest of the lab uses.
         # Intentionally NON-fatal: the mandatory path is hand-paste / cp, which
         # needs none of this. If the install fails, the lab guide's manual tab
         # still completes the exercise; only the optional agent lane is absent.
-        log "Installing Claude Code CLI globally (optional agent lane for Exercise 1)..."
+        log "Installing Claude Code CLI globally (optional agent lane for Core Lab 1)..."
         if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
@@ -159,7 +160,7 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
         else
-            warn "Claude Code CLI install failed – the OPTIONAL agent lane in Exercise 1 will be unavailable (the mandatory hand-paste / cp path is unaffected). Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
+            warn "Claude Code CLI install failed – the optional agent lane in Core Lab 1 will be unavailable (the mandatory hand-paste / cp path is unaffected). Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
         fi
     fi
 else
@@ -293,10 +294,16 @@ log "✅ Token configured"
 log "Configuring Nginx..."
 mkdir -p /etc/nginx/conf.d
 cat > /etc/nginx/conf.d/code-editor.conf << 'EOF'
+map $http_x_forwarded_proto $pellier_forwarded_proto {
+    default $http_x_forwarded_proto;
+    "" $scheme;
+}
+
 server {
     listen 80;
     listen [::]:80;
     server_name _;
+    # __PELLIER_ORIGIN_VERIFY__
     
     # Pellier (single-process): FastAPI on :8000 serves BOTH
     # /api/* AND the built SPA (/, /atelier, /storyboard, /discover,
@@ -313,7 +320,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $pellier_forwarded_proto;
         proxy_buffering off;
         proxy_read_timeout 300;
         gzip off;
@@ -327,7 +334,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $pellier_forwarded_proto;
         proxy_buffering off;
         proxy_read_timeout 300;
         gzip off;
@@ -354,7 +361,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $pellier_forwarded_proto;
         proxy_buffering off;
         proxy_read_timeout 300;
         gzip off;
@@ -368,12 +375,19 @@ server {
         proxy_set_header Connection upgrade;
         proxy_set_header Accept-Encoding gzip;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $pellier_forwarded_proto;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 86400;
     }
 }
 EOF
+
+if [ -n "$ORIGIN_VERIFY_TOKEN" ]; then
+    sed -i "s|# __PELLIER_ORIGIN_VERIFY__|if (\\\$http_x_pellier_origin_verify != \"$ORIGIN_VERIFY_TOKEN\") { return 403; }|" \
+        /etc/nginx/conf.d/code-editor.conf
+else
+    sed -i '/# __PELLIER_ORIGIN_VERIFY__/d' /etc/nginx/conf.d/code-editor.conf
+fi
 
 nginx -t
 systemctl enable nginx
@@ -398,7 +412,7 @@ fi
 rm -rf "/home/$CODE_EDITOR_USER/.code-editor-server" 2>/dev/null || true
 
 # Get AWS region from environment or EC2 metadata
-AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo 'us-west-2')}"
+AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo 'us-east-1')}"
 log "AWS Region: $AWS_REGION"
 
 # ----------------------------------------------------------------------------
@@ -417,8 +431,8 @@ log "AWS Region: $AWS_REGION"
 log "Bootstrapping CDK for AgentCore Runtime deploy (region $AWS_REGION)..."
 CDK_ACCOUNT="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo '')"
 if [ -n "$CDK_ACCOUNT" ]; then
-    if AWS_REGION="$AWS_REGION" AWS_DEFAULT_REGION="$AWS_REGION" \
-        npx -y aws-cdk@2 bootstrap "aws://${CDK_ACCOUNT}/${AWS_REGION}" >/dev/null 2>&1; then
+if AWS_REGION="$AWS_REGION" AWS_DEFAULT_REGION="$AWS_REGION" \
+    npx -y aws-cdk@2 bootstrap "aws://${CDK_ACCOUNT}/$AWS_REGION" >/dev/null 2>&1; then
         log "✅ CDK bootstrapped for aws://${CDK_ACCOUNT}/${AWS_REGION}"
     else
         warn "CDK bootstrap failed — @aws/agentcore Runtime deploy may fail until 'npx aws-cdk@2 bootstrap' succeeds for aws://${CDK_ACCOUNT}/${AWS_REGION}"
@@ -553,8 +567,8 @@ install_extension() {
 # Install essential extensions for the hands-on workshop.
 # No Jupyter — there are no notebooks in the lab content.
 # No Amazon Q extension — the MCP demo runs from the integrated terminal
-# (the Q extension is being retired, and Act III §02 reads the config +
-# verifies `awslabs.postgres-mcp-server` via uvx instead).
+# (the Q extension is being retired, and the optional MCP lab reads the
+# config and verifies `awslabs.postgres-mcp-server` via uvx instead).
 # No AWS Toolkit extension — it is the source of the Amazon Q "end-of-support",
 # "Dismiss", and "Sign-In" first-run pop-ups participants had to clear, and no
 # lab step opens the AWS Explorer panel (every "sign in" in the content refers
@@ -683,8 +697,8 @@ cat > "$HOME_FOLDER/scripts/welcome.sh" << 'WELCOME_EOF'
 clear
 
 cat << EOF
-  Pellier governed agentic AI search
-  Build governed search with Aurora, RDS, and Bedrock AgentCore
+  Pellier agentic AI-powered search
+  Build, measure, and prove search with Aurora PostgreSQL
 
   START       Keep the lab guide open. Work primarily in this terminal and
               the Boutique shopper view.
@@ -694,7 +708,7 @@ cat << EOF
 
   MEASURE     Compare retrieval strategies for Anna's query.
 
-  PROVE       Exercise 2: query pellier.tool_audit from psql.
+  PROVE       Core Lab 3: query pellier.tool_audit from psql.
 
   ATELIER     Use Atelier only when a step names a specific verification or
               comparison view.
@@ -780,28 +794,25 @@ log "✅ Auto-open terminal configured (repo .vscode/, auto-tasks enabled)"
 # STEP 10: PYTHON SETUP (~10 sec)
 # ============================================================================
 
-log "Upgrading pip and installing workshop dependencies..."
-# Upgrade pip
-sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user --upgrade pip -q
+log "Installing locked workshop dependencies..."
 
-# Install backend dependencies from requirements.txt — boto3, FastAPI,
+# Install backend dependencies from requirements.lock — boto3, FastAPI,
 # Strands SDK, psycopg, etc. The workshop app needs all of these
 # at runtime; the pip install must succeed for the pellier service to
 # start.
-REQUIREMENTS="$HOME_FOLDER/$REPO_NAME/pellier/backend/requirements.txt"
+REQUIREMENTS="$HOME_FOLDER/$REPO_NAME/pellier/backend/requirements.lock"
 if [ -f "$REQUIREMENTS" ]; then
-    log "Installing backend dependencies from requirements.txt..."
+    log "Installing backend dependencies from requirements.lock..."
     sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user -r "$REQUIREMENTS" 2>&1 \
         | tee /var/log/pellier-pip-install.log
     PIP_EXIT=${PIPESTATUS[0]}
     if [ "$PIP_EXIT" -ne 0 ]; then
-        warn "pip install failed (exit $PIP_EXIT) — pellier service may not start"
-        warn "  see /var/log/pellier-pip-install.log"
+        error "Locked dependency install failed (exit $PIP_EXIT); see /var/log/pellier-pip-install.log"
     else
         log "✅ Backend dependencies installed"
     fi
 else
-    warn "requirements.txt missing at $REQUIREMENTS — backend will not start"
+    error "requirements.lock missing at $REQUIREMENTS"
 fi
 
 # Set AWS region and workshop shortcuts for user environment
@@ -870,7 +881,10 @@ else
 fi
 
 # Verify Nginx proxy
-NGINX_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/ 2>/dev/null || echo "000")
+NGINX_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "X-Pellier-Origin-Verify: $ORIGIN_VERIFY_TOKEN" \
+    -H "X-Forwarded-Proto: https" \
+    http://127.0.0.1:80/ 2>/dev/null || echo "000")
 if [ "$NGINX_CODE" = "302" ] || [ "$NGINX_CODE" = "200" ] || [ "$NGINX_CODE" = "405" ]; then
     log "✅ Nginx proxy verified (HTTP $NGINX_CODE)"
 else

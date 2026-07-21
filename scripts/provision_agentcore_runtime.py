@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REGION = os.environ.get("AWS_REGION", "us-west-2")
+REGION = os.environ.get("AWS_REGION", "us-east-1")
 REPO = Path(os.environ.get("REPO_PATH", ".")).resolve()
 BACKEND = REPO / "pellier" / "backend"
 ROLE_NAME = "pellier-agentcore-runtime-execution"
@@ -234,9 +234,7 @@ def _render_templates(role_arn: str) -> bool:
         ),
         "COGNITO_CLIENT": cognito_client,
         "MCP_GATEWAY_URL": mcp_gateway_url,
-        "AGENT_MODEL_ID": os.environ.get(
-            "AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8"
-        ),
+        "AGENT_MODEL_ID": os.environ["AGENT_MODEL_ID"],
         "AWS_ACCOUNT": aws_account,
         "AWS_REGION": REGION,
     }

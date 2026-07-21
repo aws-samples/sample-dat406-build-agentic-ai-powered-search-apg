@@ -470,7 +470,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     cards = [
         {
             "id": "marco-floor-check",
-            "act": "Act I",
+            "group": "Agent and tool evidence",
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
             "required": True,
@@ -501,7 +501,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "retrieval-comparison",
-            "act": "Act II",
+            "group": "Retrieval evidence",
             "title": "Compare retrieval strategies",
             "status": _card_status(int(counts.get("catalog_count") or 0) >= 40, "needs_data"),
             "required": True,
@@ -526,7 +526,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "audit-ledger",
-            "act": "Act II",
+            "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": _card_status(bool(latest_process_return), "needs_run" if latest_audit else "pending"),
             "required": True,
@@ -563,7 +563,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "runtime-gateway-policy",
-            "act": "Act II",
+            "group": "Managed boundaries",
             "title": "Inspect Runtime, Gateway, and Policy",
             "status": _card_status(runtime_configured and gateway_configured and identity_configured, "needs_config"),
             "required": False,
@@ -587,8 +587,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "managed-rail",
-            "act": "Act III",
-            "title": "Fast-finisher managed rail",
+            "group": "Managed boundaries",
+            "title": "Inspect the managed rail",
             "status": _card_status(bool(managed_receipt.get("present")), "available"),
             "required": False,
             "surface": "Runtime receipt",

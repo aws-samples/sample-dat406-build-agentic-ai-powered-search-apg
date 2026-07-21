@@ -35,7 +35,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      act: 'Act I',
+      group: 'Agent and tool evidence',
       title: 'Wire Marco to floor_check',
       status: 'complete',
       required: true,
@@ -50,8 +50,8 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      act: 'Act III',
-      title: 'Fast-finisher managed rail',
+      group: 'Managed boundaries',
+      title: 'Inspect the managed rail',
       status: 'available',
       required: false,
       surface: 'Runtime receipt',
@@ -88,7 +88,7 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Build, prove, then extend.')).toBeInTheDocument();
+    expect(await screen.findByText('Inspect evidence, then boundaries.')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('Aurora PostgreSQL')).toBeInTheDocument();
     });

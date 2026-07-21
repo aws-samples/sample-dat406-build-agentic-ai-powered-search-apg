@@ -659,7 +659,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
  *      four strategies against the catalog and returns measured numbers
  *      + the actual top-5 product names per strategy. The recall@5
  *      column stays the static fixture value (we'd need labeled data
- *      to compute it live) but the p50Ms + products refresh, and the
+ *      to compute it live) but the observed duration + products refresh, and the
  *      agentic row also surfaces extractedFilters chips so participants
  *      can see what Sonnet pulled out and which filter-degradation step
  *      the pipeline ended up using.
@@ -874,7 +874,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
       }
       const j = await r.json();
       // Backend returns { strategies: [...] } where each strategy has
-      // p50Ms + costPerThousandUsd + products. We merge those onto the
+      // observedMs + modeledCostPerThousandUsd + products. We merge those onto the
       // fixture's recallAt5 + isShipped so the card stays whole. The
       // agentic strategy additionally carries extractedFilters surfacing
       // what Sonnet pulled out and which filter-degradation step ran.
@@ -885,8 +885,9 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         if (!live) return s;
         return {
           ...s,
-          p50Ms: live.p50Ms ?? s.p50Ms,
-          costPerThousandUsd: live.costPerThousandUsd ?? s.costPerThousandUsd,
+          observedMs: live.observedMs,
+          modeledCostPerThousandUsd:
+            live.modeledCostPerThousandUsd ?? s.modeledCostPerThousandUsd,
           products: live.products,
           extractedFilters: live.extractedFilters,
         };
@@ -1022,7 +1023,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
             marginTop: '10px',
           }}
         >
-          Live · Aurora measurement for "{query}"
+          Live · one Aurora observation for "{query}"
         </p>
       )}
 
@@ -1038,8 +1039,8 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
             <tr>
               <th style={headerStyle}>Strategy</th>
               <th style={{ ...headerStyle, textAlign: 'right' }}>Recall@5</th>
-              <th style={{ ...headerStyle, textAlign: 'right' }}>p50</th>
-              <th style={{ ...headerStyle, textAlign: 'right' }}>$/1k queries</th>
+              <th style={{ ...headerStyle, textAlign: 'right' }}>Latency</th>
+              <th style={{ ...headerStyle, textAlign: 'right' }}>Modeled $/1k</th>
               <th style={{ ...headerStyle, textAlign: 'center' }}>Status</th>
             </tr>
           </thead>
@@ -1084,10 +1085,20 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                       {(s.recallAt5 * 100).toFixed(0)}%
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
-                      {formatMs(s.p50Ms)}
+                      {formatMs(s.observedMs ?? s.modeledLatencyMs)}
+                      <span
+                        style={{
+                          display: 'block',
+                          color: 'var(--at-ink-3)',
+                          fontSize: '10px',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        {s.observedMs === undefined ? 'modeled p50' : 'observed once'}
+                      </span>
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
-                      ${s.costPerThousandUsd.toFixed(2)}
+                      ${s.modeledCostPerThousandUsd.toFixed(2)}
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'center' }}>
                       <span

@@ -12,11 +12,12 @@ CODE_EDITOR_USER="${CODE_EDITOR_USER:-participant}"
 HOME_FOLDER="${HOME_FOLDER:-/workshop}"
 REPO_NAME="sample-pellier-agentic-search-apg"
 REPO_PATH="$HOME_FOLDER/$REPO_NAME"
-AWS_REGION="${AWS_REGION:-us-west-2}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
 warn() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] WARNING:${NC} $1"; }
+fail() { echo -e "${RED}[$(date +'%H:%M:%S')] ERROR:${NC} $1"; exit 1; }
 write_status_json() {
     local status="$1"
     local managed_status="$2"
@@ -153,6 +154,7 @@ COGNITO_USER_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_CLIENT_ID='${COGNITO_CLIENT_ID:-}'
 COGNITO_DOMAIN='${VITE_COGNITO_DOMAIN:-}'
+APP_BASE_PATH='/ports/8000'
 EOF
 
     chmod 600 "$REPO_PATH/.env"
@@ -185,7 +187,7 @@ chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH"
 # STEP 4: VERIFY PYTHON DEPENDENCIES
 # ============================================================================
 # Stage 1 (bootstrap-environment.sh) already installed everything in
-# pellier/backend/requirements.txt. Re-running the install here would
+# pellier/backend/requirements.lock. Re-running the install here would
 # either no-op (best case) or duplicate work without changing the
 # environment. We just verify the critical packages reached
 # /home/$CODE_EDITOR_USER/.local — if Stage 1's pip failed silently,
@@ -196,9 +198,9 @@ if sudo -u "$CODE_EDITOR_USER" python3 -c "import boto3, fastapi, uvicorn, psyco
     log "✅ Backend dependencies verified"
 else
     warn "Some backend dependencies are missing — re-running pip install"
-    if [ -f "$REPO_PATH/pellier/backend/requirements.txt" ]; then
+    if [ -f "$REPO_PATH/pellier/backend/requirements.lock" ]; then
         sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user \
-            -r "$REPO_PATH/pellier/backend/requirements.txt" 2>&1 \
+            -r "$REPO_PATH/pellier/backend/requirements.lock" 2>&1 \
             | tee -a /var/log/pellier-pip-install.log >/dev/null
         if sudo -u "$CODE_EDITOR_USER" python3 -c "import boto3, fastapi, uvicorn, psycopg, strands" 2>/dev/null; then
             log "✅ Backend dependencies recovered"
@@ -206,6 +208,8 @@ else
             warn "Backend dependencies still missing after retry — pellier service will fail to start"
             warn "  see /var/log/pellier-pip-install.log"
         fi
+    else
+        fail "requirements.lock is missing; backend dependencies are not reproducible"
     fi
 fi
 
@@ -252,7 +256,7 @@ if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/pellier/backend/generate_mcp_config.py"
         
         if [ -f "$REPO_PATH/pellier/config/mcp-server-config.json" ]; then
             log "✅ MCP config generated at pellier/config/mcp-server-config.json"
-            log "   Act III §02 reads this file + verifies awslabs.postgres-mcp-server via uvx"
+            log "   The optional MCP lab reads this file and verifies awslabs.postgres-mcp-server via uvx"
         else
             warn "MCP config generation failed - will be generated on backend startup"
         fi
@@ -270,24 +274,26 @@ fi
 # or a dead chat turn mid-session. Cohere Embed v4 is hard-required because
 # every shopper query is embedded live before the pgvector search (the cache
 # only covers the catalog corpus). The same preflight also resolves the
-# independent Claude Code CLI model for Exercise 1.
+# independent Claude Code CLI model for the optional Core Lab 1 lane.
 log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
-        export AWS_REGION='${AWS_REGION:-us-west-2}'
+        export AWS_REGION='${AWS_REGION:-us-east-1}'
         cd '$REPO_PATH'
         python3 scripts/check_model_access.py --write-env '$REPO_PATH/pellier/backend/.env'
     " 2>&1 | tee /var/log/model-access-preflight.log; then
         log "✅ Bedrock model-access preflight passed"
+        # The preflight writes the exact accessible Sonnet generation,
+        # including AGENT_MODEL_ID for Runtime. Load it into this shell before
+        # STEP 16 spawns the provisioner.
+        set -a
+        source "$REPO_PATH/.env"
+        set +a
     else
-        warn "❌ Bedrock model-access preflight FAILED — required models not enabled."
-        warn "   See /var/log/model-access-preflight.log and enable models at:"
-        warn "   https://console.aws.amazon.com/bedrock/home#/modelaccess"
-        warn "   Continuing bootstrap so the IDE is usable, but the session will"
-        warn "   not work until model access is granted and the seed is re-run."
+        fail "Bedrock model-access preflight failed; see /var/log/model-access-preflight.log"
     fi
 else
-    warn "check_model_access.py not found — skipping model preflight"
+    fail "check_model_access.py not found; cannot verify required Bedrock models"
 fi
 
 # ============================================================================
@@ -630,11 +636,25 @@ def main():
             description="Pellier workshop memory - STM plus USER_PREFERENCE semantic extraction",
             eventExpiryDuration=30,
             memoryStrategies=[strategy_input],
+            tags={
+                "Project": "pellier",
+                "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "unknown"),
+            },
         )
         mem_id = resp["memory"]["id"]
     else:
         mem_id = mem["id"]
         log(f"PellierSTM exists ({mem_id}).")
+        if mem.get("arn"):
+            ctrl.tag_resource(
+                resourceArn=mem["arn"],
+                tags={
+                    "Project": "pellier",
+                    "PellierWorkshopId": os.environ.get(
+                        "WORKSHOP_ID", "unknown"
+                    ),
+                },
+            )
         if has_user_pref_strategy(mem) is None:
             # Existing STM-only memory: attach the strategy.
             log("  adding USER_PREFERENCE strategy via update_memory...")
@@ -676,6 +696,7 @@ PYEOF
     AGENTCORE_MEMORY_ID=$(sudo -u "$CODE_EDITOR_USER" bash -c "
         export PATH=\"\$HOME/.local/bin:\$PATH\"
         export AWS_REGION='$AWS_REGION'
+        export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
         export PELLIER_MEMORY_NAME='PellierSTM'
         python3 '$_MEM_SCRIPT' 2>>'$AGENTCORE_MEMORY_LOG'
     ") || AGENTCORE_MEMORY_ID=""
@@ -785,7 +806,7 @@ agentcore() {
 alias psql='psql'
 
 # AWS Region for boto3
-export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
+export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 
 # Claude Code CLI → Amazon Bedrock (Claude Code lane, Ex 1).
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
@@ -796,7 +817,7 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-west-2}
 # independent of the app's Opus/Sonnet editorial model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-5}}
-export AWS_REGION=${AWS_REGION:-us-west-2}
+export AWS_REGION=${AWS_REGION:-us-east-1}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix
 # and warns once at startup ("Auto-update failed: no write permission..."). The
@@ -1074,7 +1095,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     # AgentCore provisioning is best-effort, NOT a hard gate. A failure here
     # must never abort the bootstrap: the backend still launches below and the
     # app degrades gracefully (STM falls back to Aurora session tables, and the
-    # Act II Runtime-invoke step shows a clear "Runtime not provisioned" state
+    # optional Runtime lab shows a clear "Runtime not provisioned" state
     # rather than the whole environment coming up with no backend and no logs).
     # The health gate at the end reports AgentCore readiness explicitly.
     log "Provisioning full AgentCore managed path (Lambdas + Gateway + Runtime)..."
@@ -1112,6 +1133,8 @@ export COGNITO_CLIENT='${COGNITO_CLIENT:-}'
 export AGENTCORE_ROLE_ARN='${AGENTCORE_ROLE_ARN:-}'
 export COGNITO_TEST_CREDENTIALS_SECRET_ARN='${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}'
 export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
+export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
+export AGENT_MODEL_ID='${AGENT_MODEL_ID:-}'
 EOF
     chmod 600 "$PROVISION_ENV" 2>/dev/null || true
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$PROVISION_ENV" 2>/dev/null || true
@@ -1146,6 +1169,9 @@ EOF
     AGENTCORE_LOG="/var/log/pellier-agentcore.log"
     if [ "$AGENTCORE_OK" = true ] && ! sudo -u "$CODE_EDITOR_USER" bash -c "
         export PATH=\"/usr/bin:/usr/local/bin:\$HOME/.local/bin:\$PATH\"
+        set -a
+        source '$REPO_PATH/.env'
+        set +a
         node --version  # log the node the CLI will actually use
         export AWS_REGION='$AWS_REGION'
         export AWS_DEFAULT_REGION='$AWS_REGION'
@@ -1158,6 +1184,8 @@ EOF
         export AGENTCORE_ROLE_ARN='${AGENTCORE_ROLE_ARN:-}'
         export COGNITO_TEST_CREDENTIALS_SECRET_ARN='${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}'
         export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
+        export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
+        export AGENT_MODEL_ID='${AGENT_MODEL_ID:-}'
         python3 '$REPO_PATH/scripts/provision_agentcore_end_to_end.py' \
             --repo-path '$REPO_PATH' \
             --output-json '$MANAGED_OUTPUT_JSON'
@@ -1193,7 +1221,7 @@ EOF
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). Best-effort: provisioning
         # marks status=ready even if policy attach failed, so guard on non-empty.
-        # The Act II policy exercise + Atelier Policy surface read this id.
+        # The optional Policy lab and Atelier Policy surface read this id.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"
@@ -1205,15 +1233,17 @@ EOF
         log "✅ AgentCore managed path ready"
     else
         warn "AgentCore managed path NOT ready — continuing so the backend launches. The health gate will flag this; see $AGENTCORE_LOG, then re-run provisioning to recover the Runtime/Gateway path."
-        # Partial-success salvage: Gateway and Policy deploy BEFORE the
-        # Runtime in provisioning, so a Runtime-only failure (e.g. the smoke
-        # gate) still leaves them live — record what exists so the Atelier
-        # Gateway/Policy surfaces work and only the Runtime beat stays dark
-        # (box-verified cascade 2026-06-12: all-or-nothing .env left live
-        # Gateway+Policy invisible). AGENTCORE_RUNTIME_ENDPOINT stays unset
-        # on purpose — the health gate keys the Runtime pillar off it.
+        # Partial-success salvage: managed resources may be live even when a
+        # later verification fails. Preserve their identifiers for inspection,
+        # but do not opt the app into a Runtime that failed its smoke test.
+        PARTIAL_RUNTIME_ARN="$(jq -r '.runtime.runtime_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         PARTIAL_GATEWAY_URL="$(jq -r '.gateway.gateway_url // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         PARTIAL_POLICY_ID="$(jq -r '.policy.policy_engine_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        if [ -n "$PARTIAL_RUNTIME_ARN" ]; then
+            upsert_env "AGENTCORE_RUNTIME_ENDPOINT" "$PARTIAL_RUNTIME_ARN" "$REPO_PATH/.env"
+            upsert_env "USE_AGENTCORE_RUNTIME" "false" "$REPO_PATH/.env"
+            log "Salvaged deployed Runtime ARN into .env; automatic Runtime use remains disabled"
+        fi
         if [ -n "$PARTIAL_GATEWAY_URL" ]; then
             upsert_env "MCP_GATEWAY_URL" "$PARTIAL_GATEWAY_URL" "$REPO_PATH/.env"
             upsert_env "AGENTCORE_GATEWAY_URL" "$PARTIAL_GATEWAY_URL" "$REPO_PATH/.env"
@@ -1241,7 +1271,7 @@ EOF
     fi
 
     # Install the pinned AgentCore CLI GLOBALLY for the participant's read-only
-    # cloud-inspection beat (Act II: `agentcore status` / `agentcore logs`). We
+    # optional cloud-inspection beat (`agentcore status` / `agentcore logs`). We
     # install at bootstrap — not via npx-on-demand — so the command never touches
     # the npm registry at session time (Summit venue networking is not a
     # dependency the live beat can afford). Pinned 0.18.0 to MATCH
@@ -1296,9 +1326,9 @@ if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -x "$REPO_PATH/scripts
 fi
 
 # ============================================================================
-# STEP 17b: PRE-BAKE THE ACT II BEARER TOKEN HELPER
+# STEP 17b: PRE-BAKE THE OPTIONAL BEARER TOKEN HELPER
 # ============================================================================
-# The Act II managed-Policy exercise runs on the AUTHENTICATED Gateway rail and
+# The optional managed-Policy exercise runs on the authenticated Gateway rail and
 # needs a Cognito access token. In a self-paced room (no facilitator to unblock
 # a failed `admin-initiate-auth`), typing that command is the #1 friction +
 # failure mode. So we pre-bake a one-command helper that mints a FRESH token
@@ -1310,7 +1340,7 @@ fi
 # Cedar gates at the Gateway), not the auth ceremony. Identity is still REAL:
 # the token is a genuine Cognito JWT the Gateway validates.
 if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" ]; then
-    log "Writing Act II token helper (~/pellier-token.sh)..."
+    log "Writing optional token helper (~/pellier-token.sh)..."
     _TOKEN_POOL="${COGNITO_POOL:-${COGNITO_POOL_ID}}"
     _TOKEN_CLIENT="${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}"
     # The participant's ~ is /home/$CODE_EDITOR_USER, NOT $HOME_FOLDER
@@ -1359,7 +1389,7 @@ fi
 TOKENEOF
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$_TOKEN_HELPER" 2>/dev/null || true
     ln -sf "$_TOKEN_HELPER" "$HOME_FOLDER/pellier-token.sh" 2>/dev/null || true
-    log "✅ Act II token helper ready: source ~/pellier-token.sh"
+    log "✅ Optional token helper ready: source ~/pellier-token.sh"
 fi
 
 # ============================================================================
@@ -1418,7 +1448,7 @@ if [ -x "$REPO_PATH/scripts/health-gate.sh" ]; then
         export PELLIER_REPO='$REPO_PATH'
         bash '$REPO_PATH/scripts/health-gate.sh'
     " 2>&1 | tee /var/log/pellier-health-gate.log || \
-        warn "Health gate reported NOT READY — see /var/log/pellier-health-gate.log"
+        warn "Core health gate reported NOT READY — see /var/log/pellier-health-gate.log"
 fi
 
 log "=========================================="

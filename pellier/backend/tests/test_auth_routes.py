@@ -259,6 +259,29 @@ def test_signin_rejects_unknown_provider(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
+def test_signin_derives_cloudfront_callback_when_base_url_is_unset(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "APP_BASE_URL", None, raising=False)
+    monkeypatch.setattr(settings, "OAUTH_REDIRECT_URI", None, raising=False)
+    resp = client.get(
+        "/api/auth/signin",
+        headers={
+            "host": "d111111abcdef8.cloudfront.net",
+            "x-forwarded-proto": "https",
+        },
+    )
+    params = {
+        key: values[0]
+        for key, values in parse_qs(urlparse(resp.headers["location"]).query).items()
+    }
+    assert (
+        params["redirect_uri"]
+        == "https://d111111abcdef8.cloudfront.net/api/auth/callback"
+    )
+
+
 # ---------------------------------------------------------------------------
 # /api/auth/callback — state handling
 # ---------------------------------------------------------------------------

@@ -35,7 +35,7 @@ Usage:
     uv run scripts/deploy/deploy_policy.py \
         --gateway-id <gateway-id> \
         --gateway-arn <gateway-arn> \
-        --region us-west-2 \
+        --region us-east-1 \
         [--experience-target-name pellier-concierge-experience-target] \
         [--mode ENFORCE]
 
@@ -45,6 +45,7 @@ caller (provision_agentcore_end_to_end.py / deploy_all.sh) can capture it into
 """
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -121,6 +122,15 @@ def create_or_reuse_engine(client, name=ENGINE_NAME):
     try:
         for engine in client.list_policy_engines().get("policyEngines", []):
             if engine.get("name") == name:
+                client.tag_resource(
+                    resourceArn=engine["policyEngineArn"],
+                    tags={
+                        "Project": "pellier",
+                        "PellierWorkshopId": os.environ.get(
+                            "WORKSHOP_ID", "unknown"
+                        ),
+                    },
+                )
                 print(f"  Reusing existing policy engine: {engine['policyEngineId']}")
                 return engine["policyEngineId"], engine["policyEngineArn"]
     except Exception:
@@ -130,6 +140,10 @@ def create_or_reuse_engine(client, name=ENGINE_NAME):
     resp = client.create_policy_engine(
         name=name,
         description="Pellier workshop policy engine — gates process_return to damaged-only via Cedar",
+        tags={
+            "Project": "pellier",
+            "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "unknown"),
+        },
     )
     engine_id = resp["policyEngineId"]
     engine_arn = resp["policyEngineArn"]
@@ -355,7 +369,7 @@ def main():
     parser = argparse.ArgumentParser(description="Deploy the managed AgentCore Policy Engine for Pellier")
     parser.add_argument("--gateway-id", required=True, help="AgentCore Gateway ID")
     parser.add_argument("--gateway-arn", required=True, help="AgentCore Gateway ARN")
-    parser.add_argument("--region", default="us-west-2", help="AWS region")
+    parser.add_argument("--region", default="us-east-1", help="AWS region")
     parser.add_argument("--mode", default="ENFORCE", choices=["ENFORCE", "MONITOR"],
                         help="ENFORCE blocks denied calls; MONITOR only logs")
     parser.add_argument("--experience-target-name", default=EXPERIENCE_TARGET,

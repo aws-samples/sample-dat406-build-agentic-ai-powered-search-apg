@@ -17,12 +17,13 @@ logger = logging.getLogger(__name__)
 iam_client = None
 lambda_client = None
 
-def create_iam_role(role_name, trust_policy, policy_document):
+def create_iam_role(role_name, trust_policy, policy_document, tags=None):
   try:
       # Create role
       response = iam_client.create_role(
           RoleName=role_name,
-          AssumeRolePolicyDocument=json.dumps(trust_policy)
+          AssumeRolePolicyDocument=json.dumps(trust_policy),
+          Tags=[{"Key": key, "Value": value} for key, value in (tags or {}).items()],
       )
       role_arn = response['Role']['Arn']
       
@@ -42,6 +43,11 @@ def create_iam_role(role_name, trust_policy, policy_document):
   except iam_client.exceptions.EntityAlreadyExistsException:
       response = iam_client.get_role(RoleName=role_name)
       logger.info(f"IAM role {role_name} already exists, using existing role: {response['Role']['Arn']}")
+      if tags:
+        iam_client.tag_role(
+          RoleName=role_name,
+          Tags=[{"Key": key, "Value": value} for key, value in tags.items()],
+        )
 
       # Attach inline policy
       iam_client.put_role_policy(
@@ -55,7 +61,7 @@ def create_iam_role(role_name, trust_policy, policy_document):
 
       return response['Role']['Arn']
 
-def create_or_update_lambda_function(function_name, role_arn, handler, files, dependencies, env, region, s3_bucket=None, layers=None):
+def create_or_update_lambda_function(function_name, role_arn, handler, files, dependencies, env, region, s3_bucket=None, layers=None, tags=None):
   try:
     # Create deployment package
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -110,12 +116,20 @@ def create_or_update_lambda_function(function_name, role_arn, handler, files, de
             else:
               s3_client.create_bucket(Bucket=s3_bucket, CreateBucketConfiguration={'LocationConstraint': region})
             logger.info(f"Created S3 bucket: {s3_bucket}")
+            if tags:
+              s3_client.put_bucket_tagging(
+                Bucket=s3_bucket,
+                Tagging={"TagSet": [
+                  {"Key": key, "Value": value} for key, value in tags.items()
+                ]},
+              )
           except s3_client.exceptions.BucketAlreadyOwnedByYou:
             pass
           except s3_client.exceptions.BucketAlreadyExists:
             pass
         
-        s3_key = f"lambda/{function_name}.zip"
+        workshop_id = (tags or {}).get("PellierWorkshopId", "unknown")
+        s3_key = f"lambda/{workshop_id}/{function_name}.zip"
         s3_client = boto3.client('s3', region_name=region)
         s3_client.put_object(Bucket=s3_bucket, Key=s3_key, Body=zip_content)
         logger.info(f"Uploaded to s3://{s3_bucket}/{s3_key}")
@@ -165,6 +179,9 @@ def create_or_update_lambda_function(function_name, role_arn, handler, files, de
         function_arn = response['FunctionArn']
         logger.info(f"Created lambda function: {function_arn}")
 
+      if tags:
+        lambda_client.tag_resource(Resource=function_arn, Tags=tags)
+
       return function_arn
       
   except Exception as e:
@@ -176,7 +193,7 @@ def main():
   global iam_client, lambda_client
 
   parser = argparse.ArgumentParser(description="Deploy Lambda function to AWS")
-  parser.add_argument('--region', help="AWS Region to use.", default=os.getenv("AWS_REGION", "us-west-2"))
+  parser.add_argument('--region', help="AWS Region to use.", default=os.getenv("AWS_REGION", "us-east-1"))
   parser.add_argument('--server-name', default='pellier-mcp-server', help='The name of the server deployed by this function.')
   parser.add_argument('--db-cluster-arn', help="Aurora PostgreSQL DB cluster ARN")
   parser.add_argument('--secret-arn', help="AWS Secrets Manager secret ARN")
@@ -195,6 +212,10 @@ def main():
   try:
     # Account id for scoping the Bedrock inference-profile ARNs below.
     account_id = session.client('sts').get_caller_identity()['Account']
+    workshop_tags = {
+      "Project": "pellier",
+      "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "unknown"),
+    }
 
     # Lambda function execution role
     lambda_role_name = args.server_name + '-role'
@@ -270,7 +291,12 @@ def main():
         "Action": ["secretsmanager:GetSecretValue"],
         "Resource": args.secret_arn
       })
-    lambda_role_arn = create_iam_role(lambda_role_name, lambda_trust_policy, lambda_permissions_policy)
+    lambda_role_arn = create_iam_role(
+      lambda_role_name,
+      lambda_trust_policy,
+      lambda_permissions_policy,
+      tags=workshop_tags,
+    )
 
     function_name = args.server_name + '-function'
 
@@ -307,11 +333,12 @@ def main():
         'common/types.py': types_path,
         target_filename: args.mcp_server_path
       },
-      dependencies=['mcp'] + args.extra_deps,
+      dependencies=['mcp==1.28.1'] + args.extra_deps,
       env=env_vars,
       region=args.region,
       s3_bucket=args.s3_bucket,
-      layers=args.layers if args.layers else None
+      layers=args.layers if args.layers else None,
+      tags=workshop_tags,
     )
 
     # Response

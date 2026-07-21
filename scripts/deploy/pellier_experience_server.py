@@ -30,7 +30,7 @@ from common.types import resolve_invocation
 
 logger = logging.getLogger(__name__)
 
-REGION = os.environ.get("REGION", "us-west-2")
+REGION = os.environ.get("REGION", "us-east-1")
 DB_CLUSTER_ARN = os.environ.get("DB_CLUSTER_ARN", "")
 SECRET_ARN = os.environ.get("SECRET_ARN", "")
 DATABASE = os.environ.get("DATABASE", "postgres")

@@ -55,6 +55,8 @@ package-lock.json
 dist/
 lab2/frontend/dist/
 *.log
+/package.zip
+/bazaar_gateway_deployment.json
 
 # Vite — local dev-server pre-bundle cache, regenerated on every
 # `npm run dev`. Always project-local, never useful in the repo.

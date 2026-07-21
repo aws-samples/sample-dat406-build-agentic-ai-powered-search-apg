@@ -70,7 +70,11 @@ try:
     # is empty we surface a clear error rather than letting MCPClient
     # crash on an empty URL.
     GATEWAY_URL = os.environ.get("MCP_GATEWAY_URL", "")
-    MODEL_ID = os.environ.get("AGENT_MODEL_ID", "global.anthropic.claude-opus-4-8")
+    MODEL_ID = os.environ.get("AGENT_MODEL_ID", "").strip()
+    if not MODEL_ID:
+        raise RuntimeError(
+            "AGENT_MODEL_ID is required; run check_model_access.py --write-env before deployment"
+        )
 
     # The orchestrator prompt is intentionally compact: AgentCore Runtime
     # bills on token usage, and the heavy lifting (search, pricing,
@@ -80,15 +84,17 @@ try:
     ORCHESTRATOR_PROMPT = """You are the Pellier shopping assistant deployed on AgentCore.
 
 You have access to tools discovered via MCP Gateway:
-- Search tools: semantic_search, find_pieces_hybrid, inventory_health, low_stock, restock_product
-- Pricing tools: find_deals, price_analysis, compare_products
-- Recommendation tools: get_recommendations, trending_products
+- Search and inventory: find_pieces, find_pieces_hybrid, explore_collection,
+  floor_check, running_low, restock_shelf
+- Pricing: price_intelligence, side_by_side
+- Curation and evidence: preference_snapshot, trace_receipt, whats_trending,
+  returns_and_care, style_match
 - Experience tools: process_return, escalate_to_stylist
 
 RULES:
 1. Call the right tool for the user's query, then return results directly.
 2. Prefer find_pieces_hybrid when the shopper describes the piece in
-   natural language; reach for semantic_search when speed matters more
+   natural language; reach for find_pieces when speed matters more
    than rerank quality.
 3. Write 1 short sentence before the products — answer the user's question.
 4. NEVER mention tool names, agent names, or internal routing to the user.

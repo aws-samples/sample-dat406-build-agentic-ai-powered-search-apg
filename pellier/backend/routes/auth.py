@@ -49,6 +49,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import re
 import secrets
 import time
 from typing import Any, Dict, Optional
@@ -106,25 +107,47 @@ PROVIDER_MAP: Dict[str, Optional[str]] = {
 # ---------------------------------------------------------------------------
 
 
-def _redirect_uri() -> str:
+def _request_origin(request: Request) -> str:
+    """Return the validated public origin forwarded by CloudFront/nginx."""
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    scheme = scheme.split(",", 1)[0].strip().lower()
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+    )
+    host = host.split(",", 1)[0].strip()
+    if scheme not in {"http", "https"} or not re.fullmatch(
+        r"[A-Za-z0-9.-]+(?::[0-9]{1,5})?", host
+    ):
+        raise HTTPException(status_code=400, detail="invalid_forwarded_origin")
+    return f"{scheme}://{host}"
+
+
+def _redirect_uri(request: Request) -> str:
     """Return the configured OAuth callback URI.
 
     Uses ``OAUTH_REDIRECT_URI`` when set; falls back to
-    ``APP_BASE_URL + /api/auth/callback`` so local dev with only
-    ``APP_BASE_URL`` configured still works. Raises 503 if neither is
-    present — the sign-in flow cannot function without a registered
-    redirect.
+    ``APP_BASE_URL + /api/auth/callback`` when configured. In Workshop Studio,
+    where the CloudFront hostname is assigned after the EC2 instance starts,
+    it derives the public origin from the validated forwarded request headers.
     """
     if settings.OAUTH_REDIRECT_URI:
         return settings.OAUTH_REDIRECT_URI
     if settings.APP_BASE_URL:
         return f"{settings.APP_BASE_URL.rstrip('/')}/api/auth/callback"
-    raise HTTPException(status_code=503, detail="auth_not_configured")
+    return f"{_request_origin(request)}/api/auth/callback"
 
 
-def _post_signin_redirect() -> str:
+def _post_signin_redirect(request: Request) -> str:
     """Return the SPA URL to redirect to after a successful sign-in."""
-    return settings.APP_BASE_URL.rstrip("/") + "/" if settings.APP_BASE_URL else "/"
+    origin = (
+        settings.APP_BASE_URL.rstrip("/")
+        if settings.APP_BASE_URL
+        else _request_origin(request)
+    )
+    path = "/" + settings.APP_BASE_PATH.strip("/") if settings.APP_BASE_PATH else ""
+    return f"{origin}{path}/"
 
 
 def _cognito_domain() -> str:
@@ -361,6 +384,7 @@ def _token_exchange(body: Dict[str, str]) -> Dict[str, Any]:
 
 @router.get("/signin")
 async def signin(
+    request: Request,
     provider: str = Query("email", pattern="^(google|apple|email)$"),
 ) -> RedirectResponse:
     """Redirect the browser to Cognito's Hosted UI (Req 3.1.1).
@@ -378,7 +402,7 @@ async def signin(
         "client_id": _client_id(),
         "response_type": "code",
         "scope": "openid email profile",
-        "redirect_uri": _redirect_uri(),
+        "redirect_uri": _redirect_uri(request),
         "state": state,
     }
     if identity_provider:
@@ -430,7 +454,7 @@ async def callback(
             "grant_type": "authorization_code",
             "client_id": _client_id(),
             "code": code,
-            "redirect_uri": _redirect_uri(),
+            "redirect_uri": _redirect_uri(request),
         }
     )
 
@@ -451,7 +475,7 @@ async def callback(
         logger.error("Token validation after exchange failed: %s", exc.detail)
         raise HTTPException(status_code=502, detail="auth_failed")
 
-    response = RedirectResponse(url=_post_signin_redirect(), status_code=302)
+    response = RedirectResponse(url=_post_signin_redirect(request), status_code=302)
     _set_session_cookies(
         response,
         access_token=access_token,
