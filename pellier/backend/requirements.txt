@@ -40,5 +40,11 @@ bedrock-agentcore>=1.4.3
 valkey>=6.0.0
 amazon-transcribe>=0.6.0
 
-# Testing — Exercise 1 floor_check contract test (test_solutions_parity.py)
+# Testing — Exercise 1 floor_check contract test (test_solutions_parity.py).
+# pytest-asyncio is not optional: tests/test_boutique_routes.py drives the
+# briefing and pulse routes through `@pytest.mark.asyncio`, and without the
+# plugin pytest reports "async def functions are not natively supported" and
+# fails all seven. A developer venv usually has it pulled in transitively,
+# which hides the gap locally; a clean install has only this file.
 pytest>=8.0.0
+pytest-asyncio>=0.23.0
