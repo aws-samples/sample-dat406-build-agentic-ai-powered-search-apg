@@ -58,10 +58,39 @@ log "=========================================="
 # ============================================================================
 # STEP 1: CLONE REPOSITORY (~30 sec)
 # ============================================================================
+# On a Workshop Studio box the CloudFormation UserData has already cloned the
+# repo at an immutable pinned SHA (RepoRevision) into exactly this path, and it
+# exports WORKSHOP_SOURCE_REVISION as the provenance record. So the branch below
+# is NOT the event path -- it is the local-dev / manual-rerun fallback, which
+# gets whatever origin/HEAD points at. Everything after the clone assumes the
+# tree is present, so a failure here must stop rather than warn-and-continue.
+REPO_URL="${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}"
+
 log "Cloning repository..."
 if [ ! -d "$REPO_PATH" ]; then
-    sudo -u "$CODE_EDITOR_USER" git clone "${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}" "$REPO_PATH" 2>/dev/null && \
-    rm -rf "$REPO_PATH/.git" && log "✅ Repository cloned" || warn "Clone failed"
+    # --depth 1: .git is deleted moments later, so full history is pure
+    # download cost. 2>&1 into a variable, not 2>/dev/null: the old code
+    # discarded the one line that says why the clone failed.
+    clone_log=$(sudo -u "$CODE_EDITOR_USER" git clone --depth 1 \
+        "$REPO_URL" "$REPO_PATH" 2>&1) \
+        || fail "Clone of ${REPO_URL} failed: ${clone_log}"
+
+    # Record what was delivered BEFORE .git is removed. Unlike the CFN path
+    # there is no RepoRevision to consult, so this file is the only
+    # post-provision answer to "which content is this box running?".
+    resolved_sha=$(sudo -u "$CODE_EDITOR_USER" git -C "$REPO_PATH" rev-parse HEAD 2>/dev/null || echo unknown)
+    sudo -u "$CODE_EDITOR_USER" tee "$REPO_PATH/.workshop-ref.json" >/dev/null << EOF
+{
+    "repo_url": "${REPO_URL}",
+    "repo_ref": "<default-branch>",
+    "resolved_sha": "${resolved_sha}",
+    "cloned_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "clone_path": "bootstrap-fallback"
+}
+EOF
+
+    rm -rf "$REPO_PATH/.git"
+    log "✅ Repository cloned (default branch @ ${resolved_sha:0:8})"
 else
     log "✅ Repository exists"
 fi
