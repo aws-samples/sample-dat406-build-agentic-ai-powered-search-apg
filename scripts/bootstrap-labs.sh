@@ -17,6 +17,7 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
 warn() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] WARNING:${NC} $1"; }
+fail() { echo -e "${RED}[$(date +'%H:%M:%S')] ERROR:${NC} $1"; exit 1; }
 write_status_json() {
     local status="$1"
     local managed_status="$2"
@@ -57,10 +58,37 @@ log "=========================================="
 # ============================================================================
 # STEP 1: CLONE REPOSITORY (~30 sec)
 # ============================================================================
+# On a Workshop Studio box the CloudFormation UserData has already cloned the
+# repo (RepoBranch) into exactly this path before stage 2 runs. So the branch
+# below is NOT the event path -- it is the local-dev / manual-rerun fallback,
+# which gets whatever origin/HEAD points at. Everything after the clone assumes
+# the tree is present, so a failure here must stop rather than warn-and-continue.
+REPO_URL="${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}"
+
 log "Cloning repository..."
 if [ ! -d "$REPO_PATH" ]; then
-    sudo -u "$CODE_EDITOR_USER" git clone "${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}" "$REPO_PATH" 2>/dev/null && \
-    rm -rf "$REPO_PATH/.git" && log "✅ Repository cloned" || warn "Clone failed"
+    # --depth 1: .git is deleted moments later, so full history is pure
+    # download cost. 2>&1 into a variable, not 2>/dev/null: the old code
+    # discarded the one line that says why the clone failed.
+    clone_log=$(sudo -u "$CODE_EDITOR_USER" git clone --depth 1 \
+        "$REPO_URL" "$REPO_PATH" 2>&1) \
+        || fail "Clone of ${REPO_URL} failed: ${clone_log}"
+
+    # Record what was delivered BEFORE .git is removed. This is the only
+    # post-provision answer to "which content is this box running?".
+    resolved_sha=$(sudo -u "$CODE_EDITOR_USER" git -C "$REPO_PATH" rev-parse HEAD 2>/dev/null || echo unknown)
+    sudo -u "$CODE_EDITOR_USER" tee "$REPO_PATH/.workshop-ref.json" >/dev/null << EOF
+{
+    "repo_url": "${REPO_URL}",
+    "repo_ref": "<default-branch>",
+    "resolved_sha": "${resolved_sha}",
+    "cloned_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "clone_path": "bootstrap-fallback"
+}
+EOF
+
+    rm -rf "$REPO_PATH/.git"
+    log "✅ Repository cloned (default branch @ ${resolved_sha:0:8})"
 else
     log "✅ Repository exists"
 fi
@@ -181,6 +209,43 @@ fi
 # Fix permissions
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH"
 
+# Install workshop-wide Claude Code guidance without overwriting unrelated
+# participant preferences. Re-running bootstrap replaces only this managed
+# block, so the file is both idempotent and safe to extend.
+CLAUDE_HOME="/home/$CODE_EDITOR_USER/.claude"
+GLOBAL_CLAUDE="$CLAUDE_HOME/CLAUDE.md"
+GLOBAL_CLAUDE_TMP=$(mktemp)
+mkdir -p "$CLAUDE_HOME"
+
+if [ -f "$GLOBAL_CLAUDE" ]; then
+    awk '
+        $0 == "<!-- PELLIER WORKSHOP GUIDANCE:START -->" { managed = 1; next }
+        $0 == "<!-- PELLIER WORKSHOP GUIDANCE:END -->" { managed = 0; next }
+        !managed { print }
+    ' "$GLOBAL_CLAUDE" > "$GLOBAL_CLAUDE_TMP"
+else
+    : > "$GLOBAL_CLAUDE_TMP"
+fi
+
+cat >> "$GLOBAL_CLAUDE_TMP" << 'CLAUDEEOF'
+<!-- PELLIER WORKSHOP GUIDANCE:START -->
+# Pellier workshop guidance
+
+- Read the repository `CLAUDE.md` and the nearest nested `CLAUDE.md` before editing.
+- Treat Core Lab 1, Stock Keeper, `floor_check`, or workshop-marker requests as participant mode. Edit only the named marker block and never inspect `solutions/`.
+- In participant mode, do not run git, install packages, change configuration, or restart services. Stop after one failed attempt and use the guide's escape hatch.
+- `.claude/skills/*/SKILL.md` contains coding workflows. `skills/*/SKILL.md` contains Pellier runtime prompt overlays; do not treat runtime skills as coding instructions.
+- Read `VOICE.md` before changing shopper-facing copy or model prompts.
+- Never expose or commit credentials, tokens, customer data, or copied `.env` values. Do not copy account IDs, ARNs, or private endpoints into tracked files.
+- Ask before destructive commands or changes outside the current repository.
+<!-- PELLIER WORKSHOP GUIDANCE:END -->
+CLAUDEEOF
+
+install -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" -m 0644 \
+    "$GLOBAL_CLAUDE_TMP" "$GLOBAL_CLAUDE"
+rm -f "$GLOBAL_CLAUDE_TMP"
+log "✅ Participant Claude Code guidance installed at $GLOBAL_CLAUDE"
+
 # ============================================================================
 # STEP 4: VERIFY PYTHON DEPENDENCIES
 # ============================================================================
@@ -252,7 +317,7 @@ if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/pellier/backend/generate_mcp_config.py"
         
         if [ -f "$REPO_PATH/pellier/config/mcp-server-config.json" ]; then
             log "✅ MCP config generated at pellier/config/mcp-server-config.json"
-            log "   Act III §02 reads this file + verifies awslabs.postgres-mcp-server via uvx"
+            log "   Core Lab 4 reads this file + verifies awslabs.postgres-mcp-server via uvx"
         else
             warn "MCP config generation failed - will be generated on backend startup"
         fi
@@ -270,7 +335,7 @@ fi
 # or a dead chat turn mid-session. Cohere Embed v4 is hard-required because
 # every shopper query is embedded live before the pgvector search (the cache
 # only covers the catalog corpus). The same preflight also resolves the
-# independent Claude Code CLI model for Exercise 1.
+# independent Claude Code CLI model for Core Lab 1.
 log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
@@ -790,7 +855,7 @@ alias psql='psql'
 # AWS Region for boto3
 export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 
-# Claude Code CLI → Amazon Bedrock (Claude Code lane, Ex 1).
+# Claude Code CLI → Amazon Bedrock (Claude Code lane, Core Lab 1).
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
 # instance role (the same ambient-credential chain psql/boto3/agentcore already
 # use) — no Anthropic API key, no per-participant login, nothing to paste.
@@ -1084,7 +1149,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-buil
     # AgentCore provisioning is best-effort, NOT a hard gate. A failure here
     # must never abort the bootstrap: the backend still launches below and the
     # app degrades gracefully (STM falls back to Aurora session tables, and the
-    # Act II Runtime-invoke step shows a clear "Runtime not provisioned" state
+    # Core Lab 3 Runtime-invoke step shows a clear "Runtime not provisioned" state
     # rather than the whole environment coming up with no backend and no logs).
     # The health gate at the end reports AgentCore readiness explicitly.
     log "Provisioning full AgentCore managed path (Lambdas + Gateway + Runtime)..."
@@ -1207,7 +1272,7 @@ EOF
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). Best-effort: provisioning
         # marks status=ready even if policy attach failed, so guard on non-empty.
-        # The Act II policy exercise + Atelier Policy surface read this id.
+        # Core Lab 4 policy exercise + Atelier Policy surface read this id.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"
@@ -1260,7 +1325,7 @@ EOF
     fi
 
     # Install the pinned AgentCore CLI GLOBALLY for the participant's read-only
-    # cloud-inspection beat (Act II: `agentcore status` / `agentcore logs`). We
+    # cloud-inspection beat (Core Lab 3: `agentcore status` / `agentcore logs`). We
     # install at bootstrap — not via npx-on-demand — so the command never touches
     # the npm registry at session time (Summit venue networking is not a
     # dependency the live beat can afford). Pinned 0.18.0 to MATCH
@@ -1315,9 +1380,9 @@ if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -x "$REPO_PATH/scripts
 fi
 
 # ============================================================================
-# STEP 17b: PRE-BAKE THE ACT II BEARER TOKEN HELPER
+# STEP 17b: PRE-BAKE THE CORE LAB 4 BEARER TOKEN HELPER
 # ============================================================================
-# The Act II managed-Policy exercise runs on the AUTHENTICATED Gateway rail and
+# The Core Lab 4 managed-Policy exercise runs on the AUTHENTICATED Gateway rail and
 # needs a Cognito access token. In a self-paced room (no facilitator to unblock
 # a failed `admin-initiate-auth`), typing that command is the #1 friction +
 # failure mode. So we pre-bake a one-command helper that mints a FRESH token
@@ -1329,7 +1394,7 @@ fi
 # Cedar gates at the Gateway), not the auth ceremony. Identity is still REAL:
 # the token is a genuine Cognito JWT the Gateway validates.
 if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" ]; then
-    log "Writing Act II token helper (~/pellier-token.sh)..."
+    log "Writing Core Lab 4 token helper (~/pellier-token.sh)..."
     _TOKEN_POOL="${COGNITO_POOL:-${COGNITO_POOL_ID}}"
     _TOKEN_CLIENT="${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}"
     # The participant's ~ is /home/$CODE_EDITOR_USER, NOT $HOME_FOLDER
@@ -1378,7 +1443,7 @@ fi
 TOKENEOF
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$_TOKEN_HELPER" 2>/dev/null || true
     ln -sf "$_TOKEN_HELPER" "$HOME_FOLDER/pellier-token.sh" 2>/dev/null || true
-    log "✅ Act II token helper ready: source ~/pellier-token.sh"
+    log "✅ Core Lab 4 token helper ready: source ~/pellier-token.sh"
 fi
 
 # ============================================================================
