@@ -18,9 +18,10 @@ The current session is hardened and stable. In brief, already done:
 - One-build flow (`floor_check`) + one-SELECT recovery (`tool_audit`),
   systemd backend with live reload, resilient bootstrap, post-boot health
   gate + dry-run, model-access preflight.
-- **Embeddings: Cohere Embed English v3** (`cohere.embed-english-v3`),
-  **Rerank: Cohere Rerank v3.5** (`cohere.rerank-v3-5:0`), chat on Claude
-  Opus 5 / routing on Sonnet 5. Aurora PostgreSQL 18.3 + pgvector 0.8.1.
+- **Embeddings: Cohere Embed v4** (`us.cohere.embed-v4:0`, 1024-dim inference
+  profile), **Rerank: Cohere Rerank v3.5** (`cohere.rerank-v3-5:0`), chat on
+  Claude Opus 5 / routing on Sonnet 5. Aurora PostgreSQL 18.3 + pgvector
+  0.8.1.
 - Content: references appendix, tip taxonomy, exercise table, run-of-show.
 
 If you're hardening the 60-min session specifically, the only standing gate
@@ -183,7 +184,7 @@ never touches them.
   `AGENTCORE_MEMORY_ID` populated, Marco Turn 4 → BK-01, `tool_audit` row).
 - [ ] **Confirm AgentCore Memory** is available in the event account/region —
   the health gate hard-requires `AGENTCORE_MEMORY_ID`.
-- [ ] **Verify Bedrock model access** for Embed English v3 + Rerank v3.5 +
+- [ ] **Verify Bedrock model access** for Embed v4 + Rerank v3.5 +
   Claude Opus 5 / Sonnet 5 in the event region (`check_model_access.py`).
 - [ ] **Pin the live Beeswax/warehouse numbers** for the run-of-show success
   check: `psql` the seeded DB for BK-01 Beeswax quantity pre- and
