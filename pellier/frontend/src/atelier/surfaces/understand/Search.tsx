@@ -414,9 +414,10 @@ const Search: React.FC = () => {
   const [hasRunManually, setHasRunManually] = useState(false);
 
   // Run the default query once on mount so the surface is never empty.
+  // `explain` is a stable useCallback(_, []) from useSearchExplain, so the
+  // empty dep array is mount-only by intent, not an omission.
   useEffect(() => {
     explain(DEFAULT_QUERY);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = useCallback(

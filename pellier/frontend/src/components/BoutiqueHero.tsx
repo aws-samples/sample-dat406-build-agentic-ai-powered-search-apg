@@ -678,36 +678,6 @@ export default function BoutiqueHero() {
                     Try asking
                   </div>
 
-                  {false && (persona?.id === 'anna' || persona?.id === 'theo') && (
-                    <p
-                      data-testid="boutique-hero-observe-hint"
-                      className="mx-auto mt-2 max-w-[640px] text-center font-sans"
-                      style={{
-                        fontSize: '15px',
-                        lineHeight: 1.55,
-                        color: 'rgba(31, 20, 16, 0.82)',
-                      }}
-                    >
-                      {persona?.id === 'anna' ? (
-                        <>
-                          Try a gift-ready edit.{' '}
-                          <strong style={{ color: '#1f1410', fontWeight: 600 }}>
-                            Pellier will shortlist
-                          </strong>{' '}
-                          pieces by occasion, budget, and presentation.
-                        </>
-                      ) : (
-                        <>
-                          Try a home ritual edit.{' '}
-                          <strong style={{ color: '#1f1410', fontWeight: 600 }}>
-                            Pellier will consider
-                          </strong>{' '}
-                          care, returns, and post-purchase context.
-                        </>
-                      )}
-                    </p>
-                  )}
-
                   <div
                     data-testid="boutique-hero-pills"
                     className="mt-4 flex flex-wrap justify-center gap-2.5"
