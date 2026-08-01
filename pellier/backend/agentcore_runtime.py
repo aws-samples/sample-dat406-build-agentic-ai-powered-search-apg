@@ -1,5 +1,5 @@
 """
-AgentCore Runtime — deployment entrypoint for the governed workshop path.
+AgentCore Runtime - deployment entrypoint for the managed execution path.
 
 Wraps the orchestrator for execution in an AgentCore Runtime container. This
 file is the BYO entrypoint deployed by the new @aws/agentcore Node CLI (0.18,
@@ -45,6 +45,8 @@ logger = logging.getLogger(__name__)
 # see the Gateway URL (the exact silent failure this entrypoint shipped with).
 if os.environ.get("MCP_GATEWAY_URL") and not os.environ.get("AGENTCORE_GATEWAY_URL"):
     os.environ["AGENTCORE_GATEWAY_URL"] = os.environ["MCP_GATEWAY_URL"]
+if os.environ.get("AGENT_MODEL_ID") and not os.environ.get("BEDROCK_ROUTER_MODEL"):
+    os.environ["BEDROCK_ROUTER_MODEL"] = os.environ["AGENT_MODEL_ID"]
 
 try:
     from bedrock_agentcore.runtime import BedrockAgentCoreApp

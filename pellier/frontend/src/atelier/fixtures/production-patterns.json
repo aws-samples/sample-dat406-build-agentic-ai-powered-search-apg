@@ -16,24 +16,24 @@
       },
       "wiring": [
         {
-          "label": "Cognito hosted UI",
-          "detail": "Shopper signs in. Cognito redirects back with access_token + id_token in the URL hash.",
-          "anchor": "frontend/src/contexts/AuthContext.tsx · parseTokenFromHash"
+          "label": "Cognito hosted UI + backend callback",
+          "detail": "Shopper signs in. Cognito redirects to /api/auth/callback with an authorization code; the backend validates state, exchanges the code, and writes secure httpOnly token cookies.",
+          "anchor": "backend/routes/auth.py · signin / callback"
         },
         {
-          "label": "Frontend stores token + session id",
-          "detail": "AuthContext caches the access token in localStorage; chat service mints a stable session_id and persists it under pellier-session-id.",
-          "anchor": "frontend/src/services/chat.ts · getSessionId / getAuthHeaders"
+          "label": "Frontend stores marker + session id",
+          "detail": "AuthContext stores only a non-sensitive auth-session marker in localStorage; chat service mints a stable session_id under pellier-session-id. Token cookies are not exposed to browser JavaScript.",
+          "anchor": "frontend/src/contexts/AuthContext.tsx + services/chat.ts"
         },
         {
           "label": "Outgoing request",
-          "detail": "Every /api/agent/chat call sends Authorization: Bearer {access_token} plus the session id in the body. Subsequent turns echo the same id back.",
+          "detail": "Every /api/chat/stream call uses credentials: include, so the browser attaches the secure cookies, and sends the stable session id in the body. The backend can pass the verified token to Gateway without exposing it to frontend code.",
           "anchor": "frontend/src/services/chat.ts · /api/chat/stream POST"
         },
         {
           "label": "Backend identity resolution",
-          "detail": "AgentCoreIdentityService.get_verified_user_context() validates the JWT once per request via CognitoAuthService and resolves session_id from header → cookie → uuid4.",
-          "anchor": "backend/services/agentcore_identity.py · get_verified_user_context"
+          "detail": "get_current_user() delegates to the cookie-aware CognitoAuthService and returns verified server-side user context. AgentCoreIdentityService applies the same verified identity when it builds agent-session namespaces.",
+          "anchor": "backend/services/auth.py + services/agentcore_identity.py"
         },
         {
           "label": "Namespace handed to AgentCore Memory",

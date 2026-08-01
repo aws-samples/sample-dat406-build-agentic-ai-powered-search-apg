@@ -26,9 +26,14 @@ For every ``(live_path, solution_path)`` pair:
 
   1. Both files exist.
   2. Both files parse as valid Python (``ast.parse`` smoke).
-  3. Live/builder-preapply ``floor_check`` keeps the starter stub.
-  4. The Stock Keeper definition solution flips its stub flag.
-  5. The inventory solution keeps the ``product_query`` signature and
+  3. Builder-preapply is byte-identical to the live starter module.
+  4. Both recovery files expose the same public ``@tool`` functions and
+     signatures as the live module.
+  5. The wired solution differs from live only inside the marked
+     ``floor_check`` challenge block.
+  6. Live/builder-preapply ``floor_check`` keeps the starter stub.
+  7. The Stock Keeper definition solution flips its stub flag.
+  8. The inventory solution keeps the ``product_query`` signature and
      calls ``BusinessLogic.floor_check(product_query=...)``.
 
 Scope table
@@ -97,10 +102,9 @@ _PAIRS = [
 # silently boots stale code (e.g. a curator.py missing
 # ``build_recommendation_agent`` → ImportError on the dispatcher path).
 #
-# ``agent_tools_builders_preapply.py`` is deliberately EXCLUDED here — it is
-# the one auto-applied file that must differ from the backend (it ships the
-# floor_check stub for the participant to wire). Its contract lives in the
-# _PAIRS tests + ``test_floor_check_builder_contract`` above.
+# ``agent_tools_builders_preapply.py`` is checked separately below. It is a
+# full-module bootstrap replacement and must be byte-identical to the live
+# starter file, including the ``floor_check`` stub.
 #
 # Direction of truth: the BACKEND file is canonical (the full test suite runs
 # against it). If this test fails, re-sync with:
@@ -330,6 +334,86 @@ def _function_source(path: Path, function_name: str) -> str:
         if isinstance(node, ast.FunctionDef) and node.name == function_name:
             return ast.get_source_segment(path.read_text(), node) or ""
     raise AssertionError(f"{function_name} not found in {path.relative_to(_REPO_ROOT)}")
+
+
+def _tool_signatures(path: Path) -> dict[str, str]:
+    """Return every public ``@tool`` function and its AST-normalized signature."""
+    tree = ast.parse(path.read_text())
+    signatures = {}
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name.startswith("_"):
+            continue
+        is_tool = any(
+            isinstance(decorator, ast.Name) and decorator.id == "tool"
+            for decorator in node.decorator_list
+        )
+        if is_tool:
+            signatures[node.name] = ast.dump(node.args, include_attributes=False)
+    return signatures
+
+
+def _outside_floor_check_block(path: Path) -> str:
+    """Mask the only participant-editable block so all other bytes can compare."""
+    source = path.read_text()
+    start = "# === WORKSHOP · Stock Keeper · floor_check: START ==="
+    end = "# === WORKSHOP · Stock Keeper · floor_check: END ==="
+    assert source.count(start) == 1, f"{path} must contain exactly one START marker"
+    assert source.count(end) == 1, f"{path} must contain exactly one END marker"
+    before, remainder = source.split(start, 1)
+    _challenge, after = remainder.split(end, 1)
+    return f"{before}{start}\n<floor_check challenge block>\n    {end}{after}"
+
+
+def test_builder_preapply_matches_live_starter() -> None:
+    """Bootstrap replaces the live module with this file on every fresh box."""
+    live_path = _BACKEND / "services" / "agent_tools.py"
+    preapply_path = (
+        _SOLUTIONS
+        / "closing-marcos-gap"
+        / "services"
+        / "agent_tools_builders_preapply.py"
+    )
+    assert preapply_path.read_text() == live_path.read_text(), (
+        "Builder bootstrap would replace services/agent_tools.py with a stale "
+        "module. Re-sync agent_tools_builders_preapply.py from the live starter."
+    )
+
+
+def test_agent_tools_recovery_files_keep_public_tool_parity() -> None:
+    """A full-module recovery copy cannot add, remove, or reshape public tools."""
+    live_path = _BACKEND / "services" / "agent_tools.py"
+    recovery_paths = [
+        _SOLUTIONS
+        / "closing-marcos-gap"
+        / "services"
+        / "agent_tools_builders_preapply.py",
+        _SOLUTIONS
+        / "closing-marcos-gap"
+        / "services"
+        / "agent_tools_floor_check_solution.py",
+    ]
+    expected = _tool_signatures(live_path)
+    for recovery_path in recovery_paths:
+        assert _tool_signatures(recovery_path) == expected, (
+            f"{recovery_path.relative_to(_REPO_ROOT)} has drifted from the live "
+            "public @tool contract."
+        )
+
+
+def test_floor_check_solution_diff_is_scoped_to_challenge_block() -> None:
+    """The escape hatch may wire ``floor_check`` and change nothing else."""
+    live_path = _BACKEND / "services" / "agent_tools.py"
+    solution_path = (
+        _SOLUTIONS
+        / "closing-marcos-gap"
+        / "services"
+        / "agent_tools_floor_check_solution.py"
+    )
+    assert _outside_floor_check_block(solution_path) == _outside_floor_check_block(
+        live_path
+    ), "The floor_check escape hatch differs outside its marked challenge block."
 
 
 def test_floor_check_builder_contract() -> None:

@@ -491,7 +491,7 @@ def floor_check(product_query: str = "") -> str:
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it
-    # PASSES while stubbed and FAILS once you wire it. Don't use it to
+    # PASSES while stubbed and SKIPS once you wire it. Don't use it to
     # verify your edit.
     return json.dumps({
         "error": "floor_check is in stub state",

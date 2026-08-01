@@ -3,19 +3,20 @@
 # dry-run-builders.sh — end-to-end simulation of the participant path
 # =============================================================================
 # Run this before a 100-person room to catch breakage the health gate can't:
-# it actually exercises the FULL Act I → Act II flow against the live backend.
+# it actually exercises the three Core Labs against the live backend.
 #
 #   1. Preconditions  — health gate must be READY
 #   2. Apply solution — wire floor_check (the participant's one build)
-#   3. Marco Turn 4   — POST /api/chat/stream, assert Brooklyn / BK-01 in reply
-#   4. Runtime invoke — POST /api/agent/chat (managed path, if configured)
-#   5. Audit ledger   — assert a pellier.tool_audit row for floor_check exists
+#   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
+#   4. Retrieval      — run the exact four-strategy Core Lab 2 request
+#   5. Audit ledger   — run process_return and query its exact session receipt
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
 #
-# Non-destructive to data, but it DOES modify agent_tools.py (applies the
-# solution). It backs the file up and restores it on exit unless --keep is
-# passed. Safe to re-run.
+# This applies the floor_check solution temporarily and creates the same return
+# and audit evidence rows as a participant. It backs agent_tools.py up and
+# restores it on exit unless --keep is passed. Run it on a workshop environment,
+# not a production database.
 #
 # Usage:
 #   scripts/dry-run-builders.sh            # apply solution, test, restore stub
@@ -136,18 +137,59 @@ SESSION="dryrun-$(date +%s)"
 turn4='{"message":"Is the Hadley shirt at the Brooklyn warehouse?","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
 reply="$(curl -fsN --max-time 60 -X POST "${BASE}/api/chat/stream" \
   -H 'Content-Type: application/json' -d "$turn4" 2>/dev/null || true)"
-if echo "$reply" | grep -qiE 'brooklyn|BK-01'; then
-  pass "Reply names Brooklyn / BK-01 (floor_check reached live warehouse data)"
+if echo "$reply" | grep -qiE 'brooklyn|BK-01' \
+    && echo "$reply" | grep -qiE '[0-9]+[^[:cntrl:]]*(unit|shirt|available|stock|floor)|"quantity"[[:space:]]*:[[:space:]]*[0-9]+' \
+    && echo "$reply" | grep -qiE 'ship|business day|[0-9]+[[:space:]]*(-|to)[[:space:]]*[0-9]+[[:space:]]*day'; then
+  pass "Reply names Brooklyn with a quantity and ship window"
 else
-  fail "Reply did not mention Brooklyn/BK-01 — floor_check may not be wired"
+  fail "Reply did not prove Brooklyn + quantity + ship window"
   info "First 300 chars: ${reply:0:300}"
 fi
 if echo "$reply" | grep -qi 'floor_check is in stub state'; then
   fail "Stub envelope still present — solution did not take effect"
 fi
 
-# --- 4. Managed Runtime invoke (optional) -----------------------------------
-echo "[4/6] AgentCore Runtime invoke — POST /api/agent/chat"
+# --- 4a. Core Lab 2 retrieval comparison -----------------------------------
+echo "[4a/6] Core Lab 2 — GET /api/atelier/search-strategies/compare"
+QUERY='A milestone gift for a new homeowner'
+retrieval=""
+if retrieval="$(curl --fail --silent --show-error --max-time 75 \
+    --get --data-urlencode "query=${QUERY}" \
+    "${BASE}/api/atelier/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
+  printf '%s\n' "$retrieval" > /tmp/retrieval-comparison.json
+  if printf '%s' "$retrieval" | jq -e '
+      (.strategies | length) == 4
+      and all(.strategies[];
+        (.observedMs | type) == "number"
+        and (.modeledCostPerThousandUsd | type) == "number"
+        and (.products | type) == "array")
+      and (.strategies[-1].extractedFilters | type) == "object"
+      and (.measurementAssumptions.latency | contains("not a percentile"))
+    ' >/dev/null 2>&1; then
+    pass "Four retrieval rows returned with observed latency and modeled cost"
+  else
+    fail "Retrieval comparison response contract is incomplete"
+    info "First 300 chars: ${retrieval:0:300}"
+  fi
+else
+  fail "Core Lab 2 comparison failed — see /tmp/dryrun-retrieval.err"
+fi
+
+# --- 4b. Core Lab 3 exact in-process write request --------------------------
+echo "[4b/6] Core Lab 3 — process_return on the dispatcher rail"
+LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
+ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
+if curl --fail --silent --show-error --no-buffer --max-time 75 \
+    -X POST "${BASE}/api/chat/stream" \
+    -H 'Content-Type: application/json' \
+    -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
+  pass "Core Lab 3 stream completed for session ${LEDGER_SESSION}"
+else
+  fail "Core Lab 3 process_return request failed"
+fi
+
+# --- 4c. Managed Runtime invoke (optional) ----------------------------------
+echo "[4c/6] AgentCore Runtime invoke — POST /api/agent/chat"
 if [[ -n "${AGENTCORE_RUNTIME_ENDPOINT:-}" && "${USE_AGENTCORE_RUNTIME:-false}" == "true" ]]; then
   rt='{"message":"Find linen travel pieces for a warm-weather trip.","session_id":"'"$SESSION"'-rt"}'
   rtreply="$(curl -fsN --max-time 90 -X POST "${BASE}/api/agent/chat" \
@@ -161,15 +203,15 @@ else
   info "Skipped — USE_AGENTCORE_RUNTIME not true / endpoint unset (in-process fallback is fine for builders)"
 fi
 
-# --- 4c. Managed Policy on the AUTHENTICATED Gateway rail (Act II Exercise 2) -
-# The reshaped Act II runs process_return through the Gateway (pattern=
+# --- 4d. Managed Policy on the authenticated Gateway rail (optional) ----------
+# The production extension runs process_return through the Gateway (pattern=
 # agents_as_tools) with a Cognito bearer token, where managed AgentCore Policy
 # (Cedar, ENFORCE) ALLOWs reason=damaged and DENYs anything else. This step
 # mints a test-user token and exercises BOTH outcomes so a fresh-account
 # facilitator knows the policy beat will actually demonstrate. Degrades to
 # `info` (never fails the run) when policy/creds aren't provisioned — the
 # floor_check path above is the hard gate, not this.
-echo "[4c/6] Managed Policy (Gateway rail) — process_return ALLOW vs DENY"
+echo "[4d/6] Managed Policy (Gateway rail) — process_return ALLOW vs DENY"
 POLICY_TOKEN=""
 if [[ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" && -n "${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}" \
       && -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
@@ -201,19 +243,19 @@ if [[ -n "$POLICY_TOKEN" ]]; then
     -H "Authorization: Bearer ${POLICY_TOKEN}" -H 'Content-Type: application/json' -d "$deny_body" >/dev/null 2>&1 || true
   info "DENY turn fired (non-damaged) — verified by the tool_audit count check in step 5."
 else
-  info "Skipped — managed Policy + Cognito test creds not all present (AGENTCORE_POLICY_ENGINE_ID / COGNITO_*). On a provisioned account this is the Act II proof; here the in-process path still covers floor_check."
+  info "Skipped — managed Policy + Cognito test creds not all present (AGENTCORE_POLICY_ENGINE_ID / COGNITO_*). The required in-process path is unaffected."
 fi
 
-# --- 4b. Gateway wiring (Atelier Card 7 demo + JWT passthrough) --------------
-echo "[4b/6] AgentCore Gateway wiring — GET /api/agentcore/gateway/status"
+# --- 4e. Gateway wiring (optional production extension) -----------------------
+echo "[4e/6] AgentCore Gateway wiring — GET /api/agentcore/gateway/status"
 gw="$(curl -fsN --max-time 30 "${BASE}/api/agentcore/gateway/status" 2>/dev/null || true)"
 if echo "$gw" | grep -q '"configured"[[:space:]]*:[[:space:]]*true'; then
   pass "Gateway configured (AGENTCORE_GATEWAY_URL set; source=mcp-discovery)"
 else
   # Not fatal: in-process is the default execution path for the room. But on a
-  # provisioned account this should be true, or the Atelier Card 7 Gateway
-  # demo and JWT passthrough won't have anything live to show.
-  info "Gateway NOT configured (source=in-process-imports) — Card 7 shows the 'skipped' panel."
+  # provisioned account this should be true, or the optional Gateway inspection
+  # and JWT passthrough won't have anything live to show.
+  info "Gateway NOT configured (source=in-process-imports) — optional Gateway inspection is unavailable."
   info "  Expected the live demo? Check AGENTCORE_GATEWAY_URL in pellier/backend/.env"
   info "  Raw: ${gw:0:200}"
 fi
@@ -227,8 +269,15 @@ else
   fail "No tool_audit row for floor_check — audit writer not firing"
 fi
 
-# 5b. Managed-Policy evidence (only when step 4c ran the Gateway rail). Proves
-# the Act II beat: an ALLOWed damaged return wrote a process_return row keyed by
+ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='process_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"
+if [[ "${ledger_rows:-0}" =~ ^[0-9]+$ ]] && (( ledger_rows > 0 )); then
+  pass "Session-specific process_return receipt is complete for ${LEDGER_SESSION}"
+else
+  fail "No complete process_return receipt for session ${LEDGER_SESSION}"
+fi
+
+# 5b. Managed-Policy evidence (only when step 4d ran the Gateway rail). Proves
+# that an ALLOWed damaged return wrote a process_return row keyed by
 # customer_id='theo' with reason='damaged'; a DENYed non-damaged return wrote
 # NONE (the absence is the proof — Cedar blocked it at the Gateway).
 if [[ -n "$POLICY_TOKEN" ]]; then
@@ -245,7 +294,7 @@ if [[ -n "$POLICY_TOKEN" ]]; then
     warn "Found ${pr_denied} non-damaged process_return row(s) for theo — Cedar DENY may not be enforcing (engine attached in ENFORCE mode?)"
   fi
 else
-  info "Policy ledger checks skipped (step 4c did not run)."
+  info "Policy ledger checks skipped (step 4d did not run)."
 fi
 
 # --- 6. SQL-claim checks (pin run-of-show numbers + verify pg_trgm) ----------

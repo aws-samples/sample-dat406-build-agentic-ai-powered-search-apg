@@ -186,6 +186,7 @@ class Settings(BaseSettings):
 
     # Storefront origin + OAuth callback (Req 3.1.1, 3.1.2, 7.2.3)
     APP_BASE_URL: Optional[str] = None  # e.g. "http://localhost:5173"
+    APP_BASE_PATH: str = ""  # e.g. "/ports/8000" behind Workshop Studio
     OAUTH_REDIRECT_URI: Optional[str] = None  # e.g. "http://localhost:8000/api/auth/callback"
 
     # 4b — Memory

@@ -181,6 +181,7 @@ COGNITO_USER_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_CLIENT_ID='${COGNITO_CLIENT_ID:-}'
 COGNITO_DOMAIN='${VITE_COGNITO_DOMAIN:-}'
+APP_BASE_PATH='/ports/8000'
 EOF
 
     chmod 600 "$REPO_PATH/.env"
@@ -698,11 +699,25 @@ def main():
             description="Pellier workshop memory - STM plus USER_PREFERENCE semantic extraction",
             eventExpiryDuration=30,
             memoryStrategies=[strategy_input],
+            tags={
+                "Project": "pellier",
+                "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "unknown"),
+            },
         )
         mem_id = resp["memory"]["id"]
     else:
         mem_id = mem["id"]
         log(f"PellierSTM exists ({mem_id}).")
+        if mem.get("arn"):
+            ctrl.tag_resource(
+                resourceArn=mem["arn"],
+                tags={
+                    "Project": "pellier",
+                    "PellierWorkshopId": os.environ.get(
+                        "WORKSHOP_ID", "unknown"
+                    ),
+                },
+            )
         if has_user_pref_strategy(mem) is None:
             # Existing STM-only memory: attach the strategy.
             log("  adding USER_PREFERENCE strategy via update_memory...")

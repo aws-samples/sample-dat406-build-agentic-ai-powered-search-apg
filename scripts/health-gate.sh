@@ -15,15 +15,15 @@
 #      silently no-ops, so Runtime/Gateway/Policy never deploy and checks 6-7
 #      below read empty. Surfacing the Node version turns "endpoints empty, why?"
 #      into a named cause.)
-#   5. AGENTCORE_MEMORY_ID set in .env            (required — Memory pillar)
-#   6. AGENTCORE_RUNTIME_ENDPOINT set in .env     (required — Runtime pillar)
-#   7. AGENTCORE_GATEWAY_URL set in .env          (required — Gateway/JWT path)
-#   8. AGENTCORE_POLICY_ENGINE_ID set in .env     (warn — Policy pillar; the
-#      Act II managed-Cedar exercise won't enforce at the Gateway without it)
+#   5. Required Bedrock model preflight passed     (required)
+#   6. AGENTCORE_MEMORY_ID set in .env             (warn — optional pillar)
+#   7. AGENTCORE_RUNTIME_ENDPOINT set in .env      (warn — optional pillar)
+#   8. AGENTCORE_GATEWAY_URL set in .env           (warn — optional pillar)
+#   9. AGENTCORE_POLICY_ENGINE_ID set in .env      (warn — optional pillar)
 #
-# Exit 0 only if all REQUIRED checks pass. The Node check is a WARN (not a
-# fail): the Boutique + the mandatory in-process path run fine on Node 18; only
-# the optional managed beats need 20. It's a diagnostic, not a blocker.
+# Exit 0 only if the core one-hour path passes: backend, frontend, catalog,
+# warehouse, and required model access. Managed AgentCore pillars are optional
+# labs and remain visible as warnings without rejecting the CFN stack.
 # =============================================================================
 set -uo pipefail
 
@@ -120,44 +120,50 @@ else
   warn "Node ${node_ver:-not found} (< 20) — the @aws/agentcore CLI cannot run, so the managed Runtime/Gateway/Policy never deploy and checks below read empty. This is the ROOT CAUSE if those are FAIL. Recover: 'sudo dnf remove -y nodejs && curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - && sudo dnf install -y --allowerasing nodejs' then re-run scripts/deploy/deploy_all.sh."
 fi
 
-# 5. AgentCore Memory id (required)
+# 5. Required Bedrock model access
+if [[ "${BEDROCK_MODEL_ACCESS_READY:-}" == "true" ]]; then
+  pass "Required Bedrock model-access preflight passed"
+else
+  fail "Required Bedrock model-access preflight did not pass"
+  ok=false
+fi
+
+# 6. AgentCore Memory id (optional)
 if [[ -n "${AGENTCORE_MEMORY_ID:-}" ]]; then
   pass "AGENTCORE_MEMORY_ID set"
 else
-  fail "AGENTCORE_MEMORY_ID is empty — working and semantic memory cannot show managed records"
-  ok=false
+  warn "AGENTCORE_MEMORY_ID empty — optional managed Memory unavailable; STM falls back to Aurora session tables"
 fi
 
-# 5. AgentCore Runtime endpoint (required for Act II managed Runtime evidence)
+# 7. AgentCore Runtime endpoint (optional managed evidence)
 if [[ -n "${AGENTCORE_RUNTIME_ENDPOINT:-}" ]]; then
   pass "AGENTCORE_RUNTIME_ENDPOINT set"
 else
-  fail "AGENTCORE_RUNTIME_ENDPOINT empty — Act II Runtime invoke cannot run"
-  ok=false
+  warn "AGENTCORE_RUNTIME_ENDPOINT empty — optional Runtime invoke lab unavailable"
 fi
 
-# 6. AgentCore Gateway endpoint (required for the managed Gateway/JWT path).
+# 8. AgentCore Gateway endpoint (optional managed path).
 if [[ -n "${AGENTCORE_GATEWAY_URL:-${MCP_GATEWAY_URL:-}}" ]]; then
   pass "AGENTCORE_GATEWAY_URL set"
 else
-  fail "AGENTCORE_GATEWAY_URL empty — Gateway/JWT tool calls cannot run"
-  ok=false
+  warn "AGENTCORE_GATEWAY_URL empty — optional Gateway/JWT lab unavailable"
 fi
 
+# 9. AgentCore Gateway ARN — the participant Cedar apply helper needs it.
 if [[ -n "${AGENTCORE_GATEWAY_ARN:-${GATEWAY_ARN:-}}" ]]; then
   pass "AGENTCORE_GATEWAY_ARN set"
 else
   warn "AGENTCORE_GATEWAY_ARN empty — the participant Cedar apply helper needs it. Re-run AgentCore provisioning or set it from get-gateway."
 fi
 
-# 7. Managed AgentCore Policy engine (4th pillar). WARN, not fail: the backend
-# and storefront run fine without it, but the Act II managed-Cedar exercise
+# 10. Managed AgentCore Policy engine. The backend and storefront run without
+# it, but the optional managed-Cedar exercise
 # (process_return gated to reason=damaged at the Gateway) won't ENFORCE — so
 # surface it loudly rather than report a false-green "READY".
 if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
   pass "AGENTCORE_POLICY_ENGINE_ID set (managed Cedar policy attached)"
 else
-  warn "AGENTCORE_POLICY_ENGINE_ID empty — Gateway runs WITHOUT Cedar ENFORCE; the Act II policy ALLOW/DENY beat will not demonstrate. See /var/log/pellier-agentcore.log."
+  warn "AGENTCORE_POLICY_ENGINE_ID empty — optional Cedar ALLOW/DENY lab unavailable. See /var/log/pellier-agentcore.log."
 fi
 
 echo "------------------------------------------------------------"

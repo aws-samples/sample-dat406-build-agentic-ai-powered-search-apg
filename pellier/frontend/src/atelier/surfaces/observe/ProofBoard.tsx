@@ -1,8 +1,8 @@
 /**
- * ProofBoard - workshop evidence surface.
+ * ProofBoard - system evidence surface.
  *
  * One route that maps the hands-on flow to concrete evidence:
- * readiness checks, required proof cards, and terminal fallbacks.
+ * readiness checks, evidence cards, and terminal fallbacks.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -51,6 +51,7 @@ interface ManagedReceipt {
 interface ProofCard {
   id: string;
   lab?: string;
+  group?: string;
   title: string;
   status: CardStatus;
   required: boolean;
@@ -214,7 +215,7 @@ const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => {
 
 const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
   return (
-    <section aria-label="Workshop readiness" style={{ marginBottom: '32px' }}>
+    <section aria-label="Environment readiness" style={{ marginBottom: '32px' }}>
       <div
         style={{
           display: 'flex',
@@ -271,7 +272,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
                   color: 'var(--at-ink-3)',
                 }}
               >
-                {check.required ? 'Required' : 'Guided'}
+                {check.required ? 'Baseline' : 'Managed'}
               </span>
             </div>
             <h3

@@ -1,10 +1,9 @@
 """
 Bazaar Pricing MCP Server — Lambda-hosted MCP server for price analysis.
 
-Exposes tools:
-  - find_deals: Find products with best value (high ratings, competitive prices)
-  - get_price_analysis: Price statistics by category
-  - compare_products: Side-by-side comparison of two products
+Exposes the two pricing tools from the canonical 15-tool Pellier contract:
+  - price_intelligence: Price statistics by category
+  - side_by_side: Side-by-side comparison of two products
 
 Deployed as a Lambda function behind AgentCore Gateway.
 """
@@ -166,20 +165,7 @@ def compare_products(product_id_1: str, product_id_2: str) -> dict:
 # --- Lambda MCP handler ---
 
 TOOLS = {
-    "find_deals": {
-        "fn": find_deals,
-        "description": "Find best-value products matching a query. Ranks by rating-to-price ratio with semantic search.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "What kind of product deal to find"},
-                "max_price": {"type": "number", "description": "Maximum price filter"},
-                "limit": {"type": "integer", "description": "Max results", "default": 5},
-            },
-            "required": ["query"],
-        },
-    },
-    "get_price_analysis": {
+    "price_intelligence": {
         "fn": get_price_analysis,
         "description": "Get price statistics (min, max, avg, median) across product categories.",
         "inputSchema": {
@@ -190,14 +176,14 @@ TOOLS = {
             "required": [],
         },
     },
-    "compare_products": {
+    "side_by_side": {
         "fn": compare_products,
         "description": "Compare two products side by side on price, rating, reviews, and availability.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "product_id_1": {"type": "string", "description": "First product ID"},
-                "product_id_2": {"type": "string", "description": "Second product ID"},
+                "product_id_1": {"type": "integer", "description": "First product ID"},
+                "product_id_2": {"type": "integer", "description": "Second product ID"},
             },
             "required": ["product_id_1", "product_id_2"],
         },
