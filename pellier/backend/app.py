@@ -2284,50 +2284,18 @@ async def memory_ltm(customer_id: str = ""):
 
 @app.get("/api/agentcore/memory/status")
 async def memory_status():
-    """Return whether AgentCore Memory is SDK-backed or using the
-    in-memory dict fallback.
+    """Return whether an ACTIVE AgentCore Memory is backing the SDK path.
 
     The MemoryArchPage in the Atelier reads this to show an honest
     banner — either 'Live: AgentCore Memory (id=...)' or 'Fallback:
-    in-process dict; set AGENTCORE_MEMORY_ID to enable LIVE'. Also
-    reports whether the bedrock-agentcore SDK is importable, so a
-    broken install surfaces distinctly from a missing env var.
+    in-process dict; set AGENTCORE_MEMORY_ID to enable LIVE'. An ID and
+    importable SDK are not sufficient: the control-plane resource must
+    exist and report ACTIVE.
     """
     try:
-        from config import settings
-        memory_id = getattr(settings, "AGENTCORE_MEMORY_ID", None) or ""
+        from services.agentcore_memory import probe_memory_backend_status
 
-        sdk_available = False
-        sdk_error: str | None = None
-        try:
-            import bedrock_agentcore  # type: ignore  # noqa: F401
-            sdk_available = True
-        except ImportError as exc:
-            sdk_error = str(exc)
-
-        if memory_id and sdk_available:
-            return {
-                "live": True,
-                "source": "agentcore-sdk",
-                "memory_id": memory_id,
-                "sdk_available": True,
-                "fallback_reason": None,
-            }
-        if memory_id and not sdk_available:
-            return {
-                "live": False,
-                "source": "in-process-dict",
-                "memory_id": memory_id,
-                "sdk_available": False,
-                "fallback_reason": f"bedrock-agentcore SDK not importable: {sdk_error}",
-            }
-        return {
-            "live": False,
-            "source": "in-process-dict",
-            "memory_id": "",
-            "sdk_available": sdk_available,
-            "fallback_reason": "AGENTCORE_MEMORY_ID env var not set",
-        }
+        return await asyncio.to_thread(probe_memory_backend_status)
     except Exception as e:
         logger.warning(f"Memory status fetch failed: {e}")
         return {"live": False, "source": "in-process-dict", "error": str(e)}

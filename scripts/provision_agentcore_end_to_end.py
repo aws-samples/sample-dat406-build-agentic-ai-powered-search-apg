@@ -336,10 +336,17 @@ def _authenticated_runtime_smoke(
     response_text = str(decoded.get("response", "")).strip()
     if not response_text:
         raise RuntimeError("Runtime smoke invoke returned empty response payload")
+    rail = str(decoded.get("rail", "")).strip()
+    if rail != "gateway-mcp":
+        raise RuntimeError(
+            "Runtime smoke did not execute through AgentCore Gateway "
+            f"(expected rail=gateway-mcp, got {rail or 'missing'})"
+        )
 
     return {
         "runtime_id": runtime_id,
         "username": username,
+        "rail": rail,
         "response_preview": response_text[:200],
     }
 
@@ -922,8 +929,8 @@ def main() -> int:
         # engine, gate process_return to damaged-only, and attach to THIS
         # gateway in ENFORCE mode. Policy enforces at the Gateway boundary, so
         # it gates the agents_as_tools rail (process_return runs in the
-        # experience Lambda). Best-effort: a policy failure must not nuke the
-        # rest of provisioning, but the dry-run/health gate surfaces it.
+        # experience Lambda). This is a hard readiness requirement for the
+        # governed workshop: Core Lab 4 cannot run without it.
         try:
             gateway_arn_proc = _run(
                 [
@@ -951,6 +958,10 @@ def main() -> int:
             for line in policy_proc.stdout.splitlines():
                 if line.startswith("POLICY_ENGINE_ID="):
                     policy_engine_id = line.split("=", 1)[1].strip()
+            if not policy_engine_id:
+                raise RuntimeError(
+                    "Managed Policy deploy completed without a policy engine id"
+                )
             result["policy"] = {
                 "policy_engine_id": policy_engine_id,
                 "mode": "ENFORCE",
@@ -958,9 +969,11 @@ def main() -> int:
             }
             result["verification"]["managed_policy_attached"] = bool(policy_engine_id)
         except RuntimeError as exc:
-            # Surface but don't abort — Runtime/Memory/Gateway still provision.
             result["policy"] = {"error": str(exc)}
             result["verification"]["managed_policy_attached"] = False
+            raise RuntimeError(
+                "Managed AgentCore Policy is required but failed to attach"
+            ) from exc
 
         # Scaffold the 0.18 project, register our in-repo orchestrator as a BYO
         # agent (HTTP + CUSTOM_JWT), patch in the role/envVars the CLI has no
@@ -1048,6 +1061,21 @@ def main() -> int:
         result["verification"]["authenticated_runtime_invoke_smoke"] = True
         result["verification"]["runtime_invoke_smoke"] = smoke
 
+        required_verifications = (
+            "targets_attached",
+            "prefixed_tools_verified",
+            "managed_policy_attached",
+            "runtime_control_plane_visible",
+            "authenticated_runtime_invoke_smoke",
+        )
+        missing = [
+            name for name in required_verifications
+            if result["verification"].get(name) is not True
+        ]
+        if missing:
+            raise RuntimeError(
+                "Managed readiness checks did not pass: " + ", ".join(missing)
+            )
         result["status"] = "ready"
 
         output_path.write_text(json.dumps(result, indent=2))

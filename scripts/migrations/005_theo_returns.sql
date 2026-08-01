@@ -6,7 +6,7 @@
 --
 -- The teaching shape:
 --
---   1. An agent (Experience Guide on Opus 4.8 at 0.2) calls a @tool
+--   1. An agent (Experience Guide on Opus 5 at 0.2) calls a @tool
 --      that mutates Aurora — process_return.
 --   2. On the managed Gateway rail, AgentCore Policy gates the call
 --      before the Lambda executes. Bad reason → DENY → no Gateway

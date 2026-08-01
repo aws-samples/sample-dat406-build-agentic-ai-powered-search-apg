@@ -273,7 +273,7 @@ interface AgentCard {
   role: string;
   status: "shipped" | "exercise";
   tools: string[];
-  model: string; // e.g., "Opus 4.8 · 0.2"
+  model: string; // e.g., "Opus 5 · 0.2"
   exerciseFiles?: string[];
 }
 ```

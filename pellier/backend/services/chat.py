@@ -314,6 +314,34 @@ def classify_intent(query: str) -> str:
     return "recommendation"
 
 
+def _build_dispatcher_specialist(intent_hint: str, allow_handoff: bool):
+    """Construct the one specialist selected for a dispatcher turn."""
+    from config import settings
+    from agents.style_advisor import build_search_agent
+    from agents.curator import build_recommendation_agent
+    from agents.value_analyst import build_pricing_agent
+    from agents.stock_keeper import build_inventory_agent
+    from agents.experience_guide import build_support_agent
+
+    if intent_hint == "search":
+        return build_search_agent(
+            model_id=settings.BEDROCK_SONNET_MODEL,
+            max_tokens=min(settings.AGENT_MAX_TOKENS_SONNET, 900),
+            allow_escalation=allow_handoff,
+        )
+    if intent_hint == "recommendation":
+        return build_recommendation_agent(
+            model_id=settings.BEDROCK_SONNET_MODEL,
+            max_tokens=min(settings.AGENT_MAX_TOKENS_SONNET, 900),
+            allow_escalation=allow_handoff,
+        )
+    if intent_hint == "pricing":
+        return build_pricing_agent()
+    if intent_hint == "inventory":
+        return build_inventory_agent()
+    return build_support_agent()
+
+
 # ---------------------------------------------------------------------------
 # Product extraction — single source of truth, replaces LLM JSON generation
 # ---------------------------------------------------------------------------
@@ -2168,9 +2196,6 @@ CURRENT REQUEST: {message}"""
         # everything after this point treats ``orchestrator`` as a
         # plain Strands Agent regardless of pattern.
         if pattern == "dispatcher":
-            from agents.style_advisor import build_search_agent
-            from agents.curator import build_recommendation_agent
-            from agents.value_analyst import build_pricing_agent
             from agents import stock_keeper as inventory_agent_module
             from agents import experience_guide as support_agent_module
 
@@ -2266,28 +2291,11 @@ CURRENT REQUEST: {message}"""
                 }
                 return
 
-            from agents.stock_keeper import build_inventory_agent
-            from agents.experience_guide import build_support_agent
-
             allow_handoff = _allows_human_handoff(message)
-            if intent_hint == "search":
-                orchestrator = build_search_agent(
-                    model_id=settings.BEDROCK_SONNET_MODEL,
-                    max_tokens=min(settings.AGENT_MAX_TOKENS_SONNET, 900),
-                    allow_escalation=allow_handoff,
-                )
-            elif intent_hint == "recommendation":
-                orchestrator = build_recommendation_agent(
-                    model_id=settings.BEDROCK_SONNET_MODEL,
-                    max_tokens=min(settings.AGENT_MAX_TOKENS_SONNET, 900),
-                    allow_escalation=allow_handoff,
-                )
-            elif intent_hint == "pricing":
-                orchestrator = build_pricing_agent()
-            elif intent_hint == "inventory":
-                orchestrator = build_inventory_agent()
-            else:
-                orchestrator = build_support_agent()
+            orchestrator = _build_dispatcher_specialist(
+                intent_hint,
+                allow_handoff,
+            )
             orchestrator.trace_attributes = trace_attributes
             if session_manager:
                 orchestrator.session_manager = session_manager

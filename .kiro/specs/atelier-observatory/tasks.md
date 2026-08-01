@@ -138,7 +138,7 @@ Build the Atelier Observatory — a read-only editorial-luxury AI observability 
 
   - [x] 5.2 Implement Agents surface
     - Create `src/atelier/surfaces/understand/Agents.tsx` — WorkshopProgressStrip (5 segments: 3 shipped, 2 exercise) + 5 agent row cards
-    - Each agent card: Roman numeral, name (Fraunces 24px), role description, StatusDot + StatusPill, tool chips, model tag ("Opus 4.8 · 0.2"), "Open [Agent]" link
+    - Each agent card: Roman numeral, name (Fraunces 24px), role description, StatusDot + StatusPill, tool chips, model tag ("Opus 5 · 0.2"), "Open [Agent]" link
     - Shipped agents (Search, Recommendation, Pricing): solid borders, cream-elev bg, sage "Shipped" pills, cream-2 tool chips with solid borders
     - Exercise agents (Inventory, Customer Support): dashed borders, transparent bg, burgundy "Exercise" pills, transparent tool chips with dashed burgundy borders, exercise files list
     - "Related" callout card linking to Skills and Routing surfaces

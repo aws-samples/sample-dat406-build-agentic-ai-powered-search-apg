@@ -461,6 +461,35 @@ class BazaarGatewayDeployer:
             time.sleep(10)
         raise TimeoutError("Gateway not ready within timeout")
 
+    def _wait_target_ready(
+        self,
+        gateway_id: str,
+        target_id: str,
+        timeout: int = 300,
+    ) -> None:
+        logger.info("Waiting for target '%s' to be ready...", target_id)
+        start = time.time()
+        while time.time() - start < timeout:
+            target = self.agentcore.get_gateway_target(
+                gatewayIdentifier=gateway_id,
+                targetId=target_id,
+            )
+            status = target.get("status")
+            logger.info("  target %s status: %s", target_id, status)
+            if status == "READY":
+                return
+            if status in (
+                "FAILED",
+                "UPDATE_UNSUCCESSFUL",
+                "SYNCHRONIZE_UNSUCCESSFUL",
+            ):
+                reasons = target.get("statusReasons") or []
+                raise RuntimeError(
+                    f"Gateway target {target_id} failed: {status}: {reasons}"
+                )
+            time.sleep(5)
+        raise TimeoutError(f"Gateway target {target_id} not ready within timeout")
+
     def _add_target(self, gateway_id: str, target: MCPTarget):
         schema = TOOL_SCHEMAS.get(target.server_type)
         if not schema:
@@ -509,14 +538,11 @@ class BazaarGatewayDeployer:
                 targetConfiguration=target_configuration,
                 credentialProviderConfigurations=credentials,
             )
-            self.agentcore.synchronize_gateway_targets(
-                gatewayIdentifier=gateway_id,
-                targetIdList=[target_id],
-            )
             logger.info("Updated target '%s'", target_name)
+            self._wait_target_ready(gateway_id, target_id)
             return
 
-        self.agentcore.create_gateway_target(
+        created = self.agentcore.create_gateway_target(
             gatewayIdentifier=gateway_id,
             name=target_name,
             description=schema["description"],
@@ -524,6 +550,7 @@ class BazaarGatewayDeployer:
             credentialProviderConfigurations=credentials,
         )
         logger.info("Added target '%s'", target_name)
+        self._wait_target_ready(gateway_id, created["targetId"])
 
 
 def main():

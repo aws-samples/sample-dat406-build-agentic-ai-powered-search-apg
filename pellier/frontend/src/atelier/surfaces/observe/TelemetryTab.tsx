@@ -1254,7 +1254,7 @@ const RoutingPatternIntro: React.FC = () => (
 /** Mono strip so Telemetry names the same Bedrock profiles as the workshop stack. */
 function WorkshopBedrockProfilesStrip() {
   const rows: Array<[string, string]> = [
-    ['Claude Opus 4.8', BEDROCK_INFERENCE_PROFILES.CLAUDE_OPUS_48],
+    ['Claude Opus 5', BEDROCK_INFERENCE_PROFILES.CLAUDE_OPUS_5],
     ['Claude Sonnet 5', BEDROCK_INFERENCE_PROFILES.CLAUDE_SONNET_5],
     ['Cohere Embed v4', BEDROCK_INFERENCE_PROFILES.COHERE_EMBED_V4],
     ['Cohere Rerank v3.5', BEDROCK_INFERENCE_PROFILES.COHERE_RERANK_V35],

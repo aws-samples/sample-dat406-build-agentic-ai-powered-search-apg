@@ -147,11 +147,22 @@ async def _stream_agent_response(
     # orchestrator is caught and surfaced as an ``error`` event — we
     # never leak a stack trace to the client (Req 3.1.5 style envelope).
     try:
+        history = await memory.get_session_history(context.namespace)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Session history read failed for %s: %s",
+            context.namespace,
+            exc.__class__.__name__,
+        )
+        history = []
+
+    try:
         response_text = await run_agent(
             message=message,
             session_id=context.session_id,
             user_id=context.user_id,
             auth_token=context.access_token,
+            history=history,
         )
     except Exception as exc:  # pragma: no cover - defensive
         logger.error(

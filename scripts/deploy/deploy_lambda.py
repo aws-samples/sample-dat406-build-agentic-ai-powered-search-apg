@@ -251,11 +251,11 @@ def main():
           "Resource": "*"
         },
         {
-          # The MCP server Lambdas embed queries (Cohere Embed v4) and the
-          # search server reranks (Cohere Rerank v3.5) via bedrock-runtime
-          # invoke_model. Without this the Gateway-routed tool calls deploy
-          # fine but fail at the FIRST embedding with AccessDenied — a failure
-          # that only surfaces at invoke time, not at provisioning. Scoped to
+          # The MCP server Lambdas embed queries (Cohere Embed v4) through
+          # InvokeModel, while the search server calls the separate Rerank API
+          # for Cohere Rerank v3.5. Without both actions, Gateway-routed tools
+          # deploy cleanly but silently fall back to RRF at invocation time.
+          # Scoped to
           # the foundation-model + inference-profile ARN families (NOT region-
           # conditioned: Cohere v4 is a us.* inference profile and the editorial
           # path uses global.* profiles that route as RequestedRegion=unspecified,
@@ -271,6 +271,15 @@ def main():
               f"arn:aws:bedrock:*:{account_id}:inference-profile/*",
               f"arn:aws:bedrock:*:{account_id}:application-inference-profile/*"
           ]
+        },
+        {
+          # bedrock:Rerank does not support resource-level permissions. IAM
+          # evaluates it against "*" even when the request names a specific
+          # reranking model ARN, so it must be isolated from the scoped
+          # InvokeModel statement above.
+          "Effect": "Allow",
+          "Action": ["bedrock:Rerank"],
+          "Resource": "*"
         }
       ]
     }

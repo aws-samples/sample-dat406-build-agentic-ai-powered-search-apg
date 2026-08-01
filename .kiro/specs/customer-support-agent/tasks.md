@@ -69,7 +69,7 @@ Add two new specialist agents (Customer Support and Search) to the Pellier multi
     - **Validates: Requirements 8.3**
 
 - [x] 7. Graph orchestrator visualization update
-  - [x] 7.1 Update `get_graph_structure` in `pellier/backend/agents/graph_orchestrator.py`: add "support" node (label "Customer Support", type "agent", model "Claude Opus 4.8"), "search" node (label "Product Search", type "agent", model "Claude Opus 4.8"), edges from "router" to both, and update description text
+  - [x] 7.1 Update `get_graph_structure` in `pellier/backend/agents/graph_orchestrator.py`: add "support" node (label "Customer Support", type "agent", model "Claude Opus 5"), "search" node (label "Product Search", type "agent", model "Claude Opus 5"), edges from "router" to both, and update description text
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
 - [x] 8. Checkpoint - Ensure all backend changes are correct

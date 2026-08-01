@@ -71,7 +71,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8",
+        "model": "Claude Opus 5",
         "skill": "the-makers-shelf",
         "latencyMs": 1136
       }
@@ -137,7 +137,7 @@
       "index": 7,
       "category": "both",
       "title": "editorial composition",
-      "description": "Claude Opus 4.8 - same-kiln pairing voice",
+      "description": "Claude Opus 5 - same-kiln pairing voice",
       "status": "complete",
       "durationMs": 736,
       "agent": "Curator"

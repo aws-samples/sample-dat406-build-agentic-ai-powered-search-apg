@@ -82,7 +82,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8",
+        "model": "Claude Opus 5",
         "skill": "the-gift-table",
         "searchMethod": "hybrid+rerank",
         "latencyMs": 1398
@@ -159,7 +159,7 @@
       "index": 8,
       "category": "both",
       "title": "editorial composition",
-      "description": "Claude Opus 4.8 - morning ritual framing",
+      "description": "Claude Opus 5 - morning ritual framing",
       "status": "complete",
       "durationMs": 704,
       "agent": "Curator"

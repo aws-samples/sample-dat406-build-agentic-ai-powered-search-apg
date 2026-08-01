@@ -173,7 +173,7 @@ AWS_REGION='${AWS_REGION}'
 AWS_DEFAULT_REGION='${AWS_REGION}'
 BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}'
 BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}'
-BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-8}'
+BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-5}'
 WORKSHOP_ID='${WORKSHOP_ID:-}'
 WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-builders}'
 AUTH_MODE='${AUTH_MODE:-cognito}'
@@ -1159,14 +1159,13 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-buil
         log "Governed format: preserving Stock Keeper and floor_check scaffolds for participant build"
     fi
 
-    # ---- AgentCore full managed path (warn-and-continue) ----
+    # ---- AgentCore full managed path ----
     #
-    # AgentCore provisioning is best-effort, NOT a hard gate. A failure here
-    # must never abort the bootstrap: the backend still launches below and the
-    # app degrades gracefully (STM falls back to Aurora session tables, and the
-    # Core Lab 3 Runtime-invoke step shows a clear "Runtime not provisioned" state
-    # rather than the whole environment coming up with no backend and no logs).
-    # The health gate at the end reports AgentCore readiness explicitly.
+    # Keep provisioning failures non-fatal until the backend has launched so
+    # facilitators retain logs and a recoverable shell. The final health gate is
+    # strict for WORKSHOP_FORMAT=governed and exits bootstrap non-zero unless
+    # Memory, Runtime, Gateway, and Policy are all ready. Builders format keeps
+    # the managed path optional.
     log "Provisioning full AgentCore managed path (Lambdas + Gateway + Runtime)..."
     export REPO_PATH="$REPO_PATH"
     MANAGED_OUTPUT_JSON="/tmp/pellier-agentcore-managed.json"
@@ -1263,8 +1262,10 @@ EOF
         GATEWAY_ARN="$(jq -r '.gateway.gateway_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         POLICY_ENGINE_ID="$(jq -r '.policy.policy_engine_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         MANAGED_STATUS="$(jq -r '.status // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
-        if [ -z "$RUNTIME_ARN" ] || [ -z "$GATEWAY_URL" ] || [ "$MANAGED_STATUS" != "ready" ]; then
-            warn "Managed provisioning output missing runtime/gateway readiness (backend will still start)"
+        if [ -z "$RUNTIME_ARN" ] || [ -z "$GATEWAY_URL" ] \
+            || [ -z "$GATEWAY_ARN" ] || [ -z "$POLICY_ENGINE_ID" ] \
+            || [ "$MANAGED_STATUS" != "ready" ]; then
+            warn "Managed provisioning output missing Runtime/Gateway/Policy readiness (backend will still start)"
             write_status_json "failed" "failed" "$MANAGED_OUTPUT_JSON"
             AGENTCORE_OK=false
         fi
@@ -1285,14 +1286,12 @@ EOF
         # invoke needs a bearer token, not the placeholder x-api-key.
         upsert_env "AGENTCORE_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
-        # Managed AgentCore Policy engine (4th pillar). Best-effort: provisioning
-        # marks status=ready even if policy attach failed, so guard on non-empty.
-        # Core Lab 4 policy exercise + Atelier Policy surface read this id.
+        # Managed AgentCore Policy engine (4th pillar). The provisioner cannot
+        # report ready without this id; keep the explicit guard because Core Lab
+        # 4 and the Atelier Policy surface both read it.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"
-        else
-            warn "Managed Policy engine id absent — Gateway runs without ENFORCE; see $AGENTCORE_LOG"
         fi
         chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
         write_status_json "complete" "ready" "$MANAGED_OUTPUT_JSON"
@@ -1508,18 +1507,25 @@ echo ""
 # STEP 19: POST-BOOT HEALTH GATE
 # ============================================================================
 # One consolidated PASS/FAIL summary so the facilitator sees readiness at a
-# glance. Non-fatal: bootstrap already finished; this only reports. Give the
-# backend a moment to come up first (builders launches uvicorn in STEP 16).
+# glance. Give the backend a moment to come up first. A failed gate is fatal for
+# the governed workshop and warning-only for the one-hour builders format.
+HEALTH_GATE_OK=true
 if [ -x "$REPO_PATH/scripts/health-gate.sh" ]; then
     log "Running post-boot health gate..."
     sleep 5
-    sudo -u "$CODE_EDITOR_USER" bash -c "
+    if ! sudo -u "$CODE_EDITOR_USER" bash -c "
         export PELLIER_REPO='$REPO_PATH'
         bash '$REPO_PATH/scripts/health-gate.sh'
-    " 2>&1 | tee /var/log/pellier-health-gate.log || \
+    " 2>&1 | tee /var/log/pellier-health-gate.log; then
+        HEALTH_GATE_OK=false
         warn "Health gate reported NOT READY — see /var/log/pellier-health-gate.log"
+    fi
 fi
 
 log "=========================================="
+
+if [ "$HEALTH_GATE_OK" != true ] && [ "${WORKSHOP_FORMAT:-builders}" = "governed" ]; then
+    fail "Governed workshop readiness failed; CloudFormation must not report this environment ready"
+fi
 
 exit 0

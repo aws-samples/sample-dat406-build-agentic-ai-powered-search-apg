@@ -8,11 +8,12 @@ Usage:
       --token "$TOKEN"
 """
 import argparse
-import json
 import os
 import sys
-import urllib.request
-import urllib.error
+
+import anyio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
 
 EXPECTED_TOOLS = {
@@ -39,43 +40,46 @@ def _canonical_name(name: str) -> str:
     return name.rsplit("__", 1)[-1]
 
 
+async def _discover_gateway_tools(gateway_url: str, token: str):
+    async with streamablehttp_client(
+        gateway_url,
+        headers={"Authorization": f"Bearer {token}"},
+    ) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.list_tools()
+            return result.tools
+
+
+def discover_gateway_tools(gateway_url: str, token: str):
+    """Discover tools through an initialized MCP streamable-HTTP session."""
+    return anyio.run(_discover_gateway_tools, gateway_url, token)
+
+
 def list_gateway_tools(gateway_url: str, token: str):
-    """Call the Gateway's tools/list endpoint and display discovered tools."""
-    url = gateway_url.rstrip("/") + "/tools/list"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
-    req = urllib.request.Request(url, headers=headers, method="POST", data=b"{}")
-
+    """Discover and display the exact Gateway MCP tool contract."""
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        print(f"ERROR: Gateway returned {e.code}")
-        print(f"  {e.read().decode()[:200]}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Could not reach Gateway: {e}")
+        tools = discover_gateway_tools(gateway_url, token)
+    except Exception as exc:
+        print(f"ERROR: Could not discover Gateway MCP tools: {exc}")
         sys.exit(1)
 
-    tools = body.get("tools", [])
     if not tools:
         print("WARNING: No tools discovered. Check that Lambda targets are registered.")
         return
 
     # Group tools by server (inferred from tool naming conventions)
     print("Discovered tools:\n")
-    for tool in sorted(tools, key=lambda t: t.get("name", "")):
-        name = tool.get("name", "unknown")
-        desc = tool.get("description", "")
+    for tool in sorted(tools, key=lambda item: item.name):
+        name = tool.name
+        desc = tool.description or ""
         # Truncate long descriptions for display
         if len(desc) > 80:
             desc = desc[:77] + "..."
         print(f"  - {name}")
         print(f"    {desc}")
 
-    observed = {_canonical_name(tool.get("name", "")) for tool in tools}
+    observed = {_canonical_name(tool.name) for tool in tools}
     missing = sorted(EXPECTED_TOOLS - observed)
     unexpected = sorted(observed - EXPECTED_TOOLS)
     print(f"\nTotal: {len(tools)} tools")

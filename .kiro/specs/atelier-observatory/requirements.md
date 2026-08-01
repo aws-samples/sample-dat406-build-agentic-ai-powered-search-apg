@@ -14,7 +14,7 @@ The Atelier is an editorial-luxury AI observatory surface layered into the exist
 - **Canvas**: The main content area to the right of the Sidebar where surface content renders.
 - **Session**: A single conversation between a persona and the agentic system, identified by a short hex ID (e.g., #7F5A).
 - **Persona**: A mock customer profile (e.g., Marco) used as the demo identity in the Atelier; selected via Settings.
-- **Agent**: One of 5 peer specialist agents (Search, Recommendation, Pricing, Inventory, Customer Support), using the workshop's Opus 4.8 and Sonnet 5 inference profiles without temperature overrides.
+- **Agent**: One of 5 peer specialist agents (Search, Recommendation, Pricing, Inventory, Customer Support), using the workshop's Opus 5 and Sonnet 5 inference profiles without temperature overrides.
 - **Skill**: A runtime-injected persona-routed capability (style-advisor or gift-concierge), routed by the SkillRouter (Claude Sonnet 5).
 - **Routing_Pattern**: One of 3 orchestration strategies: Dispatcher (storefront default), Agents-as-Tools, or Graph.
 - **Tool**: One of 9 named functions registered in tool_registry with pgvector embeddings for semantic discovery.
@@ -152,7 +152,7 @@ The Atelier is an editorial-luxury AI observatory surface layered into the exist
 #### Acceptance Criteria
 
 1. WHEN the user navigates to Agents in the Sidebar, THE Atelier SHALL display a Workshop_Progress_Strip showing 5 segments (3 shipped solid, 2 exercise dashed) with a shipped/total fraction.
-2. THE Agents surface SHALL display each agent as a vertical row card with: a Roman numeral, agent name (Fraunces 24px), role description, status indicators (Status_Dot + Status_Pill), tool chips, model tag ("Opus 4.8 · 0.2"), and an "Open [Agent]" link.
+2. THE Agents surface SHALL display each agent as a vertical row card with: a Roman numeral, agent name (Fraunces 24px), role description, status indicators (Status_Dot + Status_Pill), tool chips, model tag ("Opus 5 · 0.2"), and an "Open [Agent]" link.
 3. THE Agents surface SHALL display shipped agents (Search, Recommendation, Pricing) with solid borders, cream-elev background, and sage "Shipped" pills.
 4. THE Agents surface SHALL display exercise agents (Inventory, Customer Support) with dashed borders, transparent background, burgundy "Exercise" pills, and an exercise files list showing the files to implement.
 5. THE Agents surface SHALL display a "Related" callout card linking to the Skills surface and the Routing surface.

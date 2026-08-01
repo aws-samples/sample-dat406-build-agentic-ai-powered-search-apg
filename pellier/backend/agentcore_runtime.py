@@ -78,10 +78,11 @@ try:
 
     @app.entrypoint
     def invoke(payload: Dict[str, Any], context: Any = None) -> Dict[str, Any]:
-        """AgentCore Runtime entrypoint — orchestrator in a managed microVM."""
+        """Handle the prompt, identity/session ids, and prior Memory history."""
         prompt = (payload or {}).get("prompt", "")
         session_id = (payload or {}).get("session_id", "runtime-session")
         user_id = (payload or {}).get("user_id", "anonymous")
+        history = (payload or {}).get("history", [])
 
         # Gateway rail first: tools execute in the MCP Lambdas under the
         # caller's identity (JWT passthrough). The in-process orchestrator is
@@ -127,7 +128,9 @@ try:
         except Exception:  # pragma: no cover
             pass
 
-        response = orchestrator(prompt)
+        from services.agentcore_runtime import build_conversation_prompt
+
+        response = orchestrator(build_conversation_prompt(prompt, history))
         return {"response": str(response), "products": [], "rail": rail}
 
 except ImportError:

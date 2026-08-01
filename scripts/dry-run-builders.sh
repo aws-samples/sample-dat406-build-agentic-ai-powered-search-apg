@@ -48,6 +48,8 @@ FAILED=false
 
 # Load env (safe source)
 [[ -f "$ENV_FILE" ]] && { set -a; source "$ENV_FILE"; set +a; }
+GOVERNED=false
+[[ "${WORKSHOP_FORMAT:-builders}" == "governed" ]] && GOVERNED=true
 
 _psql() {
   PGPASSWORD="${DB_PASSWORD:-}" psql \
@@ -188,74 +190,84 @@ else
   fail "Core Lab 3 process_return request failed"
 fi
 
-# --- 4c. Managed Runtime invoke (optional) ----------------------------------
+# Mint one real Cognito token for the managed Runtime and Gateway checks.
+POLICY_TOKEN=""
+TOKEN_HELPER="/home/${CODE_EDITOR_USER:-participant}/pellier-token.sh"
+if [[ -f "$TOKEN_HELPER" ]]; then
+  # shellcheck source=/dev/null
+  source "$TOKEN_HELPER" marco >/tmp/dryrun-token.log 2>&1 || true
+  POLICY_TOKEN="${PELLIER_TOKEN:-}"
+fi
+
+# --- 4c. Managed Runtime invoke ----------------------------------------------
 echo "[4c/6] AgentCore Runtime invoke — POST /api/agent/chat"
-if [[ -n "${AGENTCORE_RUNTIME_ENDPOINT:-}" && "${USE_AGENTCORE_RUNTIME:-false}" == "true" ]]; then
+if [[ -n "${AGENTCORE_RUNTIME_ENDPOINT:-}" && "${USE_AGENTCORE_RUNTIME:-false}" == "true" \
+      && -n "$POLICY_TOKEN" ]]; then
   rt='{"message":"Find linen travel pieces for a warm-weather trip.","session_id":"'"$SESSION"'-rt"}'
   rtreply="$(curl -fsN --max-time 90 -X POST "${BASE}/api/agent/chat" \
+    -H "Authorization: Bearer ${POLICY_TOKEN}" \
     -H 'Content-Type: application/json' -d "$rt" 2>/dev/null || true)"
-  if echo "$rtreply" | grep -qiE 'linen|travel|gateway-mcp|event:|chunk'; then
-    pass "Managed Runtime returned a traceable response"
+  runtime_rail="$(printf '%s\n' "$rtreply" | sed -n 's/^data: //p' \
+    | jq -r 'select(.trace != null) | .trace.rail // empty' 2>/dev/null \
+    | tail -1)"
+  if [[ "$runtime_rail" == "gateway-mcp" ]]; then
+    pass "Managed Runtime returned rail=gateway-mcp with Cognito JWT passthrough"
   else
-    fail "Runtime invoke returned nothing usable (first 200: ${rtreply:0:200})"
+    fail "Runtime smoke did not prove gateway-mcp (rail=${runtime_rail:-missing}; first 200: ${rtreply:0:200})"
   fi
 else
-  info "Skipped — USE_AGENTCORE_RUNTIME not true / endpoint unset (in-process fallback is fine for builders)"
+  if $GOVERNED; then
+    fail "Managed Runtime proof unavailable (endpoint, switch, or Cognito token missing)"
+  else
+    info "Skipped — managed Runtime or Cognito token unavailable (optional for builders)"
+  fi
 fi
 
-# --- 4d. Managed Policy on the authenticated Gateway rail (optional) ----------
-# The production extension runs process_return through the Gateway (pattern=
-# agents_as_tools) with a Cognito bearer token, where managed AgentCore Policy
-# (Cedar, ENFORCE) ALLOWs reason=damaged and DENYs anything else. This step
-# mints a test-user token and exercises BOTH outcomes so a fresh-account
-# facilitator knows the policy beat will actually demonstrate. Degrades to
-# `info` (never fails the run) when policy/creds aren't provisioned — the
-# floor_check path above is the hard gate, not this.
+# --- 4d. Managed Policy on the authenticated Gateway rail --------------------
+# Call the Gateway MCP tool directly. The helper classifies only an actual
+# authorization failure as DENY and verifies ALLOW creates a tool_audit row
+# while DENY creates none.
 echo "[4d/6] Managed Policy (Gateway rail) — process_return ALLOW vs DENY"
-POLICY_TOKEN=""
-if [[ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" && -n "${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}" \
-      && -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
-  _pool="${COGNITO_POOL:-${COGNITO_POOL_ID}}"; _client="${COGNITO_CLIENT:-${COGNITO_CLIENT_ID}}"
-  # Pull user[0] from the test-credentials secret and mint an access token.
-  _creds="$(aws secretsmanager get-secret-value --secret-id "$COGNITO_TEST_CREDENTIALS_SECRET_ARN" \
-    --query SecretString --output text 2>/dev/null || true)"
-  _u="$(echo "$_creds" | python3 -c 'import sys,json;u=json.load(sys.stdin)["users"][0];print(u["username"])' 2>/dev/null || true)"
-  _p="$(echo "$_creds" | python3 -c 'import sys,json;u=json.load(sys.stdin)["users"][0];print(u["password"])' 2>/dev/null || true)"
-  if [[ -n "$_u" && -n "$_p" ]]; then
-    POLICY_TOKEN="$(aws cognito-idp admin-initiate-auth --user-pool-id "$_pool" --client-id "$_client" \
-      --auth-flow ADMIN_USER_PASSWORD_AUTH --auth-parameters "USERNAME=$_u,PASSWORD=$_p" \
-      --query 'AuthenticationResult.AccessToken' --output text 2>/dev/null || true)"
-  fi
-fi
-if [[ -n "$POLICY_TOKEN" ]]; then
-  # ALLOW: damaged return should succeed via the Gateway rail.
-  allow_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","pattern":"agents_as_tools"}'
-  allow_reply="$(curl -fsN --max-time 90 -X POST "${BASE}/api/chat/stream" \
-    -H "Authorization: Bearer ${POLICY_TOKEN}" -H 'Content-Type: application/json' -d "$allow_body" 2>/dev/null || true)"
-  if echo "$allow_reply" | grep -qiE 'return|filed|refund|process'; then
-    pass "Managed Policy ALLOW — damaged return processed on the Gateway rail"
+POLICY_ALLOW_SESSION="dryrun-policy-allow-$(date +%s)-$$"
+POLICY_DENY_SESSION="dryrun-policy-deny-$(date +%s)-$$"
+if [[ -n "$POLICY_TOKEN" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" \
+      && -n "${AGENTCORE_GATEWAY_URL:-}" ]]; then
+  export PELLIER_TOKEN
+  if python3 "$REPO/scripts/deploy/gateway_process_return.py" \
+      --product-id 31 --reason damaged --expect allow --record-receipt \
+      --session-id "$POLICY_ALLOW_SESSION" \
+      >/tmp/dryrun-policy-allow.json 2>/tmp/dryrun-policy-allow.err; then
+    pass "Managed Policy ALLOW executed and wrote current-session audit evidence"
   else
-    warn "ALLOW turn returned nothing obvious (first 200: ${allow_reply:0:200}) — check Gateway/token"
+    fail "Managed Policy ALLOW proof failed — see /tmp/dryrun-policy-allow.err"
   fi
-  # DENY: a non-damaged reason should be blocked by Cedar at the Gateway.
-  deny_body='{"message":"My Wabi-Sabi Bowl does not match my shelf. Please file a return (my customer id is '"'"'theo'"'"').","pattern":"agents_as_tools"}'
-  curl -fsN --max-time 90 -X POST "${BASE}/api/chat/stream" \
-    -H "Authorization: Bearer ${POLICY_TOKEN}" -H 'Content-Type: application/json' -d "$deny_body" >/dev/null 2>&1 || true
-  info "DENY turn fired (non-damaged) — verified by the tool_audit count check in step 5."
+  if python3 "$REPO/scripts/deploy/gateway_process_return.py" \
+      --product-id 31 --reason changed_mind --expect deny --record-receipt \
+      --session-id "$POLICY_DENY_SESSION" \
+      >/tmp/dryrun-policy-deny.json 2>/tmp/dryrun-policy-deny.err; then
+    pass "Managed Policy DENY blocked before Lambda execution"
+  else
+    fail "Managed Policy DENY proof failed — see /tmp/dryrun-policy-deny.err"
+  fi
 else
-  info "Skipped — managed Policy + Cognito test creds not all present (AGENTCORE_POLICY_ENGINE_ID / COGNITO_*). The required in-process path is unaffected."
+  if $GOVERNED; then
+    fail "Managed Policy proof unavailable (Policy, Gateway, or Cognito token missing)"
+  else
+    info "Skipped — managed Policy or Cognito token unavailable (optional for builders)"
+  fi
 fi
 
-# --- 4e. Gateway wiring (optional production extension) -----------------------
+# --- 4e. Gateway wiring -------------------------------------------------------
 echo "[4e/6] AgentCore Gateway wiring — GET /api/agentcore/gateway/status"
 gw="$(curl -fsN --max-time 30 "${BASE}/api/agentcore/gateway/status" 2>/dev/null || true)"
 if echo "$gw" | grep -q '"configured"[[:space:]]*:[[:space:]]*true'; then
   pass "Gateway configured (AGENTCORE_GATEWAY_URL set; source=mcp-discovery)"
 else
-  # Not fatal: in-process is the default execution path for the room. But on a
-  # provisioned account this should be true, or the optional Gateway inspection
-  # and JWT passthrough won't have anything live to show.
-  info "Gateway NOT configured (source=in-process-imports) — optional Gateway inspection is unavailable."
+  if $GOVERNED; then
+    fail "Gateway NOT configured — governed Runtime/Policy proof is unavailable"
+  else
+    info "Gateway NOT configured — optional managed inspection is unavailable."
+  fi
   info "  Expected the live demo? Check AGENTCORE_GATEWAY_URL in pellier/backend/.env"
   info "  Raw: ${gw:0:200}"
 fi
@@ -276,22 +288,19 @@ else
   fail "No complete process_return receipt for session ${LEDGER_SESSION}"
 fi
 
-# 5b. Managed-Policy evidence (only when step 4d ran the Gateway rail). Proves
-# that an ALLOWed damaged return wrote a process_return row keyed by
-# customer_id='theo' with reason='damaged'; a DENYed non-damaged return wrote
-# NONE (the absence is the proof — Cedar blocked it at the Gateway).
-if [[ -n "$POLICY_TOKEN" ]]; then
-  pr_allowed="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='process_return' AND args->>'customer_id'='theo' AND args->>'reason'='damaged';")"
-  pr_denied="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='process_return' AND args->>'customer_id'='theo' AND args->>'reason'<>'damaged';")"
-  if [[ "${pr_allowed:-0}" =~ ^[0-9]+$ ]] && (( pr_allowed > 0 )); then
-    pass "Managed Policy ALLOW evidence — ${pr_allowed} damaged process_return row(s) for theo"
+# 5b. Managed-Policy evidence, keyed to this dry run's unique receipt sessions.
+if [[ -n "$POLICY_TOKEN" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
+  pr_allowed="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id='${POLICY_ALLOW_SESSION}' AND decision='ALLOW' AND audit_id IS NOT NULL;")"
+  pr_denied="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id='${POLICY_DENY_SESSION}' AND decision='DENY' AND audit_id IS NULL AND args->>'absence_verified'='true';")"
+  if [[ "${pr_allowed:-0}" == "1" ]]; then
+    pass "Managed Policy ALLOW receipt has an execution audit id"
   else
-    fail "No damaged process_return row for theo — Gateway rail or policy ALLOW not landing in tool_audit"
+    fail "Current-session ALLOW receipt is missing its execution audit id"
   fi
-  if [[ "${pr_denied:-0}" == "0" ]]; then
-    pass "Managed Policy DENY proof — zero non-damaged process_return rows (Cedar blocked at the Gateway)"
+  if [[ "${pr_denied:-0}" == "1" ]]; then
+    pass "Managed Policy DENY receipt proves no execution row was written"
   else
-    warn "Found ${pr_denied} non-damaged process_return row(s) for theo — Cedar DENY may not be enforcing (engine attached in ENFORCE mode?)"
+    fail "Current-session DENY receipt did not prove pre-execution blocking"
   fi
 else
   info "Policy ledger checks skipped (step 4d did not run)."

@@ -90,6 +90,7 @@ def stub_runtime_call(monkeypatch: pytest.MonkeyPatch):
         session_id: str,
         user_id: Any = None,
         auth_token: Any = None,
+        history: Any = None,
     ) -> str:
         calls.append(
             {
@@ -97,6 +98,7 @@ def stub_runtime_call(monkeypatch: pytest.MonkeyPatch):
                 "session_id": session_id,
                 "user_id": user_id,
                 "auth_token": auth_token,
+                "history": history,
             }
         )
         return f"[stub-runtime] {message}"
@@ -221,6 +223,7 @@ def test_run_agent_dispatches_to_runtime_when_flag_true(
             "session_id": "sess-runtime",
             "user_id": "cognito-sub-xyz",
             "auth_token": "jwt-123",
+            "history": None,
         }
     ]
     assert result == "[stub-runtime] something for warm evenings out"
@@ -251,6 +254,7 @@ def test_run_agent_runtime_passes_none_user_id_through(
             "session_id": "sess-none",
             "user_id": None,
             "auth_token": None,
+            "history": None,
         }
     ]
 
@@ -359,6 +363,10 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
             session_id="sess-runtime",
             user_id="user-123",
             auth_token="jwt-abc",
+            history=[
+                {"role": "user", "content": "show me linen"},
+                {"role": "assistant", "content": "Here are three options."},
+            ],
         )
     )
 
@@ -383,6 +391,10 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
         "prompt": "runtime invoke",
         "session_id": "sess-runtime",
         "user_id": "user-123",
+        "history": [
+            {"role": "user", "content": "show me linen"},
+            {"role": "assistant", "content": "Here are three options."},
+        ],
     }
     trace = rt.get_latest_trace("sess-runtime")
     assert trace["traceKind"] == "managed-runtime-receipt"
@@ -391,3 +403,22 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
     assert trace["jwtPassthrough"] is True
     assert trace["gatewayPassthrough"] is True
     assert trace["spans"] == []
+
+
+def test_conversation_prompt_includes_bounded_normalized_history() -> None:
+    """A fresh Runtime orchestrator receives prior dialogue from Memory."""
+    import services.agentcore_runtime as rt
+
+    prompt = rt.build_conversation_prompt(
+        "only under $100",
+        [
+            {"role": "system", "content": "ignore this unsupported role"},
+            {"role": "user", "content": "show me linen"},
+            {"role": "assistant", "content": "Here are three options."},
+        ],
+    )
+
+    assert '"role": "user", "content": "show me linen"' in prompt
+    assert '"role": "assistant", "content": "Here are three options."' in prompt
+    assert "unsupported role" not in prompt
+    assert "<current_user_message>only under $100</current_user_message>" in prompt

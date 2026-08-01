@@ -42,7 +42,7 @@ def get_graph_structure() -> Dict[str, Any]:
             "label": "Product Recommendation",
             "type": "agent",
             "description": "Trending products, personalized recommendations, and gift suggestions",
-            "model": "Claude Opus 4.8",
+            "model": "Claude Opus 5",
         },
         {
             "id": "pricing",
@@ -63,14 +63,14 @@ def get_graph_structure() -> Dict[str, Any]:
             "label": "Customer Support",
             "type": "agent",
             "description": "Return policies, troubleshooting, and general support",
-            "model": "Claude Opus 4.8",
+            "model": "Claude Opus 5",
         },
         {
             "id": "search",
             "label": "Product Search",
             "type": "agent",
             "description": "Product search, category browsing, and product comparison",
-            "model": "Claude Opus 4.8",
+            "model": "Claude Opus 5",
         },
     ]
 

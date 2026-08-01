@@ -98,6 +98,81 @@ _PREFS_STORE: Dict[str, Dict[str, Any]] = {}
 _SDK_AVAILABLE: Optional[bool] = None
 
 
+def probe_memory_backend_status(
+    memory_id: Optional[str] = None,
+    region: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Verify that the configured AgentCore Memory resource is ACTIVE."""
+    resolved_id = (
+        memory_id if memory_id is not None else settings.AGENTCORE_MEMORY_ID
+    ) or ""
+    resolved_region = region or settings.aws_region_resolved
+
+    try:
+        import bedrock_agentcore  # type: ignore  # noqa: F401
+    except ImportError as exc:
+        return {
+            "live": False,
+            "source": "in-process-dict",
+            "memory_id": resolved_id,
+            "sdk_available": False,
+            "resource_status": None,
+            "fallback_reason": f"bedrock-agentcore SDK not importable: {exc}",
+        }
+
+    if not resolved_id:
+        return {
+            "live": False,
+            "source": "in-process-dict",
+            "memory_id": "",
+            "sdk_available": True,
+            "resource_status": None,
+            "fallback_reason": "AGENTCORE_MEMORY_ID env var not set",
+        }
+
+    try:
+        import boto3
+
+        response = boto3.client(
+            "bedrock-agentcore-control",
+            region_name=resolved_region,
+        ).get_memory(memoryId=resolved_id)
+        resource_status = str(response.get("memory", {}).get("status", "UNKNOWN"))
+    except Exception as exc:  # pragma: no cover - exact SDK errors vary
+        return {
+            "live": False,
+            "source": "in-process-dict",
+            "memory_id": resolved_id,
+            "sdk_available": True,
+            "resource_status": None,
+            "fallback_reason": (
+                "AgentCore GetMemory verification failed: "
+                f"{exc.__class__.__name__}"
+            ),
+        }
+
+    if resource_status != "ACTIVE":
+        return {
+            "live": False,
+            "source": "in-process-dict",
+            "memory_id": resolved_id,
+            "sdk_available": True,
+            "resource_status": resource_status,
+            "fallback_reason": (
+                f"AgentCore Memory resource is {resource_status}, expected ACTIVE"
+            ),
+        }
+
+    return {
+        "live": True,
+        "source": "agentcore-sdk",
+        "memory_id": resolved_id,
+        "sdk_available": True,
+        "resource_status": resource_status,
+        "fallback_reason": None,
+    }
+
+
 def _prefs_key(user_id: str) -> str:
     """Return the canonical preferences key for ``user_id``.
 

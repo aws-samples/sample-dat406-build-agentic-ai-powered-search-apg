@@ -133,10 +133,11 @@ def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
         assert decorated == CANONICAL_TOOLS, path
 
 
-def test_existing_gateway_targets_are_updated_and_synchronized() -> None:
+def test_existing_lambda_gateway_targets_are_updated_and_polled() -> None:
     source = (DEPLOY / "deploy_gateway.py").read_text(encoding="utf-8")
     assert "update_gateway_target(" in source
-    assert "synchronize_gateway_targets(" in source
+    assert "_wait_target_ready(" in source
+    assert "synchronize_gateway_targets(" not in source
 
 
 def test_workshop_dependencies_are_immutable() -> None:
@@ -159,6 +160,7 @@ def test_workshop_dependencies_are_immutable() -> None:
             assert "==" in clean, clean
     deploy_lambda = (DEPLOY / "deploy_lambda.py").read_text(encoding="utf-8")
     assert "'mcp==1.28.1'" in deploy_lambda
+    assert '"bedrock:Rerank"' in deploy_lambda
 
 
 def re_search_exact_pin(requirements: str, package: str) -> bool:

@@ -32,6 +32,9 @@ from __future__ import annotations
 
 import ast
 import inspect
+import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -199,6 +202,57 @@ def test_dispatcher_log_line_present(chat_module_source: str) -> None:
     assert "🎯 Dispatcher" in chat_module_source, (
         "dispatcher branch must emit a distinguishing log line"
     )
+
+
+def test_each_dispatcher_intent_constructs_a_distinct_specialist() -> None:
+    """Production dispatch invokes one different specialist factory per intent."""
+    from services.chat import _build_dispatcher_specialist
+
+    sentinels = {
+        "search": object(),
+        "recommendation": object(),
+        "pricing": object(),
+        "inventory": object(),
+        "support": object(),
+    }
+    factories = {
+        intent: MagicMock(return_value=sentinel)
+        for intent, sentinel in sentinels.items()
+    }
+    modules = {
+        "config": SimpleNamespace(
+            settings=SimpleNamespace(
+                BEDROCK_SONNET_MODEL="test-sonnet",
+                AGENT_MAX_TOKENS_SONNET=1200,
+            )
+        ),
+        "agents.style_advisor": SimpleNamespace(
+            build_search_agent=factories["search"]
+        ),
+        "agents.curator": SimpleNamespace(
+            build_recommendation_agent=factories["recommendation"]
+        ),
+        "agents.value_analyst": SimpleNamespace(
+            build_pricing_agent=factories["pricing"]
+        ),
+        "agents.stock_keeper": SimpleNamespace(
+            build_inventory_agent=factories["inventory"]
+        ),
+        "agents.experience_guide": SimpleNamespace(
+            build_support_agent=factories["support"]
+        ),
+    }
+
+    with patch.dict(sys.modules, modules):
+        built = {
+            intent: _build_dispatcher_specialist(intent, allow_handoff=False)
+            for intent in sentinels
+        }
+
+    assert len({id(agent) for agent in built.values()}) == 5
+    for intent, agent in built.items():
+        assert agent is sentinels[intent]
+        factories[intent].assert_called_once()
 
 
 # ---------------------------------------------------------------------------

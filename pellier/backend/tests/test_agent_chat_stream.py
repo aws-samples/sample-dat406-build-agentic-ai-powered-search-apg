@@ -243,6 +243,7 @@ def agent_calls(monkeypatch: pytest.MonkeyPatch) -> List[Dict[str, Any]]:
         session_id: str,
         user_id: Optional[str] = None,
         auth_token: Optional[str] = None,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         calls.append(
             {
@@ -250,6 +251,7 @@ def agent_calls(monkeypatch: pytest.MonkeyPatch) -> List[Dict[str, Any]]:
                 "session_id": session_id,
                 "user_id": user_id,
                 "auth_token": auth_token,
+                "history": history,
             }
         )
         return f"stubbed response for '{message}' in {session_id}"
@@ -332,6 +334,7 @@ def test_chat_emits_session_then_chunk_then_done_events(
             "session_id": auto_session_id,
             "user_id": "user-one",
             "auth_token": token,
+            "history": [],
         }
     ]
 
@@ -350,9 +353,11 @@ def test_chat_done_event_surfaces_runtime_gateway_receipt(
         session_id: str,
         user_id: Optional[str] = None,
         auth_token: Optional[str] = None,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         assert user_id == "user-gateway"
         assert auth_token == token
+        assert history == []
         import services.agentcore_runtime as rt
 
         rt._store_managed_runtime_receipt(
@@ -457,11 +462,21 @@ def test_chat_session_continuity_across_turns(
         f"user-user-cont-session-{session_id}"
     )
 
-    # The orchestrator saw both messages on the same session.
+    # The orchestrator saw both messages on the same session, and turn 2
+    # received turn 1's actual dialogue rather than continuity being inferred
+    # from the repeated session id alone.
     assert [c["session_id"] for c in agent_calls] == [session_id, session_id]
     assert [c["message"] for c in agent_calls] == [
         "show me linen",
         "only under $100",
+    ]
+    assert agent_calls[0]["history"] == []
+    assert agent_calls[1]["history"] == [
+        {"role": "user", "content": "show me linen"},
+        {
+            "role": "assistant",
+            "content": f"stubbed response for 'show me linen' in {session_id}",
+        },
     ]
 
 
@@ -521,6 +536,7 @@ def test_mid_stream_token_expiry_does_not_abort_the_stream(
         session_id: str,
         user_id: Optional[str] = None,
         auth_token: Optional[str] = None,
+        history: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         agent_calls.append(
             {

@@ -94,7 +94,7 @@ def build_search_agent(
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Callers set those ContextVars before invoking.
     """
-    # Style Advisor — Claude Opus 4.8. Editorial voice + fit/fabric
+    # Style Advisor — Claude Opus 5. Editorial voice + fit/fabric
     # description. Bedrock rejects the deprecated temperature field for
     # this model, so we rely on the model default.
     tools = [
