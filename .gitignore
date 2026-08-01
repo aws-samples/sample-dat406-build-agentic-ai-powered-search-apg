@@ -21,9 +21,11 @@ build/
 lab2/backend/.env
 lab2/frontend/.env
 
-# Claude Code — worktrees, debug logs, scheduled tasks, and local
-# settings are all machine-local and should never be committed.
-.claude/
+# Claude Code worktrees, debug logs, scheduled tasks, and local settings are
+# machine-local. Project skills are reviewed source and ship with the workshop.
+.claude/*
+!.claude/skills/
+!.claude/skills/**
 
 # Internal design docs — working notes, not shipping content.
 docs/

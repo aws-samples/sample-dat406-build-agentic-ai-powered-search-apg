@@ -138,13 +138,13 @@ python3 scripts/deploy/workshop_policy_rule.py --rule identity_match \
   apply
 ```
 
-### Optional rail - MONITOR then ENFORCE (Act III)
+### Optional rail - LOG_ONLY then ENFORCE (Act III)
 
-Flip the whole Gateway attachment to MONITOR, run the proof call, then flip
+Flip the whole Gateway attachment to LOG_ONLY, run the proof call, then flip
 back to ENFORCE.
 
 ```bash
-python3 scripts/deploy/workshop_policy_rule.py mode --set MONITOR \
+python3 scripts/deploy/workshop_policy_rule.py mode --set LOG_ONLY \
   --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
   --gateway-arn "$AGENTCORE_GATEWAY_ARN"
 python3 scripts/deploy/workshop_policy_rule.py mode --set ENFORCE \

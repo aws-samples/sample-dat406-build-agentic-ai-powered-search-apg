@@ -1,4 +1,4 @@
-# Pellier - Governed Agentic AI Search with Aurora, RDS, and Bedrock AgentCore
+# Build governed agentic AI search with Aurora, RDS, & Bedrock AgentCore
 
 <div align="center">
 
@@ -20,7 +20,13 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 > Educational reference implementation for a governed agentic AI search workshop.
 > Not intended for production deployment without security hardening.
 
-**Contents:** [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
+**Contents:** [Workshop abstract](#workshop-abstract) · [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
+
+---
+
+## Workshop abstract
+
+Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, and a queryable JSONB audit ledger. AgentCore Runtime, Memory, Gateway, and Policy orchestrate agents, preserve context, expose tools, and apply Cedar authorization to sensitive actions. Leave with reusable patterns for auditable, policy-aware agentic search applications.
 
 ---
 
@@ -157,14 +163,16 @@ The app moves to `/app/`, `GET /app` 307-redirects to `/app/`, and the real API 
 
 This repo is the source of truth for the application behind the **governed agentic AI search workshop**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Runtime, Gateway, Memory, Policy, and MCP are exposed as guided governance reads and optional deeper inspection surfaces. Exact pacing and participant wording live in the separate Workshop Studio repo.
 
-The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The session is structured as:
+The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The flagship path is structured as:
 
 | Section | What attendees do |
 |---|---|
 | Introduction | Open the workspace and land in Boutique + Atelier — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
-| Act I: The Boutique | Observe Marco's broken warehouse turn → wire the `floor_check` tool path → replay Marco end to end → compare vector / hybrid / hybrid+rerank / agentic retrieval for Anna's anchor query. |
-| Act II: The Ledger | Read memory substrates (AgentCore STM + Aurora long-term taste), invoke the managed Runtime, then query `pellier.tool_audit` to reconstruct the governed tool path and ALLOW/DENY boundary. |
-| Act III: The Concierge | Inspect dispatcher + specialists, MCP config, AgentCore Gateway, JWT passthrough, and Cedar policy as the production topology around the same tool pattern. |
+| Core Lab 1: Build and Trace | Complete Stock Keeper and `floor_check`, then prove Marco's turn across routing, Aurora inventory, `tool_audit`, and execution evidence. |
+| Core Lab 2: Measure Retrieval | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
+| Core Lab 3: Query Evidence | Trigger Theo's return, query the JSONB audit ledger, reconstruct the seeded identity mismatch, and optionally inspect AgentCore Memory readback. |
+| Core Lab 4: Enforce Policy | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the safe path still works, and reset participant policy. |
+| Optional Labs | Explore runtime skills, working memory, retrieval evaluation, HNSW behavior, multimodal search, RLS, or deeper policy only after the current core checkpoint. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.
@@ -201,6 +209,21 @@ Five skills loaded per turn by the SkillRouter to shape voice, handling, proof, 
 
 [`skills/the-packing-list/`](skills/the-packing-list/) (Marco) · [`skills/the-gift-table/`](skills/the-gift-table/) (Anna) · [`skills/the-makers-shelf/`](skills/the-makers-shelf/) (Theo) · [`skills/the-care-card/`](skills/the-care-card/) (shared care/returns) · [`skills/the-proof-counter/`](skills/the-proof-counter/) (shared proof/audit)
 
+### Claude Code instructions and project skills
+
+The repo deliberately demonstrates a layered coding-agent setup:
+
+| Layer | Purpose |
+|---|---|
+| `~/.claude/CLAUDE.md` | Participant-global safety and workshop defaults, installed idempotently by `scripts/bootstrap-labs.sh` |
+| [`CLAUDE.md`](CLAUDE.md) | Project contract, branch ownership, participant versus maintainer mode, and release gates |
+| [`pellier/backend/CLAUDE.md`](pellier/backend/CLAUDE.md), [`pellier/frontend/CLAUDE.md`](pellier/frontend/CLAUDE.md), [`skills/CLAUDE.md`](skills/CLAUDE.md) | Nearest-scope engineering rules |
+| [`.claude/skills/`](.claude/skills/) | On-demand Claude Code workflows for workshop verification and Pellier copy |
+| [`VOICE.md`](VOICE.md) | Shared editorial voice and grounding contract |
+| [`skills/*/SKILL.md`](skills/) | Pellier runtime prompt overlays loaded at backend start and selected per turn; these are application data, not Claude Code instructions |
+
+Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads root `skills/*/SKILL.md` at startup, and its `SkillRouter` selects from that registry during shopper turns. Keeping those systems distinct prevents a coding workflow from accidentally becoming model prompt data, or vice versa.
+
 ### Stack
 
 | Layer            | Technology                                                                                                              |
@@ -223,25 +246,31 @@ Five skills loaded per turn by the SkillRouter to shape voice, handling, proof, 
 
 ```
 sample-pellier-agentic-search-apg/
+├── .claude/
+│   └── skills/                             Claude Code project workflows
+├── CLAUDE.md                               Project and branch contract
+├── VOICE.md                                Pellier editorial voice contract
 ├── pellier/
 │   ├── backend/                           FastAPI server, agents, services
+│   │   ├── CLAUDE.md                        Backend and Core Lab 1 rules
 │   │   ├── agents/                          Style Advisor, Curator, Stock Keeper, ...
 │   │   ├── services/                        agent_tools, chat, agentcore_*, db
 │   │   ├── routes/                          FastAPI routers (transcribe, atelier, chat)
 │   │   └── app.py
 │   └── frontend/                          React 18 + TS + Vite SPA
+│       ├── CLAUDE.md                        Boutique and Atelier rules
 │       └── src/
 │           ├── components/                  BoutiqueHero, ChatDrawer, ProductCard, ...
 │           ├── shared/                      Cross-surface atoms – TraceChip, PresencePill
 │           ├── atelier/                     Operator's surface
 │           └── data/                        showcaseProducts.ts (40), personaCurations.ts
 │
-├── skills/                                Strands skills (5)
+├── skills/                                Strands runtime skills (5) + scoped guidance
 ├── solutions/                             Reference implementations (drop-in escape hatches)
-│   ├── the-quiet-search/                    Semantic search reference (observe-only)
-│   ├── closing-marcos-gap/                  floor_check + Stock Keeper (Exercise 1)
-│   ├── the-ledger/                          AgentCore production + audit ledger (Exercise 2)
-│   └── the-concierge/                       MCP on the wire (Act III): local stdio vs managed Gateway
+│   ├── the-quiet-search/                    Semantic retrieval reference
+│   ├── closing-marcos-gap/                  Core Lab 1 floor_check reference
+│   ├── the-ledger/                          Core Lab 3 AgentCore + audit reference
+│   └── the-concierge/                       Core Lab 4 MCP and Gateway reference
 │
 └── scripts/
     ├── migrations/                         Ordered fresh-cluster SQL (001-009)

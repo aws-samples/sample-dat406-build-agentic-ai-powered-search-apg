@@ -1,136 +1,140 @@
-# Pellier — workshop guardrails for an AI coding agent
+# Pellier - Claude Code project guidance
 
-You are helping a workshop participant during a hands-on lab. This repo is the
-**Pellier agentic-search workshop**. The participant has *optionally* chosen to
-direct you (instead of pasting code by hand) for **one specific exercise**. Your
-job is to help them learn the production shape of wiring an agent tool — not to
-hand them a finished answer or take shortcuts that skip the learning.
+This repository is the application behind the flagship two-hour governed
+agentic search workshop. Read this file before editing.
 
-Read this whole file before you edit anything.
+## Instruction map
 
-## The only tasks you should do here
+Claude Code guidance is intentionally layered:
 
-The governed workshop has two scoped Stock Keeper build sites. Work only on the
-site the participant names in their prompt.
+1. `~/.claude/CLAUDE.md` contains account-wide defaults.
+2. This file defines the repository contract and operating modes.
+3. The nearest nested `CLAUDE.md` adds module-specific rules:
+   - `pellier/backend/CLAUDE.md`
+   - `pellier/frontend/CLAUDE.md`
+   - `skills/CLAUDE.md`
+4. `.claude/skills/<name>/SKILL.md` contains on-demand Claude Code workflows.
+5. `skills/<name>/SKILL.md` contains Pellier runtime skills loaded into
+   Strands specialists per shopper turn. These are application data, not
+   Claude Code instructions.
 
-### Task A: complete the Stock Keeper definition
+Read `VOICE.md` before changing shopper-facing copy, editorial model prompts,
+or runtime skills.
 
-Complete the scaffold in:
+## Branch and source contract
 
+- `governed` is the flagship two-hour re:Invent workshop application.
+- `main` supports the shorter one-hour builders session. Do not backport,
+  merge, or simplify `governed` changes into `main` unless explicitly asked.
+- The application repository is the source of truth for code and runtime
+  claims.
+- The sibling Workshop Studio repository
+  `build-governed-agentic-ai-search-with-aurora-rds-bedrock-agentcore` is the
+  source of truth for the flagship lab guide, launch wiring, and screenshots.
+- Keep code and workshop claims aligned, but do not edit generated workshop
+  artifacts or push the Workshop Studio repository unless explicitly asked.
+
+## Choose the operating mode
+
+### Participant mode
+
+Use participant mode when the request names Core Lab 1, Stock Keeper,
+`floor_check`, the workshop markers, or asks Claude Code to complete the
+guided build.
+
+In participant mode:
+
+- Edit only the named marker region in
+  `pellier/backend/agents/stock_keeper.py` or
+  `pellier/backend/services/agent_tools.py`.
+- Read the backend `CLAUDE.md` for the exact exercise contract.
+- Never inspect or copy from `solutions/`.
+- Do not edit tests, config, other tools, or other files.
+- Do not run git commands, install packages, or restart services.
+- Stop after one failed attempt and direct the participant to the lab guide's
+  fallback lane.
+
+These limits protect the learning objective. Do not relax them because a
+broader edit would be faster.
+
+### Maintainer mode
+
+Use maintainer mode only when the request explicitly asks for a review,
+bugfix, feature, documentation update, test work, release work, or workshop
+hardening.
+
+In maintainer mode:
+
+- Inspect the relevant code and tests before editing.
+- Preserve the four-lab participant path and terminal-first proof contract.
+- Work with existing changes; do not reset or overwrite unrelated work.
+- Keep solution copies byte-identical when bootstrap auto-applies them.
+- Update Workshop Studio content when a participant-facing claim changes.
+- Run the validation gates listed below before committing.
+
+## Flagship workshop contract
+
+**Title:** Build governed agentic AI search with Aurora, RDS, & Bedrock
+AgentCore
+
+The application must continue to demonstrate:
+
+- A Strands SDK dispatcher routing shoppers to specialist agents.
+- Aurora PostgreSQL hybrid retrieval using full-text search and pgvector.
+- Cohere Rerank relevance ranking.
+- Aurora-backed inventory, orders, customer records, returns, and a queryable
+  JSONB audit ledger.
+- AgentCore Runtime, Memory, Gateway, and Policy.
+- Cedar authorization on sensitive tool actions.
+- Inspectable ALLOW execution and DENY non-execution evidence.
+
+The required participant path is:
+
+1. Core Lab 1 - Build and Trace
+2. Core Lab 2 - Measure Retrieval
+3. Core Lab 3 - Query Evidence
+4. Core Lab 4 - Enforce Policy
+
+Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
+documentation.
+
+## Architecture invariants
+
+- Aurora is the source of truth for catalog, inventory, customer, order,
+  return, and audit data.
+- Tool results and SQL rows are evidence. UI state alone is not proof.
+- A Cedar DENY receipt and the absence of a matching `tool_audit` execution
+  row are distinct, intentional evidence.
+- Cognito identity travels in the signed token. Do not invent ambient identity
+  or correlation fields across managed boundaries.
+- Boutique is shopper-facing, Atelier is an assisted inspection surface, and
+  Code Editor plus SQL/curl remain canonical workshop proof.
+- Editorial specialists use the configured Opus profile when available;
+  reporting and routing specialists use the configured Sonnet profile.
+- Never hardcode credentials, JWTs, account IDs, endpoints, or `.env` values
+  into tracked files.
+
+## Validation gates
+
+Run checks from the repository root unless a command changes directory.
+
+```bash
+# Backend
+cd pellier/backend
+python -m pytest -q
+
+# Frontend
+cd pellier/frontend
+npm test -- --run
+npm run type-check
+npm run lint
+npm run build
+npm audit --omit=dev --audit-level=high
+
+# Repository
+git diff --check
+find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 ```
-pellier/backend/agents/stock_keeper.py
-```
 
-The work lives between these two marker comments:
-
-```
-# === WORKSHOP · Stock Keeper · definition: START ===
-# === WORKSHOP · Stock Keeper · definition: END ===
-```
-
-Fill only the marked definition fields. Do not edit imports, helper functions,
-the `inventory(...)` tool wrapper, or code outside the markers.
-
-Field meanings:
-
-1. The stub flag tells the dispatcher whether to return the deterministic
-   "specialist not fully configured yet" answer.
-2. The system-instructions field should use the Stock Keeper instructions
-   already defined in this module.
-3. The model field should use the reporting model setting, not the editorial
-   Opus setting.
-4. The max-token field should use the reporting/Sonnet ceiling.
-5. The tools field should bind the Stock Keeper tools imported at the top of
-   the file.
-
-There is no temperature field in this code path. Do not add one. The current
-Sonnet profile rejects the deprecated temperature kwarg.
-
-### Task B: wire the `floor_check` tool body
-
-Wire the **`floor_check`** tool body in:
-
-```
-pellier/backend/services/agent_tools.py
-```
-
-It is a Strands `@tool` whose body is currently a stub. The work lives **between
-these two marker comments** (search the file for them):
-
-```
-# === WORKSHOP · Stock Keeper · floor_check: START ===
-# === WORKSHOP · Stock Keeper · floor_check: END ===
-```
-
-Replace the stubbed `return json.dumps({... "error": "floor_check is in stub
-state" ...})` block that sits between those markers. The `@tool` decorator, the
-function signature `def floor_check(product_query: str = "") -> str:`, the
-docstring, and the `# Steps:` comment are already correct — **do not change
-them.** Edit only the body between START and END.
-
-## How to figure out the implementation (do not skip this — it is the lesson)
-
-Do **not** read or copy anything under `solutions/`. The participant is here to
-learn the pattern, and `solutions/` is the answer key — using it defeats the
-exercise. Instead, derive the body from what is already in the file:
-
-1. **Read a sibling tool first.** In the *same* file, `whats_trending` and
-   `price_intelligence` are fully wired and follow the identical shape every
-   tool body in this codebase uses. Read one of them before writing anything.
-2. The shape they share, top to bottom:
-   - A **guard**: if the module-level `_db_service` global is falsy, return a
-     JSON error envelope and stop.
-   - A **`try`** block that lazily does `from services.business_logic import
-     BusinessLogic`, builds `logic = BusinessLogic(_db_service)`, calls the
-     business method, and returns `json.dumps(result, indent=2)`.
-   - An **`except Exception as e`** that returns the error as JSON so a failure
-     never crashes the agent turn.
-3. The business method to call is **`BusinessLogic.floor_check(product_query=...)`**.
-   It is defined in `pellier/backend/services/business_logic.py`. Two things
-   matter about it:
-   - It is **`async`** — you cannot call it directly from this sync `@tool`.
-     Use the existing **`_run_async(...)`** helper (the siblings show how).
-   - It dispatches on `if product_query:`. So **normalize** the incoming
-     argument: strip it, and pass `None` (not `""`) when it is empty, so the
-     "no query" path is reached cleanly.
-
-Write the smallest body that follows that pattern. Do not fetch it from
-`solutions/`.
-
-## Hard rules — do not violate
-
-- **Edit only** the marker region the participant names: the Stock Keeper
-  definition markers in `stock_keeper.py` or the `floor_check` START/END
-  markers in `agent_tools.py`. Nothing else.
-- **Never** modify, read-to-copy, or `cp` from `solutions/` — especially
-  `solutions/closing-marcos-gap/`. That directory is the reference answer and is
-  off-limits for this exercise.
-- **Do not** edit other tools, other files, docstrings, decorators, function
-  signatures, or any file under `tests/`.
-- **Do not** run `git` commands, install packages, restart services, or change
-  config. The backend auto-reloads on save (~1s); that is all that is needed.
-- If you get stuck after a try or two, **say so plainly** and tell the
-  participant to fall back to the manual paste / `cp` path in the lab guide.
-  Don't thrash.
-
-## How the participant verifies (tell them to do this, don't do it for them)
-
-After they save, the body is verified two ways — both already covered in the lab
-guide, identical to the manual path:
-
-- After Task A, `curl -s http://localhost:8000/api/atelier/build-state |
-  python3 -m json.tool` reports **Stock Keeper** as `shipped` while
-  `floor_check` remains `exercise`.
-- After Task B, Atelier → **UNDERSTAND → Tools** strip flips from **14/15** to
-  **15/15 shipped**.
-- After Task B, Boutique → Marco's **Turn 4** pill ("Is the Hadley shirt at the
-  Brooklyn warehouse?") returns a real Brooklyn (`BK-01`) quantity instead of
-  the stub envelope.
-
-Do **not** point them at `pytest tests/test_solutions_parity.py::test_floor_check_builder_contract`
-to verify the wire. That test is a **repo guard**, not a build check: it asserts
-the starter file still carries the stub, so it **passes while `floor_check` is
-stubbed and fails once it is wired correctly** — the opposite of what a verify
-step should do. The two checks above are the real verification.
-
-If a save fails, the traceback lands in `tail -f /tmp/pellier/uvicorn.log` first.
+Use focused tests during iteration. Run the full backend and frontend gates
+before a flagship workshop release or a broad product-pass commit.
