@@ -17,7 +17,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@fontsource/instrument-sans": "^5.2.8",
     "@fontsource/instrument-serif": "^5.2.8",
-    "axios": "^1.7.7",
+    "axios": "^1.19.0",
     "framer-motion": "^12.35.1",
     "lucide-react": "^0.263.1",
     "react": "^18.3.1",
