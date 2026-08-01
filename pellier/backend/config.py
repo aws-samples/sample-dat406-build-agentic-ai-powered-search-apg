@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # See the Workshop Studio repo's content/90-appendix/01-reference/
     # (the cast table) for the rationale:
     #
-    #   Claude Opus 4.8   — editorial specialists (Style Advisor, Curator,
+    #   Claude Opus 5   — editorial specialists (Style Advisor, Curator,
     #                  Experience Guide). Needs voice + personality.
     #   Claude Sonnet 5 — routing, structured extraction, and reporting
     #                  specialists (Value Analyst, Stock Keeper).
@@ -70,19 +70,19 @@ class Settings(BaseSettings):
     # Editorial agents (Style Advisor, Curator, Experience Guide) read
     # BEDROCK_OPUS_MODEL. It is intentionally env-OVERRIDABLE: the model-access
     # preflight (scripts/check_model_access.py, run in bootstrap) detects
-    # whether Opus 4.8 is reachable on the account, and if it is NOT, writes
+    # whether Opus 5 is reachable on the account, and if it is NOT, writes
     #   BEDROCK_OPUS_MODEL=global.anthropic.claude-sonnet-5
     # into .env so editorial agents fall back to Sonnet 5 cleanly — no code
     # path change, no per-request retry. BEDROCK_SONNET_MODEL is the canonical
     # fallback target (real Sonnet 5, not an Opus alias).
-    BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-8"
+    BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-5"
     BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-5"
     BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-5"
     BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-5"
 
     # Legacy alias — kept for tests + scripts that still reference it.
     # Prefer the role-specific Opus/Sonnet settings in agent factories.
-    BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-4-8"
+    BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-5"
 
     # max_tokens is a safety ceiling, not a target — billing and latency track
     # tokens actually generated, so a higher cap costs nothing unless a reply

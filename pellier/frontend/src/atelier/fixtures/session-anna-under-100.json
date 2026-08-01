@@ -61,7 +61,7 @@
       ],
       "meta": {
         "agent": "Curator",
-        "model": "Claude Opus 4.8",
+        "model": "Claude Opus 5",
         "skill": "the-gift-table",
         "searchMethod": "hybrid+rerank",
         "latencyMs": 1264
@@ -138,7 +138,7 @@
       "index": 8,
       "category": "both",
       "title": "editorial composition",
-      "description": "Claude Opus 4.8 - price-aware gifting voice",
+      "description": "Claude Opus 5 - price-aware gifting voice",
       "status": "complete",
       "durationMs": 623,
       "agent": "Curator"

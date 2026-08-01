@@ -20,7 +20,7 @@ The current session is hardened and stable. In brief, already done:
   gate + dry-run, model-access preflight.
 - **Embeddings: Cohere Embed v4** (`us.cohere.embed-v4:0`, 1024-dim inference
   profile), **Rerank: Cohere Rerank v3.5** (`cohere.rerank-v3-5:0`), chat on
-  Claude Opus 4.8 / routing on Sonnet 5. Aurora PostgreSQL 17.9 + pgvector
+  Claude Opus 5 / routing on Sonnet 5. Aurora PostgreSQL 18.3 + pgvector
   0.8.1.
 - Content: references appendix, tip taxonomy, exercise table, run-of-show.
 
@@ -185,7 +185,7 @@ never touches them.
 - [ ] **Confirm AgentCore Memory** is available in the event account/region —
   the health gate hard-requires `AGENTCORE_MEMORY_ID`.
 - [ ] **Verify Bedrock model access** for Embed v4 + Rerank v3.5 +
-  Claude Opus 4.8 / Sonnet 5 in the event region (`check_model_access.py`).
+  Claude Opus 5 / Sonnet 5 in the event region (`check_model_access.py`).
 - [ ] **Pin the live Beeswax/warehouse numbers** for the run-of-show success
   check: `psql` the seeded DB for BK-01 Beeswax quantity pre- and
   post-shipment-UPDATE, and make the run-of-show metric match observed data

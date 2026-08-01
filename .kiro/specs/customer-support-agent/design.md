@@ -10,7 +10,7 @@ Supporting changes span intent classification (new `SUPPORT_KEYWORDS` and `SEARC
 
 ## Architecture
 
-The architecture follows the existing Strands SDK multi-agent pattern: an Orchestrator Agent (Claude Sonnet 5) classifies intent and dispatches to specialist agents (each Claude Opus 4.8), which are defined as `@tool` decorated functions.
+The architecture follows the existing Strands SDK multi-agent pattern: an Orchestrator Agent (Claude Sonnet 5) classifies intent and dispatches to specialist agents (each Claude Opus 5), which are defined as `@tool` decorated functions.
 
 ```mermaid
 graph TD
@@ -295,7 +295,7 @@ All specialist agents (including the new Customer Support and Search agents) ret
     "label": "Customer Support",
     "type": "agent",
     "description": "Return policies, troubleshooting, and general support",
-    "model": "Claude Opus 4.8"
+    "model": "Claude Opus 5"
 }
 ```
 
@@ -305,7 +305,7 @@ All specialist agents (including the new Customer Support and Search agents) ret
     "label": "Product Search",
     "type": "agent",
     "description": "Product search, category browsing, and product comparison",
-    "model": "Claude Opus 4.8"
+    "model": "Claude Opus 5"
 }
 ```
 

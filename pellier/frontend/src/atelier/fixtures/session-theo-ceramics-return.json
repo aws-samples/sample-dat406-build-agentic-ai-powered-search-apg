@@ -94,7 +94,7 @@
       ],
       "meta": {
         "agent": "Experience Guide",
-        "model": "Claude Opus 4.8",
+        "model": "Claude Opus 5",
         "skill": "the-makers-shelf",
         "latencyMs": 1796
       }
@@ -189,7 +189,7 @@
       "index": 10,
       "category": "both",
       "title": "Response composition",
-      "description": "Claude Opus 4.8 - empathy + concrete write confirmation",
+      "description": "Claude Opus 5 - empathy + concrete write confirmation",
       "status": "complete",
       "durationMs": 1177,
       "agent": "Experience Guide"
