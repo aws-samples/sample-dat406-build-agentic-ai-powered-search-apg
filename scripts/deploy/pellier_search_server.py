@@ -1,13 +1,14 @@
 """
 Pellier Search MCP Server — Lambda-hosted MCP server for catalog discovery.
 
-Exposes tools:
-  - semantic_search:      Vector similarity search (Anna's pure-vector path)
-  - find_pieces_hybrid:   Vector + Postgres FTS + Cohere Rerank v3.5
-                          (Anna's production retrieval pipeline)
-  - get_inventory_health: Stock-level summary across categories
-  - get_low_stock_products: Products below the restock threshold
-  - restock_product:      Update product quantity (bounded by policy)
+Exposes the six catalog and inventory tools from the canonical 15-tool
+Pellier contract:
+  - find_pieces
+  - find_pieces_hybrid
+  - explore_collection
+  - floor_check
+  - running_low
+  - restock_shelf
 
 Deployed as a Lambda function behind AgentCore Gateway. The Lambda
 mirrors the in-process @tool functions in ``pellier/backend/services/``
@@ -376,11 +377,194 @@ def restock_product(product_id: str, quantity: int) -> dict:
     return {"error": f"Product {product_id} not found"}
 
 
+def find_pieces(
+    query: str,
+    max_price: float = None,
+    min_rating: float = 0.0,
+    category: str = None,
+    limit: int = 5,
+) -> dict:
+    """Canonical semantic catalog search used by Style Advisor."""
+    result = semantic_search(
+        query=query,
+        limit=limit,
+        max_price=max_price,
+        min_rating=min_rating,
+    )
+    if category:
+        products = [
+            product
+            for product in result.get("products", [])
+            if category.lower() in str(product.get("category_name", "")).lower()
+        ]
+        result["products"] = products
+        result["count"] = len(products)
+    result["status"] = "success"
+    result["search_method"] = "semantic"
+    return result
+
+
+def explore_collection(
+    category: str,
+    min_rating: float = 0.0,
+    max_price: float = None,
+    limit: int = 5,
+) -> dict:
+    """Browse one category with deterministic rating and price filters."""
+    conditions = ["lower(category) LIKE :category", "quantity > 0"]
+    parameters = [
+        {
+            "name": "category",
+            "value": {"stringValue": f"%{str(category).lower()}%"},
+        },
+        {"name": "limit", "value": {"longValue": max(1, min(int(limit), 20))}},
+    ]
+    if min_rating:
+        conditions.append("rating >= :min_rating")
+        parameters.append(
+            {"name": "min_rating", "value": {"doubleValue": float(min_rating)}}
+        )
+    if max_price is not None:
+        conditions.append("price <= :max_price")
+        parameters.append(
+            {"name": "max_price", "value": {"doubleValue": float(max_price)}}
+        )
+    rows = _execute_sql(
+        f"""
+        SELECT "productId", name, brand, color, description, price,
+               rating, reviews, category, quantity, "imgUrl", badge
+          FROM {SCHEMA}.product_catalog
+         WHERE {' AND '.join(conditions)}
+         ORDER BY rating DESC, reviews::int DESC
+         LIMIT :limit;
+        """,
+        parameters,
+    )
+    return {
+        "status": "success",
+        "category": category,
+        "count": len(rows),
+        "products": rows,
+    }
+
+
+def floor_check(product_query: str = "") -> dict:
+    """Return aggregate stock health or one product's warehouse breakdown."""
+    tokens = [token for token in str(product_query).strip().split() if token]
+    if not tokens:
+        stats = _execute_sql(
+            f"""
+            SELECT COUNT(*) AS total_products,
+                   SUM(quantity) AS total_units,
+                   COUNT(*) FILTER (WHERE quantity <= 5) AS running_low_count,
+                   COUNT(*) FILTER (WHERE quantity = 0) AS out_of_stock_count,
+                   ROUND(AVG(quantity), 1) AS avg_quantity
+              FROM {SCHEMA}.product_catalog;
+            """
+        )
+        critical = get_low_stock_products(limit=5).get("products", [])
+        return {
+            "status": "success",
+            "statistics": stats[0] if stats else {},
+            "critical_items": critical,
+        }
+
+    clauses = []
+    parameters = []
+    for index, token in enumerate(tokens):
+        name = f"token{index}"
+        clauses.append(f"lower(name) LIKE :{name}")
+        parameters.append(
+            {"name": name, "value": {"stringValue": f"%{token.lower()}%"}}
+        )
+    candidates = _execute_sql(
+        f"""
+        SELECT "productId", name, brand, color, price
+          FROM {SCHEMA}.product_catalog
+         WHERE {' AND '.join(clauses)}
+         ORDER BY rating DESC NULLS LAST
+         LIMIT 5;
+        """,
+        parameters,
+    )
+    if not candidates:
+        return {
+            "status": "not_found",
+            "query": product_query,
+            "message": f"No product matched '{product_query}'.",
+        }
+    if len(candidates) > 1:
+        return {
+            "status": "ambiguous",
+            "query": product_query,
+            "candidates": candidates,
+        }
+
+    product = candidates[0]
+    warehouses = _execute_sql(
+        f"""
+        SELECT w.id AS warehouse_id,
+               w.display_name AS warehouse_name,
+               w.city,
+               w.ship_window_min,
+               w.ship_window_max,
+               wi.quantity
+          FROM {SCHEMA}.warehouse_inventory wi
+          JOIN {SCHEMA}.warehouses w ON w.id = wi.warehouse_id
+         WHERE wi.product_id = :product_id
+         ORDER BY wi.quantity DESC, w.id ASC;
+        """,
+        [
+            {
+                "name": "product_id",
+                "value": {"stringValue": str(product["productId"])},
+            }
+        ],
+    )
+    return {
+        "status": "success",
+        "product": product,
+        "total_units": sum(int(row.get("quantity") or 0) for row in warehouses),
+        "warehouses": warehouses,
+    }
+
+
+def running_low(limit: int = 5) -> dict:
+    """Canonical low-stock read used by Stock Keeper."""
+    result = get_low_stock_products(limit=limit)
+    for product in result.get("products", []):
+        quantity = int(product.get("quantity") or 0)
+        product["restock_urgency"] = (
+            "critical" if quantity <= 2 else "low" if quantity <= 5 else "watch"
+        )
+    result["status"] = "success"
+    return result
+
+
+def restock_shelf(product_id: int, quantity: int) -> dict:
+    """Canonical bounded inventory write used by Stock Keeper."""
+    if int(quantity) <= 0:
+        return {"status": "error", "message": "Quantity must be positive."}
+    result = restock_product(str(product_id), int(quantity))
+    if result.get("success"):
+        product = result["product"]
+        return {
+            "status": "success",
+            "product_id": product.get("productId"),
+            "name": product.get("product_description"),
+            "new_quantity": product.get("quantity"),
+            "added": int(quantity),
+        }
+    if result.get("denied"):
+        return {"status": "policy_blocked", "message": result["error"]}
+    return {"status": "error", "message": result.get("error", "Restock failed")}
+
+
 # --- Lambda MCP handler ---
 
 TOOLS = {
-    "semantic_search": {
-        "fn": semantic_search,
+    "find_pieces": {
+        "fn": find_pieces,
         "description": "Search products by natural language query using vector similarity. Returns ranked products with similarity scores.",
         "inputSchema": {
             "type": "object",
@@ -389,6 +573,7 @@ TOOLS = {
                 "limit": {"type": "integer", "description": "Max results to return", "default": 5},
                 "max_price": {"type": "number", "description": "Maximum price filter"},
                 "min_rating": {"type": "number", "description": "Minimum star rating filter"},
+                "category": {"type": "string", "description": "Optional category substring filter"},
             },
             "required": ["query"],
         },
@@ -408,13 +593,33 @@ TOOLS = {
             "required": ["query"],
         },
     },
-    "get_inventory_health": {
-        "fn": get_inventory_health,
-        "description": "Get inventory health summary showing stock levels across product categories.",
-        "inputSchema": {"type": "object", "properties": {}, "required": []},
+    "explore_collection": {
+        "fn": explore_collection,
+        "description": "Browse products in a category with optional rating and price filters.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "category": {"type": "string", "description": "Product category"},
+                "min_rating": {"type": "number", "default": 0.0},
+                "max_price": {"type": "number"},
+                "limit": {"type": "integer", "default": 5},
+            },
+            "required": ["category"],
+        },
     },
-    "get_low_stock_products": {
-        "fn": get_low_stock_products,
+    "floor_check": {
+        "fn": floor_check,
+        "description": "Check aggregate inventory or a named product across the Brooklyn, Austin, and Portland warehouses.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "product_query": {"type": "string", "description": "Optional product name or partial name"},
+            },
+            "required": [],
+        },
+    },
+    "running_low": {
+        "fn": running_low,
         "description": "Get products with critically low stock levels (below 10 units).",
         "inputSchema": {
             "type": "object",
@@ -422,13 +627,13 @@ TOOLS = {
             "required": [],
         },
     },
-    "restock_product": {
-        "fn": restock_product,
+    "restock_shelf": {
+        "fn": restock_shelf,
         "description": "Restock a product by adding inventory. Quantity must be <= 500 per policy.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "product_id": {"type": "string", "description": "Product ID to restock"},
+                "product_id": {"type": "integer", "description": "Product ID to restock"},
                 "quantity": {"type": "integer", "description": "Quantity to add (max 500)"},
             },
             "required": ["product_id", "quantity"],

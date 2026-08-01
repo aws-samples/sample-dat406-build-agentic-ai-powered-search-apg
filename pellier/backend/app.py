@@ -1299,7 +1299,7 @@ async def list_skills():
 @app.get("/api/atelier/search-strategies/compare")
 async def compare_search_strategies(query: str):
     """Run the same query through four retrieval strategies, return
-    per-strategy timing + top-5 product names + (when present) the
+    one observed duration per strategy + top-5 product names + (when present) the
     structured filters Sonnet extracted.
 
     Surfaces Anna's anchor-capability comparison live to the
@@ -1327,16 +1327,18 @@ async def compare_search_strategies(query: str):
       {
         "query": str,
         "strategies": [
-          {"strategy", "p50Ms", "costPerThousandUsd",
+          {"strategy", "observedMs", "modeledCostPerThousandUsd",
            "products": [{name, productId}],
            "extractedFilters": {...}  // strategy 4 only
           }
         ]
       }
 
-    Cost numbers are workshop estimates sourced from
-    ``SEARCH_STRATEGY_COST_PER_1000_USD`` so the live endpoint and operator
-    copy have one backend source. They are not a billing export.
+    This endpoint runs each strategy once. Its durations are observations,
+    not percentile statistics. Cost values are modeled incremental request
+    costs sourced from ``SEARCH_STRATEGY_COST_PER_1000_USD`` so the live
+    endpoint and operator copy have one backend source; they are not values
+    read from a bill.
     """
     import asyncio
     import time
@@ -1351,7 +1353,11 @@ async def compare_search_strategies(query: str):
     q = query.strip()
 
     embed = EmbeddingService()
+    shared_embed_started = time.perf_counter()
     query_embedding = embed.embed_query(q)
+    shared_embedding_ms = int(
+        (time.perf_counter() - shared_embed_started) * 1000
+    )
 
     if db_service is None:
         raise HTTPException(
@@ -1361,35 +1367,35 @@ async def compare_search_strategies(query: str):
     db = db_service
 
     # Strategy 1: pure pgvector cosine. Marco's path.
-    t0 = time.time()
+    t0 = time.perf_counter()
     vec = VectorSearch(db)
     vec_rows = await vec.vector_search(
         query_embedding,
         5,
         ef_search=settings.VECTOR_EF_SEARCH_DEFAULT,
     )
-    vec_ms = int((time.time() - t0) * 1000)
+    vec_ms = int((time.perf_counter() - t0) * 1000)
     vec_products = [
         {"name": r.get("name", ""), "productId": r.get("product_id")}
         for r in vec_rows[:5]
     ]
 
     # Strategy 2: hybrid (RRF), no rerank.
-    t0 = time.time()
+    t0 = time.perf_counter()
     hybrid = HybridSearch(db)
     hybrid_rows = await hybrid.search(
         query=q,
         query_embedding=query_embedding,
         top_n=5,
     )
-    hybrid_ms = int((time.time() - t0) * 1000)
+    hybrid_ms = int((time.perf_counter() - t0) * 1000)
     hybrid_products = [
         {"name": r.get("name", ""), "productId": r.get("product_id")}
         for r in hybrid_rows[:5]
     ]
 
     # Strategy 3: hybrid + rerank.
-    t0 = time.time()
+    t0 = time.perf_counter()
     rerank_pool = await hybrid.search(
         query=q,
         query_embedding=query_embedding,
@@ -1401,7 +1407,7 @@ async def compare_search_strategies(query: str):
     ]
     rerank_service = get_rerank_service()
     rerank_results = rerank_service.rerank(query=q, documents=documents, top_n=5)
-    rerank_ms = int((time.time() - t0) * 1000)
+    rerank_ms = int((time.perf_counter() - t0) * 1000)
     if rerank_results:
         rerank_products = [
             {
@@ -1419,7 +1425,7 @@ async def compare_search_strategies(query: str):
     # Strategy 4: agentic — Sonnet-extracted filters → filtered vector
     # → rerank with soft_signal. The boto3 calls are synchronous, so
     # they run on a worker thread to keep the event loop responsive.
-    t0 = time.time()
+    t0 = time.perf_counter()
     extractor = get_structured_extractor()
     extracted = await asyncio.to_thread(extractor.extract, q)
     soft_signal = extracted.get("soft_signal") or q
@@ -1468,7 +1474,7 @@ async def compare_search_strategies(query: str):
     agentic_rerank = rerank_service.rerank(
         query=soft_signal, documents=agentic_docs, top_n=5,
     )
-    agentic_ms = int((time.time() - t0) * 1000)
+    agentic_ms = int((time.perf_counter() - t0) * 1000)
     if agentic_rerank:
         agentic_products = [
             {
@@ -1485,29 +1491,45 @@ async def compare_search_strategies(query: str):
 
     return {
         "query": q,
+        "sharedQueryEmbeddingObservedMs": shared_embedding_ms,
+        "measurementAssumptions": {
+            "latency": (
+                "One wall-clock observation per strategy for this request; "
+                "not a percentile. Strategies run sequentially after a shared "
+                "query embedding."
+            ),
+            "cost": (
+                "Modeled incremental request cost per 1,000 queries; not a "
+                "billing measurement and excluding provisioned Aurora compute."
+            ),
+            "quality": (
+                "Product order is live. Recall requires labeled relevance "
+                "judgments and is not calculated by this endpoint."
+            ),
+        },
         "strategies": [
             {
                 "strategy": "vector only",
-                "p50Ms": vec_ms,
-                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["vector"],
+                "observedMs": vec_ms,
+                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["vector"],
                 "products": vec_products,
             },
             {
                 "strategy": "hybrid (RRF)",
-                "p50Ms": hybrid_ms,
-                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["hybrid"],
+                "observedMs": hybrid_ms,
+                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["hybrid"],
                 "products": hybrid_products,
             },
             {
                 "strategy": "hybrid + rerank",
-                "p50Ms": rerank_ms,
-                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["rerank"],
+                "observedMs": rerank_ms,
+                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["rerank"],
                 "products": rerank_products,
             },
             {
                 "strategy": "agentic (Sonnet → filter → vector → rerank)",
-                "p50Ms": agentic_ms,
-                "costPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
+                "observedMs": agentic_ms,
+                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
                 "products": agentic_products,
                 "extractedFilters": {
                     "categories": extracted.get("categories", []),

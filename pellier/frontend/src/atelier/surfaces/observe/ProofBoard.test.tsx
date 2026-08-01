@@ -45,6 +45,7 @@ const proofBoardPayload = {
     {
       id: 'marco-floor-check',
       lab: 'Core Lab 1: Build and Trace',
+      group: 'Agent and tool evidence',
       title: 'Wire Marco to floor_check',
       status: 'complete',
       required: true,
@@ -75,6 +76,7 @@ const proofBoardPayload = {
     {
       id: 'managed-rail',
       lab: 'Core Lab 4: Enforce Policy',
+      group: 'Managed boundaries',
       title: 'Fast-finisher managed rail',
       status: 'available',
       required: false,

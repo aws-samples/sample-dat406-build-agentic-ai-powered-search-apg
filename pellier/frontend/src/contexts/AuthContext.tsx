@@ -1,9 +1,10 @@
 /**
  * AuthContext — Cognito OAuth2 login + AgentCore Identity-backed preferences.
  *
- * Originally seeded in Lab 4a with the implicit grant (token-in-hash) flow
- * against Cognito Hosted UI. Task 5.1 (auth utility) extends this context
- * to be the single source of truth for:
+ * Uses the backend authorization-code flow. Cognito tokens remain in secure,
+ * httpOnly cookies set by `/api/auth/callback`; browser code never handles
+ * tokens from a URL fragment or localStorage. This context is the source of
+ * truth for:
  *
  *   - `user`               — Cognito claims (sub, email, givenName)
  *   - `preferences`        — saved preferences from AgentCore Memory
@@ -12,8 +13,8 @@
  *   - `isLoading`          — alias for `loading` per the design signature
  *   - `prefsVersion`       — monotonic counter ProductGrid uses as `key=`
  *
- * The legacy fields (`login`, `logout`, `accessToken`, `isAuthenticated`,
- * `loading`) remain for backwards compatibility with existing call sites
+ * The fields (`login`, `logout`, `accessToken`, `isAuthenticated`, `loading`)
+ * remain compatible with existing call sites
  * (`LoginButton`, `SignInPage`, `AuthGate`, etc.). New code SHOULD import
  * from `utils/auth.ts` which re-exports `useAuth`.
  */
@@ -76,47 +77,8 @@ export function useAuth() {
   return ctx
 }
 
-// === LEGACY WIRE IT LIVE (Lab 4a implicit flow) ===
-// Kept for the legacy auth path where there is no backend `/api/auth/*`.
-// Participants configure these from CloudFormation outputs; when unset,
-// `login()` and `logout()` no-op (the auth flow route via `utils/auth.ts` +
-// `/api/auth/signin` should be used instead).
-const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN || ''
-const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID || ''
-const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI || (typeof window !== 'undefined' ? `${window.location.origin}/` : '/')
-const LEGACY_ACCESS_TOKEN_KEY = 'pellier-access-token'
-const LEGACY_ID_TOKEN_KEY = 'pellier-id-token'
 const AUTH_SESSION_MARKER_KEY = 'pellier-auth-session'
 const JUST_SIGNED_IN_COOKIE = 'just_signed_in'
-// === END LEGACY WIRE IT LIVE ===
-
-function parseTokenFromHash(): { accessToken: string; idToken: string } | null {
-  if (typeof window === 'undefined') return null
-  const hash = window.location.hash.substring(1)
-  if (!hash) return null
-
-  const params = new URLSearchParams(hash)
-  const accessToken = params.get('access_token')
-  const idToken = params.get('id_token')
-  if (!accessToken || !idToken) return null
-
-  return { accessToken, idToken }
-}
-
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const base64 = token.split('.')[1]
-    const json = atob(base64.replace(/-/g, '+').replace(/_/g, '/'))
-    return JSON.parse(json)
-  } catch {
-    return {}
-  }
-}
-
-function getLegacyAccessToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY)
-}
 
 function hasCookie(name: string): boolean {
   if (typeof document === 'undefined') return false
@@ -144,10 +106,7 @@ interface PreferencesResponse {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [accessToken, setAccessToken] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY)
-  })
+  const accessToken: string | null = null
   const [loading, setLoading] = useState(true)
   const [preferences, setPreferences] = useState<Preferences | null>(null)
   const [prefsVersion, setPrefsVersion] = useState(0)
@@ -160,15 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const refresh = useCallback(async () => {
     try {
-      const token = getLegacyAccessToken()
-      const headers: Record<string, string> = {}
-      if (token) {
-        headers.Authorization = `Bearer ${token}`
-      }
       const meRes = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
-        headers,
       })
       if (!meRes.ok) {
         setUser(null)
@@ -241,69 +194,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPrefsVersion(v => v + 1)
   }, [])
 
-  // On mount: the legacy hash flow populates `accessToken` directly from
-  // the Cognito Hosted UI redirect; the new auth flow flow populates state via
-  // `/api/auth/me`. Run both so the component works in either mode.
+  // On mount, hydrate only when the callback marker or an existing authenticated
+  // session says cookie-backed state may exist. This avoids a noisy 401 on every
+  // clean anonymous page load.
   useEffect(() => {
     let cancelled = false
 
     const hydrate = async () => {
-      // Legacy implicit-grant path.
-      const tokens = parseTokenFromHash()
-      if (tokens) {
-        localStorage.setItem(LEGACY_ACCESS_TOKEN_KEY, tokens.accessToken)
-        localStorage.setItem(LEGACY_ID_TOKEN_KEY, tokens.idToken)
-        if (!cancelled) setAccessToken(tokens.accessToken)
-
-        const claims = decodeJwtPayload(tokens.idToken)
-        if (!cancelled) {
-          setUser({
-            sub: (claims.sub as string) || '',
-            email: (claims.email as string) || 'user',
-            givenName: (claims.given_name as string) || undefined,
-          })
-        }
-        // Clean up URL hash so a refresh doesn't re-parse old tokens.
-        if (typeof window !== 'undefined') {
-          window.history.replaceState(
-            null,
-            '',
-            window.location.pathname + window.location.search,
-          )
-        }
-      } else if (accessToken) {
-        const idToken =
-          typeof window !== 'undefined'
-            ? localStorage.getItem(LEGACY_ID_TOKEN_KEY)
-            : null
-        if (idToken) {
-          const claims = decodeJwtPayload(idToken)
-          const exp = claims.exp as number | undefined
-          if (exp && exp * 1000 > Date.now()) {
-            if (!cancelled) {
-              setUser({
-                sub: (claims.sub as string) || '',
-                email: (claims.email as string) || 'user',
-                givenName: (claims.given_name as string) || undefined,
-              })
-            }
-          } else if (typeof window !== 'undefined') {
-            localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY)
-            localStorage.removeItem(LEGACY_ID_TOKEN_KEY)
-            if (!cancelled) setAccessToken(null)
-          }
-        }
-      }
-
-      // Cookie-backed /api/auth/me path. This must run even when the
-      // URL hash is empty because the current Cognito code flow stores
-      // tokens in httpOnly cookies on /api/auth/callback. The optional
-      // bearer header inside refresh() preserves the legacy implicit
-      // flow when localStorage tokens are present.
       const shouldRefresh =
-        !!tokens ||
-        !!accessToken ||
-        !!getLegacyAccessToken() ||
         hasCookie(JUST_SIGNED_IN_COOKIE) ||
         (typeof window !== 'undefined' &&
           localStorage.getItem(AUTH_SESSION_MARKER_KEY) === '1')
@@ -319,43 +217,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-    // Intentional: refresh is stable (useCallback with empty deps) and
-    // accessToken is only read on first mount.
+    // Intentional: refresh is stable (useCallback with empty deps).
   }, [])
 
   const login = useCallback(() => {
-    if (!COGNITO_DOMAIN || !COGNITO_CLIENT_ID) {
-      console.warn(
-        'Cognito not configured — set VITE_COGNITO_DOMAIN and VITE_COGNITO_CLIENT_ID',
-      )
-      return
-    }
-    const authUrl =
-      `https://${COGNITO_DOMAIN}/login?` +
-      `client_id=${COGNITO_CLIENT_ID}` +
-      `&response_type=token` +
-      `&scope=openid+email+profile` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`
-    window.location.href = authUrl
+    window.location.assign('/api/auth/signin')
   }, [])
 
   const logout = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY)
-      localStorage.removeItem(LEGACY_ID_TOKEN_KEY)
-      localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
-    }
+    localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
     setUser(null)
-    setAccessToken(null)
     setPreferences(null)
-
-    if (COGNITO_DOMAIN && COGNITO_CLIENT_ID) {
-      const logoutUrl =
-        `https://${COGNITO_DOMAIN}/logout?` +
-        `client_id=${COGNITO_CLIENT_ID}` +
-        `&logout_uri=${encodeURIComponent(REDIRECT_URI)}`
-      window.location.href = logoutUrl
-    }
+    void fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).finally(() => window.location.reload())
   }, [])
 
   return (

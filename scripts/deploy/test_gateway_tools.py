@@ -15,6 +15,30 @@ import urllib.request
 import urllib.error
 
 
+EXPECTED_TOOLS = {
+    "preference_snapshot",
+    "trace_receipt",
+    "floor_check",
+    "whats_trending",
+    "price_intelligence",
+    "restock_shelf",
+    "process_return",
+    "escalate_to_stylist",
+    "find_pieces",
+    "find_pieces_hybrid",
+    "explore_collection",
+    "running_low",
+    "side_by_side",
+    "returns_and_care",
+    "style_match",
+}
+
+
+def _canonical_name(name: str) -> str:
+    """Strip AgentCore's target prefix from a discovered tool name."""
+    return name.rsplit("__", 1)[-1]
+
+
 def list_gateway_tools(gateway_url: str, token: str):
     """Call the Gateway's tools/list endpoint and display discovered tools."""
     url = gateway_url.rstrip("/") + "/tools/list"
@@ -51,7 +75,17 @@ def list_gateway_tools(gateway_url: str, token: str):
         print(f"  - {name}")
         print(f"    {desc}")
 
+    observed = {_canonical_name(tool.get("name", "")) for tool in tools}
+    missing = sorted(EXPECTED_TOOLS - observed)
+    unexpected = sorted(observed - EXPECTED_TOOLS)
     print(f"\nTotal: {len(tools)} tools")
+    if len(tools) != 15 or missing or unexpected:
+        print(f"ERROR: Expected the canonical 15 tools.")
+        if missing:
+            print(f"  Missing: {', '.join(missing)}")
+        if unexpected:
+            print(f"  Unexpected: {', '.join(unexpected)}")
+        sys.exit(1)
 
 
 def main():

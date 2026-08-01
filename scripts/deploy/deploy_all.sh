@@ -10,9 +10,8 @@ set -euo pipefail
 #
 #   1–4. Four Lambda MCP servers (search / pricing / recommendations / experience).
 #        These are the "tools" the agent will discover at runtime. Search now
-#        carries `find_pieces_hybrid` (vector + FTS + Cohere Rerank) alongside
-#        the basic vector path; experience carries `process_return` and
-#        `escalate_to_stylist` — every backend `@tool` is reachable over Gateway.
+#        Together they publish the same canonical 15 names as the in-process
+#        agent, including the two read-only evidence tools.
 #     5. AgentCore Gateway — fronts the four Lambdas with Cognito JWT auth
 #        and exposes them over MCP streamable HTTP for tool discovery.
 #        Docs: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html
@@ -33,11 +32,13 @@ set -euo pipefail
 #   PGSECRET           Secrets Manager ARN holding the Aurora master credentials
 #   PGDATABASE         Database name (typically `postgres`)
 #   DB_REGION          Aurora/Data API region (defaults to AWS_REGION)
-#   AWS_REGION         AgentCore, Bedrock, Cognito, and Aurora region — us-east-1
+#   AWS_REGION         AgentCore GA region — `us-east-1` for this workshop; also
+#                      the default Bedrock, Cognito, and Aurora region
 #   COGNITO_POOL       Cognito User Pool id (Gateway auth + Runtime auth)
 #   COGNITO_CLIENT     Cognito User Pool *client* id (allowed on the Runtime JWT)
 #   AGENTCORE_ROLE_ARN Execution role with trust on bedrock-agentcore.amazonaws.com
-#   STACKNAME          CFN stack name (used for the smoke-test user lookup)
+#   COGNITO_TEST_CREDENTIALS_SECRET_ARN  Workshop test-user secret
+#   WORKSHOP_ID        Ownership tag for managed resources and cleanup
 #
 # Usage:
 #   source deploy_all.sh
@@ -58,7 +59,7 @@ echo ""
 # ------------------------------------------------------------------
 # 0. Resolve provisioning inputs (operator-friendly recovery)
 # ------------------------------------------------------------------
-# This script needs 8 CFN-output vars that bootstrap had in scope but that are
+# This script needs the deployment values that bootstrap had in scope but that are
 # NOT in an interactive operator's shell. bootstrap-labs.sh STEP 16 writes them
 # to ../../.provision.env; auto-source it so a manual re-run "just works" after
 # a failed unattended deploy. Then validate and, if anything is still missing,
@@ -70,9 +71,18 @@ if [ -n "$_REPO_ROOT" ] && [ -f "$_REPO_ROOT/.provision.env" ]; then
     # shellcheck disable=SC1091
     set +u; . "$_REPO_ROOT/.provision.env"; set -u
 fi
+if [ -n "$_REPO_ROOT" ] && [ -f "$_REPO_ROOT/.env" ]; then
+    echo "Sourcing resolved model configuration from $_REPO_ROOT/.env ..."
+    set +u
+    set -a
+    # shellcheck disable=SC1091
+    . "$_REPO_ROOT/.env"
+    set +a
+    set -u
+fi
 
 _missing=()
-for _v in PGHOSTARN PGSECRET PGDATABASE AWS_REGION COGNITO_POOL COGNITO_CLIENT AGENTCORE_ROLE_ARN STACKNAME; do
+for _v in PGHOSTARN PGSECRET PGDATABASE AWS_REGION COGNITO_POOL COGNITO_CLIENT AGENTCORE_ROLE_ARN COGNITO_TEST_CREDENTIALS_SECRET_ARN WORKSHOP_ID AGENT_MODEL_ID; do
     # `set -u` is active, so test via indirect default-expansion (no crash).
     if [ -z "$(eval "printf '%s' \"\${$_v:-}\"")" ]; then
         _missing+=("$_v")
@@ -285,8 +295,10 @@ echo "=== [6/8] Scaffolding AgentCore project (create + add BYO agent) ==="
 export OAUTH_ISSUER_URL="https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_POOL}"
 DISCOVERY_URL="${OAUTH_ISSUER_URL}/.well-known/openid-configuration"
 
-# Default model the orchestrator uses inside the Runtime.
-export AGENT_MODEL_ID="${AGENT_MODEL_ID:-global.anthropic.claude-opus-4-8}"
+# The preflight resolves this to a model that was actually invoked
+# successfully in this account.
+: "${AGENT_MODEL_ID:?AGENT_MODEL_ID must be set by check_model_access.py}"
+export AGENT_MODEL_ID
 export AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 
 BACKEND_DIR="$(cd "$SCRIPT_DIR/../../pellier/backend" && pwd)"   # absolute (code-location)
@@ -356,6 +368,7 @@ target["envVars"] = [
     # to the in-process orchestrator (no DB service in the microVM).
     {"name": "AGENTCORE_GATEWAY_URL", "value": gw_url},
     {"name": "AGENT_MODEL_ID", "value": model_id},
+    {"name": "BEDROCK_ROUTER_MODEL", "value": model_id},
 ]
 # Re-assert CUSTOM_JWT authorizer in dat403's proven shape if add-agent didn't.
 if discovery and client and not target.get("authorizerConfiguration"):
@@ -405,13 +418,11 @@ export CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
   --user-pool-id "$COGNITO_POOL" --client-id "$COGNITO_CLIENT" \
   --region "$AWS_REGION" --query 'UserPoolClient.ClientSecret' --output text)
 
-export USER=$(aws cloudformation describe-stacks \
-  --stack-name "$STACKNAME" --region "$AWS_REGION" \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApplicationUserEmail`].OutputValue' --output text)
-
-export PASSWORD=$(aws cloudformation describe-stacks \
-  --stack-name "$STACKNAME" --region "$AWS_REGION" \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApplicationUserPassword`].OutputValue' --output text)
+TEST_USERS_JSON=$(aws secretsmanager get-secret-value \
+  --secret-id "$COGNITO_TEST_CREDENTIALS_SECRET_ARN" \
+  --region "$AWS_REGION" --query SecretString --output text)
+export USER=$(jq -er '.users[0].username' <<<"$TEST_USERS_JSON")
+export PASSWORD=$(jq -er '.users[0].password' <<<"$TEST_USERS_JSON")
 
 # Cognito app clients with a secret require SECRET_HASH =
 # base64(HMAC-SHA256(client_secret, username + client_id)) on every auth
@@ -436,6 +447,13 @@ fi
 export AGENT_RUNTIME_ID=$(aws bedrock-agentcore-control list-agent-runtimes \
   --region "$AWS_REGION" \
   --query "agentRuntimes[?agentRuntimeName=='pellier_orchestrator'].agentRuntimeId | [0]" --output text)
+export AGENT_RUNTIME_ARN=$(aws bedrock-agentcore-control get-agent-runtime \
+  --agent-runtime-id "$AGENT_RUNTIME_ID" \
+  --region "$AWS_REGION" \
+  --query 'agentRuntimeArn' --output text)
+aws bedrock-agentcore-control tag-resource \
+  --resource-arn "$AGENT_RUNTIME_ARN" \
+  --tags "Project=pellier,PellierWorkshopId=${WORKSHOP_ID:?WORKSHOP_ID must be set}"
 
 echo ""
 echo "  Test 1: Product search"

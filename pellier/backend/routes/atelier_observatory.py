@@ -613,6 +613,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         {
             "id": "marco-floor-check",
             "lab": "Core Lab 1: Build and Trace",
+            "group": "Agent and tool evidence",
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
             "required": True,
@@ -644,6 +645,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         {
             "id": "retrieval-comparison",
             "lab": "Core Lab 2: Measure Retrieval",
+            "group": "Retrieval evidence",
             "title": "Compare Anna's four retrieval strategies",
             "status": (
                 "available"
@@ -674,6 +676,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         {
             "id": "audit-ledger",
             "lab": "Core Lab 3: Query Evidence",
+            "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
                 "complete"
@@ -721,6 +724,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         {
             "id": "runtime-gateway-policy",
             "lab": "Core Lab 4: Enforce Policy",
+            "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (
                 "available"
@@ -748,6 +752,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         {
             "id": "managed-rail",
             "lab": "Core Lab 4: Enforce Policy",
+            "group": "Managed boundaries",
             "title": "Inspect the managed Runtime rail",
             "status": _card_status(bool(managed_receipt.get("present")), "available"),
             "required": False,

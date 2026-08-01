@@ -48,8 +48,8 @@ export interface PerformanceData {
    *                               soft_signal} → filtered HNSW with iterative_scan → rerank against
    *                               soft_signal (Anna's path)
    *
-   * Cost notes: vector + hybrid run entirely against Aurora and are
-   * effectively free per query (already-paid-for compute). Rerank
+   * Cost notes: vector + hybrid run against Aurora after a shared query
+   * embedding. Rerank
    * adds a Bedrock invoke_model call to Cohere Rerank v3.5. Agentic
    * adds one Sonnet 5 structured-extraction call on top of rerank;
    * the workshop's "is the lift worth it?" question has a real answer
@@ -59,8 +59,9 @@ export interface PerformanceData {
   searchStrategies: {
     strategy: 'vector only' | 'hybrid (RRF)' | 'hybrid + rerank' | 'agentic (Sonnet → filter → vector → rerank)';
     recallAt5: number;       // 0.0–1.0
-    p50Ms: number;            // wall-clock median
-    costPerThousandUsd: number;
+    modeledLatencyMs: number;
+    observedMs?: number;     // one live endpoint observation, not a percentile
+    modeledCostPerThousandUsd: number;
     isShipped: boolean;       // true for Anna's path (agentic)
     products?: { name: string; productId: number }[]; // top-5 when live
     /**

@@ -185,6 +185,8 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert body["managedReceipt"]["governedDecision"] == "ALLOW"
     cards = {c["id"]: c for c in body["cards"]}
     assert cards["marco-floor-check"]["status"] == "complete"
+    assert cards["marco-floor-check"]["group"] == "Agent and tool evidence"
+    assert "act" not in cards["marco-floor-check"]
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
     assert cards["marco-floor-check"]["lab"] == "Core Lab 1: Build and Trace"

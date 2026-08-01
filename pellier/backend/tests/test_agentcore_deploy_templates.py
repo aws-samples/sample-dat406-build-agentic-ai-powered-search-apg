@@ -114,7 +114,7 @@ def test_patches_role_envvars_runtimeversion(path: Path) -> None:
     assert "executionRoleArn" not in text or "NOT executionRoleArn" in text, (
         f"{path.name} must use roleArn, not executionRoleArn (dat403-proven key)"
     )
-    for env_key in ("MCP_GATEWAY_URL", "AGENT_MODEL_ID"):
+    for env_key in ("MCP_GATEWAY_URL", "AGENT_MODEL_ID", "BEDROCK_ROUTER_MODEL"):
         assert env_key in text, f"{path.name} must set the {env_key} env var"
 
 

@@ -103,7 +103,7 @@ auth_user() {
         --auth-flow ADMIN_USER_PASSWORD_AUTH \
         --auth-parameters "$auth_params" \
         --region "$AWS_REGION" \
-        --query 'AuthenticationResult.IdToken' --output text 2>/dev/null
+        --query 'AuthenticationResult.AccessToken' --output text 2>/dev/null
 }
 
 # --- Seed ------------------------------------------------------------------
@@ -116,8 +116,8 @@ for n in 1 2 3; do
         continue
     fi
 
-    id_token=$(auth_user "$username" "$password")
-    if [ -z "$id_token" ] || [ "$id_token" = "None" ]; then
+    access_token=$(auth_user "$username" "$password")
+    if [ -z "$access_token" ] || [ "$access_token" = "None" ]; then
         warn "Auth failed for $username - skipping"
         continue
     fi
@@ -125,7 +125,7 @@ for n in 1 2 3; do
     body=$(jq -n --argjson prefs "${PREFS[$n]}" '{preferences: $prefs}')
     http_code=$(curl -sS -o /tmp/seed-pref-resp.json -w "%{http_code}" \
         -X POST "$BACKEND_URL/api/user/preferences" \
-        -H "Authorization: Bearer $id_token" \
+        -H "Authorization: Bearer $access_token" \
         -H "Content-Type: application/json" \
         -d "$body")
 
