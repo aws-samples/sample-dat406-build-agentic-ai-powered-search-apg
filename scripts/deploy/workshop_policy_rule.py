@@ -439,13 +439,16 @@ def show_rule(args: argparse.Namespace) -> int:
 
 
 def set_mode(args: argparse.Namespace) -> int:
-    """Re-attach the policy engine to the gateway in MONITOR or ENFORCE mode.
+    """Re-attach the policy engine to the gateway in LOG_ONLY or ENFORCE mode.
 
-    MONITOR evaluates every Cedar policy and logs the would-be decision but
+    LOG_ONLY evaluates every Cedar policy and traces the would-be decision but
     never blocks the call – the standard staging step before flipping a new
     rule to ENFORCE in production. deploy_policy.attach_engine_to_gateway
     already carries the mode; this subcommand just makes the flip a
     one-liner for the workshop room.
+
+    LOG_ONLY and ENFORCE are the only two values the GatewayPolicyEngineMode
+    enum accepts; anything else fails client-side in botocore validation.
     """
     region = args.region
     engine_id = _policy_engine_id(args.policy_engine_id)
@@ -576,14 +579,14 @@ def main() -> int:
 
     mode_parser = sub.add_parser(
         "mode",
-        help="Flip the gateway's policy engine between MONITOR and ENFORCE.",
+        help="Flip the gateway's policy engine between LOG_ONLY and ENFORCE.",
     )
     add_common_flags(mode_parser, suppress_defaults=True)
     mode_parser.add_argument(
         "--set",
         required=True,
-        choices=("MONITOR", "ENFORCE", "monitor", "enforce"),
-        help="MONITOR logs would-be decisions without blocking; ENFORCE blocks.",
+        choices=("LOG_ONLY", "ENFORCE", "log_only", "enforce"),
+        help="LOG_ONLY traces would-be decisions without blocking; ENFORCE blocks.",
     )
     mode_parser.add_argument(
         "--gateway-id",

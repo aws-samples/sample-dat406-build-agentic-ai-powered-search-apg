@@ -194,17 +194,63 @@ def test_workshop_policy_rule_validates_authored_cedar() -> None:
     assert mod._validate_participant_cedar(solution, product_id=37) == []
 
 
-def test_workshop_policy_rule_supports_monitor_enforce_staging() -> None:
-    """The MONITOR→ENFORCE rehearsal beat rides the same helper: one `mode`
+def test_workshop_policy_rule_supports_log_only_enforce_staging() -> None:
+    """The LOG_ONLY→ENFORCE rehearsal beat rides the same helper: one `mode`
     subcommand that re-attaches the engine via deploy_policy and confirms
     the gateway reports the new mode before declaring success."""
     src = WORKSHOP_POLICY_RULE.read_text()
     assert '"mode"' in src or "'mode'" in src
-    assert "MONITOR" in src and "ENFORCE" in src
+    assert "LOG_ONLY" in src and "ENFORCE" in src
     assert "attach_engine_to_gateway" in src
     # Must read the mode back (update_gateway is async) — no optimistic print.
     assert "policyEngineConfiguration" in src
     assert "GATEWAY_POLICY_MODE=" in src
+
+
+def test_policy_mode_choices_match_the_gateway_enum() -> None:
+    """Every mode a participant can type must be a real API enum value.
+
+    ``GatewayPolicyEngineConfiguration.mode`` is a closed enum. A mode this repo
+    offers but the API does not accept fails client-side in botocore param
+    validation, so the rehearsal beat dies on the participant's first command --
+    and no static "is the string present" assertion catches it. This reads the
+    enum out of the installed service model and diffs it against the choices the
+    two entry points advertise.
+    """
+    import re
+
+    import botocore.session
+
+    model = botocore.session.get_session().get_service_model(
+        "bedrock-agentcore-control"
+    )
+    valid = set(model.shape_for("GatewayPolicyEngineMode").enum)
+    assert valid == {"LOG_ONLY", "ENFORCE"}, (
+        f"Gateway policy mode enum changed upstream: {sorted(valid)}. "
+        "Update the mode subcommand and the workshop copy together."
+    )
+
+    # The mode flag is spelled `--set` in workshop_policy_rule.py's `mode`
+    # subcommand and `--mode` in deploy_policy.py. Anchor on the flag name so
+    # the unrelated `--rule` choices are not swept in.
+    for path, flag in ((WORKSHOP_POLICY_RULE, "--set"), (DEPLOY_POLICY, "--mode")):
+        src = path.read_text()
+        block = re.search(
+            rf'"{re.escape(flag)}",.*?choices=[([]([^)\]]*)[)\]]',
+            src,
+            re.DOTALL,
+        )
+        assert block, f"no argparse choices found for {flag} in {path.name}"
+        offered = {
+            token.strip().strip("\"'").upper()
+            for token in block.group(1).split(",")
+            if token.strip()
+        }
+        assert offered, f"empty choices for {flag} in {path.name}"
+        assert offered <= valid, (
+            f"{path.name} offers policy modes the API rejects: "
+            f"{sorted(offered - valid)}"
+        )
 
 
 def test_gateway_process_return_only_counts_authorization_errors_as_deny() -> None:
@@ -258,7 +304,7 @@ def test_gateway_process_return_only_counts_authorization_errors_as_deny() -> No
 
 
 def test_governed_reset_restores_enforce_mode() -> None:
-    """Reset must recover from an interrupted MONITOR rehearsal."""
+    """Reset must recover from an interrupted LOG_ONLY rehearsal."""
     src = RESET_GOVERNED.read_text()
     assert "workshop_policy_rule.py\" mode" in src
     assert "--set ENFORCE" in src

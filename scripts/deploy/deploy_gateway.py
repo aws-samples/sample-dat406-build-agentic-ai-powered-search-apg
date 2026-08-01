@@ -316,7 +316,7 @@ class BazaarGatewayDeployer:
         reference, these four must be on Resource:"*" — the eval resource path is
         ``policy-engines/<id>/target-resource/<encoded-gw-arn>``, which a narrow
         ARN pattern does NOT match (the call then fails AccessDenied, and a
-        missing GetPolicyEngine fails silently even in MONITOR mode).
+        missing GetPolicyEngine fails silently even in LOG_ONLY mode).
         """
         return {
             "Version": "2012-10-17",

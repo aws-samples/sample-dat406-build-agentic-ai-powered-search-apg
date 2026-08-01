@@ -329,7 +329,7 @@ def create_pellier_policies(client, engine_id, gateway_arn, experience_target):
 
 
 def attach_engine_to_gateway(client, gateway_id, engine_arn, mode="ENFORCE"):
-    """Attach the policy engine to the gateway in ENFORCE (or MONITOR) mode.
+    """Attach the policy engine to the gateway in ENFORCE (or LOG_ONLY) mode.
 
     update_gateway is a full replace — re-pass the gateway's existing required
     fields (name/roleArn/protocolType/authorizerType[/authorizerConfiguration])
@@ -356,8 +356,8 @@ def main():
     parser.add_argument("--gateway-id", required=True, help="AgentCore Gateway ID")
     parser.add_argument("--gateway-arn", required=True, help="AgentCore Gateway ARN")
     parser.add_argument("--region", default="us-east-1", help="AWS region")
-    parser.add_argument("--mode", default="ENFORCE", choices=["ENFORCE", "MONITOR"],
-                        help="ENFORCE blocks denied calls; MONITOR only logs")
+    parser.add_argument("--mode", default="ENFORCE", choices=["ENFORCE", "LOG_ONLY"],
+                        help="ENFORCE blocks denied calls; LOG_ONLY only traces")
     parser.add_argument("--experience-target-name", default=EXPERIENCE_TARGET,
                         help="Gateway TARGET name of the experience MCP server "
                              "(Cedar action prefix; e.g. pellier-concierge-experience-target)")
