@@ -1,0 +1,90 @@
+name: governed-quality
+
+on:
+  push:
+    branches: [governed]
+  pull_request:
+    branches: [governed]
+  workflow_dispatch: {}
+
+concurrency:
+  group: governed-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests and shell validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DB_HOST: localhost
+      DB_NAME: pellier_test
+      DB_USER: pellier_test
+      DB_PASSWORD: pellier_test
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pellier/backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: pellier/backend
+        run: python -m pip install -r requirements.txt
+
+      - name: Run backend tests
+        working-directory: pellier/backend
+        run: python -m pytest -q
+
+      - name: Validate shell scripts
+        run: find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+
+  frontend:
+    name: Frontend tests, build, and dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: pellier/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: pellier/frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: pellier/frontend
+        run: npm test -- --run
+
+      - name: Type-check
+        working-directory: pellier/frontend
+        run: npm run type-check
+
+      - name: Lint
+        working-directory: pellier/frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: pellier/frontend
+        run: npm run build
+
+      - name: Audit production dependencies
+        working-directory: pellier/frontend
+        run: npm audit --omit=dev --audit-level=high

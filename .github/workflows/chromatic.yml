@@ -20,9 +20,9 @@ name: chromatic
 
 on:
   pull_request:
-    branches: [mainline, main]
+    branches: [governed, mainline, main]
   push:
-    branches: [mainline, main]
+    branches: [governed, mainline, main]
   workflow_dispatch: {}
 
 concurrency:
