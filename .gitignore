@@ -24,6 +24,7 @@ lab2/frontend/.env
 # Claude Code — worktrees, debug logs, scheduled tasks, and local
 # settings are all machine-local and should never be committed.
 .claude/
+.local/
 
 # Internal design docs — working notes, not shipping content.
 docs/

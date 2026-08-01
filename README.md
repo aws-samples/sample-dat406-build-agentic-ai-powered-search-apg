@@ -206,7 +206,7 @@ Five skills loaded per turn by the SkillRouter to shape voice, handling, proof, 
 
 | Layer            | Technology                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Database         | **Aurora PostgreSQL Serverless v2** (engine 18.3) · elastic ACU scaling · standard PostgreSQL primitives throughout (extension, schemas, SQL) |
+| Database         | **Aurora PostgreSQL Serverless v2** (engine 17.9, the `AuroraEngineVersion` default in `pellier-database.yml`) · elastic ACU scaling · standard PostgreSQL primitives throughout (extension, schemas, SQL) |
 | Vector retrieval | pgvector 0.8.1 · `vector(1024)` column · HNSW (m=16, ef_construction=64, `vector_cosine_ops`) · `<=>` cosine operator |
 | Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
