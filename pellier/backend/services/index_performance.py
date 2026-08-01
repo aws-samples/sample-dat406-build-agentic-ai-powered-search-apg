@@ -12,6 +12,40 @@ from psycopg.rows import dict_row
 
 logger = logging.getLogger(__name__)
 
+# `SET` cannot take a bound parameter in Postgres, so the value is interpolated
+# into the statement text. Every caller must therefore be funnelled through
+# _clamp_ef_search first: it guarantees an int in range, which is what makes the
+# interpolation safe. Same guarantee database.py makes for its session settings.
+EF_SEARCH_MIN = 1
+EF_SEARCH_MAX = 1000
+EF_SEARCH_DEFAULT = 40
+
+
+def _clamp_ef_search(ef_search: Any) -> int:
+    """Coerce ef_search to an int inside the supported HNSW range.
+
+    Defence in depth: the API layer validates with Pydantic, but this service is
+    called from more than one route, so the sink clamps independently. Values
+    that are not integer-like fall back to the default rather than raising --
+    a benchmark endpoint should not 500 on a malformed tuning knob.
+
+    Args:
+        ef_search: Candidate value from a request body or internal caller.
+
+    Returns:
+        An int in [EF_SEARCH_MIN, EF_SEARCH_MAX].
+    """
+    try:
+        value = int(ef_search)
+    except (TypeError, ValueError):
+        logger.warning(
+            "Non-integer ef_search %r rejected; using default %d",
+            ef_search,
+            EF_SEARCH_DEFAULT,
+        )
+        return EF_SEARCH_DEFAULT
+    return max(EF_SEARCH_MIN, min(value, EF_SEARCH_MAX))
+
 
 class IndexPerformanceService:
     """
@@ -131,6 +165,8 @@ class IndexPerformanceService:
         results = []
         query_plan = None
         
+        ef_search = _clamp_ef_search(ef_search)
+
         with conn.cursor(row_factory=dict_row) as cur:
             try:
                 # Set ef_search parameter
@@ -552,6 +588,8 @@ class IndexPerformanceService:
         Iterative scan (pgvector 0.8.1+) continues the HNSW traversal until
         LIMIT is satisfied or max_scan_tuples is reached.
         """
+        ef_search = _clamp_ef_search(ef_search)
+
         results: Dict[str, Any] = {
             "query": query,
             "category_filter": category_filter,

@@ -27,6 +27,9 @@ from models.search import (
     HealthResponse,
     ChatRequest,
     ChatResponse,
+    PerfCompareRequest,
+    PerfIterativeScanRequest,
+    PerfQuantizationRequest,
 )
 from models.product import ProductWithScore
 from services.database import DatabaseService
@@ -1021,25 +1024,21 @@ async def clear_query_logs():
 
 @app.post("/api/performance/compare")
 async def compare_index_performance(
-    request: dict,
+    request: PerfCompareRequest,
     embeddings: EmbeddingService = Depends(get_embedding_service)
 ):
     """
     Compare HNSW index performance vs sequential scan
-    
-    Request body:
-        query: Search query text
-        ef_search: HNSW ef_search parameter (default: 40)
-        limit: Number of results (default: 10)
+
+    Request body is validated by PerfCompareRequest: ef_search reaches a
+    Postgres SET statement that cannot bind parameters, so it must be a
+    bounded int before it is interpolated.
     """
     try:
-        query = request.get("query")
-        ef_search = request.get("ef_search", 40)
-        limit = request.get("limit", 10)
-        
-        if not query:
-            raise HTTPException(status_code=400, detail="Query is required")
-        
+        query = request.query
+        ef_search = request.ef_search
+        limit = request.limit
+
         logger.info(f"🔬 Index performance comparison: '{query}' (ef_search={ef_search})")
         
         # Generate embedding
@@ -1205,37 +1204,26 @@ async def get_filter_categories():
 
 
 @app.post("/api/performance/iterative-scan")
-async def compare_iterative_scan(request: Request):
+async def compare_iterative_scan(request: PerfIterativeScanRequest):
     """Compare filtered HNSW with and without iterative scan (pgvector 0.8.1)"""
     if not index_performance_service:
         raise HTTPException(status_code=503, detail="Index performance service not initialized")
-    body = await request.json()
-    query = body.get("query", "")
-    category = body.get("category", "")
-    ef_search = body.get("ef_search", 40)
-    limit = body.get("limit", 10)
-    if not query or not category:
-        raise HTTPException(status_code=400, detail="query and category required")
-    embedding = embedding_service.generate_embedding(query)
+    embedding = embedding_service.generate_embedding(request.query)
     return await index_performance_service.compare_filtered_search(
-        query=query, embedding=embedding,
-        category_filter=category, ef_search=ef_search, limit=limit,
+        query=request.query, embedding=embedding,
+        category_filter=request.category, ef_search=request.ef_search,
+        limit=request.limit,
     )
 
 
 @app.post("/api/performance/quantization-benchmark")
-async def quantization_benchmark(request: Request):
+async def quantization_benchmark(request: PerfQuantizationRequest):
     """Benchmark float32 vs halfvec vs binary quantization with live queries"""
     if not index_performance_service:
         raise HTTPException(status_code=503, detail="Index performance service not initialized")
-    body = await request.json()
-    query = body.get("query", "")
-    limit = body.get("limit", 10)
-    if not query:
-        raise HTTPException(status_code=400, detail="query required")
-    embedding = embedding_service.generate_embedding(query)
+    embedding = embedding_service.generate_embedding(request.query)
     return await index_performance_service.compare_quantization_benchmark(
-        query=query, embedding=embedding, limit=limit,
+        query=request.query, embedding=embedding, limit=request.limit,
     )
 
 
