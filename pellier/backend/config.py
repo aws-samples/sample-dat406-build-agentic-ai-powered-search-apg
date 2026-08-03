@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     API_TITLE: str = "Pellier Workshop API"
     API_DESCRIPTION: str = "Semantic Search API powered by Amazon Aurora PostgreSQL and Bedrock"
+    WORKSHOP_FORMAT: str = "builders"
     
     # CORS settings
     CORS_ORIGINS: list[str] = [

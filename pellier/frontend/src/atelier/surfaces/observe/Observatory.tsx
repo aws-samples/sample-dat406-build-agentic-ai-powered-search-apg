@@ -1,7 +1,7 @@
 /**
- * Observatory - workshop map and optional Atelier reference.
+ * Observatory - workshop map and Atelier reference.
  *
- * The page mirrors Workshop Studio's four Core Labs so participants never
+ * The page mirrors Workshop Studio's five required labs so participants never
  * have to translate between two workshop taxonomies.
  */
 
@@ -16,7 +16,7 @@ type LinkItem = {
   testId?: string;
 };
 
-type CoreLabItem = {
+type LabItem = {
   lab: string;
   title: string;
   summary: string;
@@ -35,7 +35,7 @@ const PILLARS: PillarItem[] = [
     verb: 'Verify',
     title: 'Proof Board',
     description:
-      'Read live evidence checkpoints in the same order as the four Core Labs, with a terminal or SQL fallback on every card.',
+      'Read live evidence checkpoints in the same order as the five required labs, with a terminal or SQL fallback on every card.',
   },
   {
     verb: 'Inspect',
@@ -45,58 +45,76 @@ const PILLARS: PillarItem[] = [
   },
   {
     verb: 'Explore',
-    title: 'Optional labs',
+    title: 'Extension labs',
     description:
-      'Routing and advanced search stay available after their named checkpoint without competing with the required path.',
+      'Agent Behavior & Routing, Retrieval Engineering, and Defense in Depth begin only after their named checkpoint.',
   },
 ];
 
-const CORE_LABS: CoreLabItem[] = [
+const LABS: LabItem[] = [
   {
-    lab: 'Core Lab 1',
-    title: 'Build and Trace',
+    lab: 'Lab 1',
+    title: 'Build a Specialist Agent',
     summary:
       "Complete Stock Keeper and floor_check, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
       to: '/atelier/proof-board#marco-floor-check',
       label: 'Open floor_check proof',
-      detail: 'Core Lab 1 checkpoint',
+      detail: 'Lab 1 checkpoint',
       testId: 'observatory-cta-proof-board',
     },
     secondary: [
       {
         to: '/atelier/tools',
         label: 'Tool Registry',
-        detail: 'Optional before-and-after visual',
+        detail: 'Before-and-after visual',
       },
     ],
   },
   {
-    lab: 'Core Lab 2',
-    title: 'Measure Retrieval',
+    lab: 'Lab 2',
+    title: 'Measure Hybrid Search',
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
       to: '/atelier/performance',
       label: 'Open retrieval comparison',
-      detail: 'Optional Atelier visual',
+      detail: 'Atelier visual',
     },
     secondary: [
       {
         to: '/atelier/proof-board#retrieval-comparison',
         label: 'Retrieval checkpoint',
-        detail: 'Core Lab 2 proof card',
+        detail: 'Lab 2 proof card',
       },
       {
         to: '/atelier/search',
         label: 'Search Pipeline',
-        detail: 'Optional mechanism read',
+        detail: 'Mechanism read',
       },
     ],
   },
   {
-    lab: 'Core Lab 3',
-    title: 'Query Evidence',
+    lab: 'Lab 3',
+    title: 'Prove AgentCore Memory',
+    summary:
+      "Send two authenticated turns and prove turn two receives turn-one context through AgentCore Memory, managed Runtime, and Gateway.",
+    primary: {
+      to: '/atelier/memory',
+      label: 'Open Memory',
+      detail: 'Managed memory read',
+    },
+    secondary: [
+      {
+        to: '/atelier/proof-board#managed-rail',
+        label: 'Managed Runtime & Gateway',
+        detail: 'Lab 3 proof card',
+      },
+    ],
+  },
+  {
+    lab: 'Lab 4',
+    title: 'Audit Agent Actions',
     summary:
       "Trigger Theo's return, query tool_audit, and reconstruct the seeded principal-versus-customer mismatch from governed_receipts.",
     primary: {
@@ -106,37 +124,32 @@ const CORE_LABS: CoreLabItem[] = [
     },
     secondary: [
       {
-        to: '/atelier/memory',
-        label: 'Memory',
-        detail: 'Optional extension after Core Lab 3',
-      },
-      {
-        to: '/atelier/write-path',
-        label: 'Gateway & Policy',
-        detail: 'Optional boundary read',
+        to: '/atelier/proof-board#audit-ledger',
+        label: 'Audit checkpoint',
+        detail: 'Lab 4 proof card',
       },
     ],
   },
   {
-    lab: 'Core Lab 4',
-    title: 'Enforce Policy',
+    lab: 'Lab 5',
+    title: 'Enforce Cedar Policy',
     summary:
       'Apply one Cedar rule, prove DENY leaves a receipt but no execution row, confirm ALLOW still executes, and reset the participant policy.',
     primary: {
       to: '/atelier/write-path',
       label: 'Open Gateway & Policy',
-      detail: 'Optional Atelier visual',
+      detail: 'Atelier visual',
     },
     secondary: [
       {
         to: '/atelier/proof-board#runtime-gateway-policy',
         label: 'Policy checkpoint',
-        detail: 'Core Lab 4 proof card',
+        detail: 'Lab 5 proof card',
       },
       {
         to: '/atelier/proof-board#managed-rail',
-        label: 'Managed rail',
-        detail: 'Optional Runtime receipt',
+        label: 'Governed receipt',
+        detail: 'Runtime, Gateway, and JWT',
       },
     ],
   },
@@ -281,7 +294,7 @@ const PillarCard: React.FC<PillarItem> = ({ verb, title, description }) => (
   </article>
 );
 
-const CoreLabCard: React.FC<CoreLabItem> = ({ lab, title, summary, primary, secondary }) => (
+const LabCard: React.FC<LabItem> = ({ lab, title, summary, primary, secondary }) => (
   <article
     style={{
       ...cardStyle,
@@ -367,8 +380,8 @@ const Observatory: React.FC = () => {
           }}
         >
           Boutique and Code Editor remain the primary work surfaces. Atelier is
-          the optional evidence layer: open the checkpoint named by the current
-          Core Lab, inspect it, then return to the required path.
+          the evidence layer: open the checkpoint named by the current lab,
+          inspect it, then return to the required path.
         </p>
         <div
           style={{
@@ -412,8 +425,8 @@ const Observatory: React.FC = () => {
           commands remain the canonical proof.
         </p>
         <div style={{ display: 'grid', gap: '16px' }}>
-          {CORE_LABS.map((item) => (
-            <CoreLabCard key={item.lab} {...item} />
+          {LABS.map((item) => (
+            <LabCard key={item.lab} {...item} />
           ))}
         </div>
       </section>

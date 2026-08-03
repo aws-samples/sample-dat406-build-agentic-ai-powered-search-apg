@@ -64,11 +64,11 @@
   },
   {
     "numeral": "VIII",
-    "category": "optional",
+    "category": "workshop",
     "title": "MCP Gateway",
-    "role": "Optional managed tool publishing path",
-    "description": "MCP Gateway is the optional managed path for publishing Pellier tools over a protocol boundary. When AGENTCORE_GATEWAY_URL is unset, the app uses in-process Strands tools; when configured, the Gateway exposes the same tool surface to an MCP client.",
-    "codeSnippet": "# Optional Gateway path\nif AGENTCORE_GATEWAY_URL:\n    tools = await mcp_client.list_tools()\n    result = await mcp_client.call_tool(name, args)\nelse:\n    result = await strands_dispatch(name, args)",
+    "role": "Required managed tool rail in the governed format",
+    "description": "AgentCore Gateway publishes Pellier's 15 tools over MCP. Governed Runtime requests require this managed rail and fail closed when it is unavailable; the separate builders format retains in-process Strands tools.",
+    "codeSnippet": "# Governed requests fail closed without Gateway\nif WORKSHOP_FORMAT == \"governed\":\n    require(AGENTCORE_GATEWAY_URL)\n    tools = await mcp_client.list_tools()\n    result = await mcp_client.call_tool(name, args)\nelse:\n    result = await strands_dispatch(name, args)",
     "slug": "mcp"
   }
 ]

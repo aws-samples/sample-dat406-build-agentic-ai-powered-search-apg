@@ -38,7 +38,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_DIR = REPO_ROOT / "pellier" / "backend"
 DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "deploy_all.sh"
 PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
+RUNTIME_PROBE = REPO_ROOT / "scripts" / "deploy" / "test_runtime.py"
 ENTRYPOINT = BACKEND_DIR / "agentcore_runtime.py"
+RUNTIME_SERVICE = BACKEND_DIR / "services" / "agentcore_runtime.py"
+RUNTIME_SOLUTION = (
+    REPO_ROOT / "solutions" / "the-ledger" / "services" / "agentcore_runtime.py"
+)
 PYPROJECT = BACKEND_DIR / "pyproject.toml"
 
 PINNED_CLI = "@aws/agentcore@0.18.0"
@@ -140,3 +145,34 @@ def test_entrypoint_is_byo_app() -> None:
     text = ENTRYPOINT.read_text()
     assert "BedrockAgentCoreApp" in text
     assert "@app.entrypoint" in text
+
+
+def test_entrypoint_requires_jwt_and_gateway_without_local_fallback() -> None:
+    text = ENTRYPOINT.read_text()
+
+    assert '"error": "authentication_required"' in text
+    assert '"error": "managed_gateway_unavailable"' in text
+    assert "create_gateway_orchestrator" in text
+    assert "from agents.orchestrator import create_orchestrator" not in text
+    assert "falling back to in-process orchestrator" not in text
+
+
+def test_runtime_probe_uses_raw_custom_jwt_transport() -> None:
+    probe = RUNTIME_PROBE.read_text()
+    deploy = DEPLOY_SCRIPT.read_text()
+
+    assert "urllib.request.Request" in probe
+    assert '"Authorization": f"Bearer {token}"' in probe
+    assert "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id" in probe
+    assert "/invocations?qualifier=DEFAULT" in probe
+    assert "gateway-mcp" in probe
+    assert "bedrock-agentcore-runtime" not in probe
+    assert "authToken" not in probe
+    assert "invoke_agent_runtime_streaming" not in probe
+    assert '--runtime-arn "$AGENT_RUNTIME_ARN"' in deploy
+    assert '--token "$TOKEN" --stream' not in deploy
+
+
+def test_bootstrap_runtime_solution_matches_fail_closed_service() -> None:
+    """Bootstrap copies the solution over the service, so they cannot drift."""
+    assert RUNTIME_SOLUTION.read_text() == RUNTIME_SERVICE.read_text()

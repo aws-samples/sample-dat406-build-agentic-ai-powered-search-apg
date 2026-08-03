@@ -742,12 +742,16 @@ async def restock_shelf_endpoint(
 ):
     """Restock a product using business logic. Auth-gated like every other
     write path so the inventory mutation carries a caller identity."""
+    if str(settings.WORKSHOP_FORMAT).lower() == "governed":
+        raise HTTPException(status_code=409, detail="managed_rail_required")
     product_id = request.get("product_id")
     quantity = request.get("quantity")
-    if product_id is None or quantity is None:
+    idempotency_key = request.get("idempotency_key")
+    warehouse_id = request.get("warehouse_id", "BK-01")
+    if product_id is None or quantity is None or not idempotency_key:
         raise HTTPException(
             status_code=422,
-            detail="product_id and quantity are required",
+            detail="product_id, quantity, and idempotency_key are required",
         )
     try:
         from services.business_logic import BusinessLogic
@@ -755,6 +759,8 @@ async def restock_shelf_endpoint(
         return await logic.restock_shelf(
             product_id=product_id,
             quantity=quantity,
+            idempotency_key=idempotency_key,
+            warehouse_id=warehouse_id,
         )
     except Exception as e:
         logger.error(f"Failed to restock product: {e}")

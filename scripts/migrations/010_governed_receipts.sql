@@ -30,8 +30,37 @@ CREATE TABLE IF NOT EXISTS pellier.governed_receipts (
     args             JSONB NOT NULL DEFAULT '{}'::jsonb,
     policy_engine_id TEXT,
     policy_name      TEXT,
+    token_fingerprint_sha256 TEXT,
+    verified_subject TEXT,
+    verified_username TEXT,
+    issuer           TEXT,
+    client_id        TEXT,
+    identity_source  TEXT NOT NULL DEFAULT 'legacy'
+                     CHECK (identity_source IN ('cognito', 'seeded', 'legacy')),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE pellier.governed_receipts
+    ADD COLUMN IF NOT EXISTS token_fingerprint_sha256 TEXT,
+    ADD COLUMN IF NOT EXISTS verified_subject TEXT,
+    ADD COLUMN IF NOT EXISTS verified_username TEXT,
+    ADD COLUMN IF NOT EXISTS issuer TEXT,
+    ADD COLUMN IF NOT EXISTS client_id TEXT,
+    ADD COLUMN IF NOT EXISTS identity_source TEXT NOT NULL DEFAULT 'legacy';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conrelid = 'pellier.governed_receipts'::regclass
+           AND conname = 'governed_receipts_identity_source_check'
+    ) THEN
+        ALTER TABLE pellier.governed_receipts
+            ADD CONSTRAINT governed_receipts_identity_source_check
+            CHECK (identity_source IN ('cognito', 'seeded', 'legacy'));
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS governed_receipts_session_idx
     ON pellier.governed_receipts (session_id, created_at DESC);
@@ -124,7 +153,8 @@ incident_audit AS (
 )
 INSERT INTO pellier.governed_receipts
     (audit_id, session_id, principal_id, principal_label, tool, caller,
-     decision, args, policy_engine_id, policy_name, created_at)
+     decision, args, policy_engine_id, policy_name, verified_subject,
+     verified_username, issuer, client_id, identity_source, created_at)
 SELECT
     (SELECT audit_id FROM incident_audit),
     'gateway-marco-for-theo-incident',
@@ -140,6 +170,11 @@ SELECT
     ),
     'seeded-workshop-policy-engine',
     'process_return_damaged_only',
+    'seeded:CUST-MARCO',
+    'seeded:marco',
+    'seeded:workshop',
+    'seeded:workshop',
+    'seeded',
     TIMESTAMPTZ '2026-07-01 09:15:02+00'
   FROM product
  WHERE NOT EXISTS (

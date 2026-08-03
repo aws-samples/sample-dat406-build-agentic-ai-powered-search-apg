@@ -68,12 +68,11 @@ psql -f solutions/the-quiet-search/sql/hnsw_index_lab.sql
 Generate a tool call, then **author** three queries that interrogate the
 Aurora ledger, building in difficulty: the raw row (`SELECT`), JSONB
 extraction (`->>` pulls `reason`/`return_id` out as columns), and
-rail-label reasoning (`caller='agent'` proves the required in-process
-rail; Gateway DENY would stop before a row exists). This is SQL the
-participant writes, not a code drop – there is no file to copy over a
-runtime counterpart. The required path is in-process (`caller='agent'`);
-no-row behavior is a Gateway-rail/Cedar property. The reference recap is
-a canned query a facilitator can run live:
+rail-label reasoning. In the governed format, an allowed managed write records
+`caller='gateway'`; a Cedar DENY stops before a row exists. The builders format
+retains the in-process `caller='agent'` path. This is SQL the participant
+writes, not a code drop. The reference recap is a canned query a facilitator
+can run live:
 
 ```bash
 psql -f solutions/the-ledger/sql/tool_audit_recap.sql
@@ -163,16 +162,11 @@ psql -f solutions/the-ledger/sql/rls_rail_setup.sql
 psql -f solutions/the-ledger/sql/rls_rail_reset.sql
 ```
 
-### Optional rail - `logger.info` observability hook (Act II)
+### Managed Runtime invocation log (Act II)
 
-Adds one `logger.info("agentcore.invoke ...")` line to
-`run_agent_on_runtime()` so every managed `InvokeRuntime` call shows up
-in `uvicorn.log`.
-
-```bash
-cp solutions/the-ledger/services/agentcore_runtime_with_invoke_log.py \
-   pellier/backend/services/agentcore_runtime.py
-```
+The canonical `services/agentcore_runtime.py` already emits a token-safe
+`agentcore.invoke` record with session, user, prompt length, and Runtime id.
+No solution-file replacement is required.
 
 ---
 

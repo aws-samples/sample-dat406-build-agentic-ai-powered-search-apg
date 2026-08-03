@@ -43,7 +43,7 @@ const STEPS: SpotlightStep[] = [
     numeral: 'III',
     kicker: 'On the right',
     headline: 'The reasoning',
-    body: "Start with Proof Board, then follow the Core Lab map to the one Atelier view named by the workshop. Memory and Routing remain optional.",
+    body: "Start with Proof Board, then follow the five required labs. Memory, managed Runtime, Gateway, and Policy are part of the governed proof; routing is an extension.",
   },
 ]
 

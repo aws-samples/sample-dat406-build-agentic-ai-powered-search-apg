@@ -2,8 +2,8 @@
 
 The authoritative gate before the Pellier workshop is participant-ready. Run this
 **on a freshly-provisioned Workshop Studio box, as the participant user**, after
-CloudFormation → bootstrap has completed. Everything here is **read-only / safe**
-(one optional `dry-run` is non-destructive and self-restoring).
+CloudFormation → bootstrap has completed. The checks are safe to repeat; the
+governed dry run uses idempotent writes and restores the participant state.
 
 Why this exists: most of the recent work is statically green but carries
 "confirm on-box" markers — the dev sandbox has no AWS creds, no npm registry, and
@@ -31,14 +31,14 @@ node --version                 # MUST be >= v20  (Gate #1: Node-20 robustness fi
 type agentcore                 # should print the shell FUNCTION (not "not found", not an alias)
 which -a agentcore             # confirm no stale Python starter-toolkit binary shadows it
 
-# Region + which managed pieces provisioned. AWS_REGION must read us-east-1;
-# empty endpoint values = that optional beat degrades (expected, not a fault).
+# Region + required managed pieces. AWS_REGION must read us-east-1; an empty
+# Memory, Runtime, Gateway, or Policy value is a failed governed environment.
 grep -E 'AWS_REGION|USE_AGENTCORE_RUNTIME|AGENTCORE_RUNTIME_ENDPOINT|AGENTCORE_GATEWAY_URL|MCP_GATEWAY_URL|AGENTCORE_POLICY_ENGINE_ID|AGENTCORE_MEMORY_ID' \
   pellier/backend/.env
 ```
 
 **Pass:** Node ≥ 20; `agentcore` is a function; `AWS_REGION=us-east-1`; `.env` has
-the runtime endpoint + gateway URL (+ ideally policy-engine id). If Node < 20 →
+Memory, Runtime, Gateway, and Policy identifiers. If Node < 20 →
 the NodeSource fix regressed; stop and fix bootstrap before anything else.
 
 ---
@@ -47,7 +47,8 @@ the NodeSource fix regressed; stop and fix bootstrap before anything else.
 
 ```bash
 python3 scripts/check_model_access.py        # Gate #5: Bedrock access (Opus, Sonnet, Embed v4, Rerank v3.5)
-bash scripts/health-gate.sh                  # READY only if catalog=1000, warehouse seeded, memory+runtime set
+bash scripts/health-gate.sh                  # Requires 120 rows + Memory/Runtime/Gateway/Policy proof
+jq '.status, .verification' /tmp/pellier-agentcore-managed.json
 cat /var/log/pellier-agentcore.log           # the STEP-16 provisioning transcript
 ```
 
@@ -63,31 +64,31 @@ fresh-account run):
   should resolve CFN outputs from `STACKNAME` or print a clean export list (no
   `PGHOSTARN: unbound variable` crash).
 
-**Pass:** `check_model_access` all-green (or clean Sonnet fallback); health-gate
-`READY`; `AGENTCORE_POLICY_ENGINE_ID` non-empty in `.env` (Gate #2: Policy ENFORCE
-landed ACTIVE). If model access flaps "still processing," wait ~15 min and re-run —
-external, not a bug.
+**Pass:** `check_model_access` all-green (or clean Sonnet fallback);
+health-gate `READY`; the receipt proves exactly four Gateway targets and 15
+live-discovered MCP tools, says `runtime_invoke_smoke.rail=gateway-mcp`, and
+records both live Policy decisions as true. If model access flaps "still
+processing," wait ~15 min and re-run.
 
 ---
 
-## 2. agentcore CLI surface @ 0.18 (Gate #3: resolve the version-pinned verbs)
+## 2. AgentCore CLI and generated Runtime config
 
 ```bash
-agentcore --help               # CAPTURE: do status / logs / traces / invoke exist on 0.18?
-agentcore status --help        # CAPTURE exact flags; any required --name/--runtime?
-agentcore invoke --help        # CRITICAL: does 0.18 invoke accept --bearer-token? (dat403 uses it)
-                               #   confirm --bearer-token / --session-id / --stream surface.
-                               #   If NO bearer flag -> Movement B falls back to the app-side curl.
-agentcore logs --help          # confirm NO --tail; note --since / -n / --json (non-interactive)
-agentcore traces --help        # confirm `list` / `get` exist (else drop from Movement C + the take-home)
+agentcore --version
+agentcore status --json
+jq '.runtimes[] | {
+  name,
+  authorizerType,
+  authorizerConfiguration,
+  requestHeaderAllowlist,
+  envVars
+}' .agentcore-project/pellier/agentcore/agentcore.json
 ```
 
-**Reconcile:** Act II `02-agentcore-runtime` §5 (`agentcore status`, `agentcore invoke
---bearer-token` as Movement B's primary, `agentcore logs`) and the traces/evals
-take-home. Content uses ONLY verbs/flags confirmed here. Known from a cached 0.16.0:
-`logs` needs non-interactive flags, no `--tail`, `--json` exists — and dat403's
-deploy module uses `agentcore invoke --bearer-token "$TOKEN" --stream`, so the flag
-is expected; **verify it exists on the pinned 0.18.0** before making it primary.
+**Pass:** version is `0.18.0`; status reports the deployed Runtime `READY`; the
+generated config shows `CUSTOM_JWT`, an `Authorization` request-header
+allowlist, and the live Gateway URL.
 
 ---
 
@@ -118,39 +119,35 @@ echo "$PELLIER_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.to
 #   username == "anna" (proves the persona arg selects the user).
 #   DO NOT paste a real token anywhere.
 
-# PRIMARY (Movement B): the dat403-style CLI invoke — IF step-2 probe confirmed the flag.
-agentcore invoke --bearer-token "$PELLIER_TOKEN" \
-  "Find linen travel pieces for a warm-weather trip."
-#   CAPTURE the streamed output VERBATIM -> reconcile §5 Movement B "Expected".
-#   Answer should use the managed Gateway catalog/search path and return rail
-#   "gateway-mcp". Marco's Brooklyn warehouse prompt belongs to the in-process
-#   Act I floor_check path, not this Runtime smoke test. (CLI cd's to the deploy
-#   dir via the agentcore function, so it finds deployed-state.json automatically.)
+# PRIMARY: the same raw CUSTOM_JWT transport used by the production backend.
+set -a; source .env; set +a
+python3 scripts/deploy/test_runtime.py \
+  --runtime-arn "$AGENTCORE_RUNTIME_ENDPOINT" \
+  --token "$PELLIER_TOKEN" \
+  --prompt "Find linen travel pieces for a warm-weather trip."
+#   CAPTURE the JSON response. It must include rail="gateway-mcp".
 
-# FALLBACK (also valid; primary if 0.18 invoke lacks --bearer-token): app-side curl.
+# SECONDARY: the application SSE route must reach the same Runtime rail.
 SESSION="probe-$(date +%s)"
 curl -sN -X POST http://localhost:8000/api/agent/chat \
   -H "Authorization: Bearer ${PELLIER_TOKEN}" -H 'Content-Type: application/json' \
   -d "{\"message\":\"Find linen travel pieces for a warm-weather trip.\",\"session_id\":\"${SESSION}\"}"
-#   CAPTURE the token'd SSE sequence (session->chunk->done was observed on the
-#   in-process fallback; the Runtime branch may differ) -> reconcile the curl block.
+#   CAPTURE session -> chunk -> done. The done receipt must show
+#   runtime=agentcore-managed, jwtPassthrough=true, gatewayPassthrough=true.
 
 # OPTIONAL: run only if the Code Editor role has logs:FilterLogEvents.
 agentcore logs -n 20 --since 30m   # CAPTURE: does the platform-side record show the invoke?
 
-# DEGRADATION (the "by design" runbook row): the curl with NO Authorization header
+# FAIL-CLOSED CHECK: the same managed route with NO Authorization header
 curl -sN -X POST http://localhost:8000/api/agent/chat \
   -H 'Content-Type: application/json' \
   -d "{\"message\":\"Is the Hadley shirt at the Brooklyn warehouse?\",\"session_id\":\"anon-probe\"}"
-#   MUST still answer in-process: no 401, no stack trace.
+#   MUST emit error code authentication_required and MUST NOT run in-process.
 ```
 
-**Pass:** `agentcore status` shows a cloud ARN; `agentcore invoke --bearer-token`
-(or the curl fallback) returns a catalog/search answer on the Gateway rail;
-`agentcore logs` shows a platform-side record if permissions allow it; anonymous
-curl falls back cleanly. If 0.18's `invoke` has no bearer flag, the curl is
-primary and the content's `agentcore invoke` block should be demoted to the
-alternative.
+**Pass:** `agentcore status` shows a cloud ARN; the raw probe returns a
+catalog/search answer with `rail=gateway-mcp`; the authenticated SSE route
+shows Runtime/JWT/Gateway receipt fields; the anonymous request fails closed.
 
 ---
 
@@ -180,15 +177,15 @@ note the actual names so the substring patterns can be tightened.
 
 ---
 
-## 5. End-to-end participant path (optional but recommended)
+## 5. End-to-end governed participant path (required)
 
 ```bash
 bash scripts/dry-run-builders.sh     # non-destructive: wires floor_check, fires Marco T4, checks tool_audit, restores stub
 ```
 
-**Pass:** PASS exit; Marco T4 names Brooklyn/BK-01; the `tool_audit` row is present
-(this also confirms Gate #6 — the in-process audit hook writes the ledger on the
-default rail).
+**Pass:** PASS exit; Marco T4 names Brooklyn/BK-01; current-session Policy
+ALLOW and DENY receipts are present; the ALLOW has an execution audit id and
+the DENY proves no Lambda audit row was written.
 
 ---
 

@@ -130,10 +130,10 @@ def _gateway_headers(access_token: Optional[str] = None) -> Dict[str, str]:
     validates it against the Cognito discovery URL, so every tool call
     carries the user's identity end to end.
 
-    When no token is provided (anonymous/Fresh turns, or local dev against a
-    Gateway deployed with ``authorizerType=NONE``), we fall back to the
-    placeholder ``x-api-key`` header. A JWT-protected Gateway will reject
-    that with 401, which the caller treats as "fall back to in-process".
+    When no token is provided (anonymous turns or local development against a
+    Gateway deployed with ``authorizerType=NONE``), this returns the legacy
+    placeholder ``x-api-key`` header. The governed Runtime never uses that
+    path: it requires a bearer token before constructing this client.
     """
     if access_token:
         return {"Authorization": f"Bearer {access_token}"}
@@ -143,11 +143,10 @@ def _gateway_headers(access_token: Optional[str] = None) -> Dict[str, str]:
 def create_gateway_orchestrator(access_token: Optional[str] = None):
     """Create a Strands Agent that discovers tools via an MCP Gateway URL.
 
-    When `settings.AGENTCORE_GATEWAY_URL` is unset, returns None so callers
-    can fall back to the in-process tool imports. When set, the returned
-    agent pulls tools from the remote Gateway using streamable HTTP, which
-    is how the orchestrator migrates from hard-coded tool lists to
-    managed, discoverable tools.
+    When `settings.AGENTCORE_GATEWAY_URL` is unset, returns None. Builders
+    callers may retain local execution; the governed Runtime treats None as
+    ``managed_gateway_unavailable`` and fails closed. When set, the returned
+    agent pulls tools from the remote Gateway using streamable HTTP.
 
     ``access_token`` is the caller's raw Cognito JWT. When supplied it is
     forwarded to the Gateway as a Bearer token (identity passthrough); the

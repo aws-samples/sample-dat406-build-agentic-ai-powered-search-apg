@@ -361,6 +361,12 @@ async def _latest_governed_receipt(
                    args,
                    policy_engine_id,
                    policy_name,
+                   token_fingerprint_sha256,
+                   verified_subject,
+                   verified_username,
+                   issuer,
+                   client_id,
+                   identity_source,
                    created_at
               FROM pellier.governed_receipts
               {where}
@@ -412,6 +418,12 @@ async def _collect_readiness() -> dict[str, Any]:
 
     counts = await _workshop_counts()
     checks: list[dict[str, Any]] = []
+    governed_format = str(settings.WORKSHOP_FORMAT).lower() == "governed"
+
+    def managed_state(configured: bool) -> str:
+        if configured:
+            return "pass"
+        return "fail" if governed_format else "warn"
 
     if counts is None:
         checks.append(_readiness_check(
@@ -425,13 +437,18 @@ async def _collect_readiness() -> dict[str, Any]:
         catalog_count = counts["catalog_count"]
         warehouse_count = counts["warehouse_count"]
         audit_count = counts["audit_count"]
+        warehouse_ready = (
+            warehouse_count == 120 if governed_format else warehouse_count > 0
+        )
         checks.append(_readiness_check(
             check_id="aurora",
             label="Aurora PostgreSQL",
-            state="pass" if catalog_count >= 40 and warehouse_count > 0 else "fail",
+            state="pass" if catalog_count >= 40 and warehouse_ready else "fail",
             detail=(
                 f"Catalog {catalog_count} products, warehouse "
-                f"{warehouse_count} rows, audit ledger {audit_count} rows."
+                f"{warehouse_count} rows"
+                f"{' (expected exactly 120)' if governed_format else ''}, "
+                f"audit ledger {audit_count} rows."
             ),
             href="/atelier/search",
         ))
@@ -440,62 +457,70 @@ async def _collect_readiness() -> dict[str, Any]:
     checks.append(_readiness_check(
         check_id="identity",
         label="Cognito identity",
-        state="pass" if cognito_ready else "fail",
+        state=managed_state(cognito_ready),
         detail=(
             "User pool, app client, and test credential secret configured for JWT passthrough."  # copy-allow: atelier-readiness-detail
             if cognito_ready
             else "Missing Cognito pool/client/test credential secret; Gateway JWT proof cannot run."
         ),
+        required=governed_format,
         href="/atelier/production-patterns",
     ))
 
+    memory_configured = _configured(settings.AGENTCORE_MEMORY_ID)
     checks.append(_readiness_check(
         check_id="memory",
         label="AgentCore Memory",
-        state="pass" if _configured(settings.AGENTCORE_MEMORY_ID) else "fail",
+        state=managed_state(memory_configured),
         detail=(
             "AGENTCORE_MEMORY_ID set for working and semantic memory."
-            if _configured(settings.AGENTCORE_MEMORY_ID)
+            if memory_configured
             else "AGENTCORE_MEMORY_ID empty; working and semantic memory cannot show managed records."
         ),
+        required=governed_format,
         href="/atelier/memory",
     ))
 
+    runtime_configured = _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
     checks.append(_readiness_check(
         check_id="runtime",
         label="AgentCore Runtime",
-        state="pass" if _configured(settings.AGENTCORE_RUNTIME_ENDPOINT) else "fail",
+        state=managed_state(runtime_configured),
         detail=(
             "Runtime endpoint configured; chat can use the managed rail when USE_AGENTCORE_RUNTIME=true."
-            if _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
+            if runtime_configured
             else "AGENTCORE_RUNTIME_ENDPOINT empty; managed runtime invoke cannot be demonstrated."
         ),
-        href="/atelier/proof-board#runtime-gateway-policy",
+        required=governed_format,
+        href="/atelier/proof-board#managed-rail",
     ))
 
+    gateway_configured = _configured(settings.AGENTCORE_GATEWAY_URL)
     checks.append(_readiness_check(
         check_id="gateway",
         label="AgentCore Gateway",
-        state="pass" if _configured(settings.AGENTCORE_GATEWAY_URL) else "fail",
+        state=managed_state(gateway_configured),
         detail=(
             "Gateway URL configured; MCP tool calls can receive the caller JWT."
-            if _configured(settings.AGENTCORE_GATEWAY_URL)
+            if gateway_configured
             else "AGENTCORE_GATEWAY_URL empty; Gateway/JWT tool calls cannot run."
         ),
-        href="/atelier/proof-board#runtime-gateway-policy",
+        required=governed_format,
+        href="/atelier/proof-board#managed-rail",
     ))
 
     policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
+    policy_configured = _configured(policy_engine_id)
     checks.append(_readiness_check(
         check_id="policy",
         label="AgentCore Policy",
-        state="pass" if _configured(policy_engine_id) else "warn",
+        state=managed_state(policy_configured),
         detail=(
             "Managed Cedar policy engine configured for Gateway enforcement."  # copy-allow: atelier-readiness-detail
-            if _configured(policy_engine_id)
-            else "Policy engine id empty; guided policy reads still work, but live Gateway ENFORCE is not visible."
+            if policy_configured
+            else "Policy engine id empty; live Gateway ALLOW/DENY enforcement cannot run."
         ),
-        required=False,
+        required=governed_format,
         href="/atelier/write-path",
     ))
 
@@ -549,6 +574,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
 
     readiness = await _collect_readiness()
     counts = readiness.get("counts") or {}
+    governed_format = str(settings.WORKSHOP_FORMAT).lower() == "governed"
     floor_check_wired = not _floor_check_is_workshop_stub()
     latest_floor_check = await _latest_audit_row(tool="floor_check")
     latest_process_return = await _latest_audit_row(tool="process_return")
@@ -571,6 +597,13 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     gateway_configured = _configured(settings.AGENTCORE_GATEWAY_URL)
     policy_configured = _configured(policy_engine_id)
     identity_configured = _gateway_identity_configured(settings)
+    managed_rail_proven = all([
+        managed_receipt.get("present"),
+        managed_receipt.get("runtime") == "agentcore-managed",
+        managed_receipt.get("rail") == "gateway-mcp",
+        managed_receipt.get("jwtPassthrough"),
+        managed_receipt.get("gatewayPassthrough"),
+    ])
     governed_decision = latest_governed.get("decision") if latest_governed else ""
     governed_audit_present = bool(governed_audit)
     governed_absence_verified = bool(
@@ -598,6 +631,10 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         "governedAuditId": latest_governed.get("audit_id") if latest_governed else None,
         "governedPrincipalId": latest_governed.get("principal_id") if latest_governed else "",
         "governedPrincipalLabel": latest_governed.get("principal_label") if latest_governed else "",
+        "governedVerifiedSubject": latest_governed.get("verified_subject") if latest_governed else "",
+        "governedVerifiedUsername": latest_governed.get("verified_username") if latest_governed else "",
+        "governedIdentitySource": latest_governed.get("identity_source") if latest_governed else "",
+        "governedTokenFingerprint": latest_governed.get("token_fingerprint_sha256") if latest_governed else "",
         "governedDecision": governed_decision,
         "governedTool": latest_governed.get("tool") if latest_governed else "",
         "governedPolicyName": latest_governed.get("policy_name") if latest_governed else "",
@@ -612,7 +649,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     cards = [
         {
             "id": "marco-floor-check",
-            "lab": "Core Lab 1: Build and Trace",
+            "lab": "Lab 1: Build a Specialist Agent",
             "group": "Agent and tool evidence",
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
@@ -644,7 +681,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "retrieval-comparison",
-            "lab": "Core Lab 2: Measure Retrieval",
+            "lab": "Lab 2: Measure Hybrid Search",
             "group": "Retrieval evidence",
             "title": "Compare Anna's four retrieval strategies",
             "status": (
@@ -675,7 +712,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "audit-ledger",
-            "lab": "Core Lab 3: Query Evidence",
+            "lab": "Lab 4: Audit Agent Actions",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -723,15 +760,20 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "Core Lab 4: Enforce Policy",
+            "lab": "Lab 5: Enforce Cedar Policy",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (
                 "available"
-                if runtime_configured and gateway_configured and identity_configured
+                if (
+                    runtime_configured
+                    and gateway_configured
+                    and identity_configured
+                    and policy_configured
+                )
                 else "needs_config"
             ),
-            "required": False,
+            "required": governed_format,
             "surface": "Managed governance",
             "summary": "Runtime receives the caller JWT, Gateway discovers tools, and Policy defines the Cedar boundary.",
             "evidenceSource": "pellier/backend/.env + managed policy config",
@@ -751,16 +793,28 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "managed-rail",
-            "lab": "Core Lab 4: Enforce Policy",
+            "lab": "Lab 3: Prove AgentCore Memory",
             "group": "Managed boundaries",
-            "title": "Inspect the managed Runtime rail",
-            "status": _card_status(bool(managed_receipt.get("present")), "available"),
-            "required": False,
+            "title": "Prove the managed Runtime and Gateway rail",
+            "status": _card_status(
+                managed_rail_proven,
+                (
+                    "needs_run"
+                    if runtime_configured and gateway_configured and identity_configured
+                    else "needs_config"
+                ),
+            ),
+            "required": governed_format,
             "surface": "Runtime receipt",
-            "summary": "After a managed Runtime turn, the receipt shows whether the request used JWT passthrough and Gateway/MCP.",
-            "evidenceSource": "AgentCore Runtime trace + pellier.tool_audit caller=gateway",
+            "summary": "After the cross-turn Memory exercise, a managed Runtime turn must preserve the caller JWT and execute through Gateway/MCP.",
+            "evidenceSource": "AgentCore Memory timeline + Runtime trace + pellier.tool_audit caller=gateway",
             "lastUpdated": latest_gateway.get("created_at") if latest_gateway else None,
             "evidence": [
+                (
+                    "AgentCore Memory configured for authenticated session history"
+                    if _configured(settings.AGENTCORE_MEMORY_ID)
+                    else "AgentCore Memory configuration missing"
+                ),
                 (
                     f"Managed receipt rail: {managed_receipt.get('rail')}"
                     if managed_receipt.get("present")
@@ -789,11 +843,21 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 ),
             },
             "links": [
+                {"label": "Memory", "to": "/atelier/memory"},
                 {"label": "Proof Board", "to": "/atelier/proof-board#managed-rail"},
                 {"label": "Sessions", "to": "/atelier/sessions"},
             ],
         },
     ]
+
+    card_order = {
+        "marco-floor-check": 1,
+        "retrieval-comparison": 2,
+        "managed-rail": 3,
+        "audit-ledger": 4,
+        "runtime-gateway-policy": 5,
+    }
+    cards.sort(key=lambda card: card_order.get(card["id"], 99))
 
     return {
         "status": readiness["status"],
@@ -1477,7 +1541,7 @@ async def get_workshop_readiness():
 async def get_proof_board(
     session_id: Optional[str] = Query(
         default=None,
-        description="Optional session id for the latest managed Runtime receipt",
+        description="Session id for the latest managed Runtime receipt",
     ),
 ):
     """Return required-path proof cards plus terminal fallbacks.

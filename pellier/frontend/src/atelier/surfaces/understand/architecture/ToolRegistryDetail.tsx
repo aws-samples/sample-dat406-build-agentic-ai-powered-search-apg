@@ -27,7 +27,7 @@ const ToolRegistryDetail: React.FC = () => {
       conceptName="Tool Registry"
       category="workshop"
       title="Tools, discovered."
-      prose="The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded, searched with pgvector, and compared with the optional MCP Gateway view. The Boutique default still calls in-process Strands tools unless Gateway is configured."
+      prose="The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded and searched with pgvector; AgentCore Gateway publishes the complete 15-tool callable contract required by governed Runtime. The separate builders format retains in-process Strands tools."
       seeInBoutique={{
         href: '/?ask=Show+me+linen+pieces+like+the+Camp+Shirt',
         label: 'See tool discovery fire on the storefront',
@@ -47,7 +47,7 @@ const ToolRegistryDetail: React.FC = () => {
         },
       ]}
       liveState={{
-        label: 'Current tool registry state. Aurora ranks tool descriptions for the workshop discovery demo; optional Gateway publishes the callable surface over MCP.',
+        label: 'Current tool registry state. Aurora ranks tool descriptions while required governed Gateway publishes the callable surface over MCP.',
         values: [
           { label: 'Tools registered', value: '15' },
           { label: 'Shipped (baseline image)', value: '14' },

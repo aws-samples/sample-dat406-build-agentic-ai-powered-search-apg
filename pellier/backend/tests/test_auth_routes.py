@@ -30,6 +30,8 @@ Runnable from the repo root:
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import time
 import uuid
@@ -54,6 +56,8 @@ from routes import auth as auth_module
 from routes.auth import (
     ID_TOKEN_COOKIE,
     JUST_SIGNED_IN_COOKIE,
+    OAUTH_STATE_COOKIE,
+    PKCE_VERIFIER_COOKIE,
     REFRESH_TOKEN_COOKIE,
     _build_state,
     router as auth_router,
@@ -172,11 +176,11 @@ def client(auth_service: CognitoAuthService) -> TestClient:
     app = FastAPI()
     app.include_router(auth_router)
     app.dependency_overrides[get_cognito_auth_service] = lambda: auth_service
-    # TestClient sends requests over http:// by default; cookies marked
-    # ``secure`` are still serialised in the response headers, which is
-    # what the tests inspect. follow_redirects=False keeps 302s visible
-    # so the signin/callback redirect URLs can be asserted.
-    return TestClient(app, follow_redirects=False)
+    return TestClient(
+        app,
+        base_url="https://api.test",
+        follow_redirects=False,
+    )
 
 
 class _FakeTokenResponse:
@@ -222,6 +226,15 @@ def token_post_recorder(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _begin_oauth(client: TestClient) -> tuple[str, str]:
+    response = client.get("/api/auth/signin")
+    params = {
+        key: values[0]
+        for key, values in parse_qs(urlparse(response.headers["location"]).query).items()
+    }
+    return params["state"], client.cookies[PKCE_VERIFIER_COOKIE]
+
+
 def test_signin_google_redirects_to_cognito(client: TestClient) -> None:
     resp = client.get("/api/auth/signin", params={"provider": "google"})
     assert resp.status_code == 302
@@ -237,6 +250,13 @@ def test_signin_google_redirects_to_cognito(client: TestClient) -> None:
     assert params["redirect_uri"] == OAUTH_REDIRECT_URI
     assert params["identity_provider"] == "Google"
     assert "state" in params and params["state"]
+    assert params["code_challenge_method"] == "S256"
+    verifier = client.cookies[PKCE_VERIFIER_COOKIE]
+    expected_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode("ascii")).digest()
+    ).rstrip(b"=").decode("ascii")
+    assert params["code_challenge"] == expected_challenge
+    assert client.cookies[OAUTH_STATE_COOKIE] == params["state"]
 
 
 def test_signin_apple_maps_to_signinwithapple(client: TestClient) -> None:
@@ -297,6 +317,8 @@ def test_callback_tampered_state_returns_invalid_state(client: TestClient) -> No
     good = _build_state()
     nonce, expiry, _signature = good.split(".")
     tampered = f"{nonce}.{expiry}.AAAA"  # wrong signature
+    client.cookies.set(OAUTH_STATE_COOKIE, tampered, path="/api/auth")
+    client.cookies.set(PKCE_VERIFIER_COOKIE, "test-verifier", path="/api/auth")
     resp = client.get(
         "/api/auth/callback",
         params={"code": "abc", "state": tampered},
@@ -307,6 +329,8 @@ def test_callback_tampered_state_returns_invalid_state(client: TestClient) -> No
 
 def test_callback_expired_state_returns_invalid_state(client: TestClient) -> None:
     expired = _build_state(expiry=int(time.time()) - 60)
+    client.cookies.set(OAUTH_STATE_COOKIE, expired, path="/api/auth")
+    client.cookies.set(PKCE_VERIFIER_COOKIE, "test-verifier", path="/api/auth")
     resp = client.get(
         "/api/auth/callback",
         params={"code": "abc", "state": expired},
@@ -334,7 +358,7 @@ def test_callback_happy_path_sets_four_cookies_and_redirects_home(
     signer: _Signer,
     token_post_recorder: Dict[str, Any],
 ) -> None:
-    state = _build_state()
+    state, verifier = _begin_oauth(client)
     access_token = signer.sign(_access_claims())
     token_post_recorder["responses"].append(
         _FakeTokenResponse(
@@ -364,6 +388,7 @@ def test_callback_happy_path_sets_four_cookies_and_redirects_home(
     assert call["data"]["grant_type"] == "authorization_code"
     assert call["data"]["code"] == "auth-code-from-cognito"
     assert call["data"]["redirect_uri"] == OAUTH_REDIRECT_URI
+    assert call["data"]["code_verifier"] == verifier
     # Basic auth header present because a client secret is configured.
     assert call["headers"].get("Authorization", "").startswith("Basic ")
 
@@ -374,6 +399,10 @@ def test_callback_happy_path_sets_four_cookies_and_redirects_home(
     assert ID_TOKEN_COOKIE in cookie_names
     assert REFRESH_TOKEN_COOKIE in cookie_names
     assert JUST_SIGNED_IN_COOKIE in cookie_names
+    assert OAUTH_STATE_COOKIE in cookie_names
+    assert PKCE_VERIFIER_COOKIE in cookie_names
+    assert OAUTH_STATE_COOKIE not in client.cookies
+    assert PKCE_VERIFIER_COOKIE not in client.cookies
 
     # Session cookies are httpOnly + Secure + SameSite=Lax per Req 5.3.1.
     for cookie_name in (ACCESS_TOKEN_COOKIE, ID_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE):
@@ -404,7 +433,7 @@ def test_callback_invalid_access_token_returns_502(
     token_post_recorder: Dict[str, Any],
 ) -> None:
     """A token that doesn't validate via JWKS surfaces as auth_failed."""
-    state = _build_state()
+    state, _verifier = _begin_oauth(client)
     # Sign with a key NOT in the JWKS — mimics Cognito handing back a
     # token with a rotated key the service hasn't cached yet.
     rogue = _Signer(kid="rogue")
@@ -425,13 +454,15 @@ def test_callback_invalid_access_token_returns_502(
     )
     assert resp.status_code == 502
     assert resp.json() == {"detail": "auth_failed"}
+    assert OAUTH_STATE_COOKIE not in client.cookies
+    assert PKCE_VERIFIER_COOKIE not in client.cookies
 
 
 def test_callback_cognito_token_endpoint_5xx_returns_auth_failed(
     client: TestClient,
     token_post_recorder: Dict[str, Any],
 ) -> None:
-    state = _build_state()
+    state, _verifier = _begin_oauth(client)
     token_post_recorder["responses"].append(
         _FakeTokenResponse({"error": "invalid_grant"}, status_code=400)
     )
@@ -441,6 +472,8 @@ def test_callback_cognito_token_endpoint_5xx_returns_auth_failed(
     )
     assert resp.status_code == 502
     assert resp.json() == {"detail": "auth_failed"}
+    assert OAUTH_STATE_COOKIE not in client.cookies
+    assert PKCE_VERIFIER_COOKIE not in client.cookies
 
 
 # ---------------------------------------------------------------------------

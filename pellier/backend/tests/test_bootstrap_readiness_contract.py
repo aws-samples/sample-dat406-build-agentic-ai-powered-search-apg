@@ -16,6 +16,10 @@ REPO = Path(__file__).resolve().parents[3]
 MODEL_CHECK = REPO / "scripts" / "check_model_access.py"
 HEALTH_GATE = REPO / "scripts" / "health-gate.sh"
 PROVISIONER = REPO / "scripts" / "provision_agentcore_end_to_end.py"
+BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
+RESET_GOVERNED = REPO / "scripts" / "reset-governed-workshop.sh"
+CATALOG_SEED = REPO / "scripts" / "seed_boutique_catalog.py"
+WAREHOUSE_MIGRATION = REPO / "scripts" / "migrations" / "006_warehouse_inventory.sql"
 SEED_PREFERENCES = REPO / "scripts" / "seed-sample-preferences.sh"
 FACILITATOR_DRY_RUN = REPO / "scripts" / "dry-run-builders.sh"
 
@@ -116,6 +120,7 @@ esac
         fake_bin / "psql",
         f"""#!/bin/bash
 case "$*" in
+  *inventory_consistency_check*) printf '0\n' ;;
   *product_catalog*) printf '1000\n' ;;
   *warehouse_inventory*) printf '120\n' ;;
   *governed_receipts*) printf '1\n' ;;
@@ -127,6 +132,7 @@ esac
     )
     _write_executable(fake_bin / "node", "#!/bin/bash\nprintf 'v20.20.2\\n'\n")
     _write_executable(fake_bin / "jq", "#!/bin/bash\nexit 0\n")
+    _write_executable(fake_bin / "aws", "#!/bin/bash\nprintf 'ENFORCE\\n'\n")
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["PELLIER_REPO"] = str(repo)
@@ -280,16 +286,24 @@ def test_runtime_smoke_requires_gateway_mcp_rail(
     monkeypatch.setattr(module.boto3, "client", fake_client)
     monkeypatch.setattr(module.urllib.request, "urlopen", lambda *_a, **_k: Response())
 
+    access_token, username = module._cognito_access_token(
+        region="us-east-1",
+        user_pool_id="us-east-1_pool",
+        client_id="client-id",
+        creds_secret_arn="test-users",
+        client_secret_arn="client-secret",
+    )
+    assert access_token == "jwt-token"
+    assert username == "Marco"
+
     invoke = lambda: module._authenticated_runtime_smoke(
         region="us-east-1",
         runtime_arn=(
             "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
             "runtime/pellier"
         ),
-        user_pool_id="us-east-1_pool",
-        client_id="client-id",
-        creds_secret_arn="test-users",
-        client_secret_arn="client-secret",
+        access_token=access_token,
+        username=username,
     )
     if should_pass:
         assert invoke()["rail"] == "gateway-mcp"
@@ -306,6 +320,47 @@ def test_policy_attachment_is_a_provisioning_hard_gate() -> None:
     assert source.index(
         "Managed AgentCore Policy is required but failed to attach"
     ) < source.index('result["status"] = "ready"')
+    assert "_live_policy_proof(" in source
+    assert '"live_policy_allow"' in source
+    assert '"live_policy_deny"' in source
+    assert "Gateway Policy mode is" in source
+    assert "_discover_live_gateway_tools(" in source
+    assert '"gateway_tools_discovered"' in source
+    assert '"gateway_tool_count"' in source
+    assert "len(tools) != 15" in source
+    assert "unexpected_prefixed" in source
+    assert "unexpected_targets" in source
+
+
+def test_bootstrap_normalizes_cognito_aliases_before_managed_provisioning() -> None:
+    source = BOOTSTRAP.read_text(encoding="utf-8")
+    pool_alias = (
+        'export COGNITO_POOL="${COGNITO_POOL:-'
+        '${COGNITO_POOL_ID:-${COGNITO_USER_POOL_ID:-}}}"'
+    )
+    client_alias = (
+        'export COGNITO_CLIENT="${COGNITO_CLIENT:-'
+        '${COGNITO_CLIENT_ID:-}}"'
+    )
+    provision = "python3 '$REPO_PATH/scripts/provision_agentcore_end_to_end.py'"
+
+    assert source.index(pool_alias) < source.index(provision)
+    assert source.index(client_alias) < source.index(provision)
+    assert "export COGNITO_POOL='${COGNITO_POOL:-}'" in source
+    assert "export COGNITO_CLIENT='${COGNITO_CLIENT:-}'" in source
+
+
+def test_governed_reset_restores_catalog_before_exact_warehouse_matrix() -> None:
+    reset = RESET_GOVERNED.read_text(encoding="utf-8")
+    seeder = CATALOG_SEED.read_text(encoding="utf-8")
+    warehouse = WAREHOUSE_MIGRATION.read_text(encoding="utf-8")
+
+    catalog_reset = '"$REPO/scripts/seed_boutique_catalog.py"'
+    warehouse_reset = "006_warehouse_inventory.sql"
+    assert reset.index(catalog_reset) < reset.index(warehouse_reset)
+    assert "quantity = EXCLUDED.quantity" in seeder
+    assert "DELETE FROM pellier.warehouse_inventory;" in warehouse
+    assert "IF nrows <> 120 OR invalid_products <> 0 THEN" in warehouse
 
 
 def test_facilitator_dry_run_requires_managed_rail_and_current_policy_receipts() -> None:
@@ -318,6 +373,9 @@ def test_facilitator_dry_run_requires_managed_rail_and_current_policy_receipts()
     assert "POLICY_ALLOW_SESSION" in source
     assert "POLICY_DENY_SESSION" in source
     assert "absence_verified" in source
+    assert "Skipping local process_return; governed mutations require gateway-mcp" in source
+    assert "JOIN pellier.tool_audit ta ON ta.audit_id = gr.audit_id" in source
+    assert "gr.identity_source='cognito'" in source
 
 
 def test_preference_seed_uses_access_token() -> None:

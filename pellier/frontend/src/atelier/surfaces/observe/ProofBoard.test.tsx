@@ -35,6 +35,10 @@ const proofBoardPayload = {
     latestGovernedReceiptId: 505,
     governedPrincipalId: 'CUST-MARCO',
     governedPrincipalLabel: 'Marco (Cognito JWT)',
+    governedVerifiedSubject: 'cognito-sub-marco',
+    governedVerifiedUsername: 'marco@example.com',
+    governedIdentitySource: 'cognito_access_token',
+    governedTokenFingerprint: 'abc123def456abc123def456abc123def456abc123def456abc123def456abcd',
     governedDecision: 'ALLOW',
     governedTool: 'process_return',
     governedArgs: { customer_id: 'theo', product_id: '37', reason: 'damaged' },
@@ -44,7 +48,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      lab: 'Core Lab 1: Build and Trace',
+      lab: 'Lab 1: Build a Specialist Agent',
       group: 'Agent and tool evidence',
       title: 'Wire Marco to floor_check',
       status: 'complete',
@@ -60,7 +64,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Core Lab 3: Query Evidence',
+      lab: 'Lab 4: Audit Agent Actions',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -75,11 +79,11 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Core Lab 4: Enforce Policy',
+      lab: 'Lab 3: Prove AgentCore Memory',
       group: 'Managed boundaries',
-      title: 'Fast-finisher managed rail',
-      status: 'available',
-      required: false,
+      title: 'Prove the managed Runtime and Gateway rail',
+      status: 'complete',
+      required: true,
       surface: 'Runtime receipt',
       summary: 'After a managed Runtime turn, the receipt shows passthrough.',
       evidence: ['JWT passthrough: true'],
@@ -122,13 +126,14 @@ describe('ProofBoard', () => {
     });
     expect(screen.getByText('AgentCore Gateway')).toBeInTheDocument();
     expect(screen.getByText('gateway-mcp')).toBeInTheDocument();
-    expect(screen.getByText('Marco (Cognito JWT)')).toBeInTheDocument();
+    expect(screen.getByText('marco@example.com via cognito_access_token')).toBeInTheDocument();
+    expect(screen.getByText(/sha256 abc123def456\.\.\. · subject cognito-sub-marco/)).toBeInTheDocument();
     expect(screen.getByText('ALLOW')).toBeInTheDocument();
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to floor_check',
     );
-    expect(screen.getAllByText('Core Lab 1: Build and Trace')).toHaveLength(2);
-    expect(screen.getAllByText('Core Lab 4: Enforce Policy')).toHaveLength(2);
+    expect(screen.getAllByText('Lab 1: Build a Specialist Agent')).toHaveLength(2);
+    expect(screen.getAllByText('Lab 3: Prove AgentCore Memory')).toHaveLength(2);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
@@ -167,7 +172,7 @@ describe('ProofBoard', () => {
     expect(screen.getByText(/No-row DENY is scoped to the Gateway\/Cedar rail/)).toBeInTheDocument();
   });
 
-  it('maps card ids to Core Labs while an older local backend is still running', async () => {
+  it('maps card ids to labs while an older local backend is still running', async () => {
     const cards = proofBoardPayload.cards.map(({ lab: _lab, ...card }) => card);
     vi.stubGlobal(
       'fetch',
@@ -185,11 +190,11 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findAllByText('Core Lab 1: Build and Trace')).toHaveLength(2);
-    expect(screen.getAllByText('Core Lab 4: Enforce Policy')).toHaveLength(2);
+    expect(await screen.findAllByText('Lab 1: Build a Specialist Agent')).toHaveLength(2);
+    expect(screen.getAllByText('Lab 3: Prove AgentCore Memory')).toHaveLength(2);
   });
 
-  it('renders Audit Proof as a focused Core Lab 3 evidence view', async () => {
+  it('renders Audit Proof as a focused Lab 4 evidence view', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
@@ -221,7 +226,7 @@ describe('ProofBoard', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId('proof-card-marco-floor-check')).not.toBeInTheDocument();
     expect(screen.queryByTestId('proof-card-managed-rail')).not.toBeInTheDocument();
-    expect(screen.queryByText('Core Lab checkpoints')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lab checkpoints')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'All checkpoints' })).toHaveAttribute(
       'href',
       '/atelier/proof-board',

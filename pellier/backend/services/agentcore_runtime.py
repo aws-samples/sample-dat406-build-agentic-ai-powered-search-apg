@@ -50,6 +50,14 @@ _HISTORY_TURN_LIMIT = 20
 _HISTORY_CONTENT_LIMIT = 4000
 
 
+class ManagedRuntimeError(RuntimeError):
+    """Stable failure code for a configured managed Runtime path."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 def build_conversation_prompt(
     message: str,
     history: Optional[List[Dict[str, Any]]] = None,
@@ -208,33 +216,36 @@ async def run_agent_on_runtime(
         user_id: Verified Cognito ``sub`` when the caller is signed
             in; ``None`` for anonymous shoppers.
         auth_token: Raw Cognito access token forwarded to the Runtime
-            authorizer. Anonymous requests fall back to the in-process
-            orchestrator because the managed Runtime is JWT-protected.
+            authorizer. The managed Runtime rejects anonymous requests.
         history: Prior user/assistant turns read from the identity-scoped
             AgentCore Memory namespace and forwarded as bounded context.
 
     Returns:
-        The orchestrator's reply as a string. Errors are logged and
-        returned as a user-safe envelope.
+        The orchestrator's reply as a string.
+
+    Raises:
+        ManagedRuntimeError: If the managed rail is incomplete or unavailable.
     """
     endpoint = settings.AGENTCORE_RUNTIME_ENDPOINT
     if not endpoint:
-        logger.warning(
-            "USE_AGENTCORE_RUNTIME=true but AGENTCORE_RUNTIME_ENDPOINT is "
-            "unset; falling back to in-process orchestrator"
+        logger.error(
+            "USE_AGENTCORE_RUNTIME=true but AGENTCORE_RUNTIME_ENDPOINT is unset"
         )
-        return await _run_orchestrator_inprocess(
-            message, session_id, user_id, history
-        )
+        raise ManagedRuntimeError("runtime_not_configured")
 
     if not auth_token:
         logger.warning(
-            "USE_AGENTCORE_RUNTIME=true but no Cognito access token was "
-            "available; falling back to in-process orchestrator"
+            "USE_AGENTCORE_RUNTIME=true but no Cognito access token was available"
         )
-        return await _run_orchestrator_inprocess(
-            message, session_id, user_id, history
-        )
+        raise ManagedRuntimeError("authentication_required")
+
+    logger.info(
+        "agentcore.invoke session=%s user=%s prompt_len=%d endpoint=%s",
+        session_id,
+        user_id or "anonymous",
+        len(message),
+        endpoint.rsplit("/", 1)[-1],
+    )
 
     payload = json.dumps(
         {
@@ -285,33 +296,35 @@ async def run_agent_on_runtime(
         raw = await asyncio.to_thread(_invoke)
         try:
             parsed = json.loads(raw)
-            if isinstance(parsed, dict) and "response" in parsed:
-                _store_managed_runtime_receipt(
-                    session_id,
-                    rail=str(parsed.get("rail") or "runtime"),
-                    auth_token_present=bool(auth_token),
-                )
-                return str(parsed["response"])
-            _store_managed_runtime_receipt(
-                session_id,
-                rail="runtime",
-                auth_token_present=bool(auth_token),
-            )
-            return raw
-        except json.JSONDecodeError:
-            _store_managed_runtime_receipt(
-                session_id,
-                rail="runtime",
-                auth_token_present=bool(auth_token),
-            )
-            return raw
+        except json.JSONDecodeError as exc:
+            raise ManagedRuntimeError("runtime_invalid_response") from exc
+
+        if not isinstance(parsed, dict):
+            raise ManagedRuntimeError("runtime_invalid_response")
+        if parsed.get("error"):
+            raise ManagedRuntimeError(str(parsed["error"]))
+
+        rail = str(parsed.get("rail") or "")
+        if rail != "gateway-mcp":
+            raise ManagedRuntimeError("managed_gateway_unavailable")
+        if not str(parsed.get("response") or "").strip():
+            raise ManagedRuntimeError("runtime_invalid_response")
+
+        _store_managed_runtime_receipt(
+            session_id,
+            rail=rail,
+            auth_token_present=bool(auth_token),
+        )
+        return str(parsed["response"])
+    except ManagedRuntimeError:
+        raise
     except urllib.error.HTTPError as exc:  # pragma: no cover - SDK error path
         detail = exc.read().decode("utf-8", errors="replace")[:500]
         logger.error("AgentCore Runtime invoke HTTP %s: %s", exc.code, detail)
-        return json.dumps({"error": "runtime_unavailable"})
+        raise ManagedRuntimeError("runtime_unavailable") from exc
     except Exception as exc:  # pragma: no cover - SDK error path
         logger.error("AgentCore Runtime invocation failed: %s", exc)
-        return json.dumps({"error": "runtime_unavailable"})
+        raise ManagedRuntimeError("runtime_unavailable") from exc
 # === REFERENCE: AgentCore Runtime — END ===
 
 

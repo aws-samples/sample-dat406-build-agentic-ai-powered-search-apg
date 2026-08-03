@@ -122,14 +122,14 @@
       "slug": "tool-publishing",
       "title": "Tool publishing & discovery",
       "role": "How the agent finds the right capability when the catalog grows",
-      "summary": "The default builder path uses in-process Strands tools – fast, type-safe, all in one Python process. At production scale, two surfaces help: AgentCore Gateway publishes tools over MCP so multiple agents share a single source of truth, and the Aurora pgvector tool registry lets a Strands agent semantically search tool descriptions when there are too many to fit in a system prompt.",
-      "shipped": false,
-      "shippedNote": "Optional. The default Boutique path is in-process Strands tools – the orchestrator and tools live in one Python module.",
+      "summary": "The governed path uses AgentCore Gateway to publish all 15 tools over MCP, preserve the caller JWT, and give Cedar a managed enforcement boundary. The separate builders format uses in-process Strands tools. Aurora's pgvector tool registry remains the semantic discovery surface when a larger catalog no longer fits comfortably in one prompt.",
+      "shipped": true,
+      "shippedNote": "Required in the governed format. Managed Runtime fails closed unless Gateway exposes the full 15-tool contract.",
       "category": "scaling",
       "surfaces": [
         {
           "name": "AgentCore Gateway (MCP)",
-          "where": "Configured via AGENTCORE_GATEWAY_URL – falls back to in-process when unset",
+          "where": "Governed Runtime requires AGENTCORE_GATEWAY_URL and fails closed when unavailable",
           "purpose": "Lets multiple agents (advanced workshop path, ops tools, internal copilots) share one Lambda-backed tool surface. Each tool is published once, discovered over MCP, called by ARN.",
           "tradeoff": "Adds a network hop and a deploy step. Worth it when more than one agent needs the same capability."
         },
@@ -140,7 +140,7 @@
           "tradeoff": "Useful past ~20 tools. Below that, just put them in the prompt – the agent's tool-selection logic is the bottleneck, not retrieval."
         }
       ],
-      "codeSnippet": "# Optional Gateway path\nif settings.AGENTCORE_GATEWAY_URL:\n    agent = create_gateway_orchestrator()\nelse:\n    agent = create_in_process_dispatcher()\n\n# Aurora tool registry — semantic tool discovery\nSELECT name, description,\n       1 - (embedding <=> $1::vector) AS similarity\nFROM tools\nORDER BY embedding <=> $1::vector\nLIMIT 5;",
+      "codeSnippet": "# Governed Gateway path\nif settings.WORKSHOP_FORMAT == \"governed\":\n    if not settings.AGENTCORE_GATEWAY_URL:\n        raise ManagedRuntimeError(\"Gateway is required\")\n    agent = create_gateway_orchestrator()\nelse:\n    agent = create_in_process_dispatcher()\n\n# Aurora tool registry — semantic tool discovery\nSELECT name, description,\n       1 - (embedding <=> $1::vector) AS similarity\nFROM tools\nORDER BY embedding <=> $1::vector\nLIMIT 5;",
       "crossLinks": [
         { "label": "Tools", "to": "/atelier/tools" },
         { "label": "Architecture · Routing & State", "to": "/atelier/architecture/state-management" }

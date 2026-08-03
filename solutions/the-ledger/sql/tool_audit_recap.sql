@@ -1,17 +1,16 @@
 -- tool_audit_recap.sql – Act II: Exercise 4 (Aurora ledger proof)
 --
 -- Drops in for the in-room SQL proof when a participant runs out of time.
--- The required workshop path uses the in-process storefront rail:
--- /api/chat/stream, no bearer token, caller='agent'. The same table can also
--- receive caller='gateway' rows from the optional managed Gateway rail when
--- Policy permits a Lambda-backed MCP tool call. This script pulls the most
--- recent executed process_return for 'theo' and prints:
+-- In the governed format, an allowed managed write records caller='gateway';
+-- a Cedar DENY stops before Lambda execution and writes no tool_audit row.
+-- The builders format retains caller='agent' for its in-process path. This
+-- script pulls the most recent executed process_return for 'theo' and prints:
 --
 --   1) raw row              – tool, caller, args, result, latency_ms
 --   2) JSONB extraction     – args->>'reason', result->>'return_id', etc.
---   3) rail label           – caller='agent' means the required in-process rail
+--   3) rail label           – caller identifies managed vs in-process execution
 --   4) recent trail         – last few process_return rows for the customer
---   5) rail/reason aggregate – useful if the optional Gateway rail was invoked
+--   5) rail/reason aggregate – compares managed and builders-format evidence
 --   6) Gateway no-row check – only meaningful after an attempted Gateway DENY
 --
 -- Run (bare psql picks up the PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE
@@ -129,11 +128,11 @@ SELECT count(*) AS gateway_changed_mind_rows
 \echo ''
 \echo 'Notes:'
 \echo '  - args / result are JSONB. ->> returns text; -> returns JSONB.'
-\echo '  - Required path: /api/chat/stream uses in-process tools, so caller=agent.'
-\echo '  - Optional Gateway path: allowed Lambda-backed calls write caller=gateway.'
+\echo '  - Governed path: allowed Lambda-backed calls write caller=gateway.'
+\echo '  - Builders path: in-process tools write caller=agent.'
 \echo '  - A zero gateway_changed_mind_rows count is a DENY signal only if you'
 \echo '    actually attempted that call through Gateway. It is not proof on the'
-\echo '    required in-process rail.'
+\echo '    builders in-process rail.'
 \echo '  - In-process changed_mind is valid and would write caller=agent.'
 \echo '  - latency_ms is the tool round-trip measured by the active rail, not'
 \echo '    the LLM call.'

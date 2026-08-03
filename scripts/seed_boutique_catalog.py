@@ -683,18 +683,22 @@ def write_csv(products: List[Product], path: str) -> None:
 # DIRECT DB SEEDING
 # =========================================================================
 
-def seed_database(products: List[Product]) -> None:
-    """Insert products directly into Aurora via psycopg."""
-    import psycopg
-
-    dsn = (
+def _database_dsn() -> str:
+    """Build the libpq DSN from the documented database environment."""
+    return (
         f"host={os.environ['DB_HOST']} "
+        f"port={os.getenv('DB_PORT', '5432')} "
         f"dbname={os.environ['DB_NAME']} "
         f"user={os.environ['DB_USER']} "
         f"password={os.environ['DB_PASSWORD']}"
     )
 
-    with psycopg.connect(dsn) as conn:
+
+def seed_database(products: List[Product]) -> None:
+    """Insert products directly into Aurora via psycopg."""
+    import psycopg
+
+    with psycopg.connect(_database_dsn()) as conn:
         with conn.cursor() as cur:
             managed_product_ids = [str(p.productId) for p in products]
             # Clear only stale rows in the managed ID ranges. Keeping current

@@ -23,8 +23,10 @@ References:
         https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html
 """
 import json
+import hashlib
 import logging
 import os
+import time
 from typing import Any
 
 import boto3
@@ -86,6 +88,74 @@ def _execute_sql(sql: str, parameters: list = None) -> list[dict]:
                 row[columns[i]] = str(field)
         rows.append(row)
     return rows
+
+
+def _execute_in_transaction(
+    transaction_id: str,
+    sql: str,
+    parameters: list | None = None,
+) -> list[dict]:
+    params = {
+        "resourceArn": DB_CLUSTER_ARN,
+        "secretArn": SECRET_ARN,
+        "database": DATABASE,
+        "sql": sql,
+        "transactionId": transaction_id,
+        "includeResultMetadata": True,
+    }
+    if parameters:
+        params["parameters"] = parameters
+    response = rds_client.execute_statement(**params)
+    columns = [col["name"] for col in response.get("columnMetadata", [])]
+    return [
+        {
+            columns[index]: (
+                field.get("stringValue")
+                if "stringValue" in field
+                else field.get("longValue")
+                if "longValue" in field
+                else field.get("doubleValue")
+                if "doubleValue" in field
+                else None
+            )
+            for index, field in enumerate(record)
+        }
+        for record in response.get("records", [])
+    ]
+
+
+def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> None:
+    """Record a Gateway mutation after the target actually executes."""
+    try:
+        rds_client.execute_statement(
+            resourceArn=DB_CLUSTER_ARN,
+            secretArn=SECRET_ARN,
+            database=DATABASE,
+            sql=(
+                f"INSERT INTO {SCHEMA}.tool_audit "
+                "(session_id, tool, caller, args, result, latency_ms) "
+                "VALUES (:sid, :tool, 'gateway', :args::jsonb, "
+                ":result::jsonb, :latency_ms)"
+            ),
+            parameters=[
+                {
+                    "name": "sid",
+                    "value": {"stringValue": "gateway-stock-keeper"},
+                },
+                {"name": "tool", "value": {"stringValue": tool}},
+                {
+                    "name": "args",
+                    "value": {"stringValue": json.dumps(args, default=str)},
+                },
+                {
+                    "name": "result",
+                    "value": {"stringValue": json.dumps(result, default=str)},
+                },
+                {"name": "latency_ms", "value": {"longValue": int(latency_ms)}},
+            ],
+        )
+    except Exception as exc:
+        logger.warning("tool_audit write failed (non-fatal): %s", exc)
 
 
 def _get_embedding(text: str) -> list[float]:
@@ -356,25 +426,71 @@ def _bedrock_rerank(query: str, documents: list, top_n: int) -> list:
         return []
 
 
-def restock_product(product_id: str, quantity: int) -> dict:
-    """Restock a product by adding quantity."""
+def restock_product(
+    product_id: str,
+    quantity: int,
+    idempotency_key: str,
+    warehouse_id: str = "BK-01",
+) -> dict:
+    """Execute the shared idempotent restock transaction in Aurora."""
     if quantity > 500:
         return {"error": "Restock quantity exceeds policy limit of 500", "denied": True}
-
-    sql = f"""
-        UPDATE {SCHEMA}.product_catalog
-        SET quantity = quantity + :qty
-        WHERE "productId" = :pid
-        RETURNING "productId", description AS product_description, quantity;
-    """
-    parameters = [
-        {"name": "pid", "value": {"stringValue": str(product_id)}},
-        {"name": "qty", "value": {"longValue": int(quantity)}},
-    ]
-    rows = _execute_sql(sql, parameters)
-    if rows:
-        return {"success": True, "product": rows[0]}
-    return {"error": f"Product {product_id} not found"}
+    clean_key = str(idempotency_key or "").strip()
+    if not clean_key:
+        return {"error": "idempotency_key is required"}
+    clean_warehouse = str(warehouse_id or "BK-01").strip() or "BK-01"
+    request_payload = json.dumps(
+        {
+            "operation": "restock_shelf",
+            "arguments": {
+                "product_id": int(product_id),
+                "quantity": int(quantity),
+                "warehouse_id": clean_warehouse,
+            },
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    request_hash = hashlib.sha256(request_payload.encode("utf-8")).hexdigest()
+    transaction = rds_client.begin_transaction(
+        resourceArn=DB_CLUSTER_ARN,
+        secretArn=SECRET_ARN,
+        database=DATABASE,
+    )
+    transaction_id = transaction["transactionId"]
+    try:
+        rows = _execute_in_transaction(
+            transaction_id,
+            f"SELECT {SCHEMA}.restock_shelf_idempotent("
+            ":idempotency_key, :request_hash, :pid, :qty, :warehouse_id"
+            ") AS result;",
+            [
+                {"name": "idempotency_key", "value": {"stringValue": clean_key}},
+                {"name": "request_hash", "value": {"stringValue": request_hash}},
+                {"name": "pid", "value": {"stringValue": str(product_id)}},
+                {"name": "qty", "value": {"longValue": int(quantity)}},
+                {"name": "warehouse_id", "value": {"stringValue": clean_warehouse}},
+            ],
+        )
+        rds_client.commit_transaction(
+            resourceArn=DB_CLUSTER_ARN,
+            secretArn=SECRET_ARN,
+            transactionId=transaction_id,
+        )
+        raw_result = rows[0].get("result") if rows else None
+        result = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
+        if result and result.get("status") == "success":
+            return {"success": True, "product": result}
+        if result and result.get("status") == "policy_blocked":
+            return {"error": result.get("message"), "denied": True}
+        return {"error": (result or {}).get("message", "Restock failed"), "result": result}
+    except Exception:
+        rds_client.rollback_transaction(
+            resourceArn=DB_CLUSTER_ARN,
+            secretArn=SECRET_ARN,
+            transactionId=transaction_id,
+        )
+        raise
 
 
 def find_pieces(
@@ -541,19 +657,31 @@ def running_low(limit: int = 5) -> dict:
     return result
 
 
-def restock_shelf(product_id: int, quantity: int) -> dict:
+def restock_shelf(
+    product_id: int,
+    quantity: int,
+    idempotency_key: str,
+    warehouse_id: str = "BK-01",
+) -> dict:
     """Canonical bounded inventory write used by Stock Keeper."""
     if int(quantity) <= 0:
         return {"status": "error", "message": "Quantity must be positive."}
-    result = restock_product(str(product_id), int(quantity))
+    result = restock_product(
+        str(product_id),
+        int(quantity),
+        idempotency_key,
+        warehouse_id,
+    )
     if result.get("success"):
         product = result["product"]
         return {
             "status": "success",
-            "product_id": product.get("productId"),
-            "name": product.get("product_description"),
-            "new_quantity": product.get("quantity"),
+            "product_id": product.get("product_id"),
+            "name": product.get("name"),
+            "new_quantity": product.get("new_quantity"),
             "added": int(quantity),
+            "warehouse_id": product.get("warehouse_id"),
+            "idempotent_replay": product.get("idempotent_replay", False),
         }
     if result.get("denied"):
         return {"status": "policy_blocked", "message": result["error"]}
@@ -635,8 +763,10 @@ TOOLS = {
             "properties": {
                 "product_id": {"type": "integer", "description": "Product ID to restock"},
                 "quantity": {"type": "integer", "description": "Quantity to add (max 500)"},
+                "idempotency_key": {"type": "string", "description": "Stable unique key for this intended write"},
+                "warehouse_id": {"type": "string", "description": "Warehouse receiving stock; defaults to BK-01"},
             },
-            "required": ["product_id", "quantity"],
+            "required": ["product_id", "quantity", "idempotency_key"],
         },
     },
 }
@@ -660,7 +790,15 @@ def lambda_handler(event: dict, context: Any) -> dict:
         return {"error": f"Unknown tool: {tool_name}"}
 
     try:
+        started = time.monotonic()
         result = TOOLS[tool_name]["fn"](**arguments)
+        if tool_name == "restock_shelf":
+            _write_tool_audit(
+                tool_name,
+                arguments,
+                result,
+                int((time.monotonic() - started) * 1000),
+            )
         return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
     except Exception as e:
         logger.error(f"Tool {tool_name} failed: {e}")

@@ -41,6 +41,10 @@ interface ManagedReceipt {
   governedAuditId?: number | null;
   governedPrincipalId?: string;
   governedPrincipalLabel?: string;
+  governedVerifiedSubject?: string;
+  governedVerifiedUsername?: string;
+  governedIdentitySource?: string;
+  governedTokenFingerprint?: string;
   governedDecision?: string;
   governedTool?: string;
   governedPolicyName?: string;
@@ -128,16 +132,16 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
   },
 };
 
-const CORE_LAB_BY_CARD_ID: Record<string, string> = {
-  'marco-floor-check': 'Core Lab 1: Build and Trace',
-  'retrieval-comparison': 'Core Lab 2: Measure Retrieval',
-  'audit-ledger': 'Core Lab 3: Query Evidence',
-  'runtime-gateway-policy': 'Core Lab 4: Enforce Policy',
-  'managed-rail': 'Core Lab 4: Enforce Policy',
+const LAB_BY_CARD_ID: Record<string, string> = {
+  'marco-floor-check': 'Lab 1: Build a Specialist Agent',
+  'retrieval-comparison': 'Lab 2: Measure Hybrid Search',
+  'managed-rail': 'Lab 3: Prove AgentCore Memory',
+  'audit-ledger': 'Lab 4: Audit Agent Actions',
+  'runtime-gateway-policy': 'Lab 5: Enforce Cedar Policy',
 };
 
 function cardLab(card: ProofCard): string {
-  return card.lab ?? CORE_LAB_BY_CARD_ID[card.id] ?? 'Core Lab checkpoint';
+  return card.lab ?? LAB_BY_CARD_ID[card.id] ?? 'Lab checkpoint';
 }
 
 const CODE_STYLE: React.CSSProperties = {
@@ -371,13 +375,29 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
   const isDeny = receipt.governedDecision === 'DENY';
   const absenceVerified = Boolean(receipt.gatewayAuditAbsenceVerified);
   const receiptSeen = Boolean(receipt.present || receipt.governedReceiptPresent);
+  const tokenFingerprint = receipt.governedTokenFingerprint
+    ? `${receipt.governedTokenFingerprint.slice(0, 12)}...`
+    : '';
   const traceSteps: Array<{ label: string; detail: string; state: TraceStepState }> = [
     {
-      label: 'Cognito user',
-      detail: receipt.governedPrincipalLabel
-        ? receipt.governedPrincipalLabel
-        : receipt.jwtPassthrough ? 'Caller JWT forwarded' : 'Signed-in JWT not observed',
+      label: 'Verified identity',
+      detail: receipt.governedVerifiedUsername
+        ? `${receipt.governedVerifiedUsername} via ${receipt.governedIdentitySource || 'Cognito JWT'}`
+        : receipt.governedPrincipalLabel
+          ? receipt.governedPrincipalLabel
+          : receipt.jwtPassthrough
+            ? 'Caller JWT forwarded'
+            : 'Signed-in JWT not observed',
       state: receipt.governedReceiptPresent || receipt.jwtPassthrough ? 'pass' : 'pending',
+    },
+    {
+      label: 'JWT binding',
+      detail: tokenFingerprint && receipt.governedVerifiedSubject
+        ? `sha256 ${tokenFingerprint} · subject ${receipt.governedVerifiedSubject}`
+        : 'No verified token fingerprint on receipt',
+      state: tokenFingerprint && receipt.governedVerifiedSubject
+        ? 'pass'
+        : receipt.governedReceiptPresent ? 'warn' : 'pending',
     },
     {
       label: 'Runtime',
@@ -442,7 +462,7 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
           marginBottom: '14px',
         }}
       >
-        <Eyebrow label="Optional Gateway/JWT receipt" />
+        <Eyebrow label="Governed Runtime/Gateway receipt" />
         <span
           className="font-mono"
           style={{
@@ -882,12 +902,12 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         </Link>
       )}
       <EditorialTitle
-        eyebrow={isAuditFocus ? 'Core Lab 3 · Query Evidence' : 'Core Labs 1-4 · Proof Board'}
+        eyebrow={isAuditFocus ? 'Lab 4 · Audit Agent Actions' : 'Labs 1-5 · Proof Board'}
         title={isAuditFocus ? 'Audit proof, row by row.' : 'Evidence checkpoints, in lab order.'}
         summary={
           isAuditFocus
             ? 'A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present.'
-            : "Use this board only when a Core Lab asks for an Atelier check. Required-path checkpoints follow Workshop Studio's four-lab order; managed Runtime and Gateway receipt detail stays optional."
+            : "Use this board when a required lab asks for an Atelier check. Checkpoints follow Workshop Studio's five-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
         }
       />
 
@@ -917,7 +937,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         isAuditFocus ? (
           focusedCard ? (
             <section
-              aria-label="Core Lab 3 audit evidence"
+              aria-label="Lab 4 audit evidence"
               style={{ maxWidth: '860px' }}
             >
               <ProofCardView card={focusedCard} highlighted />
@@ -942,16 +962,16 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
 
             <ProofRail
               eyebrow="Required path"
-              title="Core Lab checkpoints"
+              title="Lab checkpoints"
               summary="These cards mirror evidence from the required path. Use their terminal or SQL fallbacks when you need canonical proof."
               cards={rails.required}
               activeAnchor={activeAnchor}
             />
             <ReceiptStrip receipt={data.managedReceipt} />
             <ProofRail
-              eyebrow="Optional Core Lab 4 detail"
+              eyebrow="Extension evidence"
               title="Managed boundary"
-              summary="Inspect these cards only when the account has Runtime, Gateway, and Policy configured and the required SQL proof is complete."
+              summary="These cards remain optional only in the separate builders format."
               cards={rails.optional}
               activeAnchor={activeAnchor}
             />

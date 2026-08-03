@@ -4,23 +4,25 @@ import { describe, expect, it } from 'vitest';
 import Observatory from './Observatory';
 
 describe('Atelier workshop map', () => {
-  it('uses the exact governed Core Lab sequence and destinations', () => {
+  it('uses the exact governed lab sequence and destinations', () => {
     render(
       <MemoryRouter>
         <Observatory />
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText(/^Core Lab [1-4]$/).map((node) => node.textContent)).toEqual([
-      'Core Lab 1',
-      'Core Lab 2',
-      'Core Lab 3',
-      'Core Lab 4',
+    expect(screen.getAllByText(/^Lab [1-5]$/).map((node) => node.textContent)).toEqual([
+      'Lab 1',
+      'Lab 2',
+      'Lab 3',
+      'Lab 4',
+      'Lab 5',
     ]);
-    expect(screen.getByRole('heading', { name: 'Build and Trace' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Measure Retrieval' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Query Evidence' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Enforce Policy' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Build a Specialist Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Measure Hybrid Search' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Prove AgentCore Memory' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Audit Agent Actions' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Enforce Cedar Policy' })).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 
     expect(screen.getByRole('link', { name: /Open retrieval comparison/i })).toHaveAttribute(
@@ -31,7 +33,7 @@ describe('Atelier workshop map', () => {
       'href',
       '/atelier/audit-proof',
     );
-    expect(screen.getByRole('link', { name: /^Memory/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Open Memory/i })).toHaveAttribute(
       'href',
       '/atelier/memory',
     );

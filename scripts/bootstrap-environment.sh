@@ -143,14 +143,14 @@ if [ "$_node20_ok" = true ]; then
         fi
 
         # Claude Code CLI (global), for the optional Claude Code lane in
-        # Core Lab 1. It runs entirely against Bedrock via the box's instance
+        # Lab 1. It runs entirely against Bedrock via the box's instance
         # role (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_MODEL are exported in the
         # participant .bashrc by bootstrap-labs), so there is NO per-participant
         # login — the same ambient-credential model the rest of the lab uses.
         # Intentionally NON-fatal: the mandatory path is hand-paste / cp, which
         # needs none of this. If the install fails, the lab guide's manual tab
         # still completes the exercise; only the optional agent lane is absent.
-        log "Installing Claude Code CLI globally (optional agent lane for Core Lab 1)..."
+        log "Installing Claude Code CLI globally (optional agent lane for Lab 1)..."
         if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
@@ -160,7 +160,7 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
         else
-            warn "Claude Code CLI install failed – the optional agent lane in Core Lab 1 will be unavailable (the mandatory hand-paste / cp path is unaffected). Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
+            warn "Claude Code CLI install failed – the optional agent lane in Lab 1 will be unavailable (the mandatory hand-paste / cp path is unaffected). Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
         fi
     fi
 else
@@ -708,7 +708,7 @@ cat << EOF
 
   MEASURE     Compare retrieval strategies for Anna's query.
 
-  PROVE       Core Lab 3: query pellier.tool_audit from psql.
+  PROVE       Lab 4: query pellier.tool_audit from psql.
 
   ATELIER     Use Atelier only when a step names a specific verification or
               comparison view.

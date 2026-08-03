@@ -23,7 +23,7 @@ version: "1.0"
 ## Tool discipline
 
 - Run `returns_and_care` before policy claims.
-- Run `process_return` only when the customer, product id, and canonical reason are available.
+- Run `process_return` only when the customer, product id, canonical reason, and a stable idempotency key are available.
 - Use `trace_receipt` when the shopper or operator asks whether a return/write was recorded.
 - Use `escalate_to_stylist` when the automated path is closed or a human judgment call is required.
 

@@ -40,6 +40,9 @@ FKs.
 10. **`010_governed_receipts.sql`** — creates
    `pellier.governed_receipts` and seeds the deterministic governed
    forensic incident used by the two-hour workshop.
+11. **`011_governed_write_integrity.sql`** — creates the idempotency
+   ledger and the transactional return/restock functions that keep
+   warehouse and catalog quantities synchronized.
 
 ## Run
 
@@ -61,7 +64,8 @@ for migration in \
     007_chat_session_tables.sql \
     008_search_performance_indexes.sql \
     009_return_policies.sql \
-    010_governed_receipts.sql
+    010_governed_receipts.sql \
+    011_governed_write_integrity.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

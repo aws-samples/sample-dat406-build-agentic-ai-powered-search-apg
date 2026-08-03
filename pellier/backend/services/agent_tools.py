@@ -123,6 +123,21 @@ def _json_default(value):
     return str(value)
 
 
+def _managed_rail_required(tool_name: str) -> str | None:
+    """Reject local mutations in the governed workshop format."""
+    from config import settings
+
+    if str(getattr(settings, "WORKSHOP_FORMAT", "")).lower() != "governed":
+        return None
+    return json.dumps(
+        {
+            "error": "managed_rail_required",
+            "tool": tool_name,
+            "required_rail": "gateway-mcp",
+        }
+    )
+
+
 def _infer_customer_id(customer_id: str = "", persona: str = "") -> str:
     """Resolve a customer id from explicit args or the active persona preamble."""
     raw_customer = (customer_id or "").strip()
@@ -389,6 +404,12 @@ def trace_receipt(
                        decision,
                        args,
                        policy_name,
+                       token_fingerprint_sha256,
+                       verified_subject,
+                       verified_username,
+                       issuer,
+                       client_id,
+                       identity_source,
                        created_at
                   FROM pellier.governed_receipts
                   {where}
@@ -410,6 +431,12 @@ def trace_receipt(
                     "decision": row.get("decision"),
                     "args": row.get("args"),
                     "policy_name": row.get("policy_name"),
+                    "token_fingerprint_sha256": row.get("token_fingerprint_sha256"),
+                    "verified_subject": row.get("verified_subject"),
+                    "verified_username": row.get("verified_username"),
+                    "issuer": row.get("issuer"),
+                    "client_id": row.get("client_id"),
+                    "identity_source": row.get("identity_source"),
                     "created_at": row.get("created_at"),
                 }
                 for row in governed_rows
@@ -538,29 +565,47 @@ def price_intelligence(category: str = None) -> str:
         return json.dumps({"error": str(e)})
 
 @tool
-def restock_shelf(product_id: int, quantity: int) -> str:
+def restock_shelf(
+    product_id: int,
+    quantity: int,
+    idempotency_key: str,
+    warehouse_id: str = "BK-01",
+) -> str:
     """Restock a specific product by adding inventory quantity. Use when an inventory manager needs to replenish stock for a product ID.
 
     Args:
         product_id: Integer productId. Workshop inventory exercises use curated IDs 1-40.
         quantity: Units to add to current stock.
+        idempotency_key: Stable unique key for this intended write.
+        warehouse_id: Warehouse receiving stock; defaults to BK-01.
 
     """
-    # Cedar policy `max-restock-quantity` enforces the 500-unit ceiling
-    # via BeforeToolCallEvent — we don't need to enforce it here.
+    governed_error = _managed_rail_required("restock_shelf")
+    if governed_error:
+        return governed_error
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
-        result = _run_async(logic.restock_shelf(product_id, quantity))
+        result = _run_async(logic.restock_shelf(
+            product_id,
+            quantity,
+            idempotency_key,
+            warehouse_id,
+        ))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 @tool
-def process_return(customer_id: str, product_id: int, reason: str) -> str:
+def process_return(
+    customer_id: str,
+    product_id: int,
+    reason: str,
+    idempotency_key: str,
+) -> str:
     """Process a customer return. Theo's Experience Guide uses this.
 
     Two enforcement layers:
@@ -584,13 +629,22 @@ def process_return(customer_id: str, product_id: int, reason: str) -> str:
         reason: One of 'damaged', 'wrong_size', 'not_as_described',
             'changed_mind', 'other'. The tool validates this canonical set;
             the managed Gateway policy can narrow which calls execute.
+        idempotency_key: Stable unique key for this intended return.
     """
+    governed_error = _managed_rail_required("process_return")
+    if governed_error:
+        return governed_error
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
-        result = _run_async(logic.process_return(customer_id, product_id, reason))
+        result = _run_async(logic.process_return(
+            customer_id,
+            product_id,
+            reason,
+            idempotency_key,
+        ))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})

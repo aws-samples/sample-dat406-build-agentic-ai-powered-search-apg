@@ -77,9 +77,9 @@ const DARK_INLINE_CODE: React.CSSProperties = {
  * Visualizes the chain:
  *   Agent calls process_return
  *     → Cedar (managed Policy at the Gateway) — gates on reason == 'damaged'
- *     → SQL (BusinessLogic) — gates on customer ownership
- *     → 3 writes in one transaction
- *     → tool_audit row (AfterToolCallEvent updates result + latency)
+ *     → SQL stored function — gates ownership and claims an idempotency key
+ *     → return + warehouse/catalog inventory writes in one transaction
+ *     → Gateway Lambda appends the tool_audit execution receipt
  * ----------------------------------------------------------------------- */
 
 const EnforcementDiagram: React.FC = () => {
@@ -91,6 +91,7 @@ const EnforcementDiagram: React.FC = () => {
     borderRadius: '6px',
     background: 'var(--at-cream-2)',
     border: '1px solid var(--at-card-border)',
+    overflowWrap: 'anywhere',
   };
   const arrowStyle: React.CSSProperties = {
     fontFamily: 'var(--at-mono)',
@@ -148,14 +149,16 @@ const EnforcementDiagram: React.FC = () => {
         }}
       >
         <div style={layerLabel}>Agent</div>
-        <div style={stepStyle}>process_return(customer_id, product_id, reason)</div>
+        <div style={stepStyle}>
+          process_return(customer_id, product_id, reason, idempotency_key)
+        </div>
         <div style={arrowStyle}>↓</div>
 
         <div style={{ ...layerLabel, color: 'var(--at-burgundy)' }}>
           Layer 1 · Cedar (managed Policy · Gateway · ENFORCE)
         </div>
         <div style={stepStyle}>
-          forbid when reason ∉ {`{damaged, wrong_size, ...}`}
+          forbid when reason != damaged
           <span style={{ color: 'var(--at-ink-3)', marginLeft: '8px' }}>
             → DENY → no SQL fires
           </span>
@@ -163,32 +166,34 @@ const EnforcementDiagram: React.FC = () => {
         <div style={arrowStyle}>↓ ALLOW</div>
 
         <div style={{ ...layerLabel, color: 'var(--at-burgundy)' }}>
-          Layer 2 · SQL (BusinessLogic.process_return)
+          Layer 2 · SQL (process_return_idempotent)
         </div>
         <div style={stepStyle}>
-          SELECT 1 FROM orders WHERE customer_id=? AND product_id=?
+          claim idempotency_key + SELECT 1 FROM orders
           <span style={{ color: 'var(--at-ink-3)', marginLeft: '8px' }}>
-            → not owned → reject
+            → replay or not owned → no duplicate write
           </span>
         </div>
         <div style={arrowStyle}>↓ owned</div>
 
-        <div style={layerLabel}>3 writes in one transaction</div>
+        <div style={layerLabel}>One Aurora transaction</div>
         <div style={stepStyle}>
           INSERT INTO pellier.returns
           <br />
-          UPDATE pellier.product_catalog SET quantity = quantity - 1 WHERE reason = 'damaged'
+          UPDATE pellier.warehouse_inventory
           <br />
-          UPDATE pellier.tool_audit SET result, latency_ms
+          UPDATE pellier.product_catalog from warehouse aggregate
+          <br />
+          COMPLETE pellier.write_operations
         </div>
-        <div style={arrowStyle}>↓ commit</div>
+        <div style={arrowStyle}>↓ commit + Gateway execution receipt</div>
 
         <div style={{ ...layerLabel, color: 'var(--at-shipped)' }}>
           Aurora as system-of-record
         </div>
         <div style={stepStyle}>
-          Every mutation is reconstructible from a single SELECT against
-          tool_audit.
+          pellier.tool_audit records the managed action, result, latency, and
+          caller after Lambda execution.
         </div>
       </div>
     </ExpCard>

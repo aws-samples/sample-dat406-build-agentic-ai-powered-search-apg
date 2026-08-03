@@ -7,32 +7,26 @@ Usage:
 """
 import argparse
 import boto3
-import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from botocore.exceptions import BotoCoreError, ClientError
 
 
-def check_traces(runtime_id: str, last_n: int, region: str):
+def check_traces(runtime_id: str, last_n: int, region: str) -> bool:
     """Query CloudWatch Logs for recent AgentCore Runtime invocations."""
     logs_client = boto3.client("logs", region_name=region)
 
-    # AgentCore Runtime logs to a predictable log group
-    log_group = f"/aws/bedrock/agentcore/runtime/{runtime_id}"
+    log_group = f"/aws/bedrock-agentcore/runtimes/{runtime_id}"
 
     print(f"Checking log group: {log_group}")
     print(f"Looking for last {last_n} invocations...\n")
 
-    # Check if the log group exists
     try:
-        logs_client.describe_log_groups(logGroupNamePrefix=log_group, limit=1)
-    except Exception:
-        pass
-
-    # Query recent log events
-    try:
-        end_time = int(datetime.now().timestamp() * 1000)
-        start_time = int((datetime.now() - timedelta(hours=1)).timestamp() * 1000)
+        now = datetime.now(timezone.utc)
+        end_time = int(now.timestamp() * 1000)
+        start_time = int((now - timedelta(hours=1)).timestamp() * 1000)
 
         response = logs_client.filter_log_events(
             logGroupName=log_group,
@@ -50,61 +44,40 @@ def check_traces(runtime_id: str, last_n: int, region: str):
             print("  - The Runtime is still provisioning")
             print(f"  - Log group '{log_group}' does not exist yet")
             print("\nTry sending a test request first:")
-            print(f"  uv run test_runtime.py --runtime-id {runtime_id} "
-                  f'--prompt "Find running shoes" --token "$TOKEN"')
-            return
+            print(
+                "  uv run test_runtime.py "
+                '--runtime-arn "$AGENTCORE_RUNTIME_ENDPOINT" '
+                '--prompt "Find linen pieces" --token "$PELLIER_TOKEN"'
+            )
+            return False
 
-        # Parse and display invocation traces
-        invocations = []
-        current_invocation = None
-
-        for event in events:
-            message = event.get("message", "")
-            timestamp = datetime.fromtimestamp(event["timestamp"] / 1000)
-
-            # Look for invocation start markers
-            if "prompt" in message.lower() or "invoke" in message.lower():
-                if current_invocation:
-                    invocations.append(current_invocation)
-                current_invocation = {
-                    "timestamp": timestamp,
-                    "events": [message.strip()],
-                }
-            elif current_invocation:
-                current_invocation["events"].append(message.strip())
-
-        if current_invocation:
-            invocations.append(current_invocation)
-
-        # Display the most recent N invocations
-        displayed = invocations[-last_n:] if len(invocations) > last_n else invocations
-
-        print(f"Recent traces ({len(displayed)} of {len(invocations)} found):\n")
-        for i, inv in enumerate(displayed, 1):
-            ts = inv["timestamp"].strftime("%H:%M:%S")
-            print(f"  {i}. [{ts}]")
-            for line in inv["events"][:5]:  # Show first 5 lines per invocation
-                # Truncate very long lines
-                if len(line) > 120:
-                    line = line[:117] + "..."
-                print(f"     {line}")
-            if len(inv["events"]) > 5:
-                print(f"     ... ({len(inv['events']) - 5} more lines)")
-            print()
+        displayed = events[-last_n:]
+        print(f"Recent Runtime events ({len(displayed)} shown):\n")
+        for index, event in enumerate(displayed, 1):
+            timestamp = datetime.fromtimestamp(
+                event["timestamp"] / 1000,
+                tz=timezone.utc,
+            ).strftime("%H:%M:%S")
+            message = " ".join(str(event.get("message", "")).split())
+            if len(message) > 240:
+                message = message[:237] + "..."
+            print(f"  {index}. [{timestamp} UTC] {message}")
+        return True
 
     except logs_client.exceptions.ResourceNotFoundException:
         print(f"Log group not found: {log_group}")
         print("\nThe AgentCore Runtime may not have been invoked yet,")
         print("or the Runtime ID may be incorrect.")
         print(f"\nTry sending a test request first:")
-        print(f"  uv run test_runtime.py --runtime-id {runtime_id} "
-              f'--prompt "Find running shoes" --token "$TOKEN"')
-    except Exception as e:
-        print(f"ERROR: Failed to query traces: {e}")
-        sys.exit(1)
+        print(
+            "  uv run test_runtime.py "
+            '--runtime-arn "$AGENTCORE_RUNTIME_ENDPOINT" '
+            '--prompt "Find linen pieces" --token "$PELLIER_TOKEN"'
+        )
+        return False
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Check AgentCore Runtime traces")
     parser.add_argument("--runtime-id", required=True, help="AgentCore Runtime ID")
     parser.add_argument("--last", type=int, default=5, help="Number of recent traces to show")
@@ -116,10 +89,15 @@ def main():
     print(f"  Runtime: {args.runtime_id}")
     print(f"{'='*60}\n")
 
-    check_traces(args.runtime_id, args.last, args.region)
+    try:
+        found = check_traces(args.runtime_id, args.last, args.region)
+    except (BotoCoreError, ClientError) as exc:
+        print(f"ERROR: Failed to query Runtime logs: {exc}", file=sys.stderr)
+        return 1
 
     print(f"{'='*60}\n")
+    return 0 if found else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

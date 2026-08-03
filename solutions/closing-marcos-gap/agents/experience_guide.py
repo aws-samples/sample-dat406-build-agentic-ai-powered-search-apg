@@ -52,6 +52,7 @@ _SUPPORT_SYSTEM_PROMPT = (
     "  - process_return: actually write the return. Required args: "
     "customer_id, product_id (integer), reason (one of 'damaged', "
     "'wrong_size', 'not_as_described', 'changed_mind', 'other'). The "
+    "call also requires a stable idempotency_key for the intended return. The "
     "tool accepts that canonical set; SQL enforces that the customer "
     "must have ordered the product. If reason='damaged', the catalog "
     "quantity decrements by 1 in the same transaction.\n"

@@ -25,7 +25,7 @@
 #  10. Provisioning receipt proves targets, Policy, and gateway-mcp Runtime smoke
 #
 # In WORKSHOP_FORMAT=governed, all managed AgentCore checks are required because
-# Core Lab 4 and the session abstract depend on them. The separate one-hour
+# Labs 3 and 5 and the session abstract depend on them. The separate one-hour
 # builders format retains warning-only managed checks.
 # =============================================================================
 set -uo pipefail
@@ -108,10 +108,28 @@ fi
 
 # 3. Warehouse inventory
 wh_n="$(_psql 'SELECT count(*) FROM pellier.warehouse_inventory;' || echo '')"
-if [[ "${wh_n:-0}" =~ ^[0-9]+$ ]] && (( wh_n > 0 )); then
-  pass "Warehouse inventory present ($wh_n rows)"
+if [[ "$wh_n" == "120" ]]; then
+  pass "Warehouse inventory has exactly 120 curated rows"
 else
-  fail "Warehouse inventory empty or missing (got: ${wh_n:-none})"
+  fail "Warehouse inventory row count is ${wh_n:-none}, expected exactly 120"
+  ok=false
+fi
+
+inventory_drift="$(_psql "
+/* inventory_consistency_check */
+SELECT count(*)
+  FROM pellier.product_catalog pc
+ WHERE pc.\"productId\" ~ '^[0-9]+$'
+   AND pc.\"productId\"::int BETWEEN 1 AND 40
+   AND pc.quantity <> (
+       SELECT COALESCE(sum(wi.quantity), 0)
+         FROM pellier.warehouse_inventory wi
+        WHERE wi.product_id = pc.\"productId\"
+   );" || echo '')"
+if [[ "$inventory_drift" == "0" ]]; then
+  pass "Catalog quantity matches warehouse aggregate for all 40 curated products"
+else
+  fail "Catalog/warehouse inventory drift detected (${inventory_drift:-unknown} products)"
   ok=false
 fi
 
@@ -222,6 +240,22 @@ else
   managed_missing "AGENTCORE_POLICY_ENGINE_ID empty — managed Cedar enforcement unavailable. See /var/log/pellier-agentcore.log."
 fi
 
+gateway_identifier="${AGENTCORE_GATEWAY_ARN:-${GATEWAY_ARN:-}}"
+gateway_identifier="${gateway_identifier##*/}"
+policy_mode=""
+if [[ -n "$gateway_identifier" ]] && command -v aws >/dev/null 2>&1; then
+  policy_mode="$(aws bedrock-agentcore-control get-gateway \
+    --gateway-identifier "$gateway_identifier" \
+    --region "${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}" \
+    --query 'policyEngineConfiguration.mode' \
+    --output text 2>/dev/null || true)"
+fi
+if [[ "$policy_mode" == "ENFORCE" ]]; then
+  pass "Gateway Policy is currently in ENFORCE mode"
+else
+  managed_missing "Gateway Policy mode is ${policy_mode:-unavailable}, expected ENFORCE"
+fi
+
 # 10. Structured provisioning receipt. This is stronger than checking env vars:
 # it proves all Gateway targets were attached, Policy attached successfully, and
 # the authenticated Runtime smoke returned through the Gateway MCP rail.
@@ -230,13 +264,20 @@ if [[ -f "$managed_receipt" ]] && command -v jq >/dev/null 2>&1; then
   if jq -e '
       .status == "ready"
       and .verification.targets_attached == true
+      and .verification.target_count == 4
       and .verification.prefixed_tools_verified == true
+      and .verification.prefixed_tool_count == 15
+      and .verification.gateway_tools_discovered == true
+      and .verification.gateway_tool_count == 15
       and .verification.managed_policy_attached == true
+      and .verification.live_policy_allow == true
+      and .verification.live_policy_deny == true
+      and .policy.mode == "ENFORCE"
       and .verification.runtime_control_plane_visible == true
       and .verification.authenticated_runtime_invoke_smoke == true
       and .verification.runtime_invoke_smoke.rail == "gateway-mcp"
     ' "$managed_receipt" >/dev/null 2>&1; then
-    pass "Managed receipt proves Gateway tools, Policy, and gateway-mcp Runtime smoke"
+    pass "Managed receipt proves 15 live Gateway tools, Policy ALLOW/DENY, and gateway-mcp Runtime smoke"
   else
     managed_missing "Managed provisioning receipt is incomplete or degraded: $managed_receipt"
   fi

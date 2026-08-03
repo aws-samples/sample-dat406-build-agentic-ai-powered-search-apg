@@ -3,12 +3,12 @@
 # dry-run-builders.sh — end-to-end simulation of the participant path
 # =============================================================================
 # Run this before a 100-person room to catch breakage the health gate can't:
-# it actually exercises the three Core Labs against the live backend.
+# it actually exercises the required lab path against the live backend.
 #
 #   1. Preconditions  — health gate must be READY
 #   2. Apply solution — wire floor_check (the participant's one build)
 #   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
-#   4. Retrieval      — run the exact four-strategy Core Lab 2 request
+#   4. Retrieval      — run the exact four-strategy Lab 2 request
 #   5. Audit ledger   — run process_return and query its exact session receipt
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
@@ -151,8 +151,8 @@ if echo "$reply" | grep -qi 'floor_check is in stub state'; then
   fail "Stub envelope still present — solution did not take effect"
 fi
 
-# --- 4a. Core Lab 2 retrieval comparison -----------------------------------
-echo "[4a/6] Core Lab 2 — GET /api/atelier/search-strategies/compare"
+# --- 4a. Lab 2 retrieval comparison ----------------------------------------
+echo "[4a/6] Lab 2 — GET /api/atelier/search-strategies/compare"
 QUERY='A milestone gift for a new homeowner'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
@@ -174,20 +174,26 @@ if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     info "First 300 chars: ${retrieval:0:300}"
   fi
 else
-  fail "Core Lab 2 comparison failed — see /tmp/dryrun-retrieval.err"
+  fail "Lab 2 comparison failed — see /tmp/dryrun-retrieval.err"
 fi
 
-# --- 4b. Core Lab 3 exact in-process write request --------------------------
-echo "[4b/6] Core Lab 3 — process_return on the dispatcher rail"
-LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
-ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
-if curl --fail --silent --show-error --no-buffer --max-time 75 \
-    -X POST "${BASE}/api/chat/stream" \
-    -H 'Content-Type: application/json' \
-    -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
-  pass "Core Lab 3 stream completed for session ${LEDGER_SESSION}"
+# --- 4b. Ledger write rail --------------------------------------------------
+LEDGER_SESSION=""
+if $GOVERNED; then
+  echo "[4b/6] Query Evidence — governed write runs through Gateway in step 4d"
+  info "Skipping local process_return; governed mutations require gateway-mcp"
 else
-  fail "Core Lab 3 process_return request failed"
+  echo "[4b/6] Query Evidence — process_return on the builders dispatcher rail"
+  LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
+  ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
+  if curl --fail --silent --show-error --no-buffer --max-time 75 \
+      -X POST "${BASE}/api/chat/stream" \
+      -H 'Content-Type: application/json' \
+      -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
+    pass "Builders process_return stream completed for session ${LEDGER_SESSION}"
+  else
+    fail "Builders process_return request failed"
+  fi
 fi
 
 # Mint one real Cognito token for the managed Runtime and Gateway checks.
@@ -281,21 +287,25 @@ else
   fail "No tool_audit row for floor_check — audit writer not firing"
 fi
 
-ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='process_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"
-if [[ "${ledger_rows:-0}" =~ ^[0-9]+$ ]] && (( ledger_rows > 0 )); then
-  pass "Session-specific process_return receipt is complete for ${LEDGER_SESSION}"
+if $GOVERNED; then
+  info "Governed process_return ledger row is verified with its receipt below"
 else
-  fail "No complete process_return receipt for session ${LEDGER_SESSION}"
+  ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='process_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"
+  if [[ "${ledger_rows:-0}" =~ ^[0-9]+$ ]] && (( ledger_rows > 0 )); then
+    pass "Session-specific process_return receipt is complete for ${LEDGER_SESSION}"
+  else
+    fail "No complete process_return receipt for session ${LEDGER_SESSION}"
+  fi
 fi
 
 # 5b. Managed-Policy evidence, keyed to this dry run's unique receipt sessions.
 if [[ -n "$POLICY_TOKEN" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
-  pr_allowed="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id='${POLICY_ALLOW_SESSION}' AND decision='ALLOW' AND audit_id IS NOT NULL;")"
-  pr_denied="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id='${POLICY_DENY_SESSION}' AND decision='DENY' AND audit_id IS NULL AND args->>'absence_verified'='true';")"
+  pr_allowed="$(_psql "SELECT count(*) FROM pellier.governed_receipts gr JOIN pellier.tool_audit ta ON ta.audit_id = gr.audit_id WHERE gr.session_id='${POLICY_ALLOW_SESSION}' AND gr.decision='ALLOW' AND gr.identity_source='cognito' AND gr.verified_subject IS NOT NULL AND gr.token_fingerprint_sha256 IS NOT NULL AND ta.tool='process_return' AND ta.caller='gateway' AND ta.args->>'reason'='damaged' AND ta.result->>'return_id' IS NOT NULL;")"
+  pr_denied="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id='${POLICY_DENY_SESSION}' AND decision='DENY' AND audit_id IS NULL AND identity_source='cognito' AND verified_subject IS NOT NULL AND token_fingerprint_sha256 IS NOT NULL AND args->>'absence_verified'='true';")"
   if [[ "${pr_allowed:-0}" == "1" ]]; then
-    pass "Managed Policy ALLOW receipt has an execution audit id"
+    pass "Managed Policy ALLOW receipt is Cognito-bound and joins its Gateway audit row"
   else
-    fail "Current-session ALLOW receipt is missing its execution audit id"
+    fail "Current-session ALLOW receipt is not bound to Cognito plus Gateway audit evidence"
   fi
   if [[ "${pr_denied:-0}" == "1" ]]; then
     pass "Managed Policy DENY receipt proves no execution row was written"
@@ -340,6 +350,16 @@ if [[ "${trgm_idx:-0}" == "1" ]]; then
   fi
 else
   warn "pg_trgm index product_catalog_name_trgm_idx missing — migration 008 may not have applied."
+fi
+
+if $GOVERNED; then
+  echo "[reset] Restore canonical governed state"
+  if PELLIER_REPO="$REPO" bash "$REPO/scripts/reset-governed-workshop.sh" \
+      >/tmp/dryrun-governed-reset.log 2>&1; then
+    pass "Governed database, evidence, and Policy state restored"
+  else
+    fail "Governed reset failed — see /tmp/dryrun-governed-reset.log"
+  fi
 fi
 
 echo "════════════════════════════════════════════════════════════"

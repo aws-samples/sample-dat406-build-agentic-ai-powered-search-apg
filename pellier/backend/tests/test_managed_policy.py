@@ -11,7 +11,7 @@ fake-Cedar gate — or a drift in the provisioning contract — trips here:
      definition={"cedar":...} / update_gateway policyEngineConfiguration ENFORCE)
      and the correct Cedar action spelling for process_return.
   3. The experience Lambda reconstructs the ``pellier.tool_audit`` evidence row
-     on the Gateway rail (so the Core Lab 3 SQL proof survives).
+     on the Gateway rail (so the Lab 4 SQL proof survives).
   4. The deploy path (provisioner + deploy_all.sh) wires the policy step.
   5. The gateway execution role gets the four policy-EVALUATION permissions.
 
@@ -19,6 +19,9 @@ Runnable from repo root per ``pytest.ini``.
 """
 from __future__ import annotations
 
+import base64
+import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -36,6 +39,7 @@ DEPLOY_GATEWAY = DEPLOY / "deploy_gateway.py"
 PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
 DEPLOY_ALL = DEPLOY / "deploy_all.sh"
 RESET_GOVERNED = REPO_ROOT / "scripts" / "reset-governed-workshop.sh"
+GOVERNED_RECEIPTS_MIGRATION = REPO_ROOT / "scripts" / "migrations" / "010_governed_receipts.sql"
 STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_final_sale_forbid.cedar"
 SOLUTION_CEDAR = REPO_ROOT / "solutions" / "the-concierge" / "policies" / "final_sale_forbid.cedar"
 IDENTITY_STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_identity_match_forbid.cedar"
@@ -256,8 +260,6 @@ def test_policy_mode_choices_match_the_gateway_enum() -> None:
 def test_gateway_process_return_only_counts_authorization_errors_as_deny() -> None:
     """The Gateway replay helper must not turn transport/tool failures into
     fake Cedar DENY proofs."""
-    import importlib.util
-
     spec = importlib.util.spec_from_file_location("gateway_process_return", GATEWAY_PROCESS_RETURN)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -303,9 +305,118 @@ def test_gateway_process_return_only_counts_authorization_errors_as_deny() -> No
     )
 
 
+def test_gateway_receipt_identity_is_bound_to_exact_cognito_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = importlib.util.spec_from_file_location(
+        "gateway_process_return_identity",
+        GATEWAY_PROCESS_RETURN,
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    claims = {
+        "sub": "subject-123",
+        "username": "marco",
+        "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_POOL",
+        "client_id": "client-123",
+        "token_use": "access",
+    }
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(claims).encode("utf-8")
+    ).rstrip(b"=").decode("ascii")
+    token = f"header.{encoded}.signature"
+
+    class _Cognito:
+        def get_user(self, *, AccessToken: str) -> dict:
+            assert AccessToken == token
+            return {
+                "Username": "marco",
+                "UserAttributes": [{"Name": "sub", "Value": "subject-123"}],
+            }
+
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("COGNITO_POOL_ID", "us-east-1_POOL")
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "client-123")
+    monkeypatch.setattr(mod.boto3, "client", lambda *args, **kwargs: _Cognito())
+
+    identity = mod._verified_identity(token)
+
+    assert identity["principal_id"] == "subject-123"
+    assert identity["verified_username"] == "marco"
+    assert identity["identity_source"] == "cognito"
+    assert len(identity["token_fingerprint_sha256"]) == 64
+
+
+def test_gateway_receipt_identity_rejects_claim_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spec = importlib.util.spec_from_file_location(
+        "gateway_process_return_mismatch",
+        GATEWAY_PROCESS_RETURN,
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    claims = {
+        "sub": "subject-123",
+        "username": "not-marco",
+        "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_POOL",
+        "client_id": "client-123",
+        "token_use": "access",
+    }
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(claims).encode("utf-8")
+    ).rstrip(b"=").decode("ascii")
+    token = f"header.{encoded}.signature"
+
+    class _Cognito:
+        def get_user(self, *, AccessToken: str) -> dict:
+            return {
+                "Username": "marco",
+                "UserAttributes": [{"Name": "sub", "Value": "subject-123"}],
+            }
+
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("COGNITO_POOL_ID", "us-east-1_POOL")
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "client-123")
+    monkeypatch.setattr(mod.boto3, "client", lambda *args, **kwargs: _Cognito())
+
+    with pytest.raises(RuntimeError, match="username"):
+        mod._verified_identity(token)
+
+
+def test_governed_receipts_record_verified_identity_provenance() -> None:
+    helper = GATEWAY_PROCESS_RETURN.read_text()
+    migration = GOVERNED_RECEIPTS_MIGRATION.read_text()
+
+    assert "--principal-id" not in helper
+    assert "--principal-label" not in helper
+    assert "get_user(AccessToken=token)" in helper
+    for field in (
+        "token_fingerprint_sha256",
+        "verified_subject",
+        "verified_username",
+        "issuer",
+        "client_id",
+        "identity_source",
+    ):
+        assert field in helper
+        assert field in migration
+    assert "'cognito'" in migration
+    assert "'seeded'" in migration
+
+
 def test_governed_reset_restores_enforce_mode() -> None:
     """Reset must recover from an interrupted LOG_ONLY rehearsal."""
     src = RESET_GOVERNED.read_text()
+    assert (
+        "pellier.governed_receipts,\n"
+        "    pellier.tool_audit,\n"
+        "    pellier.write_operations,\n"
+        "    pellier.returns\n"
+        "RESTART IDENTITY;"
+    ) in src
     assert "workshop_policy_rule.py\" mode" in src
     assert "--set ENFORCE" in src
     assert "AGENTCORE_GATEWAY_ARN" in src

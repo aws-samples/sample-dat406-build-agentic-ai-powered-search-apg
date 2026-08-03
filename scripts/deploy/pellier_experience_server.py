@@ -19,6 +19,7 @@ References:
         https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/data-api.html
 """
 import json
+import hashlib
 import logging
 import os
 import time
@@ -94,7 +95,7 @@ def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> N
 
     On the in-process rail the FastAPI PolicyEnforcementHook writes this row;
     behind the Gateway the tool runs in THIS Lambda, so we write it here. This
-    is what makes the Act II SQL proof work on the managed-Policy path: every
+    is what makes the governed ALLOW proof queryable: every
     tool call that REACHES this Lambda was already ALLOWed by managed AgentCore
     Policy at the Gateway (a DENY never executes the Lambda, so no row is
     written — that absence is the proof).
@@ -102,7 +103,7 @@ def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> N
     Keying note: the Gateway → Lambda event is ``{name, arguments}`` only — it
     carries NO session_id. So we key by the real identity that IS present
     (``customer_id``, surfaced in ``args``) and use ``session_id =
-    'gateway-<customer_id>'`` as a stable, queryable handle. The Act II query
+    'gateway-<customer_id>'`` as a stable, queryable handle. The governed query
     therefore filters on ``args->>'customer_id'`` rather than session_id.
 
     Schema (scripts/migrations/002_workshop_telemetry.sql):
@@ -135,19 +136,22 @@ def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> N
         logger.warning("tool_audit write failed (non-fatal): %s", exc)
 
 
-def process_return(customer_id: str, product_id: int, reason: str) -> dict:
-    """Atomic return: ownership check → INSERT → (if damaged) decrement quantity.
+def _write_request_hash(operation: str, arguments: dict) -> str:
+    payload = json.dumps(
+        {"operation": operation, "arguments": arguments},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    Mirrors ``BusinessLogic.process_return`` in the source repo. Three
-    operations run inside a single RDS Data API transaction so the
-    ownership check, the INSERT, and the conditional UPDATE either all
-    succeed or all roll back together.
 
-    Managed Policy gates the call upstream on the Gateway rail; the
-    canonical reason set is still validated here as defense in depth.
-    Ownership is gated here because the principal/resource relationship
-    is a SQL JOIN, not a static policy.
-    """
+def process_return(
+    customer_id: str,
+    product_id: int,
+    reason: str,
+    idempotency_key: str,
+) -> dict:
+    """Execute the shared idempotent return transaction in Aurora."""
     if reason not in ALLOWED_RETURN_REASONS:
         return {
             "status": "policy_blocked",
@@ -157,7 +161,18 @@ def process_return(customer_id: str, product_id: int, reason: str) -> dict:
             ),
         }
 
+    clean_key = str(idempotency_key or "").strip()
+    if not clean_key:
+        return {"status": "error", "message": "idempotency_key is required."}
     product_id_text = str(product_id)
+    request_hash = _write_request_hash(
+        "process_return",
+        {
+            "customer_id": str(customer_id),
+            "product_id": int(product_id),
+            "reason": str(reason),
+        },
+    )
 
     begin = rds_client.begin_transaction(
         resourceArn=DB_CLUSTER_ARN,
@@ -167,80 +182,28 @@ def process_return(customer_id: str, product_id: int, reason: str) -> dict:
     transaction_id = begin["transactionId"]
 
     try:
-        owns = _execute_in_transaction(
+        rows = _execute_in_transaction(
             transaction_id,
-            f'SELECT 1 AS hit FROM {SCHEMA}.orders '
-            'WHERE customer_id = :cid AND product_id = :pid '
-            'LIMIT 1;',
+            f"SELECT {SCHEMA}.process_return_idempotent("
+            ":idempotency_key, :request_hash, :cid, :pid, :reason"
+            ") AS result;",
             [
-                {"name": "cid", "value": {"stringValue": str(customer_id)}},
-                {"name": "pid", "value": {"stringValue": product_id_text}},
-            ],
-        )
-        if not owns:
-            rds_client.rollback_transaction(
-                resourceArn=DB_CLUSTER_ARN,
-                secretArn=SECRET_ARN,
-                transactionId=transaction_id,
-            )
-            return {
-                "status": "error",
-                "message": (
-                    f"Customer {customer_id} did not order product "
-                    f"{product_id}; cannot process return."
-                ),
-            }
-
-        inserted = _execute_in_transaction(
-            transaction_id,
-            f'INSERT INTO {SCHEMA}.returns (customer_id, product_id, reason) '
-            'VALUES (:cid, :pid, :reason) RETURNING id;',
-            [
+                {"name": "idempotency_key", "value": {"stringValue": clean_key}},
+                {"name": "request_hash", "value": {"stringValue": request_hash}},
                 {"name": "cid", "value": {"stringValue": str(customer_id)}},
                 {"name": "pid", "value": {"stringValue": product_id_text}},
                 {"name": "reason", "value": {"stringValue": str(reason)}},
             ],
         )
-        return_id = inserted[0]["id"] if inserted else None
-
-        new_quantity = None
-        product_name = None
-        if reason == "damaged":
-            updated = _execute_in_transaction(
-                transaction_id,
-                f'UPDATE {SCHEMA}.product_catalog '
-                'SET quantity = GREATEST(quantity - 1, 0), '
-                '    updated_at = NOW() '
-                'WHERE "productId" = :pid '
-                'RETURNING "productId", name, quantity;',
-                [{"name": "pid", "value": {"stringValue": product_id_text}}],
-            )
-            if updated:
-                new_quantity = int(updated[0]["quantity"])
-                product_name = updated[0]["name"]
-        else:
-            named = _execute_in_transaction(
-                transaction_id,
-                f'SELECT "productId", name FROM {SCHEMA}.product_catalog '
-                'WHERE "productId" = :pid LIMIT 1;',
-                [{"name": "pid", "value": {"stringValue": product_id_text}}],
-            )
-            if named:
-                product_name = named[0].get("name")
-
         rds_client.commit_transaction(
             resourceArn=DB_CLUSTER_ARN,
             secretArn=SECRET_ARN,
             transactionId=transaction_id,
         )
-        return {
-            "status": "success",
-            "return_id": return_id,
-            "product_id": int(product_id),
-            "name": product_name,
-            "reason": reason,
-            "new_quantity": new_quantity,
-        }
+        raw_result = rows[0].get("result") if rows else None
+        return json.loads(raw_result) if isinstance(raw_result, str) else (
+            raw_result or {"status": "error", "message": "Return produced no result."}
+        )
     except Exception as exc:
         try:
             rds_client.rollback_transaction(
@@ -307,8 +270,12 @@ TOOLS = {
                     "description": "One of damaged, wrong_size, not_as_described, changed_mind, other",
                     "enum": sorted(ALLOWED_RETURN_REASONS),
                 },
+                "idempotency_key": {
+                    "type": "string",
+                    "description": "Stable unique key for this intended return",
+                },
             },
-            "required": ["customer_id", "product_id", "reason"],
+            "required": ["customer_id", "product_id", "reason", "idempotency_key"],
         },
     },
     "escalate_to_stylist": {

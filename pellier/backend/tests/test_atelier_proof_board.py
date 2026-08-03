@@ -127,6 +127,7 @@ def _client(stub_db: _ProofDB) -> TestClient:
 def _configure_managed(monkeypatch) -> None:
     from config import settings
 
+    monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "governed", raising=False)
     monkeypatch.setattr(settings, "COGNITO_POOL_ID", "pool-1", raising=False)
     monkeypatch.setattr(settings, "COGNITO_CLIENT_ID", "client-1", raising=False)
     monkeypatch.setattr(settings, "COGNITO_DOMAIN", "auth.example.com", raising=False)
@@ -153,6 +154,43 @@ def test_readiness_reports_live_pillars(monkeypatch) -> None:
     assert checks["gateway"]["state"] == "pass"
     assert checks["policy"]["state"] == "pass"
     assert body["counts"]["catalog_count"] == 40
+
+
+def test_governed_readiness_fails_without_managed_policy(monkeypatch) -> None:
+    _configure_managed(monkeypatch)
+    from config import settings
+
+    monkeypatch.setattr(settings, "AGENTCORE_POLICY_ENGINE_ID", "", raising=False)
+    client = _client(_ProofDB())
+
+    body = client.get("/api/atelier/readiness").json()
+
+    assert body["status"] == "not_ready"
+    checks = {c["id"]: c for c in body["checks"]}
+    assert checks["policy"]["required"] is True
+    assert checks["policy"]["state"] == "fail"
+
+
+def test_governed_readiness_requires_exact_warehouse_seed(monkeypatch) -> None:
+    class _WrongWarehouseCountDB(_ProofDB):
+        async def fetch_one(self, query: str, *params: Any) -> dict | None:
+            if "catalog_count" in query:
+                return {
+                    "catalog_count": 40,
+                    "warehouse_count": 119,
+                    "audit_count": 7,
+                }
+            return await super().fetch_one(query, *params)
+
+    _configure_managed(monkeypatch)
+    client = _client(_WrongWarehouseCountDB())
+
+    body = client.get("/api/atelier/readiness").json()
+
+    assert body["status"] == "not_ready"
+    checks = {c["id"]: c for c in body["checks"]}
+    assert checks["aurora"]["state"] == "fail"
+    assert "expected exactly 120" in checks["aurora"]["detail"]
 
 
 def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
@@ -189,11 +227,14 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert "act" not in cards["marco-floor-check"]
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
-    assert cards["marco-floor-check"]["lab"] == "Core Lab 1: Build and Trace"
-    assert cards["retrieval-comparison"]["lab"] == "Core Lab 2: Measure Retrieval"
+    assert cards["marco-floor-check"]["lab"] == "Lab 1: Build a Specialist Agent"
+    assert cards["retrieval-comparison"]["lab"] == "Lab 2: Measure Hybrid Search"
     assert cards["retrieval-comparison"]["status"] == "available"
-    assert cards["audit-ledger"]["lab"] == "Core Lab 3: Query Evidence"
-    assert cards["runtime-gateway-policy"]["lab"] == "Core Lab 4: Enforce Policy"
+    assert cards["managed-rail"]["lab"] == "Lab 3: Prove AgentCore Memory"
+    assert cards["managed-rail"]["required"] is True
+    assert cards["audit-ledger"]["lab"] == "Lab 4: Audit Agent Actions"
+    assert cards["runtime-gateway-policy"]["lab"] == "Lab 5: Enforce Cedar Policy"
+    assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
     assert "search-strategies/compare" in cards["retrieval-comparison"]["fallback"]["command"]

@@ -38,7 +38,7 @@ or runtime skills.
 
 ### Participant mode
 
-Use participant mode when the request names Core Lab 1, Stock Keeper,
+Use participant mode when the request names Lab 1, Stock Keeper,
 `floor_check`, the workshop markers, or asks Claude Code to complete the
 guided build.
 
@@ -66,7 +66,7 @@ hardening.
 In maintainer mode:
 
 - Inspect the relevant code and tests before editing.
-- Preserve the four-lab participant path and terminal-first proof contract.
+- Preserve the five-lab participant path and terminal-first proof contract.
 - Work with existing changes; do not reset or overwrite unrelated work.
 - Keep solution copies byte-identical when bootstrap auto-applies them.
 - Update Workshop Studio content when a participant-facing claim changes.
@@ -90,10 +90,11 @@ The application must continue to demonstrate:
 
 The required participant path is:
 
-1. Core Lab 1 - Build and Trace
-2. Core Lab 2 - Measure Retrieval
-3. Core Lab 3 - Query Evidence
-4. Core Lab 4 - Enforce Policy
+1. Lab 1 - Build a Specialist Agent
+2. Lab 2 - Measure Hybrid Search
+3. Lab 3 - Prove AgentCore Memory
+4. Lab 4 - Audit Agent Actions
+5. Lab 5 - Enforce Cedar Policy
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.

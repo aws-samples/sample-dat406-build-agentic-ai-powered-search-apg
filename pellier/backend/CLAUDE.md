@@ -6,7 +6,7 @@ AgentCore adapters, policy integration, SSE streaming, and backend tests.
 Read the repository `CLAUDE.md` first and choose participant or maintainer
 mode before editing.
 
-## Participant mode: Core Lab 1 only
+## Participant mode: Lab 1 only
 
 The participant may name one of two build sites. Work only inside the named
 marker region.

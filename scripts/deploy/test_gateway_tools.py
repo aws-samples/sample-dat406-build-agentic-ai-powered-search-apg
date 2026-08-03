@@ -65,8 +65,8 @@ def list_gateway_tools(gateway_url: str, token: str):
         sys.exit(1)
 
     if not tools:
-        print("WARNING: No tools discovered. Check that Lambda targets are registered.")
-        return
+        print("ERROR: No tools discovered. Check that Lambda targets are registered.")
+        sys.exit(1)
 
     # Group tools by server (inferred from tool naming conventions)
     print("Discovered tools:\n")

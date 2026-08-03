@@ -13,6 +13,8 @@ The ``quantity`` column is created by ``001_schema.sql`` and seeded by
 functions (floor_check, running_low, restock_shelf) now issue
 real SQL against this column.
 """
+import hashlib
+import json
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
 
@@ -26,6 +28,15 @@ def convert_decimals(obj):
     elif isinstance(obj, list):
         return [convert_decimals(item) for item in obj]
     return obj
+
+
+def _write_request_hash(operation: str, **arguments: Any) -> str:
+    payload = json.dumps(
+        {"operation": operation, "arguments": arguments},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class BusinessLogic:
@@ -318,15 +329,16 @@ class BusinessLogic:
         customer_id: str,
         product_id: int,
         reason: str,
+        idempotency_key: str,
     ) -> Dict[str, Any]:
-        """Theo's anchor write. Atomic: ownership check → INSERT into
-        ``returns`` → (if reason='damaged') decrement product_catalog.quantity.
+        """Theo's idempotent return write, executed atomically in Aurora.
 
         The managed AgentCore Policy engine (Cedar, ENFORCE mode,
         attached to the Gateway by scripts/deploy/deploy_policy.py)
         can gate a Gateway-rail call before the tool's Lambda ever runs.
-        The required storefront rail is in-process, so we still validate
-        the canonical reason set here as a defense-in-depth guard.
+        Governed requests execute this transaction through that Lambda;
+        the builders format can execute it in-process. Both validate the
+        canonical reason set here as a defense-in-depth guard.
 
         Ownership is gated *here*, not in Cedar — the principal/resource
         relationship is a SQL JOIN (``orders ⋈ customer + product``),
@@ -351,80 +363,40 @@ class BusinessLogic:
                     f"Allowed: {sorted(ALLOWED)}."
                 ),
             }
+        clean_key = str(idempotency_key or "").strip()
+        if not clean_key:
+            return {"status": "error", "message": "idempotency_key is required."}
+        request_hash = _write_request_hash(
+            "process_return",
+            customer_id=str(customer_id),
+            product_id=int(product_id),
+            reason=str(reason),
+        )
+        row = await self.db.fetch_one(
+            "SELECT pellier.process_return_idempotent(%s, %s, %s, %s, %s) "
+            "AS result",
+            clean_key,
+            request_hash,
+            str(customer_id),
+            str(product_id),
+            str(reason),
+        )
+        result = row.get("result") if row else None
+        if isinstance(result, str):
+            result = json.loads(result)
+        return convert_decimals(result or {
+            "status": "error",
+            "message": "Return operation produced no result.",
+        })
 
-        product_id_text = str(product_id)
-
-        # Single transaction so the ownership check, INSERT, and
-        # conditional quantity decrement either all succeed or all fail.
-        # If any step raises, psycopg's context manager rolls back.
-        async with self.db.get_connection() as conn:
-            async with conn.cursor() as cur:
-                # 1. Ownership: customer must have ordered this product.
-                #    LIMIT 1 because we only need existence, not count.
-                await cur.execute(
-                    "SELECT 1 FROM pellier.orders "
-                    "WHERE customer_id = %s AND product_id = %s "
-                    "LIMIT 1",
-                    [customer_id, product_id_text],
-                )
-                owns = await cur.fetchone()
-                if not owns:
-                    return {
-                        "status": "error",
-                        "message": (
-                            f"Customer {customer_id} did not order product "
-                            f"{product_id}; cannot process return."
-                        ),
-                    }
-
-                # 2. INSERT the return row, capture the id.
-                await cur.execute(
-                    "INSERT INTO pellier.returns (customer_id, product_id, reason) "
-                    "VALUES (%s, %s, %s) "
-                    "RETURNING id",
-                    [customer_id, product_id_text, reason],
-                )
-                ins = await cur.fetchone()
-                return_id = ins["id"] if ins else None
-
-                # 3. If damaged, decrement product_catalog.quantity by 1
-                #    (defloor at 0 — never go negative).
-                new_quantity: Optional[int] = None
-                product_name: Optional[str] = None
-                if reason == "damaged":
-                    await cur.execute(
-                        'UPDATE pellier.product_catalog '
-                        'SET quantity = GREATEST(quantity - 1, 0), '
-                        '    updated_at = NOW() '
-                        'WHERE "productId" = %s '
-                        'RETURNING "productId", name, quantity',
-                        [product_id_text],
-                    )
-                    upd = await cur.fetchone()
-                    if upd:
-                        new_quantity = int(upd["quantity"])
-                        product_name = upd["name"]
-                else:
-                    # Still fetch the product name for the success payload.
-                    await cur.execute(
-                        'SELECT "productId", name FROM pellier.product_catalog '
-                        'WHERE "productId" = %s',
-                        [product_id_text],
-                    )
-                    sel = await cur.fetchone()
-                    product_name = sel["name"] if sel else None
-
-        return {
-            "status": "success",
-            "return_id": return_id,
-            "product_id": product_id,
-            "name": product_name,
-            "reason": reason,
-            "new_quantity": new_quantity,
-        }
-
-    async def restock_shelf(self, product_id: int, quantity: int) -> Dict[str, Any]:
-        """Add `quantity` units to a product's stock. Returns the new total."""
+    async def restock_shelf(
+        self,
+        product_id: int,
+        quantity: int,
+        idempotency_key: str,
+        warehouse_id: str = "BK-01",
+    ) -> Dict[str, Any]:
+        """Add inventory to one warehouse and recompute the catalog total."""
         if quantity <= 0:
             return {"status": "error", "message": "Quantity must be positive."}
         if quantity > 500:
@@ -436,25 +408,32 @@ class BusinessLogic:
                 ),
                 "product_id": product_id,
             }
-
-        row = await self.db.fetch_one(
-            'UPDATE pellier.product_catalog '
-            'SET quantity = quantity + %s, updated_at = NOW() '
-            'WHERE "productId" = %s '
-            'RETURNING "productId", name, quantity',
-            quantity, str(product_id),
+        clean_key = str(idempotency_key or "").strip()
+        if not clean_key:
+            return {"status": "error", "message": "idempotency_key is required."}
+        clean_warehouse = str(warehouse_id or "BK-01").strip() or "BK-01"
+        request_hash = _write_request_hash(
+            "restock_shelf",
+            product_id=int(product_id),
+            quantity=int(quantity),
+            warehouse_id=clean_warehouse,
         )
-        if not row:
-            return {"status": "error", "message": f"Product {product_id} not found."}
-
-        result = convert_decimals(dict(row))
-        return {
-            "status": "success",
-            "product_id": result["productId"],
-            "name": result["name"],
-            "new_quantity": result["quantity"],
-            "added": quantity,
-        }
+        row = await self.db.fetch_one(
+            "SELECT pellier.restock_shelf_idempotent(%s, %s, %s, %s, %s) "
+            "AS result",
+            clean_key,
+            request_hash,
+            str(product_id),
+            int(quantity),
+            clean_warehouse,
+        )
+        result = row.get("result") if row else None
+        if isinstance(result, str):
+            result = json.loads(result)
+        return convert_decimals(result or {
+            "status": "error",
+            "message": "Restock operation produced no result.",
+        })
 
     async def find_pieces(
         self,

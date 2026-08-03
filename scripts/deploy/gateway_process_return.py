@@ -102,6 +102,68 @@ def _token_from_cognito() -> str:
     return token
 
 
+def _decode_access_token_claims(token: str) -> dict[str, Any]:
+    """Decode claims only after Cognito has validated this exact access token."""
+    try:
+        _header, payload, _signature = token.split(".")
+        padded = payload + ("=" * (-len(payload) % 4))
+        claims = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Cognito accepted a malformed access token payload.") from exc
+    if not isinstance(claims, dict):
+        raise RuntimeError("Cognito access token payload is not a JSON object.")
+    return claims
+
+
+def _verified_identity(token: str) -> dict[str, str]:
+    """Bind receipt identity to the exact bearer token accepted by Cognito."""
+    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+    pool_id = os.environ.get("COGNITO_POOL_ID") or os.environ.get("COGNITO_POOL")
+    client_id = os.environ.get("COGNITO_CLIENT_ID") or os.environ.get("COGNITO_CLIENT")
+    if not pool_id or not client_id:
+        raise RuntimeError("Missing Cognito pool/client env vars for receipt verification.")
+
+    cognito = boto3.client("cognito-idp", region_name=region)
+    user = cognito.get_user(AccessToken=token)
+    claims = _decode_access_token_claims(token)
+    attributes = {
+        str(item.get("Name", "")): str(item.get("Value", ""))
+        for item in user.get("UserAttributes", [])
+    }
+
+    expected_issuer = f"https://cognito-idp.{region}.amazonaws.com/{pool_id}"
+    subject = str(claims.get("sub") or "")
+    claim_username = str(
+        claims.get("username") or claims.get("cognito:username") or ""
+    )
+    verified_username = str(user.get("Username") or "")
+    checks = {
+        "token_use": claims.get("token_use") == "access",
+        "issuer": hmac.compare_digest(str(claims.get("iss") or ""), expected_issuer),
+        "client_id": hmac.compare_digest(str(claims.get("client_id") or ""), client_id),
+        "subject": bool(subject) and hmac.compare_digest(subject, attributes.get("sub", "")),
+        "username": bool(claim_username)
+        and hmac.compare_digest(claim_username, verified_username),
+    }
+    failed = [name for name, valid in checks.items() if not valid]
+    if failed:
+        raise RuntimeError(
+            "Cognito bearer identity did not match required claims: "
+            + ", ".join(failed)
+        )
+
+    return {
+        "principal_id": subject,
+        "principal_label": f"{verified_username} (Cognito JWT)",
+        "verified_subject": subject,
+        "verified_username": verified_username,
+        "issuer": expected_issuer,
+        "client_id": client_id,
+        "token_fingerprint_sha256": hashlib.sha256(token.encode("utf-8")).hexdigest(),
+        "identity_source": "cognito",
+    }
+
+
 def _jsonable(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
@@ -157,7 +219,12 @@ def _latest_matching_audit(args: argparse.Namespace, after_audit_id: int) -> int
             return int(row[0]) if row else None
 
 
-def _record_receipt(args: argparse.Namespace, payload: dict[str, Any], before_audit_id: int) -> None:
+def _record_receipt(
+    args: argparse.Namespace,
+    payload: dict[str, Any],
+    before_audit_id: int,
+    identity: dict[str, str],
+) -> None:
     audit_id = _latest_matching_audit(args, before_audit_id)
     if payload["outcome"] == "allow" and audit_id is None:
         raise RuntimeError("Gateway call ALLOWed but no matching tool_audit row was found.")
@@ -168,6 +235,7 @@ def _record_receipt(args: argparse.Namespace, payload: dict[str, Any], before_au
         "customer_id": args.customer_id,
         "product_id": int(args.product_id),
         "reason": args.reason,
+        "idempotency_key": args.idempotency_key or args.session_id,
         "tool_audit_high_water_before": before_audit_id,
         "tool_audit_row_after_call": audit_id,
         "absence_verified": payload["outcome"] == "deny" and audit_id is None,
@@ -179,21 +247,29 @@ def _record_receipt(args: argparse.Namespace, payload: dict[str, Any], before_au
                 INSERT INTO pellier.governed_receipts
                     (audit_id, session_id, principal_id, principal_label,
                      tool, caller, decision, args, policy_engine_id,
-                     policy_name, created_at)
+                     policy_name, token_fingerprint_sha256, verified_subject,
+                     verified_username, issuer, client_id, identity_source,
+                     created_at)
                 VALUES
                     (%s, %s, %s, %s, 'process_return', 'gateway',
-                     %s, %s::jsonb, %s, %s, now())
+                     %s, %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, now())
                 RETURNING receipt_id
                 """,
                 (
                     audit_id,
                     args.session_id,
-                    args.principal_id,
-                    args.principal_label,
+                    identity["principal_id"],
+                    identity["principal_label"],
                     payload["outcome"].upper(),
                     json.dumps(receipt_args, sort_keys=True),
                     os.environ.get("AGENTCORE_POLICY_ENGINE_ID", ""),
                     args.policy_name,
+                    identity["token_fingerprint_sha256"],
+                    identity["verified_subject"],
+                    identity["verified_username"],
+                    identity["issuer"],
+                    identity["client_id"],
+                    identity["identity_source"],
                 ),
             )
             receipt_id = int(cur.fetchone()[0])
@@ -202,6 +278,17 @@ def _record_receipt(args: argparse.Namespace, payload: dict[str, Any], before_au
     payload["recorded_receipt_session_id"] = args.session_id
     payload["tool_audit_high_water_before"] = before_audit_id
     payload["tool_audit_row_after_call"] = audit_id
+    payload["verified_identity"] = {
+        key: identity[key]
+        for key in (
+            "verified_subject",
+            "verified_username",
+            "issuer",
+            "client_id",
+            "token_fingerprint_sha256",
+            "identity_source",
+        )
+    }
 
 
 async def _call_gateway(args: argparse.Namespace, token: str) -> dict[str, Any]:
@@ -210,6 +297,7 @@ async def _call_gateway(args: argparse.Namespace, token: str) -> dict[str, Any]:
         "customer_id": args.customer_id,
         "product_id": int(args.product_id),
         "reason": args.reason,
+        "idempotency_key": args.idempotency_key or args.session_id,
     }
     async with streamablehttp_client(
         gateway_url,
@@ -284,13 +372,17 @@ def main() -> int:
         help="Record a governed_receipts row for the Gateway decision and absence check.",
     )
     parser.add_argument("--session-id", default="gateway-final-sale-proof")
-    parser.add_argument("--principal-id", default="CUST-MARCO")
-    parser.add_argument("--principal-label", default="Marco (Cognito JWT)")
+    parser.add_argument(
+        "--idempotency-key",
+        default="",
+        help="Stable write key; defaults to the receipt session id.",
+    )
     parser.add_argument("--policy-name", default="workshop_final_sale_forbid")
     args = parser.parse_args()
 
     _load_env()
     token = os.environ.get("PELLIER_TOKEN", "").strip() or _token_from_cognito()
+    identity = _verified_identity(token)
     before_audit_id = _audit_high_water(args) if args.record_receipt else 0
 
     try:
@@ -329,7 +421,7 @@ def main() -> int:
         }
 
     if args.record_receipt:
-        _record_receipt(args, payload, before_audit_id)
+        _record_receipt(args, payload, before_audit_id, identity)
 
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if payload["outcome"] == args.expect else 2

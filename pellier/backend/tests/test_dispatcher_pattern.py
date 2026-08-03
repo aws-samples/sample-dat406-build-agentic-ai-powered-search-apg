@@ -320,10 +320,10 @@ def test_orchestrator_constructed_only_for_agents_as_tools() -> None:
 
 
 # ---------------------------------------------------------------------------
-# In-process Aurora tool_audit wiring - the decoupled Core Lab 3 evidence proof
+# In-process Aurora tool_audit wiring - the decoupled Lab 4 evidence proof
 # ---------------------------------------------------------------------------
 #
-# The mandatory Core Lab 3 proof ("Aurora as agent system-of-record") reads a
+# The mandatory Lab 4 proof ("Aurora as agent system-of-record") reads a
 # pellier.tool_audit row. That row must populate on the ORDINARY in-process
 # storefront turn — no token, no Gateway, no managed Policy engine — so the
 # proof is robust to the managed path failing to provision. The audit write
@@ -338,10 +338,10 @@ def test_orchestrator_constructed_only_for_agents_as_tools() -> None:
 def test_inprocess_hook_writes_tool_audit(chat_module_source: str) -> None:
     """The streaming hooks must invoke the tool_audit writer on both the
     Before (INSERT) and After (UPDATE) tool events — this is what makes the
-    Core Lab 3 SQL proof populate on the default storefront rail."""
+    Lab 4 SQL proof populate on the default storefront rail."""
     assert "tool_audit_writer" in chat_module_source, (
         "chat.py no longer references tool_audit_writer — the in-process "
-        "audit write was removed; the Core Lab 3 tool_audit proof would return "
+        "audit write was removed; the Lab 4 tool_audit proof would return "
         "zero rows on the default (non-Gateway) turn."
     )
     assert "record_allow(" in chat_module_source, (

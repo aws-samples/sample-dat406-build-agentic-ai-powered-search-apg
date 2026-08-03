@@ -9,21 +9,20 @@ set -euo pipefail
 # so participants can follow along in the terminal:
 #
 #   1–4. Four Lambda MCP servers (search / pricing / recommendations / experience).
-#        These are the "tools" the agent will discover at runtime. Search now
-#        Together they publish the same canonical 15 names as the in-process
+#        These are the tools the agent discovers at runtime. Together they
+#        publish the same canonical 15 names as the in-process
 #        agent, including the two read-only evidence tools.
 #     5. AgentCore Gateway — fronts the four Lambdas with Cognito JWT auth
 #        and exposes them over MCP streamable HTTP for tool discovery.
 #        Docs: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html
-#     6. Render `agentcore.json` + `aws-targets.json` from `.template` files.
-#        The new @aws/agentcore Node CLI takes ZERO config flags — region,
-#        role ARN, JWT settings, and env vars all live in those two JSON
-#        files. We use envsubst to splice in CFN outputs at deploy time.
+#     6. Scaffold a stateful @aws/agentcore 0.18 project and register the BYO
+#        HTTP Runtime with a CUSTOM_JWT authorizer. Fields without CLI flags
+#        are patched into the generated project config.
 #     7. `agentcore deploy` — packages the orchestrator and creates an
 #        AgentCore Runtime that participants can invoke as a managed agent.
 #        Docs: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime.html
-#     8. Three smoke-test invocations (search, trending, pricing) to confirm
-#        the deployed Runtime can route through Gateway → Lambda → Aurora.
+#     8. Three raw HTTPS CUSTOM_JWT smoke invocations (search, trending,
+#        pricing) that must return rail=gateway-mcp.
 #
 # Prerequisites — these MUST be exported before sourcing this script. They
 # all come from CloudFormation outputs of the workshop stack:
@@ -363,9 +362,8 @@ target["networkMode"] = "PUBLIC"
 target["requestHeaderAllowlist"] = ["Authorization"]
 target["envVars"] = [
     {"name": "MCP_GATEWAY_URL", "value": gw_url},
-    # config.py reads AGENTCORE_GATEWAY_URL; without it the container's
-    # settings never see the Gateway and the entrypoint silently falls back
-    # to the in-process orchestrator (no DB service in the microVM).
+    # config.py reads AGENTCORE_GATEWAY_URL; without it the managed entrypoint
+    # fails closed with managed_gateway_unavailable.
     {"name": "AGENTCORE_GATEWAY_URL", "value": gw_url},
     {"name": "AGENT_MODEL_ID", "value": model_id},
     {"name": "BEDROCK_ROUTER_MODEL", "value": model_id},
@@ -407,8 +405,8 @@ echo "  ✅ Agent deployed!"
 # ------------------------------------------------------------------
 # Quick end-to-end verification: get a Cognito access token for the
 # workshop user, look up the deployed Runtime by name, and invoke it
-# three times with representative prompts. Each invocation streams the
-# response so participants see tokens land live in the terminal.
+# three times with representative prompts. The probe uses the same raw HTTPS
+# bearer-token transport as the backend and requires the Gateway MCP rail.
 echo ""
 echo "=== [8/8] Running Smoke Tests ==="
 
@@ -458,21 +456,21 @@ aws bedrock-agentcore-control tag-resource \
 echo ""
 echo "  Test 1: Product search"
 uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-id "$AGENT_RUNTIME_ID" \
-  --prompt "Find me comfortable running shoes under \$80" \
-  --token "$TOKEN" --stream
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
+  --prompt "Find linen travel pieces under \$150" \
+  --token "$TOKEN"
 
 echo "  Test 2: Trending products"
 uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-id "$AGENT_RUNTIME_ID" \
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
   --prompt "What's trending right now?" \
-  --token "$TOKEN" --stream
+  --token "$TOKEN"
 
 echo "  Test 3: Price comparison"
 uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-id "$AGENT_RUNTIME_ID" \
-  --prompt "Show me the best laptop deals" \
-  --token "$TOKEN" --stream
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
+  --prompt "Compare two gifts under \$100" \
+  --token "$TOKEN"
 
 echo ""
 echo "=============================================="

@@ -67,9 +67,9 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
 | **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
-| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · the shopper's JWT is passed through (`Authorization: Bearer`) so tool calls carry the caller's identity · in-process tools stay the default; Gateway is the demonstrable side-path (Atelier Card 7) |
+| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers all 15 tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable · the separate builders format retains local execution |
 | **Personalization** | Long-term taste in `pellier.customers` + `pellier.customer_episodic_seed` · session-scoped working memory (AgentCore STM) + durable taste extracted by a `USER_PREFERENCE` semantic strategy (`get_semantic_memories`, surfaced in the Atelier) — both via Bedrock AgentCore Memory |
-| **Managed agent runtime** | `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · `bedrock-agentcore:InvokeAgentRuntime` from `services/agentcore_runtime.py` · deploy path uses the pinned AgentCore CLI (`npx -y @aws/agentcore@0.18.0 deploy -y --json`) |
+| **Managed agent runtime** | `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · raw HTTPS CUSTOM_JWT invocation from `services/agentcore_runtime.py` · Runtime must return `rail=gateway-mcp` · deploy path uses the pinned AgentCore CLI (`npx -y @aws/agentcore@0.18.0 deploy -y --json`) |
 
 ---
 
@@ -113,7 +113,9 @@ for migration in \
   006_warehouse_inventory.sql \
   007_chat_session_tables.sql \
   008_search_performance_indexes.sql \
-  009_return_policies.sql
+  009_return_policies.sql \
+  010_governed_receipts.sql \
+  011_governed_write_integrity.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \
@@ -161,18 +163,19 @@ The app moves to `/app/`, `GET /app` 307-redirects to `/app/`, and the real API 
 
 ## Workshop path
 
-This repo is the source of truth for the application behind the **governed agentic AI search workshop**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Runtime, Gateway, Memory, Policy, and MCP are exposed as guided governance reads and optional deeper inspection surfaces. Exact pacing and participant wording live in the separate Workshop Studio repo.
+This repo is the source of truth for the application behind the **governed agentic AI search workshop**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, proves cross-turn AgentCore Memory, invokes managed Runtime through Gateway, queries the audit ledger, and demonstrates a real Cedar ALLOW/DENY pair. Exact pacing and participant wording live in the separate Workshop Studio repo.
 
 The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The flagship path is structured as:
 
 | Section | What attendees do |
 |---|---|
 | Introduction | Open the workspace and land in Boutique + Atelier — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
-| Core Lab 1: Build and Trace | Complete Stock Keeper and `floor_check`, then prove Marco's turn across routing, Aurora inventory, `tool_audit`, and execution evidence. |
-| Core Lab 2: Measure Retrieval | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
-| Core Lab 3: Query Evidence | Trigger Theo's return, query the JSONB audit ledger, reconstruct the seeded identity mismatch, and optionally inspect AgentCore Memory readback. |
-| Core Lab 4: Enforce Policy | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the safe path still works, and reset participant policy. |
-| Optional Labs | Explore runtime skills, working memory, retrieval evaluation, HNSW behavior, multimodal search, RLS, or deeper policy only after the current core checkpoint. |
+| Lab 1: Build a Specialist Agent | Complete Stock Keeper and `floor_check`, then prove Marco's turn across routing, Aurora inventory, `tool_audit`, and execution evidence. |
+| Lab 2: Measure Hybrid Search | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
+| Lab 3: Prove AgentCore Memory | Prove cross-turn context through managed AgentCore Memory, then invoke managed Runtime through Gateway. |
+| Lab 4: Audit Agent Actions | Trigger Theo's return, query the JSONB audit ledger, and reconstruct the seeded identity mismatch. |
+| Lab 5: Enforce Cedar Policy | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the safe path still works, and reset participant policy. |
+| Extension Labs | Continue into Agent Behavior & Routing, Retrieval Engineering, or Defense in Depth only after the required managed proof. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.
@@ -234,7 +237,7 @@ Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
 | Models           | Claude Opus 5 (`global.anthropic.claude-opus-5`, editorial) · Claude Sonnet 5 (`global.anthropic.claude-sonnet-5`, routing/reporting, no temperature override) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`cohere.rerank-v3-5:0`) |
 | Agent framework  | Strands Agents SDK – `Agent`, `@tool`, `GraphBuilder`, `BeforeToolCallEvent` hooks                                       |
-| Agent infra      | Bedrock AgentCore – Runtime (`@app.entrypoint` → `InvokeAgentRuntime`) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (MCP tool catalog, Cognito-JWT auth with shopper identity passthrough) · Identity     |
+| Agent infra      | Bedrock AgentCore – Runtime (CUSTOM_JWT, fail-closed Gateway MCP rail) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (15-tool MCP catalog, Cognito access-token passthrough) · Policy (Cedar ENFORCE with live ALLOW/DENY proof) · Identity |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
 | Backend          | FastAPI · Python 3.14 · psycopg3 · boto3 · SSE streaming                                                  |
 | Frontend         | React 18 · TypeScript 5 · Vite · Tailwind · Framer Motion 12                                                             |
@@ -252,7 +255,7 @@ sample-pellier-agentic-search-apg/
 ├── VOICE.md                                Pellier editorial voice contract
 ├── pellier/
 │   ├── backend/                           FastAPI server, agents, services
-│   │   ├── CLAUDE.md                        Backend and Core Lab 1 rules
+│   │   ├── CLAUDE.md                        Backend and Lab 1 rules
 │   │   ├── agents/                          Style Advisor, Curator, Stock Keeper, ...
 │   │   ├── services/                        agent_tools, chat, agentcore_*, db
 │   │   ├── routes/                          FastAPI routers (transcribe, atelier, chat)
@@ -268,12 +271,12 @@ sample-pellier-agentic-search-apg/
 ├── skills/                                Strands runtime skills (5) + scoped guidance
 ├── solutions/                             Reference implementations (drop-in escape hatches)
 │   ├── the-quiet-search/                    Semantic retrieval reference
-│   ├── closing-marcos-gap/                  Core Lab 1 floor_check reference
-│   ├── the-ledger/                          Core Lab 3 AgentCore + audit reference
-│   └── the-concierge/                       Core Lab 4 MCP and Gateway reference
+│   ├── closing-marcos-gap/                  Lab 1 floor_check reference
+│   ├── the-ledger/                          Labs 3-4 AgentCore + audit reference
+│   └── the-concierge/                       Lab 5 MCP and Gateway reference
 │
 └── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-009)
+    ├── migrations/                         Ordered fresh-cluster SQL (001-011)
     ├── seed_boutique_catalog.py             40 curated products + generated retrieval distractors
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
     └── bootstrap-labs.sh                    DB seed + frontend build + service start

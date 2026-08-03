@@ -91,3 +91,17 @@ def test_distractor_embeddings_are_derived_from_cache_and_deterministic(monkeypa
     assert first_distractors[0].embedding == second_distractors[0].embedding
     assert first_distractors[-1].embedding == second_distractors[-1].embedding
     assert first_distractors[0].embedding != first[0].embedding
+
+
+def test_database_dsn_honors_configured_port(monkeypatch):
+    seed = _load_seed_module()
+    monkeypatch.setenv("DB_HOST", "127.0.0.1")
+    monkeypatch.setenv("DB_PORT", "55418")
+    monkeypatch.setenv("DB_NAME", "pellier_verify")
+    monkeypatch.setenv("DB_USER", "workshop")
+    monkeypatch.setenv("DB_PASSWORD", "secret")
+
+    assert seed._database_dsn() == (
+        "host=127.0.0.1 port=55418 dbname=pellier_verify "
+        "user=workshop password=secret"
+    )

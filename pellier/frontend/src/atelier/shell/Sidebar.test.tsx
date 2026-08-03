@@ -15,7 +15,7 @@ vi.mock('../hooks/useBuildState', () => ({
 }));
 
 describe('Atelier Sidebar', () => {
-  it('mirrors the four Core Labs and keeps optional surfaces separate', () => {
+  it('mirrors the five required labs and keeps extension surfaces separate', () => {
     render(
       <MemoryRouter initialEntries={['/atelier/performance']}>
         <Sidebar />
@@ -23,11 +23,12 @@ describe('Atelier Sidebar', () => {
     );
 
     const nav = screen.getByRole('navigation');
-    expect(within(nav).getByText('CORE LAB 1 · BUILD AND TRACE')).toBeInTheDocument();
-    expect(within(nav).getByText('CORE LAB 2 · MEASURE RETRIEVAL')).toBeInTheDocument();
-    expect(within(nav).getByText('CORE LAB 3 · QUERY EVIDENCE')).toBeInTheDocument();
-    expect(within(nav).getByText('CORE LAB 4 · ENFORCE POLICY')).toBeInTheDocument();
-    expect(within(nav).getByText('OPTIONAL LABS')).toBeInTheDocument();
+    expect(within(nav).getByText('LAB 1 · BUILD A SPECIALIST AGENT')).toBeInTheDocument();
+    expect(within(nav).getByText('LAB 2 · MEASURE HYBRID SEARCH')).toBeInTheDocument();
+    expect(within(nav).getByText('LAB 3 · PROVE AGENTCORE MEMORY')).toBeInTheDocument();
+    expect(within(nav).getByText('LAB 4 · AUDIT AGENT ACTIONS')).toBeInTheDocument();
+    expect(within(nav).getByText('LAB 5 · ENFORCE CEDAR POLICY')).toBeInTheDocument();
+    expect(within(nav).getByText('EXTENSION')).toBeInTheDocument();
     expect(within(nav).queryByText(/ACT (I|II|III)/)).not.toBeInTheDocument();
 
     expect(screen.getByRole('link', { name: 'Retrieval Comparison' })).toHaveAttribute(
@@ -42,14 +43,14 @@ describe('Atelier Sidebar', () => {
       'href',
       '/atelier/audit-proof',
     );
-    const coreLab3Section = within(nav)
-      .getByText('CORE LAB 3 · QUERY EVIDENCE')
+    const lab3Section = within(nav)
+      .getByText('LAB 3 · PROVE AGENTCORE MEMORY')
       .parentElement;
-    expect(coreLab3Section).not.toBeNull();
+    expect(lab3Section).not.toBeNull();
     expect(
-      within(coreLab3Section as HTMLElement).getByRole('link', { name: 'Memory opt' }),
+      within(lab3Section as HTMLElement).getByRole('link', { name: 'Memory' }),
     ).toHaveAttribute('href', '/atelier/memory');
-    expect(screen.getAllByRole('link', { name: 'Memory opt' })).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'Memory' })).toHaveLength(1);
   });
 
   it('marks only the Audit Proof route as current', () => {

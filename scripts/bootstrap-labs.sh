@@ -233,7 +233,7 @@ cat >> "$GLOBAL_CLAUDE_TMP" << 'CLAUDEEOF'
 # Pellier workshop guidance
 
 - Read the repository `CLAUDE.md` and the nearest nested `CLAUDE.md` before editing.
-- Treat Core Lab 1, Stock Keeper, `floor_check`, or workshop-marker requests as participant mode. Edit only the named marker block and never inspect `solutions/`.
+- Treat Lab 1, Stock Keeper, `floor_check`, or workshop-marker requests as participant mode. Edit only the named marker block and never inspect `solutions/`.
 - In participant mode, do not run git, install packages, change configuration, or restart services. Stop after one failed attempt and use the guide's escape hatch.
 - `.claude/skills/*/SKILL.md` contains coding workflows. `skills/*/SKILL.md` contains Pellier runtime prompt overlays; do not treat runtime skills as coding instructions.
 - Read `VOICE.md` before changing shopper-facing copy or model prompts.
@@ -318,7 +318,7 @@ if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/pellier/backend/generate_mcp_config.py"
         
         if [ -f "$REPO_PATH/pellier/config/mcp-server-config.json" ]; then
             log "✅ MCP config generated at pellier/config/mcp-server-config.json"
-            log "   Core Lab 4 reads this file + verifies awslabs.postgres-mcp-server via uvx"
+            log "   MCP reference ready: awslabs.postgres-mcp-server via uvx"
         else
             warn "MCP config generation failed - will be generated on backend startup"
         fi
@@ -336,7 +336,7 @@ fi
 # or a dead chat turn mid-session. Cohere Embed v4 is hard-required because
 # every shopper query is embedded live before the pgvector search (the cache
 # only covers the catalog corpus). The same preflight also resolves the
-# independent Claude Code CLI model for Core Lab 1.
+# independent Claude Code CLI model for Lab 1.
 log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
@@ -465,7 +465,8 @@ setup_database() {
             007_chat_session_tables.sql \
             008_search_performance_indexes.sql \
             009_return_policies.sql \
-            010_governed_receipts.sql
+            010_governed_receipts.sql \
+            011_governed_write_integrity.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -486,7 +487,7 @@ setup_database() {
         done
 
         # ---- 4. Tool registry seed — populates pellier.tools (created
-        # empty by migration 002) with the 9 canonical Gateway tool names
+        # empty by migration 002) with the 15 canonical Gateway tool names
         # plus their Cohere Embed v4 descriptions. The Atelier
         # Observatory's tool-registry tab and the pgvector
         # tool-discovery card both read from this table and silently
@@ -870,7 +871,7 @@ alias psql='psql'
 # AWS Region for boto3
 export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 
-# Claude Code CLI → Amazon Bedrock (Claude Code lane, Core Lab 1).
+# Claude Code CLI → Amazon Bedrock (Claude Code lane, Lab 1).
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
 # instance role (the same ambient-credential chain psql/boto3/agentcore already
 # use) — no Anthropic API key, no per-participant login, nothing to paste.
@@ -1278,17 +1279,14 @@ EOF
             upsert_env "AGENTCORE_GATEWAY_ARN" "$GATEWAY_ARN" "$REPO_PATH/.env"
         fi
         # The backend reads AGENTCORE_GATEWAY_URL (config.py), not MCP_GATEWAY_URL.
-        # Write both so the deployed Gateway is reachable for the opt-in Gateway
-        # demo. NOTE: this does NOT change the default execution path — the chat
-        # service only uses the Gateway orchestrator when pattern == "agents_as_tools"
-        # (an explicit opt-in), so the required workshop path still runs in-process by
-        # default. The Gateway authorizer is Cognito JWT (CUSTOM_JWT), so a live
-        # invoke needs a bearer token, not the placeholder x-api-key.
+        # Write both and enable Runtime so governed requests execute through the
+        # CUSTOM_JWT Runtime -> Gateway MCP rail. Missing identity or Gateway
+        # configuration fails closed rather than running local tools.
         upsert_env "AGENTCORE_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). The provisioner cannot
-        # report ready without this id; keep the explicit guard because Core Lab
-        # 4 and the Atelier Policy surface both read it.
+        # report ready without this id; keep the explicit guard because Lab 5
+        # and the Atelier Policy surface both read it.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"
@@ -1339,7 +1337,7 @@ EOF
     fi
 
     # Install the pinned AgentCore CLI GLOBALLY for the participant's read-only
-    # cloud-inspection beat (Core Lab 3: `agentcore status` / `agentcore logs`). We
+    # cloud-inspection beat (Lab 3: `agentcore status` / `agentcore logs`). We
     # install at bootstrap — not via npx-on-demand — so the command never touches
     # the npm registry at session time (Summit venue networking is not a
     # dependency the live beat can afford). Pinned 0.18.0 to MATCH
@@ -1375,6 +1373,18 @@ EOF
         warn "pellier service not active after restart — check: journalctl -u pellier"
     fi
 
+    if [ "${WORKSHOP_FORMAT:-builders}" = "governed" ] && [ "$AGENTCORE_OK" = true ]; then
+        log "Restoring canonical governed state after live Runtime and Policy proof..."
+        if sudo -u "$CODE_EDITOR_USER" bash -c "
+            export PELLIER_REPO='$REPO_PATH'
+            bash '$REPO_PATH/scripts/reset-governed-workshop.sh'
+        " 2>&1 | tee /var/log/pellier-governed-reset.log; then
+            log "✅ Governed database, evidence, and Policy state reset"
+        else
+            fail "Governed reset failed; see /var/log/pellier-governed-reset.log"
+        fi
+    fi
+
     log "✅ ${WORKSHOP_FORMAT:-builders} managed path processed, pellier service restarted"
 fi
 
@@ -1394,9 +1404,9 @@ if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -x "$REPO_PATH/scripts
 fi
 
 # ============================================================================
-# STEP 17b: PRE-BAKE THE CORE LAB 4 BEARER TOKEN HELPER
+# STEP 17b: PRE-BAKE THE GOVERNED BEARER TOKEN HELPER
 # ============================================================================
-# The Core Lab 4 managed-Policy exercise runs on the AUTHENTICATED Gateway rail and
+# Labs 3 and 5 run on the authenticated managed rail and
 # needs a Cognito access token. In a self-paced room (no facilitator to unblock
 # a failed `admin-initiate-auth`), typing that command is the #1 friction +
 # failure mode. So we pre-bake a one-command helper that mints a FRESH token
@@ -1408,7 +1418,7 @@ fi
 # Cedar gates at the Gateway), not the auth ceremony. Identity is still REAL:
 # the token is a genuine Cognito JWT the Gateway validates.
 if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" ]; then
-    log "Writing Core Lab 4 token helper (~/pellier-token.sh)..."
+    log "Writing governed token helper (~/pellier-token.sh)..."
     _TOKEN_POOL="${COGNITO_POOL:-${COGNITO_POOL_ID}}"
     _TOKEN_CLIENT="${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}"
     # The participant's ~ is /home/$CODE_EDITOR_USER, NOT $HOME_FOLDER
@@ -1418,7 +1428,7 @@ if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -n "${COGNITO_POOL:-${
     _TOKEN_HELPER="/home/$CODE_EDITOR_USER/pellier-token.sh"
     cat > "$_TOKEN_HELPER" <<TOKENEOF
 #!/usr/bin/env bash
-# Mint a fresh Cognito access token for the optional authenticated beat.
+# Mint a fresh Cognito access token for the governed Runtime and Policy proof.
 # Usage:  source ~/pellier-token.sh          # default persona (Marco)
 #         source ~/pellier-token.sh anna     # mint Anna's token instead
 #         source ~/pellier-token.sh theo     # mint Theo's
@@ -1457,7 +1467,7 @@ fi
 TOKENEOF
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$_TOKEN_HELPER" 2>/dev/null || true
     ln -sf "$_TOKEN_HELPER" "$HOME_FOLDER/pellier-token.sh" 2>/dev/null || true
-    log "✅ Core Lab 4 token helper ready: source ~/pellier-token.sh"
+    log "✅ Governed token helper ready: source ~/pellier-token.sh"
 fi
 
 # ============================================================================

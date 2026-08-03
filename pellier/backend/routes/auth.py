@@ -17,13 +17,10 @@ Implements Requirements 3.1.1–3.1.5 and 4.1.3:
 Design notes
 ------------
 
-* **State signing.** ``state`` is a URL-safe HMAC token built from a
-  random nonce + an expiry. The signing key is derived from
-  ``COGNITO_CLIENT_SECRET`` so no extra dependency (``itsdangerous``) is
-  needed and the state survives a restart-less round trip. If the
-  secret is not configured the signer falls back to a stable
-  per-process key so local dev still works. Replay protection is the
-  5-minute expiry — single-use tracking is left to the TTL.
+* **State + PKCE.** ``state`` is a URL-safe HMAC token built from a random
+  nonce + an expiry and is also stored in an httpOnly browser cookie. The
+  callback requires both copies to match, consumes the cookie, and supplies
+  the browser-bound PKCE verifier during the code exchange.
 * **Cookies.** Session cookies follow Req 5.3.1: ``httpOnly`` +
   ``Secure`` + ``SameSite=Lax`` + ``Path=/``. The ``just_signed_in``
   flag is explicitly ``httpOnly=False`` so the SPA can read and delete
@@ -78,6 +75,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 ID_TOKEN_COOKIE = "id_token"
 REFRESH_TOKEN_COOKIE = "refresh_token"
 JUST_SIGNED_IN_COOKIE = "just_signed_in"
+OAUTH_STATE_COOKIE = "oauth_state"
+PKCE_VERIFIER_COOKIE = "oauth_pkce"
 
 # Refresh tokens are long-lived (30 days by default in Cognito). Access/id
 # tokens expire in an hour; we let the browser hold them for their full
@@ -89,6 +88,7 @@ JUST_SIGNED_IN_MAX_AGE = 60              # 60s single-use flag
 
 # State token lifetime (Req 5.3.4 guards the mismatch path, not TTL).
 STATE_TTL_SECONDS = 5 * 60               # 5 minutes
+OAUTH_COOKIE_MAX_AGE = STATE_TTL_SECONDS
 
 # Provider values mapped through to the Cognito ``identity_provider`` query
 # string parameter. ``email`` is omitted entirely so the Hosted UI falls
@@ -248,6 +248,15 @@ def _verify_state(state: str) -> bool:
     return True
 
 
+def _build_pkce_verifier() -> str:
+    """Return an RFC 7636 verifier with enough entropy for S256."""
+    return secrets.token_urlsafe(64)
+
+
+def _pkce_challenge(verifier: str) -> str:
+    return _b64url_encode(hashlib.sha256(verifier.encode("ascii")).digest())
+
+
 # ---- Cookie helpers --------------------------------------------------------
 
 
@@ -313,6 +322,43 @@ def _set_just_signed_in_cookie(response: Response) -> None:
         samesite="lax",
         path="/",
     )
+
+
+def _set_oauth_cookies(response: Response, *, state: str, verifier: str) -> None:
+    """Bind the OAuth transaction to the initiating browser."""
+    for key, value in (
+        (OAUTH_STATE_COOKIE, state),
+        (PKCE_VERIFIER_COOKIE, verifier),
+    ):
+        response.set_cookie(
+            key=key,
+            value=value,
+            max_age=OAUTH_COOKIE_MAX_AGE,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/api/auth",
+        )
+
+
+def _clear_oauth_cookies(response: Response) -> None:
+    for cookie in (OAUTH_STATE_COOKIE, PKCE_VERIFIER_COOKIE):
+        response.delete_cookie(
+            cookie,
+            path="/api/auth",
+            secure=True,
+            samesite="lax",
+        )
+
+
+def _oauth_failure_response() -> JSONResponse:
+    """Return the non-leaking OAuth failure envelope and consume browser state."""
+    response = JSONResponse(
+        status_code=502,
+        content={"detail": "auth_failed"},
+    )
+    _clear_oauth_cookies(response)
+    return response
 
 
 def _clear_session_cookies(response: Response) -> None:
@@ -398,18 +444,23 @@ async def signin(
     identity_provider = PROVIDER_MAP.get(provider_key)
 
     state = _build_state()
+    verifier = _build_pkce_verifier()
     params: Dict[str, str] = {
         "client_id": _client_id(),
         "response_type": "code",
         "scope": "openid email profile",
         "redirect_uri": _redirect_uri(request),
         "state": state,
+        "code_challenge": _pkce_challenge(verifier),
+        "code_challenge_method": "S256",
     }
     if identity_provider:
         params["identity_provider"] = identity_provider
 
     url = f"{_authorize_url()}?{urlencode(params)}"
-    return RedirectResponse(url=url, status_code=302)
+    response = RedirectResponse(url=url, status_code=302)
+    _set_oauth_cookies(response, state=state, verifier=verifier)
+    return response
 
 
 @router.get("/callback")
@@ -430,33 +481,50 @@ async def callback(
     # We treat them the same as any other sign-in interruption per Req 3.1.5.
     if error:
         logger.info("Cognito returned OAuth error: %s", error)
-        return JSONResponse(
+        response = JSONResponse(
             status_code=400,
             content={"error": "auth_failed"},
         )
+        _clear_oauth_cookies(response)
+        return response
 
-    if not code or not state:
-        return JSONResponse(
+    cookie_state = request.cookies.get(OAUTH_STATE_COOKIE, "")
+    verifier = request.cookies.get(PKCE_VERIFIER_COOKIE, "")
+    state_matches = bool(
+        state
+        and cookie_state
+        and hmac.compare_digest(state, cookie_state)
+    )
+    if not code or not state_matches or not verifier:
+        response = JSONResponse(
             status_code=400,
             content={"error": "invalid_state"},
         )
+        _clear_oauth_cookies(response)
+        return response
 
     # Req 5.3.4: state mismatch or tamper → 400 invalid_state.
     if not _verify_state(state):
-        return JSONResponse(
+        response = JSONResponse(
             status_code=400,
             content={"error": "invalid_state"},
         )
+        _clear_oauth_cookies(response)
+        return response
 
     # Exchange the authorization code for tokens.
-    token_response = _token_exchange(
-        {
-            "grant_type": "authorization_code",
-            "client_id": _client_id(),
-            "code": code,
-            "redirect_uri": _redirect_uri(request),
-        }
-    )
+    try:
+        token_response = _token_exchange(
+            {
+                "grant_type": "authorization_code",
+                "client_id": _client_id(),
+                "code": code,
+                "redirect_uri": _redirect_uri(request),
+                "code_verifier": verifier,
+            }
+        )
+    except HTTPException:
+        return _oauth_failure_response()
 
     access_token = token_response.get("access_token")
     id_token = token_response.get("id_token")
@@ -464,7 +532,7 @@ async def callback(
 
     if not access_token:
         logger.error("Cognito token response missing access_token")
-        raise HTTPException(status_code=502, detail="auth_failed")
+        return _oauth_failure_response()
 
     # Verify the access token against JWKS before trusting it. Any failure
     # here bubbles up as 401 from ``validate_jwt``; surface it as 502
@@ -473,9 +541,10 @@ async def callback(
         await service.validate_jwt(access_token)
     except HTTPException as exc:
         logger.error("Token validation after exchange failed: %s", exc.detail)
-        raise HTTPException(status_code=502, detail="auth_failed")
+        return _oauth_failure_response()
 
     response = RedirectResponse(url=_post_signin_redirect(request), status_code=302)
+    _clear_oauth_cookies(response)
     _set_session_cookies(
         response,
         access_token=access_token,

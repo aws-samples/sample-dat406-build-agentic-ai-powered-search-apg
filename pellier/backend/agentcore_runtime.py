@@ -84,39 +84,38 @@ try:
         user_id = (payload or {}).get("user_id", "anonymous")
         history = (payload or {}).get("history", [])
 
-        # Gateway rail first: tools execute in the MCP Lambdas under the
-        # caller's identity (JWT passthrough). The in-process orchestrator is
-        # a conversational fallback only — its catalog tools have no database
-        # service in this container.
-        rail = "in-process"
-        orchestrator = None
+        # Tools execute only through Gateway MCP under the caller's identity.
+        # A managed Runtime invocation must never degrade into local tools.
+        rail = "runtime"
         access_token = _bearer_token_from(context)
-        if access_token:
-            from services.agentcore_gateway import create_gateway_orchestrator
-
-            orchestrator = create_gateway_orchestrator(access_token=access_token)
-            if orchestrator is not None:
-                rail = "gateway-mcp"
-        if orchestrator is None:
+        if not access_token:
             logger.warning(
-                "Gateway rail unavailable (token=%s, gateway_url=%s) — "
-                "falling back to in-process orchestrator",
-                "present" if access_token else "missing",
-                os.environ.get("AGENTCORE_GATEWAY_URL", ""),
+                "Managed Runtime invocation rejected: Cognito bearer token missing"
             )
-            from agents.orchestrator import create_orchestrator
-
-            orchestrator = create_orchestrator()
-
-        if orchestrator is None:
             return {
-                "response": (
-                    "The orchestrator isn't wired up yet. Complete the "
-                    "orchestrator challenge or use the solutions copy."
-                ),
+                "error": "authentication_required",
                 "products": [],
                 "rail": rail,
             }
+
+        if not os.environ.get("AGENTCORE_GATEWAY_URL"):
+            logger.error("Managed Runtime invocation rejected: Gateway URL missing")
+            return {
+                "error": "managed_gateway_unavailable",
+                "products": [],
+                "rail": rail,
+            }
+
+        from services.agentcore_gateway import create_gateway_orchestrator
+
+        orchestrator = create_gateway_orchestrator(access_token=access_token)
+        if orchestrator is None:
+            return {
+                "error": "managed_gateway_unavailable",
+                "products": [],
+                "rail": rail,
+            }
+        rail = "gateway-mcp"
 
         try:
             orchestrator.trace_attributes = {

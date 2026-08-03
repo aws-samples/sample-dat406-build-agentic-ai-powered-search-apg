@@ -112,10 +112,10 @@
   {
     "numeral": 11,
     "functionName": "restock_shelf",
-    "description": "Add inventory to product_catalog.quantity. Cedar policy `max-restock-quantity` enforces a 500-unit ceiling. Every ALLOW writes to tool_audit with result + latency.",
+    "description": "Idempotently add inventory to one warehouse and recompute product_catalog.quantity. Cedar policy `max-restock-quantity` enforces a 500-unit ceiling. Every managed ALLOW writes to tool_audit with result + latency.",
     "status": "shipped",
     "mutationType": "write",
-    "signature": "restock_shelf(product_id, quantity) -> str",
+    "signature": "restock_shelf(product_id, quantity, idempotency_key, warehouse_id='BK-01') -> str",
     "usedBy": ["Stock Keeper"],
     "invocationCount": 42,
     "version": "1.0.0"
@@ -123,10 +123,10 @@
   {
     "numeral": 12,
     "functionName": "process_return",
-    "description": "Theo's anchor write. Atomic transaction: ownership SELECT (orders) → INSERT into returns → conditional UPDATE of product_catalog.quantity (only on reason='damaged'). Cedar policy `process-return-allowed-reasons` gates the reason field; SQL gates ownership inside the transaction. Every ALLOW writes to tool_audit.",
+    "description": "Theo's anchor write. One idempotent Aurora transaction checks ownership, inserts the return, and synchronizes warehouse plus catalog inventory for damaged items. Managed Cedar policy gates the reason before Lambda execution; SQL gates ownership. Every managed ALLOW writes to tool_audit.",
     "status": "shipped",
     "mutationType": "write",
-    "signature": "process_return(customer_id, product_id, reason) -> str",
+    "signature": "process_return(customer_id, product_id, reason, idempotency_key) -> str",
     "usedBy": ["Experience Guide"],
     "invocationCount": 18,
     "version": "1.0.0"

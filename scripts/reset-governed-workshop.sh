@@ -53,13 +53,43 @@ _psql_exec() {
 echo "Pellier governed reset - $(date '+%H:%M:%S')"
 echo "------------------------------------------------------------"
 
-if [[ -f "$REPO/scripts/migrations/010_governed_receipts.sql" ]]; then
-  _psql_file "$REPO/scripts/migrations/010_governed_receipts.sql" >/tmp/pellier-governed-reset-db.log
-  pass "Governed receipt table and forensic incident reseeded"
-else
+if ! "$PYTHON" "$REPO/scripts/seed_boutique_catalog.py" \
+    --from-cache >/tmp/pellier-governed-reset-catalog.log 2>&1; then
+  fail "Deterministic catalog reset failed; see /tmp/pellier-governed-reset-catalog.log"
+  exit 1
+fi
+pass "Catalog quantities restored from committed embedding cache"
+
+for migration in \
+  006_warehouse_inventory.sql \
+  011_governed_write_integrity.sql
+do
+  if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
+    fail "Missing scripts/migrations/$migration"
+    exit 1
+  fi
+  _psql_file "$REPO/scripts/migrations/$migration" \
+    >>/tmp/pellier-governed-reset-db.log
+done
+pass "Exactly three warehouse rows per curated product reseeded"
+
+_psql_exec "
+TRUNCATE TABLE
+    pellier.governed_receipts,
+    pellier.tool_audit,
+    pellier.write_operations,
+    pellier.returns
+RESTART IDENTITY;
+" >/tmp/pellier-governed-reset-evidence.log
+pass "Live returns, write keys, audits, and receipts cleared"
+
+if [[ ! -f "$REPO/scripts/migrations/010_governed_receipts.sql" ]]; then
   fail "Missing scripts/migrations/010_governed_receipts.sql"
   exit 1
 fi
+_psql_file "$REPO/scripts/migrations/010_governed_receipts.sql" \
+  >>/tmp/pellier-governed-reset-db.log
+pass "Canonical governed forensic incident reseeded"
 
 _psql_exec '
 CREATE INDEX IF NOT EXISTS product_catalog_embedding_hnsw
@@ -86,7 +116,8 @@ if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]] && [[ -f "$REPO/scripts/deploy/wor
       reset >/tmp/pellier-governed-reset-policy.log 2>&1; then
     pass "Participant Cedar rule removed; shipped policy state restored"
   else
-    warn "Could not reset participant Cedar rule; see /tmp/pellier-governed-reset-policy.log"
+    fail "Could not reset participant Cedar rule; see /tmp/pellier-governed-reset-policy.log"
+    exit 1
   fi
 
   if [[ -n "${AGENTCORE_GATEWAY_ARN:-}" ]]; then
@@ -97,13 +128,16 @@ if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]] && [[ -f "$REPO/scripts/deploy/wor
         --region "$AWS_REGION" >/tmp/pellier-governed-reset-mode.log 2>&1; then
       pass "Gateway Policy attachment restored to ENFORCE mode"
     else
-      warn "Could not confirm Gateway Policy ENFORCE mode; see /tmp/pellier-governed-reset-mode.log"
+      fail "Could not confirm Gateway Policy ENFORCE mode; see /tmp/pellier-governed-reset-mode.log"
+      exit 1
     fi
   else
-    warn "Gateway Policy mode reset skipped; AGENTCORE_GATEWAY_ARN not set"
+    fail "Gateway Policy mode reset requires AGENTCORE_GATEWAY_ARN"
+    exit 1
   fi
 else
-  warn "Policy reset skipped; AGENTCORE_POLICY_ENGINE_ID not set"
+  fail "Policy reset requires AGENTCORE_POLICY_ENGINE_ID"
+  exit 1
 fi
 
 if [[ -x "$REPO/scripts/health-gate.sh" ]]; then

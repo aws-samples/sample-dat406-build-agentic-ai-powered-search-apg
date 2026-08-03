@@ -1963,7 +1963,7 @@ CURRENT REQUEST: {message}"""
                     # tool_audit row BEFORE the tool body runs (result/latency
                     # filled in by the After hook). This is the in-process rail's
                     # own audit — independent of the managed Gateway/Policy path,
-            # so the Core Lab 3 SQL proof works on the default (anonymous)
+                    # so the Lab 4 SQL proof works on the default (anonymous)
                     # storefront turn with no token and no Gateway.
                     if tool_use_id and tool_name:
                         _tool_t0[tool_use_id] = time.perf_counter()
@@ -2003,7 +2003,7 @@ CURRENT REQUEST: {message}"""
                     # Aurora system-of-record write: UPDATE the placeholder row
                     # with the tool's result + latency. The stored result is the
                     # parsed text (JSON for tools like process_return), so
-                    # result->>'return_id' is queryable in the Core Lab 3 proof.
+                    # result->>'return_id' is queryable in the Lab 4 proof.
                     if tool_use_id:
                         t0 = _tool_t0.pop(tool_use_id, None)
                         latency_ms = int((time.perf_counter() - t0) * 1000) if t0 else 0
@@ -2038,7 +2038,7 @@ CURRENT REQUEST: {message}"""
             # single gate. What the hooks above DO write is the Aurora
             # ``tool_audit`` evidence row for every tool the in-process rail
             # runs — audit, not enforcement. This is deliberately decoupled so
-            # the Core Lab 3 "Aurora as system-of-record" SQL proof populates on the
+            # the Lab 4 "Aurora as system-of-record" SQL proof populates on the
             # ordinary storefront turn, independent of whether the managed
             # Gateway/Policy path provisioned. The Gateway Lambda writes its own
             # row on the authenticated rail; both rails feed the same ledger.

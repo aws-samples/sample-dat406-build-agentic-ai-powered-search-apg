@@ -8,10 +8,9 @@
 --    and Portland (PDX-01). Ship window from Brooklyn to your zip is
 --    1–2 business days."
 --
--- Exact per-warehouse counts are derived from the 40/30/30 split below,
--- so Brooklyn always holds the largest share; Austin and Portland are
--- equal at 30% each. Don't hard-code a specific number in narration —
--- read it from the seeded rows (the split + FLOOR rounding decide it).
+-- Exact per-warehouse counts are derived from the 40/30/30 split below.
+-- Austin and Portland receive FLOOR(30%); Brooklyn receives the remainder,
+-- preserving the catalog total exactly and keeping Brooklyn largest.
 --
 -- 001_schema.sql creates aggregate product_catalog.quantity. This
 -- migration adds the per-warehouse structure Stock Keeper needs.
@@ -214,31 +213,36 @@ CREATE INDEX IF NOT EXISTS warehouse_inventory_product_idx
     ON pellier.warehouse_inventory (product_id);
 
 -- ---------------------------------------------------------------------
--- Seed: deterministic 40/30/30 split of curated product_catalog.quantity
--- across BK-01 / ATX-02 / PDX-01. Generated archive distractors are
--- retrieval-only and intentionally do not get warehouse rows.
+-- Seed: rebuild the exact 40 x 3 governed inventory matrix. Clearing the
+-- existing rows prevents legacy warehouses or stale products from surviving
+-- a reset and invalidating the 120-row workshop contract.
 -- ---------------------------------------------------------------------
-DELETE FROM pellier.warehouse_inventory wi
-WHERE wi.product_id ~ '^[0-9]+$'
-  AND wi.product_id::int NOT BETWEEN 1 AND 40;
+DELETE FROM pellier.warehouse_inventory;
+DELETE FROM pellier.warehouses
+WHERE id NOT IN ('BK-01', 'ATX-02', 'PDX-01');
 
 INSERT INTO pellier.warehouse_inventory (warehouse_id, product_id, quantity)
 SELECT
     wh.id,
     pc."productId",
-    GREATEST(
-        0,
-        FLOOR(
-            pc.quantity * CASE wh.id
-                WHEN 'BK-01'  THEN 0.40
-                WHEN 'ATX-02' THEN 0.30
-                WHEN 'PDX-01' THEN 0.30
-            END
+    CASE wh.id
+        WHEN 'BK-01' THEN GREATEST(
+            0,
+            pc.quantity
+              - FLOOR(pc.quantity * 0.30)::INTEGER
+              - FLOOR(pc.quantity * 0.30)::INTEGER
         )::SMALLINT
-    )
+        WHEN 'ATX-02' THEN GREATEST(
+            0, FLOOR(pc.quantity * 0.30)::INTEGER
+        )::SMALLINT
+        WHEN 'PDX-01' THEN GREATEST(
+            0, FLOOR(pc.quantity * 0.30)::INTEGER
+        )::SMALLINT
+    END
 FROM pellier.warehouses wh
 CROSS JOIN pellier.product_catalog pc
-WHERE pc."productId" ~ '^[0-9]+$'
+WHERE wh.id IN ('BK-01', 'ATX-02', 'PDX-01')
+  AND pc."productId" ~ '^[0-9]+$'
   AND pc."productId"::int BETWEEN 1 AND 40
 ON CONFLICT (warehouse_id, product_id) DO UPDATE SET
     quantity   = EXCLUDED.quantity,
@@ -251,9 +255,25 @@ DO $$
 DECLARE
     nrows  INTEGER;
     nzero  INTEGER;
+    invalid_products INTEGER;
 BEGIN
     SELECT COUNT(*)                             INTO nrows FROM pellier.warehouse_inventory;
     SELECT COUNT(*) FILTER (WHERE quantity = 0) INTO nzero FROM pellier.warehouse_inventory;
+    SELECT count(*)
+      INTO invalid_products
+      FROM (
+          SELECT product_id
+            FROM pellier.warehouse_inventory
+           GROUP BY product_id
+          HAVING count(*) <> 3
+      ) AS invalid;
+
+    IF nrows <> 120 OR invalid_products <> 0 THEN
+        RAISE EXCEPTION
+            'Governed inventory expected 120 rows and 3 warehouses per product; got % rows and % invalid products.',
+            nrows,
+            invalid_products;
+    END IF;
     RAISE NOTICE 'pellier.warehouse_inventory: % rows total (% with zero stock)', nrows, nzero;
 END $$;
 

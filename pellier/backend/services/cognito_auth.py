@@ -18,8 +18,10 @@ Key design choices (Req 4.2):
   * JWKS is fetched once per ``CognitoAuthService`` instance and cached
     for 1 hour. A single ``asyncio.Lock`` guards the refresh so N
     concurrent validations trigger exactly one HTTP fetch (Req 4.2.1).
-  * The validator enforces signature (RS256), ``iss``, ``aud``, ``exp``,
-    and ``token_use == "access"`` per Req 4.2.2 and 2.6.3.
+  * The validator enforces signature (RS256), ``iss``, ``client_id``, ``sub``,
+    ``exp``, and ``token_use == "access"`` per Req 4.2.2 and 2.6.3.
+  * An unknown ``kid`` forces one guarded JWKS refresh so Cognito signing-key
+    rotation does not reject valid users for the cache TTL.
   * ``extract_user`` checks the ``Authorization: Bearer`` header first
     and only falls back to the ``access_token`` cookie (spec priority).
   * Tokens never appear in logs (Req 5.3.3). The service logs validation
@@ -149,6 +151,22 @@ class CognitoAuthService:
             if jwk.get("kid") == kid:
                 return RSAAlgorithm.from_jwk(jwk)
 
+        # Cognito rotates signing keys. If the cache predates the rotation,
+        # refresh exactly once under the same lock used by the normal cache
+        # path. The identity check prevents concurrent misses from stampeding
+        # the JWKS endpoint after the first caller has refreshed it.
+        async with self._jwks_lock:
+            if self._jwks_cache is jwks:
+                refreshed = await asyncio.to_thread(self._fetch_jwks)
+                self._jwks_cache = refreshed
+                self._jwks_cache_time = time.time()
+            else:
+                refreshed = self._jwks_cache or {}
+
+        for jwk in refreshed.get("keys", []):
+            if jwk.get("kid") == kid:
+                return RSAAlgorithm.from_jwk(jwk)
+
         raise jwt.InvalidTokenError("Token 'kid' not found in JWKS")
 
     # ------------------------------------------------------------------
@@ -161,8 +179,8 @@ class CognitoAuthService:
         Enforces (Req 4.2.2, 2.6.3):
           * RS256 signature via JWKS
           * ``iss`` matches the pool issuer URL
-          * ``aud`` matches ``COGNITO_CLIENT_ID`` (access tokens emit
-            ``client_id`` rather than ``aud``; both are accepted)
+          * ``client_id`` matches ``COGNITO_CLIENT_ID``
+          * non-empty ``sub`` identifies the authenticated principal
           * ``exp`` not in the past
           * ``token_use == 'access'``
         """
@@ -171,17 +189,18 @@ class CognitoAuthService:
 
         try:
             key = await self._resolve_signing_key(token)
-            # Cognito access tokens put the app-client id in the ``client_id``
-            # claim, not ``aud``. Decode without audience verification first,
-            # then assert the client_id manually so id-tokens (which use
-            # ``aud``) and access-tokens (which use ``client_id``) both
-            # validate through the same code path.
+            # Cognito access tokens put the app-client id in ``client_id``.
+            # ID tokens use ``aud`` and are rejected by the token_use check;
+            # accepting ``aud`` here would blur those two token contracts.
             claims = jwt.decode(
                 token,
                 key=key,
                 algorithms=["RS256"],
                 issuer=self.issuer,
-                options={"verify_aud": False, "require": ["exp", "iss"]},
+                options={
+                    "verify_aud": False,
+                    "require": ["exp", "iss", "sub", "client_id", "token_use"],
+                },
             )
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="auth_failed")
@@ -196,12 +215,15 @@ class CognitoAuthService:
         if claims.get("token_use") != "access":
             raise HTTPException(status_code=401, detail="auth_failed")
 
-        audience = claims.get("aud") or claims.get("client_id")
-        if audience != self._client_id:
+        if claims.get("client_id") != self._client_id:
+            raise HTTPException(status_code=401, detail="auth_failed")
+
+        subject = str(claims.get("sub") or "").strip()
+        if not subject:
             raise HTTPException(status_code=401, detail="auth_failed")
 
         return VerifiedUser(
-            user_id=claims.get("sub", ""),
+            user_id=subject,
             email=claims.get("email", ""),
             given_name=claims.get("given_name") or claims.get("username", ""),
             # Preserve the raw bearer token so the request path can pass the

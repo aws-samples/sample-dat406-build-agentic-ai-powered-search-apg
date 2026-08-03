@@ -129,8 +129,10 @@ TOOL_SCHEMAS = {
                     "properties": {
                         "product_id": {"type": "integer"},
                         "quantity": {"type": "integer"},
+                        "idempotency_key": {"type": "string"},
+                        "warehouse_id": {"type": "string"},
                     },
-                    "required": ["product_id", "quantity"],
+                    "required": ["product_id", "quantity", "idempotency_key"],
                 },
             },
         ],
@@ -257,8 +259,14 @@ TOOL_SCHEMAS = {
                                 "wrong_size",
                             ],
                         },
+                        "idempotency_key": {"type": "string"},
                     },
-                    "required": ["customer_id", "product_id", "reason"],
+                    "required": [
+                        "customer_id",
+                        "product_id",
+                        "reason",
+                        "idempotency_key",
+                    ],
                 },
             },
             {

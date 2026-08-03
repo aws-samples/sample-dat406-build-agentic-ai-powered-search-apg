@@ -17,8 +17,8 @@ Both execution paths are mocked:
 
   - The in-process path stubs ``create_orchestrator`` so no Bedrock /
     Strands agent is actually constructed.
-  - The runtime path stubs ``run_agent_on_runtime`` so no boto3 /
-    AgentCore SDK call is actually performed.
+  - The runtime path stubs ``run_agent_on_runtime`` so no AgentCore data-plane
+    request is actually performed.
 
 Runnable from the repo root per ``pytest.ini``:
 
@@ -260,62 +260,67 @@ def test_run_agent_runtime_passes_none_user_id_through(
 
 
 # ---------------------------------------------------------------------------
-# Runtime implementation — missing endpoint falls back to in-process
+# Runtime implementation — managed configuration fails closed
 # ---------------------------------------------------------------------------
 
 
-def test_run_agent_on_runtime_falls_back_when_endpoint_missing(
+def test_run_agent_on_runtime_fails_when_endpoint_missing(
     monkeypatch: pytest.MonkeyPatch,
     stub_create_orchestrator,
 ) -> None:
-    """If the flag is flipped but ``AGENTCORE_RUNTIME_ENDPOINT`` is not
-    configured, ``run_agent_on_runtime`` SHALL emit a warning and fall
-    back to the in-process orchestrator so a misconfigured environment
-    never breaks the storefront."""
+    """A configured managed path must not silently execute in-process."""
     import asyncio
 
     import services.agentcore_runtime as rt
 
     monkeypatch.setattr(rt.settings, "AGENTCORE_RUNTIME_ENDPOINT", None)
 
-    result = asyncio.run(
-        rt.run_agent_on_runtime(
-            message="fallback case",
-            session_id="sess-fb",
-            user_id="user-abc",
+    with pytest.raises(rt.ManagedRuntimeError, match="runtime_not_configured"):
+        asyncio.run(
+            rt.run_agent_on_runtime(
+                message="fail closed",
+                session_id="sess-fb",
+                user_id="user-abc",
+            )
         )
-    )
-
-    # In-process stub fired as the fallback.
-    assert len(_StubOrchestrator.instances) == 1
-    assert _StubOrchestrator.instances[0].calls == ["fallback case"]
-    assert result == "[stub-inprocess] fallback case"
+    assert _StubOrchestrator.instances == []
 
 
-def test_run_agent_on_runtime_falls_back_when_auth_token_missing(
+def test_run_agent_on_runtime_fails_when_auth_token_missing(
     monkeypatch: pytest.MonkeyPatch,
     stub_create_orchestrator,
 ) -> None:
-    """The managed Runtime is Cognito JWT-protected. Anonymous calls keep
-    the route usable by falling back to the in-process orchestrator."""
+    """The JWT-protected managed Runtime rejects anonymous calls."""
     import asyncio
 
     import services.agentcore_runtime as rt
 
     monkeypatch.setattr(rt.settings, "AGENTCORE_RUNTIME_ENDPOINT", "runtime-id-123")
 
-    result = asyncio.run(
-        rt.run_agent_on_runtime(
-            message="anonymous fallback",
-            session_id="sess-anon",
-            user_id=None,
-            auth_token=None,
+    with pytest.raises(rt.ManagedRuntimeError, match="authentication_required"):
+        asyncio.run(
+            rt.run_agent_on_runtime(
+                message="anonymous rejected",
+                session_id="sess-anon",
+                user_id=None,
+                auth_token=None,
+            )
         )
-    )
+    assert _StubOrchestrator.instances == []
 
-    assert len(_StubOrchestrator.instances) == 1
-    assert _StubOrchestrator.instances[0].calls == ["anonymous fallback"]
-    assert result == "[stub-inprocess] anonymous fallback"
+
+def test_agent_route_preserves_managed_runtime_error_code() -> None:
+    """The SSE route must not collapse managed failures into agent_failed."""
+    from pathlib import Path
+
+    route = Path(__file__).resolve().parents[1] / "routes" / "agent.py"
+    source = route.read_text()
+    invocation = source.index("response_text = await run_agent(")
+    managed_error = source.index("except ManagedRuntimeError as exc:", invocation)
+    generic_error = source.index("except Exception as exc:", invocation)
+
+    assert invocation < managed_error < generic_error
+    assert 'yield _sse_event("error", {"code": exc.code})' in source
 
 
 def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
@@ -403,6 +408,60 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
     assert trace["jwtPassthrough"] is True
     assert trace["gatewayPassthrough"] is True
     assert trace["spans"] == []
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_code"),
+    [
+        (
+            b'{"error":"managed_gateway_unavailable","rail":"runtime"}',
+            "managed_gateway_unavailable",
+        ),
+        (
+            b'{"response":"local fallback","rail":"runtime"}',
+            "managed_gateway_unavailable",
+        ),
+        (b'not-json', "runtime_invalid_response"),
+    ],
+)
+def test_run_agent_on_runtime_rejects_degraded_envelopes(
+    monkeypatch: pytest.MonkeyPatch,
+    body: bytes,
+    expected_code: str,
+) -> None:
+    import asyncio
+    import urllib.request
+
+    import services.agentcore_runtime as rt
+
+    class _Resp:
+        def __enter__(self) -> "_Resp":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return body
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *args, **kwargs: _Resp())
+    monkeypatch.setattr(
+        rt.settings,
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/pellier-abc",
+    )
+
+    with pytest.raises(rt.ManagedRuntimeError) as exc:
+        asyncio.run(
+            rt.run_agent_on_runtime(
+                message="must stay governed",
+                session_id="sess-degraded",
+                user_id="user-123",
+                auth_token="jwt-abc",
+            )
+        )
+
+    assert exc.value.code == expected_code
 
 
 def test_conversation_prompt_includes_bounded_normalized_history() -> None:

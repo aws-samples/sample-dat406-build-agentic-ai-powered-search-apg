@@ -103,7 +103,7 @@ def test_factory_returns_real_agent(name: str, factory, expected_tools: set[str]
 def test_inventory_tool_names_render_as_stock_keeper() -> None:
     """Streaming trace labels SHALL name Stock Keeper for inventory tools.
 
-    The SSE proof parser in Core Lab 1 prints ``agent: ...`` from these labels;
+    The SSE proof parser in Lab 1 prints ``agent: ...`` from these labels;
     missing tool-name entries fall back to Style Advisor and make a correct
     floor_check run look broken.
     """

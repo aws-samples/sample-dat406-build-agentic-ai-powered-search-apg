@@ -1,7 +1,7 @@
 /**
- * McpDetail — Architecture detail page for the optional MCP Gateway concept.
+ * McpDetail — Architecture detail page for the MCP Gateway concept.
  *
- * Model Context Protocol gateway — optional managed tool publishing path.
+ * Model Context Protocol gateway — required governed tool rail.
  *
  * Requirements: 7.1, 7.6, 7.7
  */
@@ -25,29 +25,29 @@ const McpDetail: React.FC = () => {
     <DetailPageShell
       numeral="VIII"
       conceptName="MCP Gateway"
-      category="optional"
-      title="Gateway, optional."
-      prose="MCP Gateway is the optional managed path for publishing Pellier tools over a protocol boundary. When AGENTCORE_GATEWAY_URL is unset, the app uses in-process Strands tools; when configured, the Gateway can expose the same tool surface to an MCP client."
+      category="workshop"
+      title="Gateway, governed."
+      prose="AgentCore Gateway publishes Pellier's complete 15-tool contract over MCP. Governed Runtime requests require this rail, forward the caller JWT, and fail closed when Gateway is unavailable. The separate builders format retains in-process Strands tools."
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'When configured, the agent asks the Gateway for the tool catalog – names, signatures, descriptions. This is MCP discovery.',
+          text: 'The governed agent asks Gateway for the complete tool catalog – names, signatures, and descriptions. This is MCP discovery.',
         },
         {
           numeral: 'ii.',
-          text: 'When configured, the agent calls a tool by name through the Gateway. Without Gateway, the dispatcher calls the in-process tool directly.',
+          text: 'The governed agent calls tools by name through Gateway, where the caller JWT and Cedar decision stay attached to the managed boundary.',
         },
         {
           numeral: 'iii.',
-          text: 'The Gateway handles the protocol boundary, authentication, and managed-tool publishing. It is a deployment option, not a requirement for every workshop run.',
+          text: 'Gateway is mandatory for the governed format. Only the separate builders format uses the in-process dispatcher without this managed boundary.',
         },
       ]}
       liveState={{
-        label: 'Current MCP Gateway state. Shows the optional managed Gateway path beside the app\'s default in-process tool calls.',
+        label: 'Current MCP Gateway state. Shows the required governed rail and its separate builders fallback.',
         values: [
-          { label: 'Gateway', value: 'Optional' },
-          { label: 'Default path', value: 'In-process' },
-          { label: 'Protocol', value: 'MCP when configured' },
+          { label: 'Governed path', value: 'Required' },
+          { label: 'Tool contract', value: '15 tools' },
+          { label: 'Protocol', value: 'MCP' },
         ],
       }}
     >
@@ -60,11 +60,11 @@ const McpDetail: React.FC = () => {
           <ExpCard>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <ConceptEyebrow label="The network" />
-              <h3 style={sectionTitleStyle}>Three nodes, only when enabled.</h3>
+              <h3 style={sectionTitleStyle}>Three nodes, one governed rail.</h3>
               <p style={sectionProseStyle}>
-                The default Boutique path calls in-process tools. If Gateway is configured, the
-                agent can ask "what's available?", receive the MCP tool catalog, and invoke tools
-                through the managed protocol boundary.
+                Governed Runtime asks what is available, receives the 15-tool MCP catalog, and
+                invokes tools through the managed Gateway and Cedar boundary. The builders format
+                keeps its smaller in-process path separate.
               </p>
               <McpNetworkDiagram />
             </div>
@@ -75,14 +75,14 @@ const McpDetail: React.FC = () => {
             <NodeCard
               nodeKey="A"
               name="The Agent"
-              tag="App path"
-              description="Strands agent or gateway-aware client. Uses Gateway only when AGENTCORE_GATEWAY_URL is configured."
+              tag="Governed Runtime"
+              description="Strands agent running in managed Runtime. Requires AGENTCORE_GATEWAY_URL and fails closed when the rail is unavailable."
             />
             <NodeCard
               nodeKey="B"
               name="The Gateway"
-              tag="Optional infra"
-              description="AgentCore Gateway. Publishes the tool surface as MCP and handles the managed protocol boundary."
+              tag="Required infra"
+              description="AgentCore Gateway publishes all 15 tools as MCP and applies the managed identity and Cedar boundary."
             />
             <NodeCard
               nodeKey="C"

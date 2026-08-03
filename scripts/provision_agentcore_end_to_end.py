@@ -5,7 +5,7 @@ Provision the full AgentCore managed path for the Pellier workshop.
 This script is strict by design:
   - Deploy 4 MCP Lambda servers.
   - Create/update AgentCore Gateway with Cognito JWT auth.
-  - Verify expected targets are attached.
+  - Verify exactly 4 targets and 15 live MCP tools.
   - Render AgentCore runtime templates.
   - Deploy Runtime via @aws/agentcore CLI.
   - Emit one JSON payload with managed endpoints + status.
@@ -249,14 +249,13 @@ def _ensure_data_api_enabled(region: str, db_cluster_arn: str) -> None:
     )
 
 
-def _authenticated_runtime_smoke(
+def _cognito_access_token(
     region: str,
-    runtime_arn: str,
     user_pool_id: str,
     client_id: str,
     creds_secret_arn: str,
     client_secret_arn: str | None,
-) -> dict[str, Any]:
+) -> tuple[str, str]:
     sm = boto3.client("secretsmanager", region_name=region)
     cognito = boto3.client("cognito-idp", region_name=region)
 
@@ -288,7 +287,57 @@ def _authenticated_runtime_smoke(
     )
     access_token = auth.get("AuthenticationResult", {}).get("AccessToken")
     if not access_token:
-        raise RuntimeError("Failed to obtain Cognito access token for runtime smoke")
+        raise RuntimeError("Failed to obtain Cognito access token for managed proof")
+    return access_token, username
+
+
+def _discover_live_gateway_tools(
+    *,
+    deploy_dir: Path,
+    gateway_url: str,
+    access_token: str,
+) -> dict[str, Any]:
+    """Require the authenticated MCP discovery surface to match all 15 tools."""
+    deploy_path = str(deploy_dir)
+    if deploy_path not in sys.path:
+        sys.path.insert(0, deploy_path)
+    from test_gateway_tools import discover_gateway_tools
+
+    tools = discover_gateway_tools(gateway_url, access_token)
+    full_names = sorted(str(tool.name) for tool in tools)
+    canonical_names = {name.rsplit("__", 1)[-1] for name in full_names}
+    expected_names = {
+        name
+        for names in EXPECTED_TOOL_NAMES.values()
+        for name in names
+    }
+    missing = sorted(expected_names - canonical_names)
+    unexpected = sorted(canonical_names - expected_names)
+    if len(tools) != 15 or missing or unexpected:
+        details = [f"observed {len(tools)} tools, expected 15"]
+        if missing:
+            details.append("missing: " + ", ".join(missing))
+        if unexpected:
+            details.append("unexpected: " + ", ".join(unexpected))
+        raise RuntimeError(
+            "Live Gateway MCP discovery does not match the canonical contract ("
+            + "; ".join(details)
+            + ")"
+        )
+    return {
+        "count": len(tools),
+        "canonical_names": sorted(canonical_names),
+        "prefixed_names": full_names,
+    }
+
+
+def _authenticated_runtime_smoke(
+    *,
+    region: str,
+    runtime_arn: str,
+    access_token: str,
+    username: str,
+) -> dict[str, Any]:
 
     # CUSTOM_JWT runtimes are invoked over the raw HTTPS data plane with the
     # Cognito token as a Bearer header (the transport behind dat403's
@@ -349,6 +398,54 @@ def _authenticated_runtime_smoke(
         "rail": rail,
         "response_preview": response_text[:200],
     }
+
+
+def _live_policy_proof(
+    *,
+    repo: Path,
+    deploy_dir: Path,
+    env: dict[str, str],
+) -> dict[str, Any]:
+    """Execute one real Gateway ALLOW and one real Cedar DENY."""
+    helper = deploy_dir / "gateway_process_return.py"
+    proofs: dict[str, Any] = {}
+    cases = (
+        ("allow", "damaged", "provision-policy-allow"),
+        ("deny", "changed_mind", "provision-policy-deny"),
+    )
+    for expected, reason, session_id in cases:
+        proc = _run(
+            [
+                sys.executable,
+                str(helper),
+                "--product-id",
+                "31",
+                "--reason",
+                reason,
+                "--expect",
+                expected,
+                "--record-receipt",
+                "--session-id",
+                session_id,
+            ],
+            cwd=repo,
+            env=env,
+        )
+        payload = json.loads(proc.stdout)
+        if payload.get("outcome") != expected:
+            raise RuntimeError(
+                f"Live Policy {expected.upper()} proof returned "
+                f"{payload.get('outcome') or 'no outcome'}"
+            )
+        if expected == "allow" and payload.get("tool_audit_row_after_call") is None:
+            raise RuntimeError("Live Policy ALLOW produced no execution audit row")
+        if expected == "deny" and (
+            payload.get("tool_audit_row_after_call") is not None
+            or payload.get("cedar_denial") is not True
+        ):
+            raise RuntimeError("Live Policy DENY did not prove pre-execution blocking")
+        proofs[expected] = payload
+    return proofs
 
 
 # The @aws/agentcore CLI is pinned. @latest drifted from a flat-config
@@ -639,9 +736,8 @@ def _deploy_runtime_via_cli(
         # Both names on purpose: config.py reads AGENTCORE_GATEWAY_URL (the
         # name the backend/tests standardize on); MCP_GATEWAY_URL is the
         # legacy/deploy-script name the entrypoint also bridges. Without the
-        # config-visible name the Runtime container silently falls back to the
-        # in-process orchestrator, whose tools have no DB service in the
-        # microVM (box-verified 2026-06-12).
+        # config-visible name the governed Runtime fails closed because its
+        # managed Gateway rail is unavailable.
         env_vars={
             "MCP_GATEWAY_URL": gateway_url,
             "AGENTCORE_GATEWAY_URL": gateway_url,
@@ -856,9 +952,20 @@ def main() -> int:
         attached = {item.get("name") for item in target_payload.get("items", [])}
         expected = {cfg["target_name"] for cfg in EXPECTED_TARGETS.values()}
         missing_targets = sorted(expected - attached)
-        if missing_targets:
-            raise RuntimeError(f"Gateway targets missing after deploy: {', '.join(missing_targets)}")
+        unexpected_targets = sorted(attached - expected)
+        if len(attached) != 4 or missing_targets or unexpected_targets:
+            details = [f"observed {len(attached)} targets, expected 4"]
+            if missing_targets:
+                details.append("missing: " + ", ".join(missing_targets))
+            if unexpected_targets:
+                details.append("unexpected: " + ", ".join(unexpected_targets))
+            raise RuntimeError(
+                "Gateway target set does not match the canonical contract ("
+                + "; ".join(details)
+                + ")"
+            )
         result["verification"]["targets_attached"] = True
+        result["verification"]["target_count"] = len(attached)
         result["verification"]["target_names"] = sorted(attached)
 
         prefixed_expected: list[str] = []
@@ -906,14 +1013,50 @@ def main() -> int:
                 if isinstance(tool_name, str) and tool_name:
                     prefixed_observed.add(f"{target_name}__{tool_name}")
 
-        missing_prefixed = sorted(set(prefixed_expected) - prefixed_observed)
-        if missing_prefixed:
+        expected_prefixed = set(prefixed_expected)
+        missing_prefixed = sorted(expected_prefixed - prefixed_observed)
+        unexpected_prefixed = sorted(prefixed_observed - expected_prefixed)
+        if (
+            len(prefixed_observed) != 15
+            or missing_prefixed
+            or unexpected_prefixed
+        ):
+            details = [
+                f"observed {len(prefixed_observed)} schema tools, expected 15"
+            ]
+            if missing_prefixed:
+                details.append("missing: " + ", ".join(missing_prefixed))
+            if unexpected_prefixed:
+                details.append("unexpected: " + ", ".join(unexpected_prefixed))
             raise RuntimeError(
-                "Gateway tool schema missing expected prefixed tools: "
-                + ", ".join(missing_prefixed)
+                "Gateway tool schema does not match the canonical contract ("
+                + "; ".join(details)
+                + ")"
             )
         result["verification"]["prefixed_tools_verified"] = True
+        result["verification"]["prefixed_tool_count"] = len(prefixed_observed)
         result["verification"]["prefixed_tools"] = sorted(prefixed_observed)
+
+        access_token, smoke_username = _cognito_access_token(
+            region=required["AWS_REGION"],
+            user_pool_id=required["COGNITO_POOL"],
+            client_id=required["COGNITO_CLIENT"],
+            creds_secret_arn=required["COGNITO_TEST_CREDENTIALS_SECRET_ARN"],
+            client_secret_arn=client_secret_arn,
+        )
+        live_gateway = _discover_live_gateway_tools(
+            deploy_dir=deploy_dir,
+            gateway_url=gateway_url,
+            access_token=access_token,
+        )
+        result["verification"]["gateway_tools_discovered"] = True
+        result["verification"]["gateway_tool_count"] = live_gateway["count"]
+        result["verification"]["gateway_tool_names"] = live_gateway[
+            "canonical_names"
+        ]
+        result["verification"]["gateway_prefixed_tool_names"] = live_gateway[
+            "prefixed_names"
+        ]
 
         account_proc = _run(
             ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"],
@@ -930,7 +1073,7 @@ def main() -> int:
         # gateway in ENFORCE mode. Policy enforces at the Gateway boundary, so
         # it gates the agents_as_tools rail (process_return runs in the
         # experience Lambda). This is a hard readiness requirement for the
-        # governed workshop: Core Lab 4 cannot run without it.
+        # governed workshop: Lab 5 cannot run without it.
         try:
             gateway_arn_proc = _run(
                 [
@@ -968,6 +1111,43 @@ def main() -> int:
                 "gated_tool": "process_return",
             }
             result["verification"]["managed_policy_attached"] = bool(policy_engine_id)
+
+            policy_state_proc = _run(
+                [
+                    "aws",
+                    "bedrock-agentcore-control",
+                    "get-gateway",
+                    "--gateway-identifier",
+                    gateway_id,
+                    "--region",
+                    required["AWS_REGION"],
+                    "--output",
+                    "json",
+                ],
+                cwd=repo,
+            )
+            policy_state = json.loads(policy_state_proc.stdout)
+            current_mode = (
+                policy_state.get("policyEngineConfiguration", {}).get("mode")
+            )
+            if current_mode != "ENFORCE":
+                raise RuntimeError(
+                    f"Gateway Policy mode is {current_mode or 'missing'}, expected ENFORCE"
+                )
+
+            proof_env = deploy_env.copy()
+            proof_env["AGENTCORE_GATEWAY_URL"] = gateway_url
+            proof_env["AGENTCORE_GATEWAY_ARN"] = gateway_arn
+            proof_env["AGENTCORE_POLICY_ENGINE_ID"] = policy_engine_id
+            proof_env["PELLIER_TOKEN"] = access_token
+            live_policy = _live_policy_proof(
+                repo=repo,
+                deploy_dir=deploy_dir,
+                env=proof_env,
+            )
+            result["verification"]["live_policy_allow"] = True
+            result["verification"]["live_policy_deny"] = True
+            result["verification"]["live_policy_proof"] = live_policy
         except RuntimeError as exc:
             result["policy"] = {"error": str(exc)}
             result["verification"]["managed_policy_attached"] = False
@@ -1046,10 +1226,8 @@ def main() -> int:
             smoke = _authenticated_runtime_smoke(
                 region=required["AWS_REGION"],
                 runtime_arn=runtime_arn,
-                user_pool_id=required["COGNITO_POOL"],
-                client_id=required["COGNITO_CLIENT"],
-                creds_secret_arn=required["COGNITO_TEST_CREDENTIALS_SECRET_ARN"],
-                client_secret_arn=client_secret_arn,
+                access_token=access_token,
+                username=smoke_username,
             )
         except Exception as exc:
             result["status"] = "degraded"
@@ -1064,7 +1242,10 @@ def main() -> int:
         required_verifications = (
             "targets_attached",
             "prefixed_tools_verified",
+            "gateway_tools_discovered",
             "managed_policy_attached",
+            "live_policy_allow",
+            "live_policy_deny",
             "runtime_control_plane_visible",
             "authenticated_runtime_invoke_smoke",
         )

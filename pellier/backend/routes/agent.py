@@ -17,11 +17,10 @@ Design notes
   expiry must not abort an already-running response (per Design
   "Error Handling" row and Sequence Diagram #2 note). Silent refresh
   fires on the next request.
-* **Anonymous fallback.** Requests without a valid token still stream.
-  ``AgentCoreIdentityService`` returns an ``anon-{session_id}``
-  namespace and the orchestrator runs with ``user_id=None``. Session
-  history for these shoppers is keyed by ``anon-{session_id}`` and is
-  never merged into a user namespace later (Req 4.3.3).
+* **Anonymous identity.** ``AgentCoreIdentityService`` still assigns
+  ``anon-{session_id}`` when no valid token is present. The builders
+  in-process path can use that namespace; when managed Runtime is enabled,
+  the request fails closed with ``authentication_required``.
 * **Session continuity.** ``session_id`` is resolved by the identity
   service in this priority:
     1. ``X-Session-Id`` header (subsequent turns from the SPA)
@@ -71,7 +70,7 @@ from services.agentcore_identity import (
     get_agentcore_identity_service,
 )
 from services.agentcore_memory import AgentCoreMemory
-from services.agentcore_runtime import get_latest_trace, run_agent
+from services.agentcore_runtime import ManagedRuntimeError, get_latest_trace, run_agent
 from routes.user import get_agentcore_memory
 
 logger = logging.getLogger(__name__)
@@ -164,6 +163,14 @@ async def _stream_agent_response(
             auth_token=context.access_token,
             history=history,
         )
+    except ManagedRuntimeError as exc:
+        logger.warning(
+            "Managed Runtime rejected session %s: %s",
+            context.session_id,
+            exc.code,
+        )
+        yield _sse_event("error", {"code": exc.code})
+        return
     except Exception as exc:  # pragma: no cover - defensive
         logger.error(
             "Agent invocation failed for session %s: %s",

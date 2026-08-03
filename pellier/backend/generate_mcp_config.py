@@ -129,7 +129,7 @@ def generate_mcp_config():
     print("     Strands MCPClient, AgentCore Gateway) consumes this JSON.")
     print("   • Tools advertised: get_table_schema, run_query, ...")
     print()
-    print("💡 Verification (Core Lab 4):")
+    print("💡 Verification:")
     print("   • cat pellier/config/mcp-server-config.json | python3 -m json.tool")
     print("   • uvx awslabs.postgres-mcp-server==1.1.6 --help")
     print("=" * 70)

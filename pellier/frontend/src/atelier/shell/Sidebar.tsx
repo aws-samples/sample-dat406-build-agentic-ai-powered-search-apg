@@ -57,7 +57,7 @@ const Sidebar: React.FC = () => {
   const avatarInitial = persona?.avatar_initial ?? '?';
   const avatarColor = persona?.avatar_color ?? '#665f58';
 
-  // Keep the same four-lab spine as Workshop Studio. Reference-only routes
+  // Keep the same five-lab spine as Workshop Studio. Reference-only routes
   // remain deep-linkable without competing with the required participant path.
   const navSections: NavSection[] = [
     {
@@ -67,7 +67,7 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'CORE LAB 1 · BUILD AND TRACE',
+      eyebrow: 'LAB 1 · BUILD A SPECIALIST AGENT',
       items: [
         {
           label: 'Tool Registry',
@@ -79,31 +79,40 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'CORE LAB 2 · MEASURE RETRIEVAL',
+      eyebrow: 'LAB 2 · MEASURE HYBRID SEARCH',
       items: [
         { label: 'Retrieval Comparison', path: 'performance' },
       ],
     },
     {
-      eyebrow: 'CORE LAB 3 · QUERY EVIDENCE',
+      eyebrow: 'LAB 3 · PROVE AGENTCORE MEMORY',
+      items: [
+        { label: 'Memory', path: 'memory' },
+        {
+          label: 'Managed Rail',
+          path: 'proof-board#managed-rail',
+        },
+      ],
+    },
+    {
+      eyebrow: 'LAB 4 · AUDIT AGENT ACTIONS',
       items: [
         {
           label: 'Audit Proof',
           path: 'audit-proof',
         },
-        { label: 'Memory', path: 'memory', badge: 'opt' },
       ],
     },
     {
-      eyebrow: 'CORE LAB 4 · ENFORCE POLICY',
+      eyebrow: 'LAB 5 · ENFORCE CEDAR POLICY',
       items: [
         { label: 'Gateway & Policy', path: 'write-path' },
       ],
     },
     {
-      eyebrow: 'OPTIONAL LABS',
+      eyebrow: 'EXTENSION',
       items: [
-        { label: 'Routing Patterns', path: 'routing', badge: 'opt' },
+        { label: 'Agent Behavior & Routing', path: 'routing', badge: 'ext' },
       ],
     },
     {

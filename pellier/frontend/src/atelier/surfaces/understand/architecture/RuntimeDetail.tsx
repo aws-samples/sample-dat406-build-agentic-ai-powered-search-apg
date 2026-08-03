@@ -27,7 +27,7 @@ const RuntimeDetail: React.FC = () => {
       conceptName="Runtime Envelope"
       category="workshop"
       title="Runtime, bounded."
-      prose="Runtime is the envelope around execution: model calls, memory, optional Gateway, and observability. In this repository, the Boutique default flow lives in the app service layer; AgentCore Runtime concepts are introduced as the managed deployment pattern around those same contracts."
+      prose="Runtime is the managed envelope around governed execution: model calls, AgentCore Memory, Gateway, identity, and observability. Governed requests fail closed unless that complete rail is available; the separate builders format keeps its app-layer dispatcher."
       cheatSheet={[
         {
           numeral: 'i.',
@@ -35,7 +35,7 @@ const RuntimeDetail: React.FC = () => {
         },
         {
           numeral: 'ii.',
-          text: 'Managed runtime concepts matter at deployment: cold starts, identity, memory, Gateway connectivity, and trace export.',
+          text: 'Managed Runtime is required in the governed format: identity, Memory, Gateway connectivity, and trace receipts must all remain intact.',
         },
         {
           numeral: 'iii.',
@@ -43,11 +43,11 @@ const RuntimeDetail: React.FC = () => {
         },
       ]}
       liveState={{
-        label: 'Current runtime envelope. Shows the app-layer execution path plus optional managed services.',
+        label: 'Current runtime envelope. Shows the required governed services and the separate builders execution path.',
         values: [
-          { label: 'Default path', value: 'Dispatcher' },
-          { label: 'Memory', value: 'Active' },
-          { label: 'Gateway', value: 'Optional' },
+          { label: 'Governed path', value: 'Managed Runtime' },
+          { label: 'Memory', value: 'Required' },
+          { label: 'Gateway', value: 'Required' },
         ],
       }}
     >

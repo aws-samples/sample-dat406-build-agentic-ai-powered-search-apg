@@ -10,7 +10,7 @@ Covered assertions (from tasks.md Task 3.1 "Test verification"):
   * valid access token passes
   * expired token fails
   * wrong ``iss`` fails
-  * wrong ``aud``/``client_id`` fails
+  * missing/wrong ``client_id`` fails
   * wrong ``token_use`` fails
   * token signed by a key not in the JWKS fails
   * JWKS fetch is called once for N concurrent validations (cache hit)
@@ -182,16 +182,17 @@ def test_valid_access_token_passes(auth_service: CognitoAuthService, signer: _Si
     assert user.given_name == "Avery"
 
 
-def test_valid_token_with_aud_instead_of_client_id_passes(
+def test_access_token_with_aud_instead_of_client_id_fails(
     auth_service: CognitoAuthService, signer: _Signer
 ) -> None:
-    """id-tokens (and some access-token variants) carry ``aud`` instead."""
+    """Access tokens must carry Cognito's ``client_id`` claim."""
     claims = _valid_access_claims()
     claims.pop("client_id")
     claims["aud"] = CLIENT_ID
     token = signer.sign(claims)
-    user = _run(auth_service.validate_jwt(token))
-    assert user.user_id == "cognito-sub-123"
+    with pytest.raises(Exception) as exc:
+        _run(auth_service.validate_jwt(token))
+    assert getattr(exc.value, "status_code", None) == 401
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +238,34 @@ def test_unsigned_by_jwks_fails(auth_service: CognitoAuthService) -> None:
     with pytest.raises(Exception) as exc:
         _run(auth_service.validate_jwt(token))
     assert getattr(exc.value, "status_code", None) == 401
+
+
+def test_unknown_kid_forces_one_jwks_refresh() -> None:
+    """A rotated Cognito key is accepted without waiting for cache expiry."""
+    old_signer = _Signer(kid="old-kid")
+    rotated_signer = _Signer(kid="rotated-kid")
+    responses = [
+        _build_jwks([old_signer]),
+        _build_jwks([old_signer, rotated_signer]),
+    ]
+    calls = {"n": 0}
+    service = CognitoAuthService(
+        pool_id=POOL_ID,
+        region=REGION,
+        client_id=CLIENT_ID,
+    )
+
+    def _rotating_fetch() -> Dict[str, Any]:
+        calls["n"] += 1
+        return responses[min(calls["n"] - 1, len(responses) - 1)]
+
+    service._fetch_jwks = _rotating_fetch  # type: ignore[assignment]
+    token = rotated_signer.sign(_valid_access_claims())
+
+    user = _run(service.validate_jwt(token))
+
+    assert user.user_id == "cognito-sub-123"
+    assert calls["n"] == 2
 
 
 def test_tampered_signature_fails(auth_service: CognitoAuthService, signer: _Signer) -> None:
