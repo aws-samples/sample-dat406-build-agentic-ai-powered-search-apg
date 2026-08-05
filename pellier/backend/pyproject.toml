@@ -29,7 +29,7 @@ dependencies = [
     "psycopg[binary,pool]>=3.2.0",
     "pgvector>=0.2.5",
     "PyJWT>=2.8.0",
-    "cryptography>=41.0.0",
+    "cryptography>=50.0.0",
     "requests>=2.31.0",
     "python-json-logger>=3.0.0",
 ]
