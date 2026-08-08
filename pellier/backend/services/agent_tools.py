@@ -85,6 +85,59 @@ _MILESTONE_HOME_GIFT_PATTERN = re.compile(
 )
 
 
+def _extract_query_structure(query: str) -> dict | None:
+    """Ask the structured extractor for a proposed plan, or return None.
+
+    Gated behind ``SEARCH_PLANNER_EXTRACT_ENABLED`` (default off) because
+    it is a second live Bedrock call on the shopper's critical path: it
+    adds roughly 1-3 s and a Sonnet invocation to *every* search. The
+    Atelier comparison surface runs the extractor unconditionally, which
+    is where the workshop teaches what typed planning buys you; paying
+    that cost on each storefront turn is a product decision, not a
+    correctness one.
+
+    Turning the flag off does not weaken any hard constraint. The tool
+    still builds a plan from the caller's explicit arguments and still
+    compiles those predicates into both retrieval branches before RRF —
+    what the extractor adds is model-inferred constraints (an implied
+    price ceiling, an implied exclusion) on top of the explicit ones.
+
+    Args:
+        query: The shopper's raw query.
+
+    Returns:
+        The extractor's dict, or ``None`` when the flag is off or
+        extraction fails.
+    """
+    if not getattr(settings, "SEARCH_PLANNER_EXTRACT_ENABLED", False):
+        return None
+    try:
+        from services.structured_extract import get_structured_extractor
+
+        return get_structured_extractor().extract(query)
+    except Exception as exc:
+        logger.debug("structured extraction unavailable: %s", exc)
+        return None
+
+
+def _write_retrieval_receipt(**kwargs) -> None:
+    """Persist a retrieval receipt, swallowing any failure.
+
+    Evidence about a turn must never break the turn, so this is
+    fire-and-forget. A lost receipt is a gap in evidence; a raised
+    exception here would be a gap in the product.
+    """
+    if _db_service is None:
+        return
+    try:
+        from services.retrieval_receipt import build_receipt, persist_receipt
+
+        receipt = build_receipt(**kwargs)
+        _run_async(persist_receipt(_db_service, receipt))
+    except Exception as exc:
+        logger.debug("retrieval receipt write skipped: %s", exc)
+
+
 # Merchandising rules are versioned and disclosed, never hidden. Relevance
 # is rarely the only ranking signal in production commerce search — a
 # buyer-curated hero, a margin boost, or a seasonal push all reorder
@@ -960,14 +1013,21 @@ def find_pieces_hybrid(
         # when the agent supplies an explicit category.
         category_was_explicit = bool(category)
 
-        # Compile the caller's arguments into a typed plan. The plan is
-        # what makes price and category *hard*: its predicates go into
-        # both retrieval branches before RRF, so invalid candidates never
-        # enter the pool, never consume reranker capacity, and never make
-        # the final list unexpectedly short after a post-filter pass.
+        # PLAN. The model proposes a typed plan; deterministic code
+        # validates it and compiles the predicates. This is the same
+        # planner the Atelier comparison surface runs, so the "agentic"
+        # strategy the workshop demonstrates is the one shoppers get —
+        # not a parallel implementation that only exists in a demo.
+        #
+        # The plan is also what makes price and category *hard*: its
+        # predicates go into both retrieval branches before RRF, so
+        # invalid candidates never enter the pool, never consume reranker
+        # capacity, and never make the final list unexpectedly short after
+        # a post-filter pass.
+        extracted = _extract_query_structure(query)
         plan = build_plan(
             query,
-            None,
+            extracted,
             price_max_usd=max_price,
             category=category if category_was_explicit else None,
             top_k=limit,
@@ -1080,11 +1140,32 @@ def find_pieces_hybrid(
             "pool_size": len(candidates),
             "hard_constraints_enforced": plan.hard.describe(),
             "constraints_applied_before_rerank": True,
+            "search_plan": plan.to_dict(),
         }
         if merchandising_applied:
             # Disclosed, not hidden: a ranking signal other than relevance
             # moved a product, and the response says so.
             payload["merchandising_rules_applied"] = merchandising_applied
+
+        # PROVE. Persist why this result set appeared: the plan, the
+        # per-branch ranks, the rerank scores, and any declared
+        # merchandising rule. Best-effort — see _write_retrieval_receipt.
+        _write_retrieval_receipt(
+            query=query,
+            plan=plan,
+            candidates=candidates,
+            ordered=ordered,
+            merchandising_rules=merchandising_applied,
+            embedding_model=settings.BEDROCK_EMBEDDING_MODEL,
+            rerank_model=settings.BEDROCK_RERANK_MODEL,
+            retrieval_config={
+                "k_vector": settings.HYBRID_VECTOR_K,
+                "k_fts": settings.HYBRID_FTS_K,
+                "rrf_k": settings.HYBRID_RRF_K,
+                "top_n": settings.HYBRID_TOP_N,
+                "search_method": search_method,
+            },
+        )
         return json.dumps(payload, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})

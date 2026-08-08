@@ -143,6 +143,19 @@ class Settings(BaseSettings):
     HYBRID_FTS_K: int = 20
     HYBRID_TOP_N: int = 30
     HYBRID_RRF_K: int = 60
+
+    # Typed query planning on the shipped Curator path.
+    #
+    # `find_pieces_hybrid` always builds a `SearchPlan` and always pushes
+    # its hard predicates into both retrieval branches before RRF. This
+    # flag controls only whether the *model* also proposes constraints via
+    # `services.structured_extract` — a second Sonnet call that adds ~1-3 s
+    # to every storefront search. Off by default: the Atelier comparison
+    # surface runs the extractor unconditionally, which is where the
+    # workshop teaches the trade-off. Turning this on does not change any
+    # hard-constraint guarantee; it only adds model-inferred constraints
+    # on top of the caller's explicit ones.
+    SEARCH_PLANNER_EXTRACT_ENABLED: bool = False
     RERANK_MAX_DOCUMENTS: int = 30
     RERANK_CACHE_TTL_SEC: int = 120
     

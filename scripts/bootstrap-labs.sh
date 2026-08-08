@@ -466,7 +466,8 @@ setup_database() {
             008_search_performance_indexes.sql \
             009_return_policies.sql \
             010_governed_receipts.sql \
-            011_governed_write_integrity.sql
+            011_governed_write_integrity.sql \
+            012_retrieval_receipts.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."

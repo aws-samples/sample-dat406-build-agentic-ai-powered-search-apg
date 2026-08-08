@@ -1,0 +1,283 @@
+"""Durable retrieval receipts — the ``Prove`` step for retrieval.
+
+``pellier.tool_audit`` proves a tool *ran*. It cannot answer why one
+product won: which constraints were hard, which preferences were widened,
+how each branch ranked the candidates, or which merchandising rule
+reordered the final list. This module writes the other half of that
+evidence into ``pellier.retrieval_receipts`` (migration 012).
+
+The receipt exists so an attendee can ask one question and get a complete
+answer from SQL:
+
+    Why did this result appear, what evidence influenced it, and which
+    constraints were enforced?
+
+Two design choices worth stating:
+
+* **The raw query is not stored.** ``query_hash`` is a SHA-256 of the
+  normalized text, with a short preview for human readability. Receipts
+  stay groupable and comparable without retaining shopper phrasing
+  indefinitely.
+* **Writes are best-effort and never block a turn.** A receipt is
+  evidence about a turn, not part of serving it. A failed insert logs and
+  returns; it does not fail the shopper's request. Losing a receipt is a
+  gap in evidence, whereas failing the turn is a gap in the product.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
+
+# Preview length. Long enough to recognize the query in a SQL result,
+# short enough that a receipt table is not a transcript archive.
+_PREVIEW_CHARS = 120
+
+
+def query_hash(query: str) -> str:
+    """Return a stable SHA-256 hash of the normalized query text.
+
+    Normalization is lowercase + whitespace collapse, so "Under $100 Gift"
+    and "under $100  gift" group together.
+    """
+    normalized = " ".join((query or "").lower().split())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+@dataclass
+class RetrievalReceipt:
+    """One retrieval turn's evidence, ready to persist.
+
+    Built by :func:`build_receipt` from a :class:`~services.search_plan.SearchPlan`
+    plus the per-stage rankings the pipeline already produces.
+    """
+
+    query: str
+    plan: Any
+    session_id: Optional[str] = None
+    principal_sub: Optional[str] = None
+    embedding_model: Optional[str] = None
+    rerank_model: Optional[str] = None
+    retrieval_config: Dict[str, Any] = field(default_factory=dict)
+    index_parameters: Dict[str, Any] = field(default_factory=dict)
+    candidate_product_ids: List[Any] = field(default_factory=list)
+    vector_ranks: Dict[str, Any] = field(default_factory=dict)
+    lexical_ranks: Dict[str, Any] = field(default_factory=dict)
+    rrf_scores: Dict[str, Any] = field(default_factory=dict)
+    rerank_scores: Dict[str, Any] = field(default_factory=dict)
+    merchandising_rules: List[Dict[str, Any]] = field(default_factory=list)
+    memory_record_ids_used: List[Any] = field(default_factory=list)
+    citation_ids: List[Any] = field(default_factory=list)
+    latency_breakdown: Dict[str, Any] = field(default_factory=dict)
+    modeled_cost_usd: Optional[float] = None
+    trace_id: Optional[str] = None
+    rail: Optional[str] = None
+
+    def to_row(self) -> Dict[str, Any]:
+        """Project this receipt onto ``pellier.retrieval_receipts`` columns."""
+        plan_dict = self.plan.to_dict() if hasattr(self.plan, "to_dict") else {}
+        return {
+            "session_id": self.session_id,
+            "principal_sub": self.principal_sub,
+            "query_hash": query_hash(self.query),
+            "query_preview": (self.query or "")[:_PREVIEW_CHARS],
+            "search_plan": plan_dict,
+            "hard_constraints": plan_dict.get("hard_constraints", {}),
+            "soft_preferences": plan_dict.get("soft_preferences", {}),
+            "exclusions": plan_dict.get("exclusions", []),
+            "relaxations": plan_dict.get("relaxations", []),
+            "embedding_model": self.embedding_model,
+            "rerank_model": self.rerank_model,
+            "retrieval_config": self.retrieval_config,
+            "index_parameters": self.index_parameters,
+            "candidate_product_ids": self.candidate_product_ids,
+            "vector_ranks": self.vector_ranks,
+            "lexical_ranks": self.lexical_ranks,
+            "rrf_scores": self.rrf_scores,
+            "rerank_scores": self.rerank_scores,
+            "merchandising_rules": self.merchandising_rules,
+            "memory_record_ids_used": self.memory_record_ids_used,
+            "citation_ids": self.citation_ids,
+            "latency_breakdown": self.latency_breakdown,
+            "modeled_cost_usd": self.modeled_cost_usd,
+            "trace_id": self.trace_id,
+            "rail": self.rail,
+        }
+
+
+def build_receipt(
+    *,
+    query: str,
+    plan: Any,
+    candidates: Optional[List[Dict[str, Any]]] = None,
+    ordered: Optional[List[Dict[str, Any]]] = None,
+    merchandising_rules: Optional[List[Dict[str, Any]]] = None,
+    **extra: Any,
+) -> RetrievalReceipt:
+    """Assemble a receipt from a plan and the pipeline's own rankings.
+
+    Args:
+        query: The shopper's raw query.
+        plan: The :class:`SearchPlan` that ran.
+        candidates: The fused candidate pool. Rows may carry ``vec_rank``,
+            ``fts_rank``, and ``rrf_score``, which the explained hybrid
+            path already produces.
+        ordered: The final reranked list. Rows may carry ``rerank_score``.
+        merchandising_rules: Any declared ranking rules that fired.
+        **extra: Passed through to :class:`RetrievalReceipt` (session id,
+            models, trace id, rail, latency, cost).
+
+    Returns:
+        A populated :class:`RetrievalReceipt`. Missing rank fields are
+        simply absent rather than fabricated — an empty ``rerank_scores``
+        means rerank did not run, which is itself evidence.
+    """
+    candidates = candidates or []
+    ordered = ordered or []
+
+    def _pid(row: Dict[str, Any]) -> Optional[str]:
+        value = row.get("product_id", row.get("productId"))
+        return None if value is None else str(value)
+
+    vector_ranks: Dict[str, Any] = {}
+    lexical_ranks: Dict[str, Any] = {}
+    rrf_scores: Dict[str, Any] = {}
+    candidate_ids: List[Any] = []
+    for row in candidates:
+        pid = _pid(row)
+        if pid is None:
+            continue
+        candidate_ids.append(pid)
+        if row.get("vec_rank") is not None:
+            vector_ranks[pid] = row["vec_rank"]
+        if row.get("fts_rank") is not None:
+            lexical_ranks[pid] = row["fts_rank"]
+        if row.get("rrf_score") is not None:
+            rrf_scores[pid] = float(row["rrf_score"])
+
+    rerank_scores: Dict[str, Any] = {}
+    citation_ids: List[Any] = []
+    for row in ordered:
+        pid = _pid(row)
+        if pid is None:
+            continue
+        citation_ids.append(pid)
+        score = row.get("rerank_score")
+        if score is not None:
+            rerank_scores[pid] = float(score)
+
+    return RetrievalReceipt(
+        query=query,
+        plan=plan,
+        candidate_product_ids=candidate_ids,
+        vector_ranks=vector_ranks,
+        lexical_ranks=lexical_ranks,
+        rrf_scores=rrf_scores,
+        rerank_scores=rerank_scores,
+        citation_ids=citation_ids,
+        merchandising_rules=merchandising_rules or [],
+        **extra,
+    )
+
+
+_INSERT_SQL = """
+    INSERT INTO pellier.retrieval_receipts (
+        session_id, principal_sub, query_hash, query_preview,
+        search_plan, hard_constraints, soft_preferences, exclusions,
+        relaxations, embedding_model, rerank_model, retrieval_config,
+        index_parameters, candidate_product_ids, vector_ranks,
+        lexical_ranks, rrf_scores, rerank_scores, merchandising_rules,
+        memory_record_ids_used, citation_ids, latency_breakdown,
+        modeled_cost_usd, trace_id, rail
+    ) VALUES (
+        %s, %s, %s, %s,
+        %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
+        %s::jsonb, %s, %s, %s::jsonb,
+        %s::jsonb, %s::jsonb, %s::jsonb,
+        %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
+        %s::jsonb, %s::jsonb, %s::jsonb,
+        %s, %s, %s
+    )
+"""
+
+_JSON_COLUMNS = (
+    "search_plan",
+    "hard_constraints",
+    "soft_preferences",
+    "exclusions",
+    "relaxations",
+    "retrieval_config",
+    "index_parameters",
+    "candidate_product_ids",
+    "vector_ranks",
+    "lexical_ranks",
+    "rrf_scores",
+    "rerank_scores",
+    "merchandising_rules",
+    "memory_record_ids_used",
+    "citation_ids",
+    "latency_breakdown",
+)
+
+_COLUMN_ORDER = (
+    "session_id",
+    "principal_sub",
+    "query_hash",
+    "query_preview",
+    "search_plan",
+    "hard_constraints",
+    "soft_preferences",
+    "exclusions",
+    "relaxations",
+    "embedding_model",
+    "rerank_model",
+    "retrieval_config",
+    "index_parameters",
+    "candidate_product_ids",
+    "vector_ranks",
+    "lexical_ranks",
+    "rrf_scores",
+    "rerank_scores",
+    "merchandising_rules",
+    "memory_record_ids_used",
+    "citation_ids",
+    "latency_breakdown",
+    "modeled_cost_usd",
+    "trace_id",
+    "rail",
+)
+
+
+def receipt_params(receipt: RetrievalReceipt) -> List[Any]:
+    """Bind a receipt to ``_INSERT_SQL``'s positional parameters."""
+    row = receipt.to_row()
+    params: List[Any] = []
+    for column in _COLUMN_ORDER:
+        value = row.get(column)
+        if column in _JSON_COLUMNS:
+            params.append(json.dumps(value if value is not None else {}, default=str))
+        else:
+            params.append(value)
+    return params
+
+
+async def persist_receipt(db: Any, receipt: RetrievalReceipt) -> bool:
+    """Insert one receipt. Returns True on success.
+
+    Best-effort by contract: a failure is logged and reported as ``False``
+    rather than raised, so evidence collection can never break the turn it
+    describes.
+    """
+    if db is None:
+        return False
+    try:
+        await db.execute_query(_INSERT_SQL, *receipt_params(receipt))
+        return True
+    except Exception as exc:
+        logger.warning("retrieval receipt insert failed: %s", exc)
+        return False
