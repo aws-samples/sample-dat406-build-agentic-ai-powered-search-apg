@@ -1,0 +1,168 @@
+/**
+ * Governed semantic tokens.
+ *
+ * Design stance: quiet governance in Boutique, complete accountability in
+ * Atelier. Both surfaces must speak one status language, or an attendee
+ * learns two vocabularies for the same system state.
+ *
+ * This file EXTENDS the Daylight token system. It defines no new colors —
+ * every value resolves to an existing `--dl-*` primitive so a palette
+ * change stays in one place. It is imported after `daylight-bridge.css`,
+ * which is where the `--dl-*` → `--at-*` aliases are established.
+ *
+ * Color discipline (from the design package, enforced here):
+ *
+ *   Terracotta (`--dl-accent`) is the BRAND and ACTION color. It is not a
+ *   status. Using it for "live" would make every button look like a state.
+ *
+ *   Green (`--dl-ok`) is reserved for VERIFIED POSITIVE SYSTEM STATE —
+ *   an ALLOW that executed, a governed rail that was confirmed. Never for
+ *   decoration, never for "probably fine".
+ *
+ *   Red (`--dl-err`) is reserved for BLOCKED or UNSAFE state — a Cedar
+ *   DENY. Note this is deliberately NOT `--at-red-1`, which the Atelier
+ *   aliases to terracotta; a DENY must not share a swatch with a button.
+ *
+ *   Amber (`--dl-warn`) is DEGRADED or ACTION REQUIRED — the managed rail
+ *   was requested but unavailable, evidence is modeled rather than
+ *   measured.
+ *
+ *   Neutral is NOT EVALUATED or UNAVAILABLE. Absence of evidence is a
+ *   real state and gets its own quiet treatment rather than being colored
+ *   as either success or failure.
+ *
+ * Status must never depend on color alone: every consumer pairs these
+ * tokens with a text label and an icon. The component tests assert that.
+ */
+
+:root {
+  /* ---- Surfaces -------------------------------------------------- */
+  /* Boutique is the shopper surface, Atelier the operator surface, and
+     evidence blocks appear on both — so evidence gets its own surface
+     token rather than borrowing whichever page it lands on. */
+  --gov-surface-boutique: var(--dl-bg);
+  --gov-surface-atelier: var(--dl-paper-2);
+  --gov-surface-evidence: var(--dl-paper);
+  --gov-surface-evidence-sunken: var(--dl-paper-2);
+
+  /* Material palette, named for the editorial identity. */
+  --gov-paper: var(--dl-paper);
+  --gov-linen: var(--dl-paper-2);
+  --gov-cream: var(--dl-bg);
+  --gov-espresso: var(--dl-ink);
+  --gov-terracotta: var(--dl-accent);
+
+  /* ---- Decision states ------------------------------------------ */
+  /* ALLOW: verified positive. The tool ran and left evidence. */
+  --gov-allow-fg: var(--dl-ok);
+  --gov-allow-bg: rgba(63, 98, 18, 0.1);
+  --gov-allow-border: rgba(63, 98, 18, 0.4);
+
+  /* DENY: blocked before execution. Distinct from terracotta on purpose. */
+  --gov-deny-fg: var(--dl-err);
+  --gov-deny-bg: rgba(153, 27, 27, 0.09);
+  --gov-deny-border: rgba(153, 27, 27, 0.38);
+
+  /* NOT_EVALUATED: no policy decision was made for this turn. */
+  --gov-neutral-fg: var(--dl-ink-2);
+  --gov-neutral-bg: var(--dl-paper-2);
+  --gov-neutral-border: var(--dl-line);
+
+  /* DEGRADED: the governed rail was asked for and could not serve. */
+  --gov-degraded-fg: var(--dl-warn);
+  --gov-degraded-bg: rgba(180, 83, 9, 0.1);
+  --gov-degraded-border: rgba(180, 83, 9, 0.38);
+
+  /* UNAVAILABLE: not provisioned. Quieter than degraded — nothing broke,
+     the capability simply is not present in this environment. */
+  --gov-unavailable-fg: var(--dl-muted);
+  --gov-unavailable-bg: transparent;
+  --gov-unavailable-border: var(--dl-line);
+
+  /* ---- Execution rails ------------------------------------------ */
+  /* A verified gateway-mcp rail is the only rail that earns green. */
+  --gov-rail-gateway-fg: var(--dl-ok);
+  --gov-rail-gateway-bg: rgba(63, 98, 18, 0.1);
+  /* In-process is a legitimate rail, not a failure — neutral, not amber. */
+  --gov-rail-inprocess-fg: var(--dl-ink-2);
+  --gov-rail-inprocess-bg: var(--dl-paper-2);
+  /* A fallback is a rail that is not what was asked for. */
+  --gov-rail-fallback-fg: var(--dl-warn);
+  --gov-rail-fallback-bg: rgba(180, 83, 9, 0.1);
+
+  /* ---- Evidence categories -------------------------------------- */
+  /* Used by receipt chips so "source" and "policy" are distinguishable
+     at a glance without inventing six more colors. */
+  --gov-evidence-source: var(--dl-ink-2);
+  --gov-evidence-tool: var(--dl-accent);
+  --gov-evidence-memory: #6b21a8;
+  --gov-evidence-policy: var(--dl-ok);
+  --gov-evidence-audit: var(--dl-ink);
+
+  /* ---- Provenance ----------------------------------------------- */
+  /* Same four words the backend emits: live | fixture | modeled |
+     unavailable. Keeping the vocabulary identical across the stack is
+     what lets an attendee trust a number without asking where it came
+     from. */
+  --gov-prov-live: var(--dl-ok);
+  --gov-prov-fixture: var(--dl-muted);
+  --gov-prov-modeled: var(--dl-warn);
+  --gov-prov-unavailable: var(--dl-muted);
+
+  /* ---- Structure ------------------------------------------------- */
+  --gov-hairline: var(--dl-line);
+  --gov-hairline-strong: var(--dl-line-strong);
+  --gov-radius-sm: 4px;
+  --gov-radius-md: 8px;
+  --gov-radius-lg: 14px;
+  --gov-shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.06);
+  --gov-shadow-md: 0 4px 16px rgba(28, 25, 23, 0.08);
+
+  /* ---- Focus ----------------------------------------------------- */
+  /* One focus ring for the whole product. Terracotta reads as "you are
+     acting here", which is exactly what focus means. */
+  --gov-focus-ring: var(--dl-accent);
+  --gov-focus-ring-width: 2px;
+  --gov-focus-ring-offset: 2px;
+
+  /* ---- Motion ---------------------------------------------------- */
+  --gov-motion-fast: 120ms;
+  --gov-motion-base: 200ms;
+  --gov-motion-slow: 320ms;
+  --gov-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Honour the OS setting globally for the durations above. Individual
+   components still guard their own animations, but collapsing the tokens
+   means a component that forgets is still mostly still. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gov-motion-fast: 0ms;
+    --gov-motion-base: 0ms;
+    --gov-motion-slow: 0ms;
+  }
+}
+
+/* ---- Shared utilities ------------------------------------------- */
+
+/* Consistent visible focus ring. Applied opt-in via the class so it
+   cannot fight existing component focus styles it does not know about. */
+.gov-focusable:focus-visible {
+  outline: var(--gov-focus-ring-width) solid var(--gov-focus-ring);
+  outline-offset: var(--gov-focus-ring-offset);
+  border-radius: var(--gov-radius-sm);
+}
+
+/* Screen-reader-only text. Used to give icon-only status a real name and
+   to carry the parts of a status that color implies but text must state. */
+.gov-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

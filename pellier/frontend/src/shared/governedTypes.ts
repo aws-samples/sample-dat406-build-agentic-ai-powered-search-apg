@@ -1,0 +1,135 @@
+/**
+ * Shared governed status vocabulary for Boutique and Atelier.
+ *
+ * These types deliberately mirror what the backend already emits. Nothing
+ * here is invented:
+ *
+ *   - `ExecutionRail` matches `services/execution_rail.py`
+ *     (`in-process` | `runtime` | `gateway-mcp`).
+ *   - `EvidenceProvenance` matches the four words the backend uses on the
+ *     evaluations envelope and the managed-runtime receipt
+ *     (`live` | `fixture` | `modeled` | `unavailable`).
+ *   - `PolicyDecision` matches the Cedar outcomes the audit surfaces
+ *     already render.
+ *
+ * The reason this file exists rather than each surface declaring its own
+ * union: when Boutique and Atelier disagree about what "governed" means,
+ * an attendee cannot trust either. One vocabulary, two presentations.
+ *
+ * Deliberate omission: there is no `turnId` here. The chat contract does
+ * not yet emit a stable per-turn identifier, and deriving one from array
+ * position would produce deep links that silently point at the wrong turn
+ * after a refresh. See `governedReceipt.ts` for the identifiers that do
+ * exist end-to-end.
+ */
+
+/** Execution rail as reported by the backend on a completed turn. */
+export type ExecutionRail = 'in-process' | 'runtime' | 'gateway-mcp'
+
+/** Cedar policy outcome. `NOT_EVALUATED` is a real state, not an error. */
+export type PolicyDecision = 'ALLOW' | 'DENY' | 'NOT_EVALUATED'
+
+/**
+ * Where a displayed value came from. Shared with the backend so a number
+ * cannot change meaning as it crosses the wire.
+ *
+ * `live`        measured on this request
+ * `fixture`     illustrative; describes no run
+ * `modeled`     calculated, not observed
+ * `unavailable` not provisioned
+ */
+export type EvidenceProvenance = 'live' | 'fixture' | 'modeled' | 'unavailable'
+
+/**
+ * The rail decision the backend attaches to a completed turn.
+ *
+ * Mirrors `RailDecision.to_dict()` in `services/execution_rail.py`.
+ * `available: false` with `managedRequested: true` is the degraded case:
+ * the governed rail was asked for and could not serve the request.
+ */
+export interface RailDecision {
+  rail: ExecutionRail
+  managedRequested: boolean
+  available: boolean
+  reason: string | null
+}
+
+/** Disclosure attached to a turn that ran on a rail it did not intend to. */
+export interface RailDegradation {
+  degraded: boolean
+  reason: string | null
+  rail: ExecutionRail
+  capabilitiesRemoved: string[]
+  explanation: string
+}
+
+/**
+ * Whether the governed rail was actually verified for a turn.
+ *
+ * `verified` is reserved for a confirmed `gateway-mcp` rail. A turn that
+ * merely selected the managed runtime is `selected`, not verified — the
+ * entrypoint confirms Gateway itself, and claiming otherwise would put a
+ * green seal on an unproven path.
+ */
+export type GovernedRailState =
+  | 'verified'
+  | 'selected'
+  | 'in-process'
+  | 'degraded'
+  | 'unknown'
+
+/**
+ * Resolve the seal state from a rail decision.
+ *
+ * @param decision The backend's rail decision, when present.
+ * @returns The state a seal may display. Absent evidence resolves to
+ *   `unknown` rather than to a positive claim.
+ */
+export function resolveRailState(
+  decision?: RailDecision | null,
+): GovernedRailState {
+  if (!decision) return 'unknown'
+  if (decision.managedRequested && !decision.available) return 'degraded'
+  if (decision.rail === 'gateway-mcp') return 'verified'
+  if (decision.rail === 'runtime') return 'selected'
+  if (decision.rail === 'in-process') return 'in-process'
+  return 'unknown'
+}
+
+/** Human-readable label per rail state. Paired with an icon, never alone. */
+export const RAIL_STATE_LABEL: Record<GovernedRailState, string> = {
+  verified: 'Governed',
+  selected: 'Managed runtime',
+  'in-process': 'In-process',
+  degraded: 'Degraded',
+  unknown: 'Rail unknown',
+}
+
+/** One-line explanation of each rail state, for tooltips and disclosure. */
+export const RAIL_STATE_DETAIL: Record<GovernedRailState, string> = {
+  verified:
+    'Tools ran over the AgentCore Gateway MCP rail under the caller’s identity.',
+  selected:
+    'The managed runtime was selected; the Gateway rail is not yet confirmed for this turn.',
+  'in-process':
+    'Tools ran in this process against Aurora directly. A legitimate rail, not a failure.',
+  degraded:
+    'The governed rail was requested but unavailable, so mutation-capable tools were withheld. This is not a policy denial.',
+  unknown: 'No rail was reported for this turn.',
+}
+
+/** Provenance label text. Kept identical to the backend's wording. */
+export const PROVENANCE_LABEL: Record<EvidenceProvenance, string> = {
+  live: 'Live',
+  fixture: 'Fixture',
+  modeled: 'Modeled',
+  unavailable: 'Unavailable',
+}
+
+/** What each provenance value actually claims about a number. */
+export const PROVENANCE_DETAIL: Record<EvidenceProvenance, string> = {
+  live: 'measured on this request',
+  fixture: 'illustrative — describes no run',
+  modeled: 'calculated, not observed',
+  unavailable: 'not provisioned',
+}

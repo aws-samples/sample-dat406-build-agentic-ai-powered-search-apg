@@ -12,6 +12,9 @@
 @import './styles/daylight-tokens.css';
 @import './styles/daylight-components.css';
 @import './styles/daylight-bridge.css';
+/* Governed semantic tokens — extends Daylight; must load after the bridge
+   so the --at-* aliases exist. See styles/governed-tokens.css. */
+@import './styles/governed-tokens.css';
 
 @tailwind base;
 @tailwind components;
