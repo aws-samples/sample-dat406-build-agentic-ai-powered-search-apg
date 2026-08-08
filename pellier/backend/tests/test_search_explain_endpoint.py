@@ -10,7 +10,7 @@ panel (tag / title / sql / columns / rows / meta / tagClass).
 We exercise the handler directly (like ``test_atelier_working_panel``
 calls ``_load_live_working`` directly) so the suite runs offline without
 Aurora, Bedrock, or the app lifespan. The two hybrid branches
-(``_vector_search`` / ``_bm25_search``) are patched at the class level,
+(``_vector_search`` / ``_fts_search``) are patched at the class level,
 ``EmbeddingService.embed_query`` returns a deterministic 1024-dim vector,
 and the rerank service is faked so we can test both the live-reorder path
 and the honest-degrade path.
@@ -56,17 +56,17 @@ def _vector_rows() -> List[Dict[str, Any]]:
     ]
 
 
-def _bm25_rows() -> List[Dict[str, Any]]:
+def _fts_rows() -> List[Dict[str, Any]]:
     return [
         {"product_id": 2, "name": "Wide-Leg Trousers", "brand": "Hadley",
          "description": "Relaxed linen trouser", "category": "Bottoms",
-         "bm25_score": 0.61},
+         "fts_rank_score": 0.61},
         {"product_id": 1, "name": "Linen Camp Shirt", "brand": "Hadley",
          "description": "Breezy Italian linen", "category": "Shirts",
-         "bm25_score": 0.55},
+         "fts_rank_score": 0.55},
         {"product_id": 9, "name": "Linen Sundress", "brand": "Pellier",
          "description": "Washed linen dress", "category": "Dresses",
-         "bm25_score": 0.40},
+         "fts_rank_score": 0.40},
     ]
 
 
@@ -111,11 +111,11 @@ def patch_pipeline(monkeypatch):
     async def _fake_vector(self, embedding, k):
         return _vector_rows()
 
-    async def _fake_bm25(self, query, k):
-        return _bm25_rows()
+    async def _fake_fts(self, query, k):
+        return _fts_rows()
 
     monkeypatch.setattr(hybrid_module.HybridSearch, "_vector_search", _fake_vector)
-    monkeypatch.setattr(hybrid_module.HybridSearch, "_bm25_search", _fake_bm25)
+    monkeypatch.setattr(hybrid_module.HybridSearch, "_fts_search", _fake_fts)
 
     import app
     monkeypatch.setattr(app, "db_service", _StubDB(), raising=False)

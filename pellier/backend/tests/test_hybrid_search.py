@@ -90,7 +90,7 @@ class TestBuildOrTsquery:
 # ---------------------------------------------------------------------------
 # Fake psycopg machinery — same pattern as test_vector_search.py but the
 # fake cursor returns different result sets on consecutive `execute` calls
-# (vector branch first, BM25 branch second). asyncio.gather schedules both
+# (vector branch first, FTS branch second). asyncio.gather schedules both
 # coroutines concurrently but they end up sharing this cursor, which is the
 # canonical test pattern for concurrent reads through a single mock.
 # ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ class FakeCursor:
     ) -> None:
         self.calls.append((sql, params))
         # Pick the next result set based on which branch's SQL is running.
-        # The vector branch SQL uses '<=>' (cosine distance); BM25 uses
+        # The vector branch SQL uses '<=>' (cosine distance); FTS uses
         # 'plainto_tsquery'. This is the cleanest way to give each branch
         # the right rows without coupling to call order.
         # Matches both plainto_tsquery and websearch_to_tsquery so the test
@@ -123,7 +123,7 @@ class FakeCursor:
         # path uses websearch because plainto over-filters conversational
         # queries).
         if "to_tsquery" in sql:
-            self._last_rows = self._bm25_rows
+            self._last_rows = self._fts_rows
         elif "<=>" in sql:
             self._last_rows = self._vector_rows
         else:
@@ -137,7 +137,7 @@ class FakeCursor:
         return self._result_sets[0] if len(self._result_sets) > 0 else []
 
     @property
-    def _bm25_rows(self) -> List[Dict[str, Any]]:
+    def _fts_rows(self) -> List[Dict[str, Any]]:
         return self._result_sets[1] if len(self._result_sets) > 1 else []
 
 
@@ -151,8 +151,8 @@ class FakeConnection:
 
 class FakeDB:
     def __init__(self, vector_rows: List[Dict[str, Any]],
-                 bm25_rows: List[Dict[str, Any]]):
-        self.cursor = FakeCursor([vector_rows, bm25_rows])
+                 fts_rows: List[Dict[str, Any]]):
+        self.cursor = FakeCursor([vector_rows, fts_rows])
         self.conn = FakeConnection(self.cursor)
 
     @asynccontextmanager
@@ -201,11 +201,11 @@ class TestRRFMerge:
 
     def test_doc_in_both_lists_at_rank_1_scores_higher_than_only_one(self) -> None:
         v_rows = [_make_row(1), _make_row(2)]
-        b_rows = [_make_row(1), _make_row(3)]  # product 1 in both, 3 only in BM25
+        b_rows = [_make_row(1), _make_row(3)]  # product 1 in both, 3 only in FTS
         merged = HybridSearch._rrf_merge(v_rows, b_rows, rrf_k=60)
         # product 1 is rank-1 in both → 1/61 + 1/61 = 2/61 ≈ 0.0328
         # product 2 is rank-2 in vector only → 1/62 ≈ 0.0161
-        # product 3 is rank-2 in BM25 only → 1/62 ≈ 0.0161
+        # product 3 is rank-2 in FTS only → 1/62 ≈ 0.0161
         assert [r["product_id"] for r in merged] == [1, 2, 3] \
             or [r["product_id"] for r in merged] == [1, 3, 2]
         assert merged[0]["product_id"] == 1
@@ -247,13 +247,13 @@ class TestHybridSearchEndToEnd:
 
     def test_runs_both_branches_and_merges(self, embedding: List[float]) -> None:
         v_rows = [_make_row(1, similarity=0.92), _make_row(2, similarity=0.88)]
-        b_rows = [_make_row(1, bm25_score=0.7), _make_row(3, bm25_score=0.5)]
+        b_rows = [_make_row(1, fts_rank_score=0.7), _make_row(3, fts_rank_score=0.5)]
         db = FakeDB(v_rows, b_rows)
         svc = HybridSearch(db)  # type: ignore[arg-type]
         results = _run(svc.search(
             query="something beautiful",
             query_embedding=embedding,
-            k_vector=20, k_bm25=20, top_n=30,
+            k_vector=20, k_fts=20, top_n=30,
         ))
         # 3 unique product ids across both lists.
         ids = sorted([r["product_id"] for r in results])
@@ -276,14 +276,14 @@ class TestHybridSearchEndToEnd:
         ))
         assert len(results) == 5
 
-    def test_empty_bm25_branch_falls_back_to_vector(
+    def test_empty_fts_branch_falls_back_to_vector(
         self, embedding: List[float]
     ) -> None:
         v_rows = [_make_row(i) for i in range(1, 4)]
         db = FakeDB(v_rows, [])
         svc = HybridSearch(db)  # type: ignore[arg-type]
         results = _run(svc.search(
-            query="zero-bm25-match",
+            query="zero-fts-match",
             query_embedding=embedding,
             top_n=30,
         ))
@@ -303,20 +303,20 @@ class TestHybridSearchEndToEnd:
         db = FakeDB(v_rows, b_rows)
         svc = HybridSearch(db)  # type: ignore[arg-type]
         # Use a query with real content tokens so _build_or_tsquery
-        # produces a non-empty OR-query and the BM25 branch actually
+        # produces a non-empty OR-query and the FTS branch actually
         # executes its SQL (bare "q" would short-circuit to []).
         _run(svc.search("linen shirt", embedding, top_n=30))
         types = [q.query_type for q in isolated_query_logger.queries]
-        # vector branch + bm25 branch + outer hybrid_search summary
+        # vector branch + fts branch + outer hybrid_search summary
         assert "hybrid_vector_branch" in types
-        assert "hybrid_bm25_branch" in types
+        assert "hybrid_fts_branch" in types
         assert "hybrid_search" in types
 
-    def test_pure_stop_word_query_skips_bm25_branch(
+    def test_pure_stop_word_query_skips_fts_branch(
         self, embedding: List[float],
         isolated_query_logger: SQLQueryLogger,
     ) -> None:
-        """When the user query is all stop-words, _bm25_search short-
+        """When the user query is all stop-words, _fts_search short-
         circuits to [] without executing SQL. Vector branch still runs.
         """
         v_rows = [_make_row(1)]
@@ -324,9 +324,9 @@ class TestHybridSearchEndToEnd:
         db = FakeDB(v_rows, b_rows)
         svc = HybridSearch(db)  # type: ignore[arg-type]
         results = _run(svc.search("the and for what who", embedding, top_n=30))
-        # Vector branch produced results; BM25 contributed nothing.
+        # Vector branch produced results; FTS contributed nothing.
         assert len(results) == 1
         types = [q.query_type for q in isolated_query_logger.queries]
         assert "hybrid_vector_branch" in types
-        # No bm25 SQL executed.
-        assert "hybrid_bm25_branch" not in types
+        # No FTS SQL executed.
+        assert "hybrid_fts_branch" not in types

@@ -40,7 +40,7 @@ export interface SearchStage {
 
 export interface SearchExplainParams {
   k_vector: number;
-  k_bm25: number;
+  k_fts: number;
   rrf_k: number;
   top_n: number;
 }

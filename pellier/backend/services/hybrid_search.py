@@ -53,7 +53,7 @@ _RRF_K_DEFAULT = 60
 
 
 # The two branch queries are kept as module-level constants so the live
-# retrieval path (``_vector_search`` / ``_bm25_search``) and the Atelier
+# retrieval path (``_vector_search`` / ``_fts_search``) and the Atelier
 # "explain" surface (``search_explained``) read from the *same* string.
 # That guarantees the SQL a workshop participant sees on the Search page
 # is byte-identical to the SQL that actually ran — no drift, no separate
@@ -100,13 +100,13 @@ _FTS_BRANCH_SQL = """
                 reviews,
                 badge,
                 tags,
-                ts_rank_cd(description_tsv, q.ts_q) AS bm25_score
+                ts_rank_cd(description_tsv, q.ts_q) AS fts_rank_score
             FROM pellier.product_catalog
             CROSS JOIN q
             WHERE "imgUrl" IS NOT NULL
               AND NOT (tags ? 'archive')
               AND description_tsv @@ q.ts_q
-            ORDER BY bm25_score DESC
+            ORDER BY fts_rank_score DESC
             LIMIT %s
         """
 
@@ -122,7 +122,7 @@ class HybridSearch:
         query: str,
         query_embedding: List[float],
         k_vector: int = 0,
-        k_bm25: int = 0,
+        k_fts: int = 0,
         rrf_k: int = 0,
         top_n: int = 0,
     ) -> List[Dict[str, Any]]:
@@ -138,7 +138,7 @@ class HybridSearch:
             query_embedding: 1024-dim Cohere Embed v4 vector. Used for
                 pgvector cosine search.
             k_vector: Pool size for the vector branch (default 20).
-            k_bm25: Pool size for the FTS branch (default 20).
+            k_fts: Pool size for the FTS branch (default 20).
             rrf_k: RRF damping constant (default 60).
             top_n: Maximum candidates returned after fusion (default 30).
                 The downstream reranker typically asks for top_n=30 so
@@ -151,24 +151,24 @@ class HybridSearch:
         """
         start_time = time.time()
         k_vector = int(k_vector or settings.HYBRID_VECTOR_K)
-        k_bm25 = int(k_bm25 or settings.HYBRID_FTS_K)
+        k_fts = int(k_fts or settings.HYBRID_FTS_K)
         rrf_k = int(rrf_k or settings.HYBRID_RRF_K or _RRF_K_DEFAULT)
         top_n = int(top_n or settings.HYBRID_TOP_N)
         k_vector = max(5, min(k_vector, 100))
-        k_bm25 = max(5, min(k_bm25, 100))
+        k_fts = max(5, min(k_fts, 100))
         top_n = max(5, min(top_n, 100))
 
         # Run both branches in parallel. asyncio.gather propagates the
         # first exception immediately — if FTS fails (e.g. tsvector
         # column missing) we surface the real error rather than silently
         # falling back to vector-only.
-        vector_rows, bm25_rows = await asyncio.gather(
+        vector_rows, fts_rows = await asyncio.gather(
             self._vector_search(query_embedding, k_vector),
-            self._bm25_search(query, k_bm25),
+            self._fts_search(query, k_fts),
         )
 
         # RRF merge.
-        merged = self._rrf_merge(vector_rows, bm25_rows, rrf_k)
+        merged = self._rrf_merge(vector_rows, fts_rows, rrf_k)
 
         # Cap at top_n. The reranker is the next stage; over-shipping
         # candidates wastes Bedrock tokens, under-shipping starves it.
@@ -179,7 +179,7 @@ class HybridSearch:
             get_query_logger().queries.append(
                 QueryLog(
                     query_type="hybrid_search",
-                    sql=f"hybrid: vector(k={k_vector}) + fts(k={k_bm25}) + rrf(k={rrf_k})",
+                    sql=f"hybrid: vector(k={k_vector}) + fts(k={k_fts}) + rrf(k={rrf_k})",
                     params=[query, "<embedding>"],
                     execution_time_ms=elapsed_ms,
                     timestamp=datetime.now(),
@@ -199,7 +199,7 @@ class HybridSearch:
         query: str,
         query_embedding: List[float],
         k_vector: int = 0,
-        k_bm25: int = 0,
+        k_fts: int = 0,
         rrf_k: int = 0,
         top_n: int = 0,
     ) -> Dict[str, Any]:
@@ -221,25 +221,25 @@ class HybridSearch:
 
         Returns a dict with:
           - ``vector_rows``  — ordered vector-branch rows (carry ``similarity``)
-          - ``bm25_rows``    — ordered FTS-branch rows (carry ``bm25_score``)
+          - ``fts_rows``    — ordered FTS-branch rows (carry ``fts_rank_score``)
           - ``merged``       — RRF-merged rows, each annotated with
             ``vec_rank`` / ``fts_rank`` (1-based, or ``None`` when the row
             did not appear in that branch) and ``rrf_score``
-          - ``params``       — the resolved ``{k_vector, k_bm25, rrf_k, top_n}``
+          - ``params``       — the resolved ``{k_vector, k_fts, rrf_k, top_n}``
             so the surface can label the knobs honestly
           - ``vector_sql`` / ``fts_sql`` — the literal branch SQL strings
         """
         k_vector = int(k_vector or settings.HYBRID_VECTOR_K)
-        k_bm25 = int(k_bm25 or settings.HYBRID_FTS_K)
+        k_fts = int(k_fts or settings.HYBRID_FTS_K)
         rrf_k = int(rrf_k or settings.HYBRID_RRF_K or _RRF_K_DEFAULT)
         top_n = int(top_n or settings.HYBRID_TOP_N)
         k_vector = max(5, min(k_vector, 100))
-        k_bm25 = max(5, min(k_bm25, 100))
+        k_fts = max(5, min(k_fts, 100))
         top_n = max(5, min(top_n, 100))
 
-        vector_rows, bm25_rows = await asyncio.gather(
+        vector_rows, fts_rows = await asyncio.gather(
             self._vector_search(query_embedding, k_vector),
-            self._bm25_search(query, k_bm25),
+            self._fts_search(query, k_fts),
         )
 
         # Per-branch 1-based ranks, keyed by product_id. This mirrors the
@@ -248,10 +248,10 @@ class HybridSearch:
             row["product_id"]: i + 1 for i, row in enumerate(vector_rows)
         }
         fts_rank_by_id = {
-            row["product_id"]: i + 1 for i, row in enumerate(bm25_rows)
+            row["product_id"]: i + 1 for i, row in enumerate(fts_rows)
         }
 
-        merged = self._rrf_merge(vector_rows, bm25_rows, rrf_k)
+        merged = self._rrf_merge(vector_rows, fts_rows, rrf_k)
         for row in merged:
             pid = row["product_id"]
             row["vec_rank"] = vec_rank_by_id.get(pid)
@@ -259,11 +259,11 @@ class HybridSearch:
 
         return {
             "vector_rows": vector_rows,
-            "bm25_rows": bm25_rows,
+            "fts_rows": fts_rows,
             "merged": merged[:top_n],
             "params": {
                 "k_vector": k_vector,
-                "k_bm25": k_bm25,
+                "k_fts": k_fts,
                 "rrf_k": rrf_k,
                 "top_n": top_n,
             },
@@ -377,7 +377,7 @@ class HybridSearch:
                 unique.append(t)
         return " | ".join(unique)
 
-    async def _bm25_search(
+    async def _fts_search(
         self, query: str, k: int,
     ) -> List[Dict[str, Any]]:
         """Postgres full-text search via tsvector + ts_rank_cd.
@@ -389,9 +389,18 @@ class HybridSearch:
         which over-filters conversational queries to zero results.
 
         ``ts_rank_cd`` is the cover-density variant of ts_rank. It
-        rewards documents where matched terms are close together. This
-        is not native BM25; it is the built-in Postgres lexical ranker
-        we use for catalog FTS.
+        rewards documents where matched terms sit close together.
+
+        This is **not** BM25, and the distinction matters at this level.
+        PostgreSQL cover-density ranking and BM25 are different families
+        of lexical ranking function: BM25 is a probabilistic model that
+        scores on term frequency saturation plus document-length
+        normalization against corpus-wide inverse document frequency,
+        whereas ``ts_rank_cd`` scores on the density and proximity of
+        matched lexemes within the document's ``tsvector``. Neither the
+        branch, its score field, nor its settings are named ``bm25``
+        anywhere in this codebase — the field is ``fts_rank_score`` and
+        the pool knob is ``k_fts``.
 
         The ``description_tsv @@ ts_query`` predicate is index-scanned
         via the GIN index on ``description_tsv`` (migration 005).
@@ -413,7 +422,7 @@ class HybridSearch:
         try:
             get_query_logger().queries.append(
                 QueryLog(
-                    query_type="hybrid_bm25_branch",
+                    query_type="hybrid_fts_branch",
                     sql=sql,
                     params=params,
                     execution_time_ms=(time.time() - start) * 1000,
@@ -431,7 +440,7 @@ class HybridSearch:
     @staticmethod
     def _rrf_merge(
         vector_rows: List[Dict[str, Any]],
-        bm25_rows: List[Dict[str, Any]],
+        fts_rows: List[Dict[str, Any]],
         rrf_k: int,
     ) -> List[Dict[str, Any]]:
         """Reciprocal Rank Fusion across two ranked lists.
@@ -460,7 +469,7 @@ class HybridSearch:
                 rows_by_id[pid] = dict(row)
 
         # FTS branch.
-        for rank_zero, row in enumerate(bm25_rows):
+        for rank_zero, row in enumerate(fts_rows):
             pid = row["product_id"]
             scores[pid] = scores.get(pid, 0.0) + 1.0 / (rrf_k + rank_zero + 1)
             # If we didn't see this id in the vector branch, capture it
@@ -471,10 +480,10 @@ class HybridSearch:
                 rows_by_id[pid] = dict(row)
             else:
                 # Carry the lexical rank score over for diagnostics.
-                # The field name stays bm25_score for backward-compatible
+                # The field name stays fts_rank_score for backward-compatible
                 # fixtures/tests, but the source is Postgres ts_rank_cd.
-                if "bm25_score" in row and "bm25_score" not in rows_by_id[pid]:
-                    rows_by_id[pid]["bm25_score"] = row["bm25_score"]
+                if "fts_rank_score" in row and "fts_rank_score" not in rows_by_id[pid]:
+                    rows_by_id[pid]["fts_rank_score"] = row["fts_rank_score"]
 
         # Merge final scores into rows and sort.
         for pid, row in rows_by_id.items():
