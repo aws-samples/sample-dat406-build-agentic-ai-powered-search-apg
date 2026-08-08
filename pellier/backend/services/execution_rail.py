@@ -160,12 +160,30 @@ def requires_managed_rail(tool_name: str) -> bool:
     """
     if str(getattr(settings, "WORKSHOP_FORMAT", "")).lower() != "governed":
         return False
-    return tool_name in _MUTATION_TOOLS
+    return tool_name in mutation_tools()
 
 
-# Mutation-capable tools. Kept in one place so the fail-closed rule and
-# the Gateway capability tiers cannot drift apart.
-_MUTATION_TOOLS = frozenset(
+def mutation_tools() -> frozenset:
+    """Return the mutation-capable tool names.
+
+    Derived from the Gateway's capability tiers so the fail-closed rule and
+    the published tier map cannot disagree — a tool promoted into a
+    mutation tier automatically becomes managed-rail-only, with no second
+    list to remember. Falls back to the known mutation set if the gateway
+    module is unavailable (it imports ``mcp``, which is optional).
+    """
+    try:
+        from services.agentcore_gateway import mutation_tool_names
+
+        return frozenset(mutation_tool_names())
+    except Exception:  # pragma: no cover - optional dependency path
+        return _MUTATION_TOOLS_FALLBACK
+
+
+# Used only when the gateway module cannot be imported. Kept in sync with
+# ``GATEWAY_TOOL_TIERS``' mutation tiers by
+# ``tests/test_execution_rail.py``.
+_MUTATION_TOOLS_FALLBACK = frozenset(
     {
         "process_return",
         "restock_shelf",
@@ -185,7 +203,7 @@ def degraded_notice(decision: RailDecision) -> Dict[str, Any]:
         "degraded": True,
         "reason": decision.reason,
         "rail": decision.rail,
-        "capabilitiesRemoved": sorted(_MUTATION_TOOLS),
+        "capabilitiesRemoved": sorted(mutation_tools()),
         "explanation": (
             "The managed AgentCore rail was requested but is unavailable "
             "for this request, so mutation-capable tools were withheld and "

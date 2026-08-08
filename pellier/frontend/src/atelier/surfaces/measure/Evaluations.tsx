@@ -848,12 +848,127 @@ const EmptyState: React.FC = () => (
  * Main component
  * ----------------------------------------------------------------------- */
 
+/**
+ * Provenance envelope returned by `GET /api/atelier/evaluations`.
+ *
+ * The backend reports three states that must never be styled alike:
+ * `fixture` (illustrative, describes no run), `localGate` (real commit,
+ * golden input), and `managed` (real deployed Runtime, trace-backed).
+ * A fixture scorecard rendered identically to a measured one invites an
+ * attendee to read an illustration as a result.
+ */
+interface EvaluationProvenanceState {
+  label: string;
+  available: boolean;
+  describes: string;
+  sources?: string[];
+  operation?: string;
+}
+
+interface EvaluationsEnvelope {
+  provenance: 'fixture' | 'local-gate' | 'managed';
+  states: {
+    fixture: EvaluationProvenanceState;
+    localGate: EvaluationProvenanceState;
+    managed: EvaluationProvenanceState;
+  };
+  scorecards: EvaluationScorecard[];
+}
+
+/** Read the scorecards from either the envelope or a bare array.
+ *
+ * The fixture loader still returns a bare array (the JSON file is a
+ * list), while the live endpoint returns the provenance envelope. Both
+ * shapes are handled so the surface renders offline and online. */
+function readScorecards(
+  data: EvaluationsEnvelope | EvaluationScorecard[] | null,
+): EvaluationScorecard[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  return data.scorecards ?? [];
+}
+
+function readEnvelope(
+  data: EvaluationsEnvelope | EvaluationScorecard[] | null,
+): EvaluationsEnvelope | null {
+  return data && !Array.isArray(data) ? data : null;
+}
+
+const PROVENANCE_TONE: Record<EvaluationsEnvelope['provenance'], string> = {
+  fixture: 'var(--at-ink-3)',
+  'local-gate': 'var(--at-amber-1)',
+  managed: 'var(--at-green-1)',
+};
+
+const ProvenanceStrip: React.FC<{ envelope: EvaluationsEnvelope }> = ({
+  envelope,
+}) => {
+  const entries: [string, EvaluationProvenanceState][] = [
+    ['Fixture', envelope.states.fixture],
+    ['Local gate', envelope.states.localGate],
+    ['Managed', envelope.states.managed],
+  ];
+  return (
+    <div
+      style={{
+        padding: '14px 16px',
+        backgroundColor: 'var(--at-cream-2)',
+        border: '1px dashed var(--at-rule-2)',
+        borderRadius: '4px',
+      }}
+    >
+      <Eyebrow
+        label={`Evidence provenance · active: ${envelope.provenance}`}
+        variant="muted"
+      />
+      <p
+        style={{
+          fontFamily: 'var(--at-sans)',
+          fontSize: '13px',
+          lineHeight: 1.6,
+          color: 'var(--at-ink-2)',
+          margin: '8px 0 10px',
+        }}
+      >
+        These three states are not interchangeable. The scorecards below carry
+        the <strong>{envelope.provenance}</strong> provenance.
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        {entries.map(([name, state]) => (
+          <span
+            key={name}
+            style={{
+              fontFamily: 'var(--at-mono)',
+              fontSize: '12px',
+              color: state.available
+                ? 'var(--at-ink-1)'
+                : 'var(--at-ink-4)',
+              backgroundColor: 'var(--at-cream-1)',
+              border: `1px solid ${
+                state.available ? PROVENANCE_TONE[envelope.provenance] : 'var(--at-rule-1)'
+              }`,
+              borderRadius: '4px',
+              padding: '3px 8px',
+            }}
+            title={state.describes}
+          >
+            {name}: {state.available ? 'available' : 'unavailable'} — {state.describes}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const Evaluations: React.FC = () => {
-  const { data, loading, error, refetch } = useAtelierData<EvaluationScorecard[]>({
+  const { data, loading, error, refetch } = useAtelierData<
+    EvaluationsEnvelope | EvaluationScorecard[]
+  >({
     key: 'evaluations',
   });
 
-  const scorecards = data ?? [];
+  const envelope = readEnvelope(data);
+  const scorecards = readScorecards(data);
   const [selectedMethodId, setSelectedMethodId] = useState(EVALUATION_METHODS[0].id);
   const [selectedMetricId, setSelectedMetricId] = useState(EVALUATION_METRICS[0].id);
   const [metricTierFilter, setMetricTierFilter] = useState<EvalMetricTier | 'all'>('retrieval');
@@ -873,6 +988,12 @@ const Evaluations: React.FC = () => {
       {error && <ErrorState message={error} onRetry={refetch} />}
 
       {!loading && !error && scorecards.length === 0 && <EmptyState />}
+
+      {!loading && !error && envelope && (
+        <div style={{ marginBottom: '16px' }}>
+          <ProvenanceStrip envelope={envelope} />
+        </div>
+      )}
 
       {!loading && !error && scorecards.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

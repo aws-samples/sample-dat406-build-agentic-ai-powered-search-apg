@@ -263,3 +263,66 @@ def test_annotation_leaves_a_malformed_event_alone(
     event = {"type": "complete", "response": "not a dict"}
 
     assert app_module._annotate_rail(event, decision, degraded_notice) == event
+
+
+# ---------------------------------------------------------------------------
+# Gateway capability tiers (audit finding B3)
+# ---------------------------------------------------------------------------
+def test_every_published_tool_has_a_tier() -> None:
+    """A flat catalog makes least-privilege unverifiable; classify all 15."""
+    from services.agentcore_gateway import (
+        GATEWAY_TOOL_NAMES,
+        GATEWAY_TOOL_TIERS,
+    )
+
+    unclassified = [n for n in GATEWAY_TOOL_NAMES if n not in GATEWAY_TOOL_TIERS]
+
+    assert unclassified == []
+    assert len(GATEWAY_TOOL_NAMES) == 15
+
+
+def test_an_unknown_tool_defaults_to_the_most_restrictive_tier() -> None:
+    """An unclassified tool is more likely a forgotten mutation than a read."""
+    from services.agentcore_gateway import TIER_OPERATOR_MUTATION, tool_tier
+
+    assert tool_tier("some_new_tool") == TIER_OPERATOR_MUTATION
+
+
+def test_mutation_tiers_capture_exactly_the_write_tools() -> None:
+    from services.agentcore_gateway import mutation_tool_names
+
+    assert sorted(mutation_tool_names()) == [
+        "escalate_to_stylist",
+        "process_return",
+        "restock_shelf",
+    ]
+
+
+def test_search_tools_are_in_the_read_tier() -> None:
+    from services.agentcore_gateway import TIER_READ, tools_in_tier
+
+    read_tools = tools_in_tier(TIER_READ)
+
+    assert "find_pieces_hybrid" in read_tools
+    assert "floor_check" in read_tools
+    assert "process_return" not in read_tools
+
+
+def test_fail_closed_rule_derives_from_the_tier_map() -> None:
+    """The rail guard and the tier map must be one source of truth.
+
+    If these two lists could drift, a tool promoted to a mutation tier
+    would keep being servable in-process — exactly the gap B3 describes.
+    """
+    from services.agentcore_gateway import mutation_tool_names
+    from services.execution_rail import mutation_tools
+
+    assert mutation_tools() == frozenset(mutation_tool_names())
+
+
+def test_fallback_list_matches_the_tier_map() -> None:
+    """The optional-import fallback must not encode a stale set."""
+    from services.agentcore_gateway import mutation_tool_names
+    from services.execution_rail import _MUTATION_TOOLS_FALLBACK
+
+    assert _MUTATION_TOOLS_FALLBACK == frozenset(mutation_tool_names())

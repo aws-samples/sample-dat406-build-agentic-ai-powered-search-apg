@@ -1430,15 +1430,63 @@ async def get_performance():
 
 @router.get("/evaluations")
 async def get_evaluations():
-    """Return agent evaluation scorecards.
+    """Return agent evaluation scorecards with explicit provenance.
 
-    Returns fixture data matching the frontend evaluations.json shape.
+    Three states are distinguishable, and they are never interchangeable:
+
+    ``fixture``
+        Illustrative scorecards shipped with the repo. They describe no
+        run at all — they exist so the surface has shape before anything
+        has been evaluated.
+    ``local-gate``
+        The deterministic golden-set gate
+        (``tests/test_golden_journeys.py`` plus
+        ``scripts/eval_retrieval_harness.py``). Real current commit, real
+        thresholds, fixture/golden input.
+    ``managed``
+        A real AgentCore batch evaluation over recorded sessions, scored
+        by the deployed Runtime and correlated to CloudWatch traces.
+
+    A scorecard styled the same way in all three states invites an
+    attendee to read fixture illustrations as measured results, which is
+    the confusion this envelope prevents.
     """
     try:
+        from services import agentcore_evals
+
         data = _load_fixture("evaluations")
-        if data is None:
-            return []
-        return data
+        managed = agentcore_evals.describe_configuration()
+        return {
+            "provenance": "managed" if managed["configured"] else "fixture",
+            "states": {
+                "fixture": {
+                    "label": "Fixture / reference",
+                    "available": data is not None,
+                    "describes": "illustrative only — no run",
+                },
+                "localGate": {
+                    "label": "Local deterministic gate",
+                    "available": True,
+                    "describes": "real current commit, golden input",
+                    "sources": [
+                        "tests/test_golden_journeys.py",
+                        "scripts/eval_retrieval_harness.py",
+                    ],
+                },
+                "managed": {
+                    "label": "Managed AgentCore evaluation",
+                    "available": managed["configured"],
+                    "describes": (
+                        "real deployed Runtime, trace-backed"
+                        if managed["configured"]
+                        else "not provisioned — read the local gate instead"
+                    ),
+                    "operation": managed["operation"],
+                    "configuration": managed,
+                },
+            },
+            "scorecards": data if data is not None else [],
+        }
     except Exception as exc:
         logger.error("Failed to load evaluations: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load evaluations")  # copy-allow: atelier-error-detail

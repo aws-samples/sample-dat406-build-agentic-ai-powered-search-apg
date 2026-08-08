@@ -16,6 +16,7 @@ import AtelierContextBanner from './AtelierContextBanner';
 import AtelierErrorBoundary from './AtelierErrorBoundary';
 import { useUI } from '../../contexts/UIContext';
 import '../styles/base.css';
+import AtelierSpotlight from '../../components/AtelierSpotlight';
 
 const AtelierFrame: React.FC = () => {
   const { setChatSurface } = useUI();
@@ -42,6 +43,8 @@ const AtelierFrame: React.FC = () => {
           </main>
         </div>
       </div>
+      {/* First-visit orientation for the evidence surface. Session-gated. */}
+      <AtelierSpotlight />
     </div>
   );
 };

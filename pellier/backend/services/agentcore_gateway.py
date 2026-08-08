@@ -69,6 +69,85 @@ GATEWAY_TOOL_NAMES: List[str] = [
 ]
 
 
+# Capability tiers over the same 15 tools.
+#
+# One flat catalog publishes read, recommendation, inventory, escalation,
+# restock, and return capabilities through a single discovery surface.
+# Cedar still governs *execution*, but least-privilege becomes hard to
+# teach and harder to verify when every tool is one undifferentiated list:
+# "which of these can move money or stock?" has no structural answer.
+#
+# These tiers give that answer. They are the vocabulary the Policy lab and
+# the fail-closed rule in ``services.execution_rail`` share, so a tool
+# cannot be treated as a read in one place and a mutation in another.
+#
+# Tiers are declarative here rather than enforced as separate Gateway
+# targets: splitting targets changes the provisioned topology, which the
+# workshop's deploy scripts and readiness gates assert against. Semantic
+# tool discovery over many targets stays an advanced scaling pattern, not
+# the required path.
+TIER_READ = "read"
+TIER_CUSTOMER_MUTATION = "customer-mutation"
+TIER_OPERATOR_MUTATION = "operator-mutation"
+TIER_ESCALATION = "escalation"
+
+GATEWAY_TOOL_TIERS: Dict[str, str] = {
+    # Search and catalog reads. Safe for any authenticated shopper.
+    "find_pieces": TIER_READ,
+    "find_pieces_hybrid": TIER_READ,
+    "whats_trending": TIER_READ,
+    "price_intelligence": TIER_READ,
+    "explore_collection": TIER_READ,
+    "side_by_side": TIER_READ,
+    "style_match": TIER_READ,
+    "returns_and_care": TIER_READ,
+    "preference_snapshot": TIER_READ,
+    "trace_receipt": TIER_READ,
+    # Operator-facing inventory reads sit in the read tier, but they expose
+    # operational data a shopper has no business seeing, so they are named
+    # separately from catalog reads in the Policy lab.
+    "floor_check": TIER_READ,
+    "running_low": TIER_READ,
+    # Writes the customer owns: a return against their own order.
+    "process_return": TIER_CUSTOMER_MUTATION,
+    # Writes only an operator may perform.
+    "restock_shelf": TIER_OPERATOR_MUTATION,
+    # Human handoff. Not a data mutation, but it commits a person's time.
+    "escalate_to_stylist": TIER_ESCALATION,
+}
+
+# Tiers whose tools mutate state and therefore must travel the managed
+# rail in the governed format. Kept as a derived value so adding a tool to
+# a mutation tier automatically brings the fail-closed rule with it.
+MUTATION_TIERS = frozenset({TIER_CUSTOMER_MUTATION, TIER_OPERATOR_MUTATION, TIER_ESCALATION})
+
+
+def tool_tier(tool_name: str) -> str:
+    """Return the capability tier for ``tool_name``.
+
+    Args:
+        tool_name: A published gateway tool name.
+
+    Returns:
+        The tier string. Unknown tools are treated as the most restrictive
+        tier rather than the least: an unclassified tool is more likely a
+        new mutation someone forgot to classify than a new read.
+    """
+    return GATEWAY_TOOL_TIERS.get(tool_name, TIER_OPERATOR_MUTATION)
+
+
+def tools_in_tier(tier: str) -> List[str]:
+    """Return the published tools in ``tier``, in catalog order."""
+    return [name for name in GATEWAY_TOOL_NAMES if tool_tier(name) == tier]
+
+
+def mutation_tool_names() -> List[str]:
+    """Return every published tool that mutates state, in catalog order."""
+    return [
+        name for name in GATEWAY_TOOL_NAMES if tool_tier(name) in MUTATION_TIERS
+    ]
+
+
 def _unwrap_strands_tool(strands_tool: Any) -> Any:
     """Return the plain Python callable underneath a Strands `@tool` wrapper.
 

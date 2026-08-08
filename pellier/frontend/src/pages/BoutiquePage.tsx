@@ -25,6 +25,7 @@ import MemoryHandoffCard from '../components/MemoryHandoffCard'
 import RationaleBand from '../components/RationaleBand'
 import ProductCard from '../components/ProductCard'
 import Footer from '../components/Footer'
+import BoutiqueSpotlight from '../components/BoutiqueSpotlight'
 // CommandPill removed — hero search bar is the primary entry point
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
@@ -370,6 +371,11 @@ export default function BoutiquePage() {
 
       <Footer />
       {/* CommandPill removed — hero search bar opens the drawer directly */}
+      {/* First-visit orientation. Session-gated and skippable: it teaches the
+          four surfaces (Boutique = experience, Code Editor = implementation,
+          Atelier = evidence, Workshop Studio = instructions) once, then stays
+          out of the way. */}
+      <BoutiqueSpotlight />
     </div>
   )
 }
