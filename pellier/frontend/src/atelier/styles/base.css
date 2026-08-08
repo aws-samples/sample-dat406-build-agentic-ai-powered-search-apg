@@ -30,7 +30,9 @@
   font-size: var(--at-body-size);
   line-height: var(--at-body-leading);
   min-height: 100vh;
-  min-width: 1280px;
+  /* No min-width. A hard 1280px floor forced horizontal scrolling on every
+     14-inch laptop and embedded workshop browser; the layout below is
+     responsive instead of merely wide. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -147,7 +149,10 @@
 /* Two-column shell: wide workshop navigator + flexible canvas */
 .atelier-frame {
   display: grid;
-  grid-template-columns: var(--at-sidebar-width) 1fr;
+  /* minmax(0, 1fr) rather than 1fr: a bare 1fr floors at min-content, so a
+     wide table or SQL block inside the canvas would push the whole grid
+     wider than the viewport instead of scrolling within its own panel. */
+  grid-template-columns: var(--at-sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -339,5 +344,119 @@
   .atelier-root [data-telemetry-panel][data-flash='true'] {
     animation: none;
     border-color: var(--at-red-1);
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Responsive shell
+ *
+ * The Atelier previously enforced `min-width: 1280px` with a 440px rail,
+ * so a 14-inch laptop or an embedded workshop browser scrolled
+ * horizontally before the attendee read anything. The rules below make the
+ * shell adapt instead:
+ *
+ *   >= 1280px   full 300px rail
+ *   1024-1279   compact icon rail (labels hidden, destinations intact)
+ *   < 1024px    rail becomes an off-canvas drawer over the canvas
+ *
+ * Destinations are never removed at any width — only their presentation
+ * changes. Hiding a lab on a narrow screen would silently make part of the
+ * workshop unreachable.
+ * ----------------------------------------------------------------------- */
+
+.atelier-sidebar {
+  width: var(--at-sidebar-width);
+}
+
+/* --- Compact icon rail (tablet landscape / small laptop) --------------- */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .atelier-frame {
+    grid-template-columns: var(--at-sidebar-width-compact) minmax(0, 1fr);
+  }
+
+  .atelier-sidebar {
+    width: var(--at-sidebar-width-compact);
+    align-items: center;
+  }
+
+  /* Labels collapse; the icon and its accessible name remain. */
+  .atelier-sidebar [data-nav-label],
+  .atelier-sidebar [data-nav-eyebrow],
+  .atelier-sidebar [data-sidebar-footer] {
+    display: none;
+  }
+
+  .atelier-surface {
+    padding: 24px 24px;
+  }
+
+  .atelier-context-banner {
+    padding: 12px 24px;
+  }
+}
+
+/* --- Drawer (tablet portrait and below) -------------------------------- */
+@media (max-width: 1023px) {
+  .atelier-frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .atelier-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;
+    width: min(320px, 86vw);
+    transform: translateX(-100%);
+    transition: transform var(--gov-motion-base) var(--gov-motion-ease);
+    box-shadow: var(--gov-shadow-md);
+    overflow-y: auto;
+  }
+
+  .atelier-root[data-nav-open='true'] .atelier-sidebar {
+    transform: translateX(0);
+  }
+
+  /* Scrim closes the drawer and prevents interaction behind it. */
+  .atelier-root[data-nav-open='true']::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(28, 25, 23, 0.42);
+  }
+
+  .atelier-surface {
+    padding: 20px 18px;
+  }
+
+  .atelier-context-banner {
+    padding: 12px 18px;
+    flex-wrap: wrap;
+  }
+}
+
+/* --- Phone ------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .atelier-surface {
+    /* Respect the home-indicator inset so the last card is not clipped. */
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The nav toggle only exists in drawer mode; above it the rail is present. */
+.atelier-nav-toggle {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .atelier-nav-toggle {
+    display: inline-flex;
+  }
+}
+
+/* Reduced motion: the drawer still opens, it simply does not slide. */
+@media (prefers-reduced-motion: reduce) {
+  .atelier-sidebar {
+    transition: none;
   }
 }

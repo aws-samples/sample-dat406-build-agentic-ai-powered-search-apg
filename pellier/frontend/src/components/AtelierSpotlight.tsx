@@ -43,7 +43,7 @@ const STEPS: SpotlightStep[] = [
     numeral: 'III',
     kicker: 'On the right',
     headline: 'The reasoning',
-    body: "Start with Proof Board, then follow the five required labs. Memory, managed Runtime, Gateway, and Policy are part of the governed proof; routing is an extension.",
+    body: "Start with Proof Board, then follow the four required labs. Memory, managed Runtime, Gateway, and Policy are part of the governed proof; routing is a deep dive.",
   },
 ]
 

@@ -174,7 +174,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Lab 2: Measure Hybrid Search | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
 | Lab 3: Prove AgentCore Memory | Prove cross-turn context through managed AgentCore Memory, then invoke managed Runtime through Gateway. |
 | Lab 4: Audit Agent Actions | Trigger Theo's return, query the JSONB audit ledger, and reconstruct the seeded identity mismatch. |
-| Lab 5: Enforce Cedar Policy | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the safe path still works, and reset participant policy. |
+| Lab 4: Govern Actions | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the safe path still works, and reset participant policy. |
 | Extension Labs | Continue into Agent Behavior & Routing, Retrieval Engineering, or Defense in Depth only after the required managed proof. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
@@ -273,7 +273,7 @@ sample-pellier-agentic-search-apg/
 │   ├── the-quiet-search/                    Semantic retrieval reference
 │   ├── closing-marcos-gap/                  Lab 1 floor_check reference
 │   ├── the-ledger/                          Labs 3-4 AgentCore + audit reference
-│   └── the-concierge/                       Lab 5 MCP and Gateway reference
+│   └── the-concierge/                       Lab 4 MCP and Gateway reference
 │
 └── scripts/
     ├── migrations/                         Ordered fresh-cluster SQL (001-011)

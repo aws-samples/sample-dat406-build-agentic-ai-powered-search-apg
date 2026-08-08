@@ -464,7 +464,12 @@ export default function Header({
               )}
             </div>
 
-            <div className="hidden md:block ml-1">
+            {/* Always visible. SurfaceToggle's own docstring calls this the
+                single most important navigation decision on either page, and
+                `hidden md:block` removed it below 768px — the exact widths
+                where an attendee most needs a way back to the evidence
+                surface. */}
+            <div className="ml-1">
               <SurfaceToggle />
             </div>
           </div>

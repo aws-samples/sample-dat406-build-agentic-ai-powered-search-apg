@@ -32,6 +32,58 @@ interface NavItemDef {
 interface NavSection {
   eyebrow: string;
   items: NavItemDef[];
+  /** Lab number for numbered progress. Omitted for Cockpit/Deep Dives. */
+  labNumber?: number;
+  /** Collapsed by default; only the active lab expands. */
+  collapsible?: boolean;
+}
+
+/**
+ * Lab completion state.
+ *
+ * `complete` is only claimed from real build-state evidence — a lab that
+ * merely has a visited route is not a lab an attendee finished.
+ */
+type LabStatus = 'not-started' | 'in-progress' | 'complete' | 'optional';
+
+const STATUS_LABEL: Record<LabStatus, string> = {
+  'not-started': 'Not started',
+  'in-progress': 'In progress',
+  complete: 'Complete',
+  optional: 'Optional',
+};
+
+/** True when the current route belongs to this section. */
+function isSectionActive(section: NavSection, pathname: string): boolean {
+  return section.items.some((item) => {
+    const base = item.path.split('#', 1)[0];
+    const target = `/atelier/${base}`;
+    return pathname === target || pathname.startsWith(`${target}/`);
+  });
+}
+
+/**
+ * Resolve a lab's status from real evidence.
+ *
+ * Only Lab 1 can currently be proven complete: the build-state endpoint
+ * reports how many tools are shipped, which is a fact. The other labs have
+ * no completion signal in the app, so they report `in-progress` while the
+ * attendee is on them and `not-started` otherwise. Claiming `complete`
+ * without evidence would be the same dishonesty the evidence surfaces
+ * exist to prevent.
+ */
+function labStatus(
+  section: NavSection,
+  active: boolean,
+  buildState: { toolShipped: number; toolTotal: number },
+): LabStatus {
+  if (section.labNumber === 1) {
+    if (buildState.toolTotal > 0 && buildState.toolShipped >= buildState.toolTotal) {
+      return 'complete';
+    }
+    return active ? 'in-progress' : 'not-started';
+  }
+  return active ? 'in-progress' : 'not-started';
 }
 
 /* -----------------------------------------------------------------------
@@ -50,6 +102,7 @@ import { PERSONA_PHOTOS } from '../../data/personaPhotos';
 const Sidebar: React.FC = () => {
   const { persona } = usePersona();
   const buildState = useBuildState();
+  const { pathname } = useLocation();
 
   const personaId = persona?.id ?? '';
   const displayName = persona?.display_name ?? 'Choose profile';
@@ -57,17 +110,29 @@ const Sidebar: React.FC = () => {
   const avatarInitial = persona?.avatar_initial ?? '?';
   const avatarColor = persona?.avatar_color ?? '#665f58';
 
-  // Keep the same five-lab spine as Workshop Studio. Reference-only routes
-  // remain deep-linkable without competing with the required participant path.
+  // Four-lab spine. The audit's finding was that seven groups with twelve
+  // near-equal destinations made the Atelier read as a second application
+  // to learn. These four consolidate the same surfaces:
+  //
+  //   Lab 1  Build & Trace      tool registry + one live trace
+  //   Lab 2  Retrieval Quality  search pipeline + retrieval comparison
+  //   Lab 3  Memory & Audit     memory substrates + audit proof
+  //   Lab 4  Govern Actions     gateway, policy, write path
+  //
+  // Every previous route stays reachable — Deep Dives keeps them as deep
+  // links. Nothing was deleted; only the default presentation changed.
   const navSections: NavSection[] = [
     {
-      eyebrow: 'START HERE',
+      eyebrow: 'COCKPIT',
       items: [
         { label: 'Proof Board', path: 'proof-board', liveDot: true },
+        { label: 'Workshop Map', path: 'observatory' },
       ],
     },
     {
-      eyebrow: 'LAB 1 · BUILD A SPECIALIST AGENT',
+      eyebrow: 'BUILD & TRACE',
+      labNumber: 1,
+      collapsible: true,
       items: [
         {
           label: 'Tool Registry',
@@ -76,52 +141,46 @@ const Sidebar: React.FC = () => {
             ? `${buildState.toolShipped}/${buildState.toolTotal}`
             : '14/15',
         },
+        { label: 'Sessions', path: 'sessions' },
       ],
     },
     {
-      eyebrow: 'LAB 2 · MEASURE HYBRID SEARCH',
+      eyebrow: 'RETRIEVAL QUALITY',
+      labNumber: 2,
+      collapsible: true,
       items: [
         { label: 'Retrieval Comparison', path: 'performance' },
+        { label: 'Search Pipeline', path: 'search' },
       ],
     },
     {
-      eyebrow: 'LAB 3 · PROVE AGENTCORE MEMORY',
+      eyebrow: 'MEMORY & AUDIT',
+      labNumber: 3,
+      collapsible: true,
       items: [
-        { label: 'Memory', path: 'memory' },
-        {
-          label: 'Managed Rail',
-          path: 'proof-board#managed-rail',
-        },
+        { label: 'Memory Substrates', path: 'memory' },
+        { label: 'Audit Proof', path: 'audit-proof' },
       ],
     },
     {
-      eyebrow: 'LAB 4 · AUDIT AGENT ACTIONS',
-      items: [
-        {
-          label: 'Audit Proof',
-          path: 'audit-proof',
-        },
-      ],
-    },
-    {
-      eyebrow: 'LAB 5 · ENFORCE CEDAR POLICY',
+      eyebrow: 'GOVERN ACTIONS',
+      labNumber: 4,
+      collapsible: true,
       items: [
         { label: 'Gateway & Policy', path: 'write-path' },
+        { label: 'Managed Rail', path: 'proof-board#managed-rail' },
       ],
     },
     {
-      eyebrow: 'EXTENSION',
+      eyebrow: 'DEEP DIVES',
+      collapsible: true,
       items: [
-        { label: 'Agent Behavior & Routing', path: 'routing', badge: 'ext' },
-      ],
-    },
-    {
-      eyebrow: 'REFERENCE',
-      items: [
-        { label: 'Workshop Map', path: 'observatory' },
-        { label: 'Sessions', path: 'sessions' },
-        { label: 'Search Pipeline', path: 'search' },
+        { label: 'Agent Behavior & Routing', path: 'routing' },
         { label: 'Architecture', path: 'architecture' },
+        { label: 'Evaluations', path: 'evaluations' },
+        { label: 'Production Patterns', path: 'production-patterns' },
+        { label: 'Persona Journeys', path: 'persona-journeys' },
+        { label: 'Skills', path: 'skills' },
       ],
     },
   ];
@@ -129,8 +188,8 @@ const Sidebar: React.FC = () => {
   return (
     <aside
       data-testid="atelier-sidebar"
+      className="atelier-sidebar"
       style={{
-        width: 'var(--at-sidebar-width)',
         minHeight: '100vh',
         background: 'var(--at-sidebar-bg)',
         display: 'flex',
@@ -179,49 +238,115 @@ const Sidebar: React.FC = () => {
           overflowY: 'auto',
         }}
       >
-        {navSections.map((section) => (
-          <div key={section.eyebrow} style={{ marginBottom: '4px' }}>
-            {/* Section eyebrow */}
-            <div
-              style={{
-                padding: '12px 20px 6px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontFamily: 'var(--at-heading)',
-                fontSize: '11px',
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: 'var(--at-red-1)',
-                lineHeight: 1,
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  display: 'inline-block',
-                  width: '5px',
-                  height: '5px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--at-red-1)',
-                  flexShrink: 0,
-                }}
-              />
-              {section.eyebrow}
-            </div>
+        {navSections.map((section) => {
+          const sectionActive = isSectionActive(section, pathname);
+          // Only the active lab stays expanded. A fully expanded rail is
+          // what made twelve destinations compete for attention; collapsing
+          // the rest keeps the current step obvious without hiding any.
+          const expanded = !section.collapsible || sectionActive;
+          const status = section.labNumber
+            ? labStatus(section, sectionActive, buildState)
+            : undefined;
 
-            {/* Nav items */}
-            {section.items.map((item) => (
-              <SidebarNavItem key={item.path} item={item} />
-            ))}
-          </div>
-        ))}
+          return (
+            <div key={section.eyebrow} style={{ marginBottom: '4px' }}>
+              {/* Section eyebrow. Numbered for labs so progress reads as a
+                  sequence rather than a list of red markers. */}
+              <div
+                data-nav-eyebrow
+                data-section-active={sectionActive ? 'true' : 'false'}
+                style={{
+                  padding: '12px 20px 6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontFamily: 'var(--at-heading)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: sectionActive
+                    ? 'var(--at-sidebar-text-active)'
+                    : 'rgba(250, 243, 232, 0.6)',
+                  lineHeight: 1,
+                }}
+              >
+                {section.labNumber ? (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      border: `1px solid ${
+                        status === 'complete'
+                          ? 'var(--gov-allow-fg)'
+                          : 'rgba(250, 243, 232, 0.45)'
+                      }`,
+                      color:
+                        status === 'complete'
+                          ? 'var(--gov-allow-fg)'
+                          : 'inherit',
+                      fontSize: '9px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {section.labNumber}
+                  </span>
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: 'inline-block',
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(250, 243, 232, 0.5)',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <span style={{ flex: 1 }}>
+                  {section.labNumber ? `LAB ${section.labNumber} · ` : ''}
+                  {section.eyebrow}
+                </span>
+                {/* Status is text, never color alone. */}
+                {status && (
+                  <span
+                    style={{
+                      fontFamily: 'var(--at-mono)',
+                      fontSize: '9px',
+                      letterSpacing: '0.04em',
+                      color:
+                        status === 'complete'
+                          ? 'var(--gov-allow-fg)'
+                          : 'rgba(250, 243, 232, 0.5)',
+                    }}
+                  >
+                    {STATUS_LABEL[status]}
+                  </span>
+                )}
+              </div>
+
+              {/* Nav items */}
+              {expanded &&
+                section.items.map((item) => (
+                  <SidebarNavItem key={item.path} item={item} />
+                ))}
+            </div>
+          );
+        })}
 
       </nav>
 
-      {/* Persona footer */}
+      {/* Persona footer. `data-sidebar-footer` lets the compact rail drop it;
+          the persona switcher in the TopBar remains the canonical control,
+          so hiding this duplicate costs nothing. */}
       <div
+        data-sidebar-footer
         style={{
           padding: '16px 20px',
           borderTop: '1px solid rgba(250, 243, 232, 0.08)',
@@ -319,7 +444,12 @@ const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
   return (
     <Link
       to={`/atelier/${item.path}`}
+      // The compact rail hides the visible label, so the link carries its
+      // own accessible name. Without this an icon-only rail is a row of
+      // unnamed links to a screen reader.
+      aria-label={item.label}
       aria-current={isActive ? 'page' : undefined}
+      className="gov-focusable"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -342,7 +472,11 @@ const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
         position: 'relative',
       }}
     >
-      <span style={{ flex: 1 }}>{item.label}</span>
+      {/* data-nav-label lets the compact icon rail hide the text while the
+          link keeps its accessible name (aria-label below). */}
+      <span data-nav-label style={{ flex: 1 }}>
+        {item.label}
+      </span>
 
       {item.liveDot && (
         <StatusDot status="live" size={7} />

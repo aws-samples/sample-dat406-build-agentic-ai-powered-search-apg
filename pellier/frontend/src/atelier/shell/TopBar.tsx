@@ -9,6 +9,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import SurfaceToggle from '../../components/SurfaceToggle';
 import PersonaModal from '../../components/PersonaModal';
@@ -75,7 +76,14 @@ function useBreadcrumbs(): string[] {
  * TopBar component
  * ----------------------------------------------------------------------- */
 
-const TopBar: React.FC = () => {
+export interface TopBarProps {
+  /** True when the responsive navigation drawer is open. */
+  navOpen?: boolean;
+  /** Toggle the drawer. Rendered only at drawer widths (see base.css). */
+  onToggleNav?: () => void;
+}
+
+const TopBar: React.FC<TopBarProps> = ({ navOpen = false, onToggleNav }) => {
   const breadcrumbs = useBreadcrumbs();
   const { persona } = usePersona();
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
@@ -98,6 +106,32 @@ const TopBar: React.FC = () => {
           minHeight: '52px',
         }}
       >
+        {/* Navigation drawer toggle. CSS hides it at widths where the rail
+            is already visible, so it never duplicates present navigation. */}
+        {onToggleNav && (
+          <button
+            type="button"
+            className="atelier-nav-toggle gov-focusable"
+            data-testid="atelier-nav-toggle"
+            onClick={onToggleNav}
+            aria-label={navOpen ? 'Close lab navigation' : 'Open lab navigation'}
+            aria-expanded={navOpen}
+            style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '40px',
+              height: '40px',
+              border: '1px solid var(--at-rule-2)',
+              borderRadius: 'var(--gov-radius-sm)',
+              background: 'var(--at-cream-elev)',
+              color: 'var(--at-ink-1)',
+              cursor: 'pointer',
+            }}
+          >
+            {navOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+        )}
+
         {/* Surface toggle */}
         <SurfaceToggle />
 
@@ -107,9 +141,10 @@ const TopBar: React.FC = () => {
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Presence — same chip as Boutique hero; mono tail only when a
-            persona is signed in (hidden for fresh / anonymous). */}
-        <PresencePill surface="boutique" personaId={persona?.id} />
+        {/* Presence — the Atelier is an operator surface, so it reports the
+            evidence/environment state rather than the shopper-facing one.
+            Passing surface="boutique" here mislabelled the whole console. */}
+        <PresencePill surface="atelier" personaId={persona?.id} />
 
         {/* Persona switcher */}
         <button

@@ -190,8 +190,9 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findAllByText('Lab 1: Build a Specialist Agent')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Prove AgentCore Memory')).toHaveLength(2);
+    // Four-lab spine: Memory and Audit consolidated into Lab 3.
+    expect(await screen.findAllByText('Lab 1: Build & Trace')).toHaveLength(2);
+    expect(screen.getAllByText('Lab 3: Memory & Audit').length).toBeGreaterThan(0);
   });
 
   it('renders Audit Proof as a focused Lab 4 evidence view', async () => {

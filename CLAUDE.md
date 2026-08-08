@@ -66,7 +66,7 @@ hardening.
 In maintainer mode:
 
 - Inspect the relevant code and tests before editing.
-- Preserve the five-lab participant path and terminal-first proof contract.
+- Preserve the four-lab participant path and terminal-first proof contract.
 - Work with existing changes; do not reset or overwrite unrelated work.
 - Keep solution copies byte-identical when bootstrap auto-applies them.
 - Update Workshop Studio content when a participant-facing claim changes.
@@ -90,11 +90,16 @@ The application must continue to demonstrate:
 
 The required participant path is:
 
-1. Lab 1 - Build a Specialist Agent
-2. Lab 2 - Measure Hybrid Search
-3. Lab 3 - Prove AgentCore Memory
-4. Lab 4 - Audit Agent Actions
-5. Lab 5 - Enforce Cedar Policy
+1. Lab 1 - Build & Trace
+2. Lab 2 - Retrieval Quality
+3. Lab 3 - Memory & Audit
+4. Lab 4 - Govern Actions
+
+Consolidated from five labs on 2026-08-08. The old Lab 3 (Prove AgentCore
+Memory) and Lab 4 (Audit Agent Actions) proved the same property from two
+angles — a durable record exists and can be read — so they merged into
+Lab 3. The old Lab 5 (Enforce Cedar Policy) became Lab 4. Every underlying
+proof and route is unchanged; only the grouping and numbering moved.
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.

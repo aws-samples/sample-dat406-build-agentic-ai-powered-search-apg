@@ -940,7 +940,7 @@ const Routing: React.FC = () => {
             >
               Boutique sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
               buttons to compare where the other patterns would fit. The required
-              Lab 5 proof is the Gateway/Cedar rail, not this comparison.
+              Lab 4 proof is the Gateway/Cedar rail, not this comparison.
             </p>
             <ModeStrip
               patterns={patterns.map((p) => p.name)}

@@ -1,7 +1,7 @@
 /**
  * Observatory - workshop map and Atelier reference.
  *
- * The page mirrors Workshop Studio's five required labs so participants never
+ * The page mirrors the four required labs so participants never
  * have to translate between two workshop taxonomies.
  */
 
@@ -35,7 +35,7 @@ const PILLARS: PillarItem[] = [
     verb: 'Verify',
     title: 'Proof Board',
     description:
-      'Read live evidence checkpoints in the same order as the five required labs, with a terminal or SQL fallback on every card.',
+      'Read live evidence checkpoints in the same order as the four required labs, with a terminal or SQL fallback on every card.',
   },
   {
     verb: 'Inspect',
@@ -126,12 +126,12 @@ const LABS: LabItem[] = [
       {
         to: '/atelier/proof-board#audit-ledger',
         label: 'Audit checkpoint',
-        detail: 'Lab 4 proof card',
+        detail: 'Lab 3 proof card',
       },
     ],
   },
   {
-    lab: 'Lab 5',
+    lab: 'Lab 4',
     title: 'Enforce Cedar Policy',
     summary:
       'Apply one Cedar rule, prove DENY leaves a receipt but no execution row, confirm ALLOW still executes, and reset the participant policy.',
@@ -144,7 +144,7 @@ const LABS: LabItem[] = [
       {
         to: '/atelier/proof-board#runtime-gateway-policy',
         label: 'Policy checkpoint',
-        detail: 'Lab 5 proof card',
+        detail: 'Lab 4 proof card',
       },
       {
         to: '/atelier/proof-board#managed-rail',

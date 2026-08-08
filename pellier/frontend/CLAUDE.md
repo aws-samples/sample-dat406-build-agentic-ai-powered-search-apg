@@ -6,7 +6,7 @@ Read the repository `CLAUDE.md` and `VOICE.md` before editing.
 ## Product boundaries
 
 - Boutique is a fast, editorial shopping experience.
-- Atelier is a quiet operator console organized around the five required labs.
+- Atelier is a quiet operator console organized around the four required labs.
 - Code Editor, curl, and SQL remain the canonical proof surfaces.
 - Atelier may summarize live evidence but must not invent or replace proof.
 - Do not reintroduce the old Act I/II/III navigation.

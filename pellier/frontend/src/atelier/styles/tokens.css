@@ -50,7 +50,12 @@
   --at-sidebar-text: rgba(250, 243, 232, 0.75);
   --at-sidebar-text-active: var(--cream-warm);
   --at-sidebar-accent: var(--at-red-1);
-  --at-sidebar-width: 440px;
+  /* Rail width. 440px consumed a third of a 1280px workshop laptop before
+     canvas padding, leaving the evidence surface — the thing an attendee is
+     actually reading — unnecessarily narrow. 300px fits the five-lab spine
+     without truncating labels. Overridden per breakpoint in base.css. */
+  --at-sidebar-width: 300px;
+  --at-sidebar-width-compact: 76px;
 
   /* ------------------------------------------------------------------
    * Category badges (Architecture index)

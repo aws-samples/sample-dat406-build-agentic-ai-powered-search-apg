@@ -233,7 +233,7 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert cards["managed-rail"]["lab"] == "Lab 3: Prove AgentCore Memory"
     assert cards["managed-rail"]["required"] is True
     assert cards["audit-ledger"]["lab"] == "Lab 4: Audit Agent Actions"
-    assert cards["runtime-gateway-policy"]["lab"] == "Lab 5: Enforce Cedar Policy"
+    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4: Govern Actions"
     assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
     assert "curl" in cards["managed-rail"]["fallback"]["command"]

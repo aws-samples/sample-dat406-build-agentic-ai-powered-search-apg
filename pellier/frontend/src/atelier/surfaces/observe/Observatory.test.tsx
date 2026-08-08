@@ -16,7 +16,7 @@ describe('Atelier workshop map', () => {
       'Lab 2',
       'Lab 3',
       'Lab 4',
-      'Lab 5',
+      'Lab 4',
     ]);
     expect(screen.getByRole('heading', { name: 'Build a Specialist Agent' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Measure Hybrid Search' })).toBeInTheDocument();

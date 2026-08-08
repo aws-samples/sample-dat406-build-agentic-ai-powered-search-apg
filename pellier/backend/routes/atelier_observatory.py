@@ -760,7 +760,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "Lab 5: Enforce Cedar Policy",
+            "lab": "Lab 4: Govern Actions",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (

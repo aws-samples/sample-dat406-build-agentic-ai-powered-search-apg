@@ -132,12 +132,15 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
   },
 };
 
+// Four-lab spine. Memory and Audit were separate labs that proved the same
+// thing from two angles — a durable record exists and can be read — so they
+// consolidate into Lab 3. Cedar Policy becomes Lab 4.
 const LAB_BY_CARD_ID: Record<string, string> = {
-  'marco-floor-check': 'Lab 1: Build a Specialist Agent',
-  'retrieval-comparison': 'Lab 2: Measure Hybrid Search',
-  'managed-rail': 'Lab 3: Prove AgentCore Memory',
-  'audit-ledger': 'Lab 4: Audit Agent Actions',
-  'runtime-gateway-policy': 'Lab 5: Enforce Cedar Policy',
+  'marco-floor-check': 'Lab 1: Build & Trace',
+  'retrieval-comparison': 'Lab 2: Retrieval Quality',
+  'managed-rail': 'Lab 3: Memory & Audit',
+  'audit-ledger': 'Lab 3: Memory & Audit',
+  'runtime-gateway-policy': 'Lab 4: Govern Actions',
 };
 
 function cardLab(card: ProofCard): string {
@@ -902,12 +905,12 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         </Link>
       )}
       <EditorialTitle
-        eyebrow={isAuditFocus ? 'Lab 4 · Audit Agent Actions' : 'Labs 1-5 · Proof Board'}
+        eyebrow={isAuditFocus ? 'Lab 3 · Memory & Audit' : 'Labs 1-4 · Proof Board'}
         title={isAuditFocus ? 'Audit proof, row by row.' : 'Evidence checkpoints, in lab order.'}
         summary={
           isAuditFocus
             ? 'A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present.'
-            : "Use this board when a required lab asks for an Atelier check. Checkpoints follow Workshop Studio's five-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
+            : "Use this board when a required lab asks for an Atelier check. Checkpoints follow the four-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
         }
       />
 
