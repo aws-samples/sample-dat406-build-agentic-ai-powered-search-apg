@@ -18,6 +18,7 @@ import {
   EditorialTitle,
   ExpCard,
   Eyebrow,
+  LabGrammar,
   StatusDot,
   StatusPill,
   WorkshopProgressStrip,
@@ -1293,6 +1294,52 @@ const Tools: React.FC = () => {
         title="The toolkit, by owner and action."
         summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."
       />
+
+      {/* One interaction grammar on every required lab destination:
+          Try in the Boutique, Build in the Code Editor, Prove with live
+          evidence. The tool count below is read from the live build-state
+          endpoint, so the PASS/FAIL state describes the actual repo. */}
+      <div style={{ marginBottom: '20px' }}>
+        <LabGrammar
+          labLabel="Lab 1 · Build a Specialist Agent"
+          provenance="live"
+          proofState={
+            buildState.toolTotal > 0 && buildState.toolShipped >= buildState.toolTotal
+              ? 'pass'
+              : 'pending'
+          }
+          try={
+            <>
+              Ask Marco&rsquo;s Turn 4 in the Boutique: &ldquo;Is the Hadley
+              shirt at the Brooklyn warehouse?&rdquo; A stubbed tool answers
+              with an error envelope instead of a BK-01 quantity.
+            </>
+          }
+          build={
+            <>
+              Wire <code>floor_check</code> in{' '}
+              <code>pellier/backend/services/agent_tools.py</code>, between the{' '}
+              <code>WORKSHOP · Stock Keeper · floor_check</code> START and END
+              markers. Nothing outside those markers changes.
+            </>
+          }
+          prove={
+            <>
+              The registry strip reads{' '}
+              <strong>
+                {buildState.toolTotal > 0
+                  ? `${buildState.toolShipped}/${buildState.toolTotal}`
+                  : '14/15'}{' '}
+                shipped
+              </strong>
+              . It flips to 15/15 once the body is wired, and Marco&rsquo;s
+              turn returns a real Brooklyn quantity.
+            </>
+          }
+          nextAction="Re-ask Marco's Turn 4 in the Boutique and read the BK-01 quantity."
+          returnAction="Code Editor → pellier/backend/services/agent_tools.py"
+        />
+      </div>
 
       {loading && <LoadingState />}
 

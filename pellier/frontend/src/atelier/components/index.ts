@@ -46,3 +46,10 @@ export { ContextRail } from './ContextRail';
 export type { ContextRailProps } from './ContextRail';
 
 export { AtelierWelcome } from './AtelierWelcome';
+
+export { LabGrammar } from './LabGrammar';
+export type {
+  LabGrammarProps,
+  EvidenceProvenance,
+  ProofState,
+} from './LabGrammar';
