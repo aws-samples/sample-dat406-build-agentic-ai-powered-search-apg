@@ -44,6 +44,23 @@ class _VectorSearch:
             for index in range(1, 7)
         ]
 
+    async def vector_search_planned(
+        self, *args: Any, **kwargs: Any
+    ) -> list[dict[str, Any]]:
+        # Record the compiled predicates so a test can assert the agentic
+        # strategy really ran a plan rather than ad-hoc kwargs.
+        self.last_predicates = list(kwargs.get("predicates") or [])
+        self.last_predicate_params = list(kwargs.get("predicate_params") or [])
+        return [
+            {
+                "name": f"Planned {index}",
+                "product_id": index,
+                "description": "A planned result",
+                "category": "Home",
+            }
+            for index in range(1, 7)
+        ]
+
 
 class _HybridSearch:
     def __init__(self, db: Any) -> None:
@@ -69,14 +86,33 @@ class _Reranker:
 
 
 class _Extractor:
+    """Stands in for Sonnet. Facets must be real catalog values — the
+    planner drops anything outside ``KNOWN_CATEGORIES`` / ``KNOWN_TAGS``,
+    so a fixture using invented facets would silently test nothing."""
+
     def extract(self, query: str) -> dict[str, Any]:
         return {
-            "categories": ["Home"],
+            "categories": ["Home Decor"],
             "tags": ["gift"],
             "price_max_usd": 100,
             "in_stock_only": True,
+            "exclusions": ["candle"],
             "soft_signal": "considered housewarming gift",
         }
+
+
+class _EmptyPoolVectorSearch(_VectorSearch):
+    """Every planned attempt comes back empty, forcing the full ladder."""
+
+    def __init__(self, db: Any) -> None:
+        super().__init__(db)
+        self.attempts: list[list[str]] = []
+
+    async def vector_search_planned(
+        self, *args: Any, **kwargs: Any
+    ) -> list[dict[str, Any]]:
+        self.attempts.append(list(kwargs.get("predicates") or []))
+        return []
 
 
 @pytest.fixture(autouse=True)
@@ -115,6 +151,49 @@ def test_comparison_labels_single_run_latency_and_modeled_cost_honestly() -> Non
     agentic = body["strategies"][-1]
     assert agentic["extractedFilters"]["priceMaxUsd"] == 100
     assert agentic["extractedFilters"]["filterUsed"] == "strict"
+    # The typed plan that ran is reported alongside the raw extraction.
+    plan = agentic["searchPlan"]
+    assert plan["hard_constraints"]["price_max_usd"] == 100.0
+    assert plan["hard_constraints"]["in_stock_only"] is True
+    assert plan["exclusions"] == ["candle"]
+    assert agentic["relaxations"] == []
+
+
+def test_exhausted_ladder_never_drops_a_hard_constraint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Even when every attempt returns nothing, price/stock/exclusions hold.
+
+    Regression guard for the audit's A2 finding: the previous ladder's
+    final ``drop_all`` rung removed price and in-stock entirely, so this
+    query could answer with an out-of-stock $250 candle.
+    """
+    empty = _EmptyPoolVectorSearch(object())
+    monkeypatch.setattr(vector_module, "VectorSearch", lambda db: empty)
+
+    body = asyncio.run(
+        app_module.compare_search_strategies(
+            query="in-stock housewarming gift under $100, no candles"
+        )
+    )
+
+    assert empty.attempts, "the agentic strategy should have attempted retrieval"
+    for predicates in empty.attempts:
+        assert "price <= %s" in predicates
+        assert "quantity > 0" in predicates
+        assert "NOT (tags ?| %s)" in predicates
+
+    agentic = body["strategies"][-1]
+    assert agentic["searchPlan"]["hard_constraints"]["price_max_usd"] == 100.0
+    assert agentic["searchPlan"]["hard_constraints"]["in_stock_only"] is True
+    assert agentic["hardConstraintsEnforced"] == [
+        "price <= $100",
+        "in stock",
+        "category in Home Decor",
+    ]
+    # Widening happened, and it is disclosed rather than silent.
+    assert [r["step"] for r in agentic["relaxations"]] == ["drop_tags"]
+    assert agentic["relaxations"][0]["dropped"] == ["gift"]
 
 
 def test_comparison_rejects_blank_query() -> None:

@@ -1340,6 +1340,7 @@ async def compare_search_strategies(query: str):
     from services.vector_search import VectorSearch
     from services.hybrid_search import HybridSearch
     from services.rerank import get_rerank_service
+    from services.search_plan import build_plan
     from services.structured_extract import get_structured_extractor
 
     if not query or not query.strip():
@@ -1431,36 +1432,32 @@ async def compare_search_strategies(query: str):
     else:
         soft_embedding = query_embedding
 
-    # Try the strictest filter set first; if Sonnet over-constrained the
-    # query, peel filters back in priority order — drop tags before
-    # categories before price — until the pool is large enough to
-    # actually rerank against. This is the same pattern production
-    # retrieval pipelines use: structured filters are hints, not
-    # guarantees, and a one-result return is usually worse than a
-    # wider pool with the reranker doing the final cut.
+    # Compile the model's extraction into a typed plan, then walk that
+    # plan's relaxation ladder. The ladder widens *preferences* only:
+    # price ceilings, availability, explicit categories, and exclusions
+    # are hard constraints that no rung may drop. A one-result return is
+    # sometimes worse than a wider pool — but a $250 candle returned for
+    # "in-stock gift under $100, no candles" is always worse than both,
+    # so the widening stops at the correctness boundary.
     AGENTIC_MIN_POOL = 5
-    cat = extracted.get("categories") or None
-    tag = extracted.get("tags") or None
-    pmax = extracted.get("price_max_usd")
-    in_stock = bool(extracted.get("in_stock_only"))
-    filter_attempts: List[tuple[str, Dict[str, Any]]] = [
-        ("strict", dict(categories=cat, tags=tag, price_max_usd=pmax, in_stock_only=in_stock)),
-        ("drop_tags", dict(categories=cat, tags=None, price_max_usd=pmax, in_stock_only=in_stock)),
-        ("drop_cats", dict(categories=None, tags=None, price_max_usd=pmax, in_stock_only=in_stock)),
-        ("drop_all", dict(categories=None, tags=None, price_max_usd=None, in_stock_only=False)),
-    ]
+    plan = build_plan(q, extracted, top_k=5)
     agentic_pool: List[Dict[str, Any]] = []
-    filter_used = "strict"
-    for label, kw in filter_attempts:
-        agentic_pool = await vec.vector_search_filtered(
+    plan_used = plan
+    for rung in plan.relaxation_ladder():
+        clauses, clause_params = rung.compile_predicates()
+        agentic_pool = await vec.vector_search_planned(
             embedding=soft_embedding,
             limit=settings.HYBRID_TOP_N,
             ef_search=settings.VECTOR_EF_SEARCH_DEFAULT,
-            **kw,
+            predicates=clauses,
+            predicate_params=clause_params,
         )
-        filter_used = label
+        plan_used = rung
         if len(agentic_pool) >= AGENTIC_MIN_POOL:
             break
+    filter_used = (
+        plan_used.relaxations[-1].step if plan_used.relaxations else "strict"
+    )
     agentic_docs = [
         f"{r.get('name','')} — {(r.get('description','') or '')[:200]} ({r.get('category','')})"
         for r in agentic_pool
@@ -1533,6 +1530,13 @@ async def compare_search_strategies(query: str):
                     "softSignal": soft_signal,
                     "filterUsed": filter_used,
                 },
+                # The typed plan that actually ran, including any widening.
+                # Hard constraints and exclusions are reported separately
+                # from preferences so the surface can state plainly which
+                # of the two the pipeline is allowed to relax.
+                "searchPlan": plan_used.to_dict(),
+                "hardConstraintsEnforced": plan_used.hard.describe(),
+                "relaxations": [r.to_dict() for r in plan_used.relaxations],
             },
         ],
     }

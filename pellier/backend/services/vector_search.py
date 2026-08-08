@@ -136,6 +136,59 @@ class VectorSearch:
         return results
         # === REFERENCE: END ===
 
+    async def vector_search_planned(
+        self,
+        embedding: List[float],
+        limit: int,
+        ef_search: int,
+        predicates: List[str] | None = None,
+        predicate_params: List[Any] | None = None,
+    ) -> List[Dict[str, Any]]:
+        """Filtered vector search driven by a compiled ``SearchPlan``.
+
+        This is the plan-aware entry point: ``services.search_plan``
+        decides *which* predicates are legal and compiles them, and this
+        method only executes them. Keeping compilation out of the
+        retrieval layer is what lets one planner serve both the shipped
+        Curator path and the Atelier comparison without a second
+        implementation drifting away from the first.
+
+        Args:
+            embedding: Query vector (Cohere Embed v4, 1024-dim).
+            limit: Row cap for the returned pool.
+            ef_search: HNSW ``ef_search`` for this query; clamped to the
+                configured ceiling.
+            predicates: SQL fragments from
+                ``SearchPlan.compile_predicates``, ANDed onto the
+                baseline. Each may contain ``%s`` placeholders.
+            predicate_params: Bound parameters for those placeholders, in
+                the same order. Never interpolated into the SQL string.
+
+        Returns:
+            Ranked product dicts, closest cosine match first.
+
+        Raises:
+            ValueError: If the placeholder count and the parameter count
+                disagree — a mismatch would silently misbind a hard
+                constraint, so it fails loudly instead.
+        """
+        clauses = list(predicates or [])
+        clause_params = list(predicate_params or [])
+        placeholders = sum(clause.count("%s") for clause in clauses)
+        if placeholders != len(clause_params):
+            raise ValueError(
+                "compiled predicate placeholder/parameter mismatch: "
+                f"{placeholders} placeholders vs {len(clause_params)} params"
+            )
+        return await self._vector_search_with_clauses(
+            embedding=embedding,
+            limit=limit,
+            ef_search=ef_search,
+            extra_clauses=clauses,
+            extra_params=clause_params,
+            query_type="vector_search_planned",
+        )
+
     async def vector_search_filtered(
         self,
         embedding: List[float],
@@ -163,23 +216,58 @@ class VectorSearch:
         ``vector_search()`` plus the unconditional ``imgUrl`` /
         ``embedding`` checks.
         """
-        params: List[Any] = [embedding]
-        clauses: List[str] = [
+        clauses: List[str] = []
+        clause_params: List[Any] = []
+        if categories:
+            clauses.append("category = ANY(%s)")
+            clause_params.append(list(categories))
+        if tags:
+            clauses.append("tags ?| %s")
+            clause_params.append(list(tags))
+        if price_max_usd is not None:
+            clauses.append("price <= %s")
+            clause_params.append(float(price_max_usd))
+        if in_stock_only:
+            clauses.append("quantity > 0")
+
+        return await self._vector_search_with_clauses(
+            embedding=embedding,
+            limit=limit,
+            ef_search=ef_search,
+            extra_clauses=clauses,
+            extra_params=clause_params,
+            query_type="vector_search_filtered",
+        )
+
+    async def _vector_search_with_clauses(
+        self,
+        *,
+        embedding: List[float],
+        limit: int,
+        ef_search: int,
+        extra_clauses: List[str],
+        extra_params: List[Any],
+        query_type: str,
+    ) -> List[Dict[str, Any]]:
+        """Execute filtered pgvector cosine search over compiled clauses.
+
+        Single executor behind both ``vector_search_planned`` and
+        ``vector_search_filtered``, so the two entry points cannot drift
+        into two different WHERE baselines or two different binding
+        orders — the class of bug that makes a hard constraint quietly
+        stop applying.
+
+        Filtered HNSW always runs with
+        ``hnsw.iterative_scan = 'relaxed_order'``: a strict WHERE clause
+        can drop the candidate count below the index's natural
+        ``ef_search`` ceiling, which would cause silent recall loss.
+        """
+        clauses = [
             '"imgUrl" IS NOT NULL',
             "embedding IS NOT NULL",
             "NOT (tags ? 'archive')",
+            *extra_clauses,
         ]
-        if categories:
-            clauses.append("category = ANY(%s)")
-            params.append(list(categories))
-        if tags:
-            clauses.append("tags ?| %s")
-            params.append(list(tags))
-        if price_max_usd is not None:
-            clauses.append("price <= %s")
-            params.append(float(price_max_usd))
-        if in_stock_only:
-            clauses.append("quantity > 0")
         where = " AND ".join(clauses)
         sql = f"""
             WITH query_embedding AS (
@@ -204,18 +292,11 @@ class VectorSearch:
             ORDER BY embedding <=> (SELECT emb FROM query_embedding)
             LIMIT %s
         """
-        # Build the final binding sequence. The embedding is bound once (the
-        # CTE computes similarity; the SELECT/ORDER BY reference the CTE alias,
-        # so the vector param appears a single time). Optional category/tag
-        # filters and the LIMIT follow positionally.
-        bind: List[Any] = [embedding]
-        if categories:
-            bind.append(list(categories))
-        if tags:
-            bind.append(list(tags))
-        if price_max_usd is not None:
-            bind.append(float(price_max_usd))
-        bind.append(limit)
+        # Binding order mirrors the SQL exactly: the embedding binds once
+        # (the CTE computes similarity and the SELECT/ORDER BY reference
+        # the CTE alias), then each predicate's params in clause order,
+        # then the LIMIT.
+        bind: List[Any] = [embedding, *extra_params, limit]
 
         ef_search_sql = int(ef_search or settings.VECTOR_EF_SEARCH_DEFAULT)
         ef_search_sql = max(8, min(ef_search_sql, settings.VECTOR_EF_SEARCH_MAX))
@@ -239,7 +320,7 @@ class VectorSearch:
         try:
             get_query_logger().queries.append(
                 QueryLog(
-                    query_type="vector_search_filtered",
+                    query_type=query_type,
                     sql=sql,
                     params=bind,
                     execution_time_ms=(time.time() - start_time) * 1000,
