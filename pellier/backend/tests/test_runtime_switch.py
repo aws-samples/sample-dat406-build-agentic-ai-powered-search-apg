@@ -388,6 +388,13 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
         def read(self) -> bytes:
             return b'{"response":"runtime ok","rail":"gateway-mcp"}'
 
+        # Real urlopen responses expose headers; the receipt reads the
+        # trace/request ids from them to link the managed CloudWatch record.
+        headers = {
+            "X-Amzn-Trace-Id": "Root=1-65f0a1b2-abcdef0123456789abcdef01;Sampled=1",
+            "x-amzn-RequestId": "req-abc-123",
+        }
+
     def _fake_urlopen(request: Any, timeout: int = 0) -> _Resp:
         captured["url"] = request.full_url
         captured["data"] = request.data
@@ -482,6 +489,8 @@ def test_run_agent_on_runtime_rejects_degraded_envelopes(
 
         def read(self) -> bytes:
             return body
+
+        headers: dict[str, str] = {}
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda *args, **kwargs: _Resp())
     monkeypatch.setattr(

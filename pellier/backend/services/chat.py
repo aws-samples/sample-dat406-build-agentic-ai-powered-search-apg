@@ -1662,12 +1662,18 @@ CURRENT REQUEST: {message}"""
             if user and settings.AGENTCORE_MEMORY_ID:
                 try:
                     from services.agentcore_memory import create_agentcore_session_manager
-                    # Prefer persona customer_id over Cognito sub so memory
-                    # is scoped to the persona's identity for the demo.
-                    memory_user_id = (
-                        customer_id
-                        or user.get("sub", "anonymous")
+                    from services.turn_identity import resolve_turn_identity
+
+                    # Memory namespaces durable records by actor, so the
+                    # actor must be the *verified* identity when one
+                    # exists. Preferring the persona here would let a UI
+                    # dropdown read another attendee's durable records —
+                    # the persona is simulation context, not an identity
+                    # claim. It is used only when no token was presented.
+                    turn_identity = resolve_turn_identity(
+                        user=user, requested_customer_id=customer_id
                     )
+                    memory_user_id = turn_identity.memory_actor()
                     session_manager = create_agentcore_session_manager(
                         session_id=session_id,
                         user_id=memory_user_id,

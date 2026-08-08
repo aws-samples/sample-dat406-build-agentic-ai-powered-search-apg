@@ -112,13 +112,99 @@ def get_latest_trace(session_id: Optional[str] = None) -> Dict[str, Any]:
     return _latest_trace
 
 
+def _trace_id_from(headers: Dict[str, str]) -> Optional[str]:
+    """Extract a trace id from the data plane's response headers.
+
+    Two header families appear depending on how tracing is configured:
+    X-Ray's ``X-Amzn-Trace-Id`` (``Root=1-abc-def;Sampled=1``) and W3C
+    ``traceparent`` (``00-<trace-id>-<span-id>-01``). Both are parsed to
+    the bare trace id so one field can correlate either way.
+
+    Args:
+        headers: Response headers, lowercased keys.
+
+    Returns:
+        The trace id, or ``None`` when the invocation reported none.
+    """
+    xray = headers.get("x-amzn-trace-id") or ""
+    if xray:
+        for part in xray.split(";"):
+            key, _, value = part.strip().partition("=")
+            if key.lower() == "root" and value:
+                return value
+        return xray.strip() or None
+
+    traceparent = headers.get("traceparent") or ""
+    segments = traceparent.split("-")
+    if len(segments) >= 3 and segments[1]:
+        return segments[1]
+    return None
+
+
+def _cloudwatch_trace_links(
+    *, session_id: str, trace_id: Optional[str], request_id: Optional[str]
+) -> Dict[str, Any]:
+    """Build the console links and query needed to find the real trace.
+
+    The backend deliberately does not proxy the managed OTEL trace: doing
+    so would mean this process re-reporting telemetry it did not produce,
+    which is exactly the blurring between application spans and service
+    telemetry the audit warns about. Instead the receipt carries the
+    correlation IDs plus a ready-to-run Logs Insights query, so an
+    attendee reaches the authoritative AgentCore/CloudWatch record rather
+    than a summary of it.
+
+    Returns a dict of link material. Values are ``None`` when the
+    corresponding ID was not returned by the data plane — an absent trace
+    id is honest evidence that the invocation did not report one.
+    """
+    region = settings.aws_region_resolved
+    log_group = "/aws/bedrock-agentcore/runtimes"
+    filters = [f'@message like "{session_id}"']
+    if trace_id:
+        filters.append(f'@message like "{trace_id}"')
+    query = (
+        "fields @timestamp, @message"
+        f" | filter {' or '.join(filters)}"
+        " | sort @timestamp desc"
+        " | limit 100"
+    )
+    return {
+        "region": region,
+        "logGroupPrefix": log_group,
+        "traceId": trace_id,
+        "runtimeRequestId": request_id,
+        "sessionId": session_id,
+        "logsInsightsQuery": query,
+        "xrayConsoleUrl": (
+            f"https://{region}.console.aws.amazon.com/cloudwatch/home"
+            f"?region={region}#xray:traces/{trace_id}"
+            if trace_id
+            else None
+        ),
+        "logsConsoleUrl": (
+            f"https://{region}.console.aws.amazon.com/cloudwatch/home"
+            f"?region={region}#logsV2:logs-insights"
+        ),
+    }
+
+
 def _store_managed_runtime_receipt(
     session_id: str,
     *,
     rail: str,
     auth_token_present: bool,
+    trace_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> None:
-    """Expose a truthful managed-runtime receipt without synthesizing OTEL spans."""
+    """Expose a truthful managed-runtime receipt without synthesizing OTEL spans.
+
+    ``spans`` stays empty on purpose. The managed Runtime emits its own
+    service telemetry to CloudWatch; fabricating local spans here would
+    present reconstructed data as observed data. What the receipt adds
+    instead is correlation: the trace and request IDs, and the query that
+    retrieves the authoritative record.
+    """
     global _latest_trace
     _latest_trace = {
         "spans": [],
@@ -130,6 +216,14 @@ def _store_managed_runtime_receipt(
         "rail": rail,
         "jwtPassthrough": auth_token_present,
         "gatewayPassthrough": rail == "gateway-mcp",
+        # Provenance vocabulary shared with the Atelier surfaces: this is
+        # service telemetry, not application-generated spans.
+        "evidenceProvenance": "agentcore-service-telemetry",
+        "traceId": trace_id,
+        "runtimeRequestId": request_id,
+        "managedTrace": _cloudwatch_trace_links(
+            session_id=session_id, trace_id=trace_id, request_id=request_id
+        ),
     }
     _store_latest_trace(session_id, _latest_trace)
 
@@ -278,7 +372,14 @@ async def run_agent_on_runtime(
     # managed session as its history.
     runtime_session_id = (session_id or "pellier-session").ljust(33, "0")
 
-    def _invoke() -> str:
+    def _invoke() -> tuple[str, Dict[str, str]]:
+        """Return the body and the response headers.
+
+        The headers carry the correlation IDs the evidence view needs to
+        reach the authoritative CloudWatch/X-Ray record: the data plane's
+        request id and, when tracing is enabled, the trace id. Dropping
+        them is what forced the receipt to be a summary instead of a link.
+        """
         request = urllib.request.Request(
             url,
             data=payload.encode("utf-8"),
@@ -290,10 +391,12 @@ async def run_agent_on_runtime(
             method="POST",
         )
         with urllib.request.urlopen(request, timeout=120) as resp:
-            return resp.read().decode("utf-8", errors="replace")
+            body = resp.read().decode("utf-8", errors="replace")
+            headers = {k.lower(): v for k, v in dict(resp.headers).items()}
+            return body, headers
 
     try:
-        raw = await asyncio.to_thread(_invoke)
+        raw, response_headers = await asyncio.to_thread(_invoke)
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
@@ -314,6 +417,8 @@ async def run_agent_on_runtime(
             session_id,
             rail=rail,
             auth_token_present=bool(auth_token),
+            trace_id=_trace_id_from(response_headers),
+            request_id=response_headers.get("x-amzn-requestid"),
         )
         return str(parsed["response"])
     except ManagedRuntimeError:
