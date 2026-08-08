@@ -9,6 +9,7 @@ import re
 import time
 import logging
 import json
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
@@ -822,20 +823,48 @@ async def chat(request: ChatRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
-def _annotate_rail(event: Dict[str, Any], decision, degraded_notice) -> Dict[str, Any]:
-    """Stamp the execution rail onto a terminal ``complete`` event.
+def new_turn_id() -> str:
+    """Mint a stable identifier for one shopper turn.
+
+    Every turn gets one, minted server-side before the stream opens. This
+    is what makes a receipt deep link reproducible: the Boutique can hand
+    the id to Atelier, and a reload resolves the same turn rather than
+    whatever happens to be newest.
+
+    Deliberately not derived from message position or display order — a
+    positional id silently points at a different turn after any
+    reordering, which is worse than having no link at all.
+
+    Format is ``turn-<32 hex>``: uuid4 hex, prefixed so the value is
+    self-describing in a URL, a log line, and a JSONB column.
+    """
+    return f"turn-{uuid.uuid4().hex}"
+
+
+def _annotate_rail(
+    event: Dict[str, Any],
+    decision,
+    degraded_notice,
+    turn_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Stamp turn identity and the execution rail onto a ``complete`` event.
 
     Applied at the single point every storefront event funnels through, so
     a turn cannot report its outcome without also reporting which rail
-    produced it. When the managed rail was requested but unavailable, the
-    turn is additionally marked ``degraded`` with the capabilities that
-    were withheld — a read-only in-process answer must never be mistaken
-    for a governed one.
+    produced it and which turn it was. When the managed rail was requested
+    but unavailable, the turn is additionally marked ``degraded`` with the
+    capabilities that were withheld — a read-only in-process answer must
+    never be mistaken for a governed one.
     """
     response = event.get("response")
     if not isinstance(response, dict):
         return event
     annotated = {**response, "rail": decision.rail, "railDecision": decision.to_dict()}
+    if turn_id:
+        annotated["turn_id"] = turn_id
+    if session_id:
+        annotated["session_id"] = session_id
     if decision.managed_requested and not decision.available:
         annotated["degradation"] = degraded_notice(decision)
     return {**event, "response": annotated}
@@ -902,6 +931,25 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 },
             }
 
+            # Smoke mode still mints a turn id: it is the mode that runs on
+            # stage, and a receipt link that works everywhere except the demo
+            # is not a working receipt link.
+            smoke_turn_id = new_turn_id()
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "type": "turn_start",
+                        "turn_id": smoke_turn_id,
+                        "session_id": request.session_id,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
+            complete["response"]["turn_id"] = smoke_turn_id
+            if request.session_id:
+                complete["response"]["session_id"] = request.session_id
             yield f"data: {json.dumps(routing, ensure_ascii=False)}\n\n"
             await asyncio.sleep(SMOKE_THINKING_DELAY_SECONDS)
             for chunk in _editorial_stream_chunks(content):
@@ -986,6 +1034,24 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     rail_decision.reason,
                 )
 
+            # Mint the turn identity before streaming so the id is stable
+            # for the whole turn and can be emitted on the first event.
+            # The client persists it and uses it to deep-link the exact
+            # turn's evidence in Atelier.
+            turn_id = new_turn_id()
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "type": "turn_start",
+                        "turn_id": turn_id,
+                        "session_id": request.session_id,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
+
             async for event in chat_service.chat_stream(
                 message=request.message,
                 conversation_history=history,
@@ -994,13 +1060,20 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 guardrails_enabled=request.guardrails_enabled,
                 user=effective_user or None,
                 pattern=request.pattern,
+                turn_id=turn_id,
             ):
                 if event.get("type") == "error":
                     event = classify_chat_error(
                         event.get("error") or event.get("message") or event.get("code")
                     )
                 elif event.get("type") == "complete":
-                    event = _annotate_rail(event, rail_decision, degraded_notice)
+                    event = _annotate_rail(
+                        event,
+                        rail_decision,
+                        degraded_notice,
+                        turn_id=turn_id,
+                        session_id=request.session_id,
+                    )
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             logger.error(f"Streaming chat failed: {e}")

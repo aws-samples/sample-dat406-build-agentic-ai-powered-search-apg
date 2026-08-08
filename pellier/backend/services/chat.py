@@ -1430,9 +1430,16 @@ CURRENT REQUEST: {message}"""
         guardrails_enabled: bool = False,
         user: Optional[Dict[str, Any]] = None,
         pattern: Optional[str] = None,
+        turn_id: Optional[str] = None,
     ):
         """
         Async generator yielding SSE events with real-time agent streaming.
+
+        ``turn_id`` is minted by the route before the stream opens and is
+        recorded on every ``tool_audit`` row this turn writes, so Atelier
+        can resolve a receipt deep link back to the exact tool calls that
+        ran. It is threaded through rather than regenerated here because
+        the id must be identical in the SSE envelope and the audit rows.
 
         Uses asyncio.Queue to bridge the synchronous agent thread with the
         async SSE generator. Hooks capture tool results so products are
@@ -1974,11 +1981,22 @@ CURRENT REQUEST: {message}"""
                     if tool_use_id and tool_name:
                         _tool_t0[tool_use_id] = time.perf_counter()
                         try:
+                            # turn_id rides in the args JSONB: pellier.tool_audit
+                            # has no turn column, and adding one would fork the
+                            # schema the workshop's SQL proofs read. This keeps
+                            # `args->>'turn_id'` as the correlation key.
+                            _audit_args = (
+                                dict(tool_args)
+                                if isinstance(tool_args, dict)
+                                else {"_raw": str(tool_args)}
+                            )
+                            if turn_id:
+                                _audit_args["turn_id"] = turn_id
                             tool_audit_writer.record_allow(
                                 tool_use_id=tool_use_id,
                                 tool_name=tool_name,
                                 caller="agent",
-                                args=tool_args if isinstance(tool_args, dict) else {"_raw": str(tool_args)},
+                                args=_audit_args,
                                 session_id=session_id,
                             )
                         except Exception as exc:  # audit is decoration, never fatal

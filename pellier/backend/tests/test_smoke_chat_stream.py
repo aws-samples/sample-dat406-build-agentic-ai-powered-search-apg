@@ -45,7 +45,13 @@ def test_smoke_chat_stream_emits_multiple_exact_content_deltas(monkeypatch) -> N
     deltas = [event["delta"] for event in events if event["type"] == "content_delta"]
     complete = next(event for event in events if event["type"] == "complete")
 
-    assert events[0]["type"] == "skill_routing"
+    # `turn_start` now leads every stream (smoke included) so the client can
+    # capture the turn identity before any content arrives; `skill_routing`
+    # follows it.
+    assert events[0]["type"] == "turn_start"
+    assert events[0]["turn_id"].startswith("turn-")
+    assert events[1]["type"] == "skill_routing"
+    assert complete["response"]["turn_id"] == events[0]["turn_id"]
     assert len(deltas) > 3
     assert "".join(deltas) == complete["response"]["response"]
     assert events[-1]["type"] == "complete"

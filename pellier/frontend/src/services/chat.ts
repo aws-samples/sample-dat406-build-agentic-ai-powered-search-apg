@@ -186,6 +186,12 @@ function getAuthHeaders(): Record<string, string> {
   return { 'Content-Type': 'application/json' }
 }
 
+import type {
+  ExecutionRail,
+  RailDecision,
+  RailDegradation,
+} from '../shared/governedTypes'
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -238,6 +244,21 @@ export interface ChatResponse {
   products: ChatProduct[]
   suggestions?: string[]
   agent_execution?: AgentExecution
+  /**
+   * Stable per-turn identifier minted server-side (`app.new_turn_id`).
+   * Used to deep-link this exact turn's evidence in Atelier. Optional
+   * because a turn served from smoke mode or an older backend emits none —
+   * consumers must degrade to a session-scoped link rather than invent one.
+   */
+  turn_id?: string
+  /** Session the turn belongs to, echoed back by the backend. */
+  session_id?: string
+  /** Rail that actually served the turn (`services/execution_rail.py`). */
+  rail?: ExecutionRail
+  /** Full rail decision, including degraded reasons. */
+  railDecision?: RailDecision
+  /** Present only when the governed rail was requested and unavailable. */
+  degradation?: RailDegradation
   orchestrator_enabled?: boolean
   token_count?: number
   estimated_cost_usd?: number
@@ -303,6 +324,11 @@ export async function sendChatMessageStreaming(
     let finalResponse: ChatResponse | null = null
     let lastContent = ''
     let streamError: ChatServiceError | null = null
+    // Turn identity arrives on the first `turn_start` event, before any
+    // content. Held here so the assembled response carries it even when
+    // the terminal `complete` event omits it.
+    let streamTurnId: string | null = null
+    let streamSessionId: string | null = null
 
     const processLine = (line: string) => {
       if (!line.startsWith('data:')) return
@@ -324,12 +350,23 @@ export async function sendChatMessageStreaming(
         lastContent = data.content
       } else if (data.type === 'content_delta') {
         lastContent += data.delta
+      } else if (data.type === 'turn_start') {
+        // First event of the stream: the backend's turn identity. Captured
+        // here so it is available even if the stream errors before
+        // `complete` — a failed turn still has evidence worth linking to.
+        if (typeof data.turn_id === 'string') streamTurnId = data.turn_id
+        if (typeof data.session_id === 'string') streamSessionId = data.session_id
       } else if (data.type === 'complete') {
         finalResponse = {
           response: data.response?.response,
           products: data.response?.products || [],
           suggestions: data.response?.suggestions || [],
           agent_execution: data.response?.agent_execution,
+          turn_id: data.response?.turn_id ?? streamTurnId ?? undefined,
+          session_id: data.response?.session_id ?? streamSessionId ?? undefined,
+          rail: data.response?.rail,
+          railDecision: data.response?.railDecision,
+          degradation: data.response?.degradation,
           orchestrator_enabled: data.response?.orchestrator_enabled,
           token_count: data.response?.token_count,
           estimated_cost_usd: data.response?.estimated_cost_usd,
