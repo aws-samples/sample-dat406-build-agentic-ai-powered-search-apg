@@ -17,6 +17,7 @@
  * works identically to the old AIAssistant flow.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { RailDecision, RailDegradation } from '../shared/governedTypes'
 import {
   checkBackendHealth,
   normalizeChatError,
@@ -136,6 +137,14 @@ export interface AgentChatMessage {
   escalation?: StylistHandoff
   /** Recoverable transport or governance outcome for this turn. */
   failure?: ChatFailure
+  /** Stable per-turn id from the backend, used to deep-link evidence. */
+  turnId?: string
+  /** Session this turn belongs to, as reported by the backend. */
+  sessionId?: string
+  /** Which rail actually served the turn. */
+  railDecision?: RailDecision
+  /** Present only when the governed rail was requested and unavailable. */
+  degradation?: RailDegradation
 }
 
 export interface UseAgentChatOptions {
@@ -727,6 +736,13 @@ export function useAgentChat(
             agent: agentType,
             agentStatus: 'complete',
             failure: undefined,
+            // Governed identity and rail, straight from the backend. All
+            // optional: a turn that reported none gets none, and the
+            // receipt degrades to a session-scoped link.
+            turnId: response.turn_id,
+            sessionId: response.session_id,
+            railDecision: response.railDecision,
+            degradation: response.degradation,
             agentExecution: showInstrumentation
               ? response.agent_execution
               : response.agent_execution

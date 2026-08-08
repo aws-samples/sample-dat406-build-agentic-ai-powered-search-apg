@@ -20,6 +20,7 @@ import ProductArtifactCard from './ProductArtifactCard'
 import StylistHandoffCard from './StylistHandoffCard'
 import ChatFailureCard from './ChatFailureCard'
 import TurnReceipt from './TurnReceipt'
+import GovernedTurnReceipt from './GovernedTurnReceipt'
 import { TraceChip } from '../shared/TraceChip'
 import { resolveCover } from './BoutiqueWelcome'
 import { PERSONA_HERO_PILLS } from '../data/personaCurations'
@@ -422,6 +423,25 @@ function AgentMessage({
                   <TurnReceipt reference={traceReference} />
                 </div>
               )}
+
+              {/* Compact governed receipt. Counts come from what this turn
+                  actually emitted — tool calls that ran and products that
+                  were returned. Latency is the backend's own measurement.
+                  Policy is omitted unless a decision exists, because
+                  silence is not an ALLOW. */}
+              <GovernedTurnReceipt
+                sessionId={message.sessionId}
+                turnId={message.turnId}
+                traceId={message.agentExecution?.trace_id ?? undefined}
+                sourceCount={
+                  message.products ? message.products.length : null
+                }
+                toolCount={dedupedToolCalls.length}
+                latencyMs={
+                  message.agentExecution?.total_duration_ms ?? null
+                }
+                railDecision={message.railDecision}
+              />
             </div>
           )}
         </div>
