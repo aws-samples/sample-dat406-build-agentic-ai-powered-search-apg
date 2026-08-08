@@ -87,10 +87,17 @@ def patch_hybrid(
     monkeypatch: pytest.MonkeyPatch,
     candidates: List[Dict[str, Any]],
 ) -> MagicMock:
-    """Stub HybridSearch.search → fixed candidate list."""
-    hs = MagicMock()
+    """Stub HybridSearch.search → fixed candidate list.
 
-    async def _search(*_args: Any, **_kwargs: Any) -> List[Dict[str, Any]]:
+    The stub records the kwargs it was called with so tests can assert
+    that hard predicates were pushed into retrieval (before RRF) rather
+    than applied as a post-rerank filter.
+    """
+    hs = MagicMock()
+    hs.search_calls = []
+
+    async def _search(*_args: Any, **kwargs: Any) -> List[Dict[str, Any]]:
+        hs.search_calls.append(kwargs)
         return list(candidates)
 
     hs.search = _search
@@ -210,6 +217,64 @@ class TestReranking:
         names = [p["name"] for p in result["products"]]
         assert names[0] == "Olive Branch Vessel"
 
+    def test_promotion_is_disclosed_as_a_versioned_merchandising_rule(
+        self,
+        candidates: List[Dict[str, Any]],
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        """The boost must be visible in the payload, not a silent reorder.
+
+        Regression guard for the audit's A5 finding: an undisclosed
+        promotion contaminates every relevance comparison that reads this
+        tool's output.
+        """
+        candidates[1]["name"] = "Olive Branch Vessel"
+        result = json.loads(
+            agent_tools.find_pieces_hybrid(
+                query="A milestone gift for a new homeowner",
+                limit=5,
+            )
+        )
+        applied = result["merchandising_rules_applied"]
+        assert len(applied) == 1
+        assert applied[0]["ruleId"] == agent_tools.MERCHANDISING_RULE_ID
+        assert applied[0]["product"] == "Olive Branch Vessel"
+        assert applied[0]["toRank"] == 1
+        assert applied[0]["fromRank"] > 1
+
+    def test_no_merchandising_key_when_no_rule_fires(
+        self,
+        candidates: List[Dict[str, Any]],
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        candidates[1]["name"] = "Olive Branch Vessel"
+        result = json.loads(
+            agent_tools.find_pieces_hybrid(query="something beautiful", limit=5)
+        )
+        assert "merchandising_rules_applied" not in result
+
+    def test_no_boost_reported_when_relevance_already_won(
+        self,
+        candidates: List[Dict[str, Any]],
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        """If the hero already ranks first, nothing was promoted."""
+        # The stub reranker reverses order, so index 4 lands at rank 1.
+        candidates[4]["name"] = "Olive Branch Vessel"
+        result = json.loads(
+            agent_tools.find_pieces_hybrid(
+                query="A milestone gift for a new homeowner", limit=5,
+            )
+        )
+        assert result["products"][0]["name"] == "Olive Branch Vessel"
+        assert "merchandising_rules_applied" not in result
+
     def test_non_home_milestone_queries_keep_rerank_order(
         self,
         candidates: List[Dict[str, Any]],
@@ -319,3 +384,79 @@ class TestFilters:
             agent_tools.find_pieces_hybrid(query="q", limit=5)
         )
         assert result_default["count"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Hard constraints reach retrieval BEFORE rerank (audit finding A3)
+# ---------------------------------------------------------------------------
+
+
+class TestHardConstraintsRunBeforeRerank:
+    """Price and explicit category must gate candidate *generation*.
+
+    Filtering only after the reranker means invalid candidates consume
+    reranker capacity, the final list can come back unexpectedly short,
+    and the candidate pool stops representing the valid candidate set —
+    which also makes retrieval evaluation measure the wrong thing.
+    """
+
+    def test_price_ceiling_is_pushed_into_retrieval(
+        self,
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        agent_tools.find_pieces_hybrid(query="q", max_price=100, limit=5)
+
+        kwargs = patch_hybrid.search_calls[-1]
+        assert "price <= %s" in kwargs["hard_clauses"]
+        assert 100.0 in kwargs["hard_params"]
+
+    def test_explicit_category_is_pushed_into_retrieval(
+        self,
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        agent_tools.find_pieces_hybrid(query="q", category="Footwear", limit=5)
+
+        kwargs = patch_hybrid.search_calls[-1]
+        assert "category = ANY(%s)" in kwargs["hard_clauses"]
+        assert ["Footwear"] in kwargs["hard_params"]
+
+    def test_no_constraints_means_no_predicates(
+        self,
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        agent_tools.find_pieces_hybrid(query="q", limit=5)
+
+        kwargs = patch_hybrid.search_calls[-1]
+        assert list(kwargs["hard_clauses"]) == []
+        assert list(kwargs["hard_params"]) == []
+
+    def test_min_rating_stays_a_post_rerank_preference(
+        self,
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        """Rating is a preference over the reranked list, not a SQL gate."""
+        agent_tools.find_pieces_hybrid(query="q", min_rating=4.8, limit=5)
+
+        kwargs = patch_hybrid.search_calls[-1]
+        assert not any("rating" in clause for clause in kwargs["hard_clauses"])
+
+    def test_payload_reports_enforced_constraints(
+        self,
+        patch_embedding: MagicMock,
+        patch_hybrid: MagicMock,
+        patch_rerank: MagicMock,
+    ) -> None:
+        result = json.loads(
+            agent_tools.find_pieces_hybrid(query="q", max_price=100, limit=5)
+        )
+
+        assert result["constraints_applied_before_rerank"] is True
+        assert result["hard_constraints_enforced"] == ["price <= $100"]

@@ -36,7 +36,7 @@ import logging
 import re
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 from config import settings
 from services.database import DatabaseService
@@ -52,13 +52,28 @@ logger = logging.getLogger(__name__)
 _RRF_K_DEFAULT = 60
 
 
-# The two branch queries are kept as module-level constants so the live
+# Both branch queries are built by one function per branch so the live
 # retrieval path (``_vector_search`` / ``_fts_search``) and the Atelier
-# "explain" surface (``search_explained``) read from the *same* string.
+# "explain" surface (``search_explained``) read from the *same* builder.
 # That guarantees the SQL a workshop participant sees on the Search page
-# is byte-identical to the SQL that actually ran — no drift, no separate
-# "display copy" to keep in sync.
-_VECTOR_BRANCH_SQL = """
+# is the SQL that actually ran — no drift, no separate "display copy".
+#
+# ``extra_clauses`` is how a compiled ``SearchPlan``'s hard constraints
+# reach *both* branches. Applying them here, before RRF, is deliberate:
+# filtering after the reranker means invalid candidates consume reranker
+# capacity, the final list can come back unexpectedly short, and the
+# candidate pool no longer represents the valid candidate set. A hard
+# constraint belongs in candidate generation, not in a post-pass.
+def _indent_clauses(extra_clauses: Sequence[str]) -> str:
+    """Render extra predicates as trailing ``AND`` lines for the branch SQL."""
+    if not extra_clauses:
+        return ""
+    return "".join(f"\n              AND {clause}" for clause in extra_clauses)
+
+
+def _vector_branch_sql(extra_clauses: Sequence[str] = ()) -> str:
+    """Return the vector-branch SQL with optional hard predicates applied."""
+    return f"""
             WITH query_embedding AS (
                 SELECT %s::vector AS emb
             )
@@ -78,12 +93,15 @@ _VECTOR_BRANCH_SQL = """
                 1 - (embedding <=> (SELECT emb FROM query_embedding)) AS similarity
             FROM pellier.product_catalog
             WHERE "imgUrl" IS NOT NULL
-              AND NOT (tags ? 'archive')
+              AND NOT (tags ? 'archive'){_indent_clauses(extra_clauses)}
             ORDER BY embedding <=> (SELECT emb FROM query_embedding)
             LIMIT %s
         """
 
-_FTS_BRANCH_SQL = """
+
+def _fts_branch_sql(extra_clauses: Sequence[str] = ()) -> str:
+    """Return the FTS-branch SQL with optional hard predicates applied."""
+    return f"""
             WITH q AS (
                 SELECT to_tsquery('english', %s) AS ts_q
             )
@@ -105,10 +123,17 @@ _FTS_BRANCH_SQL = """
             CROSS JOIN q
             WHERE "imgUrl" IS NOT NULL
               AND NOT (tags ? 'archive')
-              AND description_tsv @@ q.ts_q
+              AND description_tsv @@ q.ts_q{_indent_clauses(extra_clauses)}
             ORDER BY fts_rank_score DESC
             LIMIT %s
         """
+
+
+# Unfiltered forms, kept as constants for the teaching surface's default
+# rendering and for tests that assert the baseline branch shape.
+_VECTOR_BRANCH_SQL = _vector_branch_sql()
+
+_FTS_BRANCH_SQL = _fts_branch_sql()
 
 
 class HybridSearch:
@@ -125,6 +150,8 @@ class HybridSearch:
         k_fts: int = 0,
         rrf_k: int = 0,
         top_n: int = 0,
+        hard_clauses: Sequence[str] = (),
+        hard_params: Sequence[Any] = (),
     ) -> List[Dict[str, Any]]:
         """
         Run vector + Postgres FTS in parallel, RRF-merge, return top_n candidates.
@@ -143,6 +170,11 @@ class HybridSearch:
             top_n: Maximum candidates returned after fusion (default 30).
                 The downstream reranker typically asks for top_n=30 so
                 Cohere has enough material to reorder meaningfully.
+            hard_clauses: Compiled hard predicates from
+                ``SearchPlan.compile_predicates``, applied to *both*
+                branches before RRF so invalid candidates never enter the
+                pool or consume reranker capacity.
+            hard_params: Bound parameters for ``hard_clauses``.
 
         Returns:
             List of product dicts with the same keys as
@@ -163,8 +195,8 @@ class HybridSearch:
         # column missing) we surface the real error rather than silently
         # falling back to vector-only.
         vector_rows, fts_rows = await asyncio.gather(
-            self._vector_search(query_embedding, k_vector),
-            self._fts_search(query, k_fts),
+            self._vector_search(query_embedding, k_vector, hard_clauses, hard_params),
+            self._fts_search(query, k_fts, hard_clauses, hard_params),
         )
 
         # RRF merge.
@@ -275,7 +307,11 @@ class HybridSearch:
     # Internal — vector branch
     # -----------------------------------------------------------------
     async def _vector_search(
-        self, embedding: List[float], k: int,
+        self,
+        embedding: List[float],
+        k: int,
+        extra_clauses: Sequence[str] = (),
+        extra_params: Sequence[Any] = (),
     ) -> List[Dict[str, Any]]:
         """Pgvector cosine search, no HNSW knobs.
 
@@ -283,9 +319,15 @@ class HybridSearch:
         in the hybrid path — the FTS branch covers the recall floor that
         iterative_scan was designed to protect, and a smaller HNSW pool
         keeps this stage fast (the reranker is the recall amplifier).
+
+        Args:
+            embedding: Query vector.
+            k: Branch pool size.
+            extra_clauses: Compiled hard predicates ANDed into the WHERE.
+            extra_params: Bound parameters for those predicates.
         """
-        sql = _VECTOR_BRANCH_SQL
-        params: List[Any] = [embedding, k]
+        sql = _vector_branch_sql(extra_clauses)
+        params: List[Any] = [embedding, *extra_params, k]
         start = time.time()
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:
@@ -298,7 +340,7 @@ class HybridSearch:
                 QueryLog(
                     query_type="hybrid_vector_branch",
                     sql=sql,
-                    params=["<embedding>", k],
+                    params=["<embedding>", *extra_params, k],
                     execution_time_ms=(time.time() - start) * 1000,
                     timestamp=datetime.now(),
                     rows_returned=len(results),
@@ -378,7 +420,11 @@ class HybridSearch:
         return " | ".join(unique)
 
     async def _fts_search(
-        self, query: str, k: int,
+        self,
+        query: str,
+        k: int,
+        extra_clauses: Sequence[str] = (),
+        extra_params: Sequence[Any] = (),
     ) -> List[Dict[str, Any]]:
         """Postgres full-text search via tsvector + ts_rank_cd.
 
@@ -404,14 +450,20 @@ class HybridSearch:
 
         The ``description_tsv @@ ts_query`` predicate is index-scanned
         via the GIN index on ``description_tsv`` (migration 005).
+
+        Args:
+            query: Raw user query text.
+            k: Branch pool size.
+            extra_clauses: Compiled hard predicates ANDed into the WHERE.
+            extra_params: Bound parameters for those predicates.
         """
         or_query = self._build_or_tsquery(query)
         if not or_query:
             # Pure stop-word query (rare). Return empty so RRF falls
             # back to vector-only ranking.
             return []
-        sql = _FTS_BRANCH_SQL
-        params: List[Any] = [or_query, k]
+        sql = _fts_branch_sql(extra_clauses)
+        params: List[Any] = [or_query, *extra_params, k]
         start = time.time()
         async with self.db.get_connection() as conn:
             async with conn.cursor() as cur:

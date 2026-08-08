@@ -85,22 +85,59 @@ _MILESTONE_HOME_GIFT_PATTERN = re.compile(
 )
 
 
-def _curate_milestone_home_gift(query: str, products: list[dict]) -> list[dict]:
-    """Keep Anna's housewarming hero stable when retrieval already found it.
+# Merchandising rules are versioned and disclosed, never hidden. Relevance
+# is rarely the only ranking signal in production commerce search — a
+# buyer-curated hero, a margin boost, or a seasonal push all reorder
+# results legitimately. What makes such a rule safe is that it is a
+# declared ranking feature that shows up in the response (and so in
+# relevance evaluation), not an invisible reorder that quietly contaminates
+# every comparison. This one is Anna's housewarming hero.
+MERCHANDISING_RULE_ID = "merch.milestone-home-gift.v1"
 
-    The reranker is still responsible for candidate quality. This only promotes
-    Olive Branch Vessel when a home-milestone query already surfaced it in the
-    reranked pool, matching the editorial demo promise for Anna's fifth turn.
+
+def _apply_merchandising_rules(
+    query: str, products: list[dict]
+) -> tuple[list[dict], list[dict]]:
+    """Apply declared merchandising rules and report which ones fired.
+
+    A rule may only reorder candidates that retrieval already surfaced —
+    it never injects a product the query did not retrieve, and it never
+    overrides a hard constraint, because it runs after valid-candidate
+    generation.
+
+    Args:
+        query: The shopper's raw query, matched against each rule's trigger.
+        products: Candidates in reranked order.
+
+    Returns:
+        ``(ordered, rules_applied)`` where each entry in ``rules_applied``
+        records the rule id, the promoted product, and its rank movement,
+        so the response and the retrieval receipt can disclose the boost.
     """
-    if not _MILESTONE_HOME_GIFT_PATTERN.search(query):
-        return products
+    if not _MILESTONE_HOME_GIFT_PATTERN.search(query or ""):
+        return products, []
 
     for idx, product in enumerate(products):
-        if product.get("name") == "Olive Branch Vessel":
-            if idx == 0:
-                return products
-            return [product, *products[:idx], *products[idx + 1:]]
-    return products
+        if product.get("name") != "Olive Branch Vessel":
+            continue
+        if idx == 0:
+            # Already the winner on relevance alone; nothing was boosted.
+            return products, []
+        promoted = [product, *products[:idx], *products[idx + 1:]]
+        return promoted, [
+            {
+                "ruleId": MERCHANDISING_RULE_ID,
+                "signal": "curated_hero",
+                "product": product.get("name"),
+                "fromRank": idx + 1,
+                "toRank": 1,
+                "reason": (
+                    "Declared merchandising rule: curated housewarming hero "
+                    "promoted above pure relevance order."
+                ),
+            }
+        ]
+    return products, []
 
 
 _PERSONA_CUSTOMER_IDS = {
@@ -906,12 +943,27 @@ def find_pieces_hybrid(
         from services.embeddings import EmbeddingService
         from services.hybrid_search import HybridSearch
         from services.rerank import get_rerank_service
+        from services.search_plan import build_plan
 
         # Same explicit-vs-auto category guard as find_pieces. Anna's
         # auto-detected categories ("linen" → "Linen") still don't match
         # the boutique's higher-level taxonomy ("Apparel"); only filter
         # when the agent supplies an explicit category.
         category_was_explicit = bool(category)
+
+        # Compile the caller's arguments into a typed plan. The plan is
+        # what makes price and category *hard*: its predicates go into
+        # both retrieval branches before RRF, so invalid candidates never
+        # enter the pool, never consume reranker capacity, and never make
+        # the final list unexpectedly short after a post-filter pass.
+        plan = build_plan(
+            query,
+            None,
+            price_max_usd=max_price,
+            category=category if category_was_explicit else None,
+            top_k=limit,
+        )
+        hard_clauses, hard_params = plan.compile_predicates()
 
         embedding_service = EmbeddingService()
         query_embedding = embedding_service.embed_query(query)
@@ -926,6 +978,8 @@ def find_pieces_hybrid(
                 k_vector=settings.HYBRID_VECTOR_K,
                 k_fts=settings.HYBRID_FTS_K,
                 top_n=settings.HYBRID_TOP_N,
+                hard_clauses=hard_clauses,
+                hard_params=hard_params,
             )
         )
 
@@ -964,7 +1018,7 @@ def find_pieces_hybrid(
             ordered = [{**c, "rerank_score": None} for c in candidates]
             search_method = "hybrid (rerank fallback to RRF order)"
 
-        ordered = _curate_milestone_home_gift(query, ordered)
+        ordered, merchandising_applied = _apply_merchandising_rules(query, ordered)
 
         # Normalize field shapes to match find_pieces output.
         normalized = []
@@ -990,6 +1044,10 @@ def find_pieces_hybrid(
                 "rrf_score": p.get("rrf_score"),
                 "rerank_score": p.get("rerank_score"),
             }
+            # Hard price/category predicates already ran in SQL, before
+            # RRF. These checks are a defence-in-depth assertion, not the
+            # enforcement point. min_rating is genuinely post-hoc: it is a
+            # preference the caller applies to the reranked list.
             if max_price and product["price"] > max_price:
                 continue
             if min_rating and product["rating"] < min_rating:
@@ -1004,14 +1062,21 @@ def find_pieces_hybrid(
 
         normalized = normalized[:limit]
 
-        return json.dumps({
+        payload = {
             "status": "success",
             "query": query,
             "count": len(normalized),
             "products": normalized,
             "search_method": search_method,
             "pool_size": len(candidates),
-        }, indent=2)
+            "hard_constraints_enforced": plan.hard.describe(),
+            "constraints_applied_before_rerank": True,
+        }
+        if merchandising_applied:
+            # Disclosed, not hidden: a ranking signal other than relevance
+            # moved a product, and the response says so.
+            payload["merchandising_rules_applied"] = merchandising_applied
+        return json.dumps(payload, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
