@@ -30,10 +30,11 @@ from models.search import (
     PerfCompareRequest,
     PerfIterativeScanRequest,
     PerfQuantizationRequest,
+    RestockRequest,
 )
 from models.product import ProductWithScore
 from services.database import DatabaseService
-from services.auth import get_current_user
+from services.auth import get_current_user, require_operator
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
 from services.chat_error_taxonomy import classify_chat_error
@@ -736,35 +737,60 @@ async def get_price_stats(
 
 @app.post("/api/tools/restock")
 async def restock_shelf_endpoint(
-    request: dict,
-    user=Depends(get_current_user),
-    db: DatabaseService = Depends(get_db_service)
+    request: RestockRequest,
+    operator: Dict[str, Any] = Depends(require_operator),
+    db: DatabaseService = Depends(get_db_service),
 ):
-    """Restock a product using business logic. Auth-gated like every other
-    write path so the inventory mutation carries a caller identity."""
+    """Restock a product using business logic.
+
+    This is an operator mutation, so it depends on ``require_operator``
+    rather than the optional ``get_current_user``. The optional dependency
+    returns ``None`` for an anonymous caller, and a handler that accepts
+    ``None`` is an unauthenticated write path wearing an authenticated
+    signature. ``require_operator`` guarantees a verified, non-empty
+    ``sub`` this handler can attribute the mutation to.
+
+    The body is a typed ``RestockRequest``: FastAPI rejects a malformed or
+    out-of-range request with 422 before any database work starts.
+    """
     if str(settings.WORKSHOP_FORMAT).lower() == "governed":
         raise HTTPException(status_code=409, detail="managed_rail_required")
-    product_id = request.get("product_id")
-    quantity = request.get("quantity")
-    idempotency_key = request.get("idempotency_key")
-    warehouse_id = request.get("warehouse_id", "BK-01")
-    if product_id is None or quantity is None or not idempotency_key:
-        raise HTTPException(
-            status_code=422,
-            detail="product_id, quantity, and idempotency_key are required",
-        )
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(db)
-        return await logic.restock_shelf(
-            product_id=product_id,
-            quantity=quantity,
-            idempotency_key=idempotency_key,
-            warehouse_id=warehouse_id,
+        result = await logic.restock_shelf(
+            product_id=request.product_id,
+            quantity=request.quantity,
+            idempotency_key=request.idempotency_key,
+            warehouse_id=request.warehouse_id,
         )
     except Exception as e:
         logger.error(f"Failed to restock product: {e}")
         raise HTTPException(status_code=500, detail="restock_failed")
+
+    # Record who performed the mutation. An inventory write with no
+    # attributable principal is not auditable evidence.
+    try:
+        from services.tool_audit_writer import record_operator_mutation
+
+        record_operator_mutation(
+            tool_name="restock_shelf",
+            caller="rest",
+            principal_sub=operator["sub"],
+            args={
+                "product_id": request.product_id,
+                "quantity": request.quantity,
+                "warehouse_id": request.warehouse_id,
+                "idempotency_key": request.idempotency_key,
+            },
+            result=result,
+        )
+    except Exception as exc:  # pragma: no cover - audit is best-effort
+        logger.warning("restock audit write failed: %s", exc)
+
+    if isinstance(result, dict):
+        result = {**result, "performed_by": operator["sub"]}
+    return result
 
 
 @app.post("/api/chat", response_model=ChatResponse)
