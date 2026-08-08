@@ -343,8 +343,25 @@ async def run_agent(
     ``/api/agent/chat`` (Task 3.5). Flipping ``USE_AGENTCORE_RUNTIME=true``
     in ``backend/.env`` and restarting is the only change participants
     need to make to migrate from local execution to managed runtime.
+
+    Rail selection is delegated to ``services.execution_rail`` so this
+    route and the storefront's ``/api/chat/stream`` resolve the rail the
+    same way. When the managed rail is requested but unusable, this entry
+    point fails closed with a ``ManagedRuntimeError`` rather than quietly
+    serving an in-process turn: the caller asked for the governed path,
+    and an ungoverned answer that looks identical is the failure mode
+    worth preventing.
+
+    Raises:
+        ManagedRuntimeError: When the managed rail was requested but is
+            unavailable, or when the managed invocation itself fails.
     """
-    if settings.USE_AGENTCORE_RUNTIME:
+    from services.execution_rail import resolve_rail
+
+    decision = resolve_rail(auth_token=auth_token)
+    if decision.managed_requested and not decision.available:
+        raise ManagedRuntimeError(decision.reason or "runtime_unavailable")
+    if decision.is_managed:
         return await run_agent_on_runtime(
             message, session_id, user_id, auth_token, history
         )

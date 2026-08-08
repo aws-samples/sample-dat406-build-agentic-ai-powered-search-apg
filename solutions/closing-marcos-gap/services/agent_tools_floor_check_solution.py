@@ -161,16 +161,25 @@ def _json_default(value):
 
 
 def _managed_rail_required(tool_name: str) -> str | None:
-    """Reject local mutations in the governed workshop format."""
-    from config import settings
+    """Reject local mutations in the governed workshop format.
 
-    if str(getattr(settings, "WORKSHOP_FORMAT", "")).lower() != "governed":
+    Delegates the decision to ``services.execution_rail`` so the set of
+    mutation-capable tools lives in exactly one place. When that set and
+    this guard drift, a governed write silently becomes servable
+    in-process — the failure mode this guard exists to prevent.
+
+    Returns a JSON error envelope when the tool may not run on this rail,
+    or ``None`` when it may.
+    """
+    from services.execution_rail import RAIL_GATEWAY_MCP, requires_managed_rail
+
+    if not requires_managed_rail(tool_name):
         return None
     return json.dumps(
         {
             "error": "managed_rail_required",
             "tool": tool_name,
-            "required_rail": "gateway-mcp",
+            "required_rail": RAIL_GATEWAY_MCP,
         }
     )
 

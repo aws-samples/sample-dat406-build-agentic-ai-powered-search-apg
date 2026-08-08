@@ -822,6 +822,25 @@ async def chat(request: ChatRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
+def _annotate_rail(event: Dict[str, Any], decision, degraded_notice) -> Dict[str, Any]:
+    """Stamp the execution rail onto a terminal ``complete`` event.
+
+    Applied at the single point every storefront event funnels through, so
+    a turn cannot report its outcome without also reporting which rail
+    produced it. When the managed rail was requested but unavailable, the
+    turn is additionally marked ``degraded`` with the capabilities that
+    were withheld — a read-only in-process answer must never be mistaken
+    for a governed one.
+    """
+    response = event.get("response")
+    if not isinstance(response, dict):
+        return event
+    annotated = {**response, "rail": decision.rail, "railDecision": decision.to_dict()}
+    if decision.managed_requested and not decision.available:
+        annotated["degradation"] = degraded_notice(decision)
+    return {**event, "response": annotated}
+
+
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
     """
@@ -947,6 +966,26 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 except Exception as _exc:
                     logger.debug("Input guardrail observational check failed: %s", _exc)
 
+            # Resolve the execution rail through the same service the
+            # managed ``/api/agent/chat`` route uses, so the storefront can
+            # never quietly run ungoverned while the operator believes the
+            # managed rail is live. Every completed turn reports the rail
+            # that actually served it.
+            from services.execution_rail import (
+                degraded_notice,
+                resolve_rail,
+            )
+
+            rail_decision = resolve_rail(
+                auth_token=(effective_user or {}).get("access_token")
+            )
+            if rail_decision.managed_requested and not rail_decision.available:
+                logger.warning(
+                    "Storefront turn degraded: managed rail requested but "
+                    "unavailable (%s)",
+                    rail_decision.reason,
+                )
+
             async for event in chat_service.chat_stream(
                 message=request.message,
                 conversation_history=history,
@@ -960,6 +999,8 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     event = classify_chat_error(
                         event.get("error") or event.get("message") or event.get("code")
                     )
+                elif event.get("type") == "complete":
+                    event = _annotate_rail(event, rail_decision, degraded_notice)
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             logger.error(f"Streaming chat failed: {e}")

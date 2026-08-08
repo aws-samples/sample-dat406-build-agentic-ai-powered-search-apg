@@ -206,6 +206,14 @@ def test_run_agent_dispatches_to_runtime_when_flag_true(
     import services.agentcore_runtime as rt
 
     monkeypatch.setattr(rt.settings, "USE_AGENTCORE_RUNTIME", True)
+    # The rail resolver requires a configured endpoint before it will route
+    # to the managed rail — an unset endpoint is a fail-closed condition,
+    # not a dispatch-anyway condition.
+    monkeypatch.setattr(
+        rt.settings,
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/pellier",
+    )
 
     result = asyncio.run(
         rt.run_agent(
@@ -232,31 +240,62 @@ def test_run_agent_dispatches_to_runtime_when_flag_true(
     assert _StubOrchestrator.instances == []
 
 
-def test_run_agent_runtime_passes_none_user_id_through(
+def test_run_agent_managed_rail_fails_closed_without_a_token(
     monkeypatch: pytest.MonkeyPatch,
     stub_create_orchestrator,
     stub_runtime_call: list[dict[str, Any]],
 ) -> None:
-    """Anonymous requests SHALL reach the runtime path with
-    ``user_id=None`` so the runtime entrypoint can fall back to
-    ``"anonymous"`` itself (runtime contract in ``agentcore_runtime.py``)."""
+    """An anonymous managed request SHALL fail closed at the dispatcher.
+
+    The managed Runtime authorizer rejects anonymous callers, so dispatching
+    one would produce a guaranteed failure; silently serving it in-process
+    instead would hand back an ungoverned answer that looks governed.
+    Neither is acceptable, so the dispatcher raises.
+    """
     import asyncio
 
     import services.agentcore_runtime as rt
 
     monkeypatch.setattr(rt.settings, "USE_AGENTCORE_RUNTIME", True)
+    monkeypatch.setattr(
+        rt.settings,
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/pellier",
+    )
 
-    asyncio.run(rt.run_agent(message="hi", session_id="sess-none"))
+    with pytest.raises(rt.ManagedRuntimeError) as exc_info:
+        asyncio.run(rt.run_agent(message="hi", session_id="sess-none"))
 
-    assert stub_runtime_call == [
-        {
-            "message": "hi",
-            "session_id": "sess-none",
-            "user_id": None,
-            "auth_token": None,
-            "history": None,
-        }
-    ]
+    assert exc_info.value.code == "authentication_required"
+    # Neither rail executed: the managed one was unreachable and the
+    # in-process one must not silently substitute for it.
+    assert stub_runtime_call == []
+    assert _StubOrchestrator.instances == []
+
+
+def test_run_agent_managed_rail_fails_closed_without_an_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_create_orchestrator,
+    stub_runtime_call: list[dict[str, Any]],
+) -> None:
+    """A requested-but-unconfigured managed rail SHALL NOT fall back."""
+    import asyncio
+
+    import services.agentcore_runtime as rt
+
+    monkeypatch.setattr(rt.settings, "USE_AGENTCORE_RUNTIME", True)
+    monkeypatch.setattr(rt.settings, "AGENTCORE_RUNTIME_ENDPOINT", None)
+
+    with pytest.raises(rt.ManagedRuntimeError) as exc_info:
+        asyncio.run(
+            rt.run_agent(
+                message="hi", session_id="sess-none", auth_token="jwt-123"
+            )
+        )
+
+    assert exc_info.value.code == "runtime_not_configured"
+    assert stub_runtime_call == []
+    assert _StubOrchestrator.instances == []
 
 
 # ---------------------------------------------------------------------------
