@@ -6,10 +6,33 @@ Runs the same Aurora catalog through four retrieval strategies:
 * vector
 * hybrid
 * hybrid+rerank
-* agentic, with pinned structured filters for deterministic evaluation
+* agentic, planned by the *real* ``services.search_plan`` planner
+
+The agentic row deliberately does **not** use the pinned filters in each
+golden query's definition. Pinned filters make that row an oracle-filter
+experiment: it measures how good retrieval could be if a perfect planner
+existed, which is exactly the number that hides planner bugs. Instead the
+harness runs the shipped extractor plus the shipped planner, then scores
+the plan itself against the pinned filters as ground truth. A planning
+mistake now shows up as a planner-precision miss rather than disappearing
+into a healthy-looking recall figure.
+
+Three evaluation layers, per the governed-workshop audit:
+
+1. **Planner correctness** — did the plan recover the expected hard
+   constraints, and did it invent any that were not asked for?
+2. **Retriever/ranker quality** — Recall@5, Hit@1, MRR@5, candidate
+   coverage, short-result rate, and hard-constraint compliance.
+3. **Exit status** — the harness fails with a non-zero exit code when a
+   threshold regresses, so CI can gate on relevance instead of merely
+   printing it.
 
 The harness is intentionally standalone. It does not need the FastAPI server
 running, but it uses the same Bedrock models and PostgreSQL tables as the app.
+
+Run ``--json`` for machine-readable output, ``--no-gate`` to report without
+enforcing thresholds (useful when exploring), and ``--strict-planner`` to
+also gate on planner precision.
 """
 
 from __future__ import annotations
@@ -31,6 +54,30 @@ from psycopg.rows import dict_row
 
 EMBED_MODEL_DEFAULT = "us.cohere.embed-v4:0"
 RERANK_MODEL_DEFAULT = "cohere.rerank-v3-5:0"
+
+
+# CI thresholds. A regression below any of these fails the run with a
+# non-zero exit status. They are floors observed on the seeded catalog,
+# set just below current measured performance so ordinary noise does not
+# flap the gate but a real relevance regression trips it.
+#
+# The three ``*_max`` violation budgets are zero on purpose: a hard
+# constraint that is violated even once is a correctness bug, not a
+# quality metric to average away.
+THRESHOLDS: dict[str, float] = {
+    "rerank_recall_at_5_min": 0.70,
+    "rerank_mrr_at_5_min": 0.55,
+    "agentic_recall_at_5_min": 0.60,
+    "hybrid_candidate_coverage_min": 0.75,
+    "hard_constraint_violation_rate_max": 0.0,
+    "exclusion_violation_rate_max": 0.0,
+    "planner_hallucinated_constraint_rate_max": 0.0,
+}
+
+# Planner precision is gated only under --strict-planner: the extractor is
+# a live model call, so this number moves with model behaviour rather than
+# with the code under test.
+PLANNER_RECALL_MIN = 0.60
 
 
 @dataclass(frozen=True)
@@ -213,6 +260,133 @@ def _embed_queries(queries: list[str], *, region: str, model_id: str) -> list[li
         if len(vector) != 1024:
             raise RuntimeError(f"Expected 1024-dim embedding, got {len(vector)}")
     return [[float(v) for v in vector] for vector in vectors]
+
+
+def _import_backend_planner() -> Any:
+    """Import the shipped planner so the agentic row runs real code.
+
+    The harness is standalone, so the backend package is not on the path
+    by default. Importing it here (rather than reimplementing planning)
+    is the whole point: an evaluation that scores its own private copy of
+    the planner cannot detect a planner regression.
+    """
+    import sys
+
+    backend = Path(__file__).resolve().parents[1] / "pellier" / "backend"
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+    from services.search_plan import build_plan  # noqa: PLC0415
+
+    return build_plan
+
+
+def _plan_for(build_plan: Any, golden: "GoldenQuery", extractor: Any, top_k: int) -> Any:
+    """Run the shipped extractor + planner for one golden query.
+
+    Falls back to an empty extraction when the model call fails, which
+    scores as a planner miss rather than silently substituting the pinned
+    oracle filters.
+    """
+    try:
+        extracted = extractor.extract(golden.query)
+    except Exception as exc:  # pragma: no cover - live Bedrock failure path
+        print(f"  ! extractor failed for {golden.label}: {exc}")
+        extracted = {}
+    return build_plan(golden.query, extracted, top_k=top_k)
+
+
+def _score_plan(plan: Any, expected: Filters) -> dict[str, Any]:
+    """Compare a produced plan against the golden query's pinned filters.
+
+    Returns per-query planner metrics: how much of the expected
+    constraint set the planner recovered, and whether it invented a
+    constraint nobody asked for (the more dangerous error, since an
+    invented hard constraint silently removes valid results).
+    """
+    expected_categories = {c.lower() for c in expected.categories}
+    got_categories = {c.lower() for c in plan.hard.categories}
+    expected_price = expected.price_max
+    got_price = plan.hard.price_max_usd
+
+    recovered = 0
+    total = 0
+    hallucinated = 0
+
+    if expected_categories:
+        total += 1
+        if expected_categories & got_categories:
+            recovered += 1
+    if got_categories - expected_categories and expected_categories:
+        hallucinated += 1
+    elif got_categories and not expected_categories:
+        hallucinated += 1
+
+    if expected_price is not None:
+        total += 1
+        # A tighter ceiling than asked for is still a miss: it removes
+        # valid candidates.
+        if got_price is not None and abs(got_price - expected_price) < 0.01:
+            recovered += 1
+    elif got_price is not None:
+        hallucinated += 1
+
+    return {
+        "expected_categories": sorted(expected_categories),
+        "planned_categories": sorted(got_categories),
+        "expected_price_max": expected_price,
+        "planned_price_max": got_price,
+        "planned_in_stock_only": plan.hard.in_stock_only,
+        "planned_exclusions": list(plan.exclusions),
+        "planned_soft_tags": list(plan.soft.tags),
+        "constraints_recovered": recovered,
+        "constraints_expected": total,
+        "hallucinated_constraints": hallucinated,
+        "relaxations": [r.step for r in plan.relaxations],
+    }
+
+
+def _score_compliance(rows: list[dict[str, Any]], plan: Any) -> dict[str, int]:
+    """Count returned rows that violate the plan's own hard constraints.
+
+    This is the metric the audit's A3 finding is really about: if filters
+    are applied after reranking (or not at all), invalid rows reach the
+    result list. Scoring compliance on the *returned* rows catches that
+    regardless of where filtering was supposed to happen.
+    """
+    price_max = plan.hard.price_max_usd
+    categories = {c.lower() for c in plan.hard.categories}
+    exclusions = {t.lower() for t in plan.exclusions}
+
+    hard_violations = 0
+    exclusion_violations = 0
+    for row in rows:
+        price = row.get("price")
+        if price_max is not None and price is not None and float(price) > price_max + 0.001:
+            hard_violations += 1
+        category = str(row.get("category") or "").lower()
+        if categories and category and category not in categories:
+            hard_violations += 1
+        row_tags = {str(t).lower() for t in (row.get("tags") or [])}
+        if exclusions and (row_tags & exclusions):
+            exclusion_violations += 1
+    return {
+        "rows": len(rows),
+        "hard_violations": hard_violations,
+        "exclusion_violations": exclusion_violations,
+    }
+
+
+def _plan_filters(plan: Any) -> "Filters":
+    """Project a ``SearchPlan``'s hard constraints onto harness Filters.
+
+    Soft tag preferences are deliberately excluded: they are preferences,
+    and the harness measures what the *hard* constraints did to recall.
+    """
+    return Filters(
+        categories=tuple(plan.hard.categories),
+        tags=(),
+        price_max=plan.hard.price_max_usd,
+    )
 
 
 def _where_for_filters(filters: Filters, params: list[Any]) -> str:
@@ -401,13 +575,138 @@ def _timing_totals(timings: dict[str, list[float]]) -> dict[str, float]:
     }
 
 
+def _planner_totals(scores: list[dict[str, Any]]) -> dict[str, float]:
+    """Aggregate per-query planner scores into rates."""
+    expected = sum(int(s["constraints_expected"]) for s in scores)
+    recovered = sum(int(s["constraints_recovered"]) for s in scores)
+    hallucinated = sum(int(s["hallucinated_constraints"]) for s in scores)
+    queries = len(scores) or 1
+    return {
+        "constraints_expected": expected,
+        "constraints_recovered": recovered,
+        "constraint_recall": round(recovered / expected, 3) if expected else 1.0,
+        "hallucinated_constraints": hallucinated,
+        "hallucinated_constraint_rate": round(hallucinated / queries, 3),
+    }
+
+
+def _compliance_totals(scores: list[dict[str, int]]) -> dict[str, float]:
+    """Aggregate hard-constraint compliance over all returned rows."""
+    rows = sum(int(s["rows"]) for s in scores)
+    hard = sum(int(s["hard_violations"]) for s in scores)
+    exclusion = sum(int(s["exclusion_violations"]) for s in scores)
+    denominator = rows or 1
+    return {
+        "rows_scored": rows,
+        "hard_violations": hard,
+        "hard_constraint_violation_rate": round(hard / denominator, 3),
+        "exclusion_violations": exclusion,
+        "exclusion_violation_rate": round(exclusion / denominator, 3),
+    }
+
+
+def _evaluate_gate(
+    *,
+    totals: dict[str, dict[str, float]],
+    coverage: float,
+    planner: dict[str, float],
+    compliance: dict[str, float],
+    strict_planner: bool,
+) -> dict[str, Any]:
+    """Check every threshold and return the pass/fail verdict.
+
+    Returns a dict with ``passed`` and a ``failures`` list of
+    human-readable strings, so both the JSON and the text output can
+    report exactly which threshold moved.
+    """
+    checks: list[tuple[str, float, float, bool]] = [
+        (
+            "rerank recall@5",
+            totals["rerank"]["recall_at_5"],
+            THRESHOLDS["rerank_recall_at_5_min"],
+            True,
+        ),
+        (
+            "rerank mrr@5",
+            totals["rerank"]["mrr_at_5"],
+            THRESHOLDS["rerank_mrr_at_5_min"],
+            True,
+        ),
+        (
+            "agentic recall@5",
+            totals["agentic"]["recall_at_5"],
+            THRESHOLDS["agentic_recall_at_5_min"],
+            True,
+        ),
+        (
+            "hybrid candidate coverage",
+            coverage,
+            THRESHOLDS["hybrid_candidate_coverage_min"],
+            True,
+        ),
+        (
+            "hard-constraint violation rate",
+            compliance["hard_constraint_violation_rate"],
+            THRESHOLDS["hard_constraint_violation_rate_max"],
+            False,
+        ),
+        (
+            "exclusion violation rate",
+            compliance["exclusion_violation_rate"],
+            THRESHOLDS["exclusion_violation_rate_max"],
+            False,
+        ),
+        (
+            "planner hallucinated-constraint rate",
+            planner["hallucinated_constraint_rate"],
+            THRESHOLDS["planner_hallucinated_constraint_rate_max"],
+            False,
+        ),
+    ]
+    if strict_planner:
+        checks.append(
+            ("planner constraint recall", planner["constraint_recall"], PLANNER_RECALL_MIN, True)
+        )
+
+    failures: list[str] = []
+    for label, observed, threshold, is_floor in checks:
+        if is_floor and observed < threshold:
+            failures.append(f"{label} {observed:.3f} below floor {threshold:.3f}")
+        elif not is_floor and observed > threshold:
+            failures.append(f"{label} {observed:.3f} above ceiling {threshold:.3f}")
+
+    return {
+        "passed": not failures,
+        "failures": failures,
+        "thresholds": dict(THRESHOLDS),
+        "strictPlanner": strict_planner,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Pellier golden-query retrieval evaluation.")
     parser.add_argument("--rrf-k", type=int, default=60, help="RRF damping constant for hybrid strategies.")
     parser.add_argument("--pool-k", type=int, default=20, help="Candidate count per vector/FTS branch before RRF.")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    parser.add_argument(
+        "--no-gate",
+        action="store_true",
+        help="Report metrics without failing the run on a threshold regression.",
+    )
+    parser.add_argument(
+        "--strict-planner",
+        action="store_true",
+        help="Also gate on planner constraint recall (moves with model behaviour).",
+    )
     args = parser.parse_args()
+
+    build_plan = _import_backend_planner()
+    from services.structured_extract import get_structured_extractor  # noqa: PLC0415
+
+    extractor = get_structured_extractor()
+    planner_scores: list[dict[str, Any]] = []
+    compliance_scores: list[dict[str, int]] = []
 
     _load_env()
     region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
@@ -461,7 +760,11 @@ def main() -> int:
             )
             rerank_elapsed_s = hybrid_elapsed_s + (time.perf_counter() - strategy_started)
 
+            # Agentic row: the SHIPPED extractor + planner decide the
+            # filters. Using golden.filters here instead would make this
+            # an oracle experiment that cannot fail on a planner bug.
             strategy_started = time.perf_counter()
+            plan = _plan_for(build_plan, golden, extractor, args.top_k)
             agentic_candidates = _hybrid_search(
                 conn,
                 golden.query,
@@ -469,7 +772,7 @@ def main() -> int:
                 rrf_k=args.rrf_k,
                 pool_k=pool_k,
                 limit=max(pool_k, args.top_k),
-                filters=golden.filters,
+                filters=_plan_filters(plan),
             )
             agentic_rows = _rerank(
                 golden.query,
@@ -479,6 +782,10 @@ def main() -> int:
                 limit=args.top_k,
             )
             agentic_elapsed_s = time.perf_counter() - strategy_started
+            plan_score = _score_plan(plan, golden.filters)
+            planner_scores.append(plan_score)
+            compliance = _score_compliance(agentic_rows, plan)
+            compliance_scores.append(compliance)
 
             rows_by_strategy = {
                 "vector": vector_rows,
@@ -510,6 +817,9 @@ def main() -> int:
                 "expected": coverage_total,
                 "coverage": round(coverage, 3),
             }
+            detail["planner"] = plan_score
+            detail["agentic_hard_constraint_compliance"] = compliance
+            detail["search_plan"] = plan.to_dict()
             for strategy, rows in rows_by_strategy.items():
                 product_ids = [str(row["product_id"]) for row in rows]
                 hits, total, recall = _recall_at_5(product_ids, golden.expected)
@@ -536,6 +846,15 @@ def main() -> int:
     coverage_total = round(coverage_hits / coverage_expected if coverage_expected else 0.0, 3)
     rerank_lift = round(totals["rerank"]["mrr_at_5"] - totals["hybrid"]["mrr_at_5"], 3)
     agentic_lift = round(totals["agentic"]["mrr_at_5"] - totals["hybrid"]["mrr_at_5"], 3)
+    planner_totals = _planner_totals(planner_scores)
+    compliance_totals = _compliance_totals(compliance_scores)
+    gate = _evaluate_gate(
+        totals=totals,
+        coverage=coverage_total,
+        planner=planner_totals,
+        compliance=compliance_totals,
+        strict_planner=args.strict_planner,
+    )
     if args.json:
         print(json.dumps({
             "query_count": len(GOLDEN_QUERIES),
@@ -551,9 +870,12 @@ def main() -> int:
             "hybrid_candidate_coverage_at_pool": coverage_total,
             "rerank_lift_mrr_vs_hybrid": rerank_lift,
             "agentic_lift_mrr_vs_hybrid": agentic_lift,
+            "planner": planner_totals,
+            "hard_constraint_compliance": compliance_totals,
+            "gate": gate,
             "queries": detailed,
         }, indent=2))
-        return 0
+        return 0 if (gate["passed"] or args.no_gate) else 1
 
     print(f"Pellier retrieval eval | queries={len(GOLDEN_QUERIES)} | rrf_k={args.rrf_k} | pool_k={args.pool_k} | top_k={args.top_k}")
     print(f"Models: {embed_model} + {rerank_model}")
@@ -578,8 +900,34 @@ def main() -> int:
             f"{','.join(item['agentic']['top5']) or '-'}"
         )
     print()
+    print(
+        "planner: constraint recall "
+        f"{planner_totals['constraint_recall']:.3f} "
+        f"({planner_totals['constraints_recovered']}/"
+        f"{planner_totals['constraints_expected']}) | "
+        f"hallucinated-constraint rate "
+        f"{planner_totals['hallucinated_constraint_rate']:.3f}"
+    )
+    print(
+        "hard-constraint compliance: "
+        f"violations {compliance_totals['hard_violations']}"
+        f"/{compliance_totals['rows_scored']} rows "
+        f"(rate {compliance_totals['hard_constraint_violation_rate']:.3f}) | "
+        f"exclusion violations {compliance_totals['exclusion_violations']} "
+        f"(rate {compliance_totals['exclusion_violation_rate']:.3f})"
+    )
+    print()
+    if gate["passed"]:
+        print("GATE: PASS — every threshold met.")
+    else:
+        print("GATE: FAIL")
+        for failure in gate["failures"]:
+            print(f"  - {failure}")
+        if args.no_gate:
+            print("  (--no-gate set: reporting only, exit status forced to 0)")
+    print()
     print(f"Elapsed: {elapsed_s:.1f}s")
-    return 0
+    return 0 if (gate["passed"] or args.no_gate) else 1
 
 
 if __name__ == "__main__":
