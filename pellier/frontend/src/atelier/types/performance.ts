@@ -66,9 +66,15 @@ export interface PerformanceData {
     products?: { name: string; productId: number }[]; // top-5 when live
     /**
      * Only populated for the agentic strategy when live. Surfaces what
-     * Sonnet extracted and which filter-degradation step was used so
+     * Sonnet extracted and whether the planner widened anything, so
      * participants can see the structured signal that drove the WHERE
      * clause and the residual taste phrase the reranker scored against.
+     *
+     * `filterUsed` has only two values by design: the relaxation ladder
+     * in `services/search_plan.py` may widen soft tag preferences and
+     * nothing else. There is no `drop_cats` or `drop_all` step, because
+     * price ceilings, availability, explicit categories, and exclusions
+     * are hard constraints that no rung is allowed to drop.
      */
     extractedFilters?: {
       categories: string[];
@@ -76,7 +82,7 @@ export interface PerformanceData {
       priceMaxUsd: number | null;
       inStockOnly: boolean;
       softSignal: string;
-      filterUsed: 'strict' | 'drop_tags' | 'drop_cats' | 'drop_all';
+      filterUsed: 'strict' | 'drop_tags';
     };
   }[];
   storageUsage: {

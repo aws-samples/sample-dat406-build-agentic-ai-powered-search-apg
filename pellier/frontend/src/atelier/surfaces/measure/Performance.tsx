@@ -657,12 +657,15 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
  *   2. Live — when the user types a query and clicks "Run on Aurora",
  *      we hit /api/atelier/search-strategies/compare which executes all
  *      four strategies against the catalog and returns measured numbers
- *      + the actual top-5 product names per strategy. The recall@5
- *      column stays the static fixture value (we'd need labeled data
- *      to compute it live) but the observed duration + products refresh, and the
- *      agentic row also surfaces extractedFilters chips so participants
- *      can see what Sonnet pulled out and which filter-degradation step
- *      the pipeline ended up using.
+ *      + the actual top-5 product names per strategy. In this state the
+ *      recall@5 cell reads "not measured" and the fixture values move to
+ *      a separate reference-baseline block below the table: recall needs
+ *      labeled relevance judgments, so printing a fixture number in a
+ *      live row would claim a measurement nobody made. The observed
+ *      duration + products refresh, and the agentic row surfaces
+ *      extractedFilters chips plus any disclosed relaxation so
+ *      participants can see what Sonnet pulled out and what the pipeline
+ *      widened.
  *
  * The teaching beat: workshop participants can see the rerank lift in
  * dollars AND latency AND product mix differences. The agentic row
@@ -679,10 +682,11 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
  *
  * Renders the Sonnet structured extraction below the agentic row: category
  * pills, tag pills, optional price ceiling, optional in-stock badge,
- * the soft_signal phrase, and which filter-degradation step the
- * pipeline ended up using. The degradation badge is the honest one —
- * "drop_cats" tells participants the strict filter set returned too
- * few candidates and the pipeline relaxed.
+ * the soft_signal phrase, and whether the planner widened anything. The
+ * relaxation badge is the honest one — "drop_tags" tells participants the
+ * strict preference set returned too few candidates and the pipeline
+ * widened the *preferences*. Hard constraints are never widened, so there
+ * is no badge for dropping a price ceiling or an exclusion.
  * ----------------------------------------------------------------------- */
 
 const FILTER_USED_LABELS: Record<
@@ -691,8 +695,6 @@ const FILTER_USED_LABELS: Record<
 > = {
   strict: { label: 'strict', tone: 'green' },
   drop_tags: { label: 'drop_tags', tone: 'red' },
-  drop_cats: { label: 'drop_cats', tone: 'red' },
-  drop_all: { label: 'drop_all', tone: 'red' },
 };
 
 interface ExtractedFiltersStripProps {
@@ -1014,18 +1016,33 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
       )}
 
       {liveStrategies && !error && (
-        <p
-          style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: 'var(--at-green-1)',
-            marginTop: '10px',
-          }}
-        >
-          Live · one Aurora observation for "{query}"
-        </p>
+        <>
+          <p
+            style={{
+              fontFamily: 'var(--at-mono)',
+              fontSize: '11px',
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--at-green-1)',
+              marginTop: '10px',
+            }}
+          >
+            Live · one Aurora observation for "{query}"
+          </p>
+          <p
+            style={{
+              fontFamily: 'var(--at-sans)',
+              fontSize: '13px',
+              lineHeight: 1.6,
+              color: 'var(--at-ink-3)',
+              margin: '6px 0 0',
+            }}
+          >
+            Latency and product order below are live for this query. Recall is
+            not measured live — it needs labeled relevance judgments, so the
+            reference baseline is listed separately underneath.
+          </p>
+        </>
       )}
 
       <div style={{ marginTop: '16px', overflowX: 'auto' }}>
@@ -1083,7 +1100,43 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                       )}
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
-                      {(s.recallAt5 * 100).toFixed(0)}%
+                      {/* Recall is a fixture baseline computed from labeled
+                          relevance judgments. Once a live query runs, showing
+                          it beside the measured latency for that query would
+                          read as "this query scored 82%", which it does not.
+                          Suppress the number and say why instead. */}
+                      {liveStrategies ? (
+                        <span
+                          style={{
+                            fontFamily: 'var(--at-mono)',
+                            fontSize: '11px',
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            color: 'var(--at-ink-4)',
+                          }}
+                          title={
+                            'Recall needs labeled relevance judgments for this ' +
+                            'query. The reference baseline is shown below, ' +
+                            'separately from live results.'
+                          }
+                        >
+                          not measured
+                        </span>
+                      ) : (
+                        <>
+                          {(s.recallAt5 * 100).toFixed(0)}%
+                          <span
+                            style={{
+                              display: 'block',
+                              color: 'var(--at-ink-3)',
+                              fontSize: '10px',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            fixture baseline
+                          </span>
+                        </>
+                      )}
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
                       {formatMs(s.observedMs ?? s.modeledLatencyMs)}
@@ -1164,6 +1217,64 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         </table>
       </div>
 
+      {/* Reference baseline — visually separated from the live table above.
+          Mixing a fixture recall value into a live result row is the exact
+          confusion this block exists to prevent: an attendee reading one row
+          would reasonably assume every number in it describes their query. */}
+      {liveStrategies && !error && (
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px 14px',
+            backgroundColor: 'var(--at-cream-2)',
+            border: '1px dashed var(--at-rule-2)',
+            borderRadius: '4px',
+          }}
+        >
+          <Eyebrow label="Reference baseline · fixture, not this query" variant="muted" />
+          <p
+            style={{
+              fontFamily: 'var(--at-sans)',
+              fontSize: '13px',
+              lineHeight: 1.6,
+              color: 'var(--at-ink-2)',
+              margin: '8px 0 10px',
+            }}
+          >
+            Recall@5 from the labeled golden-query set in{' '}
+            <code style={{ fontFamily: 'var(--at-mono)', fontSize: '12px' }}>
+              scripts/eval_retrieval_harness.py
+            </code>
+            . These describe the seeded catalog overall, not the query you just
+            ran.
+          </p>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            {strategies.map((s) => (
+              <span
+                key={s.strategy}
+                style={{
+                  fontFamily: 'var(--at-mono)',
+                  fontSize: '12px',
+                  color: 'var(--at-ink-2)',
+                  backgroundColor: 'var(--at-cream-1)',
+                  border: '1px solid var(--at-rule-1)',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                }}
+              >
+                {s.strategy}: {(s.recallAt5 * 100).toFixed(0)}%
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Why the agentic row is Anna's path — the framing the workshop
           lands on after participants compare the four strategies. */}
       <div
@@ -1196,9 +1307,11 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           predicate, runs cosine over only the rows that pass, and lets
           Cohere Rerank score against the residual taste phrase ("milestone
           gift for a homeowner"). The chips above are the receipt – you
-          can see exactly what Sonnet extracted, which filter-degradation
-          step ran when the strict filter was too tight, and what soft
-          signal the reranker actually scored.
+          can see exactly what Sonnet extracted, what soft signal the
+          reranker actually scored, and whether the pipeline widened any
+          preference. It can widen preferences; it cannot widen that
+          price ceiling, so the $185 candle stays out no matter how few
+          candidates remain.
         </p>
       </div>
 
