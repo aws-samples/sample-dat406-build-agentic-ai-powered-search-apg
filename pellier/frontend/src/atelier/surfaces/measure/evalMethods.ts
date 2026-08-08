@@ -42,17 +42,17 @@ export const EVALUATION_METHODS: EvaluationMethod[] = [
     vendor: 'AWS',
     tagline: 'Managed eval runs tied to agents deployed on AgentCore Runtime.',
     bestFor: [
-      'Prod-cutover graduation – score a deployed runtime against a curated dataset',
+      'Prod-cutover graduation – score recorded sessions from a deployed runtime',
       'Regression gates before promoting agent versions',
       'Operational evals in the same account as production',
     ],
     watchOuts: [
       'Most valuable once agents are on AgentCore – less about local FastAPI dev',
-      'Define datasets and success metrics up front',
+      'Sessions are read from CloudWatch Logs, so define log groups and evaluators up front',
     ],
     pellierFit: 'workshop',
     workshopNote:
-      'Wired in `services/agentcore_evals.py`, env-flag-gated by `AGENTCORE_EVALS_ENABLED` (off by default). Single `create_evaluation_job` call against the Runtime ARN you already deploy – runs at prod cutover, not on every PR.',
+      'Wired in `services/agentcore_evals.py`, env-flag-gated by `AGENTCORE_EVALS_ENABLED` (off by default). One `StartBatchEvaluation` call scoring the agent sessions your Runtime already writes to CloudWatch Logs – runs at prod cutover, not on every PR.',
   },
   {
     id: 'ragas',

@@ -7,7 +7,7 @@ routing pattern owns the turn. Deterministic, no AWS calls, no model
 invocations — purely structural assertions over the published fixtures.
 
 Sister artifact: `services/agentcore_evals.py` (graduation path — env-flag-
-gated `create_evaluation_job` call against AgentCore Evals). The Measure
+gated `StartBatchEvaluation` call against AgentCore Evaluations). The Measure
 surface copy distinguishes the two: golden-set runs every PR; AgentCore
 Evals runs at prod cutover.
 """
