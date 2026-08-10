@@ -26,7 +26,7 @@ def create_analytics_agent():
     The agent combines:
     - AgentCore Code Interpreter for sandboxed Python execution
     - Product search tools for data retrieval
-    - Claude Opus 4 for reasoning about data analysis tasks
+    - The configured Bedrock editorial model for data-analysis reasoning
 
     The agent can write Python code that uses pandas, matplotlib, and
     standard libraries to analyze product data, generate charts, and

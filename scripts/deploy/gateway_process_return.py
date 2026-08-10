@@ -371,13 +371,13 @@ def main() -> int:
         action="store_true",
         help="Record a governed_receipts row for the Gateway decision and absence check.",
     )
-    parser.add_argument("--session-id", default="gateway-final-sale-proof")
+    parser.add_argument("--session-id", default="gateway-identity-proof")
     parser.add_argument(
         "--idempotency-key",
         default="",
         help="Stable write key; defaults to the receipt session id.",
     )
-    parser.add_argument("--policy-name", default="workshop_final_sale_forbid")
+    parser.add_argument("--policy-name", default="workshop_identity_match_forbid")
     args = parser.parse_args()
 
     _load_env()

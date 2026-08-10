@@ -24,8 +24,6 @@ export default [
     ignorePatterns: [
       'dist',
       '.eslintrc.cjs',
-      'src/stories',
-      '.storybook',
       'src/__tests__/*.mjs',
     ],
     parser: '@typescript-eslint/parser',

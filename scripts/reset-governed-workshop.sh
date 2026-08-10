@@ -106,15 +106,6 @@ ANALYZE pellier.product_catalog;
 ' >/tmp/pellier-governed-reset-index.log
 pass "HNSW index present: product_catalog_embedding_hnsw"
 
-# Optional RLS rail: participants apply it by hand from solutions/; remove it
-# here so a reset always lands back on the shipped single-user state.
-if [[ -f "$REPO/solutions/the-ledger/sql/rls_rail_reset.sql" ]]; then
-  _psql_file "$REPO/solutions/the-ledger/sql/rls_rail_reset.sql" >/tmp/pellier-governed-reset-rls.log
-  pass "Optional RLS rail removed (no-op if it was never applied)"
-else
-  warn "Missing solutions/the-ledger/sql/rls_rail_reset.sql; RLS reset skipped"
-fi
-
 if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]] && [[ -f "$REPO/scripts/deploy/workshop_policy_rule.py" ]]; then
   if "$PYTHON" "$REPO/scripts/deploy/workshop_policy_rule.py" \
       --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \

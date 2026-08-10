@@ -1,17 +1,14 @@
 """Routing tests for the in-process orchestrator multi-agent orchestrator.
 
-Validates Requirement 2.4.6-2.4.8 and 4.3.1 from
-`.kiro/specs/pellier-storefront/requirements.md`:
-
-  2.4.6  The orchestrator is constructed with Sonnet 5 model id exactly,
+  The orchestrator is constructed with Sonnet 5 model id exactly,
          no temperature override, and five specialist tools following the Strands
          "Agents as Tools" pattern.
-  2.4.7  Intent classification priority: pricing > inventory > support >
+  Intent classification priority: pricing > inventory > support >
          search > recommendation (default), lifted from
          coding-standards.md.
-  2.4.8  Five representative queries (one per specialist intent) each
+  Five representative queries (one per specialist intent) each
          route to the expected specialist, observable via trace logs.
-  4.3.1  Routing for an authenticated request surfaces via the same
+  Routing for an authenticated request surfaces via the same
          observation path (span tags) used by `otel_trace_extractor` so
          the frontend waterfall/inspector view sees the selected agent.
 
@@ -40,7 +37,7 @@ import pytest
 # Priority-ordered router (mirrors copy.ORCHESTRATOR_SYSTEM_PROMPT)
 # ---------------------------------------------------------------------------
 #
-# Intent priority from coding-standards.md:
+# Intent priority encoded by the orchestrator:
 #   pricing > inventory > support > search > recommendation (default)
 #
 # The patterns below are deliberately tight. A query that matches more

@@ -142,15 +142,14 @@ if [ "$_node20_ok" = true ]; then
             warn "Global typescript install failed – @aws/agentcore deploy may fail with 'tsc: command not found'. Recover: 'sudo npm install -g typescript' then re-run scripts/deploy/deploy_all.sh."
         fi
 
-        # Claude Code CLI (global), for the optional Claude Code lane in
-        # Lab 1. It runs entirely against Bedrock via the box's instance
+        # Claude Code CLI (global), for the primary build lane in Lab 1.
+        # It runs entirely against Bedrock via the box's instance
         # role (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_MODEL are exported in the
         # participant .bashrc by bootstrap-labs), so there is NO per-participant
         # login — the same ambient-credential model the rest of the lab uses.
-        # Intentionally NON-fatal: the mandatory path is hand-paste / cp, which
-        # needs none of this. If the install fails, the lab guide's manual tab
-        # still completes the exercise; only the optional agent lane is absent.
-        log "Installing Claude Code CLI globally (optional agent lane for Lab 1)..."
+        # Intentionally NON-fatal: the pacing fallback copies the two checked-in
+        # references and then runs the same live proof.
+        log "Installing Claude Code CLI globally for Lab 1..."
         if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
@@ -160,7 +159,7 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
         else
-            warn "Claude Code CLI install failed – the optional agent lane in Lab 1 will be unavailable (the mandatory hand-paste / cp path is unaffected). Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
+            warn "Claude Code CLI install failed - use the copy-reference pacing fallback in Lab 1. Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
         fi
     fi
 else
@@ -566,9 +565,7 @@ install_extension() {
 
 # Install essential extensions for the hands-on workshop.
 # No Jupyter — there are no notebooks in the lab content.
-# No Amazon Q extension — the MCP demo runs from the integrated terminal
-# (the Q extension is being retired, and the optional MCP lab reads the
-# config and verifies `awslabs.postgres-mcp-server` via uvx instead).
+# No Amazon Q extension - it is not used by the participant path.
 # No AWS Toolkit extension — it is the source of the Amazon Q "end-of-support",
 # "Dismiss", and "Sign-In" first-run pop-ups participants had to clear, and no
 # lab step opens the AWS Explorer panel (every "sign in" in the content refers
@@ -654,16 +651,12 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
         "**/.pytest_cache": true,
         "**/node_modules": true,
         "**/dist": true,
-        ".kiro": true,
         "tests": true,
         "archive": true,
         "docs": true,
         "infrastructure": true,
-        "lab-content-audit.md": true,
         "logs": true,
         "tmp": true,
-        "WORKSHOP_HARDENING_TODO.md": true,
-        "CHANGELOG.md": true,
         "package.json": true,
         "package-lock.json": true
     }

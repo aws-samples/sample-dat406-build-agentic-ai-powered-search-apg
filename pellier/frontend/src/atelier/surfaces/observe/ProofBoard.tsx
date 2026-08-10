@@ -132,19 +132,17 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
   },
 };
 
-// Four-lab spine. Memory and Audit were separate labs that proved the same
-// thing from two angles — a durable record exists and can be read — so they
-// consolidate into Lab 3. Cedar Policy becomes Lab 4.
+// Four-lab workshop spine.
 const LAB_BY_CARD_ID: Record<string, string> = {
   'marco-floor-check': 'Lab 1: Build & Trace',
   'retrieval-comparison': 'Lab 2: Retrieval Quality',
-  'managed-rail': 'Lab 3: Memory & Audit',
-  'audit-ledger': 'Lab 3: Memory & Audit',
+  'managed-rail': 'Lab 3: Managed Execution & Audit',
+  'audit-ledger': 'Lab 3: Managed Execution & Audit',
   'runtime-gateway-policy': 'Lab 4: Govern Actions',
 };
 
 function cardLab(card: ProofCard): string {
-  return card.lab ?? LAB_BY_CARD_ID[card.id] ?? 'Lab checkpoint';
+  return LAB_BY_CARD_ID[card.id] ?? card.lab ?? 'Lab checkpoint';
 }
 
 const CODE_STYLE: React.CSSProperties = {
@@ -905,7 +903,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         </Link>
       )}
       <EditorialTitle
-        eyebrow={isAuditFocus ? 'Lab 3 · Memory & Audit' : 'Labs 1-4 · Proof Board'}
+        eyebrow={isAuditFocus ? 'Lab 3 · Managed Execution & Audit' : 'Labs 1-4 · Proof Board'}
         title={isAuditFocus ? 'Audit proof, row by row.' : 'Evidence checkpoints, in lab order.'}
         summary={
           isAuditFocus

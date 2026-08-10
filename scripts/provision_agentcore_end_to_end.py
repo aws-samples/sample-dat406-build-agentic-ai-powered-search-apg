@@ -1073,7 +1073,7 @@ def main() -> int:
         # gateway in ENFORCE mode. Policy enforces at the Gateway boundary, so
         # it gates the agents_as_tools rail (process_return runs in the
         # experience Lambda). This is a hard readiness requirement for the
-        # governed workshop: Lab 5 cannot run without it.
+        # governed workshop: Lab 4 cannot run without it.
         try:
             gateway_arn_proc = _run(
                 [

@@ -59,10 +59,11 @@ log "=========================================="
 # STEP 1: CLONE REPOSITORY (~30 sec)
 # ============================================================================
 # On a Workshop Studio box the CloudFormation UserData has already cloned the
-# repo (RepoBranch) into exactly this path before stage 2 runs. So the branch
-# below is NOT the event path -- it is the local-dev / manual-rerun fallback,
-# which gets whatever origin/HEAD points at. Everything after the clone assumes
-# the tree is present, so a failure here must stop rather than warn-and-continue.
+# repo at an immutable pinned SHA (RepoRevision) into exactly this path, and it
+# exports WORKSHOP_SOURCE_REVISION as the provenance record. So the branch below
+# is NOT the event path -- it is the local-dev / manual-rerun fallback, which
+# gets whatever origin/HEAD points at. Everything after the clone assumes the
+# tree is present, so a failure here must stop rather than warn-and-continue.
 REPO_URL="${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}"
 
 log "Cloning repository..."
@@ -1287,7 +1288,7 @@ EOF
         upsert_env "AGENTCORE_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). The provisioner cannot
-        # report ready without this id; keep the explicit guard because Lab 5
+        # report ready without this id; keep the explicit guard because Lab 4
         # and the Atelier Policy surface both read it.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"

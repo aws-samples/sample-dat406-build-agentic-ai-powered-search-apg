@@ -48,7 +48,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      lab: 'Lab 1: Build a Specialist Agent',
+      lab: 'Lab 1: Build & Trace',
       group: 'Agent and tool evidence',
       title: 'Wire Marco to floor_check',
       status: 'complete',
@@ -64,7 +64,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Lab 4: Audit Agent Actions',
+      lab: 'Lab 3: Managed Execution & Audit',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -79,7 +79,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Lab 3: Prove AgentCore Memory',
+      lab: 'Lab 3: Managed Execution & Audit',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -132,8 +132,8 @@ describe('ProofBoard', () => {
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to floor_check',
     );
-    expect(screen.getAllByText('Lab 1: Build a Specialist Agent')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Prove AgentCore Memory')).toHaveLength(2);
+    expect(screen.getAllByText('Lab 1: Build & Trace')).toHaveLength(2);
+    expect(screen.getAllByText('Lab 3: Managed Execution & Audit').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
@@ -147,7 +147,7 @@ describe('ProofBoard', () => {
           managedReceipt: {
             ...proofBoardPayload.managedReceipt,
             governedDecision: 'DENY',
-            governedPolicyName: 'workshop_final_sale_forbid',
+            governedPolicyName: 'workshop_identity_match_forbid',
             gatewayAuditPresent: false,
             gatewayAuditAbsenceVerified: true,
             latestGatewayAuditId: null,
@@ -166,7 +166,7 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/DENY via workshop_final_sale_forbid/)).toBeInTheDocument();
+    expect(await screen.findByText(/DENY via workshop_identity_match_forbid/)).toBeInTheDocument();
     expect(screen.getByText('Cedar DENY: tool target did not execute')).toBeInTheDocument();
     expect(screen.getByText('Gateway/Cedar DENY left no tool_audit row')).toBeInTheDocument();
     expect(screen.getByText(/No-row DENY is scoped to the Gateway\/Cedar rail/)).toBeInTheDocument();
@@ -190,12 +190,12 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    // Four-lab spine: Memory and Audit consolidated into Lab 3.
+    // Four-lab spine: managed execution and audit share Lab 3.
     expect(await screen.findAllByText('Lab 1: Build & Trace')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Memory & Audit').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lab 3: Managed Execution & Audit').length).toBeGreaterThan(0);
   });
 
-  it('renders Audit Proof as a focused Lab 4 evidence view', async () => {
+  it('renders Audit Proof as a focused Lab 3 evidence view', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>

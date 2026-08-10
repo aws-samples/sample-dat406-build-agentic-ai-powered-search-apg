@@ -1,8 +1,5 @@
 # E2E workflow: Playwright against a dedicated Cognito dev pool.
 #
-# Design contract: .kiro/specs/pellier-storefront/design.md — Testing
-# Strategy, "E2E (Playwright against a dedicated Cognito dev pool)".
-#
 # The dev pool is separate from the workshop infrastructure and is
 # email/password-only. Google and Apple IdP flows are validated via manual
 # workshop dry-runs, not here.

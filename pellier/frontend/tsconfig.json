@@ -25,13 +25,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["vitest/globals", "@testing-library/jest-dom", "node"]
   },
-  "include": ["src"],
-  /*
-   * Story files and the Storybook config are scaffolding for task 7.2
-   * (visual regression). They import from `@storybook/react` which is
-   * intentionally not installed until a team wires Chromatic up.
-   * Excluding them here keeps `tsc --noEmit` green in the meantime.
-   * See `tests/visual-regression/README.md` for the turn-on steps.
-   */
-  "exclude": ["src/stories/**", ".storybook/**"]
+  "include": ["src"]
 }

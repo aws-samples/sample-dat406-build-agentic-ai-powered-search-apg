@@ -649,7 +649,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     cards = [
         {
             "id": "marco-floor-check",
-            "lab": "Lab 1: Build a Specialist Agent",
+            "lab": "Lab 1: Build & Trace",
             "group": "Agent and tool evidence",
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
@@ -681,7 +681,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "retrieval-comparison",
-            "lab": "Lab 2: Measure Hybrid Search",
+            "lab": "Lab 2: Retrieval Quality",
             "group": "Retrieval evidence",
             "title": "Compare Anna's four retrieval strategies",
             "status": (
@@ -712,7 +712,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "audit-ledger",
-            "lab": "Lab 4: Audit Agent Actions",
+            "lab": "Lab 3: Managed Execution & Audit",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -793,7 +793,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "managed-rail",
-            "lab": "Lab 3: Prove AgentCore Memory",
+            "lab": "Lab 3: Managed Execution & Audit",
             "group": "Managed boundaries",
             "title": "Prove the managed Runtime and Gateway rail",
             "status": _card_status(

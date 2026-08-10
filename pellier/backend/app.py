@@ -588,12 +588,6 @@ async def health_check():
 # been removed — don't re-add it; the router owns that path.
 
 
-# NOTE: the old ``POST /api/search/image`` multi-modal endpoint and its
-# ``ImageSearchService`` backing remain removed. The required storefront path
-# is text-in search; the two-hour workshop close uses
-# ``scripts/demo_multimodal_image_search.py`` to show Cohere Embed v4 image
-# embeddings over the same pgvector column without restoring a product route.
-
 @app.get("/api/products/category/{category_query}")
 async def explore_collection(
     category_query: str,
@@ -1251,7 +1245,7 @@ async def get_context_stats(session_id: Optional[str] = Query(default=None)):
     Get context statistics for monitoring
     
     Returns comprehensive metrics for token usage, efficiency, and costs.
-    Demonstrates enterprise-grade context window management for Claude Opus 4.
+    Demonstrates context-window management for the configured Bedrock model.
     
     Args:
         session_id: Optional session ID for session-specific stats

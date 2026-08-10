@@ -1,10 +1,6 @@
 """Runtime-switch tests for the runtime bridge dispatcher.
 
-Validates Requirement 2.5.1 from
-`.kiro/specs/pellier-storefront/requirements.md` and Design
-"Runtime selection switch":
-
-  2.5.1  When ``settings.USE_AGENTCORE_RUNTIME`` is ``False`` (the
+  When ``settings.USE_AGENTCORE_RUNTIME`` is ``False`` (the
          default), ``services.agentcore_runtime.run_agent`` SHALL
          dispatch to the in-process Strands orchestrator produced by
          ``agents.orchestrator.create_orchestrator`` (in-process orchestrator).

@@ -40,10 +40,8 @@ PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
 DEPLOY_ALL = DEPLOY / "deploy_all.sh"
 RESET_GOVERNED = REPO_ROOT / "scripts" / "reset-governed-workshop.sh"
 GOVERNED_RECEIPTS_MIGRATION = REPO_ROOT / "scripts" / "migrations" / "010_governed_receipts.sql"
-STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_final_sale_forbid.cedar"
-SOLUTION_CEDAR = REPO_ROOT / "solutions" / "the-concierge" / "policies" / "final_sale_forbid.cedar"
-IDENTITY_STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_identity_match_forbid.cedar"
-IDENTITY_SOLUTION_CEDAR = (
+STARTER_CEDAR = REPO_ROOT / "policies" / "workshop_identity_match_forbid.cedar"
+SOLUTION_CEDAR = (
     REPO_ROOT / "solutions" / "the-concierge" / "policies" / "identity_match_forbid.cedar"
 )
 
@@ -156,14 +154,15 @@ def test_deploy_policy_compiles_and_exposes_helpers() -> None:
 
 def test_workshop_policy_rule_is_resettable_participant_policy() -> None:
     src = WORKSHOP_POLICY_RULE.read_text()
-    assert "workshop_final_sale_forbid" in src
+    assert "workshop_identity_match_forbid" in src
     assert "delete_policy" in src, "participant policy must be removable by reset"
-    assert "process_return" in src and "product_id" in src
-    assert "FINAL_SALE_PRODUCT_ID = 37" in src
-    assert "context.input.product_id ==" in src
+    assert "process_return" in src and "customer_id" in src
+    assert "principal.hasTag(" in src
+    assert "principal.getTag(" in src
+    assert "context.input.customer_id" in src
     assert "--cedar-file" in src
     assert "validate" in src
-    assert "_validate_participant_cedar" in src
+    assert "_validate_identity_cedar" in src
     assert "create_action_policy_with_fallback" in src
 
 
@@ -176,10 +175,11 @@ def test_participant_cedar_file_contract() -> None:
     for text in (starter, solution):
         assert 'AgentCore::Action::"ACTION_TOKEN"' in text
         assert 'AgentCore::Gateway::"GATEWAY_ARN"' in text
-        assert "context.input has product_id" in text
+        assert "context.input has customer_id" in text
 
     assert "false" in starter, "starter must require a participant edit"
-    assert "context.input.product_id == 37" in solution
+    assert 'principal.hasTag("username")' in solution
+    assert 'principal.getTag("username") != context.input.customer_id' in solution
 
 
 def test_workshop_policy_rule_validates_authored_cedar() -> None:
@@ -193,9 +193,9 @@ def test_workshop_policy_rule_validates_authored_cedar() -> None:
     solution = SOLUTION_CEDAR.read_text()
 
     assert "replace the starter false predicate" in "\n".join(
-        mod._validate_participant_cedar(starter, product_id=37)
+        mod._validate_identity_cedar(starter, claim_tag="username")
     )
-    assert mod._validate_participant_cedar(solution, product_id=37) == []
+    assert mod._validate_identity_cedar(solution, claim_tag="username") == []
 
 
 def test_workshop_policy_rule_supports_log_only_enforce_staging() -> None:
@@ -421,54 +421,6 @@ def test_governed_reset_restores_enforce_mode() -> None:
     assert "--set ENFORCE" in src
     assert "AGENTCORE_GATEWAY_ARN" in src
     assert "Gateway Policy attachment restored to ENFORCE mode" in src
-
-
-def test_identity_match_rule_is_second_participant_policy() -> None:
-    """The optional identity rail rides the same helper: separate policy name,
-    JWT-claim tag comparison against the tool input, removable by reset."""
-    src = WORKSHOP_POLICY_RULE.read_text()
-    assert "workshop_identity_match_forbid" in src
-    assert "--rule" in src and "identity_match" in src
-    # The identity comparison must read the JWT claim from the principal tag
-    # (AgentCore::OAuthUser exposes token claims as tags) — not from input.
-    assert "principal.hasTag(" in src
-    assert "principal.getTag(" in src
-    assert "context.input.customer_id" in src
-    # Both participant policies must fall inside reset's blast radius.
-    assert "PARTICIPANT_POLICY_NAMES" in src
-
-
-def test_identity_match_cedar_file_contract() -> None:
-    assert IDENTITY_STARTER_CEDAR.is_file(), "identity starter Cedar file must ship"
-    assert IDENTITY_SOLUTION_CEDAR.is_file(), "identity solution Cedar file must ship"
-
-    starter = IDENTITY_STARTER_CEDAR.read_text()
-    solution = IDENTITY_SOLUTION_CEDAR.read_text()
-    for text in (starter, solution):
-        assert 'AgentCore::Action::"ACTION_TOKEN"' in text
-        assert 'AgentCore::Gateway::"GATEWAY_ARN"' in text
-        assert "context.input has customer_id" in text
-
-    assert "false" in starter, "identity starter must require a participant edit"
-    assert 'principal.hasTag("username")' in solution
-    assert 'principal.getTag("username") != context.input.customer_id' in solution
-
-
-def test_identity_match_validator_accepts_solution_rejects_starter() -> None:
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location("workshop_policy_rule", WORKSHOP_POLICY_RULE)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
-    starter = IDENTITY_STARTER_CEDAR.read_text()
-    solution = IDENTITY_SOLUTION_CEDAR.read_text()
-
-    starter_errors = "\n".join(mod._validate_identity_cedar(starter, claim_tag="username"))
-    assert "replace the starter false predicate" in starter_errors
-    assert mod._validate_identity_cedar(solution, claim_tag="username") == []
-    # The final-sale validator must NOT accept the identity file (distinct rules).
-    assert mod._validate_participant_cedar(solution, product_id=37) != []
 
 
 # ---------------------------------------------------------------------------

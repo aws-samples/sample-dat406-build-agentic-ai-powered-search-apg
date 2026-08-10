@@ -92,11 +92,11 @@ class _ProofDB:
 
 class _DenyProofDB(_ProofDB):
     async def fetch_one(self, query: str, *params: Any) -> dict | None:
-        if "FROM pellier.governed_receipts" in query and params[:1] == ("gateway-final-sale-proof",):
+        if "FROM pellier.governed_receipts" in query and params[:1] == ("gateway-identity-mismatch-proof",):
             return {
                 "receipt_id": 606,
                 "audit_id": None,
-                "session_id": "gateway-final-sale-proof",
+                "session_id": "gateway-identity-mismatch-proof",
                 "principal_id": "CUST-MARCO",
                 "principal_label": "Marco (Cognito JWT)",
                 "tool": "process_return",
@@ -109,7 +109,7 @@ class _DenyProofDB(_ProofDB):
                     "absence_verified": True,
                 },
                 "policy_engine_id": "policy-1",
-                "policy_name": "workshop_final_sale_forbid",
+                "policy_name": "workshop_identity_match_forbid",
                 "created_at": None,
             }
         return await super().fetch_one(query, *params)
@@ -227,12 +227,12 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert "act" not in cards["marco-floor-check"]
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
-    assert cards["marco-floor-check"]["lab"] == "Lab 1: Build a Specialist Agent"
-    assert cards["retrieval-comparison"]["lab"] == "Lab 2: Measure Hybrid Search"
+    assert cards["marco-floor-check"]["lab"] == "Lab 1: Build & Trace"
+    assert cards["retrieval-comparison"]["lab"] == "Lab 2: Retrieval Quality"
     assert cards["retrieval-comparison"]["status"] == "available"
-    assert cards["managed-rail"]["lab"] == "Lab 3: Prove AgentCore Memory"
+    assert cards["managed-rail"]["lab"] == "Lab 3: Managed Execution & Audit"
     assert cards["managed-rail"]["required"] is True
-    assert cards["audit-ledger"]["lab"] == "Lab 4: Audit Agent Actions"
+    assert cards["audit-ledger"]["lab"] == "Lab 3: Managed Execution & Audit"
     assert cards["runtime-gateway-policy"]["lab"] == "Lab 4: Govern Actions"
     assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
@@ -245,7 +245,7 @@ def test_proof_board_scopes_gateway_deny_absence(monkeypatch) -> None:
     _configure_managed(monkeypatch)
     client = _client(_DenyProofDB())
 
-    r = client.get("/api/atelier/proof-board?session_id=gateway-final-sale-proof")
+    r = client.get("/api/atelier/proof-board?session_id=gateway-identity-mismatch-proof")
     assert r.status_code == 200
     receipt = r.json()["managedReceipt"]
 

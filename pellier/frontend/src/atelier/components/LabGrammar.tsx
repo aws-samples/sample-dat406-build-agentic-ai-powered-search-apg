@@ -31,7 +31,7 @@ export type EvidenceProvenance = 'live' | 'fixture' | 'modeled' | 'unavailable';
 export type ProofState = 'pass' | 'fail' | 'pending';
 
 export interface LabGrammarProps {
-  /** Persistent "you are here" indicator, e.g. "Lab 1 · Build a Specialist Agent". */
+  /** Persistent "you are here" indicator, e.g. "Lab 1 · Build & Trace". */
   labLabel: string;
   /** What the attendee does in the Boutique. */
   try: React.ReactNode;

@@ -1,9 +1,7 @@
 /**
  * E2E: happy-path email/password sign-in against the dedicated Cognito dev pool.
  *
- * Design contract: `.kiro/specs/pellier-storefront/design.md` — Testing
- * Strategy, "E2E (Playwright against a dedicated Cognito dev pool)". The
- * spec covers:
+ * Runs against a dedicated Cognito dev pool. The spec covers:
  *
  *   1. Open `/signin`
  *   2. Click the "Continue with email" CTA

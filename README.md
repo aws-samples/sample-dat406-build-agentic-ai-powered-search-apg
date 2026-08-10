@@ -170,12 +170,10 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Section | What attendees do |
 |---|---|
 | Introduction | Open the workspace and land in Boutique + Atelier — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
-| Lab 1: Build a Specialist Agent | Complete Stock Keeper and `floor_check`, then prove Marco's turn across routing, Aurora inventory, `tool_audit`, and execution evidence. |
-| Lab 2: Measure Hybrid Search | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
-| Lab 3: Prove AgentCore Memory | Prove cross-turn context through managed AgentCore Memory, then invoke managed Runtime through Gateway. |
-| Lab 4: Audit Agent Actions | Trigger Theo's return, query the JSONB audit ledger, and reconstruct the seeded identity mismatch. |
+| Lab 1: Build & Trace | Complete Stock Keeper and `floor_check`, then prove Marco's turn across routing, Aurora inventory, `tool_audit`, and execution evidence. |
+| Lab 2: Retrieval Quality | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
+| Lab 3: Managed Execution & Audit | Prove cross-turn context through managed AgentCore Memory and Runtime/Gateway, then reconstruct the seeded identity mismatch from the Aurora ledger. |
 | Lab 4: Govern Actions | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the safe path still works, and reset participant policy. |
-| Extension Labs | Continue into Agent Behavior & Routing, Retrieval Engineering, or Defense in Depth only after the required managed proof. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.

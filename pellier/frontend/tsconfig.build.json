@@ -15,8 +15,6 @@
    */
   "extends": "./tsconfig.json",
   "exclude": [
-    "src/stories/**",
-    ".storybook/**",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
     "src/test-setup.ts"

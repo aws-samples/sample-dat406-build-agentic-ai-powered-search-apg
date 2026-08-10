@@ -1,9 +1,4 @@
-"""Unit tests for ``config.Settings`` (Task 6.1).
-
-Validates the storefront spec's configuration contract from
-`.kiro/specs/pellier-storefront/tasks.md` Task 6.1:
-
-    Acceptance: Req 4.1.2, 4.1.4, 7.2.3; Design runtime switch.
+"""Unit tests for ``config.Settings``.
 
 Covered assertions:
 

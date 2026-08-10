@@ -1,7 +1,4 @@
-"""Performance smoke tests for Pellier storefront (Task 7.1).
-
-Acceptance: ``.kiro/specs/pellier-storefront/requirements.md``
-Req 5.1.1-5.1.3.
+"""Performance smoke tests for Pellier storefront.
 
 Runs against a **live** stack seeded with the workshop catalog. The
 test module skips cleanly when ``PERF_TEST_BASE_URL`` is unset so the
@@ -14,9 +11,9 @@ Editor box::
 
 Targets enforced:
 
-* **Req 5.1.1** ``POST /api/search`` end-to-end p95 under 500 ms.
-* **Req 5.1.2** ``POST /api/agent/chat`` first-token latency under 2 s.
-* **Req 5.1.3** JWT-verified endpoint warm-path *added* latency under
+* ``POST /api/search`` end-to-end p95 under 500 ms.
+* ``POST /api/agent/chat`` first-token latency under 2 s.
+* JWT-verified endpoint warm-path *added* latency under
   200 ms (measured as the delta between an authed call and an
   unauthed baseline on the same host, so it isolates JWT verification
   overhead rather than network jitter).
@@ -56,7 +53,7 @@ CHAT_SAMPLES = int(os.environ.get("PERF_TEST_CHAT_SAMPLES", "3"))
 JWT_SAMPLES = int(os.environ.get("PERF_TEST_JWT_SAMPLES", "10"))
 WARMUP_SAMPLES = int(os.environ.get("PERF_TEST_WARMUP_SAMPLES", "2"))
 
-# Per-Req timeouts used as pytest hard-fail thresholds.
+# Timeouts used as pytest hard-fail thresholds.
 SEARCH_P95_BUDGET_MS = 500.0   # Req 5.1.1
 CHAT_FIRST_TOKEN_BUDGET_MS = 2_000.0  # Req 5.1.2
 JWT_ADDED_LATENCY_BUDGET_MS = 200.0   # Req 5.1.3

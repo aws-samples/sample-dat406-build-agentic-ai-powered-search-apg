@@ -18,7 +18,7 @@ import { LabGrammar } from './LabGrammar';
 function renderGrammar(overrides: Partial<React.ComponentProps<typeof LabGrammar>> = {}) {
   return render(
     <LabGrammar
-      labLabel="Lab 1 · Build a Specialist Agent"
+      labLabel="Lab 1 · Build & Trace"
       try="Ask Marco's Turn 4 in the Boutique."
       build="Wire floor_check between the markers."
       prove="The registry strip reads 15/15 shipped."
@@ -116,6 +116,6 @@ describe('LabGrammar', () => {
     );
 
     expect(source).toContain('LabGrammar');
-    expect(source).toContain('Lab 1 · Build a Specialist Agent');
+    expect(source).toContain('Lab 1 · Build & Trace');
   });
 });

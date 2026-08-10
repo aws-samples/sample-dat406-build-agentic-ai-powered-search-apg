@@ -24,10 +24,10 @@ import PreferencesModal from './components/PreferencesModal'
 import ChatDrawer from './components/ChatDrawer'
 import ComparisonHost from './components/ComparisonHost'
 import SignInPage from './components/SignInPage'
-import BoutiquePage from './pages/BoutiquePage'
 import { routerBasename } from './utils/assetPath'
 import './styles/premium-heading-styles.css'
 
+const BoutiquePage = lazy(() => import('./pages/BoutiquePage'))
 const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
 const AtelierFrame = lazy(() => import('./atelier/shell/AtelierFrame'))
 const SessionsList = lazy(() => import('./atelier/surfaces/observe/SessionsList'))
@@ -62,10 +62,6 @@ const InspectorPage = lazy(() => import('./pages/InspectorPage'))
 const StoryboardPage = lazy(() => import('./pages/StoryboardPage'))
 const DiscoverPage = lazy(() => import('./pages/DiscoverPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
-const AtelierComponentsPreview = lazy(
-  () => import('./pages/AtelierComponentsPreview'),
-)
-const DesignSystemPreview = lazy(() => import('./pages/DesignSystemPreview'))
 
 // ---------------------------------------------------------------------------
 // AuthGate — Cognito-aware auth wrapper. Gates the Atelier surface when
@@ -244,21 +240,6 @@ function App() {
                   <Route path="persona-journeys" element={<PersonaJourneys />} />
                   <Route path="settings" element={<AtelierSettings />} />
                 </Route>
-                {/* Dev-only: preview gallery for shared atelier/ primitives.
-                    Guarded by import.meta.env.DEV so production bundles
-                    never include it. */}
-                {import.meta.env.DEV && (
-                  <Route
-                    path="/atelier/_components"
-                    element={<AtelierComponentsPreview />}
-                  />
-                )}
-                {import.meta.env.DEV && (
-                  <Route
-                    path="/dev/design-system"
-                    element={<DesignSystemPreview />}
-                  />
-                )}
                 <Route path="/inspector" element={<InspectorPage />} />
                 <Route path="/storyboard" element={<StoryboardPage />} />
                 <Route path="/discover" element={<DiscoverPage />} />

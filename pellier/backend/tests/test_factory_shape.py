@@ -209,8 +209,7 @@ def test_exa_api_key_removed_from_settings() -> None:
     from config import settings
 
     assert not hasattr(settings, "EXA_API_KEY"), (
-        "settings.EXA_API_KEY reappeared — Exa MCP integration was removed, "
-        "see .kiro/specs/customer-support-agent/requirements.md §5"
+        "settings.EXA_API_KEY reappeared — Exa MCP integration was removed"
     )
 
 

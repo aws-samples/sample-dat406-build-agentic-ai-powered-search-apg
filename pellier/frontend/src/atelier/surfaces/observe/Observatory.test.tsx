@@ -11,31 +11,25 @@ describe('Atelier workshop map', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText(/^Lab [1-5]$/).map((node) => node.textContent)).toEqual([
+    expect(screen.getAllByText(/^Lab [1-4]$/).map((node) => node.textContent)).toEqual([
       'Lab 1',
       'Lab 2',
       'Lab 3',
       'Lab 4',
-      'Lab 4',
     ]);
-    expect(screen.getByRole('heading', { name: 'Build a Specialist Agent' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Measure Hybrid Search' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Prove AgentCore Memory' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Audit Agent Actions' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Enforce Cedar Policy' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Build & Trace' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Retrieval Quality' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Managed Execution & Audit' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Govern Actions' })).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 
     expect(screen.getByRole('link', { name: /Open retrieval comparison/i })).toHaveAttribute(
       'href',
       '/atelier/performance',
     );
-    expect(screen.getByRole('link', { name: /Open audit proof/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Open Lab 3 proofs/i })).toHaveAttribute(
       'href',
-      '/atelier/audit-proof',
-    );
-    expect(screen.getByRole('link', { name: /Open Memory/i })).toHaveAttribute(
-      'href',
-      '/atelier/memory',
+      '/atelier/proof-board#managed-rail',
     );
     expect(screen.getByRole('link', { name: /Open Gateway & Policy/i })).toHaveAttribute(
       'href',

@@ -1,10 +1,8 @@
 /**
  * E2E: anonymous browsing, sign in, confirm personalized grid re-renders.
  *
- * Design contract: `.kiro/specs/pellier-storefront/design.md` -
- * Testing Strategy, "E2E (Playwright against a dedicated Cognito dev
- * pool)". Exercises Requirements 1.6.6 (grid remount on prefsVersion),
- * 3.3.1-3.3.5 (personalized products), 4.3.3 (anon namespace isolation).
+ * Exercises grid remount on prefsVersion, personalized products, and
+ * anonymous namespace isolation.
  *
  * Flow:
  *   1. Visit the storefront anonymously. Sign-in strip is visible, the

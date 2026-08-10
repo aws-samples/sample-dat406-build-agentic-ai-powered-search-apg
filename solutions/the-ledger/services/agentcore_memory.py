@@ -7,7 +7,7 @@ is the managed memory primitive for AgentCore. We use the short-term
 side here (event log per session) plus a key-value namespace for
 durable preferences. Episodic and procedural memory live elsewhere
 (Aurora `pellier.customer_episodic_seed` and `pellier.tool_audit`
-respectively) — see the four-substrate model in lab-content-audit.md §1.
+respectively). Together they form Pellier's four memory substrates.
 
 AgentCore Memory (Requirements 2.5.2, 4.3.2, 4.4.1, 6.2.1). Exposes a single
 ``AgentCoreMemory`` class with four async methods:

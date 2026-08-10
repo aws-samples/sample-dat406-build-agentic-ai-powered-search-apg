@@ -116,7 +116,7 @@ const Sidebar: React.FC = () => {
   //
   //   Lab 1  Build & Trace      tool registry + one live trace
   //   Lab 2  Retrieval Quality  search pipeline + retrieval comparison
-  //   Lab 3  Memory & Audit     memory substrates + audit proof
+  //   Lab 3  Managed Execution & Audit
   //   Lab 4  Govern Actions     gateway, policy, write path
   //
   // Every previous route stays reachable — Deep Dives keeps them as deep
@@ -160,7 +160,7 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'MEMORY & AUDIT',
+      eyebrow: 'MANAGED EXECUTION & AUDIT',
       labNumber: 3,
       collapsible: true,
       items: [

@@ -9,9 +9,6 @@ them into the shape the frontend `/inspector` view consumes:
 Each ``Span`` carries ``name``, ``kind`` (``orchestrator`` | ``specialist``
 | ``tool``), ``startMs``, ``durationMs`` and raw ``attributes`` so the
 waterfall can render the orchestrator → specialist → tool hand-off.
-
-See Requirement 2.5.4 and 5.4.1 in
-`.kiro/specs/pellier-storefront/requirements.md`.
 """
 import logging
 from typing import Any, Dict, Iterable, List, Optional

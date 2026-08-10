@@ -1,28 +1,17 @@
 #!/usr/bin/env python3
-"""Apply or reset the governed-workshop participant Cedar rules.
+"""Apply or reset the governed-workshop participant Cedar rule.
 
 The shipped policy set is created by deploy_policy.py. This helper never edits
 those baseline policies. It adds separately named participant policies and can
 delete them again in one reset command.
 
-Two participant rules are supported, selected with ``--rule``:
-
-* ``final_sale`` (default) – forbid process_return for final-sale product 37.
-  Gates on tool INPUT only (``context.input.product_id``).
-* ``identity_match`` – forbid process_return when the authenticated JWT
+The required ``identity_match`` rule forbids process_return when the authenticated JWT
   principal is not the customer the return is for. Gates on IDENTITY:
   AgentCore Policy exposes JWT claims as principal tags, so the rule compares
   ``principal.getTag("username")`` against ``context.input.customer_id``.
 
 Usage:
     python3 scripts/deploy/workshop_policy_rule.py show
-    python3 scripts/deploy/workshop_policy_rule.py \
-      --cedar-file policies/workshop_final_sale_forbid.cedar validate
-    python3 scripts/deploy/workshop_policy_rule.py \
-      --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
-      --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
-      --cedar-file policies/workshop_final_sale_forbid.cedar \
-      apply
     python3 scripts/deploy/workshop_policy_rule.py --rule identity_match \
       --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
       --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
@@ -51,19 +40,17 @@ if str(SCRIPT_DIR) not in sys.path:
 import deploy_policy  # noqa: E402
 
 
-PARTICIPANT_POLICY_NAME = "workshop_final_sale_forbid"
+PARTICIPANT_POLICY_NAME = "workshop_identity_match_forbid"
 PARTICIPANT_POLICY_DESCRIPTION = (
-    "Workshop participant rule: forbid process_return for final-sale product 37"
-)
-IDENTITY_POLICY_NAME = "workshop_identity_match_forbid"
-IDENTITY_POLICY_DESCRIPTION = (
     "Workshop participant rule: forbid process_return when the JWT principal "
     "is not the customer the return is for"
 )
-# reset must remove every participant-named policy, whichever rule was applied.
-PARTICIPANT_POLICY_NAMES = (PARTICIPANT_POLICY_NAME, IDENTITY_POLICY_NAME)
+# Reset also removes the retired exercise policy if an older environment has it.
+PARTICIPANT_POLICY_NAMES = (
+    PARTICIPANT_POLICY_NAME,
+    "workshop_final_sale_forbid",
+)
 EXPERIENCE_TARGET = deploy_policy.EXPERIENCE_TARGET
-FINAL_SALE_PRODUCT_ID = 37
 IDENTITY_CLAIM_TAG = "username"
 
 
@@ -142,23 +129,6 @@ def _candidate_actions(experience_target: str = EXPERIENCE_TARGET) -> list[str]:
     ]
 
 
-def build_final_sale_forbid(
-    *,
-    gateway_arn: str,
-    action_token: str,
-    product_id: int = FINAL_SALE_PRODUCT_ID,
-) -> str:
-    """Return the participant Cedar rule for one final-sale product."""
-    return (
-        f'forbid(principal, action == AgentCore::Action::"{action_token}", '
-        f'resource == AgentCore::Gateway::"{gateway_arn}")\n'
-        "when {\n"
-        "  context.input has product_id &&\n"
-        f"  context.input.product_id == {int(product_id)}\n"
-        "};"
-    )
-
-
 def build_identity_match_forbid(
     *,
     gateway_arn: str,
@@ -214,34 +184,6 @@ def _render_cedar_template(
     )
 
 
-def _validate_participant_cedar(statement: str, *, product_id: int) -> list[str]:
-    """Return static workshop validation errors for the authored Cedar file.
-
-    AgentCore Policy still performs the authoritative Cedar validation during
-    create_policy. These checks catch common room mistakes before the API call.
-    """
-    uncommented = _strip_line_comments(statement)
-    compact = re.sub(r"\s+", " ", uncommented)
-    errors: list[str] = []
-    if "forbid(" not in uncommented:
-        errors.append("expected a forbid(...) rule")
-    if "AgentCore::Action::" not in uncommented:
-        errors.append("expected AgentCore::Action in the action clause")
-    if "AgentCore::Gateway::" not in uncommented:
-        errors.append("expected AgentCore::Gateway in the resource clause")
-    if not re.search(r"context\.input\s+has\s+product_id", compact):
-        errors.append("expected guard: context.input has product_id")
-    if not re.search(
-        rf"context\.input\.product_id\s*==\s*{int(product_id)}\b",
-        compact,
-    ):
-        errors.append(f"expected condition: context.input.product_id == {int(product_id)}")
-    when_match = re.search(r"when\s*\{(?P<body>.*?)\}\s*;", uncommented, re.S)
-    if when_match and re.search(r"\bfalse\b", when_match.group("body")):
-        errors.append("replace the starter false predicate in the when block")
-    return errors
-
-
 def _validate_identity_cedar(statement: str, *, claim_tag: str) -> list[str]:
     """Static workshop validation for the identity-mismatch rule."""
     uncommented = _strip_line_comments(statement)
@@ -274,35 +216,18 @@ def _validate_identity_cedar(statement: str, *, claim_tag: str) -> list[str]:
     return errors
 
 
-# Rule registry: name → (policy name/description, built-in Cedar builder,
-# static validator). apply/show/validate dispatch on args.rule through this.
 def _rule_spec(args: argparse.Namespace) -> dict[str, Any]:
-    rule = getattr(args, "rule", "final_sale")
-    if rule == "identity_match":
-        claim_tag = getattr(args, "claim_tag", IDENTITY_CLAIM_TAG)
-        return {
-            "policy_name": IDENTITY_POLICY_NAME,
-            "policy_description": IDENTITY_POLICY_DESCRIPTION,
-            "build": lambda gateway_arn, action_token: build_identity_match_forbid(
-                gateway_arn=gateway_arn,
-                action_token=action_token,
-                claim_tag=claim_tag,
-            ),
-            "validate": lambda statement: _validate_identity_cedar(
-                statement, claim_tag=claim_tag
-            ),
-        }
-    product_id = getattr(args, "product_id", FINAL_SALE_PRODUCT_ID)
+    claim_tag = getattr(args, "claim_tag", IDENTITY_CLAIM_TAG)
     return {
         "policy_name": PARTICIPANT_POLICY_NAME,
         "policy_description": PARTICIPANT_POLICY_DESCRIPTION,
-        "build": lambda gateway_arn, action_token: build_final_sale_forbid(
+        "build": lambda gateway_arn, action_token: build_identity_match_forbid(
             gateway_arn=gateway_arn,
             action_token=action_token,
-            product_id=product_id,
+            claim_tag=claim_tag,
         ),
-        "validate": lambda statement: _validate_participant_cedar(
-            statement, product_id=product_id
+        "validate": lambda statement: _validate_identity_cedar(
+            statement, claim_tag=claim_tag
         ),
     }
 
@@ -532,19 +457,9 @@ def main() -> int:
         )
         target.add_argument(
             "--rule",
-            choices=("final_sale", "identity_match"),
-            default=argparse.SUPPRESS if suppress_defaults else "final_sale",
-            help=(
-                "Which participant rule to build/validate/apply. final_sale "
-                "gates on tool input; identity_match gates on the JWT "
-                "principal's username tag vs context.input.customer_id."
-            ),
-        )
-        target.add_argument(
-            "--product-id",
-            type=int,
-            default=argparse.SUPPRESS if suppress_defaults else FINAL_SALE_PRODUCT_ID,
-            help="Final-sale productId to forbid through process_return.",
+            choices=("identity_match",),
+            default=argparse.SUPPRESS if suppress_defaults else "identity_match",
+            help="Identity-aware participant rule used by Lab 4.",
         )
         target.add_argument(
             "--claim-tag",

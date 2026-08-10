@@ -1,4 +1,4 @@
-// Participant rule (optional identity rail): the authenticated principal may
+// Required Lab 4 reference rule: the authenticated principal may
 // only file a return for itself. AgentCore Policy exposes JWT claims as
 // principal tags, so the Cognito access token's `username` claim (marco/anna/
 // theo – lowercase, matching the pellier.customers convention used in tool

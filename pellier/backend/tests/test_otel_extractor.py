@@ -1,14 +1,11 @@
 """Trace-extraction tests for OTEL extraction.
 
-Validates Requirement 2.5.4 and 5.4.1 from
-`.kiro/specs/pellier-storefront/requirements.md`:
-
-  2.5.4  The OTEL challenge block in ``services/otel_trace_extractor.py``
+  The OTEL challenge block in ``services/otel_trace_extractor.py``
          SHALL extract OpenTelemetry spans produced by the agent run
          and format them for the ``/inspector`` view as
          ``{ spans, totalMs, specialistRoute }`` where every span has
          ``{ name, kind, startMs, durationMs, attributes }``.
-  5.4.1  Every orchestrator run SHALL produce at least one
+  Every orchestrator run SHALL produce at least one
          ``orchestrator`` span, one ``specialist`` span and one
          ``tool`` span extractable by ``otel_trace_extractor``.
 

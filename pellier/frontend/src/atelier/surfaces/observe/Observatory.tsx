@@ -43,18 +43,12 @@ const PILLARS: PillarItem[] = [
     description:
       'Open one focused view when the lab calls for it, then return to Boutique or Code Editor for the canonical proof.',
   },
-  {
-    verb: 'Explore',
-    title: 'Extension labs',
-    description:
-      'Agent Behavior & Routing, Retrieval Engineering, and Defense in Depth begin only after their named checkpoint.',
-  },
 ];
 
 const LABS: LabItem[] = [
   {
     lab: 'Lab 1',
-    title: 'Build a Specialist Agent',
+    title: 'Build & Trace',
     summary:
       "Complete Stock Keeper and floor_check, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
@@ -73,7 +67,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 2',
-    title: 'Measure Hybrid Search',
+    title: 'Retrieval Quality',
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
@@ -96,45 +90,32 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 3',
-    title: 'Prove AgentCore Memory',
+    title: 'Managed Execution & Audit',
     summary:
-      "Send two authenticated turns and prove turn two receives turn-one context through AgentCore Memory, managed Runtime, and Gateway.",
+      "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {
-      to: '/atelier/memory',
-      label: 'Open Memory',
-      detail: 'Managed memory read',
+      to: '/atelier/proof-board#managed-rail',
+      label: 'Open Lab 3 proofs',
+      detail: 'Managed rail and audit evidence',
     },
     secondary: [
       {
-        to: '/atelier/proof-board#managed-rail',
-        label: 'Managed Runtime & Gateway',
-        detail: 'Lab 3 proof card',
+        to: '/atelier/memory',
+        label: 'Memory',
+        detail: 'Cross-turn continuity',
       },
-    ],
-  },
-  {
-    lab: 'Lab 4',
-    title: 'Audit Agent Actions',
-    summary:
-      "Trigger Theo's return, query tool_audit, and reconstruct the seeded principal-versus-customer mismatch from governed_receipts.",
-    primary: {
-      to: '/atelier/audit-proof',
-      label: 'Open audit proof',
-      detail: 'SQL remains canonical',
-    },
-    secondary: [
       {
         to: '/atelier/proof-board#audit-ledger',
-        label: 'Audit checkpoint',
-        detail: 'Lab 3 proof card',
+        label: 'Audit proof',
+        detail: 'SQL remains canonical',
       },
     ],
   },
   {
     lab: 'Lab 4',
-    title: 'Enforce Cedar Policy',
+    title: 'Govern Actions',
     summary:
-      'Apply one Cedar rule, prove DENY leaves a receipt but no execution row, confirm ALLOW still executes, and reset the participant policy.',
+      'Bind JWT identity to the requested customer, prove DENY leaves no execution row, confirm the matching identity executes, and reset the participant policy.',
     primary: {
       to: '/atelier/write-path',
       label: 'Open Gateway & Policy',

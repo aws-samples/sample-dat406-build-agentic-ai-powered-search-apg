@@ -1,10 +1,8 @@
 /**
  * E2E: silent token refresh on a 401.
  *
- * Design contract: `.kiro/specs/pellier-storefront/design.md` —
- * Testing Strategy, "E2E (Playwright against a dedicated Cognito dev
- * pool)". Exercises Requirement 5.3 (cookie-based auth) and Task 5.1's
- * 401 interceptor contract:
+ * Runs against a dedicated Cognito dev pool and exercises the cookie-based
+ * 401 refresh contract:
  *
  *   1. Sign in once against the dev pool (same bootstrapped credentials
  *      as `auth-happy-path.spec.ts`).

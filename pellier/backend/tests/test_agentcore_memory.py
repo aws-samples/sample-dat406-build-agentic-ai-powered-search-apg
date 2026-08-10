@@ -1,18 +1,15 @@
 """Tests for ``services.agentcore_memory.AgentCoreMemory`` (AgentCore Memory).
 
-Validates Requirements 2.5.2, 4.3.2, 4.3.3, 4.4.1, and 6.2.1 from
-``.kiro/specs/pellier-storefront/requirements.md``:
-
-  2.5.2 ``agentcore_memory`` implements session history + persistent
+  ``agentcore_memory`` implements session history + persistent
         user preferences via the ``AgentCoreMemory`` class.
-  4.3.2 Agent calls SHALL be scoped so no cross-user bleed is
+  Agent calls SHALL be scoped so no cross-user bleed is
         possible (``user-{user_id}-...`` keyspace).
-  4.3.3 Anonymous ``anon-{session_id}`` namespace SHALL NOT be
+  Anonymous ``anon-{session_id}`` namespace SHALL NOT be
         merged into the user namespace on sign-in.
-  4.4.1 Preferences persist via ``agentcore_memory`` at
+  Preferences persist via ``agentcore_memory`` at
         ``user:{user_id}:preferences`` — never in localStorage, never
         in the product DB.
-  6.2.1 Session history and user preferences use
+  Session history and user preferences use
         ``pellier/backend/services/agentcore_memory.py``.
 
 Tests run without ``AGENTCORE_MEMORY_ID`` so the in-memory fallback

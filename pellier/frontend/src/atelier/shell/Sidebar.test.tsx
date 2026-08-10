@@ -36,7 +36,9 @@ describe('Atelier Sidebar', () => {
     expect(within(nav).getByText('COCKPIT')).toBeInTheDocument();
     expect(within(nav).getByText(/LAB 1 · BUILD & TRACE/)).toBeInTheDocument();
     expect(within(nav).getByText(/LAB 2 · RETRIEVAL QUALITY/)).toBeInTheDocument();
-    expect(within(nav).getByText(/LAB 3 · MEMORY & AUDIT/)).toBeInTheDocument();
+    expect(
+      within(nav).getByText(/LAB 3 · MANAGED EXECUTION & AUDIT/),
+    ).toBeInTheDocument();
     expect(within(nav).getByText(/LAB 4 · GOVERN ACTIONS/)).toBeInTheDocument();
     expect(within(nav).getByText('DEEP DIVES')).toBeInTheDocument();
     // The old Act taxonomy must never return.

@@ -92,14 +92,8 @@ The required participant path is:
 
 1. Lab 1 - Build & Trace
 2. Lab 2 - Retrieval Quality
-3. Lab 3 - Memory & Audit
+3. Lab 3 - Managed Execution & Audit
 4. Lab 4 - Govern Actions
-
-Consolidated from five labs on 2026-08-08. The old Lab 3 (Prove AgentCore
-Memory) and Lab 4 (Audit Agent Actions) proved the same property from two
-angles — a durable record exists and can be read — so they merged into
-Lab 3. The old Lab 5 (Enforce Cedar Policy) became Lab 4. Every underlying
-proof and route is unchanged; only the grouping and numbering moved.
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.
