@@ -32,11 +32,17 @@ if [[ ! -x "$PYTHON" ]]; then
 fi
 AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 
+# This script TRUNCATEs the evidence tables, so it must never guess which
+# database to talk to. Require DB_NAME/DB_USER from the sourced .env rather
+# than silently defaulting to the `postgres` maintenance database.
+: "${DB_NAME:?DB_NAME is not set in $ENV_FILE — refusing to run a destructive reset against a guessed database}"
+: "${DB_USER:?DB_USER is not set in $ENV_FILE — refusing to run a destructive reset against a guessed role}"
+
 _psql_file() {
   local file="$1"
   PGPASSWORD="${DB_PASSWORD:-}" psql \
     -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" \
-    -U "${DB_USER:-postgres}" -d "${DB_NAME:-postgres}" \
+    -U "$DB_USER" -d "$DB_NAME" \
     -v ON_ERROR_STOP=1 \
     -f "$file"
 }
@@ -45,7 +51,7 @@ _psql_exec() {
   local sql="$1"
   PGPASSWORD="${DB_PASSWORD:-}" psql \
     -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" \
-    -U "${DB_USER:-postgres}" -d "${DB_NAME:-postgres}" \
+    -U "$DB_USER" -d "$DB_NAME" \
     -v ON_ERROR_STOP=1 \
     -c "$sql"
 }
