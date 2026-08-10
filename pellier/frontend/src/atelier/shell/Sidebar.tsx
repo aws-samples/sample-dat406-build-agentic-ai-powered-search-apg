@@ -135,11 +135,17 @@ const Sidebar: React.FC = () => {
       collapsible: true,
       items: [
         {
+          // No hardcoded count fallback. This badge is the primary signal
+          // that the floor_check exercise landed (14/15 -> 15/15), so a
+          // stale literal reads as a confident "not wired yet" when the
+          // truth is "build state unavailable" — indistinguishable from the
+          // pre-exercise state, on the one number a participant watches.
+          // An em-dash says "unknown" honestly.
           label: 'Tool Registry',
           path: 'tools',
           badge: buildState.toolTotal > 0
             ? `${buildState.toolShipped}/${buildState.toolTotal}`
-            : '14/15',
+            : '—',
         },
         { label: 'Sessions', path: 'sessions' },
       ],
