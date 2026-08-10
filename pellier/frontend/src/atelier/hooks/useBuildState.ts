@@ -1,12 +1,13 @@
 /**
  * useBuildState — Determines shipped vs exercise status for tools and agents.
  *
- * Provides an abstraction layer that can be backed by:
- *   1. Fixture data (default — reads status from agents.json / tools.json)
- *   2. GET /api/atelier/build-state — merges overlays (workshop: when
+ * Two sources, in precedence order:
+ *   1. GET /api/atelier/build-state — authoritative. Merges overlays: when
  *      floor_check is no longer the workshop stub in agent_tools.py, promotes
- *      floor_check plus Stock Keeper to shipped without editing JSON fixtures).
- *   3. File-existence checks via a future backend probe
+ *      floor_check plus Stock Keeper to shipped without editing JSON fixtures.
+ *   2. Fixture data (agents.json / tools.json) — used when the endpoint is
+ *      unreachable. Callers must treat a zero total as "unknown" rather than
+ *      substituting a hardcoded count; see the Sidebar badges.
  *
  * Consumers (Agents, Tools surfaces, WorkshopProgressStrip) use this hook
  * to get the canonical status of each item. When an item transitions from
@@ -41,8 +42,6 @@ export interface BuildStateResult {
   toolTotal: number;
   /** Whether the build state is still loading */
   loading: boolean;
-  /** Error message if build state detection failed */
-  error: string | null;
   /** Re-check build state (e.g., after a file change) */
   refresh: () => void;
 }
@@ -70,7 +69,6 @@ export function useBuildState(): BuildStateResult {
 
   const [apiOverrides, setApiOverrides] = useState<BuildStateApiResponse | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   /**
@@ -80,7 +78,6 @@ export function useBuildState(): BuildStateResult {
   const fetchBuildState = useCallback(async () => {
     const currentId = ++requestIdRef.current;
     setApiLoading(true);
-    setApiError(null);
 
     try {
       const res = await fetch('/api/atelier/build-state');
@@ -173,7 +170,6 @@ export function useBuildState(): BuildStateResult {
   const toolTotal = toolEntries.length;
 
   const loading = agentsLoading || toolsLoading || apiLoading;
-  const error = apiError;
 
   return {
     agentStatus,
@@ -183,7 +179,6 @@ export function useBuildState(): BuildStateResult {
     toolShipped,
     toolTotal,
     loading,
-    error,
     refresh: fetchBuildState,
   };
 }

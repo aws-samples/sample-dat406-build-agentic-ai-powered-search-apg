@@ -77,9 +77,15 @@ const Sidebar: React.FC = () => {
         {
           label: 'Agents',
           path: 'agents',
+          // No hardcoded count fallback. The Tools badge is the primary
+          // signal that the floor_check exercise landed (14/15 -> 15/15), so
+          // a stale literal here reads as a confident "not wired yet" when
+          // the truth is "build state unavailable" — indistinguishable from
+          // the pre-exercise state, on the one number a participant is told
+          // to watch. An em-dash says "unknown" honestly.
           badge: buildState.agentTotal > 0
             ? `${buildState.agentShipped}/${buildState.agentTotal}`
-            : '4/5',
+            : '—',
         },
         { label: 'Skills', path: 'skills', badge: '5' },
         {
@@ -87,7 +93,7 @@ const Sidebar: React.FC = () => {
           path: 'tools',
           badge: buildState.toolTotal > 0
             ? `${buildState.toolShipped}/${buildState.toolTotal}`
-            : '14/15',
+            : '—',
         },
       ],
     },
