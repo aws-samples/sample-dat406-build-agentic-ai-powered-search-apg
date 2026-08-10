@@ -1,8 +1,5 @@
 """Personalization match scoring.
 
-Implements Requirement 3.3.2 (and the 3.3.2.1 Take It Further hook) from
-`.kiro/specs/pellier-storefront/requirements.md`:
-
     When GET /api/products?personalized=true is called with a valid JWT AND
     the user has saved preferences THEN the backend SHALL compute a match
     score per product (count of overlapping values between the product's
@@ -11,8 +8,7 @@ Implements Requirement 3.3.2 (and the 3.3.2.1 Take It Further hook) from
     product list sorted by match score descending, ties broken by default
     editorial order.
 
-The design document (`design.md` -> "Personalization Scoring") calls out the
-equal-weight overlap as the workshop default and leaves a kwarg-shaped hook
+The equal-weight overlap is the workshop default and leaves a kwarg-shaped hook
 for a production weighted variant, so call sites (Task 3.6 / routes
 `/api/products`) never need to change when advanced participants experiment
 with weights.

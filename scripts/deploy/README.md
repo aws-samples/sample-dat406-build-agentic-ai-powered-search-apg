@@ -117,4 +117,4 @@ uv run test_runtime.py --prompt "Find me running shoes under $50"
 - **`agentcore deploy` fails on a missing CDKToolkit / `cdk-hnb659fds` stack** — the account isn't CDK-bootstrapped. Run `npx -y aws-cdk@2 bootstrap aws://<account>/<region>` (bootstrap-environment.sh does this automatically on fresh accounts).
 - **CloudWatch logs** — runtime invocations land in `/aws/bedrock-agentcore/runtimes/<runtime-id>`. Search by `session.id` to follow a single multi-step turn.
 
-For the full step-by-step workshop testing guide (Runtime + Gateway + Memory), see `lab-content-audit.md` §20.
+For the fresh-account Runtime, Gateway, and Memory release gate, see `PROBE_CHECKLIST.md`.

@@ -1029,7 +1029,7 @@ async def get_context_stats(session_id: Optional[str] = Query(default=None)):
     Get context statistics for monitoring
     
     Returns comprehensive metrics for token usage, efficiency, and costs.
-    Demonstrates enterprise-grade context window management for Claude Opus 4.
+    Demonstrates context-window management for the configured Bedrock model.
     
     Args:
         session_id: Optional session ID for session-specific stats

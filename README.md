@@ -35,7 +35,7 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you implement **one function** (`floor_check`), then run a series of **observe / measure / read** steps that prove how the production system behaves. The five agents, 15 tools, database, and managed runtime are pre-wired *on purpose* — so your attention goes to the agentic pattern, not the plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you implement **one function** (`floor_check`), then run a series of **observe / measure / read** steps that prove how the production system behaves. The five agents, 15 tools, and database are pre-wired *on purpose* — so your attention goes to the agentic pattern, not the plumbing.
 
 > **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** You only need to complete the one guided exercise to succeed. Everything else is there to explore at your own pace.
 
@@ -138,7 +138,7 @@ npx -y @aws/agentcore@0.18.0 --version
 npx -y @aws/agentcore@0.18.0 deploy -y --json
 ```
 
-The workshop bootstrap installs the same pinned version globally and provides an `agentcore` alias for read-only inspection (`status`, `logs`). The CLI is pre-1.0 and its command surface may change between releases – if you experiment with a newer version, expect differences from the commands documented here. This Node CLI replaces the older `agentcore configure` / `agentcore launch` starter-toolkit flow.
+The governed workshop bootstrap installs the same pinned version globally for its managed-execution lab. The one-hour builders path does not install or invoke it. The CLI is pre-1.0 and its command surface may change between releases - if you experiment with a newer version, expect differences from the commands documented here.
 
 ### Facilitator note: `SPA_MOUNT_PATH`
 
@@ -155,7 +155,7 @@ The app moves to `/app/`, `GET /app` 307-redirects to `/app/`, and the real API 
 
 ## Workshop path
 
-This repo is the source of truth for the application behind the **60-minute agentic AI search Builder's Session**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Runtime, Gateway, Memory, Policy, and MCP remain available as optional production extensions. Exact pacing and participant wording live in the separate Workshop Studio repo.
+This repo is the source of truth for the application behind the **60-minute agentic AI search Builder's Session**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Exact pacing and participant wording live in the separate Workshop Studio repo.
 
 The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The session is structured as:
 
@@ -165,7 +165,6 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Core Lab 1: Build and Trace | Observe Marco's broken warehouse turn, wire `floor_check`, and prove a grounded Brooklyn quantity and ship window. |
 | Core Lab 2: Measure Retrieval | Compare vector, hybrid, hybrid plus rerank, and agentic retrieval for Anna's anchor query. |
 | Core Lab 3: Query Evidence | Generate a session-specific `process_return` receipt and query it from `pellier.tool_audit`. |
-| Optional Labs | Inspect memory, routing, Runtime, MCP, Gateway, and Policy after the shared core path. |
 | Summary | Connect the three proofs, map the pattern to another stack, and close. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.

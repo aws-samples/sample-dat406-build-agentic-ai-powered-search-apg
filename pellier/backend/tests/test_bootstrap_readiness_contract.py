@@ -14,6 +14,8 @@ import pytest
 REPO = Path(__file__).resolve().parents[3]
 MODEL_CHECK = REPO / "scripts" / "check_model_access.py"
 HEALTH_GATE = REPO / "scripts" / "health-gate.sh"
+BUILDERS_BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
+BUILDERS_DRY_RUN = REPO / "scripts" / "dry-run-builders.sh"
 PROVISIONER = REPO / "scripts" / "provision_agentcore_end_to_end.py"
 SEED_PREFERENCES = REPO / "scripts" / "seed-sample-preferences.sh"
 
@@ -93,7 +95,6 @@ case "$*" in
 esac
 """,
     )
-    _write_executable(fake_bin / "node", "#!/bin/bash\nprintf 'v20.20.2\\n'\n")
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["PELLIER_REPO"] = str(repo)
@@ -106,21 +107,34 @@ esac
     )
 
 
-def test_core_health_gate_allows_missing_optional_agentcore_pillars(
+def test_core_health_gate_reports_only_required_builders_checks(
     tmp_path: Path,
 ) -> None:
     proc = _run_health_gate(tmp_path, model_ready=True)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "READY" in proc.stdout
-    assert "AGENTCORE_MEMORY_ID empty" in proc.stdout
-    assert "AGENTCORE_RUNTIME_ENDPOINT empty" in proc.stdout
-    assert "AGENTCORE_GATEWAY_URL empty" in proc.stdout
+    assert "AGENTCORE_" not in proc.stdout
 
 
 def test_core_health_gate_requires_model_preflight(tmp_path: Path) -> None:
     proc = _run_health_gate(tmp_path, model_ready=False)
     assert proc.returncode == 1
     assert "model-access preflight did not pass" in proc.stdout
+
+
+def test_builders_path_defaults_managed_extensions_off() -> None:
+    bootstrap = BUILDERS_BOOTSTRAP.read_text(encoding="utf-8")
+    dry_run = BUILDERS_DRY_RUN.read_text(encoding="utf-8")
+
+    assert "ENABLE_BUILDERS_MANAGED_PATH:-false" in bootstrap
+    assert "Skipping managed Memory for the one-hour builders path" in bootstrap
+    assert "Skipping managed Runtime, Gateway, and Policy" in bootstrap
+    for fragment in (
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "AGENTCORE_POLICY_ENGINE_ID",
+        "/api/agentcore/",
+    ):
+        assert fragment not in dry_run
 
 
 def test_runtime_arn_is_recorded_before_smoke() -> None:

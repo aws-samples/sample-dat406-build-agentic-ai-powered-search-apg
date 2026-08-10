@@ -10,20 +10,10 @@
 #   1. Backend /api/health is green (DB connected)
 #   2. Catalog row count == expected (40)
 #   3. Warehouse inventory present (~120 rows)
-#   4. node --version >= 20                       (warn — ROOT CAUSE diagnostic:
-#      the @aws/agentcore CLI needs Node 20; on Node 18 every agentcore command
-#      silently no-ops, so Runtime/Gateway/Policy never deploy and checks 6-7
-#      below read empty. Surfacing the Node version turns "endpoints empty, why?"
-#      into a named cause.)
-#   5. Required Bedrock model preflight passed     (required)
-#   6. AGENTCORE_MEMORY_ID set in .env             (warn — optional pillar)
-#   7. AGENTCORE_RUNTIME_ENDPOINT set in .env      (warn — optional pillar)
-#   8. AGENTCORE_GATEWAY_URL set in .env           (warn — optional pillar)
-#   9. AGENTCORE_POLICY_ENGINE_ID set in .env      (warn — optional pillar)
+#   4. Required Bedrock model preflight passed
 #
 # Exit 0 only if the core one-hour path passes: backend, frontend, catalog,
-# warehouse, and required model access. Managed AgentCore pillars are optional
-# labs and remain visible as warnings without rejecting the CFN stack.
+# warehouse, and required model access.
 # =============================================================================
 set -uo pipefail
 
@@ -97,57 +87,12 @@ else
   ok=false
 fi
 
-# 4. Node version (warn — root-cause diagnostic for the managed pillars below).
-# The @aws/agentcore CLI is Node-based and requires Node >= 20; on Node 18 it
-# crashes at module load (regex `v`/unicodeSets flag) BEFORE doing any work, so
-# `agentcore deploy` silently produces nothing and the Runtime/Gateway/Policy
-# endpoints below stay empty. We surface the version here so an empty
-# AGENTCORE_RUNTIME_ENDPOINT (check 6) reads as a consequence, not a mystery.
-node_ver="$(node --version 2>/dev/null || true)"
-node_major="$(echo "$node_ver" | sed 's/^v//' | cut -d. -f1)"
-if [[ "$node_major" =~ ^[0-9]+$ ]] && (( node_major >= 20 )); then
-  pass "Node $node_ver (>= 20 — @aws/agentcore CLI can run)"
-else
-  warn "Node ${node_ver:-not found} (< 20) — the @aws/agentcore CLI cannot run, so the managed Runtime/Gateway/Policy never deploy and checks below read empty. This is the ROOT CAUSE if those are FAIL. Recover: 'sudo dnf remove -y nodejs && curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - && sudo dnf install -y --allowerasing nodejs' then re-run scripts/deploy/deploy_all.sh."
-fi
-
-# 5. Required Bedrock model access
+# 4. Required Bedrock model access
 if [[ "${BEDROCK_MODEL_ACCESS_READY:-}" == "true" ]]; then
   pass "Required Bedrock model-access preflight passed"
 else
   fail "Required Bedrock model-access preflight did not pass"
   ok=false
-fi
-
-# 6. AgentCore Memory id (optional)
-if [[ -n "${AGENTCORE_MEMORY_ID:-}" ]]; then
-  pass "AGENTCORE_MEMORY_ID set"
-else
-  warn "AGENTCORE_MEMORY_ID empty — optional managed Memory unavailable; STM falls back to Aurora session tables"
-fi
-
-# 7. AgentCore Runtime endpoint (optional managed evidence)
-if [[ -n "${AGENTCORE_RUNTIME_ENDPOINT:-}" ]]; then
-  pass "AGENTCORE_RUNTIME_ENDPOINT set"
-else
-  warn "AGENTCORE_RUNTIME_ENDPOINT empty — optional Runtime invoke lab unavailable"
-fi
-
-# 8. AgentCore Gateway endpoint (optional managed path).
-if [[ -n "${AGENTCORE_GATEWAY_URL:-${MCP_GATEWAY_URL:-}}" ]]; then
-  pass "AGENTCORE_GATEWAY_URL set"
-else
-  warn "AGENTCORE_GATEWAY_URL empty — optional Gateway/JWT lab unavailable"
-fi
-
-# 9. Managed AgentCore Policy engine. The backend and storefront run without
-# it, but the optional managed-Cedar exercise
-# (process_return gated to reason=damaged at the Gateway) won't ENFORCE — so
-# surface it loudly rather than report a false-green "READY".
-if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
-  pass "AGENTCORE_POLICY_ENGINE_ID set (managed Cedar policy attached)"
-else
-  warn "AGENTCORE_POLICY_ENGINE_ID empty — optional Cedar ALLOW/DENY lab unavailable. See /var/log/pellier-agentcore.log."
 fi
 
 echo "------------------------------------------------------------"

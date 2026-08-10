@@ -2,10 +2,8 @@
  * E2E: refresh failure lands the user on `/signin` with all three
  * providers visible.
  *
- * Design contract: `.kiro/specs/pellier-storefront/design.md` -
- * Testing Strategy, "E2E (Playwright against a dedicated Cognito dev
- * pool)". Exercises Requirement 4.1 / 5.3 and Task 5.1's 401 interceptor
- * fallthrough:
+ * Runs against a dedicated Cognito dev pool and exercises the 401
+ * interceptor fallthrough:
  *
  *   When `/api/auth/refresh` fails (no refresh_token, expired
  *   refresh_token, or revoked session), the SPA must redirect to

@@ -255,47 +255,6 @@ else
 fi
 
 # ============================================================================
-# STEP 8: MCP CONFIG DIRECTORY & GENERATION
-# ============================================================================
-log "Setting up MCP configuration..."
-mkdir -p "$REPO_PATH/pellier/config"
-chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/pellier/config"
-
-# Generate MCP config if database credentials are available
-if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/pellier/backend/generate_mcp_config.py" ]; then
-    cd "$REPO_PATH/pellier/backend"
-    
-    # Source .env file to get all variables
-    if [ -f "$REPO_PATH/.env" ]; then
-        set -a
-        source "$REPO_PATH/.env"
-        set +a
-    fi
-    
-    # Verify required variables are set
-    if [ -z "${DB_SECRET_ARN:-}" ] || [ -z "${DB_CLUSTER_ARN:-}" ]; then
-        warn "Missing DB_SECRET_ARN or DB_CLUSTER_ARN - MCP config will be generated on backend startup"
-    else
-        # Generate MCP config with variables from .env
-        sudo -u "$CODE_EDITOR_USER" bash -c "export DB_SECRET_ARN='$DB_SECRET_ARN' && \
-            export DB_CLUSTER_ARN='$DB_CLUSTER_ARN' && \
-            export DB_NAME='$DB_NAME' && \
-            export AWS_REGION='$AWS_REGION' && \
-            python3 generate_mcp_config.py" 2>&1 | tee /var/log/mcp-config-generation.log
-        
-        if [ -f "$REPO_PATH/pellier/config/mcp-server-config.json" ]; then
-            log "✅ MCP config generated at pellier/config/mcp-server-config.json"
-            log "   The optional MCP lab reads this file and verifies awslabs.postgres-mcp-server via uvx"
-        else
-            warn "MCP config generation failed - will be generated on backend startup"
-        fi
-    fi
-    cd "$REPO_PATH"
-else
-    log "ℹ️  MCP config will be generated on backend startup"
-fi
-
-# ============================================================================
 # STEP 8b: BEDROCK MODEL-ACCESS PREFLIGHT (~10 sec)
 # ============================================================================
 # Fail fast and loud if the runtime models aren't enabled in this account.
@@ -303,7 +262,7 @@ fi
 # or a dead chat turn mid-session. Cohere Embed v4 is hard-required because
 # every shopper query is embedded live before the pgvector search (the cache
 # only covers the catalog corpus). The same preflight also resolves the
-# independent Claude Code CLI model for the optional Core Lab 1 lane.
+# independent Claude Code CLI model for Core Lab 1.
 log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
@@ -489,7 +448,7 @@ else
 fi
 
 # ============================================================================
-# STEP 10b: PROVISION AGENTCORE MEMORY + USER_PREFERENCE STRATEGY (~1-2 min)
+# STEP 10b: MANAGED MEMORY (DISABLED FOR THE ONE-HOUR BUILDERS PATH)
 # ============================================================================
 # Memory carries STM (working memory) PLUS a USER_PREFERENCE extraction
 # strategy that promotes conversation turns into durable semantic records
@@ -502,6 +461,10 @@ fi
 # nested dicts; a quoted heredoc keeps the body literal and avoids the
 # escaping minefield of inline -c. Only the memory id reaches stdout; all
 # diagnostics go to the log file so command substitution stays clean.
+if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] \
+    && [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" != "true" ]; then
+    log "Skipping managed Memory for the one-hour builders path"
+else
 log "Provisioning AgentCore Memory + USER_PREFERENCE strategy..."
 
 AGENTCORE_MEMORY_LOG="/tmp/agentcore-memory.log"
@@ -743,6 +706,7 @@ if [ -n "$AGENTCORE_MEMORY_ID" ]; then
 else
     warn "AgentCore Memory provisioning skipped — STM will fall back to Aurora session tables"
 fi
+fi
 
 # ============================================================================
 # STEP 11: CREATE START SCRIPTS (~5 sec)
@@ -805,29 +769,8 @@ alias pellier='cd /workshop/sample-pellier-agentic-search-apg/pellier'
 alias backend='cd /workshop/sample-pellier-agentic-search-apg/pellier/backend'
 alias frontend='cd /workshop/sample-pellier-agentic-search-apg/pellier/frontend'
 
-# One-shot readiness check (catalog / warehouse / memory id / runtime / health)
+# One-shot readiness check for the required participant path
 alias health='bash /workshop/sample-pellier-agentic-search-apg/scripts/health-gate.sh'
-
-# AgentCore CLI (pinned 0.18.0) — READ-ONLY inspection of the managed Runtime
-# your agent is deployed to. `agentcore status` / `agentcore logs` read the
-# managed control plane via THIS box's IAM role, so they never need a Cognito
-# JWT and never 401. A FUNCTION (not an alias) so typed args like `status`
-# land correctly — an alias can't position "$@" before the closing subshell.
-# It cd's into the deployed project root so the CLI finds
-# agentcore/.cli/deployed-state.json from wherever you are, prefers the
-# global binary warmed at bootstrap (no registry call), and falls back to the
-# pinned npx form if the global install is missing. (deploy/create/invoke are
-# deliberately NOT exposed: deploy ran at bootstrap; CLI invoke can't satisfy
-# the runtime's CUSTOM_JWT gate — invoke from the app via /api/agent/chat with
-# a token instead.)
-agentcore() {
-    ( cd /workshop/sample-pellier-agentic-search-apg/.agentcore-project/pellier 2>/dev/null \
-        && if _ac_bin="$(type -P agentcore)"; then "$_ac_bin" "$@"; else npx -y @aws/agentcore@0.18.0 "$@"; fi )
-        # type -P, NOT command -v: command -v matches THIS function (always
-        # true), then `command agentcore` finds no binary when the global npm
-        # install was skipped -> "command not found" instead of the npx
-        # fallback (box-verified 2026-06-12). type -P searches PATH only.
-}
 
 # Pellier service shortcuts — see FORMAT_ALIASES below (workshop vs builders).
 
@@ -839,8 +782,8 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 
 # Claude Code CLI → Amazon Bedrock (Claude Code lane, Ex 1).
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
-# instance role (the same ambient-credential chain psql/boto3/agentcore already
-# use) — no Anthropic API key, no per-participant login, nothing to paste.
+# instance role (the same ambient-credential chain used elsewhere in the lab)
+# - no Anthropic API key, per-participant login, or secret to paste.
 # Model: the model-access preflight writes CLAUDE_CODE_MODEL into the backend
 # .env. Claude Code uses Sonnet 5 through Bedrock. This lane is
 # independent of the app's Opus/Sonnet editorial model resolution.
@@ -855,7 +798,7 @@ export AWS_REGION=${AWS_REGION:-us-east-1}
 # reporting + feedback) — the right posture for a pinned, locked-down lab box.
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
-# Ensure uv is in PATH (required for MCP)
+# Ensure participant-installed Python tools are in PATH.
 export PATH="$HOME/.local/bin:$PATH"
 
 # Auto-navigate to workshop directory on terminal open
@@ -969,7 +912,6 @@ Environment=VITE_BASE_PATH=/ports/8000/
 # when dist/ is absent (the SPA 404s with a clear log line). This is the
 # fix for the prior failure mode where an unguarded `npm run build` under
 # `set -e` aborted bootstrap before uvicorn ever started.
-ExecStartPre=-/bin/bash -c 'cd $REPO_PATH/pellier/backend && python3 generate_mcp_config.py 2>/dev/null || true'
 ExecStartPre=-/bin/bash -c 'cd $REPO_PATH/pellier/frontend && npm run build || true'
 ExecStart=/home/$CODE_EDITOR_USER/.local/bin/uvicorn app:app --host 0.0.0.0 --port 8000 $UVICORN_RELOAD_ARGS
 Restart=always
@@ -1119,7 +1061,8 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     copy_solution "solutions/the-ledger/frontend/agentIdentity.ts" \
                   "pellier/frontend/src/utils/agentIdentity.ts" "Frontend agent identity"
 
-    # ---- AgentCore full managed path (warn-and-continue) ----
+    if [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" = "true" ]; then
+    # ---- AgentCore full managed path (explicit opt-in only) ----
     #
     # AgentCore provisioning is best-effort, NOT a hard gate. A failure here
     # must never abort the bootstrap: the backend still launches below and the
@@ -1319,14 +1262,22 @@ EOF
             && log "✅ agentcore CLI installed globally ($(command agentcore --version 2>/dev/null || echo 'version check skipped'))" \
             || warn "Global @aws/agentcore@0.18.0 install failed — the 'agentcore' alias will fall back to npx (slower first call); see npm logs."
     fi
+    else
+        write_status_json "complete" "not_applicable" ""
+        log "Skipping managed Runtime, Gateway, and Policy for the one-hour builders path"
+    fi
+
+    # Participant edits and service reloads need ownership regardless of
+    # whether the managed path was explicitly enabled.
+    chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/pellier/"
 
     # The pellier.service unit (STEP 14) already runs uvicorn with --reload
     # for builders format and rebuilds the frontend in ExecStartPre. Now
-    # that the solution files + AgentCore env are in place, restart the unit
+    # that the solution files are in place, restart the unit
     # once so it picks them up. systemd owns the process — no nohup, no PID
     # file, no second backend fighting for :8000. A restart failure is
     # non-fatal (the health gate reports it); --reload keeps the live-edit DX.
-    log "Restarting pellier service to pick up builders solutions + AgentCore env..."
+    log "Restarting pellier service to pick up builders solutions..."
     systemctl restart pellier || warn "pellier restart failed — check: journalctl -u pellier"
 
     sleep 8
@@ -1368,7 +1319,9 @@ fi
 # The participant never types Cognito plumbing — they get the learning (managed
 # Cedar gates at the Gateway), not the auth ceremony. Identity is still REAL:
 # the token is a genuine Cognito JWT the Gateway validates.
-if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" ]; then
+if [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" = "true" ] \
+    && [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] \
+    && [ -n "${COGNITO_POOL:-${COGNITO_POOL_ID:-}}" ]; then
     log "Writing optional token helper (~/pellier-token.sh)..."
     _TOKEN_POOL="${COGNITO_POOL:-${COGNITO_POOL_ID}}"
     _TOKEN_CLIENT="${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}"
@@ -1443,7 +1396,6 @@ echo ""
 echo "✅ Pellier Backend (FastAPI + Strands) installed"
 echo "✅ Pellier Frontend (React) dependencies installed"
 echo "✅ Database setup complete (40 products + warehouse inventory)"
-echo "✅ MCP server config written to pellier/config/mcp-server-config.json"
 echo "✅ Bash environment configured (psql ready)"
 if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     echo "✅ pellier systemd service enabled — uvicorn --reload on :8000 (live .py edits)"
@@ -1459,9 +1411,8 @@ echo ""
 echo "Quick Commands:"
 echo "  psql                             # Connect to database"
 echo "  journalctl -fu pellier           # Backend service log (both formats)"
-echo "  cat /var/log/pellier-agentcore.log # AgentCore deploy log (Gateway + Runtime)"
 echo "  rebuild-frontend                 # Rebuild SPA + restart app"
-echo "  health                           # One-shot readiness check (catalog/memory/runtime)"
+echo "  health                           # One-shot core readiness check"
 echo ""
 
 # ============================================================================

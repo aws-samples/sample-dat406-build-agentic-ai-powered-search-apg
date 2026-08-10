@@ -1,15 +1,12 @@
 """Relevance test for the recommendation specialist `recommendation` agent.
 
-Validates Requirement 2.4.3-2.4.5 from
-`.kiro/specs/pellier-storefront/requirements.md`:
-
-  2.4.3  The specialist is a Strands `Agent` wrapping `BedrockModel` with
+  The specialist is a Strands `Agent` wrapping `BedrockModel` with
          the Opus 5 support factory and the four tools
          `[find_pieces, whats_trending, side_by_side,
          explore_collection]`.
-  2.4.4  The system prompt emphasizes warm, editorial, catalog-style
+  The system prompt emphasizes warm, editorial, catalog-style
          reasoning grounded in specific product attributes.
-  2.4.5  Calling the agent with `something for warm evenings out` returns
+  Calling the agent with `something for warm evenings out` returns
          a response that names a specific product AND that product's
          `tags` intersect the evening/warm set
          `{evening, warm, dresses, outerwear}`. Sundress in Washed Linen
@@ -18,9 +15,8 @@ Validates Requirement 2.4.3-2.4.5 from
 Bedrock is stubbed - no live model call. The test swaps the `Agent` symbol
 imported into `agents.curator` for a stub that returns a
 canned answer mentioning `Sundress in Washed Linen`. The test then parses
-that response, looks up the product's tags from the 9-showcase-product
-table captured from `.kiro/steering/storefront.md`, and asserts the
-required overlap.
+that response, looks up the product's tags from the showcase-product table,
+and asserts the required overlap.
 
 Runnable from the repo root per `pytest.ini`:
 

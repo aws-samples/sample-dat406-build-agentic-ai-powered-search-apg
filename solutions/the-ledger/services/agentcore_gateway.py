@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # agent client (or the AgentCore Gateway) can discover and invoke them with
 # the same signatures and JSON envelopes used by the in-process orchestrator.
 #
-# The 15 tools come from workshop-content.md steering and MUST be registered
+# The 15 tools are the application-level Gateway contract and MUST be registered
 # under these exact names (Req 2.2.3):
 #   find_pieces, find_pieces_hybrid, whats_trending, price_intelligence,
 #   explore_collection, floor_check, running_low, restock_shelf,
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 #    cp solutions/the-ledger/services/agentcore_gateway.py pellier/backend/services/agentcore_gateway.py
 
 # The 15 tool names exposed by the gateway, in stable order. Tests assert
-# discovery returns exactly this set by exact name (workshop-content.md).
+# discovery returns exactly this set by exact name.
 GATEWAY_TOOL_NAMES: List[str] = [
     "find_pieces",
     "find_pieces_hybrid",

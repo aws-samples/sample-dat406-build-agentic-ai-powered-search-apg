@@ -59,28 +59,15 @@ dnf install --skip-broken -y -q \
 log "✅ System packages installed"
 
 # ----------------------------------------------------------------------------
-# Node.js 20+ (required by the @aws/agentcore CLI).
+# Node.js 20+ for the frontend toolchain and Claude Code.
 #
-# AL2023's default `nodejs` package is Node 18, but @aws/agentcore (>=0.18)
-# declares `engines.node: ">=20"` and its bundled code uses the regex `v`
-# (unicodeSets) flag, which Node 18 does NOT parse — `npx @aws/agentcore deploy`
-# crashes at module load with "SyntaxError: Invalid regular expression flags"
-# BEFORE doing any work, so the managed Runtime never deploys. We therefore
-# install Node 20 from NodeSource (the supported path for a pinned major on
-# AL2023). Falls back to the distro nodejs only if NodeSource is unreachable,
-# so provisioning still gets a Node for the frontend build even if Runtime
-# deploy can't run. Everything downstream calls `node`/`npx` on PATH, so it
-# follows whichever got installed.
+# AL2023's default `nodejs` package is Node 18. Pinning Node 20 keeps the
+# frontend build and globally installed Claude Code CLI on one tested runtime.
+# Falls back to the distro nodejs only if NodeSource is unreachable.
 # ----------------------------------------------------------------------------
-# This step is intentionally NON-fatal: a NodeSource hiccup must not abort the
-# whole box (the Boutique still works on Node 18; only the managed-Runtime deploy
-# needs 20). We retry NodeSource, and if Node 20 lands we pin it ahead of any
-# distro Node 18 via update-alternatives so downstream `node`/`npx` resolve to
-# 20 deterministically. The hard "is this actually 20?" guard lives at the
-# provisioning call site (bootstrap-labs STEP 16), where aborting just the
-# already-best-effort AgentCore step is the right blast radius. The health gate
-# surfaces an empty AGENTCORE_RUNTIME_ENDPOINT if 20 never arrived.
-log "Installing Node.js 20 (required by @aws/agentcore CLI; AL2023 default is 18)..."
+# This step is intentionally non-fatal: the participant can use the manual
+# edit or copy-solution escape hatch if the Claude Code install is unavailable.
+log "Installing Node.js 20 for the frontend and Claude Code..."
 
 # Why this is more than "dnf install nodejs":
 #   On a fresh AL2023 box the distro `nodejs` (18) is often ALREADY installed
@@ -118,14 +105,15 @@ if [ "$_node20_ok" = true ]; then
     [ -n "$_node_bin" ] && update-alternatives --install /usr/bin/node node "$_node_bin" 100 >/dev/null 2>&1 || true
     log "✅ Node.js installed and pinned: $(node --version 2>/dev/null)"
 
-    # TypeScript compiler (tsc), global. The @aws/agentcore CLI is itself a
+    # TypeScript compiler (tsc), global. The opt-in managed path is itself a
     # TypeScript/Node tool, and its `deploy` build step shells out to `tsc`
     # (`sh: line 1: tsc: command not found` aborts the Runtime deploy on a box
     # that only has Node). AL2023 doesn't preinstall it. Our agent is Python,
     # but the CLI's own build needs tsc regardless. Pinned major to avoid a
     # surprise tsc behavior change. Non-fatal: only the managed-Runtime deploy
     # needs it; Boutique + frontend build don't.
-    if command -v npm >/dev/null 2>&1; then
+    if [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" = "true" ] \
+        && command -v npm >/dev/null 2>&1; then
         log "Installing TypeScript compiler globally (tsc – required by @aws/agentcore deploy)..."
         if npm install -g typescript@5 >/dev/null 2>&1; then
             # The CLI's deploy build runs `sh -c tsc` as the PARTICIPANT user
@@ -142,15 +130,17 @@ if [ "$_node20_ok" = true ]; then
             warn "Global typescript install failed – @aws/agentcore deploy may fail with 'tsc: command not found'. Recover: 'sudo npm install -g typescript' then re-run scripts/deploy/deploy_all.sh."
         fi
 
-        # Claude Code CLI (global), for the optional Claude Code lane in
-        # Core Lab 1. It runs entirely against Bedrock via the box's instance
+    fi
+
+    if command -v npm >/dev/null 2>&1; then
+        # Claude Code CLI (global), for the recommended build lane in Core
+        # Lab 1. It runs entirely against Bedrock via the box's instance
         # role (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_MODEL are exported in the
         # participant .bashrc by bootstrap-labs), so there is NO per-participant
         # login — the same ambient-credential model the rest of the lab uses.
-        # Intentionally NON-fatal: the mandatory path is hand-paste / cp, which
-        # needs none of this. If the install fails, the lab guide's manual tab
-        # still completes the exercise; only the optional agent lane is absent.
-        log "Installing Claude Code CLI globally (optional agent lane for Core Lab 1)..."
+        # Intentionally non-fatal: the manual edit and copy-solution paths
+        # still complete the exercise if installation fails.
+        log "Installing Claude Code CLI globally for Core Lab 1..."
         if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
@@ -160,16 +150,15 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
         else
-            warn "Claude Code CLI install failed – the optional agent lane in Core Lab 1 will be unavailable (the mandatory hand-paste / cp path is unaffected). Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
+            warn "Claude Code CLI install failed - use the manual edit or copy-solution path in Core Lab 1."
         fi
     fi
 else
-    # Last resort: ensure SOME node exists for the frontend build. Managed
-    # Runtime/Gateway/Policy deploy will be skipped (STEP 16 guards on Node>=20).
+    # Last resort: ensure some Node runtime exists for the frontend build.
     if ! command -v node >/dev/null 2>&1; then
         dnf install --skip-broken -y -q nodejs >/dev/null 2>&1 || true
     fi
-    warn "Node 20 install failed after retries — node is $(node --version 2>/dev/null || echo 'none') (<20). The @aws/agentcore Runtime/Gateway/Policy deploy will be SKIPPED (Boutique + frontend build still work). Recover: 'sudo dnf remove -y nodejs && curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - && sudo dnf install -y --allowerasing nodejs' then re-run scripts/deploy/deploy_all.sh."
+    warn "Node 20 install failed after retries - node is $(node --version 2>/dev/null || echo 'none'). Frontend or Claude Code setup may fail."
 fi
 
 # ----------------------------------------------------------------------------
@@ -428,7 +417,8 @@ log "AWS Region: $AWS_REGION"
 # is logged but does not abort the box (the AgentCore provisioning step later
 # surfaces it via the health gate). Requires Node 20 (installed above).
 # ----------------------------------------------------------------------------
-log "Bootstrapping CDK for AgentCore Runtime deploy (region $AWS_REGION)..."
+if [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" = "true" ]; then
+log "Bootstrapping CDK for the explicitly enabled managed path (region $AWS_REGION)..."
 CDK_ACCOUNT="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo '')"
 if [ -n "$CDK_ACCOUNT" ]; then
 if AWS_REGION="$AWS_REGION" AWS_DEFAULT_REGION="$AWS_REGION" \
@@ -439,6 +429,7 @@ if AWS_REGION="$AWS_REGION" AWS_DEFAULT_REGION="$AWS_REGION" \
     fi
 else
     warn "Could not resolve account id (sts get-caller-identity) — skipping CDK bootstrap; AgentCore Runtime deploy will need it run manually"
+fi
 fi
 
 cat > /etc/systemd/system/code-editor@.service << EOF
@@ -565,10 +556,8 @@ install_extension() {
 }
 
 # Install essential extensions for the hands-on workshop.
-# No Jupyter — there are no notebooks in the lab content.
-# No Amazon Q extension — the MCP demo runs from the integrated terminal
-# (the Q extension is being retired, and the optional MCP lab reads the
-# config and verifies `awslabs.postgres-mcp-server` via uvx instead).
+# No Jupyter - there are no notebooks in the lab content.
+# No Amazon Q extension - it is not used by the participant path.
 # No AWS Toolkit extension — it is the source of the Amazon Q "end-of-support",
 # "Dismiss", and "Sign-In" first-run pop-ups participants had to clear, and no
 # lab step opens the AWS Explorer panel (every "sign in" in the content refers
@@ -654,16 +643,12 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
         "**/.pytest_cache": true,
         "**/node_modules": true,
         "**/dist": true,
-        ".kiro": true,
         "tests": true,
         "archive": true,
         "docs": true,
         "infrastructure": true,
-        "lab-content-audit.md": true,
         "logs": true,
         "tmp": true,
-        "WORKSHOP_HARDENING_TODO.md": true,
-        "CHANGELOG.md": true,
         "package.json": true,
         "package-lock.json": true
     }

@@ -1,8 +1,6 @@
 """Tests for `services.personalization`.
 
-Covers Requirement 3.3.2 (equal-weight tag overlap) and the 3.3.2.1
-"Take It Further" weighted-hook contract from
-`.kiro/specs/pellier-storefront/requirements.md`.
+Covers equal-weight tag overlap and the optional weighted-hook contract.
 
 Runnable from the repo root per `pytest.ini`:
     pellier/backend/.venv/bin/python -m pytest \
@@ -20,13 +18,11 @@ from services.personalization import match_score, sort_personalized
 
 
 # ---------------------------------------------------------------------------
-# Seeded showcase catalog - the 9 products from storefront.md
+# Seeded showcase catalog
 # ---------------------------------------------------------------------------
 #
-# Kept verbatim from `.kiro/steering/storefront.md` -> "The 9 showcase
-# products (with preference tags)". This table is authoritative for the
-# personalization assertions below; any drift here or there should trip the
-# ordering tests before it ships.
+# This table is authoritative for the personalization assertions below; any
+# drift should trip the ordering tests before it ships.
 
 
 def _product(

@@ -1,12 +1,9 @@
 """Tests for `services.agentcore_gateway`.
 
-Covers Requirement 2.5.3 and 2.2.3 from
-`.kiro/specs/pellier-storefront/requirements.md`:
-
-  * 2.5.3 — The Gateway challenge block exposes the agent tools via MCP
+  * The Gateway challenge block exposes the agent tools via MCP
     streamable HTTP transport so an external client can discover and
     invoke them.
-  * 2.2.3 — Tool names match `workshop-content.md` steering exactly.
+  * Tool names match the application registry exactly.
 
 No live Gateway, no Bedrock, no network. The MCP server is driven
 in-process through FastMCP's `list_tools` / `call_tool` surface (same
@@ -34,9 +31,8 @@ import services.business_logic as business_logic_module
 
 
 # ---------------------------------------------------------------------------
-# Exact 15-tool list from `.kiro/steering/coding-standards.md` and
-# `workshop-content.md` (Req 2.2.3). The gateway MUST discover exactly
-# these names.
+# Exact 15-tool application contract. The gateway MUST discover exactly these
+# names.
 # ---------------------------------------------------------------------------
 
 EXPECTED_TOOL_NAMES = {
@@ -323,7 +319,7 @@ def test_mcp_invocation_through_call_tool_returns_valid_json_envelope(
 
 # ---------------------------------------------------------------------------
 # Sanity: the public tool-name constant exported by the gateway matches the
-# expected set. Keeps the constant in sync with `workshop-content.md` so any
+# expected set. Keeps the constant in sync with the application contract so any
 # drift is caught at the contract layer, not just behaviourally.
 # ---------------------------------------------------------------------------
 

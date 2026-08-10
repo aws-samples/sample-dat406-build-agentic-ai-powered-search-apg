@@ -1,8 +1,6 @@
 """Tests for `services.agent_tools.whats_trending`.
 
-Covers Requirement 2.4.1 and 2.4.2 from
-`.kiro/specs/pellier-storefront/requirements.md` and the coding-standards
-tool pattern (`_db_service` availability check, `_run_async` bridging,
+Covers the service tool pattern (`_db_service` availability check, `_run_async` bridging,
 `json.dumps` return, `{"error": str(e)}` envelope on exception).
 
 No live database or Bedrock call — the BusinessLogic dependency is stubbed so

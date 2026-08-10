@@ -40,7 +40,7 @@ class VectorSearch:
         This is the core of semantic search — it finds products whose meaning
         is similar to the query, even when exact keywords don't match.
 
-        The query follows the pgvector pattern documented in `.kiro/steering/database.md`:
+        The query follows Pellier's canonical pgvector pattern:
             - CTE: WITH query_embedding AS (SELECT %s::vector as emb)
             - Cosine distance operator: <=> (lower = more similar)
             - Similarity: 1 - (embedding <=> emb)  (higher = more similar)
