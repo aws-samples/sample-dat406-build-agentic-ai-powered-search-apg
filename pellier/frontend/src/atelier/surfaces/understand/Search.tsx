@@ -238,7 +238,7 @@ const CODE_READ: Array<{ step: string; path: string; body: string }> = [
   },
   {
     step: 'The hybrid branches run in parallel',
-    path: 'services/hybrid_search.py — _vector_search ∥ _bm25_search',
+    path: 'services/hybrid_search.py — _vector_search ∥ _fts_search',
     body: 'asyncio.gather fires the vector branch and the Postgres full-text branch at once. FTS uses to_tsquery(‘english’, …) with OR-joined stems over the description_tsv GIN index, ranked by ts_rank_cd (cover density). The SQL you see in the VECTOR and LEXICAL panels above is these two strings, verbatim.',
   },
   {
@@ -569,7 +569,7 @@ const Search: React.FC = () => {
           {params && (
             <>
               {' '}
-              · k_vector={params.k_vector} · k_bm25={params.k_bm25} · rrf_k=
+              · k_vector={params.k_vector} · k_fts={params.k_fts} · rrf_k=
               {params.rrf_k} · top_n={params.top_n}
             </>
           )}

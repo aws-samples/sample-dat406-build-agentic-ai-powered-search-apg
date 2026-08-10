@@ -808,7 +808,7 @@ def find_pieces_hybrid(
                 query=query,
                 query_embedding=query_embedding,
                 k_vector=settings.HYBRID_VECTOR_K,
-                k_bm25=settings.HYBRID_FTS_K,
+                k_fts=settings.HYBRID_FTS_K,
                 top_n=settings.HYBRID_TOP_N,
             )
         )

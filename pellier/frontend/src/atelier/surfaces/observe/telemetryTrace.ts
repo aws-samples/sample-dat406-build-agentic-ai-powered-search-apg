@@ -48,7 +48,7 @@ export function findPrimaryPickPanelIndex(panels: TelemetryPanel[]): number {
   const predicates = [
     (p: TelemetryPanel) => /rerank/i.test(p.title),
     (p: TelemetryPanel) => /rrf/i.test(p.title),
-    (p: TelemetryPanel) => /semantic|vector|bm25|hybrid/i.test(p.title),
+    (p: TelemetryPanel) => /semantic|vector|fts|lexical|hybrid/i.test(p.title),
     (p: TelemetryPanel) => Boolean(p.sql),
     (p: TelemetryPanel) => /composition|compose|editorial/i.test(p.title),
   ];
@@ -83,7 +83,7 @@ export function buildWhyThisPickReasons(
   }
 
   const retrieval = panels.filter((p) =>
-    /rerank|rrf|vector|bm25|semantic|hybrid|similarity|cosine/i.test(
+    /rerank|rrf|vector|fts|lexical|semantic|hybrid|similarity|cosine/i.test(
       `${p.title} ${p.description}`,
     ),
   );

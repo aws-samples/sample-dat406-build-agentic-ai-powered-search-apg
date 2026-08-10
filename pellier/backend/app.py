@@ -1543,7 +1543,7 @@ async def explain_search(query: str):
     explained = await hybrid.search_explained(query=q, query_embedding=query_embedding)
     hybrid_ms = int((time.time() - t0) * 1000)
     vector_rows = explained["vector_rows"]
-    bm25_rows = explained["bm25_rows"]
+    fts_rows = explained["fts_rows"]
     merged = explained["merged"]
     params = explained["params"]
 
@@ -1569,8 +1569,8 @@ async def explain_search(query: str):
         "sql": explained["fts_sql"].strip(),
         "columns": ["rank", "product", "ts_rank_cd"],
         "rows": [
-            [str(i + 1), _label(r), _num(r.get("bm25_score"), 5)]
-            for i, r in enumerate(bm25_rows[:DISPLAY])
+            [str(i + 1), _label(r), _num(r.get("fts_rank_score"), 5)]
+            for i, r in enumerate(fts_rows[:DISPLAY])
         ],
         "meta": "to_tsquery('english', …) with OR-joined stems over the "
                 "description_tsv GIN index. ts_rank_cd is cover-density rank "
