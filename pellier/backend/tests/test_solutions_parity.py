@@ -27,7 +27,8 @@ For every ``(live_path, solution_path)`` pair:
 
   1. Both files exist.
   2. Both files parse as valid Python (``ast.parse`` smoke).
-  3. Builder-preapply is byte-identical to the live starter module.
+  3. Builder-preapply matches the live starter module outside the marked
+     ``floor_check`` challenge block.
   4. Both recovery files expose the same public ``@tool`` functions and
      signatures as the live module.
   5. The wired solution differs from live only inside the marked
@@ -97,8 +98,10 @@ _PAIRS = [
 # ``build_recommendation_agent`` → ImportError on the dispatcher path).
 #
 # ``agent_tools_builders_preapply.py`` is checked separately below. It is a
-# full-module bootstrap replacement and must be byte-identical to the live
-# starter file, including the ``floor_check`` stub.
+# full-module bootstrap replacement and must match the live starter file
+# everywhere *outside* the ``floor_check`` markers. The body itself is the
+# exercise, so it is masked out — a participant who completes the lab must
+# not turn the suite red.
 #
 # Direction of truth: the BACKEND file is canonical (the full test suite runs
 # against it). If this test fails, re-sync with:
@@ -361,7 +364,15 @@ def _outside_floor_check_block(path: Path) -> str:
 
 
 def test_builder_preapply_matches_live_starter() -> None:
-    """Bootstrap replaces the live module with this file on every fresh box."""
+    """Bootstrap replaces the live module with this file on every fresh box.
+
+    Compared with the ``floor_check`` body masked out, for the same reason
+    ``test_floor_check_builder_contract`` skips once the tool is wired: the
+    body is the exercise. A raw byte comparison turns a *completed* exercise
+    into a failing suite, which lands on whoever debugs a box mid-workshop.
+    Everything outside the markers must still match byte for byte — that is
+    the drift this guard exists to catch.
+    """
     live_path = _BACKEND / "services" / "agent_tools.py"
     preapply_path = (
         _SOLUTIONS
@@ -369,7 +380,9 @@ def test_builder_preapply_matches_live_starter() -> None:
         / "services"
         / "agent_tools_builders_preapply.py"
     )
-    assert preapply_path.read_text() == live_path.read_text(), (
+    assert _outside_floor_check_block(preapply_path) == _outside_floor_check_block(
+        live_path
+    ), (
         "Builder bootstrap would replace services/agent_tools.py with a stale "
         "module. Re-sync agent_tools_builders_preapply.py from the live starter."
     )
