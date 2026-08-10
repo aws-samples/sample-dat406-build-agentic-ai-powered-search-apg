@@ -5,6 +5,7 @@ Uses Pydantic Settings for environment variable validation and type safety.
 All configuration is loaded from environment variables or .env file.
 """
 
+import os
 from functools import lru_cache
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -256,8 +257,17 @@ class Settings(BaseSettings):
     SHOW_SQL: bool = False
     
     # Model configuration
+    #
+    # ``env_file`` is disabled when PELLIER_DISABLE_DOTENV is set, which the
+    # test suite does in tests/conftest.py. Without it the suite is not
+    # hermetic: pydantic-settings resolves the relative ".env" against the
+    # CWD, so running pytest from this directory loads a developer's real
+    # pellier/backend/.env. Tests that assert a variable is *absent* then
+    # read the developer's live value instead (monkeypatch.delenv removes
+    # the env var, but .env still supplies it), so they pass in CI and fail
+    # on any box that has been through bootstrap.
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=None if os.getenv("PELLIER_DISABLE_DOTENV") else ".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="allow",  # Allow extra environment variables

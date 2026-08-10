@@ -107,15 +107,14 @@ python -m pytest -q
 python tests/test_copy_compliance.py
 ```
 
-When local settings are unavailable, collection-safe test placeholders are:
-
-```bash
-DB_HOST=localhost \
-DB_NAME=pellier_test \
-DB_USER=pellier_test \
-DB_PASSWORD=pellier_test \
-python -m pytest -q
-```
+`python -m pytest -q` needs no environment setup. `tests/conftest.py` pins a
+hermetic environment: it sets `PELLIER_DISABLE_DOTENV=1` so `Settings` ignores
+any real `.env`, and supplies `DB_*` placeholders so importing `config` cannot
+raise. Do not reintroduce a `DB_HOST=... python -m pytest` prefix, and do not
+remove those lines — without the dotenv guard, tests asserting a variable is
+absent read a developer's live `.env` and fail only on boxes that have been
+through bootstrap; without the placeholders, every module touching settings
+reports a collection error.
 
 Never point a test at workshop Aurora unless the test explicitly requires
 live integration and the operator has approved it.
