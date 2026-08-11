@@ -355,8 +355,8 @@ export interface WorkshopResumeRequest {
 /**
  * Fires the "welcome-back" resume turn for a seeded demo customer.
  *
- * Emits three cohesive memory panels (EPISODIC / PREFERENCES /
- * PROCEDURAL) + a composed assistant text. The response shape
+ * Emits memory and operational-history panels plus composed assistant text.
+ * The response shape
  * matches ``queryWorkshop`` so the chat column renders this as a
  * normal turn with ``user_text`` set to a pseudo-query in italics.
  */

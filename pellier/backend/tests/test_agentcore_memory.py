@@ -32,7 +32,7 @@ from typing import Any
 import pytest
 
 from models import Preferences
-from services.agentcore_memory import AgentCoreMemory
+from services.agentcore_memory import AgentCoreMemory, ManagedMemoryError
 
 
 def _run(coro: Any) -> Any:
@@ -147,6 +147,45 @@ def test_session_history_append_and_read_preserves_order(memory) -> None:
 def test_session_history_returns_empty_list_for_unknown_ns(memory) -> None:
     """A namespace with no writes SHALL return ``[]`` (not ``None``)."""
     assert _run(memory.get_session_history("user-ghost-session-nope")) == []
+
+
+def test_strict_memory_rejects_missing_managed_configuration() -> None:
+    memory = AgentCoreMemory(memory_id="", strict=True)
+
+    with pytest.raises(ManagedMemoryError) as exc:
+        _run(memory.get_session_history("user-marco-session-proof"))
+
+    assert exc.value.code == "managed_memory_unavailable"
+
+
+def test_strict_memory_never_falls_back_after_sdk_write_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import services.agentcore_memory as mem_module
+
+    class _Session:
+        def add_turns(self, *, messages):
+            raise RuntimeError("data plane unavailable")
+
+    class _Manager:
+        def create_memory_session(self, **_kwargs):
+            return _Session()
+
+    memory = AgentCoreMemory(memory_id="memory-live", strict=True)
+    memory._sdk_manager = _Manager()
+
+    with pytest.raises(ManagedMemoryError):
+        _run(
+            memory.append_session_turns(
+                "user-marco-session-proof",
+                [
+                    {"role": "user", "content": "Remember Goa."},
+                    {"role": "assistant", "content": "Remembered."},
+                ],
+            )
+        )
+
+    assert mem_module._SESSION_STORE == {}
 
 
 # ---------------------------------------------------------------------------

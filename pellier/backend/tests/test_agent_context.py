@@ -61,20 +61,20 @@ def test_emit_panel_carries_tag_class_and_rows() -> None:
     """Sanity check the panel shape is otherwise unchanged."""
     ctx = AgentContext(session_id="s1")
     ctx.emit_panel(
-        agent="memory",
-        tag="MEMORY · PROCEDURAL",
-        title="What similar customers bought",
-        sql="SELECT * FROM pellier.orders",
-        columns=["bean", "count"],
-        rows=[["Sumatra", "2"]],
-        meta="one JOIN",
+        agent="evidence",
+        tag="OPERATIONAL · TOOL HISTORY",
+        title="Tool activity",
+        sql="SELECT tool, count(*) FROM pellier.tool_audit GROUP BY tool",
+        columns=["tool", "count"],
+        rows=[["floor_check", "2"]],
+        meta="live aggregate",
         duration_ms=13,
         tag_class="cyan",
     )
     panel = ctx.events[0]
     assert panel["type"] == "panel"
-    assert panel["tag"] == "MEMORY · PROCEDURAL"
+    assert panel["tag"] == "OPERATIONAL · TOOL HISTORY"
     assert panel["tag_class"] == "cyan"
-    assert panel["rows"] == [["Sumatra", "2"]]
+    assert panel["rows"] == [["floor_check", "2"]]
     assert panel["duration_ms"] == 13
     assert panel["trace_index"] == 1

@@ -150,171 +150,18 @@ async def emit_memory_episodic_panel(
 
 
 # ---------------------------------------------------------------------------
-# Procedural + Preferences emitters — used together with the episodic
-# emitter above on the welcome-back resume turn. All three read from
-# Aurora (pellier.customers / orders / customer_episodic_seed); AgentCore is the
-# abstraction level above episodic in production, but the workshop's
-# teaching point is that procedural and preferences are always Aurora-owned.
-# ---------------------------------------------------------------------------
-
-
-_SELECT_PREFERENCES_SQL = (
-    "SELECT name, preferences_summary FROM pellier.customers WHERE id = %s"
-)
-
-_SELECT_PROCEDURAL_SQL = (
-    "SELECT pc.\"name\" AS name, COUNT(*) AS bought "
-    "FROM pellier.orders o "
-    "JOIN pellier.product_catalog pc "
-    "  ON pc.\"productId\" = o.product_id "
-    "WHERE o.product_id IN ( "
-    "    SELECT product_id FROM pellier.orders WHERE customer_id = %s "
-    ") "
-    "AND o.customer_id <> %s "
-    "GROUP BY pc.\"name\" "
-    "ORDER BY bought DESC "
-    "LIMIT %s"
-)
-
-
-async def emit_memory_preferences_panel(
-    ctx: AgentContext,
-    *,
-    db_service: Any,
-) -> Dict[str, Any] | None:
-    """Emit a ``MEMORY · PREFERENCES`` panel reading ``customers.preferences_summary``.
-
-    Preferences live in Aurora (source of truth). A future AgentCore
-    mirror under ``user:{id}:preferences`` covers user-edited prefs;
-    this panel shows the Aurora-seeded baseline, so it's honest about
-    where the teaching frame lands.
-    """
-    t0 = time.time()
-
-    if not ctx.customer_id or ctx.customer_id == "anonymous":
-        ctx.emit_panel(
-            agent="memory",
-            tag="MEMORY · PREFERENCES",
-            tag_class="cyan",
-            title="Stated preferences · Aurora",
-            sql="",
-            columns=["field", "value"],
-            rows=[],
-            meta="anonymous session — no stated preferences",
-            duration_ms=int((time.time() - t0) * 1000),
-        )
-        return None
-
-    try:
-        row = await db_service.fetch_one(
-            _SELECT_PREFERENCES_SQL, ctx.customer_id
-        )
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning(
-            "emit_memory_preferences_panel DB error for customer=%s: %s",
-            ctx.customer_id, exc,
-        )
-        row = None
-
-    rendered: List[List[str]] = []
-    if row:
-        if row.get("name"):
-            rendered.append(["name", str(row["name"])])
-        if row.get("preferences_summary"):
-            rendered.append(["summary", str(row["preferences_summary"])])
-
-    meta = (
-        f'Aurora source of truth for stated prefs · customer_id = {ctx.customer_id}'
-        if rendered
-        else f'no preferences row for {ctx.customer_id}'
-    )
-
-    ctx.emit_panel(
-        agent="memory",
-        tag="MEMORY · PREFERENCES",
-        tag_class="cyan",
-        title="Stated preferences · Aurora",
-        sql=_SELECT_PREFERENCES_SQL,
-        columns=["field", "value"],
-        rows=rendered,
-        meta=meta,
-        duration_ms=int((time.time() - t0) * 1000),
-    )
-    return row if isinstance(row, dict) else None
-
-
-async def emit_memory_procedural_panel(
-    ctx: AgentContext,
-    *,
-    db_service: Any,
-    limit: int = 5,
-) -> List[Dict[str, Any]]:
-    """Emit a ``MEMORY · PROCEDURAL`` panel — cohort overlap from orders.
-
-    "Customers like you also bought" — the procedural signal is pure
-    Aurora (no AgentCore primitive to delegate to). The JOIN runs
-    ``orders ⋈ product_catalog`` to surface product names other
-    customers in the same order-history cohort landed on.
-    """
-    t0 = time.time()
-
-    if not ctx.customer_id or ctx.customer_id == "anonymous":
-        ctx.emit_panel(
-            agent="memory",
-            tag="MEMORY · PROCEDURAL",
-            tag_class="cyan",
-            title="Cohort overlap · Aurora (orders ⋈ product_catalog)",
-            sql="",
-            columns=["product", "bought_by_cohort"],
-            rows=[],
-            meta="anonymous session — no cohort to compare against",
-            duration_ms=int((time.time() - t0) * 1000),
-        )
-        return []
-
-    try:
-        rows = await db_service.fetch_all(
-            _SELECT_PROCEDURAL_SQL, ctx.customer_id, ctx.customer_id, limit
-        )
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.warning(
-            "emit_memory_procedural_panel DB error for customer=%s: %s",
-            ctx.customer_id, exc,
-        )
-        rows = []
-
-    rendered = [[str(r.get("name", "")), str(r.get("bought", 0))] for r in rows]
-    meta = (
-        f'{len(rows)} cohort overlap row(s) for {ctx.customer_id} · Aurora-owned'
-        if rows
-        else f'no cohort overlap for {ctx.customer_id} — cohort may not have shared purchases yet'
-    )
-
-    ctx.emit_panel(
-        agent="memory",
-        tag="MEMORY · PROCEDURAL",
-        tag_class="cyan",
-        title="Cohort overlap · Aurora (orders ⋈ product_catalog)",
-        sql=_SELECT_PROCEDURAL_SQL,
-        columns=["product", "bought_by_cohort"],
-        rows=rendered,
-        meta=meta,
-        duration_ms=int((time.time() - t0) * 1000),
-    )
-    return [dict(r) for r in rows]
-
-
-# ---------------------------------------------------------------------------
-# Working + Semantic emitters — the two AgentCore-OWNED substrates. The
-# composite resume turn emits all four substrates in teaching order so a
-# participant sees the same "anatomy of a turn" the MemoryDashboard shows:
+# Working + Semantic emitters — the two AgentCore-owned memory types. The
+# composite resume turn also emits episodic memory and operational history:
 #
-#   WORKING   → AgentCore STM (the persona's latest storefront session)
-#   SEMANTIC  → AgentCore long-term (durable taste we learned)
-#   EPISODIC  → Aurora (past events for this customer)
-#   PROCEDURAL→ Aurora tool_audit (which tools fire, how fast)
+#   WORKING            → AgentCore session events
+#   SEMANTIC           → AgentCore durable preference records
+#   EPISODIC           → Aurora customer events
+#   OPERATIONAL HISTORY→ Aurora tool_audit
 #
-# Working + Semantic read the SAME path the standalone Agent Trace panels read
+# Procedural memory is checked-in runtime skills plus MCP tool schemas. It is
+# inspectable source, not a per-persona read on the resume turn.
+#
+# Working + Semantic read the same path the standalone Agent Trace panels read
 # (services.agentcore_memory) so the resume turn and GET /memory/{persona}
 # agree. Both degrade honestly to an empty panel (never a fabricated row)
 # when the session has no turns / the extraction strategy is unsettled.
@@ -507,16 +354,7 @@ async def emit_memory_semantic_panel(
 
 
 # ---------------------------------------------------------------------------
-# Procedural (tool_audit aggregate) — the live per-tool signal.
-#
-# The cohort-overlap emitter above (``emit_memory_procedural_panel``) is a
-# *recommendation* signal ("customers like you also bought"), not the
-# procedural substrate the owner model names. Procedural = "which tools fire,
-# how fast" and its live source is ``pellier.tool_audit`` (every ALLOWed call,
-# reads + writes alike) — the SAME aggregate the standalone Agent Trace Procedural
-# panel reads (agent_trace._load_live_procedural). The composite
-# resume turn uses THIS emitter so there is one procedural query shape, not a
-# third variant.
+# Operational history — tool_audit aggregate, deliberately not memory.
 # ---------------------------------------------------------------------------
 
 
@@ -531,19 +369,18 @@ _SELECT_TOOL_AUDIT_SQL = (
 )
 
 
-async def emit_memory_tool_audit_panel(
+async def emit_operational_history_panel(
     ctx: AgentContext,
     *,
     db_service: Any,
     limit: int = 6,
 ) -> List[Dict[str, Any]]:
-    """Emit a ``MEMORY · PROCEDURAL`` panel from the tool_audit aggregate.
+    """Emit an operational-history panel from the tool_audit aggregate.
 
     Per-tool call counts + average latency across every ALLOWed tool call.
-    Unlike the cohort emitter, this is NOT customer-scoped — procedural
-    memory is the system's learned operating signal ("how the tools
-    behave"), so it aggregates over all callers. Degrades to an empty
-    panel on DB error or an empty table.
+    This evidence says what ran and how long it took; it does not encode
+    tool know-how. The aggregate is not customer-scoped and degrades to an
+    empty panel on DB error or an empty table.
     """
     t0 = time.time()
     title = "Tool activity · Aurora (pellier.tool_audit aggregate)"
@@ -553,7 +390,7 @@ async def emit_memory_tool_audit_panel(
         fetched = await db_service.fetch_all(_SELECT_TOOL_AUDIT_SQL, limit)
         rows = [dict(r) for r in fetched]
     except Exception as exc:  # pragma: no cover - defensive
-        logger.warning("emit_memory_tool_audit_panel DB error: %s", exc)
+        logger.warning("emit_operational_history_panel DB error: %s", exc)
         rows = []
 
     rendered = [
@@ -568,8 +405,8 @@ async def emit_memory_tool_audit_panel(
     )
 
     ctx.emit_panel(
-        agent="memory",
-        tag="MEMORY · PROCEDURAL",
+        agent="evidence",
+        tag="OPERATIONAL · TOOL HISTORY",
         tag_class="cyan",
         title=title,
         sql=_SELECT_TOOL_AUDIT_SQL,

@@ -40,7 +40,7 @@ Bedrock AgentCore, or MCP.
 | 0-8 | Start Here | Your Code Editor, Boutique, catalog, and starter state are ready |
 | 8-26 | **Ground Answers in Live Data** | `floor_check` returns a real Brooklyn quantity and ship window |
 | 26-36 | **Design the Retrieval Strategy** | Four retrieval strategies produce a defensible architecture decision |
-| 36-48 | **Trace Agent Actions** | One `process_return` call leaves a session-specific row with JSONB arguments and result |
+| 36-48 | **Trace Agent Actions** | Aurora preserves working memory and a session-specific `process_return` receipt |
 | 48-55 | Protected recovery | Every participant lands the three required proofs |
 | 55-60 | Summary | You can transfer the grounding, retrieval, and audit pattern to another workload |
 
@@ -73,7 +73,7 @@ Three shoppers carry the workshop narrative:
 |---|---|---|
 | **Marco** | Is the Hadley shirt in the Brooklyn warehouse? | Dispatcher routing, a Strands `@tool`, and live inventory |
 | **Anna** | Find a milestone gift for a new homeowner | Vector, hybrid, reranked, and agentic retrieval |
-| **Theo** | File a damaged return for a chipped bowl | A queryable tool receipt in Aurora |
+| **Theo** | File a damaged return for a chipped bowl | Durable session messages and a queryable tool receipt in Aurora |
 
 The database contains **40 products**, ten each for Fresh, Marco, Anna, and
 Theo. The storefront renders nine showcase cards from each cohort (36 total);
@@ -91,6 +91,7 @@ embedding calls during bootstrap.
 | Hybrid retrieval | Aurora runs pgvector and PostgreSQL full-text branches; Python combines their rank positions with Reciprocal Rank Fusion |
 | Retrieval refinement | Cohere Rerank v3.5 reorders hybrid candidates; Claude Sonnet 5 can extract structured filters for agentic retrieval |
 | Agentic tool use | Five Strands specialists share 15 declared `@tool` functions for search, inventory, pricing, returns, evidence, and escalation |
+| Working memory | `pellier.conversations` and `pellier.messages` atomically preserve successful turn pairs and supply bounded history to the next Boutique turn |
 | Durable evidence | `pellier.tool_audit` records the tool, caller, JSONB arguments and result, latency, session, and timestamp |
 | Runtime skills | A Sonnet-based SkillRouter selects from five markdown prompt overlays and injects matching guidance into the selected specialist |
 | Tool registry teaching view | Aurora pgvector ranks tool descriptions for Agent Trace; the default Dispatcher still calls its fixed in-process tool set |
@@ -101,17 +102,23 @@ full-text search, JSONB, and SQL patterns also apply to Amazon RDS for
 PostgreSQL, but the supplied Workshop Studio infrastructure is
 Aurora-specific.
 
+The required hour uses only bounded Aurora working memory. In the optional
+Agent Trace reference, semantic memory means learned preferences, episodic
+memory means customer events, and procedural memory means checked-in runtime
+skills plus MCP schemas. `tool_audit` is operational history, not memory.
+
 ---
 
 ## How a request runs
 
 1. The Boutique sends your shopper request to FastAPI.
-2. The deterministic Dispatcher classifies the intent and selects one of five
+2. FastAPI loads the session's recent working-memory turns from Aurora.
+3. The deterministic Dispatcher classifies the intent and selects one of five
    specialists.
-3. A Sonnet-based SkillRouter can add matching guidance for the current turn.
-4. The specialist calls only its declared in-process tools.
-5. Those tools read or write Aurora and record durable evidence.
-6. Boutique streams the answer; Agent Trace exposes the engineering detail.
+4. A Sonnet-based SkillRouter can add matching guidance for the current turn.
+5. The specialist calls only its declared in-process tools.
+6. Aurora stores the completed turn and any tool evidence.
+7. Boutique streams the answer; Agent Trace exposes the engineering detail.
 
 The required workshop path deliberately stays **in-process**. Your Python edit
 reloads immediately, retries are cheap, and everyone can complete the same
@@ -182,6 +189,7 @@ does not block the base agent path.
 | Models | Claude Opus 5, Claude Sonnet 5, Cohere Embed v4, Cohere Rerank v3.5 through Amazon Bedrock |
 | Agent framework | Strands Agents SDK: `Agent`, `@tool`, hooks, and `GraphBuilder` |
 | Backend | FastAPI, psycopg 3, boto3, SSE streaming |
+| Required-path memory | Bounded session history in Aurora `conversations` and `messages` |
 | Frontend | React 18, TypeScript 5, Vite 6, Tailwind CSS 3, Framer Motion 12 |
 | Type | Fraunces, Instrument Sans, Instrument Serif, and JetBrains Mono, all self-hosted |
 | Optional extensions | AgentCore Runtime, Memory, Gateway, Identity, Policy, Evals, and generated MCP configuration |

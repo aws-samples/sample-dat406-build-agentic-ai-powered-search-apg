@@ -16,7 +16,7 @@ Endpoints:
     GET  /tools                — tools with signatures, status, metadata
     POST /tools/discover       — pgvector semantic search
     GET  /routing              — 3 routing patterns with active indicator
-    GET  /memory/{persona}     — four-substrate memory state (working / semantic / episodic / procedural) for persona
+    GET  /memory/{persona}     — four memory types plus operational history
     GET  /performance          — metrics and benchmarks
     GET  /evaluations          — agent scorecards
     GET  /observatory          — dashboard summary
@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import runpy
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -887,7 +888,50 @@ async def _load_live_episodic(persona: str) -> Optional[list]:
 
 
 async def _load_live_procedural() -> Optional[list]:
-    """Aggregate live tool_audit rows into procedural patterns.
+    """Read procedural knowledge from runtime skills and MCP schemas."""
+    items = []
+    try:
+        from skills import get_registry
+
+        for skill in get_registry().get_all():
+            items.append({
+                "id": f"proc-skill-{skill.name}",
+                "content": (
+                    f"Runtime skill {skill.name} v{skill.version}: "
+                    f"{skill.description}"
+                ),
+                "substrate": "procedural",
+            })
+    except Exception as exc:
+        logger.warning("Runtime skill registry read failed: %s", exc)
+
+    schema_path = (
+        Path(__file__).resolve().parents[3]
+        / "scripts"
+        / "deploy"
+        / "gateway_tool_schemas.py"
+    )
+    try:
+        tool_surfaces = runpy.run_path(str(schema_path)).get("TOOL_SCHEMAS", {})
+        for surface, config in sorted(tool_surfaces.items()):
+            tool_names = [
+                str(tool.get("name", ""))
+                for tool in config.get("tools", [])
+                if tool.get("name")
+            ]
+            items.append({
+                "id": f"proc-mcp-{surface}",
+                "content": f"MCP {surface} contract: {', '.join(tool_names)}",
+                "substrate": "procedural",
+            })
+    except Exception as exc:
+        logger.warning("Canonical MCP schema read failed from %s: %s", schema_path, exc)
+
+    return items or None
+
+
+async def _load_live_operational_history() -> Optional[list]:
+    """Aggregate live tool_audit rows into operational evidence.
 
     Every ALLOWed tool call writes to pellier.tool_audit (reads and
     writes alike), so this aggregate covers the full per-tool signal.
@@ -916,16 +960,16 @@ async def _load_live_procedural() -> Optional[list]:
         for i, r in enumerate(rows):
             d = dict(r)
             items.append({
-                "id": f"proc-live-{i}",
+                "id": f"operational-live-{i}",
                 "content": (
                     f"{d.get('tool')} - fired {d.get('calls')}x, "
                     f"avg {d.get('avg_ms')}ms"
                 ),
-                "substrate": "procedural",
+                "substrate": "operational",
             })
         return items
     except Exception as exc:
-        logger.warning("Live procedural read failed: %s", exc)
+        logger.warning("Live operational-history read failed: %s", exc)
         return None
 
 
@@ -1050,7 +1094,7 @@ def _empty_substrate(label: str, store: str) -> dict:
 
 @router.get("/memory/{persona}")
 async def get_memory(persona: str):
-    """Return the 4-substrate memory state for a persona.
+    """Return four memory types plus operational history for a persona.
 
     Each substrate is sourced honestly:
       working    — AgentCore Memory session turns for the persona's
@@ -1065,11 +1109,10 @@ async def get_memory(persona: str):
       episodic   — pellier.customer_episodic_seed rows; live when the
                    DB is reachable and the persona has rows, otherwise
                    the fixture (used by personas with no seed data).
-      procedural — pellier.tool_audit aggregate (calls + avg latency
-                   per tool, every ALLOWed call - reads and writes
-                   alike). Promotes to 'live' when the aggregate
-                   succeeds; the caveat persists because the schema
-                   still lacks intent/persona_id/success columns.
+      procedural — checked-in runtime skills plus canonical MCP tool
+                   schemas; these are instructions and contracts.
+      operational— pellier.tool_audit aggregate (calls + average
+                   latency per tool). This is execution evidence.
 
     Read-only.
     """
@@ -1098,24 +1141,19 @@ async def get_memory(persona: str):
                     "Episodic - Aurora",
                     "pellier.customer_episodic_seed",
                 ),
-                "procedural": {
-                    **_empty_substrate(
-                        "Procedural - Aurora",
-                        "pellier.tool_audit (aggregate)",
-                    ),
-                    "source": "sketch",
-                    "caveat": (
-                        "tool_audit records every ALLOWed tool call but "
-                        "lacks intent / persona_id / success columns "
-                        "today - this panel sketches the shape the "
-                        "aggregate will take once they land."
-                    ),
-                },
+                "procedural": _empty_substrate(
+                    "Procedural - source controlled",
+                    "skills/*/SKILL.md + scripts/deploy/gateway_tool_schemas.py",
+                ),
+                "operational": _empty_substrate(
+                    "Operational History - Aurora",
+                    "pellier.tool_audit (aggregate)",
+                ),
             }
         else:
             # Hand-edited fixtures may still be on the legacy stm/ltm
             # shape during the migration. Normalize to a safe empty
-            # 4-substrate shell so downstream overlays don't KeyError.
+            # four-type-plus-history shell so overlays don't KeyError.
             for key, label, store in (
                 ("working", "Working - AgentCore Memory",
                  f"anon-persona-{persona}-{{sid}}"),
@@ -1123,11 +1161,24 @@ async def get_memory(persona: str):
                  _sem_store),
                 ("episodic", "Episodic - Aurora",
                  "pellier.customer_episodic_seed"),
-                ("procedural", "Procedural - Aurora",
+                ("procedural", "Procedural - source controlled",
+                 "skills/*/SKILL.md + scripts/deploy/gateway_tool_schemas.py"),
+                ("operational", "Operational History - Aurora",
                  "pellier.tool_audit (aggregate)"),
             ):
                 if key not in data or not isinstance(data.get(key), dict):
                     data[key] = _empty_substrate(label, store)
+
+        # Never serve the legacy fixture that mislabeled tool activity as
+        # procedural memory. These two sources are rebuilt explicitly.
+        data["procedural"] = _empty_substrate(
+            "Procedural - source controlled",
+            "skills/*/SKILL.md + scripts/deploy/gateway_tool_schemas.py",
+        )
+        data["operational"] = _empty_substrate(
+            "Operational History - Aurora",
+            "pellier.tool_audit (aggregate)",
+        )
 
         # Live overlays - each promotes source to 'live' on success.
         ep_live = await _load_live_episodic(persona)
@@ -1139,10 +1190,11 @@ async def get_memory(persona: str):
         if proc_live:
             data["procedural"]["items"] = proc_live
             data["procedural"]["source"] = "live"
-            # Caveat persists even when source flips to 'live' - the
-            # items are real aggregates from tool_audit, but the
-            # schema gap (no intent/persona/success columns) is real
-            # too and worth teaching.
+
+        operational_live = await _load_live_operational_history()
+        if operational_live:
+            data["operational"]["items"] = operational_live
+            data["operational"]["source"] = "live"
 
         wk_live = await _load_live_working(persona)
         if wk_live:

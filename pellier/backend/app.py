@@ -32,6 +32,7 @@ from models.search import (
 )
 from models.product import ProductWithScore
 from services.database import DatabaseService
+from services.aurora_session_memory import AuroraSessionMemory
 from services.auth import get_current_user
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
@@ -818,6 +819,27 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             if request.customer_id:
                 effective_user["customer_id"] = request.customer_id
 
+            memory = AuroraSessionMemory(db_service)
+            memory_receipt = {
+                "source": "aurora",
+                "loaded_messages": 0,
+                "persisted": False,
+            }
+            if request.session_id:
+                try:
+                    durable_history = await memory.load_history(request.session_id)
+                    if durable_history:
+                        history = durable_history
+                    memory_receipt["loaded_messages"] = len(durable_history)
+                except Exception as exc:
+                    logger.warning(
+                        "Aurora session history read failed for %s: %s",
+                        request.session_id,
+                        exc.__class__.__name__,
+                    )
+
+            streamed_content = ""
+
             # Per-turn guardrail INPUT check — records a decision in
             # services/guardrails_log so the Agent Trace Grounding page's
             # Guardrails lane shows live audit rows. Only runs when
@@ -856,6 +878,38 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 user=effective_user or None,
                 pattern=request.pattern,
             ):
+                event_type = event.get("type")
+                if event_type == "content_reset":
+                    streamed_content = ""
+                elif event_type == "content_delta":
+                    streamed_content += str(event.get("delta") or "")
+                elif event_type == "content":
+                    streamed_content = str(event.get("content") or "")
+                elif event_type == "complete":
+                    response_payload = event.setdefault("response", {})
+                    assistant_message = (
+                        streamed_content.strip()
+                        or str(response_payload.get("response") or "").strip()
+                    )
+                    if request.session_id and assistant_message:
+                        try:
+                            await memory.append_turn_pair(
+                                request.session_id,
+                                user_message=request.message,
+                                assistant_message=assistant_message,
+                                actor_id=str(
+                                    effective_user.get("sub") or "anonymous"
+                                ),
+                                agent_name=str(request.pattern or "agents_as_tools"),
+                            )
+                            memory_receipt["persisted"] = True
+                        except Exception as exc:
+                            logger.warning(
+                                "Aurora session history append failed for %s: %s",
+                                request.session_id,
+                                exc.__class__.__name__,
+                            )
+                    response_payload["memory"] = memory_receipt
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             logger.error(f"Streaming chat failed: {e}")

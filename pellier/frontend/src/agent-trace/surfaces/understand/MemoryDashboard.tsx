@@ -1,8 +1,8 @@
 /**
- * MemoryDashboard - Observe surface for the 4-substrate memory model.
+ * MemoryDashboard - four memory types plus operational history.
  *
- * Shows the live state of working / semantic / episodic / procedural
- * memory for the active persona. Each substrate panel carries a
+ * Shows working / semantic / episodic / procedural memory for the active
+ * persona, then separates tool execution history. Each panel carries a
  * provenance pill ('live' | 'fixture' | 'sketch') so attendees see
  * which reads hit the real source on this request and which fell
  * back to a teaching fixture.
@@ -335,13 +335,13 @@ const MemoryDashboard: React.FC = () => {
   const [persona, setPersona] = useState<MemoryPersona>(initialPersona);
 
   // source: 'api' so the dashboard hits /api/agent-trace/memory/{persona}
-  // and gets the live overlays from the backend (episodic + procedural
-  // from Aurora, working + semantic from AgentCore Memory). Defaults
+  // and gets live overlays from the backend. Defaults
   // to 'fixture', which would render every panel as fixture/sketch even
   // when the database is connected.
   const { data, loading, error, refetch } = useAgentTraceData<MemoryState>({
     key: `memory-${persona}`,
     source: 'api',
+    allowFixtureFallback: false,
   });
 
   const personaCounts = { marco: 1, anna: 1, theo: 1 } as Record<MemoryPersona, number>;
@@ -351,10 +351,17 @@ const MemoryDashboard: React.FC = () => {
     (data.working.items.length > 0 ||
       data.semantic.items.length > 0 ||
       data.episodic.items.length > 0 ||
-      data.procedural.items.length > 0);
+      data.procedural.items.length > 0 ||
+      data.operational.items.length > 0);
 
   const liveCount = data
-    ? [data.working, data.semantic, data.episodic, data.procedural].filter(
+    ? [
+        data.working,
+        data.semantic,
+        data.episodic,
+        data.procedural,
+        data.operational,
+      ].filter(
         (p) => p.source === 'live',
       ).length
     : 0;
@@ -362,9 +369,9 @@ const MemoryDashboard: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Memory · four substrates · persona-scoped"
+        eyebrow="Understand · Memory · four types · explicit evidence"
         title="What the system remembers."
-        summary="Memory has four substrates, each with its own storage and lifetime. AgentCore Memory owns working (session turns) and semantic (durable preferences a USER_PREFERENCE strategy extracts from conversation). Aurora owns episodic (per-customer events) and procedural (tool patterns). Each panel below names the real backing store and tells you whether it read live on this request."
+        summary="AgentCore Memory owns working turns and learned semantic preferences. Aurora supplies episodic business events. Source-controlled skills and MCP schemas supply procedural know-how. Operational history is shown separately because tool_audit proves what ran; it is not memory."
       />
 
       {loading && <LoadingState />}
@@ -394,7 +401,7 @@ const MemoryDashboard: React.FC = () => {
               color: 'var(--at-ink-2)',
             }}
           >
-            <span>Live substrates: {liveCount} / 4</span>
+            <span>Live sources: {liveCount} / 5</span>
             <span style={{ color: 'var(--at-ink-4)' }}>·</span>
             <span>Persona: {data.persona}</span>
           </div>
@@ -410,6 +417,9 @@ const MemoryDashboard: React.FC = () => {
             <SubstratePanel panel={data.semantic} />
             <SubstratePanel panel={data.episodic} />
             <SubstratePanel panel={data.procedural} />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <SubstratePanel panel={data.operational} />
+            </div>
           </div>
         </>
       )}

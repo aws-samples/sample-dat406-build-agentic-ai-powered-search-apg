@@ -41,7 +41,7 @@ const PILLARS: PillarItem[] = [
     verb: 'Understand',
     title: 'Agents, Tools, Memory',
     description:
-      'Five specialists, fifteen tools, and four memory substrates. Read how each piece works and where its evidence lives.',
+      'Five specialists, fifteen tools, and four memory types. Read how each piece works and where its evidence lives.',
   },
   {
     verb: 'Evaluate',

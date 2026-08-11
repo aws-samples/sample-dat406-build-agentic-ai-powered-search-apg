@@ -12,9 +12,9 @@
     "numeral": "II",
     "category": "live",
     "title": "Memory",
-    "role": "Four substrates: working, semantic, episodic, procedural",
-    "description": "Memory is not one tier - it is four substrates with different storage and lifetimes. AgentCore Memory owns working memory (session turns) and semantic memory (durable preferences a USER_PREFERENCE strategy extracts from conversation). Aurora owns episodic memory (per-customer events) and procedural memory (tool patterns from tool_audit). The Boutique reads all four; only working memory writes on every turn.",
-    "codeSnippet": "# Working - AgentCore Memory, per-turn append\nawait memory.append_session_turn(session_ns, turn)\n\n# Semantic - AgentCore Memory, USER_PREFERENCE extraction\nprefs = await memory.get_semantic_memories(actor_id)\n\n# Episodic - Aurora customer_episodic_seed\nseed = await fetch_episodic_seed(customer_id)\n\n# Procedural - Aurora tool_audit cohort patterns\nawait emit_memory_procedural_panel(ctx, customer_id)",
+    "role": "Four memory types; operational history stays evidence",
+    "description": "Working memory holds session turns. Semantic memory holds durable learned preferences. Episodic memory comes from customer events in Aurora. Procedural knowledge comes from checked-in runtime skills and MCP schemas. tool_audit is shown separately because it proves what ran; it does not teach the agent how to work.",
+    "codeSnippet": "# Working - AgentCore Memory session events\nawait memory.append_session_turns(session_ns, turns)\n\n# Semantic - AgentCore USER_PREFERENCE records\nprefs = await memory.get_semantic_memories(actor_id)\n\n# Episodic - Aurora customer events\nseed = await fetch_episodic_seed(customer_id)\n\n# Procedural - reviewable source\nskills/*/SKILL.md\nscripts/deploy/gateway_tool_schemas.py\n\n# Operational history - evidence, not memory\nSELECT tool, count(*), avg(latency_ms)\nFROM pellier.tool_audit\nGROUP BY tool;",
     "slug": "memory"
   },
   {

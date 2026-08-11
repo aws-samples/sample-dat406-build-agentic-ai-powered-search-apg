@@ -16,6 +16,10 @@ import { useToolDiscovery } from '../hooks/useToolDiscovery';
 // useAgentTraceData
 // ---------------------------------------------------------------------------
 describe('useAgentTraceData', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('returns fixture data when source is "fixture"', async () => {
     const { result } = renderHook(() =>
       useAgentTraceData({ key: 'sessions', source: 'fixture' }),
@@ -95,6 +99,30 @@ describe('useAgentTraceData', () => {
     expect(agentsResult.current.data).toBeTruthy();
     expect(toolsResult.current.data).toBeTruthy();
     expect(agentsResult.current.data).not.toEqual(toolsResult.current.data);
+  });
+
+  it('surfaces API failure when fixture fallback is disabled', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const { result } = renderHook(() =>
+      useAgentTraceData({
+        key: 'memory-marco',
+        source: 'api',
+        allowFixtureFallback: false,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toContain('503 Service Unavailable');
   });
 });
 

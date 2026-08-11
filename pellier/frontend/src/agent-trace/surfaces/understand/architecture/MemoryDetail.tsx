@@ -1,8 +1,8 @@
 /**
  * MemoryDetail - Architecture detail page for Memory.
  *
- * Four substrates (working / semantic / episodic / procedural), each
- * shown in its own panel with explicit provenance: 'live' when the
+ * Four memory types plus operational history, each shown with explicit
+ * provenance: 'live' when the
  * panel was just read from the real source, 'fixture' when it fell
  * back to a per-persona JSON, 'sketch' when the source schema is
  * partial (e.g. tool_audit lacks intent / persona_id columns).
@@ -329,19 +329,25 @@ const MemoryDetail: React.FC = () => {
     persona && MEMORY_PERSONA_IDS.has(persona.id) ? persona.id : 'marco';
 
   // source: 'api' so the page hits /api/agent-trace/memory/{persona} and
-  // gets the backend's live overlays (episodic from pellier.customer_episodic_seed,
-  // procedural from the pellier.tool_audit aggregate, working/semantic from
-  // AgentCore Memory). Without this, the hook defaults to 'fixture' and
+  // gets the backend's live memory and operational-history overlays.
+  // Without this, the hook defaults to 'fixture' and
   // every panel reads from local JSON regardless of whether the database
   // is reachable — which is what made the source pills show
-  // Fixture / Fixture / Fixture / Sketch even when Aurora was connected.
+  // fixture data even when Aurora is connected.
   const { data, loading, error, refetch } = useAgentTraceData<MemoryState>({
     key: `memory-${activePersonaId}`,
     source: 'api',
+    allowFixtureFallback: false,
   });
 
   const liveCount = data
-    ? [data.working, data.semantic, data.episodic, data.procedural].filter(
+    ? [
+        data.working,
+        data.semantic,
+        data.episodic,
+        data.procedural,
+        data.operational,
+      ].filter(
         (p) => p.source === 'live',
       ).length
     : 0;
@@ -349,7 +355,8 @@ const MemoryDetail: React.FC = () => {
     ? data.working.items.length +
       data.semantic.items.length +
       data.episodic.items.length +
-      data.procedural.items.length
+      data.procedural.items.length +
+      data.operational.items.length
     : 0;
 
   return (
@@ -357,8 +364,8 @@ const MemoryDetail: React.FC = () => {
       numeral="II"
       conceptName="Memory"
       category="live"
-      title="Memory, four substrates."
-      prose="Memory has four substrates, each with a different storage, lifetime, and write contract. AgentCore Memory owns working and semantic memory under namespaced keys; Aurora owns episodic and procedural memory through customer_episodic_seed and tool_audit. Every turn reads from all four; only working memory writes on every turn."
+      title="Memory, with evidence kept separate."
+      prose="Working, semantic, episodic, and procedural memory have different stores and lifetimes. AgentCore Memory owns session turns and learned preferences; Aurora supplies business events; source-controlled skills and MCP schemas supply tool know-how. tool_audit is operational evidence, not memory."
       seeInBoutique={{
         href: '/?ask=Pick+up+where+I+left+off',
         label: 'See memory.recall fire on the storefront',
@@ -378,7 +385,7 @@ const MemoryDetail: React.FC = () => {
         },
         {
           numeral: 'iv.',
-          text: 'Procedural - patterns of which tool tends to win for which intent, derived from tool_audit. Every ALLOWed tool call writes a row (reads and writes alike); intent / persona_id / success columns are the next ticket. Honest about the gap.',
+          text: 'Procedural - checked-in runtime skills and MCP schemas define how the agent should work and which arguments each tool accepts. This workshop inspects those contracts; it does not claim they are learned dynamically.',
         },
       ]}
       liveState={
@@ -386,7 +393,7 @@ const MemoryDetail: React.FC = () => {
           ? {
               label: 'Current memory state for the active persona. Each substrate reads from its own backing store; the source pill tells you which panels were live on this request.',
               values: [
-                { label: 'Live substrates', value: `${liveCount} / 4` },
+                { label: 'Live sources', value: `${liveCount} / 5` },
                 { label: 'Items', value: String(totalItems) },
                 { label: 'Persona', value: data.persona },
               ],
@@ -451,17 +458,19 @@ WHERE customer_id = $1
 ORDER BY placed_at DESC;`}
             />
             <TierCard
-              tierName="Procedural - Aurora"
+              tierName="Procedural - source controlled"
               category="live"
-              title="Tool patterns"
-              role="What tends to work, learned from tool_audit"
-              prose="Aggregate stats over tool_audit: which tools win, at what latency, for which cohorts. Every ALLOWed tool call writes a row (reads and writes), so the per-tool signal is complete; intent, persona_id, and success columns are the next ticket. Honest about the gap."
-              codeSnippet={`# Procedural - aggregate over tool_audit
-SELECT tool,
-       count(*)        AS calls,
-       avg(latency_ms) AS avg_ms
-  FROM pellier.tool_audit
- GROUP BY tool;`}
+              title="Instructions and contracts"
+              role="How the agent should perform work"
+              prose="Runtime skills provide conditional operating guidance. Canonical MCP schemas define each tool's arguments. Both are checked-in, reviewable source and survive process restarts because the runtime reloads them from the deployed artifact."
+              codeSnippet={`# Procedural knowledge
+skills/*/SKILL.md
+scripts/deploy/gateway_tool_schemas.py
+
+# Operational history remains separate
+SELECT tool, count(*), avg(latency_ms)
+FROM pellier.tool_audit
+GROUP BY tool;`}
             />
           </div>
 
@@ -500,6 +509,9 @@ SELECT tool,
             <SubstratePanel panel={data.semantic} />
             <SubstratePanel panel={data.episodic} />
             <SubstratePanel panel={data.procedural} />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <SubstratePanel panel={data.operational} />
+            </div>
           </div>
         </>
       )}

@@ -180,18 +180,21 @@ async def _append_boutique_stm_turn(
     assistant_message: str,
     user: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Persist a Boutique dispatcher turn to AgentCore Memory (STM).
+    """Mirror a Boutique turn to configured AgentCore Memory.
 
-    Keeps ``GET /api/agent/session/{id}`` aligned with Marco pills on
-    ``/api/chat/stream`` so the Builder's STM lab sees continuity without
-    routing the storefront through ``/api/agent/chat``.
+    Aurora is the required-path working-memory store. This optional mirror is
+    only active when a managed Memory resource is configured; an in-process
+    fallback must not be presented as managed persistence.
     """
     if not session_id:
         return
     try:
+        from config import settings
         from services.agentcore_identity import AgentCoreIdentityService
         from services.agentcore_memory import AgentCoreMemory
 
+        if not settings.AGENTCORE_MEMORY_ID:
+            return
         sub = user.get("sub") if user and isinstance(user, dict) else None
         namespace = AgentCoreIdentityService.build_namespace(sub, session_id)
         memory = AgentCoreMemory()

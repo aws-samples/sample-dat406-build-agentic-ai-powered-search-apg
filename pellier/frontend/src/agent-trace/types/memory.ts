@@ -1,20 +1,26 @@
 /**
  * Agent Trace Observatory — Memory types
  *
- * The Memory architecture lens has four substrates, each with its
- * own storage, lifetime, and write contract:
+ * The Memory architecture lens has four memory types plus a separate
+ * operational-history source:
  *
  *   working    — AgentCore Memory session turns
  *   semantic   — AgentCore Memory records extracted by a USER_PREFERENCE strategy
  *   episodic   — Aurora customer_episodic_seed / orders / returns
- *   procedural — Aurora tool_audit aggregate patterns
+ *   procedural — checked-in runtime skills and MCP tool schemas
+ *   operational — Aurora tool_audit aggregate evidence
  *
  * Each substrate carries an explicit ``source`` so the UI can show
  * provenance honestly (live read vs. fixture vs. sketch over a
  * partial schema).
  */
 
-export type MemorySubstrate = 'working' | 'semantic' | 'episodic' | 'procedural';
+export type MemorySubstrate =
+  | 'working'
+  | 'semantic'
+  | 'episodic'
+  | 'procedural'
+  | 'operational';
 
 /**
  * Provenance of the items in a substrate panel.
@@ -58,4 +64,5 @@ export interface MemoryState {
   semantic: MemorySubstratePanel;
   episodic: MemorySubstratePanel;
   procedural: MemorySubstratePanel;
+  operational: MemorySubstratePanel;
 }
