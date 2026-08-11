@@ -1,0 +1,462 @@
+/* ========================================================================
+ * Agent Trace Observatory — Base Styles & Resets
+ *
+ * Global resets and foundational styles for the Agent Trace surface. Scoped
+ * to the .agent-trace-root container so nothing leaks into the Boutique
+ * storefront.
+ *
+ * Design principles:
+ *   - Flat editorial aesthetic: NO glassmorphism, NO blurs, NO gradients
+ *     (except product image placeholders)
+ *   - Desktop-first, minimum 1280px viewport
+ *   - Warm cream/sand/espresso palette only
+ *   - Crisp 1px borders, solid backgrounds, clear hierarchy
+ *
+ * Requirements: 15.6 (flat aesthetic, no glassmorphism/blurs/gradients)
+ *               22.1 (code organization under /src/agent-trace/)
+ * ======================================================================== */
+
+@import './tokens.css';
+@import './fonts.css';
+
+/* -----------------------------------------------------------------------
+ * Agent Trace root container — scopes all observatory styles
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-root {
+  background: var(--at-cream-1);
+  color: var(--at-ink-1);
+  font-family: var(--at-sans);
+  font-size: var(--at-body-size);
+  line-height: var(--at-body-leading);
+  min-height: 100vh;
+  /* No min-width. A hard 1280px floor forced horizontal scrolling on every
+     14-inch laptop and embedded workshop browser; the layout below is
+     responsive instead of merely wide. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* -----------------------------------------------------------------------
+ * Flat aesthetic enforcement — override any inherited storefront styles
+ * that use glassmorphism, blurs, or gradients within the Agent Trace.
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-root *,
+.agent-trace-root *::before,
+.agent-trace-root *::after {
+  /* Strip inherited backdrop-filter / blur from storefront globals */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Re-enable box-sizing reset */
+.agent-trace-root *,
+.agent-trace-root *::before,
+.agent-trace-root *::after {
+  box-sizing: border-box;
+}
+
+/* -----------------------------------------------------------------------
+ * Typography resets within Agent Trace
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-root h1,
+.agent-trace-root h2,
+.agent-trace-root h3,
+.agent-trace-root h4,
+.agent-trace-root h5,
+.agent-trace-root h6 {
+  margin: 0;
+  color: var(--at-ink-1);
+}
+
+/* Operational headings share one readable UI voice. Editorial headings opt
+ * into Fraunces with `font-display`; the exclusion keeps those page-level
+ * moments intact while overriding legacy inline serif styles elsewhere. */
+.agent-trace-root h1:not(.font-display),
+.agent-trace-root h2:not(.font-display),
+.agent-trace-root h3:not(.font-display),
+.agent-trace-root h4:not(.font-display),
+.agent-trace-root h5:not(.font-display),
+.agent-trace-root h6:not(.font-display) {
+  font-family: var(--at-heading) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+}
+
+.agent-trace-root p {
+  margin: 0;
+}
+
+.agent-trace-root a {
+  color: var(--at-red-1);
+  text-decoration: none;
+}
+
+.agent-trace-root a:hover {
+  text-decoration: underline;
+}
+
+.agent-trace-root button {
+  font-family: var(--at-sans);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.agent-trace-root code,
+.agent-trace-root pre,
+.agent-trace-root kbd {
+  font-family: var(--at-mono);
+  font-feature-settings: 'calt' 1, 'liga' 1;
+}
+
+/* Match Daylight `.dl-code-block` (daylight-components.css) — dark ink
+ * canvas + accent-soft default text so Agent Trace telemetry SQL matches
+ * Architecture / Markdown surfaces that already use `.dl-code-block`. */
+.agent-trace-root pre {
+  font-family: var(--at-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--dl-ink);
+  color: var(--dl-accent-soft);
+  border-radius: var(--dl-r-lg);
+  padding: var(--dl-s-5);
+  border: none;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.agent-trace-root code {
+  font-size: var(--at-mono-size);
+}
+
+/* Inline code within prose */
+.agent-trace-root p > code,
+.agent-trace-root li > code {
+  background: var(--at-cream-2);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* -----------------------------------------------------------------------
+ * Layout primitives
+ * ----------------------------------------------------------------------- */
+
+/* Two-column shell: wide workshop navigator + flexible canvas */
+.agent-trace-frame {
+  display: grid;
+  /* minmax(0, 1fr) rather than 1fr: a bare 1fr floors at min-content, so a
+     wide table or SQL block inside the canvas would push the whole grid
+     wider than the viewport instead of scrolling within its own panel. */
+  grid-template-columns: var(--at-sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* Canvas area (right of sidebar) */
+.agent-trace-canvas {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* Surface content area (below top bar) */
+.agent-trace-surface {
+  flex: 1;
+  padding: 32px 40px;
+}
+
+.agent-trace-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 40px;
+  border-bottom: 1px solid var(--at-rule-1);
+  background: color-mix(in srgb, var(--at-red-1) 6%, var(--at-cream-1));
+  color: var(--at-ink-1);
+}
+
+.agent-trace-context-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.agent-trace-context-copy strong {
+  color: var(--at-ink-1);
+  font-weight: 600;
+}
+
+.agent-trace-context-kicker {
+  border: 1px solid color-mix(in srgb, var(--at-red-1) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--at-red-1) 9%, var(--at-cream-1));
+  color: color-mix(in srgb, var(--at-red-1) 86%, var(--at-ink-1));
+  font-family: var(--at-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.agent-trace-context-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-trace-context-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 999px;
+  background: var(--at-cream-elev);
+  color: var(--at-ink-2) !important;
+  font-family: var(--at-sans);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 10px;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.agent-trace-context-link:hover {
+  border-color: var(--at-rule-3);
+  color: var(--at-ink-1) !important;
+}
+
+/* -----------------------------------------------------------------------
+ * Scrollbar — warm, minimal, matching the cream palette
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-root ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.agent-trace-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.agent-trace-root ::-webkit-scrollbar-thumb {
+  background: var(--at-ink-5);
+  border-radius: 3px;
+}
+
+.agent-trace-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--at-ink-4);
+}
+
+/* -----------------------------------------------------------------------
+ * Selection color — warm, on-brand
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-root ::selection {
+  background: var(--at-red-soft);
+  color: var(--at-ink-1);
+}
+
+/* -----------------------------------------------------------------------
+ * Focus styles — accessible, on-brand
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-root :focus-visible {
+  outline: 2px solid var(--at-red-1);
+  outline-offset: 2px;
+}
+
+/* -----------------------------------------------------------------------
+ * Reduced motion — respect user preference
+ * ----------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-trace-root *,
+  .agent-trace-root *::before,
+  .agent-trace-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Pulsing dot animation — used by StatusDot (live) and Observatory
+ * ----------------------------------------------------------------------- */
+
+@keyframes at-pulse-dot {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}
+
+/* -----------------------------------------------------------------------
+ * Skeleton pulse animation — used by loading placeholders
+ * ----------------------------------------------------------------------- */
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.7; }
+}
+
+.agent-trace-root .at-pulse-live {
+  animation: at-pulse-dot 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-trace-root .at-pulse-live {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Telemetry timeline — "Trace this pick" pulse (matches workshop panel-flash) */
+.agent-trace-root [data-telemetry-panel][data-flash='true'] {
+  animation: at-telemetry-panel-flash 800ms ease-out;
+}
+@keyframes at-telemetry-panel-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(154, 52, 18, 0);
+    border-color: var(--at-rule-1);
+  }
+  30% {
+    box-shadow: 0 0 0 6px rgba(154, 52, 18, 0.28);
+    border-color: var(--at-red-1);
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(31, 20, 16, 0.06);
+    border-color: var(--at-rule-1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-trace-root [data-telemetry-panel][data-flash='true'] {
+    animation: none;
+    border-color: var(--at-red-1);
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Responsive shell
+ *
+ * The Agent Trace previously enforced `min-width: 1280px` with a 440px rail,
+ * so a 14-inch laptop or an embedded workshop browser scrolled
+ * horizontally before the attendee read anything. The rules below make the
+ * shell adapt instead:
+ *
+ *   >= 1280px   full 300px rail
+ *   1024-1279   compact icon rail (labels hidden, destinations intact)
+ *   < 1024px    rail becomes an off-canvas drawer over the canvas
+ *
+ * Destinations are never removed at any width — only their presentation
+ * changes. Hiding a lab on a narrow screen would silently make part of the
+ * workshop unreachable.
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-sidebar {
+  width: var(--at-sidebar-width);
+}
+
+/* --- Compact icon rail (tablet landscape / small laptop) --------------- */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .agent-trace-frame {
+    grid-template-columns: var(--at-sidebar-width-compact) minmax(0, 1fr);
+  }
+
+  .agent-trace-sidebar {
+    width: var(--at-sidebar-width-compact);
+    align-items: center;
+  }
+
+  /* Labels collapse; the icon and its accessible name remain. */
+  .agent-trace-sidebar [data-nav-label],
+  .agent-trace-sidebar [data-nav-eyebrow],
+  .agent-trace-sidebar [data-sidebar-footer] {
+    display: none;
+  }
+
+  .agent-trace-surface {
+    padding: 24px 24px;
+  }
+
+  .agent-trace-context-banner {
+    padding: 12px 24px;
+  }
+}
+
+/* --- Drawer (tablet portrait and below) -------------------------------- */
+@media (max-width: 1023px) {
+  .agent-trace-frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agent-trace-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;
+    width: min(320px, 86vw);
+    transform: translateX(-100%);
+    transition: transform var(--gov-motion-base) var(--gov-motion-ease);
+    box-shadow: var(--gov-shadow-md);
+    overflow-y: auto;
+  }
+
+  .agent-trace-root[data-nav-open='true'] .agent-trace-sidebar {
+    transform: translateX(0);
+  }
+
+  /* Scrim closes the drawer and prevents interaction behind it. */
+  .agent-trace-root[data-nav-open='true']::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(28, 25, 23, 0.42);
+  }
+
+  .agent-trace-surface {
+    padding: 20px 18px;
+  }
+
+  .agent-trace-context-banner {
+    padding: 12px 18px;
+    flex-wrap: wrap;
+  }
+}
+
+/* --- Phone ------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .agent-trace-surface {
+    /* Respect the home-indicator inset so the last card is not clipped. */
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The nav toggle only exists in drawer mode; above it the rail is present. */
+.agent-trace-nav-toggle {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .agent-trace-nav-toggle {
+    display: inline-flex;
+  }
+}
+
+/* Reduced motion: the drawer still opens, it simply does not slide. */
+@media (prefers-reduced-motion: reduce) {
+  .agent-trace-sidebar {
+    transition: none;
+  }
+}

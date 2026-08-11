@@ -26,6 +26,7 @@ This module has two sides:
 MCP (Model Context Protocol) docs: https://modelcontextprotocol.io
 """
 import logging
+from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 
 from config import settings
@@ -67,6 +68,34 @@ GATEWAY_TOOL_NAMES: List[str] = [
     "trace_receipt",
     "escalate_to_stylist",
 ]
+
+MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
+    "search": (
+        "find_pieces",
+        "explore_collection",
+        "side_by_side",
+        "style_match",
+        "escalate_to_stylist",
+    ),
+    "recommendation": (
+        "find_pieces_hybrid",
+        "whats_trending",
+        "preference_snapshot",
+        "trace_receipt",
+        "side_by_side",
+        "explore_collection",
+        "escalate_to_stylist",
+    ),
+    "pricing": ("price_intelligence", "explore_collection", "find_pieces"),
+    "inventory": ("floor_check", "running_low", "restock_shelf"),
+    "support": (
+        "returns_and_care",
+        "find_pieces",
+        "process_return",
+        "trace_receipt",
+        "escalate_to_stylist",
+    ),
+}
 
 
 # Capability tiers over the same 15 tools.
@@ -146,6 +175,122 @@ def mutation_tool_names() -> List[str]:
     return [
         name for name in GATEWAY_TOOL_NAMES if tool_tier(name) in MUTATION_TIERS
     ]
+
+
+def _logical_gateway_tool_name(name: str) -> str:
+    """Strip the Gateway target prefix from a discovered MCP tool name."""
+    if "___" in name:
+        return name.rsplit("___", 1)[-1]
+    if "__" in name:
+        return name.rsplit("__", 1)[-1]
+    return name
+
+
+def _managed_specialist_spec(intent: str) -> tuple[str, str, tuple[str, ...]]:
+    """Return specialist name, prompt, and allowed logical tools."""
+    if intent == "customer_support":
+        intent = "support"
+
+    if intent == "search":
+        from agents.style_advisor import _SEARCH_SYSTEM_PROMPT
+
+        prompt = _SEARCH_SYSTEM_PROMPT
+    elif intent == "recommendation":
+        from boutique_copy import RECOMMENDATION_SYSTEM_PROMPT
+
+        prompt = RECOMMENDATION_SYSTEM_PROMPT
+    elif intent == "pricing":
+        from agents.value_analyst import _PRICING_SYSTEM_PROMPT
+
+        prompt = _PRICING_SYSTEM_PROMPT
+    elif intent == "inventory":
+        from agents.stock_keeper import _INVENTORY_SYSTEM_PROMPT
+
+        prompt = _INVENTORY_SYSTEM_PROMPT
+    else:
+        from agents.experience_guide import _SUPPORT_SYSTEM_PROMPT
+
+        intent = "support"
+        prompt = _SUPPORT_SYSTEM_PROMPT
+
+    return intent, prompt, MANAGED_SPECIALIST_TOOLS[intent]
+
+
+@dataclass
+class ManagedGatewayDispatcher:
+    """Run Pellier's deterministic dispatcher over managed Gateway tools."""
+
+    access_token: str
+    trace_attributes: Dict[str, str] | None = None
+    last_intent: str = ""
+    last_specialist: str = ""
+    last_tool_names: tuple[str, ...] = ()
+
+    def __call__(self, prompt: str) -> Any:
+        from mcp.client.streamable_http import streamablehttp_client
+        from strands import Agent
+        from strands.models import BedrockModel
+        from strands.tools.mcp.mcp_client import MCPClient
+        from services.intent_router import classify_intent
+
+        intent = classify_intent(prompt)
+        specialist, system_prompt, allowed_tools = _managed_specialist_spec(intent)
+
+        def _create_transport():
+            return streamablehttp_client(
+                settings.AGENTCORE_GATEWAY_URL,
+                headers=_gateway_headers(self.access_token),
+            )
+
+        mcp_client = MCPClient(_create_transport)
+        mcp_client.start()
+        try:
+            discovered = mcp_client.list_tools_sync()
+            selected = [
+                tool
+                for tool in discovered
+                if _logical_gateway_tool_name(tool.name) in allowed_tools
+            ]
+            selected_names = tuple(
+                _logical_gateway_tool_name(tool.name) for tool in selected
+            )
+            missing = sorted(set(allowed_tools) - set(selected_names))
+            if missing:
+                raise RuntimeError(
+                    f"Gateway is missing {specialist} tools: {', '.join(missing)}"
+                )
+
+            agent = Agent(
+                name=specialist,
+                model=BedrockModel(
+                    model_id=settings.BEDROCK_ROUTER_MODEL,
+                    max_tokens=4096,
+                ),
+                system_prompt=system_prompt,
+                tools=selected,
+            )
+            if self.trace_attributes:
+                agent.trace_attributes = {
+                    **self.trace_attributes,
+                    "pellier.intent": intent,
+                    "pellier.specialist": specialist,
+                }
+
+            self.last_intent = intent
+            self.last_specialist = specialist
+            self.last_tool_names = selected_names
+            return agent(prompt)
+        finally:
+            mcp_client.stop()
+
+
+def create_gateway_dispatcher(
+    access_token: Optional[str] = None,
+) -> ManagedGatewayDispatcher | None:
+    """Create the managed equivalent of the Boutique dispatcher."""
+    if not settings.AGENTCORE_GATEWAY_URL or not access_token:
+        return None
+    return ManagedGatewayDispatcher(access_token=access_token)
 
 
 def _unwrap_strands_tool(strands_tool: Any) -> Any:
@@ -350,7 +495,7 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
 
     ``access_token`` is forwarded as a Bearer token (JWT passthrough) when
     supplied. Against a JWT-protected Gateway, calling without a token returns
-    [] (the call is rejected with 401) — which the Atelier panel renders as a
+    [] (the call is rejected with 401) — which the Agent Trace panel renders as a
     "skipped / needs identity" state rather than failing the turn.
 
     Returns a list of tool descriptors with name, description, and input schema.

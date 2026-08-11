@@ -305,7 +305,7 @@ server {
     # __PELLIER_ORIGIN_VERIFY__
     
     # Pellier (single-process): FastAPI on :8000 serves BOTH
-    # /api/* AND the built SPA (/, /atelier, /storyboard, /discover,
+    # /api/* AND the built SPA (/, /agent-trace, /storyboard, /discover,
     # /assets/*, /fonts/*). Code-server's /ports/<n>/* reverse proxy
     # (or the standalone /app/ alias below) routes the whole app
     # there.
@@ -341,7 +341,7 @@ server {
 
     # /ports/8000/* – the canonical participant URL. It matches the baked
     # SPA base path (VITE_BASE_PATH=/ports/8000/) and the BoutiqueURL /
-    # AtelierURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
+    # AgentTraceURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
     # bypassing code-server's port-forward proxy.
     #
     # WHY this block exists: code-server only forwards a port that has been
@@ -351,7 +351,7 @@ server {
     # rejects it with HTTP 400 ("This page isn't working"). That made the
     # storefront reachable only from inside an open, authenticated IDE tab –
     # fragile, and the first thing a participant trips on. Owning the prefix
-    # here makes the Boutique/Atelier load token-free, in any browser, with
+    # here makes the Boutique/Agent Trace load token-free, in any browser, with
     # no dependency on the IDE. Trailing slashes on both location and
     # proxy_pass strip the prefix: /ports/8000/assets/x serves /assets/x,
     # /ports/8000/api/... serves /api/... (SSE-safe: buffering + gzip off).
@@ -415,7 +415,7 @@ AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/plac
 log "AWS Region: $AWS_REGION"
 
 # ----------------------------------------------------------------------------
-# CDK bootstrap (required by @aws/agentcore 0.18 `deploy`, which is CDK-based).
+# CDK bootstrap (required by @aws/agentcore 0.26.0 `deploy`).
 #
 # `agentcore deploy` synthesizes a CloudFormation stack and deploys it via the
 # CDK toolkit. CDK requires the account/region to be "bootstrapped" first — a
@@ -703,7 +703,7 @@ cat << EOF
 
   PROVE       Lab 4: query pellier.tool_audit from psql.
 
-  ATELIER     Use Atelier only when a step names a specific verification or
+  AGENT_TRACE     Use Agent Trace only when a step names a specific verification or
               comparison view.
 
   FILE        agent_tools.py is open. Find the floor_check WORKSHOP markers,

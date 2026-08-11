@@ -5,8 +5,8 @@ surfaces deals.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_pricing_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Atelier Graph pattern.
-2. ``pricing(query)`` — ``@tool`` wrapper used by the Atelier's
+   used by the Storefront dispatcher and the Agent Trace Graph pattern.
+2. ``pricing(query)`` — ``@tool`` wrapper used by the Agent Trace's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: the factory and tool keep generic names because the
@@ -27,7 +27,7 @@ _PRICING_SYSTEM_PROMPT = (
     "<tools>"
     "- price_intelligence: Use for category-level pricing statistics (average, min, max, distribution). "
     "- find_pieces: Use when the user describes specific products with price constraints "
-    "(e.g. 'laptops under $500'). "
+    "(e.g. 'linen shirts under $250'). "
     "- explore_collection: Use to browse products in a category when the user wants to see "
     "what is available at various price points. "
     "</tools>"
@@ -71,7 +71,7 @@ def build_pricing_agent() -> Agent:
     construction time. The pricing specialist didn't read these in
     earlier revisions; adding them in the factory keeps behavior
     consistent across all five specialists without changing anonymous
-    atelier output (both injections are no-ops when their
+    agentTrace output (both injections are no-ops when their
     ContextVars are empty).
     """
     # Value Analyst — Sonnet 5 reporting profile. Reports numbers and

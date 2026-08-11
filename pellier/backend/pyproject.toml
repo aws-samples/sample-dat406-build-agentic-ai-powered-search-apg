@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Pellier agentic search backend — also the AgentCore Runtime BYO code-location."
 requires-python = ">=3.12"
 
-# Dependencies for the AgentCore Runtime CodeZip build (@aws/agentcore 0.18 uses
-# uv + pyproject.toml, NOT requirements.txt). This MUST stay a superset of every
+# Dependencies for the AgentCore Runtime CodeZip build. The pinned CLI uses uv
+# + pyproject.toml, not requirements.txt. This MUST stay a superset of every
 # import reachable from agentcore_runtime.py — the BYO entrypoint imports
 # agents.orchestrator, which transitively pulls in config (pydantic-settings),
 # skills (pydantic), and the Strands stack. Kept in sync with

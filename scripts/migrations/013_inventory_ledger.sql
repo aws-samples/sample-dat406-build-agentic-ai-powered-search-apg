@@ -18,12 +18,11 @@
 -- truth; the two quantity columns become caches that a check query can
 -- reconcile against.
 --
--- Rollout note: this migration is additive. It creates the ledger and
--- seeds it from current warehouse rows so existing quantities reconcile
--- from row one. It does not rewrite the existing write functions, so a
--- box mid-workshop keeps working; `reconcile_inventory()` reports drift
--- rather than silently repairing it, because silent repair would hide the
--- very bug this table exists to surface.
+-- Rollout note: this migration is additive. It creates the ledger, seeds
+-- it from current warehouse rows, and installs one trigger at the database
+-- write boundary. Migration 011 supplies transaction-local reason and
+-- idempotency context for the known return/restock functions. Direct SQL
+-- writes are still captured, but are labeled as adjustments.
 
 \set ON_ERROR_STOP on
 
@@ -150,6 +149,116 @@ SELECT wi.product_id, wi.warehouse_id, wi.quantity, 'seed',
           AND il.product_id = wi.product_id
    );
 
+-- A prior revision of this migration created the ledger without wiring the
+-- live write path. On upgrade, absorb only that pre-existing difference
+-- into one deterministic baseline row per warehouse/product. Future writes
+-- are appended by the trigger below. Deleting/rebuilding the baseline on a
+-- rerun keeps this migration idempotent without hiding later trigger-backed
+-- movements.
+DELETE FROM pellier.inventory_ledger
+ WHERE idempotency_key LIKE 'baseline:013:%';
+
+INSERT INTO pellier.inventory_ledger
+    (product_id, warehouse_id, delta, reason, idempotency_key)
+SELECT wi.product_id,
+       wi.warehouse_id,
+       wi.quantity - COALESCE(sum(il.delta), 0)::INTEGER,
+       'adjustment',
+       'baseline:013:' || wi.warehouse_id || ':' || wi.product_id
+  FROM pellier.warehouse_inventory wi
+  LEFT JOIN pellier.inventory_ledger il
+         ON il.product_id = wi.product_id
+        AND il.warehouse_id = wi.warehouse_id
+ GROUP BY wi.product_id, wi.warehouse_id, wi.quantity
+HAVING wi.quantity - COALESCE(sum(il.delta), 0) <> 0;
+
+-- ---------------------------------------------------------------------
+-- One database boundary for every warehouse stock movement
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION pellier.record_inventory_movement()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_product_id      TEXT;
+    v_warehouse_id    TEXT;
+    v_delta           INTEGER;
+    v_reason          TEXT;
+    v_idempotency_key TEXT;
+    v_principal_sub   TEXT;
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        v_product_id := NEW.product_id;
+        v_warehouse_id := NEW.warehouse_id;
+        v_delta := NEW.quantity;
+    ELSIF TG_OP = 'DELETE' THEN
+        v_product_id := OLD.product_id;
+        v_warehouse_id := OLD.warehouse_id;
+        v_delta := -OLD.quantity;
+    ELSE
+        v_product_id := NEW.product_id;
+        v_warehouse_id := NEW.warehouse_id;
+        v_delta := NEW.quantity - OLD.quantity;
+    END IF;
+
+    IF v_delta = 0 THEN
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    v_reason := COALESCE(
+        NULLIF(current_setting('pellier.inventory_reason', true), ''),
+        'adjustment'
+    );
+    IF v_reason NOT IN (
+        'restock',
+        'return_damaged',
+        'return_resellable',
+        'sale',
+        'seed',
+        'adjustment'
+    ) THEN
+        v_reason := 'adjustment';
+    END IF;
+
+    v_idempotency_key := NULLIF(
+        current_setting('pellier.inventory_idempotency_key', true),
+        ''
+    );
+    v_principal_sub := NULLIF(
+        current_setting('pellier.principal_sub', true),
+        ''
+    );
+
+    INSERT INTO pellier.inventory_ledger
+        (product_id, warehouse_id, delta, reason, idempotency_key, principal_sub)
+    VALUES
+        (
+            v_product_id,
+            v_warehouse_id,
+            v_delta,
+            v_reason,
+            v_idempotency_key,
+            v_principal_sub
+        );
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS warehouse_inventory_ledger_write
+    ON pellier.warehouse_inventory;
+CREATE TRIGGER warehouse_inventory_ledger_write
+    AFTER INSERT OR DELETE OR UPDATE OF quantity
+    ON pellier.warehouse_inventory
+    FOR EACH ROW
+    EXECUTE FUNCTION pellier.record_inventory_movement();
+
 -- ---------------------------------------------------------------------
 -- Derived views + a reconciliation check
 -- ---------------------------------------------------------------------
@@ -186,15 +295,15 @@ LANGUAGE sql
 STABLE
 AS $$
     SELECT 'warehouse'::TEXT,
-           wi.product_id,
-           wi.warehouse_id,
-           wi.quantity::INTEGER,
+           COALESCE(wi.product_id, wb.product_id),
+           COALESCE(wi.warehouse_id, wb.warehouse_id),
+           COALESCE(wi.quantity, 0)::INTEGER,
            COALESCE(wb.quantity, 0)
       FROM pellier.warehouse_inventory wi
-      LEFT JOIN pellier.warehouse_balance wb
+      FULL OUTER JOIN pellier.warehouse_balance wb
              ON wb.product_id = wi.product_id
             AND wb.warehouse_id = wi.warehouse_id
-     WHERE wi.quantity <> COALESCE(wb.quantity, 0)
+     WHERE COALESCE(wi.quantity, 0) <> COALESCE(wb.quantity, 0)
     UNION ALL
     SELECT 'catalog'::TEXT,
            pc."productId",

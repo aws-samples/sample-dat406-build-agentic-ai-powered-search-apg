@@ -5,7 +5,7 @@ import '../styles/chat-outcomes.css'
 
 interface TurnReceiptProps {
   reference: string
-  surface?: 'boutique' | 'atelier'
+  surface?: 'boutique' | 'agentTrace'
 }
 
 function shortReference(reference: string): string {

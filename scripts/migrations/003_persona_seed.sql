@@ -7,7 +7,7 @@
 --
 -- Why this is required:
 --   * Marco / Anna / Theo / Fresh need customer rows for memory and
---     Atelier overlays.
+--     Agent Trace overlays.
 --   * Theo's process_return tool checks ownership in pellier.orders
 --     before it writes to pellier.returns.
 --   * The memory surfaces read pellier.customer_episodic_seed directly.

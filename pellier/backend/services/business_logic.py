@@ -333,9 +333,9 @@ class BusinessLogic:
     ) -> Dict[str, Any]:
         """Theo's idempotent return write, executed atomically in Aurora.
 
-        The managed AgentCore Policy engine (Cedar, ENFORCE mode,
-        attached to the Gateway by scripts/deploy/deploy_policy.py)
-        can gate a Gateway-rail call before the tool's Lambda ever runs.
+        The AgentCore CLI project attaches the managed Cedar engine to the
+        Gateway in ENFORCE mode, so it can gate a managed call before the
+        tool's Lambda ever runs.
         Governed requests execute this transaction through that Lambda;
         the builders format can execute it in-process. Both validate the
         canonical reason set here as a defense-in-depth guard.

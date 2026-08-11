@@ -1,6 +1,6 @@
 /**
  * SurfaceToggle — segmented control that pairs the shopper-facing
- * storefront (`/`) with the operator-facing Atelier surface.
+ * storefront (`/`) with the operator-facing Agent Trace surface.
  *
  * Replaces the standalone "Workshop" text link that used to sit in
  * the Header. The pair is a single source of truth for "which surface
@@ -22,15 +22,20 @@ import { SURFACE_TOGGLE } from '../copy'
 import { cssVar as c } from '../design/cssVars'
 
 
-type Surface = 'storefront' | 'atelier'
+type Surface = 'storefront' | 'agentTrace'
 
-const SEGMENTS: Array<{ key: Surface; label: string; path: string }> = [
-  { key: 'storefront', label: SURFACE_TOGGLE.STOREFRONT, path: '/' },
-  { key: 'atelier', label: SURFACE_TOGGLE.ATELIER, path: '/atelier' },
+const SEGMENTS: Array<{ key: Surface; slug: string; label: string; path: string }> = [
+  { key: 'storefront', slug: 'storefront', label: SURFACE_TOGGLE.STOREFRONT, path: '/' },
+  {
+    key: 'agentTrace',
+    slug: 'agent-trace',
+    label: SURFACE_TOGGLE.AGENT_TRACE,
+    path: '/agent-trace',
+  },
 ]
 
 function currentSurface(pathname: string): Surface {
-  return pathname.startsWith('/atelier') ? 'atelier' : 'storefront'
+  return pathname.startsWith('/agent-trace') ? 'agentTrace' : 'storefront'
 }
 
 export default function SurfaceToggle() {
@@ -65,7 +70,7 @@ export default function SurfaceToggle() {
           <Link
             key={seg.key}
             to={seg.path}
-            data-testid={`surface-toggle-${seg.key}`}
+            data-testid={`surface-toggle-${seg.slug}`}
             data-active={isActive ? 'true' : 'false'}
             aria-current={isActive ? 'page' : undefined}
             ref={(el) => {

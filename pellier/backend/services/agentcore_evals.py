@@ -75,7 +75,7 @@ def is_enabled() -> bool:
 
 
 def describe_configuration() -> Dict[str, Any]:
-    """Surface shape used by the Atelier Measure copy.
+    """Surface shape used by the Agent Trace Measure copy.
 
     Returns the same envelope whether the sidecar runs or not, so the
     frontend can render a clear off/wired state without inspecting

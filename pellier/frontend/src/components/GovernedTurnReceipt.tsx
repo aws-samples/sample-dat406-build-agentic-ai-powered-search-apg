@@ -3,7 +3,7 @@
  *
  * Design stance: quiet governance in Boutique. The shopper gets a beautiful
  * answer; the receipt is a single restrained line that says what the system
- * actually did, with the full accounting one click away in Atelier.
+ * actually did, with the full accounting one click away in Agent Trace.
  *
  * The hard rule is **only render what the turn emitted**. Every field here
  * is optional, and an absent field renders as an honest "not reported"

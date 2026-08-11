@@ -1,4 +1,4 @@
-"""Tests for the Week 2 Tool Registry pgvector discovery (Card 7 shadow mode).
+"""Tests for the Tool Registry pgvector discovery shadow mode.
 
 Covers ``services.tool_registry.discover_tools`` and the panel emitter in
 ``services.workshop_panels``. psycopg is mocked via a FakeDB so tests

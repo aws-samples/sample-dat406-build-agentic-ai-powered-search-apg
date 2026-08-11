@@ -1,7 +1,7 @@
 """Typed query planning — the ``Plan`` step of Plan → Retrieve → Rank → Act → Prove.
 
 This module is the single planner for every retrieval path in Pellier. The
-shipped Curator tool path and the Atelier strategy comparison both compile
+shipped Curator tool path and the Agent Trace strategy comparison both compile
 their retrieval through :func:`build_plan`, so the "agentic" strategy the
 workshop *demonstrates* is the same one shoppers actually get.
 

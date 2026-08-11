@@ -28,9 +28,8 @@
  *   8. <ReasoningChip/>
  *   9. Full-width `Add to bag` secondary button
  *
- * Phase 2 redesign: replaced all hardcoded hex colors with Tailwind token
- * classes. Card chrome uses shadow-warm-sm / shadow-warm-md tokens. The
- * parallax observer logic and safety defenses are preserved unchanged.
+ * Card chrome uses Tailwind tokens and the shadow-warm-sm / shadow-warm-md
+ * scale. The parallax observer keeps the safety defenses above.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Star } from 'lucide-react'
@@ -67,7 +66,7 @@ interface ProductCardProps {
 /**
  * Derive two trace chips from a product's reasoning chip style + tags
  * when the caller doesn't supply explicit traces. Picks the trace
- * vocabulary so it lines up with the agent surfaces inside /atelier
+ * vocabulary so it lines up with the agent surfaces inside /agent-trace
  * (memory · tools · trend · inventory · pairing), keeping the
  * consumer-facing storefront and developer-facing observatory in the
  * same language.

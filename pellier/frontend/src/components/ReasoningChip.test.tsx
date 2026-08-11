@@ -63,7 +63,7 @@ describe('ReasoningChip — picked style (Req 1.7.2)', () => {
     )
     // The B mark prefix is present.
     expect(
-      within(chip).getByTestId('reasoning-chip-bmark'),
+      within(chip).getByTestId('reasoning-chip-pmark'),
     ).toBeInTheDocument()
     // Italic Fraunces voice is applied on the container.
     expect(chip.getAttribute('style') ?? '').toMatch(/font-style:\s*italic/)
@@ -83,7 +83,7 @@ describe('ReasoningChip — matched style (Req 1.7.3)', () => {
       'Matched on: earth \u00b7 warm \u00b7 everyday',
     )
     // No B mark on the matched style — it is the engineer-voice chip.
-    expect(within(chip).queryByTestId('reasoning-chip-bmark')).toBeNull()
+    expect(within(chip).queryByTestId('reasoning-chip-pmark')).toBeNull()
   })
 })
 

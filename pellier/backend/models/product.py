@@ -12,15 +12,15 @@ class Product(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "productId": 1,
-                "product_description": "Premium wireless headphones with active noise cancellation",
-                "stars": 4.5,
-                "price": 199.99,
+                "productId": 2,
+                "product_description": "Hadley Linen Shirt in ivory",
+                "stars": 4.8,
+                "price": 248.00,
             }
         }
     )
 
-    productId: int = Field(..., description="Unique product identifier (1-92 in boutique catalog)")
+    productId: int = Field(..., description="Unique product identifier")
     product_description: str = Field(..., description="Product description")
     imgurl: Optional[str] = Field(None, description="Product image URL")
     producturl: Optional[str] = Field(None, description="Product page URL")
@@ -36,10 +36,10 @@ class ProductWithScore(Product):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "productId": 1,
-                "product_description": "Premium wireless headphones",
-                "stars": 4.5,
-                "price": 199.99,
+                "productId": 2,
+                "product_description": "Hadley Linen Shirt in ivory",
+                "stars": 4.8,
+                "price": 248.00,
                 "similarity_score": 0.89,
             }
         }

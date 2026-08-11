@@ -36,7 +36,7 @@ search applications.
 
 ## Required path
 
-1. Core Lab 1: Build and Trace
-2. Core Lab 2: Measure Retrieval
-3. Core Lab 3: Query Evidence
-4. Core Lab 4: Enforce Policy
+1. Lab 1: Ground Every Answer in Live Data
+2. Lab 2: Choose the Search Strategy to Ship
+3. Lab 3: Move the Agent into Managed Runtime
+4. Lab 4: Enforce Who Can Act on What

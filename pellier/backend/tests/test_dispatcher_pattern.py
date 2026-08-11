@@ -1,4 +1,4 @@
-"""Pattern III (Dispatcher) contract test — Phase 2 verification.
+"""Pattern III (Dispatcher) contract tests.
 
 Asserts three things, in order of importance:
 
@@ -20,13 +20,13 @@ Asserts three things, in order of importance:
    branches on it; all five specialist factories are reachable via
    the intent classifier.
 
-3. **Atelier behavior is unchanged at the wire level.** The default
+3. **Agent Trace behavior is unchanged at the wire level.** The default
    pattern (absent / None) is ``'agents_as_tools'`` so existing
-   Atelier clients keep hitting the Sonnet orchestrator.
+   Agent Trace clients keep hitting the Sonnet orchestrator.
 
-End-to-end behavior (real Bedrock calls, persona-aware responses)
-is verified manually via the four storefront scenarios in Phase 2's
-verification output — not here. This test is a structural gate.
+End-to-end behavior with real Bedrock calls and persona-aware responses
+is covered by the live dispatcher smoke script, not here. This test is a
+structural gate.
 """
 from __future__ import annotations
 
@@ -169,7 +169,7 @@ def test_chat_stream_signature_accepts_pattern() -> None:
 
     sig = inspect.signature(EnhancedChatService.chat_stream)
     assert "pattern" in sig.parameters, (
-        "chat_stream does not accept 'pattern' — Phase 2 wiring missed it"
+        "chat_stream does not accept 'pattern'"
     )
 
 
@@ -256,13 +256,13 @@ def test_each_dispatcher_intent_constructs_a_distinct_specialist() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Pattern I byte-compatibility — Atelier is unchanged at the wire level
+# Pattern I byte-compatibility — Agent Trace is unchanged at the wire level
 # ---------------------------------------------------------------------------
 
 
 def test_default_pattern_is_agents_as_tools() -> None:
     """When no pattern is supplied (pre-Phase-2 clients), the service
-    must default to agents_as_tools so Atelier behavior is preserved.
+    must default to agents_as_tools so Agent Trace behavior is preserved.
     """
     import textwrap
 
@@ -273,7 +273,7 @@ def test_default_pattern_is_agents_as_tools() -> None:
     # so the double-quoted form in the module is what we check.
     assert 'pattern or "agents_as_tools"' in textwrap.dedent(src), (
         "chat_stream does not default pattern to 'agents_as_tools' — "
-        "pre-Phase-2 clients (Atelier) would break"
+        "pre-Phase-2 clients (Agent Trace) would break"
     )
 
 

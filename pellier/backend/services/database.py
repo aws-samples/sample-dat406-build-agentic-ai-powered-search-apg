@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Per-turn query logger — feeds the Atelier State Management live strip.
+# Per-turn query logger — feeds the Agent Trace State Management live strip.
 # ---------------------------------------------------------------------------
 # ``chat_stream`` sets this ContextVar to a fresh list at the start of each
 # turn. fetch_all / fetch_one / execute_query append to it with
@@ -390,7 +390,7 @@ class DatabaseService:
                 async with conn.cursor() as cur:
                     await cur.execute("SET hnsw.iterative_scan = 'relaxed_order'")
                 # Wrap the connection's cursor factory to log queries for
-                # the Atelier State Management live strip. This catches
+                # the Agent Trace State Management live strip. This catches
                 # raw cursor usage (VectorSearch, etc.) that bypasses
                 # fetch_all / fetch_one.
                 _instrument_connection(conn)

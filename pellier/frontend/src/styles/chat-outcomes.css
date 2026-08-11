@@ -1,4 +1,4 @@
-/* Shared request outcomes for Boutique and Atelier chat surfaces. */
+/* Shared request outcomes for Boutique and Agent Trace chat surfaces. */
 
 .turn-receipt {
   display: grid;
@@ -55,7 +55,7 @@
   outline-offset: 1px;
 }
 
-.turn-receipt--atelier {
+.turn-receipt--agent-trace {
   margin-top: 8px;
 }
 
@@ -187,7 +187,7 @@
   outline-offset: 2px;
 }
 
-.chat-failure--atelier {
+.chat-failure--agent-trace {
   max-width: 92%;
   align-self: flex-start;
 }
@@ -203,7 +203,7 @@
     height: 28px;
   }
 
-  .chat-failure--atelier {
+  .chat-failure--agent-trace {
     max-width: 100%;
   }
 }

@@ -1,4 +1,4 @@
-"""Tests for ``GET /api/atelier/search/explain`` — the Atelier "Search"
+"""Tests for ``GET /api/agent-trace/search/explain`` — the Agent Trace "Search"
 mechanism surface (``app.explain_search``).
 
 This endpoint is the *mechanism* counterpart to
@@ -7,7 +7,7 @@ query and returns every intermediate stage —
 EMBED → VECTOR → LEXICAL → FUSION → RERANK — each shaped as a telemetry
 panel (tag / title / sql / columns / rows / meta / tagClass).
 
-We exercise the handler directly (like ``test_atelier_working_panel``
+We exercise the handler directly (like ``test_agent_trace_working_panel``
 calls ``_load_live_working`` directly) so the suite runs offline without
 Aurora, Bedrock, or the app lifespan. The two hybrid branches
 (``_vector_search`` / ``_fts_search``) are patched at the class level,

@@ -40,7 +40,7 @@ const PERSONA_HERO_IMAGES: Record<string, string> = {
   theo: asset('/products/hero-theo.png'),
 }
 
-// Customer-service trust strip. Technical proof belongs in Atelier; the
+// Customer-service trust strip. Technical proof belongs in Agent Trace; the
 // Boutique names the value a shopper would care about.
 interface CapabilityItem {
   /** Bold lead clause. */
@@ -1006,7 +1006,7 @@ export default function BoutiqueHero() {
         sessions · cites every source it used · hands off to a human
         stylist when it should. The shipping/returns boilerplate moved
         to the footer service strip. Each item maps to a teaching
-        surface in /atelier — see the TRUST_ITEMS docblock above. */}
+        surface in /agent-trace — see the TRUST_ITEMS docblock above. */}
     <div
       data-testid="boutique-hero-trust"
       className="w-full border-b border-sand/40"

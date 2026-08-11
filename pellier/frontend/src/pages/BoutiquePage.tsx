@@ -373,7 +373,7 @@ export default function BoutiquePage() {
       {/* CommandPill removed — hero search bar opens the drawer directly */}
       {/* First-visit orientation. Session-gated and skippable: it teaches the
           four surfaces (Boutique = experience, Code Editor = implementation,
-          Atelier = evidence, Workshop Studio = instructions) once, then stays
+          Agent Trace = evidence, Workshop Studio = instructions) once, then stays
           out of the way. */}
       <BoutiqueSpotlight />
     </div>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync Atelier `skills.json` fixture from `/skills/*/SKILL.md`.
+"""Sync Agent Trace `skills.json` fixture from `/skills/*/SKILL.md`.
 
 This keeps frontend fixture copy aligned with the runtime skill registry.
 """
@@ -12,7 +12,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPO_ROOT / "skills"
-FIXTURE_PATH = REPO_ROOT / "pellier" / "frontend" / "src" / "atelier" / "fixtures" / "skills.json"
+FIXTURE_PATH = (
+    REPO_ROOT
+    / "pellier"
+    / "frontend"
+    / "src"
+    / "agent-trace"
+    / "fixtures"
+    / "skills.json"
+)
 sys.path.insert(0, str(REPO_ROOT / "pellier" / "backend"))
 
 from skills.registry import _parse_frontmatter

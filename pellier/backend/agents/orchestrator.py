@@ -9,7 +9,7 @@ This is **not** the Dispatcher. The codebase has two routing patterns:
     One LLM call per turn (the specialist's). No separate Agent
     object — the Dispatcher *is* the routing function.
 
-  * **Orchestrator (Pattern I)** — the Atelier's "Agents as Tools"
+  * **Orchestrator (Pattern I)** — the Agent Trace's "Agents as Tools"
     teaching surface (this file). A Sonnet 5 Agent that sees each
     specialist as a ``@tool`` (search, recommendation, pricing,
     inventory, support) and picks one to call. Two LLM calls per turn

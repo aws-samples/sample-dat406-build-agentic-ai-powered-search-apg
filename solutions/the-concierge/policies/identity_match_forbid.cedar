@@ -1,28 +1,15 @@
-// Required Lab 4 reference rule: the authenticated principal may
-// only file a return for itself. AgentCore Policy exposes JWT claims as
-// principal tags, so the Cognito access token's `username` claim (marco/anna/
-// theo – lowercase, matching the pellier.customers convention used in tool
-// args) is comparable against the tool input.
-//
-// This shape is deliberately fail-open for the workshop: if the engine
-// revision does not emit the claim tag, hasTag() is false, the forbid does not
-// fire, and the room's damaged-return happy path stays green. The
-// production-hardened variant is the fail-closed `unless` shape:
-//
-//   forbid(...) unless {
-//     principal.hasTag("username") &&
-//     context.input has customer_id &&
-//     principal.getTag("username") == context.input.customer_id
-//   };
-//
-// which denies when the claim is missing instead of allowing.
+// Required Lab 4 reference rule: the authenticated principal may only file a
+// return for itself. AgentCore Policy exposes JWT claims as principal tags, so
+// the Cognito access token's `username` claim is comparable against the tool
+// input. The `unless` shape is fail-closed: a missing claim, missing
+// customer_id, or mismatched identity is denied.
 forbid(
   principal,
-  action == AgentCore::Action::"ACTION_TOKEN",
-  resource == AgentCore::Gateway::"GATEWAY_ARN"
+  action == AgentCore::Action::"pellier-concierge-experience-target___process_return",
+  resource is AgentCore::Gateway
 )
-when {
-  context.input has customer_id &&
+unless {
   principal.hasTag("username") &&
-  principal.getTag("username") != context.input.customer_id
+  context.input has customer_id &&
+  principal.getTag("username") == context.input.customer_id
 };

@@ -246,7 +246,7 @@ export interface ChatResponse {
   agent_execution?: AgentExecution
   /**
    * Stable per-turn identifier minted server-side (`app.new_turn_id`).
-   * Used to deep-link this exact turn's evidence in Atelier. Optional
+   * Used to deep-link this exact turn's evidence in Agent Trace. Optional
    * because a turn served from smoke mode or an older backend emits none —
    * consumers must degrade to a session-scoped link rather than invent one.
    */

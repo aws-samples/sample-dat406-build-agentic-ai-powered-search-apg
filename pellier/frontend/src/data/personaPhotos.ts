@@ -1,7 +1,7 @@
 /**
  * Persona headshot photos — Unsplash free-to-use portraits.
  *
- * Shared across the Atelier sidebar, Boutique header persona pill,
+ * Shared across the Agent Trace sidebar, Boutique header persona pill,
  * and persona dropdown. Each URL points to a 200×200 face-crop so
  * avatars render a real face at any size.
  *

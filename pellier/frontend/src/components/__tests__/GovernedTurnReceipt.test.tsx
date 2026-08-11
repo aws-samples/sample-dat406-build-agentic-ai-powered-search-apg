@@ -113,7 +113,7 @@ describe('GovernedTurnReceipt', () => {
     renderReceipt({ sourceCount: 1, turnId: 'turn-abc' })
 
     const link = screen.getByTestId('governed-receipt-link')
-    expect(link.getAttribute('href')).toContain('/atelier/sessions/sess-1/telemetry')
+    expect(link.getAttribute('href')).toContain('/agent-trace/sessions/sess-1/telemetry')
     expect(link.getAttribute('href')).toContain('turn=turn-abc')
   })
 
@@ -121,7 +121,7 @@ describe('GovernedTurnReceipt', () => {
     renderReceipt({ sourceCount: 1 })
 
     const link = screen.getByTestId('governed-receipt-link')
-    expect(link.getAttribute('href')).toBe('/atelier/sessions/sess-1/telemetry')
+    expect(link.getAttribute('href')).toBe('/agent-trace/sessions/sess-1/telemetry')
     expect(link.getAttribute('href')).not.toContain('turn=')
   })
 
@@ -134,7 +134,7 @@ describe('GovernedTurnReceipt', () => {
 
     expect(
       screen.getByTestId('governed-receipt-link').getAttribute('href'),
-    ).toBe('/atelier/audit-proof')
+    ).toBe('/agent-trace/audit-proof')
   })
 
   it('offers one plain-language way into the full evidence', () => {

@@ -206,6 +206,17 @@ def _migration_013() -> str:
     ).read_text()
 
 
+def _migration_011() -> str:
+    from pathlib import Path
+
+    return (
+        Path(__file__).resolve().parents[3]
+        / "scripts"
+        / "migrations"
+        / "011_governed_write_integrity.sql"
+    ).read_text()
+
+
 def test_returns_carry_a_quantity_bounded_by_the_order() -> None:
     """Repeated valid requests must not return more than was ordered.
 
@@ -238,9 +249,12 @@ def test_ledger_is_the_single_source_of_truth() -> None:
 def test_ledger_movements_are_idempotent() -> None:
     """A replayed write cannot append a second stock movement."""
     sql = _migration_013()
+    writes = _migration_011()
 
     assert "inventory_ledger_idempotency_idx" in sql
     assert "UNIQUE INDEX" in sql
+    assert "pellier.inventory_idempotency_key" in writes
+    assert "p_idempotency_key" in writes
 
 
 def test_reconciliation_reports_drift_rather_than_hiding_it() -> None:
@@ -251,6 +265,7 @@ def test_reconciliation_reports_drift_rather_than_hiding_it() -> None:
     # A read-only STABLE function: it reports, it does not write.
     assert "STABLE" in sql
     assert "UPDATE pellier.warehouse_inventory" not in sql
+    assert "FULL OUTER JOIN pellier.warehouse_balance" in sql
 
 
 def test_ledger_rows_are_traceable_to_the_write_that_caused_them() -> None:
@@ -258,3 +273,14 @@ def test_ledger_rows_are_traceable_to_the_write_that_caused_them() -> None:
 
     assert "idempotency_key TEXT" in sql
     assert "principal_sub   TEXT" in sql
+
+
+def test_every_warehouse_quantity_change_appends_a_movement() -> None:
+    sql = _migration_013()
+    writes = _migration_011()
+
+    assert "CREATE OR REPLACE FUNCTION pellier.record_inventory_movement()" in sql
+    assert "AFTER INSERT OR DELETE OR UPDATE OF quantity" in sql
+    assert "INSERT INTO pellier.inventory_ledger" in sql
+    assert "'return_damaged'" in writes
+    assert "'restock'" in writes

@@ -173,7 +173,7 @@ def test_call_returns_specialist_agent_result():
     }
     fake_graph.return_value = fake_graph_result
 
-    result = adapter("Any deals on headphones?")
+    result = adapter("Any deals on linen shirts?")
 
     assert str(result) == "Our top deals right now: …"
     assert adapter.last_route == "pricing"

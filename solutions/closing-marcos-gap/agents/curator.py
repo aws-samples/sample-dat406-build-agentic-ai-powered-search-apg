@@ -7,12 +7,12 @@ Exposes two surfaces that share one agent construction path:
 
 1. ``build_recommendation_agent()`` — factory returning a configured
    ``Agent`` instance. Used by the Storefront dispatcher (Pattern III)
-   and the Atelier Graph pattern (Pattern II). Reads the persona
+   and the Agent Trace Graph pattern (Pattern II). Reads the persona
    preamble and skill ContextVars at construction time, same as the
    ``@tool`` path does.
 
 2. ``recommendation(query)`` — ``@tool``-decorated wrapper used by the
-   Atelier's Agents-as-Tools orchestrator (Pattern I). Delegates to
+   Agent Trace's Agents-as-Tools orchestrator (Pattern I). Delegates to
    the factory so both surfaces produce identical agents.
 
 Note on naming: the factory and tool keep generic names because the
@@ -75,7 +75,7 @@ def build_recommendation_agent(
 
     === REFERENCE: START ===
     inject_skills() and inject_persona_preamble() are no-ops when
-    their ContextVars are empty (the common case in atelier smoke
+    their ContextVars are empty (the common case in agentTrace smoke
     tests and anonymous sessions), so this factory produces the same
     agent as before in those scenarios.
     === REFERENCE: END ===

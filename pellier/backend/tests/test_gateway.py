@@ -54,6 +54,34 @@ EXPECTED_TOOL_NAMES = {
 }
 
 
+def test_managed_specialists_partition_the_gateway_catalog() -> None:
+    expected = {
+        "search",
+        "recommendation",
+        "pricing",
+        "inventory",
+        "support",
+    }
+    assert set(gateway.MANAGED_SPECIALIST_TOOLS) == expected
+    for specialist, names in gateway.MANAGED_SPECIALIST_TOOLS.items():
+        assert names, f"{specialist} has no managed Gateway tools"
+        assert set(names) <= EXPECTED_TOOL_NAMES
+
+
+@pytest.mark.parametrize(
+    ("published", "logical"),
+    [
+        ("process_return", "process_return"),
+        ("experience-target__process_return", "process_return"),
+        ("experience-target___process_return", "process_return"),
+    ],
+)
+def test_logical_gateway_tool_name_strips_target_prefix(
+    published: str, logical: str
+) -> None:
+    assert gateway._logical_gateway_tool_name(published) == logical
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -176,7 +204,7 @@ def test_build_mcp_server_returns_fastmcp_with_streamable_http_app() -> None:
 
 
 def test_discovery_returns_exactly_the_fifteen_tools_by_exact_name() -> None:
-    """Discovery SHALL return the 15 tools the Atelier Tools surface ships."""
+    """Discovery SHALL return the 15 tools the Agent Trace Tools surface ships."""
     server = gateway.build_mcp_server()
 
     tools = _run(server.list_tools())

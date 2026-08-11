@@ -1,5 +1,5 @@
 /**
- * Shared governed status vocabulary for Boutique and Atelier.
+ * Shared governed status vocabulary for Boutique and Agent Trace.
  *
  * These types deliberately mirror what the backend already emits. Nothing
  * here is invented:
@@ -13,7 +13,7 @@
  *     already render.
  *
  * The reason this file exists rather than each surface declaring its own
- * union: when Boutique and Atelier disagree about what "governed" means,
+ * union: when Boutique and Agent Trace disagree about what "governed" means,
  * an attendee cannot trust either. One vocabulary, two presentations.
  *
  * Deliberate omission: there is no `turnId` here. The chat contract does

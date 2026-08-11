@@ -121,6 +121,20 @@ BEGIN
                         )
                     );
                 ELSE
+                    -- Migration 013 installs an inventory-ledger trigger.
+                    -- Transaction-local context lets that trigger record the
+                    -- business reason and stable write key without trusting a
+                    -- second, caller-supplied copy of either value.
+                    PERFORM set_config(
+                        'pellier.inventory_reason',
+                        'return_damaged',
+                        true
+                    );
+                    PERFORM set_config(
+                        'pellier.inventory_idempotency_key',
+                        p_idempotency_key,
+                        true
+                    );
                     UPDATE pellier.warehouse_inventory
                        SET quantity = quantity - 1,
                            updated_at = now()
@@ -244,6 +258,16 @@ BEGIN
             'message', format('Product %s not found.', p_product_id)
         );
     ELSE
+        PERFORM set_config(
+            'pellier.inventory_reason',
+            'restock',
+            true
+        );
+        PERFORM set_config(
+            'pellier.inventory_idempotency_key',
+            p_idempotency_key,
+            true
+        );
         UPDATE pellier.warehouse_inventory
            SET quantity = quantity + p_quantity,
                updated_at = now()

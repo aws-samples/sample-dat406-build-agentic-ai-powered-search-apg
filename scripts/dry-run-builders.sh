@@ -126,7 +126,7 @@ info "Waiting 4s for uvicorn --reload to pick up the change…"
 sleep 4
 
 # Confirm the strip flipped to shipped via build-state
-bs="$(curl -fs --max-time 5 "${BASE}/api/atelier/build-state" 2>/dev/null || true)"
+bs="$(curl -fs --max-time 5 "${BASE}/api/agent-trace/build-state" 2>/dev/null || true)"
 if echo "$bs" | grep -q '"floor_check"[[:space:]]*:[[:space:]]*"shipped"'; then
   pass "build-state reports floor_check = shipped"
 else
@@ -152,12 +152,12 @@ if echo "$reply" | grep -qi 'floor_check is in stub state'; then
 fi
 
 # --- 4a. Lab 2 retrieval comparison ----------------------------------------
-echo "[4a/6] Lab 2 — GET /api/atelier/search-strategies/compare"
+echo "[4a/6] Lab 2 — GET /api/agent-trace/search-strategies/compare"
 QUERY='A milestone gift for a new homeowner'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     --get --data-urlencode "query=${QUERY}" \
-    "${BASE}/api/atelier/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
+    "${BASE}/api/agent-trace/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
   printf '%s\n' "$retrieval" > /tmp/retrieval-comparison.json
   if printf '%s' "$retrieval" | jq -e '
       (.strategies | length) == 4
@@ -180,10 +180,10 @@ fi
 # --- 4b. Ledger write rail --------------------------------------------------
 LEDGER_SESSION=""
 if $GOVERNED; then
-  echo "[4b/6] Query Evidence — governed write runs through Gateway in step 4d"
+  echo "[4b/6] Audit Agent Actions with SQL — governed write runs through Gateway in step 4d"
   info "Skipping local process_return; governed mutations require gateway-mcp"
 else
-  echo "[4b/6] Query Evidence — process_return on the builders dispatcher rail"
+  echo "[4b/6] Audit Agent Actions with SQL — process_return on the builders dispatcher rail"
   LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
   ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
   if curl --fail --silent --show-error --no-buffer --max-time 75 \

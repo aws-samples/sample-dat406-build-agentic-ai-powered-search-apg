@@ -43,6 +43,11 @@ FKs.
 11. **`011_governed_write_integrity.sql`** — creates the idempotency
    ledger and the transactional return/restock functions that keep
    warehouse and catalog quantities synchronized.
+12. **`012_retrieval_receipts.sql`** — creates durable retrieval receipts
+   that explain constraints, ranking stages, memory use, latency, and cost.
+13. **`013_inventory_ledger.sql`** — adds return quantity integrity and an
+   append-only stock ledger, then captures every warehouse quantity change
+   at the database boundary.
 
 ## Run
 
@@ -65,7 +70,9 @@ for migration in \
     008_search_performance_indexes.sql \
     009_return_policies.sql \
     010_governed_receipts.sql \
-    011_governed_write_integrity.sql
+    011_governed_write_integrity.sql \
+    012_retrieval_receipts.sql \
+    013_inventory_ledger.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -103,8 +110,8 @@ CREATE EXTENSION pg_cron;  -- must run in postgres database as superuser
 
 ## Testing
 
-Nothing in the test suite invokes these scripts directly yet. Week 1
-verifies via:
+The bootstrap and integrity gates apply these migrations. Verify the resulting
+workshop state with:
 
 ```sql
 \dt pellier.customers
@@ -121,4 +128,5 @@ SELECT COUNT(*) FROM pellier.customer_episodic_seed;   -- 9
 SELECT COUNT(*) FROM pellier.warehouse_inventory;      -- 120
 SELECT COUNT(*) FROM pellier.governed_receipts
  WHERE session_id = 'gateway-marco-for-theo-incident'; -- 1
+SELECT COUNT(*) FROM pellier.reconcile_inventory();     -- 0
 ```

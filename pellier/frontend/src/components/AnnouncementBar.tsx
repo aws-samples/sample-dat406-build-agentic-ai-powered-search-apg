@@ -7,7 +7,7 @@
  *
  * A pulse dot on the left, a small-caps-style verb (NEW ARRIVALS /
  * RESTOCKED / SERVICE) in sans semibold + wide tracking, and body copy
- * in cream. The Boutique keeps this retail-facing; Atelier carries the
+ * in cream. The Boutique keeps this retail-facing; Agent Trace carries the
  * proof and trace vocabulary.
  *
  * Copy lives in copy.ts so the rotating strip stays aligned with the

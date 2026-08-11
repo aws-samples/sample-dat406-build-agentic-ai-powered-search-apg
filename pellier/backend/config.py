@@ -151,7 +151,7 @@ class Settings(BaseSettings):
     # its hard predicates into both retrieval branches before RRF. This
     # flag controls only whether the *model* also proposes constraints via
     # `services.structured_extract` — a second Sonnet call that adds ~1-3 s
-    # to every storefront search. Off by default: the Atelier comparison
+    # to every storefront search. Off by default: the Agent Trace comparison
     # surface runs the extractor unconditionally, which is where the
     # workshop teaches the trade-off. Turning this on does not change any
     # hard-constraint guarantee; it only adds model-inferred constraints

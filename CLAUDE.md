@@ -90,10 +90,10 @@ The application must continue to demonstrate:
 
 The required participant path is:
 
-1. Lab 1 - Build & Trace
-2. Lab 2 - Retrieval Quality
-3. Lab 3 - Managed Execution & Audit
-4. Lab 4 - Govern Actions
+1. Lab 1 - Ground Answers in Live Data
+2. Lab 2 - Choose the Search Strategy to Ship
+3. Lab 3 - Take the Agent from Local to Managed
+4. Lab 4 - Stop the Wrong Action Before It Runs
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.
@@ -107,7 +107,7 @@ documentation.
   row are distinct, intentional evidence.
 - Cognito identity travels in the signed token. Do not invent ambient identity
   or correlation fields across managed boundaries.
-- Boutique is shopper-facing, Atelier is an assisted inspection surface, and
+- Boutique is shopper-facing, Agent Trace is an assisted inspection surface, and
   Code Editor plus SQL/curl remain canonical workshop proof.
 - Editorial specialists use the configured Opus profile when available;
   reporting and routing specialists use the configured Sonnet profile.

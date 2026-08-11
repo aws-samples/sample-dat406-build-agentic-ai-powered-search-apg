@@ -6,8 +6,8 @@ questions.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_inventory_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Atelier Graph pattern.
-2. ``inventory(query)`` — ``@tool`` wrapper used by the Atelier's
+   used by the Storefront dispatcher and the Agent Trace Graph pattern.
+2. ``inventory(query)`` — ``@tool`` wrapper used by the Agent Trace's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: this module is the home of the Stock Keeper persona.
@@ -139,7 +139,7 @@ def build_inventory_agent() -> Agent:
 
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Both injections are no-ops when their
-    ContextVars are empty, so anonymous atelier behavior is
+    ContextVars are empty, so anonymous agentTrace behavior is
     unchanged by consolidating the five factories onto the same
     substrate.
     """

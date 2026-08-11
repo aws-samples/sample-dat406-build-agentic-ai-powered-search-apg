@@ -1,6 +1,6 @@
 """
 Graph Pattern (Pattern II) — real Strands ``GraphBuilder`` execution for
-the Atelier's `pattern="graph"` chat request.
+the Agent Trace's `pattern="graph"` chat request.
 
 The chat streaming pipeline in ``services/chat.py`` was written against
 a single Strands ``Agent`` shape: it calls ``orchestrator(full_message)``
@@ -29,7 +29,7 @@ the dataclass repr, not the winning specialist's prose — and it has no
      feeds to ``_parse_agent_response``.
 
 The adapter is intentionally non-streaming for the router step and
-lets the specialist stream naturally — that keeps the Atelier's
+lets the specialist stream naturally — that keeps the Agent Trace's
 telemetry panel honest: one deterministic route decision, then one
 specialist's prose streams to the client.
 """

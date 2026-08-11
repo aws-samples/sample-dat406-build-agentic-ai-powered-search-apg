@@ -298,7 +298,7 @@ export function editorialForPersona(
 // ---------------------------------------------------------------------
 
 // Hero pills — the first pill in each persona's list is their
-// canonical Turn 1 query, matching the Atelier session fixture
+// canonical Turn 1 query, matching the Agent Trace session fixture
 // and the BoutiqueWelcome primary pick. The remaining pills are
 // Turn 2/3 follow-ups so the demo flows as one coherent journey.
 export const PERSONA_HERO_PILLS: Record<string, string[]> = {
@@ -353,7 +353,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
 }
 
-/** Marco Boutique / Atelier Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
+/** Marco Boutique / Agent Trace Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
 export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
 
 /**

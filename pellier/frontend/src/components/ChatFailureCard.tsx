@@ -18,7 +18,7 @@ interface ChatFailureCardProps {
   onRetry: (query: string) => void
   onEditRequest: (query: string) => void
   onAuthenticate: () => void
-  surface?: 'boutique' | 'atelier'
+  surface?: 'boutique' | 'agentTrace'
 }
 
 function failureIcon(code: ChatErrorCode) {

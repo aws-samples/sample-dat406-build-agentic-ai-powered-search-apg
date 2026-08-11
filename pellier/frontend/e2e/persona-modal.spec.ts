@@ -14,7 +14,7 @@
  * context.
  *
  * Runs against the production build on port 8000. PersonaModal now
- * lives on Atelier surfaces; the storefront header uses a direct
+ * lives on Agent Trace surfaces; the storefront header uses a direct
  * persona dropdown instead.
  */
 
@@ -23,15 +23,15 @@ import { expect, test } from '@playwright/test';
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:8000';
 
 test.describe('Persona modal - portal + viewport coverage', () => {
-  test('backdrop fills the viewport when opened from the Atelier top bar', async ({
+  test('backdrop fills the viewport when opened from the Agent Trace top bar', async ({
     page,
   }) => {
-    await page.goto(`${BASE_URL}/atelier`);
+    await page.goto(`${BASE_URL}/agent-trace`);
     await page.waitForLoadState('networkidle');
 
     // The storefront uses the persona dropdown now. PersonaModal is the
-    // Atelier persona switcher, where the portal regression still matters.
-    await page.getByTestId('atelier-persona-switcher').click();
+    // Agent Trace persona switcher, where the portal regression still matters.
+    await page.getByTestId('agent-trace-persona-switcher').click();
 
     const backdrop = page.getByTestId('persona-modal-backdrop');
     await expect(backdrop).toBeVisible();
@@ -63,10 +63,10 @@ test.describe('Persona modal - portal + viewport coverage', () => {
   });
 
   test('backdrop click dismisses the modal', async ({ page }) => {
-    await page.goto(`${BASE_URL}/atelier`);
+    await page.goto(`${BASE_URL}/agent-trace`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByTestId('atelier-persona-switcher').click();
+    await page.getByTestId('agent-trace-persona-switcher').click();
     const backdrop = page.getByTestId('persona-modal-backdrop');
     await expect(backdrop).toBeVisible();
 

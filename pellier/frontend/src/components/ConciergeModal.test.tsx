@@ -66,7 +66,7 @@ vi.mock('../hooks/useAgentChat', () => ({
 describe('ConciergeModal', () => {
   it('renders a typed policy outcome instead of an empty assistant reply', () => {
     render(
-      <MemoryRouter initialEntries={['/atelier/proof-board']}>
+      <MemoryRouter initialEntries={['/agent-trace/proof-board']}>
         <ConciergeModal />
       </MemoryRouter>,
     )

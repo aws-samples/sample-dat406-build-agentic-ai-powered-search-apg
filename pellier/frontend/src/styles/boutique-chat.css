@@ -286,7 +286,7 @@
  * bubble. Historically this rendered italic Fraunces with red quote
  * marks, which was beautiful for the three welcome-screen P.S. chips
  * ("something for long summer walks") but off-key for real
- * questions users type ("Which headphones are running low and how
+ * questions users type ("Which linen shirts are running low and how
  * do the prices stack up?"). The italic register made typed
  * questions feel performative.
  *
@@ -374,7 +374,7 @@
 
 /* Message body
  *
- * Canonical chat prose for both Boutique and Atelier. Instrument Sans at
+ * Canonical chat prose for both Boutique and Agent Trace. Instrument Sans at
  * 15px / 1.7 leading / -0.003em is the Claude-desktop register —
  * reads cleanly on any width and leaves enough air between lines
  * that a streamed reply doesn't feel cramped. Fraunces stays
@@ -721,9 +721,9 @@
   border-top: 1px dashed rgba(45, 24, 16, 0.12);
 }
 /* Canonical follow-up pill — shared shape between Boutique
- * (persona chips) and Atelier (quick-query chips). Sans 12.5px /
+ * (persona chips) and Agent Trace (quick-query chips). Sans 12.5px /
  * 500 weight / -0.003em, neutral cream background with a hair of
- * red on hover. The Atelier side lives on the Tailwind classes
+ * red on hover. The Agent Trace side lives on the Tailwind classes
  * inside QuickQueryChips.tsx; keep the two in lockstep.
  */
 .ec-followup {

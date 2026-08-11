@@ -4,7 +4,7 @@
  * Two-part closer before the footer:
  *
  *   1. About band — editorial portrait left, "About" eyebrow,
- *      Boutique/Atelier positioning, and tech-stack chips.
+ *      Boutique/Agent Trace positioning, and tech-stack chips.
  *   2. Colophon strip — single centered italic line on a slightly
  *      darker warm ground, doubling as the visual page-end signal.
  */
@@ -100,7 +100,7 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Boutique + Atelier
+                Boutique + Agent Trace
               </div>
 
               {/* Philosophy */}
@@ -117,7 +117,7 @@ export default function EditorialBrief() {
                 search in motion. Shoppers ask in natural language: a linen
                 shirt for Goa, a thoughtful gift, a slow-craft object for home.
                 The storefront answers with pieces that feel personal, while the
-                Atelier shows how each answer was built.
+                Agent Trace shows how each answer was built.
               </p>
 
               <p

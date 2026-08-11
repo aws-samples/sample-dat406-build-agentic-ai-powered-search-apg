@@ -74,7 +74,7 @@ export default {
         'warm-lg':
           '0 8px 24px rgba(107, 74, 53, 0.10), 0 4px 8px rgba(107, 74, 53, 0.06)',
 
-        // Redesign tokens (Phase 1) — coexist with existing tokens until Phase 5 retires them
+        // Warm shadow scale used by the current storefront.
         'warm-sm':
           '0 2px 8px rgba(107, 74, 53, 0.06), 0 1px 3px rgba(107, 74, 53, 0.04)',
         'warm-md':
@@ -154,7 +154,7 @@ export default {
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
 
-      // Redesign tokens (Phase 1) — coexist with existing tokens until Phase 5 retires them
+      // Current responsive layout tokens.
       screens: {
         'wide': '1440px',
         'expansion-stack': '1280px',

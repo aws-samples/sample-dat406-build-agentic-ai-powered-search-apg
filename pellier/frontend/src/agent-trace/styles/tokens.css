@@ -1,0 +1,67 @@
+/* ========================================================================
+ * Agent Trace Observatory — Design Tokens
+ *
+ * The core --at-* color, surface, type, and spacing tokens are now
+ * aliased onto the Daylight design-system tokens via
+ * src/styles/daylight-bridge.css. The hardcoded values that used to
+ * live here are gone — see DAYLIGHT_INTEGRATION.md for the cascade
+ * order and the bridge contract.
+ *
+ * What remains in this file are the SEMANTIC ALIASES specific to the
+ * Agent Trace (card patterns, status pills, sidebar, category badges).
+ * They reference --at-* tokens, which the bridge resolves to Daylight
+ * values. Override these at scope to re-skin a surface without
+ * touching the bridge.
+ *
+ * Naming convention:
+ *   --at-<token>   Agent Trace-scoped semantic alias
+ * ======================================================================== */
+
+:root {
+  /* ------------------------------------------------------------------
+   * Card pattern (Exp_Card)
+   * ---------------------------------------------------------------- */
+  --at-card-bg: var(--at-cream-elev);
+  --at-card-border: var(--at-rule-1);
+  --at-card-radius: 14px;
+  --at-card-accent-width: 24px;
+  --at-card-accent-color: var(--at-red-1);
+
+  /* ------------------------------------------------------------------
+   * Status pills
+   * ---------------------------------------------------------------- */
+  --at-status-shipped-bg: var(--at-green-soft);
+  --at-status-shipped-text: var(--at-green-1);
+  --at-status-exercise-bg: var(--at-red-soft);
+  --at-status-exercise-text: var(--at-red-1);
+
+  /* ------------------------------------------------------------------
+   * Status dots
+   * ---------------------------------------------------------------- */
+  --at-dot-live: var(--at-red-1);
+  --at-dot-idle: var(--at-ink-4);
+  --at-dot-empty-border: var(--at-red-1);
+
+  /* ------------------------------------------------------------------
+   * Sidebar — dark espresso surface that contrasts the cream page
+   * ---------------------------------------------------------------- */
+  --at-sidebar-bg: var(--at-espresso-1);
+  --at-sidebar-active-bg: var(--at-espresso-2);
+  --at-sidebar-text: rgba(250, 243, 232, 0.75);
+  --at-sidebar-text-active: var(--cream-warm);
+  --at-sidebar-accent: var(--at-red-1);
+  /* Rail width. 440px consumed a third of a 1280px workshop laptop before
+     canvas padding, leaving the evidence surface — the thing an attendee is
+     actually reading — unnecessarily narrow. 300px fits the five-lab spine
+     without truncating labels. Overridden per breakpoint in base.css. */
+  --at-sidebar-width: 300px;
+  --at-sidebar-width-compact: 76px;
+
+  /* ------------------------------------------------------------------
+   * Category badges (Architecture index)
+   * ---------------------------------------------------------------- */
+  --at-cat-both: var(--at-red-1);
+  --at-cat-managed: var(--at-green-1);
+  --at-cat-owned: #b88a3a;        /* Amber for owned */
+  --at-cat-teaching: var(--at-ink-4);
+}

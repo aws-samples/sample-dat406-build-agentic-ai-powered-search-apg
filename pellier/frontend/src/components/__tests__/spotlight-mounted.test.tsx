@@ -1,7 +1,7 @@
 /**
  * First-visit orientation is actually mounted (audit finding D5).
  *
- * The repository shipped `BoutiqueSpotlight` and `AtelierSpotlight` as
+ * The repository shipped `BoutiqueSpotlight` and `AgentTraceSpotlight` as
  * complete, session-gated components that nothing rendered. Dead
  * onboarding code is worse than none: it reads as a delivered feature in
  * review while an attendee lands on four unexplained surfaces.
@@ -27,18 +27,18 @@ describe('first-visit orientation is mounted', () => {
     expect(page).toContain('<BoutiqueSpotlight />');
   });
 
-  it('AtelierFrame renders AtelierSpotlight', () => {
-    const frame = read('atelier/shell/AtelierFrame.tsx');
+  it('AgentTraceFrame renders AgentTraceSpotlight', () => {
+    const frame = read('agent-trace/shell/AgentTraceFrame.tsx');
 
-    expect(frame).toContain('AtelierSpotlight');
-    expect(frame).toContain('<AtelierSpotlight />');
+    expect(frame).toContain('AgentTraceSpotlight');
+    expect(frame).toContain('<AgentTraceSpotlight />');
   });
 
   it('both spotlights are session-gated so they show at most once', () => {
     // A tour that reappears on every route change is worse than no tour.
     for (const file of [
       'components/BoutiqueSpotlight.tsx',
-      'components/AtelierSpotlight.tsx',
+      'components/AgentTraceSpotlight.tsx',
     ]) {
       expect(read(file)).toContain('sessionStorage');
     }
@@ -47,7 +47,7 @@ describe('first-visit orientation is mounted', () => {
   it('both spotlights are dismissible', () => {
     for (const file of [
       'components/BoutiqueSpotlight.tsx',
-      'components/AtelierSpotlight.tsx',
+      'components/AgentTraceSpotlight.tsx',
     ]) {
       const source = read(file);
       // Escape key handling is the skip affordance.

@@ -30,9 +30,8 @@
  *     `220ms * (index % 3)` delay. This produces the left-to-right sweep
  *     per row documented in `storefront.md`.
  *
- * Phase 2 redesign: replaced fixed breakpoint grid with CSS Grid auto-fill
- * for fluid column adjustment. Uses new design tokens for container and
- * background.
+ * The current grid uses CSS Grid auto-fill for fluid column adjustment and
+ * shared design tokens for its container and background.
  */
 import type { BoutiqueProduct } from '../services/types'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'

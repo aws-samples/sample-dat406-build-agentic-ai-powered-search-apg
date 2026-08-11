@@ -1,481 +1,89 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# =============================================================================
-# Pellier — Deploy All to AgentCore (workshop end-to-end script)
-# =============================================================================
+# Recovery entrypoint for Pellier's managed AgentCore deployment.
 #
-# Walks the full production deploy in eight steps. Each step prints a banner
-# so participants can follow along in the terminal:
-#
-#   1–4. Four Lambda MCP servers (search / pricing / recommendations / experience).
-#        These are the tools the agent discovers at runtime. Together they
-#        publish the same canonical 15 names as the in-process
-#        agent, including the two read-only evidence tools.
-#     5. AgentCore Gateway — fronts the four Lambdas with Cognito JWT auth
-#        and exposes them over MCP streamable HTTP for tool discovery.
-#        Docs: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html
-#     6. Scaffold a stateful @aws/agentcore 0.18 project and register the BYO
-#        HTTP Runtime with a CUSTOM_JWT authorizer. Fields without CLI flags
-#        are patched into the generated project config.
-#     7. `agentcore deploy` — packages the orchestrator and creates an
-#        AgentCore Runtime that participants can invoke as a managed agent.
-#        Docs: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime.html
-#     8. Three raw HTTPS CUSTOM_JWT smoke invocations (search, trending,
-#        pricing) that must return rail=gateway-mcp.
-#
-# Prerequisites — these MUST be exported before sourcing this script. They
-# all come from CloudFormation outputs of the workshop stack:
-#
-#   PGHOSTARN          Aurora cluster ARN (search/pricing/rec Lambdas need it)
-#   PGSECRET           Secrets Manager ARN holding the Aurora master credentials
-#   PGDATABASE         Database name (typically `postgres`)
-#   DB_REGION          Aurora/Data API region (defaults to AWS_REGION)
-#   AWS_REGION         AgentCore GA region — `us-east-1` for this workshop; also
-#                      the default Bedrock, Cognito, and Aurora region
-#   COGNITO_POOL       Cognito User Pool id (Gateway auth + Runtime auth)
-#   COGNITO_CLIENT     Cognito User Pool *client* id (allowed on the Runtime JWT)
-#   AGENTCORE_ROLE_ARN Execution role with trust on bedrock-agentcore.amazonaws.com
-#   COGNITO_TEST_CREDENTIALS_SECRET_ARN  Workshop test-user secret
-#   WORKSHOP_ID        Ownership tag for managed resources and cleanup
-#
-# Usage:
-#   source deploy_all.sh
-#
-# The `source` form is intentional — later steps consume env vars exported
-# by earlier steps (SEARCH_LAMBDA_ARN, MCP_GATEWAY_URL, etc.). Running with
-# `bash deploy_all.sh` would silently lose those exports.
-# =============================================================================
+# scripts/provision_agentcore_end_to_end.py is the only implementation. It
+# packages the external Lambda tools, renders one pinned AgentCore CLI project,
+# runs validate/deploy in two phases, and verifies the live managed path.
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+OUTPUT_JSON="${PELLIER_AGENTCORE_OUTPUT:-/tmp/pellier-agentcore-managed.json}"
 
-echo ""
-echo "=============================================="
-echo "  Pellier — Deploy to AgentCore"
-echo "=============================================="
-echo ""
-
-# ------------------------------------------------------------------
-# 0. Resolve provisioning inputs (operator-friendly recovery)
-# ------------------------------------------------------------------
-# This script needs the deployment values that bootstrap had in scope but that are
-# NOT in an interactive operator's shell. bootstrap-labs.sh STEP 16 writes them
-# to ../../.provision.env; auto-source it so a manual re-run "just works" after
-# a failed unattended deploy. Then validate and, if anything is still missing,
-# print precise guidance and exit cleanly instead of crashing on `set -u` with
-# an opaque "PGHOSTARN: unbound variable".
-_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd || echo "")"
-if [ -n "$_REPO_ROOT" ] && [ -f "$_REPO_ROOT/.provision.env" ]; then
-    echo "Sourcing provisioning inputs from $_REPO_ROOT/.provision.env ..."
-    # shellcheck disable=SC1091
-    set +u; . "$_REPO_ROOT/.provision.env"; set -u
-fi
-if [ -n "$_REPO_ROOT" ] && [ -f "$_REPO_ROOT/.env" ]; then
-    echo "Sourcing resolved model configuration from $_REPO_ROOT/.env ..."
-    set +u
+for env_file in "$REPO_ROOT/.provision.env" "$REPO_ROOT/.env"; do
+  if [[ -f "$env_file" ]]; then
     set -a
-    # shellcheck disable=SC1091
-    . "$_REPO_ROOT/.env"
+    # shellcheck source=/dev/null
+    source "$env_file"
     set +a
-    set -u
-fi
-
-_missing=()
-for _v in PGHOSTARN PGSECRET PGDATABASE AWS_REGION COGNITO_POOL COGNITO_CLIENT AGENTCORE_ROLE_ARN COGNITO_TEST_CREDENTIALS_SECRET_ARN WORKSHOP_ID AGENT_MODEL_ID; do
-    # `set -u` is active, so test via indirect default-expansion (no crash).
-    if [ -z "$(eval "printf '%s' \"\${$_v:-}\"")" ]; then
-        _missing+=("$_v")
-    fi
+  fi
 done
 
-if [ "${#_missing[@]}" -gt 0 ]; then
-    echo ""
-    echo "❌ Missing required provisioning inputs: ${_missing[*]}"
-    echo ""
-    echo "These come from the workshop CloudFormation outputs. On a Workshop"
-    echo "Studio box bootstrap writes them to ${_REPO_ROOT:-<repo>}/.provision.env"
-    echo "automatically — if that file is absent, provisioning never reached"
-    echo "STEP 16. Recover by exporting them, then re-run 'source deploy_all.sh':"
-    echo ""
-    for _v in "${_missing[@]}"; do
-        echo "  export $_v=<value-from-CloudFormation-Outputs>"
-    done
-    echo ""
-    echo "(PGHOSTARN = Aurora cluster ARN, PGSECRET = master-secret ARN,"
-    echo " AGENTCORE_ROLE_ARN = the bedrock-agentcore execution role.)"
-    # Return (sourced) or exit (executed) without the ugly unbound-variable trap.
-    return 1 2>/dev/null || exit 1
-fi
-echo "✅ Provisioning inputs validated."
-DB_REGION="${DB_REGION:-$AWS_REGION}"
-echo ""
+export REPO_PATH="${REPO_PATH:-$REPO_ROOT}"
+export AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-$AWS_REGION}"
+export DB_CLUSTER_ARN="${DB_CLUSTER_ARN:-${PGHOSTARN:-}}"
+export DB_SECRET_ARN="${DB_SECRET_ARN:-${PGSECRET:-}}"
+export DB_NAME="${DB_NAME:-${PGDATABASE:-pellier}}"
+export COGNITO_POOL="${COGNITO_POOL:-${COGNITO_POOL_ID:-${COGNITO_USER_POOL_ID:-}}}"
+export COGNITO_CLIENT="${COGNITO_CLIENT:-${COGNITO_CLIENT_ID:-}}"
 
-# ------------------------------------------------------------------
-# 1. Deploy Search Lambda MCP Server
-# ------------------------------------------------------------------
-# `deploy_lambda.py` zips the MCP server + dependencies, creates (or
-# updates) a Lambda function, and grants `lambda:InvokeFunction` to the
-# AgentCore Gateway service principal. The Lambda speaks MCP over its
-# function URL — Gateway will register it as a target in step 4.
-echo "=== [1/8] Deploying Search Lambda ==="
-uv run "$SCRIPT_DIR/deploy_lambda.py" \
-  --server-name pellier-search-server \
-  --db-cluster-arn "$PGHOSTARN" \
-  --db-region "$DB_REGION" \
-  --secret-arn "$PGSECRET" \
-  --database "$PGDATABASE" \
-  --mcp-server-path "$SCRIPT_DIR/pellier_search_server.py" \
-  --handler pellier_search_server.lambda_handler \
-  --region "$AWS_REGION"
+required=(
+  AWS_REGION
+  DB_CLUSTER_ARN
+  DB_SECRET_ARN
+  DB_NAME
+  COGNITO_POOL
+  COGNITO_CLIENT
+  COGNITO_TEST_CREDENTIALS_SECRET_ARN
+  WORKSHOP_ID
+  AGENT_MODEL_ID
+)
+missing=()
+for name in "${required[@]}"; do
+  if [[ -z "${!name:-}" ]]; then
+    missing+=("$name")
+  fi
+done
 
-export SEARCH_LAMBDA_ARN=$(aws lambda get-function \
-  --function-name pellier-search-server-function \
-  --region "$AWS_REGION" \
-  --query 'Configuration.FunctionArn' --output text)
-echo "  SEARCH_LAMBDA_ARN=$SEARCH_LAMBDA_ARN"
-
-# ------------------------------------------------------------------
-# 2. Deploy Pricing Lambda MCP Server
-# ------------------------------------------------------------------
-echo ""
-echo "=== [2/8] Deploying Pricing Lambda ==="
-uv run "$SCRIPT_DIR/deploy_lambda.py" \
-  --server-name pellier-pricing-server \
-  --db-cluster-arn "$PGHOSTARN" \
-  --db-region "$DB_REGION" \
-  --secret-arn "$PGSECRET" \
-  --database "$PGDATABASE" \
-  --mcp-server-path "$SCRIPT_DIR/pellier_pricing_server.py" \
-  --handler pellier_pricing_server.lambda_handler \
-  --region "$AWS_REGION"
-
-export PRICING_LAMBDA_ARN=$(aws lambda get-function \
-  --function-name pellier-pricing-server-function \
-  --region "$AWS_REGION" \
-  --query 'Configuration.FunctionArn' --output text)
-echo "  PRICING_LAMBDA_ARN=$PRICING_LAMBDA_ARN"
-
-# ------------------------------------------------------------------
-# 3. Deploy Recommendation Lambda MCP Server
-# ------------------------------------------------------------------
-echo ""
-echo "=== [3/8] Deploying Recommendation Lambda ==="
-uv run "$SCRIPT_DIR/deploy_lambda.py" \
-  --server-name pellier-recommend-server \
-  --db-cluster-arn "$PGHOSTARN" \
-  --db-region "$DB_REGION" \
-  --secret-arn "$PGSECRET" \
-  --database "$PGDATABASE" \
-  --mcp-server-path "$SCRIPT_DIR/pellier_recommend_server.py" \
-  --handler pellier_recommend_server.lambda_handler \
-  --region "$AWS_REGION"
-
-export RECOMMENDATION_LAMBDA_ARN=$(aws lambda get-function \
-  --function-name pellier-recommend-server-function \
-  --region "$AWS_REGION" \
-  --query 'Configuration.FunctionArn' --output text)
-echo "  RECOMMENDATION_LAMBDA_ARN=$RECOMMENDATION_LAMBDA_ARN"
-
-# ------------------------------------------------------------------
-# 4. Deploy Experience Lambda MCP Server
-# ------------------------------------------------------------------
-# Carries the two Theo-flow tools: process_return (atomic ownership +
-# INSERT + conditional quantity decrement against pellier.returns) and
-# escalate_to_stylist (UI-only handoff, no DB write). These previously
-# stayed in-process because they took rich Python objects or triggered
-# human handoff; the Lambda mirrors the in-process JSON envelopes so the
-# orchestrator's prompt is identical on either path.
-echo ""
-echo "=== [4/8] Deploying Experience Lambda ==="
-uv run "$SCRIPT_DIR/deploy_lambda.py" \
-  --server-name pellier-experience-server \
-  --db-cluster-arn "$PGHOSTARN" \
-  --db-region "$DB_REGION" \
-  --secret-arn "$PGSECRET" \
-  --database "$PGDATABASE" \
-  --mcp-server-path "$SCRIPT_DIR/pellier_experience_server.py" \
-  --handler pellier_experience_server.lambda_handler \
-  --region "$AWS_REGION"
-
-export EXPERIENCE_LAMBDA_ARN=$(aws lambda get-function \
-  --function-name pellier-experience-server-function \
-  --region "$AWS_REGION" \
-  --query 'Configuration.FunctionArn' --output text)
-echo "  EXPERIENCE_LAMBDA_ARN=$EXPERIENCE_LAMBDA_ARN"
-
-# ------------------------------------------------------------------
-# 5. Deploy AgentCore Gateway
-# ------------------------------------------------------------------
-# Gateway is a managed MCP front-door for tool catalogs. It enforces
-# Cognito JWT auth on every tool call, then proxies to the registered
-# Lambda targets. Once it's up, the orchestrator can discover published
-# tools dynamically via `MCPClient.list_tools_sync()` instead of
-# importing them from `services.agent_tools`.
-#
-# Control-plane API: bedrock-agentcore-control:CreateGateway
-#   https://docs.aws.amazon.com/bedrock-agentcore-control/latest/APIReference/API_CreateGateway.html
-echo ""
-echo "=== [5/8] Deploying AgentCore Gateway ==="
-uv run "$SCRIPT_DIR/deploy_gateway.py" \
-  --gateway-name pellier-gateway \
-  --search-lambda-arn "$SEARCH_LAMBDA_ARN" \
-  --pricing-lambda-arn "$PRICING_LAMBDA_ARN" \
-  --recommendation-lambda-arn "$RECOMMENDATION_LAMBDA_ARN" \
-  --experience-lambda-arn "$EXPERIENCE_LAMBDA_ARN" \
-  --cognito-user-pool-id "$COGNITO_POOL" \
-  --cognito-client-id "$COGNITO_CLIENT" \
-  --region "$AWS_REGION"
-
-export GATEWAY_ID=$(aws bedrock-agentcore-control list-gateways \
-  --region "$AWS_REGION" \
-  --query "items[?name=='pellier-gateway'].gatewayId | [0]" --output text)
-export GATEWAY_ARN=$(aws bedrock-agentcore-control get-gateway \
-  --gateway-identifier "$GATEWAY_ID" --region "$AWS_REGION" \
-  --query 'gatewayArn' --output text)
-export MCP_GATEWAY_URL=$(aws bedrock-agentcore-control get-gateway \
-  --gateway-identifier "$GATEWAY_ID" --region "$AWS_REGION" \
-  --query 'gatewayUrl' --output text)
-echo "  GATEWAY_ID=$GATEWAY_ID"
-echo "  MCP_GATEWAY_URL=$MCP_GATEWAY_URL"
-
-# ------------------------------------------------------------------
-# 5b. Managed AgentCore Policy — the 4th pillar (Cedar at the Gateway)
-# ------------------------------------------------------------------
-# Create a managed Cedar policy engine, gate process_return to damaged-only,
-# and attach to the gateway in ENFORCE mode. From here, the Gateway evaluates
-# every tool call against Cedar BEFORE the Lambda runs (default-deny,
-# forbid-wins) — the managed replacement for the old local BeforeToolCall hook.
-#   https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/policy.html
-echo ""
-echo "=== [5b/8] Attaching managed AgentCore Policy (Cedar, ENFORCE) ==="
-uv run "$SCRIPT_DIR/deploy_policy.py" \
-  --gateway-id "$GATEWAY_ID" \
-  --gateway-arn "$GATEWAY_ARN" \
-  --region "$AWS_REGION" \
-  --mode ENFORCE
-
-# ------------------------------------------------------------------
-# 6. Scaffold the AgentCore project (create + add BYO agent)
-# ------------------------------------------------------------------
-#
-# The @aws/agentcore CLI (Node) is the canonical deploy tool for AgentCore
-# Runtime. As of 0.18 it is a STATEFUL, CDK-based project model — NOT the
-# old flat-config `deploy` that read a bare agentcore.json. The verbs are:
-#
-#   agentcore create   — scaffold a project (writes <root>/<proj>/agentcore/)
-#   agentcore add agent — register a runtime (BYO points at our entrypoint)
-#   agentcore deploy    — CDK synth + deploy from the PROJECT ROOT
-#
-# `add agent` sets name/entrypoint/protocol/CUSTOM_JWT via flags, but has NO
-# flags for executionRoleArn or envVars — those are JSON-patched into
-# agentcore/agentcore.json after. aws-targets.json is now an ARRAY
-# ([{name,account,region}]) and no longer carries the role.
-#
-# Pin the version: @latest drifted contracts mid-development; pinning keeps
-# every participant account on identical, tested behavior.
-#
-# CLI repo: https://github.com/aws/agentcore-cli
-#
-AGENTCORE_CLI="@aws/agentcore@0.18.0"
-RUNTIME_NAME="pellier_orchestrator"
-RUNTIME_PYTHON_VERSION="PYTHON_3_12"   # CLI defaults to PYTHON_3_14 (unsupported by the build)
-
-echo ""
-echo "=== [6/8] Scaffolding AgentCore project (create + add BYO agent) ==="
-
-# Fail fast if a caller-set prerequisite is missing.
-: "${AGENTCORE_ROLE_ARN:?AGENTCORE_ROLE_ARN must be set (CFN output)}"
-: "${COGNITO_POOL:?COGNITO_POOL must be set (CFN output)}"
-: "${COGNITO_CLIENT:?COGNITO_CLIENT must be set (CFN output)}"
-: "${AWS_REGION:?AWS_REGION must be set}"
-
-# Cognito's OIDC discovery URL — the Runtime's JWT authorizer fetches
-# /.well-known/openid-configuration from here to validate incoming tokens.
-export OAUTH_ISSUER_URL="https://cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_POOL}"
-DISCOVERY_URL="${OAUTH_ISSUER_URL}/.well-known/openid-configuration"
-
-# The preflight resolves this to a model that was actually invoked
-# successfully in this account.
-: "${AGENT_MODEL_ID:?AGENT_MODEL_ID must be set by check_model_access.py}"
-export AGENT_MODEL_ID
-export AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-
-BACKEND_DIR="$(cd "$SCRIPT_DIR/../../pellier/backend" && pwd)"   # absolute (code-location)
-# Project root lives at REPO level — NEVER inside BACKEND_DIR. The CodeZip
-# packager copies the whole code-location into the project's staging dir at
-# synth time; a project rooted inside the code-location copies ITSELF
-# recursively until mkdir dies with ENAMETOOLONG (box-verified 2026-06-12).
-REPO_ROOT_DIR="$(cd "$BACKEND_DIR/../.." && pwd)"               # <repo>/pellier/backend -> <repo>
-PROJECT_ROOT="$REPO_ROOT_DIR/.agentcore-project/pellier"        # dir that CONTAINS agentcore/
-CONFIG_PATH="$PROJECT_ROOT/agentcore/agentcore.json"
-mkdir -p "$REPO_ROOT_DIR/.agentcore-project"
-# Purge any legacy project an older script rooted inside the code-location —
-# a stale tree there would be packaged into every zip or re-trigger the bug.
-rm -rf "$BACKEND_DIR/.agentcore-project"
-
-# 6a. create (idempotent — skip if the project already exists)
-if [ ! -f "$CONFIG_PATH" ]; then
-  # NOTE: no --skip-install. The 0.18 CLI scaffolds a TypeScript CDK app and
-  # `deploy` compiles it with tsc, which needs that app's node_modules
-  # (aws-cdk-lib, constructs, @aws/agentcore-cdk, @types/node). Skipping the
-  # install makes deploy fail with TS2307 "Cannot find module 'aws-cdk-lib'".
-  # --skip-python-setup stays (agent is BYO Python, our own venv).
-  npx -y "$AGENTCORE_CLI" create \
-    --project-name pellier --no-agent --defaults \
-    --build CodeZip --language Python --framework Strands \
-    --model-provider Bedrock --protocol HTTP \
-    --skip-git --skip-python-setup \
-    --output-dir "$REPO_ROOT_DIR/.agentcore-project" --json
+if (( ${#missing[@]} > 0 )); then
+  printf 'Missing required AgentCore provisioning inputs: %s\n' "${missing[*]}" >&2
+  printf 'Restore .provision.env/.env or export the missing values, then rerun.\n' >&2
+  return 1 2>/dev/null || exit 1
 fi
 
-# 6b. add our in-repo orchestrator as a BYO agent (clean re-add for re-runs)
-npx -y "$AGENTCORE_CLI" remove agent --name "$RUNTIME_NAME" --yes 2>/dev/null || true
-( cd "$PROJECT_ROOT" && npx -y "$AGENTCORE_CLI" add agent \
-    --name "$RUNTIME_NAME" --type byo \
-    --build CodeZip --language Python --framework Strands \
-    --model-provider Bedrock --protocol HTTP \
-    --code-location "$BACKEND_DIR" --entrypoint agentcore_runtime.py \
-    --authorizer-type CUSTOM_JWT \
-    --discovery-url "$DISCOVERY_URL" \
-    --allowed-clients "$COGNITO_CLIENT" --json )
-
-# 6c. patch the fields `add agent` has no flags for, and write aws-targets.json
-#     in the 0.18 ARRAY shape. Field spellings match the WORKING dat403 config
-#     (modules/05/strands/deploy/setup_deploy.sh:90-113): roleArn (NOT
-#     executionRoleArn — add agent has no role flag, so this is the only role
-#     setter), networkMode PUBLIC, requestHeaderAllowlist ["Authorization"].
-python3 - "$CONFIG_PATH" "$RUNTIME_NAME" "$AGENTCORE_ROLE_ARN" \
-  "$RUNTIME_PYTHON_VERSION" "$MCP_GATEWAY_URL" "$AGENT_MODEL_ID" \
-  "$AWS_ACCOUNT" "$AWS_REGION" "$DISCOVERY_URL" "$COGNITO_CLIENT" <<'PYEOF'
-import json, sys
-cfg_path, name, role, pyver, gw_url, model_id, account, region, discovery, client = sys.argv[1:11]
-cfg = json.load(open(cfg_path))
-runtimes = cfg.get("runtimes") or []
-target = next((r for r in runtimes if isinstance(r, dict) and r.get("name") == name), None)
-if target is None and len(runtimes) == 1 and isinstance(runtimes[0], dict):
-    target = runtimes[0]
-if target is None:
-    sys.exit(f"Could not find runtime '{name}' to patch in {[r.get('name') for r in runtimes]}")
-target["roleArn"] = role                       # NOT executionRoleArn (dat403-proven key)
-target["runtimeVersion"] = pyver
-target["networkMode"] = "PUBLIC"
-target["requestHeaderAllowlist"] = ["Authorization"]
-target["envVars"] = [
-    {"name": "MCP_GATEWAY_URL", "value": gw_url},
-    # config.py reads AGENTCORE_GATEWAY_URL; without it the managed entrypoint
-    # fails closed with managed_gateway_unavailable.
-    {"name": "AGENTCORE_GATEWAY_URL", "value": gw_url},
-    {"name": "AGENT_MODEL_ID", "value": model_id},
-    {"name": "BEDROCK_ROUTER_MODEL", "value": model_id},
-]
-# Re-assert CUSTOM_JWT authorizer in dat403's proven shape if add-agent didn't.
-if discovery and client and not target.get("authorizerConfiguration"):
-    target["authorizerType"] = "CUSTOM_JWT"
-    target["authorizerConfiguration"] = {
-        "customJwtAuthorizer": {"discoveryUrl": discovery, "allowedClients": [client]}
-    }
-json.dump(cfg, open(cfg_path, "w"), indent=2)
-import os
-targets_path = os.path.join(os.path.dirname(cfg_path), "aws-targets.json")
-json.dump([{"name": "default", "account": account, "region": region}],
-          open(targets_path, "w"), indent=2)
-print(f"  Patched {cfg_path} + wrote {targets_path}")
-PYEOF
-
-echo "  Project ready at $PROJECT_ROOT"
-
-# ------------------------------------------------------------------
-# 7. Deploy AgentCore Runtime via @aws/agentcore CLI (CDK, ~5 min)
-# ------------------------------------------------------------------
-echo ""
-echo "=== [7/8] Deploying AgentCore Runtime (CDK; this takes ~5 minutes) ==="
-
-# `deploy` MUST run from the PROJECT ROOT (the dir containing agentcore/),
-# not from inside agentcore/. It CDK-synths and deploys the runtime stack.
-#   -y      auto-confirm prompts, read credentials from env
-#   --json  machine-readable result envelope on stdout
-pushd "$PROJECT_ROOT" > /dev/null
-npx -y "$AGENTCORE_CLI" deploy -y --json
-popd > /dev/null
-
-echo "  ✅ Agent deployed!"
-
-# ------------------------------------------------------------------
-# 8. Smoke Tests
-# ------------------------------------------------------------------
-# Quick end-to-end verification: get a Cognito access token for the
-# workshop user, look up the deployed Runtime by name, and invoke it
-# three times with representative prompts. The probe uses the same raw HTTPS
-# bearer-token transport as the backend and requires the Gateway MCP rail.
-echo ""
-echo "=== [8/8] Running Smoke Tests ==="
-
-# Cognito user-pool client secret (used by USER_PASSWORD_AUTH flow).
-# We read it dynamically because Workshop Studio rotates it per account.
-export CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
-  --user-pool-id "$COGNITO_POOL" --client-id "$COGNITO_CLIENT" \
-  --region "$AWS_REGION" --query 'UserPoolClient.ClientSecret' --output text)
-
-TEST_USERS_JSON=$(aws secretsmanager get-secret-value \
-  --secret-id "$COGNITO_TEST_CREDENTIALS_SECRET_ARN" \
-  --region "$AWS_REGION" --query SecretString --output text)
-export USER=$(jq -er '.users[0].username' <<<"$TEST_USERS_JSON")
-export PASSWORD=$(jq -er '.users[0].password' <<<"$TEST_USERS_JSON")
-
-# Cognito app clients with a secret require SECRET_HASH =
-# base64(HMAC-SHA256(client_secret, username + client_id)) on every auth
-# call. Without it, initiate-auth rejects with "Unable to verify secret
-# hash" and TOKEN comes back "null" – the smoke test then silently passes
-# nothing. Compute it so the auth actually succeeds, and guard the result.
-SECRET_HASH=$(printf '%s' "${USER}${COGNITO_CLIENT}" \
-  | openssl dgst -sha256 -hmac "$CLIENT_SECRET" -binary | base64)
-
-export TOKEN=$(aws cognito-idp initiate-auth \
-  --client-id "$COGNITO_CLIENT" \
-  --auth-flow USER_PASSWORD_AUTH \
-  --auth-parameters "{\"USERNAME\":\"$USER\",\"PASSWORD\":\"$PASSWORD\",\"SECRET_HASH\":\"$SECRET_HASH\"}" \
-  --region "$AWS_REGION" | jq -r '.AuthenticationResult.AccessToken')
-
-if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-  echo "ERROR: Failed to obtain a Cognito access token for the smoke test." >&2
-  echo "       Check COGNITO_CLIENT / CLIENT_SECRET and the ApplicationUser* stack outputs." >&2
-  exit 1
+PYTHON="$REPO_ROOT/pellier/backend/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON=python3
 fi
 
-export AGENT_RUNTIME_ID=$(aws bedrock-agentcore-control list-agent-runtimes \
-  --region "$AWS_REGION" \
-  --query "agentRuntimes[?agentRuntimeName=='pellier_orchestrator'].agentRuntimeId | [0]" --output text)
-export AGENT_RUNTIME_ARN=$(aws bedrock-agentcore-control get-agent-runtime \
-  --agent-runtime-id "$AGENT_RUNTIME_ID" \
-  --region "$AWS_REGION" \
-  --query 'agentRuntimeArn' --output text)
-aws bedrock-agentcore-control tag-resource \
-  --resource-arn "$AGENT_RUNTIME_ARN" \
-  --tags "Project=pellier,PellierWorkshopId=${WORKSHOP_ID:?WORKSHOP_ID must be set}"
+printf 'Deploying Pellier through the pinned AgentCore CLI project...\n'
+"$PYTHON" "$REPO_ROOT/scripts/provision_agentcore_end_to_end.py" \
+  --repo-path "$REPO_ROOT" \
+  --output-json "$OUTPUT_JSON"
 
-echo ""
-echo "  Test 1: Product search"
-uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-arn "$AGENT_RUNTIME_ARN" \
-  --prompt "Find linen travel pieces under \$150" \
-  --token "$TOKEN"
+if [[ "$(jq -r '.status // "failed"' "$OUTPUT_JSON")" != "ready" ]]; then
+  printf 'AgentCore provisioning did not reach ready; inspect %s.\n' "$OUTPUT_JSON" >&2
+  return 1 2>/dev/null || exit 1
+fi
 
-echo "  Test 2: Trending products"
-uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-arn "$AGENT_RUNTIME_ARN" \
-  --prompt "What's trending right now?" \
-  --token "$TOKEN"
+export AGENTCORE_RUNTIME_ENDPOINT
+AGENTCORE_RUNTIME_ENDPOINT="$(jq -r '.runtime.runtime_arn' "$OUTPUT_JSON")"
+export AGENTCORE_MEMORY_ID
+AGENTCORE_MEMORY_ID="$(jq -r '.memory.memory_id' "$OUTPUT_JSON")"
+export AGENTCORE_GATEWAY_ID
+AGENTCORE_GATEWAY_ID="$(jq -r '.gateway.gateway_id' "$OUTPUT_JSON")"
+export AGENTCORE_GATEWAY_ARN
+AGENTCORE_GATEWAY_ARN="$(jq -r '.gateway.gateway_arn' "$OUTPUT_JSON")"
+export AGENTCORE_GATEWAY_URL
+AGENTCORE_GATEWAY_URL="$(jq -r '.gateway.gateway_url' "$OUTPUT_JSON")"
+export MCP_GATEWAY_URL="$AGENTCORE_GATEWAY_URL"
+export AGENTCORE_POLICY_ENGINE_ID
+AGENTCORE_POLICY_ENGINE_ID="$(jq -r '.policy.policy_engine_id' "$OUTPUT_JSON")"
 
-echo "  Test 3: Price comparison"
-uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-arn "$AGENT_RUNTIME_ARN" \
-  --prompt "Compare two gifts under \$100" \
-  --token "$TOKEN"
-
-echo ""
-echo "=============================================="
-echo "  ✅ Pellier deployed to AgentCore!"
-echo ""
-echo "  Gateway:  $MCP_GATEWAY_URL"
-echo "  Runtime:  $AGENT_RUNTIME_ID"
-echo "=============================================="
+printf 'AgentCore ready.\n'
+printf '  Runtime: %s\n' "$AGENTCORE_RUNTIME_ENDPOINT"
+printf '  Memory:  %s\n' "$AGENTCORE_MEMORY_ID"
+printf '  Gateway: %s\n' "$AGENTCORE_GATEWAY_URL"
+printf '  Policy:  %s\n' "$AGENTCORE_POLICY_ENGINE_ID"

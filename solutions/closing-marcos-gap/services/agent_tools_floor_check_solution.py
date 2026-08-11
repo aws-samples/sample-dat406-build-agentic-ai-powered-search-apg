@@ -91,7 +91,7 @@ def _extract_query_structure(query: str) -> dict | None:
     Gated behind ``SEARCH_PLANNER_EXTRACT_ENABLED`` (default off) because
     it is a second live Bedrock call on the shopper's critical path: it
     adds roughly 1-3 s and a Sonnet invocation to *every* search. The
-    Atelier comparison surface runs the extractor unconditionally, which
+    Agent Trace comparison surface runs the extractor unconditionally, which
     is where the workshop teaches what typed planning buys you; paying
     that cost on each storefront turn is a product decision, not a
     correctness one.
@@ -614,7 +614,7 @@ def whats_trending(limit: int = 5, category: str = None) -> str:
 
     Args:
         limit: Maximum number of products to return (default: 5)
-        category: Optional category filter (e.g. "Electronics", "Shoes")
+        category: Optional category filter (e.g. "Home Decor", "Apparel")
 
     Returns:
         JSON string with trending products
@@ -997,7 +997,7 @@ def find_pieces_hybrid(
 
         # PLAN. The model proposes a typed plan; deterministic code
         # validates it and compiles the predicates. This is the same
-        # planner the Atelier comparison surface runs, so the "agentic"
+        # planner the Agent Trace comparison surface runs, so the "agentic"
         # strategy the workshop demonstrates is the one shoppers get —
         # not a parallel implementation that only exists in a demo.
         #
@@ -1056,7 +1056,7 @@ def find_pieces_hybrid(
         )
 
         # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Atelier will show
+        # (returned []), fall back to RRF order — the Agent Trace will show
         # this as a missing rerank stage in telemetry.
         if rerank_results:
             ordered = [
@@ -1276,7 +1276,7 @@ def returns_and_care(category: str = "default") -> str:
     """Look up the return and refund policy for a specific product category. Use when customers ask about returns, refunds, warranties, or return windows.
 
     Args:
-        category: Product category name (e.g., "Electronics", "Shoes")
+        category: Product category name (e.g., "Home Decor", "Apparel")
 
     Returns:
         JSON string with return policy details

@@ -16,6 +16,7 @@ REPO = Path(__file__).resolve().parents[3]
 MODEL_CHECK = REPO / "scripts" / "check_model_access.py"
 HEALTH_GATE = REPO / "scripts" / "health-gate.sh"
 PROVISIONER = REPO / "scripts" / "provision_agentcore_end_to_end.py"
+AGENTCORE_RENDERER = REPO / "scripts" / "deploy" / "render_agentcore_project.py"
 BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
 RESET_GOVERNED = REPO / "scripts" / "reset-governed-workshop.sh"
 CATALOG_SEED = REPO / "scripts" / "seed_boutique_catalog.py"
@@ -224,10 +225,11 @@ def test_governed_health_gate_rejects_missing_operational_data(
 
 def test_runtime_arn_is_recorded_before_smoke() -> None:
     source = PROVISIONER.read_text(encoding="utf-8")
+    renderer = AGENTCORE_RENDERER.read_text(encoding="utf-8")
     record = source.index('result["runtime"] = {')
-    smoke = source.index("smoke = _authenticated_runtime_smoke(")
+    smoke = source.index("runtime_smoke = _authenticated_runtime_smoke(")
     assert record < smoke
-    assert '"BEDROCK_ROUTER_MODEL": model_id' in source
+    assert '{"name": "BEDROCK_ROUTER_MODEL", "value": model_id}' in renderer
     assert 'os.environ.get("AGENT_MODEL_ID", "global.' not in source
 
 
@@ -249,6 +251,7 @@ def _load_provisioner():
 )
 def test_runtime_smoke_requires_gateway_mcp_rail(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
     rail: str,
     should_pass: bool,
 ) -> None:
@@ -271,54 +274,88 @@ def test_runtime_smoke_requires_gateway_mcp_rail(
     def fake_client(service, **_kwargs):
         return Secrets() if service == "secretsmanager" else Cognito()
 
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def read(self):
-            return json.dumps(
-                {"response": "runtime response", "rail": rail}
-            ).encode()
-
     monkeypatch.setattr(module.boto3, "client", fake_client)
-    monkeypatch.setattr(module.urllib.request, "urlopen", lambda *_a, **_k: Response())
 
     access_token, username = module._cognito_access_token(
         region="us-east-1",
         user_pool_id="us-east-1_pool",
         client_id="client-id",
-        creds_secret_arn="test-users",
+        credentials_secret_arn="test-users",
         client_secret_arn="client-secret",
     )
     assert access_token == "jwt-token"
     assert username == "Marco"
 
-    invoke = lambda: module._authenticated_runtime_smoke(
-        region="us-east-1",
-        runtime_arn=(
-            "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
-            "runtime/pellier"
+    runtime_payload = {
+        "response": "runtime response",
+        "rail": rail,
+    }
+    monkeypatch.setattr(
+        module,
+        "_agentcore",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["agentcore", "invoke"],
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "success": True,
+                    "response": json.dumps(runtime_payload),
+                }
+            ),
+            stderr="",
         ),
+    )
+
+    invoke = lambda: module._authenticated_runtime_smoke(
+        root=tmp_path,
         access_token=access_token,
         username=username,
+        env={},
     )
     if should_pass:
         assert invoke()["rail"] == "gateway-mcp"
     else:
-        with pytest.raises(RuntimeError, match="gateway-mcp"):
+        with pytest.raises(RuntimeError, match="Gateway MCP"):
             invoke()
+
+
+def test_agentcore_command_errors_redact_bearer_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_provisioner()
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="denied",
+        ),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        module._run(
+            ["agentcore", "invoke", "--bearer-token", "secret-token"],
+            cwd=tmp_path,
+        )
+
+    assert "secret-token" not in str(exc_info.value)
+    assert "--bearer-token <redacted>" in str(exc_info.value)
 
 
 def test_policy_attachment_is_a_provisioning_hard_gate() -> None:
     source = PROVISIONER.read_text(encoding="utf-8")
-    assert "Managed AgentCore Policy is required but failed to attach" in source
-    assert 'result["verification"]["managed_policy_attached"] = False' in source
+    renderer = AGENTCORE_RENDERER.read_text(encoding="utf-8")
+
+    assert '"policyEngineConfiguration"' in renderer
+    assert '"mode": "ENFORCE"' in renderer
+    assert "policy_state = _require_state_resource(" in source
+    assert '"policyEngines", POLICY_ENGINE_NAME' in source
     assert 'result["status"] = "ready"' in source
     assert source.index(
-        "Managed AgentCore Policy is required but failed to attach"
+        "policy_state = _require_state_resource("
     ) < source.index('result["status"] = "ready"')
     assert "_live_policy_proof(" in source
     assert '"live_policy_allow"' in source
@@ -328,8 +365,7 @@ def test_policy_attachment_is_a_provisioning_hard_gate() -> None:
     assert '"gateway_tools_discovered"' in source
     assert '"gateway_tool_count"' in source
     assert "len(tools) != 15" in source
-    assert "unexpected_prefixed" in source
-    assert "unexpected_targets" in source
+    assert "Gateway target mismatch" in source
 
 
 def test_bootstrap_normalizes_cognito_aliases_before_managed_provisioning() -> None:

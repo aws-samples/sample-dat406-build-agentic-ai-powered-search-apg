@@ -3,7 +3,7 @@
 Pellier consumes the Daylight design system (originally built for the
 DAT409 Wayfare workshop) as the source of truth for color, type,
 spacing, radius, shadow, and component CSS. Every Boutique and
-Atelier surface inherits from these tokens.
+Agent Trace surface inherits from these tokens.
 
 ## Layout
 
@@ -18,7 +18,7 @@ pellier/frontend/
     ├── index.css                    @imports Daylight + bridge before Tailwind
     ├── styles/
     │   └── daylight-bridge.css      Aliases Pellier names → --dl-* tokens
-    └── atelier/styles/
+    └── agent-trace/styles/
         └── tokens.css               --at-* semantic aliases (cards, pills, sidebar)
 ```
 
@@ -29,7 +29,7 @@ pellier/frontend/
 2. public/design-system/daylight/daylight.css   ← .dl-* component styles
 3. src/styles/daylight-bridge.css               ← --cream / --ink / --accent / --at-* → --dl-*
 4. tailwind base / components / utilities        (inside @layer base)
-5. src/atelier/styles/tokens.css                 ← --at-* semantic aliases
+5. src/agent-trace/styles/tokens.css                 ← --at-* semantic aliases
 6. component-level CSS / inline styles
 ```
 
@@ -58,18 +58,18 @@ component file needs editing.
 | `--ink-quiet` | `--dl-muted` | Captions, eyebrows |
 | `--accent` | `--dl-accent` | Terracotta accent |
 | `--rule-1` | `--dl-line` | Hairline borders |
-| `--at-cream-1` | `--dl-bg` | Atelier background |
-| `--at-ink-1` | `--dl-ink` | Atelier primary text |
-| `--at-red-1` | `--dl-accent` | Atelier accent |
-| `--at-green-1` | `--dl-ok` | Atelier "shipped" status |
+| `--at-cream-1` | `--dl-bg` | Agent Trace background |
+| `--at-ink-1` | `--dl-ink` | Agent Trace primary text |
+| `--at-red-1` | `--dl-accent` | Agent Trace accent |
+| `--at-green-1` | `--dl-ok` | Agent Trace "shipped" status |
 | `--serif` / `--at-serif` | `--dl-font-serif` | Instrument Serif → Fraunces → Georgia |
 | `--sans` / `--at-sans` | `--dl-font-sans` | Instrument Sans → system UI |
 | `--mono` / `--at-mono` | `--dl-font-mono` | JetBrains Mono |
 
 Full list in `src/styles/daylight-bridge.css`.
 
-**Atelier semantic aliases (`--at-card-bg`, `--at-status-shipped-bg`,
-`--at-sidebar-bg`, ...)** — declared in `src/atelier/styles/tokens.css`.
+**Agent Trace semantic aliases (`--at-card-bg`, `--at-status-shipped-bg`,
+`--at-sidebar-bg`, ...)** — declared in `src/agent-trace/styles/tokens.css`.
 These reference `--at-*` aliases and the bridge resolves the chain
 back to `--dl-*`.
 
@@ -127,8 +127,8 @@ need to touch.
 
 - The hardcoded `:root` block in `index.css` (60+ lines of color hex
   values — replaced by the bridge)
-- The hardcoded `--at-*` color values in `atelier/styles/tokens.css`
-  (the file now holds only Atelier-specific semantic aliases)
+- The hardcoded `--at-*` color values in `agent-trace/styles/tokens.css`
+  (the file now holds only Agent Trace-specific semantic aliases)
 - Hardcoded hex values in `tailwind.config.js` (`'cream': '#fbf4e8'`,
   etc. — repointed at `var(--cream)`)
 

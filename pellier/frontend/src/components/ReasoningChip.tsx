@@ -84,7 +84,7 @@ function PickedChip({ chip }: ReasoningChipProps) {
         lineHeight: 1.45,
       }}
     >
-      <BMark />
+      <PMark />
       <span>{chip.text}</span>
     </div>
   )
@@ -163,16 +163,14 @@ function ContextChip({ chip }: ReasoningChipProps) {
 }
 
 // --- P mark avatar -------------------------------------------------------
-// Pellier wordmark glyph (was "B" during the Blaize era — renamed when
-// the storefront rebranded to Pellier). Test id kept as
-// `reasoning-chip-bmark` so existing assertions still resolve; visual
-// content is the new "P".
+// Pellier wordmark glyph. The test id is retained for compatibility with
+// existing assertions; the rendered content is "P".
 
-function BMark() {
+function PMark() {
   return (
     <span
       aria-hidden
-      data-testid="reasoning-chip-bmark"
+      data-testid="reasoning-chip-pmark"
       style={{
         display: 'inline-grid',
         placeItems: 'center',

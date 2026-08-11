@@ -2,8 +2,8 @@
  * Persona Modal — matches docs/persona-switcher.html byte-for-byte.
  *
  * All design tokens come from :root in src/index.css (--cream-1, --ink-1,
- * --red-1, etc.). Avatar shades and dashed-border token (--rule-3,
- * --persona-marco, --persona-anna) were added in Phase 1.
+ * --red-1, etc.). Avatar shades and the dashed-border token (--rule-3,
+ * --persona-marco, --persona-anna) are scoped to this surface.
  * ========================================================================== */
 
 .pm-backdrop {

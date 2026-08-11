@@ -1,7 +1,7 @@
 """Tests for scripts/bench_runtime_coldstart.py — pure-Python harness bits.
 
 The invocation path needs a live Runtime endpoint to measure anything
-real. That validation happens in Week 3 against the deployed Runtime.
+real. That validation happens against the deployed Runtime.
 These tests cover the pieces we can verify offline: summary stats,
 bucket assignment for the bimodal histogram, and the
 refuse-when-unset contract.

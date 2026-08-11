@@ -1,7 +1,6 @@
 """``/api/storefront/*`` — boutique concierge briefing + pulse bar.
 
-Two small GET endpoints that power the boutique's "premium agentic"
-chrome (see the pre-Week-3 enhancement plan):
+Two small GET endpoints power the boutique's ambient agent context:
 
 - ``GET /api/storefront/briefing`` — shift-handover greeting for the
   concierge modal's empty state. Time-of-day greeting, first-person
@@ -11,8 +10,7 @@ chrome (see the pre-Week-3 enhancement plan):
 - ``GET /api/storefront/pulse`` — 4 ambient metrics rendered above the
   hero. Each metric carries a ``source`` tag (``real`` / ``stub`` /
   ``partial``) so the frontend can render an honest "data source" dot.
-  Stub fields light up for free when Week 5 (tool_audit writes) and
-  Week 6 (evaluation_results) land.
+  Each metric identifies whether its source is live, partial, or stubbed.
 
 Design rule: **never 5xx**. Both endpoints catch at the service boundary
 and return structured fallbacks so the homepage chrome always renders.
@@ -128,10 +126,8 @@ def _time_of_day_greeting(now: datetime, given_name: Optional[str]) -> str:
 def _extract_given_name(user: Optional[dict]) -> Optional[str]:
     """Pull a display name from the Cognito claim envelope.
 
-    ``get_current_user`` today returns ``{sub, email}``; we derive a
-    best-effort first name from the email local-part when no given_name
-    claim is plumbed through (Week 4 will widen the claim set — update
-    here when it does).
+    We derive a best-effort first name from the email local-part when
+    no ``given_name`` claim is present.
     """
     if not user:
         return None
@@ -302,8 +298,7 @@ async def briefing(
             f"From what I know of you, {pref.split('.')[0].strip()}."
         )
 
-    # Stubbed until Week 5 tool_audit writes land. The chip is visible
-    # with a ``stub`` source so attendees see the scaffolding honestly.
+    # This editorial signal remains explicitly marked as a stub.
     chips.append(
         BriefingChip(
             label="pre-vetted picks",
@@ -367,9 +362,7 @@ async def catalog_stats() -> CatalogStatsResponse:
 
 @router.get("/pulse", response_model=PulseResponse)
 async def pulse() -> PulseResponse:
-    """Four ambient metrics. Always 200; stub fields light up when
-    Week 5+ data sources land.
-    """
+    """Return four ambient metrics, degrading unavailable sources explicitly."""
     from app import db_service
 
     now = datetime.now(tz=timezone.utc).astimezone()

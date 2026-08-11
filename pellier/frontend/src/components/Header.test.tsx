@@ -1,5 +1,5 @@
 /**
- * Header tests — Boutique sticky header (Phase 2 rebuild).
+ * Header tests — Boutique sticky header.
  *
  * Validates Requirements 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 15.3.
  *

@@ -49,7 +49,7 @@ Avoid in shopper-facing copy:
 - smart, intelligent, magical, perfect, must-have
 - raw tool names, JWTs, ARNs, internal endpoints, and stack identifiers
 
-Atelier and workshop copy may use precise architecture terms because the
+Agent Trace and workshop copy may use precise architecture terms because the
 audience is inspecting the system.
 
 ## Grounding and memory

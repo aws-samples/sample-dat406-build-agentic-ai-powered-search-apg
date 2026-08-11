@@ -2,7 +2,7 @@
  * Governed semantic tokens.
  *
  * Design stance: quiet governance in Boutique, complete accountability in
- * Atelier. Both surfaces must speak one status language, or an attendee
+ * Agent Trace. Both surfaces must speak one status language, or an attendee
  * learns two vocabularies for the same system state.
  *
  * This file EXTENDS the Daylight token system. It defines no new colors —
@@ -20,7 +20,7 @@
  *   decoration, never for "probably fine".
  *
  *   Red (`--dl-err`) is reserved for BLOCKED or UNSAFE state — a Cedar
- *   DENY. Note this is deliberately NOT `--at-red-1`, which the Atelier
+ *   DENY. Note this is deliberately NOT `--at-red-1`, which the Agent Trace
  *   aliases to terracotta; a DENY must not share a swatch with a button.
  *
  *   Amber (`--dl-warn`) is DEGRADED or ACTION REQUIRED — the managed rail
@@ -37,11 +37,11 @@
 
 :root {
   /* ---- Surfaces -------------------------------------------------- */
-  /* Boutique is the shopper surface, Atelier the operator surface, and
+  /* Boutique is the shopper surface, Agent Trace the operator surface, and
      evidence blocks appear on both — so evidence gets its own surface
      token rather than borrowing whichever page it lands on. */
   --gov-surface-boutique: var(--dl-bg);
-  --gov-surface-atelier: var(--dl-paper-2);
+  --gov-surface-agent-trace: var(--dl-paper-2);
   --gov-surface-evidence: var(--dl-paper);
   --gov-surface-evidence-sunken: var(--dl-paper-2);
 

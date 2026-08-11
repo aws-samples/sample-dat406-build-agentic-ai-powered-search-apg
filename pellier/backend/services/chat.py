@@ -11,6 +11,8 @@ import os
 from typing import List, Dict, Any, Optional
 import re
 
+from services.intent_router import classify_intent
+
 
 def _safe_float(val, default=0.0):
     """Safely convert a value to float, stripping currency symbols."""
@@ -39,8 +41,8 @@ GUARDRAILS (ACTIVE):
 SINGLE_AGENT_PROMPT = """You are Pellier AI, the shopping assistant for Pellier.
 
 TOOL SELECTION:
-- whats_trending → When user asks about trending, popular, or best-selling items. Pass category if they mention one (e.g. "trending in electronics" → category="Electronics").
-- find_pieces → Descriptive or intent-based product queries (e.g. "gift for a cook", "noise-canceling headphones under $200")
+- whats_trending → When user asks about trending, popular, or best-selling items. Pass category if they mention one (e.g. "trending home decor" → category="Home Decor").
+- find_pieces → Descriptive or intent-based product queries (e.g. "gift for a new homeowner", "linen shirt under $200")
 - price_intelligence → Pricing statistics and category comparisons
 
 Call exactly one tool per query. Extract price limits and pass as max_price.
@@ -52,61 +54,6 @@ automatically — do not list them in text. Never use markdown tables, numbered 
 headers, or emojis. Never claim products are unavailable or inventory is being refreshed.
 Never ask follow-up questions. If zero results, say "I couldn't find exact matches —
 try a different search term."."""
-
-
-# ---------------------------------------------------------------------------
-# Deterministic intent classification — replaces LLM-based routing
-# ---------------------------------------------------------------------------
-PRICING_KEYWORDS = {"deal", "deals", "cheap", "cheapest", "price", "pricing",
-                    "discount", "affordable", "budget", "value", "cost", "save",
-                    "best price", "on sale", "bargain", "compare price"}
-INVENTORY_KEYWORDS = {"restock", "inventory", "stock", "out of stock",
-                      "low stock", "available", "availability", "in stock",
-                      "running low", "sold out", "back in stock",
-                      "warehouse", "at the brooklyn", "at the austin",
-                      "at the portland", "on the floor"}
-SUPPORT_KEYWORDS = {"return", "refund", "policy", "troubleshoot",
-                    "issue", "problem", "warranty", "broken", "defective",
-                    "chipped", "damaged", "arrived", "what now"}
-# "help" used to live in SUPPORT_KEYWORDS but it's too generic — Anna's
-# canonical T3 ("help me pair a candle with something else") is a
-# recommendation request, not post-purchase support. Same logic for
-# "support" alone (which was redundant with "policy"/"warranty"/etc.).
-# Real support queries always carry one of the unambiguous tokens
-# above (return/refund/warranty/chipped/damaged/etc.).
-SEARCH_KEYWORDS = {"search for", "looking for", "where can I", "compare", "browse",
-                   "what do you have", "do you have", "show me", "find me"}
-PAIRING_PATTERN = re.compile(
-    r"\b(go(?:es)? with|go(?:es)? well with|pair(?:s|ed)? with|what pairs with|what would go with|complement(?:s|ary)?)\b",
-    re.IGNORECASE,
-)
-
-# Past-purchase / history queries — these reference the shopper's own
-# order history and must route to the recommendation specialist with the
-# persona's LTM preamble, NEVER to support (which has no order-history
-# tool). Matched case-insensitively against the full query.
-PAST_PURCHASE_PATTERN = re.compile(
-    r'\b('
-    r'what (did|have) i (buy|bought|purchase|purchased|order|ordered)|'
-    r'what i (bought|purchased|ordered)|'
-    r'(my|last) (purchase|purchases|order|orders|time)|'
-    r'last time i (bought|purchased|ordered)|'
-    r'previous (purchase|order|orders)|'
-    r'order history|purchase history|buy again|reorder'
-    r')\b',
-    re.IGNORECASE,
-)
-
-# Product-seeking phrases that override pricing keywords. "Find me a
-# linen shirt under $150" is a search with a price filter, not a
-# pricing analysis request.
-PRODUCT_SEEKING_PATTERNS = re.compile(
-    r'\b(find|show|get|give|suggest|recommend|looking for|want|need|buy)\b.*'
-    r'\b(shirt|dress|shoe|bag|jacket|pants|top|linen|cotton|silk|leather|'
-    r'cashmere|wool|sandal|sneaker|boot|tote|candle|throw|towel|hat|cuff|'
-    r'earring|scarf|vest|cardigan|blazer|trench|anorak)\b',
-    re.IGNORECASE,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -256,62 +203,6 @@ async def _append_boutique_stm_turn(
         )
     except Exception as exc:
         logger.debug("STM append skipped: %s", exc)
-
-
-def classify_intent(query: str) -> str:
-    """Deterministic intent classification via keyword matching.
-    Returns 'pricing', 'inventory', 'customer_support', 'search', or 'recommendation'."""
-    q = query.lower()
-    words = set(re.findall(r'\w+', q))
-
-    # Past-purchase queries route to recommendation so the specialist can
-    # ground in the persona's order history via the LTM preamble. Takes
-    # priority over everything else — these are personal-profile
-    # questions, not shopping queries in the usual sense.
-    if PAST_PURCHASE_PATTERN.search(query):
-        return "recommendation"
-
-    # If the query seeks a specific product, route to search even if
-    # price keywords are present. "find me a linen shirt under $150"
-    # is search, not pricing.
-    is_product_seeking = bool(PRODUCT_SEEKING_PATTERNS.search(query))
-
-    # Multi-word phrases first (higher specificity)
-    if not is_product_seeking:
-        for phrase in PRICING_KEYWORDS:
-            if ' ' in phrase and phrase in q:
-                return "pricing"
-    for phrase in INVENTORY_KEYWORDS:
-        if ' ' in phrase and phrase in q:
-            return "inventory"
-
-    # Single-word matches — pricing only if not product-seeking
-    if not is_product_seeking and words & {w for w in PRICING_KEYWORDS if ' ' not in w}:
-        return "pricing"
-    if words & {w for w in INVENTORY_KEYWORDS if ' ' not in w}:
-        return "inventory"
-
-    # Support keywords (single-word only)
-    if words & SUPPORT_KEYWORDS:
-        return "customer_support"
-
-    # Product-seeking queries → search
-    if is_product_seeking:
-        return "search"
-
-    # Pairing questions belong to Style Advisor so the tool path can use
-    # style_match rather than generic recommendation retrieval.
-    if PAIRING_PATTERN.search(query):
-        return "search"
-
-    # Search keywords (multi-word phrase matching)
-    for phrase in SEARCH_KEYWORDS:
-        if ' ' in phrase and phrase in q:
-            return "search"
-    if words & {w for w in SEARCH_KEYWORDS if ' ' not in w}:
-        return "search"
-
-    return "recommendation"
 
 
 def _build_dispatcher_specialist(intent_hint: str, allow_handoff: bool):
@@ -1288,11 +1179,11 @@ CURRENT REQUEST: {message}"""
         elif any(w in query_lower for w in ['skin care', 'lotion', 'moisturizer']):
             suggestions = ["What's the best for daily use?", "Find a skincare set under $50", "Show me the highest rated"]
         elif any(w in query_lower for w in ['deal', 'cheap', 'budget', 'affordable']):
-            suggestions = ["Find the best value in electronics", "Show me hidden gems under $25", "What's on sale right now?"]
+            suggestions = ["Find the best value in home decor", "Show me hidden gems under $50", "What's on sale right now?"]
         elif any(w in query_lower for w in ['trending', 'popular', 'best seller']):
             suggestions = ["Why is this one trending?", "Find me something similar but cheaper", "What else is popular today?"]
         elif any(w in query_lower for w in ['recommend', 'suggest', 'gift']):
-            suggestions = ["Gifts under $50 for anyone", "What would you pick for a tech lover?", "Show me bestsellers"]
+            suggestions = ["Gifts under $50 for anyone", "What would you pick for a new homeowner?", "Show me bestsellers"]
         else:
             suggestions = [
                 "Find me the best deal in this category",
@@ -1436,7 +1327,7 @@ CURRENT REQUEST: {message}"""
         Async generator yielding SSE events with real-time agent streaming.
 
         ``turn_id`` is minted by the route before the stream opens and is
-        recorded on every ``tool_audit`` row this turn writes, so Atelier
+        recorded on every ``tool_audit`` row this turn writes, so Agent Trace
         can resolve a receipt deep link back to the exact tool calls that
         ran. It is threaded through rather than regenerated here because
         the id must be identical in the SSE envelope and the audit rows.
@@ -1450,9 +1341,9 @@ CURRENT REQUEST: {message}"""
             classifier picks one specialist; that specialist runs
             directly via its factory. One LLM call per turn. Voice
             preserved (no paraphrase cycle).
-          - ``'agents_as_tools'`` — Atelier Pattern I. Sonnet orchestrator
+          - ``'agents_as_tools'`` — Agent Trace Pattern I. Sonnet orchestrator
             + five ``@tool`` specialists. Two LLM calls per turn.
-          - ``'graph'`` — Atelier Pattern II. Real Strands
+          - ``'graph'`` — Agent Trace Pattern II. Real Strands
             ``GraphBuilder`` DAG: Sonnet router node + 5 specialist
             nodes; conditional edges route the turn to exactly one
             specialist. Exposed through ``GraphAgentAdapter`` so the
@@ -1481,8 +1372,8 @@ CURRENT REQUEST: {message}"""
             if cid and isinstance(cid, str) and cid != "anonymous":
                 customer_id = cid
 
-        # Per-turn runtime timing (seeds Atelier Runtime page live strip)
-        # and DB query log (seeds Atelier State Management live strip).
+        # Per-turn runtime timing (seeds Agent Trace Runtime page live strip)
+        # and DB query log (seeds Agent Trace State Management live strip).
         # Markers are recorded inline via time.perf_counter(); the db log
         # is propagated through a ContextVar so tool invocations hit the
         # same buffer even when they run via asyncio.to_thread.
@@ -1873,7 +1764,7 @@ CURRENT REQUEST: {message}"""
         # Its output has two consumers:
         #   1. Pattern III (Dispatcher) uses ``intent_hint`` to pick
         #      which specialist factory to build.
-        #   2. Telemetry (``📨 chat_stream`` log, Atelier panels) uses
+        #   2. Telemetry (``📨 chat_stream`` log, Agent Trace panels) uses
         #      the classification for the routing annotation.
         #
         # The previous ``[ROUTING DIRECTIVE: call the X tool]`` prefix
@@ -1904,7 +1795,7 @@ CURRENT REQUEST: {message}"""
         #
         # The ``skill_routing`` SSE event must fire BEFORE any text tokens
         # so the boutique UI can render the attribution line above the
-        # reply. Storefront reads ``loaded_skills``; Atelier renders the
+        # reply. Storefront reads ``loaded_skills``; Agent Trace renders the
         # full decision in its live activation log.
         skill_decision = None
         skill_t0 = time.perf_counter()
@@ -2291,7 +2182,7 @@ CURRENT REQUEST: {message}"""
                 # Emit a `complete` event so the frontend populates
                 # `finalResponse.response` and `agent_execution` instead
                 # of falling back to the hardcoded default. `agent_execution`
-                # mirrors the shape live agents produce so the Atelier
+                # mirrors the shape live agents produce so the Agent Trace
                 # Sessions Brief tab and the inline pill in the chat
                 # surface the fall-through honestly (no agent, no model).
                 yield {
@@ -2726,7 +2617,7 @@ CURRENT REQUEST: {message}"""
 
         # Record this turn's latency breakdown into the process-local
         # perf log so /api/performance/runtime can serve live p50/p95
-        # aggregates to the Atelier Performance tab. Any failure is
+        # aggregates to the Agent Trace Performance tab. Any failure is
         # swallowed — measurement must never break a turn.
         try:
             from services.performance_log import record_turn
@@ -2742,7 +2633,7 @@ CURRENT REQUEST: {message}"""
             logger.debug("performance_log.record_turn failed: %s", _exc)
 
         # Emit timing + db query events BEFORE the complete event so the
-        # Atelier runtime and state-management pages pick them up via
+        # Agent Trace runtime and state-management pages pick them up via
         # their useAgentChat localStorage bridge.
         yield {
             "type": "runtime_timing",

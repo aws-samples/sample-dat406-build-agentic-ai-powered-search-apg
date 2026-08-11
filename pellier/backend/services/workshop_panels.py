@@ -1,4 +1,4 @@
-"""workshop_panels — shared helpers that turn service calls into Card 7 panels.
+"""Shared helpers that turn service calls into Agent Trace panels.
 
 Each helper takes an ``AgentContext`` + the raw inputs, performs the
 underlying work (or detects a skip condition), and emits a panel event.
@@ -6,7 +6,7 @@ Returning the raw result alongside the emission means the orchestrator
 can still use the value (e.g. a Gateway tool list feeding follow-up
 routing logic).
 
-Two panels for Week 2 Card 7:
+Two tool-discovery panels are emitted:
 
 - ``TOOL REGISTRY · DISCOVER`` — pgvector query against the ``tools``
   table. Always runs on workshop turns (Aurora is the teaching surface).

@@ -4,9 +4,9 @@
  * Composition is intentionally minimal: provider chain, BrowserRouter,
  * root-level modal hosts (AuthModal, PreferencesModal, ConciergeModal,
  * ComparisonHost), and the final route table. The two surfaces are
- * BoutiquePage (`/`) and AtelierFrame (`/atelier/*`).
+ * BoutiquePage (`/`) and AgentTraceFrame (`/agent-trace/*`).
  *
- * AuthGate is exported so the Atelier surface can be gated when Cognito
+ * AuthGate is exported so the Agent Trace surface can be gated when Cognito
  * is configured.
  */
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
@@ -29,42 +29,42 @@ import './styles/premium-heading-styles.css'
 
 const BoutiquePage = lazy(() => import('./pages/BoutiquePage'))
 const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
-const AtelierFrame = lazy(() => import('./atelier/shell/AtelierFrame'))
-const SessionsList = lazy(() => import('./atelier/surfaces/observe/SessionsList'))
-const SessionView = lazy(() => import('./atelier/surfaces/observe/SessionView'))
-const ChatTab = lazy(() => import('./atelier/surfaces/observe/ChatTab'))
-const TelemetryTab = lazy(() => import('./atelier/surfaces/observe/TelemetryTab'))
-const BriefTab = lazy(() => import('./atelier/surfaces/observe/BriefTab'))
-const Observatory = lazy(() => import('./atelier/surfaces/observe/Observatory'))
-const ProofBoard = lazy(() => import('./atelier/surfaces/observe/ProofBoard'))
-const PersonaJourneys = lazy(() => import('./atelier/surfaces/observe/PersonaJourneys'))
+const AgentTraceFrame = lazy(() => import('./agent-trace/shell/AgentTraceFrame'))
+const SessionsList = lazy(() => import('./agent-trace/surfaces/observe/SessionsList'))
+const SessionView = lazy(() => import('./agent-trace/surfaces/observe/SessionView'))
+const ChatTab = lazy(() => import('./agent-trace/surfaces/observe/ChatTab'))
+const TelemetryTab = lazy(() => import('./agent-trace/surfaces/observe/TelemetryTab'))
+const BriefTab = lazy(() => import('./agent-trace/surfaces/observe/BriefTab'))
+const Observatory = lazy(() => import('./agent-trace/surfaces/observe/Observatory'))
+const ProofBoard = lazy(() => import('./agent-trace/surfaces/observe/ProofBoard'))
+const PersonaJourneys = lazy(() => import('./agent-trace/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
-  () => import('./atelier/surfaces/understand/ArchitectureIndex'),
+  () => import('./agent-trace/surfaces/understand/ArchitectureIndex'),
 )
 const ArchitectureDetail = lazy(
-  () => import('./atelier/surfaces/understand/ArchitectureDetail'),
+  () => import('./agent-trace/surfaces/understand/ArchitectureDetail'),
 )
-const Tools = lazy(() => import('./atelier/surfaces/understand/Tools'))
-const Search = lazy(() => import('./atelier/surfaces/understand/Search'))
-const Skills = lazy(() => import('./atelier/surfaces/understand/Skills'))
-const Routing = lazy(() => import('./atelier/surfaces/understand/Routing'))
+const Tools = lazy(() => import('./agent-trace/surfaces/understand/Tools'))
+const Search = lazy(() => import('./agent-trace/surfaces/understand/Search'))
+const Skills = lazy(() => import('./agent-trace/surfaces/understand/Skills'))
+const Routing = lazy(() => import('./agent-trace/surfaces/understand/Routing'))
 const MemoryDashboard = lazy(
-  () => import('./atelier/surfaces/understand/MemoryDashboard'),
+  () => import('./agent-trace/surfaces/understand/MemoryDashboard'),
 )
-const WritePath = lazy(() => import('./atelier/surfaces/understand/WritePath'))
-const Performance = lazy(() => import('./atelier/surfaces/measure/Performance'))
-const Evaluations = lazy(() => import('./atelier/surfaces/measure/Evaluations'))
+const WritePath = lazy(() => import('./agent-trace/surfaces/understand/WritePath'))
+const Performance = lazy(() => import('./agent-trace/surfaces/measure/Performance'))
+const Evaluations = lazy(() => import('./agent-trace/surfaces/measure/Evaluations'))
 const ProductionPatterns = lazy(
-  () => import('./atelier/surfaces/measure/ProductionPatterns'),
+  () => import('./agent-trace/surfaces/measure/ProductionPatterns'),
 )
-const AtelierSettings = lazy(() => import('./atelier/surfaces/Settings'))
+const AgentTraceSettings = lazy(() => import('./agent-trace/surfaces/Settings'))
 const InspectorPage = lazy(() => import('./pages/InspectorPage'))
 const StoryboardPage = lazy(() => import('./pages/StoryboardPage'))
 const DiscoverPage = lazy(() => import('./pages/DiscoverPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 
 // ---------------------------------------------------------------------------
-// AuthGate — Cognito-aware auth wrapper. Gates the Atelier surface when
+// AuthGate — Cognito-aware auth wrapper. Gates the Agent Trace surface when
 // Cognito is configured. When Cognito is not configured (local dev without
 // env vars), children pass through directly.
 // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 // to pathname changes, and closes anything non-persistent. Chat
 // surfaces (drawer / concierge) and the comparison modal are
 // intentional leave-open cases — a user who opens the chat on `/`
-// and navigates to `/atelier` should keep talking to Pellier. The
+// and navigates to `/agent-trace` should keep talking to Pellier. The
 // auth, preferences, and cart modals close because they're
 // context-bound to a specific page.
 // ---------------------------------------------------------------------------
@@ -140,9 +140,9 @@ function ModalRouteGuard() {
   return null
 }
 
-function AtelierConciergeSlot() {
+function AgentTraceConciergeSlot() {
   const { pathname } = useLocation()
-  if (!pathname.startsWith('/atelier')) return null
+  if (!pathname.startsWith('/agent-trace')) return null
   return (
     <Suspense fallback={null}>
       <ConciergeModal />
@@ -193,24 +193,24 @@ function App() {
               }}
             >
               <ModalRouteGuard />
-              <AtelierConciergeSlot />
+              <AgentTraceConciergeSlot />
               <ChatDrawer />
               <ComparisonHost />
               <Suspense fallback={<RouteLoading />}>
                 <Routes>
                 {/*
                  *   /           → BoutiquePage (storefront shell)
-                 *   /atelier/*  → AtelierFrame (instrumentation, gated by AuthGate)
+                 *   /agent-trace/*  → AgentTraceFrame (instrumentation, gated by AuthGate)
                  *   /inspector  → InspectorPage (frozen session-scoped trace view)
                  *   /storyboard → StoryboardPage
                  *   /discover   → DiscoverPage
                  *   *           → redirect to /
                  */}
                 <Route path="/" element={<BoutiquePage />} />
-                {/* Atelier Observatory — nested routes under AtelierFrame shell.
+                {/* Agent Trace Observatory — nested routes under AgentTraceFrame shell.
                     The frame renders the wide workshop sidebar + canvas grid with
                     React Router <Outlet /> for surface rendering. */}
-                <Route path="/atelier" element={<AtelierFrame />}>
+                <Route path="/agent-trace" element={<AgentTraceFrame />}>
                   <Route index element={<Navigate to="proof-board" replace />} />
                   <Route path="proof-board" element={<ProofBoard />} />
                   <Route
@@ -226,7 +226,7 @@ function App() {
                   </Route>
                   <Route path="architecture" element={<ArchitectureIndex />} />
                   <Route path="architecture/:concept" element={<ArchitectureDetail />} />
-                  <Route path="agents" element={<Navigate to="/atelier/tools" replace />} />
+                  <Route path="agents" element={<Navigate to="/agent-trace/tools" replace />} />
                   <Route path="tools" element={<Tools />} />
                   <Route path="search" element={<Search />} />
                   <Route path="skills" element={<Skills />} />
@@ -238,7 +238,7 @@ function App() {
                   <Route path="production-patterns" element={<ProductionPatterns />} />
                   <Route path="observatory" element={<Observatory />} />
                   <Route path="persona-journeys" element={<PersonaJourneys />} />
-                  <Route path="settings" element={<AtelierSettings />} />
+                  <Route path="settings" element={<AgentTraceSettings />} />
                 </Route>
                 <Route path="/inspector" element={<InspectorPage />} />
                 <Route path="/storyboard" element={<StoryboardPage />} />

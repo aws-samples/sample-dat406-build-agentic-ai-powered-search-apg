@@ -1,5 +1,5 @@
 /**
- * Base-path-safe deep links from a Boutique turn to its Atelier evidence.
+ * Base-path-safe deep links from a Boutique turn to its Agent Trace evidence.
  *
  * Two constraints shape this file.
  *
@@ -9,8 +9,8 @@
  * basename. Nothing concatenates `location.origin`.
  *
  * **Real routes only.** These functions target destinations that already
- * exist in `App.tsx` — `/atelier/sessions/:id/telemetry`,
- * `/atelier/audit-proof`, `/inspector`. No route is invented here; a link
+ * exist in `App.tsx` — `/agent-trace/sessions/:id/telemetry`,
+ * `/agent-trace/audit-proof`, `/inspector`. No route is invented here; a link
  * to a non-existent path would silently fall through to the catch-all
  * redirect and land the attendee on the Boutique home page, which reads as
  * "the evidence is missing" rather than "the link was wrong".
@@ -50,14 +50,14 @@ function withQuery(path: string, params: Record<string, string | null | undefine
  * way these links break behind the proxy.
  *
  * @param target Session, turn, and trace identifiers.
- * @returns A route path, or the Atelier audit-proof route when no session
+ * @returns A route path, or the Agent Trace audit-proof route when no session
  *   is known — the general evidence surface is a truthful fallback, an
  *   invented session id is not.
  */
 export function receiptRoute(target: ReceiptTarget): string {
-  if (!target.sessionId) return '/atelier/audit-proof'
+  if (!target.sessionId) return '/agent-trace/audit-proof'
   return withQuery(
-    `/atelier/sessions/${encodeURIComponent(target.sessionId)}/telemetry`,
+    `/agent-trace/sessions/${encodeURIComponent(target.sessionId)}/telemetry`,
     { [TURN_QUERY_KEY]: target.turnId, trace: target.traceId },
   )
 }
@@ -97,7 +97,7 @@ export function boutiqueRoute(): string {
 /**
  * Read the turn id from a location search string.
  *
- * Used by Atelier to restore the selected turn after a reload, which is
+ * Used by Agent Trace to restore the selected turn after a reload, which is
  * what makes a shared receipt link actually reproducible.
  *
  * @param search A `location.search` value, with or without the leading `?`.

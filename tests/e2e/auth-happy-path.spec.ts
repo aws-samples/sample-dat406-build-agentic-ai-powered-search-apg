@@ -18,9 +18,8 @@
  *   - `E2E_TEST_USER_PASSWORD`
  *   - `E2E_BASE_URL` (optional, defaults to http://localhost:5173)
  *
- * This is a placeholder implementation. Full flow coverage (preferences
- * modal, curated banner, grid re-sort) lands alongside the storefront
- * frontend work in Layer 4 / Layer 5 tasks.
+ * This spec intentionally covers only the sign-in boundary. Preference
+ * persistence and catalog personalization have independent tests.
  */
 
 import { expect, test } from '@playwright/test';
@@ -39,7 +38,7 @@ test.describe('auth happy path', () => {
     );
 
     // 1. Open /signin. AuthModal is the entry point; in the SPA the
-    //    direct `/signin` route is wired by Task 4.x.
+    //    direct `/signin` route mounts the authentication modal.
     await page.goto(`${BASE_URL}/signin`);
 
     // 2. Click the email CTA. Cognito Hosted UI opens; the email path

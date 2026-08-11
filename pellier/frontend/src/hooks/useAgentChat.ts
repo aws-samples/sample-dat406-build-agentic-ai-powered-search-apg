@@ -9,7 +9,7 @@
  *
  * `mode` switches high-level behavior:
  *   - 'storefront' — no agent inference, no agent badges, plain chat
- *   - 'atelier'    — populate agent/agentExecution so instrumentation UI
+ *   - 'agentTrace'    — populate agent/agentExecution so instrumentation UI
  *                    (badges, Under the Hood) can render
  *
  * `workshopMode` and `guardrailsEnabled` are passed through to the
@@ -29,7 +29,7 @@ import type { WorkshopMode } from '../contexts/LayoutContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { createEditorialStreamController } from '../utils/editorialStream'
 
-export type ChatMode = 'storefront' | 'atelier'
+export type ChatMode = 'storefront' | 'agentTrace'
 
 export interface AgentStep {
   agent: string
@@ -69,7 +69,7 @@ export interface AgentExecution {
  * Shape mirrors the backend ``RouterDecision`` Pydantic model. Emitted
  * once per turn via the ``skill_routing`` SSE event, before any text
  * tokens, so the storefront can render the attribution line above the
- * reply and the Atelier can render the live activation log.
+ * reply and the Agent Trace can render the live activation log.
  */
 export interface SkillRouting {
   loaded_skills: string[]
@@ -128,7 +128,7 @@ export interface AgentChatMessage {
   agentExecution?: AgentExecution
   /** Skill routing decision for this turn. Set when the backend emits
    * a ``skill_routing`` SSE event. Boutique uses ``loaded_skills`` to
-   * render the italic burgundy attribution line; Atelier renders the
+   * render the italic burgundy attribution line; Agent Trace renders the
    * full decision in its live activation log. */
   skillRouting?: SkillRouting
   /** Stylist handoff payload when this turn fired escalate_to_stylist.
@@ -159,7 +159,7 @@ export interface UseAgentChatOptions {
    * fetches `/api/agent/session/{sessionId}` on mount and hydrates
    * the message list from the backend's authoritative STM store if
    * localStorage is empty or stale. This bridges the Boutique chat
-   * with the same STM layer the Atelier teaches.
+   * with the same STM layer the Agent Trace teaches.
    */
   sessionId?: string
 }
@@ -272,7 +272,7 @@ export function useAgentChat(
   // STM hydration — fetch the authoritative turn history from the
   // backend's AgentCore Memory (or in-memory fallback). If the backend
   // has turns that localStorage doesn't, hydrate from backend. This
-  // bridges the Boutique chat with the STM the Atelier teaches.
+  // bridges the Boutique chat with the STM the Agent Trace teaches.
   useEffect(() => {
     if (!sessionId) return
     let alive = true
@@ -430,10 +430,10 @@ export function useAgentChat(
           window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
       })
 
-      // Thinking placeholder. Atelier gets the full instrumentation shell;
+      // Thinking placeholder. Agent Trace gets the full instrumentation shell;
       // storefront gets a lightweight shell so Boutique can show an optional
       // collapsed "skills + tools" disclosure without surfacing agent steps.
-      const showInstrumentation = mode === 'atelier'
+      const showInstrumentation = mode === 'agentTrace'
       const trackToolCalls = showInstrumentation || mode === 'storefront'
       const thinkingAgentName =
         workshopMode === 'production'
@@ -482,7 +482,7 @@ export function useAgentChat(
               // Routing event arrives BEFORE any text tokens per the
               // backend ordering contract. Attach to the current
               // assistant message (the thinking placeholder) so both
-              // the storefront attribution line and the Atelier
+              // the storefront attribution line and the Agent Trace
               // activation log can read it.
               updateLast(lastMsg =>
                 lastMsg.role === 'assistant'
@@ -490,7 +490,7 @@ export function useAgentChat(
                   : null,
               )
               // Persist the most recent routing to localStorage so the
-              // Atelier Skills panel (which lives on a different route)
+              // Agent Trace Skills panel (which lives on a different route)
               // can render the live activation log without plumbing
               // cross-route state through a context provider.
               try {
@@ -540,7 +540,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'tool_call') {
               // Always persist tool calls to localStorage so the
-              // Atelier architecture pages (MCP, Tool Registry) can
+              // Agent Trace architecture pages (MCP, Tool Registry) can
               // render the live strip without being mounted in the
               // same component tree as the chat. Cross-route state.
               try {
@@ -635,7 +635,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'runtime_timing') {
               // Per-layer wall-clock timing for the most recent turn.
-              // Written to localStorage for the Atelier Runtime page
+              // Written to localStorage for the Agent Trace Runtime page
               // to consume via useRuntimeTiming().
               try {
                 localStorage.setItem(
@@ -660,7 +660,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'db_queries') {
               // Per-turn database operations (reads and writes) with
-              // SQL snippets. Written to localStorage for the Atelier
+              // SQL snippets. Written to localStorage for the Agent Trace
               // State Management page to consume via useDbQueries().
               try {
                 const list = Array.isArray(data.queries) ? data.queries : []
@@ -680,8 +680,8 @@ export function useAgentChat(
           persona?.customer_id ?? null,
           // Pattern selector — storefront uses the dispatcher (direct
           // specialist invocation, no orchestrator, no paraphrase),
-          // atelier uses the Sonnet orchestrator (Pattern I). Commit 2
-          // adds a user-facing toggle in the Atelier for 'graph'.
+          // agentTrace uses the Sonnet orchestrator (Pattern I). Commit 2
+          // adds a user-facing toggle in the Agent Trace for 'graph'.
           mode === 'storefront' ? 'dispatcher' : 'agents_as_tools',
         )
 

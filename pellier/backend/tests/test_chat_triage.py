@@ -73,7 +73,7 @@ class TestTriageFallsThrough:
             "what's low on stock right now",
             "compare two mens shirts",
             "return policy?",
-            "best headphones for travel",
+            "best linen shirt for travel",
             "",  # empty query
             "    ",  # whitespace
         ],

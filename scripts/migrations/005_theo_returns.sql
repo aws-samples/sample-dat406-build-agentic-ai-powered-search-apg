@@ -16,7 +16,7 @@
 --   4. INSERT into pellier.returns + (if reason='damaged') UPDATE
 --      quantity in pellier.product_catalog. Both in one transaction.
 --   5. The execution rail persists the call to pellier.tool_audit so
---      the mutation has a paper trail readable from /atelier — every
+--      the mutation has a paper trail readable from /agent-trace — every
 --      mutation is reconstructible from a single SELECT.
 --
 -- This table is the second source of truth in the workshop. The first
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS pellier.returns (
     resolved_at   TIMESTAMPTZ
 );
 
--- Index for "show me a customer's recent returns" lookups (Atelier's
+-- Index for "show me a customer's recent returns" lookups (Agent Trace's
 -- session brief tab joins this when rendering Theo's ceramics-return
 -- folio).
 CREATE INDEX IF NOT EXISTS returns_customer_idx

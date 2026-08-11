@@ -50,7 +50,7 @@
   }
 
   /* ========================================================================
-   * Boutique + Atelier custom-property names are now ALIASED onto the
+   * Boutique + Agent Trace custom-property names are now ALIASED onto the
    * Daylight design-system tokens via styles/daylight-bridge.css. The
    * hardcoded :root block that used to live here was removed when
    * Daylight was wired in — see DAYLIGHT_INTEGRATION.md for the
@@ -151,7 +151,7 @@
     font-variant-ligatures: contextual common-ligatures;
   }
 
-  /* /workshop ("Atelier") font stack — scoped to the telemetry route.
+  /* /workshop ("Agent Trace") font stack — scoped to the telemetry route.
      Stacks match Daylight tokens (--dl-font-*) via the bridge. */
   .workshop-surface {
     font-family: var(--sans);
@@ -693,10 +693,6 @@
   .orb-float-2 { animation: orbFloat2 25s ease-in-out infinite; }
   .orb-float-3 { animation: orbFloat3 18s ease-in-out infinite; }
 
-  .category-gaming { --category-accent: #22c55e; }
-  .category-audio { --category-accent: #3b82f6; }
-  .category-cameras { --category-accent: #f59e0b; }
-  .category-laptops { --category-accent: #8b5cf6; }
   .category-default { --category-accent: #888888; }
 
   /* ========================================================================

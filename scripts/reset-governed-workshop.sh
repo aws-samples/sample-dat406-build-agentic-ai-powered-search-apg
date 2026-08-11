@@ -68,7 +68,9 @@ pass "Catalog quantities restored from committed embedding cache"
 
 for migration in \
   006_warehouse_inventory.sql \
-  011_governed_write_integrity.sql
+  011_governed_write_integrity.sql \
+  012_retrieval_receipts.sql \
+  013_inventory_ledger.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -83,11 +85,17 @@ _psql_exec "
 TRUNCATE TABLE
     pellier.governed_receipts,
     pellier.tool_audit,
+    pellier.retrieval_receipts,
+    pellier.inventory_ledger,
     pellier.write_operations,
     pellier.returns
 RESTART IDENTITY;
 " >/tmp/pellier-governed-reset-evidence.log
-pass "Live returns, write keys, audits, and receipts cleared"
+pass "Live returns, stock movements, write keys, audits, and receipts cleared"
+
+_psql_file "$REPO/scripts/migrations/013_inventory_ledger.sql" \
+  >>/tmp/pellier-governed-reset-db.log
+pass "Inventory ledger reseeded from deterministic warehouse state"
 
 if [[ ! -f "$REPO/scripts/migrations/010_governed_receipts.sql" ]]; then
   fail "Missing scripts/migrations/010_governed_receipts.sql"
@@ -106,36 +114,58 @@ ANALYZE pellier.product_catalog;
 ' >/tmp/pellier-governed-reset-index.log
 pass "HNSW index present: product_catalog_embedding_hnsw"
 
-if [[ -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]] && [[ -f "$REPO/scripts/deploy/workshop_policy_rule.py" ]]; then
-  if "$PYTHON" "$REPO/scripts/deploy/workshop_policy_rule.py" \
-      --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
-      --region "$AWS_REGION" \
-      reset >/tmp/pellier-governed-reset-policy.log 2>&1; then
-    pass "Participant Cedar rule removed; shipped policy state restored"
-  else
-    fail "Could not reset participant Cedar rule; see /tmp/pellier-governed-reset-policy.log"
-    exit 1
-  fi
+AGENTCORE_PROJECT="$REPO/.agentcore-project/pellier"
+AGENTCORE_CONFIG="$AGENTCORE_PROJECT/agentcore/agentcore.json"
+POLICY_ENGINE_NAME="pellier_policy_engine"
 
-  if [[ -n "${AGENTCORE_GATEWAY_ARN:-}" ]]; then
-    if "$PYTHON" "$REPO/scripts/deploy/workshop_policy_rule.py" mode \
-        --set ENFORCE \
-        --policy-engine-id "$AGENTCORE_POLICY_ENGINE_ID" \
-        --gateway-arn "$AGENTCORE_GATEWAY_ARN" \
-        --region "$AWS_REGION" >/tmp/pellier-governed-reset-mode.log 2>&1; then
-      pass "Gateway Policy attachment restored to ENFORCE mode"
-    else
-      fail "Could not confirm Gateway Policy ENFORCE mode; see /tmp/pellier-governed-reset-mode.log"
-      exit 1
-    fi
-  else
-    fail "Gateway Policy mode reset requires AGENTCORE_GATEWAY_ARN"
-    exit 1
-  fi
-else
-  fail "Policy reset requires AGENTCORE_POLICY_ENGINE_ID"
+if [[ ! -f "$AGENTCORE_CONFIG" ]]; then
+  fail "AgentCore CLI project missing: $AGENTCORE_CONFIG"
   exit 1
 fi
+
+_agentcore() {
+  (
+    cd "$AGENTCORE_PROJECT"
+    if command -v agentcore >/dev/null 2>&1; then
+      command agentcore "$@"
+    else
+      npx -y @aws/agentcore@0.26.0 "$@"
+    fi
+  )
+}
+
+policy_changed=false
+for policy_name in workshop_identity_match_forbid workshop_final_sale_forbid; do
+  if jq -e \
+      --arg engine "$POLICY_ENGINE_NAME" \
+      --arg policy "$policy_name" \
+      '.policyEngines[] | select(.name == $engine) | .policies[]? | select(.name == $policy)' \
+      "$AGENTCORE_CONFIG" >/dev/null; then
+    _agentcore remove policy \
+      --name "$policy_name" \
+      --engine "$POLICY_ENGINE_NAME" \
+      --yes \
+      --json >>/tmp/pellier-governed-reset-policy.log
+    policy_changed=true
+  fi
+done
+
+if [[ "$policy_changed" == true ]]; then
+  _agentcore validate --json >>/tmp/pellier-governed-reset-policy.log
+  _agentcore deploy --yes --json >>/tmp/pellier-governed-reset-policy.log
+  pass "Participant Cedar rule removed through AgentCore CLI"
+else
+  pass "Participant Cedar rule absent; shipped CLI project already restored"
+fi
+
+if [[ "$(jq -r \
+    --arg name pellier-gateway \
+    '.agentCoreGateways[] | select(.name == $name) | .policyEngineConfiguration.mode' \
+    "$AGENTCORE_CONFIG")" != "ENFORCE" ]]; then
+  fail "AgentCore project no longer pins Gateway Policy mode to ENFORCE"
+  exit 1
+fi
+pass "Gateway Policy remains configured in ENFORCE mode"
 
 if [[ -x "$REPO/scripts/health-gate.sh" ]]; then
   echo "------------------------------------------------------------"
