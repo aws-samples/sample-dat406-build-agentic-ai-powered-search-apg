@@ -76,6 +76,16 @@ def test_claude_code_uses_latest_sonnet_alias() -> None:
     assert "CLAUDE_CODE_MODEL" not in source
 
 
+def test_facilitator_dry_run_covers_both_lab1_build_sites() -> None:
+    source = FACILITATOR_DRY_RUN.read_text(encoding="utf-8")
+    assert "agents/stock_keeper.py" in source
+    assert "agents/stock_keeper_solution.py" in source
+    assert "services/agent_tools.py" in source
+    assert "agent_tools_floor_check_solution.py" in source
+    assert '"Stock Keeper"[[:space:]]*:[[:space:]]*"shipped"' in source
+    assert '"floor_check"[[:space:]]*:[[:space:]]*"shipped"' in source
+
+
 def _write_executable(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(0o755)
@@ -359,6 +369,9 @@ def test_runtime_smoke_requires_gateway_mcp_rail(
         def admin_initiate_auth(self, **_kwargs):
             return {"AuthenticationResult": {"AccessToken": "jwt-token"}}
 
+        def get_user(self, **_kwargs):
+            return {"Username": "marco"}
+
     def fake_client(service, **_kwargs):
         return Secrets() if service == "secretsmanager" else Cognito()
 
@@ -372,7 +385,7 @@ def test_runtime_smoke_requires_gateway_mcp_rail(
         client_secret_arn="client-secret",
     )
     assert access_token == "jwt-token"
-    assert username == "Marco"
+    assert username == "marco"
 
     runtime_payload = {
         "response": "runtime response",

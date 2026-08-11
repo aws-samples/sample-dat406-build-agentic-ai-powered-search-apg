@@ -6,17 +6,17 @@
 # it actually exercises the required lab path against the live backend.
 #
 #   1. Preconditions  — health gate must be READY
-#   2. Apply solution — wire floor_check (the participant's one build)
+#   2. Apply solutions — complete Stock Keeper and wire floor_check
 #   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
 #   4. Retrieval      — run the exact four-strategy Lab 2 request
 #   5. Audit ledger   — run process_return and query its exact session receipt
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
 #
-# This applies the floor_check solution temporarily and creates the same return
-# and audit evidence rows as a participant. It backs agent_tools.py up and
-# restores it on exit unless --keep is passed. Run it on a workshop environment,
-# not a production database.
+# This applies both Lab 1 marker-scoped solutions temporarily and creates the
+# same return and audit evidence rows as a participant. It backs both source
+# files up and restores them on exit unless --keep is passed. Run it on a
+# workshop environment, not a production database.
 #
 # Usage:
 #   scripts/dry-run-builders.sh            # apply solution, test, restore stub
@@ -28,13 +28,13 @@ REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
 BASE="${PELLIER_BASE_URL:-http://localhost:8000}"
 TOOLS="${REPO}/pellier/backend/services/agent_tools.py"
-# The participant fills ONLY the floor_check body between the START/END markers
-# in the already-in-place agent_tools.py (the builders pre-apply variant, which
-# defines process_return, escalate_to_stylist, etc.). The dry-run mirrors that
-# exactly — it patches the body in place rather than swapping the whole file,
-# so it can't drift from the live participant artifact. BODY is the canonical
-# reference body (same one the required-path's paste-only escape hatch uses).
-BODY="${REPO}/solutions/closing-marcos-gap/services/floor_check_tool_body.py"
+TOOLS_REFERENCE="${REPO}/solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py"
+AGENT="${REPO}/pellier/backend/agents/stock_keeper.py"
+AGENT_REFERENCE="${REPO}/solutions/waking-the-stock-keeper/agents/stock_keeper_solution.py"
+BACKUP_SUFFIX=".dryrun.$$.bak"
+# Participants edit only the two START/END blocks. The rehearsal mirrors that
+# contract by copying each reference block into the live file; it never swaps a
+# whole module or changes code outside the workshop markers.
 KEEP=false
 [[ "${1:-}" == "--keep" ]] && KEEP=true
 
@@ -58,12 +58,78 @@ _psql() {
 }
 
 restore() {
-  if ! $KEEP && [[ -f "${TOOLS}.dryrun.bak" ]]; then
-    mv "${TOOLS}.dryrun.bak" "$TOOLS"
-    info "Restored original agent_tools.py (stub). Backend will reload."
+  local restored=false
+  if $KEEP; then
+    rm -f "${AGENT}${BACKUP_SUFFIX}" "${TOOLS}${BACKUP_SUFFIX}"
+    return
+  fi
+  if [[ -f "${AGENT}${BACKUP_SUFFIX}" ]]; then
+    mv "${AGENT}${BACKUP_SUFFIX}" "$AGENT"
+    restored=true
+  fi
+  if [[ -f "${TOOLS}${BACKUP_SUFFIX}" ]]; then
+    mv "${TOOLS}${BACKUP_SUFFIX}" "$TOOLS"
+    restored=true
+  fi
+  if $restored; then
+    info "Restored both Lab 1 source files. Backend will reload."
   fi
 }
 trap restore EXIT
+
+patch_marker_block() {
+  local live_path="$1"
+  local reference_path="$2"
+  local start_marker="$3"
+  local end_marker="$4"
+  local label="$5"
+
+  if [[ ! -f "$live_path" ]]; then
+    fail "Live source file missing: $live_path"; return 1
+  fi
+  if [[ ! -f "$reference_path" ]]; then
+    fail "Reference source file missing: $reference_path"; return 1
+  fi
+  if ! cp "$live_path" "${live_path}${BACKUP_SUFFIX}"; then
+    fail "Could not back up $live_path; refusing to patch it"; return 1
+  fi
+
+  python3 - "$live_path" "$reference_path" "$start_marker" "$end_marker" <<'PYEOF'
+from pathlib import Path
+import sys
+
+live_path = Path(sys.argv[1])
+reference_path = Path(sys.argv[2])
+start_marker = sys.argv[3]
+end_marker = sys.argv[4]
+live = live_path.read_text()
+reference = reference_path.read_text()
+
+
+def marker_span(text: str, source: Path) -> tuple[int, int]:
+    start = text.find(start_marker)
+    end = text.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0:
+        raise SystemExit(
+            f"{source}: expected exactly one {start_marker!r} / {end_marker!r} block"
+        )
+    if text.find(start_marker, start + len(start_marker)) >= 0:
+        raise SystemExit(f"{source}: duplicate start marker {start_marker!r}")
+    if text.find(end_marker, end + len(end_marker)) >= 0:
+        raise SystemExit(f"{source}: duplicate end marker {end_marker!r}")
+    return start, end + len(end_marker)
+
+
+live_start, live_end = marker_span(live, live_path)
+reference_start, reference_end = marker_span(reference, reference_path)
+replacement = reference[reference_start:reference_end]
+live_path.write_text(live[:live_start] + replacement + live[live_end:])
+PYEOF
+  if [[ $? -ne 0 ]]; then
+    fail "Could not apply the $label marker block"; return 1
+  fi
+  pass "Applied the $label marker block"
+}
 
 echo "════════════════════════════════════════════════════════════"
 echo " Pellier workshop — end-to-end dry run"
@@ -80,53 +146,37 @@ else
   exit 1
 fi
 
-# --- 2. Apply the solution (simulate the participant's build) ---------------
-# Fill ONLY the floor_check body between the START/END markers in the live
-# agent_tools.py — exactly what a participant does. This keeps every other tool
-# (process_return, escalate_to_stylist, ...) intact, so the import graph the
-# Experience Guide relies on is never broken. (A prior version swapped the whole
-# file for a separate "solution" copy that had drifted — it was missing
-# process_return, which crashed experience_guide.py's module-load import.)
-echo "[2/6] Wire floor_check (fill the body between the markers)"
-if [[ ! -f "$BODY" ]]; then
-  fail "Reference body file missing: $BODY"; exit 1
-fi
-if ! grep -q "WORKSHOP_EXERCISE_STUB" "$TOOLS"; then
-  info "floor_check already wired (no stub marker) — leaving agent_tools.py as-is"
+# --- 2. Apply the solutions (simulate both participant edits) ----------------
+echo "[2/6] Complete Stock Keeper and wire floor_check"
+if grep -q '^_INVENTORY_AGENT_STUBBED = True$' "$AGENT"; then
+  patch_marker_block \
+    "$AGENT" "$AGENT_REFERENCE" \
+    "# === WORKSHOP · Stock Keeper · definition: START ===" \
+    "# === WORKSHOP · Stock Keeper · definition: END ===" \
+    "Stock Keeper definition" || exit 1
 else
-  # Guard the backup explicitly: if it fails we must NOT patch the file in
-  # place, or restore() (which keys on the .bak existing) would leave
-  # agent_tools.py permanently in the patched state. (This script runs with
-  # `set -uo pipefail`, not `-e`, by design – it accumulates FAILED and
-  # reports a summary – so a bare cp failure would otherwise pass silently.)
-  if ! cp "$TOOLS" "${TOOLS}.dryrun.bak"; then
-    fail "Could not back up agent_tools.py (cp failed) – refusing to patch in place"; exit 1
-  fi
-  python3 - "$TOOLS" "$BODY" <<'PYEOF'
-import sys, re
-tools_path, body_path = sys.argv[1], sys.argv[2]
-src = open(tools_path).read()
-# Body file has a 2-line "# Paste inside ..." comment header; keep only the code.
-body_lines = open(body_path).read().splitlines()
-body = "\n".join(l for l in body_lines if not l.lstrip().startswith("# Paste"))
-body = body.strip("\n")
-start = "# === WORKSHOP · Stock Keeper · floor_check: START ==="
-end   = "# === WORKSHOP · Stock Keeper · floor_check: END ==="
-pat = re.compile(re.escape(start) + r".*?" + re.escape(end), re.DOTALL)
-repl = start + "\n" + body + "\n    " + end
-new, n = pat.subn(repl, src)
-if n != 1:
-    sys.stderr.write(f"expected 1 marker block, replaced {n}\n"); sys.exit(1)
-open(tools_path, "w").write(new)
-PYEOF
-  if [[ $? -ne 0 ]]; then fail "Could not patch floor_check body into agent_tools.py"; exit 1; fi
-  pass "Filled floor_check body in agent_tools.py (other tools untouched)"
+  info "Stock Keeper definition already complete — leaving stock_keeper.py as-is"
+fi
+
+if grep -q "floor_check is in stub state" "$TOOLS"; then
+  patch_marker_block \
+    "$TOOLS" "$TOOLS_REFERENCE" \
+    "# === WORKSHOP · Stock Keeper · floor_check: START ===" \
+    "# === WORKSHOP · Stock Keeper · floor_check: END ===" \
+    "floor_check body" || exit 1
+else
+  info "floor_check already wired — leaving agent_tools.py as-is"
 fi
 info "Waiting 4s for uvicorn --reload to pick up the change…"
 sleep 4
 
-# Confirm the strip flipped to shipped via build-state
+# Confirm both independent build markers flipped to shipped.
 bs="$(curl -fs --max-time 5 "${BASE}/api/agent-trace/build-state" 2>/dev/null || true)"
+if echo "$bs" | grep -q '"Stock Keeper"[[:space:]]*:[[:space:]]*"shipped"'; then
+  pass "build-state reports Stock Keeper = shipped"
+else
+  fail "build-state did not flip Stock Keeper to shipped (got: ${bs:0:200})"
+fi
 if echo "$bs" | grep -q '"floor_check"[[:space:]]*:[[:space:]]*"shipped"'; then
   pass "build-state reports floor_check = shipped"
 else

@@ -3,8 +3,8 @@
  *
  * Two sources, in precedence order:
  *   1. GET /api/agent-trace/build-state — authoritative. Merges overlays: when
- *      floor_check is no longer the workshop stub in agent_tools.py, promotes
- *      floor_check plus Stock Keeper to shipped without editing JSON fixtures.
+ *      each Lab 1 scaffold is complete, promotes the Stock Keeper definition
+ *      and floor_check tool independently without editing JSON fixtures.
  *   2. Fixture data (agents.json / tools.json) — used when the endpoint is
  *      unreachable. Callers must treat a zero total as "unknown" rather than
  *      substituting a hardcoded count; see the Sidebar badges.
@@ -109,8 +109,8 @@ export function useBuildState(): BuildStateResult {
     fetchBuildState();
   }, [fetchBuildState]);
 
-  // After wiring floor_check locally, revisit the tab or focus the window so
-  // build-state re-fetches once uvicorn has reloaded (workshop flow).
+  // After completing either Lab 1 scaffold, revisit the tab or focus the
+  // window so build-state re-fetches once uvicorn has reloaded.
   useEffect(() => {
     const refetchBuildState = () => {
       fetchBuildState();

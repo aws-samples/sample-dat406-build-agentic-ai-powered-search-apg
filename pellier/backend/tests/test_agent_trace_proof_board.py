@@ -277,6 +277,29 @@ def test_build_state_reports_stock_keeper_midpoint(monkeypatch) -> None:
     assert body["tools"]["floor_check"] == "exercise"
 
 
+def test_build_state_does_not_promote_scaffolded_stock_keeper_from_tool(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        agent_trace,
+        "_stock_keeper_definition_is_workshop_stub",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        agent_trace,
+        "_floor_check_is_workshop_stub",
+        lambda: False,
+    )
+    client = _client(_ProofDB())
+
+    r = client.get("/api/agent-trace/build-state")
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["agents"]["Stock Keeper"] == "exercise"
+    assert body["tools"]["floor_check"] == "shipped"
+
+
 def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
     async def _empty(_persona: str) -> list:
         return []

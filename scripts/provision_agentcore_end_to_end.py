@@ -192,7 +192,20 @@ def _cognito_access_token(
     access_token = response.get("AuthenticationResult", {}).get("AccessToken")
     if not access_token:
         raise RuntimeError("Cognito did not return an access token")
-    return str(access_token), username
+    verified_user = cognito.get_user(AccessToken=str(access_token))
+    verified_username = str(verified_user.get("Username", "")).strip()
+    if not verified_username:
+        raise RuntimeError("Cognito GetUser did not return a username")
+    if verified_username.casefold() != username.casefold():
+        raise RuntimeError(
+            "Cognito authenticated username did not match the seeded user"
+        )
+    if verified_username != verified_username.casefold():
+        raise RuntimeError(
+            "Cognito username is not lowercase; identity-bound workshop policy "
+            "would not match lowercase customer_id arguments"
+        )
+    return str(access_token), verified_username
 
 
 def _scaffold_cli_project(

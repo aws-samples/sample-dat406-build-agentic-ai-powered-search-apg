@@ -2,8 +2,7 @@
  * Agents — Five specialist agents surface.
  *
  * WorkshopProgressStrip: five peers; baseline is four shipped + Stock Keeper
- * (exercise) until ``floor_check`` is live — then build-state promotes
- * Stock Keeper to shipped alongside the tool.
+ * (exercise) until its definition scaffold is complete.
  *
  * Shipped agents: solid borders, cream-elev bg, sage "Shipped" pills.
  * Exercise agents: dashed borders, transparent bg, burgundy "Exercise" pills.
@@ -725,7 +724,7 @@ const Agents: React.FC = () => {
       <EditorialTitle
         eyebrow="Understand · Agents · five peers · Opus 5 + Sonnet 5"
         title="The cast of five."
-        summary="Five peer specialists – routing sits in Dispatcher (classify_intent) ahead of each turn. Four are shipped reference in the workshop image (including Experience Guide for Theo's write path). Stock Keeper stays exercise until you wire floor_check in the required path; saving the tool body updates build-state and promotes Stock Keeper to shipped."
+        summary="Five peer specialists – routing sits in Dispatcher (classify_intent) ahead of each turn. Four are shipped reference in the workshop image (including Experience Guide for Theo's write path). Stock Keeper stays exercise until you complete its marked definition; floor_check has its own independent build marker."
       />
 
       {loading && <LoadingState />}

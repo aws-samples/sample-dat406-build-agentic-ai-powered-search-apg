@@ -2149,9 +2149,9 @@ async def get_current_persona(session_id: Optional[str] = Query(default=None)):
 
 # NOTE: the legacy /api/agent-trace/status endpoint (multi-module stub detection
 # for an older workshop draft) was removed from the current required path.
-# The Agent Trace progress strip reads GET /api/agent-trace/build-state instead, which
-# tracks only the single floor_check exercise. See
-# routes/agent-trace_observatory.py::get_build_state.
+# The Agent Trace progress strip reads GET /api/agent-trace/build-state instead,
+# which tracks the Stock Keeper definition and floor_check body independently.
+# See routes/agent_trace.py::get_build_state.
 
 
 # ============================================================================

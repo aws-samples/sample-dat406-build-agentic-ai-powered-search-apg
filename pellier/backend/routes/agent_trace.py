@@ -1561,7 +1561,6 @@ async def get_build_state():
 
         if not _floor_check_is_workshop_stub():
             tool_map["floor_check"] = "shipped"
-            agent_map["Stock Keeper"] = "shipped"
 
         return {"agents": agent_map, "tools": tool_map}
     except Exception as exc:

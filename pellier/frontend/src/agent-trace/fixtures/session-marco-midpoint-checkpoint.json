@@ -106,7 +106,7 @@
         "numeral": "i.",
         "title": "The checkpoint",
         "paragraphs": [
-          "Same question, different answer. Participants wired floor_check; the Dispatcher routed Turn 4 straight to Stock Keeper; Claude Sonnet 5 returned the warehouse breakdown.",
+          "Same question, different answer. Participants completed Stock Keeper and wired floor_check; the Dispatcher routed Turn 4 straight to Stock Keeper; Claude Sonnet 5 returned the warehouse breakdown.",
           "The code behind this response is yours. The tool you wrote just shipped a real answer to a real question - and nothing about the Boutique changed. That's the whole lesson: capability is composable."
         ]
       }

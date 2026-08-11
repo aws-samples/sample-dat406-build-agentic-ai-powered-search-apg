@@ -338,7 +338,7 @@
       "index": 13,
       "category": "teaching",
       "title": "Routing fall-through - Stock Keeper stubbed",
-      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build - required path \u00b7 wire floor_check.",
+      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build - required path \u00b7 complete Stock Keeper and wire floor_check.",
       "status": "complete",
       "durationMs": 4,
       "agent": null,
@@ -363,7 +363,7 @@
         "title": "The gap",
         "paragraphs": [
           "Turn 4 - the warehouse-stock question - sits outside the system's current reach. The Dispatcher matched the intent, routed to Stock Keeper, and Stock Keeper answered with a voice-matched non-answer because the agent ships in stub state.",
-          "This is the workshop build. Participants wire floor_check (and in the full Workshop format, restock_shelf and running_low). Once wired, the same Turn 4 pill returns a real warehouse + count + ETA."
+          "This is the workshop build. Participants complete the Stock Keeper definition and wire floor_check. Once both are complete, the same Turn 4 pill returns a real warehouse + count + ETA."
         ]
       },
       {
