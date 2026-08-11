@@ -19,11 +19,11 @@ describe('Agent Trace workshop map', () => {
     ]);
     expect(screen.getByRole('heading', { name: 'Ground Answers in Live Data' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Choose a Search Strategy You Can Defend' }),
+      screen.getByRole('heading', { name: 'Design the Retrieval Strategy' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Run the Agent as a Managed Service' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Run Agents in a Managed Runtime' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Stop the Wrong Action Before It Runs' }),
+      screen.getByRole('heading', { name: 'Govern and Trace Agent Actions' }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 

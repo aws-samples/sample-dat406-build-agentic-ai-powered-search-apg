@@ -34,15 +34,15 @@ describe('Agent Trace Sidebar', () => {
 
     const nav = screen.getByRole('navigation');
     expect(within(nav).getByText('COCKPIT')).toBeInTheDocument();
-    expect(within(nav).getByText(/LAB 1 · GROUND ANSWERS IN AURORA/)).toBeInTheDocument();
+    expect(within(nav).getByText(/LAB 1 · GROUND ANSWERS IN LIVE DATA/)).toBeInTheDocument();
     expect(
-      within(nav).getByText(/LAB 2 · CHOOSE A SEARCH STRATEGY WITH PGVECTOR/),
+      within(nav).getByText(/LAB 2 · DESIGN THE RETRIEVAL STRATEGY/),
     ).toBeInTheDocument();
     expect(
-      within(nav).getByText(/LAB 3 · RUN THE AGENT ON AGENTCORE/),
+      within(nav).getByText(/LAB 3 · RUN AGENTS IN A MANAGED RUNTIME/),
     ).toBeInTheDocument();
     expect(
-      within(nav).getByText(/LAB 4 · ENFORCE IDENTITY AT THE GATEWAY/),
+      within(nav).getByText(/LAB 4 · GOVERN AND TRACE AGENT ACTIONS/),
     ).toBeInTheDocument();
     expect(within(nav).getByText('DEEP DIVES')).toBeInTheDocument();
     // The old Act taxonomy must never return.

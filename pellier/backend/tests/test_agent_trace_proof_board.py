@@ -228,12 +228,12 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
     assert cards["marco-floor-check"]["lab"] == "Lab 1: Ground Answers in Live Data"
-    assert cards["retrieval-comparison"]["lab"] == "Lab 2: Choose a Search Strategy You Can Defend"
+    assert cards["retrieval-comparison"]["lab"] == "Lab 2: Design the Retrieval Strategy"
     assert cards["retrieval-comparison"]["status"] == "available"
-    assert cards["managed-rail"]["lab"] == "Lab 3: Run the Agent as a Managed Service"
+    assert cards["managed-rail"]["lab"] == "Lab 3: Run Agents in a Managed Runtime"
     assert cards["managed-rail"]["required"] is True
-    assert cards["audit-ledger"]["lab"] == "Lab 3: Run the Agent as a Managed Service"
-    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4: Stop the Wrong Action Before It Runs"
+    assert cards["audit-ledger"]["lab"] == "Lab 3: Run Agents in a Managed Runtime"
+    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4: Govern and Trace Agent Actions"
     assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
     assert "curl" in cards["managed-rail"]["fallback"]["command"]

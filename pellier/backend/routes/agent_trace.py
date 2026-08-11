@@ -681,7 +681,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "retrieval-comparison",
-            "lab": "Lab 2: Choose a Search Strategy You Can Defend",
+            "lab": "Lab 2: Design the Retrieval Strategy",
             "group": "Retrieval evidence",
             "title": "Compare Anna's four retrieval strategies",
             "status": (
@@ -712,7 +712,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "audit-ledger",
-            "lab": "Lab 3: Run the Agent as a Managed Service",
+            "lab": "Lab 3: Run Agents in a Managed Runtime",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -760,7 +760,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "Lab 4: Stop the Wrong Action Before It Runs",
+            "lab": "Lab 4: Govern and Trace Agent Actions",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (
@@ -793,7 +793,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
         },
         {
             "id": "managed-rail",
-            "lab": "Lab 3: Run the Agent as a Managed Service",
+            "lab": "Lab 3: Run Agents in a Managed Runtime",
             "group": "Managed boundaries",
             "title": "Prove the managed Runtime and Gateway rail",
             "status": _card_status(

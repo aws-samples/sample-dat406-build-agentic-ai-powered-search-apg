@@ -144,10 +144,10 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
 // Four-lab workshop spine.
 const LAB_BY_CARD_ID: Record<string, string> = {
   'marco-floor-check': 'Lab 1: Ground Answers in Live Data',
-  'retrieval-comparison': 'Lab 2: Choose a Search Strategy You Can Defend',
-  'managed-rail': 'Lab 3: Run the Agent as a Managed Service',
-  'audit-ledger': 'Lab 3: Run the Agent as a Managed Service',
-  'runtime-gateway-policy': 'Lab 4: Stop the Wrong Action Before It Runs',
+  'retrieval-comparison': 'Lab 2: Design the Retrieval Strategy',
+  'managed-rail': 'Lab 3: Run Agents in a Managed Runtime',
+  'audit-ledger': 'Lab 3: Run Agents in a Managed Runtime',
+  'runtime-gateway-policy': 'Lab 4: Govern and Trace Agent Actions',
 };
 
 function cardLab(card: ProofCard): string {
@@ -1091,7 +1091,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         </Link>
       )}
       <EditorialTitle
-        eyebrow={isAuditFocus ? 'Lab 3 · Run the Agent as a Managed Service' : 'Labs 1-4 · Proof Board'}
+        eyebrow={isAuditFocus ? 'Lab 3 · Run Agents in a Managed Runtime' : 'Labs 1-4 · Proof Board'}
         title={isAuditFocus ? 'Audit proof, row by row.' : 'Evidence checkpoints, in lab order.'}
         summary={
           isAuditFocus

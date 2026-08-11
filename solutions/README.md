@@ -20,7 +20,7 @@ cp solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py \
 
 After copying, both `/api/agent-trace/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `floor_check` row from `pellier.tool_audit`.
 
-## Lab 2: Choose a Search Strategy You Can Defend
+## Lab 2: Design the Retrieval Strategy
 
 If the live comparison endpoint stalls, use:
 
@@ -30,7 +30,7 @@ sed -n '1,120p' solutions/retrieval-eval/reference-output.txt
 
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
-## Lab 3: Run the Agent as a Managed Service
+## Lab 3: Run Agents in a Managed Runtime
 
 The managed Memory, Runtime, Gateway, and JWT path has no local substitute. Move a participant to a ready environment when that proof fails.
 
@@ -43,7 +43,7 @@ psql -v ON_ERROR_STOP=1 \
 
 It joins `governed_receipts` to `tool_audit` and resolves the authenticated Marco principal against the Theo customer named in tool input.
 
-## Lab 4: Stop the Wrong Action Before It Runs
+## Lab 4: Govern and Trace Agent Actions
 
 Copy the identity-aware Cedar rule after one failed validation, then add it
 through the same pinned AgentCore CLI used by the workshop:

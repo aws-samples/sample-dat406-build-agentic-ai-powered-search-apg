@@ -115,9 +115,9 @@ const Sidebar: React.FC = () => {
   // to learn. These four consolidate the same surfaces:
   //
   //   Lab 1  Ground Answers in Live Data
-  //   Lab 2  Choose a Search Strategy You Can Defend
-  //   Lab 3  Run the Agent as a Managed Service
-  //   Lab 4  Stop the Wrong Action Before It Runs
+  //   Lab 2  Design the Retrieval Strategy
+  //   Lab 3  Run Agents in a Managed Runtime
+  //   Lab 4  Govern and Trace Agent Actions
   //
   // Every previous route stays reachable — Deep Dives keeps them as deep
   // links. Nothing was deleted; only the default presentation changed.
@@ -130,7 +130,7 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'GROUND ANSWERS IN AURORA',
+      eyebrow: 'GROUND ANSWERS IN LIVE DATA',
       labNumber: 1,
       collapsible: true,
       items: [
@@ -151,7 +151,7 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'CHOOSE A SEARCH STRATEGY WITH PGVECTOR',
+      eyebrow: 'DESIGN THE RETRIEVAL STRATEGY',
       labNumber: 2,
       collapsible: true,
       items: [
@@ -160,7 +160,7 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'RUN THE AGENT ON AGENTCORE',
+      eyebrow: 'RUN AGENTS IN A MANAGED RUNTIME',
       labNumber: 3,
       collapsible: true,
       items: [
@@ -169,7 +169,7 @@ const Sidebar: React.FC = () => {
       ],
     },
     {
-      eyebrow: 'ENFORCE IDENTITY AT THE GATEWAY',
+      eyebrow: 'GOVERN AND TRACE AGENT ACTIONS',
       labNumber: 4,
       collapsible: true,
       items: [
