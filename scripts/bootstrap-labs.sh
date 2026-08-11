@@ -625,9 +625,9 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
 # instance role (the same ambient-credential chain psql/boto3/agentcore already
 # use) — no Anthropic API key, no per-participant login, nothing to paste.
-# Model: the model-access preflight writes CLAUDE_CODE_MODEL into the backend
-# .env. Claude Code uses Sonnet 5 through Bedrock. This lane is
-# independent of the app's Opus/Sonnet editorial model resolution.
+# Model: the model-access preflight writes the best supported workshop model to
+# CLAUDE_CODE_MODEL in the backend .env. This lane is independent of the app's
+# Opus/Sonnet editorial model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-5}}
 export AWS_REGION=${AWS_REGION:-us-east-1}
@@ -636,7 +636,7 @@ export AWS_REGION=${AWS_REGION:-us-east-1}
 # and warns once at startup ("Auto-update failed: no write permission..."). The
 # warning is harmless, but this composite flag suppresses it at the source by
 # disabling all non-essential phone-home (auto-updater + telemetry + error
-# reporting + feedback) — the right posture for a pinned, locked-down lab box.
+# reporting + feedback) — the right posture for a root-managed workshop box.
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 # Ensure uv is in PATH (required for MCP)
