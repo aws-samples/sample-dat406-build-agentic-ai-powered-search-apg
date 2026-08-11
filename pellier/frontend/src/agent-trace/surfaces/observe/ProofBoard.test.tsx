@@ -233,7 +233,7 @@ describe('ProofBoard', () => {
     );
 
     expect(await screen.findByText('Audit proof, row by row.')).toBeInTheDocument();
-    expect(screen.getByTestId('proof-card-audit-ledger')).toHaveTextContent(
+    expect(await screen.findByTestId('proof-card-audit-ledger')).toHaveTextContent(
       'Prove the audit trail in Aurora',
     );
     expect(screen.getByText('SQL fallback')).toBeInTheDocument();
