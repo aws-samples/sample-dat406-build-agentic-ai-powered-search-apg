@@ -2048,34 +2048,6 @@ CURRENT REQUEST: {message}"""
                     logger.warning("Persona ContextVar reset failed: %s", exc)
                 persona_token = None
 
-        # --- Session ContextVar (Pattern I inner-specialist context) ---
-        # Pattern I builds a fresh inner specialist Agent inside each
-        # @tool wrapper (style_advisor.search, curator.recommendation,
-        # …). Those wrappers don't take session_id as a parameter, so we
-        # stash it here on a ContextVar for any inner-agent code that
-        # needs the current session id without plumbing it through the
-        # LLM-facing @tool signature. (The in-process policy/audit hook
-        # that used to read this was removed when enforcement moved to
-        # the managed AgentCore Policy engine at the Gateway; the var is
-        # kept as the shared session handle for future inner-agent use.)
-        session_token = None
-        try:
-            from services.session_context import session_id_var
-            session_token = session_id_var.set(session_id)
-        except Exception as exc:
-            logger.warning("Session ContextVar set failed: %s", exc)
-
-        def _reset_session_token() -> None:
-            """Idempotent reset — safe to call on any exit path."""
-            nonlocal session_token
-            if session_token is not None:
-                try:
-                    from services.session_context import session_id_var
-                    session_id_var.reset(session_token)
-                except Exception as exc:
-                    logger.warning("Session ContextVar reset failed: %s", exc)
-                session_token = None
-
         # Pattern II (Graph) builds the GraphAdapter here, AFTER the
         # persona + skill ContextVars are live so the specialist
         # factories inside the adapter pick them up at construction
@@ -2410,7 +2382,6 @@ CURRENT REQUEST: {message}"""
             # exception paths too.
             _reset_skill_token()
             _reset_persona_token()
-            _reset_session_token()
 
         if timed_out:
             try:

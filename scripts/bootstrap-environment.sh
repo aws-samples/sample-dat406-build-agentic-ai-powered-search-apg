@@ -140,7 +140,7 @@ if [ "$_node20_ok" = true ]; then
         # login — the same ambient-credential model the rest of the lab uses.
         # Intentionally non-fatal: the manual edit and copy-solution paths
         # still complete the exercise if installation fails.
-        log "Installing Claude Code CLI globally for Lab 1..."
+        log "Installing the latest Claude Code CLI globally for Lab 1..."
         if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
