@@ -90,7 +90,10 @@ npx -y @aws/agentcore@0.18.0 create --project-name pellier --no-agent --defaults
 ( cd "$ROOT" && npx -y @aws/agentcore@0.18.0 deploy -y --json )
 
 # 4. Test the deployed Runtime
-uv run test_runtime.py --prompt "Find me running shoes under $50"
+uv run test_runtime.py \
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
+  --prompt "Find a linen shirt under $250" \
+  --token "$TOKEN"
 ```
 
 ## Files
@@ -106,7 +109,7 @@ uv run test_runtime.py --prompt "Find me running shoes under $50"
 | `../../pellier/backend/agentcore_runtime.py` | **Deployed** BYO runtime entrypoint (in-process orchestrator) |
 | `../../pellier/backend/pyproject.toml` | CodeZip deps for the BYO agent (0.18 uses uv, not requirements.txt) |
 | `deploy_all.sh`                   | End-to-end deployment script                   |
-| `test_runtime.py`                 | Smoke tests for deployed agent                 |
+| `test_runtime.py`                 | Raw CUSTOM_JWT Runtime smoke probe              |
 | `requirements.txt`                | Pinned deployment-helper dependencies          |
 
 ## Where to look when something breaks

@@ -1,11 +1,11 @@
-"""``/api/atelier/*`` — telemetry-replay endpoint for the Atelier route.
+"""``/api/agent-trace/*`` — telemetry-replay endpoint for the Agent Trace route.
 
 This router is the backend half of the workshop telemetry surface. Unlike
 ``/api/agent/chat`` — which streams storefront-shaped SSE events
 (product cards, cart ops, badges) for
 ``ConciergeModal`` — this endpoint returns a single flat replay payload:
 
-    POST /api/atelier/query
+    POST /api/agent-trace/query
     → {
         "session_id": "...",
         "events": [
@@ -34,7 +34,7 @@ localStorage (same key the other chat surfaces use).
 
 Scope: the endpoint wires up the AgentContext + orchestrator hand-off
 and returns either live telemetry or fixture-backed replay events for the
-Atelier workshop views.
+Agent Trace workshop views.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ from services.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/atelier", tags=["atelier"])
+router = APIRouter(prefix="/api/agent-trace", tags=["agent-trace"])
 
 
 def _build_citations(ctx: AgentContext) -> list[dict]:
@@ -186,7 +186,7 @@ async def tool_registry(
 
 
 class WorkshopQueryRequest(BaseModel):
-    """Body of ``POST /api/atelier/query``.
+    """Body of ``POST /api/agent-trace/query``.
 
     ``customer_id`` is optional — the workshop chat starts as anonymous.
     When a demo customer is picked from the user dropdown (Week 1 UI),
@@ -396,7 +396,7 @@ async def query(payload: WorkshopQueryRequest) -> StreamingResponse:
 
 
 # ----- /api/workshop/resume ---------------------------------------------
-# The "welcome-back" turn. Fired by the Atelier chat when the user
+# The "welcome-back" turn. Fired by the Agent Trace chat when the user
 # picks a seeded demo customer and no session_id exists yet. Emits
 # three cohesive panels — MEMORY · EPISODIC, MEMORY · PREFERENCES,
 # MEMORY · PROCEDURAL — plus a composed response text the chat
@@ -409,7 +409,7 @@ async def query(payload: WorkshopQueryRequest) -> StreamingResponse:
 
 
 class WorkshopResumeRequest(BaseModel):
-    """Body of ``POST /api/atelier/resume``.
+    """Body of ``POST /api/agent-trace/resume``.
 
     Anonymous callers get a 400 — the resume turn is specifically the
     "welcome-back for a known demo customer" surface. The chat column
@@ -489,7 +489,7 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
       EPISODIC   — Aurora, past events for this customer
       PROCEDURAL — Aurora tool_audit aggregate (which tools fire, how fast)
 
-    PROCEDURAL reads the SAME tool_audit aggregate the standalone Atelier
+    PROCEDURAL reads the SAME tool_audit aggregate the standalone Agent Trace
     Procedural panel reads — not the cohort-overlap JOIN, which is a
     recommendation signal mislabeled as procedural. The composed response
     quotes the episodic + preference reads so the trace reads end-to-end;
@@ -530,11 +530,11 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
 
         # Reverse the persona→customer_id map so the WORKING panel can
         # resolve this customer's latest storefront session the same way
-        # the standalone Atelier panel does. Unknown customers → no
+        # the standalone Agent Trace panel does. Unknown customers → no
         # persona → the panel reads this turn's own session instead.
         persona: Optional[str] = None
         try:
-            from routes.atelier_observatory import _PERSONA_TO_CUSTOMER_ID
+            from routes.agent_trace import _PERSONA_TO_CUSTOMER_ID
 
             persona = next(
                 (p for p, c in _PERSONA_TO_CUSTOMER_ID.items() if c == customer_id),

@@ -5,7 +5,7 @@
  * chip; word one step above footer (`text-2xl` vs `text-xl`). Four left
  * nav items (Shop, Stories, Ask Pellier, About), and right cluster: search
  * IconButton, persona Avatar dropdown, wishlist heart IconButton, bag
- * IconButton with count badge, and the Boutique ↔ Atelier surface toggle.
+ * IconButton with count badge, and the Boutique ↔ Agent Trace surface toggle.
  *
  * The persona Avatar dropdown replaces the old PersonaPill + PersonaModal
  * pattern. It calls `switchPersona` and `signOut` directly from `usePersona()`.
@@ -138,7 +138,7 @@ function PersonaDropdown() {
   // Fetch persona list on first open
   useEffect(() => {
     if (!open || fetched) return
-    fetch('/api/atelier/personas')
+    fetch('/api/agent-trace/personas')
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : []

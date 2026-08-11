@@ -2,7 +2,7 @@
  * PersonaModal — the shared persona switcher.
  *
  * One component, two entry points: the storefront header pill and the
- * Atelier breadcrumb indicator both open this same modal. Structure
+ * Agent Trace breadcrumb indicator both open this same modal. Structure
  * matches docs/persona-switcher.html byte-for-byte; styling lives in
  * src/styles/persona-modal.css.
  *
@@ -28,7 +28,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   // Fetch persona list on first open
   useEffect(() => {
     if (!open || personas.length > 0) return
-    fetch('/api/atelier/personas')
+    fetch('/api/agent-trace/personas')
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : []

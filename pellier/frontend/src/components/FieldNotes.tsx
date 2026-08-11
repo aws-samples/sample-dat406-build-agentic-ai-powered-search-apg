@@ -5,7 +5,7 @@ import { cssVar as c } from '../design/cssVars'
  * Four notes total: one for each returning persona (Marco, Anna,
  * Theo) and one editorial note written in the boutique voice. Each
  * note is a tight italic Fraunces dek + a prose body in Instrument Sans, 15px/
- * 1.7, matching the Atelier AssistantText register so the page reads
+ * 1.7, matching the Agent Trace AssistantText register so the page reads
  * as "the storefront wrote this, not a marketing page."
  *
  * The footer tagline "Field notes from a slower kind of shopping" is

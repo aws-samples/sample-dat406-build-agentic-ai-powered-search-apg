@@ -1,7 +1,7 @@
 /**
  * BoutiqueWelcomeBand — dismissible editorial welcome under the hero.
  *
- * Symmetric with AtelierWelcome (which lives atop /atelier/sessions).
+ * Symmetric with AgentTraceWelcome (which lives atop /agent-trace/sessions).
  * Sits between the BoutiqueHero photograph and the memory handoff.
  * This is intentionally compact: the hero owns the drama, and the
  * memory card owns the agentic proof moment.

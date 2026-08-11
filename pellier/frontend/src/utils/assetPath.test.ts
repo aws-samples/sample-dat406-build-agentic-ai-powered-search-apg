@@ -33,6 +33,6 @@ describe('assetPath helpers', () => {
   it('routePath() prefixes in-app routes for plain anchors', async () => {
     vi.stubEnv('BASE_URL', '/ports/8000/')
     const { routePath } = await import('./assetPath')
-    expect(routePath('/atelier/memory')).toBe('/ports/8000/atelier/memory')
+    expect(routePath('/agent-trace/memory')).toBe('/ports/8000/agent-trace/memory')
   })
 })

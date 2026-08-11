@@ -257,16 +257,16 @@ function generateSmartSuggestions(query: string, products: ChatProduct[]): strin
     return ['Luxury watches under $500', 'Best everyday watches', 'Show all watches']
   }
   
-  if (lowerQuery.includes('laptop') || lowerQuery.includes('macbook') || lowerQuery.includes('computer')) {
-    return ['Best for programming', 'Lightweight laptops', 'Show all laptops']
+  if (lowerQuery.includes('shirt') || lowerQuery.includes('linen') || lowerQuery.includes('apparel')) {
+    return ['Linen for warm weather', 'Travel-ready layers', 'Show all apparel']
   }
   
-  if (lowerQuery.includes('phone') || lowerQuery.includes('iphone') || lowerQuery.includes('samsung')) {
-    return ['Latest smartphones', 'Best phone under $300', 'Show all smartphones']
+  if (lowerQuery.includes('home') || lowerQuery.includes('ceramic') || lowerQuery.includes('decor')) {
+    return ['Gifts for a new home', 'Handmade ceramics', 'Show all home decor']
   }
 
-  if (lowerQuery.includes('shoe') || lowerQuery.includes('sneaker') || lowerQuery.includes('nike')) {
-    return ['Running shoes under $100', 'Best rated sneakers', 'Show all shoes']
+  if (lowerQuery.includes('shoe') || lowerQuery.includes('footwear') || lowerQuery.includes('espadrille')) {
+    return ['Travel footwear under $150', 'Best rated footwear', 'Show all footwear']
   }
   
   return ["What's trending?", 'Best rated under $50', 'Show me something surprising']

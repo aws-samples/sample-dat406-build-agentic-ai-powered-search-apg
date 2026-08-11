@@ -1,104 +1,231 @@
-# Pellier - Agentic AI-Powered Search with Aurora, RDS, and Bedrock AgentCore
+# Pellier - Build Agentic Search on Aurora PostgreSQL
 
 <div align="center">
 
-_Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · MCP_
+_A 60-minute L400 guided build with Aurora PostgreSQL, pgvector, Amazon Bedrock, and Strands Agents_
 
 <br/>
 
 [![Aurora PostgreSQL 18.3](https://img.shields.io/badge/Aurora_PostgreSQL-18.3_·_pgvector-2D72D9?style=flat-square&logo=postgresql&logoColor=white)](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
-[![Bedrock AgentCore](https://img.shields.io/badge/Bedrock-AgentCore-FF9900?style=flat-square)](https://aws.amazon.com/bedrock/agentcore/)
 [![Strands Agents](https://img.shields.io/badge/Strands-Agents_SDK-232F3E?style=flat-square)](https://strandsagents.com)
-[![MCP](https://img.shields.io/badge/MCP-postgres--mcp--server-4A154B?style=flat-square)](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-
 [![License: MIT](https://img.shields.io/github/license/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=00b300&label=License)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=yellow)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/stargazers)
 
 </div>
 
-> Educational reference implementation for an L400 agentic AI search workshop.
-> Not intended for production deployment without security hardening.
+> This is the application behind a 60-minute L400 Builder's Session. At the
+> event, your environment is already deployed. Follow the Workshop Studio lab
+> guide; you do not need to run the local setup on this page.
 
-**Contents:** [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
-
----
-
-## Who this is for
-
-This is a **400-level (expert)** workshop application. "Level 400" is the AWS depth scale — 100 is introductory, 400 is the deepest expert tier. That refers to the **concepts on screen** (agentic orchestration, pgvector retrieval, AgentCore, MCP), not the amount of code you write.
-
-**You will be comfortable here if you:**
-- Read Python and SQL (you don't need to write much of either)
-- Have used a REST API and a terminal before
-- Know, at a high level, what an LLM and a vector embedding are
-
-**You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
-
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you implement **one function** (`floor_check`), then run a series of **observe / measure / read** steps that prove how the production system behaves. The five agents, 15 tools, and database are pre-wired *on purpose* — so your attention goes to the agentic pattern, not the plumbing.
-
-> **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** You only need to complete the one guided exercise to succeed. Everything else is there to explore at your own pace.
+**Contents:** [Your workshop](#your-workshop) · [Meet Pellier](#meet-pellier) ·
+[What is already built](#what-is-already-built) ·
+[How a request runs](#how-a-request-runs) · [Architecture](#architecture) ·
+[Run locally](#run-locally) · [Repository layout](#repository-layout)
 
 ---
 
-## What this is
+## Your workshop
 
-**Pellier** is a small editorial boutique with one quiet promise – a shopper asks for something in their own words, and the search understands what they mean. Behind the storefront sits an agentic search system – specialist agents that ground every answer in retrieved catalog data, read live inventory through deterministic tools, remember your taste across turns, cite every source, and hand off to a human stylist when they should.
+You will repair and prove one agentic search path in an application that is
+already running. The L400 depth comes from examining retrieval choices,
+orchestration boundaries, deterministic tools, and durable evidence, not from
+assembling infrastructure during the session.
 
-The application has two surfaces:
+You should be comfortable reading Python and SQL, using a terminal, and
+calling an API. You do not need prior experience with Pellier, Strands Agents,
+Bedrock AgentCore, or MCP.
 
-- **Boutique** (`/`) – the customer-facing storefront. Editorial photography, AI search bar, persona-aware recommendations, conversational chat drawer.
-- **Atelier** (`/atelier`) – the operator's observatory. Every agent decision, tool call, memory read, retrieval comparison, and routing hop in editorial detail. Same agent, different lens.
+| Clock | Section | What you will prove |
+|---:|---|---|
+| 0-8 | Start Here | Your Code Editor, Boutique, catalog, and starter state are ready |
+| 8-26 | **Ground Answers in Aurora** | `floor_check` returns a real Brooklyn quantity and ship window |
+| 26-36 | **Choose a Search Strategy with pgvector** | Four retrieval strategies produce a defensible architecture decision |
+| 36-48 | **Audit Agent Actions with SQL** | One `process_return` call leaves a session-specific row with JSONB arguments and result |
+| 48-55 | Protected recovery | Every participant lands the three required proofs |
+| 55-60 | Summary | You can transfer the grounding, retrieval, and audit pattern to another workload |
 
-The two surfaces share design tokens, presence pill, trace chips, and a typed agent vocabulary, so an attendee crossing between them sees the same atoms in both places.
+Only the `floor_check` body starts incomplete. The guide includes a recovery
+path for every time-sensitive step, so use it if a step takes more than two or
+three minutes. Exact commands and participant instructions live in the paired
+Workshop Studio guide.
 
-### What it demonstrates
+The timed path uses only **Code Editor** and **Boutique**. **Agent Trace is
+optional** and is not required to complete the hour; the required terminal
+commands call its read-only APIs directly.
 
-Every claim in the workshop abstract maps to something runnable in this repo:
+---
 
-| Claim | Where it lives |
+## Meet Pellier
+
+Pellier is an editorial retail application with two views:
+
+- **Boutique** (`/`) is where you send shopper requests and inspect grounded
+  answers.
+- **Agent Trace** (`/agent-trace`) is the engineering view for routing, retrieval,
+  tools, evidence, and optional production patterns. It opens on a proof-first
+  board for post-session exploration.
+
+![Pellier Boutique showing the three workshop shopper profiles](.github/readme/pellier-boutique.png)
+
+Three shoppers carry the workshop narrative:
+
+| Shopper | Request | What you inspect |
+|---|---|---|
+| **Marco** | Is the Hadley shirt in the Brooklyn warehouse? | Dispatcher routing, a Strands `@tool`, and live inventory |
+| **Anna** | Find a milestone gift for a new homeowner | Vector, hybrid, reranked, and agentic retrieval |
+| **Theo** | File a damaged return for a chipped bowl | A queryable tool receipt in Aurora |
+
+The database contains **40 products**, ten each for Fresh, Marco, Anna, and
+Theo. The storefront renders nine showcase cards from each cohort (36 total);
+the other four products remain available to retrieval. The committed Cohere
+Embed v4 cache makes workshop seeding deterministic and avoids corpus
+embedding calls during bootstrap.
+
+---
+
+## What is already built
+
+| Capability | What you can inspect |
 |---|---|
-| **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
-| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
-| **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
-| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · the shopper's JWT is passed through (`Authorization: Bearer`) so tool calls carry the caller's identity · in-process tools stay the default; Gateway is an optional production-extension path |
-| **Personalization** | Long-term taste in `pellier.customers` + `pellier.customer_episodic_seed` · session-scoped working memory (AgentCore STM) + durable taste extracted by a `USER_PREFERENCE` semantic strategy (`get_semantic_memories`, surfaced in the Atelier) — both via Bedrock AgentCore Memory |
-| **Managed agent runtime** | `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · `bedrock-agentcore:InvokeAgentRuntime` from `services/agentcore_runtime.py` · deploy path uses the pinned AgentCore CLI (`npx -y @aws/agentcore@0.18.0 deploy -y --json`) |
+| Semantic retrieval | Cohere Embed v4 query embeddings, `vector(1024)`, pgvector HNSW, and cosine distance in `pellier.product_catalog` |
+| Hybrid retrieval | Aurora runs pgvector and PostgreSQL full-text branches; Python combines their rank positions with Reciprocal Rank Fusion |
+| Retrieval refinement | Cohere Rerank v3.5 reorders hybrid candidates; Claude Sonnet 5 can extract structured filters for agentic retrieval |
+| Agentic tool use | Five Strands specialists share 15 declared `@tool` functions for search, inventory, pricing, returns, evidence, and escalation |
+| Durable evidence | `pellier.tool_audit` records the tool, caller, JSONB arguments and result, latency, session, and timestamp |
+| Runtime skills | A Sonnet-based SkillRouter selects from five markdown prompt overlays and injects matching guidance into the selected specialist |
+| Tool registry teaching view | Aurora pgvector ranks tool descriptions for Agent Trace; the default Dispatcher still calls its fixed in-process tool set |
+| Optional production extensions | AgentCore Runtime, Memory, Gateway, Identity, Policy, Evals, and MCP reference and deployment code remain opt-in |
+
+The deployed workshop database is Aurora PostgreSQL. The schema, pgvector,
+full-text search, JSONB, and SQL patterns also apply to Amazon RDS for
+PostgreSQL, but the supplied Workshop Studio infrastructure is
+Aurora-specific.
 
 ---
 
-## Personas reshape everything
+## How a request runs
 
-Sign in as one of the three returning customers and the entire storefront – hero photograph, suggestion pills, featured product, weekend edit copy, curated grid (10 exclusive products per persona, zero overlap), editorial cards, chat greeting – reshapes immediately.
+1. The Boutique sends your shopper request to FastAPI.
+2. The deterministic Dispatcher classifies the intent and selects one of five
+   specialists.
+3. A Sonnet-based SkillRouter can add matching guidance for the current turn.
+4. The specialist calls only its declared in-process tools.
+5. Those tools read or write Aurora and record durable evidence.
+6. Boutique streams the answer; Agent Trace exposes the engineering detail.
 
-| Persona  | Profile                          | Signature piece              |
-| -------- | -------------------------------- | ---------------------------- |
-| *Marco*  | Natural fibers, travel, linen    | Italian Linen Camp Shirt     |
-| *Anna*   | Gifts, milestones, candles       | Beeswax Taper Candles        |
-| *Theo*   | Slow craft, ceramics, ritual     | Stoneware Pour-Over Set      |
+The required workshop path deliberately stays **in-process**. Your Python edit
+reloads immediately, retries are cheap, and everyone can complete the same
+three proofs within the locked hour.
 
-The **signed-out state** is the editorial baseline – a 10-piece grid anchored by the Nocturne Leather Weekender, no prior context, no profile embedding. It is the hero state, not a fourth persona.
-
-Each persona ships with 10 products carrying real Cohere Embed v4 1024-dim embeddings, generated at seed time by [`scripts/seed_boutique_catalog.py`](scripts/seed_boutique_catalog.py). 40 products total (10 signed-out baseline + 10 per persona); HNSW-indexed vector column on the `pellier.product_catalog` table.
+AgentCore Runtime is a managed execution envelope, not a replacement for the
+Dispatcher. The same routing and tool contracts can run inside Runtime and use
+AgentCore Memory, Gateway, Identity, Policy, Evals, and MCP. This repository
+includes those opt-in implementation and deployment references, but making
+them required in the locked hour would add deployment, authentication, and
+recovery work without changing the three outcomes you are here to learn.
 
 ---
 
-## Quick start (local dev)
+## Architecture
 
-The production flow is a single FastAPI process on `:8000` serving both the built React SPA and the API. For interactive iteration, run the backend with `--reload` and rebuild the frontend on save.
+### Routing and agents
+
+The Boutique uses the **Dispatcher** pattern: deterministic intent
+classification selects one specialist, then that specialist makes the model
+and tool calls for the turn. Agent Trace can also exercise **Agents as Tools** and
+a Strands **GraphBuilder** pattern for comparison.
+
+| Specialist | Responsibility | Default model role |
+|---|---|---|
+| Style Advisor | Semantic search, fit, fabric, comparisons | Claude Opus 5 editorial profile |
+| Curator | Pairing, occasion, hybrid retrieval | Claude Opus 5 editorial profile |
+| Value Analyst | Pricing and collection analysis | Claude Sonnet 5 reporting profile |
+| Stock Keeper | Warehouse inventory and restocking | Claude Sonnet 5 reporting profile |
+| Experience Guide | Care, returns, and escalation | Claude Opus 5 editorial profile |
+
+`scripts/check_model_access.py` can replace the Opus profile with an accessible
+Sonnet fallback before startup. Query embeddings use Cohere Embed v4 and
+reranking uses Cohere Rerank v3.5.
+
+### Tools
+
+The 15 in-process tools are:
+
+`find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` ·
+`price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` ·
+`restock_shelf` · `running_low` · `returns_and_care` · `process_return` ·
+`preference_snapshot` · `trace_receipt` · `escalate_to_stylist`
+
+The Aurora tool registry is a separate teaching and comparison surface. It
+semantically ranks tool descriptions but does not replace the fixed tool grants
+used by the default Boutique runtime.
+
+### Skills
+
+Five markdown skills live under [`skills/`](skills/):
+
+`the-packing-list` · `the-gift-table` · `the-makers-shelf` ·
+`the-care-card` · `the-proof-counter`
+
+The SkillRouter evaluates each turn and injects only selected skill bodies into
+the specialist prompt. A routing or parse failure leaves skills unloaded and
+does not block the base agent path.
+
+### Stack
+
+| Layer | Current implementation |
+|---|---|
+| Database | Aurora PostgreSQL Serverless v2, engine 18.3 in the Workshop Studio stack |
+| Vector retrieval | pgvector 0.8.1, `vector(1024)`, HNSW `(m=16, ef_construction=64)`, cosine `<=>` |
+| Lexical retrieval | PostgreSQL `tsvector`, GIN, `ts_rank_cd`, and `pg_trgm` |
+| Hybrid merge | Application-layer Reciprocal Rank Fusion over vector and FTS rank lists |
+| Models | Claude Opus 5, Claude Sonnet 5, Cohere Embed v4, Cohere Rerank v3.5 through Amazon Bedrock |
+| Agent framework | Strands Agents SDK: `Agent`, `@tool`, hooks, and `GraphBuilder` |
+| Backend | FastAPI, psycopg 3, boto3, SSE streaming |
+| Frontend | React 18, TypeScript 5, Vite 6, Tailwind CSS 3, Framer Motion 12 |
+| Type | Fraunces, Instrument Sans, Instrument Serif, and JetBrains Mono, all self-hosted |
+| Optional extensions | AgentCore Runtime, Memory, Gateway, Identity, Policy, Evals, and generated MCP configuration |
+
+MCP configuration is generated at bootstrap by
+`pellier/backend/generate_mcp_config.py`; it is not a committed secret or
+static environment file. The generated `pellier/config/mcp-server-config.json`
+uses `awslabs.postgres-mcp-server==1.1.6` in read-only RDS Data API mode.
+
+---
+
+## Run locally
+
+You do **not** need these steps during the event. Use them after the session if
+you want to run the sample against your own Aurora PostgreSQL cluster.
+
+The tested workshop and CI toolchain is Python 3.14 with Node.js 20. The
+backend package declares Python 3.12 or newer.
 
 ```bash
-# 1. Aurora + Bedrock credentials
-cp pellier/backend/.env.example pellier/backend/.env
-# edit DB_HOST, DB_USER, DB_PASSWORD, AWS_REGION, BEDROCK_*
-set -a; source pellier/backend/.env; set +a
+# 1. Install backend and frontend dependencies.
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r pellier/backend/requirements.txt
 
-# 2. Apply schema + seed 40-product catalog + required workshop tables (one-time)
+cd pellier/frontend
+npm ci
+npm run build
+cd ../..
+
+# 2. Configure Aurora PostgreSQL and Bedrock in the same AWS Region.
+cp pellier/backend/.env.example pellier/backend/.env
+# Replace every placeholder, including DB_*, AWS_REGION, and model IDs.
+set -a
+source pellier/backend/.env
+set +a
+
+# 3. Create the schema and seed the deterministic 40-product catalog.
 PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
-  -U "$DB_USER" -d "$DB_NAME" \
-  -v ON_ERROR_STOP=1 \
+  -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
   -f scripts/migrations/001_schema.sql
-python3 scripts/seed_boutique_catalog.py
+
+python scripts/seed_boutique_catalog.py --from-cache
+
 for migration in \
   002_workshop_telemetry.sql \
   003_persona_seed.sql \
@@ -110,147 +237,95 @@ for migration in \
   009_return_policies.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
-    -U "$DB_USER" -d "$DB_NAME" \
-    -v ON_ERROR_STOP=1 \
+    -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
     -f "scripts/migrations/$migration"
 done
 
-# 3. Backend
+# Seed the pgvector tool-registry teaching view.
+python scripts/seed_tool_registry.py
+
+# 4. Start the single-process application.
 cd pellier/backend
-pip install -r requirements.txt
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
-
-# 4. Frontend (separate terminal)
-cd pellier/frontend
-npm install
-npm run build      # production build → served by FastAPI on :8000
-# or: npm run dev   for HMR on :5173 (still hits backend on :8000)
+python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open <http://localhost:8000> for the Boutique, or <http://localhost:8000/atelier> for the Atelier.
+Open <http://localhost:8000> for Boutique or
+<http://localhost:8000/agent-trace> for Agent Trace.
 
-### AgentCore CLI (pinned)
+For frontend HMR, run `npm run dev` from `pellier/frontend` in another
+terminal; the Vite app on `:5173` continues to call the backend on `:8000`.
 
-Pellier uses the Node-based AgentCore CLI (`@aws/agentcore`, Node.js ≥ 20), **pinned to the version this workshop is tested against**:
+### Reverse-proxy paths
 
-```bash
-npx -y @aws/agentcore@0.18.0 --version
-npx -y @aws/agentcore@0.18.0 deploy -y --json
-```
-
-The governed workshop bootstrap installs the same pinned version globally for its managed-execution lab. The one-hour builders path does not install or invoke it. The CLI is pre-1.0 and its command surface may change between releases - if you experiment with a newer version, expect differences from the commands documented here.
-
-### Facilitator note: `SPA_MOUNT_PATH`
-
-By default the SPA is served at `/`. The nginx layer ([`scripts/bootstrap-environment.sh:315-324`](scripts/bootstrap-environment.sh#L315-L324)) strips the `/app/` prefix (`proxy_pass http://127.0.0.1:8000/`) before forwarding to FastAPI, so root-mount works behind both Workshop Studio's `/ports/8000/*` proxy and the `/app/*` shortcut. If you ever deploy behind a proxy that forwards `/app/*` verbatim (no prefix-stripping), set:
+FastAPI serves both the API and built React SPA. The workshop bootstrap
+in [`scripts/bootstrap-environment.sh`](scripts/bootstrap-environment.sh)
+configures nginx so `/ports/8000/` and `/app/` strip their prefixes before
+forwarding to FastAPI. A deployment that forwards a prefix unchanged must set
+both values before building or starting the app:
 
 ```bash
 SPA_MOUNT_PATH=/app
-VITE_BASE_PATH=/app/   # bake the prefix into the bundle at build time
+VITE_BASE_PATH=/app/
 ```
 
-The app moves to `/app/`, `GET /app` 307-redirects to `/app/`, and the real API stays at `/api/*`. Do not register new FastAPI routes below the SPA catch-all – its `{full_path:path}` pattern shadows everything under the mount.
+### Managed AgentCore workshop
+
+The `main` workshop does not provision or invoke AgentCore during the timed
+path. The repository's `governed` branch is the hands-on managed version: it
+uses the AgentCore CLI for Runtime, Memory, Gateway, and Policy and pins
+`npx -y @aws/agentcore@0.26.0`.
 
 ---
 
-## Workshop path
+## Quality gates
 
-This repo is the source of truth for the application behind the **60-minute agentic AI search Builder's Session**, framed as a **400-level guided build + evidence walkthrough**: small code surface, deep production proof. The required path wires Marco's inventory tool path end to end, compares retrieval strategies, and proves the audit ledger from `pellier.tool_audit`. Exact pacing and participant wording live in the separate Workshop Studio repo.
+The `quality` workflow runs on pushes and pull requests to `main`:
 
-The session content (lab manual, CloudFormation, prereq images) lives in the separate Workshop Studio repository, which is the single source of truth for everything under its `content/`, `assets/`, and `static/` trees. This repo holds the running application the session is built on. The session is structured as:
+```bash
+cd pellier/backend
+AWS_REGION=us-east-1 AWS_DEFAULT_REGION=us-east-1 python -m pytest -q
 
-| Section | What attendees do |
-|---|---|
-| Start Here | Open Code Editor and Boutique, confirm readiness, and frame the request path and evidence standard. |
-| Core Lab 1: Build and Trace | Observe Marco's broken warehouse turn, wire `floor_check`, and prove a grounded Brooklyn quantity and ship window. |
-| Core Lab 2: Measure Retrieval | Compare vector, hybrid, hybrid plus rerank, and agentic retrieval for Anna's anchor query. |
-| Core Lab 3: Query Evidence | Generate a session-specific `process_return` receipt and query it from `pellier.tool_audit`. |
-| Summary | Connect the three proofs, map the pattern to another stack, and close. |
+cd ../frontend
+npm test -- --run
+npm run type-check
+npm run lint
+npm run build
+npm audit --omit=dev --audit-level=high
 
-Make canonical edits to the lab manual in the Workshop Studio repo, not here.
+cd ../..
+find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+```
 
----
-
-## Architecture
-
-### Agents
-
-Five specialist agents + one orchestrator. Three orchestration patterns ship in the codebase; the boutique runs the dispatcher pattern in production and exposes the other two as Atelier toggles.
-
-| Agent              | Role                                            | Model            |
-| ------------------ | ----------------------------------------------- | ---------------- |
-| **Style Advisor**      | Interprets intent, runs semantic search         | Claude Opus 5  |
-| **Curator**            | Pairing, palette, occasion, editorial picks     | Claude Opus 5  |
-| **Value Analyst**      | Price intelligence, deals, percentile context   | Claude Sonnet 5 |
-| **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 5 |
-| **Experience Guide**   | Returns, care, post-purchase                    | Claude Opus 5  |
-
-Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-5`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 5 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. The Atelier surfaces the mix.
-
-### Tools
-
-15 `@tool` functions across the agent set:
-
-`find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` · `price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` · `restock_shelf` · `running_low` · `returns_and_care` · `process_return` · `preference_snapshot` · `trace_receipt` · `escalate_to_stylist`
-
-The tool registry is itself stored in Aurora pgvector; the orchestrator uses cosine similarity to discover the right tool from a natural-language query – the same primitive that powers product search, applied to capabilities.
-
-### Skills
-
-Five skills loaded per turn by the SkillRouter to shape voice, handling, proof, and care language without changing product selection:
-
-[`skills/the-packing-list/`](skills/the-packing-list/) (Marco) · [`skills/the-gift-table/`](skills/the-gift-table/) (Anna) · [`skills/the-makers-shelf/`](skills/the-makers-shelf/) (Theo) · [`skills/the-care-card/`](skills/the-care-card/) (shared care/returns) · [`skills/the-proof-counter/`](skills/the-proof-counter/) (shared proof/audit)
-
-### Stack
-
-| Layer            | Technology                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Database         | **Aurora PostgreSQL Serverless v2** (engine 18.3, the `AuroraEngineVersion` default in `pellier-database.yml`) · elastic ACU scaling · standard PostgreSQL primitives throughout (extension, schemas, SQL) |
-| Vector retrieval | pgvector 0.8.1 · `vector(1024)` column · HNSW (m=16, ef_construction=64, `vector_cosine_ops`) · `<=>` cosine operator |
-| Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
-| Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
-| Models           | Claude Opus 5 (`global.anthropic.claude-opus-5`, editorial) · Claude Sonnet 5 (`global.anthropic.claude-sonnet-5`, routing/reporting, no temperature override) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`cohere.rerank-v3-5:0`) |
-| Agent framework  | Strands Agents SDK – `Agent`, `@tool`, `GraphBuilder`, `BeforeToolCallEvent` hooks                                       |
-| Agent infra      | Bedrock AgentCore – Runtime (`@app.entrypoint` → `InvokeAgentRuntime`) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (MCP tool catalog, Cognito-JWT auth with shopper identity passthrough) · Identity     |
-| MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
-| Backend          | FastAPI · Python 3.14 · psycopg3 · boto3 · SSE streaming                                                  |
-| Frontend         | React 18 · TypeScript 5 · Vite · Tailwind · Framer Motion 12                                                             |
-| Editorial system | Fraunces Variable (display) · Inter (body) · JetBrains Mono (code) · cream / espresso / terracotta palette               |
+`workshop-smoke.yml` adds a manual production-build Playwright check. Cognito
+end-to-end coverage remains in `e2e.yml` and runs only when its required
+secrets are available.
 
 ---
 
 ## Repository layout
 
-```
+```text
 sample-pellier-agentic-search-apg/
 ├── pellier/
-│   ├── backend/                           FastAPI server, agents, services
-│   │   ├── agents/                          Style Advisor, Curator, Stock Keeper, ...
-│   │   ├── services/                        agent_tools, chat, agentcore_*, db
-│   │   ├── routes/                          FastAPI routers (transcribe, atelier, chat)
-│   │   └── app.py
-│   └── frontend/                          React 18 + TS + Vite SPA
-│       └── src/
-│           ├── components/                  BoutiqueHero, ChatDrawer, ProductCard, ...
-│           ├── shared/                      Cross-surface atoms – TraceChip, PresencePill
-│           ├── atelier/                     Operator's surface
-│           └── data/                        showcaseProducts.ts (40), personaCurations.ts
-│
-├── skills/                                Strands skills (5)
-├── solutions/                             Reference implementations (drop-in escape hatches)
-│   ├── the-quiet-search/                    Semantic search reference (observe-only)
-│   ├── closing-marcos-gap/                  floor_check + Stock Keeper (Core Lab 1)
-│   ├── the-ledger/                          AgentCore production + audit ledger
-│   └── the-concierge/                       MCP: local stdio vs managed Gateway
-│
-└── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-009)
-    ├── seed_boutique_catalog.py             40 products with Cohere embeddings
-    ├── bootstrap-environment.sh             Code Editor + nginx + systemd
-    └── bootstrap-labs.sh                    DB seed + frontend build + service start
+│   ├── backend/                  FastAPI app, five agents, services, routes, tests
+│   └── frontend/                 React Boutique and Agent Trace surfaces
+├── skills/                       Five runtime markdown skills
+├── solutions/
+│   ├── closing-marcos-gap/       floor_check starter and recovery files
+│   ├── the-quiet-search/         Retrieval reference implementations
+│   ├── the-ledger/               AgentCore and audit-ledger references
+│   └── the-concierge/            MCP and Gateway inspection references
+├── scripts/
+│   ├── migrations/               Ordered idempotent SQL, 001 through 009
+│   ├── deploy/                   Optional managed-path deployment scripts
+│   ├── bootstrap-environment.sh  Code Editor, nginx, Python, and host setup
+│   └── bootstrap-labs.sh         Schema, seed, build, and service setup
+├── tests/                        Cross-repo E2E and performance checks
+└── .github/workflows/            Quality, E2E, and workshop smoke gates
 ```
 
-The lab manual, CloudFormation templates, and prereq images live in the separate Workshop Studio repository, which is the source of truth for all session content.
+The lab manual, CloudFormation templates, and participant-facing workshop
+images live in the paired Workshop Studio repository.
 
 ---
 
@@ -258,24 +333,17 @@ The lab manual, CloudFormation templates, and prereq images live in the separate
 
 - [Aurora PostgreSQL with pgvector](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
 - [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
-- [Model Context Protocol (MCP) specification](https://modelcontextprotocol.io/)
+- [Model Context Protocol specification](https://modelcontextprotocol.io/)
 - [Strands Agents SDK](https://strandsagents.com/latest/)
-- [pgvector 0.8.1 performance on Aurora](https://aws.amazon.com/blogs/database/supercharging-vector-search-performance-and-relevance-with-pgvector-0-8-0-on-amazon-aurora-postgresql/)
+- [pgvector performance on Aurora](https://aws.amazon.com/blogs/database/supercharging-vector-search-performance-and-relevance-with-pgvector-0-8-0-on-amazon-aurora-postgresql/)
 
 ---
 
-## Credits
+## Credits and license
 
 Built and curated by **Shayon Sanyal** (<shayons@amazon.com>).
 
-## License & attribution
-
-Licensed under the **MIT License** — © 2026 Amazon Web Services. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-**If you reuse this code, attribution is required — not optional.** MIT is deliberately chosen over MIT-0 for exactly this reason: copying any substantial portion obligates you to keep the copyright and permission notice intact. Concretely, when you fork, vendor, adapt, or build on this work:
-
-- **Retain** the `LICENSE` and `NOTICE` files (or reproduce their text) in your distribution.
-- **Credit the source** — cite the original author, *Shayon Sanyal*, and link back to <https://github.com/aws-samples/sample-pellier-agentic-search-apg>.
-- **Keep this notice** in copies or substantial portions of the software, per the MIT terms.
-
-This applies to talks, blog posts, derived workshops, and internal forks alike: take the code, but carry the credit with it. See [NOTICE](NOTICE) for the canonical attribution text to copy.
+Licensed under the [MIT License](LICENSE), copyright 2026 Amazon Web Services.
+The license requires the copyright and permission notice to remain in copies or
+substantial portions of the software. See [NOTICE](NOTICE) for the project's
+requested attribution format for derived workshops, talks, and other reuse.

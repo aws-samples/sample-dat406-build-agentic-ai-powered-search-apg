@@ -71,7 +71,7 @@ class ContextManager:
     
     Usage:
         manager = ContextManager(max_tokens=180000)
-        manager.add_message("user", "Find wireless headphones under $100")
+        manager.add_message("user", "Find a milestone gift for a new homeowner")
         context = manager.get_optimized_context("recommendation_agent")
     """
     

@@ -6,7 +6,7 @@ interface BuildStateResponse {
 
 /**
  * Whether the workshop gap for Stock Keeper is still "open"
- * (floor_check treated as exercise by /api/atelier/build-state).
+ * (floor_check treated as exercise by /api/agent-trace/build-state).
  *
  * Defaults to true when the endpoint is missing or errors — workshop
  * starter image — and flips false once the backend reports shipped.
@@ -16,7 +16,7 @@ export function useFloorCheckWorkshopCue(): { showBuilderSessionGap: boolean } {
 
   useEffect(() => {
     let alive = true
-    fetch('/api/atelier/build-state')
+    fetch('/api/agent-trace/build-state')
       .then((r) => (r.ok ? (r.json() as Promise<BuildStateResponse>) : null))
       .then((data) => {
         if (!alive || !data) return

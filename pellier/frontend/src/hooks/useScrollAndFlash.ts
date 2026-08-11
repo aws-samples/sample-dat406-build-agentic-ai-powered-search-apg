@@ -1,6 +1,6 @@
 /**
  * useScrollAndFlash — cross-panel scroll + 800ms terracotta pulse for
- * the Atelier's citation / "view trace" interactions.
+ * the Agent Trace's citation / "view trace" interactions.
  *
  * Given a scroll-container ref, returns a ``scrollToPanel(ref)``
  * function that:

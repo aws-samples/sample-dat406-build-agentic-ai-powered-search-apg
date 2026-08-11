@@ -413,7 +413,7 @@ setup_database() {
 
         # ---- 4. Tool registry seed — populates pellier.tools (created
         # empty by migration 002) with the 9 canonical Gateway tool names
-        # plus their Cohere Embed v4 descriptions. The Atelier
+        # plus their Cohere Embed v4 descriptions. The Agent Trace
         # Observatory's tool-registry tab and the pgvector
         # tool-discovery card both read from this table and silently
         # render zero rows if the seed is skipped. ----
@@ -429,7 +429,7 @@ setup_database() {
             " 2>&1 | tee -a /var/log/database-setup.log
             local tool_rc=${PIPESTATUS[0]}
             if [ "$tool_rc" -ne 0 ]; then
-                warn "Tool registry seed failed (rc=$tool_rc) — Atelier tool-registry tab will show zero rows"
+                warn "Tool registry seed failed (rc=$tool_rc) — Agent Trace tool-registry tab will show zero rows"
             fi
         fi
 
@@ -454,7 +454,7 @@ fi
 # strategy that promotes conversation turns into durable semantic records
 # under /pellier/preferences/{actorId}/. We then pre-bake preference-
 # expressing turns for the three personas so async extraction (~150s) has
-# produced durable records by the time participants open the Atelier — the
+# produced durable records by the time participants open the Agent Trace — the
 # Semantic panel reads them live instead of serving a fixture.
 #
 # Why a temp script (not python3 -c): the seed copy contains apostrophes and
@@ -487,7 +487,7 @@ MEMORY_NAME = os.environ.get("PELLIER_MEMORY_NAME", "PellierSTM")
 STRATEGY_NAME = "PellierUserPreferences"
 STRATEGY_NAMESPACE = "/pellier/preferences/{actorId}/"
 
-# 2 turn-pairs per persona; actor_id == customer_id the Atelier panel reads.
+# 2 turn-pairs per persona; actor_id == customer_id the Agent Trace panel reads.
 # Copy expresses DURABLE taste the USER_PREFERENCE strategy should extract.
 SEED_TURNS = {
     "CUST-MARCO": [
@@ -699,7 +699,7 @@ fi
 if [ -n "$AGENTCORE_MEMORY_ID" ]; then
     log "✅ AgentCore Memory provisioned: $AGENTCORE_MEMORY_ID"
     log "   USER_PREFERENCE strategy attached; persona preference turns pre-baked."
-    log "   Semantic extraction is async (~150s) — the Atelier Semantic panel"
+    log "   Semantic extraction is async (~150s) — the Agent Trace Semantic panel"
     log "   reads 'fixture' until the first records land, then flips to 'live'."
     upsert_env "AGENTCORE_MEMORY_ID" "$AGENTCORE_MEMORY_ID" "$REPO_PATH/.env"
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
@@ -855,7 +855,7 @@ fi
 # STEP 14: AUTO-START PELLIER SERVICE (single-process, port 8000)
 # ============================================================================
 # Single systemd service. FastAPI serves:
-#   - the built SPA at /, /atelier, /storyboard, /discover, ...
+#   - the built SPA at /, /agent-trace, /storyboard, /discover, ...
 #   - the API at /api/*
 #   - self-hosted fonts + hashed bundles at /assets/*, /fonts/*
 #
@@ -1043,7 +1043,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     # Policy is now MANAGED (Cedar at the Gateway, provisioned by
     # scripts/deploy/deploy_policy.py). The old local fake-Cedar
     # services/agentcore_policy.py was removed; the backend ships
-    # services/managed_policy.py (reads the managed engine for the Atelier
+    # services/managed_policy.py (reads the managed engine for the Agent Trace
     # Policy surface) directly in the repo, so there is nothing to copy here.
     copy_solution "solutions/the-ledger/services/agentcore_identity.py" \
                   "pellier/backend/services/agentcore_identity.py" "AgentCore identity"
@@ -1193,7 +1193,7 @@ EOF
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). Best-effort: provisioning
         # marks status=ready even if policy attach failed, so guard on non-empty.
-        # The optional Policy lab and Atelier Policy surface read this id.
+        # The optional Policy lab and Agent Trace Policy surface read this id.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"

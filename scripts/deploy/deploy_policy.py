@@ -269,7 +269,7 @@ def create_pellier_policies(client, engine_id, gateway_arn, experience_target):
       2. ``process_return_damaged_only`` — the headline forbid: process_return
          unless reason == 'damaged'.
       3. ``process_return_allow_damaged`` — explicit permit for the damaged
-         path (redundant under the baseline, but the Atelier Policy surface
+         path (redundant under the baseline, but the Agent Trace Policy surface
          shows both halves of the decision).
 
     ``experience_target`` is the Gateway TARGET name (e.g.

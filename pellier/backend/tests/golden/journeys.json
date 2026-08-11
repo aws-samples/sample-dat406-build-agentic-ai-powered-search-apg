@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "description": "Golden-set journey assertions — deterministic, fixture-driven CI gates. Each entry pins a published Atelier session fixture to the agent behavior the workshop teaches as non-negotiable. No AWS calls. Assertions check tool ordering, product surfacing, and routing pattern only — not free-form prose.",
-  "fixtureRoot": "pellier/frontend/src/atelier/fixtures",
+  "description": "Golden-set journey assertions — deterministic, fixture-driven CI gates. Each entry pins a published Agent Trace session fixture to the agent behavior the workshop teaches as non-negotiable. No AWS calls. Assertions check tool ordering, product surfacing, and routing pattern only — not free-form prose.",
+  "fixtureRoot": "pellier/frontend/src/agent-trace/fixtures",
   "journeys": [
     {
       "id": "marco-opening-linen",

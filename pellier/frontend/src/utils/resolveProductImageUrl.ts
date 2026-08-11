@@ -2,7 +2,7 @@ import { asset } from './assetPath'
 
 /**
  * Maps fixture / catalog paths that do not exist under `public/products/`
- * to real PNGs shipped in the repo. Keeps Atelier session chat + brief
+ * to real PNGs shipped in the repo. Keeps Agent Trace session chat + brief
  * product tiles from 404ing when JSON drifted from asset filenames.
  */
 const PRODUCT_IMAGE_ALIASES: Record<string, string> = {

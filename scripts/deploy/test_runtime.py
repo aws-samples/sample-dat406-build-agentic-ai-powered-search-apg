@@ -1,68 +1,126 @@
 #!/usr/bin/env python3
-"""
-Test the deployed Pellier AgentCore Runtime.
+"""Invoke the deployed CUSTOM_JWT Runtime over its raw HTTPS data plane.
 
 Usage:
-    uv run test_runtime.py --runtime-id $AGENT_RUNTIME_ID --prompt "Find running shoes under $50" --token "$TOKEN"
-    uv run test_runtime.py --runtime-id $AGENT_RUNTIME_ID --prompt "What's trending?" --token "$TOKEN" --stream
+    uv run test_runtime.py \
+      --runtime-arn "$AGENT_RUNTIME_ARN" \
+      --prompt "Find a linen shirt under $250." \
+      --token "$TOKEN"
 """
+
+from __future__ import annotations
+
 import argparse
-import boto3
 import json
 import os
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
 
 
-def test_runtime(runtime_id: str, prompt: str, token: str, region: str, stream: bool = False):
-    """Send a prompt to the deployed AgentCore Runtime and print the response."""
-    client = boto3.client("bedrock-agentcore-runtime", region_name=region)
+def invoke_runtime(
+    *,
+    runtime_arn: str,
+    prompt: str,
+    token: str,
+    region: str,
+    session_id: str,
+) -> dict[str, Any]:
+    """Return one authenticated Runtime response.
 
-    print(f"\n{'='*60}")
-    print(f"Prompt: {prompt}")
-    print(f"Runtime: {runtime_id}")
-    print(f"Stream: {stream}")
-    print(f"{'='*60}\n")
+    CUSTOM_JWT Runtime calls use a bearer token on the raw data-plane request.
+    The normal SDK call is SigV4-authenticated and cannot carry this caller JWT.
+    """
+    escaped_arn = urllib.parse.quote(runtime_arn, safe="")
+    url = (
+        f"https://bedrock-agentcore.{region}.amazonaws.com"
+        f"/runtimes/{escaped_arn}/invocations?qualifier=DEFAULT"
+    )
+    runtime_session_id = (session_id or "pellier-runtime-smoke").ljust(33, "0")
+    payload = json.dumps(
+        {
+            "prompt": prompt,
+            "session_id": session_id,
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": runtime_session_id,
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=120) as response:
+        raw = response.read().decode("utf-8", errors="replace")
 
-    payload = json.dumps({"prompt": prompt, "session_id": "test-session"})
-
-    if stream:
-        response = client.invoke_agent_runtime_streaming(
-            agentRuntimeId=runtime_id,
-            payload=payload,
-            authToken=token,
-        )
-        print("Response (streaming):")
-        for event in response.get("body", []):
-            if "chunk" in event:
-                chunk = event["chunk"]
-                if "bytes" in chunk:
-                    text = chunk["bytes"].decode("utf-8")
-                    print(text, end="", flush=True)
-        print("\n")
-    else:
-        response = client.invoke_agent_runtime(
-            agentRuntimeId=runtime_id,
-            payload=payload,
-            authToken=token,
-        )
-        body = json.loads(response["body"].read())
-        print("Response:")
-        print(json.dumps(body, indent=2))
-
-    print(f"{'='*60}\n")
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError:
+        decoded = {"response": raw}
+    if not isinstance(decoded, dict):
+        raise RuntimeError("Runtime returned a non-object JSON response.")
+    return decoded
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Test Pellier AgentCore Runtime")
-    parser.add_argument("--runtime-id", required=True, help="AgentCore Runtime ID")
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Test the Pellier CUSTOM_JWT AgentCore Runtime"
+    )
+    parser.add_argument(
+        "--runtime-arn",
+        required=True,
+        help="Full AgentCore Runtime ARN",
+    )
     parser.add_argument("--prompt", required=True, help="Prompt to send")
-    parser.add_argument("--token", required=True, help="Cognito JWT token")
-    parser.add_argument("--region", default=os.getenv("AWS_REGION", "us-east-1"))
-    parser.add_argument("--stream", action="store_true", help="Use streaming response")
+    parser.add_argument("--token", required=True, help="Cognito access token")
+    parser.add_argument(
+        "--session-id",
+        default="pellier-runtime-smoke",
+        help="Stable application session id",
+    )
+    parser.add_argument(
+        "--region",
+        default=os.getenv("AWS_REGION")
+        or os.getenv("AWS_DEFAULT_REGION")
+        or "us-east-1",
+    )
     args = parser.parse_args()
 
-    test_runtime(args.runtime_id, args.prompt, args.token, args.region, args.stream)
+    try:
+        result = invoke_runtime(
+            runtime_arn=args.runtime_arn,
+            prompt=args.prompt,
+            token=args.token,
+            region=args.region,
+            session_id=args.session_id,
+        )
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:500]
+        print(f"Runtime invoke failed with HTTP {exc.code}: {detail}", file=sys.stderr)
+        return 1
+    except (urllib.error.URLError, TimeoutError, RuntimeError) as exc:
+        print(f"Runtime invoke failed: {exc}", file=sys.stderr)
+        return 1
+
+    if result.get("rail") != "gateway-mcp":
+        print(
+            "Runtime invoke failed: expected rail=gateway-mcp, got "
+            f"{result.get('rail') or 'missing'}",
+            file=sys.stderr,
+        )
+        return 1
+    if not str(result.get("response") or "").strip():
+        print("Runtime invoke failed: response payload is empty", file=sys.stderr)
+        return 1
+
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

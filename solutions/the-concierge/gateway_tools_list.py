@@ -20,7 +20,7 @@ Run (after signing in):
     python3 solutions/the-concierge/gateway_tools_list.py
 
 Degrades gracefully: if the Gateway URL or a token is absent, it explains the
-Atelier **Tool Registry (Card 7)** read-only fallback and exits 0 — this is an
+Agent Trace **Tool Registry (Card 7)** read-only fallback and exits 0 — this is an
 optional "see it live" beat, never a hard gate.
 """
 from __future__ import annotations
@@ -92,7 +92,7 @@ async def _run(url: str, token: str) -> int:
     except ImportError:
         print("⚠  The `mcp` Python SDK isn't importable here — skipping the live")
         print("   Gateway handshake. (It ships with the backend venv via strands.)")
-        print("   The Atelier Tool Registry (Card 7) shows the same discovery result.")
+        print("   The Agent Trace Tool Registry (Card 7) shows the same discovery result.")
         return 0
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -143,7 +143,7 @@ async def _run(url: str, token: str) -> int:
         if "401" in msg or "403" in msg or "Unauthorized" in msg:
             print("   That looks like an auth issue — re-run `source ~/pellier-token.sh`")
             print("   to mint a fresh token (they last ~1h), then try again.")
-        print("   This is optional. The Atelier Tool Registry (Card 7) shows the")
+        print("   This is optional. The Agent Trace Tool Registry (Card 7) shows the")
         print("   same GATEWAY · DISCOVER result without the live call.")
         return 0
 
@@ -153,7 +153,7 @@ def main() -> int:
     if not url:
         print("⚠  No Gateway URL in the environment (AGENTCORE_GATEWAY_URL / MCP_GATEWAY_URL).")
         print("   The managed Gateway wasn't provisioned in this environment, so this")
-        print("   live beat is unavailable — read the Atelier Tool Registry (Card 7)")
+        print("   live beat is unavailable — read the Agent Trace Tool Registry (Card 7)")
         print("   instead; it shows the same tool-discovery result. Skipping.")
         return 0
 
@@ -163,7 +163,7 @@ def main() -> int:
         print("   tools/list needs a token. Mint one and retry:")
         print("     source ~/pellier-token.sh")
         print("     python3 solutions/the-concierge/gateway_tools_list.py")
-        print("   (Or read the Atelier Tool Registry / Card 7 for the same result.)")
+        print("   (Or read the Agent Trace Tool Registry / Card 7 for the same result.)")
         return 0
 
     return asyncio.run(_run(url, token))

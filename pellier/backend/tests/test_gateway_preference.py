@@ -7,7 +7,7 @@ Scope:
     returns an agent, that agent is used (and guardrails flag is
     irrelevant to which path is chosen).
   * The ``/api/agentcore/gateway/status`` response shape reflects
-    the configured/unconfigured state so the Atelier arch tabs can
+    the configured/unconfigured state so the Agent Trace arch tabs can
     read it.
 
 We don't try to stand up a real MCP server here — the gateway module

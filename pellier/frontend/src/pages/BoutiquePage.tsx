@@ -167,7 +167,7 @@ export default function BoutiquePage() {
         <BoutiqueHero />
 
         {/* ── Welcome band — dismissible, sits between the hero and the
-             Weekend Edit. Symmetric with /atelier's AtelierWelcome so
+             Weekend Edit. Symmetric with /agent-trace's AgentTraceWelcome so
              first-visit shoppers get a one-glance orientation without
              touching the photograph. ── */}
         <BoutiqueWelcomeBand />

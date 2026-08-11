@@ -10,7 +10,7 @@ and supplying a dataset ARN in ``backend/.env``.
 The single entry point :func:`submit_evaluation_job` accepts the same
 agent runtime ARN the runtime bridge path already targets, plus the dataset
 ARN the workshop facilitator provisions ahead of the prod-cutover demo.
-It returns a structured envelope so the Atelier Measure surface can
+It returns a structured envelope so the Agent Trace Measure surface can
 render either ``configured: false`` (no flag) or ``configured: true``
 with the AWS job ARN (flag flipped).
 
@@ -38,7 +38,7 @@ def is_enabled() -> bool:
 
 
 def describe_configuration() -> Dict[str, Any]:
-    """Surface-shape used by the Atelier Measure copy — same envelope
+    """Surface-shape used by the Agent Trace Measure copy — same envelope
     whether the sidecar runs or not, so the frontend can render a clear
     "off / wired" state without inspecting credentials."""
     return {

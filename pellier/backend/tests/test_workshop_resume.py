@@ -1,4 +1,4 @@
-"""Tests for ``POST /api/atelier/resume`` — welcome-back turn.
+"""Tests for ``POST /api/agent-trace/resume`` — welcome-back turn.
 
 Validates:
 - 400 on anonymous / empty customer_id.
@@ -7,7 +7,7 @@ Validates:
   composed response text that mentions the customer's first name + most
   recent episode + a preference blurb when seed rows are present.
 - PROCEDURAL reads the tool_audit aggregate (not the cohort-overlap
-  JOIN) — the same source the standalone Atelier Procedural panel uses.
+  JOIN) — the same source the standalone Agent Trace Procedural panel uses.
 - DB failure does not 500 — every emitter swallows its read error and
   emits an empty panel, so the turn still composes a response event.
 
@@ -86,7 +86,7 @@ def test_resume_rejects_anonymous_customer() -> None:
     db = _StubDB()
     client = _make_client(db)
     # "anonymous" triggers the 400 in the handler body.
-    r = client.post("/api/atelier/resume", json={"customer_id": "anonymous"})
+    r = client.post("/api/agent-trace/resume", json={"customer_id": "anonymous"})
     assert r.status_code == 400
 
 
@@ -103,7 +103,7 @@ def test_resume_emits_four_substrate_panels_in_owner_order() -> None:
     )
     client = _make_client(db)
 
-    r = client.post("/api/atelier/resume", json={"customer_id": "CUST-MARCO"})
+    r = client.post("/api/agent-trace/resume", json={"customer_id": "CUST-MARCO"})
     assert r.status_code == 200
     body = r.json()
     assert "session_id" in body
@@ -146,7 +146,7 @@ def test_resume_procedural_is_not_customer_scoped() -> None:
     db = _StubDB(episodic_rows=[], identity_row={"name": "Marco", "preferences_summary": "linen"})
     client = _make_client(db)
 
-    r = client.post("/api/atelier/resume", json={"customer_id": "CUST-MARCO"})
+    r = client.post("/api/agent-trace/resume", json={"customer_id": "CUST-MARCO"})
     assert r.status_code == 200
 
     audit_calls = [c for c in db.fetch_all_calls if "tool_audit" in c[0]]
@@ -162,7 +162,7 @@ def test_resume_db_failure_emits_empty_panels_and_graceful_response() -> None:
     db = _StubDB(raise_exc=RuntimeError("connection reset"))
     client = _make_client(db)
 
-    r = client.post("/api/atelier/resume", json={"customer_id": "CUST-MARCO"})
+    r = client.post("/api/agent-trace/resume", json={"customer_id": "CUST-MARCO"})
     assert r.status_code == 200
     body = r.json()
 
@@ -191,7 +191,7 @@ def test_resume_session_id_roundtrips_when_supplied() -> None:
     client = _make_client(db)
 
     r = client.post(
-        "/api/atelier/resume",
+        "/api/agent-trace/resume",
         json={"customer_id": "CUST-MARCO", "session_id": "ws-fixed123"},
     )
     assert r.status_code == 200

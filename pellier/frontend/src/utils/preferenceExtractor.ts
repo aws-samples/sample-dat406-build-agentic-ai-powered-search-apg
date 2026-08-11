@@ -22,8 +22,8 @@ export interface ExtractedPreferences {
   topCategory: string | null
 }
 
-const CATEGORIES = ['headphone', 'laptop', 'phone', 'camera', 'gaming', 'cable', 'smart home', 'speaker', 'tablet', 'watch', 'keyboard', 'mouse', 'monitor', 'charger']
-const FEATURES = ['wireless', 'bluetooth', 'usb-c', 'noise cancelling', 'noise-cancelling', 'noise canceling', 'waterproof', 'portable', 'rechargeable', '4k', 'hdr', 'mechanical', 'ergonomic', 'fast charging']
+const CATEGORIES = ['apparel', 'accessories', 'footwear', 'home decor', 'home fragrance', 'beauty', 'watch', 'jewelry']
+const FEATURES = ['linen', 'leather', 'ceramic', 'handmade', 'artisanal', 'minimal', 'travel', 'gift', 'neutral', 'classic', 'slow']
 
 export function extractPreferencesFromQuery(query: string): QueryPreferences {
   const lower = query.toLowerCase()

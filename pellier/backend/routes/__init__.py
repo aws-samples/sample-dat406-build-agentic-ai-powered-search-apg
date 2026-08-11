@@ -11,8 +11,8 @@ rather than declaring every endpoint inline.
                               ``/api/products/{id}``, ``/api/inventory``.
   * ``search``   (Task 3.7) — ``POST /api/search`` boutique vector search
                               wrapping the vector-search ``vector_search`` method.
-  * ``workshop``  (Week 1)   — ``POST /api/atelier/query`` + ``/api/atelier/resume``
-                               flat replay payloads for the Atelier telemetry surface.
+  * ``workshop``  (Week 1)   — ``POST /api/agent-trace/query`` + ``/api/agent-trace/resume``
+                               flat replay payloads for the Agent Trace telemetry surface.
   * ``boutique`` (pre-W3)    — ``GET /api/storefront/briefing`` + ``/pulse``
                                for the homepage ambient agent chrome.
 """
@@ -26,11 +26,11 @@ from .search import router as search_router
 from .boutique import router as boutique_router
 from .user import router as user_router
 from .workshop import router as workshop_router
-from .atelier_observatory import router as atelier_observatory_router
+from .agent_trace import router as agent_trace_router
 
 __all__ = [
     "agent_router",
-    "atelier_observatory_router",
+    "agent_trace_router",
     "auth_router",
     "products_router",
     "search_router",

@@ -393,7 +393,7 @@ def test_get_user_preferences_sdk_path_uses_correct_signature() -> None:
 # Semantic memory (USER_PREFERENCE extraction) — get_semantic_memories
 # ---------------------------------------------------------------------------
 #
-# These pin the LIVE semantic substrate the Atelier panel flips to. The
+# These pin the LIVE semantic substrate the Agent Trace panel flips to. The
 # USER_PREFERENCE strategy writes long-term records whose ``content.text`` is
 # a JSON string ``{"context","preference","categories"[]}`` — LEARNED prose,
 # distinct from the typed onboarding ``Preferences`` blob that

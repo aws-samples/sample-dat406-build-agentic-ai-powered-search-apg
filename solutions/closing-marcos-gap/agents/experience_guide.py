@@ -5,8 +5,8 @@ policies, troubleshooting, and general post-purchase questions.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_support_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Atelier Graph pattern.
-2. ``support(query)`` — ``@tool`` wrapper used by the Atelier's
+   used by the Storefront dispatcher and the Agent Trace Graph pattern.
+2. ``support(query)`` — ``@tool`` wrapper used by the Agent Trace's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: the factory and tool keep generic names because the
@@ -78,7 +78,7 @@ _SUPPORT_SYSTEM_PROMPT = (
     "knows the write actually happened.\n"
 )
 
-# ``_SUPPORT_AGENT_STUBBED`` — legacy flag still read by chat routing; Atelier
+# ``_SUPPORT_AGENT_STUBBED`` — legacy flag still read by chat routing; Agent Trace
 # lists Experience Guide as shipped in ``agents.json``.
 _SUPPORT_AGENT_STUBBED = False
 

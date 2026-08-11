@@ -16,7 +16,7 @@
  * bug we hit with PersonaModal).
  *
  * Reuses ``useAgentChat`` for state, streaming, and persistence.
- * The Atelier's ConciergeModal is unaffected by this component.
+ * The Agent Trace's ConciergeModal is unaffected by this component.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'

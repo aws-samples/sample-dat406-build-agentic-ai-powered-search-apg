@@ -8,7 +8,7 @@
  *   - Brand column: circular P mark + "Pellier" + tagline.
  *   - Explore:      The floor (`/#shop`), Discover, Storyboard.
  *   - Storyboard:   Italic blurb + a real link to `/storyboard`.
- *   - Atelier:      Italic blurb + a real link to `/atelier`.
+ *   - Agent Trace:      Italic blurb + a real link to `/agent-trace`.
  *   - Bottom strip: Copyright + current year. No Privacy/Terms/
  *                   Accessibility stubs — those were the same dead
  *                   links this rewrite is eliminating. Right-hand
@@ -57,11 +57,11 @@ export default function Footer() {
             ctaHref={FOOTER.STORYBOARD.CTA_HREF}
           />
           <EditorialColumn
-            testId="footer-column-atelier"
-            heading={FOOTER.ATELIER.HEADING}
-            copy={FOOTER.ATELIER.COPY}
-            ctaLabel={FOOTER.ATELIER.CTA_LABEL}
-            ctaHref={FOOTER.ATELIER.CTA_HREF}
+            testId="footer-column-agent-trace"
+            heading={FOOTER.AGENT_TRACE.HEADING}
+            copy={FOOTER.AGENT_TRACE.COPY}
+            ctaLabel={FOOTER.AGENT_TRACE.CTA_LABEL}
+            ctaHref={FOOTER.AGENT_TRACE.CTA_HREF}
           />
         </div>
         <BottomStrip

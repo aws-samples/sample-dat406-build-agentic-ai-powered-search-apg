@@ -10,7 +10,7 @@
  * rendering — scroll, animations, badge layout, Under the Hood block.
  *
  * Mode selection via useLocation():
- *   - pathname.startsWith('/atelier') → instrumentation mode. Agent
+ *   - pathname.startsWith('/agent-trace') → instrumentation mode. Agent
  *     badges render, "Under the Hood" expandable shows tool calls,
  *     guardrails, context stats. Trace-ID footer links to
  *     /inspector?session={id}.
@@ -308,11 +308,11 @@ export default function ConciergeModal() {
   const sessionId = useSessionId()
 
   const isOpen = activeModal === 'concierge'
-  const isWorkshopRoute = location.pathname.startsWith('/atelier')
+  const isWorkshopRoute = location.pathname.startsWith('/agent-trace')
 
   // After the storefront hero-drawer redesign, the ConciergeModal only
-  // renders on atelier routes. Boutique chat is handled by ChatDrawer.
-  const mode: 'storefront' | 'atelier' = 'atelier'
+  // renders on Agent Trace routes. Boutique chat is handled by ChatDrawer.
+  const mode: 'storefront' | 'agentTrace' = 'agentTrace'
 
   // Time-of-day greeting for the personalized storefront welcome. Boundaries
   // match the house style guide's "Good morning/afternoon/evening" rotation.
@@ -407,7 +407,7 @@ export default function ConciergeModal() {
     }
   }
 
-  // Gate: ConciergeModal only renders on atelier routes after the
+  // Gate: ConciergeModal only renders on Agent Trace routes after the
   // storefront hero-drawer redesign. Boutique chat is ChatDrawer.
   if (!isWorkshopRoute) return null
 
@@ -439,7 +439,7 @@ export default function ConciergeModal() {
             onClick={e => e.stopPropagation()}
           >
               {/* ============================================================
-               * ATELIER MODE — the only mode ConciergeModal renders now.
+               * AGENT_TRACE MODE — the only mode ConciergeModal renders now.
                * Boutique chat is handled by ChatDrawer.
                * ============================================================ */}
               <>
@@ -509,7 +509,7 @@ export default function ConciergeModal() {
                     ) : (
                       <span className="flex items-center gap-1.5" style={{ color: c.ink2 }}>
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#047857' }} />
-                        {mode === 'atelier' ? 'Atelier mode · instrumentation on' : 'Concierge ready'}
+                        {mode === 'agentTrace' ? 'Agent Trace mode · instrumentation on' : 'Concierge ready'}
                       </span>
                     )}
                   </div>
@@ -543,7 +543,7 @@ export default function ConciergeModal() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
-              {/* Messages — atelier mode only renders the instrumented
+              {/* Messages — Agent Trace mode only renders the instrumented
                   conversation. Welcome state is handled by the storefront
                   branch via BoutiqueChat. */}
               <AnimatePresence initial={false}>
@@ -568,7 +568,7 @@ export default function ConciergeModal() {
                             letterSpacing: '-0.003em',
                           }}
                         >
-                          {mode === 'atelier' && message.role === 'assistant' && message.agent && message.agentStatus !== 'thinking' && (
+                          {mode === 'agentTrace' && message.role === 'assistant' && message.agent && message.agentStatus !== 'thinking' && (
                             <AgentBadgeRow message={message} />
                           )}
                           {message.agentStatus === 'thinking' && !message.content ? (
@@ -596,7 +596,7 @@ export default function ConciergeModal() {
 
                     {message.products && message.products.length > 0 && (
                       <div className="flex flex-col gap-2.5 w-full">
-                        {mode === 'atelier' && message.agent && <AgentBadgeRow message={message} />}
+                        {mode === 'agentTrace' && message.agent && <AgentBadgeRow message={message} />}
                         {message.content && (
                           <div style={{ color: c.ink2 }} className="text-sm font-light leading-relaxed">
                             <MarkdownMessage content={message.content} />
@@ -647,7 +647,7 @@ export default function ConciergeModal() {
                       </div>
                     )}
 
-                    {mode === 'atelier' &&
+                    {mode === 'agentTrace' &&
                       message.role === 'assistant' &&
                       message.agentStatus === 'complete' &&
                       (message.agent || message.agentExecution) && (
@@ -702,7 +702,7 @@ export default function ConciergeModal() {
                   placeholder={
                     isLoading
                       ? 'Thinking...'
-                      : mode === 'atelier'
+                      : mode === 'agentTrace'
                         ? 'Ask something that exercises the specialists'
                         : "Tell Pellier what you're looking for..."
                   }
@@ -732,8 +732,8 @@ export default function ConciergeModal() {
                 </motion.button>
               </div>
 
-              {/* Trace-ID footer — atelier route only */}
-              {mode === 'atelier' && sessionId && (
+              {/* Trace-ID footer — Agent Trace route only */}
+              {mode === 'agentTrace' && sessionId && (
                 <div className="mt-3 flex items-center justify-between text-[10px]" style={{ fontFamily: 'ui-monospace, monospace', color: c.muted }}>
                   <span>session {sessionId.slice(0, 18)}...</span>
                   <Link

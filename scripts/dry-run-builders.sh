@@ -124,7 +124,7 @@ info "Waiting 4s for uvicorn --reload to pick up the change…"
 sleep 4
 
 # Confirm the strip flipped to shipped via build-state
-bs="$(curl -fs --max-time 5 "${BASE}/api/atelier/build-state" 2>/dev/null || true)"
+bs="$(curl -fs --max-time 5 "${BASE}/api/agent-trace/build-state" 2>/dev/null || true)"
 if echo "$bs" | grep -q '"floor_check"[[:space:]]*:[[:space:]]*"shipped"'; then
   pass "build-state reports floor_check = shipped"
 else
@@ -150,12 +150,12 @@ if echo "$reply" | grep -qi 'floor_check is in stub state'; then
 fi
 
 # --- 4a. Core Lab 2 retrieval comparison -----------------------------------
-echo "[4a/6] Core Lab 2 — GET /api/atelier/search-strategies/compare"
+echo "[4a/6] Core Lab 2 — GET /api/agent-trace/search-strategies/compare"
 QUERY='A milestone gift for a new homeowner'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     --get --data-urlencode "query=${QUERY}" \
-    "${BASE}/api/atelier/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
+    "${BASE}/api/agent-trace/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
   printf '%s\n' "$retrieval" > /tmp/retrieval-comparison.json
   if printf '%s' "$retrieval" | jq -e '
       (.strategies | length) == 4

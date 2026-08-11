@@ -451,21 +451,21 @@ aws bedrock-agentcore-control tag-resource \
 echo ""
 echo "  Test 1: Product search"
 uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-id "$AGENT_RUNTIME_ID" \
-  --prompt "Find me comfortable running shoes under \$80" \
-  --token "$TOKEN" --stream
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
+  --prompt "Find a linen travel shirt under \$250" \
+  --token "$TOKEN"
 
 echo "  Test 2: Trending products"
 uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-id "$AGENT_RUNTIME_ID" \
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
   --prompt "What's trending right now?" \
-  --token "$TOKEN" --stream
+  --token "$TOKEN"
 
 echo "  Test 3: Price comparison"
 uv run "$SCRIPT_DIR/test_runtime.py" \
-  --runtime-id "$AGENT_RUNTIME_ID" \
-  --prompt "Show me the best laptop deals" \
-  --token "$TOKEN" --stream
+  --runtime-arn "$AGENT_RUNTIME_ARN" \
+  --prompt "Compare two gifts under \$100" \
+  --token "$TOKEN"
 
 echo ""
 echo "=============================================="

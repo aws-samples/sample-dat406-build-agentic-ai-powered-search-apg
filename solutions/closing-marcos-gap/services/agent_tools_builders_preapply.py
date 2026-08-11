@@ -443,7 +443,7 @@ def floor_check(product_query: str = "") -> str:
     # Verify (live, the real check):
     #   Click Marco's Turn 4 pill in the Boutique — Stock Keeper answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Atelier Tools strip flip from 14/15 to 15/15 shipped.
+    #   Agent Trace Tools strip flip from 14/15 to 15/15 shipped.
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it
@@ -462,7 +462,7 @@ def whats_trending(limit: int = 5, category: str = None) -> str:
 
     Args:
         limit: Maximum number of products to return (default: 5)
-        category: Optional category filter (e.g. "Electronics", "Shoes")
+        category: Optional category filter (e.g. "Home Decor", "Apparel")
 
     Returns:
         JSON string with trending products
@@ -853,7 +853,7 @@ def find_pieces_hybrid(
         )
 
         # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Atelier will show
+        # (returned []), fall back to RRF order — the Agent Trace will show
         # this as a missing rerank stage in telemetry.
         if rerank_results:
             ordered = [
@@ -1041,7 +1041,7 @@ def returns_and_care(category: str = "default") -> str:
     """Look up the return and refund policy for a specific product category. Use when customers ask about returns, refunds, warranties, or return windows.
 
     Args:
-        category: Product category name (e.g., "Electronics", "Shoes")
+        category: Product category name (e.g., "Home Decor", "Apparel")
 
     Returns:
         JSON string with return policy details

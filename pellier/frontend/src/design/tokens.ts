@@ -97,7 +97,7 @@ export const animation = {
 
 export const breakpoints = {
   mobile: "768px",
-  /** Atelier expansion area stacks from 3-col to 2+1 below this width */
+  /** Agent Trace expansion area stacks from 3-col to 2+1 below this width */
   expansionStack: "1280px",
   wide: "1440px",
 } as const;

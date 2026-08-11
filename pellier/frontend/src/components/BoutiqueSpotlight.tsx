@@ -2,11 +2,11 @@
  * BoutiqueSpotlight — guided first-visit walkthrough for the boutique.
  *
  * A three-step spotlight that introduces visitors to Pellier: the
- * editorial storefront, the Ask Pellier concierge, and the Atelier toggle
+ * editorial storefront, the Ask Pellier concierge, and the Agent Trace toggle
  * for those curious about what's under the hood. Shows once per browser
  * session (sessionStorage gate).
  *
- * Mirrors AtelierSpotlight in structure, animation, keyboard handling,
+ * Mirrors AgentTraceSpotlight in structure, animation, keyboard handling,
  * and visual language. Only the content, the final-step CTA copy, and
  * the sessionStorage key differ.
  *
@@ -48,8 +48,8 @@ const STEPS: SpotlightStep[] = [
   {
     numeral: 'IV',
     kicker: 'Behind the curtain',
-    headline: 'The Atelier',
-    body: "Curious how Pellier thinks? Toggle to the Atelier in the header and watch every reasoning step, tool call, and decision unfold in real time. The wires, made visible.",
+    headline: 'The Agent Trace',
+    body: "Curious how Pellier thinks? Toggle to the Agent Trace in the header and watch every reasoning step, tool call, and decision unfold in real time. The wires, made visible.",
   },
 ]
 

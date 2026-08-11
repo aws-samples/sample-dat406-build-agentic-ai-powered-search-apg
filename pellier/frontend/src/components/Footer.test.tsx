@@ -5,10 +5,10 @@
  * Terms/Accessibility bottom strip) was frozen around placeholder
  * links. This rewrite replaces it with a living spec:
  *
- *   - Four sections only: Brand, Explore, Storyboard, Atelier.
+ *   - Four sections only: Brand, Explore, Storyboard, Agent Trace.
  *   - Every Explore link points at a real router route.
- *   - Storyboard + Atelier each carry an italic blurb and a single
- *     call-to-action link to `/storyboard` / `/atelier`.
+ *   - Storyboard + Agent Trace each carry an italic blurb and a single
+ *     call-to-action link to `/storyboard` / `/agent-trace`.
  *   - Bottom strip shows the copyright line and a signature tag.
  *     No placeholder Privacy/Terms/Accessibility links.
  */
@@ -36,7 +36,7 @@ describe('Footer — four live columns', () => {
     expect(screen.getByTestId('footer-column-brand')).toBeInTheDocument()
     expect(screen.getByTestId('footer-column-explore')).toBeInTheDocument()
     expect(screen.getByTestId('footer-column-storyboard')).toBeInTheDocument()
-    expect(screen.getByTestId('footer-column-atelier')).toBeInTheDocument()
+    expect(screen.getByTestId('footer-column-agent-trace')).toBeInTheDocument()
   })
 
   it('renders the brand column with the tagline from copy.ts', () => {
@@ -65,13 +65,13 @@ describe('Footer — four live columns', () => {
     expect(cta).toHaveTextContent(FOOTER.STORYBOARD.CTA_LABEL)
   })
 
-  it('renders Atelier column with italic blurb + "Open the Atelier" CTA linking to /atelier', () => {
+  it('renders Agent Trace column with italic blurb + "Open the Agent Trace" CTA linking to /agent-trace', () => {
     renderFooter()
-    const col = screen.getByTestId('footer-column-atelier')
-    expect(within(col).getByText(FOOTER.ATELIER.COPY)).toBeInTheDocument()
-    const cta = within(col).getByTestId('footer-column-atelier-cta')
-    expect(cta).toHaveAttribute('href', '/atelier')
-    expect(cta).toHaveTextContent(FOOTER.ATELIER.CTA_LABEL)
+    const col = screen.getByTestId('footer-column-agent-trace')
+    expect(within(col).getByText(FOOTER.AGENT_TRACE.COPY)).toBeInTheDocument()
+    const cta = within(col).getByTestId('footer-column-agent-trace-cta')
+    expect(cta).toHaveAttribute('href', '/agent-trace')
+    expect(cta).toHaveTextContent(FOOTER.AGENT_TRACE.CTA_LABEL)
   })
 })
 

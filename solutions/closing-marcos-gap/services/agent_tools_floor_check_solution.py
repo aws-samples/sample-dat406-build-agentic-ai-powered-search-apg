@@ -444,7 +444,7 @@ def whats_trending(limit: int = 5, category: str = None) -> str:
 
     Args:
         limit: Maximum number of products to return (default: 5)
-        category: Optional category filter (e.g. "Electronics", "Shoes")
+        category: Optional category filter (e.g. "Home Decor", "Apparel")
 
     Returns:
         JSON string with trending products
@@ -835,7 +835,7 @@ def find_pieces_hybrid(
         )
 
         # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Atelier will show
+        # (returned []), fall back to RRF order — the Agent Trace will show
         # this as a missing rerank stage in telemetry.
         if rerank_results:
             ordered = [
@@ -1023,7 +1023,7 @@ def returns_and_care(category: str = "default") -> str:
     """Look up the return and refund policy for a specific product category. Use when customers ask about returns, refunds, warranties, or return windows.
 
     Args:
-        category: Product category name (e.g., "Electronics", "Shoes")
+        category: Product category name (e.g., "Home Decor", "Apparel")
 
     Returns:
         JSON string with return policy details

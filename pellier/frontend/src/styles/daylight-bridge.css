@@ -4,7 +4,7 @@
  * Aliases Pellier's existing custom-property names onto the
  * Daylight design-system tokens (loaded ahead of this file
  * from public/design-system/daylight/tokens.css). Existing
- * Boutique + Atelier components reference --cream / --espresso /
+ * Boutique + Agent Trace components reference --cream / --espresso /
  * --accent / --at-* — pointing those at Daylight values lets the
  * whole app inherit the warm off-white editorial language without
  * touching component code.
@@ -41,7 +41,7 @@
   --accent-ink: var(--dl-accent-ink);
   --dusk:       var(--dl-ink);
 
-  /* ---- Editorial chat palette (storefront chat + Atelier) ----- */
+  /* ---- Editorial chat palette (storefront chat + Agent Trace) ----- */
   --cream-1:    var(--dl-bg);
   --cream-2:    var(--dl-paper-2);
   --cream-3:    var(--dl-paper-2);
@@ -66,7 +66,7 @@
   --sans:  var(--dl-font-sans);
   --mono:  var(--dl-font-mono);
 
-  /* ---- Atelier aliases (--at-* family) ------------------------- */
+  /* ---- Agent Trace aliases (--at-* family) ------------------------- */
   --at-cream-1:    var(--dl-bg);
   --at-cream-2:    var(--dl-paper-2);
   --at-cream-elev: var(--dl-paper);
@@ -85,7 +85,7 @@
   --at-espresso-1: var(--dl-ink);
   --at-espresso-2: #2a2724;
 
-  /* Type aliases for the Atelier */
+  /* Type aliases for the Agent Trace */
   --at-serif: var(--dl-font-serif);
   --at-sans:  var(--dl-font-sans);
   --at-mono:  var(--dl-font-mono);
