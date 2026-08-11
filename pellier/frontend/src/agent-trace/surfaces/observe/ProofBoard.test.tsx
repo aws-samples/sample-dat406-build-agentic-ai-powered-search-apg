@@ -64,7 +64,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Lab 3: Take the Agent from Local to Managed',
+      lab: 'Lab 3: Run the Agent as a Managed Service',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -79,7 +79,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Lab 3: Take the Agent from Local to Managed',
+      lab: 'Lab 3: Run the Agent as a Managed Service',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -144,7 +144,7 @@ describe('ProofBoard', () => {
       'Wire Marco to floor_check',
     );
     expect(screen.getAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Take the Agent from Local to Managed').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lab 3: Run the Agent as a Managed Service').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
@@ -212,7 +212,7 @@ describe('ProofBoard', () => {
 
     // Four-lab spine: managed execution and audit share Lab 3.
     expect(await screen.findAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Take the Agent from Local to Managed').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lab 3: Run the Agent as a Managed Service').length).toBeGreaterThan(0);
   });
 
   it('renders Audit Proof as a focused Lab 3 evidence view', async () => {

@@ -20,7 +20,7 @@ cp solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py \
 
 After copying, both `/api/agent-trace/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `floor_check` row from `pellier.tool_audit`.
 
-## Lab 2: Choose the Search Strategy to Ship
+## Lab 2: Choose a Search Strategy You Can Defend
 
 If the live comparison endpoint stalls, use:
 
@@ -30,7 +30,7 @@ sed -n '1,120p' solutions/retrieval-eval/reference-output.txt
 
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
-## Lab 3: Take the Agent from Local to Managed
+## Lab 3: Run the Agent as a Managed Service
 
 The managed Memory, Runtime, Gateway, and JWT path has no local substitute. Move a participant to a ready environment when that proof fails.
 

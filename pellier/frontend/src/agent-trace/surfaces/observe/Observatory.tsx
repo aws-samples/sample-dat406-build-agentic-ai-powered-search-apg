@@ -67,7 +67,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 2',
-    title: 'Choose the Search Strategy to Ship',
+    title: 'Choose a Search Strategy You Can Defend',
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
@@ -90,7 +90,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 3',
-    title: 'Take the Agent from Local to Managed',
+    title: 'Run the Agent as a Managed Service',
     summary:
       "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {

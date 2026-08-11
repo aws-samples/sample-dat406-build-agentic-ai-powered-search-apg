@@ -115,8 +115,8 @@ const Sidebar: React.FC = () => {
   // to learn. These four consolidate the same surfaces:
   //
   //   Lab 1  Ground Answers in Live Data
-  //   Lab 2  Choose the Search Strategy to Ship
-  //   Lab 3  Take the Agent from Local to Managed
+  //   Lab 2  Choose a Search Strategy You Can Defend
+  //   Lab 3  Run the Agent as a Managed Service
   //   Lab 4  Stop the Wrong Action Before It Runs
   //
   // Every previous route stays reachable — Deep Dives keeps them as deep

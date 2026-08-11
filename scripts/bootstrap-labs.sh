@@ -1141,7 +1141,7 @@ fi
 # ============================================================================
 # STEP 17b: PRE-BAKE THE GOVERNED BEARER TOKEN HELPER
 # ============================================================================
-# Labs 3 and 5 run on the authenticated managed rail and
+# Labs 3 and 4 run on the authenticated managed rail and
 # needs a Cognito access token. In a self-paced room (no facilitator to unblock
 # a failed `admin-initiate-auth`), typing that command is the #1 friction +
 # failure mode. So we pre-bake a one-command helper that mints a FRESH token

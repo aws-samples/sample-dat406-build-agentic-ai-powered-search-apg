@@ -91,8 +91,8 @@ The application must continue to demonstrate:
 The required participant path is:
 
 1. Lab 1 - Ground Answers in Live Data
-2. Lab 2 - Choose the Search Strategy to Ship
-3. Lab 3 - Take the Agent from Local to Managed
+2. Lab 2 - Choose a Search Strategy You Can Defend
+3. Lab 3 - Run the Agent as a Managed Service
 4. Lab 4 - Stop the Wrong Action Before It Runs
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or

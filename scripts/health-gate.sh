@@ -25,7 +25,7 @@
 #  10. Provisioning receipt proves targets, Policy, and gateway-mcp Runtime smoke
 #
 # In WORKSHOP_FORMAT=governed, all managed AgentCore checks are required because
-# Labs 3 and 5 and the session abstract depend on them. The separate one-hour
+# Labs 3 and 4 and the session abstract depend on them. The separate one-hour
 # builders format retains warning-only managed checks.
 # =============================================================================
 set -uo pipefail
