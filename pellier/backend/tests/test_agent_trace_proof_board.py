@@ -308,7 +308,10 @@ def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
         return [{"id": "ep-1", "content": "order", "substrate": "episodic"}]
 
     async def _procedural() -> list:
-        return [{"id": "pr-1", "content": "floor_check", "substrate": "procedural"}]
+        return [{"id": "pr-1", "content": "skill", "substrate": "procedural"}]
+
+    async def _operational() -> list:
+        return [{"id": "op-1", "content": "floor_check", "substrate": "operational"}]
 
     monkeypatch.setattr(
         agent_trace,
@@ -330,6 +333,11 @@ def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
         "_load_live_procedural",
         _procedural,
     )
+    monkeypatch.setattr(
+        agent_trace,
+        "_load_live_operational_history",
+        _operational,
+    )
     client = _client(_ProofDB())
 
     r = client.get("/api/agent-trace/memory/marco")
@@ -340,6 +348,8 @@ def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
     assert body["semantic"]["items"] == []
     assert "asynchronous" in body["semantic"]["caveat"]
     assert body["episodic"]["source"] == "live"
+    assert body["procedural"]["source"] == "live"
+    assert body["operational"]["source"] == "live"
 
 
 def test_readiness_missing_database_is_not_ready(monkeypatch) -> None:

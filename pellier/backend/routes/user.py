@@ -46,6 +46,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from config import settings
 from models import Preferences, VerifiedUser
 from services.agentcore_memory import AgentCoreMemory
 from services.cognito_auth import require_user
@@ -65,13 +66,13 @@ _default_memory: Optional[AgentCoreMemory] = None
 def get_agentcore_memory() -> AgentCoreMemory:
     """FastAPI-friendly accessor for the shared ``AgentCoreMemory``.
 
-    A process-wide instance keeps the in-memory fallback dicts coherent
-    across requests when ``AGENTCORE_MEMORY_ID`` is unset (workshop legacy auth
-    path). Tests override this dependency to inject isolated instances.
+    Managed Runtime requires managed Memory and therefore fails closed.
+    The builders in-process path retains the local fallback for optional
+    application features and offline tests.
     """
     global _default_memory
     if _default_memory is None:
-        _default_memory = AgentCoreMemory()
+        _default_memory = AgentCoreMemory(strict=settings.USE_AGENTCORE_RUNTIME)
     return _default_memory
 
 

@@ -189,9 +189,9 @@ class WorkshopQueryRequest(BaseModel):
     """Body of ``POST /api/agent-trace/query``.
 
     ``customer_id`` is optional — the workshop chat starts as anonymous.
-    When a demo customer is picked from the user dropdown,
-    it's passed here so the recommendation agent's ``MEMORY · PROCEDURAL``
-    query excludes that customer from the cohort-overlap result.
+    When a demo customer is picked from the user dropdown, it is passed
+    through so customer-scoped retrieval can exclude that customer from
+    cohort comparisons.
     """
 
     query: str = Field(..., min_length=1, description="Shopper / operator question")
@@ -398,8 +398,7 @@ async def query(payload: WorkshopQueryRequest) -> StreamingResponse:
 # ----- /api/workshop/resume ---------------------------------------------
 # The "welcome-back" turn. Fired by the Agent Trace chat when the user
 # picks a seeded demo customer and no session_id exists yet. Emits
-# three cohesive panels — MEMORY · EPISODIC, MEMORY · PREFERENCES,
-# MEMORY · PROCEDURAL — plus a composed response text the chat
+# memory and operational-history panels plus a composed response the chat
 # column renders as the first assistant reply.
 #
 # Separate from /query so the frontend can auto-fire it on customer
@@ -460,11 +459,9 @@ async def _resolve_customer_identity(
 ) -> Optional[dict]:
     """Read ``{name, preferences_summary}`` for the welcome-back text.
 
-    This is a NON-emitting read — it feeds the composed prose only. The
-    four substrate panels each own their own emit; the resume turn no
-    longer shows a separate stated-preferences panel (that blurred the
-    "four owners" model the MemoryDashboard teaches). Returns ``None`` on
-    any DB error so the text degrades to a bare welcome line.
+    This is a non-emitting read; it feeds the composed prose only. The
+    resume turn does not show a separate stated-preferences panel. Returns
+    ``None`` on any DB error so the text degrades to a bare welcome line.
     """
     try:
         row = await db_service.fetch_one(
@@ -479,21 +476,20 @@ async def _resolve_customer_identity(
 
 @router.post("/resume", response_model=WorkshopQueryResponse)
 async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
-    """Replay the four MEMORY substrate panels + emit a welcome-back response.
+    """Replay three memory views plus operational history and a response.
 
-    Panel order mirrors the MemoryDashboard's "four owners" model so the
+    Panel order mirrors the Memory dashboard so the
     resume turn and the standalone Memory surface tell the same story:
 
-      WORKING    — AgentCore STM, the persona's latest storefront session
-      SEMANTIC   — AgentCore long-term, durable preferences we extracted
-      EPISODIC   — Aurora, past events for this customer
-      PROCEDURAL — Aurora tool_audit aggregate (which tools fire, how fast)
+      WORKING             — AgentCore session events
+      SEMANTIC            — AgentCore durable preference records
+      EPISODIC            — Aurora customer events
+      OPERATIONAL HISTORY — Aurora tool_audit aggregate
 
-    PROCEDURAL reads the SAME tool_audit aggregate the standalone Agent Trace
-    Procedural panel reads — not the cohort-overlap JOIN, which is a
-    recommendation signal mislabeled as procedural. The composed response
-    quotes the episodic + preference reads so the trace reads end-to-end;
-    the operational panels (working/procedural) are shown, not narrated.
+    Procedural knowledge lives in checked-in runtime skills and MCP schemas;
+    it is not a per-persona recall on this route. The composed response quotes
+    episodic and preference reads; working memory and operational history are
+    shown as evidence rather than narrated.
     """
     customer_id = payload.customer_id.strip()
     if customer_id == "anonymous" or not customer_id:
@@ -521,7 +517,7 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
             emit_memory_working_panel,
             emit_memory_semantic_panel,
             emit_memory_episodic_panel,
-            emit_memory_tool_audit_panel,
+            emit_operational_history_panel,
         )
         from app import db_service  # populated by lifespan startup
 
@@ -543,13 +539,13 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
         except Exception:  # pragma: no cover - import guard
             persona = None
 
-        # Four substrate panels, in MemoryDashboard order.
+        # Three memory panels plus operational history, in dashboard order.
         await emit_memory_working_panel(
             ctx, db_service=db_service, persona=persona
         )
         semantic = await emit_memory_semantic_panel(ctx, db_service=db_service)
         episodes = await emit_memory_episodic_panel(ctx, db_service=db_service)
-        await emit_memory_tool_audit_panel(ctx, db_service=db_service)
+        await emit_operational_history_panel(ctx, db_service=db_service)
         ctx.step_done(0)
         ctx.step_active(1)
 

@@ -72,7 +72,7 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
 | **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers all 15 tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable · the separate builders format retains local execution |
-| **Personalization** | Long-term taste in `pellier.customers` + `pellier.customer_episodic_seed` · session-scoped working memory (AgentCore STM) + durable taste extracted by a `USER_PREFERENCE` semantic strategy (`get_semantic_memories`, surfaced in the Agent Trace) — both via Bedrock AgentCore Memory |
+| **Memory and personalization** | AgentCore Memory stores session events and durable preferences extracted by a `USER_PREFERENCE` strategy · Aurora customer events provide episodic history · runtime skills and MCP schemas provide procedural know-how · `tool_audit` remains operational evidence, not memory |
 | **Managed AgentCore path** | One `@aws/agentcore@0.26.0` project owns Runtime, Memory, Gateway, four Lambda target registrations, AgentCore-managed service roles, the Policy engine, and Cedar policies · `deploy_lambda.py` separately creates the external Lambda functions and their Lambda execution roles · `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · CUSTOM_JWT invocation must return `rail=gateway-mcp` |
 
 ## Governance model
@@ -88,6 +88,22 @@ as one policy engine:
 | Authorization | AgentCore Policy evaluates Cedar before Gateway target execution | Whether a tool call was allowed or denied |
 | Data authorization | Aurora SQL functions validate ownership and write invariants | Which records the permitted tool could actually read or mutate |
 | Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
+
+### Memory model
+
+Pellier separates four memory categories by owner and lifetime:
+
+| Category | Current owner | What the workshop proves |
+|---|---|---|
+| Working / session | AgentCore Memory events | A separate Python process reads turn one before Runtime handles turn two |
+| Semantic, long-term | AgentCore `USER_PREFERENCE` records | Durable preferences are extracted and retrieved by actor |
+| Episodic, long-term | Aurora customer events, orders, and returns | Business history remains queryable in the system of record |
+| Procedural, long-term | Checked-in runtime skills and MCP tool schemas | Instructions and tool contracts are reviewable source |
+
+`pellier.tool_audit` is intentionally outside that table. It records what
+executed and how long it took; it does not teach the agent how to work. When
+managed Runtime is enabled, AgentCore Memory reads and writes fail closed. The
+governed path never substitutes a process-local store for managed proof.
 | Operator reconstruction | Agent Trace Proof Board | One correlated policy, execution, and data story |
 
 The durable join is intentionally small. `session_id` follows the conversation
@@ -233,7 +249,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Introduction | Open the workspace and land in Boutique + Agent Trace — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
 | Lab 1: Ground Answers in Live Data | Complete Stock Keeper and `floor_check`, then prove Marco's answer against live inventory and `tool_audit`. |
 | Lab 2: Design the Retrieval Strategy | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
-| Lab 3: Run Agents in a Managed Runtime | Invoke Runtime, enumerate Gateway tools, prove Memory continuity, and reconstruct the seeded identity mismatch from Aurora evidence. |
+| Lab 3: Run Agents in a Managed Runtime | Invoke Runtime, enumerate Gateway tools, read turn one from Memory in a fresh process, prove turn-two recall, and reconstruct the seeded identity mismatch from Aurora evidence. |
 | Lab 4: Govern and Trace Agent Actions | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the matching identity is allowed, and reset participant policy. |
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 

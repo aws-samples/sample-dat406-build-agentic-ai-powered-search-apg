@@ -2,12 +2,11 @@
 
 Validates:
 - 400 on anonymous / empty customer_id.
-- 200 with the four MEMORY substrate panels in the MemoryDashboard's
-  "four owners" order (WORKING → SEMANTIC → EPISODIC → PROCEDURAL) and a
+- 200 with three memory panels plus operational history in dashboard order
+  (WORKING → SEMANTIC → EPISODIC → OPERATIONAL HISTORY) and a
   composed response text that mentions the customer's first name + most
   recent episode + a preference blurb when seed rows are present.
-- PROCEDURAL reads the tool_audit aggregate (not the cohort-overlap
-  JOIN) — the same source the standalone Agent Trace Procedural panel uses.
+- OPERATIONAL HISTORY reads the tool_audit aggregate.
 - DB failure does not 500 — every emitter swallows its read error and
   emits an empty panel, so the turn still composes a response event.
 
@@ -51,7 +50,7 @@ class _StubDB:
         if "customer_episodic_seed" in query:
             return self._episodic
         if "tool_audit" in query:
-            # Procedural aggregate: tool / calls / avg_ms.
+            # Operational-history aggregate: tool / calls / avg_ms.
             return [
                 {"tool": "find_pieces", "calls": 7, "avg_ms": 240},
                 {"tool": "floor_check", "calls": 3, "avg_ms": 95},
@@ -90,7 +89,7 @@ def test_resume_rejects_anonymous_customer() -> None:
     assert r.status_code == 400
 
 
-def test_resume_emits_four_substrate_panels_in_owner_order() -> None:
+def test_resume_emits_memory_and_operational_panels_in_order() -> None:
     db = _StubDB(
         episodic_rows=[
             {"summary_text": "Browsed mens linen shirts for Lisbon.", "ts_offset_days": -3},
@@ -114,16 +113,16 @@ def test_resume_emits_four_substrate_panels_in_owner_order() -> None:
         "MEMORY · WORKING",
         "MEMORY · SEMANTIC",
         "MEMORY · EPISODIC",
-        "MEMORY · PROCEDURAL",
+        "OPERATIONAL · TOOL HISTORY",
     ]
 
-    # PROCEDURAL panel reads the tool_audit aggregate, not the cohort JOIN.
-    procedural = next(
-        e for e in body["events"] if e.get("tag") == "MEMORY · PROCEDURAL"
+    operational = next(
+        e for e in body["events"]
+        if e.get("tag") == "OPERATIONAL · TOOL HISTORY"
     )
-    assert "tool_audit" in procedural["sql"]
-    assert procedural["columns"] == ["tool", "calls", "avg_latency"]
-    assert any("find_pieces" in row[0] for row in procedural["rows"])
+    assert "tool_audit" in operational["sql"]
+    assert operational["columns"] == ["tool", "calls", "avg_latency"]
+    assert any("find_pieces" in row[0] for row in operational["rows"])
 
     # Plan present with the three expected steps.
     plans = [e for e in body["events"] if e["type"] == "plan"]
@@ -140,8 +139,8 @@ def test_resume_emits_four_substrate_panels_in_owner_order() -> None:
     assert "Linen" in text
 
 
-def test_resume_procedural_is_not_customer_scoped() -> None:
-    """The procedural aggregate query carries no customer_id param — it
+def test_resume_operational_history_is_not_customer_scoped() -> None:
+    """The operational aggregate query carries no customer_id param; it
     aggregates over every ALLOWed call, matching the standalone panel."""
     db = _StubDB(episodic_rows=[], identity_row={"name": "Marco", "preferences_summary": "linen"})
     client = _make_client(db)
@@ -171,7 +170,7 @@ def test_resume_db_failure_emits_empty_panels_and_graceful_response() -> None:
         "MEMORY · WORKING",
         "MEMORY · SEMANTIC",
         "MEMORY · EPISODIC",
-        "MEMORY · PROCEDURAL",
+        "OPERATIONAL · TOOL HISTORY",
     ]
     for p in panels:
         assert p["rows"] == []

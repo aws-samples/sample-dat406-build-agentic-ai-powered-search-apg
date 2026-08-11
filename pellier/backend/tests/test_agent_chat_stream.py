@@ -34,6 +34,7 @@ Runnable from the repo root per ``pytest.ini``:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -54,15 +55,16 @@ import services.agentcore_runtime as runtime_module
 from services.agentcore_identity import (
     AgentCoreIdentityService,
     SESSION_ID_HEADER,
+    UserContext,
     get_agentcore_identity_service,
 )
-from services.agentcore_memory import AgentCoreMemory
+from services.agentcore_memory import AgentCoreMemory, ManagedMemoryError
 from services.cognito_auth import (
     ACCESS_TOKEN_COOKIE,
     CognitoAuthService,
     get_cognito_auth_service,
 )
-from routes.agent import router as agent_router
+from routes.agent import _stream_agent_response, router as agent_router
 from routes.user import get_agentcore_memory
 
 
@@ -584,6 +586,79 @@ def test_chat_requires_non_empty_message(client: TestClient) -> None:
     """
     resp = client.post("/api/agent/chat", json={"message": ""})
     assert resp.status_code == 422
+
+
+def test_managed_memory_read_failure_stops_before_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Memory:
+        async def get_session_history(self, _namespace):
+            raise ManagedMemoryError("read failed")
+
+    async def _unexpected_runtime(**_kwargs):
+        raise AssertionError("Runtime must not run without managed history")
+
+    import routes.agent as agent_module
+
+    monkeypatch.setattr(agent_module, "run_agent", _unexpected_runtime)
+    context = UserContext(
+        user_id="marco",
+        session_id="proof",
+        namespace="user-marco-session-proof",
+        access_token="token",
+    )
+
+    async def _collect():
+        return [
+            event
+            async for event in _stream_agent_response(
+                message="Remember Goa.",
+                context=context,
+                memory=_Memory(),
+            )
+        ]
+
+    events = _parse_sse("".join(asyncio.run(_collect())))
+    assert [event["event"] for event in events] == ["session", "error"]
+    assert events[-1]["data"]["code"] == "managed_memory_unavailable"
+
+
+def test_managed_memory_write_failure_never_emits_success_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Memory:
+        async def get_session_history(self, _namespace):
+            return []
+
+        async def append_session_turns(self, _namespace, _turns):
+            raise ManagedMemoryError("write failed")
+
+    async def _runtime(**_kwargs):
+        return "Runtime response that must not be reported as complete"
+
+    import routes.agent as agent_module
+
+    monkeypatch.setattr(agent_module, "run_agent", _runtime)
+    context = UserContext(
+        user_id="marco",
+        session_id="proof",
+        namespace="user-marco-session-proof",
+        access_token="token",
+    )
+
+    async def _collect():
+        return [
+            event
+            async for event in _stream_agent_response(
+                message="Remember Goa.",
+                context=context,
+                memory=_Memory(),
+            )
+        ]
+
+    events = _parse_sse("".join(asyncio.run(_collect())))
+    assert [event["event"] for event in events] == ["session", "error"]
+    assert events[-1]["data"]["code"] == "managed_memory_unavailable"
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@
 --   pellier.agent_trace_spans  — OTEL span persistence for trace replay.
 --   pellier.tools              — pgvector-backed tool registry (Card 7).
 --   pellier.tool_audit         — unified audit row per tool call (read + write).
---   pellier.customers          — demo customers for MEMORY · PROCEDURAL + approvals.
+--   pellier.customers          — demo customers for personalization + approvals.
 --   pellier.orders             — demo orders; backs the headline 3-table JOIN panel.
 --   pellier.approvals          — Identity-gated sensitive-tool gate (Card 10).
 --
@@ -27,7 +27,7 @@
 
 BEGIN;
 
--- pgvector is required for tools.description_emb and for the procedural
+-- pgvector is required for tools.description_emb and for the cohort-overlap
 -- memory query that JOINs orders ⋈ product_catalog ⋈ customers on a
 -- cosine similarity comparison. seed-database.sh already creates it; the
 -- IF NOT EXISTS keeps this migration self-contained if run first.
@@ -130,7 +130,7 @@ CREATE INDEX IF NOT EXISTS tools_description_emb_idx
 -- Half the teaching story on the workshop is that
 -- ``SELECT * FROM pellier.tool_audit WHERE session_id = ...``
 -- rebuilds the entire turn for debugging — Act II: Exercise 2 — and
--- the same table feeds procedural memory's "which tool wins for
+-- the same table feeds operational history's "which tool ran and how fast"
 -- which intent" aggregate.
 CREATE TABLE IF NOT EXISTS pellier.tool_audit (
     audit_id    BIGSERIAL PRIMARY KEY,
@@ -148,7 +148,7 @@ CREATE INDEX IF NOT EXISTS tool_audit_session_idx
 -- -- pellier.customers ---------------------------------------------------
 -- Demo customer shell. Kept minimal because the /workshop surface isn't
 -- a real storefront — it just needs identifiable actors so the
--- MEMORY · PROCEDURAL panel can show cohort overlap ("Marco bought
+-- the recommendation panel can show cohort overlap ("Marco bought
 -- these 3 items your current pick is closest to").
 CREATE TABLE IF NOT EXISTS pellier.customers (
     id                    TEXT PRIMARY KEY,

@@ -164,7 +164,7 @@ const Sidebar: React.FC = () => {
       labNumber: 3,
       collapsible: true,
       items: [
-        { label: 'Memory Substrates', path: 'memory' },
+        { label: 'Memory Types', path: 'memory' },
         { label: 'Audit Proof', path: 'audit-proof' },
       ],
     },

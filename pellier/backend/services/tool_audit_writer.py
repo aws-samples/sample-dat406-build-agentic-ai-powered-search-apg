@@ -4,8 +4,9 @@ Tool Audit Writer — fire-and-forget INSERT/UPDATE pair against pellier.tool_au
 Theo's anchor capability is "Aurora as agent system-of-record." Every
 tool call an agent runs — read or write — gets a row in
 ``pellier.tool_audit`` so the entire turn is reconstructible from a
-single SELECT, and procedural memory has the full per-tool signal
-(which tool ran for which intent, at which latency).
+single SELECT. Its aggregates form operational history: which tool ran
+and at what latency. Tool know-how remains in runtime skills and MCP
+schemas.
 
 Why a separate writer module:
 

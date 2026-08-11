@@ -47,8 +47,8 @@ Design notes
   ``agentcore_runtime`` only touches ``_stream_agent_response`` below.
 * **Memory writes.** The turn pair (user + assistant) is appended to
   ``AgentCoreMemory`` under the identity-service namespace after the
-  agent response completes. A failed write does not fail the stream —
-  it is logged and the user-visible stream still closes cleanly.
+  agent response completes. Managed Runtime fails closed if the managed
+  Memory read or write fails; the in-process path remains fail-soft.
 
 Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
@@ -69,7 +69,7 @@ from services.agentcore_identity import (
     UserContext,
     get_agentcore_identity_service,
 )
-from services.agentcore_memory import AgentCoreMemory
+from services.agentcore_memory import AgentCoreMemory, ManagedMemoryError
 from services.agentcore_runtime import ManagedRuntimeError, get_latest_trace, run_agent
 from routes.user import get_agentcore_memory
 
@@ -147,6 +147,13 @@ async def _stream_agent_response(
     # never leak a stack trace to the client (Req 3.1.5 style envelope).
     try:
         history = await memory.get_session_history(context.namespace)
+    except ManagedMemoryError as exc:
+        logger.warning(
+            "Managed Memory rejected session %s before invocation",
+            context.session_id,
+        )
+        yield _sse_event("error", {"code": exc.code})
+        return
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning(
             "Session history read failed for %s: %s",
@@ -180,32 +187,34 @@ async def _stream_agent_response(
         yield _sse_event("error", {"code": "agent_failed"})
         return
 
-    # --- 3. Chunk event --------------------------------------------------
-    # ``run_agent`` currently returns the full response as a single
-    # string. Emitting it as one ``chunk`` keeps the wire shape
-    # identical to a future streamed implementation that yields
-    # incremental pieces. The client concatenates whatever arrives.
-    yield _sse_event("chunk", {"content": response_text})
-
-    # --- 4. Memory persistence ------------------------------------------
-    # Append the turn pair after the agent completes so a failed memory
-    # write doesn't block the user from seeing the response. Failures
-    # are logged only — the stream still closes cleanly.
+    # --- 3. Memory persistence ------------------------------------------
+    # Persist before emitting the response. On the governed path a managed
+    # Memory failure is part of the turn outcome, not a hidden warning.
     try:
-        await memory.append_session_turn(
+        await memory.append_session_turns(
             context.namespace,
-            {"role": "user", "content": message},
+            [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": response_text},
+            ],
         )
-        await memory.append_session_turn(
-            context.namespace,
-            {"role": "assistant", "content": response_text},
+    except ManagedMemoryError as exc:
+        logger.warning(
+            "Managed Memory rejected session %s after invocation",
+            context.session_id,
         )
+        yield _sse_event("error", {"code": exc.code})
+        return
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning(
             "Session history append failed for %s: %s",
             context.namespace,
             exc.__class__.__name__,
         )
+
+    # --- 4. Chunk event --------------------------------------------------
+    # ``run_agent`` currently returns the full response as one chunk.
+    yield _sse_event("chunk", {"content": response_text})
 
     # --- 5. Done event (with trace) -------------------------------------
     # The in-process Strands path populates OTEL spans via

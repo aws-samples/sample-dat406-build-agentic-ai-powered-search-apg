@@ -161,7 +161,7 @@ def search(query: str) -> str:
             pass
 
         # Audit hook: inner specialist tool calls (find_pieces,
-        # style_match, …) reach pellier.tool_audit so procedural memory
+        # style_match, ...) reach pellier.tool_audit so operational history
         # sees them. Outer @tool wrapper already audits at the
         # orchestrator level; this surfaces the layer below.
         from agents.specialist_hooks import (

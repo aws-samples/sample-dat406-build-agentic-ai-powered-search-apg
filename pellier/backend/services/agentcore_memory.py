@@ -4,10 +4,10 @@ persistent user preferences.
 
 AgentCore Memory (https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html)
 is the managed memory primitive for AgentCore. We use the short-term
-side here (event log per session) plus a key-value namespace for
-durable preferences. Episodic and procedural memory live elsewhere
-(Aurora `pellier.customer_episodic_seed` and `pellier.tool_audit`
-respectively). Together they form Pellier's four memory substrates.
+side here (event log per session) plus durable preference records.
+Episodic memory comes from Aurora customer events. Procedural knowledge
+comes from checked-in runtime skills and MCP tool schemas. Aurora
+``pellier.tool_audit`` is operational history, not memory.
 
 AgentCore Memory (Requirements 2.5.2, 4.3.2, 4.4.1, 6.2.1). Exposes a single
 ``AgentCoreMemory`` class with four async methods:
@@ -96,6 +96,12 @@ _PREFS_STORE: Dict[str, Dict[str, Any]] = {}
 # ``False`` → probed and failed (SDK not installed); use in-memory fallback
 # ``True``  → probed and succeeded; SDK is importable
 _SDK_AVAILABLE: Optional[bool] = None
+
+
+class ManagedMemoryError(RuntimeError):
+    """Stable fail-closed error for a required AgentCore Memory path."""
+
+    code = "managed_memory_unavailable"
 
 
 def probe_memory_backend_status(
@@ -193,9 +199,16 @@ class AgentCoreMemory:
     runs without provisioning an AgentCore Memory resource.
     """
 
-    def __init__(self, memory_id: Optional[str] = None, region: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        memory_id: Optional[str] = None,
+        region: Optional[str] = None,
+        *,
+        strict: bool = False,
+    ) -> None:
         self._memory_id = memory_id if memory_id is not None else settings.AGENTCORE_MEMORY_ID
         self._region = region or settings.aws_region_resolved
+        self._strict = strict
         self._sdk_manager: Any = None  # lazy — see _get_sdk_manager
 
     # ------------------------------------------------------------------
@@ -217,12 +230,16 @@ class AgentCoreMemory:
         outside the venv).
         """
         if not self._memory_id:
+            if self._strict:
+                raise ManagedMemoryError("AGENTCORE_MEMORY_ID is not configured")
             return None
         if self._sdk_manager is not None:
             return self._sdk_manager
 
         global _SDK_AVAILABLE
         if _SDK_AVAILABLE is False:
+            if self._strict:
+                raise ManagedMemoryError("bedrock-agentcore SDK is not importable")
             return None
 
         try:
@@ -236,7 +253,11 @@ class AgentCoreMemory:
                 boto3_session=boto3.Session(region_name=self._region),
             )
             return self._sdk_manager
-        except ImportError:
+        except ImportError as exc:
+            if self._strict:
+                raise ManagedMemoryError(
+                    "bedrock-agentcore SDK is not importable"
+                ) from exc
             if _SDK_AVAILABLE is None:
                 logger.warning(
                     "bedrock-agentcore not installed — AgentCoreMemory using "
@@ -248,6 +269,10 @@ class AgentCoreMemory:
             _SDK_AVAILABLE = False
             return None
         except Exception as exc:  # pragma: no cover - SDK init path
+            if self._strict:
+                raise ManagedMemoryError(
+                    "AgentCore MemorySessionManager initialization failed"
+                ) from exc
             logger.warning("AgentCore MemorySessionManager init failed: %s", exc)
             return None
 
@@ -285,6 +310,16 @@ class AgentCoreMemory:
         The namespace is whatever the identity service computed — the
         method does not derive it from ``user_id``/``session_id`` itself.
         """
+        await self.append_session_turns(session_ns, [turn])
+
+    async def append_session_turns(
+        self,
+        session_ns: str,
+        turns: List[Dict[str, Any]],
+    ) -> None:
+        """Append one logical turn as a single AgentCore Memory event."""
+        if not turns:
+            return
         mgr = self._get_sdk_manager()
         if mgr is not None:
             try:
@@ -297,16 +332,24 @@ class AgentCoreMemory:
                     actor_id=session_ns,
                     session_id=session_ns,
                 )
-                session.add_turns(messages=[self._to_conversational(turn)])
+                session.add_turns(
+                    messages=[self._to_conversational(turn) for turn in turns]
+                )
                 return
             except Exception as exc:  # pragma: no cover - SDK error path
+                if self._strict:
+                    raise ManagedMemoryError(
+                        "AgentCore session append failed"
+                    ) from exc
                 logger.warning(
-                    "AgentCore append_session_turn failed for %s: %s — "
+                    "AgentCore append_session_turns failed for %s: %s — "
                     "falling back to in-memory store",
                     session_ns,
                     exc,
                 )
-        _SESSION_STORE.setdefault(session_ns, []).append(dict(turn))
+        _SESSION_STORE.setdefault(session_ns, []).extend(
+            dict(turn) for turn in turns
+        )
 
     async def get_session_history(self, session_ns: str) -> List[Dict[str, Any]]:
         """Return all turns stored under ``session_ns`` in insertion order.
@@ -342,6 +385,10 @@ class AgentCoreMemory:
                 flat.reverse()
                 return flat
             except Exception as exc:  # pragma: no cover - SDK error path
+                if self._strict:
+                    raise ManagedMemoryError(
+                        "AgentCore session history read failed"
+                    ) from exc
                 logger.warning(
                     "AgentCore get_session_history failed for %s: %s — "
                     "falling back to in-memory store",
@@ -429,11 +476,9 @@ class AgentCoreMemory:
             try:
                 # SDK param is `namespace_prefix` (NOT `namespace`); returns a
                 # List[MemoryRecord] whose `content` is {"text": "<json>"}.
-                # NOTE: long-term records only exist if the memory was created
-                # WITH an extraction strategy. Pellier provisions STM-only (no
-                # strategies), so this returns [] in practice and prefs round-trip
-                # through the in-process store below. The call is kept correct so
-                # it works unchanged if a USER_PREFERENCE strategy is added later.
+                # Long-term records are created by Pellier's USER_PREFERENCE
+                # strategy. Typed onboarding and extracted semantic preferences
+                # remain separate contracts and namespaces.
                 records = mgr.list_long_term_memory_records(
                     namespace_prefix=key,
                     max_results=1,
@@ -450,6 +495,10 @@ class AgentCoreMemory:
                         if isinstance(payload, dict) and payload:
                             return Preferences.model_validate(payload)
             except Exception as exc:  # pragma: no cover - SDK error path
+                if self._strict:
+                    raise ManagedMemoryError(
+                        "AgentCore preference read failed"
+                    ) from exc
                 logger.warning(
                     "AgentCore get_user_preferences failed for %s: %s — "
                     "falling back to in-memory store",
@@ -500,6 +549,10 @@ class AgentCoreMemory:
                 _PREFS_STORE[key] = payload
                 return prefs_obj
             except Exception as exc:  # pragma: no cover - SDK error path
+                if self._strict:
+                    raise ManagedMemoryError(
+                        "AgentCore preference append failed"
+                    ) from exc
                 logger.warning(
                     "AgentCore set_user_preferences failed for %s: %s — "
                     "falling back to in-memory store",
@@ -553,6 +606,10 @@ class AgentCoreMemory:
                 max_results=20,
             )
         except Exception as exc:  # pragma: no cover - SDK error path
+            if self._strict:
+                raise ManagedMemoryError(
+                    "AgentCore semantic memory read failed"
+                ) from exc
             logger.warning(
                 "AgentCore get_semantic_memories failed for %s: %s — "
                 "semantic panel will show an empty live state",

@@ -41,8 +41,7 @@ class AgentContext:
         in localStorage and passes it back on subsequent requests.
     customer_id:
         Demo customer id (seeded in ``customers`` table). The recommendation
-        agent's ``MEMORY · PROCEDURAL`` query uses this as the ``<> %s``
-        exclusion so the cohort-overlap result doesn't include the caller.
+        path can use it to scope customer history and recommendations.
         Defaults to ``anonymous`` for unauthenticated /workshop visits.
     query:
         The raw user message for this turn. Stored here so emitters can

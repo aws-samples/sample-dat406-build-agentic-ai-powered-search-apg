@@ -68,12 +68,13 @@ function numberToWord(n: number): string {
  * ======================================================================= */
 
 /**
- * Map a telemetry panel title to one of the four memory substrates.
- * Recognizes both legacy STM/LTM titles and the new substrate names so
- * fixtures can migrate progressively without breaking the orbit display.
+ * Map a telemetry panel title to a memory type or operational history.
  */
-function detectMemorySubstrate(title: string): 'Working' | 'Semantic' | 'Episodic' | 'Procedural' {
+function detectMemorySubstrate(
+  title: string,
+): 'Working' | 'Semantic' | 'Episodic' | 'Procedural' | 'Operational' {
   const t = title.toLowerCase();
+  if (t.includes('operational') || t.includes('tool activity')) return 'Operational';
   if (t.includes('procedural')) return 'Procedural';
   if (t.includes('episodic')) return 'Episodic';
   if (t.includes('semantic')) return 'Semantic';
@@ -767,7 +768,7 @@ const ExpansionArea: React.FC<{ panels: TelemetryPanel[] }> = ({ panels }) => {
         </div>
       </ExpCard>
 
-      {/* Memory substrate — four-substrate visualization */}
+      {/* Memory types with operational history kept separate */}
       <ExpCard>
         <div
           style={{
@@ -790,7 +791,7 @@ const ExpansionArea: React.FC<{ panels: TelemetryPanel[] }> = ({ panels }) => {
               textDecoration: 'none',
             }}
           >
-            → What are the four substrates?
+            → Memory types and operational history
           </Link>
         </div>
         <div

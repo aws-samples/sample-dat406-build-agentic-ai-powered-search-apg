@@ -1429,7 +1429,7 @@ const LiveTraceRail: React.FC<{
   );
 };
 
-/** Memory card — four substrates (working / semantic / episodic / procedural) with item counts and chips */
+/** Four memory types, with item counts and chips. */
 const MEMORY_SUBSTRATES: {
   tier: MemoryPill['tier'];
   label: string;
@@ -1457,8 +1457,8 @@ const MEMORY_SUBSTRATES: {
   {
     tier: 'procedural',
     label: 'Procedural',
-    store: 'Aurora · tool patterns',
-    gloss: 'Which tool tends to win – derived from tool_audit.',
+    store: 'Runtime skills · MCP schemas',
+    gloss: 'How the agent should work and which arguments tools accept.',
   },
 ];
 
@@ -1488,7 +1488,7 @@ const MemoryCard: React.FC<{ turns: ChatTurn[] }> = ({ turns }) => {
             textDecoration: 'none',
           }}
         >
-          → What are the four substrates?
+          → Memory types and operational history
         </Link>
       </div>
       <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>

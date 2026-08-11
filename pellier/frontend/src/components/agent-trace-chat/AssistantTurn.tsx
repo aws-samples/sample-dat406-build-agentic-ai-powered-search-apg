@@ -45,7 +45,7 @@ const TOOL_LABEL: Record<string, string> = {
   'TOOL REGISTRY · DISCOVER': 'Discovered tools',
   'MEMORY · EPISODIC': 'Pulled your order history',
   'MEMORY · PROFILE': 'Pulled your preferences',
-  'MEMORY · PROCEDURAL': 'Ranked by similar customers',
+  'OPERATIONAL · TOOL HISTORY': 'Read tool activity',
   'MEMORY · SEMANTIC': 'Matched against the catalog',
 }
 

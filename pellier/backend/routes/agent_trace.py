@@ -17,7 +17,7 @@ Endpoints:
     GET  /tools                — tools with signatures, status, metadata
     POST /tools/discover       — pgvector semantic search
     GET  /routing              — 3 routing patterns with active indicator
-    GET  /memory/{persona}     — four-substrate memory state (working / semantic / episodic / procedural) for persona
+    GET  /memory/{persona}     — four memory types plus operational history
     GET  /performance          — metrics and benchmarks
     GET  /evaluations          — agent scorecards
     GET  /observatory          — dashboard summary
@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
+import runpy
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -1152,7 +1153,58 @@ async def _load_live_episodic(persona: str) -> list:
 
 
 async def _load_live_procedural() -> list:
-    """Aggregate live tool_audit rows into procedural patterns.
+    """Read procedural knowledge from runtime skills and MCP schemas.
+
+    Procedural memory is the checked-in know-how that tells the agent how
+    work should be performed. Runtime skills provide conditional instructions;
+    the canonical Gateway schemas provide the tool contracts. This helper reads
+    both real source surfaces and never derives know-how from execution logs.
+    """
+    items = []
+    try:
+        from skills import get_registry
+
+        for skill in get_registry().get_all():
+            items.append({
+                "id": f"proc-skill-{skill.name}",
+                "content": (
+                    f"Runtime skill {skill.name} v{skill.version}: "
+                    f"{skill.description}"
+                ),
+                "substrate": "procedural",
+            })
+    except Exception as exc:
+        logger.warning("Runtime skill registry read failed: %s", exc)
+
+    schema_path = (
+        Path(__file__).resolve().parents[3]
+        / "scripts"
+        / "deploy"
+        / "gateway_tool_schemas.py"
+    )
+    try:
+        tool_surfaces = runpy.run_path(str(schema_path)).get("TOOL_SCHEMAS", {})
+        for surface, config in sorted(tool_surfaces.items()):
+            tool_names = [
+                str(tool.get("name", ""))
+                for tool in config.get("tools", [])
+                if tool.get("name")
+            ]
+            items.append({
+                "id": f"proc-mcp-{surface}",
+                "content": (
+                    f"MCP {surface} contract: {', '.join(tool_names)}"
+                ),
+                "substrate": "procedural",
+            })
+    except Exception as exc:
+        logger.warning("Canonical MCP schema read failed from %s: %s", schema_path, exc)
+
+    return items
+
+
+async def _load_live_operational_history() -> list:
+    """Aggregate live tool_audit rows into operational evidence.
 
     Every ALLOWed tool call writes to pellier.tool_audit (reads and
     writes alike), so this aggregate covers the full per-tool signal.
@@ -1181,16 +1233,16 @@ async def _load_live_procedural() -> list:
         for i, r in enumerate(rows):
             d = dict(r)
             items.append({
-                "id": f"proc-live-{i}",
+                "id": f"operational-live-{i}",
                 "content": (
                     f"{d.get('tool')} - fired {d.get('calls')}x, "
                     f"avg {d.get('avg_ms')}ms"
                 ),
-                "substrate": "procedural",
+                "substrate": "operational",
             })
         return items
     except Exception as exc:
-        logger.warning("Live procedural read failed: %s", exc)
+        logger.warning("Live operational-history read failed: %s", exc)
         return []
 
 
@@ -1321,9 +1373,9 @@ def _live_substrate(
 
 @router.get("/memory/{persona}")
 async def get_memory(persona: str):
-    """Return the 4-substrate memory state for a persona.
+    """Return four memory types plus operational history for a persona.
 
-    Each substrate is sourced honestly:
+    Each source is explicit:
       working    — AgentCore Memory session turns for the persona's
                    latest storefront session (resolved from
                    pellier.tool_audit, read back under anon-{sid} via
@@ -1335,11 +1387,11 @@ async def get_memory(persona: str):
                    produced records.
       episodic   — pellier.customer_episodic_seed rows; live when the
                    DB is reachable and the persona has rows.
-      procedural — pellier.tool_audit aggregate (calls + avg latency
-                   per tool, every ALLOWed call - reads and writes
-                   alike). Promotes to 'live' when the aggregate
-                   succeeds; the caveat persists because the schema
-                   still lacks intent/persona_id/success columns.
+      procedural — checked-in runtime skills plus canonical MCP tool
+                   schemas; these are instructions and contracts.
+      operational— pellier.tool_audit aggregate (calls + average
+                   latency per tool). This is evidence of execution,
+                   not memory.
 
     Read-only.
     """
@@ -1375,7 +1427,12 @@ async def get_memory(persona: str):
                 "No live Aurora events found for this persona yet.",
             ),
             "procedural": _live_substrate(
-                "Procedural - Aurora",
+                "Procedural - source controlled",
+                "skills/*/SKILL.md + scripts/deploy/gateway_tool_schemas.py",
+                "No runtime skills or canonical MCP schemas were readable.",
+            ),
+            "operational": _live_substrate(
+                "Operational History - Aurora",
                 "pellier.tool_audit (aggregate)",
                 "No live tool_audit rows found yet. Run a turn that calls a tool, then reload.",
             ),
@@ -1397,6 +1454,10 @@ async def get_memory(persona: str):
         data["procedural"]["items"] = await _load_live_procedural()
         if data["procedural"]["items"]:
             data["procedural"].pop("caveat", None)
+
+        data["operational"]["items"] = await _load_live_operational_history()
+        if data["operational"]["items"]:
+            data["operational"].pop("caveat", None)
 
         return data
     except Exception as exc:

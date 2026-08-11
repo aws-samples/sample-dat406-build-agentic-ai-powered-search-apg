@@ -15,7 +15,7 @@ function mountContainerWithPanels(): HTMLDivElement {
   container.innerHTML = `
     <div data-testid="plan-card">plan</div>
     <div data-testid="panel-card-TOOL · SEARCH">search</div>
-    <div data-testid="panel-card-MEMORY · PROCEDURAL">memory</div>
+    <div data-testid="panel-card-OPERATIONAL · TOOL HISTORY">history</div>
     <div data-testid="panel-card-LLM · OPUS · SYNTHESIZE">llm</div>
   `
   document.body.appendChild(container)
@@ -63,7 +63,7 @@ describe('useScrollAndFlash', () => {
       result.current.scrollToTrace('trace 2')
     })
     const second = container.querySelector(
-      '[data-testid="panel-card-MEMORY · PROCEDURAL"]',
+      '[data-testid="panel-card-OPERATIONAL · TOOL HISTORY"]',
     )!
     expect(second.getAttribute('data-flash')).toBe('true')
   })
