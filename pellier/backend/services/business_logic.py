@@ -312,7 +312,7 @@ class BusinessLogic:
         ``returns`` → (if reason='damaged') decrement product_catalog.quantity.
 
         The managed AgentCore Policy engine (Cedar, ENFORCE mode,
-        attached to the Gateway by scripts/deploy/deploy_policy.py)
+        attached to the Gateway by the AgentCore CLI project)
         can gate a Gateway-rail call before the tool's Lambda ever runs.
         The required storefront rail is in-process, so we still validate
         the canonical reason set here as a defense-in-depth guard.

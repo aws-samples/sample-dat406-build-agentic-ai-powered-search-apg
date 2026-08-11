@@ -17,6 +17,8 @@ import json
 import os
 import sys
 
+from test_gateway_tools import discover_gateway_tools
+
 
 EXPECTED_TOOL_COUNT = 15
 
@@ -63,7 +65,7 @@ def get_cognito_token(
             AuthFlow="USER_PASSWORD_AUTH",
             AuthParameters=auth_parameters,
         )
-        token = response["AuthenticationResult"]["IdToken"]
+        token = response["AuthenticationResult"]["AccessToken"]
         return token
     except client.exceptions.NotAuthorizedException:
         print("ERROR: Invalid credentials. Check COGNITO_USERNAME and COGNITO_PASSWORD env vars.")
@@ -77,42 +79,21 @@ def get_cognito_token(
 
 
 def test_gateway_auth(gateway_url: str, token: str):
-    """Test that the Gateway accepts the JWT token by listing tools."""
-    import urllib.request
-    import urllib.error
-
-    url = gateway_url.rstrip("/") + "/tools/list"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
-    req = urllib.request.Request(url, headers=headers, method="POST", data=b"{}")
-
+    """Test that the Gateway accepts the JWT in a real MCP session."""
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            status = resp.status
-            body = json.loads(resp.read())
-            tool_count = len(body.get("tools", []))
-            print(f"JWT token obtained successfully")
-            print(f"Gateway authentication: PASSED")
-            print(f"  Status: {status}")
-            print(f"  Tools discovered: {tool_count}")
-            if tool_count != EXPECTED_TOOL_COUNT:
-                print(
-                    "Gateway authentication: FAILED "
-                    f"(expected {EXPECTED_TOOL_COUNT} tools)"
-                )
-                sys.exit(1)
-    except urllib.error.HTTPError as e:
-        if e.code == 401 or e.code == 403:
-            print(f"Gateway authentication: FAILED ({e.code})")
-            print(f"  The JWT token was rejected by the Gateway.")
-        else:
-            print(f"Gateway authentication: FAILED ({e.code})")
-            print(f"  {e.read().decode()[:200]}")
-        sys.exit(1)
+        tools = discover_gateway_tools(gateway_url, token)
+        tool_count = len(tools)
+        print("JWT token obtained successfully")
+        print("Gateway authentication: PASSED")
+        print(f"  Tools discovered: {tool_count}")
+        if tool_count != EXPECTED_TOOL_COUNT:
+            print(
+                "Gateway authentication: FAILED "
+                f"(expected {EXPECTED_TOOL_COUNT} tools)"
+            )
+            sys.exit(1)
     except Exception as e:
-        print(f"Gateway authentication: FAILED")
+        print("Gateway authentication: FAILED")
         print(f"  Connection error: {e}")
         sys.exit(1)
 

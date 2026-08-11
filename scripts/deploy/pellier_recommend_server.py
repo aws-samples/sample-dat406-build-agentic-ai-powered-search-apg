@@ -23,13 +23,15 @@ from common.types import resolve_invocation
 logger = logging.getLogger(__name__)
 
 REGION = os.environ.get("REGION", "us-east-1")
+DB_REGION = os.environ.get("DB_REGION", REGION)
 DB_CLUSTER_ARN = os.environ.get("DB_CLUSTER_ARN", "")
 SECRET_ARN = os.environ.get("SECRET_ARN", "")
 DATABASE = os.environ.get("DATABASE", "postgres")
 SCHEMA = "pellier"
 
 # Module-level clients for Lambda warm start reuse
-rds_client = boto3.client("rds-data", region_name=REGION)
+rds_client = boto3.client("rds-data", region_name=DB_REGION)
+bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
 
 _PERSONA_CUSTOMER_IDS = {
     "marco": "CUST-MARCO",

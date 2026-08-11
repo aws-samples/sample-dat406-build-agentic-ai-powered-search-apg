@@ -3,12 +3,12 @@
 # dry-run-builders.sh — end-to-end simulation of the participant path
 # =============================================================================
 # Run this before a 100-person room to catch breakage the health gate can't:
-# it actually exercises the three Core Labs against the live backend.
+# it actually exercises the three required labs against the live backend.
 #
 #   1. Preconditions  — health gate must be READY
 #   2. Apply solution — wire floor_check (the participant's one build)
 #   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
-#   4. Retrieval      — run the exact four-strategy Core Lab 2 request
+#   4. Retrieval      — run the exact four-strategy Lab 2 request
 #   5. Audit ledger   — run process_return and query its exact session receipt
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
@@ -149,8 +149,8 @@ if echo "$reply" | grep -qi 'floor_check is in stub state'; then
   fail "Stub envelope still present — solution did not take effect"
 fi
 
-# --- 4a. Core Lab 2 retrieval comparison -----------------------------------
-echo "[4a/6] Core Lab 2 — GET /api/agent-trace/search-strategies/compare"
+# --- 4a. Lab 2 retrieval comparison ----------------------------------------
+echo "[4a/6] Lab 2 — GET /api/agent-trace/search-strategies/compare"
 QUERY='A milestone gift for a new homeowner'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
@@ -172,20 +172,20 @@ if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     info "First 300 chars: ${retrieval:0:300}"
   fi
 else
-  fail "Core Lab 2 comparison failed — see /tmp/dryrun-retrieval.err"
+  fail "Lab 2 comparison failed — see /tmp/dryrun-retrieval.err"
 fi
 
-# --- 4b. Core Lab 3 exact in-process write request --------------------------
-echo "[4b/6] Core Lab 3 — process_return on the dispatcher rail"
+# --- 4b. Lab 3 exact in-process write request -------------------------------
+echo "[4b/6] Lab 3 — process_return on the dispatcher rail"
 LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
 ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
 if curl --fail --silent --show-error --no-buffer --max-time 75 \
     -X POST "${BASE}/api/chat/stream" \
     -H 'Content-Type: application/json' \
     -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
-  pass "Core Lab 3 stream completed for session ${LEDGER_SESSION}"
+  pass "Lab 3 stream completed for session ${LEDGER_SESSION}"
 else
-  fail "Core Lab 3 process_return request failed"
+  fail "Lab 3 process_return request failed"
 fi
 
 # --- 5. Audit ledger --------------------------------------------------------

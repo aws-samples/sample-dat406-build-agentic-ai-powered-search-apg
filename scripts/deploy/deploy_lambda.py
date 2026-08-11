@@ -10,12 +10,18 @@ import shutil
 import logging
 from subprocess import run as Run
 from pathlib import Path
+import re
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 iam_client = None
 lambda_client = None
+
+
+def _region_from_arn(arn: str, fallback: str) -> str:
+  match = re.match(r"^arn:[^:]+:[^:]+:([^:]+):", arn or "")
+  return match.group(1) if match else fallback
 
 def create_iam_role(role_name, trust_policy, policy_document, tags=None):
   try:
@@ -196,6 +202,7 @@ def main():
   parser.add_argument('--region', help="AWS Region to use.", default=os.getenv("AWS_REGION", "us-east-1"))
   parser.add_argument('--server-name', default='pellier-mcp-server', help='The name of the server deployed by this function.')
   parser.add_argument('--db-cluster-arn', help="Aurora PostgreSQL DB cluster ARN")
+  parser.add_argument('--db-region', help="AWS Region for the Aurora Data API endpoint")
   parser.add_argument('--secret-arn', help="AWS Secrets Manager secret ARN")
   parser.add_argument('--database', help="The name of the database to connect to", default="postgres")
   parser.add_argument('--mcp-server-path', default='./', help='Path to the MCP server entrypoint file.')
@@ -244,11 +251,11 @@ def main():
           "Resource": "*"
         },
         {
-          # The MCP server Lambdas embed queries (Cohere Embed v4) and the
-          # search server reranks (Cohere Rerank v3.5) via bedrock-runtime
-          # invoke_model. Without this the Gateway-routed tool calls deploy
-          # fine but fail at the FIRST embedding with AccessDenied — a failure
-          # that only surfaces at invoke time, not at provisioning. Scoped to
+          # The MCP server Lambdas embed queries (Cohere Embed v4) through
+          # InvokeModel, while the search server calls the separate Rerank API
+          # for Cohere Rerank v3.5. Without both actions, Gateway-routed tools
+          # deploy cleanly but silently fall back to RRF at invocation time.
+          # Scoped to
           # the foundation-model + inference-profile ARN families (NOT region-
           # conditioned: Cohere v4 is a us.* inference profile and the editorial
           # path uses global.* profiles that route as RequestedRegion=unspecified,
@@ -264,6 +271,15 @@ def main():
               f"arn:aws:bedrock:*:{account_id}:inference-profile/*",
               f"arn:aws:bedrock:*:{account_id}:application-inference-profile/*"
           ]
+        },
+        {
+          # bedrock:Rerank does not support resource-level permissions. IAM
+          # evaluates it against "*" even when the request names a specific
+          # reranking model ARN, so it must be isolated from the scoped
+          # InvokeModel statement above.
+          "Effect": "Allow",
+          "Action": ["bedrock:Rerank"],
+          "Resource": "*"
         }
       ]
     }
@@ -308,7 +324,8 @@ def main():
         raise FileNotFoundError(f"Type definition file not found: {types_path}")
 
     # Build environment variables, only include DB vars if provided
-    env_vars = {'REGION': args.region}
+    db_region = args.db_region or _region_from_arn(args.db_cluster_arn, args.region)
+    env_vars = {'REGION': args.region, 'DB_REGION': db_region}
     if args.db_cluster_arn:
       env_vars['DB_CLUSTER_ARN'] = args.db_cluster_arn
     if args.secret_arn:

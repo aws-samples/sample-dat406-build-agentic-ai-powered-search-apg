@@ -1,13 +1,13 @@
 """
 AgentCore Runtime - deployment entrypoint for the managed execution path.
 
-Wraps the orchestrator for execution in an AgentCore Runtime container. This
-file is the BYO entrypoint deployed by the new @aws/agentcore Node CLI (0.18,
-CDK-based — https://github.com/aws/agentcore-cli): bootstrap scaffolds a
-project, registers this file as a BYO agent, patches in the execution role +
-env vars, and `agentcore deploy`s it before participants arrive; in-room they
-read this file and invoke via ``POST /api/agent/chat`` with
-``USE_AGENTCORE_RUNTIME=true``.
+Wraps the dispatcher for execution in an AgentCore Runtime container. This
+file is the BYO entrypoint deployed by the pinned @aws/agentcore Node CLI
+(CDK-based — https://github.com/aws/agentcore-cli). Bootstrap renders one
+declarative project containing Runtime, Memory, Gateway, targets, and Policy,
+then runs ``agentcore validate`` and ``agentcore deploy`` before participants
+arrive. In-room they inspect the project and invoke via
+``POST /api/agent/chat`` with ``USE_AGENTCORE_RUNTIME=true``.
 
 Inside the container the orchestrator's tools run over the managed AgentCore
 GATEWAY (MCP over streamable HTTP, JWT passthrough) — NOT in-process. The
@@ -21,14 +21,12 @@ handler because provisioning allowlists the ``Authorization`` header on the
 runtime (``requestHeaderAllowlist`` patch), so identity passes through:
 shopper → Runtime → Gateway → Cedar → MCP Lambda, one JWT end to end.
 
-Deploy (bootstrap / instructor) — see scripts/deploy/deploy_all.sh steps 6-7
-and scripts/provision_agentcore_end_to_end.py:_deploy_runtime_via_cli:
-    npx -y @aws/agentcore@0.18.0 create --project-name pellier --no-agent ...
-    agentcore add agent --name pellier_orchestrator --type byo \\
-        --code-location pellier/backend --entrypoint agentcore_runtime.py \\
-        --authorizer-type CUSTOM_JWT --discovery-url <cognito> --allowed-clients <client>
-    # patch roleArn + envVars into agentcore/agentcore.json, then:
-    agentcore deploy -y --json   # from the project root (dir containing agentcore/)
+Deploy (bootstrap / instructor):
+    python3 scripts/provision_agentcore_end_to_end.py --repo-path "$PWD"
+
+The provisioner renders ``.agentcore-project/pellier/agentcore/agentcore.json``
+and invokes the pinned CLI. AgentCore CDK injects discovery variables for
+project resources into this Runtime.
 """
 from __future__ import annotations
 
@@ -38,13 +36,18 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# The container's envVars carry MCP_GATEWAY_URL (the name deploy_all.sh and
-# the provisioner patch into agentcore.json) but config.py reads
-# AGENTCORE_GATEWAY_URL. Bridge BEFORE the first `config` import below —
-# `settings` is built once at config import time and would otherwise never
-# see the Gateway URL (the exact silent failure this entrypoint shipped with).
-if os.environ.get("MCP_GATEWAY_URL") and not os.environ.get("AGENTCORE_GATEWAY_URL"):
-    os.environ["AGENTCORE_GATEWAY_URL"] = os.environ["MCP_GATEWAY_URL"]
+# Bridge CLI-injected resource discovery names BEFORE the first `config`
+# import. Settings are built once at import time.
+_gateway_url = (
+    os.environ.get("AGENTCORE_GATEWAY_PELLIER_GATEWAY_URL")
+    or os.environ.get("MCP_GATEWAY_URL")
+)
+if _gateway_url and not os.environ.get("AGENTCORE_GATEWAY_URL"):
+    os.environ["AGENTCORE_GATEWAY_URL"] = _gateway_url
+if os.environ.get("MEMORY_PELLIERMEMORY_ID") and not os.environ.get(
+    "AGENTCORE_MEMORY_ID"
+):
+    os.environ["AGENTCORE_MEMORY_ID"] = os.environ["MEMORY_PELLIERMEMORY_ID"]
 if os.environ.get("AGENT_MODEL_ID") and not os.environ.get("BEDROCK_ROUTER_MODEL"):
     os.environ["BEDROCK_ROUTER_MODEL"] = os.environ["AGENT_MODEL_ID"]
 
@@ -78,47 +81,47 @@ try:
 
     @app.entrypoint
     def invoke(payload: Dict[str, Any], context: Any = None) -> Dict[str, Any]:
-        """AgentCore Runtime entrypoint — orchestrator in a managed microVM."""
+        """Handle the prompt, identity/session ids, and prior Memory history."""
         prompt = (payload or {}).get("prompt", "")
         session_id = (payload or {}).get("session_id", "runtime-session")
         user_id = (payload or {}).get("user_id", "anonymous")
+        history = (payload or {}).get("history", [])
 
-        # Gateway rail first: tools execute in the MCP Lambdas under the
-        # caller's identity (JWT passthrough). The in-process orchestrator is
-        # a conversational fallback only — its catalog tools have no database
-        # service in this container.
-        rail = "in-process"
-        orchestrator = None
+        # Tools execute only through Gateway MCP under the caller's identity.
+        # A managed Runtime invocation must never degrade into local tools.
+        rail = "runtime"
         access_token = _bearer_token_from(context)
-        if access_token:
-            from services.agentcore_gateway import create_gateway_orchestrator
-
-            orchestrator = create_gateway_orchestrator(access_token=access_token)
-            if orchestrator is not None:
-                rail = "gateway-mcp"
-        if orchestrator is None:
+        if not access_token:
             logger.warning(
-                "Gateway rail unavailable (token=%s, gateway_url=%s) — "
-                "falling back to in-process orchestrator",
-                "present" if access_token else "missing",
-                os.environ.get("AGENTCORE_GATEWAY_URL", ""),
+                "Managed Runtime invocation rejected: Cognito bearer token missing"
             )
-            from agents.orchestrator import create_orchestrator
-
-            orchestrator = create_orchestrator()
-
-        if orchestrator is None:
             return {
-                "response": (
-                    "The orchestrator isn't wired up yet. Complete the "
-                    "orchestrator challenge or use the solutions copy."
-                ),
+                "error": "authentication_required",
                 "products": [],
                 "rail": rail,
             }
 
+        if not os.environ.get("AGENTCORE_GATEWAY_URL"):
+            logger.error("Managed Runtime invocation rejected: Gateway URL missing")
+            return {
+                "error": "managed_gateway_unavailable",
+                "products": [],
+                "rail": rail,
+            }
+
+        from services.agentcore_gateway import create_gateway_dispatcher
+
+        dispatcher = create_gateway_dispatcher(access_token=access_token)
+        if dispatcher is None:
+            return {
+                "error": "managed_gateway_unavailable",
+                "products": [],
+                "rail": rail,
+            }
+        rail = "gateway-mcp"
+
         try:
-            orchestrator.trace_attributes = {
+            dispatcher.trace_attributes = {
                 "session.id": session_id,
                 "user.id": user_id or "anonymous",
                 "runtime": "agentcore-managed",
@@ -127,8 +130,17 @@ try:
         except Exception:  # pragma: no cover
             pass
 
-        response = orchestrator(prompt)
-        return {"response": str(response), "products": [], "rail": rail}
+        from services.agentcore_runtime import build_conversation_prompt
+
+        response = dispatcher(build_conversation_prompt(prompt, history))
+        return {
+            "response": str(response),
+            "products": [],
+            "rail": rail,
+            "intent": dispatcher.last_intent,
+            "specialist": dispatcher.last_specialist,
+            "gateway_tools": list(dispatcher.last_tool_names),
+        }
 
 except ImportError:
     logger.info("bedrock-agentcore not installed — Runtime entrypoint disabled")

@@ -239,10 +239,8 @@ const PoliciesCard: React.FC = () => {
           ENFORCE
         </code>{' '}
         mode – argument-aware, default-deny, forbid-wins, evaluated
-        before the tool's Lambda ever runs. New rules are added at
-        provisioning time via{' '}
-        <code style={{ fontFamily: 'var(--at-mono)' }}>scripts/deploy/deploy_policy.py</code>,
-        not in application code.
+        before the tool target runs. New rules are rendered and deployed by
+        the pinned AgentCore CLI project, not by application code.
       </p>
 
       {error && (

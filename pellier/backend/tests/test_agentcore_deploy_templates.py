@@ -1,159 +1,372 @@
-"""Tests for the AgentCore Runtime deploy contract (@aws/agentcore 0.18, CDK).
+"""Static tests for Pellier's AgentCore CLI 0.26 project contract."""
 
-The 0.18 CLI replaced the old flat-config deploy (a bare ``agentcore.json`` +
-``aws-targets.json`` rendered via ``envsubst``, then ``agentcore deploy``) with
-a STATEFUL, CDK-based project model:
-
-    agentcore create   -> scaffold <root>/<proj>/agentcore/
-    agentcore add agent -> register a runtime (BYO points at our entrypoint)
-    agentcore deploy    -> CDK synth + deploy from the PROJECT ROOT
-
-``add agent`` sets name/entrypoint/protocol/CUSTOM_JWT via flags, but has NO
-flags for ``executionRoleArn`` or ``envVars`` — those are JSON-patched into
-``agentcore/agentcore.json`` afterward. ``aws-targets.json`` is now an ARRAY.
-
-These tests pin that contract STATICALLY (no AWS calls, no Node, no CLI) so a
-drift between ``deploy_all.sh`` and ``provision_agentcore_end_to_end.py`` — or a
-regression back to the dead flat-template path — trips here. They assert:
-
-  1. The obsolete flat templates are gone (no resurrection of the old path).
-  2. Both deploy paths pin the SAME CLI version (no @latest in production).
-  3. Both paths use the create -> add agent --type byo -> deploy verbs and the
-     in-repo orchestrator entrypoint (agentcore_runtime.py), not the adapter.
-  4. The JSON-patch step sets executionRoleArn + envVars + runtimeVersion.
-
-Runnable from the repo root per ``pytest.ini``:
-
-    pellier/backend/.venv/bin/python -m pytest \
-        pellier/backend/tests/test_agentcore_deploy_templates.py -v
-"""
 from __future__ import annotations
 
+import importlib.util
+import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_DIR = REPO_ROOT / "pellier" / "backend"
-DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "deploy_all.sh"
-PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
+DEPLOY_DIR = REPO_ROOT / "scripts" / "deploy"
+DEPLOY_SCRIPT = DEPLOY_DIR / "deploy_all.sh"
+PROVISIONER_PATH = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
+RENDERER_PATH = DEPLOY_DIR / "render_agentcore_project.py"
 ENTRYPOINT = BACKEND_DIR / "agentcore_runtime.py"
+RUNTIME_SERVICE = BACKEND_DIR / "services" / "agentcore_runtime.py"
+RUNTIME_SOLUTION = (
+    REPO_ROOT / "solutions" / "the-ledger" / "services" / "agentcore_runtime.py"
+)
 PYPROJECT = BACKEND_DIR / "pyproject.toml"
-RUNTIME_PROBE = REPO_ROOT / "scripts" / "deploy" / "test_runtime.py"
 
-PINNED_CLI = "@aws/agentcore@0.18.0"
-RUNTIME_NAME = "pellier_orchestrator"
+if str(DEPLOY_DIR) not in sys.path:
+    sys.path.insert(0, str(DEPLOY_DIR))
 
-
-# ---------------------------------------------------------------------------
-# The obsolete flat-config path is gone (must not be resurrected)
-# ---------------------------------------------------------------------------
+import render_agentcore_project as renderer  # noqa: E402
 
 
-def test_flat_templates_removed() -> None:
-    """The old envsubst templates are incompatible with 0.18 — they must not
-    exist (their presence would imply the dead deploy path is back)."""
-    for stale in ("agentcore.json.template", "aws-targets.json.template"):
-        assert not (BACKEND_DIR / stale).exists(), (
-            f"{stale} should have been removed in the 0.18 CLI migration — "
-            "the stateful create/add/deploy path replaces it."
-        )
-
-
-def test_no_latest_pin_in_deploy_paths() -> None:
-    """@latest re-resolves per run and drifted contracts mid-development. Both
-    deploy paths must pin an explicit version."""
-    for path in (DEPLOY_SCRIPT, PROVISIONER):
-        text = path.read_text()
-        assert "@aws/agentcore@latest" not in text, (
-            f"{path.name} still references @aws/agentcore@latest — pin a version."
-        )
-        assert PINNED_CLI in text, (
-            f"{path.name} does not pin {PINNED_CLI}."
-        )
-
-
-# ---------------------------------------------------------------------------
-# Both paths use the new verbs + the in-repo BYO entrypoint
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("path", [DEPLOY_SCRIPT, PROVISIONER], ids=lambda p: p.name)
-def test_uses_create_add_deploy_sequence(path: Path) -> None:
-    text = path.read_text()
-    for verb in ("create", "add", "deploy"):
-        assert verb in text, f"{path.name} is missing the '{verb}' CLI verb"
-    assert "--type" in text and "byo" in text, (
-        f"{path.name} must register a BYO agent (--type byo)"
+def _load_provisioner() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "pellier_agentcore_provisioner", PROVISIONER_PATH
     )
-    assert "agentcore_runtime.py" in text, (
-        f"{path.name} must deploy the in-repo orchestrator entrypoint "
-        "agentcore_runtime.py (not the Gateway adapter)"
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _lambda_arns() -> dict[str, str]:
+    return {
+        surface: f"arn:aws:lambda:us-east-1:123456789012:function:pellier-{surface}"
+        for surface in renderer.TOOL_SCHEMAS
+    }
+
+
+def _render(tmp_path: Path, *, include_policies: bool) -> tuple[Path, dict[str, Any]]:
+    repo = tmp_path / "repo"
+    (repo / "pellier" / "backend").mkdir(parents=True)
+    root = renderer.render_project(
+        repo=repo,
+        account_id="123456789012",
+        region="us-east-1",
+        cognito_pool="us-east-1_example",
+        cognito_client="client-id",
+        lambda_arns=_lambda_arns(),
+        model_id="global.anthropic.claude-sonnet-5",
+        workshop_id="p12345678",
+        include_policies=include_policies,
     )
-    assert RUNTIME_NAME in text, f"{path.name} must name the runtime {RUNTIME_NAME}"
-    assert "CUSTOM_JWT" in text, f"{path.name} must set the CUSTOM_JWT authorizer"
+    config = json.loads((root / "agentcore" / "agentcore.json").read_text())
+    return root, config
 
 
-# ---------------------------------------------------------------------------
-# The JSON-patch step sets what add agent's flags can't
-# ---------------------------------------------------------------------------
+def test_agentcore_cli_is_pinned_once() -> None:
+    assert renderer.AGENTCORE_CLI == "@aws/agentcore@0.26.0"
+    source = PROVISIONER_PATH.read_text()
+    assert "AGENTCORE_CLI" in source
+    assert "@aws/agentcore@latest" not in source
 
 
-@pytest.mark.parametrize("path", [DEPLOY_SCRIPT, PROVISIONER], ids=lambda p: p.name)
-def test_patches_role_envvars_runtimeversion(path: Path) -> None:
-    text = path.read_text()
-    # Field spellings match dat403's working config. roleArn (NOT
-    # executionRoleArn) is load-bearing: add agent has no role flag, so the
-    # patch is the only role setter, and the working reference uses roleArn.
-    for field in ("roleArn", "envVars", "runtimeVersion",
-                  "networkMode", "requestHeaderAllowlist"):
-        assert field in text, (
-            f"{path.name} must patch '{field}' into agentcore.json "
-            "(add agent has no flag for it)"
-        )
-    assert "executionRoleArn" not in text or "NOT executionRoleArn" in text, (
-        f"{path.name} must use roleArn, not executionRoleArn (dat403-proven key)"
+def test_renderer_emits_valid_cdk_managed_project_shape(tmp_path: Path) -> None:
+    root, project = _render(tmp_path, include_policies=False)
+
+    assert project["managedBy"] == "CDK"
+    assert project["name"] == "pellier"
+    assert project["version"] == 1
+    assert project["credentials"] == []
+    assert project["payments"] == []
+    assert json.loads((root / "agentcore" / "aws-targets.json").read_text()) == [
+        {
+            "name": "default",
+            "account": "123456789012",
+            "region": "us-east-1",
+        }
+    ]
+
+
+def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) -> None:
+    _, project = _render(tmp_path, include_policies=False)
+    runtime = project["runtimes"][0]
+
+    assert runtime["name"] == renderer.RUNTIME_NAME
+    assert runtime["build"] == "CodeZip"
+    assert runtime["entrypoint"] == "agentcore_runtime.py"
+    assert runtime["runtimeVersion"] == "PYTHON_3_12"
+    assert runtime["protocol"] == "HTTP"
+    assert runtime["requestHeaderAllowlist"] == ["Authorization"]
+    assert runtime["authorizerType"] == "CUSTOM_JWT"
+    assert "executionRoleArn" not in runtime
+
+    env = {item["name"]: item["value"] for item in runtime["envVars"]}
+    assert env == {
+        "AGENT_MODEL_ID": "global.anthropic.claude-sonnet-5",
+        "BEDROCK_ROUTER_MODEL": "global.anthropic.claude-sonnet-5",
+    }
+    assert "AGENTCORE_GATEWAY_URL" not in env
+    assert "AGENTCORE_MEMORY_ID" not in env
+
+
+def test_runtime_bridges_cli_injected_discovery_names() -> None:
+    source = ENTRYPOINT.read_text()
+    assert "AGENTCORE_GATEWAY_PELLIER_GATEWAY_URL" in source
+    assert "MEMORY_PELLIERMEMORY_ID" in source
+    assert 'os.environ["AGENTCORE_GATEWAY_URL"]' in source
+    assert 'os.environ["AGENTCORE_MEMORY_ID"]' in source
+    assert "MCP_GATEWAY_URL" in source  # compatibility fallback only
+
+
+def test_memory_gateway_targets_and_policy_engine_share_one_project(
+    tmp_path: Path,
+) -> None:
+    root, project = _render(tmp_path, include_policies=False)
+
+    memory = project["memories"][0]
+    assert memory["name"] == renderer.MEMORY_NAME
+    assert memory["strategies"][0]["type"] == "USER_PREFERENCE"
+
+    gateway = project["agentCoreGateways"][0]
+    assert gateway["name"] == renderer.GATEWAY_NAME
+    assert gateway["protocolType"] == "MCP"
+    assert gateway["policyEngineConfiguration"] == {
+        "policyEngineName": renderer.POLICY_ENGINE_NAME,
+        "mode": "ENFORCE",
+    }
+    assert len(gateway["targets"]) == 4
+    assert {target["targetType"] for target in gateway["targets"]} == {
+        "lambdaFunctionArn"
+    }
+    assert {
+        target["lambdaFunctionArn"]["lambdaArn"] for target in gateway["targets"]
+    } == set(_lambda_arns().values())
+
+    schemas = sorted((root / "tool-schemas").glob("*.json"))
+    assert len(schemas) == 4
+    assert sum(len(json.loads(path.read_text())) for path in schemas) == 15
+
+    engine = project["policyEngines"][0]
+    assert engine["name"] == renderer.POLICY_ENGINE_NAME
+    assert engine["policies"] == []
+
+
+def test_second_phase_adds_only_the_baseline_cedar_set(tmp_path: Path) -> None:
+    _, project = _render(tmp_path, include_policies=True)
+    policies = project["policyEngines"][0]["policies"]
+
+    assert {policy["name"] for policy in policies} == {
+        "baseline_permit_gateway_tools",
+        "process_return_damaged_only",
+        "process_return_allow_damaged",
+    }
+    assert all(policy["enforcementMode"] == "ACTIVE" for policy in policies)
+    assert all(
+        policy["validationMode"] == "IGNORE_ALL_FINDINGS" for policy in policies
     )
-    for env_key in ("MCP_GATEWAY_URL", "AGENT_MODEL_ID", "BEDROCK_ROUTER_MODEL"):
-        assert env_key in text, f"{path.name} must set the {env_key} env var"
+    statements = "\n".join(policy["statement"] for policy in policies)
+    assert renderer.PROCESS_RETURN_ACTION in statements
+    assert "resource is AgentCore::Gateway" in statements
 
 
-# ---------------------------------------------------------------------------
-# The BYO code-location ships its deps as pyproject.toml (0.18 uses uv)
-# ---------------------------------------------------------------------------
+def test_deployed_state_reads_mcp_gateway_shape() -> None:
+    provisioner = _load_provisioner()
+    state = {
+        "targets": {
+            "default": {
+                "resources": {
+                    "mcp": {
+                        "gateways": {
+                            renderer.GATEWAY_NAME: {
+                                "gatewayId": "gateway-1",
+                                "gatewayArn": "arn:aws:bedrock-agentcore:us-east-1:123:gateway/gateway-1",
+                                "gatewayUrl": "https://gateway.example/mcp",
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    gateway = provisioner._require_gateway_state(state, renderer.GATEWAY_NAME)
+    assert gateway["gatewayId"] == "gateway-1"
+
+
+def test_deployed_state_rejects_obsolete_flat_gateway_shape() -> None:
+    provisioner = _load_provisioner()
+    state = {
+        "targets": {
+            "default": {
+                "resources": {
+                    "gateways": {renderer.GATEWAY_NAME: {"gatewayId": "wrong"}}
+                }
+            }
+        }
+    }
+
+    with pytest.raises(RuntimeError, match=r"mcp\.gateways\.pellier-gateway"):
+        provisioner._require_gateway_state(state, renderer.GATEWAY_NAME)
+
+
+def test_deploy_sequence_validates_both_cli_phases(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    provisioner = _load_provisioner()
+    root = tmp_path / "project"
+    calls: list[tuple[str, ...]] = []
+    render_phases: list[bool] = []
+    state = {
+        "targets": {
+            "default": {
+                "resources": {
+                    "mcp": {
+                        "gateways": {
+                            renderer.GATEWAY_NAME: {
+                                "gatewayId": "gateway-1",
+                                "gatewayArn": "arn:gateway",
+                            }
+                        }
+                    },
+                    "policyEngines": {
+                        renderer.POLICY_ENGINE_NAME: {
+                            "policyEngineId": "engine-1",
+                            "policyEngineArn": "arn:engine",
+                        }
+                    },
+                }
+            }
+        }
+    }
+
+    monkeypatch.setattr(
+        provisioner, "_scaffold_cli_project", lambda **_: root
+    )
+    monkeypatch.setattr(
+        provisioner,
+        "render_project",
+        lambda **kwargs: render_phases.append(kwargs["include_policies"]),
+    )
+    monkeypatch.setattr(
+        provisioner,
+        "_agentcore",
+        lambda _root, *args, **_: calls.append(args),
+    )
+    monkeypatch.setattr(provisioner, "_read_deployed_state", lambda _root: state)
+
+    returned_root, returned_state = provisioner._deploy_cli_project(
+        repo=tmp_path,
+        account_id="123456789012",
+        region="us-east-1",
+        cognito_pool="pool",
+        cognito_client="client",
+        lambda_arns=_lambda_arns(),
+        model_id="model",
+        workshop_id="workshop",
+        env={},
+    )
+
+    assert returned_root == root
+    assert returned_state is state
+    assert render_phases == [False, True]
+    assert calls == [
+        ("validate",),
+        ("deploy", "--yes", "--json"),
+        ("validate",),
+        ("deploy", "--yes", "--json"),
+    ]
 
 
 def test_pyproject_carries_runtime_imports() -> None:
-    assert PYPROJECT.is_file(), (
-        f"pyproject.toml missing at {PYPROJECT} — 0.18 CodeZip builds use uv + "
-        "pyproject.toml, not requirements.txt."
-    )
     deps = PYPROJECT.read_text()
-    # The orchestrator entrypoint transitively imports these; if any is absent
-    # the CodeZip would ImportError at microVM load.
-    for pkg in ("strands-agents", "bedrock-agentcore", "pydantic-settings", "boto3"):
-        assert pkg in deps, f"pyproject.toml is missing the '{pkg}' dependency"
+    for package in ("strands-agents", "bedrock-agentcore", "pydantic-settings", "boto3"):
+        assert package in deps
 
 
-def test_entrypoint_is_byo_app() -> None:
-    """The deployed entrypoint must expose the BedrockAgentCoreApp @entrypoint."""
+def test_entrypoint_is_fail_closed_byo_app() -> None:
     text = ENTRYPOINT.read_text()
     assert "BedrockAgentCoreApp" in text
     assert "@app.entrypoint" in text
+    assert '"error": "authentication_required"' in text
+    assert '"error": "managed_gateway_unavailable"' in text
+    assert "create_gateway_dispatcher" in text
+    assert "from agents.orchestrator import create_orchestrator" not in text
+    for field in ('"intent"', '"specialist"', '"gateway_tools"'):
+        assert field in text
 
 
-def test_runtime_probe_uses_raw_custom_jwt_transport() -> None:
-    probe = RUNTIME_PROBE.read_text()
-    deploy = DEPLOY_SCRIPT.read_text()
+def test_runtime_smoke_uses_pinned_agentcore_cli() -> None:
+    provisioner = PROVISIONER_PATH.read_text()
+    assert '"invoke"' in provisioner
+    assert '"--runtime"' in provisioner
+    assert '"--bearer-token"' in provisioner
+    assert '"--session-id"' in provisioner
+    assert "urllib.request" not in provisioner
 
-    assert "urllib.request.Request" in probe
-    assert '"Authorization": f"Bearer {token}"' in probe
-    assert "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id" in probe
-    assert "/invocations?qualifier=DEFAULT" in probe
-    assert "gateway-mcp" in probe
-    assert "bedrock-agentcore-runtime" not in probe
-    assert "authToken" not in probe
-    assert "invoke_agent_runtime_streaming" not in probe
-    assert '--runtime-arn "$AGENT_RUNTIME_ARN"' in deploy
-    assert '--token "$TOKEN" --stream' not in deploy
+
+def test_bootstrap_runtime_solution_matches_fail_closed_service() -> None:
+    assert RUNTIME_SOLUTION.read_text() == RUNTIME_SERVICE.read_text()
+
+
+def test_obsolete_flat_templates_and_runtime_provisioner_are_removed() -> None:
+    for stale in (
+        BACKEND_DIR / ".bedrock_agentcore.yaml",
+        BACKEND_DIR / "agentcore.json.template",
+        BACKEND_DIR / "aws-targets.json.template",
+        BACKEND_DIR / "scripts" / "create_local_memory.py",
+        REPO_ROOT / "scripts" / "provision_agentcore_runtime.py",
+    ):
+        assert not stale.exists()
+
+
+def test_no_direct_agentcore_control_plane_mutation_helpers() -> None:
+    """AgentCore CLI/CDK owns resource mutations; SDK helpers may only inspect."""
+    forbidden_sdk_calls = (
+        ".create_agent_runtime(",
+        ".update_agent_runtime(",
+        ".delete_agent_runtime(",
+        ".create_gateway(",
+        ".update_gateway(",
+        ".delete_gateway(",
+        ".create_gateway_target(",
+        ".update_gateway_target(",
+        ".delete_gateway_target(",
+        ".create_memory(",
+        ".update_memory(",
+        ".delete_memory(",
+        ".create_policy_engine(",
+        ".update_policy_engine(",
+        ".delete_policy_engine(",
+        ".create_policy(",
+        ".update_policy(",
+        ".delete_policy(",
+    )
+    source_roots = (
+        REPO_ROOT / "scripts",
+        BACKEND_DIR / "scripts",
+        BACKEND_DIR / "routes",
+        BACKEND_DIR / "services",
+    )
+
+    for root in source_roots:
+        for path in (*root.rglob("*.py"), *root.rglob("*.sh")):
+            source = path.read_text()
+            for operation in forbidden_sdk_calls:
+                assert operation not in source, (
+                    f"{path.relative_to(REPO_ROOT)} mutates AgentCore with "
+                    f"{operation}; render the resource in the CLI project instead"
+                )
+            assert "bedrock-agentcore-control create-" not in source
+            assert "bedrock-agentcore-control update-" not in source
+            assert "bedrock-agentcore-control delete-" not in source
+
+
+def test_deploy_all_is_only_a_canonical_provisioner_wrapper() -> None:
+    source = DEPLOY_SCRIPT.read_text()
+    assert "provision_agentcore_end_to_end.py" in source
+    assert "deploy_gateway.py" not in source
+    assert "deploy_policy.py" not in source
+    assert "bedrock-agentcore-control create" not in source

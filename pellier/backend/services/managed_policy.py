@@ -1,12 +1,10 @@
 """
 Managed AgentCore Policy — read surface for the Gateway-enforced Cedar engine.
 
-The boutique's policy gate is now a **managed AgentCore Policy Engine** attached
-to the AgentCore Gateway in ENFORCE mode (provisioned by
-``scripts/deploy/deploy_policy.py``). The Gateway intercepts every tool call and
-evaluates it against Cedar BEFORE the Lambda runs — argument-aware, default-deny,
-forbid-wins. This replaced the old local ``BeforeToolCall`` hook + hand-rolled
-fake-Cedar engine (both removed).
+The optional managed path uses an **AgentCore Policy Engine** attached to
+AgentCore Gateway in ENFORCE mode by the pinned AgentCore CLI project. Gateway
+evaluates Cedar before the target runs. This replaced the old local
+``BeforeToolCall`` hook and hand-rolled policy emulator.
 
 This module is the **read side** of that managed gate. It does NOT enforce
 anything (the Gateway does) — it just lets the Agent Trace Policy surface show, live,

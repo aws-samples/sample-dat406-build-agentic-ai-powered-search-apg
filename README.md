@@ -234,7 +234,11 @@ for migration in \
   006_warehouse_inventory.sql \
   007_chat_session_tables.sql \
   008_search_performance_indexes.sql \
-  009_return_policies.sql
+  009_return_policies.sql \
+  010_governed_receipts.sql \
+  011_governed_write_integrity.sql \
+  012_retrieval_receipts.sql \
+  013_inventory_ledger.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
@@ -271,9 +275,10 @@ VITE_BASE_PATH=/app/
 ### Managed AgentCore workshop
 
 The `main` workshop does not provision or invoke AgentCore during the timed
-path. The repository's `governed` branch is the hands-on managed version: it
-uses the AgentCore CLI for Runtime, Memory, Gateway, and Policy and pins
-`npx -y @aws/agentcore@0.26.0`.
+path. Its optional managed path and the hands-on `governed` workshop use the
+same declarative AgentCore CLI project for Runtime, Memory, Gateway, targets,
+roles, Policy, and Cedar, pinned to `@aws/agentcore@0.26.0`. Direct SDK
+control-plane mutation helpers are intentionally absent.
 
 ---
 
@@ -316,7 +321,7 @@ sample-pellier-agentic-search-apg/
 │   ├── the-ledger/               AgentCore and audit-ledger references
 │   └── the-concierge/            MCP and Gateway inspection references
 ├── scripts/
-│   ├── migrations/               Ordered idempotent SQL, 001 through 009
+│   ├── migrations/               Ordered idempotent SQL, 001 through 013
 │   ├── deploy/                   Optional managed-path deployment scripts
 │   ├── bootstrap-environment.sh  Code Editor, nginx, Python, and host setup
 │   └── bootstrap-labs.sh         Schema, seed, build, and service setup

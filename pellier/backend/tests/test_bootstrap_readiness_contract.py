@@ -127,7 +127,7 @@ def test_builders_path_defaults_managed_extensions_off() -> None:
     dry_run = BUILDERS_DRY_RUN.read_text(encoding="utf-8")
 
     assert "ENABLE_BUILDERS_MANAGED_PATH:-false" in bootstrap
-    assert "Skipping managed Memory for the one-hour builders path" in bootstrap
+    assert "Memory belongs to the optional AgentCore CLI project" in bootstrap
     assert "Skipping managed Runtime, Gateway, and Policy" in bootstrap
     for fragment in (
         "AGENTCORE_RUNTIME_ENDPOINT",
@@ -142,8 +142,8 @@ def test_runtime_arn_is_recorded_before_smoke() -> None:
     record = source.index('result["runtime"] = {')
     smoke = source.index("smoke = _authenticated_runtime_smoke(")
     assert record < smoke
-    assert '"BEDROCK_ROUTER_MODEL": model_id' in source
-    assert 'os.environ.get("AGENT_MODEL_ID", "global.' not in source
+    assert 'model_id=required["model_id"]' in source
+    assert "render_project(" in source
 
 
 def test_preference_seed_uses_access_token() -> None:

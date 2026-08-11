@@ -2397,10 +2397,8 @@ async def get_episodic_memories(query: str, user=Depends(get_current_user)):
 
 
 # NOTE: the former POST /api/agentcore/policy/create route was removed.
-# Cedar policy creation is now a provisioning-time concern handled by
-# scripts/deploy/deploy_policy.py (managed AgentCore Policy engine),
-# not a runtime endpoint. The natural-language policy helper it called
-# used a preview-era boto3 shape and has been deleted.
+# Cedar policy creation is owned by the pinned AgentCore CLI project, not a
+# runtime endpoint. The old preview-era natural-language helper is gone.
 
 
 @app.post("/api/agentcore/analytics")

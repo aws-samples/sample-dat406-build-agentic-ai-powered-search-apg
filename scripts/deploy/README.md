@@ -1,41 +1,57 @@
 # Deploy to AgentCore
 
-Deploy Pellier's multi-agent system to production using Amazon Bedrock AgentCore.
+Deploy Pellier's governed agent path using Amazon Bedrock AgentCore.
+
+The pinned AgentCore CLI is the only control-plane deployment path for Runtime,
+Memory, Gateway, Gateway targets, execution roles, the Policy engine, and Cedar
+policies. Python helpers package the four external Lambda tools, seed Memory,
+authenticate test users, and verify the deployed path.
 
 ## What Gets Deployed
 
-1. **3 Lambda MCP Servers** — Specialist tools packaged as Lambda functions:
-   - `pellier-search-server` — Semantic search + inventory tools
+1. **4 Lambda MCP Servers** — 15 canonical tools packaged as Lambda functions:
+   - `pellier-search-server` — Hybrid search + inventory tools
    - `pellier-pricing-server` — Price analysis + deal finding
-   - `pellier-recommend-server` — Personalized product recommendations
+   - `pellier-recommend-server` — Curation, preferences, and audit reads
+   - `pellier-experience-server` — Returns and stylist escalation
 
-2. **AgentCore Gateway** — MCP Gateway that registers all 3 Lambda targets with:
+2. **AgentCore Memory** — Short-term session events plus a
+   `USER_PREFERENCE` semantic strategy.
+
+3. **AgentCore Gateway** — MCP Gateway that registers all four Lambda targets with:
    - Cognito JWT authentication
-   - Semantic tool discovery
-   - Tool schemas for each server
+   - Runtime tool discovery over MCP streamable HTTP
+   - Exact parity with the 15-tool in-process contract
 
    Docs: [Gateway overview](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html)
 
-3. **AgentCore Runtime** — The orchestrator agent deployed as a managed runtime:
+4. **AgentCore Policy** — A managed Cedar engine attached to Gateway in
+   `ENFORCE` mode:
+   - Baseline permit for this Gateway's tool catalog
+   - `process_return` allowed only for `reason == "damaged"`
+   - Provisioning executes a real ALLOW and DENY before reporting ready
+
+5. **AgentCore Runtime** — The orchestrator deployed as a managed HTTP runtime:
+   - Requires a Cognito access token through `CUSTOM_JWT`
    - Discovers tools via Gateway
-   - Routes queries to specialist agents
-   - Persistent memory via AgentCore Memory
+   - Fails closed if identity or Gateway is unavailable
+   - Uses AgentCore Memory context supplied by the application request path
 
    Docs: [Runtime overview](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime.html)
 
 ## Prerequisites
 
-The Workshop Studio AMI ships with the `@aws/agentcore` Node CLI preinstalled. Verify before starting:
+The Workshop Studio AMI ships with the pinned `@aws/agentcore` Node CLI. Verify before starting:
 
 ```bash
-which agentcore && agentcore --version   # /usr/local/bin/agentcore, v1.x
-node --version                           # >= 20.x
+npx -y @aws/agentcore@0.26.0 --version
+node --version  # >= 20.x
 ```
 
 If the CLI is missing (or you're testing a fresh AMI build):
 
 ```bash
-npm install -g @aws/agentcore
+npm install -g @aws/agentcore@0.26.0
 ```
 
 CLI repo: https://github.com/aws/agentcore-cli
@@ -46,55 +62,31 @@ CLI repo: https://github.com/aws/agentcore-cli
 source deploy_all.sh
 ```
 
-The `source` form is required — later steps consume env vars (`SEARCH_LAMBDA_ARN`, `MCP_GATEWAY_URL`, etc.) exported by earlier steps. Running with `bash deploy_all.sh` would silently lose those exports.
+Use `source` for interactive recovery so the final Runtime, Memory, Gateway,
+and Policy identifiers remain in the current shell. Bootstrap invokes the
+canonical Python provisioner directly and persists the same values to the
+backend environment.
 
-## Step-by-Step Deploy
+## Deployment Sequence
 
-```bash
-# 1. Deploy Lambda MCP servers
-uv run deploy_lambda.py --server-name pellier-search-server \
-  --mcp-server-path pellier_search_server.py \
-  --handler pellier_search_server.lambda_handler \
-  --db-cluster-arn $PGHOSTARN --secret-arn $PGSECRET --database $PGDATABASE
+`deploy_all.sh` is the executable source of truth. It runs these phases:
 
-# 2. Deploy Gateway (calls bedrock-agentcore-control:CreateGateway)
-uv run deploy_gateway.py --gateway-name pellier-gateway \
-  --search-lambda-arn $SEARCH_LAMBDA_ARN \
-  --pricing-lambda-arn $PRICING_LAMBDA_ARN \
-  --recommendation-lambda-arn $RECOMMENDATION_LAMBDA_ARN \
-  --cognito-user-pool-id $COGNITO_POOL \
-  --cognito-client-id $COGNITO_CLIENT
+1. Package and deploy the search, pricing, recommendation, and experience
+   Lambda functions.
+2. Scaffold one stateful `@aws/agentcore@0.26.0` project with
+   `agentcore create`.
+3. Render Runtime, Memory, Gateway, four Lambda targets, and Policy engine into
+   the CLI project. Execution roles are intentionally omitted so CLI/CDK owns
+   them.
+4. Run `agentcore validate` and `agentcore deploy`.
+5. After Gateway has published its action catalog, render the baseline Cedar
+   set and run the same validate/deploy sequence again.
+6. Authenticate with Cognito, discover all 15 live MCP tools, seed Memory,
+   prove Policy ALLOW/DENY, and invoke Runtime with `rail=gateway-mcp`.
 
-# 3. Scaffold + deploy via the @aws/agentcore Node CLI (0.18, CDK-based).
-#    0.18 is a STATEFUL project model: create -> add agent -> deploy.
-#    `add agent` sets entrypoint/protocol/CUSTOM_JWT via flags; executionRoleArn
-#    + envVars have no flags, so we JSON-patch agentcore/agentcore.json after.
-#    `deploy` runs from the PROJECT ROOT (dir containing agentcore/) and is
-#    CDK-based, so the account must be `cdk bootstrap`-ed first.
-#    The project roots at REPO level (../../.agentcore-project), NEVER inside
-#    pellier/backend: the CodeZip packager copies the whole code-location, so a
-#    project inside it copies itself recursively until ENAMETOOLONG.
-#    deploy_all.sh automates all of this (steps 6-7); the manual gist:
-ROOT=../../.agentcore-project/pellier
-npx -y @aws/agentcore@0.18.0 create --project-name pellier --no-agent --defaults \
-  --build CodeZip --language Python --framework Strands --model-provider Bedrock \
-  --protocol HTTP --skip-git --skip-python-setup --skip-install \
-  --output-dir ../../.agentcore-project --json
-( cd "$ROOT" && npx -y @aws/agentcore@0.18.0 add agent --name pellier_orchestrator \
-  --type byo --build CodeZip --language Python --framework Strands \
-  --model-provider Bedrock --protocol HTTP \
-  --code-location ../../pellier/backend --entrypoint agentcore_runtime.py \
-  --authorizer-type CUSTOM_JWT --discovery-url "$OAUTH_ISSUER_URL/.well-known/openid-configuration" \
-  --allowed-clients "$COGNITO_CLIENT" --json )
-# patch executionRoleArn + envVars + runtimeVersion into agentcore/agentcore.json, then:
-( cd "$ROOT" && npx -y @aws/agentcore@0.18.0 deploy -y --json )
-
-# 4. Test the deployed Runtime
-uv run test_runtime.py \
-  --runtime-arn "$AGENT_RUNTIME_ARN" \
-  --prompt "Find a linen shirt under $250" \
-  --token "$TOKEN"
-```
+For unattended bootstrap, use
+`scripts/provision_agentcore_end_to_end.py`; it adds target/tool verification,
+live Policy ALLOW/DENY proof, and a structured readiness receipt.
 
 ## Files
 
@@ -102,22 +94,30 @@ uv run test_runtime.py \
 | --------------------------------- | ---------------------------------------------- |
 | `pellier_search_server.py`         | Lambda MCP server for search + inventory       |
 | `pellier_pricing_server.py`        | Lambda MCP server for pricing                  |
-| `pellier_recommend_server.py` | Lambda MCP server for curation + evidence      |
+| `pellier_recommend_server.py`      | Lambda MCP server for curation + evidence      |
+| `pellier_experience_server.py`     | Lambda MCP server for returns + escalation     |
 | `deploy_lambda.py`                | Lambda deployment script (adapted from DAT403) |
-| `deploy_gateway.py`               | AgentCore Gateway deployment                   |
-| `agentcore_runtime_adapter.py`    | Gateway-aware runtime entrypoint (alternate; not the deployed one) |
-| `../../pellier/backend/agentcore_runtime.py` | **Deployed** BYO runtime entrypoint (in-process orchestrator) |
-| `../../pellier/backend/pyproject.toml` | CodeZip deps for the BYO agent (0.18 uses uv, not requirements.txt) |
-| `deploy_all.sh`                   | End-to-end deployment script                   |
-| `test_runtime.py`                 | Raw CUSTOM_JWT Runtime smoke probe              |
+| `gateway_tool_schemas.py`         | Canonical four-target, 15-tool schema          |
+| `render_agentcore_project.py`     | Writes the declarative AgentCore CLI project   |
+| `seed_agentcore_memory.py`        | Seeds managed preference records after deploy  |
+| `gateway_process_return.py`       | Live ALLOW/DENY and JWT-bound receipt proof    |
+| `../../pellier/backend/agentcore_runtime.py` | **Deployed** BYO Runtime entrypoint; JWT + Gateway required |
+| `../../pellier/backend/pyproject.toml` | CodeZip dependencies for the BYO agent         |
+| `deploy_all.sh`                   | Thin recovery wrapper around the provisioner   |
+| `../provision_agentcore_end_to_end.py` | Canonical deploy and proof orchestration |
 | `requirements.txt`                | Pinned deployment-helper dependencies          |
 
 ## Where to look when something breaks
 
-- **`agentcore deploy` fails with `AccessDenied` on `iam:PassRole`** — the calling principal needs permission to pass the AgentCore execution role. Workshop Studio CFN grants this; outside Workshop Studio, attach a policy that allows `iam:PassRole` on the role ARN in `agentcore.json`.
+- **`agentcore deploy` fails in CDK/IAM** — the CLI project deliberately omits
+  `executionRoleArn`; CDK creates the Runtime and Gateway roles. Confirm the
+  account is CDK-bootstrapped and the caller can assume/pass the
+  `cdk-hnb659fds-*` deployment roles.
 - **Gateway returns `401`** — Cognito access token expired (1-hour default). Re-run the `cognito-idp initiate-auth` block from `deploy_all.sh` step 7.
-- **Runtime says `MCP_GATEWAY_URL not configured`** — the env-var patch into `agentcore/agentcore.json` ran before `MCP_GATEWAY_URL` was set. Re-export it and re-run the patch + `agentcore deploy` (deploy_all.sh step 6c-7).
+- **Runtime returns `managed_gateway_unavailable`** — `AGENTCORE_GATEWAY_URL` was absent or Gateway discovery failed. Repair the generated Runtime environment, redeploy, and rerun `npx -y @aws/agentcore@0.26.0 invoke --runtime pellier_orchestrator --bearer-token "$PELLIER_TOKEN" --prompt "Find linen pieces" --json`; do not enable a local fallback.
 - **`agentcore deploy` fails on a missing CDKToolkit / `cdk-hnb659fds` stack** — the account isn't CDK-bootstrapped. Run `npx -y aws-cdk@2 bootstrap aws://<account>/<region>` (bootstrap-environment.sh does this automatically on fresh accounts).
-- **CloudWatch logs** — runtime invocations land in `/aws/bedrock-agentcore/runtimes/<runtime-id>`. Search by `session.id` to follow a single multi-step turn.
+- **Runtime traces** — run `npx -y @aws/agentcore@0.26.0 traces list --runtime pellier_orchestrator --limit 10 --since 1h --json`, then correlate on the session ID.
 
-For the fresh-account Runtime, Gateway, and Memory release gate, see `PROBE_CHECKLIST.md`.
+Run `bash scripts/health-gate.sh` for the governed readiness verdict. It also
+requires active Memory, exactly 120 warehouse rows, Policy `ENFORCE`, and the
+structured provisioning receipt.

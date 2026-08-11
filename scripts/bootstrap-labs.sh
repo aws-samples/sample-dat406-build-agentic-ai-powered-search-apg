@@ -262,7 +262,7 @@ fi
 # or a dead chat turn mid-session. Cohere Embed v4 is hard-required because
 # every shopper query is embedded live before the pgvector search (the cache
 # only covers the catalog corpus). The same preflight also resolves the
-# independent Claude Code CLI model for Core Lab 1.
+# independent Claude Code CLI model for Lab 1.
 log "Preflight: checking Bedrock model access (${AWS_REGION})..."
 if [ -f "$REPO_PATH/scripts/check_model_access.py" ]; then
     if sudo -u "$CODE_EDITOR_USER" bash -c "
@@ -391,7 +391,11 @@ setup_database() {
             006_warehouse_inventory.sql \
             007_chat_session_tables.sql \
             008_search_performance_indexes.sql \
-            009_return_policies.sql
+            009_return_policies.sql \
+            010_governed_receipts.sql \
+            011_governed_write_integrity.sql \
+            012_retrieval_receipts.sql \
+            013_inventory_ledger.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -448,265 +452,8 @@ else
 fi
 
 # ============================================================================
-# STEP 10b: MANAGED MEMORY (DISABLED FOR THE ONE-HOUR BUILDERS PATH)
-# ============================================================================
-# Memory carries STM (working memory) PLUS a USER_PREFERENCE extraction
-# strategy that promotes conversation turns into durable semantic records
-# under /pellier/preferences/{actorId}/. We then pre-bake preference-
-# expressing turns for the three personas so async extraction (~150s) has
-# produced durable records by the time participants open the Agent Trace — the
-# Semantic panel reads them live instead of serving a fixture.
-#
-# Why a temp script (not python3 -c): the seed copy contains apostrophes and
-# nested dicts; a quoted heredoc keeps the body literal and avoids the
-# escaping minefield of inline -c. Only the memory id reaches stdout; all
-# diagnostics go to the log file so command substitution stays clean.
-if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] \
-    && [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" != "true" ]; then
-    log "Skipping managed Memory for the one-hour builders path"
-else
-log "Provisioning AgentCore Memory + USER_PREFERENCE strategy..."
-
-AGENTCORE_MEMORY_LOG="/tmp/agentcore-memory.log"
-AGENTCORE_MEMORY_ID=""
-if command -v python3 &>/dev/null; then
-    _MEM_SCRIPT="$(mktemp /tmp/pellier-memory-XXXXXX.py)"
-    cat > "$_MEM_SCRIPT" <<'PYEOF'
-"""Provision PellierSTM with a USER_PREFERENCE strategy and pre-bake
-persona preference turns. Prints ONLY the memory id to stdout on success;
-everything else goes to stderr."""
-import os
-import sys
-import time
-from datetime import datetime, timezone
-
-import boto3
-
-REGION = os.environ["AWS_REGION"]
-MEMORY_NAME = os.environ.get("PELLIER_MEMORY_NAME", "PellierSTM")
-STRATEGY_NAME = "PellierUserPreferences"
-STRATEGY_NAMESPACE = "/pellier/preferences/{actorId}/"
-
-# 2 turn-pairs per persona; actor_id == customer_id the Agent Trace panel reads.
-# Copy expresses DURABLE taste the USER_PREFERENCE strategy should extract.
-SEED_TURNS = {
-    "CUST-MARCO": [
-        ("I'm heading to Goa for ten days and want lightweight linen I can layer.",
-         "Linen is a great call for that heat - I'll focus on breathable natural "
-         "fibers in warm neutrals you can mix and match."),
-        ("I prefer earthy tones - sand, olive, terracotta - nothing flashy.",
-         "Noted: warm, muted neutrals in natural fibers, travel-ready pieces that "
-         "pack light."),
-    ],
-    "CUST-ANNA": [
-        ("I'm shopping for a thoughtful gift for my sister, ideally something handmade.",
-         "Lovely - I'll look for artisan pieces with a personal feel rather than "
-         "generic items."),
-        ("Let's keep it under $150, and I'd rather it feel special than expensive.",
-         "Got it: a considered, artisan gift under $150 that feels personal."),
-    ],
-    "CUST-THEO": [
-        ("I'm slowly building a home - hand-thrown ceramics, stoneware, linen throws.",
-         "Lovely - I'll lean into slow-craft home pieces: hand-thrown ceramics, "
-         "stoneware, and natural-fiber textiles."),
-        ("I'd rather buy one quiet, tactile piece I'll keep than a set I won't.",
-         "Noted: quality over quantity - tactile, well-made objects in muted "
-         "tones, the kind you finish slowly."),
-    ],
-}
-
-
-def log(msg):
-    print(msg, file=sys.stderr, flush=True)
-
-
-def find_memory_by_name(ctrl, name):
-    """ListMemories summaries DO NOT carry `name` (only id/status), so we
-    resolve each id via GetMemory. Returns the full memory dict or None."""
-    token = None
-    while True:
-        kwargs = {"maxResults": 100}
-        if token:
-            kwargs["nextToken"] = token
-        page = ctrl.list_memories(**kwargs)
-        for summ in page.get("memories", []):
-            mem_id = summ.get("id")
-            if not mem_id:
-                continue
-            try:
-                mem = ctrl.get_memory(memoryId=mem_id)["memory"]
-            except Exception as exc:  # noqa: BLE001
-                log(f"  get_memory({mem_id}) failed: {exc}")
-                continue
-            if mem.get("name") == name:
-                return mem
-        token = page.get("nextToken")
-        if not token:
-            return None
-
-
-def has_user_pref_strategy(mem):
-    for s in mem.get("strategies", []):
-        if s.get("type") == "USER_PREFERENCE":
-            return s
-    return None
-
-
-def wait_memory_active(ctrl, mem_id, timeout_s=120):
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        mem = ctrl.get_memory(memoryId=mem_id)["memory"]
-        status = mem.get("status")
-        if status == "ACTIVE":
-            return mem
-        if status == "FAILED":
-            log(f"  memory {mem_id} FAILED: {mem.get('failureReason')}")
-            return None
-        time.sleep(5)
-    log(f"  memory {mem_id} not ACTIVE within {timeout_s}s")
-    return ctrl.get_memory(memoryId=mem_id)["memory"]
-
-
-def wait_strategy_active(ctrl, mem_id, timeout_s=150):
-    """Poll until a USER_PREFERENCE strategy reports ACTIVE. Returns True if
-    so (events created after this point are eligible for extraction)."""
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        mem = ctrl.get_memory(memoryId=mem_id)["memory"]
-        strat = has_user_pref_strategy(mem)
-        if strat and strat.get("status") == "ACTIVE":
-            return True
-        if strat and strat.get("status") == "FAILED":
-            log("  USER_PREFERENCE strategy FAILED")
-            return False
-        time.sleep(5)
-    log(f"  USER_PREFERENCE strategy not ACTIVE within {timeout_s}s")
-    return False
-
-
-def prebake(data_client, mem_id):
-    """Create persona preference events. Fixed clientTokens make this
-    idempotent across bootstrap re-runs (no duplicate events / extraction)."""
-    baked = 0
-    for actor_id, pairs in SEED_TURNS.items():
-        for idx, (user_msg, asst_msg) in enumerate(pairs):
-            try:
-                data_client.create_event(
-                    memoryId=mem_id,
-                    actorId=actor_id,
-                    sessionId="prefseed",
-                    eventTimestamp=datetime.now(timezone.utc),
-                    clientToken=f"pellier-prefseed-{actor_id}-{idx}",
-                    payload=[
-                        {"conversational": {"content": {"text": user_msg}, "role": "USER"}},
-                        {"conversational": {"content": {"text": asst_msg}, "role": "ASSISTANT"}},
-                    ],
-                )
-                baked += 1
-            except Exception as exc:  # noqa: BLE001
-                log(f"  create_event({actor_id}#{idx}) failed: {exc}")
-    log(f"  pre-baked {baked} preference events across {len(SEED_TURNS)} personas")
-
-
-def main():
-    ctrl = boto3.client("bedrock-agentcore-control", region_name=REGION)
-    strategy_input = {
-        "userPreferenceMemoryStrategy": {
-            "name": STRATEGY_NAME,
-            "description": "Extracts durable shopper preferences into semantic memory",
-            "namespaces": [STRATEGY_NAMESPACE],
-        }
-    }
-
-    mem = find_memory_by_name(ctrl, MEMORY_NAME)
-
-    if mem is None:
-        # Fresh: create WITH the strategy in one shot.
-        log("Creating PellierSTM with USER_PREFERENCE strategy...")
-        resp = ctrl.create_memory(
-            name=MEMORY_NAME,
-            description="Pellier workshop memory - STM plus USER_PREFERENCE semantic extraction",
-            eventExpiryDuration=30,
-            memoryStrategies=[strategy_input],
-            tags={
-                "Project": "pellier",
-                "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "unknown"),
-            },
-        )
-        mem_id = resp["memory"]["id"]
-    else:
-        mem_id = mem["id"]
-        log(f"PellierSTM exists ({mem_id}).")
-        if mem.get("arn"):
-            ctrl.tag_resource(
-                resourceArn=mem["arn"],
-                tags={
-                    "Project": "pellier",
-                    "PellierWorkshopId": os.environ.get(
-                        "WORKSHOP_ID", "unknown"
-                    ),
-                },
-            )
-        if has_user_pref_strategy(mem) is None:
-            # Existing STM-only memory: attach the strategy.
-            log("  adding USER_PREFERENCE strategy via update_memory...")
-            try:
-                ctrl.update_memory(
-                    memoryId=mem_id,
-                    memoryStrategies={"addMemoryStrategies": [strategy_input]},
-                )
-            except Exception as exc:  # noqa: BLE001
-                log(f"  update_memory failed: {exc}")
-        else:
-            log("  USER_PREFERENCE strategy already present.")
-
-    # Memory must be ACTIVE before anything else.
-    if wait_memory_active(ctrl, mem_id) is None:
-        # No usable memory id -> let bootstrap fall back.
-        sys.exit(1)
-
-    # Pre-bake only once the strategy is ACTIVE, so events are extraction-
-    # eligible. If it never activates, skip pre-bake (panel stays on the
-    # honest fixture) but still hand back the id so STM works.
-    if wait_strategy_active(ctrl, mem_id):
-        data_client = boto3.client("bedrock-agentcore", region_name=REGION)
-        prebake(data_client, mem_id)
-    else:
-        log("  skipping pre-bake (strategy not ACTIVE); semantic panel will use fixture")
-
-    # ONLY the id on stdout.
-    print(mem_id)
-
-
-try:
-    main()
-except Exception as exc:  # noqa: BLE001
-    print(f"Memory provisioning failed: {exc}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$_MEM_SCRIPT"
-    AGENTCORE_MEMORY_ID=$(sudo -u "$CODE_EDITOR_USER" bash -c "
-        export PATH=\"\$HOME/.local/bin:\$PATH\"
-        export AWS_REGION='$AWS_REGION'
-        export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
-        export PELLIER_MEMORY_NAME='PellierSTM'
-        python3 '$_MEM_SCRIPT' 2>>'$AGENTCORE_MEMORY_LOG'
-    ") || AGENTCORE_MEMORY_ID=""
-    rm -f "$_MEM_SCRIPT"
-    [ -f "$AGENTCORE_MEMORY_LOG" ] && log "  (memory provisioning log: $AGENTCORE_MEMORY_LOG)"
-fi
-
-if [ -n "$AGENTCORE_MEMORY_ID" ]; then
-    log "✅ AgentCore Memory provisioned: $AGENTCORE_MEMORY_ID"
-    log "   USER_PREFERENCE strategy attached; persona preference turns pre-baked."
-    log "   Semantic extraction is async (~150s) — the Agent Trace Semantic panel"
-    log "   reads 'fixture' until the first records land, then flips to 'live'."
-    upsert_env "AGENTCORE_MEMORY_ID" "$AGENTCORE_MEMORY_ID" "$REPO_PATH/.env"
-    chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
-else
-    warn "AgentCore Memory provisioning skipped — STM will fall back to Aurora session tables"
-fi
-fi
+# Memory belongs to the optional AgentCore CLI project deployed in STEP 16.
+# The default one-hour path does not create managed resources.
 
 # ============================================================================
 # STEP 11: CREATE START SCRIPTS (~5 sec)
@@ -771,6 +518,14 @@ alias frontend='cd /workshop/sample-pellier-agentic-search-apg/pellier/frontend'
 
 # One-shot readiness check for the required participant path
 alias health='bash /workshop/sample-pellier-agentic-search-apg/scripts/health-gate.sh'
+
+# AgentCore CLI (pinned 0.26.0). The one-hour path stays in-process, but the
+# optional managed path uses the same declarative CLI project as governed.
+# Running from the project root lets the CLI resolve deployed-state.json.
+agentcore() {
+    ( cd /workshop/sample-pellier-agentic-search-apg/.agentcore-project/pellier 2>/dev/null \
+        && if _ac_bin="$(type -P agentcore)"; then "$_ac_bin" "$@"; else npx -y @aws/agentcore@0.26.0 "$@"; fi )
+}
 
 # Pellier service shortcuts — see FORMAT_ALIASES below (workshop vs builders).
 
@@ -1040,11 +795,9 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
                   "pellier/backend/services/agentcore_memory.py" "AgentCore memory"
     copy_solution "solutions/the-ledger/services/agentcore_gateway.py" \
                   "pellier/backend/services/agentcore_gateway.py" "AgentCore gateway"
-    # Policy is now MANAGED (Cedar at the Gateway, provisioned by
-    # scripts/deploy/deploy_policy.py). The old local fake-Cedar
-    # services/agentcore_policy.py was removed; the backend ships
-    # services/managed_policy.py (reads the managed engine for the Agent Trace
-    # Policy surface) directly in the repo, so there is nothing to copy here.
+    # Policy is managed by the pinned AgentCore CLI project. The old local
+    # policy emulator was removed; services/managed_policy.py is a read-only
+    # inspection adapter, so there is no policy service to copy here.
     copy_solution "solutions/the-ledger/services/agentcore_identity.py" \
                   "pellier/backend/services/agentcore_identity.py" "AgentCore identity"
     copy_solution "solutions/the-ledger/services/cognito_auth.py" \
@@ -1102,7 +855,6 @@ export DB_SECRET_ARN='${DB_SECRET_ARN:-}'
 export DB_NAME='${DB_NAME:-pellier}'
 export COGNITO_POOL='${COGNITO_POOL:-}'
 export COGNITO_CLIENT='${COGNITO_CLIENT:-}'
-export AGENTCORE_ROLE_ARN='${AGENTCORE_ROLE_ARN:-}'
 export COGNITO_TEST_CREDENTIALS_SECRET_ARN='${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}'
 export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
 export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
@@ -1118,13 +870,8 @@ EOF
         AGENTCORE_OK=false
     fi
 
-    # Hard Node-20 guard. @aws/agentcore@0.18 uses the regex `v` flag, which
-    # Node 18 cannot parse — the CLI dies with "SyntaxError: Invalid regular
-    # expression flags" at module load, BEFORE doing anything, so the Runtime
-    # never deploys and AGENTCORE_RUNTIME_ENDPOINT stays empty. If the
-    # NodeSource install in bootstrap-environment.sh fell back to Node 18, skip
-    # provisioning cleanly here (the box + Boutique still work; the health gate
-    # flags the missing Runtime) instead of writing a misleading half-failure.
+    # The pinned CLI requires Node 20 or newer. Fail the optional managed
+    # provisioning beat cleanly if the base image fell back to an older runtime.
     if [ "$AGENTCORE_OK" = true ]; then
         _ac_node_major="$(node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1)"
         if ! echo "$_ac_node_major" | grep -qE '^[0-9]+$' || [ "$_ac_node_major" -lt 20 ]; then
@@ -1153,7 +900,6 @@ EOF
         export DB_NAME='${DB_NAME:-pellier}'
         export COGNITO_POOL='${COGNITO_POOL:-}'
         export COGNITO_CLIENT='${COGNITO_CLIENT:-}'
-        export AGENTCORE_ROLE_ARN='${AGENTCORE_ROLE_ARN:-}'
         export COGNITO_TEST_CREDENTIALS_SECRET_ARN='${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}'
         export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
         export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
@@ -1169,11 +915,17 @@ EOF
 
     if [ "$AGENTCORE_OK" = true ]; then
         RUNTIME_ARN="$(jq -r '.runtime.runtime_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        MEMORY_ID="$(jq -r '.memory.memory_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        GATEWAY_ID="$(jq -r '.gateway.gateway_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         GATEWAY_URL="$(jq -r '.gateway.gateway_url // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        GATEWAY_ARN="$(jq -r '.gateway.gateway_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         POLICY_ENGINE_ID="$(jq -r '.policy.policy_engine_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         MANAGED_STATUS="$(jq -r '.status // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
-        if [ -z "$RUNTIME_ARN" ] || [ -z "$GATEWAY_URL" ] || [ "$MANAGED_STATUS" != "ready" ]; then
-            warn "Managed provisioning output missing runtime/gateway readiness (backend will still start)"
+        if [ -z "$RUNTIME_ARN" ] || [ -z "$MEMORY_ID" ] \
+            || [ -z "$GATEWAY_ID" ] || [ -z "$GATEWAY_URL" ] \
+            || [ -z "$GATEWAY_ARN" ] || [ -z "$POLICY_ENGINE_ID" ] \
+            || [ "$MANAGED_STATUS" != "ready" ]; then
+            warn "Managed provisioning output missing Runtime/Memory/Gateway/Policy readiness (backend will still start)"
             write_status_json "failed" "failed" "$MANAGED_OUTPUT_JSON"
             AGENTCORE_OK=false
         fi
@@ -1181,45 +933,40 @@ EOF
 
     if [ "$AGENTCORE_OK" = true ]; then
         upsert_env "AGENTCORE_RUNTIME_ENDPOINT" "$RUNTIME_ARN" "$REPO_PATH/.env"
-        upsert_env "MCP_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
-        # The backend reads AGENTCORE_GATEWAY_URL (config.py), not MCP_GATEWAY_URL.
-        # Write both so the deployed Gateway is reachable for the opt-in Gateway
-        # demo. NOTE: this does NOT change the default execution path — the chat
-        # service only uses the Gateway orchestrator when pattern == "agents_as_tools"
-        # (an explicit opt-in), so the required workshop path still runs in-process by
-        # default. The Gateway authorizer is Cognito JWT (CUSTOM_JWT), so a live
-        # invoke needs a bearer token, not the placeholder x-api-key.
+        upsert_env "AGENTCORE_MEMORY_ID" "$MEMORY_ID" "$REPO_PATH/.env"
+        upsert_env "AGENTCORE_GATEWAY_ID" "$GATEWAY_ID" "$REPO_PATH/.env"
+        upsert_env "AGENTCORE_GATEWAY_ARN" "$GATEWAY_ARN" "$REPO_PATH/.env"
         upsert_env "AGENTCORE_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
-        # Managed AgentCore Policy engine (4th pillar). Best-effort: provisioning
-        # marks status=ready even if policy attach failed, so guard on non-empty.
-        # The optional Policy lab and Agent Trace Policy surface read this id.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"
-        else
-            warn "Managed Policy engine id absent — Gateway runs without ENFORCE; see $AGENTCORE_LOG"
         fi
         chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
         write_status_json "complete" "ready" "$MANAGED_OUTPUT_JSON"
         log "✅ AgentCore managed path ready"
     else
         warn "AgentCore managed path NOT ready — continuing so the backend launches. The health gate will flag this; see $AGENTCORE_LOG, then re-run provisioning to recover the Runtime/Gateway path."
-        # Partial-success salvage: managed resources may be live even when a
-        # later verification fails. Preserve their identifiers for inspection,
-        # but do not opt the app into a Runtime that failed its smoke test.
-        PARTIAL_RUNTIME_ARN="$(jq -r '.runtime.runtime_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        # Preserve CLI-created resources for diagnosis, but never set the
+        # Runtime endpoint after a failed live proof.
+        PARTIAL_MEMORY_ID="$(jq -r '.memory.memory_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        PARTIAL_GATEWAY_ID="$(jq -r '.gateway.gateway_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         PARTIAL_GATEWAY_URL="$(jq -r '.gateway.gateway_url // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
+        PARTIAL_GATEWAY_ARN="$(jq -r '.gateway.gateway_arn // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
         PARTIAL_POLICY_ID="$(jq -r '.policy.policy_engine_id // empty' "$MANAGED_OUTPUT_JSON" 2>/dev/null || true)"
-        if [ -n "$PARTIAL_RUNTIME_ARN" ]; then
-            upsert_env "AGENTCORE_RUNTIME_ENDPOINT" "$PARTIAL_RUNTIME_ARN" "$REPO_PATH/.env"
-            upsert_env "USE_AGENTCORE_RUNTIME" "false" "$REPO_PATH/.env"
-            log "Salvaged deployed Runtime ARN into .env; automatic Runtime use remains disabled"
+        if [ -n "$PARTIAL_MEMORY_ID" ]; then
+            upsert_env "AGENTCORE_MEMORY_ID" "$PARTIAL_MEMORY_ID" "$REPO_PATH/.env"
+            log "Recorded CLI-managed Memory id despite failed proof"
+        fi
+        if [ -n "$PARTIAL_GATEWAY_ID" ]; then
+            upsert_env "AGENTCORE_GATEWAY_ID" "$PARTIAL_GATEWAY_ID" "$REPO_PATH/.env"
         fi
         if [ -n "$PARTIAL_GATEWAY_URL" ]; then
-            upsert_env "MCP_GATEWAY_URL" "$PARTIAL_GATEWAY_URL" "$REPO_PATH/.env"
             upsert_env "AGENTCORE_GATEWAY_URL" "$PARTIAL_GATEWAY_URL" "$REPO_PATH/.env"
-            log "Salvaged live Gateway endpoint into .env despite failed provisioning"
+            log "Recorded live Gateway endpoint despite failed proof"
+        fi
+        if [ -n "$PARTIAL_GATEWAY_ARN" ]; then
+            upsert_env "AGENTCORE_GATEWAY_ARN" "$PARTIAL_GATEWAY_ARN" "$REPO_PATH/.env"
         fi
         if [ -n "$PARTIAL_POLICY_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$PARTIAL_POLICY_ID" "$REPO_PATH/.env"
@@ -1242,25 +989,13 @@ EOF
         chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.agentcore-project/"
     fi
 
-    # Install the pinned AgentCore CLI GLOBALLY for the participant's read-only
-    # optional cloud-inspection beat (`agentcore status` / `agentcore logs`). We
-    # install at bootstrap — not via npx-on-demand — so the command never touches
-    # the npm registry at session time (Summit venue networking is not a
-    # dependency the live beat can afford). Pinned 0.18.0 to MATCH
-    # provision_agentcore_end_to_end.py:AGENTCORE_CLI and deploy_all.sh:AGENTCORE_CLI
-    # — @latest is already 0.19.0 with a 1.0.0-preview train, which may reorganize
-    # the command surface. If you bump the pin, bump all three. Best-effort: a
-    # failed global install just means the alias falls back to npx (the CLI still
-    # works, just slower on first call); never abort the box for it.
-    # NOT gated on AGENTCORE_OK: a Runtime-only failure still leaves Gateway +
-    # Policy independently usable, and `agentcore status` is exactly the tool
-    # for diagnosing the failed beat (box-verified cascade 2026-06-12: gating
-    # this on AGENTCORE_OK left the participant with no CLI at all).
+    # Warm the exact CLI version used by the project. Keep this independent of
+    # AGENTCORE_OK so a partial deployment remains inspectable.
     if command -v npm &>/dev/null; then
-        log "Installing pinned AgentCore CLI globally (@aws/agentcore@0.18.0) for the cloud-inspection beat..."
-        npm install -g @aws/agentcore@0.18.0 >/dev/null 2>&1 \
+        log "Installing pinned AgentCore CLI globally (@aws/agentcore@0.26.0)..."
+        npm install -g @aws/agentcore@0.26.0 >/dev/null 2>&1 \
             && log "✅ agentcore CLI installed globally ($(command agentcore --version 2>/dev/null || echo 'version check skipped'))" \
-            || warn "Global @aws/agentcore@0.18.0 install failed — the 'agentcore' alias will fall back to npx (slower first call); see npm logs."
+            || warn "Global @aws/agentcore@0.26.0 install failed — the agentcore function will fall back to npx; see npm logs."
     fi
     else
         write_status_json "complete" "not_applicable" ""

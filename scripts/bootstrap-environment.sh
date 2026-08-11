@@ -105,7 +105,7 @@ if [ "$_node20_ok" = true ]; then
     [ -n "$_node_bin" ] && update-alternatives --install /usr/bin/node node "$_node_bin" 100 >/dev/null 2>&1 || true
     log "✅ Node.js installed and pinned: $(node --version 2>/dev/null)"
 
-    # TypeScript compiler (tsc), global. The opt-in managed path is itself a
+    # TypeScript compiler (tsc), global. The optional managed path is itself a
     # TypeScript/Node tool, and its `deploy` build step shells out to `tsc`
     # (`sh: line 1: tsc: command not found` aborts the Runtime deploy on a box
     # that only has Node). AL2023 doesn't preinstall it. Our agent is Python,
@@ -133,14 +133,14 @@ if [ "$_node20_ok" = true ]; then
     fi
 
     if command -v npm >/dev/null 2>&1; then
-        # Claude Code CLI (global), for the recommended build lane in Core
-        # Lab 1. It runs entirely against Bedrock via the box's instance
+        # Claude Code CLI (global), for the recommended build lane in Lab 1.
+        # It runs entirely against Bedrock via the box's instance
         # role (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_MODEL are exported in the
         # participant .bashrc by bootstrap-labs), so there is NO per-participant
         # login — the same ambient-credential model the rest of the lab uses.
         # Intentionally non-fatal: the manual edit and copy-solution paths
         # still complete the exercise if installation fails.
-        log "Installing Claude Code CLI globally for Core Lab 1..."
+        log "Installing Claude Code CLI globally for Lab 1..."
         if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
@@ -150,7 +150,7 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
         else
-            warn "Claude Code CLI install failed - use the manual edit or copy-solution path in Core Lab 1."
+            warn "Claude Code CLI install failed - use the manual edit or copy-solution path in Lab 1."
         fi
     fi
 else
@@ -405,7 +405,7 @@ AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/plac
 log "AWS Region: $AWS_REGION"
 
 # ----------------------------------------------------------------------------
-# CDK bootstrap (required by @aws/agentcore 0.18 `deploy`, which is CDK-based).
+# CDK bootstrap (required by @aws/agentcore 0.26.0 `deploy`).
 #
 # `agentcore deploy` synthesizes a CloudFormation stack and deploys it via the
 # CDK toolkit. CDK requires the account/region to be "bootstrapped" first — a
@@ -693,7 +693,7 @@ cat << EOF
 
   MEASURE     Compare retrieval strategies for Anna's query.
 
-  PROVE       Core Lab 3: query pellier.tool_audit from psql.
+  PROVE       Lab 3: query pellier.tool_audit from psql.
 
   AGENT_TRACE     Use Agent Trace only when a step names a specific verification or
               comparison view.

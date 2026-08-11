@@ -66,7 +66,9 @@ def _dict_keys(node: ast.expr) -> set[str]:
 
 
 def _gateway_schema_names() -> dict[str, set[str]]:
-    surfaces = _dict_items(_assignment(DEPLOY / "deploy_gateway.py", "TOOL_SCHEMAS"))
+    surfaces = _dict_items(
+        _assignment(DEPLOY / "gateway_tool_schemas.py", "TOOL_SCHEMAS")
+    )
     result: dict[str, set[str]] = {}
     for surface, config_node in surfaces.items():
         tools_node = _dict_items(config_node)["tools"]
@@ -74,21 +76,6 @@ def _gateway_schema_names() -> dict[str, set[str]]:
         result[surface] = {
             _dict_items(tool_node)["name"].value
             for tool_node in tools_node.elts
-        }
-    return result
-
-
-def _provisioning_names() -> dict[str, set[str]]:
-    surfaces = _dict_items(
-        _assignment(REPO / "scripts" / "provision_agentcore_end_to_end.py", "EXPECTED_TOOL_NAMES")
-    )
-    result: dict[str, set[str]] = {}
-    for surface, names_node in surfaces.items():
-        assert isinstance(names_node, ast.List)
-        result[surface] = {
-            item.value
-            for item in names_node.elts
-            if isinstance(item, ast.Constant) and isinstance(item.value, str)
         }
     return result
 
@@ -103,12 +90,18 @@ def _lambda_names() -> dict[str, set[str]]:
 def test_managed_surfaces_publish_exactly_the_canonical_15_tools() -> None:
     lambda_names = _lambda_names()
     gateway_names = _gateway_schema_names()
-    provisioning_names = _provisioning_names()
 
-    assert lambda_names == gateway_names == provisioning_names
+    assert lambda_names == gateway_names
     published = set().union(*lambda_names.values())
     assert len(published) == 15
     assert published == CANONICAL_TOOLS
+
+    provisioner = (
+        REPO / "scripts" / "provision_agentcore_end_to_end.py"
+    ).read_text(encoding="utf-8")
+    renderer = (DEPLOY / "render_agentcore_project.py").read_text(encoding="utf-8")
+    assert "from gateway_tool_schemas import TOOL_SCHEMAS, schema_for" in provisioner
+    assert "from gateway_tool_schemas import TOOL_SCHEMAS, schema_for" in renderer
 
 
 def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
@@ -133,10 +126,12 @@ def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
         assert decorated == CANONICAL_TOOLS, path
 
 
-def test_existing_gateway_targets_are_updated_and_synchronized() -> None:
-    source = (DEPLOY / "deploy_gateway.py").read_text(encoding="utf-8")
-    assert "update_gateway_target(" in source
-    assert "synchronize_gateway_targets(" in source
+def test_gateway_targets_are_owned_by_agentcore_cli_project() -> None:
+    source = (DEPLOY / "render_agentcore_project.py").read_text(encoding="utf-8")
+    assert '"targetType": "lambdaFunctionArn"' in source
+    assert '"lambdaArn": lambda_arns[surface]' in source
+    assert '"toolSchemaFile"' in source
+    assert "deploy_gateway.py" not in source
 
 
 def test_workshop_dependencies_are_immutable() -> None:
@@ -159,6 +154,7 @@ def test_workshop_dependencies_are_immutable() -> None:
             assert "==" in clean, clean
     deploy_lambda = (DEPLOY / "deploy_lambda.py").read_text(encoding="utf-8")
     assert "'mcp==1.28.1'" in deploy_lambda
+    assert '"bedrock:Rerank"' in deploy_lambda
 
 
 def re_search_exact_pin(requirements: str, package: str) -> bool:
@@ -172,11 +168,8 @@ def re_search_exact_pin(requirements: str, package: str) -> bool:
 
 def test_imperative_resources_receive_workshop_ownership_tags() -> None:
     paths = [
-        REPO / "scripts" / "bootstrap-labs.sh",
-        REPO / "scripts" / "provision_agentcore_end_to_end.py",
-        DEPLOY / "deploy_gateway.py",
+        DEPLOY / "render_agentcore_project.py",
         DEPLOY / "deploy_lambda.py",
-        DEPLOY / "deploy_policy.py",
     ]
     for path in paths:
         source = path.read_text(encoding="utf-8")
