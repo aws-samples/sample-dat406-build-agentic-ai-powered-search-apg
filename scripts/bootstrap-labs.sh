@@ -539,11 +539,11 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
 # instance role (the same ambient-credential chain used elsewhere in the lab)
 # - no Anthropic API key, per-participant login, or secret to paste.
-# Model: the model-access preflight writes the best supported workshop model to
-# CLAUDE_CODE_MODEL in the backend .env. This lane is independent of the app's
-# Opus/Sonnet editorial model resolution.
+# Model: the `sonnet` alias lets the latest installed Claude Code release choose
+# its current Sonnet model at workshop time. This lane is intentionally
+# independent of the app's tested Opus/Sonnet model resolution.
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-${CLAUDE_CODE_MODEL:-global.anthropic.claude-sonnet-5}}
+export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}
 export AWS_REGION=${AWS_REGION:-us-east-1}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix

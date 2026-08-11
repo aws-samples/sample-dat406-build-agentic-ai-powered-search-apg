@@ -26,9 +26,9 @@ This module has two sides:
 MCP (Model Context Protocol) docs: https://modelcontextprotocol.io
 """
 import logging
+import os
+from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
-
-from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,161 @@ GATEWAY_TOOL_NAMES: List[str] = [
     "trace_receipt",
     "escalate_to_stylist",
 ]
+
+MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
+    "search": (
+        "find_pieces",
+        "explore_collection",
+        "side_by_side",
+        "style_match",
+        "escalate_to_stylist",
+    ),
+    "recommendation": (
+        "find_pieces_hybrid",
+        "whats_trending",
+        "preference_snapshot",
+        "trace_receipt",
+        "side_by_side",
+        "explore_collection",
+        "escalate_to_stylist",
+    ),
+    "pricing": ("price_intelligence", "explore_collection", "find_pieces"),
+    "inventory": ("floor_check", "running_low", "restock_shelf"),
+    "support": (
+        "returns_and_care",
+        "find_pieces",
+        "process_return",
+        "trace_receipt",
+        "escalate_to_stylist",
+    ),
+}
+
+_MANAGED_SPECIALIST_LABELS = {
+    "search": "Style Advisor",
+    "recommendation": "Curator",
+    "pricing": "Value Analyst",
+    "inventory": "Stock Keeper",
+    "support": "Experience Guide",
+}
+
+
+def _runtime_or_app_setting(name: str, default: str = "") -> str:
+    """Read Runtime env directly, loading full app settings only as fallback."""
+    if name in os.environ:
+        return os.environ[name]
+
+    from config import settings
+
+    return str(getattr(settings, name, default) or default)
+
+
+def _logical_gateway_tool_name(name: str) -> str:
+    """Strip the Gateway target prefix from a discovered MCP tool name."""
+    if "___" in name:
+        return name.rsplit("___", 1)[-1]
+    if "__" in name:
+        return name.rsplit("__", 1)[-1]
+    return name
+
+
+def _managed_specialist_spec(intent: str) -> tuple[str, str, tuple[str, ...]]:
+    """Return specialist name, prompt, and allowed logical tools."""
+    if intent == "customer_support":
+        intent = "support"
+    if intent not in MANAGED_SPECIALIST_TOOLS:
+        intent = "support"
+
+    label = _MANAGED_SPECIALIST_LABELS[intent]
+    prompt = (
+        f"You are Pellier's {label}. "
+        "Use at least one of the AgentCore Gateway tools available to you "
+        "before answering. Treat tool output as the only source of catalog, "
+        "inventory, pricing, customer, and execution facts. Never claim that "
+        "an action succeeded unless the tool result reports success. Answer "
+        "in 1-3 concise sentences without markdown tables or invented details."
+    )
+    return intent, prompt, MANAGED_SPECIALIST_TOOLS[intent]
+
+
+@dataclass
+class ManagedGatewayDispatcher:
+    """Run Pellier's deterministic dispatcher over managed Gateway tools."""
+
+    access_token: str
+    trace_attributes: Dict[str, str] | None = None
+    last_intent: str = ""
+    last_specialist: str = ""
+    last_tool_names: tuple[str, ...] = ()
+
+    def __call__(self, prompt: str) -> Any:
+        from mcp.client.streamable_http import streamablehttp_client
+        from strands import Agent
+        from strands.models import BedrockModel
+        from strands.tools.mcp.mcp_client import MCPClient
+        from services.intent_router import classify_intent
+
+        intent = classify_intent(prompt)
+        specialist, system_prompt, allowed_tools = _managed_specialist_spec(intent)
+        gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
+        model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
+        if not gateway_url or not model_id:
+            raise RuntimeError(
+                "Managed dispatcher requires AGENTCORE_GATEWAY_URL and "
+                "BEDROCK_ROUTER_MODEL"
+            )
+
+        def _create_transport():
+            return streamablehttp_client(
+                gateway_url,
+                headers=_gateway_headers(self.access_token),
+            )
+
+        mcp_client = MCPClient(_create_transport)
+        mcp_client.start()
+        try:
+            discovered = mcp_client.list_tools_sync()
+            selected = [
+                tool
+                for tool in discovered
+                if _logical_gateway_tool_name(tool.name) in allowed_tools
+            ]
+            selected_names = tuple(
+                _logical_gateway_tool_name(tool.name) for tool in selected
+            )
+            missing = sorted(set(allowed_tools) - set(selected_names))
+            if missing:
+                raise RuntimeError(
+                    f"Gateway is missing {specialist} tools: {', '.join(missing)}"
+                )
+
+            agent = Agent(
+                name=specialist,
+                model=BedrockModel(model_id=model_id, max_tokens=4096),
+                system_prompt=system_prompt,
+                tools=selected,
+            )
+            if self.trace_attributes:
+                agent.trace_attributes = {
+                    **self.trace_attributes,
+                    "pellier.intent": intent,
+                    "pellier.specialist": specialist,
+                }
+
+            self.last_intent = intent
+            self.last_specialist = specialist
+            self.last_tool_names = selected_names
+            return agent(prompt)
+        finally:
+            mcp_client.stop()
+
+
+def create_gateway_dispatcher(
+    access_token: Optional[str] = None,
+) -> ManagedGatewayDispatcher | None:
+    """Create the managed equivalent of the Boutique dispatcher."""
+    if not _runtime_or_app_setting("AGENTCORE_GATEWAY_URL") or not access_token:
+        return None
+    return ManagedGatewayDispatcher(access_token=access_token)
 
 
 def _unwrap_strands_tool(strands_tool: Any) -> Any:
@@ -137,7 +292,9 @@ def _gateway_headers(access_token: Optional[str] = None) -> Dict[str, str]:
     """
     if access_token:
         return {"Authorization": f"Bearer {access_token}"}
-    return {"x-api-key": settings.AGENTCORE_GATEWAY_API_KEY}
+    return {
+        "x-api-key": _runtime_or_app_setting("AGENTCORE_GATEWAY_API_KEY")
+    }
 
 
 def create_gateway_orchestrator(access_token: Optional[str] = None):
@@ -153,7 +310,8 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
     forwarded to the Gateway as a Bearer token (identity passthrough); the
     tool calls then run under the user's identity, not a shared service key.
     """
-    if not settings.AGENTCORE_GATEWAY_URL:
+    gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
+    if not gateway_url:
         logger.info("AGENTCORE_GATEWAY_URL not set — gateway disabled")
         return None
 
@@ -162,10 +320,11 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
         from mcp.client.streamable_http import streamablehttp_client
+        model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
 
         def _create_transport():
             return streamablehttp_client(
-                settings.AGENTCORE_GATEWAY_URL,
+                gateway_url,
                 headers=_gateway_headers(access_token),
             )
 
@@ -173,7 +332,7 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
 
         orchestrator = Agent(
             model=BedrockModel(
-                model_id=settings.BEDROCK_ROUTER_MODEL,
+                model_id=model_id,
                 max_tokens=4096,
             ),
             system_prompt=(
@@ -187,7 +346,7 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
 
         logger.info(
             "✅ Gateway orchestrator created (url=%s)",
-            settings.AGENTCORE_GATEWAY_URL,
+            gateway_url,
         )
         return orchestrator
 
@@ -215,7 +374,8 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
     Returns:
         Strands Agent with semantic tool discovery, or None if not configured
     """
-    if not settings.AGENTCORE_GATEWAY_URL:
+    gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
+    if not gateway_url:
         logger.info("AGENTCORE_GATEWAY_URL not set — semantic search disabled")
         return None
 
@@ -224,10 +384,11 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
         from mcp.client.streamable_http import streamablehttp_client
+        model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
 
         def _create_transport():
             return streamablehttp_client(
-                settings.AGENTCORE_GATEWAY_URL,
+                gateway_url,
                 headers=_gateway_headers(access_token),
             )
 
@@ -238,7 +399,7 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
         # This is the production pattern for large tool catalogs.
         orchestrator = Agent(
             model=BedrockModel(
-                model_id=settings.BEDROCK_ROUTER_MODEL,
+                model_id=model_id,
                 max_tokens=4096,
             ),
             system_prompt=(
@@ -277,7 +438,8 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
 
     Returns a list of tool descriptors with name, description, and input schema.
     """
-    if not settings.AGENTCORE_GATEWAY_URL:
+    gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
+    if not gateway_url:
         return []
 
     try:
@@ -286,7 +448,7 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
 
         def _create_transport():
             return streamablehttp_client(
-                settings.AGENTCORE_GATEWAY_URL,
+                gateway_url,
                 headers=_gateway_headers(access_token),
             )
 

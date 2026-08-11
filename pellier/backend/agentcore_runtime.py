@@ -130,7 +130,7 @@ try:
         except Exception:  # pragma: no cover
             pass
 
-        from services.agentcore_runtime import build_conversation_prompt
+        from services.conversation_context import build_conversation_prompt
 
         response = dispatcher(build_conversation_prompt(prompt, history))
         return {

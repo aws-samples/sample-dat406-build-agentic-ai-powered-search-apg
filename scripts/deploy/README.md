@@ -3,9 +3,10 @@
 Deploy Pellier's governed agent path using Amazon Bedrock AgentCore.
 
 The pinned AgentCore CLI is the only control-plane deployment path for Runtime,
-Memory, Gateway, Gateway targets, execution roles, the Policy engine, and Cedar
-policies. Python helpers package the four external Lambda tools, seed Memory,
-authenticate test users, and verify the deployed path.
+Memory, Gateway, Gateway target registrations, AgentCore-managed service roles,
+the Policy engine, and Cedar policies. `deploy_lambda.py` creates the four
+external Lambda functions and their Lambda execution roles; other Python
+helpers seed Memory, authenticate test users, and verify the deployed path.
 
 ## What Gets Deployed
 
@@ -75,9 +76,9 @@ backend environment.
    Lambda functions.
 2. Scaffold one stateful `@aws/agentcore@0.26.0` project with
    `agentcore create`.
-3. Render Runtime, Memory, Gateway, four Lambda targets, and Policy engine into
-   the CLI project. Execution roles are intentionally omitted so CLI/CDK owns
-   them.
+3. Render Runtime, Memory, Gateway, four Lambda target registrations, and the
+   Policy engine into the CLI project. AgentCore role ARNs are intentionally
+   omitted so CLI/CDK creates the managed service roles.
 4. Run `agentcore validate` and `agentcore deploy`.
 5. After Gateway has published its action catalog, render the baseline Cedar
    set and run the same validate/deploy sequence again.

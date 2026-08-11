@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Render Pellier's declarative AgentCore CLI project.
 
-The AgentCore CLI owns Runtime, Memory, Gateway, Gateway targets, execution
-roles, and Policy. This renderer only writes the CLI's project inputs; it does
-not call AgentCore control-plane APIs.
+The AgentCore CLI owns Runtime, Memory, Gateway, Gateway target registrations,
+AgentCore-managed service roles, and Policy. ``deploy_lambda.py`` separately
+owns the external Lambda functions and their Lambda execution roles. This
+renderer only writes CLI project inputs; it does not call AgentCore
+control-plane APIs.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +27,13 @@ GATEWAY_NAME = "pellier-gateway"
 POLICY_ENGINE_NAME = "pellier_policy_engine"
 EXPERIENCE_TARGET = "pellier-concierge-experience-target"
 PROCESS_RETURN_ACTION = f"{EXPERIENCE_TARGET}___process_return"
+RUNTIME_SOURCE_FILES = (
+    Path("agentcore_runtime.py"),
+    Path("services/__init__.py"),
+    Path("services/agentcore_gateway.py"),
+    Path("services/conversation_context.py"),
+    Path("services/intent_router.py"),
+)
 
 
 def project_root(repo: Path) -> Path:
@@ -33,6 +43,21 @@ def project_root(repo: Path) -> Path:
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def _render_runtime_source(root: Path, backend_dir: Path) -> Path:
+    """Stage only the source files reachable from the managed entrypoint."""
+    runtime_dir = root / "runtime-src"
+    shutil.rmtree(runtime_dir, ignore_errors=True)
+    runtime_dir.mkdir(parents=True)
+
+    shutil.copy2(backend_dir / "pyproject.toml", runtime_dir / "pyproject.toml")
+    for relative in RUNTIME_SOURCE_FILES:
+        source = backend_dir / relative
+        destination = runtime_dir / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    return runtime_dir
 
 
 def baseline_policies(action_token: str = PROCESS_RETURN_ACTION) -> list[dict[str, Any]]:
@@ -92,6 +117,7 @@ def render_project(
     config_dir = root / "agentcore"
     schemas_dir = root / "tool-schemas"
     backend_dir = repo / "pellier" / "backend"
+    runtime_dir = _render_runtime_source(root, backend_dir)
     discovery_url = (
         f"https://cognito-idp.{region}.amazonaws.com/"
         f"{cognito_pool}/.well-known/openid-configuration"
@@ -128,7 +154,7 @@ def render_project(
                 "description": "Pellier governed dispatcher",
                 "build": "CodeZip",
                 "entrypoint": "agentcore_runtime.py",
-                "codeLocation": str(backend_dir),
+                "codeLocation": str(runtime_dir),
                 "runtimeVersion": "PYTHON_3_12",
                 "envVars": [
                     {"name": "AGENT_MODEL_ID", "value": model_id},

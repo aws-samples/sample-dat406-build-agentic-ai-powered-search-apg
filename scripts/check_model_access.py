@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check Bedrock model access for Pellier's runtime and Claude Code models.
+Check Bedrock model access for Pellier's application and managed Runtime.
 
 Usage:
     python3 scripts/check_model_access.py
@@ -12,8 +12,28 @@ Prints a clear pass/fail for each.
 import json
 import os
 import sys
+from pathlib import Path
 
 import boto3
+
+
+def _load_env() -> None:
+    """Load only the region values this standalone preflight consumes."""
+    root = Path(__file__).resolve().parents[1]
+    for env_path in (root / ".env", root / "pellier" / "backend" / ".env"):
+        if not env_path.is_file():
+            continue
+        for raw in env_path.read_text().splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if key in {"AWS_DEFAULT_REGION", "AWS_REGION"}:
+                os.environ.setdefault(key, value.strip().strip("'\""))
+
+
+_load_env()
 
 # Keep the model-access preflight in the same region as Aurora, Gateway,
 # Runtime, and Cognito for local and workshop runs.
@@ -42,8 +62,9 @@ MODELS = [
             "global.anthropic.claude-sonnet-4-6",
         ],
         # Hard-required: routing, reporting specialists, structured extraction,
-        # the AgentCore Runtime, and the Claude Code Bedrock lane all use the
-        # first Sonnet generation available in the workshop account.
+        # the AgentCore Runtime use the first tested Sonnet generation
+        # available in the workshop account. Claude Code resolves its separate
+        # `sonnet` alias through the latest CLI installed at workshop time.
         "required": True,
         "role": "sonnet",
         "access_hint": (
@@ -59,8 +80,8 @@ MODELS = [
         "name": "Cohere Rerank v3.5",
         "model_id": "cohere.rerank-v3-5:0",
         "required": True,  # Anna's rerank proof + find_pieces at runtime
+        "api": "bedrock-agent-runtime.rerank",
         "body": {
-            "api_version": 2,
             "query": "test",
             "documents": ["hello world", "goodbye world"],
             "top_n": 1,
@@ -136,24 +157,73 @@ def _invoke_one(client, model_id: str, body: dict):
         return ("error", str(e))
 
 
-def check_model(client, model: dict) -> bool:
+def _rerank_one(client, model_id: str, body: dict):
+    model_arn = (
+        model_id
+        if model_id.startswith("arn:")
+        else f"arn:aws:bedrock:{REGION}::foundation-model/{model_id}"
+    )
+    try:
+        client.rerank(
+            queries=[{"type": "TEXT", "textQuery": {"text": body["query"]}}],
+            sources=[
+                {
+                    "type": "INLINE",
+                    "inlineDocumentSource": {
+                        "type": "TEXT",
+                        "textDocument": {"text": document},
+                    },
+                }
+                for document in body["documents"]
+            ],
+            rerankingConfiguration={
+                "type": "BEDROCK_RERANKING_MODEL",
+                "bedrockRerankingConfiguration": {
+                    "modelConfiguration": {"modelArn": model_arn},
+                    "numberOfResults": int(body.get("top_n") or 1),
+                },
+            },
+        )
+        return ("ok", "")
+    except client.exceptions.AccessDeniedException as e:
+        msg = str(e).lower()
+        if "private marketplace" in msg or "marketplace subscription" in msg:
+            return ("denied_marketplace", str(e))
+        return ("denied", str(e))
+    except Exception as e:
+        if "validationexception" in str(e).lower():
+            return ("reachable", str(e))
+        return ("error", str(e))
+
+
+def check_model(client, rerank_client, model: dict) -> bool:
     """Check one model. Supports a single `model_id` or a `model_id_variants`
     list — for the latter, tries each in order and passes on the FIRST that
     works, printing which variant won so config can be set to match."""
     variants = model.get("model_id_variants") or [model["model_id"]]
     body = model["body"]
     multi = len(variants) > 1
+    probe = (
+        _rerank_one
+        if model.get("api") == "bedrock-agent-runtime.rerank"
+        else _invoke_one
+    )
+    probe_client = (
+        rerank_client
+        if model.get("api") == "bedrock-agent-runtime.rerank"
+        else client
+    )
 
     results = []  # (variant, status, detail) for diagnostics if all fail
     for mid in variants:
-        status, detail = _invoke_one(client, mid, body)
+        status, detail = probe(probe_client, mid, body)
         if status in ("ok", "reachable"):
             if multi:
                 note = "" if status == "ok" else " (reachable; test payload rejected — access OK)"
-                print(f"    Accessible via: {mid}{note}")
+                model["_note"] = f"Accessible via: {mid}{note}"
                 model["_resolved_id"] = mid
             elif status == "reachable":
-                print(f"    Note: model reachable; test payload rejected. Access OK.")
+                model["_note"] = "Model reachable; test payload rejected. Access OK."
             return True
         results.append((mid, status, detail))
 
@@ -213,8 +283,8 @@ def _upsert_env(env_path: str, key: str, value: str) -> None:
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    # When set, persist every resolved model used by the app, Runtime, and
-    # Claude Code so later bootstrap stages cannot fall back to a denied ID.
+    # When set, persist every resolved model used by the app and managed
+    # Runtime so later bootstrap stages cannot fall back to a denied ID.
     parser.add_argument("--write-env", default=None,
                         help="Path to .env to update with resolved model IDs")
     args = parser.parse_args()
@@ -224,12 +294,13 @@ def main():
         _upsert_env(args.write_env, "BEDROCK_MODEL_ACCESS_READY", "false")
 
     client = boto3.client("bedrock-runtime", region_name=REGION)
+    rerank_client = boto3.client("bedrock-agent-runtime", region_name=REGION)
     print(f"Checking Bedrock model access in {REGION}...\n")
 
     results = {}  # name -> (passed, role, resolved_id)
     for model in MODELS:
         model.pop("_resolved_id", None)
-        passed = check_model(client, model)
+        passed = check_model(client, rerank_client, model)
         role = model.get("role")
         shown_id = model.get("_resolved_id") or model.get("model_id") \
             or (model.get("model_id_variants") or ["?"])[0]
@@ -244,6 +315,8 @@ def main():
         else:
             tag = "\033[33m• SKIP\033[0m"
         print(f"  {tag}  {model['name']:<42} ({shown_id})")
+        if passed and model.get("_note"):
+            print(f"    {model['_note']}")
 
     # --- Editorial resolution: Opus OR Sonnet must work ---
     opus_ok = results.get("Claude Opus 5", (False,))[0]
@@ -266,19 +339,18 @@ def main():
         _upsert_env(args.write_env, "BEDROCK_OPUS_MODEL", editorial_id)
         print(f"  → wrote BEDROCK_OPUS_MODEL={editorial_id} to {args.write_env}")
 
-    # --- Sonnet role defaults: app routing/reporting + Claude Code CLI ---
+    # --- Sonnet role defaults: app routing/reporting + managed Runtime ---
     print()
     if sonnet_ok:
-        print(f"Routing/reporting + Runtime + Claude Code CLI: \033[32m{sonnet_id}\033[0m.")
+        print(f"Routing/reporting + Runtime: \033[32m{sonnet_id}\033[0m.")
         if args.write_env:
             _upsert_env(args.write_env, "BEDROCK_SONNET_MODEL", sonnet_id)
             _upsert_env(args.write_env, "BEDROCK_ROUTER_MODEL", sonnet_id)
             _upsert_env(args.write_env, "BEDROCK_REPORTING_MODEL", sonnet_id)
-            _upsert_env(args.write_env, "CLAUDE_CODE_MODEL", sonnet_id)
             _upsert_env(args.write_env, "AGENT_MODEL_ID", sonnet_id)
-            print(f"  → wrote app, Runtime, and Claude Code model IDs to {args.write_env}")
+            print(f"  → wrote app and Runtime model IDs to {args.write_env}")
     else:
-        print("\033[31mRouting/reporting + Runtime + Claude Code CLI: no Sonnet is accessible.\033[0m")
+        print("\033[31mRouting/reporting + Runtime: no Sonnet is accessible.\033[0m")
 
     # --- Hard-required models (Sonnet, Rerank, Embed) ---
     hard = [m["name"] for m in MODELS if m.get("required", True)]

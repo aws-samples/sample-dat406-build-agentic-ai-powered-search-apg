@@ -276,9 +276,17 @@ VITE_BASE_PATH=/app/
 
 The `main` workshop does not provision or invoke AgentCore during the timed
 path. Its optional managed path and the hands-on `governed` workshop use the
-same declarative AgentCore CLI project for Runtime, Memory, Gateway, targets,
-roles, Policy, and Cedar, pinned to `@aws/agentcore@0.26.0`. Direct SDK
-control-plane mutation helpers are intentionally absent.
+same declarative AgentCore CLI project for Runtime, Memory, Gateway, target
+registrations, AgentCore-managed service roles, Policy, and Cedar, pinned to
+`@aws/agentcore@0.26.0`. `deploy_lambda.py` separately creates the external
+Lambda functions and their Lambda execution roles. Direct SDK control-plane
+mutation helpers are intentionally absent.
+
+Claude Code is a separate participant helper. Bootstrap installs the latest
+CLI release without a package-version pin and uses its `sonnet` alias through
+Amazon Bedrock, so the helper follows the current Sonnet model available at
+workshop time. Pellier's application model IDs remain explicit because the
+preflight invokes those exact profiles before declaring the environment ready.
 
 ---
 

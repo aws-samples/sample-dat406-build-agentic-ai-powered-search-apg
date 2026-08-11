@@ -11,6 +11,8 @@ import os
 from typing import List, Dict, Any, Optional
 import re
 
+from services.intent_router import classify_intent
+
 
 def _safe_float(val, default=0.0):
     """Safely convert a value to float, stripping currency symbols."""
@@ -52,61 +54,6 @@ automatically — do not list them in text. Never use markdown tables, numbered 
 headers, or emojis. Never claim products are unavailable or inventory is being refreshed.
 Never ask follow-up questions. If zero results, say "I couldn't find exact matches —
 try a different search term."."""
-
-
-# ---------------------------------------------------------------------------
-# Deterministic intent classification — replaces LLM-based routing
-# ---------------------------------------------------------------------------
-PRICING_KEYWORDS = {"deal", "deals", "cheap", "cheapest", "price", "pricing",
-                    "discount", "affordable", "budget", "value", "cost", "save",
-                    "best price", "on sale", "bargain", "compare price"}
-INVENTORY_KEYWORDS = {"restock", "inventory", "stock", "out of stock",
-                      "low stock", "available", "availability", "in stock",
-                      "running low", "sold out", "back in stock",
-                      "warehouse", "at the brooklyn", "at the austin",
-                      "at the portland", "on the floor"}
-SUPPORT_KEYWORDS = {"return", "refund", "policy", "troubleshoot",
-                    "issue", "problem", "warranty", "broken", "defective",
-                    "chipped", "damaged", "arrived", "what now"}
-# "help" used to live in SUPPORT_KEYWORDS but it's too generic — Anna's
-# canonical T3 ("help me pair a candle with something else") is a
-# recommendation request, not post-purchase support. Same logic for
-# "support" alone (which was redundant with "policy"/"warranty"/etc.).
-# Real support queries always carry one of the unambiguous tokens
-# above (return/refund/warranty/chipped/damaged/etc.).
-SEARCH_KEYWORDS = {"search for", "looking for", "where can I", "compare", "browse",
-                   "what do you have", "do you have", "show me", "find me"}
-PAIRING_PATTERN = re.compile(
-    r"\b(go(?:es)? with|go(?:es)? well with|pair(?:s|ed)? with|what pairs with|what would go with|complement(?:s|ary)?)\b",
-    re.IGNORECASE,
-)
-
-# Past-purchase / history queries — these reference the shopper's own
-# order history and must route to the recommendation specialist with the
-# persona's LTM preamble, NEVER to support (which has no order-history
-# tool). Matched case-insensitively against the full query.
-PAST_PURCHASE_PATTERN = re.compile(
-    r'\b('
-    r'what (did|have) i (buy|bought|purchase|purchased|order|ordered)|'
-    r'what i (bought|purchased|ordered)|'
-    r'(my|last) (purchase|purchases|order|orders|time)|'
-    r'last time i (bought|purchased|ordered)|'
-    r'previous (purchase|order|orders)|'
-    r'order history|purchase history|buy again|reorder'
-    r')\b',
-    re.IGNORECASE,
-)
-
-# Product-seeking phrases that override pricing keywords. "Find me a
-# linen shirt under $150" is a search with a price filter, not a
-# pricing analysis request.
-PRODUCT_SEEKING_PATTERNS = re.compile(
-    r'\b(find|show|get|give|suggest|recommend|looking for|want|need|buy)\b.*'
-    r'\b(shirt|dress|shoe|bag|jacket|pants|top|linen|cotton|silk|leather|'
-    r'cashmere|wool|sandal|sneaker|boot|tote|candle|throw|towel|hat|cuff|'
-    r'earring|scarf|vest|cardigan|blazer|trench|anorak)\b',
-    re.IGNORECASE,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -256,62 +203,6 @@ async def _append_boutique_stm_turn(
         )
     except Exception as exc:
         logger.debug("STM append skipped: %s", exc)
-
-
-def classify_intent(query: str) -> str:
-    """Deterministic intent classification via keyword matching.
-    Returns 'pricing', 'inventory', 'customer_support', 'search', or 'recommendation'."""
-    q = query.lower()
-    words = set(re.findall(r'\w+', q))
-
-    # Past-purchase queries route to recommendation so the specialist can
-    # ground in the persona's order history via the LTM preamble. Takes
-    # priority over everything else — these are personal-profile
-    # questions, not shopping queries in the usual sense.
-    if PAST_PURCHASE_PATTERN.search(query):
-        return "recommendation"
-
-    # If the query seeks a specific product, route to search even if
-    # price keywords are present. "find me a linen shirt under $150"
-    # is search, not pricing.
-    is_product_seeking = bool(PRODUCT_SEEKING_PATTERNS.search(query))
-
-    # Multi-word phrases first (higher specificity)
-    if not is_product_seeking:
-        for phrase in PRICING_KEYWORDS:
-            if ' ' in phrase and phrase in q:
-                return "pricing"
-    for phrase in INVENTORY_KEYWORDS:
-        if ' ' in phrase and phrase in q:
-            return "inventory"
-
-    # Single-word matches — pricing only if not product-seeking
-    if not is_product_seeking and words & {w for w in PRICING_KEYWORDS if ' ' not in w}:
-        return "pricing"
-    if words & {w for w in INVENTORY_KEYWORDS if ' ' not in w}:
-        return "inventory"
-
-    # Support keywords (single-word only)
-    if words & SUPPORT_KEYWORDS:
-        return "customer_support"
-
-    # Product-seeking queries → search
-    if is_product_seeking:
-        return "search"
-
-    # Pairing questions belong to Style Advisor so the tool path can use
-    # style_match rather than generic recommendation retrieval.
-    if PAIRING_PATTERN.search(query):
-        return "search"
-
-    # Search keywords (multi-word phrase matching)
-    for phrase in SEARCH_KEYWORDS:
-        if ' ' in phrase and phrase in q:
-            return "search"
-    if words & {w for w in SEARCH_KEYWORDS if ' ' not in w}:
-        return "search"
-
-    return "recommendation"
 
 
 # ---------------------------------------------------------------------------

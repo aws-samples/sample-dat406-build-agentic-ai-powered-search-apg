@@ -37,7 +37,7 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
     env_file = tmp_path / ".env"
     env_file.write_text("BEDROCK_OPUS_MODEL=stale\n", encoding="utf-8")
 
-    def fake_check(_client, model):
+    def fake_check(_client, _rerank_client, model):
         if model.get("role") == "editorial":
             return False
         if model.get("role") == "sonnet":
@@ -59,8 +59,16 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
     )
     assert values["BEDROCK_OPUS_MODEL"] == "global.anthropic.claude-sonnet-4-6"
     assert values["BEDROCK_ROUTER_MODEL"] == "global.anthropic.claude-sonnet-4-6"
+    assert "CLAUDE_CODE_MODEL" not in values
     assert values["AGENT_MODEL_ID"] == "global.anthropic.claude-sonnet-4-6"
     assert values["BEDROCK_MODEL_ACCESS_READY"] == "true"
+
+
+def test_claude_code_uses_latest_sonnet_alias() -> None:
+    source = BUILDERS_BOOTSTRAP.read_text(encoding="utf-8")
+    assert "export CLAUDE_CODE_USE_BEDROCK=1" in source
+    assert "export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}" in source
+    assert "CLAUDE_CODE_MODEL" not in source
 
 
 def _write_executable(path: Path, body: str) -> None:
