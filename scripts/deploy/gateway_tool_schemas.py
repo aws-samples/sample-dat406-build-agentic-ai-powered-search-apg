@@ -2,9 +2,9 @@
 """Canonical AgentCore Gateway tool schemas for Pellier's four MCP targets."""
 
 
-# AgentCore create_gateway_target accepts only this JSON-Schema keyword subset
-# per (sub)property. Anything else (default, enum, minimum, maximum, format, …)
-# triggers a botocore ParamValidationError before the request is even sent.
+# AgentCore Gateway targets accept only this JSON-Schema keyword subset per
+# (sub)property. The CLI owns target deployment; this sanitizer keeps its
+# generated target input within the service schema.
 _ALLOWED_SCHEMA_KEYS = {"type", "properties", "required", "items", "description"}
 
 

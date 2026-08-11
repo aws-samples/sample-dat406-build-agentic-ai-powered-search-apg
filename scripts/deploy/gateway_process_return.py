@@ -184,6 +184,11 @@ def _db_connect():
     )
 
 
+def _idempotency_key(args: argparse.Namespace) -> str:
+    """Return the invocation key shared by Gateway, Lambda, and audit proof."""
+    return args.idempotency_key or args.session_id
+
+
 def _audit_high_water(args: argparse.Namespace) -> int:
     with _db_connect() as conn:
         with conn.cursor() as cur:
@@ -194,8 +199,14 @@ def _audit_high_water(args: argparse.Namespace) -> int:
                 "  AND caller = 'gateway' "
                 "  AND args->>'customer_id' = %s "
                 "  AND args->>'product_id' = %s "
-                "  AND args->>'reason' = %s",
-                (args.customer_id, str(args.product_id), args.reason),
+                "  AND args->>'reason' = %s "
+                "  AND args->>'idempotency_key' = %s",
+                (
+                    args.customer_id,
+                    str(args.product_id),
+                    args.reason,
+                    _idempotency_key(args),
+                ),
             )
             return int(cur.fetchone()[0] or 0)
 
@@ -211,9 +222,16 @@ def _latest_matching_audit(args: argparse.Namespace, after_audit_id: int) -> int
                 "  AND args->>'customer_id' = %s "
                 "  AND args->>'product_id' = %s "
                 "  AND args->>'reason' = %s "
+                "  AND args->>'idempotency_key' = %s "
                 "  AND audit_id > %s "
                 "ORDER BY audit_id DESC LIMIT 1",
-                (args.customer_id, str(args.product_id), args.reason, after_audit_id),
+                (
+                    args.customer_id,
+                    str(args.product_id),
+                    args.reason,
+                    _idempotency_key(args),
+                    after_audit_id,
+                ),
             )
             row = cur.fetchone()
             return int(row[0]) if row else None
@@ -235,7 +253,7 @@ def _record_receipt(
         "customer_id": args.customer_id,
         "product_id": int(args.product_id),
         "reason": args.reason,
-        "idempotency_key": args.idempotency_key or args.session_id,
+        "idempotency_key": _idempotency_key(args),
         "tool_audit_high_water_before": before_audit_id,
         "tool_audit_row_after_call": audit_id,
         "absence_verified": payload["outcome"] == "deny" and audit_id is None,
@@ -297,7 +315,7 @@ async def _call_gateway(args: argparse.Namespace, token: str) -> dict[str, Any]:
         "customer_id": args.customer_id,
         "product_id": int(args.product_id),
         "reason": args.reason,
-        "idempotency_key": args.idempotency_key or args.session_id,
+        "idempotency_key": _idempotency_key(args),
     }
     async with streamablehttp_client(
         gateway_url,
@@ -332,29 +350,20 @@ def _is_authorization_denial(exc: BaseException) -> bool:
     if children:
         return any(_is_authorization_denial(child) for child in children)
 
-    haystack = f"{exc.__class__.__name__}: {exc}"
+    haystack = f"{exc.__class__.__name__}: {exc}".lower()
     denial_markers = (
-        "AuthorizeActionException",
-        "AccessDeniedException",
-        "not authorized",
-        "is not authorized",
-        "authorization failed",
-        "Authorization failed",
+        "authorizeactionexception",
         # Verbatim GA Gateway deny lead-in (box-verified 2026-06-12):
         # "Tool call not allowed due to policy enforcement [Policy evaluation
         # denied due to <policy>-...]". Matched explicitly so the deny still
         # classifies even if the bracketed detail is truncated.
         "not allowed due to policy",
         "policy enforcement",
-        "DENY",
-        "Denied",
-        "denied",
-        "access denied",
+        "policy evaluation denied",
     )
-    # Deliberately NOT matched: bare "Unauthorized"/"Forbidden". A rejected
-    # or expired Cognito token fails the Gateway's JWT authorizer with a 401
-    # at session initialize — an auth-setup problem, not a Cedar decision —
-    # and must surface as outcome "error", never a fake DENY proof.
+    # Deliberately NOT matched: generic AccessDenied/Unauthorized/Forbidden.
+    # Those can describe IAM, JWT, or target failures and must surface as
+    # outcome "error", never a fake Cedar DENY proof.
     return any(marker in haystack for marker in denial_markers)
 
 

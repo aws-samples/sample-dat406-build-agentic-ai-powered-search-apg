@@ -313,11 +313,55 @@ def test_bootstrap_runtime_solution_matches_fail_closed_service() -> None:
 
 def test_obsolete_flat_templates_and_runtime_provisioner_are_removed() -> None:
     for stale in (
+        BACKEND_DIR / ".bedrock_agentcore.yaml",
         BACKEND_DIR / "agentcore.json.template",
         BACKEND_DIR / "aws-targets.json.template",
+        BACKEND_DIR / "scripts" / "create_local_memory.py",
         REPO_ROOT / "scripts" / "provision_agentcore_runtime.py",
     ):
         assert not stale.exists()
+
+
+def test_no_direct_agentcore_control_plane_mutation_helpers() -> None:
+    """AgentCore CLI/CDK owns resource mutations; SDK helpers may only inspect."""
+    forbidden_sdk_calls = (
+        ".create_agent_runtime(",
+        ".update_agent_runtime(",
+        ".delete_agent_runtime(",
+        ".create_gateway(",
+        ".update_gateway(",
+        ".delete_gateway(",
+        ".create_gateway_target(",
+        ".update_gateway_target(",
+        ".delete_gateway_target(",
+        ".create_memory(",
+        ".update_memory(",
+        ".delete_memory(",
+        ".create_policy_engine(",
+        ".update_policy_engine(",
+        ".delete_policy_engine(",
+        ".create_policy(",
+        ".update_policy(",
+        ".delete_policy(",
+    )
+    source_roots = (
+        REPO_ROOT / "scripts",
+        BACKEND_DIR / "scripts",
+        BACKEND_DIR / "routes",
+        BACKEND_DIR / "services",
+    )
+
+    for root in source_roots:
+        for path in (*root.rglob("*.py"), *root.rglob("*.sh")):
+            source = path.read_text()
+            for operation in forbidden_sdk_calls:
+                assert operation not in source, (
+                    f"{path.relative_to(REPO_ROOT)} mutates AgentCore with "
+                    f"{operation}; render the resource in the CLI project instead"
+                )
+            assert "bedrock-agentcore-control create-" not in source
+            assert "bedrock-agentcore-control update-" not in source
+            assert "bedrock-agentcore-control delete-" not in source
 
 
 def test_deploy_all_is_only_a_canonical_provisioner_wrapper() -> None:

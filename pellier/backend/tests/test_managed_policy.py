@@ -192,6 +192,9 @@ def test_gateway_process_return_only_counts_policy_errors_as_deny() -> None:
     assert not module._is_authorization_denial(
         RuntimeError("HTTP 401 Unauthorized: invalid bearer token")
     )
+    assert not module._is_authorization_denial(
+        RuntimeError("AccessDeniedException: Lambda execution role denied")
+    )
 
 
 def test_gateway_receipt_identity_is_bound_to_exact_cognito_token(
@@ -283,6 +286,14 @@ def test_governed_receipts_record_verified_identity_provenance() -> None:
     ):
         assert field in helper
         assert field in migration
+
+
+def test_gateway_absence_proof_uses_the_exact_invocation_key() -> None:
+    helper = GATEWAY_PROCESS_RETURN.read_text()
+
+    assert "def _idempotency_key(" in helper
+    assert helper.count("args->>'idempotency_key' = %s") == 2
+    assert '"idempotency_key": _idempotency_key(args)' in helper
 
 
 def test_experience_lambda_writes_gateway_tool_audit() -> None:
