@@ -2,9 +2,11 @@
 """Provision and prove Pellier's managed AgentCore path.
 
 AgentCore CLI is the only control-plane deployment path for Runtime, Memory,
-Gateway, Gateway targets, execution roles, Policy engine, and Cedar policies.
-The Python/AWS SDK code here is limited to external Lambda packaging, Aurora
-preflight, Memory data seeding, authentication, and post-deploy proof.
+Gateway, Gateway target registrations, AgentCore-managed service roles, Policy
+engine, and Cedar policies. ``deploy_lambda.py`` owns the external Lambda
+functions and their Lambda execution roles. The remaining Python/AWS SDK code
+is limited to Aurora preflight, Memory data seeding, authentication, and
+post-deploy proof.
 """
 
 from __future__ import annotations

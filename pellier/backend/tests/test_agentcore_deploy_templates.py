@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -47,9 +50,21 @@ def _lambda_arns() -> dict[str, str]:
     }
 
 
+def _seed_runtime_sources(repo: Path) -> None:
+    backend = repo / "pellier" / "backend"
+    for relative in (
+        Path("pyproject.toml"),
+        *renderer.RUNTIME_SOURCE_FILES,
+    ):
+        source = BACKEND_DIR / relative
+        destination = backend / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+
 def _render(tmp_path: Path, *, include_policies: bool) -> tuple[Path, dict[str, Any]]:
     repo = tmp_path / "repo"
-    (repo / "pellier" / "backend").mkdir(parents=True)
+    _seed_runtime_sources(repo)
     root = renderer.render_project(
         repo=repo,
         account_id="123456789012",
@@ -90,7 +105,7 @@ def test_renderer_emits_valid_cdk_managed_project_shape(tmp_path: Path) -> None:
 
 
 def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) -> None:
-    _, project = _render(tmp_path, include_policies=False)
+    root, project = _render(tmp_path, include_policies=False)
     runtime = project["runtimes"][0]
 
     assert runtime["name"] == renderer.RUNTIME_NAME
@@ -101,6 +116,7 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
     assert runtime["requestHeaderAllowlist"] == ["Authorization"]
     assert runtime["authorizerType"] == "CUSTOM_JWT"
     assert "executionRoleArn" not in runtime
+    assert Path(runtime["codeLocation"]) == root / "runtime-src"
 
     env = {item["name"]: item["value"] for item in runtime["envVars"]}
     assert env == {
@@ -109,6 +125,22 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
     }
     assert "AGENTCORE_GATEWAY_URL" not in env
     assert "AGENTCORE_MEMORY_ID" not in env
+
+
+def test_runtime_bundle_contains_only_managed_import_graph(tmp_path: Path) -> None:
+    root, _ = _render(tmp_path, include_policies=False)
+    runtime_dir = root / "runtime-src"
+    actual = {
+        path.relative_to(runtime_dir)
+        for path in runtime_dir.rglob("*")
+        if path.is_file()
+    }
+    assert actual == {
+        Path("pyproject.toml"),
+        *renderer.RUNTIME_SOURCE_FILES,
+    }
+    assert Path("config.py") not in actual
+    assert not any("tests" in path.parts for path in actual)
 
 
 def test_runtime_bridges_cli_injected_discovery_names() -> None:
@@ -280,10 +312,57 @@ def test_deploy_sequence_validates_both_cli_phases(
     ]
 
 
-def test_pyproject_carries_runtime_imports() -> None:
+def test_pyproject_contains_only_runtime_import_roots() -> None:
     deps = PYPROJECT.read_text()
-    for package in ("strands-agents", "bedrock-agentcore", "pydantic-settings", "boto3"):
+    for package in ("strands-agents", "bedrock-agentcore", "mcp"):
         assert package in deps
+    for app_only_package in ("pydantic-settings", "psycopg", "pgvector", "fastapi"):
+        assert app_only_package not in deps
+
+
+def test_managed_runtime_imports_without_database_configuration(
+    tmp_path: Path,
+) -> None:
+    root, _ = _render(tmp_path, include_policies=False)
+    runtime_dir = root / "runtime-src"
+    env = os.environ.copy()
+    for key in (
+        "DB_HOST",
+        "DB_NAME",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DATABASE_URL",
+    ):
+        env.pop(key, None)
+    env.update(
+        {
+            "PELLIER_DISABLE_DOTENV": "1",
+            "AGENTCORE_GATEWAY_URL": "https://gateway.example.test/mcp",
+            "BEDROCK_ROUTER_MODEL": "test-model",
+            "PYTHONPATH": str(runtime_dir),
+        }
+    )
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from services.agentcore_gateway import "
+                "_managed_specialist_spec, create_gateway_dispatcher; "
+                "from services.conversation_context import "
+                "build_conversation_prompt; "
+                "assert create_gateway_dispatcher('jwt') is not None; "
+                "assert _managed_specialist_spec('inventory')[0] == 'inventory'; "
+                "assert build_conversation_prompt('hello') == 'hello'"
+            ),
+        ],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def test_entrypoint_is_fail_closed_byo_app() -> None:
@@ -344,24 +423,32 @@ def test_no_direct_agentcore_control_plane_mutation_helpers() -> None:
         ".update_policy(",
         ".delete_policy(",
     )
-    source_roots = (
-        REPO_ROOT / "scripts",
-        BACKEND_DIR / "scripts",
-        BACKEND_DIR / "routes",
-        BACKEND_DIR / "services",
+    excluded_parts = {
+        ".agentcore-project",
+        ".git",
+        ".venv",
+        "__pycache__",
+        "node_modules",
+        "tests",
+    }
+    source_paths = (
+        *REPO_ROOT.rglob("*.py"),
+        *REPO_ROOT.rglob("*.sh"),
     )
 
-    for root in source_roots:
-        for path in (*root.rglob("*.py"), *root.rglob("*.sh")):
-            source = path.read_text()
-            for operation in forbidden_sdk_calls:
-                assert operation not in source, (
-                    f"{path.relative_to(REPO_ROOT)} mutates AgentCore with "
-                    f"{operation}; render the resource in the CLI project instead"
-                )
-            assert "bedrock-agentcore-control create-" not in source
-            assert "bedrock-agentcore-control update-" not in source
-            assert "bedrock-agentcore-control delete-" not in source
+    for path in source_paths:
+        relative = path.relative_to(REPO_ROOT)
+        if excluded_parts.intersection(relative.parts):
+            continue
+        source = path.read_text()
+        for operation in forbidden_sdk_calls:
+            assert operation not in source, (
+                f"{relative} mutates AgentCore with {operation}; render the "
+                "resource in the CLI project instead"
+            )
+        assert "bedrock-agentcore-control create-" not in source
+        assert "bedrock-agentcore-control update-" not in source
+        assert "bedrock-agentcore-control delete-" not in source
 
 
 def test_deploy_all_is_only_a_canonical_provisioner_wrapper() -> None:

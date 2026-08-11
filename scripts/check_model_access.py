@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check Bedrock model access for Pellier's runtime and Claude Code models.
+Check Bedrock model access for Pellier's application and managed Runtime.
 
 Usage:
     python3 scripts/check_model_access.py
@@ -59,8 +59,9 @@ MODELS = [
             "global.anthropic.claude-sonnet-4-6",
         ],
         # Hard-required: routing, reporting specialists, structured extraction,
-        # the AgentCore Runtime, and the Claude Code Bedrock lane all use the
-        # first Sonnet generation available in the workshop account.
+        # the AgentCore Runtime use the first tested Sonnet generation
+        # available in the workshop account. Claude Code resolves its separate
+        # `sonnet` alias through the latest CLI installed at workshop time.
         "required": True,
         "role": "sonnet",
         "access_hint": (
@@ -273,7 +274,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     # When set, persist every resolved model used by the app, Runtime, and
-    # Claude Code so later bootstrap stages cannot fall back to a denied ID.
+    # managed Runtime so later bootstrap stages cannot fall back to a denied ID.
     parser.add_argument("--write-env", default=None,
                         help="Path to .env to update with resolved model IDs")
     args = parser.parse_args()
@@ -328,19 +329,18 @@ def main():
         _upsert_env(args.write_env, "BEDROCK_OPUS_MODEL", editorial_id)
         print(f"  → wrote BEDROCK_OPUS_MODEL={editorial_id} to {args.write_env}")
 
-    # --- Sonnet role defaults: app routing/reporting + Claude Code CLI ---
+    # --- Sonnet role defaults: app routing/reporting + managed Runtime ---
     print()
     if sonnet_ok:
-        print(f"Routing/reporting + Runtime + Claude Code CLI: \033[32m{sonnet_id}\033[0m.")
+        print(f"Routing/reporting + Runtime: \033[32m{sonnet_id}\033[0m.")
         if args.write_env:
             _upsert_env(args.write_env, "BEDROCK_SONNET_MODEL", sonnet_id)
             _upsert_env(args.write_env, "BEDROCK_ROUTER_MODEL", sonnet_id)
             _upsert_env(args.write_env, "BEDROCK_REPORTING_MODEL", sonnet_id)
-            _upsert_env(args.write_env, "CLAUDE_CODE_MODEL", sonnet_id)
             _upsert_env(args.write_env, "AGENT_MODEL_ID", sonnet_id)
-            print(f"  → wrote app, Runtime, and Claude Code model IDs to {args.write_env}")
+            print(f"  → wrote app and Runtime model IDs to {args.write_env}")
     else:
-        print("\033[31mRouting/reporting + Runtime + Claude Code CLI: no Sonnet is accessible.\033[0m")
+        print("\033[31mRouting/reporting + Runtime: no Sonnet is accessible.\033[0m")
 
     # --- Hard-required models (Sonnet, Rerank, Embed) ---
     hard = [m["name"] for m in MODELS if m.get("required", True)]

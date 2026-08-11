@@ -41,7 +41,7 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you implement **one function** (`floor_check`), then run a series of **observe / measure / read** steps that prove how the production system behaves. The five agents, 15 tools, database, and managed runtime are pre-wired *on purpose* — so your attention goes to the agentic pattern, not the plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you complete two marked regions — the Stock Keeper definition and its `floor_check` tool — then run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
 
 > **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** You only need to complete the one guided exercise to succeed. Everything else is there to explore at your own pace.
 
@@ -73,7 +73,7 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
 | **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers all 15 tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable · the separate builders format retains local execution |
 | **Personalization** | Long-term taste in `pellier.customers` + `pellier.customer_episodic_seed` · session-scoped working memory (AgentCore STM) + durable taste extracted by a `USER_PREFERENCE` semantic strategy (`get_semantic_memories`, surfaced in the Agent Trace) — both via Bedrock AgentCore Memory |
-| **Managed AgentCore path** | One `@aws/agentcore@0.26.0` project owns Runtime, Memory, Gateway, four Lambda-backed targets, their execution roles, the Policy engine, and Cedar policies · `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · CUSTOM_JWT invocation must return `rail=gateway-mcp` |
+| **Managed AgentCore path** | One `@aws/agentcore@0.26.0` project owns Runtime, Memory, Gateway, four Lambda target registrations, AgentCore-managed service roles, the Policy engine, and Cedar policies · `deploy_lambda.py` separately creates the external Lambda functions and their Lambda execution roles · `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · CUSTOM_JWT invocation must return `rail=gateway-mcp` |
 
 ## Governance model
 
@@ -199,8 +199,15 @@ npx -y @aws/agentcore@0.26.0 deploy --yes --json
 The workshop bootstrap installs the same pin globally and provides an
 `agentcore` shell function for inspection and participant policy changes. The
 CLI is the only control-plane authority for AgentCore resources in this repo.
-Python and AWS CLI helpers remain limited to Lambda packaging, authentication,
-Memory data seeding, and post-deploy verification.
+`deploy_lambda.py` separately creates the external Lambda functions and their
+Lambda execution roles. Other Python and AWS CLI helpers remain limited to
+authentication, Memory data seeding, and post-deploy verification.
+
+Claude Code is a separate participant helper. Bootstrap installs the latest
+CLI release without a package-version pin and uses its `sonnet` alias through
+Amazon Bedrock, so the helper follows the current Sonnet model available at
+workshop time. Pellier's application model IDs remain explicit because the
+preflight invokes those exact profiles before declaring the environment ready.
 
 ### Facilitator note: `SPA_MOUNT_PATH`
 
