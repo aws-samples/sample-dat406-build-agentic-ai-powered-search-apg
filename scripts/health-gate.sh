@@ -30,6 +30,7 @@
 # =============================================================================
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
 EXPECTED_CATALOG="${EXPECTED_CATALOG:-1000}"
@@ -260,29 +261,16 @@ fi
 # it proves all Gateway targets were attached, Policy attached successfully, and
 # the authenticated Runtime smoke returned through the Gateway MCP rail.
 managed_receipt="${AGENTCORE_MANAGED_OUTPUT_JSON:-/tmp/pellier-agentcore-managed.json}"
-if [[ -f "$managed_receipt" ]] && command -v jq >/dev/null 2>&1; then
-  if jq -e '
-      .status == "ready"
-      and .verification.targets_attached == true
-      and .verification.target_count == 4
-      and .verification.prefixed_tools_verified == true
-      and .verification.prefixed_tool_count == 15
-      and .verification.gateway_tools_discovered == true
-      and .verification.gateway_tool_count == 15
-      and .verification.managed_policy_attached == true
-      and .verification.live_policy_allow == true
-      and .verification.live_policy_deny == true
-      and .policy.mode == "ENFORCE"
-      and .verification.runtime_control_plane_visible == true
-      and .verification.authenticated_runtime_invoke_smoke == true
-      and .verification.runtime_invoke_smoke.rail == "gateway-mcp"
-    ' "$managed_receipt" >/dev/null 2>&1; then
-    pass "Managed receipt proves 15 live Gateway tools, Policy ALLOW/DENY, and gateway-mcp Runtime smoke"
+receipt_validator="$SCRIPT_DIR/validate_agentcore_receipt.py"
+if [[ -f "$managed_receipt" ]] && [[ -f "$receipt_validator" ]] \
+    && command -v python3 >/dev/null 2>&1; then
+  if receipt_error="$(python3 "$receipt_validator" "$managed_receipt" 2>&1)"; then
+    pass "Managed receipt proves AgentCore CLI resources, 15 live Gateway tools, Policy ALLOW/DENY, and gateway-mcp Runtime smoke"
   else
-    managed_missing "Managed provisioning receipt is incomplete or degraded: $managed_receipt"
+    managed_missing "Managed provisioning receipt is incomplete or degraded: ${receipt_error:-unknown contract failure}"
   fi
 else
-  managed_missing "Managed provisioning receipt missing or jq unavailable: $managed_receipt"
+  managed_missing "Managed provisioning receipt, validator, or python3 unavailable: $managed_receipt"
 fi
 
 echo "------------------------------------------------------------"

@@ -64,6 +64,7 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
     )
     assert values["BEDROCK_OPUS_MODEL"] == "global.anthropic.claude-sonnet-4-6"
     assert values["BEDROCK_ROUTER_MODEL"] == "global.anthropic.claude-sonnet-4-6"
+    assert values["CLAUDE_CODE_MODEL"] == "global.anthropic.claude-sonnet-4-6"
     assert values["AGENT_MODEL_ID"] == "global.anthropic.claude-sonnet-4-6"
     assert values["BEDROCK_MODEL_ACCESS_READY"] == "true"
 
@@ -71,6 +72,70 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
 def _write_executable(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(0o755)
+
+
+def _valid_managed_receipt() -> dict[str, object]:
+    canonical_names = [f"tool_{index}" for index in range(15)]
+    return {
+        "status": "ready",
+        "cli": {"package": "@aws/agentcore@0.26.0"},
+        "runtime": {"runtime_arn": "arn:aws:bedrock-agentcore:runtime/test"},
+        "memory": {
+            "memory_id": "memory-123",
+            "seed": {"status": "ready"},
+        },
+        "gateway": {
+            "gateway_id": "gateway-123",
+            "gateway_arn": "arn:aws:bedrock-agentcore:gateway/test",
+            "gateway_url": "https://gateway.example.test/mcp",
+        },
+        "policy": {
+            "policy_engine_id": "policy-123",
+            "mode": "ENFORCE",
+        },
+        "verification": {
+            "local_tool_schema": {
+                "count": 15,
+                "canonical_names": canonical_names,
+            },
+            "gateway_control_plane": {
+                "target_count": 4,
+                "target_names": [
+                    "catalog-target",
+                    "experience-target",
+                    "inventory-target",
+                    "returns-target",
+                ],
+                "policy_mode": "ENFORCE",
+            },
+            "targets_attached": True,
+            "gateway_tools_discovered": True,
+            "gateway_tool_count": 15,
+            "gateway_tool_names": canonical_names,
+            "gateway_prefixed_tool_names": [
+                f"target__{name}" for name in canonical_names
+            ],
+            "memory_seeded": True,
+            "live_policy_allow": True,
+            "live_policy_deny": True,
+            "live_policy_proof": {
+                "allow": {
+                    "outcome": "allow",
+                    "tool_audit_row_after_call": {"audit_id": 1},
+                },
+                "deny": {
+                    "outcome": "deny",
+                    "cedar_denial": True,
+                    "tool_audit_row_after_call": None,
+                },
+            },
+            "authenticated_runtime_invoke_smoke": True,
+            "runtime_invoke_smoke": {
+                "rail": "gateway-mcp",
+                "response_preview": "A live managed response.",
+            },
+        },
+    }
 
 
 def _run_health_gate(
@@ -82,6 +147,7 @@ def _run_health_gate(
     customer_count: int = 5,
     order_count: int = 20,
     audit_count: int = 1,
+    managed_receipt: dict[str, object] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
     fake_bin = tmp_path / "bin"
@@ -103,7 +169,7 @@ def _run_health_gate(
             ]
         )
         (tmp_path / "managed.json").write_text(
-            json.dumps({"status": "ready"}),
+            json.dumps(managed_receipt or _valid_managed_receipt()),
             encoding="utf-8",
         )
     (repo / ".env").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
@@ -132,7 +198,6 @@ esac
 """,
     )
     _write_executable(fake_bin / "node", "#!/bin/bash\nprintf 'v20.20.2\\n'\n")
-    _write_executable(fake_bin / "jq", "#!/bin/bash\nexit 0\n")
     _write_executable(fake_bin / "aws", "#!/bin/bash\nprintf 'ENFORCE\\n'\n")
     env = os.environ.copy()
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
@@ -193,6 +258,22 @@ def test_governed_health_gate_requires_complete_managed_receipt(
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "gateway-mcp Runtime smoke" in proc.stdout
     assert "READY" in proc.stdout
+
+
+def test_governed_health_gate_rejects_incomplete_managed_receipt(
+    tmp_path: Path,
+) -> None:
+    proc = _run_health_gate(
+        tmp_path,
+        model_ready=True,
+        workshop_format="governed",
+        managed_ready=True,
+        managed_receipt={"status": "ready"},
+    )
+    assert proc.returncode == 1
+    assert "cli.package" in proc.stdout
+    assert "Managed provisioning receipt is incomplete or degraded" in proc.stdout
+    assert "NOT READY" in proc.stdout
 
 
 @pytest.mark.parametrize(

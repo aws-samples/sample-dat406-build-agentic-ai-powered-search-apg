@@ -1,6 +1,6 @@
 ---
 name: verify-governed-workshop
-description: Audit Pellier's governed two-hour workshop against its title, abstract, four Core Labs, runtime claims, proof surfaces, and delivery gates. Use before flagship delivery, after changes to retrieval, audit, AgentCore, Cedar, workshop navigation, bootstrap, or participant-facing evidence.
+description: Audit Pellier's governed two-hour workshop against its title, abstract, four labs, runtime claims, proof surfaces, and delivery gates. Use before flagship delivery, after changes to retrieval, audit, AgentCore, Cedar, workshop navigation, bootstrap, or participant-facing evidence.
 ---
 
 # Verify the governed workshop
@@ -15,12 +15,12 @@ Read `references/contract.md` before starting.
    the source of truth for participant wording and launch wiring.
 3. Map every abstract claim to current code, a repeatable command, and a
    participant-visible proof point.
-4. Walk Core Labs 1-4 in order. Verify the required path before optional
+4. Walk Labs 1-4 in order. Verify the required path before optional
    extensions.
 5. Check bootstrap branch selection, model IDs, migrations, service startup,
    and participant-global Claude Code guidance.
 6. Run the validation gates in the root `CLAUDE.md`.
-7. Verify Boutique and named Atelier routes in a browser. Check console errors,
+7. Verify Boutique and named Agent Trace routes in a browser. Check console errors,
    layout, streaming, identity state, and evidence provenance.
 8. Report findings first, ordered by severity, with file and line references.
    Separate blockers from polish.
@@ -38,7 +38,7 @@ Read `references/contract.md` before starting.
 ## Scope control
 
 - Preserve the flagship title and four-lab spine.
-- Keep Boutique and Code Editor primary; open Atelier only at named proof
+- Keep Boutique and Code Editor primary; open Agent Trace only at named proof
   points.
 - Do not add a persona, specialist, business flow, or unrelated AWS service
   merely to make the workshop look broader.
