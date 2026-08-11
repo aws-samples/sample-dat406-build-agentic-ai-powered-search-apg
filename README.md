@@ -38,9 +38,9 @@ Bedrock AgentCore, or MCP.
 | Clock | Section | What you will prove |
 |---:|---|---|
 | 0-8 | Start Here | Your Code Editor, Boutique, catalog, and starter state are ready |
-| 8-26 | **Ground Answers in Aurora** | `floor_check` returns a real Brooklyn quantity and ship window |
-| 26-36 | **Choose a Search Strategy with pgvector** | Four retrieval strategies produce a defensible architecture decision |
-| 36-48 | **Audit Agent Actions with SQL** | One `process_return` call leaves a session-specific row with JSONB arguments and result |
+| 8-26 | **Ground Answers in Live Data** | `floor_check` returns a real Brooklyn quantity and ship window |
+| 26-36 | **Design the Retrieval Strategy** | Four retrieval strategies produce a defensible architecture decision |
+| 36-48 | **Trace Agent Actions** | One `process_return` call leaves a session-specific row with JSONB arguments and result |
 | 48-55 | Protected recovery | Every participant lands the three required proofs |
 | 55-60 | Summary | You can transfer the grounding, retrieval, and audit pattern to another workload |
 
