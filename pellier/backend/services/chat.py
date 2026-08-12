@@ -386,6 +386,112 @@ def _safe_register_hooks(session_manager, agent) -> None:
         logger.warning("session_manager.register_hooks failed: %s", exc)
 
 
+def _extract_tool_result_text(raw: Any) -> str:
+    """Extract the tool's text payload from a Strands AfterToolCall result.
+
+    Strands wraps tool output in content blocks; the audit ledger and the
+    SSE ``_tool_done`` event both want the inner text (JSON for tools like
+    ``process_return``), falling back to ``str()`` for anything unshaped.
+    """
+    result_str = ""
+    if raw is not None:
+        if isinstance(raw, dict) and 'content' in raw:
+            for block in raw.get('content', []):
+                if isinstance(block, dict) and 'text' in block:
+                    result_str = block['text']
+                    break
+        if not result_str:
+            result_str = str(raw)
+    return result_str
+
+
+def make_tool_audit_hooks(session_id: Optional[str] = None, turn_id: Optional[str] = None):
+    """Build the (before, after) tool-lifecycle hooks that write the
+    two-phase ``pellier.tool_audit`` evidence row for the in-process rail.
+
+    Shared by the streamed storefront turn and the non-streaming
+    orchestrator path (``POST /api/chat`` and the Agent Trace
+    ``/api/agent-trace/query`` panel) so no in-process rail can execute a
+    tool off-ledger. Raises ``ImportError``/``AttributeError`` when the
+    Strands hook events are unavailable; callers keep their existing
+    fallback behavior.
+    """
+    import time
+
+    from strands.hooks.events import BeforeToolCallEvent, AfterToolCallEvent
+    from services import tool_audit_writer
+
+    # Per-toolUseId start times so the After hook can compute latency_ms.
+    # Bounded implicitly by the audit writer's own pending-map cap;
+    # entries are popped in the After hook.
+    tool_t0: Dict[str, float] = {}
+
+    def on_before_tool_audit(event: BeforeToolCallEvent) -> None:
+        tool_use = getattr(event, "tool_use", None) or {}
+        tool_name = tool_use.get("name", "") if isinstance(tool_use, dict) else ""
+        tool_use_id = tool_use.get("toolUseId") if isinstance(tool_use, dict) else None
+        tool_args = tool_use.get("input", {}) if isinstance(tool_use, dict) else {}
+        # Aurora system-of-record write: INSERT a placeholder tool_audit row
+        # BEFORE the tool body runs (result/latency filled in by the After
+        # hook). This is the in-process rail's own audit — independent of
+        # the managed Gateway/Policy path, so the Lab 4 SQL proof works on
+        # the default (anonymous) storefront turn with no token and no
+        # Gateway.
+        if not (tool_use_id and tool_name):
+            return
+        tool_t0[tool_use_id] = time.perf_counter()
+        try:
+            # turn_id rides in the args JSONB: pellier.tool_audit has no
+            # turn column, and adding one would fork the schema the
+            # workshop's SQL proofs read. This keeps `args->>'turn_id'`
+            # as the correlation key.
+            audit_args = (
+                dict(tool_args)
+                if isinstance(tool_args, dict)
+                else {"_raw": str(tool_args)}
+            )
+            if turn_id:
+                audit_args["turn_id"] = turn_id
+            tool_audit_writer.record_allow(
+                tool_use_id=tool_use_id,
+                tool_name=tool_name,
+                caller="agent",
+                args=audit_args,
+                session_id=session_id,
+            )
+        except Exception as exc:  # audit is decoration, never fatal
+            logger.debug("in-process tool_audit record_allow failed: %s", exc)
+
+    def on_after_tool_audit(event: AfterToolCallEvent) -> None:
+        tool_use = getattr(event, "tool_use", None) or {}
+        tool_use_id = tool_use.get("toolUseId") if isinstance(tool_use, dict) else None
+        if not tool_use_id:
+            return
+        result_str = _extract_tool_result_text(getattr(event, "result", None))
+        t0 = tool_t0.pop(tool_use_id, None)
+        latency_ms = int((time.perf_counter() - t0) * 1000) if t0 else 0
+        # Aurora system-of-record write: UPDATE the placeholder row with the
+        # tool's result + latency. The stored result is the parsed text
+        # (JSON for tools like process_return), so result->>'return_id' is
+        # queryable in the Lab 4 proof.
+        audited_result: Any = result_str
+        if isinstance(result_str, str) and result_str.strip().startswith("{"):
+            try:
+                audited_result = json.loads(result_str)
+            except Exception:
+                audited_result = result_str
+        try:
+            tool_audit_writer.record_after(
+                tool_use_id=tool_use_id,
+                result=audited_result,
+                latency_ms=latency_ms,
+            )
+        except Exception as exc:
+            logger.debug("in-process tool_audit record_after failed: %s", exc)
+
+    return on_before_tool_audit, on_after_tool_audit
+
+
 class EnhancedChatService:
     """Enhanced chat service with product card support"""
     
@@ -554,7 +660,19 @@ class EnhancedChatService:
             if session_manager:
                 orchestrator.session_manager = session_manager
                 _safe_register_hooks(session_manager, orchestrator)
-            
+
+            # Two-phase Aurora tool_audit hooks. This path is reachable via
+            # POST /api/chat and the Agent Trace /api/agent-trace/query
+            # panel — neither may execute a tool off-ledger. Same shared
+            # factory as the streamed storefront turn, so the "every
+            # executed tool call is audited" claim holds on every rail.
+            try:
+                audit_before, audit_after = make_tool_audit_hooks(session_id=session_id)
+                orchestrator.add_hook(audit_before)
+                orchestrator.add_hook(audit_after)
+            except (ImportError, AttributeError) as exc:
+                logger.warning(f"Strands hooks not available for non-streaming audit: {exc}")
+
             # Build conversation context
             conversation_context = ""
             if conversation_history:
@@ -660,301 +778,6 @@ CURRENT REQUEST: {message}"""
             logger.error(f"❌ Orchestrator execution failed: {e}", exc_info=True)
             raise RuntimeError(f"Agent execution failed: {str(e)}")
     
-    async def _single_agent_stream(
-        self,
-        message: str,
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        session_id: Optional[str] = None,
-        guardrails_enabled: bool = False
-    ):
-        """Streaming single-agent mode."""
-        import asyncio
-        import time
-
-        from services.context_manager import get_context_manager
-        context_manager = get_context_manager()
-        context_manager.add_message("user", message)
-
-        try:
-            from strands import Agent
-            from strands.models.bedrock import BedrockModel
-            from services.agent_tools import (
-                find_pieces,
-                whats_trending,
-                price_intelligence,
-            )
-
-            single_prompt = SINGLE_AGENT_PROMPT
-            if guardrails_enabled:
-                single_prompt += GUARDRAILS_SUFFIX
-
-            agent = Agent(
-                model=BedrockModel(model_id=self.model_id, max_tokens=8192),
-                system_prompt=single_prompt,
-                tools=[find_pieces, whats_trending, price_intelligence]
-            )
-
-            # Build conversation context
-            conversation_context = ""
-            if conversation_history:
-                for msg in conversation_history[-16:]:
-                    role = msg.get('role', 'user')
-                    content = msg.get('content', '')[:300]
-                    conversation_context += f"{role.upper()}: {content}\n\n"
-
-            full_message = message
-            if conversation_context:
-                full_message = f"CONVERSATION HISTORY:\n{conversation_context}\n---\nCURRENT REQUEST: {message}"
-
-            yield {"type": "start", "content": "Initializing single agent..."}
-            yield {"type": "agent_step", "agent": "SearchAssistant", "action": "Analyzing query", "status": "in_progress"}
-
-            # Queue-based streaming bridge
-            loop = asyncio.get_running_loop()
-            queue: asyncio.Queue = asyncio.Queue()
-
-            def streaming_callback(**kwargs):
-                if "data" in kwargs:
-                    try:
-                        asyncio.run_coroutine_threadsafe(queue.put({"_text": kwargs["data"]}), loop).result(timeout=10)
-                    except Exception:
-                        pass
-
-            agent.callback_handler = streaming_callback
-
-            # Hook tool events
-            try:
-                from strands.hooks.events import BeforeToolCallEvent, AfterToolCallEvent
-
-                def on_before_tool(event: BeforeToolCallEvent):
-                    tool_name = ""
-                    if hasattr(event, 'tool_use') and isinstance(event.tool_use, dict):
-                        tool_name = event.tool_use.get("name", "")
-                    if tool_name:
-                        try:
-                            asyncio.run_coroutine_threadsafe(queue.put({"_tool_start": tool_name}), loop).result(timeout=5)
-                        except Exception:
-                            pass
-
-                def on_after_tool(event: AfterToolCallEvent):
-                    tool_name = ""
-                    if hasattr(event, 'tool_use') and isinstance(event.tool_use, dict):
-                        tool_name = event.tool_use.get("name", "")
-                    # Extract the actual tool result text from the Strands SDK result structure
-                    result_str = ""
-                    if hasattr(event, 'result') and event.result:
-                        raw = event.result
-                        # Strands SDK wraps results as: {'content': [{'text': '...'}], 'status': '...'}
-                        if isinstance(raw, dict) and 'content' in raw:
-                            for block in raw.get('content', []):
-                                if isinstance(block, dict) and 'text' in block:
-                                    result_str = block['text']
-                                    break
-                        if not result_str:
-                            result_str = str(raw)
-                    try:
-                        asyncio.run_coroutine_threadsafe(queue.put({"_tool_done": tool_name, "_result": result_str}), loop).result(timeout=10)
-                    except Exception:
-                        pass
-
-                agent.add_hook(on_before_tool)
-                agent.add_hook(on_after_tool)
-            except (ImportError, AttributeError):
-                pass
-
-            start_time = time.time()
-            agent_result = [None]
-            agent_error = [None]
-
-            async def run_agent():
-                try:
-                    agent_result[0] = await asyncio.to_thread(agent, full_message)
-                except Exception as e:
-                    agent_error[0] = e
-                finally:
-                    await queue.put({"_done": True})
-
-            task = asyncio.create_task(run_agent())
-            products_sent = []
-            products_buffered = []  # Hold products until text streams first
-            price_limit = self._extract_price_limit(message)
-
-            while True:
-                try:
-                    event = await asyncio.wait_for(queue.get(), timeout=120)
-                except asyncio.TimeoutError:
-                    yield {"type": "error", "error": "Agent execution timed out"}
-                    break
-
-                if "_done" in event:
-                    break
-
-                if "_tool_start" in event:
-                    yield {"type": "agent_step", "agent": "SearchAssistant", "action": "Searching", "status": "in_progress"}
-                    yield {"type": "tool_call", "tool": event["_tool_start"], "status": "executing"}
-
-                elif "_text" in event:
-                    # Stream text tokens to the client in real time
-                    yield {"type": "content_delta", "delta": event["_text"]}
-
-                elif "_tool_done" in event:
-                    result_str = event.get("_result", "")
-                    if result_str:
-                        raw_products = ProductExtractor.extract(result_str)
-                        logger.info(f"📦 Extracted {len(raw_products)} raw products from tool result")
-                        if raw_products:
-                            formatted = await self._format_products(raw_products)
-                            # Enforce price limit from user query as safety net
-                            if price_limit:
-                                formatted = [p for p in formatted if p.get("price", 0) <= price_limit]
-                            sent_ids = {p.get("id") or p.get("productId") for p in products_buffered}
-                            sent_names = {p.get("name") or p.get("product_description") for p in products_buffered}
-                            new_products = [
-                                p for p in formatted
-                                if (p.get("id") or p.get("productId")) not in sent_ids
-                                and (p.get("name") or p.get("product_description")) not in sent_names
-                            ]
-                            products_buffered.extend(new_products)
-
-                    yield {"type": "agent_step", "agent": "SearchAssistant", "action": "Done", "status": "completed"}
-                    # Clear pre-tool thinking text so post-tool response doesn't concatenate
-                    yield {"type": "content_reset"}
-
-            await task
-
-            if agent_error[0]:
-                yield {"type": "error", "error": str(agent_error[0])}
-                return
-
-            response_text = str(agent_result[0]) if agent_result[0] else ""
-            context_manager.add_message("assistant", response_text)
-            parsed = await self._parse_agent_response(response_text, message, conversation_history, has_tool_products=bool(products_buffered))
-
-            # Send text FIRST
-            if parsed["text"]:
-                yield {"type": "content", "content": parsed["text"]}
-
-            # Then send buffered products
-            if products_buffered:
-                for i, product in enumerate(products_buffered):
-                    yield {"type": "product", "product": product, "index": i, "total": len(products_buffered)}
-                products_sent = products_buffered
-            elif parsed["products"]:
-                for i, product in enumerate(parsed["products"]):
-                    yield {"type": "product", "product": product, "index": i, "total": len(parsed["products"])}
-                products_sent = parsed["products"]
-
-            duration_ms = int((time.time() - start_time) * 1000)
-            token_count, estimated_cost, cost_breakdown = self._cost_from_agent_execution(
-                agent_execution, response_text
-            )
-            self._track_query(products_count=len(products_sent), duration_ms=duration_ms, agent_type="SearchAssistant")
-            yield {
-                "type": "complete",
-                "response": {
-                    "response": parsed["text"],
-                    "products": products_sent,
-                    "suggestions": parsed["suggestions"],
-                    "success": True,
-                    "context_tracking": True,
-                    "orchestrator_enabled": False,
-                    "agent_execution": {
-                        "agent_steps": [{"agent": "SearchAssistant", "action": "Processing", "status": "completed", "timestamp": start_time, "duration_ms": duration_ms}],
-                        "tool_calls": [], "reasoning_steps": [],
-                        "total_duration_ms": duration_ms, "success_rate": 1.0
-                    },
-                    "model": self.model_id,
-                    "token_count": token_count,
-                    "estimated_cost_usd": estimated_cost,
-                    "cost_breakdown": cost_breakdown
-                }
-            }
-
-        except Exception as e:
-            logger.error(f"❌ Single-agent stream failed: {e}", exc_info=True)
-            yield {"type": "error", "error": str(e)}
-
-    async def _single_agent_chat(
-        self,
-        message: str,
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        session_id: Optional[str] = None,
-        guardrails_enabled: bool = False
-    ) -> Dict[str, Any]:
-        """Single-agent mode — basic tools, no orchestrator routing."""
-        import asyncio
-        import time
-
-        logger.info(f"🔧 Single-agent mode: '{message[:60]}...'")
-
-        from services.context_manager import get_context_manager
-        context_manager = get_context_manager()
-        context_manager.add_message("user", message)
-
-        try:
-            from strands import Agent
-            from strands.models.bedrock import BedrockModel
-            from services.agent_tools import (
-                find_pieces,
-                whats_trending,
-                price_intelligence,
-            )
-
-            single_prompt = SINGLE_AGENT_PROMPT
-            if guardrails_enabled:
-                single_prompt += GUARDRAILS_SUFFIX
-
-            agent = Agent(
-                model=BedrockModel(
-                    model_id=self.model_id,
-                    max_tokens=8192,
-                ),
-                system_prompt=single_prompt,
-                tools=[find_pieces, whats_trending, price_intelligence]
-            )
-
-            # Build conversation context
-            conversation_context = ""
-            if conversation_history:
-                for msg in conversation_history[-16:]:
-                    role = msg.get('role', 'user')
-                    content = msg.get('content', '')[:300]
-                    conversation_context += f"{role.upper()}: {content}\n\n"
-
-            full_message = message
-            if conversation_context:
-                full_message = f"CONVERSATION HISTORY:\n{conversation_context}\n---\nCURRENT REQUEST: {message}"
-
-            start_time = time.time()
-            response = await asyncio.to_thread(agent, full_message)
-            duration_ms = int((time.time() - start_time) * 1000)
-
-            response_text = str(response) if response else ""
-            context_manager.add_message("assistant", response_text)
-
-            parsed = await self._parse_agent_response(response_text, message, conversation_history)
-
-            return {
-                "response": parsed["text"],
-                "products": parsed["products"],
-                "suggestions": parsed["suggestions"],
-                "success": True,
-                "context_tracking": True,
-                "orchestrator_enabled": False,
-                "agent_execution": {
-                    "agent_steps": [{"agent": "SearchAssistant", "action": "Processing", "status": "completed", "timestamp": start_time, "duration_ms": duration_ms}],
-                    "tool_calls": [],
-                    "reasoning_steps": [],
-                    "total_duration_ms": duration_ms,
-                    "success_rate": 1.0
-                },
-                "model": self.model_id
-            }
-
-        except Exception as e:
-            logger.error(f"❌ Single-agent chat failed: {e}", exc_info=True)
-            raise RuntimeError(f"Single-agent execution failed: {str(e)}")
-
     async def _parse_agent_response(self, response_text: str, query: str = "", conversation_history: Optional[List[Dict[str, str]]] = None, has_tool_products: bool = False) -> Dict[str, Any]:
         """
         Parse agent response to extract:
@@ -1851,47 +1674,20 @@ CURRENT REQUEST: {message}"""
             agent.callback_handler = streaming_callback
             try:
                 from strands.hooks.events import BeforeToolCallEvent, AfterToolCallEvent
-                from services import tool_audit_writer
 
-                # Per-toolUseId start times so the After hook can compute
-                # latency_ms. Bounded implicitly by the audit writer's own
-                # pending-map cap; entries are popped in the After hook.
-                _tool_t0: Dict[str, float] = {}
+                # The audit writes live in the shared factory so the
+                # streamed and non-streaming paths cannot drift: same
+                # record_allow / record_after semantics, same JSONB keys.
+                audit_before, audit_after = make_tool_audit_hooks(
+                    session_id=session_id, turn_id=turn_id
+                )
 
                 def on_before_tool(event: BeforeToolCallEvent):
                     tool_use = getattr(event, "tool_use", None) or {}
                     tool_name = tool_use.get("name", "") if isinstance(tool_use, dict) else ""
-                    tool_use_id = tool_use.get("toolUseId") if isinstance(tool_use, dict) else None
-                    tool_args = tool_use.get("input", {}) if isinstance(tool_use, dict) else {}
-                    # Aurora system-of-record write: INSERT a placeholder
-                    # tool_audit row BEFORE the tool body runs (result/latency
-                    # filled in by the After hook). This is the in-process rail's
-                    # own audit — independent of the managed Gateway/Policy path,
-                    # so the Lab 4 SQL proof works on the default (anonymous)
-                    # storefront turn with no token and no Gateway.
-                    if tool_use_id and tool_name:
-                        _tool_t0[tool_use_id] = time.perf_counter()
-                        try:
-                            # turn_id rides in the args JSONB: pellier.tool_audit
-                            # has no turn column, and adding one would fork the
-                            # schema the workshop's SQL proofs read. This keeps
-                            # `args->>'turn_id'` as the correlation key.
-                            _audit_args = (
-                                dict(tool_args)
-                                if isinstance(tool_args, dict)
-                                else {"_raw": str(tool_args)}
-                            )
-                            if turn_id:
-                                _audit_args["turn_id"] = turn_id
-                            tool_audit_writer.record_allow(
-                                tool_use_id=tool_use_id,
-                                tool_name=tool_name,
-                                caller="agent",
-                                args=_audit_args,
-                                session_id=session_id,
-                            )
-                        except Exception as exc:  # audit is decoration, never fatal
-                            logger.debug("in-process tool_audit record_allow failed: %s", exc)
+                    # Audit INSERT happens before the SSE event, matching
+                    # the ledger-then-surface ordering the proofs rely on.
+                    audit_before(event)
                     if tool_name:
                         try:
                             asyncio.run_coroutine_threadsafe(
@@ -1903,39 +1699,8 @@ CURRENT REQUEST: {message}"""
                 def on_after_tool(event: AfterToolCallEvent):
                     tool_use = getattr(event, "tool_use", None) or {}
                     tool_name = tool_use.get("name", "") if isinstance(tool_use, dict) else ""
-                    tool_use_id = tool_use.get("toolUseId") if isinstance(tool_use, dict) else None
-                    # Extract the actual tool result text from the Strands SDK result structure
-                    result_str = ""
-                    raw = getattr(event, "result", None)
-                    if raw is not None:
-                        if isinstance(raw, dict) and 'content' in raw:
-                            for block in raw.get('content', []):
-                                if isinstance(block, dict) and 'text' in block:
-                                    result_str = block['text']
-                                    break
-                        if not result_str:
-                            result_str = str(raw)
-                    # Aurora system-of-record write: UPDATE the placeholder row
-                    # with the tool's result + latency. The stored result is the
-                    # parsed text (JSON for tools like process_return), so
-                    # result->>'return_id' is queryable in the Lab 4 proof.
-                    if tool_use_id:
-                        t0 = _tool_t0.pop(tool_use_id, None)
-                        latency_ms = int((time.perf_counter() - t0) * 1000) if t0 else 0
-                        audited_result: Any = result_str
-                        if isinstance(result_str, str) and result_str.strip().startswith("{"):
-                            try:
-                                audited_result = json.loads(result_str)
-                            except Exception:
-                                audited_result = result_str
-                        try:
-                            tool_audit_writer.record_after(
-                                tool_use_id=tool_use_id,
-                                result=audited_result,
-                                latency_ms=latency_ms,
-                            )
-                        except Exception as exc:
-                            logger.debug("in-process tool_audit record_after failed: %s", exc)
+                    result_str = _extract_tool_result_text(getattr(event, "result", None))
+                    audit_after(event)
                     try:
                         asyncio.run_coroutine_threadsafe(
                             queue.put({"_tool_done": tool_name, "_result": result_str}), loop

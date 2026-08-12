@@ -284,9 +284,10 @@ def test_orchestrator_constructed_only_for_agents_as_tools() -> None:
     a Sonnet router instance they never use.
 
     Scoped to ``chat_stream()`` specifically — the non-streaming
-    ``_strands_enhanced_chat()`` legacy path has its own separate
-    orchestrator construction that doesn't need the pattern branch
-    (it's only reachable via the older non-streaming /api/chat endpoint).
+    ``_strands_enhanced_chat()`` path has its own separate orchestrator
+    construction that doesn't need the pattern branch (it serves the
+    older POST /api/chat endpoint and the Agent Trace
+    /api/agent-trace/query panel, both always-orchestrator).
     """
     import textwrap
 
@@ -363,3 +364,66 @@ def test_dispatcher_path_attaches_audit_hooks(chat_module_source: str) -> None:
         "the audit-bearing hook helper must be attached on the dispatcher and "
         "graph branches, not only agents_as_tools"
     )
+
+
+def test_nonstreaming_path_attaches_audit_hooks() -> None:
+    """The non-streaming orchestrator path (POST /api/chat and the Agent
+    Trace /api/agent-trace/query panel) must register the same two-phase
+    tool_audit hooks as the streamed turn — no in-process rail may
+    execute a tool off-ledger."""
+    import textwrap
+
+    from services import chat as chat_mod
+
+    src = textwrap.dedent(
+        inspect.getsource(chat_mod.EnhancedChatService._strands_enhanced_chat)
+    )
+    assert "make_tool_audit_hooks(" in src, (
+        "_strands_enhanced_chat no longer builds the shared audit hooks — "
+        "the non-streaming path would execute tools without tool_audit rows"
+    )
+    assert "orchestrator.add_hook(audit_before)" in src
+    assert "orchestrator.add_hook(audit_after)" in src
+
+
+def test_make_tool_audit_hooks_two_phase(monkeypatch) -> None:
+    """The shared hook factory INSERTs on Before (with session + turn
+    correlation in the args JSONB) and UPDATEs on After (with the parsed
+    JSON result and an integer latency)."""
+    from services import chat as chat_mod
+    from services import tool_audit_writer
+
+    calls: list = []
+    monkeypatch.setattr(
+        tool_audit_writer, "record_allow", lambda **kw: calls.append(("allow", kw))
+    )
+    monkeypatch.setattr(
+        tool_audit_writer, "record_after", lambda **kw: calls.append(("after", kw))
+    )
+
+    before, after = chat_mod.make_tool_audit_hooks(
+        session_id="sess-1", turn_id="turn-abc"
+    )
+    event = SimpleNamespace(
+        tool_use={
+            "name": "floor_check",
+            "toolUseId": "tu-1",
+            "input": {"product_query": "hadley"},
+        },
+        result={"content": [{"text": '{"quantity": 4}'}]},
+    )
+    before(event)
+    after(event)
+
+    assert [phase for phase, _ in calls] == ["allow", "after"]
+    allow_kw = calls[0][1]
+    assert allow_kw["tool_use_id"] == "tu-1"
+    assert allow_kw["tool_name"] == "floor_check"
+    assert allow_kw["caller"] == "agent"
+    assert allow_kw["session_id"] == "sess-1"
+    assert allow_kw["args"]["product_query"] == "hadley"
+    assert allow_kw["args"]["turn_id"] == "turn-abc"
+    after_kw = calls[1][1]
+    assert after_kw["tool_use_id"] == "tu-1"
+    assert after_kw["result"] == {"quantity": 4}
+    assert isinstance(after_kw["latency_ms"], int)
