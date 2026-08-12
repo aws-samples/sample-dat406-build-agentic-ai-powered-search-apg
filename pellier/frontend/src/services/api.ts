@@ -160,20 +160,6 @@ class ApiClient {
     return response.data
   }
 
-  // Chat
-  async chat(message: string, conversationHistory: Array<{role: string, content: string}> = []): Promise<{
-    response: string
-    tool_calls: any[]
-    model: string
-    success: boolean
-  }> {
-    const response = await this.client.post('/api/chat', {
-      message,
-      conversation_history: conversationHistory
-    })
-    return response.data
-  }
-
   /**
    * Accessor for tests that want to verify the underlying Axios instance
    * (for example to mock adapters). Not part of the public surface.

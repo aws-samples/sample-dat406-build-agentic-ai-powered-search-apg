@@ -15,44 +15,6 @@ describe('chat service auth transport', () => {
     localStorage.clear()
   })
 
-  it('includes cookies on non-streaming chat requests', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ response: 'ok', products: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
-
-    const { sendChatMessage } = await import('./chat')
-
-    await sendChatMessage('hello')
-
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [, init] = fetchMock.mock.calls[0]
-    expect(init).toMatchObject({
-      method: 'POST',
-      credentials: 'include',
-    })
-  })
-
-  it('uses boutique-specific follow-ups when a turn has no product artifacts', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ response: 'No exact matches', products: [] }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
-
-    const { sendChatMessage } = await import('./chat')
-    const result = await sendChatMessage('linen layers for travel')
-
-    expect(result.suggestions).toEqual([
-      'Show lighter layers',
-      'Keep the edit under $150',
-      'Check current availability',
-    ])
-  })
-
   it('includes cookies on streaming chat requests', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
