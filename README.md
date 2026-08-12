@@ -57,8 +57,8 @@ cite sources, and hand off to a human stylist when they should.
 
 The application has two surfaces:
 
-- **Boutique** (`/`) – the customer-facing storefront. Editorial photography, AI search bar, persona-aware recommendations, conversational chat drawer.
-- **Agent Trace** (`/agent-trace`) – the operator evidence view. It correlates agent decisions, tool calls, memory reads, retrieval comparisons, and routing hops. Same agent, different lens.
+- **Pellier** (`/`) – the customer-facing storefront (internally "Boutique"). Editorial photography, AI search bar, persona-aware recommendations, conversational chat drawer.
+- **Pellier Labs** (`/agent-trace`) – the operator evidence view (internally "Agent Trace"). It correlates agent decisions, tool calls, memory reads, retrieval comparisons, and routing hops. Same agent, different lens.
 
 The two surfaces share design tokens, presence pill, trace chips, and a typed agent vocabulary, so an attendee crossing between them sees the same atoms in both places.
 
@@ -104,7 +104,7 @@ Pellier separates four memory categories by owner and lifetime:
 executed and how long it took; it does not teach the agent how to work. When
 managed Runtime is enabled, AgentCore Memory reads and writes fail closed. The
 governed path never substitutes a process-local store for managed proof.
-| Operator reconstruction | Agent Trace Proof Board | One correlated policy, execution, and data story |
+| Operator reconstruction | Pellier Labs Proof Board | One correlated policy, execution, and data story |
 
 The durable join is intentionally small. `session_id` follows the conversation
 and managed invocation, `turn_id` follows an application turn, `receipt_id`
@@ -199,7 +199,7 @@ npm run build      # production build → served by FastAPI on :8000
 # or: npm run dev   for HMR on :5173 (still hits backend on :8000)
 ```
 
-Open <http://localhost:8000> for the Boutique, or <http://localhost:8000/agent-trace> for the Agent Trace.
+Open <http://localhost:8000> for Pellier, or <http://localhost:8000/agent-trace> for Pellier Labs.
 
 ### AgentCore CLI (pinned)
 
@@ -246,7 +246,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 
 | Section | What attendees do |
 |---|---|
-| Introduction | Open the workspace and land in Boutique + Agent Trace — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
+| Introduction | Open the workspace and land in Pellier + Pellier Labs — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
 | Lab 1: Ground Answers in Live Data | Complete Stock Keeper and `floor_check`, then prove Marco's answer against live inventory and `tool_audit`. |
 | Lab 2: Design the Retrieval Strategy | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
 | Lab 3: Run Agents in a Managed Runtime | Invoke Runtime, enumerate Gateway tools, read turn one from Memory in a fresh process, prove turn-two recall, and reconstruct the seeded identity mismatch from Aurora evidence. |
@@ -270,7 +270,7 @@ performance. Neither workshop depends on the other.
 
 ### Agents
 
-Five specialist agents + one orchestrator. Three orchestration patterns ship in the codebase; the boutique runs the dispatcher pattern in production and exposes the other two as Agent Trace toggles.
+Five specialist agents + one orchestrator. Three orchestration patterns ship in the codebase; the boutique runs the dispatcher pattern in production and exposes the other two as Pellier Labs toggles.
 
 | Agent              | Role                                            | Model            |
 | ------------------ | ----------------------------------------------- | ---------------- |
@@ -280,7 +280,7 @@ Five specialist agents + one orchestrator. Three orchestration patterns ship in 
 | **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 5 |
 | **Experience Guide**   | Returns, care, post-purchase                    | Claude Opus 5  |
 
-Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-5`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 5 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. The Agent Trace surfaces the mix.
+Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-5`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 5 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. Pellier Labs surfaces the mix.
 
 ### Tools
 

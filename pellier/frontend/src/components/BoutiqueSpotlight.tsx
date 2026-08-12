@@ -48,8 +48,8 @@ const STEPS: SpotlightStep[] = [
   {
     numeral: 'IV',
     kicker: 'Behind the curtain',
-    headline: 'The Agent Trace',
-    body: "Curious how Pellier thinks? Toggle to the Agent Trace in the header and watch every reasoning step, tool call, and decision unfold in real time. The wires, made visible.",
+    headline: 'Pellier Labs',
+    body: "Curious how Pellier thinks? Toggle to Pellier Labs in the header and watch every reasoning step, tool call, and decision unfold in real time. The wires, made visible.",
   },
 ]
 

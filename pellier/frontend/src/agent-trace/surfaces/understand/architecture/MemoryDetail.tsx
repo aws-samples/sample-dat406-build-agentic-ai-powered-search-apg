@@ -612,7 +612,7 @@ const MemoryEmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Start a conversation in the Boutique, or check that AgentCore Memory and
+      Start a conversation in Pellier, or check that AgentCore Memory and
       Aurora are reachable.
     </p>
   </div>

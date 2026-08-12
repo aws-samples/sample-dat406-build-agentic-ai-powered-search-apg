@@ -19,7 +19,7 @@ function renderGrammar(overrides: Partial<React.ComponentProps<typeof LabGrammar
   return render(
     <LabGrammar
       labLabel="Lab 1 · Ground Answers in Live Data"
-      try="Ask Marco's Turn 4 in the Boutique."
+      try="Ask Marco's Turn 4 in Pellier."
       build="Wire floor_check between the markers."
       prove="The registry strip reads 15/15 shipped."
       provenance="live"
@@ -35,7 +35,7 @@ describe('LabGrammar', () => {
   it('renders all three sections in the same order every time', () => {
     renderGrammar();
 
-    expect(screen.getByText(/Try · in the Boutique/i)).toBeInTheDocument();
+    expect(screen.getByText(/Try · in Pellier/i)).toBeInTheDocument();
     expect(screen.getByText(/Build · in the Code Editor/i)).toBeInTheDocument();
     expect(screen.getByText(/Prove · live evidence/i)).toBeInTheDocument();
   });

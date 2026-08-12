@@ -428,7 +428,7 @@ const Settings: React.FC = () => {
       <EditorialTitle
         eyebrow="Settings · Persona · workshop identity"
         title="Who walks in."
-        summary="Select a persona to scope every Agent Trace surface to their history, preferences, and memory. The sidebar, sessions, and memory dashboard all follow the active persona."
+        summary="Select a persona to scope every Pellier Labs surface to their history, preferences, and memory. The sidebar, sessions, and memory dashboard all follow the active persona."
       />
 
       {loading && <LoadingState />}

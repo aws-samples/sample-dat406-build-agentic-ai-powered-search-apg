@@ -513,7 +513,7 @@ const StorefrontProductionCard: React.FC = () => (
       }}
     >
       High-traffic commerce assistants optimize for predictability, latency, and
-      cost. Pellier&apos;s Boutique keeps{' '}
+      cost. Pellier keeps{' '}
       <Emphasis>Dispatcher + specialists</Emphasis> on the hot path – not an LLM
       intent resolver at temperature&nbsp;0 (still drifts with model updates).
     </p>
@@ -537,7 +537,7 @@ const StorefrontProductionCard: React.FC = () => (
       </li>
       <li>
         <Emphasis>LLM router elsewhere</Emphasis> – Agents-as-Tools and Graph in
-        the Agent Trace; AgentCore Runtime on{' '}
+        Pellier Labs; AgentCore Runtime on{' '}
         <code
           style={{
             fontFamily: 'var(--at-mono)',
@@ -938,7 +938,7 @@ const Routing: React.FC = () => {
                 margin: '8px 0 14px',
               }}
             >
-              Boutique sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
+              Pellier sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
               buttons to compare where the other patterns would fit. The required
               Lab 4 proof is the Gateway/Cedar rail, not this comparison.
             </p>

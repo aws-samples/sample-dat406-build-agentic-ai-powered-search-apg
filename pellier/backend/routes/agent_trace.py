@@ -655,7 +655,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
             "required": True,
-            "surface": "Code Editor + Boutique",
+            "surface": "Code Editor + Pellier",
             "summary": "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
             "evidenceSource": "services.agent_tools.floor_check + pellier.tool_audit",
             "lastUpdated": latest_floor_check.get("created_at") if latest_floor_check else None,
@@ -691,7 +691,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 else "needs_data"
             ),
             "required": True,
-            "surface": "Boutique + Code Editor",
+            "surface": "Pellier + Code Editor",
             "summary": "Vector, hybrid RRF, hybrid plus rerank, and Anna's agentic path are ready for one quality, latency, and cost comparison.",
             "evidenceSource": "search-strategies/compare + pellier.product_catalog",
             "evidence": [

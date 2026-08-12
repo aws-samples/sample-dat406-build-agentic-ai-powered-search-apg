@@ -1296,7 +1296,7 @@ const Tools: React.FC = () => {
       />
 
       {/* One interaction grammar on every required lab destination:
-          Try in the Boutique, Build in the Code Editor, Prove with live
+          Try in Pellier, Build in the Code Editor, Prove with live
           evidence. The tool count below is read from the live build-state
           endpoint, so the PASS/FAIL state describes the actual repo. */}
       <div style={{ marginBottom: '20px' }}>
@@ -1310,7 +1310,7 @@ const Tools: React.FC = () => {
           }
           try={
             <>
-              Ask Marco&rsquo;s Turn 4 in the Boutique: &ldquo;Is the Hadley
+              Ask Marco&rsquo;s Turn 4 in Pellier: &ldquo;Is the Hadley
               shirt at the Brooklyn warehouse?&rdquo; A stubbed tool answers
               with an error envelope instead of a BK-01 quantity.
             </>
@@ -1336,7 +1336,7 @@ const Tools: React.FC = () => {
               turn returns a real Brooklyn quantity.
             </>
           }
-          nextAction="Re-ask Marco's Turn 4 in the Boutique and read the BK-01 quantity."
+          nextAction="Re-ask Marco's Turn 4 in Pellier and read the BK-01 quantity."
           returnAction="Code Editor → pellier/backend/services/agent_tools.py"
         />
       </div>

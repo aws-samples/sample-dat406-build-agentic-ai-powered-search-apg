@@ -41,7 +41,7 @@ const PILLARS: PillarItem[] = [
     verb: 'Inspect',
     title: 'Tools, retrieval, memory, policy',
     description:
-      'Open one focused view when the lab calls for it, then return to Boutique or Code Editor for the canonical proof.',
+      'Open one focused view when the lab calls for it, then return to Pellier or Code Editor for the canonical proof.',
   },
 ];
 
@@ -73,7 +73,7 @@ const LABS: LabItem[] = [
     primary: {
       to: '/agent-trace/performance',
       label: 'Open retrieval comparison',
-      detail: 'Agent Trace visual',
+      detail: 'Pellier Labs visual',
     },
     secondary: [
       {
@@ -119,7 +119,7 @@ const LABS: LabItem[] = [
     primary: {
       to: '/agent-trace/write-path',
       label: 'Open Gateway & Policy',
-      detail: 'Agent Trace visual',
+      detail: 'Pellier Labs visual',
     },
     secondary: [
       {
@@ -360,7 +360,7 @@ const Observatory: React.FC = () => {
             maxWidth: '760px',
           }}
         >
-          Boutique and Code Editor remain the primary work surfaces. Agent Trace is
+          Pellier and Code Editor remain the primary work surfaces. Pellier Labs is
           the evidence layer: open the checkpoint named by the current lab,
           inspect it, then return to the required path.
         </p>
@@ -402,7 +402,7 @@ const Observatory: React.FC = () => {
           }}
         >
           The labels and order below match Workshop Studio exactly. Each card
-          points to the narrow Agent Trace view for that lab; terminal and SQL
+          points to the narrow Pellier Labs view for that lab; terminal and SQL
           commands remain the canonical proof.
         </p>
         <div style={{ display: 'grid', gap: '16px' }}>

@@ -45,7 +45,7 @@ export default function AgentTraceHero({ editionNumber = 6 }: { editionNumber?: 
           letterSpacing: '-0.02em',
         }}
       >
-        Agent Trace.
+        Pellier Labs.
       </h1>
       <p
         className="text-[16px] leading-[1.6] max-w-[620px] mx-auto mt-5"

@@ -88,7 +88,7 @@ export const EVALUATION_METHODS: EvaluationMethod[] = [
     ],
     pellierFit: 'partial',
     workshopNote:
-      'Useful if you already standardize on LangGraph/LangChain; Pellier\'s Agent Trace telemetry is the in-workshop substitute for trace inspection.',
+      'Useful if you already standardize on LangGraph/LangChain; Pellier Labs telemetry is the in-workshop substitute for trace inspection.',
   },
   {
     id: 'golden-set',

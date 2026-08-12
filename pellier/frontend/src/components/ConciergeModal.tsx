@@ -483,7 +483,7 @@ export default function ConciergeModal() {
                     ) : (
                       <span className="flex items-center gap-1.5" style={{ color: c.ink2 }}>
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#047857' }} />
-                        {mode === 'agentTrace' ? 'Agent Trace mode · instrumentation on' : 'Concierge ready'}
+                        {mode === 'agentTrace' ? 'Pellier Labs mode · instrumentation on' : 'Concierge ready'}
                       </span>
                     )}
                   </div>

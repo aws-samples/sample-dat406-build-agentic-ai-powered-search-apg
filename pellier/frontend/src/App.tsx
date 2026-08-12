@@ -162,6 +162,15 @@ function RouteLoading() {
   )
 }
 
+// LabsRedirect — /labs is a friendly alias for the Pellier Labs surface.
+// The canonical routes stay under /agent-trace/*; this preserves any
+// subpath, query, and hash so deep links keep working.
+function LabsRedirect() {
+  const { pathname, search, hash } = useLocation()
+  const rest = pathname.replace(/^\/labs/, '')
+  return <Navigate to={`/agent-trace${rest}${search}${hash}`} replace />
+}
+
 // ---------------------------------------------------------------------------
 // App — provider chain + routes.
 // ---------------------------------------------------------------------------
@@ -240,6 +249,7 @@ function App() {
                   <Route path="persona-journeys" element={<PersonaJourneys />} />
                   <Route path="settings" element={<AgentTraceSettings />} />
                 </Route>
+                <Route path="/labs/*" element={<LabsRedirect />} />
                 <Route path="/inspector" element={<InspectorPage />} />
                 <Route path="/storyboard" element={<StoryboardPage />} />
                 <Route path="/discover" element={<DiscoverPage />} />

@@ -26,7 +26,7 @@ import { PresencePill } from '../../shared';
 function prettifySegment(segment: string): string {
   // Known labels
   const labels: Record<string, string> = {
-    agentTrace: 'Agent Trace',
+    'agent-trace': 'Pellier Labs',
     'proof-board': 'Proof Board',
     'audit-proof': 'Audit Proof',
     sessions: 'Sessions',
@@ -66,8 +66,8 @@ function useBreadcrumbs(): string[] {
       .filter(Boolean)
       .map(prettifySegment);
 
-    // Always start with "Agent Trace" — it's the root
-    if (parts.length === 0) return ['Agent Trace'];
+    // Always start with "Pellier Labs" — it's the root
+    if (parts.length === 0) return ['Pellier Labs'];
     return parts;
   }, [pathname]);
 }

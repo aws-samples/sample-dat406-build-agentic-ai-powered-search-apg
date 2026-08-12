@@ -94,7 +94,7 @@ export const AgentTraceWelcome: React.FC = () => {
 
   return (
     <section
-      aria-label="Welcome to Agent Trace"
+      aria-label="Welcome to Pellier Labs"
       style={{
         position: 'relative',
         background:
@@ -167,7 +167,7 @@ export const AgentTraceWelcome: React.FC = () => {
             fontWeight: 600,
           }}
         >
-          Welcome to Agent Trace
+          Welcome to Pellier Labs
         </span>
       </div>
 
@@ -197,7 +197,7 @@ export const AgentTraceWelcome: React.FC = () => {
           maxWidth: '680px',
         }}
       >
-        Boutique is where shoppers ask. Agent Trace is where you verify what happened.
+        Pellier is where shoppers ask. Pellier Labs is where you verify what happened.
         Every agent decision, tool call, memory read, and routing hop shows
         up here in governed, inspectable detail.
       </p>

@@ -108,7 +108,9 @@ documentation.
 - Cognito identity travels in the signed token. Do not invent ambient identity
   or correlation fields across managed boundaries.
 - Boutique is shopper-facing, Agent Trace is an assisted inspection surface, and
-  Code Editor plus SQL/curl remain canonical workshop proof.
+  Code Editor plus SQL/curl remain canonical workshop proof. Participant-facing
+  chrome labels these surfaces "Pellier" and "Pellier Labs"; internal component,
+  route, and test names stay Boutique and Agent Trace.
 - Editorial specialists use the configured Opus profile when available;
   reporting and routing specialists use the configured Sonnet profile.
 - Never hardcode credentials, JWTs, account IDs, endpoints, or `.env` values

@@ -1062,7 +1062,7 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       category: 'managed',
       title: 'Intent → specialist',
       description:
-        'Dispatcher scores the utterance and hands the turn to one owning agent (Curator, Style Advisor, …). One hop per decision – the shape the Boutique storefront runs in production.',
+        'Dispatcher scores the utterance and hands the turn to one owning agent (Curator, Style Advisor, …). One hop per decision – the shape the Pellier storefront runs in production.',
       status: 'complete',
       durationMs: 58,
       agent: 'Dispatcher',
@@ -1232,7 +1232,7 @@ const RoutingPatternIntro: React.FC = () => (
     <Eyebrow label="Routing patterns" />
     <p style={{ ...introParagraphStyle, marginTop: '12px' }}>
       <strong style={{ color: 'var(--at-ink-1)' }}>Dispatcher</strong> is what the{' '}
-      <strong style={{ color: 'var(--at-ink-1)' }}>Boutique storefront</strong> uses in production:
+      <strong style={{ color: 'var(--at-ink-1)' }}>Pellier storefront</strong> uses in production:
       each shopper turn is routed to one owning specialist at a time, the concierge stays easy
       to reason about, and latency/token paths map cleanly to support and compliance reviews. Workshop
       sessions on this tab are captured from that same path, so the default timeline matches what ships.

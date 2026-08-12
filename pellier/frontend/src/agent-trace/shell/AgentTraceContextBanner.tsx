@@ -40,19 +40,19 @@ const AgentTraceContextBanner: React.FC = () => {
     <aside
       className="agent-trace-context-banner"
       data-testid="agent-trace-context-banner"
-      aria-label="Boutique trace context"
+      aria-label="Pellier trace context"
     >
       <div className="agent-trace-context-copy">
-        <span className="agent-trace-context-kicker">Boutique trace</span>
+        <span className="agent-trace-context-kicker">Pellier trace</span>
         <strong>{context.label}</strong>
         <span>
-          Landed here from a shopper-facing trace chip. This Agent Trace view shows {context.section}.
+          Landed here from a shopper-facing trace chip. This Pellier Labs view shows {context.section}.
         </span>
       </div>
       <div className="agent-trace-context-actions">
         <Link to="/" className="agent-trace-context-link">
           <ArrowLeft size={13} aria-hidden="true" />
-          Boutique
+          Pellier
         </Link>
         <Link to={cleanPath} className="agent-trace-context-link">
           <ArrowDown size={13} aria-hidden="true" />

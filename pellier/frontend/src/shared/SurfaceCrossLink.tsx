@@ -44,7 +44,7 @@ export const SurfaceCrossLink: React.FC<SurfaceCrossLinkProps> = ({
 }) => {
   const defaultLabel =
     direction === 'to-boutique'
-      ? 'See this in the Boutique'
+      ? 'See this in Pellier'
       : 'How this works'
 
   const targetHref =

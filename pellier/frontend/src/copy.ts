@@ -68,13 +68,13 @@ export const NAV = {
 
 // Global surface toggle (Header). Replaces the standalone Workshop
 // link with a segmented control that flips between the shopper-facing
-// storefront and the operator-facing /workshop surface. Labels
-// deliberately pair boutique register (Boutique) with editorial /
-// agentTrace register (Agent Trace) instead of operator jargon.
+// storefront and the operator-facing /agent-trace surface. Labels
+// pair the shopper surface (Pellier) with the technical workbench
+// behind it (Pellier Labs) instead of operator jargon.
 export const SURFACE_TOGGLE = {
   ARIA_LABEL: "Switch surface",
-  STOREFRONT: "Boutique",
-  AGENT_TRACE: "Agent Trace",
+  STOREFRONT: "Pellier",
+  AGENT_TRACE: "Pellier Labs",
 } as const;
 
 // Account button labels (Requirement 1.2.2, 1.2.3)
@@ -361,9 +361,9 @@ export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
 export const ABOUT_BRIEF = {
   EYEBROW: "About",
   TITLE_LINES: ["A boutique surface.", "A proof surface."],
-  LABEL: "Boutique + Agent Trace",
+  LABEL: "Pellier + Pellier Labs",
   PARAGRAPHS: [
-    "Pellier is a working boutique built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while the Agent Trace shows how each answer was built.",
+    "Pellier is a working boutique built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while Pellier Labs shows how each answer was built.",
     "Every recommendation is grounded in Aurora PostgreSQL, shaped by specialist agents, checked against tools and inventory, and traceable back to the signals that produced it. The promise is simple: recommendations can feel personal without becoming invisible.",
   ],
   STACK: [

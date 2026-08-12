@@ -1096,7 +1096,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         summary={
           isAuditFocus
             ? 'A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present.'
-            : "Use this board when a required lab asks for an Agent Trace check. Checkpoints follow the four-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
+            : "Use this board when a required lab asks for a Pellier Labs check. Checkpoints follow the four-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
         }
       />
 

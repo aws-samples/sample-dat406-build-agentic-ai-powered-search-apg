@@ -67,7 +67,7 @@ const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
     model: 'Claude Sonnet 5',
     tool: 'floor_check',
     outcome:
-      'Opening demo: Dispatcher matches stock intent; floor_check still stubbed → fall-through telemetry (no tool). Midpoint: same Boutique pill - real warehouse breakdown after the build.',
+      'Opening demo: Dispatcher matches stock intent; floor_check still stubbed → fall-through telemetry (no tool). Midpoint: same Pellier pill - real warehouse breakdown after the build.',
     sessionId: 'marco-opening-demo',
     wiredSessionId: 'marco-midpoint-checkpoint',
   },
@@ -193,7 +193,7 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'hybrid + Cohere Rerank v3.5',
     capabilityRole: 'Capability 2 · when pure vector wears thin',
     blurb:
-      "Gift-giver - observe & learn only. Her five Boutique hero strings are a live demo of Capability 2 (hybrid + rerank); there is no required wiring exercise on this arc. Use Sessions and Observatory to study spans and cost.",
+      "Gift-giver - observe & learn only. Her five Pellier hero strings are a live demo of Capability 2 (hybrid + rerank); there is no required wiring exercise on this arc. Use Sessions and Observatory to study spans and cost.",
     turns: attachPills(ANNA_TURNS_META, PERSONA_HERO_PILLS.anna, PERSONA_TURN_TRACES.anna),
     capstoneNote:
       "Recall@5 jumps ~20 points; p50 doubles; cost goes 6×. The Proof Board keeps the required retrieval checkpoint - there's no universally right answer per query class.",
@@ -417,9 +417,9 @@ const PersonaSection: React.FC<{ journey: PersonaJourney }> = ({ journey }) => (
 const PersonaJourneys: React.FC = () => (
   <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
     <EditorialTitle
-      eyebrow="Observe · Persona Journeys · 15 Boutique hero turns"
+      eyebrow="Observe · Persona Journeys · 15 Pellier hero turns"
       title="Three personas, fifteen hero queries."
-      summary="Each row mirrors one Boutique “Try asking” pill, so the storefront and Agent Trace tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
+      summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Labs tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
     />
 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -459,7 +459,7 @@ const PersonaJourneys: React.FC = () => (
         <span> compact per-turn tool waterfall</span>
         {'\n'}
         <span style={{ color: '#8a8270' }}>
-          -- Boutique "Under the hood" is the shopper-facing view of the same events.
+          -- Pellier "Under the hood" is the shopper-facing view of the same events.
         </span>
       </p>
       <Link

@@ -33,7 +33,7 @@ export type ProofState = 'pass' | 'fail' | 'pending';
 export interface LabGrammarProps {
   /** Persistent "you are here" indicator, e.g. "Lab 1 · Ground Answers in Live Data". */
   labLabel: string;
-  /** What the attendee does in the Boutique. */
+  /** What the attendee does in Pellier. */
   try: React.ReactNode;
   /** The exact file, region, or command in the Code Editor. */
   build: React.ReactNode;
@@ -162,7 +162,7 @@ export const LabGrammar: React.FC<LabGrammarProps> = ({
       </div>
 
       <div style={sectionStyle}>
-        <Eyebrow label="Try · in the Boutique" variant="muted" />
+        <Eyebrow label="Try · in Pellier" variant="muted" />
         <p style={bodyStyle}>{tryStep}</p>
       </div>
 

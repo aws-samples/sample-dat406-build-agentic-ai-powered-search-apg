@@ -100,7 +100,7 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Boutique + Agent Trace
+                Pellier + Pellier Labs
               </div>
 
               {/* Philosophy */}
@@ -116,8 +116,8 @@ export default function EditorialBrief() {
                 Pellier is a working boutique built to show governed agentic
                 search in motion. Shoppers ask in natural language: a linen
                 shirt for Goa, a thoughtful gift, a slow-craft object for home.
-                The storefront answers with pieces that feel personal, while the
-                Agent Trace shows how each answer was built.
+                The storefront answers with pieces that feel personal, while
+                Pellier Labs shows how each answer was built.
               </p>
 
               <p

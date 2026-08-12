@@ -137,7 +137,7 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
   'tool.transparency': {
     name: 'tool.transparency',
     label: 'Why it fits',
-    description: 'The Boutique names the signal behind each recommendation.',
+    description: 'Pellier names the signal behind each recommendation.',
     agentTracePath: '/agent-trace/audit-proof',
   },
 }

@@ -24,7 +24,7 @@ import type { ArchitectureConcept } from '../../types';
 const legendItems: { category: CategoryType; description: string }[] = [
   {
     category: 'live',
-    description: 'Used directly in the Boutique request path participants can replay in Sessions.',
+    description: 'Used directly in the Pellier request path participants can replay in Sessions.',
   },
   {
     category: 'workshop',
@@ -361,7 +361,7 @@ const ArchitectureIndex: React.FC = () => {
       <EditorialTitle
         eyebrow="Start Here · Architecture Brief"
         title="The governed path, compact."
-        summary="A short map of the pieces the labs ask you to prove: Aurora grounding, dispatcher routing, skills, tool registry, memory, Runtime, and Gateway. Use it as orientation, then return to Code Editor or Boutique."
+        summary="A short map of the pieces the labs ask you to prove: Aurora grounding, dispatcher routing, skills, tool registry, memory, Runtime, and Gateway. Use it as orientation, then return to Code Editor or Pellier."
       />
 
       {loading && <LoadingState />}

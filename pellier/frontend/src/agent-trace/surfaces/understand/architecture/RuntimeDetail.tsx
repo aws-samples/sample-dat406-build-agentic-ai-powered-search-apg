@@ -62,7 +62,7 @@ const RuntimeDetail: React.FC = () => {
               <SectionLabel label="The layers" />
               <h3 style={titleStyle}>Seven visible steps, one request.</h3>
               <p style={proseStyle}>
-                A Boutique request flows through visible steps: fast-path check, intent
+                A Pellier request flows through visible steps: fast-path check, intent
                 classification, skill routing, dispatcher handoff, specialist execution,
                 tool invocation, and response streaming. Sessions and Telemetry render these
                 steps directly.
