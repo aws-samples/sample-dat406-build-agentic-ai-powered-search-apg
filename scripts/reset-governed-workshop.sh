@@ -135,7 +135,7 @@ _agentcore() {
 }
 
 policy_changed=false
-for policy_name in workshop_identity_match_forbid workshop_final_sale_forbid; do
+for policy_name in workshop_identity_match_forbid; do
   if jq -e \
       --arg engine "$POLICY_ENGINE_NAME" \
       --arg policy "$policy_name" \

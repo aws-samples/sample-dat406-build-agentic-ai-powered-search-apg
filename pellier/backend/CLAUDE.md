@@ -79,7 +79,7 @@ them.
 - `agents/` owns specialist construction and tool grants.
 - `services/agent_tools.py` owns deterministic business-tool boundaries.
 - `skills/` loads root `skills/*/SKILL.md` files into specialist prompts.
-- `routes/agent-trace_observatory.py` serves evidence read models. It must not
+- `routes/agent_trace.py` serves evidence read models. It must not
   fabricate readiness or call managed services merely to render a page.
 - `agentcore_runtime.py`, `services/agentcore_*`, and `services/managed_policy.py`
   own managed-boundary behavior.

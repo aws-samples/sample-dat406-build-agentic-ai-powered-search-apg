@@ -1,9 +1,11 @@
 """
 Vector Search Service — pgvector semantic search.
 
-The retrieval teaching surface is pure pgvector cosine similarity. The
-earlier hybrid (vector + keyword + RRF) and Cohere Rerank branches were
-removed after the concierge switched to semantic-only retrieval.
+This module is the pure pgvector cosine-similarity branch. Hybrid
+retrieval (vector + full-text + RRF) lives in ``hybrid_search.py`` and
+Cohere Rerank in ``rerank.py`` — both live, not removed; this module
+deliberately excludes them so the semantic branch stays readable on its
+own.
 
 ``VectorSearch.vector_search`` is the canonical pgvector reference
 called by ``agent_tools.find_pieces`` and covered by
