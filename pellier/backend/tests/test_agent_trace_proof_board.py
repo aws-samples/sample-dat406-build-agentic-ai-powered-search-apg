@@ -12,7 +12,11 @@ from routes.agent_trace import router as agent_trace_router
 
 
 class _ProofDB:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, tuple[Any, ...]]] = []
+
     async def fetch_one(self, query: str, *params: Any) -> dict | None:
+        self.calls.append((query, params))
         if "catalog_count" in query:
             return {
                 "catalog_count": 40,
@@ -34,7 +38,9 @@ class _ProofDB:
                 "policy_name": "process_return_damaged_only",
                 "created_at": None,
             }
-        if params == (303,):
+        if "FROM pellier.tool_audit" not in query:
+            return None
+        if "ta.audit_id = %s" in query:
             return {
                 "audit_id": 303,
                 "session_id": "managed-proof",
@@ -45,7 +51,7 @@ class _ProofDB:
                 "latency_ms": 55,
                 "created_at": None,
             }
-        if params == ("floor_check",):
+        if "floor_check" in params:
             return {
                 "audit_id": 101,
                 "session_id": "marco-proof",
@@ -56,7 +62,7 @@ class _ProofDB:
                 "latency_ms": 42,
                 "created_at": None,
             }
-        if params == ("process_return",):
+        if "process_return" in params:
             return {
                 "audit_id": 202,
                 "session_id": "theo-proof",
@@ -67,7 +73,7 @@ class _ProofDB:
                 "latency_ms": 81,
                 "created_at": None,
             }
-        if params == ("gateway",):
+        if "gateway" in params:
             return {
                 "audit_id": 303,
                 "session_id": "managed-proof",
@@ -92,7 +98,10 @@ class _ProofDB:
 
 class _DenyProofDB(_ProofDB):
     async def fetch_one(self, query: str, *params: Any) -> dict | None:
-        if "FROM pellier.governed_receipts" in query and params[:1] == ("gateway-identity-mismatch-proof",):
+        if (
+            "FROM pellier.governed_receipts" in query
+            and "gateway-identity-mismatch-proof" in params
+        ):
             return {
                 "receipt_id": 606,
                 "audit_id": None,
@@ -121,6 +130,10 @@ def _client(stub_db: _ProofDB) -> TestClient:
     app_module.db_service = stub_db  # type: ignore[attr-defined]
     fast = FastAPI()
     fast.include_router(agent_trace_router)
+    fast.dependency_overrides[agent_trace.require_operator] = lambda: {
+        "sub": "CUST-MARCO",
+        "access_token": "jwt",
+    }
     return TestClient(fast)
 
 
@@ -203,7 +216,7 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     monkeypatch.setattr(
         agent_trace,
         "_latest_managed_receipt",
-        lambda session_id=None: {
+        lambda session_id=None, *, principal_sub: {
             "present": True,
             "traceKind": "managed-runtime-receipt",
             "runtime": "agentcore-managed",
@@ -264,6 +277,42 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
     assert "search-strategies/compare" in cards["retrieval-comparison"]["fallback"]["command"]
     assert "process_return" in cards["audit-ledger"]["fallback"]["command"]
+
+
+def test_proof_board_requires_a_verified_identity() -> None:
+    import app as app_module
+
+    app_module.db_service = _ProofDB()  # type: ignore[attr-defined]
+    fast = FastAPI()
+    fast.include_router(agent_trace_router)
+    response = TestClient(fast).get("/api/agent-trace/proof-board")
+
+    assert response.status_code == 401
+
+
+def test_proof_board_joins_evidence_to_the_verified_principal(monkeypatch) -> None:
+    _configure_managed(monkeypatch)
+    db = _ProofDB()
+    client = _client(db)
+
+    response = client.get("/api/agent-trace/proof-board?session_id=managed-proof")
+
+    assert response.status_code == 200
+    audit_queries = [
+        (query, params)
+        for query, params in db.calls
+        if "FROM pellier.tool_audit ta" in query
+    ]
+    assert audit_queries
+    assert all("governed_turn_receipts" in query for query, _ in audit_queries)
+    assert all(params.count("CUST-MARCO") >= 2 for _, params in audit_queries)
+    governed_queries = [
+        (query, params)
+        for query, params in db.calls
+        if "FROM pellier.governed_receipts gr" in query
+    ]
+    assert governed_queries
+    assert all(params[0] == "CUST-MARCO" for _, params in governed_queries)
 
 
 def test_proof_board_scopes_gateway_deny_absence(monkeypatch) -> None:

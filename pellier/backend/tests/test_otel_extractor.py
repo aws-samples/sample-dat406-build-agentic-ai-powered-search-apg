@@ -579,4 +579,10 @@ def test_agentcore_runtime_bounds_latest_trace_cache(
     rt._store_latest_trace("sess-3", {"spans": ["three"]})
 
     assert list(rt._latest_traces_by_session) == ["sess-2", "sess-3"]
-    assert rt.get_latest_trace("sess-1") == rt._latest_trace
+    # An evicted session must never fall back to another participant's most
+    # recent trace.
+    assert rt.get_latest_trace("sess-1") == {
+        "spans": [],
+        "totalMs": 0,
+        "specialistRoute": "",
+    }

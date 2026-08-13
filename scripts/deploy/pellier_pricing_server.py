@@ -209,7 +209,10 @@ def lambda_handler(event: dict, context: Any) -> dict:
         return {"error": f"Unknown tool: {tool_name}"}
 
     try:
-        result = TOOLS[tool_name]["fn"](**arguments)
+        execution_arguments = {
+            key: value for key, value in arguments.items() if key != "turn_id"
+        }
+        result = TOOLS[tool_name]["fn"](**execution_arguments)
         return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
     except Exception as e:
         logger.error(f"Tool {tool_name} failed: {e}")

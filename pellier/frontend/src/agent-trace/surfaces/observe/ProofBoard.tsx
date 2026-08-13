@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { EditorialTitle, Eyebrow } from '../../components';
+import { PolicyDecisionBadge, type PolicyDecision } from '../../../shared';
 
 type CheckState = 'pass' | 'warn' | 'fail';
 type CardStatus = 'complete' | 'needs_build' | 'needs_run' | 'needs_data' | 'needs_config' | 'pending' | 'available';
@@ -95,6 +96,30 @@ interface ProofBoardPayload {
 
 interface ProofBoardProps {
   focusCardId?: string;
+}
+
+interface PersistedTurnReceipt {
+  turn_id: string;
+  rail: string;
+  citations: Array<{
+    evidence_id: string;
+    source_uri: string;
+    revision: string | null;
+    quote: string;
+    entity_id: string;
+  }>;
+  tool_audit_ids: Array<{
+    audit_id: number;
+    tool: string;
+    caller: string;
+    latency_ms: number | null;
+  }>;
+  policy_events: Array<{
+    decision: PolicyDecision;
+    reason?: string | null;
+  }>;
+  terminal_status: string;
+  latency_ms: number | null;
 }
 
 interface GovernanceReceipt {
@@ -1127,16 +1152,123 @@ const ProofRail: React.FC<{
   );
 };
 
+const PersistedTurnReceiptPanel: React.FC<{ receipt: PersistedTurnReceipt }> = ({
+  receipt,
+}) => {
+  const policy = receipt.policy_events[0];
+  return (
+    <section
+      aria-label="Persisted turn receipt"
+      data-testid="persisted-turn-receipt"
+      style={{
+        border: '1px solid var(--at-card-border)',
+        background: 'var(--at-cream-2)',
+        borderRadius: '8px',
+        padding: '20px',
+        marginBottom: '28px',
+      }}
+    >
+      <Eyebrow label="Persisted turn receipt" />
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          gap: '12px',
+          alignItems: 'center',
+          marginTop: '8px',
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              fontFamily: 'var(--at-heading)',
+              fontSize: '22px',
+              fontWeight: 600,
+              margin: 0,
+              color: 'var(--at-ink-1)',
+            }}
+          >
+            {receipt.turn_id}
+          </h2>
+          <p
+            style={{
+              fontFamily: 'var(--at-sans)',
+              fontSize: '13px',
+              margin: '4px 0 0',
+              color: 'var(--at-ink-3)',
+            }}
+          >
+            {receipt.terminal_status} on {receipt.rail}
+          </p>
+        </div>
+        {policy && (
+          <PolicyDecisionBadge
+            decision={policy.decision}
+            reason={policy.reason}
+            size="md"
+          />
+        )}
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginTop: '16px',
+          fontFamily: 'var(--at-mono)',
+          fontSize: '12px',
+          color: 'var(--at-ink-2)',
+        }}
+      >
+        <span>{receipt.citations.length} catalog citations</span>
+        <span>{receipt.tool_audit_ids.length} executed tools</span>
+        {typeof receipt.latency_ms === 'number' && (
+          <span>{Math.round(receipt.latency_ms)}ms</span>
+        )}
+      </div>
+      {receipt.citations.length > 0 && (
+        <ul
+          style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: '16px 0 0',
+            display: 'grid',
+            gap: '7px',
+          }}
+        >
+          {receipt.citations.map((citation) => (
+            <li
+              key={citation.evidence_id}
+              style={{
+                fontFamily: 'var(--at-sans)',
+                fontSize: '13px',
+                color: 'var(--at-ink-2)',
+              }}
+            >
+              <code style={{ fontFamily: 'var(--at-mono)', fontSize: '11px' }}>
+                {citation.entity_id}
+              </code>{' '}
+              {citation.quote}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+};
+
 const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
   const location = useLocation();
   const [data, setData] = useState<ProofBoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [turnReceipt, setTurnReceipt] = useState<PersistedTurnReceipt | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetch('/api/agent-trace/proof-board')
+    fetch('/api/agent-trace/proof-board', { credentials: 'include' })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
@@ -1157,6 +1289,32 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
       active = false;
     };
   }, []);
+
+  const selectedTurnId = useMemo(
+    () => new URLSearchParams(location.search).get('turn'),
+    [location.search],
+  );
+
+  useEffect(() => {
+    if (!selectedTurnId) {
+      setTurnReceipt(null);
+      return;
+    }
+    let active = true;
+    fetch(`/api/agent-trace/receipts/${encodeURIComponent(selectedTurnId)}`, {
+      credentials: 'include',
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((receipt: PersistedTurnReceipt | null) => {
+        if (active) setTurnReceipt(receipt);
+      })
+      .catch(() => {
+        if (active) setTurnReceipt(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedTurnId]);
 
   const activeAnchor = useMemo(() => {
     if (!location.hash) return '';
@@ -1207,6 +1365,8 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
             : "Use this board when a required lab asks for a Pellier Labs check. Checkpoints follow the four-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
         }
       />
+
+      {turnReceipt && <PersistedTurnReceiptPanel receipt={turnReceipt} />}
 
       {loading && (
         <p className="font-mono" style={{ color: 'var(--at-ink-3)' }}>

@@ -26,6 +26,7 @@ import json
 import hashlib
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -46,6 +47,27 @@ DATABASE = os.environ.get("DATABASE", "postgres")
 # managed Gateway vector search shares the same embedding space.
 EMBED_MODEL_ID = os.environ.get("BEDROCK_EMBED_MODEL_ID", "us.cohere.embed-v4:0")
 SCHEMA = "pellier"
+_TURN_ID_RE = re.compile(r"^turn-[0-9a-f]{32}$")
+_GATEWAY_RETRIEVAL_INSERT = f"""
+    INSERT INTO {SCHEMA}.retrieval_receipts (
+        turn_id, query_hash, query_preview, search_plan,
+        hard_constraints, soft_preferences, exclusions, relaxations,
+        embedding_model, rerank_model, retrieval_config, index_parameters,
+        candidate_product_ids, vector_ranks, lexical_ranks, rrf_scores,
+        rerank_scores, merchandising_rules, memory_record_ids_used,
+        citation_ids, latency_breakdown, rail
+    ) VALUES (
+        :turn_id, :query_hash, :query_preview, :search_plan::jsonb,
+        :hard_constraints::jsonb, :soft_preferences::jsonb,
+        :exclusions::jsonb, :relaxations::jsonb,
+        :embedding_model, :rerank_model, :retrieval_config::jsonb,
+        :index_parameters::jsonb, :candidate_product_ids::jsonb,
+        :vector_ranks::jsonb, :lexical_ranks::jsonb, :rrf_scores::jsonb,
+        :rerank_scores::jsonb, :merchandising_rules::jsonb,
+        :memory_record_ids_used::jsonb, :citation_ids::jsonb,
+        :latency_breakdown::jsonb, :rail
+    )
+"""
 
 # Module-level clients for Lambda warm start reuse
 rds_client = boto3.client("rds-data", region_name=DB_REGION)
@@ -281,7 +303,9 @@ def find_pieces_hybrid(
     RRF order — the Agent Trace surfaces this as a missing rerank stage in
     telemetry rather than crashing the request.
     """
+    retrieval_started = time.monotonic()
     embedding = _get_embedding(query)
+    embedding_ms = int((time.monotonic() - retrieval_started) * 1000)
     embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
 
     # Hybrid retrieval in a single statement. RRF merges the two
@@ -308,6 +332,8 @@ def find_pieces_hybrid(
         ),
         rrf AS (
           SELECT COALESCE(v.pid, f.pid) AS pid,
+                 v.vrank AS vector_rank,
+                 f.frank AS lexical_rank,
                  COALESCE(1.0 / (60 + v.vrank), 0) +
                  COALESCE(1.0 / (60 + f.frank), 0) AS rrf_score
           FROM vector_results v
@@ -316,7 +342,7 @@ def find_pieces_hybrid(
         SELECT pc."productId", pc.description AS product_description, pc.price,
                pc.rating AS stars,
                pc.reviews, pc.category AS category_name, pc.quantity, pc."imgUrl",
-               rrf.rrf_score
+               rrf.vector_rank, rrf.lexical_rank, rrf.rrf_score
         FROM rrf
         JOIN {SCHEMA}.product_catalog pc ON pc."productId" = rrf.pid
         ORDER BY rrf.rrf_score DESC
@@ -326,7 +352,9 @@ def find_pieces_hybrid(
         {"name": "embedding", "value": {"stringValue": embedding_str}},
         {"name": "query", "value": {"stringValue": query}},
     ]
+    candidate_query_started = time.monotonic()
     candidates = _execute_sql(sql, parameters)
+    candidate_query_ms = int((time.monotonic() - candidate_query_started) * 1000)
 
     # Rerank stage. Cohere wants plain text per document; we mirror
     # the in-process `_doc_for_rerank` shape (name + description + cat).
@@ -338,7 +366,9 @@ def find_pieces_hybrid(
             desc = desc[:237] + "…"
         documents.append(f"{desc} ({cat})")
 
+    rerank_started = time.monotonic()
     rerank_results = _bedrock_rerank(query, documents, top_n=min(limit * 3, 30))
+    rerank_ms = int((time.monotonic() - rerank_started) * 1000)
     if rerank_results:
         ordered = [
             {**candidates[r["index"]], "rerank_score": float(r["relevance_score"])}
@@ -350,6 +380,7 @@ def find_pieces_hybrid(
         search_method = "hybrid (rerank fallback to RRF order)"
 
     # Apply post-rerank filters last so the rerank ordering is honoured.
+    filter_started = time.monotonic()
     filtered = []
     for p in ordered:
         if max_price is not None:
@@ -369,6 +400,7 @@ def find_pieces_hybrid(
         filtered.append(p)
         if len(filtered) >= limit:
             break
+    filter_ms = int((time.monotonic() - filter_started) * 1000)
 
     return {
         "status": "success",
@@ -377,7 +409,220 @@ def find_pieces_hybrid(
         "products": filtered,
         "search_method": search_method,
         "pool_size": len(candidates),
+        # This does not leave the Lambda. ``lambda_handler`` uses it to
+        # persist the exact candidate/ranking evidence, then removes it
+        # before returning the MCP result to the Runtime model.
+        "_receipt_evidence": {
+            "candidates": candidates,
+            "ordered": ordered,
+            "selected": filtered,
+            "embedding_model": EMBED_MODEL_ID,
+            "rerank_model": (
+                "cohere.rerank-v3-5:0" if rerank_results else None
+            ),
+            "retrieval_config": {
+                "strategy": "vector+fts_rrf+cohere_rerank",
+                "rrf_k": 60,
+                "candidate_limit": 30,
+                "rerank_top_n": min(limit * 3, 30),
+                "rerank_applied": bool(rerank_results),
+            },
+            "index_parameters": {
+                "vector_candidate_limit": 20,
+                "lexical_candidate_limit": 20,
+            },
+            "latency_breakdown": {
+                "embedding_ms": embedding_ms,
+                "candidate_query_ms": candidate_query_ms,
+                "rerank_ms": rerank_ms,
+                "post_filter_ms": filter_ms,
+            },
+        },
     }
+
+
+def _gateway_receipt_product_id(row: dict[str, Any]) -> str | None:
+    value = row.get("productId", row.get("product_id"))
+    return str(value) if value is not None and str(value).strip() else None
+
+
+def _rank_values(
+    rows: list[dict[str, Any]], key: str
+) -> dict[str, float | int]:
+    values: dict[str, float | int] = {}
+    for row in rows:
+        product_id = _gateway_receipt_product_id(row)
+        value = row.get(key)
+        if product_id is None or value is None:
+            continue
+        try:
+            values[product_id] = (
+                int(value) if key in {"vector_rank", "lexical_rank"} else float(value)
+            )
+        except (TypeError, ValueError):
+            continue
+    return values
+
+
+def _similarity_scores(rows: list[dict[str, Any]]) -> dict[str, float]:
+    scores: dict[str, float] = {}
+    for row in rows:
+        product_id = _gateway_receipt_product_id(row)
+        value = row.get("similarity")
+        if product_id is None or value is None:
+            continue
+        try:
+            scores[product_id] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return scores
+
+
+def _receipt_json_parameter(name: str, value: Any) -> dict[str, Any]:
+    return {
+        "name": name,
+        "value": {
+            "stringValue": json.dumps(
+                value,
+                default=str,
+                separators=(",", ":"),
+            )
+        },
+    }
+
+
+def _receipt_string_parameter(name: str, value: str | None) -> dict[str, Any]:
+    value_field = {"isNull": True} if value is None else {"stringValue": value}
+    return {"name": name, "value": value_field}
+
+
+def _persist_gateway_retrieval_receipt(
+    *,
+    turn_id: Any,
+    query: str,
+    arguments: dict[str, Any],
+    evidence: dict[str, Any],
+    latency_ms: int,
+) -> bool:
+    """Persist Gateway retrieval facts without making catalog search brittle.
+
+    The Lambda has no authenticated shopper principal or session identifier to
+    infer safely. It writes only a route-minted turn correlation identifier;
+    the trusted storefront then joins the record to principal/session evidence
+    in ``governed_turn_receipts`` once the complete turn terminates.
+    """
+    if not isinstance(turn_id, str) or not _TURN_ID_RE.fullmatch(turn_id):
+        logger.warning("Gateway retrieval receipt skipped: missing valid server turn id")
+        return False
+
+    candidates = [
+        row for row in evidence.get("candidates", []) if isinstance(row, dict)
+    ]
+    ordered = [row for row in evidence.get("ordered", []) if isinstance(row, dict)]
+    selected = [
+        row for row in evidence.get("selected", []) if isinstance(row, dict)
+    ]
+    candidate_product_ids = [
+        product_id
+        for row in candidates
+        if (product_id := _gateway_receipt_product_id(row)) is not None
+    ]
+    citation_ids = [
+        product_id
+        for row in selected
+        if (product_id := _gateway_receipt_product_id(row)) is not None
+    ]
+    hard_constraints = {
+        "in_stock": True,
+        **{
+            key: arguments[key]
+            for key in ("max_price", "min_rating", "category")
+            if arguments.get(key) not in (None, "", 0, 0.0)
+        },
+    }
+    retrieval_config = evidence.get("retrieval_config") or {}
+    search_plan = {
+        "source": "agentcore-gateway-lambda",
+        "strategy": retrieval_config.get("strategy", "hybrid"),
+        "hard_constraints": hard_constraints,
+        "soft_preferences": {},
+        "exclusions": [],
+        "relaxations": [],
+    }
+    normalized_query = " ".join(query.lower().split())
+    vector_ranks = evidence.get("vector_ranks")
+    if not isinstance(vector_ranks, dict):
+        vector_ranks = _rank_values(candidates, "vector_rank")
+    lexical_ranks = evidence.get("lexical_ranks")
+    if not isinstance(lexical_ranks, dict):
+        lexical_ranks = _rank_values(candidates, "lexical_rank")
+    rrf_scores = evidence.get("rrf_scores")
+    if not isinstance(rrf_scores, dict):
+        rrf_scores = _rank_values(candidates, "rrf_score")
+    rerank_scores = evidence.get("rerank_scores")
+    if not isinstance(rerank_scores, dict):
+        rerank_scores = _rank_values(ordered, "rerank_score")
+    latency_breakdown = {
+        **{
+            key: max(0, int(value))
+            for key, value in (evidence.get("latency_breakdown") or {}).items()
+            if isinstance(value, (int, float))
+        },
+        "total_ms": max(0, int(latency_ms)),
+    }
+    parameters = [
+        _receipt_string_parameter("turn_id", turn_id),
+        _receipt_string_parameter(
+            "query_hash",
+            hashlib.sha256(normalized_query.encode("utf-8")).hexdigest(),
+        ),
+        _receipt_string_parameter("query_preview", query[:120]),
+        _receipt_json_parameter("search_plan", search_plan),
+        _receipt_json_parameter("hard_constraints", hard_constraints),
+        _receipt_json_parameter("soft_preferences", {}),
+        _receipt_json_parameter("exclusions", []),
+        _receipt_json_parameter("relaxations", []),
+        _receipt_string_parameter(
+            "embedding_model",
+            str(evidence["embedding_model"])
+            if evidence.get("embedding_model")
+            else None,
+        ),
+        _receipt_string_parameter(
+            "rerank_model",
+            str(evidence["rerank_model"])
+            if evidence.get("rerank_model")
+            else None,
+        ),
+        _receipt_json_parameter(
+            "retrieval_config", retrieval_config
+        ),
+        _receipt_json_parameter(
+            "index_parameters", evidence.get("index_parameters") or {}
+        ),
+        _receipt_json_parameter("candidate_product_ids", candidate_product_ids),
+        _receipt_json_parameter("vector_ranks", vector_ranks),
+        _receipt_json_parameter("lexical_ranks", lexical_ranks),
+        _receipt_json_parameter("rrf_scores", rrf_scores),
+        _receipt_json_parameter("rerank_scores", rerank_scores),
+        _receipt_json_parameter("merchandising_rules", []),
+        _receipt_json_parameter("memory_record_ids_used", []),
+        _receipt_json_parameter("citation_ids", citation_ids),
+        _receipt_json_parameter("latency_breakdown", latency_breakdown),
+        _receipt_string_parameter("rail", "gateway-mcp"),
+    ]
+    try:
+        rds_client.execute_statement(
+            resourceArn=DB_CLUSTER_ARN,
+            secretArn=SECRET_ARN,
+            database=DATABASE,
+            sql=_GATEWAY_RETRIEVAL_INSERT,
+            parameters=parameters,
+        )
+        return True
+    except Exception as exc:
+        logger.warning("Gateway retrieval receipt insert failed: %s", exc)
+        return False
 
 
 def _bedrock_rerank(query: str, documents: list, top_n: int) -> list:
@@ -507,6 +752,7 @@ def find_pieces(
         max_price=max_price,
         min_rating=min_rating,
     )
+    candidates = [dict(product) for product in result.get("products", [])]
     if category:
         products = [
             product
@@ -517,6 +763,32 @@ def find_pieces(
         result["count"] = len(products)
     result["status"] = "success"
     result["search_method"] = "semantic"
+    selected = [
+        product
+        for product in result.get("products", [])
+        if isinstance(product, dict)
+    ]
+    result["_receipt_evidence"] = {
+        "candidates": candidates,
+        "ordered": selected,
+        "selected": selected,
+        "embedding_model": EMBED_MODEL_ID,
+        "rerank_model": None,
+        "retrieval_config": {
+            "strategy": "vector_similarity",
+            "ranking_signal": "cosine_similarity",
+            "similarity_scores": _similarity_scores(candidates),
+        },
+        "index_parameters": {},
+        "vector_ranks": {
+            product_id: rank
+            for rank, product in enumerate(candidates, start=1)
+            if (product_id := _gateway_receipt_product_id(product)) is not None
+        },
+        "lexical_ranks": {},
+        "rrf_scores": {},
+        "rerank_scores": {},
+    }
     return result
 
 
@@ -791,11 +1063,28 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     try:
         started = time.monotonic()
-        result = TOOLS[tool_name]["fn"](**arguments)
+        audit_arguments = dict(arguments)
+        execution_arguments = {
+            key: value for key, value in arguments.items() if key != "turn_id"
+        }
+        result = TOOLS[tool_name]["fn"](**execution_arguments)
+        receipt_evidence = None
+        if tool_name in {"find_pieces", "find_pieces_hybrid"} and isinstance(
+            result, dict
+        ):
+            receipt_evidence = result.pop("_receipt_evidence", None)
+            if isinstance(receipt_evidence, dict):
+                _persist_gateway_retrieval_receipt(
+                    turn_id=audit_arguments.get("turn_id"),
+                    query=str(execution_arguments.get("query") or ""),
+                    arguments=execution_arguments,
+                    evidence=receipt_evidence,
+                    latency_ms=int((time.monotonic() - started) * 1000),
+                )
         if tool_name == "restock_shelf":
             _write_tool_audit(
                 tool_name,
-                arguments,
+                audit_arguments,
                 result,
                 int((time.monotonic() - started) * 1000),
             )

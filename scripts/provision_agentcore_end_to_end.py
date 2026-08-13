@@ -79,6 +79,56 @@ AWS_CONFIG = Config(
 TRANSACTION_SEARCH_POLICY = "TransactionSearchXRayAccess"
 RUNTIME_SMOKE_SESSION = "builders-smoke-session-0000000000000001"
 TRACE_DELIVERY_TIMEOUT_SECONDS = 240
+_RUNTIME_LOG_RETENTION_DAYS = frozenset(
+    {
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        2192,
+        2557,
+        2922,
+        3288,
+        3653,
+    }
+)
+_AGENT_INPUT_ATTRIBUTE_KEYS = (
+    "gen_ai.input.messages",
+    "gen_ai.request.input",
+    "gen_ai.prompt",
+)
+_AGENT_OUTPUT_ATTRIBUTE_KEYS = (
+    "gen_ai.output.messages",
+    "gen_ai.response.output",
+    "gen_ai.completion",
+)
+_TOOL_INPUT_ATTRIBUTE_KEYS = (
+    "gen_ai.tool.call.arguments",
+    "gen_ai.tool.input",
+    "gen_ai.tool.parameters",
+)
+_TOOL_OUTPUT_ATTRIBUTE_KEYS = (
+    "gen_ai.tool.call.result",
+    "gen_ai.tool.output",
+    "gen_ai.tool.result",
+)
+_SENSITIVE_TRACE_VALUE = re.compile(
+    r"(authorization|bearer\s|access[_-]?token|id[_-]?token|refresh[_-]?token|"
+    r"api[_-]?key|client[_-]?secret|password|secret[_-]?key)",
+    re.IGNORECASE,
+)
 
 
 def _run(
@@ -118,6 +168,97 @@ def _require_env(name: str) -> str:
 def _region_from_arn(arn: str, fallback: str) -> str:
     match = re.match(r"^arn:[^:]+:[^:]+:([^:]+):", arn or "")
     return match.group(1) if match else fallback
+
+
+def _runtime_log_group_name(runtime_arn: str) -> str:
+    """Return the one AgentCore Runtime log group this provisioner owns."""
+    runtime_id = runtime_arn.rsplit("/", 1)[-1].strip()
+    if not runtime_id:
+        raise RuntimeError("AgentCore Runtime ARN did not include a runtime id")
+    return f"/aws/bedrock-agentcore/runtimes/{runtime_id}-DEFAULT"
+
+
+def _runtime_log_retention_days(value: str) -> int:
+    """Validate the finite CloudWatch retention contract before deployment."""
+    try:
+        days = int(value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "AGENTCORE_RUNTIME_LOG_RETENTION_DAYS must be a supported "
+            "CloudWatch Logs retention value"
+        ) from exc
+    if days not in _RUNTIME_LOG_RETENTION_DAYS:
+        supported = ", ".join(str(item) for item in sorted(_RUNTIME_LOG_RETENTION_DAYS))
+        raise RuntimeError(
+            "AGENTCORE_RUNTIME_LOG_RETENTION_DAYS must be one of: "
+            f"{supported}"
+        )
+    return days
+
+
+def _find_runtime_log_group(logs: Any, log_group_name: str) -> dict[str, Any] | None:
+    """Find one exact log group without relying on a truncated list response."""
+    paginator = logs.get_paginator("describe_log_groups")
+    for page in paginator.paginate(logGroupNamePrefix=log_group_name):
+        for group in page.get("logGroups", []):
+            if group.get("logGroupName") == log_group_name:
+                return group
+    return None
+
+
+def _ensure_runtime_log_group(
+    *,
+    region: str,
+    runtime_arn: str,
+    kms_key_arn: str,
+    retention_days: int,
+) -> dict[str, Any]:
+    """Create or repair the Runtime log group before it receives a smoke turn.
+
+    AgentCore emits Runtime payloads to this group. A deployment receipt is
+    useful only when the payload-bearing destination has a customer key and
+    bounded retention, so this check happens before Runtime invocation.
+    """
+    if not re.match(
+        r"^arn:[^:]+:kms:[^:]+:\d{12}:key/(?:mrk-)?[0-9a-f-]{36}$",
+        kms_key_arn,
+    ):
+        raise RuntimeError(
+            "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN must be a customer-managed KMS key ARN"
+        )
+
+    logs = boto3.client("logs", region_name=region, config=AWS_CONFIG)
+    log_group_name = _runtime_log_group_name(runtime_arn)
+    try:
+        logs.create_log_group(logGroupName=log_group_name, kmsKeyId=kms_key_arn)
+    except logs.exceptions.ResourceAlreadyExistsException:
+        pass
+
+    observed = _find_runtime_log_group(logs, log_group_name)
+    if observed is None:
+        raise RuntimeError(f"Runtime log group was not created: {log_group_name}")
+
+    if observed.get("kmsKeyId") != kms_key_arn:
+        logs.associate_kms_key(logGroupName=log_group_name, kmsKeyId=kms_key_arn)
+    if observed.get("retentionInDays") != retention_days:
+        logs.put_retention_policy(
+            logGroupName=log_group_name,
+            retentionInDays=retention_days,
+        )
+
+    verified = _find_runtime_log_group(logs, log_group_name)
+    if verified is None:
+        raise RuntimeError(f"Runtime log group disappeared: {log_group_name}")
+    if verified.get("kmsKeyId") != kms_key_arn:
+        raise RuntimeError("Runtime log group KMS key does not match the required key")
+    if verified.get("retentionInDays") != retention_days:
+        raise RuntimeError("Runtime log group retention does not match the required days")
+
+    return {
+        "name": log_group_name,
+        "kms_key_arn": kms_key_arn,
+        "retention_days": retention_days,
+    }
 
 
 def _configure_transaction_search(
@@ -650,14 +791,94 @@ def _summarize_trace_records(
     if not spans:
         raise RuntimeError(f"Unified trace {trace_id} contained no span records")
 
+    def attribute_value(value: Any) -> Any:
+        """Unwrap both JSON-log and OTLP typed attribute value shapes."""
+        if not isinstance(value, dict):
+            return value
+        for key in (
+            "stringValue",
+            "boolValue",
+            "intValue",
+            "doubleValue",
+            "arrayValue",
+            "kvlistValue",
+        ):
+            if key in value:
+                return value[key]
+        if "value" in value:
+            return attribute_value(value["value"])
+        return value
+
+    def attribute_map(value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            return {str(key): attribute_value(item) for key, item in value.items()}
+        if not isinstance(value, list):
+            return {}
+        mapped: dict[str, Any] = {}
+        for item in value:
+            if not isinstance(item, dict) or not item.get("key"):
+                continue
+            mapped[str(item["key"])] = attribute_value(item.get("value"))
+        return mapped
+
     def attributes(span: dict[str, Any]) -> dict[str, Any]:
-        value = span.get("attributes")
-        return value if isinstance(value, dict) else {}
+        return attribute_map(span.get("attributes"))
 
     def resource_attributes(span: dict[str, Any]) -> dict[str, Any]:
         resource = span.get("resource")
-        value = resource.get("attributes") if isinstance(resource, dict) else {}
-        return value if isinstance(value, dict) else {}
+        value = resource.get("attributes") if isinstance(resource, dict) else None
+        return attribute_map(value)
+
+    def first_attribute(
+        span_list: list[dict[str, Any]], keys: tuple[str, ...]
+    ) -> Any:
+        for span in span_list:
+            span_attributes = attributes(span)
+            for key in keys:
+                value = span_attributes.get(key)
+                if value not in (None, "", [], {}):
+                    return value
+        return None
+
+    def numeric_value(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)) and value >= 0:
+            return int(value)
+        if isinstance(value, str) and re.fullmatch(r"\d+(?:\.\d+)?", value):
+            return int(float(value))
+        return None
+
+    def duration_ms(span: dict[str, Any]) -> int | None:
+        for key in ("durationMs", "duration_ms"):
+            value = numeric_value(span.get(key))
+            if value is not None:
+                return value
+        for key in ("durationNanos", "duration_nanos"):
+            value = numeric_value(span.get(key))
+            if value is not None:
+                return int(value / 1_000_000)
+        for start_key, end_key in (
+            ("startTimeUnixNano", "endTimeUnixNano"),
+            ("start_time_unix_nano", "end_time_unix_nano"),
+        ):
+            start = numeric_value(span.get(start_key))
+            end = numeric_value(span.get(end_key))
+            if start is not None and end is not None:
+                if end >= start:
+                    return int((end - start) / 1_000_000)
+        return None
+
+    def contains_sensitive_value(value: Any) -> bool:
+        if isinstance(value, dict):
+            return any(
+                _SENSITIVE_TRACE_VALUE.search(str(key))
+                or contains_sensitive_value(item)
+                for key, item in value.items()
+            )
+        if isinstance(value, list):
+            return any(contains_sensitive_value(item) for item in value)
+        return bool(_SENSITIVE_TRACE_VALUE.search(str(value or "")))
 
     if not all(
         runtime_arn in str(resource_attributes(span).get("cloud.resource_id", ""))
@@ -704,6 +925,33 @@ def _summarize_trace_records(
             "Unified trace is missing required span classes: " + ", ".join(missing)
         )
 
+    agent_input = first_attribute(spans, _AGENT_INPUT_ATTRIBUTE_KEYS)
+    agent_output = first_attribute(spans, _AGENT_OUTPUT_ATTRIBUTE_KEYS)
+    tool_input = first_attribute(tool_spans, _TOOL_INPUT_ATTRIBUTE_KEYS)
+    tool_output = first_attribute(tool_spans, _TOOL_OUTPUT_ATTRIBUTE_KEYS)
+    if agent_input is None or agent_output is None:
+        raise RuntimeError(
+            "Unified trace is missing required Agent input/output attributes"
+        )
+    if tool_input is None or tool_output is None:
+        raise RuntimeError(
+            "Unified trace is missing required sanitized tool input/output attributes"
+        )
+    if contains_sensitive_value(tool_input) or contains_sensitive_value(tool_output):
+        raise RuntimeError(
+            "Unified trace tool input/output contains a secret or credential marker"
+        )
+
+    step_latencies = {
+        "agent": duration_ms(agent_spans[0]),
+        "model": duration_ms(model_spans[0]),
+        "tool": duration_ms(tool_spans[0]),
+    }
+    if any(value is None for value in step_latencies.values()):
+        raise RuntimeError(
+            "Unified trace is missing per-step latency for agent, model, or tool"
+        )
+
     return {
         "trace_id": trace_id,
         "session_id": session_id,
@@ -713,6 +961,12 @@ def _summarize_trace_records(
         "agent_span": True,
         "model_span": True,
         "tool_span": True,
+        "agent_input_observed": True,
+        "agent_output_observed": True,
+        "tool_input_output_observed": True,
+        "tool_input_output_sanitized": True,
+        "step_latency_observed": True,
+        "step_latency_ms": step_latencies,
         "model_ids": sorted(
             {
                 str(attributes(span)["gen_ai.request.model"])
@@ -809,10 +1063,7 @@ def _wait_for_unified_trace(
                 runtime_arn=runtime_arn,
             )
             proof["listed_span_count"] = int(match.get("spanCount") or 0)
-            proof["runtime_log_group"] = (
-                "/aws/bedrock-agentcore/runtimes/"
-                f"{runtime_arn.rsplit('/', 1)[-1]}-DEFAULT"
-            )
+            proof["runtime_log_group"] = _runtime_log_group_name(runtime_arn)
             return proof
         except (OSError, ValueError, RuntimeError) as exc:
             last_error = str(exc)
@@ -889,7 +1140,13 @@ def main() -> int:
         ),
         "workshop_id": _require_env("WORKSHOP_ID"),
         "model_id": _require_env("AGENT_MODEL_ID"),
+        "runtime_log_kms_key_arn": _require_env(
+            "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN"
+        ),
     }
+    runtime_log_retention_days = _runtime_log_retention_days(
+        _require_env("AGENTCORE_RUNTIME_LOG_RETENTION_DAYS")
+    )
     client_secret_arn = (
         os.environ.get("COGNITO_CLIENT_SECRET_ARN", "").strip() or None
     )
@@ -975,6 +1232,15 @@ def main() -> int:
             "runtime_arn": runtime_arn,
             "agent_model_id": required["model_id"],
         }
+        runtime_log_group = _ensure_runtime_log_group(
+            region=region,
+            runtime_arn=runtime_arn,
+            kms_key_arn=required["runtime_log_kms_key_arn"],
+            retention_days=runtime_log_retention_days,
+        )
+        result["observability"]["runtime_log_group"] = runtime_log_group
+        result["verification"]["runtime_log_group_encrypted"] = True
+        result["verification"]["runtime_log_group_retention_bounded"] = True
         result["memory"] = {
             "memory_id": memory_id,
             "memory_arn": memory_state.get("memoryArn"),
@@ -1069,6 +1335,18 @@ def main() -> int:
         result["verification"]["unified_trace_agent_span"] = trace_proof["agent_span"]
         result["verification"]["unified_trace_model_span"] = trace_proof["model_span"]
         result["verification"]["unified_trace_tool_span"] = trace_proof["tool_span"]
+        result["verification"]["unified_trace_agent_input"] = trace_proof[
+            "agent_input_observed"
+        ]
+        result["verification"]["unified_trace_agent_output"] = trace_proof[
+            "agent_output_observed"
+        ]
+        result["verification"]["unified_trace_tool_io_sanitized"] = trace_proof[
+            "tool_input_output_sanitized"
+        ]
+        result["verification"]["unified_trace_step_latency"] = trace_proof[
+            "step_latency_observed"
+        ]
 
         required_checks = (
             "targets_attached",
@@ -1078,10 +1356,16 @@ def main() -> int:
             "live_policy_deny",
             "authenticated_runtime_invoke_smoke",
             "transaction_search_ready",
+            "runtime_log_group_encrypted",
+            "runtime_log_group_retention_bounded",
             "unified_trace_delivered",
             "unified_trace_agent_span",
             "unified_trace_model_span",
             "unified_trace_tool_span",
+            "unified_trace_agent_input",
+            "unified_trace_agent_output",
+            "unified_trace_tool_io_sanitized",
+            "unified_trace_step_latency",
         )
         missing = [
             check

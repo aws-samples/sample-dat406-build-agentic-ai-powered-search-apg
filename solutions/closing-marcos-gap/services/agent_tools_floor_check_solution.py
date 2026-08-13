@@ -130,8 +130,16 @@ def _write_retrieval_receipt(**kwargs) -> None:
     if _db_service is None:
         return
     try:
-        from services.retrieval_receipt import build_receipt, persist_receipt
+        from services.retrieval_receipt import (
+            build_receipt,
+            current_turn_context,
+            persist_receipt,
+        )
 
+        context = current_turn_context()
+        for field in ("turn_id", "session_id", "principal_sub", "rail"):
+            if field not in kwargs and context.get(field) is not None:
+                kwargs[field] = context[field]
         receipt = build_receipt(**kwargs)
         _run_async(persist_receipt(_db_service, receipt))
     except Exception as exc:

@@ -130,6 +130,95 @@ def test_complete_still_carries_the_rail(live_client: TestClient) -> None:
     assert complete["response"]["railDecision"]["available"] is True
 
 
+def test_managed_storefront_turn_invokes_runtime_not_local_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Boutique must execute the rail it reports on a managed turn."""
+    import services.agentcore_runtime as runtime_module
+
+    async def _managed_runtime(**kwargs: Any) -> str:
+        assert kwargs["message"] == "linen"
+        assert kwargs["session_id"] == "sess-managed"
+        assert kwargs["auth_token"] == "jwt-managed"
+        return "The managed Runtime found the linen edit."
+
+    class _LocalChatMustNotRun:
+        async def chat_stream(self, **_: Any) -> AsyncIterator[Dict[str, Any]]:
+            raise AssertionError("managed storefront turn called local chat_stream")
+            yield {}
+
+    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
+    monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", True, raising=False)
+    monkeypatch.setattr(
+        app_module.settings,
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/pellier",
+        raising=False,
+    )
+    monkeypatch.setattr(app_module, "chat_service", _LocalChatMustNotRun())
+    monkeypatch.setattr(runtime_module, "run_agent_on_runtime", _managed_runtime)
+    monkeypatch.setattr(
+        runtime_module,
+        "get_latest_trace",
+        lambda _session_id, **_: {
+            "rail": "gateway-mcp",
+            "traceId": "trace-managed",
+            "runtimeRequestId": "request-managed",
+        },
+    )
+    app_module.app.dependency_overrides[app_module.get_current_user] = lambda: {
+        "sub": "principal-managed",
+        "access_token": "jwt-managed",
+    }
+    try:
+        client = TestClient(app_module.app)
+        events = _events(
+            client.post(
+                "/api/chat/stream",
+                json={
+                    "message": "linen",
+                    "conversation_history": [],
+                    "session_id": "sess-managed",
+                },
+            ).text
+        )
+    finally:
+        app_module.app.dependency_overrides.pop(app_module.get_current_user, None)
+
+    complete = _first(events, "complete")
+    assert complete is not None
+    assert complete["response"]["response"] == "The managed Runtime found the linen edit."
+    assert complete["response"]["rail"] == "gateway-mcp"
+    assert complete["response"]["railDecision"]["managedRequested"] is True
+
+
+def test_unavailable_managed_storefront_turn_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A governed request never degrades into a local answer without a runtime."""
+    class _LocalChatMustNotRun:
+        async def chat_stream(self, **_: Any) -> AsyncIterator[Dict[str, Any]]:
+            raise AssertionError("unavailable managed turn called local chat_stream")
+            yield {}
+
+    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
+    monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", True, raising=False)
+    monkeypatch.setattr(app_module.settings, "AGENTCORE_RUNTIME_ENDPOINT", None, raising=False)
+    monkeypatch.setattr(app_module, "chat_service", _LocalChatMustNotRun())
+    client = TestClient(app_module.app)
+    events = _events(
+        client.post(
+            "/api/chat/stream",
+            json={"message": "linen", "conversation_history": [], "session_id": "sess-no-runtime"},
+        ).text
+    )
+
+    assert events[0]["type"] == "turn_start"
+    error = _first(events, "error")
+    assert error is not None
+    assert error["code"] == "service_unavailable"
+
+
 # ---------------------------------------------------------------------------
 # Smoke mode — the mode that runs on stage
 # ---------------------------------------------------------------------------

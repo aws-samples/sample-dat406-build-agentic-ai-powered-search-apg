@@ -469,7 +469,8 @@ setup_database() {
             010_governed_receipts.sql \
             011_governed_write_integrity.sql \
             012_retrieval_receipts.sql \
-            013_inventory_ledger.sql
+            013_inventory_ledger.sql \
+            014_governed_turn_receipts.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -949,6 +950,8 @@ export COGNITO_POOL='${COGNITO_POOL:-}'
 export COGNITO_CLIENT='${COGNITO_CLIENT:-}'
 export COGNITO_TEST_CREDENTIALS_SECRET_ARN='${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}'
 export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
+export AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN='${AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN:-}'
+export AGENTCORE_RUNTIME_LOG_RETENTION_DAYS='${AGENTCORE_RUNTIME_LOG_RETENTION_DAYS:-30}'
 EOF
     chmod 600 "$PROVISION_ENV" 2>/dev/null || true
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$PROVISION_ENV" 2>/dev/null || true
@@ -989,6 +992,8 @@ EOF
         export COGNITO_CLIENT='${COGNITO_CLIENT:-}'
         export COGNITO_TEST_CREDENTIALS_SECRET_ARN='${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}'
         export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
+        export AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN='${AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN:-}'
+        export AGENTCORE_RUNTIME_LOG_RETENTION_DAYS='${AGENTCORE_RUNTIME_LOG_RETENTION_DAYS:-30}'
         python3 '$REPO_PATH/scripts/provision_agentcore_end_to_end.py' \
             --repo-path '$REPO_PATH' \
             --output-json '$MANAGED_OUTPUT_JSON'

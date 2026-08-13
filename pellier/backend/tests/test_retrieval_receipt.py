@@ -22,9 +22,12 @@ import pytest
 
 from services.retrieval_receipt import (
     build_receipt,
+    current_turn_context,
     persist_receipt,
     query_hash,
+    reset_turn_context,
     receipt_params,
+    set_turn_context,
 )
 from services.search_plan import build_plan
 
@@ -214,6 +217,24 @@ def test_anonymous_turn_has_no_principal() -> None:
     assert build_receipt(query="gift", plan=_plan()).to_row()["principal_sub"] is None
 
 
+def test_route_turn_context_carries_only_trusted_correlation_fields() -> None:
+    token = set_turn_context(
+        turn_id="turn-1",
+        session_id="session-1",
+        principal_sub="principal-1",
+        rail="in-process",
+    )
+    try:
+        assert current_turn_context() == {
+            "turn_id": "turn-1",
+            "session_id": "session-1",
+            "principal_sub": "principal-1",
+            "rail": "in-process",
+        }
+    finally:
+        reset_turn_context(token)
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
@@ -230,8 +251,9 @@ def test_json_columns_are_serialized_strings() -> None:
         build_receipt(query="gift", plan=_plan(), candidates=_candidates())
     )
 
-    # search_plan is the 5th column; every JSON column binds as text.
-    plan_param = params[4]
+    # ``turn_id`` is the first column, so search_plan binds in position 6.
+    # Every JSON column binds as text.
+    plan_param = params[5]
     assert isinstance(plan_param, str)
     assert json.loads(plan_param)["hard_constraints"]["price_max_usd"] == 100.0
 

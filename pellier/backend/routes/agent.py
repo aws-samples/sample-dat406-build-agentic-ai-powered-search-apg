@@ -224,7 +224,10 @@ async def _stream_agent_response(
     # ``run_agent_on_runtime`` stores a small receipt instead: runtime
     # rail, JWT passthrough, and whether the container reported
     # Gateway/MCP execution.
-    trace = get_latest_trace(context.session_id)
+    trace = get_latest_trace(
+        context.session_id,
+        principal_sub=context.user_id,
+    )
     yield _sse_event(
         "done",
         {

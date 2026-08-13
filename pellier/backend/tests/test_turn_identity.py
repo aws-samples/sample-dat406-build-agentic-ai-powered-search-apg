@@ -160,13 +160,14 @@ def test_managed_receipt_carries_correlation_ids(
 
     rt._store_managed_runtime_receipt(
         "sess-b9",
+        principal_sub="principal-b9",
         rail="gateway-mcp",
         auth_token_present=True,
         trace_id="1-65f0a1b2-abcdef0123456789abcdef01",
         request_id="req-abc-123",
     )
 
-    receipt = rt.get_latest_trace("sess-b9")
+    receipt = rt.get_latest_trace("sess-b9", principal_sub="principal-b9")
 
     assert receipt["traceId"] == "1-65f0a1b2-abcdef0123456789abcdef01"
     assert receipt["runtimeRequestId"] == "req-abc-123"
@@ -181,16 +182,47 @@ def test_managed_receipt_never_synthesizes_spans() -> None:
     import services.agentcore_runtime as rt
 
     rt._store_managed_runtime_receipt(
-        "sess-b9-empty", rail="gateway-mcp", auth_token_present=True
+        "sess-b9-empty",
+        principal_sub="principal-b9",
+        rail="gateway-mcp",
+        auth_token_present=True,
     )
 
-    receipt = rt.get_latest_trace("sess-b9-empty")
+    receipt = rt.get_latest_trace(
+        "sess-b9-empty", principal_sub="principal-b9"
+    )
 
     assert receipt["spans"] == []
     assert receipt["otel_enabled"] is False
     assert receipt["evidenceProvenance"] == "agentcore-service-telemetry"
     # No trace id reported means no console link is fabricated.
     assert receipt["managedTrace"]["xrayConsoleUrl"] is None
+
+
+def test_managed_receipts_do_not_fall_back_across_principals() -> None:
+    import services.agentcore_runtime as rt
+
+    rt._store_managed_runtime_receipt(
+        "shared-session",
+        principal_sub="principal-a",
+        rail="gateway-mcp",
+        auth_token_present=True,
+        trace_id="trace-a",
+    )
+
+    own_receipt = rt.get_latest_trace(
+        "shared-session", principal_sub="principal-a"
+    )
+    foreign_receipt = rt.get_latest_trace(
+        "shared-session", principal_sub="principal-b"
+    )
+
+    assert own_receipt["traceId"] == "trace-a"
+    assert foreign_receipt == {
+        "spans": [],
+        "totalMs": 0,
+        "specialistRoute": "",
+    }
 
 
 # ---------------------------------------------------------------------------

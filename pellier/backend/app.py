@@ -841,6 +841,7 @@ def _annotate_rail(
     degraded_notice,
     turn_id: Optional[str] = None,
     session_id: Optional[str] = None,
+    actual_rail: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Stamp turn identity and the execution rail onto a ``complete`` event.
 
@@ -854,7 +855,11 @@ def _annotate_rail(
     response = event.get("response")
     if not isinstance(response, dict):
         return event
-    annotated = {**response, "rail": decision.rail, "railDecision": decision.to_dict()}
+    annotated = {
+        **response,
+        "rail": actual_rail or decision.rail,
+        "railDecision": decision.to_dict(),
+    }
     if turn_id:
         annotated["turn_id"] = turn_id
     if session_id:
@@ -862,6 +867,42 @@ def _annotate_rail(
     if decision.managed_requested and not decision.available:
         annotated["degradation"] = degraded_notice(decision)
     return {**event, "response": annotated}
+
+
+async def _persist_terminal_turn_receipt(
+    *,
+    turn_id: str,
+    session_id: Optional[str],
+    user: Optional[Dict[str, Any]],
+    rail: str,
+    terminal_status: str,
+    started_at: float,
+    trace: Optional[Dict[str, Any]] = None,
+    terminal_error_code: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Write one immutable receipt after a shopper turn has terminated.
+
+    The receipt is not a prerequisite for serving an answer or an error. A
+    failed evidence write returns ``None`` so callers never claim that an
+    unpersisted receipt exists.
+    """
+    try:
+        from services.governed_turn_receipt import persist_turn_receipt
+
+        return await persist_turn_receipt(
+            db_service,
+            turn_id=turn_id,
+            session_id=session_id,
+            principal_sub=(user or {}).get("sub"),
+            rail=rail,
+            terminal_status=terminal_status,
+            latency_ms=int((time.perf_counter() - started_at) * 1000),
+            trace=trace,
+            terminal_error_code=terminal_error_code,
+        )
+    except Exception as exc:  # pragma: no cover - persistence service is defensive
+        logger.warning("governed turn receipt write skipped: %s", exc)
+        return None
 
 
 @app.post("/api/chat/stream")
@@ -969,6 +1010,34 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=503, detail="Chat service not initialized")
 
     async def event_generator():
+        turn_id: Optional[str] = None
+        receipt_attempted = False
+        effective_user: Dict[str, Any] = {}
+        turn_started = time.perf_counter()
+
+        async def persist_terminal(
+            *,
+            rail: str,
+            terminal_status: str,
+            trace: Optional[Dict[str, Any]] = None,
+            terminal_error_code: Optional[str] = None,
+        ) -> Optional[Dict[str, Any]]:
+            """Persist exactly once, even if a stream then raises."""
+            nonlocal receipt_attempted
+            if receipt_attempted or not turn_id:
+                return None
+            receipt_attempted = True
+            return await _persist_terminal_turn_receipt(
+                turn_id=turn_id,
+                session_id=request.session_id,
+                user=effective_user or None,
+                rail=rail,
+                terminal_status=terminal_status,
+                started_at=turn_started,
+                trace=trace,
+                terminal_error_code=terminal_error_code,
+            )
+
         try:
             history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
             # Merge persona customer_id into the user dict so the agent
@@ -1046,34 +1115,201 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 + "\n\n"
             )
 
-            async for event in chat_service.chat_stream(
-                message=request.message,
-                conversation_history=history,
-                session_id=request.session_id,
-                workshop_mode=request.workshop_mode,
-                guardrails_enabled=request.guardrails_enabled,
-                user=effective_user or None,
-                pattern=request.pattern,
-                turn_id=turn_id,
-            ):
-                if event.get("type") == "error":
-                    event = classify_chat_error(
-                        event.get("error") or event.get("message") or event.get("code")
+            # The Boutique is the governed workshop's participant path. Once
+            # the managed rail is selected, it must execute through Runtime
+            # rather than run the local chat service and attach a managed
+            # label afterward. A Runtime response is currently one complete
+            # payload, so this branch emits a single content event followed by
+            # the normal completion envelope.
+            if rail_decision.managed_requested:
+                if not rail_decision.available:
+                    error = classify_chat_error(rail_decision.reason)
+                    await persist_terminal(
+                        rail=rail_decision.rail,
+                        terminal_status="failed",
+                        terminal_error_code=error["code"],
                     )
-                elif event.get("type") == "complete":
-                    event = _annotate_rail(
-                        event,
-                        rail_decision,
-                        degraded_notice,
+                    yield (
+                        "data: "
+                        + json.dumps(error, ensure_ascii=False)
+                        + "\n\n"
+                    )
+                    return
+
+                from services.agentcore_runtime import (
+                    ManagedRuntimeError,
+                    get_latest_trace,
+                    run_agent_on_runtime,
+                )
+
+                managed_started = time.perf_counter()
+                try:
+                    response_text = await run_agent_on_runtime(
+                        message=request.message,
+                        session_id=request.session_id or turn_id,
+                        user_id=(effective_user or {}).get("sub"),
+                        auth_token=(effective_user or {}).get("access_token"),
+                        history=history,
                         turn_id=turn_id,
-                        session_id=request.session_id,
                     )
+                except ManagedRuntimeError as exc:
+                    error = classify_chat_error(exc.code)
+                    await persist_terminal(
+                        rail=rail_decision.rail,
+                        terminal_status=(
+                            "denied-before-execution"
+                            if error["code"] == "policy_denied"
+                            else "failed"
+                        ),
+                        terminal_error_code=error["code"],
+                    )
+                    yield (
+                        "data: "
+                        + json.dumps(error, ensure_ascii=False)
+                        + "\n\n"
+                    )
+                    return
+
+                managed_trace = get_latest_trace(
+                    request.session_id or turn_id,
+                    principal_sub=(effective_user or {}).get("sub"),
+                )
+                actual_rail = str(managed_trace.get("rail") or "")
+                event = {
+                    "type": "complete",
+                    "response": {
+                        "response": response_text,
+                        "products": [],
+                        "suggestions": [],
+                        "success": True,
+                        "agent_execution": {
+                            "agent_steps": [],
+                            "tool_calls": [],
+                            "reasoning_steps": [],
+                            "total_duration_ms": int(
+                                (time.perf_counter() - managed_started) * 1000
+                            ),
+                            "managed_trace": managed_trace,
+                        },
+                    },
+                }
+                receipt = await persist_terminal(
+                    rail=actual_rail or rail_decision.rail,
+                    terminal_status="complete",
+                    trace=managed_trace,
+                )
+                if receipt:
+                    event["response"]["governed_receipt"] = receipt
+                event = _annotate_rail(
+                    event,
+                    rail_decision,
+                    degraded_notice,
+                    turn_id=turn_id,
+                    session_id=request.session_id,
+                    actual_rail=actual_rail or None,
+                )
+                yield (
+                    "data: "
+                    + json.dumps(
+                        {
+                            "type": "content",
+                            "content": response_text,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n"
+                )
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
+                return
+
+            # Local retrieval tools run in a Strands worker thread. Bind only
+            # server-minted route context before that worker starts so a model
+            # can never choose another principal, rail, or turn id for its
+            # retrieval receipt.
+            from services.retrieval_receipt import (
+                reset_turn_context,
+                set_turn_context,
+            )
+
+            receipt_context = set_turn_context(
+                turn_id=turn_id,
+                session_id=request.session_id,
+                principal_sub=(effective_user or {}).get("sub"),
+                rail=rail_decision.rail,
+            )
+            try:
+                async for event in chat_service.chat_stream(
+                    message=request.message,
+                    conversation_history=history,
+                    session_id=request.session_id,
+                    workshop_mode=request.workshop_mode,
+                    guardrails_enabled=request.guardrails_enabled,
+                    user=effective_user or None,
+                    pattern=request.pattern,
+                    turn_id=turn_id,
+                ):
+                    if event.get("type") == "error":
+                        event = classify_chat_error(
+                            event.get("error") or event.get("message") or event.get("code")
+                        )
+                        await persist_terminal(
+                            rail=rail_decision.rail,
+                            terminal_status=(
+                                "denied-before-execution"
+                                if event["code"] == "policy_denied"
+                                else "failed"
+                            ),
+                            terminal_error_code=event["code"],
+                        )
+                    elif event.get("type") == "complete":
+                        response = event.get("response")
+                        execution = (
+                            response.get("agent_execution")
+                            if isinstance(response, dict)
+                            else None
+                        )
+                        trace = (
+                            execution.get("managed_trace")
+                            if isinstance(execution, dict)
+                            and isinstance(execution.get("managed_trace"), dict)
+                            else None
+                        )
+                        receipt = await persist_terminal(
+                            rail=rail_decision.rail,
+                            terminal_status="complete",
+                            trace=trace,
+                        )
+                        if receipt and isinstance(response, dict):
+                            response["governed_receipt"] = receipt
+                        event = _annotate_rail(
+                            event,
+                            rail_decision,
+                            degraded_notice,
+                            turn_id=turn_id,
+                            session_id=request.session_id,
+                        )
+                    yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
+            finally:
+                reset_turn_context(receipt_context)
         except Exception as e:
             logger.error(f"Streaming chat failed: {e}")
+            error = classify_chat_error(e)
+            await persist_terminal(
+                rail=(
+                    rail_decision.rail
+                    if "rail_decision" in locals()
+                    else "in-process"
+                ),
+                terminal_status=(
+                    "denied-before-execution"
+                    if error["code"] == "policy_denied"
+                    else "failed"
+                ),
+                terminal_error_code=error["code"],
+            )
             yield (
                 "data: "
-                f"{json.dumps(classify_chat_error(e), ensure_ascii=False)}\n\n"
+                f"{json.dumps(error, ensure_ascii=False)}\n\n"
             )
 
     return StreamingResponse(
@@ -2384,7 +2620,7 @@ async def get_agent_graph():
 # ============================================================================
 
 @app.get("/api/agentcore/policy/list")
-async def list_policies():
+async def list_policies(operator: Dict[str, Any] = Depends(require_operator)):
     """List the Cedar policies attached to the managed AgentCore Policy
     engine (Gateway-enforced, ENFORCE mode).
 
@@ -2498,22 +2734,46 @@ async def gateway_status():
 
 
 @app.get("/api/agentcore/policy/decisions")
-async def policy_decisions(session_id: str = "", limit: int = 50):
+async def policy_decisions(
+    session_id: str = "",
+    limit: int = 50,
+    operator: Dict[str, Any] = Depends(require_operator),
+):
     """Return recent managed-rail policy decisions for a session.
 
     The gate is now the managed AgentCore Policy engine at the Gateway,
     which emits ALLOW/DENY decisions to CloudWatch rather than a
     queryable API. Instead of fabricating a decisions store, we surface
-    the ``pellier.tool_audit`` ALLOW rows — those rows ARE the managed
-    rail's ALLOW evidence (the experience Lambda writes one per tool the
-    Gateway let through). A DENY produces no row because the tool never
-    ran. See ``services/managed_policy.recent_decisions``."""
+    immutable ``pellier.governed_receipts`` rows. Unlike execution audits,
+    those receipts contain both explicit ALLOW and DENY outcomes and are
+    scoped to the verified caller. See ``services/managed_policy.recent_decisions``."""
     try:
         from services.managed_policy import recent_decisions
-        return await recent_decisions(db_service, session_id or None, limit=limit)
+        return await recent_decisions(
+            db_service,
+            principal_sub=operator["sub"],
+            session_id=session_id or None,
+            limit=limit,
+        )
     except Exception as e:
         logger.warning(f"Policy decisions fetch failed: {e}")
         return {"session_id": session_id, "decisions": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/agent-trace/receipts/{turn_id}")
+async def governed_turn_receipt(
+    turn_id: str,
+    operator: Dict[str, Any] = Depends(require_operator),
+):
+    """Read one durable turn receipt only when it belongs to the caller."""
+    from services.governed_turn_receipt import get_turn_receipt
+
+    receipt = await get_turn_receipt(
+        db_service, turn_id=turn_id, principal_sub=operator["sub"]
+    )
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="receipt_not_found")
+    return receipt
 
 
 # ============================================================================

@@ -46,6 +46,9 @@ logger = logging.getLogger(__name__)
 _latest_trace: Dict[str, Any] = {"spans": [], "totalMs": 0, "specialistRoute": ""}
 _LATEST_TRACES_BY_SESSION_MAX = 32
 _latest_traces_by_session: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+_managed_traces_by_principal_session: (
+    "OrderedDict[tuple[str, str], Dict[str, Any]]"
+) = OrderedDict()
 
 class ManagedRuntimeError(RuntimeError):
     """Stable failure code for a configured managed Runtime path."""
@@ -63,7 +66,24 @@ def _store_latest_trace(session_id: str, trace: Dict[str, Any]) -> None:
         _latest_traces_by_session.popitem(last=False)
 
 
-def get_latest_trace(session_id: Optional[str] = None) -> Dict[str, Any]:
+def _empty_trace() -> Dict[str, Any]:
+    return {"spans": [], "totalMs": 0, "specialistRoute": ""}
+
+
+def _store_managed_trace(
+    session_id: str, principal_sub: str, trace: Dict[str, Any]
+) -> None:
+    """Keep managed receipts keyed by both verified principal and session."""
+    key = (principal_sub, session_id)
+    _managed_traces_by_principal_session[key] = trace
+    _managed_traces_by_principal_session.move_to_end(key)
+    while len(_managed_traces_by_principal_session) > _LATEST_TRACES_BY_SESSION_MAX:
+        _managed_traces_by_principal_session.popitem(last=False)
+
+
+def get_latest_trace(
+    session_id: Optional[str] = None, *, principal_sub: Optional[str] = None
+) -> Dict[str, Any]:
     """Return the most recent ``{spans, totalMs, specialistRoute}``
     captured by ``_run_orchestrator_inprocess``.
 
@@ -71,9 +91,20 @@ def get_latest_trace(session_id: Optional[str] = None) -> Dict[str, Any]:
     the orchestrator finishes so the frontend can render the waterfall
     without a second round-trip to the extractor.
     """
+    if session_id and principal_sub:
+        key = (principal_sub, session_id)
+        trace = _managed_traces_by_principal_session.get(key)
+        if trace is not None:
+            _managed_traces_by_principal_session.move_to_end(key)
+            return trace
+        # A request with a verified principal must never fall back to a
+        # session-only entry, which could belong to another participant.
+        return _empty_trace()
     if session_id and session_id in _latest_traces_by_session:
         _latest_traces_by_session.move_to_end(session_id)
         return _latest_traces_by_session[session_id]
+    if session_id:
+        return _empty_trace()
     return _latest_trace
 
 
@@ -157,6 +188,7 @@ def _cloudwatch_trace_links(
 def _store_managed_runtime_receipt(
     session_id: str,
     *,
+    principal_sub: str,
     rail: str,
     auth_token_present: bool,
     trace_id: Optional[str] = None,
@@ -191,7 +223,7 @@ def _store_managed_runtime_receipt(
             session_id=session_id, trace_id=trace_id, request_id=request_id
         ),
     }
-    _store_latest_trace(session_id, _latest_trace)
+    _store_managed_trace(session_id, principal_sub, _latest_trace)
 
 
 async def _run_orchestrator_inprocess(
@@ -266,6 +298,7 @@ async def run_agent_on_runtime(
     user_id: Optional[str] = None,
     auth_token: Optional[str] = None,
     history: Optional[List[Dict[str, Any]]] = None,
+    turn_id: Optional[str] = None,
 ) -> str:
     """Invoke the AgentCore Runtime with ``message`` and return the
     response text.
@@ -307,14 +340,18 @@ async def run_agent_on_runtime(
         endpoint.rsplit("/", 1)[-1],
     )
 
-    payload = json.dumps(
-        {
-            "prompt": message,
-            "session_id": session_id,
-            "user_id": user_id or "anonymous",
-            "history": history or [],
-        }
-    )
+    payload_data: Dict[str, Any] = {
+        "prompt": message,
+        "session_id": session_id,
+        "user_id": user_id or "anonymous",
+        "history": history or [],
+    }
+    if turn_id:
+        # This is minted by the storefront route, not supplied by the model.
+        # The Runtime passes it to the Gateway dispatcher, which asks each
+        # tool call to carry it into its audit arguments.
+        payload_data["turn_id"] = turn_id
+    payload = json.dumps(payload_data)
 
     # CUSTOM_JWT runtimes are invoked over the RAW HTTPS data plane with the
     # Cognito token as a Bearer header - NOT via boto3. There is no
@@ -381,6 +418,7 @@ async def run_agent_on_runtime(
 
         _store_managed_runtime_receipt(
             session_id,
+            principal_sub=user_id or "anonymous",
             rail=rail,
             auth_token_present=bool(auth_token),
             trace_id=_trace_id_from(response_headers),
@@ -405,6 +443,7 @@ async def run_agent(
     user_id: Optional[str] = None,
     auth_token: Optional[str] = None,
     history: Optional[List[Dict[str, Any]]] = None,
+    turn_id: Optional[str] = None,
 ) -> str:
     """Route a chat request through either the in-process Strands
     orchestrator or the AgentCore Runtime, based on
@@ -433,9 +472,16 @@ async def run_agent(
     if decision.managed_requested and not decision.available:
         raise ManagedRuntimeError(decision.reason or "runtime_unavailable")
     if decision.is_managed:
-        return await run_agent_on_runtime(
-            message, session_id, user_id, auth_token, history
-        )
+        runtime_kwargs: Dict[str, Any] = {
+            "message": message,
+            "session_id": session_id,
+            "user_id": user_id,
+            "auth_token": auth_token,
+            "history": history,
+        }
+        if turn_id:
+            runtime_kwargs["turn_id"] = turn_id
+        return await run_agent_on_runtime(**runtime_kwargs)
     return await _run_orchestrator_inprocess(
         message, session_id, user_id, history
     )

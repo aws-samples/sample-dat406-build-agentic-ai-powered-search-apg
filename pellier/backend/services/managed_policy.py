@@ -20,15 +20,11 @@ Two reads:
      to ``.env`` by the deploy script). Returns the policy statements so the
      surface can render "this is the Cedar the Gateway enforces".
 
-  2. ``recent_decisions()`` — managed Policy emits ALLOW/DENY *decisions* to
-     CloudWatch, not a queryable API. Rather than fabricate a decisions store,
-     we return the ``pellier.tool_audit`` ALLOW rows: those rows ARE the
-     managed-rail evidence (the experience Lambda writes a tool_audit row on the
-     Gateway rail for every tool call that the Gateway ALLOWED through — see
-     ``scripts/deploy/pellier_experience_server.py``). DENY decisions, by
-     construction, never produce a tool_audit row because the tool never ran;
-     the absence of a row for a denied call is itself the signal. If a queryable
-     decisions API ships later, this is the one function to repoint.
+  2. ``recent_decisions()`` — reads the explicit, immutable
+     ``pellier.governed_receipts`` decision records. Tool audit rows prove only
+     execution, so treating every one as an inferred ALLOW hid DENY evidence and
+     exposed broad audit history. The receipt table preserves both outcomes and
+     associates each one with its verified principal.
 
 Both reads are best-effort: a missing engine id, missing boto3, or an
 unreachable control-plane returns an empty list with a ``source`` marker rather
@@ -131,67 +127,90 @@ def list_managed_policies() -> Dict[str, Any]:
         return {"source": "error", "policy_engine_id": engine_id, "policies": [], "error": str(exc)}
 
 
-async def recent_decisions(db_service: Any, session_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-    """Return recent managed-rail decisions as the tool_audit ALLOW rows.
-
-    Managed Policy emits decisions to CloudWatch rather than a queryable API
-    (see module docstring), so the ALLOW evidence is the ``pellier.tool_audit``
-    rows the experience Lambda writes on the Gateway rail. Each row is an
-    implicit ALLOW: the Gateway let the tool through, the Lambda ran it, and the
-    row records args + result + latency. DENY decisions produce no row.
+async def recent_decisions(
+    db_service: Any,
+    *,
+    principal_sub: str,
+    session_id: Optional[str] = None,
+    limit: int = 50,
+) -> Dict[str, Any]:
+    """Return explicit managed-policy receipts for one verified principal.
 
     Shape:
         {
-            "source": "tool-audit",
-            "session_id": "<session or '_anonymous'>",
+            "source": "governed-receipts",
+            "session_id": "<session or null>",
             "decisions": [
-                {"audit_id", "tool", "caller", "args", "latency_ms",
-                 "created_at", "decision": "ALLOW"},
+                {"receipt_id", "audit_id", "tool", "caller", "args",
+                 "policy_engine_id", "policy_name", "created_at",
+                 "decision": "ALLOW" | "DENY"},
                 ...
             ],
             "count": <int>,
         }
 
-    Best-effort: returns an empty list (not an exception) when the DB is
-    unavailable, so the Agent Trace surface stays a non-fatal read.
+    ``principal_sub`` is mandatory. The API caller has already verified the
+    Cognito subject before it reaches this service, and the SQL scope keeps one
+    attendee from inspecting another attendee's policy history.
     """
-    sid = session_id or "_anonymous"
-    if db_service is None:
-        return {"source": "tool-audit", "session_id": sid, "decisions": [], "count": 0}
+    sid = session_id or None
+    if db_service is None or not principal_sub:
+        return {
+            "source": "governed-receipts",
+            "session_id": sid,
+            "decisions": [],
+            "count": 0,
+        }
 
     limit = max(1, min(500, int(limit)))
     if session_id:
         sql = (
-            "SELECT audit_id, session_id, tool, caller, args, latency_ms, created_at "
-            "FROM pellier.tool_audit WHERE session_id = %s "
+            "SELECT receipt_id, audit_id, session_id, tool, caller, decision, "
+            "args, policy_engine_id, policy_name, created_at "
+            "FROM pellier.governed_receipts "
+            "WHERE principal_id = %s AND session_id = %s "
             "ORDER BY created_at DESC LIMIT %s"
         )
-        params = (session_id, limit)
+        params = (principal_sub, session_id, limit)
     else:
         sql = (
-            "SELECT audit_id, session_id, tool, caller, args, latency_ms, created_at "
-            "FROM pellier.tool_audit ORDER BY created_at DESC LIMIT %s"
+            "SELECT receipt_id, audit_id, session_id, tool, caller, decision, "
+            "args, policy_engine_id, policy_name, created_at "
+            "FROM pellier.governed_receipts "
+            "WHERE principal_id = %s ORDER BY created_at DESC LIMIT %s"
         )
-        params = (limit,)
+        params = (principal_sub, limit)
 
     try:
         rows = await db_service.fetch_all(sql, *params)
     except Exception as exc:
-        logger.warning("Managed decisions (tool_audit) read failed: %s", exc)
-        return {"source": "tool-audit", "session_id": sid, "decisions": [], "count": 0, "error": str(exc)}
+        logger.warning("Managed decisions (governed_receipts) read failed: %s", exc)
+        return {
+            "source": "governed-receipts",
+            "session_id": sid,
+            "decisions": [],
+            "count": 0,
+            "error": str(exc),
+        }
 
     decisions: List[Dict[str, Any]] = []
     for r in rows or []:
         created = r.get("created_at")
         decisions.append({
+            "receipt_id": r.get("receipt_id"),
             "audit_id": r.get("audit_id"),
+            "session_id": r.get("session_id"),
             "tool": r.get("tool"),
             "caller": r.get("caller"),
             "args": r.get("args"),
-            "latency_ms": r.get("latency_ms"),
+            "policy_engine_id": r.get("policy_engine_id"),
+            "policy_name": r.get("policy_name"),
             "created_at": created.isoformat() if hasattr(created, "isoformat") else created,
-            # Every tool_audit row is an ALLOW by construction — a denied
-            # call never reached the Lambda, so it never wrote a row.
-            "decision": "ALLOW",
+            "decision": r.get("decision"),
         })
-    return {"source": "tool-audit", "session_id": sid, "decisions": decisions, "count": len(decisions)}
+    return {
+        "source": "governed-receipts",
+        "session_id": sid,
+        "decisions": decisions,
+        "count": len(decisions),
+    }

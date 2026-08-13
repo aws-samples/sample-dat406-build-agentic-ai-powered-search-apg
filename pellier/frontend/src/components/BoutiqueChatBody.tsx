@@ -429,31 +429,14 @@ function AgentMessage({
         </div>
       )}
 
-      {/* Compact governed receipt — deliberately OUTSIDE the collapsed
-          "how this worked" disclosure. The design stance is that evidence
-          is ONE click away; nesting it inside a collapsed accordion made it
-          two, and in smoke mode (no tool calls, no trace) the accordion
-          never rendered at all, so the receipt was unreachable exactly
-          where it gets demonstrated.
-
-          Counts come only from what this turn emitted. `toolCount` passes
-          null rather than 0 when no instrumentation arrived, so the receipt
-          says "not reported" instead of claiming zero tools ran. */}
+      {/* Compact governed receipt — deliberately outside the collapsed
+          "how this worked" disclosure. Its fields come only from the
+          authenticated, persisted turn record; a card count or a local
+          instrumentation array is not citation or execution evidence. */}
       {isComplete && !message.failure && (
         <GovernedTurnReceipt
           sessionId={message.sessionId}
           turnId={message.turnId}
-          traceId={message.agentExecution?.trace_id ?? undefined}
-          sourceCount={message.products ? message.products.length : null}
-          toolCount={
-            // `tool_calls` present but empty is a real observation ("the
-            // agent used no tools"); a missing array means nothing was
-            // instrumented. Only the former is honestly reportable as 0.
-            Array.isArray(message.agentExecution?.tool_calls)
-              ? dedupedToolCalls.length
-              : null
-          }
-          latencyMs={message.agentExecution?.total_duration_ms ?? null}
           railDecision={message.railDecision}
         />
       )}

@@ -319,6 +319,96 @@ def test_transaction_search_setup_is_scoped_and_requires_active_destination(
     }
 
 
+def test_runtime_log_group_is_customer_encrypted_and_retention_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provisioner = _load_provisioner()
+    runtime_arn = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+        "runtime/pellier_orchestrator-abc123"
+    )
+    kms_key_arn = (
+        "arn:aws:kms:us-east-1:123456789012:"
+        "key/12345678-1234-1234-1234-1234567890ab"
+    )
+
+    class _Paginator:
+        def __init__(self, logs: Any) -> None:
+            self.logs = logs
+
+        def paginate(self, **_: Any) -> list[dict[str, list[dict[str, Any]]]]:
+            return [{"logGroups": [self.logs.group]}]
+
+    class _Logs:
+        class exceptions:
+            class ResourceAlreadyExistsException(Exception):
+                pass
+
+        def __init__(self) -> None:
+            self.group = {
+                "logGroupName": provisioner._runtime_log_group_name(runtime_arn),
+                "kmsKeyId": "arn:aws:kms:us-east-1:123456789012:key/old",
+                "retentionInDays": 7,
+            }
+            self.associated_kms_key = ""
+            self.retention_days = 0
+
+        def create_log_group(self, **_: Any) -> None:
+            raise self.exceptions.ResourceAlreadyExistsException()
+
+        def get_paginator(self, name: str) -> _Paginator:
+            assert name == "describe_log_groups"
+            return _Paginator(self)
+
+        def associate_kms_key(self, *, logGroupName: str, kmsKeyId: str) -> None:
+            assert logGroupName == self.group["logGroupName"]
+            self.associated_kms_key = kmsKeyId
+            self.group["kmsKeyId"] = kmsKeyId
+
+        def put_retention_policy(
+            self, *, logGroupName: str, retentionInDays: int
+        ) -> None:
+            assert logGroupName == self.group["logGroupName"]
+            self.retention_days = retentionInDays
+            self.group["retentionInDays"] = retentionInDays
+
+    logs = _Logs()
+    monkeypatch.setattr(
+        provisioner.boto3,
+        "client",
+        lambda service, **_: logs if service == "logs" else None,
+    )
+
+    proof = provisioner._ensure_runtime_log_group(
+        region="us-east-1",
+        runtime_arn=runtime_arn,
+        kms_key_arn=kms_key_arn,
+        retention_days=30,
+    )
+
+    assert proof == {
+        "name": "/aws/bedrock-agentcore/runtimes/pellier_orchestrator-abc123-DEFAULT",
+        "kms_key_arn": kms_key_arn,
+        "retention_days": 30,
+    }
+    assert logs.associated_kms_key == kms_key_arn
+    assert logs.retention_days == 30
+
+
+def test_runtime_log_group_rejects_alias_and_unbounded_retention() -> None:
+    provisioner = _load_provisioner()
+
+    with pytest.raises(RuntimeError, match="customer-managed KMS key ARN"):
+        provisioner._ensure_runtime_log_group(
+            region="us-east-1",
+            runtime_arn="arn:aws:bedrock-agentcore:us-east-1:123:runtime/test",
+            kms_key_arn="arn:aws:kms:us-east-1:123456789012:alias/pellier",
+            retention_days=30,
+        )
+    with pytest.raises(RuntimeError, match="must be one of"):
+        provisioner._runtime_log_retention_days("0")
+
+
 def _unified_trace_records(
     *, trace_id: str, session_id: str, runtime_arn: str
 ) -> list[dict[str, Any]]:
@@ -330,7 +420,13 @@ def _unified_trace_records(
             "@message": {
                 "traceId": trace_id,
                 "name": "invoke_agent pellier_orchestrator",
-                "attributes": {"session.id": session_id},
+                "startTimeUnixNano": "1000000000",
+                "endTimeUnixNano": "1900000000",
+                "attributes": {
+                    "session.id": session_id,
+                    "gen_ai.input.messages": {"stringValue": "find linen"},
+                    "gen_ai.output.messages": {"stringValue": "linen dress"},
+                },
                 "resource": resource(),
             }
         },
@@ -339,6 +435,7 @@ def _unified_trace_records(
                 {
                     "traceId": trace_id,
                     "name": "chat",
+                    "durationNanos": "320000000",
                     "attributes": {
                         "gen_ai.request.model": "global.anthropic.claude-sonnet-5"
                     },
@@ -350,7 +447,12 @@ def _unified_trace_records(
             "@message": {
                 "traceId": trace_id,
                 "name": "execute_tool find_pieces_hybrid",
-                "attributes": {"gen_ai.tool.name": "find_pieces_hybrid"},
+                "durationMs": 45,
+                "attributes": {
+                    "gen_ai.tool.name": "find_pieces_hybrid",
+                    "gen_ai.tool.call.arguments": {"query": "linen"},
+                    "gen_ai.tool.call.result": {"product_ids": ["P-101"]},
+                },
                 "resource": resource(),
             }
         },
@@ -390,6 +492,10 @@ def test_unified_trace_summary_requires_correlated_agent_model_and_tool_spans() 
     assert proof["agent_span"] is True
     assert proof["model_span"] is True
     assert proof["tool_span"] is True
+    assert proof["agent_input_observed"] is True
+    assert proof["agent_output_observed"] is True
+    assert proof["tool_input_output_sanitized"] is True
+    assert proof["step_latency_ms"] == {"agent": 900, "model": 320, "tool": 45}
     assert proof["model_ids"] == ["global.anthropic.claude-sonnet-5"]
     assert proof["tool_names"] == ["find_pieces_hybrid"]
     assert proof["provenance"] == "agentcore-unified-telemetry"
@@ -413,6 +519,32 @@ def test_unified_trace_summary_rejects_spans_from_another_runtime() -> None:
     )
 
     with pytest.raises(RuntimeError, match="another Runtime"):
+        provisioner._summarize_trace_records(
+            records,
+            trace_id=trace_id,
+            session_id=session_id,
+            runtime_arn=runtime_arn,
+        )
+
+
+def test_unified_trace_summary_rejects_secret_bearing_tool_io() -> None:
+    provisioner = _load_provisioner()
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    session_id = "runtime-proof-000000000000000000001"
+    runtime_arn = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+        "runtime/pellier_orchestrator-abc123"
+    )
+    records = _unified_trace_records(
+        trace_id=trace_id,
+        session_id=session_id,
+        runtime_arn=runtime_arn,
+    )
+    records[2]["@message"]["attributes"]["gen_ai.tool.call.arguments"] = {
+        "authorization": "Bearer token"
+    }
+
+    with pytest.raises(RuntimeError, match="secret or credential marker"):
         provisioner._summarize_trace_records(
             records,
             trace_id=trace_id,

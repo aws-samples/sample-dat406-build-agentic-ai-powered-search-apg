@@ -17,7 +17,12 @@
  * Two components with one name in different namespaces is how a codebase
  * ends up with two divergent evidence models.
  */
-import type React from 'react'
+import {
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Database, Wrench } from 'lucide-react'
 import {
@@ -33,23 +38,38 @@ export interface GovernedTurnReceiptProps {
   sessionId?: string | null
   /** Stable per-turn id from the backend, when emitted. */
   turnId?: string | null
-  /** OTEL trace id, when the turn reported one. */
-  traceId?: string | null
-  /** Number of catalog rows the answer was grounded in. */
-  sourceCount?: number | null
-  /** Number of tools that actually executed. */
-  toolCount?: number | null
-  /** Cedar outcome. Omit entirely when no policy was evaluated. */
-  policyDecision?: PolicyDecision | null
-  /** Reason text from the policy engine, when present. */
-  policyReason?: string | null
-  /** Wall-clock latency the backend reported, in ms. */
-  latencyMs?: number | null
   /** Rail decision, used for the seal. */
   railDecision?: RailDecision | null
+  /** Test-only injection; production always reads the authenticated API. */
+  receipt?: PersistedGovernedTurnReceipt | null
 }
 
-const labelStyle: React.CSSProperties = {
+export interface PersistedGovernedTurnReceipt {
+  turn_id: string
+  rail: string
+  citations: Array<{
+    evidence_id: string
+    source_uri: string
+    revision: string | null
+    quote: string
+    entity_id: string
+  }>
+  tool_audit_ids: Array<{
+    audit_id: number
+    tool: string
+    caller: string
+    latency_ms: number | null
+    created_at: string | null
+  }>
+  policy_events: Array<{
+    decision: PolicyDecision
+    reason?: string | null
+  }>
+  terminal_status: string
+  latency_ms: number | null
+}
+
+const labelStyle: CSSProperties = {
   fontFamily: 'var(--dl-font-mono)',
   fontSize: '10.5px',
   letterSpacing: '0.1em',
@@ -57,7 +77,7 @@ const labelStyle: React.CSSProperties = {
   color: 'var(--dl-muted)',
 }
 
-const valueStyle: React.CSSProperties = {
+const valueStyle: CSSProperties = {
   fontFamily: 'var(--dl-font-sans)',
   fontSize: '13px',
   color: 'var(--dl-ink)',
@@ -66,7 +86,7 @@ const valueStyle: React.CSSProperties = {
 
 /** One metric cell. Renders "not reported" when the turn emitted nothing. */
 const Metric: React.FC<{
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
   value: number | null | undefined
   suffix?: string
@@ -100,25 +120,51 @@ const Metric: React.FC<{
 export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
   sessionId,
   turnId,
-  traceId,
-  sourceCount,
-  toolCount,
-  policyDecision,
-  policyReason,
-  latencyMs,
   railDecision,
+  receipt: suppliedReceipt,
 }) => {
-  // Nothing to show is a valid outcome — a triage reply that ran no tools
-  // and read no catalog rows should not sprout an empty evidence strip.
-  const hasAnything =
-    typeof sourceCount === 'number' ||
-    typeof toolCount === 'number' ||
-    typeof latencyMs === 'number' ||
-    !!policyDecision ||
-    !!railDecision ||
-    !!sessionId
+  const [loadedReceipt, setLoadedReceipt] =
+    useState<PersistedGovernedTurnReceipt | null>(suppliedReceipt ?? null)
 
-  if (!hasAnything) return null
+  useEffect(() => {
+    if (suppliedReceipt) {
+      setLoadedReceipt(suppliedReceipt)
+      return
+    }
+    if (!turnId) {
+      setLoadedReceipt(null)
+      return
+    }
+    let active = true
+    const controller = new AbortController()
+    fetch(`/api/agent-trace/receipts/${encodeURIComponent(turnId)}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: PersistedGovernedTurnReceipt | null) => {
+        if (active) setLoadedReceipt(data)
+      })
+      .catch(() => {
+        if (active) setLoadedReceipt(null)
+      })
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [suppliedReceipt, turnId])
+
+  // No record means no claim. In particular, do not substitute product cards,
+  // local tool chips, or a fixture when receipt persistence or authorization
+  // did not produce an authenticated durable record.
+  if (!loadedReceipt) return null
+
+  const policy = loadedReceipt.policy_events[0]
+  const policyDecision = policy?.decision
+  const policyReason = policy?.reason
+  const sourceCount = loadedReceipt.citations.length
+  const toolCount = loadedReceipt.tool_audit_ids.length
+  const latencyMs = loadedReceipt.latency_ms
 
   return (
     <div
@@ -163,7 +209,7 @@ export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
       {/* Base-path-safe: <Link> applies the router basename, so this works
           behind the Workshop Studio /ports/8000/ proxy. */}
       <Link
-        to={receiptRoute({ sessionId, turnId, traceId })}
+        to={receiptRoute({ sessionId, turnId })}
         className="gov-focusable"
         data-testid="governed-receipt-link"
         style={{

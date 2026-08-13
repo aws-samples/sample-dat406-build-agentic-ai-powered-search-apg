@@ -70,7 +70,8 @@ for migration in \
   006_warehouse_inventory.sql \
   011_governed_write_integrity.sql \
   012_retrieval_receipts.sql \
-  013_inventory_ledger.sql
+  013_inventory_ledger.sql \
+  014_governed_turn_receipts.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -84,6 +85,7 @@ pass "Exactly three warehouse rows per curated product reseeded"
 _psql_exec "
 TRUNCATE TABLE
     pellier.governed_receipts,
+    pellier.governed_turn_receipts,
     pellier.tool_audit,
     pellier.retrieval_receipts,
     pellier.inventory_ledger,

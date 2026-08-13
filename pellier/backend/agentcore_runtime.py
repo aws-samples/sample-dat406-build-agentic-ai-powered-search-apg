@@ -86,6 +86,7 @@ try:
         session_id = (payload or {}).get("session_id", "runtime-session")
         user_id = (payload or {}).get("user_id", "anonymous")
         history = (payload or {}).get("history", [])
+        turn_id = (payload or {}).get("turn_id")
 
         # Tools execute only through Gateway MCP under the caller's identity.
         # A managed Runtime invocation must never degrade into local tools.
@@ -123,6 +124,7 @@ try:
         try:
             dispatcher.trace_attributes = {
                 "session.id": session_id,
+                "turn.id": str(turn_id or ""),
                 "user.id": user_id or "anonymous",
                 "runtime": "agentcore-managed",
                 "workshop": "pellier",

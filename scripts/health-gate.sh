@@ -259,14 +259,15 @@ fi
 
 # 10. Structured provisioning receipt. This is stronger than checking env vars:
 # it proves all Gateway targets were attached, Policy attached successfully, the
-# authenticated Runtime smoke returned through Gateway MCP, and unified telemetry
-# delivered agent, model, and tool spans to an ACTIVE Transaction Search path.
+# authenticated Runtime smoke returned through Gateway MCP, the Runtime payload
+# log group uses a customer-managed KMS key with bounded retention, and unified
+# telemetry delivered agent/model/tool spans, redacted tool I/O, and step latency.
 managed_receipt="${AGENTCORE_MANAGED_OUTPUT_JSON:-/tmp/pellier-agentcore-managed.json}"
 receipt_validator="$SCRIPT_DIR/validate_agentcore_receipt.py"
 if [[ -f "$managed_receipt" ]] && [[ -f "$receipt_validator" ]] \
     && command -v python3 >/dev/null 2>&1; then
   if receipt_error="$(python3 "$receipt_validator" "$managed_receipt" 2>&1)"; then
-    pass "Managed receipt proves AgentCore resources, Policy ALLOW/DENY, gateway-mcp Runtime smoke, and agent/model/tool trace delivery"
+    pass "Managed receipt proves AgentCore resources, Policy ALLOW/DENY, gateway-mcp Runtime smoke, encrypted bounded Runtime logs, and sanitized trace delivery"
   else
     managed_missing "Managed provisioning receipt is incomplete or degraded: ${receipt_error:-unknown contract failure}"
   fi

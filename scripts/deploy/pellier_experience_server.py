@@ -317,14 +317,18 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     try:
         started = time.monotonic()
-        result = TOOLS[tool_name]["fn"](**arguments)
+        audit_arguments = dict(arguments)
+        execution_arguments = {
+            key: value for key, value in arguments.items() if key != "turn_id"
+        }
+        result = TOOLS[tool_name]["fn"](**execution_arguments)
         latency_ms = int((time.monotonic() - started) * 1000)
         # Evidence ledger for the audited write tool. Reaching this point means
         # managed AgentCore Policy ALLOWed the call at the Gateway; a DENY would
         # have blocked it before the Lambda ran, leaving no row. Mirrors the
         # in-process hook's record_allow.
         if tool_name == "process_return":
-            _write_tool_audit(tool_name, arguments, result, latency_ms)
+            _write_tool_audit(tool_name, audit_arguments, result, latency_ms)
         return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
     except Exception as e:
         logger.error("Tool %s failed: %s", tool_name, e)

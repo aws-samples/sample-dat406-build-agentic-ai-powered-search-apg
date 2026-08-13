@@ -49,6 +49,8 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "gateway.gateway_url",
         "policy.policy_engine_id",
         "observability.transaction_search.resource_policy",
+        "observability.runtime_log_group.name",
+        "observability.runtime_log_group.kms_key_arn",
         "observability.unified_trace.trace_id",
         "observability.unified_trace.session_id",
         "observability.unified_trace.runtime_arn",
@@ -68,10 +70,16 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "verification.live_policy_deny",
         "verification.authenticated_runtime_invoke_smoke",
         "verification.transaction_search_ready",
+        "verification.runtime_log_group_encrypted",
+        "verification.runtime_log_group_retention_bounded",
         "verification.unified_trace_delivered",
         "verification.unified_trace_agent_span",
         "verification.unified_trace_model_span",
         "verification.unified_trace_tool_span",
+        "verification.unified_trace_agent_input",
+        "verification.unified_trace_agent_output",
+        "verification.unified_trace_tool_io_sanitized",
+        "verification.unified_trace_step_latency",
     ):
         if _value(payload, path) is not True:
             errors.append(f"{path} must be true")
@@ -120,9 +128,34 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "observability.unified_trace.agent_span",
         "observability.unified_trace.model_span",
         "observability.unified_trace.tool_span",
+        "observability.unified_trace.agent_input_observed",
+        "observability.unified_trace.agent_output_observed",
+        "observability.unified_trace.tool_input_output_observed",
+        "observability.unified_trace.tool_input_output_sanitized",
+        "observability.unified_trace.step_latency_observed",
     ):
         if _value(payload, path) is not True:
             errors.append(f"{path} must be true")
+
+    retention_days = _value(payload, "observability.runtime_log_group.retention_days")
+    if type(retention_days) is not int or retention_days <= 0:
+        errors.append(
+            "observability.runtime_log_group.retention_days must be a positive integer"
+        )
+
+    step_latencies = _value(payload, "observability.unified_trace.step_latency_ms")
+    if not isinstance(step_latencies, dict):
+        errors.append(
+            "observability.unified_trace.step_latency_ms must contain agent, model, and tool"
+        )
+    else:
+        for kind in ("agent", "model", "tool"):
+            latency = step_latencies.get(kind)
+            if type(latency) is not int or latency < 0:
+                errors.append(
+                    "observability.unified_trace.step_latency_ms."
+                    f"{kind} must be a non-negative integer"
+                )
 
     for path in (
         "observability.unified_trace.span_names",

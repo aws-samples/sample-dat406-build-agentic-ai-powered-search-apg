@@ -116,6 +116,14 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "status": "ACTIVE",
                 "resource_policy": "TransactionSearchXRayAccess",
             },
+            "runtime_log_group": {
+                "name": "/aws/bedrock-agentcore/runtimes/pellier_orchestrator-abc123-DEFAULT",
+                "kms_key_arn": (
+                    "arn:aws:kms:us-east-1:123456789012:"
+                    "key/12345678-1234-1234-1234-1234567890ab"
+                ),
+                "retention_days": 30,
+            },
             "unified_trace": {
                 "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
                 "session_id": "builders-smoke-session-0000000000000001",
@@ -133,6 +141,12 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "agent_span": True,
                 "model_span": True,
                 "tool_span": True,
+                "agent_input_observed": True,
+                "agent_output_observed": True,
+                "tool_input_output_observed": True,
+                "tool_input_output_sanitized": True,
+                "step_latency_observed": True,
+                "step_latency_ms": {"agent": 125, "model": 80, "tool": 30},
                 "model_ids": ["global.anthropic.claude-sonnet-5"],
                 "tool_names": ["find_pieces_hybrid"],
                 "provenance": "agentcore-unified-telemetry",
@@ -176,10 +190,16 @@ def _valid_managed_receipt() -> dict[str, object]:
             },
             "authenticated_runtime_invoke_smoke": True,
             "transaction_search_ready": True,
+            "runtime_log_group_encrypted": True,
+            "runtime_log_group_retention_bounded": True,
             "unified_trace_delivered": True,
             "unified_trace_agent_span": True,
             "unified_trace_model_span": True,
             "unified_trace_tool_span": True,
+            "unified_trace_agent_input": True,
+            "unified_trace_agent_output": True,
+            "unified_trace_tool_io_sanitized": True,
+            "unified_trace_step_latency": True,
             "runtime_invoke_smoke": {
                 "rail": "gateway-mcp",
                 "session_id": "builders-smoke-session-0000000000000001",
@@ -519,6 +539,17 @@ def test_bootstrap_normalizes_cognito_aliases_before_managed_provisioning() -> N
     assert source.index(client_alias) < source.index(provision)
     assert "export COGNITO_POOL='${COGNITO_POOL:-}'" in source
     assert "export COGNITO_CLIENT='${COGNITO_CLIENT:-}'" in source
+    assert "export AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN=" in source
+    assert "export AGENTCORE_RUNTIME_LOG_RETENTION_DAYS=" in source
+
+
+def test_deploy_wrapper_requires_runtime_log_protection_inputs() -> None:
+    source = (REPO / "scripts" / "deploy" / "deploy_all.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN" in source
+    assert "AGENTCORE_RUNTIME_LOG_RETENTION_DAYS" in source
 
 
 def test_governed_reset_restores_catalog_before_exact_warehouse_matrix() -> None:

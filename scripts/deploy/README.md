@@ -87,7 +87,11 @@ backend environment.
 
 For unattended bootstrap, use
 `scripts/provision_agentcore_end_to_end.py`; it adds target/tool verification,
-live Policy ALLOW/DENY proof, and a structured readiness receipt.
+live Policy ALLOW/DENY proof, a customer-managed KMS key plus bounded retention
+for the Runtime log group, and a structured readiness receipt. Its required
+inputs include `AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN` and
+`AGENTCORE_RUNTIME_LOG_RETENTION_DAYS` (a finite CloudWatch Logs retention
+value, `30` in the workshop template).
 
 ## Files
 
@@ -117,7 +121,7 @@ live Policy ALLOW/DENY proof, and a structured readiness receipt.
 - **Gateway returns `401`** — Cognito access token expired (1-hour default). Re-run the `cognito-idp initiate-auth` block from `deploy_all.sh` step 7.
 - **Runtime returns `managed_gateway_unavailable`** — `AGENTCORE_GATEWAY_URL` was absent or Gateway discovery failed. Repair the generated Runtime environment, redeploy, and rerun `npx -y @aws/agentcore@0.26.0 invoke --runtime pellier_orchestrator --bearer-token "$PELLIER_TOKEN" --prompt "Find linen pieces" --json`; do not enable a local fallback.
 - **`agentcore deploy` fails on a missing CDKToolkit / `cdk-hnb659fds` stack** — the account isn't CDK-bootstrapped. Run `npx -y aws-cdk@2 bootstrap aws://<account>/<region>` (bootstrap-environment.sh does this automatically on fresh accounts).
-- **Runtime traces** — run `npx -y @aws/agentcore@0.26.0 traces list --runtime pellier_orchestrator --limit 10 --since 1h --json`, then correlate on the session ID.
+- **Runtime traces** — run `npx -y @aws/agentcore@0.26.0 traces list --runtime pellier_orchestrator --limit 10 --since 1h --json`, then correlate on the session ID. The provisioner only reports ready after it observes Agent input/output, sanitized tool input/output, and per-step Agent/Model/Tool latency.
 
 Run `bash scripts/health-gate.sh` for the governed readiness verdict. It also
 requires active Memory, exactly 120 warehouse rows, Policy `ENFORCE`, and the

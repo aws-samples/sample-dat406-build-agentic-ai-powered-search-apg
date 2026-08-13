@@ -364,6 +364,7 @@ def test_chat_done_event_surfaces_runtime_gateway_receipt(
 
         rt._store_managed_runtime_receipt(
             session_id,
+            principal_sub=user_id or "anonymous",
             rail="gateway-mcp",
             auth_token_present=bool(auth_token),
         )

@@ -271,6 +271,23 @@ TOOL_SCHEMAS = {
     },
 }
 
+# ``turn_id`` is a route-minted correlation value. It is optional in the
+# Gateway schema so direct/instructor invocations remain valid, but the managed
+# Runtime dispatcher requires it on every shopper tool call and each Lambda
+# preserves it in ``tool_audit.args`` while stripping it before business logic.
+for _target in TOOL_SCHEMAS.values():
+    for _tool in _target["tools"]:
+        _tool["inputSchema"]["properties"].setdefault(
+            "turn_id",
+            {
+                "type": "string",
+                "description": (
+                    "Server-minted shopper-turn correlation ID for the "
+                    "append-only governance receipt."
+                ),
+            },
+        )
+
 
 def schema_for(surface: str) -> list[dict]:
     """Return the CLI-compatible tool schema for one Gateway target."""

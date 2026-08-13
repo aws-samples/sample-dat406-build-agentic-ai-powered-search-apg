@@ -443,7 +443,7 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
             {"role": "assistant", "content": "Here are three options."},
         ],
     }
-    trace = rt.get_latest_trace("sess-runtime")
+    trace = rt.get_latest_trace("sess-runtime", principal_sub="user-123")
     assert trace["traceKind"] == "managed-runtime-receipt"
     assert trace["runtime"] == "agentcore-managed"
     assert trace["rail"] == "gateway-mcp"

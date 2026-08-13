@@ -1,0 +1,431 @@
+"""Durable, principal-scoped receipt for one governed shopper turn.
+
+The governed workshop has several truthful but partial records:
+
+* ``retrieval_receipts`` explains ranked catalog evidence.
+* ``tool_audit`` proves that a tool target executed.
+* ``governed_receipts`` records an explicit Gateway/Cedar decision.
+* AgentCore Runtime exposes trace correlation IDs, not replayable spans.
+
+This module joins those records at terminal turn time into the immutable
+``governed_turn_receipts`` table. It never fills gaps with inference: an absent
+policy decision is stored as ``NOT_EVALUATED`` and a missing retrieval receipt
+produces no citations.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from datetime import date, datetime
+from typing import Any, Dict, Iterable, List, Optional
+
+logger = logging.getLogger(__name__)
+
+_INSERT_SQL = """
+    INSERT INTO pellier.governed_turn_receipts (
+        turn_id, session_id, principal_sub, principal_verified, rail,
+        model_config, retrieval_receipt_id, citations, tool_audit_ids,
+        policy_events, trace, terminal_outcome, terminal_status, latency_ms
+    ) VALUES (
+        %s, %s, %s, %s, %s,
+        %s::jsonb, %s, %s::jsonb, %s::jsonb,
+        %s::jsonb, %s::jsonb, %s::jsonb, %s, %s
+    )
+"""
+
+_RETRIEVAL_SQL = """
+    SELECT receipt_id,
+           embedding_model,
+           rerank_model,
+           retrieval_config,
+           citation_ids
+      FROM pellier.retrieval_receipts
+     WHERE turn_id = %s
+     ORDER BY created_at DESC
+     LIMIT 1
+"""
+
+_AUDIT_SQL = """
+    SELECT audit_id, tool, caller, latency_ms, created_at
+      FROM pellier.tool_audit
+     WHERE args->>'turn_id' = %s
+     ORDER BY audit_id ASC
+"""
+
+_POLICY_SQL = """
+    SELECT receipt_id,
+           audit_id,
+           tool,
+           caller,
+           decision,
+           policy_engine_id,
+           policy_name,
+           created_at
+      FROM pellier.governed_receipts
+     WHERE args->>'turn_id' = %s
+     ORDER BY receipt_id ASC
+"""
+
+_CATALOG_SQL = """
+    SELECT product_id, name, description, updated_at
+      FROM pellier.product_catalog
+     WHERE product_id = ANY(%s)
+"""
+
+_RECEIPT_BY_TURN_SQL = """
+    SELECT turn_id,
+           session_id,
+           principal_sub,
+           principal_verified,
+           rail,
+           model_config,
+           retrieval_receipt_id,
+           citations,
+           tool_audit_ids,
+           policy_events,
+           trace,
+           terminal_outcome,
+           terminal_status,
+           latency_ms,
+           created_at
+      FROM pellier.governed_turn_receipts
+     WHERE turn_id = %s
+       AND principal_sub = %s
+     LIMIT 1
+"""
+
+_VISIBLE_AUDIT_SQL = """
+    SELECT DISTINCT ta.audit_id,
+           ta.session_id,
+           ta.tool,
+           ta.caller,
+           ta.args,
+           ta.result,
+           ta.latency_ms,
+           ta.created_at
+      FROM pellier.tool_audit ta
+      LEFT JOIN pellier.governed_receipts gr
+        ON gr.audit_id = ta.audit_id
+      LEFT JOIN pellier.governed_turn_receipts gtr
+        ON gtr.tool_audit_ids @> jsonb_build_array(ta.audit_id)
+     WHERE gr.principal_id = %s
+        OR gtr.principal_sub = %s
+     ORDER BY ta.audit_id DESC
+     LIMIT %s
+"""
+
+
+def _decode_json(value: Any, default: Any) -> Any:
+    if value is None:
+        return default
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return default
+    return value
+
+
+def _json(value: Any) -> str:
+    return json.dumps(value, default=_json_default, separators=(",", ":"))
+
+
+def _json_default(value: Any) -> str:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
+
+
+def _iso(value: Any) -> Optional[str]:
+    return value.isoformat() if hasattr(value, "isoformat") else None
+
+
+def _as_rows(rows: Iterable[Any]) -> List[Dict[str, Any]]:
+    return [dict(row) for row in rows or []]
+
+
+def _model_config(retrieval: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Return model identifiers, never prompt or response content."""
+    try:
+        from config import settings
+
+        agent_model = (
+            getattr(settings, "BEDROCK_ROUTER_MODEL", None)
+            or getattr(settings, "AGENT_MODEL_ID", None)
+            or None
+        )
+    except Exception:
+        agent_model = None
+
+    return {
+        "agent_model": agent_model,
+        "embedding_model": (retrieval or {}).get("embedding_model"),
+        "rerank_model": (retrieval or {}).get("rerank_model"),
+        "retrieval_config": _decode_json(
+            (retrieval or {}).get("retrieval_config"), {}
+        ),
+    }
+
+
+def _trace_metadata(trace: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Keep only service correlation metadata, never reconstructed spans."""
+    trace = trace or {}
+    managed = trace.get("managedTrace")
+    if not isinstance(managed, dict):
+        managed = {}
+    allowed = {
+        "traceKind": trace.get("traceKind"),
+        "runtime": trace.get("runtime"),
+        "rail": trace.get("rail"),
+        "evidenceProvenance": trace.get("evidenceProvenance"),
+        "traceId": trace.get("traceId"),
+        "runtimeRequestId": trace.get("runtimeRequestId"),
+        "sessionId": trace.get("sessionId"),
+        "managedTrace": {
+            key: managed.get(key)
+            for key in (
+                "region",
+                "logGroupPrefix",
+                "traceId",
+                "runtimeRequestId",
+                "sessionId",
+                "logsInsightsQuery",
+                "xrayConsoleUrl",
+                "logsConsoleUrl",
+            )
+            if managed.get(key) is not None
+        },
+    }
+    return {key: value for key, value in allowed.items() if value not in (None, {}, "")}
+
+
+async def _catalog_citations(
+    db: Any,
+    *,
+    retrieval_receipt_id: Optional[int],
+    citation_ids: Any,
+) -> List[Dict[str, Any]]:
+    """Build citations from catalog rows that retrieval actually selected."""
+    ids = _decode_json(citation_ids, [])
+    if not isinstance(ids, list) or not ids:
+        return []
+    ordered_ids = [str(product_id) for product_id in ids if str(product_id).strip()]
+    if not ordered_ids:
+        return []
+    rows = _as_rows(await db.fetch_all(_CATALOG_SQL, ordered_ids))
+    by_id = {str(row.get("product_id")): row for row in rows}
+    citations: List[Dict[str, Any]] = []
+    for product_id in ordered_ids:
+        product = by_id.get(product_id)
+        if not product:
+            continue
+        name = str(product.get("name") or product_id)
+        description = " ".join(str(product.get("description") or "").split())
+        quote = f"{name}: {description}".rstrip(":").strip()
+        citations.append(
+            {
+                "evidence_id": (
+                    f"retrieval-{retrieval_receipt_id}-catalog-{product_id}"
+                    if retrieval_receipt_id is not None
+                    else f"catalog-{product_id}"
+                ),
+                "source_uri": f"aurora://pellier/product_catalog/{product_id}",
+                "revision": _iso(product.get("updated_at")),
+                "quote": quote[:280],
+                "entity_id": product_id,
+            }
+        )
+    return citations
+
+
+def _policy_events(
+    rows: List[Dict[str, Any]],
+    *,
+    terminal_error_code: Optional[str],
+) -> List[Dict[str, Any]]:
+    events: List[Dict[str, Any]] = []
+    for row in rows:
+        events.append(
+            {
+                "receipt_id": row.get("receipt_id"),
+                "audit_id": row.get("audit_id"),
+                "tool": row.get("tool"),
+                "caller": row.get("caller"),
+                "decision": row.get("decision"),
+                "policy_engine_id": row.get("policy_engine_id"),
+                "policy_name": row.get("policy_name"),
+                "created_at": _iso(row.get("created_at")),
+                "source": "governed_receipts",
+            }
+        )
+    if events:
+        return events
+    if terminal_error_code == "policy_denied":
+        return [
+            {
+                "decision": "DENY",
+                "source": "managed_runtime_error",
+                "reason": "The managed Runtime returned an explicit policy_denied code.",
+            }
+        ]
+    return [
+        {
+            "decision": "NOT_EVALUATED",
+            "source": "absence",
+            "reason": "No governed policy decision was recorded for this turn.",
+        }
+    ]
+
+
+def _summary(
+    *,
+    turn_id: str,
+    rail: str,
+    terminal_status: str,
+    citations: List[Dict[str, Any]],
+    audit_rows: List[Dict[str, Any]],
+    policy_events: List[Dict[str, Any]],
+    latency_ms: Optional[int],
+) -> Dict[str, Any]:
+    return {
+        "turn_id": turn_id,
+        "rail": rail,
+        "terminal_status": terminal_status,
+        "citation_count": len(citations),
+        "tool_count": len(audit_rows),
+        "policy_decision": policy_events[0].get("decision")
+        if policy_events
+        else "NOT_EVALUATED",
+        "latency_ms": latency_ms,
+    }
+
+
+async def persist_turn_receipt(
+    db: Any,
+    *,
+    turn_id: str,
+    session_id: Optional[str],
+    principal_sub: Optional[str],
+    rail: str,
+    terminal_status: str,
+    latency_ms: Optional[int],
+    trace: Optional[Dict[str, Any]] = None,
+    terminal_error_code: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Persist one immutable turn record and return its truthful summary.
+
+    Receipt persistence is evidence collection. The shopper turn has already
+    reached a terminal state, so a database failure is logged and represented
+    by ``None`` rather than changing that outcome or inventing a receipt.
+    """
+    if db is None:
+        return None
+    try:
+        retrieval = await db.fetch_one(_RETRIEVAL_SQL, turn_id)
+        retrieval_row = dict(retrieval) if retrieval else None
+        audit_rows = _as_rows(await db.fetch_all(_AUDIT_SQL, turn_id))
+        policy_rows = _as_rows(await db.fetch_all(_POLICY_SQL, turn_id))
+        receipt_id = (
+            int(retrieval_row["receipt_id"])
+            if retrieval_row and retrieval_row.get("receipt_id") is not None
+            else None
+        )
+        citations = await _catalog_citations(
+            db,
+            retrieval_receipt_id=receipt_id,
+            citation_ids=(retrieval_row or {}).get("citation_ids"),
+        )
+        policy_events = _policy_events(
+            policy_rows, terminal_error_code=terminal_error_code
+        )
+        outcome = {
+            "error_code": terminal_error_code,
+        } if terminal_error_code else {}
+        await db.execute_query(
+            _INSERT_SQL,
+            turn_id,
+            session_id,
+            principal_sub,
+            bool(principal_sub),
+            rail,
+            _json(_model_config(retrieval_row)),
+            receipt_id,
+            _json(citations),
+            _json(
+                [
+                    {
+                        "audit_id": row.get("audit_id"),
+                        "tool": row.get("tool"),
+                        "caller": row.get("caller"),
+                        "latency_ms": row.get("latency_ms"),
+                        "created_at": _iso(row.get("created_at")),
+                    }
+                    for row in audit_rows
+                ]
+            ),
+            _json(policy_events),
+            _json(_trace_metadata(trace)),
+            _json(outcome),
+            terminal_status,
+            latency_ms,
+        )
+        return _summary(
+            turn_id=turn_id,
+            rail=rail,
+            terminal_status=terminal_status,
+            citations=citations,
+            audit_rows=audit_rows,
+            policy_events=policy_events,
+            latency_ms=latency_ms,
+        )
+    except Exception as exc:
+        logger.warning("governed turn receipt insert failed: %s", exc)
+        return None
+
+
+async def get_turn_receipt(
+    db: Any, *, turn_id: str, principal_sub: str
+) -> Optional[Dict[str, Any]]:
+    """Return one persisted receipt only when it belongs to the caller."""
+    if db is None or not principal_sub:
+        return None
+    try:
+        row = await db.fetch_one(_RECEIPT_BY_TURN_SQL, turn_id, principal_sub)
+    except Exception as exc:
+        logger.warning("governed turn receipt read failed: %s", exc)
+        return None
+    if not row:
+        return None
+    receipt = dict(row)
+    for key in (
+        "model_config",
+        "citations",
+        "tool_audit_ids",
+        "policy_events",
+        "trace",
+        "terminal_outcome",
+    ):
+        receipt[key] = _decode_json(receipt.get(key), {} if key in {"model_config", "trace", "terminal_outcome"} else [])
+    receipt["created_at"] = _iso(receipt.get("created_at"))
+    return receipt
+
+
+async def get_visible_tool_audit(
+    db: Any, *, principal_sub: str, limit: int
+) -> List[Dict[str, Any]]:
+    """Return only audit rows linked to the verified principal's receipts."""
+    if db is None or not principal_sub:
+        return []
+    safe_limit = max(1, min(50, int(limit)))
+    try:
+        rows = await db.fetch_all(
+            _VISIBLE_AUDIT_SQL, principal_sub, principal_sub, safe_limit
+        )
+    except Exception as exc:
+        logger.warning("principal-scoped tool audit read failed: %s", exc)
+        return []
+    normalized = _as_rows(rows)
+    for row in normalized:
+        row["created_at"] = _iso(row.get("created_at"))
+    return normalized

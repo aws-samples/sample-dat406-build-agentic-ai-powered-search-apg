@@ -26,6 +26,7 @@ Two design choices worth stating:
 
 from __future__ import annotations
 
+import contextvars
 import hashlib
 import json
 import logging
@@ -37,6 +38,42 @@ logger = logging.getLogger(__name__)
 # Preview length. Long enough to recognize the query in a SQL result,
 # short enough that a receipt table is not a transcript archive.
 _PREVIEW_CHARS = 120
+
+# The storefront route sets this once per local turn before it calls
+# ``chat_stream``. ``asyncio.to_thread`` copies ContextVars into the Strands
+# worker, so the sync retrieval tool can bind its receipt to the same
+# server-minted turn without accepting identity fields from the model.
+_turn_context_var: contextvars.ContextVar[Dict[str, Any] | None] = (
+    contextvars.ContextVar("retrieval_receipt_turn_context", default=None)
+)
+
+
+def set_turn_context(
+    *,
+    turn_id: str,
+    session_id: Optional[str],
+    principal_sub: Optional[str],
+    rail: Optional[str],
+) -> contextvars.Token:
+    """Bind trusted route context to receipts written during one local turn."""
+    return _turn_context_var.set(
+        {
+            "turn_id": turn_id,
+            "session_id": session_id,
+            "principal_sub": principal_sub,
+            "rail": rail,
+        }
+    )
+
+
+def reset_turn_context(token: contextvars.Token) -> None:
+    """Clear a route-scoped receipt context after the stream terminates."""
+    _turn_context_var.reset(token)
+
+
+def current_turn_context() -> Dict[str, Any]:
+    """Return a defensive copy of the trusted context for the current turn."""
+    return dict(_turn_context_var.get() or {})
 
 
 def query_hash(query: str) -> str:
@@ -59,6 +96,7 @@ class RetrievalReceipt:
 
     query: str
     plan: Any
+    turn_id: Optional[str] = None
     session_id: Optional[str] = None
     principal_sub: Optional[str] = None
     embedding_model: Optional[str] = None
@@ -72,6 +110,9 @@ class RetrievalReceipt:
     rerank_scores: Dict[str, Any] = field(default_factory=dict)
     merchandising_rules: List[Dict[str, Any]] = field(default_factory=list)
     memory_record_ids_used: List[Any] = field(default_factory=list)
+    # ``citation_ids`` remains the retrieval-stage product selection. The
+    # participant-facing governed receipt resolves those IDs to structured
+    # catalog citations; a product id is not itself a citation.
     citation_ids: List[Any] = field(default_factory=list)
     latency_breakdown: Dict[str, Any] = field(default_factory=dict)
     modeled_cost_usd: Optional[float] = None
@@ -82,6 +123,7 @@ class RetrievalReceipt:
         """Project this receipt onto ``pellier.retrieval_receipts`` columns."""
         plan_dict = self.plan.to_dict() if hasattr(self.plan, "to_dict") else {}
         return {
+            "turn_id": self.turn_id,
             "session_id": self.session_id,
             "principal_sub": self.principal_sub,
             "query_hash": query_hash(self.query),
@@ -187,7 +229,7 @@ def build_receipt(
 
 _INSERT_SQL = """
     INSERT INTO pellier.retrieval_receipts (
-        session_id, principal_sub, query_hash, query_preview,
+        turn_id, session_id, principal_sub, query_hash, query_preview,
         search_plan, hard_constraints, soft_preferences, exclusions,
         relaxations, embedding_model, rerank_model, retrieval_config,
         index_parameters, candidate_product_ids, vector_ranks,
@@ -195,7 +237,7 @@ _INSERT_SQL = """
         memory_record_ids_used, citation_ids, latency_breakdown,
         modeled_cost_usd, trace_id, rail
     ) VALUES (
-        %s, %s, %s, %s,
+        %s, %s, %s, %s, %s,
         %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb,
         %s::jsonb, %s, %s, %s::jsonb,
         %s::jsonb, %s::jsonb, %s::jsonb,
@@ -225,6 +267,7 @@ _JSON_COLUMNS = (
 )
 
 _COLUMN_ORDER = (
+    "turn_id",
     "session_id",
     "principal_sub",
     "query_hash",

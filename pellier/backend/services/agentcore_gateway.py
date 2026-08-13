@@ -120,10 +120,10 @@ def _runtime_or_app_setting(name: str, default: str = "") -> str:
     return str(getattr(settings, name, default) or default)
 
 
-def _managed_specialist_prompt(specialist: str) -> str:
+def _managed_specialist_prompt(specialist: str, *, turn_id: str = "") -> str:
     """Return transport-neutral instructions for a Gateway-backed specialist."""
     label = _MANAGED_SPECIALIST_LABELS[specialist]
-    return (
+    prompt = (
         f"You are Pellier's {label}. "
         "Use at least one of the AgentCore Gateway tools available to you "
         "before answering. Treat tool output as the only source of catalog, "
@@ -131,6 +131,12 @@ def _managed_specialist_prompt(specialist: str) -> str:
         "an action succeeded unless the tool result reports success. Answer "
         "in 1-3 concise sentences without markdown tables or invented details."
     )
+    if turn_id:
+        prompt += (
+            " For every Gateway tool call, include the exact audit correlation "
+            f"argument turn_id={turn_id!r}. Do not invent, shorten, or reuse it."
+        )
+    return prompt
 
 
 # Capability tiers over the same 15 tools.
@@ -221,7 +227,9 @@ def _logical_gateway_tool_name(name: str) -> str:
     return name
 
 
-def _managed_specialist_spec(intent: str) -> tuple[str, str, tuple[str, ...]]:
+def _managed_specialist_spec(
+    intent: str, *, turn_id: str = ""
+) -> tuple[str, str, tuple[str, ...]]:
     """Return specialist name, prompt, and allowed logical tools."""
     if intent == "customer_support":
         intent = "support"
@@ -230,7 +238,7 @@ def _managed_specialist_spec(intent: str) -> tuple[str, str, tuple[str, ...]]:
 
     return (
         intent,
-        _managed_specialist_prompt(intent),
+        _managed_specialist_prompt(intent, turn_id=turn_id),
         MANAGED_SPECIALIST_TOOLS[intent],
     )
 
@@ -253,7 +261,10 @@ class ManagedGatewayDispatcher:
         from services.intent_router import classify_intent
 
         intent = classify_intent(prompt)
-        specialist, system_prompt, allowed_tools = _managed_specialist_spec(intent)
+        turn_id = str((self.trace_attributes or {}).get("turn.id") or "").strip()
+        specialist, system_prompt, allowed_tools = _managed_specialist_spec(
+            intent, turn_id=turn_id
+        )
         gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
         model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
         if not gateway_url or not model_id:

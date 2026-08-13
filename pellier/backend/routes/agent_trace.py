@@ -39,8 +39,9 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from services.auth import require_operator
 
 logger = logging.getLogger(__name__)
 
@@ -247,36 +248,41 @@ async def _workshop_counts() -> dict[str, int] | None:
 
 async def _latest_audit_row(
     *,
+    principal_sub: str,
     tool: str | None = None,
     caller: str | None = None,
 ) -> dict[str, Any] | None:
-    """Return the latest tool_audit row for a tool/caller filter."""
-    clauses: list[str] = []
-    params: list[Any] = []
+    """Return the latest audit row visible to one verified principal."""
+    clauses = ["(gr.principal_id = %s OR gtr.principal_sub = %s)"]
+    params: list[Any] = [principal_sub, principal_sub]
     if tool:
-        clauses.append("tool = %s")
+        clauses.append("ta.tool = %s")
         params.append(tool)
     if caller:
-        clauses.append("caller = %s")
+        clauses.append("ta.caller = %s")
         params.append(caller)
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    where = f"WHERE {' AND '.join(clauses)}"
     try:
         from app import db_service
         if db_service is None:
             return None
         row = await db_service.fetch_one(
             f"""
-            SELECT audit_id,
-                   session_id,
-                   tool,
-                   caller,
-                   args,
-                   result,
-                   latency_ms,
-                   created_at
-              FROM pellier.tool_audit
+            SELECT ta.audit_id,
+                   ta.session_id,
+                   ta.tool,
+                   ta.caller,
+                   ta.args,
+                   ta.result,
+                   ta.latency_ms,
+                   ta.created_at
+              FROM pellier.tool_audit ta
+              LEFT JOIN pellier.governed_receipts gr
+                ON gr.audit_id = ta.audit_id
+              LEFT JOIN pellier.governed_turn_receipts gtr
+                ON gtr.tool_audit_ids @> jsonb_build_array(ta.audit_id)
               {where}
-             ORDER BY audit_id DESC
+             ORDER BY ta.audit_id DESC
              LIMIT 1
             """,
             *params,
@@ -292,8 +298,11 @@ async def _latest_audit_row(
         return None
 
 
-async def _audit_row_by_id(audit_id: int | None) -> dict[str, Any] | None:
-    if not audit_id:
+async def _audit_row_by_id(
+    audit_id: int | None, *, principal_sub: str
+) -> dict[str, Any] | None:
+    """Return one audit row only when its receipt belongs to the principal."""
+    if not audit_id or not principal_sub:
         return None
     try:
         from app import db_service
@@ -301,19 +310,26 @@ async def _audit_row_by_id(audit_id: int | None) -> dict[str, Any] | None:
             return None
         row = await db_service.fetch_one(
             """
-            SELECT audit_id,
-                   session_id,
-                   tool,
-                   caller,
-                   args,
-                   result,
-                   latency_ms,
-                   created_at
-              FROM pellier.tool_audit
-             WHERE audit_id = %s
+            SELECT ta.audit_id,
+                   ta.session_id,
+                   ta.tool,
+                   ta.caller,
+                   ta.args,
+                   ta.result,
+                   ta.latency_ms,
+                   ta.created_at
+              FROM pellier.tool_audit ta
+              LEFT JOIN pellier.governed_receipts gr
+                ON gr.audit_id = ta.audit_id
+              LEFT JOIN pellier.governed_turn_receipts gtr
+                ON gtr.tool_audit_ids @> jsonb_build_array(ta.audit_id)
+             WHERE ta.audit_id = %s
+               AND (gr.principal_id = %s OR gtr.principal_sub = %s)
              LIMIT 1
             """,
             int(audit_id),
+            principal_sub,
+            principal_sub,
         )
         if not row:
             return None
@@ -328,23 +344,24 @@ async def _audit_row_by_id(audit_id: int | None) -> dict[str, Any] | None:
 
 async def _latest_governed_receipt(
     *,
+    principal_sub: str,
     tool: str | None = None,
     caller: str | None = None,
     session_id: str | None = None,
 ) -> dict[str, Any] | None:
-    """Return the latest governed identity/policy receipt, if present."""
-    clauses: list[str] = []
-    params: list[Any] = []
+    """Return the latest managed policy receipt owned by one principal."""
+    clauses = ["gr.principal_id = %s"]
+    params: list[Any] = [principal_sub]
     if session_id:
-        clauses.append("session_id = %s")
+        clauses.append("gr.session_id = %s")
         params.append(session_id)
     if tool:
-        clauses.append("tool = %s")
+        clauses.append("gr.tool = %s")
         params.append(tool)
     if caller:
-        clauses.append("caller = %s")
+        clauses.append("gr.caller = %s")
         params.append(caller)
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    where = f"WHERE {' AND '.join(clauses)}"
     try:
         from app import db_service
         if db_service is None:
@@ -369,9 +386,9 @@ async def _latest_governed_receipt(
                    client_id,
                    identity_source,
                    created_at
-              FROM pellier.governed_receipts
+              FROM pellier.governed_receipts gr
               {where}
-             ORDER BY receipt_id DESC
+             ORDER BY gr.receipt_id DESC
              LIMIT 1
             """,
             *params,
@@ -387,27 +404,37 @@ async def _latest_governed_receipt(
         return None
 
 
-def _latest_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
-    """Return the latest managed Runtime/Gateway receipt, if one exists."""
+def _empty_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
+    return {
+        "present": False,
+        "traceKind": "",
+        "runtime": "",
+        "rail": "",
+        "jwtPassthrough": False,
+        "gatewayPassthrough": False,
+        "traceId": None,
+        "runtimeRequestId": None,
+        "sessionId": session_id,
+        "managedTrace": {},
+        "evidenceProvenance": "",
+    }
+
+
+def _latest_managed_receipt(
+    session_id: str | None = None,
+    *,
+    principal_sub: str,
+) -> dict[str, Any]:
+    """Return a managed Runtime receipt only from the caller's cache scope."""
+    if not session_id or not principal_sub:
+        return _empty_managed_receipt(session_id)
     try:
         from services.agentcore_runtime import get_latest_trace
 
-        trace = get_latest_trace(session_id)
+        trace = get_latest_trace(session_id, principal_sub=principal_sub)
     except Exception as exc:
         logger.debug("Managed receipt unavailable: %s", exc)
-        return {
-            "present": False,
-            "traceKind": "",
-            "runtime": "",
-            "rail": "",
-            "jwtPassthrough": False,
-            "gatewayPassthrough": False,
-            "traceId": None,
-            "runtimeRequestId": None,
-            "sessionId": session_id,
-            "managedTrace": {},
-            "evidenceProvenance": "",
-        }
+        return _empty_managed_receipt(session_id)
     return {
         "present": trace.get("traceKind") == "managed-runtime-receipt",
         "traceKind": trace.get("traceKind", ""),
@@ -578,7 +605,9 @@ def _card_status(condition: bool, fallback: str = "pending") -> str:
     return "complete" if condition else fallback
 
 
-async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
+async def _collect_proof_board(
+    session_id: str | None = None, *, principal_sub: str
+) -> dict[str, Any]:
     """Build the Agent Trace proof-card payload.
 
     The Proof Board is deliberately a read model. It reports evidence
@@ -591,21 +620,36 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     counts = readiness.get("counts") or {}
     governed_format = str(settings.WORKSHOP_FORMAT).lower() == "governed"
     floor_check_wired = not _floor_check_is_workshop_stub()
-    latest_floor_check = await _latest_audit_row(tool="floor_check")
-    latest_process_return = await _latest_audit_row(tool="process_return")
-    latest_audit = await _latest_audit_row()
-    latest_gateway = await _latest_audit_row(caller="gateway")
+    latest_floor_check = await _latest_audit_row(
+        principal_sub=principal_sub, tool="floor_check"
+    )
+    latest_process_return = await _latest_audit_row(
+        principal_sub=principal_sub, tool="process_return"
+    )
+    latest_audit = await _latest_audit_row(principal_sub=principal_sub)
+    latest_gateway = await _latest_audit_row(
+        principal_sub=principal_sub, caller="gateway"
+    )
     latest_governed = (
-        await _latest_governed_receipt(caller="gateway", session_id=session_id)
+        await _latest_governed_receipt(
+            principal_sub=principal_sub,
+            caller="gateway",
+            session_id=session_id,
+        )
         if session_id
         else None
     )
     if not latest_governed:
-        latest_governed = await _latest_governed_receipt(caller="gateway")
+        latest_governed = await _latest_governed_receipt(
+            principal_sub=principal_sub, caller="gateway"
+        )
     governed_audit = await _audit_row_by_id(
-        latest_governed.get("audit_id") if latest_governed else None
+        latest_governed.get("audit_id") if latest_governed else None,
+        principal_sub=principal_sub,
     )
-    managed_receipt = _latest_managed_receipt(session_id)
+    managed_receipt = _latest_managed_receipt(
+        session_id, principal_sub=principal_sub
+    )
     policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
 
     runtime_configured = _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
@@ -1670,6 +1714,7 @@ async def get_proof_board(
         default=None,
         description="Session id for the latest managed Runtime receipt",
     ),
+    operator: dict[str, Any] = Depends(require_operator),
 ):
     """Return required-path proof cards plus terminal fallbacks.
 
@@ -1680,7 +1725,9 @@ async def get_proof_board(
     individual anchors.
     """
     try:
-        return await _collect_proof_board(session_id=session_id)
+        return await _collect_proof_board(
+            session_id=session_id, principal_sub=operator["sub"]
+        )
     except Exception as exc:
         logger.error("Failed to build proof-board payload: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load proof board")  # copy-allow: agent-trace-error-detail
@@ -1725,7 +1772,7 @@ async def route_skills_endpoint(payload: AgentTraceSkillRouteRequest):
 
 
 @router.get("/policies")
-async def get_cedar_policies():
+async def get_cedar_policies(operator: dict[str, Any] = Depends(require_operator)):
     """Return the Cedar policies attached to the managed AgentCore Policy
     engine (Gateway-enforced, ENFORCE mode). Used by the Agent Trace's
     Write-path surface to show "policy is code, code is enforcement".
@@ -1762,44 +1809,29 @@ async def get_cedar_policies():
 
 
 @router.get("/tool-audit/recent")
-async def get_recent_tool_audit(limit: int = Query(default=10, ge=1, le=50)):
+async def get_recent_tool_audit(
+    limit: int = Query(default=10, ge=1, le=50),
+    operator: dict[str, Any] = Depends(require_operator),
+):
     """Return the most recent rows from pellier.tool_audit, in reverse
     chronological order. Used by the Write-path surface to demonstrate
     that every ALLOWed tool call (read or write) is reconstructible
     from a single row (args + result + latency_ms).
 
-    Read-only. Aggregate against the live DB; falls back to empty list
-    when the database is unavailable.
+    Read-only and principal-scoped. An audit row must be joined to either an
+    explicit policy receipt or a durable governed turn receipt for the
+    verified caller; raw ledger history is never a browser-wide feed.
     """
     try:
         from app import db_service
         if db_service is None:
             return {"count": 0, "rows": []}
 
-        rows = await db_service.fetch_all(
-            """
-            SELECT audit_id,
-                   session_id,
-                   tool,
-                   caller,
-                   args,
-                   result,
-                   latency_ms,
-                   created_at
-              FROM pellier.tool_audit
-             ORDER BY audit_id DESC
-             LIMIT %s
-            """,
-            limit,
+        from services.governed_turn_receipt import get_visible_tool_audit
+
+        normalized = await get_visible_tool_audit(
+            db_service, principal_sub=operator["sub"], limit=limit
         )
-        normalized = []
-        for r in rows:
-            d = dict(r)
-            # JSON columns come back as Python dicts already, but normalize
-            # created_at to an ISO string for the JSON response.
-            if d.get("created_at") is not None:
-                d["created_at"] = d["created_at"].isoformat()
-            normalized.append(d)
         return {"count": len(normalized), "rows": normalized}
     except Exception as exc:
         logger.error("Failed to load tool_audit: %s", exc)

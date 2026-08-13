@@ -42,6 +42,9 @@ _TIMEOUT_MARKERS = (
 _UNAVAILABLE_MARKERS = (
     "serviceunavailableexception",
     "service unavailable",
+    "runtime_not_configured",
+    "runtime_unavailable",
+    "managed_gateway_unavailable",
     "connection refused",
     "connection reset",
     "endpointconnectionerror",

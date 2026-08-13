@@ -113,15 +113,13 @@ afterEach(() => {
 
 describe('ProofBoard', () => {
   it('renders readiness checks, managed receipt, and proof card fallbacks', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
-        new Response(JSON.stringify(proofBoardPayload), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify(proofBoardPayload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
     );
+    vi.stubGlobal('fetch', fetchMock);
 
     render(
       <MemoryRouter>
@@ -130,6 +128,9 @@ describe('ProofBoard', () => {
     );
 
     expect(await screen.findByText('Evidence checkpoints, in lab order.')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/agent-trace/proof-board', {
+      credentials: 'include',
+    });
     await waitFor(() => {
       expect(
         screen.getByRole('heading', { name: 'Aurora PostgreSQL' }),
@@ -238,6 +239,57 @@ describe('ProofBoard', () => {
     // Four-lab spine: managed execution and audit share Lab 3.
     expect(await screen.findAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
     expect(screen.getAllByText('Lab 3: Run Agents in a Managed Runtime').length).toBeGreaterThan(0);
+  });
+
+  it('renders an authenticated persisted turn record instead of session fixtures', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/receipts/turn-live')) {
+          return new Response(
+            JSON.stringify({
+              turn_id: 'turn-live',
+              rail: 'gateway-mcp',
+              citations: [
+                {
+                  evidence_id: 'retrieval-1-catalog-12',
+                  source_uri: 'aurora://pellier/product_catalog/12',
+                  revision: null,
+                  quote: 'Linen Camp Shirt: Breathable resort layer',
+                  entity_id: '12',
+                },
+              ],
+              tool_audit_ids: [],
+              policy_events: [{ decision: 'NOT_EVALUATED' }],
+              terminal_status: 'complete',
+              latency_ms: 24,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(proofBoardPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/agent-trace/proof-board?turn=turn-live']}>
+        <ProofBoard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('persisted-turn-receipt')).toHaveTextContent(
+      'turn-live',
+    );
+    expect(screen.getByTestId('persisted-turn-receipt')).toHaveTextContent(
+      'Linen Camp Shirt: Breathable resort layer',
+    );
+    expect(screen.getByTestId('persisted-turn-receipt')).toHaveTextContent(
+      'NOT EVALUATED',
+    );
   });
 
   it('renders Audit Proof as a focused Lab 3 evidence view', async () => {

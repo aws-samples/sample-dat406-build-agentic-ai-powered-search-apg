@@ -9,11 +9,12 @@
  * basename. Nothing concatenates `location.origin`.
  *
  * **Real routes only.** These functions target destinations that already
- * exist in `App.tsx` — `/agent-trace/sessions/:id/telemetry`,
- * `/agent-trace/audit-proof`, `/inspector`. No route is invented here; a link
- * to a non-existent path would silently fall through to the catch-all
- * redirect and land the attendee on the Boutique home page, which reads as
- * "the evidence is missing" rather than "the link was wrong".
+ * exist in `App.tsx` — `/agent-trace/proof-board`,
+ * `/agent-trace/sessions/:id/telemetry`, `/agent-trace/audit-proof`, and
+ * `/inspector`. No route is invented here; a link to a non-existent path
+ * would silently fall through to the catch-all redirect and land the
+ * attendee on the Boutique home page, which reads as "the evidence is
+ * missing" rather than "the link was wrong".
  *
  * The turn identifier travels as a query parameter rather than a path
  * segment: it is optional (older turns predate it), and a query keeps the
@@ -55,10 +56,13 @@ function withQuery(path: string, params: Record<string, string | null | undefine
  *   invented session id is not.
  */
 export function receiptRoute(target: ReceiptTarget): string {
+  if (target.turnId) {
+    return withQuery('/agent-trace/proof-board', { [TURN_QUERY_KEY]: target.turnId })
+  }
   if (!target.sessionId) return '/agent-trace/audit-proof'
   return withQuery(
     `/agent-trace/sessions/${encodeURIComponent(target.sessionId)}/telemetry`,
-    { [TURN_QUERY_KEY]: target.turnId, trace: target.traceId },
+    { trace: target.traceId },
   )
 }
 
