@@ -592,3 +592,10 @@ def test_preference_seed_uses_access_token() -> None:
     source = SEED_PREFERENCES.read_text(encoding="utf-8")
     assert "AuthenticationResult.AccessToken" in source
     assert "AuthenticationResult.IdToken" not in source
+
+
+def test_hash_locked_test_requirements_include_async_pytest_plugin() -> None:
+    lock = (REPO / "pellier" / "backend" / "requirements.lock").read_text(
+        encoding="utf-8"
+    )
+    assert "pytest-asyncio==1.4.0" in lock
