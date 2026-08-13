@@ -365,7 +365,7 @@ const MemoryDetail: React.FC = () => {
       conceptName="Memory"
       category="live"
       title="Memory, with evidence kept separate."
-      prose="Working, semantic, episodic, and procedural memory have different stores and lifetimes. The builders path stores Boutique session turns and business events in Aurora. AgentCore Memory is the optional managed path for session and learned-preference records. Source-controlled skills and MCP schemas supply tool know-how; tool_audit is operational evidence, not memory."
+      prose="Working, semantic, episodic, and procedural memory have different stores and lifetimes. The builders path stores storefront session turns and business events in Aurora. AgentCore Memory is the optional managed path for session and learned-preference records. Source-controlled skills and MCP schemas supply tool know-how; tool_audit is operational evidence, not memory."
       seeInBoutique={{
         href: '/?ask=Pick+up+where+I+left+off',
         label: 'See working memory in the current session',
@@ -373,7 +373,7 @@ const MemoryDetail: React.FC = () => {
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'Working - the builders path reads the last K Boutique turns from pellier.messages by session_id and appends each completed turn pair atomically. AgentCore Memory is an optional managed alternative.',
+          text: 'Working - the builders path reads the last K Pellier turns from pellier.messages by session_id and appends each completed turn pair atomically. AgentCore Memory is an optional managed alternative.',
         },
         {
           numeral: 'ii.',
@@ -420,7 +420,7 @@ const MemoryDetail: React.FC = () => {
               category="live"
               title="Session turns"
               role="Builders core path, session-scoped"
-              prose="The Boutique stream reads bounded rows from pellier.messages and atomically appends the completed user/assistant pair. The memory receipt reports how many messages were loaded and whether the new pair persisted."
+              prose="The Pellier stream reads bounded rows from pellier.messages and atomically appends the completed user/assistant pair. The memory receipt reports how many messages were loaded and whether the new pair persisted."
               codeSnippet={`# Working - Aurora
 history = await AuroraSessionMemory(db).load_history(session_id)
 

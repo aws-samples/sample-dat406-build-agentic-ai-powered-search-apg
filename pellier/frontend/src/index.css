@@ -47,7 +47,7 @@
   }
 
   /* ========================================================================
-   * Boutique + Pellier Labs custom-property names are now ALIASED onto the
+   * Storefront + Pellier Labs custom-property names are now ALIASED onto the
    * Daylight design-system tokens via styles/daylight-bridge.css. The
    * hardcoded :root block that used to live here was removed when
    * Daylight was wired in — see DAYLIGHT_INTEGRATION.md for the
@@ -479,7 +479,7 @@
   .animate-dash-flow { animation: dashFlow 1s linear infinite; }
 
   /* ------------------------------------------------------------------
-   * Boutique keyframes (mock pellier_5.html parity).
+   * Pellier keyframes (mock pellier_5.html parity).
    * Mirrors the names, durations, and easings from the reference mock
    * so React components can opt in via utility classes.
    * ------------------------------------------------------------------ */

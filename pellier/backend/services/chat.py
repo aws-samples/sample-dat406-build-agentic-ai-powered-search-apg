@@ -180,7 +180,7 @@ async def _append_boutique_stm_turn(
     assistant_message: str,
     user: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Mirror a Boutique turn to configured AgentCore Memory.
+    """Mirror a Pellier turn to configured AgentCore Memory.
 
     Aurora is the required-path working-memory store. This optional mirror is
     only active when a managed Memory resource is configured; an in-process

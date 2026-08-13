@@ -2,7 +2,7 @@
  * TraceChip — a small mono pill naming the tool/signal that produced
  * a result.
  *
- * The same atom appears on the Boutique (under product cards, in the
+ * The same atom appears on Pellier (under product cards, in the
  * Live Floor Strip, on the Memory Handoff card) and on Pellier Labs
  * (Tools surface, Sessions, Observatory). Importing both surfaces
  * from this single file is the cohesion guarantee — when the visual
@@ -32,7 +32,7 @@ export interface TraceChipProps {
   linkToAgentTrace?: boolean
   /** Visual variant. `solid` is the default technical treatment;
    *  `ghost` is a softer fill suitable for dark surfaces, and
-   *  `provenance` is the shopper-facing Boutique label treatment. */
+   *  `provenance` is the shopper-facing Pellier label treatment. */
   variant?: 'solid' | 'ghost' | 'provenance'
   /** Label display. `tool` preserves the raw trace, `label` uses the
    *  attendee-friendly vocabulary label while keeping the raw trace in

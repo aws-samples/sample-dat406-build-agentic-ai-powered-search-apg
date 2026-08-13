@@ -62,7 +62,7 @@ const McpDetail: React.FC = () => {
               <ConceptEyebrow label="The network" />
               <h3 style={sectionTitleStyle}>Three nodes, only when enabled.</h3>
               <p style={sectionProseStyle}>
-                The default Boutique path calls in-process tools. If Gateway is configured, the
+                The default Pellier path calls in-process tools. If Gateway is configured, the
                 agent can ask "what's available?", receive the MCP tool catalog, and invoke tools
                 through the managed protocol boundary.
               </p>

@@ -2,7 +2,7 @@
 
 Pellier consumes the Daylight design system (originally built for the
 DAT409 Wayfare workshop) as the source of truth for color, type,
-spacing, radius, shadow, and component CSS. Every Boutique and
+spacing, radius, shadow, and component CSS. Every storefront and
 Pellier Labs surface inherits from these tokens.
 
 ## Layout

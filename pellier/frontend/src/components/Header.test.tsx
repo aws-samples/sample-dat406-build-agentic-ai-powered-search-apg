@@ -1,5 +1,5 @@
 /**
- * Header tests — Boutique sticky header (Phase 2 rebuild).
+ * Header tests — Pellier sticky header (Phase 2 rebuild).
  *
  * Validates Requirements 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 15.3.
  *
@@ -14,8 +14,7 @@
  * test stays focused on the Header's behavior without pulling in the full
  * workshop chrome.
  *
- * Header internally renders a SurfaceToggle with `<Link>` from
- * react-router-dom, so every render wraps in a `<MemoryRouter>`.
+ * Header includes route links, so every render wraps in a `<MemoryRouter>`.
  */
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -143,6 +142,22 @@ describe('Header — nav items', () => {
     renderHeader()
     const wordmarkWrapper = screen.getByTestId('wordmark-wrapper')
     expect(wordmarkWrapper.className).not.toMatch(/\bhidden\b/)
+  })
+
+  it('links directly to Pellier Labs without repeating the storefront name', () => {
+    renderHeader()
+    const labsLink = screen.getByTestId('pellier-labs-link')
+    expect(labsLink).toHaveTextContent('Pellier Labs')
+    expect(labsLink).toHaveAttribute('href', '/agent-trace')
+    expect(screen.queryByRole('group', { name: 'Switch surface' })).not.toBeInTheDocument()
+  })
+
+  it('includes Pellier Labs in the mobile navigation', () => {
+    renderHeader()
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+    const labsLink = screen.getByTestId('pellier-labs-link-mobile')
+    expect(labsLink).toHaveTextContent('Pellier Labs')
+    expect(labsLink).toHaveAttribute('href', '/agent-trace')
   })
 })
 

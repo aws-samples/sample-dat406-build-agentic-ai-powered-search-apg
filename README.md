@@ -37,7 +37,7 @@ Bedrock AgentCore, or MCP.
 
 | Clock | Section | What you will prove |
 |---:|---|---|
-| 0-8 | Start Here | Your Code Editor, Boutique, catalog, and starter state are ready |
+| 0-8 | Start Here | Your Code Editor, Pellier, catalog, and starter state are ready |
 | 8-26 | **Ground Answers in Live Data** | `floor_check` returns a real Brooklyn quantity and ship window |
 | 26-36 | **Design the Retrieval Strategy** | Four retrieval strategies produce a defensible architecture decision |
 | 36-48 | **Trace Agent Actions** | Aurora preserves working memory and a session-specific `process_return` receipt |
@@ -49,7 +49,7 @@ path for every time-sensitive step, so use it if a step takes more than two or
 three minutes. Exact commands and participant instructions live in the paired
 Workshop Studio guide.
 
-The timed path uses only **Code Editor** and **Boutique**. **Pellier Labs is
+The timed path uses only **Code Editor** and **Pellier**. **Pellier Labs is
 optional** and is not required to complete the hour; the required terminal
 commands call its read-only APIs directly.
 
@@ -59,13 +59,13 @@ commands call its read-only APIs directly.
 
 Pellier is an editorial retail application with two views:
 
-- **Boutique** (`/`) is where you send shopper requests and inspect grounded
+- **Pellier** (`/`) is where you send shopper requests and inspect grounded
   answers.
 - **Pellier Labs** (`/agent-trace`) is the engineering view for routing, retrieval,
   tools, evidence, and optional production patterns. It opens on a proof-first
   board for post-session exploration.
 
-![Pellier Boutique showing the three workshop shopper profiles](.github/readme/pellier-boutique.png)
+![Pellier showing the three workshop shopper profiles](.github/readme/pellier-boutique.png)
 
 Three shoppers carry the workshop narrative:
 
@@ -91,7 +91,7 @@ embedding calls during bootstrap.
 | Hybrid retrieval | Aurora runs pgvector and PostgreSQL full-text branches; Python combines their rank positions with Reciprocal Rank Fusion |
 | Retrieval refinement | Cohere Rerank v3.5 reorders hybrid candidates; Claude Sonnet 5 can extract structured filters for agentic retrieval |
 | Agentic tool use | Five Strands specialists share 15 declared `@tool` functions for search, inventory, pricing, returns, evidence, and escalation |
-| Working memory | `pellier.conversations` and `pellier.messages` atomically preserve successful turn pairs and supply bounded history to the next Boutique turn |
+| Working memory | `pellier.conversations` and `pellier.messages` atomically preserve successful turn pairs and supply bounded history to the next Pellier turn |
 | Durable evidence | `pellier.tool_audit` records the tool, caller, JSONB arguments and result, latency, session, and timestamp |
 | Runtime skills | A Sonnet-based SkillRouter selects from five markdown prompt overlays and injects matching guidance into the selected specialist |
 | Tool registry teaching view | Aurora pgvector ranks tool descriptions for Pellier Labs; the default Dispatcher still calls its fixed in-process tool set |
@@ -111,14 +111,14 @@ skills plus MCP schemas. `tool_audit` is operational history, not memory.
 
 ## How a request runs
 
-1. The Boutique sends your shopper request to FastAPI.
+1. Pellier sends your shopper request to FastAPI.
 2. FastAPI loads the session's recent working-memory turns from Aurora.
 3. The deterministic Dispatcher classifies the intent and selects one of five
    specialists.
 4. A Sonnet-based SkillRouter can add matching guidance for the current turn.
 5. The specialist calls only its declared in-process tools.
 6. Aurora stores the completed turn and any tool evidence.
-7. Boutique streams the answer; Pellier Labs exposes the engineering detail.
+7. Pellier streams the answer; Pellier Labs exposes the engineering detail.
 
 The required workshop path deliberately stays **in-process**. Your Python edit
 reloads immediately, retries are cheap, and everyone can complete the same
@@ -137,7 +137,7 @@ recovery work without changing the three outcomes you are here to learn.
 
 ### Routing and agents
 
-The Boutique uses the **Dispatcher** pattern: deterministic intent
+Pellier uses the **Dispatcher** pattern: deterministic intent
 classification selects one specialist, then that specialist makes the model
 and tool calls for the turn. Pellier Labs can also exercise **Agents as Tools** and
 a Strands **GraphBuilder** pattern for comparison.
@@ -165,7 +165,7 @@ The 15 in-process tools are:
 
 The Aurora tool registry is a separate teaching and comparison surface. It
 semantically ranks tool descriptions but does not replace the fixed tool grants
-used by the default Boutique runtime.
+used by the default storefront runtime.
 
 ### Skills
 
@@ -261,7 +261,7 @@ cd pellier/backend
 python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open <http://localhost:8000> for Boutique or
+Open <http://localhost:8000> for Pellier or
 <http://localhost:8000/agent-trace> for Pellier Labs.
 
 For frontend HMR, run `npm run dev` from `pellier/frontend` in another
@@ -329,7 +329,7 @@ gate on a manual macOS runner for facilitator preflight.
 sample-pellier-agentic-search-apg/
 ├── pellier/
 │   ├── backend/                  FastAPI app, five agents, services, routes, tests
-│   └── frontend/                 React Boutique and Pellier Labs surfaces
+│   └── frontend/                 React Pellier and Pellier Labs surfaces
 ├── skills/                       Five runtime markdown skills
 ├── solutions/
 │   ├── closing-marcos-gap/       floor_check starter and recovery files

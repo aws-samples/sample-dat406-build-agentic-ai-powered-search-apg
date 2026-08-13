@@ -1,4 +1,4 @@
-"""Regression tests for the optional Boutique AgentCore Memory mirror."""
+"""Regression tests for the optional Pellier AgentCore Memory mirror."""
 
 from __future__ import annotations
 

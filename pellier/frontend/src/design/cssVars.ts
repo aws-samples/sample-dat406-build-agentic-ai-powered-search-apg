@@ -2,7 +2,7 @@
  * CSS custom properties for inline `style={{ ... }}` in React.
  * Every name resolves through `src/styles/daylight-bridge.css` at :root
  * (and `--dl-*` in `daylight-tokens.css`). Prefer these over hex literals
- * so Boutique + Pellier Labs stay locked to the vendored Daylight palette.
+ * so the storefront and Pellier Labs stay locked to the vendored Daylight palette.
  */
 export const cssVar = {
   bg: 'var(--cream)',

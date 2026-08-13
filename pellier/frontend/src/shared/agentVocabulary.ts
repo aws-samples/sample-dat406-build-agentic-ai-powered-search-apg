@@ -1,6 +1,6 @@
 /**
  * agentVocabulary — canonical names + one-line glossaries for every
- * agent concept that appears on BOTH the Boutique and Pellier Labs.
+ * agent concept that appears on BOTH Pellier and Pellier Labs.
  *
  * One source of truth so a workshop participant crossing between the
  * shopper-facing storefront and the operator-facing observatory sees
@@ -11,7 +11,7 @@
  * Examples: memory.recall, inventory.live, trend.signal. Stays
  * consistent with Pellier Labs' existing tool-registry vocabulary
  * (`product_search`, `discover_tools`, `aurora_*`) while keeping the
- * Boutique-facing names compact enough to fit inline on a product
+ * Pellier-facing names compact enough to fit inline on a product
  * card.
  */
 
@@ -41,7 +41,7 @@ interface AgentToolEntry {
   description: string
   /**
    * Pellier Labs route this concept is explained on. Used by the
-   * "How this works" link from a Boutique chip into Pellier Labs.
+   * "How this works" link from a Pellier chip into Pellier Labs.
    */
   agentTracePath: string
 }
@@ -137,12 +137,12 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
   'tool.transparency': {
     name: 'tool.transparency',
     label: 'Why it fits',
-    description: 'The Boutique names the signal behind each recommendation.',
+    description: 'Pellier names the signal behind each recommendation.',
     agentTracePath: '/agent-trace/proof-board#audit-ledger',
   },
 }
 
-/** Skills router — loaded skill chips in Boutique chat attribution. */
+/** Skills router — loaded skill chips in Pellier chat attribution. */
 const SKILL_VOCABULARY: Record<string, AgentToolEntry> = {
   'skill.packing-list': {
     name: 'skill.packing-list' as AgentToolName,

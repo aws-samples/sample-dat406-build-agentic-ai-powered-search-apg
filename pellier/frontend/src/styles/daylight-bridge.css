@@ -4,7 +4,7 @@
  * Aliases Pellier's existing custom-property names onto the
  * Daylight design-system tokens (loaded ahead of this file
  * from public/design-system/daylight/tokens.css). Existing
- * Boutique + Pellier Labs components reference --cream / --espresso /
+ * Storefront + Pellier Labs components reference --cream / --espresso /
  * --accent / --at-* — pointing those at Daylight values lets the
  * whole app inherit the warm off-white editorial language without
  * touching component code.
@@ -24,7 +24,7 @@
  * ============================================================ */
 
 :root {
-  /* ---- Boutique storefront aliases ---------------------------- */
+  /* ---- Pellier storefront aliases ---------------------------- */
   /* The storefront's old palette mapped roughly onto Daylight as: */
   /*   cream      ≈ --dl-bg                                        */
   /*   cream-warm ≈ --dl-paper                                     */

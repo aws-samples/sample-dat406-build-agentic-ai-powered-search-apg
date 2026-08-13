@@ -850,7 +850,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
   strategies,
 }) => {
   // Pre-filled with Anna's canonical rerank anchor so participants press
-  // Run instead of typing — matches the Boutique memory chip and the lab
+  // Run instead of typing — matches Pellier memory chip and the lab
   // guide's "click, don't type" path. Editable for the optional turns.
   const [query, setQuery] = useState('A milestone gift for a new homeowner');
   const [liveStrategies, setLiveStrategies] =

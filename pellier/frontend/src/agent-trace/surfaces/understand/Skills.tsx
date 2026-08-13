@@ -44,7 +44,7 @@ function filterSkillsByPersona(skills: Skill[], filter: PersonaFilter): Skill[] 
  * load + which it considered and why it rejected them).
  *
  * The same call shape is used by the chat pipeline — when a user
- * submits a query in the Boutique, this exact decision is emitted as
+ * submits a query in Pellier, this exact decision is emitted as
  * an SSE skill_routing event before any text streams.
  * ----------------------------------------------------------------------- */
 

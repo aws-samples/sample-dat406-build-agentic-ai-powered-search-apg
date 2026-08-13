@@ -377,7 +377,7 @@ const EmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Start a conversation in the Boutique and return here to observe the
+      Start a conversation in Pellier and return here to observe the
       session telemetry.
     </p>
   </div>
@@ -510,7 +510,7 @@ const SessionsList: React.FC = () => {
         title={showingPersonaJourney ? `${activePersonaLabel}'s five-turn journey` : 'Sessions'}
         summary={
           showingPersonaJourney
-            ? 'Sessions opens on the signed-in persona so participants follow one coherent Boutique story. Each turn mirrors the Boutique pill text and expected skill/tool trace; instructor view reveals all recorded replays.'
+            ? 'Sessions opens on the signed-in persona so participants follow one coherent Pellier story. Each turn mirrors Pellier pill text and expected skill/tool trace; instructor view reveals all recorded replays.'
             : 'Instructor view shows every recorded conversation across personas, captured and ready for inspection. Select a session to explore its chat thread, telemetry timeline, and curator brief.'
         }
       />
@@ -543,7 +543,7 @@ const SessionsList: React.FC = () => {
             }}
           >
             {showingPersonaJourney
-              ? 'Only this persona appears by default; the five cards below match the Boutique hero pills turn by turn.'
+              ? 'Only this persona appears by default; the five cards below match Pellier hero pills turn by turn.'
               : 'Showing Marco, Anna, and Theo together for facilitation and QA.'}
           </p>
         </div>

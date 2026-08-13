@@ -82,14 +82,14 @@ const FIXTURE_ENTRYPOINTS = [
 ] as const
 
 describe('persona turn alignment', () => {
-  it('keeps Marco, Anna, and Theo at exactly five canonical Boutique turns', () => {
+  it('keeps Marco, Anna, and Theo at exactly five canonical Pellier turns', () => {
     for (const persona of CANONICAL_PERSONAS) {
       expect(PERSONA_HERO_PILLS[persona]).toHaveLength(5)
       expect(PERSONA_HERO_PILLS[persona]).toEqual(EXPECTED_TURNS[persona])
     }
   })
 
-  it('keeps Pellier Labs replay entrypoints aligned with Boutique turn strings', () => {
+  it('keeps Pellier Labs replay entrypoints aligned with Pellier turn strings', () => {
     for (const { session, expected } of FIXTURE_ENTRYPOINTS) {
       expect(session.openingQuery).toBe(expected)
       expect(session.chat[0]?.role).toBe('user')

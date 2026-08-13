@@ -1,5 +1,5 @@
 /**
- * Shared atoms used by BOTH the Boutique storefront and Pellier Labs
+ * Shared atoms used by BOTH Pellier storefront and Pellier Labs
  * observatory. Importing from `../../shared` (or `../shared`) keeps
  * the two surfaces visually and semantically aligned.
  */

@@ -1,7 +1,7 @@
 /**
  * Persona headshot photos — Unsplash free-to-use portraits.
  *
- * Shared across Pellier Labs sidebar, Boutique header persona pill,
+ * Shared across Pellier Labs sidebar, Pellier header persona pill,
  * and persona dropdown. Each URL points to a 200×200 face-crop so
  * avatars render a real face at any size.
  *

@@ -62,17 +62,6 @@ export const NAV = {
   WORDMARK: "Pellier",
 } as const;
 
-// Global surface toggle (Header). Replaces the standalone Workshop
-// link with a segmented control that flips between the shopper-facing
-// storefront and the operator-facing /workshop surface. Labels
-// deliberately pair boutique register (Boutique) with editorial /
-// Pellier Labs register instead of operator jargon.
-export const SURFACE_TOGGLE = {
-  ARIA_LABEL: "Switch surface",
-  STOREFRONT: "Boutique",
-  AGENT_TRACE: "Pellier Labs",
-} as const;
-
 // Account button labels (Requirement 1.2.2, 1.2.3)
 export const ACCOUNT_LABEL_SIGNED_OUT = "Account";
 export const accountLabelSignedIn = (givenName: string): string =>

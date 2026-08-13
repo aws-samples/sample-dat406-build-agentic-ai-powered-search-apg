@@ -1440,7 +1440,7 @@ const MEMORY_SUBSTRATES: {
     tier: 'working',
     label: 'Working',
     store: 'Aurora · pellier.messages',
-    gloss: "The Boutique session's last K turns - read first, written as a completed pair.",
+    gloss: "The current Pellier session's last K turns - read first, written as a completed pair.",
   },
   {
     tier: 'semantic',

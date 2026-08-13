@@ -167,7 +167,7 @@ const FRESH_COPY: PersonaCopy = {
       </>
     )
   },
-  // First three hero pills match the Boutique hero row; P.S. completes
+  // First three hero pills match Pellier hero row; P.S. completes
   // turns 4–5 so anonymous visitors see the same five strings as chips.
   picks: [
     { label: freshHero[0], primary: true },
@@ -188,7 +188,7 @@ const MARCO_COPY: PersonaCopy = {
     </>
   ),
   picks: [
-    // Marco's Turns 1–3 — verbatim first three Boutique hero pills.
+    // Marco's Turns 1–3 — verbatim first three Pellier hero pills.
     { label: PERSONA_HERO_PILLS.marco[0], primary: true },
     { label: PERSONA_HERO_PILLS.marco[1], primary: false },
     { label: PERSONA_HERO_PILLS.marco[2], primary: false },

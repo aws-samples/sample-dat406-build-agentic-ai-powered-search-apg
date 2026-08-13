@@ -3,16 +3,16 @@
  *
  * Two preset modes:
  *   - "to-boutique" — used on Pellier Labs surfaces. Reads "→ See this in
- *      the Boutique" and links back to the storefront, optionally
+ *      Pellier" and links back to the storefront, optionally
  *      with an `?ask=` query that opens the chat drawer with a
  *      pre-filled prompt that exercises this concept.
- *   - "to-agent-trace" — used on Boutique surfaces. Reads "How this works
+ *   - "to-agent-trace" — used on Pellier surfaces. Reads "How this works
  *      →" and deep-links to Pellier Labs route that explains the
  *      concept (memory, tools, agents, etc).
  *
  * Visual: Instrument Serif / Fraunces italic, 15px, terracotta accent,
  * subtle dotted underline — reads as editorial caption, not a banner CTA.
- * vocabulary (`see · this · in · the · Boutique`) on every Pellier Labs
+ * vocabulary (`see · this · in · Pellier`) on every Pellier Labs
  * surface keeps the round trip predictable.
  */
 import React from 'react'
@@ -24,7 +24,7 @@ export interface SurfaceCrossLinkProps {
   direction: CrossLinkDirection
   /**
    * For `to-boutique`: optional `?ask=` query that auto-fires the
-   * Boutique chat drawer with this prompt. For `to-agent-trace`: the
+   * Pellier chat drawer with this prompt. For `to-agent-trace`: the
    * Pellier Labs path to navigate to (e.g. "/agent-trace/memory").
    */
   href?: string
@@ -44,7 +44,7 @@ export const SurfaceCrossLink: React.FC<SurfaceCrossLinkProps> = ({
 }) => {
   const defaultLabel =
     direction === 'to-boutique'
-      ? 'See this in the Boutique'
+      ? 'See this in Pellier'
       : 'How this works'
 
   const targetHref =

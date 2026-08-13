@@ -2,7 +2,7 @@
  * AboutPage — dedicated `/about` route.
  *
  * Renders just the Editorial Brief workshop-credit section, wrapped in
- * the standard Boutique chrome (Header + Footer). Keeps the Boutique
+ * the standard Pellier chrome (Header + Footer). Keeps Pellier
  * main page lean and gives "About" in the nav an honest destination.
  */
 import { useNavigate } from 'react-router-dom'

@@ -1,11 +1,11 @@
 /**
- * Header — Boutique sticky header (Phase 2 rebuild).
+ * Header — Pellier sticky header (Phase 2 rebuild).
  *
  * Centered "Pellier" wordmark — Fraunces (`font-display`) + circular P
  * chip; word one step above footer (`text-2xl` vs `text-xl`). Four left
  * nav items (Shop, Stories, Ask Pellier, About), and right cluster: search
  * IconButton, persona Avatar dropdown, bag IconButton with count badge, and
- * the Boutique ↔ Pellier Labs surface toggle.
+ * a direct link to Pellier Labs.
  *
  * The persona Avatar dropdown replaces the old PersonaPill + PersonaModal
  * pattern. It calls `switchPersona` and `signOut` directly from `usePersona()`.
@@ -34,8 +34,8 @@ import {
   LogOut,
   Menu,
   X,
+  FlaskConical,
 } from 'lucide-react'
-import SurfaceToggle from './SurfaceToggle'
 
 // Keep old NavItem values for backward compatibility with consuming pages,
 // plus new values for the redesigned nav.
@@ -122,6 +122,34 @@ function NavLink({ item, label, current, onClick }: NavLinkProps) {
     >
       {label}
     </button>
+  )
+}
+
+function PellierLabsLink({
+  mobile = false,
+  onClick,
+}: {
+  mobile?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <Link
+      to="/agent-trace"
+      data-testid={mobile ? 'pellier-labs-link-mobile' : 'pellier-labs-link'}
+      onClick={onClick}
+      className={[
+        'items-center gap-2 text-[13px] font-medium text-espresso',
+        'transition-colors duration-fade ease-out hover:text-accent',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
+        mobile
+          ? 'flex w-full px-1 py-2'
+          : 'inline-flex min-h-9 border-l border-sand pl-3',
+      ].join(' ')}
+      style={{ fontFamily: 'var(--sans)' }}
+    >
+      <FlaskConical className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+      <span>Pellier Labs</span>
+    </Link>
   )
 }
 
@@ -454,7 +482,7 @@ export default function Header({
             </div>
 
             <div className="hidden lg:block ml-1">
-              <SurfaceToggle />
+              <PellierLabsLink />
             </div>
 
             <IconButton
@@ -495,7 +523,10 @@ export default function Header({
               ))}
             </div>
             <div className="mt-3 border-t border-sand pt-3">
-              <SurfaceToggle />
+              <PellierLabsLink
+                mobile
+                onClick={() => setMobileMenuOpen(false)}
+              />
             </div>
           </div>
         ) : null}

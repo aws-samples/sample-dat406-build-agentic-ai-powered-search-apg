@@ -80,7 +80,7 @@ After they save, the body is verified two ways — both already covered in the l
 guide, identical to the manual path:
 
 - Pellier Labs → **UNDERSTAND → Tools** strip flips from **14/15** to **15/15 shipped**.
-- Boutique → Marco's **Turn 4** pill ("Is the Hadley shirt at the Brooklyn
+- Pellier → Marco's **Turn 4** pill ("Is the Hadley shirt at the Brooklyn
   warehouse?") returns a real Brooklyn (`BK-01`) quantity instead of the stub
   envelope.
 

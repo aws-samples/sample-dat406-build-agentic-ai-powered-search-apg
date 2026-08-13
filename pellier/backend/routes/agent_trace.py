@@ -475,7 +475,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "title": "Wire Marco to floor_check",
             "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
             "required": True,
-            "surface": "Code Editor + Boutique",
+            "surface": "Code Editor + Pellier",
             "summary": "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
             "evidenceSource": "services.agent_tools.floor_check + pellier.tool_audit",
             "lastUpdated": latest_floor_check.get("created_at") if latest_floor_check else None,
@@ -506,7 +506,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "title": "Compare retrieval strategies",
             "status": _card_status(int(counts.get("catalog_count") or 0) >= 40, "needs_data"),
             "required": True,
-            "surface": "Boutique + Aurora",
+            "surface": "Pellier + Aurora",
             "summary": "Hybrid search, pgvector, full-text search, and rerank are visible for one shopper query.",
             "evidenceSource": "config.py + pellier.product_catalog",
             "evidence": [
@@ -977,7 +977,7 @@ async def _load_live_working(persona: str) -> Optional[list]:
     """Read the persona's most recent storefront working-memory turns.
 
     This panel is persona-scoped and carries no session id, so we
-    resolve the persona's latest Boutique session the same way the
+    resolve the persona's latest Pellier session the same way the
     lab's section-3 readback does: every allowed tool call stamps its
     ``session_id`` in ``pellier.tool_audit`` (shaped
     ``persona-{persona}-{uuid}``), so we take the most recent one for
@@ -1354,7 +1354,7 @@ async def get_proof_board(
     The payload is intentionally operational: each card has a stable
     ``id`` for URL anchors, a status, short evidence lines, and a
     curl/SQL fallback. The frontend renders it at
-    ``/agent-trace/proof-board`` and Boutique trace chips deep-link to
+    ``/agent-trace/proof-board`` and Pellier trace chips deep-link to
     individual anchors.
     """
     try:

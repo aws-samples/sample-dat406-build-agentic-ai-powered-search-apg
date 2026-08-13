@@ -8,6 +8,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { EditorialTitle, Eyebrow } from '../../components';
+import { PellierLabsFlow } from '../../components/PellierLabsFlow';
 
 type CheckState = 'pass' | 'warn' | 'fail';
 type CardStatus = 'complete' | 'needs_build' | 'needs_run' | 'needs_data' | 'needs_config' | 'pending' | 'available';
@@ -773,12 +774,18 @@ const ProofBoard: React.FC = () => {
   }, [data]);
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1180px' }}>
-      <EditorialTitle
-        eyebrow="Evidence · proof board"
-        title="Inspect evidence, then boundaries."
-        summary="Each card connects a system claim to live evidence and keeps a terminal fallback beside the visual proof."
-      />
+    <div className="proof-board-page" style={{ padding: '40px 48px', maxWidth: '1180px', width: '100%' }}>
+      <section className="proof-board-masthead">
+        <EditorialTitle
+          className="proof-board-title"
+          eyebrow="Pellier Labs · evidence workspace"
+          title="Inspect evidence, then boundaries."
+          summary="Each card connects a system claim to live evidence and keeps a terminal fallback beside the visual proof."
+        />
+        <div className="proof-board-flow-wrap">
+          <PellierLabsFlow />
+        </div>
+      </section>
 
       {loading && (
         <p className="font-mono" style={{ color: 'var(--at-ink-3)' }}>

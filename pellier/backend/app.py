@@ -146,7 +146,7 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events
     """
     # Startup
-    logger.info("Starting Pellier Boutique API...")
+    logger.info("Starting Pellier API...")
     
     global db_service, embedding_service, chat_service, query_logger, index_performance_service
 
@@ -156,7 +156,7 @@ async def lifespan(app: FastAPI):
             "Strands, and AgentCore service initialization"
         )
         yield
-        logger.info("Shutting down Pellier Boutique API smoke process...")
+        logger.info("Shutting down Pellier API smoke process...")
         logger.info("👋 Goodbye!")
         return
     
@@ -285,7 +285,7 @@ async def lifespan(app: FastAPI):
         # with the skills loader's "✅ Loaded N skills..." line.
         _log_agent_and_tool_inventory()
 
-        logger.info("🚀 Pellier Boutique API is ready!")
+        logger.info("🚀 Pellier API is ready!")
         
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -294,7 +294,7 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    logger.info("Shutting down Pellier Boutique API...")
+    logger.info("Shutting down Pellier API...")
     
     if db_service:
         await db_service.disconnect()
@@ -304,7 +304,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Pellier Boutique API",
+    title="Pellier API",
     description="Governed agentic AI search with Aurora, RDS, and Bedrock AgentCore",
     version="1.0.0",
     lifespan=lifespan,
@@ -355,7 +355,7 @@ app.include_router(workshop_router)
 # Additive to workshop_router (same /api/agent-trace/ prefix, no path conflicts).
 app.include_router(agent_trace_router)
 
-# Boutique ambient chrome — briefing (concierge empty state) + pulse
+# Pellier ambient chrome — briefing (concierge empty state) + pulse
 # (4 live metrics above the hero). Both endpoints are contract-typed
 # via Pydantic and degrade gracefully; they are never allowed to 5xx
 # the homepage.
@@ -423,7 +423,7 @@ async def _serve_spa_root():
         )
     return JSONResponse(
         {
-            "message": "Pellier Boutique API",
+            "message": "Pellier API",
             "version": "1.0.0",
             "note": (
                 "Frontend bundle not found at "

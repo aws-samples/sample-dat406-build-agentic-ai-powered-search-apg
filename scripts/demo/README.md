@@ -2,7 +2,7 @@
 
 ## `capture-chatui-gif.mjs`
 
-Captures a 12–15 second screen recording of the Pellier Boutique
+Captures a 12–15 second screen recording of Pellier
 (signed in as Marco, hero-pill chat turn) and encodes it as
 `docs/demo-assets/chatui.gif`. To publish it in the lab manual, copy the
 file into the Workshop Studio repo's `static/imgs/`.

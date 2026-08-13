@@ -27,7 +27,7 @@ const StateDetail: React.FC = () => {
       conceptName="Routing & State"
       category="live"
       title="Routing, explicit."
-      prose="The Boutique default path is dispatcher-first: services/chat.py triages small talk, classifies intent, optionally loads one persona skill, then hands the turn to one owning specialist/tool path. Agents-as-Tools and graph routing stay visible as teaching patterns, not the default storefront runtime."
+      prose="Pellier's default path is dispatcher-first: services/chat.py triages small talk, classifies intent, optionally loads one persona skill, then hands the turn to one owning specialist/tool path. Agents-as-Tools and graph routing stay visible as teaching patterns, not the default storefront runtime."
       cheatSheet={[
         {
           numeral: 'i.',
@@ -39,7 +39,7 @@ const StateDetail: React.FC = () => {
         },
         {
           numeral: 'iii.',
-          text: 'Routing pages compare Dispatcher, Agents-as-Tools, and Graph patterns, but the Boutique uses Dispatcher because it is cheaper and easier to reason about.',
+          text: 'Routing pages compare Dispatcher, Agents-as-Tools, and Graph patterns, but Pellier uses Dispatcher because it is cheaper and easier to reason about.',
         },
       ]}
       liveState={{
@@ -79,7 +79,7 @@ const StateDetail: React.FC = () => {
             />
             <StateKeyCard
               keyName="active_agents"
-              description="The owning specialist path for this turn. The Boutique default chooses one path, not a committee."
+              description="The owning specialist path for this turn. Pellier's default chooses one path, not a committee."
               example='owner = "Curator"'
             />
             <StateKeyCard

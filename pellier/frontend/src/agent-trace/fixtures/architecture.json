@@ -4,7 +4,7 @@
     "category": "live",
     "title": "Grounding",
     "role": "Factual anchoring via Aurora PostgreSQL",
-    "description": "The live Boutique path grounds recommendations in Aurora data: product_catalog for products, inventory/quantity fields for availability, return policy tables for support, and pgvector/FTS for retrieval.",
+    "description": "The live Pellier path grounds recommendations in Aurora data: product_catalog for products, inventory/quantity fields for availability, return policy tables for support, and pgvector/FTS for retrieval.",
     "codeSnippet": "# Ground a recommendation in catalog rows\nSELECT product_id, name, brand, price, quantity\nFROM product_catalog\nWHERE quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 5;",
     "slug": "grounding"
   },
@@ -31,8 +31,8 @@
     "category": "live",
     "title": "Routing & State",
     "role": "Dispatcher-first request flow",
-    "description": "The production Boutique path uses deterministic routing in services/chat.py: triage, intent classification, optional skill routing, then one owning specialist/tool path. The Agents-as-Tools orchestrator is a separate teaching pattern, not the default storefront runtime.",
-    "codeSnippet": "# Boutique default path\nintent = classify_intent(query)\nskills = route_skills(query, persona)\nreturn await run_dispatcher_pattern(intent, skills, query)",
+    "description": "The production Pellier path uses deterministic routing in services/chat.py: triage, intent classification, optional skill routing, then one owning specialist/tool path. The Agents-as-Tools orchestrator is a separate teaching pattern, not the default storefront runtime.",
+    "codeSnippet": "# Pellier's default path\nintent = classify_intent(query)\nskills = route_skills(query, persona)\nreturn await run_dispatcher_pattern(intent, skills, query)",
     "slug": "state-management"
   },
   {
@@ -40,7 +40,7 @@
     "category": "workshop",
     "title": "Runtime Envelope",
     "role": "Execution environment and workshop runtime pattern",
-    "description": "Runtime is the managed envelope around execution: model calls, memory, Gateway, and observability. In this codebase, the default Boutique flow is implemented in the app service layer; AgentCore Runtime concepts are surfaced as workshop infrastructure and deployment patterns.",
+    "description": "Runtime is the managed envelope around execution: model calls, memory, Gateway, and observability. In this codebase, the default Pellier flow is implemented in the app service layer; AgentCore Runtime concepts are surfaced as workshop infrastructure and deployment patterns.",
     "codeSnippet": "# App-layer runtime shape\nrequest → triage → dispatcher → specialist/tool → SSE telemetry\n\n# Managed runtime is introduced as the deployment envelope\n# around the same agent/tool contracts.",
     "slug": "runtime"
   },
@@ -58,7 +58,7 @@
     "category": "workshop",
     "title": "Tool Registry",
     "role": "Semantic tool discovery via pgvector",
-    "description": "The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded with Cohere Embed v4 (1024-dim) and ranked by cosine similarity. The Boutique default still calls in-process Strands tools; the registry is how attendees see discovery as a first-class capability.",
+    "description": "The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded with Cohere Embed v4 (1024-dim) and ranked by cosine similarity. Pellier's default path still calls in-process Strands tools; the registry is how attendees see discovery as a first-class capability.",
     "codeSnippet": "# Discover by semantic similarity\nSELECT name,\n       1 - (embedding <=> $1) AS similarity\nFROM pellier.tools\nORDER BY embedding <=> $1\nLIMIT 5;",
     "slug": "tool-registry"
   },

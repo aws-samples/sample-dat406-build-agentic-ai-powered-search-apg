@@ -4,7 +4,7 @@
  * The Memory architecture lens has four memory types plus a separate
  * operational-history source:
  *
- *   working    — Aurora Boutique session turns in the builders path
+ *   working    — Aurora Pellier session turns in the builders path
  *   semantic   — optional AgentCore records extracted by a USER_PREFERENCE strategy
  *   episodic   — Aurora customer_episodic_seed / orders / returns
  *   procedural — checked-in runtime skills and MCP tool schemas

@@ -7,7 +7,7 @@
  *
  * A pulse dot on the left, a small-caps-style verb (NEW ARRIVALS /
  * RESTOCKED / SERVICE) in sans semibold + wide tracking, and body copy
- * in cream. The Boutique keeps this retail-facing; Pellier Labs carries the
+ * in cream. Pellier keeps this retail-facing; Pellier Labs carries the
  * proof and trace vocabulary.
  *
  * Copy lives in copy.ts so the rotating strip stays aligned with the

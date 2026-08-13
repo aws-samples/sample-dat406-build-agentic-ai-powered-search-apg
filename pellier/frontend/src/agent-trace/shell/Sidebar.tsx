@@ -15,6 +15,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { usePersona } from '../../contexts/PersonaContext';
 import { useBuildState } from '../hooks/useBuildState';
 import { StatusDot } from '../components/StatusDot';
@@ -48,9 +49,32 @@ import { PERSONA_PHOTOS } from '../../data/personaPhotos';
  * Sidebar component
  * ----------------------------------------------------------------------- */
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}> = ({ mobileOpen = false, onClose }) => {
   const { persona } = usePersona();
   const buildState = useBuildState();
+  const [mobileViewport, setMobileViewport] = React.useState(false);
+  const sidebarRef = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 900px)');
+    const update = () => setMobileViewport(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  React.useEffect(() => {
+    if (!sidebarRef.current) return;
+    const sidebar = sidebarRef.current as HTMLElement & { inert: boolean };
+    sidebar.inert = mobileViewport && !mobileOpen;
+    return () => {
+      sidebar.inert = false;
+    };
+  }, [mobileOpen, mobileViewport]);
 
   const personaId = persona?.id ?? 'fresh';
   const displayName = persona?.display_name ?? 'Marco';
@@ -124,7 +148,12 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
+      ref={sidebarRef}
+      className="agent-trace-sidebar"
       data-testid="agent-trace-sidebar"
+      data-mobile-open={mobileOpen ? 'true' : 'false'}
+      aria-label="Pellier Labs navigation"
+      aria-hidden={mobileViewport && !mobileOpen ? true : undefined}
       style={{
         width: 'var(--at-sidebar-width)',
         minHeight: '100vh',
@@ -151,7 +180,7 @@ const Sidebar: React.FC = () => {
             boxShadow: 'inset 0 0 0 1px rgba(251, 248, 242, 0.12)',
           }}
         >
-          {/* Pellier wordmark glyph — matches Boutique footer / header circular P */}
+          {/* Pellier wordmark glyph - matches the storefront brand mark. */}
           P
         </div>
         <span
@@ -160,8 +189,17 @@ const Sidebar: React.FC = () => {
             color: 'var(--at-sidebar-text-active)',
           }}
         >
-          Pellier
+          Pellier Labs
         </span>
+        <button
+          type="button"
+          className="labs-sidebar-close"
+          aria-label="Close Pellier Labs navigation"
+          title="Close Pellier Labs navigation"
+          onClick={onClose}
+        >
+          <X size={18} strokeWidth={1.8} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Navigation sections */}
@@ -209,7 +247,7 @@ const Sidebar: React.FC = () => {
 
             {/* Nav items */}
             {section.items.map((item) => (
-              <SidebarNavItem key={item.path} item={item} />
+              <SidebarNavItem key={item.path} item={item} onNavigate={onClose} />
             ))}
           </div>
         ))}
@@ -226,6 +264,7 @@ const Sidebar: React.FC = () => {
         {/* Settings */}
         <SidebarNavItem
           item={{ label: 'Settings', path: 'settings' }}
+          onNavigate={onClose}
         />
       </nav>
 
@@ -310,10 +349,14 @@ const Sidebar: React.FC = () => {
  * SidebarNavItem — single nav link with active state
  * ----------------------------------------------------------------------- */
 
-const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
+const SidebarNavItem: React.FC<{
+  item: NavItemDef;
+  onNavigate?: () => void;
+}> = ({ item, onNavigate }) => {
   return (
     <NavLink
       to={`/agent-trace/${item.path}`}
+      onClick={onNavigate}
       end={item.path === 'sessions' || item.path === 'architecture'}
       style={({ isActive }) => ({
         display: 'flex',

@@ -32,7 +32,7 @@ const GroundingDetail: React.FC = () => {
       conceptName="Grounding"
       category="live"
       title="Grounding, factual."
-      prose="The live Boutique path grounds recommendations in Aurora PostgreSQL: catalog rows, inventory quantities, return policy data, and pgvector/FTS retrieval. The point is not a generic knowledge base; it is product facts the UI can verify."
+      prose="The live Pellier path grounds recommendations in Aurora PostgreSQL: catalog rows, inventory quantities, return policy data, and pgvector/FTS retrieval. The point is not a generic knowledge base; it is product facts the UI can verify."
       cheatSheet={[
         {
           numeral: 'i.',

@@ -8,7 +8,7 @@
  *
  * This file only defines Pellier Labs type *scale* tokens and utility
  * classes. Do not re-declare font-family stacks on :root here — that
- * would override the bridge and split Pellier Labs from the Boutique.
+ * would override the bridge and split Pellier Labs from Pellier.
  *
  * Requirements: 15.2 (typography families and roles)
  * ======================================================================== */

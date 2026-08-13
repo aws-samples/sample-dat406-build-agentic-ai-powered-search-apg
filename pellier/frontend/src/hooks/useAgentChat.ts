@@ -114,7 +114,7 @@ export interface AgentChatMessage {
   agentStatus?: 'thinking' | 'streaming' | 'complete'
   agentExecution?: AgentExecution
   /** Skill routing decision for this turn. Set when the backend emits
-   * a ``skill_routing`` SSE event. Boutique uses ``loaded_skills`` to
+   * a ``skill_routing`` SSE event. Pellier uses ``loaded_skills`` to
    * render the italic burgundy attribution line; Pellier Labs renders the
    * full decision in its live activation log. */
   skillRouting?: SkillRouting
@@ -135,7 +135,7 @@ export interface UseAgentChatOptions {
    * Session ID for Aurora working-memory hydration. When provided, the hook
    * fetches `/api/chat/session/{sessionId}` on mount and hydrates
    * the message list from the same store used by `/api/chat/stream` if
-   * localStorage is empty or stale. This bridges the Boutique chat
+   * localStorage is empty or stale. This bridges Pellier chat
    * with the working-memory path the builders workshop proves.
    */
   sessionId?: string
@@ -441,7 +441,7 @@ export function useAgentChat(
       }
 
       // Thinking placeholder. Pellier Labs gets the full instrumentation shell;
-      // storefront gets a lightweight shell so Boutique can show an optional
+      // storefront gets a lightweight shell so Pellier can show an optional
       // collapsed "skills + tools" disclosure without surfacing agent steps.
       const showInstrumentation = mode === 'agentTrace'
       const trackToolCalls = showInstrumentation || mode === 'storefront'
@@ -693,7 +693,7 @@ export function useAgentChat(
               }
             }
           },
-          // Boutique mode always gets full chat access regardless of
+          // Pellier mode always gets full chat access regardless of
           // which workshop module the participant has completed.
           mode === 'storefront' ? undefined : workshopMode,
           guardrailsEnabled,

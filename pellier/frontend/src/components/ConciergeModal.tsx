@@ -311,7 +311,7 @@ export default function ConciergeModal() {
   const isWorkshopRoute = location.pathname.startsWith('/agent-trace')
 
   // After the storefront hero-drawer redesign, the ConciergeModal only
-  // renders on Pellier Labs routes. Boutique chat is handled by ChatDrawer.
+  // renders on Pellier Labs routes. Pellier chat is handled by ChatDrawer.
   const mode: 'storefront' | 'agentTrace' = 'agentTrace'
 
   // Time-of-day greeting for the personalized storefront welcome. Boundaries
@@ -408,7 +408,7 @@ export default function ConciergeModal() {
   }
 
   // Gate: ConciergeModal only renders on Pellier Labs routes after the
-  // storefront hero-drawer redesign. Boutique chat is ChatDrawer.
+  // storefront hero-drawer redesign. Pellier chat is ChatDrawer.
   if (!isWorkshopRoute) return null
 
   return (
@@ -440,7 +440,7 @@ export default function ConciergeModal() {
           >
               {/* ============================================================
                * AGENT_TRACE MODE — the only mode ConciergeModal renders now.
-               * Boutique chat is handled by ChatDrawer.
+               * Pellier chat is handled by ChatDrawer.
                * ============================================================ */}
               <>
             {/* Header */}

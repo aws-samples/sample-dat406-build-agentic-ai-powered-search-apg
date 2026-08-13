@@ -371,7 +371,7 @@ const MemoryDashboard: React.FC = () => {
       <EditorialTitle
         eyebrow="Understand · Memory · four types · explicit evidence"
         title="What the system remembers."
-        summary="The builders path stores Boutique working turns and business events in Aurora. AgentCore Memory is an optional managed path for session and learned semantic records. Source-controlled skills and MCP schemas supply procedural know-how; tool_audit remains separate operational evidence."
+        summary="The builders path stores storefront working turns and business events in Aurora. AgentCore Memory is an optional managed path for session and learned semantic records. Source-controlled skills and MCP schemas supply procedural know-how; tool_audit remains separate operational evidence."
       />
 
       {loading && <LoadingState />}

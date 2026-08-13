@@ -146,7 +146,7 @@ function emphasizeProductMentionsAndPrices(
 }
 
 // Follow-up chips = Turns 2–5 for each persona: same strings as the
-// Boutique hero row (PERSONA_HERO_PILLS), omitting Turn 1 (already sent
+// Pellier hero row (PERSONA_HERO_PILLS), omitting Turn 1 (already sent
 // from the hero pill / welcome pick).
 const FOLLOWUPS_BY_PERSONA: Record<string, string[]> = {
   marco: PERSONA_HERO_PILLS.marco.slice(1),
@@ -328,7 +328,7 @@ function AgentMessage({
         Pellier
       </div>
 
-      {/* Skills + tool calls — collapsed by default so Boutique stays calm,
+      {/* Skills + tool calls — collapsed by default so Pellier stays calm,
           with a Claude-style disclosure for curious shoppers. */}
       {hasAttribution && (
         <div className={`ec-worked ${attributionOpen ? 'ec-worked-open' : ''}`}>

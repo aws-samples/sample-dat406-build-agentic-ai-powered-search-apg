@@ -3,7 +3,7 @@
  *
  * Sits above the Sessions list on first load. Three pieces:
  *   1. Burgundy dot + eyebrow ("Welcome to Pellier Labs")
- *   2. Display italic headline (Fraunces stack, matches Boutique hero) +
+ *   2. Display italic headline (Fraunces stack, matches Pellier hero) +
  *   3. Three "cheat sheet" cards explaining the three verbs:
  *      Observe, Understand, Evaluate
  *
@@ -197,7 +197,7 @@ export const AgentTraceWelcome: React.FC = () => {
           maxWidth: '680px',
         }}
       >
-        The Boutique is where shoppers ask. Pellier Labs is where you watch.
+        Pellier is where shoppers ask. Pellier Labs is where you watch.
         Every agent decision, tool call, memory read, and routing hop shows
         up here in editorial detail – so the magic has a paper trail.
       </p>

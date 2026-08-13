@@ -1,5 +1,5 @@
 /**
- * BoutiquePage — the `/` route composition (Boutique redesign).
+ * BoutiquePage — the `/` route composition (Pellier redesign).
  *
  * Two-act layout:
  *

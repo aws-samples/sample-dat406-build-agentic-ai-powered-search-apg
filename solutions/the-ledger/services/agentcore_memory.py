@@ -332,7 +332,7 @@ class AgentCoreMemory:
         uppercase; ``content`` may be a nested dict or a bare string;
         timestamps arrive as ``datetime``). This collapses that into the
         flat ``{"role": "user"|"assistant", "content": <str>,
-        "timestamp": <str>}`` list the route serializes and the Boutique
+        "timestamp": <str>}`` list the route serializes and the Pellier
         chat hydrates from.
         """
         def _attr(obj: Any, key: str, default: Any = None) -> Any:

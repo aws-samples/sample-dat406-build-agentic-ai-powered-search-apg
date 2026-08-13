@@ -218,7 +218,7 @@ class ManagedGatewayDispatcher:
 def create_gateway_dispatcher(
     access_token: Optional[str] = None,
 ) -> ManagedGatewayDispatcher | None:
-    """Create the managed equivalent of the Boutique dispatcher."""
+    """Create the managed equivalent of Pellier's dispatcher."""
     if not _runtime_or_app_setting("AGENTCORE_GATEWAY_URL") or not access_token:
         return None
     return ManagedGatewayDispatcher(access_token=access_token)

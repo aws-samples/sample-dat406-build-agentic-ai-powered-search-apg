@@ -1,4 +1,4 @@
-"""Tests for Aurora-backed Boutique working memory."""
+"""Tests for Aurora-backed Pellier working memory."""
 
 from __future__ import annotations
 

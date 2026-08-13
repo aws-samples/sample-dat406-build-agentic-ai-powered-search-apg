@@ -4,7 +4,7 @@
  * appears for signed-in personas so first-time visitors are not hit with
  * session jargon.
  *
- * Used on the Boutique capability strip (cream-tinted, glass background)
+ * Used on Pellier capability strip (cream-tinted, glass background)
  * and on Pellier Labs TopBar (same boutique styling on the light cream bar).
  *
  * Pass `sessionLabel=""` explicitly to force-hide the fragment, or rely

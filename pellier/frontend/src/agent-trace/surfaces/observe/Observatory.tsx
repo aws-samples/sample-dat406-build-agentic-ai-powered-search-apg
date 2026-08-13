@@ -428,7 +428,7 @@ const Observatory: React.FC = () => {
             maxWidth: '820px',
           }}
         >
-          The operator's side of the boutique.
+          The operator's side of Pellier.
         </h1>
         <p
           className="font-sans text-ink-soft"
@@ -439,7 +439,7 @@ const Observatory: React.FC = () => {
             maxWidth: '760px',
           }}
         >
-          The Boutique is where shoppers ask. Pellier Labs is where you watch.
+          Pellier is where shoppers ask. Pellier Labs is where you watch.
           Every agent decision, tool call, memory read, and routing hop shows up
           here in editorial detail - so the magic has a paper trail.
         </p>

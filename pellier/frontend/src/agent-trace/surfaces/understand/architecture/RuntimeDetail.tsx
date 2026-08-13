@@ -27,7 +27,7 @@ const RuntimeDetail: React.FC = () => {
       conceptName="Runtime Envelope"
       category="workshop"
       title="Runtime, bounded."
-      prose="Runtime is the envelope around execution: model calls, memory, optional Gateway, and observability. In this repository, the Boutique default flow lives in the app service layer; AgentCore Runtime concepts are introduced as the managed deployment pattern around those same contracts."
+      prose="Runtime is the envelope around execution: model calls, memory, optional Gateway, and observability. In this repository, Pellier's default flow lives in the app service layer; AgentCore Runtime concepts are introduced as the managed deployment pattern around those same contracts."
       cheatSheet={[
         {
           numeral: 'i.',
@@ -62,7 +62,7 @@ const RuntimeDetail: React.FC = () => {
               <SectionLabel label="The layers" />
               <h3 style={titleStyle}>Seven visible steps, one request.</h3>
               <p style={proseStyle}>
-                A Boutique request flows through visible steps: fast-path check, intent
+                A Pellier request flows through visible steps: fast-path check, intent
                 classification, skill routing, dispatcher handoff, specialist execution,
                 tool invocation, and response streaming. Sessions and Telemetry render these
                 steps directly.

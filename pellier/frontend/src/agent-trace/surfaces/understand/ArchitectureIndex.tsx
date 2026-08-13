@@ -24,7 +24,7 @@ import type { ArchitectureConcept } from '../../types';
 const legendItems: { category: CategoryType; description: string }[] = [
   {
     category: 'live',
-    description: 'Used directly in the Boutique request path participants can replay in Sessions.',
+    description: 'Used directly in the Pellier request path participants can replay in Sessions.',
   },
   {
     category: 'workshop',

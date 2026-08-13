@@ -342,7 +342,7 @@ setup_database() {
             warn "001_schema.sql not found — seeder will fail without the table"
         fi
 
-        # ---- 2. Boutique catalog seeder — 40 hand-curated products
+        # ---- 2. Pellier catalog seeder — 40 hand-curated products
         # across the four personas (Marco / Anna / Theo / Fresh).
         # Authoritative source for pellier.product_catalog.
         #
@@ -372,7 +372,7 @@ setup_database() {
         " 2>&1 | tee /var/log/database-setup.log
         local seed_rc=${PIPESTATUS[0]}
         if [ "$seed_rc" -ne 0 ]; then
-            warn "Boutique catalog seed failed (rc=$seed_rc) — see /var/log/database-setup.log"
+            warn "Pellier catalog seed failed (rc=$seed_rc) — see /var/log/database-setup.log"
             return "$seed_rc"
         fi
 
@@ -806,7 +806,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
                   "pellier/backend/services/otel_trace_extractor.py" "OTEL trace extractor"
 
     # ---- Frontend agent-identity hook ----
-    # The Boutique chat drawer reads this to attach an identity claim to
+    # The Pellier chat drawer reads this to attach an identity claim to
     # every agent call. auth.ts + AuthModal + PreferencesModal +
     # AuthContext already ship complete in the live frontend tree (real
     # Cognito sign-in, no demo mode), so only the agent-identity hook is
@@ -875,7 +875,7 @@ EOF
     if [ "$AGENTCORE_OK" = true ]; then
         _ac_node_major="$(node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1)"
         if ! echo "$_ac_node_major" | grep -qE '^[0-9]+$' || [ "$_ac_node_major" -lt 20 ]; then
-            warn "Node $(node --version 2>/dev/null || echo 'none') (<20) — @aws/agentcore Runtime deploy cannot run. Skipping managed AgentCore provisioning; Boutique still starts. Fix: install Node 20 (see bootstrap-environment.sh) and re-run scripts/deploy/deploy_all.sh."
+            warn "Node $(node --version 2>/dev/null || echo 'none') (<20) — @aws/agentcore Runtime deploy cannot run. Skipping managed AgentCore provisioning; Pellier still starts. Fix: install Node 20 (see bootstrap-environment.sh) and re-run scripts/deploy/deploy_all.sh."
             write_status_json "failed" "failed" "$MANAGED_OUTPUT_JSON"
             AGENTCORE_OK=false
         fi

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // capture-chatui-gif.mjs
 //
-// Captures a 12–15 s demo of the Pellier Boutique (Marco signed in) and
+// Captures a 12–15 s demo of Pellier (Marco signed in) and
 // encodes it into docs/demo-assets/chatui.gif. Copy that file into the
 // Workshop Studio repo's static/imgs/ to publish it in the lab manual.
 //

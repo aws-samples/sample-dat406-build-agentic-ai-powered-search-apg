@@ -1,6 +1,6 @@
 # Pellier Design System
 
-The visual foundation for the Pellier frontend redesign. Every component in the rebuilt storefront (Boutique) and observatory (Pellier Labs) surfaces draws from this module. Colors, typography, spacing, shadows, radii, animation timing, breakpoints, and fluid layout values are defined once in `tokens.ts` and consumed by the 11 reusable primitives in `primitives/`.
+The visual foundation for the Pellier frontend redesign. Every component in the rebuilt storefront (Pellier) and observatory (Pellier Labs) surfaces draws from this module. Colors, typography, spacing, shadows, radii, animation timing, breakpoints, and fluid layout values are defined once in `tokens.ts` and consumed by the 11 reusable primitives in `primitives/`.
 
 ---
 
@@ -10,7 +10,7 @@ All color tokens are exported from `tokens.ts` and extended into the Tailwind co
 
 | Token          | Hex       | Usage                                         |
 | -------------- | --------- | --------------------------------------------- |
-| `cream`        | `#F7F3EE` | Primary background (Boutique), light surfaces |
+| `cream`        | `#F7F3EE` | Primary background (Pellier), light surfaces |
 | `sand`         | `#E8DFD4` | Secondary background, muted fills             |
 | `espresso`     | `#3B2F2F` | Dark text, primary actions                    |
 | `olive`        | `#6B705C` | Accent green, tags, secondary indicators      |
@@ -222,7 +222,7 @@ Circular ghost button for icon-only actions (header, toolbars).
 Navigation sidebar with dark and light variants.
 
 - **Dark variant:** Espresso `#1F1410` background, cream text (Pellier Labs)
-- **Light variant:** Cream background, ink text (Boutique)
+- **Light variant:** Cream background, ink text (Pellier)
 - **Key props:** `variant`, `items` (array of `SidebarItem`), `activeItem`, `onItemClick`
 - `SidebarItem`: `{ id, label, icon?, badge? }`
 

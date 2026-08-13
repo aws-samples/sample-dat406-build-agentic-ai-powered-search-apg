@@ -2,13 +2,13 @@
  * Pellier Labs Observatory — Base Styles & Resets
  *
  * Global resets and foundational styles for Pellier Labs surface. Scoped
- * to the .agent-trace-root container so nothing leaks into the Boutique
+ * to the .agent-trace-root container so nothing leaks into Pellier
  * storefront.
  *
  * Design principles:
  *   - Flat editorial aesthetic: NO glassmorphism, NO blurs, NO gradients
  *     (except product image placeholders)
- *   - Desktop-first, minimum 1280px viewport
+ *   - Responsive shell with a desktop sidebar and mobile navigation drawer
  *   - Warm cream/sand/espresso palette only
  *   - Crisp 1px borders, solid backgrounds, clear hierarchy
  *
@@ -30,7 +30,6 @@
   font-size: var(--at-body-size);
   line-height: var(--at-body-leading);
   min-height: 100vh;
-  min-width: 1280px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -153,6 +152,195 @@
 .agent-trace-surface {
   flex: 1;
   padding: 32px 40px;
+}
+
+/* -----------------------------------------------------------------------
+ * Proof Board masthead
+ * ----------------------------------------------------------------------- */
+
+.proof-board-masthead {
+  position: relative;
+  min-height: 360px;
+  margin-bottom: 30px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--at-rule-1);
+}
+
+.proof-board-masthead .proof-board-title {
+  position: relative;
+  z-index: 2;
+  align-items: center;
+  max-width: 880px;
+  margin: 0 auto 4px;
+  text-align: center;
+}
+
+.proof-board-masthead .proof-board-title h1 {
+  max-width: 860px;
+  font-size: 58px !important;
+  letter-spacing: 0 !important;
+}
+
+.proof-board-masthead .proof-board-title p {
+  max-width: 690px !important;
+}
+
+.proof-board-flow-wrap {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1040px);
+  height: 170px;
+  margin: 0 auto;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pellier-labs-flow {
+  position: absolute;
+  inset: 0;
+}
+
+.pellier-labs-flow > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+}
+
+.labs-mobile-menu-button,
+.labs-sidebar-close,
+.labs-sidebar-scrim {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .agent-trace-frame {
+    display: block;
+  }
+
+  .agent-trace-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 80;
+    width: min(300px, calc(100vw - 48px)) !important;
+    min-height: 100dvh !important;
+    transform: translateX(-102%);
+    transition: transform 180ms ease;
+  }
+
+  .agent-trace-sidebar[data-mobile-open='true'] {
+    transform: translateX(0);
+  }
+
+  .labs-sidebar-scrim[data-open='true'] {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgb(31 20 16 / 42%);
+  }
+
+  .labs-sidebar-close,
+  .labs-mobile-menu-button {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--at-rule-1);
+    border-radius: 4px;
+    background: transparent;
+    color: currentColor;
+    cursor: pointer;
+  }
+
+  .labs-sidebar-close {
+    margin-left: auto;
+    border-color: rgb(250 243 232 / 18%);
+    color: var(--at-sidebar-text-active);
+  }
+
+  .agent-trace-canvas {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .agent-trace-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    gap: 10px !important;
+    padding: 10px 16px !important;
+  }
+
+  .labs-topbar-breadcrumb,
+  .labs-topbar-presence {
+    display: none;
+  }
+
+  .agent-trace-surface {
+    padding: 24px 20px;
+  }
+
+  .proof-board-page {
+    max-width: none !important;
+    padding: 16px 0 40px !important;
+  }
+
+  .proof-board-masthead {
+    min-height: 320px;
+    margin-bottom: 24px;
+  }
+
+  .proof-board-masthead .proof-board-title {
+    padding: 8px 8px 0;
+  }
+
+  .proof-board-title > span {
+    font-size: 11px !important;
+    letter-spacing: 0.18em !important;
+    white-space: nowrap;
+  }
+
+  .proof-board-masthead .proof-board-title h1 {
+    font-size: 42px !important;
+  }
+
+  .proof-board-flow-wrap {
+    height: 130px;
+  }
+}
+
+@media (max-width: 520px) {
+  .labs-topbar-persona {
+    width: 40px;
+    padding: 4px !important;
+  }
+
+  .labs-topbar-persona > span {
+    display: none !important;
+  }
+
+  .proof-board-masthead .proof-board-title h1 {
+    font-size: 36px !important;
+  }
+}
+
+@media (max-width: 350px) {
+  .proof-board-title > span {
+    font-size: 10px !important;
+    letter-spacing: 0.15em !important;
+  }
 }
 
 /* -----------------------------------------------------------------------

@@ -441,7 +441,7 @@ def floor_check(product_query: str = "") -> str:
     #   5. Catch exceptions and return a JSON error envelope.
     #
     # Verify (live, the real check):
-    #   Click Marco's Turn 4 pill in the Boutique — Stock Keeper answers
+    #   Click Marco's Turn 4 pill in Pellier — Stock Keeper answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
     #   Pellier Labs Tools strip flip from 14/15 to 15/15 shipped.
     #
@@ -618,7 +618,7 @@ def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
 
 
 _CATEGORY_MAP = {
-    # Boutique catalog categories (92 products, 9 categories)
+    # Pellier catalog categories (92 products, 9 categories)
     'linen': 'Linen', 'camp shirt': 'Linen', 'oxford': 'Linen',
     'dress': 'Dresses', 'gown': 'Dresses', 'sundress': 'Dresses', 'maxi': 'Dresses',
     'slip dress': 'Dresses', 'kaftan': 'Dresses', 'shirtdress': 'Dresses',

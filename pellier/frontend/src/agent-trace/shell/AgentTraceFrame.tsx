@@ -8,7 +8,7 @@
  * Requirements: 1.1, 20.1
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -20,12 +20,28 @@ const AgentTraceFrame: React.FC = () => {
   // strand the operator on every other surface — navigating remounts it,
   // clearing stale error state.
   const { pathname } = useLocation();
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileNavigationOpen(false);
+  }, [pathname]);
+
   return (
     <div className="agent-trace-root">
       <div className="agent-trace-frame">
-        <Sidebar />
+        <button
+          type="button"
+          className="labs-sidebar-scrim"
+          data-open={mobileNavigationOpen ? 'true' : 'false'}
+          aria-label="Close Pellier Labs navigation"
+          onClick={() => setMobileNavigationOpen(false)}
+        />
+        <Sidebar
+          mobileOpen={mobileNavigationOpen}
+          onClose={() => setMobileNavigationOpen(false)}
+        />
         <div className="agent-trace-canvas">
-          <TopBar />
+          <TopBar onOpenNavigation={() => setMobileNavigationOpen(true)} />
           <main className="agent-trace-surface">
             <AgentTraceErrorBoundary key={pathname}>
               <Outlet />

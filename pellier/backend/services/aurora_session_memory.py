@@ -1,4 +1,4 @@
-"""Aurora-backed working memory for the Boutique chat path."""
+"""Aurora-backed working memory for the Pellier chat path."""
 
 from __future__ import annotations
 

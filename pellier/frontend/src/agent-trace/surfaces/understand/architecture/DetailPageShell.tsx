@@ -56,10 +56,10 @@ export interface DetailPageShellProps {
     values: LiveStateValue[];
   };
   /**
-   * Optional "See this in the Boutique" cross-link. When set, renders
+   * Optional "See this in Pellier" cross-link. When set, renders
    * a small italic anchor next to the hero title that drops the
    * attendee onto the storefront with a query that exercises this
-   * concept. Keeps Pellier Labs↔Boutique round trip one click away on
+   * concept. Keeps Pellier Labs↔Pellier round trip one click away on
    * every deep-dive page.
    */
   seeInBoutique?: {
@@ -295,7 +295,7 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
         <CategoryBadge category={category} />
       </div>
 
-      {/* Hero title — same Fraunces display stack as Boutique hero + EditorialTitle */}
+      {/* Hero title — same Fraunces display stack as Pellier hero + EditorialTitle */}
       <h1
         className="font-display italic text-espresso"
         style={{
@@ -323,7 +323,7 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
         {prose}
       </p>
 
-      {/* "See this in the Boutique" cross-link — appears below the
+      {/* "See this in Pellier" cross-link — appears below the
           hero prose on every architecture detail page that supplies
           one. Pairs the deep-dive explainer with a one-click drop
           back onto the storefront so the round trip is always

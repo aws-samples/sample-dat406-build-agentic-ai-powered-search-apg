@@ -17,7 +17,7 @@ import { imageSrc } from '../utils/assetPath'
 // Re-export CartItem for backward compatibility with existing import paths
 export type { CartItem } from '../contexts/CartContext'
 
-// --- Boutique palette tokens (inline to avoid dark-theme var fallthrough) ---
+// --- Pellier palette tokens (inline to avoid dark-theme var fallthrough) ---
 const BG = 'var(--cream-warm)'
 const BG_CARD = 'color-mix(in srgb, var(--dl-ink) 4%, transparent)'
 const TEXT = 'var(--ink)'

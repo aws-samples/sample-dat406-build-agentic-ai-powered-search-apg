@@ -4,7 +4,7 @@
  * Two-part closer before the footer:
  *
  *   1. About band — editorial portrait left, "About" eyebrow,
- *      Boutique/Pellier Labs positioning, and tech-stack chips.
+ *      Storefront/Pellier Labs positioning, and tech-stack chips.
  *   2. Colophon strip — single centered italic line on a slightly
  *      darker warm ground, doubling as the visual page-end signal.
  */
@@ -100,7 +100,7 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Boutique + Pellier Labs
+                Storefront + Pellier Labs
               </div>
 
               {/* Philosophy */}

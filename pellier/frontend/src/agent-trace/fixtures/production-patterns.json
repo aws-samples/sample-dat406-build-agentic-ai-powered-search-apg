@@ -124,7 +124,7 @@
       "role": "How the agent finds the right capability when the catalog grows",
       "summary": "The default builder path uses in-process Strands tools – fast, type-safe, all in one Python process. At production scale, two surfaces help: AgentCore Gateway publishes tools over MCP so multiple agents share a single source of truth, and the Aurora pgvector tool registry lets a Strands agent semantically search tool descriptions when there are too many to fit in a system prompt.",
       "shipped": false,
-      "shippedNote": "Optional. The default Boutique path is in-process Strands tools – the orchestrator and tools live in one Python module.",
+      "shippedNote": "Optional. The default Pellier path is in-process Strands tools – the orchestrator and tools live in one Python module.",
       "category": "scaling",
       "surfaces": [
         {

@@ -39,7 +39,7 @@ Keep guidance concrete and retrieval-grounded. Do not hardcode behavior that con
 1. Restart backend (or rely on `--reload`).
 2. Confirm boot log shows loaded skills and token counts.
 3. Hit `POST /api/agent-trace/skills/route` with a representative query.
-4. Verify Boutique/Pellier Labs "Under the hood" shows expected loaded skill(s).
+4. Verify the storefront/Pellier Labs "Under the hood" view shows expected loaded skill(s).
 5. Sync Pellier Labs fixture after skill edits:
    - `python3 scripts/sync_skills_fixture.py`
 

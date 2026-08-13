@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import ProofBoard from './ProofBoard';
 
 const proofBoardPayload = {
@@ -39,7 +39,7 @@ const proofBoardPayload = {
       title: 'Wire Marco to floor_check',
       status: 'complete',
       required: true,
-      surface: 'Code Editor + Boutique',
+      surface: 'Code Editor + Pellier',
       summary: "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
       evidence: ['Latest floor_check row: audit_id 101'],
       fallback: {
@@ -71,6 +71,10 @@ afterEach(() => {
 });
 
 describe('ProofBoard', () => {
+  beforeAll(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  });
+
   it('renders readiness checks, managed receipt, and proof card fallbacks', async () => {
     vi.stubGlobal(
       'fetch',
@@ -89,6 +93,9 @@ describe('ProofBoard', () => {
     );
 
     expect(await screen.findByText('Inspect evidence, then boundaries.')).toBeInTheDocument();
+    expect(
+      document.querySelector('.pellier-labs-flow[aria-hidden="true"] canvas'),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('Aurora PostgreSQL')).toBeInTheDocument();
     });

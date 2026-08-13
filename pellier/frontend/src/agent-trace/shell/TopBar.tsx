@@ -1,16 +1,15 @@
 /**
  * TopBar — Horizontal bar above Pellier Labs canvas.
  *
- * Contains the SurfaceToggle (reused from existing component),
- * a BreadcrumbTrail derived from the current route, live status
- * metadata, and the persona avatar.
+ * Contains a persistent return to Pellier, a BreadcrumbTrail derived
+ * from the current route, live status metadata, and the persona avatar.
  *
  * Requirements: 1.9, 1.10, 1.11, 1.12
  */
 
 import React, { useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import SurfaceToggle from '../../components/SurfaceToggle';
+import { Link, useLocation } from 'react-router-dom';
+import { ArrowLeft, Menu } from 'lucide-react';
 import PersonaModal from '../../components/PersonaModal';
 import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { usePersona } from '../../contexts/PersonaContext';
@@ -74,7 +73,9 @@ function useBreadcrumbs(): string[] {
  * TopBar component
  * ----------------------------------------------------------------------- */
 
-const TopBar: React.FC = () => {
+const TopBar: React.FC<{ onOpenNavigation?: () => void }> = ({
+  onOpenNavigation,
+}) => {
   const breadcrumbs = useBreadcrumbs();
   const { persona } = usePersona();
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
@@ -86,6 +87,7 @@ const TopBar: React.FC = () => {
   return (
     <>
       <header
+        className="agent-trace-topbar"
         data-testid="agent-trace-topbar"
         style={{
           display: 'flex',
@@ -97,22 +99,60 @@ const TopBar: React.FC = () => {
           minHeight: '52px',
         }}
       >
-        {/* Surface toggle */}
-        <SurfaceToggle />
+        <Link
+          to="/"
+          data-testid="back-to-pellier"
+          aria-label="Back to Pellier"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            minHeight: '36px',
+            padding: '0 12px',
+            border: '1px solid var(--at-rule-1)',
+            borderRadius: '4px',
+            background: 'var(--at-cream-2)',
+            color: 'var(--at-ink-1)',
+            fontFamily: 'var(--at-sans)',
+            fontSize: '13px',
+            fontWeight: 600,
+            textDecoration: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
+          <span>Back to Pellier</span>
+        </Link>
+
+        <button
+          type="button"
+          className="labs-mobile-menu-button"
+          data-testid="open-labs-navigation"
+          aria-label="Open Pellier Labs navigation"
+          title="Open Pellier Labs navigation"
+          onClick={onOpenNavigation}
+        >
+          <Menu size={18} strokeWidth={1.8} aria-hidden="true" />
+        </button>
 
         {/* Breadcrumb trail */}
-        <BreadcrumbTrail segments={breadcrumbs} />
+        <div className="labs-topbar-breadcrumb">
+          <BreadcrumbTrail segments={breadcrumbs} />
+        </div>
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Presence — same chip as Boutique hero; mono tail only when a
+        {/* Presence — same chip as Pellier hero; mono tail only when a
             persona is signed in (hidden for fresh / anonymous). */}
-        <PresencePill surface="boutique" personaId={persona?.id} />
+        <div className="labs-topbar-presence">
+          <PresencePill surface="boutique" personaId={persona?.id} />
+        </div>
 
         {/* Persona switcher */}
         <button
           type="button"
+          className="labs-topbar-persona"
           data-testid="agent-trace-persona-switcher"
           onClick={() => setPersonaModalOpen(true)}
           aria-label={`Switch persona${persona?.display_name ? ` from ${persona.display_name}` : ''}`}

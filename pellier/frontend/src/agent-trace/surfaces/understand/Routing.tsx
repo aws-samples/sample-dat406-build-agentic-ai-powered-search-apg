@@ -513,7 +513,7 @@ const StorefrontProductionCard: React.FC = () => (
       }}
     >
       High-traffic commerce assistants optimize for predictability, latency, and
-      cost. Pellier&apos;s Boutique keeps{' '}
+      cost. Pellier&apos;s storefront keeps{' '}
       <Emphasis>Dispatcher + specialists</Emphasis> on the hot path – not an LLM
       intent resolver at temperature&nbsp;0 (still drifts with model updates).
     </p>
@@ -941,7 +941,7 @@ const Routing: React.FC = () => {
                 margin: '8px 0 14px',
               }}
             >
-              Pick a pattern to compare orchestration styles. Boutique sessions use{' '}
+              Pick a pattern to compare orchestration styles. Pellier sessions use{' '}
               <Emphasis>Dispatcher</Emphasis> today – the others are alternatives you
               can trace in Observatory telemetry.
             </p>
