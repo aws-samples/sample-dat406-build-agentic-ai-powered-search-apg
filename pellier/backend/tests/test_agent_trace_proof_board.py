@@ -210,6 +210,17 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
             "rail": "gateway-mcp",
             "jwtPassthrough": True,
             "gatewayPassthrough": True,
+            "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+            "runtimeRequestId": "request-123",
+            "sessionId": session_id,
+            "evidenceProvenance": "agentcore-service-telemetry",
+            "managedTrace": {
+                "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+                "runtimeRequestId": "request-123",
+                "sessionId": session_id,
+                "xrayConsoleUrl": "https://console.example/xray",
+                "logsConsoleUrl": "https://console.example/logs",
+            },
         },
     )
     client = _client(_ProofDB())
@@ -219,6 +230,20 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     body = r.json()
 
     assert body["managedReceipt"]["jwtPassthrough"] is True
+    assert (
+        body["managedReceipt"]["traceId"]
+        == "4bf92f3577b34da6a3ce929d0e0e4736"
+    )
+    assert body["managedReceipt"]["runtimeRequestId"] == "request-123"
+    assert body["managedReceipt"]["sessionId"] == "managed-proof"
+    assert (
+        body["managedReceipt"]["evidenceProvenance"]
+        == "agentcore-service-telemetry"
+    )
+    assert (
+        body["managedReceipt"]["managedTrace"]["xrayConsoleUrl"]
+        == "https://console.example/xray"
+    )
     assert body["managedReceipt"]["governedPrincipalId"] == "CUST-MARCO"
     assert body["managedReceipt"]["governedDecision"] == "ALLOW"
     cards = {c["id"]: c for c in body["cards"]}

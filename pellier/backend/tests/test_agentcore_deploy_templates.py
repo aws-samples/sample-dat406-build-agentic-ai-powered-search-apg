@@ -54,6 +54,7 @@ def _seed_runtime_sources(repo: Path) -> None:
     backend = repo / "pellier" / "backend"
     for relative in (
         Path("pyproject.toml"),
+        Path("uv.lock"),
         *renderer.RUNTIME_SOURCE_FILES,
     ):
         source = BACKEND_DIR / relative
@@ -122,7 +123,9 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
     assert env == {
         "AGENT_MODEL_ID": "global.anthropic.claude-sonnet-5",
         "BEDROCK_ROUTER_MODEL": "global.anthropic.claude-sonnet-5",
+        "UNIFIED_TRACES_DESTINATION_ENABLED": "true",
     }
+    assert runtime["instrumentation"] == {"enableOtel": True}
     assert "AGENTCORE_GATEWAY_URL" not in env
     assert "AGENTCORE_MEMORY_ID" not in env
 
@@ -137,6 +140,7 @@ def test_runtime_bundle_contains_only_managed_import_graph(tmp_path: Path) -> No
     }
     assert actual == {
         Path("pyproject.toml"),
+        Path("uv.lock"),
         *renderer.RUNTIME_SOURCE_FILES,
     }
     assert Path("config.py") not in actual
@@ -243,6 +247,275 @@ def test_deployed_state_rejects_obsolete_flat_gateway_shape() -> None:
         provisioner._require_gateway_state(state, renderer.GATEWAY_NAME)
 
 
+def test_transaction_search_setup_is_scoped_and_requires_active_destination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provisioner = _load_provisioner()
+
+    class _Logs:
+        policy_name = ""
+        policy_document = ""
+
+        def put_resource_policy(
+            self, *, policyName: str, policyDocument: str
+        ) -> None:
+            self.policy_name = policyName
+            self.policy_document = policyDocument
+
+    class _XRay:
+        updated_to = ""
+        responses = iter(
+            (
+                {"Destination": "XRay", "Status": "ACTIVE"},
+                {"Destination": "CloudWatchLogs", "Status": "ACTIVE"},
+            )
+        )
+
+        def get_trace_segment_destination(self) -> dict[str, str]:
+            return next(self.responses)
+
+        def update_trace_segment_destination(self, *, Destination: str) -> None:
+            self.updated_to = Destination
+
+    logs = _Logs()
+    xray = _XRay()
+
+    def _client(service: str, **_: Any) -> Any:
+        return {"logs": logs, "xray": xray}[service]
+
+    monkeypatch.setattr(provisioner.boto3, "client", _client)
+    monkeypatch.setattr(provisioner.time, "sleep", lambda _: None)
+
+    proof = provisioner._configure_transaction_search(
+        region="us-east-1",
+        account_id="123456789012",
+        partition="aws",
+    )
+
+    assert xray.updated_to == "CloudWatchLogs"
+    assert proof == {
+        "destination": "CloudWatchLogs",
+        "status": "ACTIVE",
+        "resource_policy": "TransactionSearchXRayAccess",
+        "span_log_group": "aws/spans",
+    }
+    assert logs.policy_name == "TransactionSearchXRayAccess"
+    policy = json.loads(logs.policy_document)
+    statement = policy["Statement"][0]
+    assert statement["Principal"] == {"Service": "xray.amazonaws.com"}
+    assert statement["Action"] == "logs:PutLogEvents"
+    assert statement["Resource"] == [
+        "arn:aws:logs:us-east-1:123456789012:log-group:aws/spans:*",
+        (
+            "arn:aws:logs:us-east-1:123456789012:"
+            "log-group:/aws/application-signals/data:*"
+        ),
+    ]
+    assert statement["Condition"] == {
+        "StringEquals": {"aws:SourceAccount": "123456789012"},
+        "ArnLike": {
+            "aws:SourceArn": "arn:aws:xray:us-east-1:123456789012:*"
+        },
+    }
+
+
+def _unified_trace_records(
+    *, trace_id: str, session_id: str, runtime_arn: str
+) -> list[dict[str, Any]]:
+    def resource() -> dict[str, dict[str, str]]:
+        return {"attributes": {"cloud.resource_id": runtime_arn}}
+
+    return [
+        {
+            "@message": {
+                "traceId": trace_id,
+                "name": "invoke_agent pellier_orchestrator",
+                "attributes": {"session.id": session_id},
+                "resource": resource(),
+            }
+        },
+        {
+            "@message": json.dumps(
+                {
+                    "traceId": trace_id,
+                    "name": "chat",
+                    "attributes": {
+                        "gen_ai.request.model": "global.anthropic.claude-sonnet-5"
+                    },
+                    "resource": resource(),
+                }
+            )
+        },
+        {
+            "@message": {
+                "traceId": trace_id,
+                "name": "execute_tool find_pieces_hybrid",
+                "attributes": {"gen_ai.tool.name": "find_pieces_hybrid"},
+                "resource": resource(),
+            }
+        },
+        {
+            "@message": {
+                "traceId": "another-trace",
+                "name": "execute_tool ignored",
+                "attributes": {"gen_ai.tool.name": "ignored"},
+                "resource": resource(),
+            }
+        },
+    ]
+
+
+def test_unified_trace_summary_requires_correlated_agent_model_and_tool_spans() -> None:
+    provisioner = _load_provisioner()
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    session_id = "runtime-proof-000000000000000000001"
+    runtime_arn = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+        "runtime/pellier_orchestrator-abc123"
+    )
+
+    proof = provisioner._summarize_trace_records(
+        _unified_trace_records(
+            trace_id=trace_id,
+            session_id=session_id,
+            runtime_arn=runtime_arn,
+        ),
+        trace_id=trace_id,
+        session_id=session_id,
+        runtime_arn=runtime_arn,
+    )
+
+    assert proof["span_count"] == 3
+    assert proof["runtime_arn"] == runtime_arn
+    assert proof["agent_span"] is True
+    assert proof["model_span"] is True
+    assert proof["tool_span"] is True
+    assert proof["model_ids"] == ["global.anthropic.claude-sonnet-5"]
+    assert proof["tool_names"] == ["find_pieces_hybrid"]
+    assert proof["provenance"] == "agentcore-unified-telemetry"
+
+
+def test_unified_trace_summary_rejects_spans_from_another_runtime() -> None:
+    provisioner = _load_provisioner()
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    session_id = "runtime-proof-000000000000000000001"
+    runtime_arn = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+        "runtime/pellier_orchestrator-abc123"
+    )
+    records = _unified_trace_records(
+        trace_id=trace_id,
+        session_id=session_id,
+        runtime_arn=runtime_arn,
+    )
+    records[2]["@message"]["resource"]["attributes"]["cloud.resource_id"] = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/other"
+    )
+
+    with pytest.raises(RuntimeError, match="another Runtime"):
+        provisioner._summarize_trace_records(
+            records,
+            trace_id=trace_id,
+            session_id=session_id,
+            runtime_arn=runtime_arn,
+        )
+
+
+def test_trace_poll_uses_pinned_cli_and_downloads_the_matching_session(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    provisioner = _load_provisioner()
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    session_id = f"runtime-proof-{tmp_path.name}-0000000000000001"
+    runtime_arn = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+        "runtime/pellier_orchestrator-abc123"
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def _agentcore(
+        _root: Path, *args: str, env: dict[str, str]
+    ) -> subprocess.CompletedProcess[str]:
+        del env
+        calls.append(args)
+        if args[:2] == ("traces", "list"):
+            return subprocess.CompletedProcess(
+                args,
+                0,
+                stdout=json.dumps(
+                    {
+                        "success": True,
+                        "traces": [
+                            {
+                                "traceId": trace_id,
+                                "sessionId": session_id,
+                                "spanCount": 3,
+                            }
+                        ],
+                    }
+                ),
+                stderr="",
+            )
+        output = Path(args[args.index("--output") + 1])
+        output.write_text(
+            json.dumps(
+                _unified_trace_records(
+                    trace_id=trace_id,
+                    session_id=session_id,
+                    runtime_arn=runtime_arn,
+                )
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            args, 0, stdout='{"success":true}', stderr=""
+        )
+
+    monkeypatch.setattr(provisioner, "_agentcore", _agentcore)
+
+    proof = provisioner._wait_for_unified_trace(
+        root=tmp_path,
+        session_id=session_id,
+        runtime_arn=runtime_arn,
+        env={},
+    )
+
+    assert proof["trace_id"] == trace_id
+    assert proof["listed_span_count"] == 3
+    assert proof["runtime_log_group"].endswith(
+        "/pellier_orchestrator-abc123-DEFAULT"
+    )
+    assert not Path(
+        f"/tmp/pellier-agentcore-trace-{session_id}.json"
+    ).exists()
+    assert calls == [
+        (
+            "traces",
+            "list",
+            "--runtime",
+            "pellier_orchestrator",
+            "--since",
+            "15m",
+            "--limit",
+            "20",
+            "--json",
+        ),
+        (
+            "traces",
+            "get",
+            trace_id,
+            "--runtime",
+            "pellier_orchestrator",
+            "--since",
+            "15m",
+            "--output",
+            f"/tmp/pellier-agentcore-trace-{session_id}.json",
+            "--json",
+        ),
+    ]
+
+
 def test_deploy_sequence_validates_both_cli_phases(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -314,7 +587,12 @@ def test_deploy_sequence_validates_both_cli_phases(
 
 def test_pyproject_contains_only_runtime_import_roots() -> None:
     deps = PYPROJECT.read_text()
-    for package in ("strands-agents", "bedrock-agentcore", "mcp"):
+    for package in (
+        "strands-agents",
+        "aws-opentelemetry-distro",
+        "bedrock-agentcore",
+        "mcp",
+    ):
         assert package in deps
     for app_only_package in ("pydantic-settings", "psycopg", "pgvector", "fastapi"):
         assert app_only_package not in deps

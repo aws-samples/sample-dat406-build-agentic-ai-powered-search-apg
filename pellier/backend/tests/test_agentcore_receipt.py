@@ -1,0 +1,123 @@
+"""Contract tests for the managed AgentCore provisioning receipt."""
+
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_agentcore_receipt.py"
+
+
+def _load_validator() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "pellier_agentcore_receipt_validator", VALIDATOR_PATH
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _valid_receipt() -> dict[str, Any]:
+    names = [f"tool-{index}" for index in range(15)]
+    return {
+        "status": "ready",
+        "cli": {"package": "@aws/agentcore@0.26.0"},
+        "runtime": {"runtime_arn": "arn:aws:bedrock-agentcore:runtime/example"},
+        "memory": {"memory_id": "memory-1", "seed": {"status": "ready"}},
+        "gateway": {
+            "gateway_id": "gateway-1",
+            "gateway_arn": "arn:aws:bedrock-agentcore:gateway/example",
+            "gateway_url": "https://gateway.example/mcp",
+        },
+        "policy": {"policy_engine_id": "policy-1", "mode": "ENFORCE"},
+        "observability": {
+            "transaction_search": {
+                "destination": "CloudWatchLogs",
+                "status": "ACTIVE",
+                "resource_policy": "TransactionSearchXRayAccess",
+            },
+            "unified_trace": {
+                "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+                "session_id": "runtime-proof-000000000000000000001",
+                "runtime_arn": "arn:aws:bedrock-agentcore:runtime/example",
+                "runtime_log_group": (
+                    "/aws/bedrock-agentcore/runtimes/"
+                    "pellier_orchestrator-abc123-DEFAULT"
+                ),
+                "span_count": 3,
+                "span_names": [
+                    "chat",
+                    "execute_tool find_pieces_hybrid",
+                    "invoke_agent pellier_orchestrator",
+                ],
+                "agent_span": True,
+                "model_span": True,
+                "tool_span": True,
+                "model_ids": ["global.anthropic.claude-sonnet-5"],
+                "tool_names": ["find_pieces_hybrid"],
+                "provenance": "agentcore-unified-telemetry",
+            },
+        },
+        "verification": {
+            "local_tool_schema": {"count": 15, "canonical_names": names},
+            "gateway_control_plane": {
+                "target_count": 4,
+                "target_names": ["experience", "pricing", "recommendation", "search"],
+                "policy_mode": "ENFORCE",
+            },
+            "gateway_tool_count": 15,
+            "gateway_tool_names": names,
+            "gateway_prefixed_tool_names": [
+                f"target__{name}" for name in names
+            ],
+            "runtime_invoke_smoke": {
+                "rail": "gateway-mcp",
+                "session_id": "runtime-proof-000000000000000000001",
+                "response_preview": "A linen shirt is available.",
+            },
+            "targets_attached": True,
+            "gateway_tools_discovered": True,
+            "memory_seeded": True,
+            "live_policy_allow": True,
+            "live_policy_deny": True,
+            "authenticated_runtime_invoke_smoke": True,
+            "transaction_search_ready": True,
+            "unified_trace_delivered": True,
+            "unified_trace_agent_span": True,
+            "unified_trace_model_span": True,
+            "unified_trace_tool_span": True,
+            "live_policy_proof": {
+                "allow": {
+                    "outcome": "allow",
+                    "tool_audit_row_after_call": {"audit_id": 101},
+                },
+                "deny": {
+                    "outcome": "deny",
+                    "cedar_denial": True,
+                    "tool_audit_row_after_call": None,
+                },
+            },
+        },
+    }
+
+
+def test_ready_receipt_requires_managed_observability_proof() -> None:
+    validator = _load_validator()
+
+    assert validator.validate_receipt(_valid_receipt()) == []
+
+
+def test_ready_receipt_rejects_missing_tool_span_proof() -> None:
+    validator = _load_validator()
+    receipt = _valid_receipt()
+    receipt["observability"]["unified_trace"]["tool_span"] = False
+    receipt["verification"]["unified_trace_tool_span"] = False
+
+    errors = validator.validate_receipt(receipt)
+
+    assert "verification.unified_trace_tool_span must be true" in errors
+    assert "observability.unified_trace.tool_span must be true" in errors

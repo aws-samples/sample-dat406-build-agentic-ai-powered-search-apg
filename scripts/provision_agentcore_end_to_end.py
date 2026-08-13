@@ -76,6 +76,9 @@ AWS_CONFIG = Config(
     connect_timeout=10,
     read_timeout=60,
 )
+TRANSACTION_SEARCH_POLICY = "TransactionSearchXRayAccess"
+RUNTIME_SMOKE_SESSION = "builders-smoke-session-0000000000000001"
+TRACE_DELIVERY_TIMEOUT_SECONDS = 240
 
 
 def _run(
@@ -115,6 +118,72 @@ def _require_env(name: str) -> str:
 def _region_from_arn(arn: str, fallback: str) -> str:
     match = re.match(r"^arn:[^:]+:[^:]+:([^:]+):", arn or "")
     return match.group(1) if match else fallback
+
+
+def _configure_transaction_search(
+    *,
+    region: str,
+    account_id: str,
+    partition: str,
+) -> dict[str, Any]:
+    """Install the scoped X-Ray delivery policy and require an active destination."""
+    logs = boto3.client("logs", region_name=region, config=AWS_CONFIG)
+    xray = boto3.client("xray", region_name=region, config=AWS_CONFIG)
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "TransactionSearchXRayAccess",
+                "Effect": "Allow",
+                "Principal": {"Service": "xray.amazonaws.com"},
+                "Action": "logs:PutLogEvents",
+                "Resource": [
+                    (
+                        f"arn:{partition}:logs:{region}:{account_id}:"
+                        "log-group:aws/spans:*"
+                    ),
+                    (
+                        f"arn:{partition}:logs:{region}:{account_id}:"
+                        "log-group:/aws/application-signals/data:*"
+                    ),
+                ],
+                "Condition": {
+                    "StringEquals": {"aws:SourceAccount": account_id},
+                    "ArnLike": {
+                        "aws:SourceArn": (
+                            f"arn:{partition}:xray:{region}:{account_id}:*"
+                        )
+                    },
+                },
+            }
+        ],
+    }
+    logs.put_resource_policy(
+        policyName=TRANSACTION_SEARCH_POLICY,
+        policyDocument=json.dumps(policy, separators=(",", ":")),
+    )
+
+    destination = xray.get_trace_segment_destination()
+    if destination.get("Destination") != "CloudWatchLogs":
+        xray.update_trace_segment_destination(Destination="CloudWatchLogs")
+
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        destination = xray.get_trace_segment_destination()
+        if (
+            destination.get("Destination") == "CloudWatchLogs"
+            and destination.get("Status") == "ACTIVE"
+        ):
+            return {
+                "destination": "CloudWatchLogs",
+                "status": "ACTIVE",
+                "resource_policy": TRANSACTION_SEARCH_POLICY,
+                "span_log_group": "aws/spans",
+            }
+        time.sleep(5)
+    raise RuntimeError(
+        "Transaction Search trace destination did not become CloudWatchLogs/ACTIVE"
+    )
 
 
 def _ensure_data_api_enabled(region: str, db_cluster_arn: str) -> None:
@@ -501,13 +570,14 @@ def _authenticated_runtime_smoke(
     username: str,
     env: dict[str, str],
 ) -> dict[str, Any]:
+    runtime_session_id = RUNTIME_SMOKE_SESSION
     proc = _agentcore(
         root,
         "invoke",
         "--runtime",
         RUNTIME_NAME,
         "--session-id",
-        "builders-smoke-session-0000000000000001",
+        runtime_session_id,
         "--bearer-token",
         access_token,
         "--prompt",
@@ -544,12 +614,214 @@ def _authenticated_runtime_smoke(
         )
     return {
         "username": username,
+        "session_id": runtime_session_id,
         "rail": decoded["rail"],
         "intent": decoded.get("intent"),
         "specialist": decoded.get("specialist"),
         "gateway_tools": decoded.get("gateway_tools", []),
         "response_preview": str(decoded["response"])[:200],
     }
+
+
+def _summarize_trace_records(
+    records: Any,
+    *,
+    trace_id: str,
+    session_id: str,
+    runtime_arn: str,
+) -> dict[str, Any]:
+    """Validate the downloaded unified trace and return bounded proof metadata."""
+    if not isinstance(records, list):
+        raise RuntimeError("AgentCore trace download must be a JSON array")
+
+    spans: list[dict[str, Any]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        message = record.get("@message")
+        if isinstance(message, str):
+            try:
+                message = json.loads(message)
+            except json.JSONDecodeError:
+                continue
+        if isinstance(message, dict) and message.get("traceId") == trace_id:
+            spans.append(message)
+
+    if not spans:
+        raise RuntimeError(f"Unified trace {trace_id} contained no span records")
+
+    def attributes(span: dict[str, Any]) -> dict[str, Any]:
+        value = span.get("attributes")
+        return value if isinstance(value, dict) else {}
+
+    def resource_attributes(span: dict[str, Any]) -> dict[str, Any]:
+        resource = span.get("resource")
+        value = resource.get("attributes") if isinstance(resource, dict) else {}
+        return value if isinstance(value, dict) else {}
+
+    if not all(
+        runtime_arn in str(resource_attributes(span).get("cloud.resource_id", ""))
+        for span in spans
+    ):
+        raise RuntimeError("Unified trace includes a span from another Runtime")
+
+    observed_sessions = {
+        str(attributes(span).get("session.id"))
+        for span in spans
+        if attributes(span).get("session.id")
+    }
+    if session_id not in observed_sessions:
+        raise RuntimeError(
+            "Unified trace did not preserve the authenticated Runtime session id"
+        )
+
+    agent_spans = [
+        span for span in spans if str(span.get("name", "")).startswith("invoke_agent")
+    ]
+    model_spans = [
+        span
+        for span in spans
+        if span.get("name") == "chat"
+        and attributes(span).get("gen_ai.request.model")
+    ]
+    tool_spans = [
+        span
+        for span in spans
+        if str(span.get("name", "")).startswith("execute_tool")
+        and attributes(span).get("gen_ai.tool.name")
+    ]
+    missing = [
+        label
+        for label, values in (
+            ("agent", agent_spans),
+            ("model", model_spans),
+            ("tool", tool_spans),
+        )
+        if not values
+    ]
+    if missing:
+        raise RuntimeError(
+            "Unified trace is missing required span classes: " + ", ".join(missing)
+        )
+
+    return {
+        "trace_id": trace_id,
+        "session_id": session_id,
+        "runtime_arn": runtime_arn,
+        "span_count": len(spans),
+        "span_names": sorted({str(span.get("name", "")) for span in spans}),
+        "agent_span": True,
+        "model_span": True,
+        "tool_span": True,
+        "model_ids": sorted(
+            {
+                str(attributes(span)["gen_ai.request.model"])
+                for span in model_spans
+            }
+        ),
+        "tool_names": sorted(
+            {
+                str(attributes(span)["gen_ai.tool.name"])
+                for span in tool_spans
+            }
+        ),
+        "provenance": "agentcore-unified-telemetry",
+    }
+
+
+def _wait_for_unified_trace(
+    *,
+    root: Path,
+    session_id: str,
+    runtime_arn: str,
+    env: dict[str, str],
+) -> dict[str, Any]:
+    """Poll the pinned CLI until the smoke invocation has a complete trace."""
+    deadline = time.monotonic() + TRACE_DELIVERY_TIMEOUT_SECONDS
+    last_error = "trace not listed yet"
+    trace_path = Path("/tmp") / f"pellier-agentcore-trace-{session_id}.json"
+
+    while time.monotonic() < deadline:
+        try:
+            listed = _agentcore(
+                root,
+                "traces",
+                "list",
+                "--runtime",
+                RUNTIME_NAME,
+                "--since",
+                "15m",
+                "--limit",
+                "20",
+                "--json",
+                env=env,
+            )
+            payload = json.loads(listed.stdout)
+            if payload.get("success") is not True:
+                raise RuntimeError("AgentCore CLI trace listing did not report success")
+            traces = payload.get("traces")
+            if not isinstance(traces, list):
+                raise RuntimeError("AgentCore CLI trace listing has no traces array")
+            match = next(
+                (
+                    trace
+                    for trace in traces
+                    if isinstance(trace, dict)
+                    and trace.get("sessionId") == session_id
+                    and trace.get("traceId")
+                ),
+                None,
+            )
+            if match is None:
+                last_error = f"no trace listed for session {session_id}"
+                time.sleep(10)
+                continue
+
+            trace_id = str(match["traceId"])
+            trace_path.unlink(missing_ok=True)
+            downloaded = _agentcore(
+                root,
+                "traces",
+                "get",
+                trace_id,
+                "--runtime",
+                RUNTIME_NAME,
+                "--since",
+                "15m",
+                "--output",
+                str(trace_path),
+                "--json",
+                env=env,
+            )
+            try:
+                download_payload = json.loads(downloaded.stdout)
+                if download_payload.get("success") is not True:
+                    raise RuntimeError(
+                        "AgentCore CLI trace download did not report success"
+                    )
+                records = json.loads(trace_path.read_text(encoding="utf-8"))
+            finally:
+                trace_path.unlink(missing_ok=True)
+            proof = _summarize_trace_records(
+                records,
+                trace_id=trace_id,
+                session_id=session_id,
+                runtime_arn=runtime_arn,
+            )
+            proof["listed_span_count"] = int(match.get("spanCount") or 0)
+            proof["runtime_log_group"] = (
+                "/aws/bedrock-agentcore/runtimes/"
+                f"{runtime_arn.rsplit('/', 1)[-1]}-DEFAULT"
+            )
+            return proof
+        except (OSError, ValueError, RuntimeError) as exc:
+            last_error = str(exc)
+            time.sleep(10)
+
+    raise RuntimeError(
+        "Unified AgentCore trace did not become complete within "
+        f"{TRACE_DELIVERY_TIMEOUT_SECONDS}s: {last_error}"
+    )
 
 
 def _live_policy_proof(
@@ -635,6 +907,7 @@ def main() -> int:
         "lambdas": {},
         "gateway": {},
         "memory": {},
+        "observability": {},
         "policy": {},
         "runtime": {},
         "verification": {},
@@ -660,7 +933,16 @@ def main() -> int:
         }
 
         sts = boto3.client("sts", region_name=region, config=AWS_CONFIG)
-        account_id = sts.get_caller_identity()["Account"]
+        caller = sts.get_caller_identity()
+        account_id = caller["Account"]
+        partition = str(caller.get("Arn", "arn:aws:")).split(":", 2)[1]
+        transaction_search = _configure_transaction_search(
+            region=region,
+            account_id=account_id,
+            partition=partition,
+        )
+        result["observability"]["transaction_search"] = transaction_search
+        result["verification"]["transaction_search_ready"] = True
         root, state = _deploy_cli_project(
             repo=repo,
             account_id=account_id,
@@ -776,6 +1058,17 @@ def main() -> int:
         )
         result["verification"]["authenticated_runtime_invoke_smoke"] = True
         result["verification"]["runtime_invoke_smoke"] = runtime_smoke
+        trace_proof = _wait_for_unified_trace(
+            root=root,
+            session_id=runtime_smoke["session_id"],
+            runtime_arn=runtime_arn,
+            env=deploy_env,
+        )
+        result["observability"]["unified_trace"] = trace_proof
+        result["verification"]["unified_trace_delivered"] = True
+        result["verification"]["unified_trace_agent_span"] = trace_proof["agent_span"]
+        result["verification"]["unified_trace_model_span"] = trace_proof["model_span"]
+        result["verification"]["unified_trace_tool_span"] = trace_proof["tool_span"]
 
         required_checks = (
             "targets_attached",
@@ -784,6 +1077,11 @@ def main() -> int:
             "live_policy_allow",
             "live_policy_deny",
             "authenticated_runtime_invoke_smoke",
+            "transaction_search_ready",
+            "unified_trace_delivered",
+            "unified_trace_agent_span",
+            "unified_trace_model_span",
+            "unified_trace_tool_span",
         )
         missing = [
             check

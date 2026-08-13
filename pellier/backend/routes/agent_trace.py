@@ -402,6 +402,11 @@ def _latest_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
             "rail": "",
             "jwtPassthrough": False,
             "gatewayPassthrough": False,
+            "traceId": None,
+            "runtimeRequestId": None,
+            "sessionId": session_id,
+            "managedTrace": {},
+            "evidenceProvenance": "",
         }
     return {
         "present": trace.get("traceKind") == "managed-runtime-receipt",
@@ -410,6 +415,15 @@ def _latest_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
         "rail": trace.get("rail", ""),
         "jwtPassthrough": bool(trace.get("jwtPassthrough")),
         "gatewayPassthrough": bool(trace.get("gatewayPassthrough")),
+        "traceId": trace.get("traceId"),
+        "runtimeRequestId": trace.get("runtimeRequestId"),
+        "sessionId": trace.get("sessionId") or session_id,
+        "managedTrace": (
+            trace.get("managedTrace")
+            if isinstance(trace.get("managedTrace"), dict)
+            else {}
+        ),
+        "evidenceProvenance": trace.get("evidenceProvenance", ""),
     }
 
 
@@ -823,6 +837,11 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 ),
                 f"JWT passthrough: {managed_receipt.get('jwtPassthrough')}",
                 f"Gateway passthrough: {managed_receipt.get('gatewayPassthrough')}",
+                (
+                    f"Managed trace id: {managed_receipt.get('traceId')}"
+                    if managed_receipt.get("traceId")
+                    else "Managed trace id was not reported on the Runtime response"
+                ),
                 (
                     f"Latest gateway audit row: audit_id {latest_gateway.get('audit_id')}"
                     if latest_gateway

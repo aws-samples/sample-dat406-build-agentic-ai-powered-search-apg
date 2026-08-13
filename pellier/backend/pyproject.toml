@@ -4,12 +4,13 @@ version = "0.1.0"
 description = "Pellier agentic search backend — also the AgentCore Runtime BYO code-location."
 requires-python = ">=3.12"
 
-# Dependencies for the AgentCore Runtime CodeZip build. The pinned CLI uses uv
-# + pyproject.toml, not requirements.txt. Keep this list limited to imports
-# reachable from agentcore_runtime.py: the managed Runtime calls Gateway tools
-# and never imports the database-bound FastAPI application.
+# Dependencies for the AgentCore Runtime CodeZip build. The renderer stages this
+# file with uv.lock; requirements.txt is not part of the managed bundle. Keep the
+# list limited to imports reachable from agentcore_runtime.py: the Runtime calls
+# Gateway tools and never imports the database-bound FastAPI application.
 dependencies = [
     "strands-agents[otel]",
+    "aws-opentelemetry-distro>=0.18.0",
     "mcp>=1.0.0",
     "bedrock-agentcore>=1.4.3",
 ]

@@ -186,6 +186,7 @@ def _store_managed_runtime_receipt(
         "evidenceProvenance": "agentcore-service-telemetry",
         "traceId": trace_id,
         "runtimeRequestId": request_id,
+        "sessionId": session_id,
         "managedTrace": _cloudwatch_trace_links(
             session_id=session_id, trace_id=trace_id, request_id=request_id
         ),

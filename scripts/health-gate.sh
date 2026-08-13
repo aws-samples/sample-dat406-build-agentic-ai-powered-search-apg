@@ -22,7 +22,7 @@
 #   7. AGENTCORE_RUNTIME_ENDPOINT set and enabled
 #   8. AGENTCORE_GATEWAY_URL + ARN set
 #   9. AGENTCORE_POLICY_ENGINE_ID set
-#  10. Provisioning receipt proves targets, Policy, and gateway-mcp Runtime smoke
+#  10. Provisioning receipt proves managed resources, Runtime smoke, and traces
 #
 # In WORKSHOP_FORMAT=governed, all managed AgentCore checks are required because
 # Labs 3 and 4 and the session abstract depend on them. The separate one-hour
@@ -258,14 +258,15 @@ else
 fi
 
 # 10. Structured provisioning receipt. This is stronger than checking env vars:
-# it proves all Gateway targets were attached, Policy attached successfully, and
-# the authenticated Runtime smoke returned through the Gateway MCP rail.
+# it proves all Gateway targets were attached, Policy attached successfully, the
+# authenticated Runtime smoke returned through Gateway MCP, and unified telemetry
+# delivered agent, model, and tool spans to an ACTIVE Transaction Search path.
 managed_receipt="${AGENTCORE_MANAGED_OUTPUT_JSON:-/tmp/pellier-agentcore-managed.json}"
 receipt_validator="$SCRIPT_DIR/validate_agentcore_receipt.py"
 if [[ -f "$managed_receipt" ]] && [[ -f "$receipt_validator" ]] \
     && command -v python3 >/dev/null 2>&1; then
   if receipt_error="$(python3 "$receipt_validator" "$managed_receipt" 2>&1)"; then
-    pass "Managed receipt proves AgentCore CLI resources, 15 live Gateway tools, Policy ALLOW/DENY, and gateway-mcp Runtime smoke"
+    pass "Managed receipt proves AgentCore resources, Policy ALLOW/DENY, gateway-mcp Runtime smoke, and agent/model/tool trace delivery"
   else
     managed_missing "Managed provisioning receipt is incomplete or degraded: ${receipt_error:-unknown contract failure}"
   fi

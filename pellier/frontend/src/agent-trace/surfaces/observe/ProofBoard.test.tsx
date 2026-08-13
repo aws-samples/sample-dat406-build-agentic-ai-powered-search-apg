@@ -31,6 +31,17 @@ const proofBoardPayload = {
     rail: 'gateway-mcp',
     jwtPassthrough: true,
     gatewayPassthrough: true,
+    traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+    runtimeRequestId: 'request-123',
+    sessionId: 'managed-proof',
+    evidenceProvenance: 'agentcore-service-telemetry',
+    managedTrace: {
+      traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+      runtimeRequestId: 'request-123',
+      sessionId: 'managed-proof',
+      xrayConsoleUrl: 'https://console.example/xray',
+      logsConsoleUrl: 'https://console.example/logs',
+    },
     governedReceiptPresent: true,
     latestGovernedReceiptId: 505,
     governedPrincipalId: 'CUST-MARCO',
@@ -136,6 +147,20 @@ describe('ProofBoard', () => {
     );
     expect(screen.getByTestId('governance-receipt-execution')).toHaveTextContent(
       'What actually ran?',
+    );
+    expect(screen.getByTestId('managed-trace-correlation')).toHaveTextContent(
+      '4bf92f3577b34da6a3ce929d0e0e4736',
+    );
+    expect(screen.getByTestId('managed-trace-correlation')).toHaveTextContent(
+      'request-123',
+    );
+    expect(screen.getByRole('link', { name: 'Trace in CloudWatch' })).toHaveAttribute(
+      'href',
+      'https://console.example/xray',
+    );
+    expect(screen.getByRole('link', { name: 'Runtime logs' })).toHaveAttribute(
+      'href',
+      'https://console.example/logs',
     );
     expect(screen.getByTestId('governance-receipt-data')).toHaveTextContent(
       'What reached the system of record?',

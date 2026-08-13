@@ -7,7 +7,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { EditorialTitle, Eyebrow } from '../../components';
 
 type CheckState = 'pass' | 'warn' | 'fail';
@@ -30,6 +30,18 @@ interface ManagedReceipt {
   rail: string;
   jwtPassthrough: boolean;
   gatewayPassthrough: boolean;
+  traceId?: string | null;
+  runtimeRequestId?: string | null;
+  sessionId?: string | null;
+  evidenceProvenance?: string;
+  managedTrace?: {
+    traceId?: string | null;
+    runtimeRequestId?: string | null;
+    sessionId?: string | null;
+    xrayConsoleUrl?: string | null;
+    logsConsoleUrl?: string | null;
+    logsInsightsQuery?: string;
+  };
   policyConfigured?: boolean;
   gatewayAuditPresent?: boolean;
   gatewayAuditAbsenceVerified?: boolean;
@@ -376,7 +388,10 @@ const TraceStep: React.FC<{ label: string; detail: string; state: TraceStepState
   );
 };
 
-const GovernanceReceiptCard: React.FC<{ receipt: GovernanceReceipt }> = ({ receipt }) => {
+const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: GovernanceReceipt }>> = ({
+  receipt,
+  children,
+}) => {
   const tone = TRACE_TONE[receipt.state];
   return (
     <article
@@ -462,7 +477,98 @@ const GovernanceReceiptCard: React.FC<{ receipt: GovernanceReceipt }> = ({ recei
       >
         {receipt.evidence}
       </p>
+      {children}
     </article>
+  );
+};
+
+const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
+  const trace = receipt.managedTrace || {};
+  const traceId = receipt.traceId || trace.traceId;
+  const requestId = receipt.runtimeRequestId || trace.runtimeRequestId;
+  const sessionId = receipt.sessionId || trace.sessionId;
+  const rows = [
+    ['Trace', traceId],
+    ['Runtime request', requestId],
+    ['Session', sessionId],
+    ['Provenance', receipt.evidenceProvenance],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+
+  return (
+    <div
+      data-testid="managed-trace-correlation"
+      style={{
+        borderTop: '1px solid var(--at-card-border)',
+        marginTop: '16px',
+        paddingTop: '14px',
+      }}
+    >
+      <div
+        style={{
+          color: 'var(--at-ink-2)',
+          fontFamily: 'var(--at-heading)',
+          fontSize: '11px',
+          fontWeight: 700,
+          marginBottom: '9px',
+          textTransform: 'uppercase',
+        }}
+      >
+        Managed trace correlation
+      </div>
+      {rows.length > 0 ? (
+        rows.map(([label, value]) => (
+          <div
+            key={label}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '88px minmax(0, 1fr)',
+              gap: '8px',
+              marginTop: '5px',
+            }}
+          >
+            <span style={{ color: 'var(--at-ink-3)', fontSize: '11px' }}>{label}</span>
+            <span
+              className="font-mono"
+              style={{
+                color: 'var(--at-ink-2)',
+                fontSize: '10.5px',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {value}
+            </span>
+          </div>
+        ))
+      ) : (
+        <p style={{ color: 'var(--at-ink-3)', fontSize: '11.5px', margin: 0 }}>
+          Correlation IDs were not reported on the latest Runtime response.
+        </p>
+      )}
+      {(trace.xrayConsoleUrl || trace.logsConsoleUrl) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
+          {trace.xrayConsoleUrl && (
+            <a
+              href={trace.xrayConsoleUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ alignItems: 'center', color: 'var(--at-red-1)', display: 'inline-flex', fontSize: '11.5px', gap: '4px' }}
+            >
+              Trace in CloudWatch <ExternalLink size={12} aria-hidden="true" />
+            </a>
+          )}
+          {trace.logsConsoleUrl && (
+            <a
+              href={trace.logsConsoleUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ alignItems: 'center', color: 'var(--at-red-1)', display: 'inline-flex', fontSize: '11.5px', gap: '4px' }}
+            >
+              Runtime logs <ExternalLink size={12} aria-hidden="true" />
+            </a>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -647,7 +753,9 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
         }}
       >
         {governanceReceipts.map((item) => (
-          <GovernanceReceiptCard key={item.id} receipt={item} />
+          <GovernanceReceiptCard key={item.id} receipt={item}>
+            {item.id === 'execution' ? <ManagedTraceCorrelation receipt={receipt} /> : null}
+          </GovernanceReceiptCard>
         ))}
       </div>
       <details style={{ marginTop: '16px' }}>

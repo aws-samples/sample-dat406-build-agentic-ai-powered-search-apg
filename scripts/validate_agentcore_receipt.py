@@ -31,6 +31,9 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "policy.mode": "ENFORCE",
         "verification.gateway_control_plane.policy_mode": "ENFORCE",
         "memory.seed.status": "ready",
+        "observability.transaction_search.destination": "CloudWatchLogs",
+        "observability.transaction_search.status": "ACTIVE",
+        "observability.unified_trace.provenance": "agentcore-unified-telemetry",
         "verification.runtime_invoke_smoke.rail": "gateway-mcp",
     }
     for path, expected in expected_values.items():
@@ -45,6 +48,12 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "gateway.gateway_arn",
         "gateway.gateway_url",
         "policy.policy_engine_id",
+        "observability.transaction_search.resource_policy",
+        "observability.unified_trace.trace_id",
+        "observability.unified_trace.session_id",
+        "observability.unified_trace.runtime_arn",
+        "observability.unified_trace.runtime_log_group",
+        "verification.runtime_invoke_smoke.session_id",
         "verification.runtime_invoke_smoke.response_preview",
     ):
         actual = _value(payload, path)
@@ -58,6 +67,11 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "verification.live_policy_allow",
         "verification.live_policy_deny",
         "verification.authenticated_runtime_invoke_smoke",
+        "verification.transaction_search_ready",
+        "verification.unified_trace_delivered",
+        "verification.unified_trace_agent_span",
+        "verification.unified_trace_model_span",
+        "verification.unified_trace_tool_span",
     ):
         if _value(payload, path) is not True:
             errors.append(f"{path} must be true")
@@ -95,6 +109,46 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
     ):
         errors.append(
             "verification.gateway_prefixed_tool_names must contain target-prefixed names"
+        )
+
+    span_count = _value(payload, "observability.unified_trace.span_count")
+    if type(span_count) is not int or span_count < 3:
+        errors.append(
+            "observability.unified_trace.span_count must include agent, model, and tool spans"
+        )
+    for path in (
+        "observability.unified_trace.agent_span",
+        "observability.unified_trace.model_span",
+        "observability.unified_trace.tool_span",
+    ):
+        if _value(payload, path) is not True:
+            errors.append(f"{path} must be true")
+
+    for path in (
+        "observability.unified_trace.span_names",
+        "observability.unified_trace.model_ids",
+        "observability.unified_trace.tool_names",
+    ):
+        values = _value(payload, path)
+        if (
+            not isinstance(values, list)
+            or not values
+            or not all(isinstance(value, str) and value for value in values)
+        ):
+            errors.append(f"{path} must contain observed non-empty strings")
+
+    trace_session = _value(payload, "observability.unified_trace.session_id")
+    smoke_session = _value(payload, "verification.runtime_invoke_smoke.session_id")
+    if trace_session != smoke_session:
+        errors.append(
+            "observability.unified_trace.session_id must match "
+            "verification.runtime_invoke_smoke.session_id"
+        )
+    trace_runtime = _value(payload, "observability.unified_trace.runtime_arn")
+    runtime_arn = _value(payload, "runtime.runtime_arn")
+    if trace_runtime != runtime_arn:
+        errors.append(
+            "observability.unified_trace.runtime_arn must match runtime.runtime_arn"
         )
 
     allow = _value(payload, "verification.live_policy_proof.allow")

@@ -170,6 +170,7 @@ def test_managed_receipt_carries_correlation_ids(
 
     assert receipt["traceId"] == "1-65f0a1b2-abcdef0123456789abcdef01"
     assert receipt["runtimeRequestId"] == "req-abc-123"
+    assert receipt["sessionId"] == "sess-b9"
     assert receipt["rail"] == "gateway-mcp"
     assert receipt["managedTrace"]["xrayConsoleUrl"] is not None
     assert "sess-b9" in receipt["managedTrace"]["logsInsightsQuery"]

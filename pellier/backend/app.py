@@ -2186,18 +2186,27 @@ async def get_cache_stats():
 
 @app.get("/api/traces/status")
 async def get_tracing_status():
-    """
-    Get OpenTelemetry tracing status and configuration
-    """
+    """Report only the in-process span capture this API can verify."""
     try:
         from opentelemetry import trace
+        from services import otel_trace_extractor
+
         tracer_provider = trace.get_tracer_provider()
-        
+        enabled = bool(otel_trace_extractor.OTEL_WORKING)
         return {
-            "enabled": tracer_provider is not None,
+            "enabled": enabled,
             "provider_type": type(tracer_provider).__name__,
-            "exporters": ["console"],
-            "note": "Traces automatically captured by Strands SDK"
+            "exporters": ["in-memory"] if enabled else [],
+            "scope": "in-process Strands execution",
+            "reason": (
+                None
+                if enabled
+                else otel_trace_extractor.OTEL_FAILURE_REASON
+            ),
+            "managed_runtime": (
+                "AgentCore unified telemetry is verified separately by the "
+                "managed provisioning receipt."
+            ),
         }
     except Exception as e:
         return {"enabled": False, "error": str(e)}
@@ -2233,23 +2242,37 @@ async def get_trace_waterfall(session_id: Optional[str] = Query(None)):
 
 @app.get("/api/traces/info")
 async def get_tracing_info():
-    """
-    Get OpenTelemetry tracing documentation and setup info
-    """
+    """Describe the verified local trace path without inferring managed state."""
+    from services import otel_trace_extractor
+
+    enabled = bool(otel_trace_extractor.OTEL_WORKING)
     return {
-        "tracing_enabled": True,
+        "tracing_enabled": enabled,
         "sdk": "Strands OpenTelemetry",
         "exporters": {
-            "console": {"enabled": True, "description": "Development traces to console"},
-            "otlp": {"enabled": False, "description": "Export to CloudWatch X-Ray/Jaeger"}
+            "in_memory": {
+                "enabled": enabled,
+                "description": "Local spans used by the Pellier waterfall",
+            },
+            "agentcore_unified": {
+                "enabled": None,
+                "description": (
+                    "Managed Runtime telemetry is proved by the deployment "
+                    "receipt, not inferred by this process."
+                ),
+            },
         },
-        "captured_data": [
-            "Agent invocations and routing",
-            "LLM calls with token usage",
-            "Tool executions with results",
-            "End-to-end latency"
-        ],
-        "visualization": "docker run -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one:latest"
+        "captured_data": (
+            [
+                "Agent invocations and routing",
+                "LLM calls with token usage",
+                "Tool executions with results",
+                "End-to-end latency",
+            ]
+            if enabled
+            else []
+        ),
+        "reason": None if enabled else otel_trace_extractor.OTEL_FAILURE_REASON,
     }
 
 

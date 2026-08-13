@@ -285,6 +285,33 @@ def test_extract_trace_returns_orchestrator_specialist_and_tool_spans(
     )
 
 
+@pytest.mark.asyncio
+async def test_trace_status_reports_only_verified_in_process_capture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app
+    from services import otel_trace_extractor as extractor
+
+    monkeypatch.setattr(extractor, "OTEL_WORKING", False)
+    monkeypatch.setattr(
+        extractor,
+        "OTEL_FAILURE_REASON",
+        "test provider is not SDK-backed",
+    )
+
+    status = await app.get_tracing_status()
+    info = await app.get_tracing_info()
+
+    assert status["enabled"] is False
+    assert status["exporters"] == []
+    assert status["reason"] == "test provider is not SDK-backed"
+    assert "verified separately" in status["managed_runtime"]
+    assert info["tracing_enabled"] is False
+    assert info["exporters"]["in_memory"]["enabled"] is False
+    assert info["exporters"]["agentcore_unified"]["enabled"] is None
+    assert info["captured_data"] == []
+
+
 # ---------------------------------------------------------------------------
 # Requirement 2.5.4 — explicit shape sanity check
 # ---------------------------------------------------------------------------

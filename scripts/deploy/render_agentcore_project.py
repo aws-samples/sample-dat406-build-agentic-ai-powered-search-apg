@@ -51,7 +51,8 @@ def _render_runtime_source(root: Path, backend_dir: Path) -> Path:
     shutil.rmtree(runtime_dir, ignore_errors=True)
     runtime_dir.mkdir(parents=True)
 
-    shutil.copy2(backend_dir / "pyproject.toml", runtime_dir / "pyproject.toml")
+    for dependency_file in ("pyproject.toml", "uv.lock"):
+        shutil.copy2(backend_dir / dependency_file, runtime_dir / dependency_file)
     for relative in RUNTIME_SOURCE_FILES:
         source = backend_dir / relative
         destination = runtime_dir / relative
@@ -159,6 +160,10 @@ def render_project(
                 "envVars": [
                     {"name": "AGENT_MODEL_ID", "value": model_id},
                     {"name": "BEDROCK_ROUTER_MODEL", "value": model_id},
+                    {
+                        "name": "UNIFIED_TRACES_DESTINATION_ENABLED",
+                        "value": "true",
+                    },
                 ],
                 "networkMode": "PUBLIC",
                 "instrumentation": {"enableOtel": True},
