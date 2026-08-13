@@ -17,7 +17,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { TEST_ROUTER_FUTURE_FLAGS } from '../../../test-utils';
 import performanceRaw from '../../fixtures/performance.json';
 import type { PerformanceData } from '../../types';
 
@@ -36,7 +35,7 @@ const data = performanceRaw as unknown as PerformanceData;
 
 function renderSurface() {
   return render(
-    <MemoryRouter future={TEST_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <Performance />
     </MemoryRouter>,
   );

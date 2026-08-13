@@ -19,7 +19,6 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { TEST_ROUTER_FUTURE_FLAGS } from '../test-utils'
 
 // --- Mocks --------------------------------------------------------------
 
@@ -99,7 +98,7 @@ import { DISCOVER_PAGE_COMING_SOON, DISCOVER_PAGE_SIGNED_OUT } from '../copy'
  * wrapper — the test doesn't care about navigation behavior.
  */
 function renderDiscover(ui: ReactElement = <DiscoverPage />) {
-  return render(<MemoryRouter future={TEST_ROUTER_FUTURE_FLAGS}>{ui}</MemoryRouter>)
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
 }
 
 beforeEach(() => {

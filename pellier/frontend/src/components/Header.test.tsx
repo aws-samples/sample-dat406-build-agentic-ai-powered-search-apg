@@ -22,7 +22,6 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { UIProvider } from '../contexts/UIContext'
-import { TEST_ROUTER_FUTURE_FLAGS } from '../test-utils'
 
 // --- Mocks -------------------------------------------------------------
 
@@ -65,7 +64,7 @@ import Header from './Header'
 function renderHeader(ui: ReactElement = <Header />) {
   return render(
     <UIProvider>
-      <MemoryRouter future={TEST_ROUTER_FUTURE_FLAGS}>{ui}</MemoryRouter>
+      <MemoryRouter>{ui}</MemoryRouter>
     </UIProvider>,
   )
 }

@@ -194,13 +194,7 @@ function App() {
             <PersonaTransitionOverlay />
             <CartPanelSlot />
             <ToastSlot />
-            <BrowserRouter
-              basename={routerBasename()}
-              future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true,
-              }}
-            >
+            <BrowserRouter basename={routerBasename()}>
               <ModalRouteGuard />
               <AgentTraceConciergeSlot />
               <ChatDrawer />

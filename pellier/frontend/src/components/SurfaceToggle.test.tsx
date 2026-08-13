@@ -14,11 +14,10 @@ import { describe, expect, it } from 'vitest'
 
 import SurfaceToggle from './SurfaceToggle'
 import { SURFACE_TOGGLE } from '../copy'
-import { TEST_ROUTER_FUTURE_FLAGS } from '../test-utils'
 
 function renderAt(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]} future={TEST_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter initialEntries={[path]}>
       <SurfaceToggle />
     </MemoryRouter>,
   )
