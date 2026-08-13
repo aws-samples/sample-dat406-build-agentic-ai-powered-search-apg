@@ -17,7 +17,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { TEST_ROUTER_FUTURE_FLAGS } from '../../../test-utils';
 import routingRaw from '../../fixtures/routing.json';
 import type { RoutingPattern } from '../../types';
 
@@ -34,7 +33,7 @@ import Routing from './Routing';
 
 const renderRouting = () =>
   render(
-    <MemoryRouter future={TEST_ROUTER_FUTURE_FLAGS}>
+    <MemoryRouter>
       <Routing />
     </MemoryRouter>,
   );

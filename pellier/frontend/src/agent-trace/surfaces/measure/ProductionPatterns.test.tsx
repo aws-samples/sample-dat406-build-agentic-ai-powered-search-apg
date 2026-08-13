@@ -16,7 +16,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { TEST_ROUTER_FUTURE_FLAGS } from '../../../test-utils';
 import productionPatternsRaw from '../../fixtures/production-patterns.json';
 import type { IdentityPattern, ProductionPatternsData } from '../../types';
 
@@ -83,7 +82,7 @@ describe('ProductionPatterns fixture · Identity', () => {
 describe('ProductionPatterns surface · Identity card render', () => {
   it('renders the identity-wiring strip with all 5 steps and their anchors', () => {
     render(
-      <MemoryRouter future={TEST_ROUTER_FUTURE_FLAGS}>
+      <MemoryRouter>
         <ProductionPatterns />
       </MemoryRouter>,
     );
@@ -103,7 +102,7 @@ describe('ProductionPatterns surface · Identity card render', () => {
 
   it('renders both anon and signed-in namespace cards in dash form', () => {
     render(
-      <MemoryRouter future={TEST_ROUTER_FUTURE_FLAGS}>
+      <MemoryRouter>
         <ProductionPatterns />
       </MemoryRouter>,
     );

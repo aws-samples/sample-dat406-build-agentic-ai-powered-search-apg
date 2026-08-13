@@ -778,7 +778,7 @@ const ProofBoard: React.FC = () => {
       <section className="proof-board-masthead">
         <EditorialTitle
           className="proof-board-title"
-          eyebrow="Pellier Labs · evidence workspace"
+          eyebrow="Pellier Labs · evidence"
           title="Inspect evidence, then boundaries."
           summary="Each card connects a system claim to live evidence and keeps a terminal fallback beside the visual proof."
         />

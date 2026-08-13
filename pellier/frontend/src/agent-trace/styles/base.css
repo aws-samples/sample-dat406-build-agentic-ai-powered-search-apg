@@ -336,13 +336,6 @@
   }
 }
 
-@media (max-width: 350px) {
-  .proof-board-title > span {
-    font-size: 10px !important;
-    letter-spacing: 0.15em !important;
-  }
-}
-
 /* -----------------------------------------------------------------------
  * Scrollbar — warm, minimal, matching the cream palette
  * ----------------------------------------------------------------------- */
