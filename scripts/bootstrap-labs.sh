@@ -252,7 +252,7 @@ log "✅ Participant Claude Code guidance installed at $GLOBAL_CLAUDE"
 # STEP 4: VERIFY PYTHON DEPENDENCIES
 # ============================================================================
 # Stage 1 (bootstrap-environment.sh) already installed everything in
-# pellier/backend/requirements.txt. Re-running the install here would
+# pellier/backend/requirements.lock. Re-running the install here would
 # either no-op (best case) or duplicate work without changing the
 # environment. We just verify the critical packages reached
 # /home/$CODE_EDITOR_USER/.local — if Stage 1's pip failed silently,
@@ -263,9 +263,9 @@ if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, boto3, fast
     log "✅ Backend dependencies verified"
 else
     warn "Some backend dependencies are missing — re-running pip install"
-    if [ -f "$REPO_PATH/pellier/backend/requirements.txt" ]; then
+    if [ -f "$REPO_PATH/pellier/backend/requirements.lock" ]; then
         sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user \
-            -r "$REPO_PATH/pellier/backend/requirements.txt" 2>&1 \
+            --require-hashes -r "$REPO_PATH/pellier/backend/requirements.lock" 2>&1 \
             | tee -a /var/log/pellier-pip-install.log >/dev/null
         if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
             log "✅ Backend dependencies recovered"

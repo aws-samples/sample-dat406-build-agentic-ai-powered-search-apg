@@ -48,12 +48,32 @@ const STEPS: SpotlightStep[] = [
 ]
 
 const FINAL_CTA = 'Get started'
+const SPOTLIGHT_SEEN_KEY = 'pellier-labs-spotlight-seen'
+
+function hasSeenSpotlight(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return window.sessionStorage.getItem(SPOTLIGHT_SEEN_KEY) === 'true'
+  } catch {
+    return true
+  }
+}
+
+function markSpotlightSeen(): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(SPOTLIGHT_SEEN_KEY, 'true')
+  } catch {
+    /* noop */
+  }
+}
 
 export default function AgentTraceSpotlight() {
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(() => !hasSeenSpotlight())
   const [step, setStep] = useState(0)
 
   const dismiss = useCallback(() => {
+    markSpotlightSeen()
     setVisible(false)
   }, [])
 

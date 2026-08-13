@@ -5,9 +5,9 @@
  * Terms/Accessibility bottom strip) was frozen around placeholder
  * links. This rewrite replaces it with a living spec:
  *
- *   - Four sections only: Brand, Explore, Storyboard, Agent Trace.
+ *   - Four sections only: Brand, Explore, Storyboard, Pellier Labs.
  *   - Every Explore link points at a real router route.
- *   - Storyboard + Agent Trace each carry an italic blurb and a single
+ *   - Storyboard + Pellier Labs each carry an italic blurb and a single
  *     call-to-action link to `/storyboard` / `/agent-trace`.
  *   - Bottom strip shows the copyright line and a signature tag.
  *     No placeholder Privacy/Terms/Accessibility links.
@@ -65,7 +65,7 @@ describe('Footer — four live columns', () => {
     expect(cta).toHaveTextContent(FOOTER.STORYBOARD.CTA_LABEL)
   })
 
-  it('renders Agent Trace column with italic blurb + "Open the Agent Trace" CTA linking to /agent-trace', () => {
+  it('renders Pellier Labs column with italic blurb + "Open Pellier Labs" CTA linking to /agent-trace', () => {
     renderFooter()
     const col = screen.getByTestId('footer-column-agent-trace')
     expect(within(col).getByText(FOOTER.AGENT_TRACE.COPY)).toBeInTheDocument()

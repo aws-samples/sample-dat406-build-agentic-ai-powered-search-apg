@@ -9,9 +9,11 @@
  * These tests assert the components are referenced by the pages that own
  * them, and that the session gate still suppresses a repeat showing.
  */
+import { render } from '@testing-library/react';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import BoutiqueSpotlight from '../BoutiqueSpotlight';
 
 const SRC = resolve(__dirname, '../..');
 
@@ -61,10 +63,7 @@ describe('spotlight session gate', () => {
     window.sessionStorage.clear();
   });
 
-  it('a dismissed spotlight stays dismissed within the session', async () => {
-    const { default: BoutiqueSpotlight } = await import('../BoutiqueSpotlight');
-    const { render } = await import('@testing-library/react');
-
+  it('a dismissed spotlight stays dismissed within the session', () => {
     // Seed the gate as already-seen, mirroring a prior dismissal.
     const source = read('components/BoutiqueSpotlight.tsx');
     const keyMatch = source.match(/SPOTLIGHT_SEEN_KEY\s*=\s*['"]([^'"]+)['"]/);

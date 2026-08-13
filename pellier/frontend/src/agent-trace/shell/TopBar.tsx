@@ -1,17 +1,15 @@
 /**
- * TopBar — Horizontal bar above the Agent Trace canvas.
+ * TopBar — Horizontal bar above the Pellier Labs canvas.
  *
- * Contains the SurfaceToggle (reused from existing component),
- * a BreadcrumbTrail derived from the current route, live status
- * metadata, and the persona avatar.
+ * Contains a persistent return to Pellier, a BreadcrumbTrail derived from the
+ * current route, live status metadata, and the persona avatar.
  *
  * Requirements: 1.9, 1.10, 1.11, 1.12
  */
 
 import React, { useMemo, useState } from 'react';
-import { Menu, X } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
-import SurfaceToggle from '../../components/SurfaceToggle';
+import { ArrowLeft, Menu, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import PersonaModal from '../../components/PersonaModal';
 import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { usePersona } from '../../contexts/PersonaContext';
@@ -106,6 +104,31 @@ const TopBar: React.FC<TopBarProps> = ({ navOpen = false, onToggleNav }) => {
           minHeight: '52px',
         }}
       >
+        <Link
+          to="/"
+          data-testid="back-to-pellier"
+          aria-label="Back to Pellier"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            minHeight: '36px',
+            padding: '0 12px',
+            border: '1px solid var(--at-rule-1)',
+            borderRadius: '4px',
+            background: 'var(--at-cream-2)',
+            color: 'var(--at-ink-1)',
+            fontFamily: 'var(--at-sans)',
+            fontSize: '13px',
+            fontWeight: 600,
+            textDecoration: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
+          <span>Back to Pellier</span>
+        </Link>
+
         {/* Navigation drawer toggle. CSS hides it at widths where the rail
             is already visible, so it never duplicates present navigation. */}
         {onToggleNav && (
@@ -131,9 +154,6 @@ const TopBar: React.FC<TopBarProps> = ({ navOpen = false, onToggleNav }) => {
             {navOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         )}
-
-        {/* Surface toggle */}
-        <SurfaceToggle />
 
         {/* Breadcrumb trail */}
         <BreadcrumbTrail segments={breadcrumbs} />

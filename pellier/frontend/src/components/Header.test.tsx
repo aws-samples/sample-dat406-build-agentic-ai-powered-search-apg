@@ -14,10 +14,9 @@
  * test stays focused on the Header's behavior without pulling in the full
  * workshop chrome.
  *
- * Header internally renders a SurfaceToggle with `<Link>` from
- * react-router-dom, so every render wraps in a `<MemoryRouter>`.
+ * Header renders route links, so every render wraps in a `<MemoryRouter>`.
  */
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
@@ -143,6 +142,21 @@ describe('Header — nav items', () => {
     const wordmarkWrapper = screen.getByTestId('wordmark-wrapper')
     expect(wordmarkWrapper.className).not.toMatch(/\bhidden\b/)
   })
+
+  it('links directly to Pellier Labs without repeating the storefront name', () => {
+    renderHeader()
+    const labsLink = screen.getByTestId('pellier-labs-link')
+    expect(labsLink).toHaveTextContent('Pellier Labs')
+    expect(labsLink).toHaveAttribute('href', '/agent-trace')
+  })
+
+  it('includes Pellier Labs in the mobile navigation', () => {
+    renderHeader()
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
+    const labsLink = screen.getByTestId('pellier-labs-link-mobile')
+    expect(labsLink).toHaveTextContent('Pellier Labs')
+    expect(labsLink).toHaveAttribute('href', '/agent-trace')
+  })
 })
 
 describe('Header — Persona Avatar dropdown', () => {
@@ -189,14 +203,16 @@ describe('Header — Persona Avatar dropdown', () => {
     expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
   })
 
-  it('closes dropdown on outside click (Req 5.5)', () => {
+  it('closes dropdown on outside click (Req 5.5)', async () => {
     mockPersona = null
     renderHeader()
     fireEvent.click(screen.getByTestId('persona-pill'))
     expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
 
     // Click outside the dropdown
-    fireEvent.mouseDown(document.body)
+    await act(async () => {
+      fireEvent.mouseDown(document.body)
+    })
     expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
   })
 })

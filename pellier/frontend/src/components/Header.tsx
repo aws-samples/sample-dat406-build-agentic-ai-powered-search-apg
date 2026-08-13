@@ -4,8 +4,8 @@
  * Centered "Pellier" wordmark — Fraunces (`font-display`) + circular P
  * chip; word one step above footer (`text-2xl` vs `text-xl`). Four left
  * nav items (Shop, Stories, Ask Pellier, About), and right cluster: search
- * IconButton, persona Avatar dropdown, wishlist heart IconButton, bag
- * IconButton with count badge, and the Boutique ↔ Agent Trace surface toggle.
+ * IconButton, persona Avatar dropdown, bag IconButton with count badge, and
+ * a direct link to Pellier Labs.
  *
  * The persona Avatar dropdown replaces the old PersonaPill + PersonaModal
  * pattern. It calls `switchPersona` and `signOut` directly from `usePersona()`.
@@ -28,13 +28,14 @@ import { LOCAL_PERSONAS } from '../data/personas'
 import { IconButton } from '../design/primitives'
 import {
   Search,
-  Heart,
   ShoppingBag,
   User as UserIcon,
   ChevronDown,
   LogOut,
+  Menu,
+  X,
+  FlaskConical,
 } from 'lucide-react'
-import SurfaceToggle from './SurfaceToggle'
 
 // Keep old NavItem values for backward compatibility with consuming pages,
 // plus new values for the redesigned nav.
@@ -121,6 +122,34 @@ function NavLink({ item, label, current, onClick }: NavLinkProps) {
     >
       {label}
     </button>
+  )
+}
+
+function PellierLabsLink({
+  mobile = false,
+  onClick,
+}: {
+  mobile?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <Link
+      to="/agent-trace"
+      data-testid={mobile ? 'pellier-labs-link-mobile' : 'pellier-labs-link'}
+      onClick={onClick}
+      className={[
+        'items-center gap-2 text-[13px] font-medium text-espresso',
+        'transition-colors duration-fade ease-out hover:text-accent',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
+        mobile
+          ? 'flex w-full px-1 py-2'
+          : 'inline-flex min-h-9 border-l border-sand pl-3',
+      ].join(' ')}
+      style={{ fontFamily: 'var(--sans)' }}
+    >
+      <FlaskConical className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+      <span>Pellier Labs</span>
+    </Link>
   )
 }
 
@@ -354,9 +383,10 @@ export default function Header({
   current = 'home',
   onNavigate,
 }: HeaderProps) {
-  const { items: cartItems, setCartOpen, notify } = useCart()
+  const { items: cartItems, setCartOpen } = useCart()
   const { openModal } = useUI()
   const { persona } = usePersona()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
   const navItems = persona
     ? NAV_ITEMS
@@ -370,12 +400,22 @@ export default function Header({
     openModal('drawer')
   }, [persona, openModal])
 
-  // Wishlist isn't wired to a real store (demo scope). Fire a warm
-  // toast acknowledging the interaction instead of navigating to a
-  // dead route. Honest, non-blocking, matches the Add-to-bag pattern.
-  const handleWishlistClick = useCallback(() => {
-    notify('Wishlist is coming soon — ask Pellier to hold something for you.')
-  }, [notify])
+  const handleNavigate = useCallback(
+    (item: NavItem) => {
+      setMobileMenuOpen(false)
+      onNavigate?.(item)
+    },
+    [onNavigate],
+  )
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mobileMenuOpen])
 
   return (
     <header
@@ -398,13 +438,10 @@ export default function Header({
          *   1fr  | auto | 1fr
          *   left | mark | right
          *
-         * The center column hugs the wordmark's intrinsic width; the
-         * 1fr left/right columns split remaining space evenly so the
-         * wordmark stays visually centered without overlapping either
-         * cluster (the previous absolute-positioned approach collided
-         * with "About" + the persona pill at narrower desktop widths).
+         * The center column hugs the wordmark's intrinsic width; the 1fr
+         * left/right columns split remaining space evenly at desktop widths.
          */}
-        <div className="h-full max-w-[1440px] mx-auto grid grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[1fr_auto_1fr] items-center gap-3 lg:gap-5">
+        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-3 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-5">
           {/* Left: four text nav items */}
           <div className="hidden lg:flex items-center gap-5 min-w-0">
             {navItems.map(({ item, label }) => (
@@ -413,7 +450,7 @@ export default function Header({
                 item={item}
                 label={label}
                 current={current}
-                onClick={onNavigate}
+                onClick={handleNavigate}
               />
             ))}
           </div>
@@ -438,15 +475,6 @@ export default function Header({
 
             <PersonaDropdown />
 
-            <div className="hidden xl:block">
-              <IconButton
-                icon={<Heart className="w-5 h-5" />}
-                ariaLabel="Wishlist"
-                onClick={handleWishlistClick}
-                size="md"
-              />
-            </div>
-
             <div className="relative">
               <IconButton
                 icon={<ShoppingBag className="w-5 h-5" />}
@@ -464,16 +492,55 @@ export default function Header({
               )}
             </div>
 
-            {/* Always visible. SurfaceToggle's own docstring calls this the
-                single most important navigation decision on either page, and
-                `hidden md:block` removed it below 768px — the exact widths
-                where an attendee most needs a way back to the evidence
-                surface. */}
-            <div className="ml-1">
-              <SurfaceToggle />
+            <div className="hidden lg:block ml-1">
+              <PellierLabsLink />
             </div>
+
+            <IconButton
+              icon={
+                mobileMenuOpen ? (
+                  <X className="h-5 w-5" />
+                ) : (
+                  <Menu className="h-5 w-5" />
+                )
+              }
+              ariaLabel={
+                mobileMenuOpen ? 'Close navigation' : 'Open navigation'
+              }
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              size="md"
+              className="lg:hidden"
+            />
           </div>
         </div>
+
+        {mobileMenuOpen ? (
+          <div
+            data-testid="mobile-menu"
+            className="
+              absolute left-0 right-0 top-full border-b border-sand
+              bg-cream px-4 py-3 shadow-warm-md lg:hidden
+            "
+          >
+            <div className="grid gap-1">
+              {navItems.map(({ item, label }) => (
+                <NavLink
+                  key={item}
+                  item={item}
+                  label={label}
+                  current={current}
+                  onClick={handleNavigate}
+                />
+              ))}
+            </div>
+            <div className="mt-3 border-t border-sand pt-3">
+              <PellierLabsLink
+                mobile
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            </div>
+          </div>
+        ) : null}
       </nav>
     </header>
   )

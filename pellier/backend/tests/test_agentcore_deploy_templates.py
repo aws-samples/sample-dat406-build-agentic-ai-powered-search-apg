@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -114,6 +115,13 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
     assert runtime["entrypoint"] == "agentcore_runtime.py"
     assert runtime["runtimeVersion"] == "PYTHON_3_12"
     assert runtime["protocol"] == "HTTP"
+    assert runtime["networkMode"] == "PUBLIC"
+    assert runtime["tags"]["PellierDeploymentClass"] == "workshop"
+    assert (
+        runtime["tags"]["PellierRuntimeExposure"]
+        == renderer.WORKSHOP_RUNTIME_EXPOSURE
+    )
+    assert "workshop-only public runtime" in runtime["description"]
     assert runtime["requestHeaderAllowlist"] == ["Authorization"]
     assert runtime["authorizerType"] == "CUSTOM_JWT"
     assert "executionRoleArn" not in runtime
@@ -245,6 +253,84 @@ def test_deployed_state_rejects_obsolete_flat_gateway_shape() -> None:
 
     with pytest.raises(RuntimeError, match=r"mcp\.gateways\.pellier-gateway"):
         provisioner._require_gateway_state(state, renderer.GATEWAY_NAME)
+
+
+def test_cloudtrail_audit_receipt_is_recent_correlated_and_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provisioner = _load_provisioner()
+    deployment_started_at = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
+    requested: dict[str, Any] = {}
+
+    class _Paginator:
+        def paginate(self, **kwargs: Any) -> list[dict[str, list[dict[str, Any]]]]:
+            requested.update(kwargs)
+            return [
+                {
+                    "Events": [
+                        {
+                            "EventSource": "bedrock-agentcore.amazonaws.com",
+                            "EventName": "CreateAgentRuntime",
+                            "EventTime": deployment_started_at,
+                            "CloudTrailEvent": json.dumps(
+                                {
+                                    "requestParameters": {
+                                        "agentRuntimeName": renderer.RUNTIME_NAME
+                                    },
+                                    "responseElements": {
+                                        "agentRuntimeArn": (
+                                            "arn:aws:bedrock-agentcore:us-east-1:"
+                                            "123456789012:runtime/pellier-runtime"
+                                        )
+                                    },
+                                    "userIdentity": {
+                                        "arn": "must-not-appear-in-receipt"
+                                    },
+                                }
+                            ),
+                        }
+                    ]
+                }
+            ]
+
+    class _CloudTrail:
+        def get_paginator(self, name: str) -> _Paginator:
+            assert name == "lookup_events"
+            return _Paginator()
+
+    monkeypatch.setattr(
+        provisioner.boto3,
+        "client",
+        lambda service, **_: _CloudTrail() if service == "cloudtrail" else None,
+    )
+
+    proof = provisioner._verify_agentcore_control_plane_audit(
+        region="us-east-1",
+        deployment_started_at=deployment_started_at,
+        runtime_arn=(
+            "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+            "runtime/pellier-runtime"
+        ),
+        gateway_arn="arn:aws:bedrock-agentcore:us-east-1:123456789012:gateway/gateway",
+        memory_id="memory-123",
+        policy_engine_id="policy-123",
+    )
+
+    assert requested["LookupAttributes"] == [
+        {
+            "AttributeKey": "EventSource",
+            "AttributeValue": "bedrock-agentcore.amazonaws.com",
+        }
+    ]
+    assert proof == {
+        "source": "CloudTrail Event History",
+        "event_source": "bedrock-agentcore.amazonaws.com",
+        "event_name": "CreateAgentRuntime",
+        "event_time": "2026-08-13T12:00:00Z",
+        "resource_type": "runtime",
+    }
+    assert "userIdentity" not in proof
+    assert "must-not-appear-in-receipt" not in json.dumps(proof)
 
 
 def test_transaction_search_setup_is_scoped_and_requires_active_destination(

@@ -27,6 +27,7 @@ GATEWAY_NAME = "pellier-gateway"
 POLICY_ENGINE_NAME = "pellier_policy_engine"
 EXPERIENCE_TARGET = "pellier-concierge-experience-target"
 PROCESS_RETURN_ACTION = f"{EXPERIENCE_TARGET}___process_return"
+WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
 RUNTIME_SOURCE_FILES = (
     Path("agentcore_runtime.py"),
     Path("services/__init__.py"),
@@ -126,6 +127,8 @@ def render_project(
     tags = {
         "Project": "pellier",
         "PellierWorkshopId": workshop_id,
+        "PellierDeploymentClass": "workshop",
+        "PellierRuntimeExposure": WORKSHOP_RUNTIME_EXPOSURE,
     }
 
     targets: list[dict[str, Any]] = []
@@ -152,7 +155,10 @@ def render_project(
         "runtimes": [
             {
                 "name": RUNTIME_NAME,
-                "description": "Pellier governed dispatcher",
+                "description": (
+                    "Pellier governed dispatcher "
+                    "(workshop-only public runtime; not production-ready)"
+                ),
                 "build": "CodeZip",
                 "entrypoint": "agentcore_runtime.py",
                 "codeLocation": str(runtime_dir),

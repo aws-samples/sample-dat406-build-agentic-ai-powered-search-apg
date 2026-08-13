@@ -66,17 +66,6 @@ export const NAV = {
   WORDMARK: "Pellier",
 } as const;
 
-// Global surface toggle (Header). Replaces the standalone Workshop
-// link with a segmented control that flips between the shopper-facing
-// storefront and the operator-facing /agent-trace surface. Labels
-// pair the shopper surface (Pellier) with the technical workbench
-// behind it (Pellier Labs) instead of operator jargon.
-export const SURFACE_TOGGLE = {
-  ARIA_LABEL: "Switch surface",
-  STOREFRONT: "Pellier",
-  AGENT_TRACE: "Pellier Labs",
-} as const;
-
 // Account button labels (Requirement 1.2.2, 1.2.3)
 export const ACCOUNT_LABEL_SIGNED_OUT = "Account";
 export const accountLabelSignedIn = (givenName: string): string =>
@@ -387,7 +376,7 @@ export const ABOUT_BRIEF = {
 // dozen links, a newsletter form, and a bottom strip. Every one of
 // those links was a stub. Replaced with three columns pointing at
 // routes that actually exist: Explore (the three real storefront
-// routes), Storyboard (editorial entry), Agent Trace (the workshop).
+// routes), Storyboard (editorial entry), Pellier Labs (the workshop).
 // Fewer promises, every promise kept.
 export const FOOTER = {
   BRAND: {
@@ -408,9 +397,9 @@ export const FOOTER = {
     CTA_HREF: "/storyboard",
   },
   AGENT_TRACE: {
-    HEADING: "Workroom",
-    COPY: "A behind-the-scenes look at how the Pellier experience is assembled.",
-    CTA_LABEL: "See the workroom",
+    HEADING: "Pellier Labs",
+    COPY: "Inspect the routing, retrieval, tools, memory, and evidence behind each workshop turn.",
+    CTA_LABEL: "Open Pellier Labs",
     CTA_HREF: "/agent-trace",
   },
   BOTTOM_STRIP: {

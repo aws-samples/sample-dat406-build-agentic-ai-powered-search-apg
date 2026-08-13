@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,9 @@ AWS_CONFIG = Config(
 TRANSACTION_SEARCH_POLICY = "TransactionSearchXRayAccess"
 RUNTIME_SMOKE_SESSION = "builders-smoke-session-0000000000000001"
 TRACE_DELIVERY_TIMEOUT_SECONDS = 240
+CLOUDTRAIL_AUDIT_TIMEOUT_SECONDS = 300
+CLOUDTRAIL_AUDIT_LOOKBACK_SECONDS = 60
+CLOUDTRAIL_AGENTCORE_EVENT_SOURCE = "bedrock-agentcore.amazonaws.com"
 _RUNTIME_LOG_RETENTION_DAYS = frozenset(
     {
         1,
@@ -651,6 +655,112 @@ def _verify_gateway_control_plane(
     }
 
 
+def _as_utc(value: Any) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _cloudtrail_resource_type(
+    event: dict[str, Any],
+    *,
+    expected_resources: dict[str, str],
+) -> str | None:
+    """Correlate an Event History entry without retaining its request payload."""
+    cloudtrail_event = event.get("CloudTrailEvent")
+    try:
+        payload = json.loads(cloudtrail_event) if isinstance(cloudtrail_event, str) else {}
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    resource_data = {
+        "resources": event.get("Resources", []),
+        "requestParameters": payload.get("requestParameters"),
+        "responseElements": payload.get("responseElements"),
+    }
+    searchable = json.dumps(resource_data, sort_keys=True, default=str)
+    for resource_type, identifier in expected_resources.items():
+        if identifier and identifier in searchable:
+            return resource_type
+    return None
+
+
+def _verify_agentcore_control_plane_audit(
+    *,
+    region: str,
+    deployment_started_at: datetime,
+    runtime_arn: str,
+    gateway_arn: str,
+    memory_id: str,
+    policy_engine_id: str,
+) -> dict[str, str]:
+    """Require a recent, correlated AgentCore management event in Event History.
+
+    CloudTrail Event History keeps management events for 90 days without a
+    separately configured trail. The receipt retains only safe proof metadata:
+    never the CloudTrail user identity, source address, or request contents.
+    """
+    cloudtrail = boto3.client("cloudtrail", region_name=region, config=AWS_CONFIG)
+    started_at = _as_utc(deployment_started_at)
+    if started_at is None:
+        raise RuntimeError("AgentCore deployment start time must be timezone-aware")
+    search_start = started_at - timedelta(seconds=CLOUDTRAIL_AUDIT_LOOKBACK_SECONDS)
+    expected_resources = {
+        "runtime": runtime_arn,
+        "gateway": gateway_arn,
+        "memory": memory_id,
+        "policy_engine": policy_engine_id,
+    }
+    deadline = time.monotonic() + CLOUDTRAIL_AUDIT_TIMEOUT_SECONDS
+
+    while time.monotonic() < deadline:
+        paginator = cloudtrail.get_paginator("lookup_events")
+        for page in paginator.paginate(
+            LookupAttributes=[
+                {
+                    "AttributeKey": "EventSource",
+                    "AttributeValue": CLOUDTRAIL_AGENTCORE_EVENT_SOURCE,
+                }
+            ],
+            StartTime=search_start,
+            PaginationConfig={"PageSize": 50},
+        ):
+            for event in page.get("Events", []):
+                if not isinstance(event, dict):
+                    continue
+                event_time = _as_utc(event.get("EventTime"))
+                if event_time is None or event_time < search_start:
+                    continue
+                if event.get("EventSource") != CLOUDTRAIL_AGENTCORE_EVENT_SOURCE:
+                    continue
+                resource_type = _cloudtrail_resource_type(
+                    event,
+                    expected_resources=expected_resources,
+                )
+                if resource_type is None:
+                    continue
+                event_name = str(event.get("EventName", "")).strip()
+                if not event_name:
+                    continue
+                return {
+                    "source": "CloudTrail Event History",
+                    "event_source": CLOUDTRAIL_AGENTCORE_EVENT_SOURCE,
+                    "event_name": event_name,
+                    "event_time": event_time.isoformat().replace("+00:00", "Z"),
+                    "resource_type": resource_type,
+                }
+        time.sleep(10)
+
+    raise RuntimeError(
+        "CloudTrail Event History did not contain a recent AgentCore management "
+        "event correlated to this deployment"
+    )
+
+
 def _discover_live_gateway_tools(
     *,
     deploy_dir: Path,
@@ -1200,6 +1310,7 @@ def main() -> int:
         )
         result["observability"]["transaction_search"] = transaction_search
         result["verification"]["transaction_search_ready"] = True
+        agentcore_deployment_started_at = datetime.now(timezone.utc)
         root, state = _deploy_cli_project(
             repo=repo,
             account_id=account_id,
@@ -1227,6 +1338,17 @@ def main() -> int:
         policy_engine_id = str(policy_state["policyEngineId"])
         if not gateway_url:
             raise RuntimeError("AgentCore CLI state did not include Gateway URL")
+
+        control_plane_audit = _verify_agentcore_control_plane_audit(
+            region=region,
+            deployment_started_at=agentcore_deployment_started_at,
+            runtime_arn=runtime_arn,
+            gateway_arn=gateway_arn,
+            memory_id=memory_id,
+            policy_engine_id=policy_engine_id,
+        )
+        result["observability"]["control_plane_audit"] = control_plane_audit
+        result["verification"]["control_plane_audit_verified"] = True
 
         result["runtime"] = {
             "runtime_arn": runtime_arn,
@@ -1356,6 +1478,7 @@ def main() -> int:
             "live_policy_deny",
             "authenticated_runtime_invoke_smoke",
             "transaction_search_ready",
+            "control_plane_audit_verified",
             "runtime_log_group_encrypted",
             "runtime_log_group_retention_bounded",
             "unified_trace_delivered",

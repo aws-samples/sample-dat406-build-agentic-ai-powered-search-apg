@@ -1,0 +1,103 @@
+# Live managed-path rehearsal. This is intentionally manual and protected:
+# configure the "agentcore-rehearsal" GitHub Environment with required reviewers
+# before enabling it for a shared AWS account.
+#
+# The job fails closed when its dedicated rehearsal secrets are absent. It never
+# falls back to a sample account, a public endpoint, or a fake receipt.
+
+name: agentcore-rehearsal
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: agentcore-rehearsal-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rehearsal:
+    name: Live AgentCore managed-path rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: agentcore-rehearsal
+    env:
+      AWS_REGION: ${{ secrets.AGENTCORE_REHEARSAL_AWS_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AGENTCORE_REHEARSAL_AWS_REGION }}
+      AWS_ROLE_ARN: ${{ secrets.AGENTCORE_REHEARSAL_AWS_ROLE_ARN }}
+      DB_CLUSTER_ARN: ${{ secrets.AGENTCORE_REHEARSAL_DB_CLUSTER_ARN }}
+      DB_SECRET_ARN: ${{ secrets.AGENTCORE_REHEARSAL_DB_SECRET_ARN }}
+      COGNITO_POOL: ${{ secrets.AGENTCORE_REHEARSAL_COGNITO_POOL }}
+      COGNITO_CLIENT: ${{ secrets.AGENTCORE_REHEARSAL_COGNITO_CLIENT }}
+      COGNITO_TEST_CREDENTIALS_SECRET_ARN: ${{ secrets.AGENTCORE_REHEARSAL_TEST_CREDENTIALS_SECRET_ARN }}
+      COGNITO_CLIENT_SECRET_ARN: ${{ secrets.AGENTCORE_REHEARSAL_COGNITO_CLIENT_SECRET_ARN }}
+      WORKSHOP_ID: ${{ secrets.AGENTCORE_REHEARSAL_WORKSHOP_ID }}
+      AGENT_MODEL_ID: ${{ secrets.AGENTCORE_REHEARSAL_MODEL_ID }}
+      AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN: ${{ secrets.AGENTCORE_REHEARSAL_RUNTIME_LOG_KMS_KEY_ARN }}
+      AGENTCORE_RUNTIME_LOG_RETENTION_DAYS: "30"
+      AGENTCORE_MANAGED_OUTPUT_JSON: /tmp/pellier-agentcore-managed.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Require dedicated rehearsal configuration
+        shell: bash
+        run: |
+          missing=()
+          for name in \
+            AWS_REGION \
+            AWS_ROLE_ARN \
+            DB_CLUSTER_ARN \
+            DB_SECRET_ARN \
+            COGNITO_POOL \
+            COGNITO_CLIENT \
+            COGNITO_TEST_CREDENTIALS_SECRET_ARN \
+            WORKSHOP_ID \
+            AGENT_MODEL_ID \
+            AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Missing required AgentCore rehearsal secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install locked backend dependencies
+        working-directory: pellier/backend
+        run: python -m pip install --require-hashes -r requirements.lock
+
+      - name: Provision and prove the managed path
+        run: |
+          python scripts/provision_agentcore_end_to_end.py \
+            --repo-path "$GITHUB_WORKSPACE" \
+            --output-json "$AGENTCORE_MANAGED_OUTPUT_JSON"
+
+      - name: Upload managed readiness receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentcore-managed-readiness-receipt
+          path: /tmp/pellier-agentcore-managed.json
+          if-no-files-found: warn

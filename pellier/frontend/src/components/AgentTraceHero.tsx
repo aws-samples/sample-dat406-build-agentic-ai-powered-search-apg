@@ -5,12 +5,12 @@
  * epigraph) so the two surfaces read as siblings rather than a
  * boutique paired with a developer dashboard.
  */
-import { SURFACE_TOGGLE } from '../copy'
 import { cssVar as c } from '../design/cssVars'
 
+const PELLIER_LABS_LABEL = 'Pellier Labs'
 
 export default function AgentTraceHero({ editionNumber = 6 }: { editionNumber?: number }) {
-  const label = `${SURFACE_TOGGLE.AGENT_TRACE.toUpperCase()} · NO. ${String(editionNumber).padStart(
+  const label = `${PELLIER_LABS_LABEL.toUpperCase()} · NO. ${String(editionNumber).padStart(
     2,
     '0',
   )}`

@@ -116,6 +116,13 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "status": "ACTIVE",
                 "resource_policy": "TransactionSearchXRayAccess",
             },
+            "control_plane_audit": {
+                "source": "CloudTrail Event History",
+                "event_source": "bedrock-agentcore.amazonaws.com",
+                "event_name": "CreateAgentRuntime",
+                "event_time": "2026-08-13T12:00:00Z",
+                "resource_type": "runtime",
+            },
             "runtime_log_group": {
                 "name": "/aws/bedrock-agentcore/runtimes/pellier_orchestrator-abc123-DEFAULT",
                 "kms_key_arn": (
@@ -190,6 +197,7 @@ def _valid_managed_receipt() -> dict[str, object]:
             },
             "authenticated_runtime_invoke_smoke": True,
             "transaction_search_ready": True,
+            "control_plane_audit_verified": True,
             "runtime_log_group_encrypted": True,
             "runtime_log_group_retention_bounded": True,
             "unified_trace_delivered": True,

@@ -33,6 +33,10 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "memory.seed.status": "ready",
         "observability.transaction_search.destination": "CloudWatchLogs",
         "observability.transaction_search.status": "ACTIVE",
+        "observability.control_plane_audit.source": "CloudTrail Event History",
+        "observability.control_plane_audit.event_source": (
+            "bedrock-agentcore.amazonaws.com"
+        ),
         "observability.unified_trace.provenance": "agentcore-unified-telemetry",
         "verification.runtime_invoke_smoke.rail": "gateway-mcp",
     }
@@ -49,6 +53,9 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "gateway.gateway_url",
         "policy.policy_engine_id",
         "observability.transaction_search.resource_policy",
+        "observability.control_plane_audit.event_name",
+        "observability.control_plane_audit.event_time",
+        "observability.control_plane_audit.resource_type",
         "observability.runtime_log_group.name",
         "observability.runtime_log_group.kms_key_arn",
         "observability.unified_trace.trace_id",
@@ -70,6 +77,7 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "verification.live_policy_deny",
         "verification.authenticated_runtime_invoke_smoke",
         "verification.transaction_search_ready",
+        "verification.control_plane_audit_verified",
         "verification.runtime_log_group_encrypted",
         "verification.runtime_log_group_retention_bounded",
         "verification.unified_trace_delivered",

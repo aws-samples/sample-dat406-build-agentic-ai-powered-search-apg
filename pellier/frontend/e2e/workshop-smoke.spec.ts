@@ -37,6 +37,9 @@ async function clearBrowserState(page: import('@playwright/test').Page) {
 }
 
 async function signInAsMarco(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('pellier-storefront-spotlight-seen', 'true');
+  });
   await page.goto(BASE_URL, { waitUntil: 'networkidle' });
   await clearBrowserState(page);
   await page.reload({ waitUntil: 'networkidle' });
@@ -72,6 +75,24 @@ test.describe('Workshop production build smoke', () => {
     expect(errors, `console errors: ${errors.join('\n')}`).toHaveLength(0);
   });
 
+  test('Pellier Labs has a direct storefront entry and an explicit return', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem('pellier-storefront-spotlight-seen', 'true');
+      sessionStorage.setItem('pellier-labs-spotlight-seen', 'true');
+    });
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+
+    await page.getByTestId('pellier-labs-link').click();
+    await expect(page).toHaveURL(/\/agent-trace(?:\/|$)/);
+    await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
+
+    await page.getByTestId('back-to-pellier').click();
+    await expect(page).toHaveURL(new URL('/', BASE_URL).toString());
+    await expect(page.getByTestId('wordmark')).toBeVisible();
+  });
+
   test('fonts are self-hosted (no fonts.gstatic.com requests)', async ({
     page,
   }) => {
@@ -93,7 +114,7 @@ test.describe('Workshop production build smoke', () => {
   test('persona sign-in updates the storefront to Marco', async ({ page }) => {
     await signInAsMarco(page);
     await expect(page.getByTestId('persona-pill')).toContainText(/Marco/i);
-    const heroPills = page.getByTestId('boutique-hero-pills');
+    const heroPills = page.getByTestId('boutique-hero-marco-pill-band');
     await expect(heroPills).toBeVisible();
     await expect(heroPills).toContainText('What linen do you have for 10 days in Goa?');
   });
