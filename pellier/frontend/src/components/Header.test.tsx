@@ -16,7 +16,7 @@
  *
  * Header includes route links, so every render wraps in a `<MemoryRouter>`.
  */
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
@@ -204,14 +204,16 @@ describe('Header — Persona Avatar dropdown', () => {
     expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
   })
 
-  it('closes dropdown on outside click (Req 5.5)', () => {
+  it('closes dropdown on outside click (Req 5.5)', async () => {
     mockPersona = null
     renderHeader()
     fireEvent.click(screen.getByTestId('persona-pill'))
     expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
 
     // Click outside the dropdown
-    fireEvent.mouseDown(document.body)
+    await act(async () => {
+      fireEvent.mouseDown(document.body)
+    })
     expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
   })
 })

@@ -71,6 +71,22 @@ test.describe('Workshop production build smoke', () => {
     expect(errors, `console errors: ${errors.join('\n')}`).toHaveLength(0);
   });
 
+  test('Pellier Labs has a direct storefront entry and an explicit return', async ({
+    page,
+  }) => {
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await page.keyboard.press('Escape');
+
+    await page.getByTestId('pellier-labs-link').click();
+    await expect(page).toHaveURL(/\/agent-trace(?:\/|$)/);
+    await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await page.getByTestId('back-to-pellier').click();
+    await expect(page).toHaveURL(new URL('/', BASE_URL).toString());
+    await expect(page.getByTestId('wordmark')).toBeVisible();
+  });
+
   test('fonts are self-hosted (no fonts.gstatic.com requests)', async ({
     page,
   }) => {
