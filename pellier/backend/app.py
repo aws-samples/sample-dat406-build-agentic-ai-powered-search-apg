@@ -350,7 +350,7 @@ app.include_router(search_router)
 # stream isn't reshaped for the workshop's replay needs.
 app.include_router(workshop_router)
 
-# Agent Trace Observatory read-only API endpoints — sessions, agents, tools,
+# Pellier Labs Observatory read-only API endpoints — sessions, agents, tools,
 # routing, memory, performance, evaluations, observatory dashboard.
 # Additive to workshop_router (same /api/agent-trace/ prefix, no path conflicts).
 app.include_router(agent_trace_router)
@@ -841,7 +841,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             streamed_content = ""
 
             # Per-turn guardrail INPUT check — records a decision in
-            # services/guardrails_log so the Agent Trace Grounding page's
+            # services/guardrails_log so Pellier Labs Grounding page's
             # Guardrails lane shows live audit rows. Only runs when
             # the user enabled guardrails in their request; otherwise
             # the log captures no entry (accurate — nothing happened).
@@ -924,6 +924,20 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             "X-Accel-Buffering": "no"
         }
     )
+
+
+@app.get("/api/chat/session/{session_id}")
+async def get_boutique_chat_session(
+    session_id: str,
+    db: DatabaseService = Depends(get_db_service),
+):
+    """Return the Aurora-backed turns written by ``/api/chat/stream``."""
+    turns = await AuroraSessionMemory(db).load_history(session_id)
+    return {
+        "session_id": session_id,
+        "source": "aurora",
+        "turns": turns,
+    }
 
 
 @app.get("/api/autocomplete")
@@ -1045,7 +1059,7 @@ async def compare_index_performance(
 async def performance_runtime(include_recent: bool = False):
     """Return rolling aggregates of chat turn latency breakdowns.
 
-    Feeds the Agent Trace Performance tab — layer p50/p95 replace the
+    Feeds Pellier Labs Performance tab — layer p50/p95 replace the
     hardcoded 3779ms/4ms numbers, cold-start histogram replaces the
     stub bars, tool p50 fuels the per-tool legend. Empty buffer is
     reported honestly so the UI can show a placeholder instead of
@@ -1231,7 +1245,7 @@ async def personalized_search(
 @app.get("/api/agent-trace/skills")
 async def list_skills():
     """
-    List all skills in the registry for the Agent Trace surfaces.
+    List all skills in the registry for Pellier Labs surfaces.
 
     Returns a bare JSON array, matching the sibling list endpoints
     (``/api/agent-trace/agents``, ``/api/agent-trace/tools/list``) and the
@@ -1269,7 +1283,7 @@ async def compare_search_strategies(query: str):
     structured filters Sonnet extracted.
 
     Surfaces Anna's anchor-capability comparison live to the
-    Agent Trace Performance page so workshop participants can see the
+    Pellier Labs Performance page so workshop participants can see the
     delta between vector-only / hybrid / hybrid+rerank / agentic
     against the real catalog rather than reading a static fixture.
 
@@ -1511,7 +1525,7 @@ async def compare_search_strategies(query: str):
 @app.get("/api/agent-trace/search/explain")
 async def explain_search(query: str):
     """Run one hybrid query and return every *intermediate* stage so the
-    Agent Trace "Search" surface can show the mechanism, not just the outcome.
+    Pellier Labs "Search" surface can show the mechanism, not just the outcome.
 
     This is the mechanism counterpart to ``/search-strategies/compare``
     (which shows the *outcome* — which products win, how fast, at what
@@ -1732,7 +1746,7 @@ async def explain_search(query: str):
 @app.get("/api/agent-trace/catalog")
 async def agent_trace_catalog():
     """
-    Tool catalog + agent grants for the Agent Trace Architecture pages.
+    Tool catalog + agent grants for Pellier Labs Architecture pages.
 
     Powers three surfaces:
       - MCP page's tool card grid (Fired / Idle state + p50 latency)
@@ -1982,7 +1996,7 @@ async def get_current_persona(session_id: Optional[str] = Query(default=None)):
 
 # NOTE: the legacy /api/agent-trace/status endpoint (multi-module stub detection
 # for an older workshop draft) was removed from the current required path.
-# The Agent Trace progress strip reads GET /api/agent-trace/build-state instead, which
+# Pellier Labs progress strip reads GET /api/agent-trace/build-state instead, which
 # tracks only the single floor_check exercise. See
 # routes/agent_trace.py::get_build_state.
 
@@ -2095,7 +2109,7 @@ async def check_guardrails(request: Request):
     """Demo endpoint to test Bedrock Guardrails on input/output text.
 
     Also records the decision in ``services/guardrails_log`` so the
-    Agent Trace Grounding page's Guardrails lane can surface a live audit
+    Pellier Labs Grounding page's Guardrails lane can surface a live audit
     trail alongside the Cedar policy decisions.
     """
     import time as _time
@@ -2140,7 +2154,7 @@ async def check_guardrails(request: Request):
 async def guardrails_decisions(session_id: str = "", limit: int = 50):
     """Return recent guardrail outcomes for a session.
 
-    Feeds the Agent Trace Grounding page's Guardrails lane. Distinct from
+    Feeds Pellier Labs Grounding page's Guardrails lane. Distinct from
     ``/api/agentcore/policy/decisions`` (Cedar tool-call enforcement);
     these are Bedrock content filter outcomes on the prose side.
     """
@@ -2151,27 +2165,6 @@ async def guardrails_decisions(session_id: str = "", limit: int = 50):
     except Exception as e:
         logger.warning(f"Guardrails decisions fetch failed: {e}")
         return {"session_id": session_id, "decisions": [], "count": 0, "error": str(e)}
-
-
-# ============================================================================
-# CHAOS MODE (Error Handling & Resilience Demo)
-# ============================================================================
-
-_chaos_mode = False
-_chaos_fail_rate = 0.3  # 30% failure rate when chaos mode active
-
-@app.post("/api/dev/chaos")
-async def toggle_chaos_mode(request: Request):
-    """Toggle chaos mode for resilience testing"""
-    global _chaos_mode
-    body = await request.json()
-    _chaos_mode = body.get("enabled", not _chaos_mode)
-    return {"chaos_mode": _chaos_mode, "fail_rate": _chaos_fail_rate}
-
-@app.get("/api/dev/chaos")
-async def get_chaos_status():
-    """Get current chaos mode status"""
-    return {"chaos_mode": _chaos_mode, "fail_rate": _chaos_fail_rate}
 
 
 # ============================================================================
@@ -2263,7 +2256,7 @@ async def memory_status():
     """Return whether AgentCore Memory is SDK-backed or using the
     in-memory dict fallback.
 
-    The MemoryArchPage in the Agent Trace reads this to show an honest
+    The MemoryArchPage in Pellier Labs reads this to show an honest
     banner — either 'Live: AgentCore Memory (id=...)' or 'Fallback:
     in-process dict; set AGENTCORE_MEMORY_ID to enable LIVE'. Also
     reports whether the bedrock-agentcore SDK is importable, so a
@@ -2313,7 +2306,7 @@ async def memory_status():
 async def gateway_status():
     """Return the effective Gateway wiring for the current backend.
 
-    The Agent Trace MCP / Tool Registry tabs use this to show whether tools
+    Pellier Labs MCP / Tool Registry tabs use this to show whether tools
     are being discovered via MCP (Gateway configured) or loaded via
     direct @tool imports (fallback). The ``source`` field is the
     human-readable label shown next to the tool list.

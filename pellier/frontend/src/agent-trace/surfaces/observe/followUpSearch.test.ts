@@ -53,7 +53,7 @@ const noisyProducts = [
   },
 ];
 
-describe('Agent Trace follow-up search planner', () => {
+describe('Pellier Labs follow-up search planner', () => {
   it('limits "Three linen pieces under $150" to three in-budget linen results', () => {
     const constraints = parseFollowUpConstraints(
       'Three linen pieces under $150',

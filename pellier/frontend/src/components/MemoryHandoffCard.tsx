@@ -1,13 +1,9 @@
 /**
- * MemoryHandoffCard — "Pick up where I left off."
+ * MemoryHandoffCard — workshop profile and session boundary.
  *
  * Sits between the BoutiqueWelcomeBand and the Weekend Edit. Surfaces
- * what the agent remembers about a returning shopper (saved item,
- * holds in bag, restock watches) with each line tagged by the tool
- * that produced it (`memory.recall`, `memory.holds`, `inventory.watch`).
- * For fresh visitors, the same slot reads as a "I'll learn as we go"
- * onboarding card so the layout rhythm stays consistent persona-to-
- * persona.
+ * the selected profile's declared ranking seed and core scenario. It avoids
+ * presenting fixture history as evidence from the active session.
  *
  * Reuses the existing daylight palette — cream-warm background, accent
  * border, espresso italic title, mono tool stamps. No new tokens.
@@ -46,7 +42,7 @@ export default function MemoryHandoffCard() {
     <section
       data-testid="memory-handoff"
       data-persona={personaId ?? 'fresh'}
-      aria-label="Pick up where you left off"
+      aria-label="Workshop profile context"
       className="w-full"
       style={{
         background:

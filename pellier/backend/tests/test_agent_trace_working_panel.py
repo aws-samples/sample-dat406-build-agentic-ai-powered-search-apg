@@ -1,9 +1,9 @@
-"""Tests for the Agent Trace MEMORY · WORKING panel live overlay
+"""Tests for Pellier Labs MEMORY · WORKING panel live overlay
 (``routes.agent_trace._load_live_working``).
 
 The Working panel is persona-scoped and carries no session id. It must
 surface the SAME turns ``GET /api/agent/session/{id}`` returns for the
-persona's latest storefront session, so the Agent Trace panel and that API
+persona's latest storefront session, so Pellier Labs panel and that API
 agree. Before the fix the overlay scanned the in-memory ``_SESSION_STORE``
 for a ``user-{customer_id}-session-`` prefix — a namespace the anonymous
 storefront never writes (it writes ``anon-{session_id}``) and a store the

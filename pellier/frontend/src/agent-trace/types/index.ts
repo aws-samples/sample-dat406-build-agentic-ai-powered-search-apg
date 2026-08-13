@@ -1,7 +1,7 @@
 /**
- * Agent Trace Observatory — Type barrel export
+ * Pellier Labs Observatory — Type barrel export
  *
- * Central re-export for all Agent Trace data model interfaces.
+ * Central re-export for all Pellier Labs data model interfaces.
  *
  * Requirements: 16.5
  */

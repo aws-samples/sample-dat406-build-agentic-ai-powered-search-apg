@@ -46,13 +46,13 @@ describe('StoryboardTeaser - per-card contents (Req 1.9.2, 1.9.4)', () => {
     render(<StoryboardTeaser />)
 
     expect(screen.getByTestId('storyboard-card-eyebrow-0')).toHaveTextContent(
-      'MOOD FILM \u00b7 Vol. 12 \u00b7 Summer',
+      'WORKSHOP EDIT \u00b7 Vol. 12 \u00b7 Catalog',
     )
     expect(screen.getByTestId('storyboard-card-eyebrow-1')).toHaveTextContent(
-      'VISION BOARD \u00b7 Vol. 11 \u00b7 The Makers',
+      'PROFILE DESIGN \u00b7 Vol. 11 \u00b7 Ranking',
     )
     expect(screen.getByTestId('storyboard-card-eyebrow-2')).toHaveTextContent(
-      'BEHIND THE SCENES \u00b7 Vol. 10 \u00b7 The Edit',
+      'PROOF PATH \u00b7 Vol. 10 \u00b7 Evidence',
     )
   })
 

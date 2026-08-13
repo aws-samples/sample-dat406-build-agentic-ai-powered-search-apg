@@ -3,13 +3,12 @@
  *
  * Matches the `.artifact` element in docs/pellier-chat-experience.html.
  * Cream-elev background, 12px radius, "PULLED FOR YOU" eyebrow,
- * 160px image area, italic-serif name, espresso "Add to bag" pill,
- * outlined heart button. Mounts with artifact-mount keyframe (380ms).
+ * 160px image area, italic-serif name, and espresso "Add to bag" action.
+ * Mounts with artifact-mount keyframe (380ms).
  *
- * Used exclusively in BoutiqueChat. The Agent Trace branch continues
+ * Used exclusively in BoutiqueChat. Pellier Labs branch continues
  * to use ProductCardConcierge.
  */
-import { Heart } from 'lucide-react'
 import type { ChatProduct } from '../services/chat'
 import { imageSrc } from '../utils/assetPath'
 import '../styles/product-artifact.css'
@@ -129,9 +128,6 @@ export default function ProductArtifactCard({
             onClick={onAddToCart}
           >
             Add to bag
-          </button>
-          <button type="button" className="pa-heart" aria-label="Save">
-            <Heart size={14} />
           </button>
         </div>
         {onPrompt && (

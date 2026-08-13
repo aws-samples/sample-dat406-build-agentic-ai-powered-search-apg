@@ -1,7 +1,7 @@
 /**
  * useSearchExplain — runs one query through GET /api/agent-trace/search/explain
  * and returns every pipeline stage (EMBED → VECTOR → LEXICAL → FUSION →
- * RERANK) for the Agent Trace "Search" mechanism surface.
+ * RERANK) for Pellier Labs "Search" mechanism surface.
  *
  * Unlike useToolDiscovery, this hook has NO offline fallback: the whole
  * point of the surface is to show real per-stage SQL, real per-branch

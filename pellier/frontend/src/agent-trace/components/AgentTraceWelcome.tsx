@@ -1,8 +1,8 @@
 /**
- * AgentTraceWelcome — Editorial welcome band for the default Agent Trace surface.
+ * AgentTraceWelcome — Editorial welcome band for the default Pellier Labs surface.
  *
  * Sits above the Sessions list on first load. Three pieces:
- *   1. Burgundy dot + eyebrow ("Welcome to the Agent Trace")
+ *   1. Burgundy dot + eyebrow ("Welcome to Pellier Labs")
  *   2. Display italic headline (Fraunces stack, matches Boutique hero) +
  *   3. Three "cheat sheet" cards explaining the three verbs:
  *      Observe, Understand, Evaluate
@@ -94,7 +94,7 @@ export const AgentTraceWelcome: React.FC = () => {
 
   return (
     <section
-      aria-label="Welcome to the Agent Trace"
+      aria-label="Welcome to Pellier Labs"
       style={{
         position: 'relative',
         background:
@@ -167,7 +167,7 @@ export const AgentTraceWelcome: React.FC = () => {
             fontWeight: 600,
           }}
         >
-          Welcome to the Agent Trace
+          Welcome to Pellier Labs
         </span>
       </div>
 
@@ -197,7 +197,7 @@ export const AgentTraceWelcome: React.FC = () => {
           maxWidth: '680px',
         }}
       >
-        The Boutique is where shoppers ask. The Agent Trace is where you watch.
+        The Boutique is where shoppers ask. Pellier Labs is where you watch.
         Every agent decision, tool call, memory read, and routing hop shows
         up here in editorial detail – so the magic has a paper trail.
       </p>

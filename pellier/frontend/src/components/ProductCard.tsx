@@ -50,14 +50,11 @@ interface ProductCardProps {
   product: BoutiqueProduct
   /** Row-wise index (0..2). Drives per-column stagger (`index * 220ms`). */
   index: number
-  /** Optional `Add to bag` handler. Defaults to a no-op. */
+  /** Optional `Add to bag` handler. The button is hidden when omitted. */
   onAddToBag?: (product: BoutiqueProduct) => void
   /**
-   * Optional trace chips rendered as small mono pills under the
-   * reasoning chip. Names the tools/signals the agent used to
-   * surface this product (e.g. `memory.recall`, `trend.signal`,
-   * `inventory.live · 2 left`). Falls back to a tag-derived pair so
-   * every card shows traceability without requiring data migration.
+   * Optional provenance chips rendered under the reasoning chip. When
+   * omitted, the card cites only catalog tags present on the product.
    */
   traces?: string[]
   /** Optional persona or surface accent used for provenance details. */
@@ -65,34 +62,11 @@ interface ProductCardProps {
 }
 
 /**
- * Derive two trace chips from a product's reasoning chip style + tags
- * when the caller doesn't supply explicit traces. Picks the trace
- * vocabulary so it lines up with the agent surfaces inside /agent-trace
- * (memory · tools · trend · inventory · pairing), keeping the
- * consumer-facing storefront and developer-facing observatory in the
- * same language.
+ * Derive defensible provenance chips from committed catalog metadata.
+ * Runtime tool claims must be supplied explicitly by a live response.
  */
 function deriveTraces(product: BoutiqueProduct): string[] {
-  const traces: string[] = []
-  const style = product.reasoning?.style
-  if (style === 'picked' || style === 'context') traces.push('memory.recall')
-  if (style === 'matched') traces.push('palette.match · 0.92')
-  if (style === 'pricing') traces.push('inventory.live')
-  if (product.badge === 'BESTSELLER') traces.push('trend.signal')
-  if (product.badge === 'JUST_IN') traces.push('inventory.watch')
-  // Fallback so every card has at least one chip — tag-anchored so it
-  // still reads as the agent citing what it noticed.
-  if (traces.length === 0) {
-    const lead = product.tags[0]
-    if (lead) traces.push(`tag.match · ${lead}`)
-    else traces.push('curator.signal')
-  }
-  // Pad to two chips for visual rhythm.
-  if (traces.length === 1) {
-    const second = product.tags[1] ?? product.category
-    traces.push(`pairing.score · ${second}`)
-  }
-  return traces.slice(0, 2)
+  return product.tags.slice(0, 2).map(tag => `tag.match · ${tag}`)
 }
 
 // Per-column stagger in ms. Matches storefront.md — columns within a row play
@@ -352,21 +326,22 @@ export default function ProductCard({
           </div>
         )}
 
-        {/* Full-width Add to bag secondary button (Req 1.6.5 step 9) */}
-        <button
-          type="button"
-          data-testid={`product-card-add-${product.id}`}
-          onClick={() => onAddToBag?.(product)}
-          className="
-            mt-1 w-full rounded-full bg-espresso text-cream-50 border border-espresso
-            py-2.5 px-3.5 text-[13px] tracking-[0.06em] cursor-pointer
-            font-sans font-medium transition-colors duration-fade ease-out
-            hover:bg-dusk hover:text-cream-50 hover:border-dusk
-            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-          "
-        >
-          Add to bag
-        </button>
+        {onAddToBag ? (
+          <button
+            type="button"
+            data-testid={`product-card-add-${product.id}`}
+            onClick={() => onAddToBag(product)}
+            className="
+              mt-1 w-full rounded-full bg-espresso text-cream-50 border border-espresso
+              py-2.5 px-3.5 text-[13px] tracking-[0.06em] cursor-pointer
+              font-sans font-medium transition-colors duration-fade ease-out
+              hover:bg-dusk hover:text-cream-50 hover:border-dusk
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+            "
+          >
+            Add to bag
+          </button>
+        ) : null}
       </div>
     </article>
   )

@@ -161,7 +161,7 @@ const AgentReasoningTraces = ({ mode, onCollapse, onClose, onExpand }: AgentReas
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5" style={{ color: 'rgba(255, 255, 255, 0.6)' }} />
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">Agent Traces</h2>
+            <h2 className="text-sm font-semibold text-text-primary">Reasoning traces</h2>
             <p className="text-[10px] text-text-secondary">
               <span className="inline-flex items-center gap-1">
                 {otelFailure ? (

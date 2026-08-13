@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS pellier.returns (
     resolved_at   TIMESTAMPTZ
 );
 
--- Index for "show me a customer's recent returns" lookups (Agent Trace's
+-- Index for "show me a customer's recent returns" lookups (Pellier Labs'
 -- session brief tab joins this when rendering Theo's ceramics-return
 -- folio).
 CREATE INDEX IF NOT EXISTS returns_customer_idx

@@ -3,7 +3,7 @@
 Pellier consumes the Daylight design system (originally built for the
 DAT409 Wayfare workshop) as the source of truth for color, type,
 spacing, radius, shadow, and component CSS. Every Boutique and
-Agent Trace surface inherits from these tokens.
+Pellier Labs surface inherits from these tokens.
 
 ## Layout
 
@@ -58,17 +58,17 @@ component file needs editing.
 | `--ink-quiet` | `--dl-muted` | Captions, eyebrows |
 | `--accent` | `--dl-accent` | Terracotta accent |
 | `--rule-1` | `--dl-line` | Hairline borders |
-| `--at-cream-1` | `--dl-bg` | Agent Trace background |
-| `--at-ink-1` | `--dl-ink` | Agent Trace primary text |
-| `--at-red-1` | `--dl-accent` | Agent Trace accent |
-| `--at-green-1` | `--dl-ok` | Agent Trace "shipped" status |
+| `--at-cream-1` | `--dl-bg` | Pellier Labs background |
+| `--at-ink-1` | `--dl-ink` | Pellier Labs primary text |
+| `--at-red-1` | `--dl-accent` | Pellier Labs accent |
+| `--at-green-1` | `--dl-ok` | Pellier Labs "shipped" status |
 | `--serif` / `--at-serif` | `--dl-font-serif` | Instrument Serif → Fraunces → Georgia |
 | `--sans` / `--at-sans` | `--dl-font-sans` | Instrument Sans → system UI |
 | `--mono` / `--at-mono` | `--dl-font-mono` | JetBrains Mono |
 
 Full list in `src/styles/daylight-bridge.css`.
 
-**Agent Trace semantic aliases (`--at-card-bg`, `--at-status-shipped-bg`,
+**Pellier Labs semantic aliases (`--at-card-bg`, `--at-status-shipped-bg`,
 `--at-sidebar-bg`, ...)** — declared in `src/agent-trace/styles/tokens.css`.
 These reference `--at-*` aliases and the bridge resolves the chain
 back to `--dl-*`.
@@ -128,7 +128,7 @@ need to touch.
 - The hardcoded `:root` block in `index.css` (60+ lines of color hex
   values — replaced by the bridge)
 - The hardcoded `--at-*` color values in `agent-trace/styles/tokens.css`
-  (the file now holds only Agent Trace-specific semantic aliases)
+  (the file now holds only Pellier Labs-specific semantic aliases)
 - Hardcoded hex values in `tailwind.config.js` (`'cream': '#fbf4e8'`,
   etc. — repointed at `var(--cream)`)
 

@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Session types
+ * Pellier Labs Observatory — Session types
  *
  * Session represents a single conversation between a persona and the agentic system.
  * SessionDetail extends Session with full chat, telemetry, and brief data.

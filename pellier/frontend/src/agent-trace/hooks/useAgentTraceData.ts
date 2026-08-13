@@ -1,7 +1,7 @@
 /**
- * Agent Trace Observatory — Central data-fetching hook
+ * Pellier Labs Observatory — Central data-fetching hook
  *
- * Abstracts static reference data vs. API loading for Agent Trace surfaces.
+ * Abstracts static reference data vs. API loading for Pellier Labs surfaces.
  * In fixture mode (default), dynamically imports from /fixtures/ based on key.
  * In API mode, fetches from /api/agent-trace/* endpoints. Most reference surfaces
  * can fall back to static data during local development; live-only surfaces

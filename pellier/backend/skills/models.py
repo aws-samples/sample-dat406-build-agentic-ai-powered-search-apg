@@ -6,7 +6,7 @@ Two models live here:
   - ``RouterDecision``: the output of ``SkillRouter.route()``
 
 Both are serializable so ``RouterDecision`` can be emitted verbatim
-over the SSE stream for the Agent Trace UI.
+over the SSE stream for Pellier Labs UI.
 """
 from __future__ import annotations
 
@@ -79,9 +79,9 @@ class RouterDecision(BaseModel):
     but rejected, timing, and the raw LLM response for debugging.
 
     Emitted verbatim as an SSE event (type ``skill_routing``) so the
-    Agent Trace UI can render the live activation log and the storefront
+    Pellier Labs UI can render the live activation log and the storefront
     can render the attribution line. The storefront reads
-    ``loaded_skills``; the Agent Trace reads the full object.
+    ``loaded_skills``; Pellier Labs reads the full object.
     """
 
     loaded_skills: list[str] = Field(
@@ -91,7 +91,7 @@ class RouterDecision(BaseModel):
     considered: list[dict] = Field(
         default_factory=list,
         description="Skills the router evaluated but rejected, each as "
-        "``{name, reason}``. Used by the Agent Trace live log; optional.",
+        "``{name, reason}``. Used by Pellier Labs live log; optional.",
     )
     elapsed_ms: int = Field(
         default=0,

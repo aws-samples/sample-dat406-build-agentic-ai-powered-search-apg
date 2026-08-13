@@ -1,5 +1,5 @@
 /**
- * SurfaceToggle tests — global Boutique ↔ Agent Trace segmented control.
+ * SurfaceToggle tests — global Boutique ↔ Pellier Labs segmented control.
  *
  * Covers:
  *   - Both segments render with the correct labels + testids.
@@ -55,7 +55,7 @@ describe('SurfaceToggle — active state reflects route', () => {
     ).toBe('false')
   })
 
-  it('marks Agent Trace active on /agent-trace', () => {
+  it('marks Pellier Labs active on /agent-trace', () => {
     renderAt('/agent-trace')
     expect(
       screen.getByTestId('surface-toggle-agent-trace').getAttribute('data-active'),
@@ -74,7 +74,7 @@ describe('SurfaceToggle — active state reflects route', () => {
 })
 
 describe('SurfaceToggle — links to the correct target surface', () => {
-  it('Agent Trace segment links to /agent-trace', () => {
+  it('Pellier Labs segment links to /agent-trace', () => {
     renderAt('/')
     expect(
       screen.getByTestId('surface-toggle-agent-trace').getAttribute('href'),

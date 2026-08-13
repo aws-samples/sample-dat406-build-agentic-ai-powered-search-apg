@@ -1,5 +1,5 @@
 /**
- * AgentTraceFrame — Root layout shell for the Agent Trace Observatory.
+ * AgentTraceFrame — Root layout shell for Pellier Labs Observatory.
  *
  * Renders a 240px sidebar + flexible canvas grid. The canvas area
  * contains the TopBar and a React Router `<Outlet />` for nested

@@ -1,8 +1,8 @@
 /**
- * PersonaContext — workshop persona state shared across storefront + Agent Trace.
+ * PersonaContext — workshop persona state shared across storefront + Pellier Labs.
  *
  * One source of truth for the active persona. Both the storefront header
- * pill and the Agent Trace breadcrumb indicator read from this context. The
+ * pill and Pellier Labs breadcrumb indicator read from this context. The
  * persona modal (shared component, two entry points) writes to it via
  * ``switchPersona()``.
  *

@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Telemetry types
+ * Pellier Labs Observatory — Telemetry types
  *
  * Represents a single step in the telemetry timeline for a session.
  *

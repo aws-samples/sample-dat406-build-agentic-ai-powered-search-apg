@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Observatory types
+ * Pellier Labs Observatory — Observatory types
  *
  * Wide-angle dashboard summary data.
  *

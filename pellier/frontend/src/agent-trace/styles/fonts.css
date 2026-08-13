@@ -1,21 +1,21 @@
 /* ========================================================================
- * Agent Trace Observatory — Typography scale
+ * Pellier Labs Observatory — Typography scale
  *
  * Font stacks (--at-serif, --at-sans, --at-mono) resolve through
  * styles/daylight-bridge.css → --dl-font-* (see daylight-tokens.css),
  * which use the same self-hosted Instrument Sans + Instrument Serif +
  * Fraunces + JetBrains faces imported in src/main.tsx.
  *
- * This file only defines Agent Trace type *scale* tokens and utility
+ * This file only defines Pellier Labs type *scale* tokens and utility
  * classes. Do not re-declare font-family stacks on :root here — that
- * would override the bridge and split Agent Trace from the Boutique.
+ * would override the bridge and split Pellier Labs from the Boutique.
  *
  * Requirements: 15.2 (typography families and roles)
  * ======================================================================== */
 
 :root {
   /* ------------------------------------------------------------------
-   * Type scale — fixed sizes for the Agent Trace desktop-first layout
+   * Type scale — fixed sizes for Pellier Labs desktop-first layout
    * (min 1280px, no mobile breakpoints)
    * ---------------------------------------------------------------- */
 
@@ -66,7 +66,7 @@
 }
 
 /* -----------------------------------------------------------------------
- * Utility classes — optional convenience for Agent Trace components.
+ * Utility classes — optional convenience for Pellier Labs components.
  * Components may also reference the custom properties directly.
  * ----------------------------------------------------------------------- */
 

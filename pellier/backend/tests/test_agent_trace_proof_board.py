@@ -1,4 +1,4 @@
-"""Tests for the Agent Trace Proof Board and readiness API."""
+"""Tests for Pellier Labs Proof Board and readiness API."""
 
 from __future__ import annotations
 

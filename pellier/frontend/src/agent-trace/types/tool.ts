@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Tool types
+ * Pellier Labs Observatory — Tool types
  *
  * Represents a registered tool function and pgvector discovery results.
  *
@@ -17,7 +17,7 @@ export interface Tool {
    * 'write' — tool mutates Aurora rows. Mutating tools always pass
    *           through the Cedar policy hook AND get a row in
    *           tool_audit (Theo's anchor capability — every mutation
-   *           leaves a paper trail). Surfaced in the Agent Trace with
+   *           leaves a paper trail). Surfaced in Pellier Labs with
    *           a burgundy WRITE pill so the read/write split is
    *           obvious at a glance.
    */

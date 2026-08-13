@@ -537,7 +537,7 @@ const StorefrontProductionCard: React.FC = () => (
       </li>
       <li>
         <Emphasis>LLM router elsewhere</Emphasis> – Agents-as-Tools and Graph in
-        the Agent Trace; AgentCore Runtime on{' '}
+        Pellier Labs; AgentCore Runtime on{' '}
         <code
           style={{
             fontFamily: 'var(--at-mono)',

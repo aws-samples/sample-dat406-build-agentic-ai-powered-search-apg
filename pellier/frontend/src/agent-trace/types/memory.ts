@@ -1,11 +1,11 @@
 /**
- * Agent Trace Observatory — Memory types
+ * Pellier Labs Observatory — Memory types
  *
  * The Memory architecture lens has four memory types plus a separate
  * operational-history source:
  *
- *   working    — AgentCore Memory session turns
- *   semantic   — AgentCore Memory records extracted by a USER_PREFERENCE strategy
+ *   working    — Aurora Boutique session turns in the builders path
+ *   semantic   — optional AgentCore records extracted by a USER_PREFERENCE strategy
  *   episodic   — Aurora customer_episodic_seed / orders / returns
  *   procedural — checked-in runtime skills and MCP tool schemas
  *   operational — Aurora tool_audit aggregate evidence
@@ -46,7 +46,7 @@ export interface MemoryItem {
 }
 
 export interface MemorySubstratePanel {
-  /** Display label (e.g. "Working · AgentCore Memory"). */
+  /** Display label (e.g. "Working - Aurora"). */
   label: string;
   /** Backing store name shown as a small caption. */
   store: string;

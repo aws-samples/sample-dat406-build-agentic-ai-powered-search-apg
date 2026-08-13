@@ -97,8 +97,6 @@ export interface ApiError {
 // The legacy `/api/search` endpoint keeps its current `SearchResponse` shape;
 // personalization endpoints use `BoutiqueSearchResponse`.
 
-import type { Intent as BoutiqueIntent } from '../copy'
-export type { BoutiqueIntent }
 
 export type ReasoningStyle = 'picked' | 'matched' | 'pricing' | 'context'
 

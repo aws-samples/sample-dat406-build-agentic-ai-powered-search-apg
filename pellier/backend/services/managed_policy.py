@@ -7,7 +7,7 @@ evaluates Cedar before the target runs. This replaced the old local
 ``BeforeToolCall`` hook and hand-rolled policy emulator.
 
 This module is the **read side** of that managed gate. It does NOT enforce
-anything (the Gateway does) — it just lets the Agent Trace Policy surface show, live,
+anything (the Gateway does) — it just lets Pellier Labs Policy surface show, live,
 which Cedar policies are attached to the engine and what evidence the managed
 rail produced.
 
@@ -31,7 +31,7 @@ Two reads:
 
 Both reads are best-effort: a missing engine id, missing boto3, or an
 unreachable control-plane returns an empty list with a ``source`` marker rather
-than raising, so the Agent Trace surface degrades to "(no policies)" instead of a
+than raising, so Pellier Labs surface degrades to "(no policies)" instead of a
 500.
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ def _region() -> str:
 def list_managed_policies() -> Dict[str, Any]:
     """Return the Cedar policies attached to the managed policy engine.
 
-    Shape (compatible with the Agent Trace Policy surface):
+    Shape (compatible with Pellier Labs Policy surface):
         {
             "source": "managed-engine" | "no-engine-id" | "error",
             "policy_engine_id": "<id or ''>",
@@ -152,7 +152,7 @@ async def recent_decisions(db_service: Any, session_id: Optional[str] = None, li
         }
 
     Best-effort: returns an empty list (not an exception) when the DB is
-    unavailable, so the Agent Trace surface stays a non-fatal read.
+    unavailable, so Pellier Labs surface stays a non-fatal read.
     """
     sid = session_id or "_anonymous"
     if db_service is None:

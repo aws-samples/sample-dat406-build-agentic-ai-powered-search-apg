@@ -1,7 +1,7 @@
 /**
- * Observatory — first stop inside Agent Trace.
+ * Observatory — first stop inside Pellier Labs.
  *
- * The page introduces why the Agent Trace exists, then groups its evidence by
+ * The page introduces why Pellier Labs exists, then groups its evidence by
  * product domain before exposing the broader reference catalog.
  */
 
@@ -439,7 +439,7 @@ const Observatory: React.FC = () => {
             maxWidth: '760px',
           }}
         >
-          The Boutique is where shoppers ask. The Agent Trace is where you watch.
+          The Boutique is where shoppers ask. Pellier Labs is where you watch.
           Every agent decision, tool call, memory read, and routing hop shows up
           here in editorial detail - so the magic has a paper trail.
         </p>
@@ -503,7 +503,7 @@ const Observatory: React.FC = () => {
             margin: '14px 0 18px',
           }}
         >
-          Explore every Agent Trace surface.
+          Explore every Pellier Labs surface.
         </h2>
         <div
           style={{

@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Routing types
+ * Pellier Labs Observatory — Routing types
  *
  * Represents one of the 3 orchestration routing patterns.
  *

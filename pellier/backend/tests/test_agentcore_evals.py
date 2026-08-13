@@ -60,7 +60,7 @@ def test_skipped_when_flag_on_but_dataset_missing(
 def test_describe_configuration_envelope_shape(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The Agent Trace Measure surface relies on the envelope keys — pin them."""
+    """Pellier Labs Measure surface relies on the envelope keys — pin them."""
     monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", True, raising=False)
     monkeypatch.setattr(
         settings,

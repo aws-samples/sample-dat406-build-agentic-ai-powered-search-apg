@@ -10,7 +10,7 @@ The output feeds two consumers:
   - The specialist agents, which inject loaded skill bodies into
     their system prompts via ``inject_skills()``
   - The SSE stream, which emits a ``skill_routing`` event so the
-    Agent Trace UI can render the live activation log and the storefront
+    Pellier Labs UI can render the live activation log and the storefront
     can render the minimal attribution line
 
 Parse behavior is defensive on purpose: Sonnet is reliable, but the
@@ -191,7 +191,7 @@ class SkillRouter:
                         "Router loaded unknown skill %r — dropping", name
                     )
 
-        # The considered list is for the Agent Trace UI's live log. Keep
+        # The considered list is for Pellier Labs UI's live log. Keep
         # shape stable: each entry is {name: str, reason: str}.
         considered: list[dict] = []
         if isinstance(considered_raw, list):

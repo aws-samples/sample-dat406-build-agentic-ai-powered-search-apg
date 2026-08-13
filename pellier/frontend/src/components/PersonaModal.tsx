@@ -2,7 +2,7 @@
  * PersonaModal — the shared persona switcher.
  *
  * One component, two entry points: the storefront header pill and the
- * Agent Trace breadcrumb indicator both open this same modal. Structure
+ * Pellier Labs breadcrumb indicator both open this same modal. Structure
  * matches docs/persona-switcher.html byte-for-byte; styling lives in
  * src/styles/persona-modal.css.
  *
@@ -77,10 +77,10 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
           <div>
             <div className="pm-eyebrow">Sign in</div>
             <h2 className="pm-title">
-              Choose a <em>persona to inhabit.</em>
+              Choose a <em>workshop profile.</em>
             </h2>
             <p className="pm-sub">
-              Three histories. The boutique shifts depending on who you are.
+              Each profile loads declared preferences and seeded order history.
             </p>
           </div>
           <button
@@ -127,20 +127,8 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
                   <span className="pm-blurb">{p.blurb}</span>
                   <span className="pm-meta-row">
                     <span className="pm-meta-item">
-                      visits ·{' '}
-                      <span className="num">{p.stats.visits}</span>
-                    </span>
-                    <span className="pm-meta-item">
-                      orders ·{' '}
+                      seeded orders ·{' '}
                       <span className="num">{p.stats.orders}</span>
-                    </span>
-                    <span className="pm-meta-item">
-                      last seen ·{' '}
-                      <span className="num">
-                        {p.stats.last_seen_days === null
-                          ? 'never'
-                          : `${p.stats.last_seen_days}d ago`}
-                      </span>
                     </span>
                   </span>
                 </span>
@@ -167,7 +155,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
         {/* Foot */}
         <div className="pm-foot">
           <div className="pm-foot-text">
-            <em>Three curated identities</em> - switch any time from the header.
+            <em>Three seeded profiles</em> - switch any time from the header.
           </div>
           <div className="pm-foot-meta">v1.0</div>
         </div>

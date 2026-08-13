@@ -1,9 +1,8 @@
-# Workshop smoke: manual production-build E2E on macOS.
+# Workshop smoke: manual cross-platform production-build E2E on macOS.
 #
 # Goal: give facilitators a manual readiness check before workshop delivery.
-# Unlike e2e.yml (Cognito auth against a dev pool), this runs the PRODUCTION
-# BUILD path — one process, one port, self-hosted fonts, `?reset=1`, triage
-# fast-path — with no AWS secrets required.
+# e2e.yml runs the same participant gate automatically on Ubuntu. This manual
+# macOS check gives facilitators a second platform before workshop delivery.
 #
 # The specs run without Cognito or AWS credentials. The real-query
 # check accepts the app's graceful fallback response when Bedrock is
@@ -56,7 +55,7 @@ jobs:
 
       - name: Install backend deps
         working-directory: pellier/backend
-        run: pip install -r requirements.txt
+        run: python -m pip install -r requirements.lock
 
       - name: Install Playwright browsers
         working-directory: pellier/frontend
@@ -77,7 +76,10 @@ jobs:
         working-directory: pellier/frontend
         env:
           E2E_BASE_URL: http://localhost:8000
-        run: npx playwright test e2e/workshop-smoke.spec.ts
+        run: |
+          npx playwright test \
+            e2e/workshop-smoke.spec.ts \
+            e2e/persona-modal.spec.ts
 
       - name: Upload Playwright report
         if: always()

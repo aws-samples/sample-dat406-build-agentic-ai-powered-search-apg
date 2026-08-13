@@ -1,4 +1,4 @@
-"""``/api/agent-trace/*`` — telemetry-replay endpoint for the Agent Trace route.
+"""``/api/agent-trace/*`` — telemetry-replay endpoint for Pellier Labs route.
 
 This router is the backend half of the workshop telemetry surface. Unlike
 ``/api/agent/chat`` — which streams storefront-shaped SSE events
@@ -34,7 +34,7 @@ localStorage (same key the other chat surfaces use).
 
 Scope: the endpoint wires up the AgentContext + orchestrator hand-off
 and returns either live telemetry or fixture-backed replay events for the
-Agent Trace workshop views.
+Pellier Labs workshop views.
 """
 
 from __future__ import annotations
@@ -396,7 +396,7 @@ async def query(payload: WorkshopQueryRequest) -> StreamingResponse:
 
 
 # ----- /api/workshop/resume ---------------------------------------------
-# The "welcome-back" turn. Fired by the Agent Trace chat when the user
+# The "welcome-back" turn. Fired by Pellier Labs chat when the user
 # picks a seeded demo customer and no session_id exists yet. Emits
 # memory and operational-history panels plus a composed response the chat
 # column renders as the first assistant reply.
@@ -526,7 +526,7 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
 
         # Reverse the persona→customer_id map so the WORKING panel can
         # resolve this customer's latest storefront session the same way
-        # the standalone Agent Trace panel does. Unknown customers → no
+        # the standalone Pellier Labs panel does. Unknown customers → no
         # persona → the panel reads this turn's own session instead.
         persona: Optional[str] = None
         try:

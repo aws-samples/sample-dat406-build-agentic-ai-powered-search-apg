@@ -1,17 +1,7 @@
 name: quality
 
-# Test gate for the one-hour builders session on `main`.
-#
-# Before this existed, nothing verified `main` on push or PR: chromatic.yml
-# self-skips unless CHROMATIC_PROJECT_TOKEN is set, every step in e2e.yml is
-# gated on the E2E_* secrets being present, and workshop-smoke.yml is
-# workflow_dispatch only. So the branch with the least room for live recovery
-# was the unguarded one.
-#
-# This is CI configuration, not a governed feature backport — the branch
-# contract in CLAUDE.md forbids porting `governed` behaviour into `main`, and
-# nothing here changes application code. Keep the two files in sync when the
-# gates change.
+# Unit, static-analysis, build, and dependency gate for `main`.
+# The production participant path is exercised separately by e2e.yml.
 
 on:
   push:
@@ -48,11 +38,11 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: pellier/backend/requirements.txt
+          cache-dependency-path: pellier/backend/requirements.lock
 
       - name: Install backend dependencies
         working-directory: pellier/backend
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements.lock
 
       - name: Run backend tests
         working-directory: pellier/backend

@@ -85,7 +85,7 @@ logger = logging.getLogger(__name__)
 _SESSION_STORE: Dict[str, List[Dict[str, Any]]] = {}
 _PREFS_STORE: Dict[str, Dict[str, Any]] = {}
 
-# Module-level SDK import status. The Agent Trace memory route constructs a
+# Module-level SDK import status. Pellier Labs memory route constructs a
 # fresh ``AgentCoreMemory`` on every request (see
 # ``routes/agent_trace.py::_load_live_semantic``), so a per-instance
 # cache for the SDK handle is useless — every new instance would retry the
@@ -148,7 +148,7 @@ class AgentCoreMemory:
         takes over without any try/except gymnastics at call sites.
 
         The "SDK installed?" probe is cached at module scope (not
-        per-instance) because the Agent Trace memory route builds a fresh
+        per-instance) because Pellier Labs memory route builds a fresh
         ``AgentCoreMemory`` per request — without this the warning would
         fire on every page load when ``bedrock-agentcore`` isn't
         importable in the running interpreter (e.g. uvicorn launched
@@ -510,7 +510,7 @@ class AgentCoreMemory:
 
         Returns ``[]`` (never raises, never fabricates) when the SDK or
         ``AGENTCORE_MEMORY_ID`` is unavailable, the strategy has not
-        extracted yet, or no records exist — the Agent Trace route treats an
+        extracted yet, or no records exist — Pellier Labs route treats an
         empty list as "fall back to the fixture", so the panel stays honest
         (``fixture``, not a fake ``live``).
         """

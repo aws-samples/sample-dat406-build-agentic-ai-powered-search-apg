@@ -1,5 +1,5 @@
 /**
- * AgentTraceHero — editorial hero for the Agent Trace surface.
+ * AgentTraceHero — editorial hero for Pellier Labs surface.
  *
  * Mirrors the storefront's hero register (kicker · display italic ·
  * epigraph) so the two surfaces read as siblings rather than a
@@ -42,10 +42,10 @@ export default function AgentTraceHero({ editionNumber = 6 }: { editionNumber?: 
           fontFamily: 'Fraunces, Georgia, serif',
           fontWeight: 400,
           fontStyle: 'italic',
-          letterSpacing: '-0.02em',
+          letterSpacing: 0,
         }}
       >
-        The Agent Trace.
+        Pellier Labs.
       </h1>
       <p
         className="text-[16px] leading-[1.6] max-w-[620px] mx-auto mt-5"
@@ -56,7 +56,7 @@ export default function AgentTraceHero({ editionNumber = 6 }: { editionNumber?: 
           fontWeight: 600,
         }}
       >
-        Where Agents think aloud. Every step of the reasoning, on display.
+        Where agents think aloud. Every step of the reasoning, on display.
       </p>
     </section>
   )

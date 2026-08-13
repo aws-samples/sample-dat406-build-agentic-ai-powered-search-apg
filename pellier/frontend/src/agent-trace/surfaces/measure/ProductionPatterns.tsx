@@ -7,7 +7,7 @@
  *
  * This surface consolidates two cards that previously lived under Architecture
  * (MCP Gateway + Tool Registry) into the Tool Publishing pattern, and adds
- * three new patterns that don't have a home elsewhere in the Agent Trace.
+ * three new patterns that don't have a home elsewhere in Pellier Labs.
  */
 
 import React from 'react';

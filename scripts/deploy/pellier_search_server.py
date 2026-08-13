@@ -278,7 +278,7 @@ def find_pieces_hybrid(
          preserved.
 
     On a Bedrock failure (rate limit, invalid response), we fall back to
-    RRF order — the Agent Trace surfaces this as a missing rerank stage in
+    RRF order — Pellier Labs surfaces this as a missing rerank stage in
     telemetry rather than crashing the request.
     """
     embedding = _get_embedding(query)
@@ -384,7 +384,7 @@ def _bedrock_rerank(query: str, documents: list, top_n: int) -> list:
     """Call Cohere Rerank v3.5 on Bedrock; return [] on any failure.
 
     Returning [] (instead of raising) matches the in-process service so
-    the caller can fall back to RRF order. The Agent Trace surfaces a
+    the caller can fall back to RRF order. Pellier Labs surfaces a
     missing-rerank state from this signal — useful demo when the
     workshop wants to show graceful degradation under Bedrock pressure.
     """

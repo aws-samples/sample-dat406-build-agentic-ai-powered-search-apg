@@ -1439,14 +1439,14 @@ const MEMORY_SUBSTRATES: {
   {
     tier: 'working',
     label: 'Working',
-    store: 'AgentCore Memory · session turns',
-    gloss: "This session's last K turns – read first, written every turn.",
+    store: 'Aurora · pellier.messages',
+    gloss: "The Boutique session's last K turns - read first, written as a completed pair.",
   },
   {
     tier: 'semantic',
     label: 'Semantic',
-    store: 'AgentCore Memory · durable preferences',
-    gloss: 'Stable facts about this customer – fabric, sizing, palette.',
+    store: 'AgentCore Memory · optional durable preferences',
+    gloss: 'Managed preference records when configured; otherwise identified as fixture data.',
   },
   {
     tier: 'episodic',

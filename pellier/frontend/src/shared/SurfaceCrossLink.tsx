@@ -2,17 +2,17 @@
  * SurfaceCrossLink — small inline anchor that bridges the two surfaces.
  *
  * Two preset modes:
- *   - "to-boutique" — used on Agent Trace surfaces. Reads "→ See this in
+ *   - "to-boutique" — used on Pellier Labs surfaces. Reads "→ See this in
  *      the Boutique" and links back to the storefront, optionally
  *      with an `?ask=` query that opens the chat drawer with a
  *      pre-filled prompt that exercises this concept.
  *   - "to-agent-trace" — used on Boutique surfaces. Reads "How this works
- *      →" and deep-links to the Agent Trace route that explains the
+ *      →" and deep-links to Pellier Labs route that explains the
  *      concept (memory, tools, agents, etc).
  *
  * Visual: Instrument Serif / Fraunces italic, 15px, terracotta accent,
  * subtle dotted underline — reads as editorial caption, not a banner CTA.
- * vocabulary (`see · this · in · the · Boutique`) on every Agent Trace
+ * vocabulary (`see · this · in · the · Boutique`) on every Pellier Labs
  * surface keeps the round trip predictable.
  */
 import React from 'react'
@@ -25,7 +25,7 @@ export interface SurfaceCrossLinkProps {
   /**
    * For `to-boutique`: optional `?ask=` query that auto-fires the
    * Boutique chat drawer with this prompt. For `to-agent-trace`: the
-   * Agent Trace path to navigate to (e.g. "/agent-trace/memory").
+   * Pellier Labs path to navigate to (e.g. "/agent-trace/memory").
    */
   href?: string
   /** Override the default copy. */

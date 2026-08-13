@@ -1,8 +1,8 @@
 /**
- * AgentTraceSpotlight — guided first-visit walkthrough for the Agent Trace.
+ * AgentTraceSpotlight — guided first-visit walkthrough for Pellier Labs.
  *
  * A three-step spotlight that introduces the instrumentation surface:
- * the Agent Trace concept, the conversation pane, and the reasoning tabs.
+ * Pellier Labs concept, the conversation pane, and the reasoning tabs.
  * Shows once per browser session (sessionStorage gate).
  *
  * Mirrors BoutiqueSpotlight in structure, animation, keyboard
@@ -30,7 +30,7 @@ const STEPS: SpotlightStep[] = [
   {
     numeral: 'I',
     kicker: 'Welcome to',
-    headline: 'The Agent Trace',
+    headline: 'Pellier Labs',
     body: "This is where Pellier thinks out loud. Every agent decision, every tool call, every database read — visible in real time. The workshop behind the boutique.",
   },
   {

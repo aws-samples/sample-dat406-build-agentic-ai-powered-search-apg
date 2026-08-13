@@ -4,7 +4,7 @@
  * Body-only component: renders user bubbles, agent blocks, product
  * cards, and follow-up chips. No header, no footer, no input — those
  * live in the parent surface (ChatDrawer for storefront, ConciergeModal
- * for Agent Trace).
+ * for Pellier Labs).
  *
  * Extracted from BoutiqueChat.tsx so both the drawer and the legacy
  * modal can consume the same editorial rendering without duplication.

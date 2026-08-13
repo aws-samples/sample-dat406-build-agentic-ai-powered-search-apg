@@ -1,7 +1,7 @@
 """episodic_memory — Aurora-backed fixture for the workshop's MEMORY · EPISODIC panel.
 
 Teaching frame: AgentCore Memory owns session history in production.
-The Agent Trace demo needs deterministic, pre-seeded episodes so a
+Pellier Labs demo needs deterministic, pre-seeded episodes so a
 workshop attendee picking "Marco" sees continuity without provisioning
 an AgentCore Memory resource. This module is the OFFLINE FALLBACK —
 the table it reads from is ``pellier.customer_episodic_seed``, seeded by
@@ -161,7 +161,7 @@ async def emit_memory_episodic_panel(
 # Procedural memory is checked-in runtime skills plus MCP tool schemas. It is
 # inspectable source, not a per-persona read on the resume turn.
 #
-# Working + Semantic read the same path the standalone Agent Trace panels read
+# Working + Semantic read the same path the standalone Pellier Labs panels read
 # (services.agentcore_memory) so the resume turn and GET /memory/{persona}
 # agree. Both degrade honestly to an empty panel (never a fabricated row)
 # when the session has no turns / the extraction strategy is unsettled.
@@ -194,7 +194,7 @@ async def emit_memory_working_panel(
 
     - With a ``persona`` (the resume "welcome back" turn), we resolve that
       persona's latest *storefront* session from ``pellier.tool_audit`` and
-      read it back — the same path the standalone Agent Trace Working panel
+      read it back — the same path the standalone Pellier Labs Working panel
       takes, so "what we were just talking about" matches the dashboard.
     - Without one, we fall back to this turn's own ``session_id``.
 

@@ -1,5 +1,5 @@
 /**
- * SessionsList — Sessions list surface for the Agent Trace Observatory.
+ * SessionsList — Sessions list surface for Pellier Labs Observatory.
  *
  * Displays a paginated list of session ExpCards for the active persona,
  * sorted by most recent first. Each card shows the session hex ID,
@@ -24,7 +24,7 @@ import { PERSONA_HERO_PILLS, PERSONA_TURN_TRACES } from '../../../data/personaCu
 /**
  * Sort sessions by timestamp ascending (earliest first) so the
  * instructor-view list reads Marco → Anna → Theo, matching the
- * canonical persona order used everywhere else in the Agent Trace.
+ * canonical persona order used everywhere else in Pellier Labs.
  * Returns a new array; does not mutate the input.
  */
 export function sortSessionsByRecency(sessions: Session[]): Session[] {
@@ -502,7 +502,7 @@ const SessionsList: React.FC = () => {
 
   return (
     <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
-      {/* Agent Trace-wide welcome band lives on Observatory now (the
+      {/* Pellier Labs-wide welcome band lives on Observatory now (the
           default landing surface). Sessions is zoom-in, no need
           to repeat the intro here. */}
       <EditorialTitle

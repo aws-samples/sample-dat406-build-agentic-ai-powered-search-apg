@@ -1,7 +1,7 @@
 /**
  * EditorialTitle — Page-level title block (eyebrow + Fraunces title + summary paragraph).
  *
- * Used at the top of each Agent Trace surface for consistent editorial hierarchy.
+ * Used at the top of each Pellier Labs surface for consistent editorial hierarchy.
  *
  * Requirements: 15.3, 15.7
  */

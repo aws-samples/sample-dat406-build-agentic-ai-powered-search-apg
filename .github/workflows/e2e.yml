@@ -1,21 +1,8 @@
-# E2E workflow: Playwright against a dedicated Cognito dev pool.
+# Always-running production-build browser gate for the participant path.
 #
-# The dev pool is separate from the workshop infrastructure and is
-# email/password-only. Google and Apple IdP flows are validated via manual
-# workshop dry-runs, not here.
-#
-# Required GitHub Actions secrets (configure at repo or org level):
-#
-#   E2E_COGNITO_POOL_ID       - id of the dedicated dev pool
-#                               (must NOT contain "prod"/"production"/"prd")
-#   E2E_COGNITO_CLIENT_ID     - email-only app client id
-#   E2E_TEST_USER_EMAIL       - email for the test user
-#   E2E_TEST_USER_PASSWORD    - password meeting the pool's policy
-#   E2E_AWS_REGION            - region of the pool (e.g. us-east-1)
-#   E2E_AWS_ROLE_ARN          - CI-scoped admin role assumed via OIDC;
-#                               has least-privilege cognito-idp permissions
-#                               (AdminCreateUser, AdminSetUserPassword,
-#                                AdminDeleteUser) on the dev pool only.
+# Smoke mode replaces external Aurora and Bedrock calls with deterministic
+# responses, but the frontend is the real production bundle served by FastAPI.
+# This gate needs no AWS credentials and cannot pass by skipping its tests.
 
 name: e2e
 
@@ -32,142 +19,78 @@ concurrency:
 
 jobs:
   e2e:
-    name: Playwright against Cognito dev pool
+    name: Production-build participant smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # OIDC is used to assume the CI-scoped admin role; no long-lived AWS
-    # keys ever touch the runner.
     permissions:
-      id-token: write
       contents: read
 
     env:
-      E2E_COGNITO_POOL_ID: ${{ secrets.E2E_COGNITO_POOL_ID }}
-      E2E_COGNITO_CLIENT_ID: ${{ secrets.E2E_COGNITO_CLIENT_ID }}
-      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
-      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
-      E2E_AWS_REGION: ${{ secrets.E2E_AWS_REGION }}
-      E2E_AWS_ROLE_ARN: ${{ secrets.E2E_AWS_ROLE_ARN }}
-      E2E_BASE_URL: http://localhost:5173
+      PELLIER_SMOKE_MODE: "true"
+      DB_HOST: localhost
+      DB_NAME: pellier_smoke
+      DB_USER: pellier_smoke
+      DB_PASSWORD: pellier_smoke
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      E2E_BASE_URL: http://localhost:8000
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check required E2E secrets
-        id: e2e_config
-        shell: bash
-        run: |
-          missing=()
-          for name in E2E_COGNITO_POOL_ID E2E_COGNITO_CLIENT_ID E2E_TEST_USER_EMAIL E2E_TEST_USER_PASSWORD E2E_AWS_REGION E2E_AWS_ROLE_ARN; do
-            if [ -z "${!name:-}" ]; then
-              missing+=("$name")
-            fi
-          done
-
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Missing E2E secrets: ${missing[*]}"
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip Cognito E2E when secrets are absent
-        if: steps.e2e_config.outputs.configured != 'true'
-        run: echo "Skipping Cognito E2E because the required GitHub Actions secrets are not configured."
-
-      - name: Configure AWS credentials (OIDC)
-        if: steps.e2e_config.outputs.configured == 'true'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.E2E_AWS_ROLE_ARN }}
-          aws-region: ${{ env.E2E_AWS_REGION }}
-
       - name: Set up Python
-        if: steps.e2e_config.outputs.configured == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
 
-      - name: Install Python deps
-        if: steps.e2e_config.outputs.configured == 'true'
-        run: pip install boto3
-
       - name: Set up Node
-        if: steps.e2e_config.outputs.configured == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: pellier/frontend/package-lock.json
 
       - name: Install frontend deps
-        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         run: npm ci
 
+      - name: Build frontend
+        working-directory: pellier/frontend
+        run: npm run build
+
+      - name: Install backend deps
+        working-directory: pellier/backend
+        run: python -m pip install -r requirements.lock
+
       - name: Install Playwright browsers
-        if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         run: npx playwright install --with-deps chromium
 
-      # Bootstrap BEFORE starting the app so that any AWS error fails fast
-      # without leaving a running dev server behind.
-      - name: Bootstrap Cognito dev pool test user
-        if: steps.e2e_config.outputs.configured == 'true'
-        run: python tests/e2e/bootstrap_cognito_dev_pool.py
-
-      - name: Start backend
-        if: steps.e2e_config.outputs.configured == 'true'
+      - name: Start production server
         working-directory: pellier/backend
         run: |
-          pip install -r requirements.txt
           nohup uvicorn app:app --host 0.0.0.0 --port 8000 >/tmp/backend.log 2>&1 &
-          # Wait for /healthz (or /) to respond before moving on.
-          for i in $(seq 1 30); do
-            if curl -sSf http://localhost:8000/ >/dev/null; then exit 0; fi
+          for i in $(seq 1 40); do
+            if curl -sSf http://localhost:8000/api/health >/dev/null; then exit 0; fi
             sleep 1
           done
           echo "backend did not start in time" >&2
           cat /tmp/backend.log >&2
           exit 1
 
-      - name: Start frontend
-        if: steps.e2e_config.outputs.configured == 'true'
+      - name: Run participant smoke specs
         working-directory: pellier/frontend
-        run: |
-          nohup npm run dev -- --host 0.0.0.0 --port 5173 >/tmp/frontend.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -sSf http://localhost:5173/ >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          echo "frontend did not start in time" >&2
-          cat /tmp/frontend.log >&2
-          exit 1
-
-      - name: Run Playwright
-        if: steps.e2e_config.outputs.configured == 'true'
-        working-directory: pellier/frontend
-        # All four E2E specs per Task 7.3. The three specs beyond the
-        # happy path are scaffolding - they skip when env vars are not
-        # set (e.g. during a local dry-run) and run green against the
-        # dedicated dev pool in nightly CI.
         run: |
           npx playwright test \
-            ../../tests/e2e/auth-happy-path.spec.ts \
-            ../../tests/e2e/auth-refresh.spec.ts \
-            ../../tests/e2e/auth-refresh-fail.spec.ts \
-            ../../tests/e2e/anon-to-auth.spec.ts
-
-      # Teardown runs even on failure so the dev pool stays tidy. A missing
-      # user is treated as success by the script.
-      - name: Tear down Cognito dev pool test user
-        if: always() && steps.e2e_config.outputs.configured == 'true'
-        run: python tests/e2e/teardown_cognito_dev_pool.py
+            e2e/workshop-smoke.spec.ts \
+            e2e/persona-modal.spec.ts
 
       - name: Upload Playwright report
-        if: always() && steps.e2e_config.outputs.configured == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: participant-smoke-report-ubuntu-latest
           path: pellier/frontend/playwright-report
           if-no-files-found: ignore

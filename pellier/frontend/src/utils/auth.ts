@@ -1,7 +1,7 @@
 /**
  * utils/auth.ts — auth utility surface.
  *
- * Browser-side helpers for the Cognito Hosted UI + AgentCore Identity flow
+ * Browser-side helpers for the Cognito Hosted UI authorization-code flow
  * and a thin re-export of the `useAuth()` React hook from AuthContext.
  *
  * Validates Requirement 2.6.5 and matches the signatures in design.md
@@ -47,12 +47,22 @@ export interface SignInOptions {
   returnTo?: string
 }
 
+/** Keep post-auth navigation on this origin. */
+export function safeReturnTo(value: string | null | undefined, fallback = '/'): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) {
+    return fallback
+  }
+  return value
+}
+
 /** Build `?returnTo=<encoded>` from the current URL when no override is passed. */
 function resolveReturnTo(opts?: SignInOptions): string {
-  if (opts?.returnTo !== undefined && opts.returnTo !== null) return opts.returnTo
+  if (opts?.returnTo !== undefined && opts.returnTo !== null) {
+    return safeReturnTo(opts.returnTo)
+  }
   if (typeof window === 'undefined') return '/'
   const { pathname, search } = window.location
-  return `${pathname}${search}`
+  return safeReturnTo(`${pathname}${search}`)
 }
 
 /**

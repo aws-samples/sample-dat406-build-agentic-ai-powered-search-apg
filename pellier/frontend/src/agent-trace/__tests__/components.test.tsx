@@ -1,5 +1,5 @@
 /**
- * Unit tests for Agent Trace shared UI components.
+ * Unit tests for Pellier Labs shared UI components.
  *
  * Tests verify that each component renders the correct DOM output
  * with the expected inline styles, text content, and accessibility

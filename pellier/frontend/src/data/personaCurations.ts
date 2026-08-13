@@ -298,7 +298,7 @@ export function editorialForPersona(
 // ---------------------------------------------------------------------
 
 // Hero pills — the first pill in each persona's list is their
-// canonical Turn 1 query, matching the Agent Trace session fixture
+// canonical Turn 1 query, matching Pellier Labs session fixture
 // and the BoutiqueWelcome primary pick. The remaining pills are
 // Turn 2/3 follow-ups so the demo flows as one coherent journey.
 export const PERSONA_HERO_PILLS: Record<string, string[]> = {
@@ -353,7 +353,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
 }
 
-/** Marco Boutique / Agent Trace Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
+/** Marco Boutique / Pellier Labs Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
 export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
 
 /**
@@ -485,8 +485,9 @@ export function weekendEditForPersona(
 }
 
 // ---------------------------------------------------------------------
-// "Because" chips — a second row of suggestion pills under the hero
-// search bar that cite memory or live trends instead of canned queries.
+// Profile-aware prompts — a second row of suggestion pills under the hero
+// search bar. Copy describes declared workshop seeds, never uncollected live
+// memory, trend, or inventory evidence.
 // Each chip carries a `kind` (memory | trend | inventory | weather) and
 // the human-readable copy that follows. The hero renders them as
 // dashed italic chips with the kind label as a tiny eyebrow.
@@ -506,19 +507,19 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
   marco: [
     {
       kind: 'memory',
-      text: 'you saved the Linen Camp Shirt last visit',
+      text: "Marco's profile favors linen and travel",
       query: 'Show me linen pieces like the Camp Shirt',
     },
     {
       kind: 'trend',
-      text: 'terracotta is moving four times faster this week',
-      query: 'Show me terracotta pieces',
+      text: 'build a lightweight edit for a ten-day trip',
+      query: 'What linen do you have for 10 days in Goa?',
     },
   ],
   anna: [
     {
       kind: 'memory',
-      text: 'you were shopping for a milestone gift',
+      text: "Anna's profile favors gifting and home",
       // Fires Anna's canonical rerank anchor verbatim so the lab guide's
       // "click, don't type" path matches memory-anna.json and the
       // search-strategies comparison. Keep this string in sync with the
@@ -527,32 +528,32 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
     },
     {
       kind: 'trend',
-      text: 'the Beeswax Tapers restocked an hour ago',
+      text: 'compare a candle with a wrapped pairing',
       query: 'Show me the Beeswax Taper Candles',
     },
   ],
   theo: [
     {
       kind: 'memory',
-      text: 'you opened the Pour-Over Set twice last week',
+      text: "Theo's profile favors slow craft and ceramics",
       query: 'Pieces that pair with the Pour-Over Set',
     },
     {
       kind: 'inventory',
-      text: 'two Wabi-Sabi Bowls just came back in stock',
-      query: 'Show me the Wabi-Sabi Bowl',
+      text: 'run the damaged-bowl return flow',
+      query: 'File a damaged return for the Wabi-Sabi Bowl',
     },
   ],
   fresh: [
     {
       kind: 'trend',
-      text: 'linen requests are up 60% since Thursday',
-      query: 'Show me trending linen pieces',
+      text: 'explore the linen edit',
+      query: 'Show me linen pieces',
     },
     {
       kind: 'inventory',
-      text: 'three new arrivals just landed in the Summer Edit',
-      query: 'Show me what just arrived',
+      text: 'build a thoughtful gift shortlist',
+      query: 'A thoughtful gift for someone who runs',
     },
   ],
 }
@@ -565,15 +566,13 @@ export function becauseChipsForPersona(
 }
 
 // ---------------------------------------------------------------------
-// Memory handoff — what the agent "remembers" about a returning shopper.
-// Surfaced on the homepage between the hero and the Weekend Edit so
-// the most demoable agent capability (durable taste memory) is the
-// first thing a returning persona sees. Fresh visitors get a
-// learn-as-we-go variant so the layout rhythm stays consistent.
+// Workshop profile handoff — the deterministic seed and scenario boundary
+// for the selected persona. Durable memory and action receipts are only
+// claimed after the participant generates them in the active session.
 // ---------------------------------------------------------------------
 
 export interface MemoryHandoffItem {
-  /** Tool/source label, rendered in mono ("memory.recall", "memory.holds"). */
+  /** Source or boundary label rendered in mono. */
   tool: string
   /** Plain-language line. */
   text: string
@@ -590,39 +589,42 @@ export interface MemoryHandoffContent {
 
 export const PERSONA_MEMORY_HANDOFF: Record<string, MemoryHandoffContent> = {
   marco: {
-    eyebrow: 'Last time you were here · 14 hours ago',
-    title: 'You were deciding between two linen pieces. I held them for you.',
+    eyebrow: 'Workshop profile · Marco',
+    title: 'Travel and natural-fiber preferences seed this session.',
     items: [
-      { tool: 'memory.recall', text: 'Linen Camp Shirt · size 41 · saved' },
-      { tool: 'memory.holds', text: 'Wide-Leg Trouser · in bag, 2 left' },
-      { tool: 'inventory.watch', text: 'Slide Sandal · size 42 is back' },
+      { tool: 'profile.seed', text: 'Linen, travel, leather, and classic tags receive higher weights' },
+      { tool: 'scenario.prompt', text: 'The core prompt asks for a ten-day Goa edit' },
+      { tool: 'session.scope', text: 'Memory and receipts appear only after this session runs' },
     ],
+    cta: "Open Marco's prompt",
   },
   anna: {
-    eyebrow: 'Last time you were here · 2 days ago',
-    title: 'You were pairing a candle with something to wrap. I kept the shortlist.',
+    eyebrow: 'Workshop profile · Anna',
+    title: 'Gifting and home preferences seed this session.',
     items: [
-      { tool: 'memory.recall', text: 'Beeswax Tapers · saved as gift candidate' },
-      { tool: 'pairing.score', text: 'Linen Tea Towel · pairs with the tapers' },
-      { tool: 'inventory.watch', text: 'Fig Candle · back in stock today' },
+      { tool: 'profile.seed', text: 'Gift, candle, ceramic, and home tags receive higher weights' },
+      { tool: 'scenario.prompt', text: 'The core prompt asks for a new-homeowner milestone gift' },
+      { tool: 'session.scope', text: 'Memory and receipts appear only after this session runs' },
     ],
+    cta: "Open Anna's prompt",
   },
   theo: {
-    eyebrow: 'Last time you were here · 5 days ago',
-    title: 'You filed a return on the Wabi-Sabi Bowl. I followed up.',
+    eyebrow: 'Workshop profile · Theo',
+    title: 'Slow-craft and home preferences seed this session.',
     items: [
-      { tool: 'experience.return', text: 'Bowl · return processed, refund 1–2 days' },
-      { tool: 'memory.recall', text: 'Pour-Over Set · opened twice, not yet saved' },
-      { tool: 'inventory.watch', text: 'Stoneware Mug · 2 back in stock' },
+      { tool: 'profile.seed', text: 'Ceramic, slow, artisanal, and home tags receive higher weights' },
+      { tool: 'scenario.prompt', text: 'The core action files a damaged Wabi-Sabi Bowl return' },
+      { tool: 'session.scope', text: 'Memory and the return receipt appear only after this session runs' },
     ],
+    cta: "Open Theo's return flow",
   },
   fresh: {
-    eyebrow: 'New here · I learn as we go',
-    title: "I'll learn your taste as we go. Tell me what you're after.",
+    eyebrow: 'No workshop profile selected',
+    title: 'Choose a profile to start a scoped workshop session.',
     items: [
-      { tool: 'memory.seed', text: "I'll remember saved items, sizes, and the queries you return to" },
-      { tool: 'inventory.live', text: 'Live stock and restocks, surfaced before you ask' },
-      { tool: 'tool.transparency', text: 'Each recommendation explains why it belongs in the edit' },
+      { tool: 'profile.seed', text: 'Each profile declares visible tag weights and a core scenario' },
+      { tool: 'session.scope', text: 'Messages and action receipts are recorded only after you run them' },
+      { tool: 'tool.transparency', text: 'Recommendation cards expose their ranking reason' },
     ],
     cta: 'Try a query',
   },

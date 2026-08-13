@@ -1,5 +1,5 @@
 /**
- * Storefront vector search — used by Agent Trace session Chat follow-ups.
+ * Storefront vector search — used by Pellier Labs session Chat follow-ups.
  * POST /api/search runs embed + pgvector against pellier.product_catalog.
  */
 

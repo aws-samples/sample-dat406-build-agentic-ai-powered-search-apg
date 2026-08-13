@@ -1,5 +1,5 @@
 /**
- * LiveStrip — the universal bottom band every Agent Trace architecture
+ * LiveStrip — the universal bottom band every Pellier Labs architecture
  * page ends with.
  *
  * Structure is fixed: black header bar with pulse dot + eyebrow (left),

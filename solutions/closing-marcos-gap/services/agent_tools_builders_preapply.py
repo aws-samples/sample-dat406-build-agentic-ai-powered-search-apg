@@ -443,7 +443,7 @@ def floor_check(product_query: str = "") -> str:
     # Verify (live, the real check):
     #   Click Marco's Turn 4 pill in the Boutique — Stock Keeper answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Agent Trace Tools strip flip from 14/15 to 15/15 shipped.
+    #   Pellier Labs Tools strip flip from 14/15 to 15/15 shipped.
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it
@@ -853,7 +853,7 @@ def find_pieces_hybrid(
         )
 
         # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Agent Trace will show
+        # (returned []), fall back to RRF order — Pellier Labs will show
         # this as a missing rerank stage in telemetry.
         if rerank_results:
             ordered = [

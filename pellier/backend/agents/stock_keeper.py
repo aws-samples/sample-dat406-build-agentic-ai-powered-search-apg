@@ -6,8 +6,8 @@ questions.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_inventory_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``inventory(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and Pellier Labs Graph pattern.
+2. ``inventory(query)`` — ``@tool`` wrapper used by Pellier Labs'
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: this module is the home of the Stock Keeper persona.
@@ -90,7 +90,7 @@ _INVENTORY_SYSTEM_PROMPT = (
 )
 
 # ``_INVENTORY_AGENT_STUBBED`` — legacy flag still read by chat fall-back when
-# Stock Keeper cannot run; Agent Trace shipped vs exercise uses ``agents.json``
+# Stock Keeper cannot run; Pellier Labs shipped vs exercise uses ``agents.json``
 # plus ``GET /api/agent-trace/build-state`` (live ``floor_check`` stub detection).
 _INVENTORY_AGENT_STUBBED = False
 
@@ -121,7 +121,7 @@ def build_inventory_agent() -> Agent:
 
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Both injections are no-ops when their
-    ContextVars are empty, so anonymous Agent Trace behavior is
+    ContextVars are empty, so anonymous Pellier Labs behavior is
     unchanged by consolidating the five factories onto the same
     substrate.
     """

@@ -1,5 +1,5 @@
 /**
- * DetailPageShell — the outer frame every Agent Trace architecture page shares.
+ * DetailPageShell — the outer frame every Pellier Labs architecture page shares.
  *
  * Renders breadcrumb → title → subtitle → meta strip, then the page
  * body as children. The Skills page is the visual contract: same
@@ -9,7 +9,7 @@
  * Usage:
  *
  *   <DetailPageShell
- *     crumb={['Agent Trace', 'Architecture', 'Memory']}
+ *     crumb={['Pellier Labs', 'Architecture', 'Memory']}
  *     title={<>Memory, <em>two-tiered.</em></>}
  *     subtitle="Short-term holds the conversation. Long-term holds everything else worth remembering."
  *     meta={[

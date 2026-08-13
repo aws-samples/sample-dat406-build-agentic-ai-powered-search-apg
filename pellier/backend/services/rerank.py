@@ -84,7 +84,7 @@ class RerankService:
 
             On any Bedrock error, returns an empty list — the caller
             is responsible for falling back to RRF order. We log at
-            WARNING level so the failure is visible in the Agent Trace
+            WARNING level so the failure is visible in Pellier Labs
             without crashing the request path.
         """
         if not documents:
@@ -135,7 +135,7 @@ class RerankService:
             return results
         except Exception as exc:
             # Don't crash the pipeline — return empty so the caller
-            # falls back to RRF order. The Agent Trace will surface this
+            # falls back to RRF order. Pellier Labs will surface this
             # as a missing rerank stage in telemetry, which is the
             # honest signal.
             logger.warning(

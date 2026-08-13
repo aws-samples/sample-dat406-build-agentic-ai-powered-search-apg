@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Skill type
+ * Pellier Labs Observatory — Skill type
  *
  * Represents one of the 5 skills loaded by the SkillRouter
  * per turn. Mirrors the YAML + Markdown structure of the live

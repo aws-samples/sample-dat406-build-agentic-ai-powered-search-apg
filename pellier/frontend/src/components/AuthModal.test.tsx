@@ -26,7 +26,8 @@ import { UIProvider, useUI } from '../contexts/UIContext'
 // actually navigating. `redirectToSignIn` is imported from `utils/auth.ts`
 // which is a pure module - replacing the export is enough for the click
 // handlers below.
-vi.mock('../utils/auth', () => ({
+vi.mock('../utils/auth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/auth')>()),
   redirectToSignIn: vi.fn(),
 }))
 
@@ -168,7 +169,7 @@ describe('AuthModal structure (storefront.md)', () => {
     )
   })
 
-  it('renders the disclaimer and the 10px mono AgentCore Identity footer', async () => {
+  it('renders the disclaimer and the 10px mono Cognito footer', async () => {
     const user = userEvent.setup()
     renderModal()
     await user.click(screen.getByText('open-auth'))
@@ -254,6 +255,19 @@ describe('AuthModal provider buttons (Req 2.6.6)', () => {
     expect(mockedRedirectToSignIn).toHaveBeenCalledTimes(1)
     expect(mockedRedirectToSignIn).toHaveBeenCalledWith('email', {
       returnTo: '/',
+    })
+  })
+
+  it('preserves the original returnTo from the /signin chooser route', async () => {
+    installLocation('/signin', '?returnTo=%2Fdiscover%3Fview%3Dlinen')
+    const user = userEvent.setup()
+    renderModal()
+    await user.click(screen.getByText('open-auth'))
+
+    await user.click(screen.getByTestId('auth-modal-button-email'))
+
+    expect(mockedRedirectToSignIn).toHaveBeenCalledWith('email', {
+      returnTo: '/discover?view=linen',
     })
   })
 })

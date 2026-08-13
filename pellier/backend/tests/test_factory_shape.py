@@ -1,7 +1,7 @@
 """Factory-shape contract test.
 
-The three-pattern model (Storefront dispatcher, Agent Trace Agents-as-Tools,
-Agent Trace Graph) depends on every specialist exposing a uniform factory
+The three-pattern model (Storefront dispatcher, Pellier Labs Agents-as-Tools,
+Pellier Labs Graph) depends on every specialist exposing a uniform factory
 function alongside its ``@tool``-decorated version. This test enforces
 that contract so future changes to ``agents/`` get flagged before they
 ship.
@@ -152,7 +152,7 @@ def test_tool_wrapper_has_strands_metadata(name: str, wrapper) -> None:
 
 def test_orchestrator_exposes_all_five_specialists() -> None:
     """create_orchestrator() must still wire all five @tool specialists
-    so Pattern I (Agent Trace Agents-as-Tools) keeps working."""
+    so Pattern I (Pellier Labs Agents-as-Tools) keeps working."""
     from agents.orchestrator import create_orchestrator
 
     orch = create_orchestrator()

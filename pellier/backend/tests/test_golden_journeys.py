@@ -1,6 +1,6 @@
 """Golden-set journey regressions — Batch 4 evals spike (Day 1 CI gate).
 
-Loads `tests/golden/journeys.json` and asserts each pinned Agent Trace session
+Loads `tests/golden/journeys.json` and asserts each pinned Pellier Labs session
 fixture still matches the workshop's non-negotiable agent behavior:
 which tools fire (and in what order), which products surface, and which
 routing pattern owns the turn. Deterministic, no AWS calls, no model

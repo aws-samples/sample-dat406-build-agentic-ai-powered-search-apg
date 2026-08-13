@@ -173,24 +173,6 @@
 .pa-add:hover {
   background: var(--red-1);
 }
-.pa-heart {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--rule-2);
-  background: transparent;
-  color: var(--ink-3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 180ms;
-}
-.pa-heart:hover {
-  color: var(--red-1);
-  border-color: var(--red-1);
-}
-
 .pa-quick-actions {
   margin-top: 8px;
   display: flex;

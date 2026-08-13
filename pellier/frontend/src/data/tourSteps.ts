@@ -6,7 +6,7 @@ export interface TourAction {
   label: string
   actionKey: 'focus-search' | 'open-sql-inspector' | 'open-hybrid-search' |
     'open-agent-traces' | 'open-context-dashboard' | 'open-chat' |
-    'open-guardrails' | 'toggle-chaos' | 'open-dev-tools'
+    'open-guardrails' | 'open-dev-tools'
 }
 
 export interface TourStep {
@@ -116,8 +116,8 @@ export const TOUR_STEPS: Record<WorkshopMode, TourStep[]> = {
     },
     {
       selector: '[data-tour="dev-tools-tab"]',
-      title: 'Guardrails & chaos',
-      description: 'Bedrock Guardrails filter the bad stuff. Chaos Mode injects failures so your retry paths earn their keep.',
+      title: 'Guardrail boundary',
+      description: 'Inspect where guardrail results appear in the trace and how the application handles a blocked response.',
       position: 'right',
       tryItAction: { label: 'Open Guardrails', actionKey: 'open-guardrails' },
     },

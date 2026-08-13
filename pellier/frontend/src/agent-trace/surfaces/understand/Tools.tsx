@@ -163,7 +163,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
 
       {/* Prose — same Instrument Sans treatment as AgentTraceWelcome's
           summary paragraph so explanatory copy reads consistently
-          across every Agent Trace surface (no stray italics). */}
+          across every Pellier Labs surface (no stray italics). */}
       <p
         style={{
           fontFamily: 'var(--at-sans)',

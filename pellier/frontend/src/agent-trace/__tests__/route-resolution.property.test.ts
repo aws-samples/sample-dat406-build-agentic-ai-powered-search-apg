@@ -1,7 +1,7 @@
 /**
  * Property test: Route resolution correctness (Property 5)
  *
- * Generates valid Agent Trace route paths from the defined route segments
+ * Generates valid Pellier Labs route paths from the defined route segments
  * and verifies React Router resolves each to a non-null component.
  *
  * **Validates: Requirements 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.8**
@@ -53,7 +53,7 @@ const agentTraceRoutes: RouteObject[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Generators — produce valid Agent Trace paths from defined route segments.
+// Generators — produce valid Pellier Labs paths from defined route segments.
 // ---------------------------------------------------------------------------
 
 /** Alphanumeric + hex-style IDs for parameterized segments. */
@@ -79,7 +79,7 @@ const conceptSlugArb = fc.constantFrom(
 const sessionTabArb = fc.constantFrom('chat', 'telemetry', 'brief')
 
 /**
- * Generates a valid Agent Trace route path. The generator picks from all
+ * Generates a valid Pellier Labs route path. The generator picks from all
  * defined route segments, including parameterized routes with generated
  * parameter values.
  */
@@ -119,13 +119,13 @@ const agentTracePathArb: fc.Arbitrary<string> = fc.oneof(
 // Property test
 // ---------------------------------------------------------------------------
 describe('Property 5: Route resolution correctness', () => {
-  it('every valid Agent Trace path resolves to a non-null route match', () => {
+  it('every valid Pellier Labs path resolves to a non-null route match', () => {
     fc.assert(
       fc.property(agentTracePathArb, (path) => {
         const matches = matchRoutes(agentTraceRoutes, path)
 
         // matchRoutes returns null when no route matches the path.
-        // Every valid Agent Trace path must produce at least one match.
+        // Every valid Pellier Labs path must produce at least one match.
         expect(matches).not.toBeNull()
         expect(matches!.length).toBeGreaterThan(0)
 

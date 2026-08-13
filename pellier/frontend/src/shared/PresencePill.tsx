@@ -5,7 +5,7 @@
  * session jargon.
  *
  * Used on the Boutique capability strip (cream-tinted, glass background)
- * and on the Agent Trace TopBar (same boutique styling on the light cream bar).
+ * and on Pellier Labs TopBar (same boutique styling on the light cream bar).
  *
  * Pass `sessionLabel=""` explicitly to force-hide the fragment, or rely
  * on defaults: fresh / anonymous → no fragment; returning shoppers →

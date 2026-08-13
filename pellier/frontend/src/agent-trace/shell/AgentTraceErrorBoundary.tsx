@@ -1,5 +1,5 @@
 /**
- * AgentTraceErrorBoundary — React Error Boundary for the Agent Trace canvas.
+ * AgentTraceErrorBoundary — React Error Boundary for Pellier Labs canvas.
  *
  * Wraps the <Outlet /> in AgentTraceFrame so that if any surface component
  * throws during render, the sidebar and top bar remain functional while

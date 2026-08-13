@@ -59,7 +59,7 @@ export interface DetailPageShellProps {
    * Optional "See this in the Boutique" cross-link. When set, renders
    * a small italic anchor next to the hero title that drops the
    * attendee onto the storefront with a query that exercises this
-   * concept. Keeps the Agent Trace↔Boutique round trip one click away on
+   * concept. Keeps Pellier Labs↔Boutique round trip one click away on
    * every deep-dive page.
    */
   seeInBoutique?: {

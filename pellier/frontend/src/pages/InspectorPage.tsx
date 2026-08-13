@@ -120,7 +120,7 @@ export default function InspectorPage() {
           style={{ color: c.ink2 }}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Agent Trace
+          Back to Pellier Labs
         </Link>
         <div
           className="inline-flex items-center gap-2 text-[11px] font-mono"

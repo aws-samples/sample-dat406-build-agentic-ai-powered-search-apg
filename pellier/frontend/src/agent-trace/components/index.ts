@@ -1,7 +1,7 @@
 /**
- * Agent Trace Observatory — Shared UI Components
+ * Pellier Labs Observatory — Shared UI Components
  *
- * Barrel export for all reusable primitives used across Agent Trace surfaces.
+ * Barrel export for all reusable primitives used across Pellier Labs surfaces.
  *
  * Requirements: 22.3
  */

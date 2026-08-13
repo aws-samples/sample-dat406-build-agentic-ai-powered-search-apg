@@ -1,6 +1,6 @@
 /**
  * SurfaceToggle — segmented control that pairs the shopper-facing
- * storefront (`/`) with the operator-facing Agent Trace surface.
+ * storefront (`/`) with the operator-facing Pellier Labs surface.
  *
  * Replaces the standalone "Workshop" text link that used to sit in
  * the Header. The pair is a single source of truth for "which surface

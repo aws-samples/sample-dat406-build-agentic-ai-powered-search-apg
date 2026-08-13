@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Production Patterns types
+ * Pellier Labs Observatory — Production Patterns types
  *
  * Four production patterns sit underneath every shipped agent: identity,
  * guardrails, multi-tenancy & STM hygiene, and tool publishing. The

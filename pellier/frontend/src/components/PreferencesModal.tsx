@@ -17,7 +17,7 @@
  *     (`var(--dl-ink)` / `var(--cream-warm)`).
  *   - Submit row: `Skip for now` secondary + `Save and see my storefront`
  *     primary.
- *   - Footer: `Preferences stored with AgentCore Memory` 10px mono with
+ *   - Footer: preference scope boundary in 10px mono with
  *     shield icon.
  *
  * Behavior on save:

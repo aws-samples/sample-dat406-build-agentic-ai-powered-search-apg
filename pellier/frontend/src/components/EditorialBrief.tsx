@@ -4,7 +4,7 @@
  * Two-part closer before the footer:
  *
  *   1. About band — editorial portrait left, "About" eyebrow,
- *      Boutique/Agent Trace positioning, and tech-stack chips.
+ *      Boutique/Pellier Labs positioning, and tech-stack chips.
  *   2. Colophon strip — single centered italic line on a slightly
  *      darker warm ground, doubling as the visual page-end signal.
  */
@@ -100,7 +100,7 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Boutique + Agent Trace
+                Boutique + Pellier Labs
               </div>
 
               {/* Philosophy */}
@@ -113,11 +113,10 @@ export default function EditorialBrief() {
                   color: '#4a3a2e',
                 }}
               >
-                Pellier is a working boutique built to show governed agentic
-                search in motion. Shoppers ask in natural language: a linen
-                shirt for Goa, a thoughtful gift, a slow-craft object for home.
-                The storefront answers with pieces that feel personal, while the
-                Agent Trace shows how each answer was built.
+                Pellier is a workshop boutique for agentic search on Aurora.
+                The static floor uses a seeded catalog and explicit profile tag
+                weights. Natural-language turns invoke specialist tools and
+                retrieval paths that participants can inspect.
               </p>
 
               <p
@@ -129,11 +128,11 @@ export default function EditorialBrief() {
                   color: '#4a3a2e',
                 }}
               >
-                Every recommendation is grounded in Aurora PostgreSQL, shaped
-                by specialist agents, checked against tools and inventory, and
-                traceable back to the signals that produced it. The promise is
-                simple: recommendations can feel personal without becoming
-                invisible.
+                Aurora PostgreSQL stores catalog vectors, relational context,
+                working-memory turns, and action receipts. Pellier Labs
+                distinguishes authored fixtures from live evidence so a
+                recommendation never claims more provenance than the current
+                session collected.
               </p>
 
               {/* Stack */}
@@ -145,12 +144,10 @@ export default function EditorialBrief() {
                   'Aurora PostgreSQL',
                   'pgvector',
                   'Amazon Bedrock',
-                  'AgentCore',
                   'Strands SDK',
                   'Claude',
                   'Cohere Embed v4',
-                  'Amazon Transcribe',
-                  'Cedar',
+                  'Cohere Rerank v3.5',
                 ].map((tech) => (
                   <span
                     key={tech}

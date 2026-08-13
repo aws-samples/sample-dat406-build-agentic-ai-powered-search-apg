@@ -1,6 +1,6 @@
-"""``/api/agent-trace/*`` — Agent Trace Observatory read-only API endpoints.
+"""``/api/agent-trace/*`` — Pellier Labs Observatory read-only API endpoints.
 
-This router provides the backend data layer for the Agent Trace Observatory
+This router provides the backend data layer for Pellier Labs Observatory
 frontend surfaces. All endpoints are read-only and return fixture data
 initially, with graceful degradation when the database is unavailable.
 
@@ -147,7 +147,7 @@ def _fixture_tool_status_map() -> dict[str, str]:
 
 
 def _tool_discovery_status(tool_name: str) -> str:
-    """Status for discovery rows — matches Agent Trace Tools surface / fixtures."""
+    """Status for discovery rows — matches Pellier Labs Tools surface / fixtures."""
     return _fixture_tool_status_map().get(tool_name, "shipped")
 
 
@@ -181,7 +181,7 @@ def _readiness_check(
     required: bool = True,
     href: str | None = None,
 ) -> dict[str, Any]:
-    """Small serializable readiness row used by Agent Trace and tests."""
+    """Small serializable readiness row used by Pellier Labs and tests."""
     out: dict[str, Any] = {
         "id": check_id,
         "label": label,
@@ -221,7 +221,7 @@ async def _workshop_counts() -> dict[str, int] | None:
             "audit_count": int(d.get("audit_count") or 0),
         }
     except Exception as exc:
-        logger.warning("Agent Trace readiness counts unavailable: %s", exc)
+        logger.warning("Pellier Labs readiness counts unavailable: %s", exc)
         return None
 
 
@@ -268,7 +268,7 @@ async def _latest_audit_row(
             d["created_at"] = d["created_at"].isoformat()
         return d
     except Exception as exc:
-        logger.warning("Agent Trace latest audit row unavailable: %s", exc)
+        logger.warning("Pellier Labs latest audit row unavailable: %s", exc)
         return None
 
 
@@ -435,7 +435,7 @@ def _card_status(condition: bool, fallback: str = "pending") -> str:
 
 
 async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
-    """Build the Agent Trace proof-card payload.
+    """Build Pellier Labs proof-card payload.
 
     The Proof Board is deliberately a read model. It reports evidence
     from source files, env/config, recent traces, and ``tool_audit``.
@@ -1278,7 +1278,7 @@ async def get_observatory():
 
 @router.get("/architecture")
 async def get_architecture():
-    """Return the architecture diagram payload for the Agent Trace Understand surface."""
+    """Return the architecture diagram payload for Pellier Labs Understand surface."""
     try:
         data = _load_fixture("architecture")
         if data is None:
@@ -1295,7 +1295,7 @@ async def get_build_state():
 
     Loads ``agents.json`` / ``tools.json`` then, when ``floor_check`` in
     ``services.agent_tools`` is no longer the workshop starter stub,
-    marks ``floor_check`` and **Stock Keeper** as shipped so the Agent Trace
+    marks ``floor_check`` and **Stock Keeper** as shipped so Pellier Labs
     progress strip matches a completed required-path exercise.
 
     Shape matches ``BuildStateApiResponse`` in the frontend ``useBuildState`` hook.
@@ -1331,7 +1331,7 @@ async def get_workshop_readiness():
     """Return cheap readiness checks for the live workshop pillars.
 
     This is the API version of ``scripts/health-gate.sh`` for the
-    Agent Trace. It does not call Bedrock, Runtime, Gateway, or Policy; it
+    Pellier Labs. It does not call Bedrock, Runtime, Gateway, or Policy; it
     only reads config and small Aurora counts so participants can open
     the panel without triggering managed services.
     """
@@ -1370,7 +1370,7 @@ class AgentTraceSkillRouteRequest(BaseModel):
 
 @router.post("/skills/route")
 async def route_skills_endpoint(payload: AgentTraceSkillRouteRequest):
-    """Live skill-router demo for the Agent Trace Skills surface.
+    """Live skill-router demo for Pellier Labs Skills surface.
 
     Calls services/skills.SkillRouter.route() against the user query
     and returns the same RouterDecision shape the chat pipeline emits
@@ -1392,7 +1392,7 @@ async def route_skills_endpoint(payload: AgentTraceSkillRouteRequest):
             "user_message": payload.query[:500],
         }
     except Exception as exc:
-        logger.warning("Agent Trace skill route failed: %s", exc)
+        logger.warning("Pellier Labs skill route failed: %s", exc)
         return {
             "loaded_skills": [],
             "considered": [],
@@ -1405,7 +1405,7 @@ async def route_skills_endpoint(payload: AgentTraceSkillRouteRequest):
 @router.get("/policies")
 async def get_cedar_policies():
     """Return the Cedar policies attached to the managed AgentCore Policy
-    engine (Gateway-enforced, ENFORCE mode). Used by the Agent Trace's
+    engine (Gateway-enforced, ENFORCE mode). Used by Pellier Labs'
     Write-path surface to show "policy is code, code is enforcement".
 
     Reads the managed engine via boto3 ``bedrock-agentcore-control``

@@ -3,7 +3,7 @@
  * a result.
  *
  * The same atom appears on the Boutique (under product cards, in the
- * Live Floor Strip, on the Memory Handoff card) and on the Agent Trace
+ * Live Floor Strip, on the Memory Handoff card) and on Pellier Labs
  * (Tools surface, Sessions, Observatory). Importing both surfaces
  * from this single file is the cohesion guarantee — when the visual
  * treatment evolves, every place that names a tool updates together.
@@ -11,7 +11,7 @@
  * Visual: warm tint + 1px accent border, mono label at 11px with slight
  * tracking for readable dot-syntax. Optional `duration` renders a faint
  * right-aligned mono timestamp ("· 2.1s ago"). Optional `linkToAgentTrace`
- * wraps the chip in an anchor that deep-links to the Agent Trace route that
+ * wraps the chip in an anchor that deep-links to Pellier Labs route that
  * explains this concept (the "how this works" handoff).
  */
 import React from 'react'
@@ -26,7 +26,7 @@ export interface TraceChipProps {
   duration?: string
   /**
    * When true, wraps the chip in an anchor tag pointing to the
-   * Agent Trace route that explains this tool. Lets shoppers click
+   * Pellier Labs route that explains this tool. Lets shoppers click
    * any trace and land on the developer-facing explainer for it.
    */
   linkToAgentTrace?: boolean

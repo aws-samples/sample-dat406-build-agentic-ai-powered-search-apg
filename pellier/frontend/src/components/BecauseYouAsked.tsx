@@ -22,21 +22,21 @@ import type { CSSProperties } from 'react'
 
 const PERSONA_HEADLINES: Record<string, { eyebrow: string; headline: string }> = {
   marco: {
-    eyebrow: 'Because you asked about travel',
+    eyebrow: "From Marco's seeded profile",
     headline: 'Stories for the road.',
   },
   anna: {
-    eyebrow: 'Because you asked about gifts',
+    eyebrow: "From Anna's seeded profile",
     headline: 'Stories worth wrapping.',
   },
   theo: {
-    eyebrow: 'Because you asked about slow craft',
+    eyebrow: "From Theo's seeded profile",
     headline: 'Stories for quieter days.',
   },
 }
 
 const DEFAULT_HEADLINE = {
-  eyebrow: 'Because you asked',
+  eyebrow: 'From the catalog edit',
   headline: 'Stories worth exploring.',
 }
 
@@ -52,7 +52,7 @@ export default function BecauseYouAsked() {
   return (
     <section
       data-testid="because-you-asked"
-      aria-label="Because you asked"
+      aria-label="Profile-guided stories"
       className="w-full py-16 md:py-20 lg:py-24"
       style={{
         '--boutique-accent': personaAccent,

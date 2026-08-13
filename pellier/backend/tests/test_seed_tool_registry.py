@@ -62,7 +62,7 @@ def test_write_path_tools_require_approval(seeder_module) -> None:
 
 
 def test_owner_agent_assigned_for_every_tool(seeder_module) -> None:
-    """Agent Trace Tools surface shows provenance per tool; 'unknown' owner
+    """Pellier Labs Tools surface shows provenance per tool; 'unknown' owner
     means the map fell out of sync with Gateway's name list.
 
     Owners are the 5 boutique-branded specialists. Mirrors the

@@ -6,11 +6,18 @@
  * ComparisonHost), and the final route table. The two surfaces are
  * BoutiquePage (`/`) and AgentTraceFrame (`/agent-trace/*`).
  *
- * AuthGate is exported so the Agent Trace surface can be gated when Cognito
+ * AuthGate is exported so Pellier Labs surface can be gated when Cognito
  * is configured.
  */
-import { lazy, Suspense, useEffect, type ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { CartProvider, useCart } from './contexts/CartContext'
 import { UIProvider, useUI } from './contexts/UIContext'
@@ -25,6 +32,7 @@ import ChatDrawer from './components/ChatDrawer'
 import ComparisonHost from './components/ComparisonHost'
 import SignInPage from './components/SignInPage'
 import { routerBasename } from './utils/assetPath'
+import { safeReturnTo } from './utils/auth'
 import './styles/premium-heading-styles.css'
 
 const BoutiquePage = lazy(() => import('./pages/BoutiquePage'))
@@ -65,7 +73,7 @@ const DiscoverPage = lazy(() => import('./pages/DiscoverPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 
 // ---------------------------------------------------------------------------
-// AuthGate — Cognito-aware auth wrapper. Gates the Agent Trace surface when
+// AuthGate — Cognito-aware auth wrapper. Gates Pellier Labs surface when
 // Cognito is configured. When Cognito is not configured (local dev without
 // env vars), children pass through directly.
 // ---------------------------------------------------------------------------
@@ -141,6 +149,27 @@ function ModalRouteGuard() {
   return null
 }
 
+function SignInChooserRoute() {
+  const { activeModal, openModal } = useUI()
+  const { search } = useLocation()
+  const navigate = useNavigate()
+  const [opened, setOpened] = useState(false)
+  const returnTo = safeReturnTo(new URLSearchParams(search).get('returnTo'))
+
+  useEffect(() => {
+    openModal('auth')
+    setOpened(true)
+  }, [openModal])
+
+  useEffect(() => {
+    if (opened && activeModal !== 'auth') {
+      navigate(returnTo, { replace: true })
+    }
+  }, [activeModal, navigate, opened, returnTo])
+
+  return <BoutiquePage />
+}
+
 function AgentTraceConciergeSlot() {
   const { pathname } = useLocation()
   if (!pathname.startsWith('/agent-trace')) return null
@@ -201,14 +230,16 @@ function App() {
                 <Routes>
                 {/*
                  *   /           → BoutiquePage (storefront shell)
+                 *   /signin     → BoutiquePage + provider chooser
                  *   /agent-trace/*  → AgentTraceFrame (instrumentation, gated by AuthGate)
                  *   /inspector  → InspectorPage (frozen session-scoped trace view)
                  *   /storyboard → StoryboardPage
                  *   /discover   → DiscoverPage
                  *   *           → redirect to /
-                 */}
+                */}
                 <Route path="/" element={<BoutiquePage />} />
-                {/* Agent Trace Observatory — nested routes under AgentTraceFrame shell.
+                <Route path="/signin" element={<SignInChooserRoute />} />
+                {/* Pellier Labs Observatory — nested routes under AgentTraceFrame shell.
                     The frame renders the 240px sidebar + canvas grid with
                     React Router <Outlet /> for surface rendering. */}
                 <Route path="/agent-trace" element={<AgentTraceFrame />}>

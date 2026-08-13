@@ -99,12 +99,10 @@ describe('ReasoningChip — pricing style (Req 1.7.4)', () => {
     const chip = screen.getByTestId('reasoning-chip')
     expect(chip).toHaveAttribute('data-style', 'pricing')
     // The lead clause from `copy.reasoningPricing` is rendered verbatim.
-    expect(chip).toHaveTextContent(
-      'Price watch: $14 below category average.',
-    )
+    expect(chip).toHaveTextContent('Catalog price shown above.')
 
     const urgentSpan = screen.getByTestId('reasoning-chip-urgent')
-    expect(urgentSpan).toHaveTextContent('Only 3 left.')
+    expect(urgentSpan).toHaveTextContent('Ask Pellier to compare this edit.')
     // Terracotta urgent text uses `color: var(--accent)` (Daylight `--dl-accent`).
     const urgentStyle = urgentSpan.getAttribute('style') ?? ''
     expect(urgentStyle).toMatch(/color:\s*var\(--accent\)/)
@@ -123,14 +121,14 @@ describe('ReasoningChip — context style (Req 1.7.5)', () => {
       <ReasoningChip
         chip={{
           style: 'context',
-          text: 'Gift-ready: signature packaging, arrives tomorrow',
+          text: 'Gift-ready: signature packaging available',
         }}
       />,
     )
     const chip = screen.getByTestId('reasoning-chip')
     expect(chip).toHaveAttribute('data-style', 'context')
     expect(chip).toHaveTextContent(
-      'Gift-ready: signature packaging, arrives tomorrow',
+      'Gift-ready: signature packaging available',
     )
     expect(chip.getAttribute('style') ?? '').toMatch(/font-style:\s*italic/)
     expect(chip.getAttribute('style') ?? '').toMatch(/Fraunces/)

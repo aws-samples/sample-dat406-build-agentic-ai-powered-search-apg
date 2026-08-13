@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync Agent Trace `skills.json` fixture from `/skills/*/SKILL.md`.
+"""Sync Pellier Labs `skills.json` fixture from `/skills/*/SKILL.md`.
 
 This keeps frontend fixture copy aligned with the runtime skill registry.
 """

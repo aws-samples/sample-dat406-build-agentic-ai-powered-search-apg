@@ -14,8 +14,7 @@
  *   5. Real query produces streaming tokens + a non-empty reply.
  *   6. ?reset=1 clears persisted state.
  *
- * Runs on the macOS runner — see
- * .github/workflows/workshop-smoke.yml.
+ * Runs automatically on Ubuntu and as a manual macOS facilitator gate.
  *
  * NOTE: does not require Cognito or AWS creds. Bedrock is required
  * for step 4 (real query); if Bedrock is unavailable, step 4 falls
@@ -96,6 +95,24 @@ test.describe('Workshop production build smoke', () => {
     const heroPills = page.getByTestId('boutique-hero-pills');
     await expect(heroPills).toBeVisible();
     await expect(heroPills).toContainText('What linen do you have for 10 days in Goa?');
+  });
+
+  test('/signin opens the provider chooser instead of falling through', async ({
+    page,
+  }) => {
+    await page.goto(`${BASE_URL}/signin?returnTo=%2Fdiscover`);
+
+    const chooser = page.getByTestId('auth-modal');
+    await expect(chooser).toBeVisible();
+    await expect(
+      chooser.getByRole('button', { name: /continue with google/i }),
+    ).toBeVisible();
+    await expect(
+      chooser.getByRole('button', { name: /continue with apple/i }),
+    ).toBeVisible();
+    await expect(
+      chooser.getByRole('button', { name: /continue with email/i }),
+    ).toBeVisible();
   });
 
   test('triage fast-path: "hi" replies instantly without LLM calls', async ({

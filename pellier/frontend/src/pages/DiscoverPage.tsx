@@ -23,6 +23,7 @@ import Footer from '../components/Footer'
 import Header, { type NavItem } from '../components/Header'
 import ProductGrid from '../components/ProductGrid'
 import { useAuth } from '../contexts/AuthContext'
+import { useCart } from '../contexts/CartContext'
 import { useUI } from '../contexts/UIContext'
 import {
   DISCOVER_PAGE_COMING_SOON,
@@ -129,6 +130,7 @@ const NAV_ROUTES: Record<NavItem, string> = {
 
 export default function DiscoverPage() {
   const { isAuthenticated } = useAuth()
+  const { addToCart } = useCart()
   const navigate = useNavigate()
   const { openModal } = useUI()
   const handleNavigate = (item: NavItem) => {
@@ -156,7 +158,17 @@ export default function DiscoverPage() {
       <main>
         {isAuthenticated ? (
           <>
-            <ProductGrid />
+            <ProductGrid
+              onAddToBag={(product) =>
+                addToCart({
+                  productId: product.id,
+                  name: product.name,
+                  price: product.price,
+                  image: product.imageUrl,
+                  origin: 'manual',
+                })
+              }
+            />
             <ComingSoonLine
               copy={DISCOVER_PAGE_COMING_SOON}
               testId="discover-coming-soon"

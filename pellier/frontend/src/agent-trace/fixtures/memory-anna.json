@@ -1,8 +1,8 @@
 {
   "persona": "anna",
   "working": {
-    "label": "Working - AgentCore Memory",
-    "store": "anon-persona-anna-{sid}",
+    "label": "Working - fixture transcript",
+    "store": "seeded JSON (not live memory)",
     "source": "fixture",
     "items": [
       {
@@ -32,8 +32,8 @@
     ]
   },
   "semantic": {
-    "label": "Semantic - AgentCore Memory",
-    "store": "/pellier/preferences/CUST-ANNA/",
+    "label": "Semantic - fixture preview",
+    "store": "seeded JSON (AgentCore optional)",
     "source": "fixture",
     "items": [
       {

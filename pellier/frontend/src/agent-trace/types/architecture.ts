@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Architecture types
+ * Pellier Labs Observatory — Architecture types
  *
  * Represents one of the 8 architectural concepts in the system.
  *

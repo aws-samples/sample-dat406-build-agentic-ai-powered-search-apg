@@ -89,7 +89,7 @@ describe('persona turn alignment', () => {
     }
   })
 
-  it('keeps Agent Trace replay entrypoints aligned with Boutique turn strings', () => {
+  it('keeps Pellier Labs replay entrypoints aligned with Boutique turn strings', () => {
     for (const { session, expected } of FIXTURE_ENTRYPOINTS) {
       expect(session.openingQuery).toBe(expected)
       expect(session.chat[0]?.role).toBe('user')

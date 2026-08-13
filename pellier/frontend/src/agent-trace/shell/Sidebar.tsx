@@ -1,5 +1,5 @@
 /**
- * Sidebar — Espresso-colored left navigation for the Agent Trace Observatory.
+ * Sidebar — Espresso-colored left navigation for Pellier Labs Observatory.
  *
  * Three sections (OBSERVE, UNDERSTAND, EVALUATE), a Settings divider,
  * and a persona footer. Uses React Router `<NavLink>` for active state

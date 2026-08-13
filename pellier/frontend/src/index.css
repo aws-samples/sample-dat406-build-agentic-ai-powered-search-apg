@@ -47,7 +47,7 @@
   }
 
   /* ========================================================================
-   * Boutique + Agent Trace custom-property names are now ALIASED onto the
+   * Boutique + Pellier Labs custom-property names are now ALIASED onto the
    * Daylight design-system tokens via styles/daylight-bridge.css. The
    * hardcoded :root block that used to live here was removed when
    * Daylight was wired in — see DAYLIGHT_INTEGRATION.md for the
@@ -148,7 +148,7 @@
     font-variant-ligatures: contextual common-ligatures;
   }
 
-  /* /workshop ("Agent Trace") font stack — scoped to the telemetry route.
+  /* /workshop ("Pellier Labs") font stack — scoped to the telemetry route.
      Stacks match Daylight tokens (--dl-font-*) via the bridge. */
   .workshop-surface {
     font-family: var(--sans);

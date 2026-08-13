@@ -50,6 +50,7 @@ vi.mock('../contexts/CartContext', () => ({
   useCart: () => ({
     items: [],
     setCartOpen: vi.fn(),
+    addToCart: vi.fn(),
   }),
 }))
 

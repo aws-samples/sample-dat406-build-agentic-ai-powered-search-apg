@@ -311,7 +311,7 @@ export default function ConciergeModal() {
   const isWorkshopRoute = location.pathname.startsWith('/agent-trace')
 
   // After the storefront hero-drawer redesign, the ConciergeModal only
-  // renders on Agent Trace routes. Boutique chat is handled by ChatDrawer.
+  // renders on Pellier Labs routes. Boutique chat is handled by ChatDrawer.
   const mode: 'storefront' | 'agentTrace' = 'agentTrace'
 
   // Time-of-day greeting for the personalized storefront welcome. Boundaries
@@ -407,7 +407,7 @@ export default function ConciergeModal() {
     }
   }
 
-  // Gate: ConciergeModal only renders on Agent Trace routes after the
+  // Gate: ConciergeModal only renders on Pellier Labs routes after the
   // storefront hero-drawer redesign. Boutique chat is ChatDrawer.
   if (!isWorkshopRoute) return null
 
@@ -509,7 +509,7 @@ export default function ConciergeModal() {
                     ) : (
                       <span className="flex items-center gap-1.5" style={{ color: c.ink2 }}>
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#047857' }} />
-                        {mode === 'agentTrace' ? 'Agent Trace mode · instrumentation on' : 'Concierge ready'}
+                        {mode === 'agentTrace' ? 'Pellier Labs mode · instrumentation on' : 'Concierge ready'}
                       </span>
                     )}
                   </div>
@@ -543,7 +543,7 @@ export default function ConciergeModal() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
-              {/* Messages — Agent Trace mode only renders the instrumented
+              {/* Messages — Pellier Labs mode only renders the instrumented
                   conversation. Welcome state is handled by the storefront
                   branch via BoutiqueChat. */}
               <AnimatePresence initial={false}>
@@ -732,7 +732,7 @@ export default function ConciergeModal() {
                 </motion.button>
               </div>
 
-              {/* Trace-ID footer — Agent Trace route only */}
+              {/* Trace-ID footer — Pellier Labs route only */}
               {mode === 'agentTrace' && sessionId && (
                 <div className="mt-3 flex items-center justify-between text-[10px]" style={{ fontFamily: 'ui-monospace, monospace', color: c.muted }}>
                   <span>session {sessionId.slice(0, 18)}...</span>

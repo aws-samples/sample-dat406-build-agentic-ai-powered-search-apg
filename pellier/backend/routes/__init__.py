@@ -12,7 +12,7 @@ rather than declaring every endpoint inline.
   * ``search``   (Task 3.7) — ``POST /api/search`` boutique vector search
                               wrapping the vector-search ``vector_search`` method.
   * ``workshop``  (Week 1)   — ``POST /api/agent-trace/query`` + ``/api/agent-trace/resume``
-                               flat replay payloads for the Agent Trace telemetry surface.
+                               flat replay payloads for Pellier Labs telemetry surface.
   * ``boutique`` (pre-W3)    — ``GET /api/storefront/briefing`` + ``/pulse``
                                for the homepage ambient agent chrome.
 """

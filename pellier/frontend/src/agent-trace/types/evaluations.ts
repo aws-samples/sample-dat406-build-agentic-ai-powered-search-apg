@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Evaluations types
+ * Pellier Labs Observatory — Evaluations types
  *
  * Agent evaluation scorecards with accuracy, latency, and citation metrics.
  *

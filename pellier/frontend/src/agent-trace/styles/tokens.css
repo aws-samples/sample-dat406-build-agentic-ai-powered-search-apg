@@ -1,5 +1,5 @@
 /* ========================================================================
- * Agent Trace Observatory — Design Tokens
+ * Pellier Labs Observatory — Design Tokens
  *
  * The core --at-* color, surface, type, and spacing tokens are now
  * aliased onto the Daylight design-system tokens via
@@ -8,13 +8,13 @@
  * order and the bridge contract.
  *
  * What remains in this file are the SEMANTIC ALIASES specific to the
- * Agent Trace (card patterns, status pills, sidebar, category badges).
+ * Pellier Labs (card patterns, status pills, sidebar, category badges).
  * They reference --at-* tokens, which the bridge resolves to Daylight
  * values. Override these at scope to re-skin a surface without
  * touching the bridge.
  *
  * Naming convention:
- *   --at-<token>   Agent Trace-scoped semantic alias
+ *   --at-<token>   Pellier Labs-scoped semantic alias
  * ======================================================================== */
 
 :root {

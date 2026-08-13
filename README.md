@@ -49,7 +49,7 @@ path for every time-sensitive step, so use it if a step takes more than two or
 three minutes. Exact commands and participant instructions live in the paired
 Workshop Studio guide.
 
-The timed path uses only **Code Editor** and **Boutique**. **Agent Trace is
+The timed path uses only **Code Editor** and **Boutique**. **Pellier Labs is
 optional** and is not required to complete the hour; the required terminal
 commands call its read-only APIs directly.
 
@@ -61,7 +61,7 @@ Pellier is an editorial retail application with two views:
 
 - **Boutique** (`/`) is where you send shopper requests and inspect grounded
   answers.
-- **Agent Trace** (`/agent-trace`) is the engineering view for routing, retrieval,
+- **Pellier Labs** (`/agent-trace`) is the engineering view for routing, retrieval,
   tools, evidence, and optional production patterns. It opens on a proof-first
   board for post-session exploration.
 
@@ -94,7 +94,7 @@ embedding calls during bootstrap.
 | Working memory | `pellier.conversations` and `pellier.messages` atomically preserve successful turn pairs and supply bounded history to the next Boutique turn |
 | Durable evidence | `pellier.tool_audit` records the tool, caller, JSONB arguments and result, latency, session, and timestamp |
 | Runtime skills | A Sonnet-based SkillRouter selects from five markdown prompt overlays and injects matching guidance into the selected specialist |
-| Tool registry teaching view | Aurora pgvector ranks tool descriptions for Agent Trace; the default Dispatcher still calls its fixed in-process tool set |
+| Tool registry teaching view | Aurora pgvector ranks tool descriptions for Pellier Labs; the default Dispatcher still calls its fixed in-process tool set |
 | Optional production extensions | AgentCore Runtime, Memory, Gateway, Identity, Policy, Evals, and MCP reference and deployment code remain opt-in |
 
 The deployed workshop database is Aurora PostgreSQL. The schema, pgvector,
@@ -103,7 +103,7 @@ PostgreSQL, but the supplied Workshop Studio infrastructure is
 Aurora-specific.
 
 The required hour uses only bounded Aurora working memory. In the optional
-Agent Trace reference, semantic memory means learned preferences, episodic
+Pellier Labs reference, semantic memory means learned preferences, episodic
 memory means customer events, and procedural memory means checked-in runtime
 skills plus MCP schemas. `tool_audit` is operational history, not memory.
 
@@ -118,7 +118,7 @@ skills plus MCP schemas. `tool_audit` is operational history, not memory.
 4. A Sonnet-based SkillRouter can add matching guidance for the current turn.
 5. The specialist calls only its declared in-process tools.
 6. Aurora stores the completed turn and any tool evidence.
-7. Boutique streams the answer; Agent Trace exposes the engineering detail.
+7. Boutique streams the answer; Pellier Labs exposes the engineering detail.
 
 The required workshop path deliberately stays **in-process**. Your Python edit
 reloads immediately, retries are cheap, and everyone can complete the same
@@ -139,7 +139,7 @@ recovery work without changing the three outcomes you are here to learn.
 
 The Boutique uses the **Dispatcher** pattern: deterministic intent
 classification selects one specialist, then that specialist makes the model
-and tool calls for the turn. Agent Trace can also exercise **Agents as Tools** and
+and tool calls for the turn. Pellier Labs can also exercise **Agents as Tools** and
 a Strands **GraphBuilder** pattern for comparison.
 
 | Specialist | Responsibility | Default model role |
@@ -262,7 +262,7 @@ python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Open <http://localhost:8000> for Boutique or
-<http://localhost:8000/agent-trace> for Agent Trace.
+<http://localhost:8000/agent-trace> for Pellier Labs.
 
 For frontend HMR, run `npm run dev` from `pellier/frontend` in another
 terminal; the Vite app on `:5173` continues to call the backend on `:8000`.
@@ -317,9 +317,9 @@ cd ../..
 find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 ```
 
-`workshop-smoke.yml` adds a manual production-build Playwright check. Cognito
-end-to-end coverage remains in `e2e.yml` and runs only when its required
-secrets are available.
+`e2e.yml` runs the production-build participant smoke on every push and pull
+request to `main`, without AWS secrets. `workshop-smoke.yml` exposes the same
+gate on a manual macOS runner for facilitator preflight.
 
 ---
 
@@ -329,7 +329,7 @@ secrets are available.
 sample-pellier-agentic-search-apg/
 ├── pellier/
 │   ├── backend/                  FastAPI app, five agents, services, routes, tests
-│   └── frontend/                 React Boutique and Agent Trace surfaces
+│   └── frontend/                 React Boutique and Pellier Labs surfaces
 ├── skills/                       Five runtime markdown skills
 ├── solutions/
 │   ├── closing-marcos-gap/       floor_check starter and recovery files

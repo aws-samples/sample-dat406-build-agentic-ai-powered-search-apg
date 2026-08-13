@@ -97,7 +97,7 @@ export interface WorkshopQueryResponse {
 /**
  * A Turn groups the user's query with the full event bundle the agent
  * emitted in response, categorized so the renderer can compose the
- * interleaved Agent Trace chat (text → plan chip → tool chips → text →
+ * interleaved Pellier Labs chat (text → plan chip → tool chips → text →
  * products → text → confidence) without re-scanning the event list
  * each render.
  *

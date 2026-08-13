@@ -8,14 +8,14 @@
  *
  *   1. You can just ask. (hero search bar, ⌘K, mic)
  *   2. Pick a persona. (header pill — Marco/Anna/Theo)
- *   3. Save the thread. (saved pieces, sizing, restocks)
+ *   3. Keep context. (profile preferences and session questions)
  *
  * Dismiss persists in sessionStorage so returning attendees inside
  * the same browser session skip past it. Fresh tabs or re-opened
  * tabs get the intro again so every live demo starts clean.
  */
 import { useState } from 'react'
-import { X, Sparkles, UserCircle2, Heart } from 'lucide-react'
+import { X, Sparkles, UserCircle2, History } from 'lucide-react'
 
 const DISMISS_KEY = 'boutique-welcome-dismissed'
 
@@ -233,7 +233,7 @@ export default function BoutiqueWelcomeBand() {
             }}
           >
             Ask in your own words, let the active profile shape the floor, and
-            keep the thread as your taste, sizing, and saved pieces evolve.
+            keep the thread as your taste, sizing, and recent questions evolve.
           </p>
         </div>
 
@@ -263,11 +263,11 @@ export default function BoutiqueWelcomeBand() {
             }
           />
           <Pillar
-            icon={<Heart size={18} strokeWidth={2} />}
-            verb="Save the thread"
-            title="Pick up easily."
+            icon={<History size={18} strokeWidth={2} />}
+            verb="Keep context"
+            title="Continue naturally."
             description={
-              'Saved pieces, restocks, sizes, and recent questions carry into the next conversation.'
+              'Preferences and recent questions remain available in the active workshop session so each turn can build on the last.'
             }
           />
         </div>

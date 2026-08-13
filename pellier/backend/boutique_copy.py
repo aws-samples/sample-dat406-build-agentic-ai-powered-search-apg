@@ -22,10 +22,10 @@ The companion scanner lives at tests/test_copy_compliance.py.
 # Announcement bar (Requirement 1.1.2) - rendered verbatim.
 ANNOUNCEMENT = (
     "Free shipping on orders over $150 \u00b7 Returns within 30 days "
-    "\u00b7 Summer Edit No. 06 is now live"
+    "\u00b7 Resort Edit No. 06 is now live"
 )
 
-PAGE_TITLE = "Pellier - Summer Edit No. 06"
+PAGE_TITLE = "Pellier - Resort Edit No. 06"
 
 # Top nav (Requirement 1.2.1)
 NAV = {
@@ -243,7 +243,7 @@ FOOTER = {
     },
     "SHOP": {
         "HEADING": "Shop",
-        "ITEMS": ["New arrivals", "Summer Edit", "Gift guide", "Sale"],
+        "ITEMS": ["New arrivals", "Resort Edit", "Gift guide", "Sale"],
     },
     "ABOUT": {
         "HEADING": "About",
@@ -281,8 +281,8 @@ AUTH_MODAL = {
     "BUTTON_GOOGLE": "Continue with Google",
     "BUTTON_APPLE": "Continue with Apple",
     "BUTTON_EMAIL": "Continue with email",
-    "DISCLAIMER": "By continuing, you agree to our terms and privacy policy.",
-    "FOOTER": "Secured by AgentCore Identity",
+    "DISCLAIMER": "This workshop redirects to the configured sign-in provider.",
+    "FOOTER": "Authentication handled by Amazon Cognito",
     "VERSION": "v2.4",
 }
 
@@ -343,7 +343,7 @@ PREFERENCES_MODAL = {
     ],
     "SKIP": "Skip for now",
     "SUBMIT": "Save and see my storefront",
-    "FOOTER": "Preferences stored with AgentCore Memory",
+    "FOOTER": "Preferences are scoped to your signed-in profile",
 }
 
 # Error copy (design.md "Error Handling" table). These strings surface to the

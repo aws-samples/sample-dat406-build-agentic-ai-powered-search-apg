@@ -11,10 +11,6 @@
 //
 // The companion scanner lives at src/__tests__/copy.test.ts (or .mjs).
 
-// Announcement bar (Requirement 1.1.2) - rendered verbatim.
-export const ANNOUNCEMENT =
-  "Complimentary shipping over $150 · Returns within 30 days · Summer Edit No. 06 is now live";
-
 export interface LiveFloorFinding {
   /** Uppercase sans label that leads the copy. */
   verb?: string;
@@ -26,32 +22,32 @@ export interface LiveFloorFinding {
 
 export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   {
-    verb: "New arrivals",
-    text: "Alba Linen Lounge Set, Olive Branch Vessel, and Santal & Fig Candle just joined the Summer Edit.",
+    verb: "Catalog edit",
+    text: "Alba Linen Lounge Set, Olive Branch Vessel, and Santal & Fig Candle anchor the seeded Resort Edit.",
   },
   {
-    verb: "Restocked",
-    text: "Italian Linen Camp Shirt is back in Indigo and Oat, with the full size run available today.",
+    verb: "Catalog focus",
+    text: "Italian Linen Camp Shirt anchors the workshop catalog's linen and travel edit.",
   },
   {
     verb: "Travel edit",
     text: "Packable linen, leather carry, and sun-ready accessories for long weekends and warm-weather escapes.",
   },
   {
-    verb: "Gift service",
-    text: "Candles, ceramics, and wrapped objects are ready for housewarmings, milestones, and just-because notes.",
+    verb: "Gift edit",
+    text: "Gift, candle, ceramic, and home tags shape the workshop's gifting shortlist.",
   },
   {
     verb: "Concierge",
     text: "Ask for a packing list, a gift shortlist, or a home ritual and Pellier will build the edit with you.",
   },
   {
-    verb: "Service",
-    text: "Secure checkout, careful packaging, complimentary shipping over $150, and easy 30-day returns.",
+    verb: "Workshop",
+    text: "Search the seeded catalog, inspect the evidence, and complete the return scenario without a live transaction.",
   },
 ];
 
-export const PAGE_TITLE = "Pellier - Summer Edit No. 06";
+export const PAGE_TITLE = "Pellier - Resort Edit No. 06";
 
 // Top nav (Requirement 1.2.1)
 export const NAV = {
@@ -70,11 +66,11 @@ export const NAV = {
 // link with a segmented control that flips between the shopper-facing
 // storefront and the operator-facing /workshop surface. Labels
 // deliberately pair boutique register (Boutique) with editorial /
-// Agent Trace register instead of operator jargon.
+// Pellier Labs register instead of operator jargon.
 export const SURFACE_TOGGLE = {
   ARIA_LABEL: "Switch surface",
   STOREFRONT: "Boutique",
-  AGENT_TRACE: "Agent Trace",
+  AGENT_TRACE: "Pellier Labs",
 } as const;
 
 // Account button labels (Requirement 1.2.2, 1.2.3)
@@ -82,15 +78,12 @@ export const ACCOUNT_LABEL_SIGNED_OUT = "Account";
 export const accountLabelSignedIn = (givenName: string): string =>
   `Hi, ${givenName}`;
 
-// Hero breadcrumb + curated chip (Requirement 1.3.4, 1.3.10)
-export const HERO_BREADCRUMB = "Someone just asked";
-export const CURATED_FOR_YOU_CHIP = "Curated for you";
 export const SEARCH_PILL_PLACEHOLDER =
   "Tell Pellier what you're looking for...";
 
 // Hero headline block that sits above the rotating stage.
 export const HERO_HEADLINE = {
-  EYEBROW: "Summer Edit \u00b7 No. 06",
+  EYEBROW: "Resort Edit \u00b7 No. 06",
   TITLE_TOP: "Search,", // copy-allow: search-as-verb
   TITLE_BOTTOM: "re:Engineered.",
   SUBHEADLINE: "Tell Pellier what you're looking for. Watch the pieces find you.",
@@ -107,105 +100,6 @@ export const PRODUCT_GRID_HEADER = {
   TITLE: "Things worth discovering",
   SORT_LABEL: "Sort: Most loved",
 } as const;
-
-// Label rendered to the left of the intent ticker pills under the hero frame.
-export const OTHERS_ARE_ASKING_LABEL = "Others are asking";
-
-// Intent shape used by HeroStage.
-export interface IntentProductRef {
-  name: string;
-}
-export interface IntentProductOverride {
-  name: string;
-  brand: string;
-  color: string;
-  price: number;
-  rating: number;
-  reviewCount: number;
-  /** Pre-formatted review-count display (e.g. "1.4k reviews"); overrides reviewCount at render time when present. */
-  reviews?: string;
-  imageUrl: string;
-}
-export interface Intent {
-  id: number;
-  query: string;
-  matchedOn: string[];
-  /** Per-intent latency stamp rendered in IntentInfoCard (Req 1.3.4). e.g. "340 ms". */
-  latency: string;
-  productRef?: IntentProductRef;
-  productOverride?: IntentProductOverride;
-}
-
-// The 8 rotating intents (Requirement 1.3.1, storefront.md). Intent 2 carries
-// a productOverride for the Cloudform Studio Runner.
-export const INTENTS: Intent[] = [
-  {
-    id: 1,
-    query: "something for long summer walks",
-    matchedOn: ["linen", "warm", "everyday"],
-    latency: "340 ms",
-    productRef: { name: "Italian Linen Camp Shirt" },
-  },
-  {
-    id: 2,
-    query: "a thoughtful gift for someone who runs",
-    matchedOn: ["athletic", "footwear", "gift"],
-    latency: "412 ms",
-    productOverride: {
-      name: "Cloudform Studio Runner",
-      brand: "Pellier Editions",
-      color: "Ember \u00b7 9.5",
-      price: 168,
-      rating: 4.9,
-      reviewCount: 1400,
-      reviews: "1.4k reviews",
-      imageUrl:
-        "https://images.unsplash.com/photo-1469395446868-fb6a048d5ca3?w=1600&q=85",
-    },
-  },
-  {
-    id: 3,
-    query: "something to wear for warm evenings out",
-    matchedOn: ["evening", "warm", "dresses"],
-    latency: "298 ms",
-    productRef: { name: "Hadley Linen Shirt" },
-  },
-  {
-    id: 4,
-    query: "pieces that travel well",
-    matchedOn: ["travel", "accessories", "neutral"],
-    latency: "325 ms",
-    productRef: { name: "Canvas Dopp Kit" },
-  },
-  {
-    id: 5,
-    query: "something for slow Sunday mornings",
-    matchedOn: ["slow", "soft", "home"],
-    latency: "367 ms",
-    productRef: { name: "Stoneware Pour-Over Set" },
-  },
-  {
-    id: 6,
-    query: "a linen piece that earns its golden hour",
-    matchedOn: ["linen", "evening", "warm"],
-    latency: "288 ms",
-    productRef: { name: "Hadley Linen Shirt" },
-  },
-  {
-    id: 7,
-    query: "a cozy layer for cool summer nights",
-    matchedOn: ["outerwear", "evening", "slow"],
-    latency: "315 ms",
-    productRef: { name: "Linen Overshirt" },
-  },
-  {
-    id: 8,
-    query: "something relaxed for weekend markets",
-    matchedOn: ["everyday", "linen", "classic"],
-    latency: "302 ms",
-    productRef: { name: "Cotton-Linen Crew Tee" },
-  },
-];
 
 // Sign-in strip (Requirement 1.4.1)
 export const SIGN_IN_STRIP = {
@@ -227,15 +121,6 @@ export const CURATED_BANNER = {
   ADJUST_LINK: "Adjust preferences",
   headline: curatedHeadline,
 } as const;
-
-// Live status strip (Requirement 1.5.1)
-export const LIVE_STATUS =
-  "Live inventory \u00b7 refreshed daily \u00b7 curated by hand";
-// Boutique policy phrases rendered as plain labels on the right side of
-// the live status strip (mock pellier_5.html parity).
-export const SHIPPING = "Free shipping over $150";
-export const RETURNS = "Ships within 1 to 2 days";
-export const SECURE_CHECKOUT = "Secure checkout";
 
 // Category chips (Requirement 1.5.3)
 export const CATEGORY_CHIPS = [
@@ -279,11 +164,11 @@ export interface PricingReasoning {
   urgent: string;
 }
 export const reasoningPricing = (
-  amountBelow: number,
-  unitsLeft: number,
+  _amountBelow: number,
+  _unitsLeft: number,
 ): PricingReasoning => ({
-  lead: `Price watch: $${amountBelow} below category average.`,
-  urgent: `Only ${unitsLeft} left.`,
+  lead: "Catalog price shown above.",
+  urgent: "Ask Pellier to compare this edit.",
 });
 
 export const reasoningContext = (text: string): string => text;
@@ -293,7 +178,7 @@ export const REASONING = {
   matched: reasoningMatched,
   pricing: reasoningPricing,
   context: reasoningContext,
-  DEFAULT_CONTEXT: "Gift-ready: signature packaging, arrives tomorrow",
+  DEFAULT_CONTEXT: "Gift-ready: signature packaging available",
 } as const;
 
 // Storyboard teaser cards (Requirement 1.9.4)
@@ -314,37 +199,37 @@ export interface StoryboardTeaser {
 }
 export const STORYBOARD_TEASERS: StoryboardTeaser[] = [
   {
-    badge: "MOOD FILM",
+    badge: "WORKSHOP EDIT",
     volume: "Vol. 12",
-    theme: "Summer",
-    title: "A summer worth slowing for.",
+    theme: "Catalog",
+    title: "The seeded summer catalog.",
     excerpt:
-      "Linen, ceramic, light that lingers. Three days in the hills with the pieces we kept reaching for.",
-    link: "Read the full vision \u203a",
+      "Linen, ceramic, travel, and gifting products create one controlled corpus for comparing retrieval and agent behavior.",
+    link: "Open the workshop story \u203a",
     imageUrl:
       "https://images.unsplash.com/photo-1693928126497-d9bda6903c03?w=1600&q=85",
     imageAlt: "Golden afternoon light falling across a linen-draped table",
   },
   {
-    badge: "VISION BOARD",
+    badge: "PROFILE DESIGN",
     volume: "Vol. 11",
-    theme: "The Makers",
-    title: "The last clay studio in Ojai.",
+    theme: "Ranking",
+    title: "How a profile changes the floor.",
     excerpt:
-      "One kiln, two hands, forty years of practice. A visit with the makers behind our ceramic line.",
-    link: "Read the full vision \u203a",
+      "Marco, Anna, and Theo start from explicit tag weights and seeded order histories that participants can inspect.",
+    link: "Open the workshop story \u203a",
     imageUrl:
       "https://images.unsplash.com/photo-1607556671927-78a6605e290b?w=1600&q=85",
     imageAlt: "A pair of hands shaping clay on a potter's wheel",
   },
   {
-    badge: "BEHIND THE SCENES",
+    badge: "PROOF PATH",
     volume: "Vol. 10",
-    theme: "The Edit",
-    title: "How we chose this season.",
+    theme: "Evidence",
+    title: "How an answer earns its proof.",
     excerpt:
-      "Nine pieces survived the cut. A quiet walk-through of the edit room conversations that got us here.",
-    link: "Read the full vision \u203a",
+      "Follow a request through Aurora retrieval, specialist tools, working memory, and a session-scoped action receipt.",
+    link: "Open the workshop story \u203a",
     imageUrl:
       "https://images.unsplash.com/photo-1761896902115-49793a359daf?w=1600&q=85",
     imageAlt: "An open edit room with fabric swatches laid out on a warm wood table",
@@ -358,36 +243,13 @@ export const DISCOVER_PAGE_SIGNED_OUT =
   "Discover is tailored to you. Sign in and watch the boutique tune itself.";
 export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
 
-export const ABOUT_BRIEF = {
-  EYEBROW: "About",
-  TITLE_LINES: ["A boutique surface.", "A proof surface."],
-  LABEL: "Boutique + Agent Trace",
-  PARAGRAPHS: [
-    "Pellier is a working boutique built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while the Agent Trace shows how each answer was built.",
-    "Every recommendation is grounded in Aurora PostgreSQL, shaped by specialist agents, checked against tools and inventory, and traceable back to the signals that produced it. The promise is simple: recommendations can feel personal without becoming invisible.",
-  ],
-  STACK: [
-    "Aurora PostgreSQL",
-    "pgvector",
-    "Amazon Bedrock",
-    "AgentCore",
-    "Strands SDK",
-    "Claude",
-    "Cohere Embed v4",
-    "Amazon Transcribe",
-    "Cedar",
-  ],
-  COLOPHON:
-    "Built for teams who want agentic experiences that are practical, governed, and inspectable.",
-} as const;
-
 // Footer \u2014 three live columns + a brand + a bottom strip.
 //
 // Earlier iterations carried four product/editorial columns with a
 // dozen links, a newsletter form, and a bottom strip. Every one of
 // those links was a stub. Replaced with three columns pointing at
 // routes that actually exist: Explore (the three real storefront
-// routes), Storyboard (editorial entry), Agent Trace (the workshop).
+// routes), Storyboard (editorial entry), Pellier Labs (the workshop).
 // Fewer promises, every promise kept.
 export const FOOTER = {
   BRAND: {
@@ -408,9 +270,9 @@ export const FOOTER = {
     CTA_HREF: "/storyboard",
   },
   AGENT_TRACE: {
-    HEADING: "Workroom",
-    COPY: "A behind-the-scenes look at how the Pellier experience is assembled.",
-    CTA_LABEL: "See the workroom",
+    HEADING: "Pellier Labs",
+    COPY: "Inspect the routing, retrieval, tools, memory, and evidence behind each workshop turn.",
+    CTA_LABEL: "Open Pellier Labs",
     CTA_HREF: "/agent-trace",
   },
   BOTTOM_STRIP: {
@@ -418,7 +280,7 @@ export const FOOTER = {
     /** Centered service line \u2014 retail boilerplate moved out of the
      * hero capabilities strip so the strip can stay focused on agent
      * claims. Lives in the footer where shipping/returns info belongs. */
-    SERVICE: "Free shipping over $150 | Returns within 30 days | Secure checkout",
+    SERVICE: "Workshop demo | Seeded catalog | No live checkout",
     /** Right-hand credit in the footer strip (replaces workshop banner). */
     ATTRIBUTION: "\u00a9 Shayon Sanyal",
   },
@@ -440,8 +302,8 @@ export const AUTH_MODAL = {
   BUTTON_GOOGLE: "Continue with Google",
   BUTTON_APPLE: "Continue with Apple",
   BUTTON_EMAIL: "Continue with email",
-  DISCLAIMER: "By continuing, you agree to our terms and privacy policy.",
-  FOOTER: "Secured by AgentCore Identity",
+  DISCLAIMER: "This workshop redirects to the configured sign-in provider.",
+  FOOTER: "Authentication handled by Amazon Cognito",
   VERSION: "v2.4",
 } as const;
 
@@ -512,7 +374,7 @@ export const PREFERENCES_MODAL = {
   ] as PreferenceGroup[],
   SKIP: "Skip for now",
   SUBMIT: "Save and see my boutique",
-  FOOTER: "Preferences stored with AgentCore Memory",
+  FOOTER: "Preferences are scoped to your signed-in profile",
 } as const;
 
 // Error copy (design.md "Error Handling" table). Machine codes are colocated

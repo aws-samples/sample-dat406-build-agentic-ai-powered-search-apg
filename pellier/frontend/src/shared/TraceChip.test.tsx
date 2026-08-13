@@ -7,7 +7,7 @@ describe('TraceChip', () => {
     vi.resetModules()
   })
 
-  it('prefixes Agent Trace anchor links with the Vite base path', async () => {
+  it('prefixes Pellier Labs anchor links with the Vite base path', async () => {
     vi.stubEnv('BASE_URL', '/ports/8000/')
     const { TraceChip } = await import('./TraceChip')
 

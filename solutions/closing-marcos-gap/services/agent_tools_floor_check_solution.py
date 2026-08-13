@@ -835,7 +835,7 @@ def find_pieces_hybrid(
         )
 
         # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Agent Trace will show
+        # (returned []), fall back to RRF order — Pellier Labs will show
         # this as a missing rerank stage in telemetry.
         if rerank_results:
             ordered = [

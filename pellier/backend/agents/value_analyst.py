@@ -5,8 +5,8 @@ surfaces deals.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_pricing_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``pricing(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and Pellier Labs Graph pattern.
+2. ``pricing(query)`` — ``@tool`` wrapper used by Pellier Labs'
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: the factory and tool keep generic names because the
@@ -71,7 +71,7 @@ def build_pricing_agent() -> Agent:
     construction time. The pricing specialist didn't read these in
     earlier revisions; adding them in the factory keeps behavior
     consistent across all five specialists without changing anonymous
-    Agent Trace output (both injections are no-ops when their
+    Pellier Labs output (both injections are no-ops when their
     ContextVars are empty).
     """
     # Value Analyst — Sonnet 5 reporting profile. Reports numbers and

@@ -24,7 +24,7 @@ interface JourneyTurn {
   skill?: string;
   tool?: string;
   outcome: string;
-  /** Primary Agent Trace fixture for this turn (stub path, or only path). */
+  /** Primary Pellier Labs fixture for this turn (stub path, or only path). */
   sessionId?: string;
   /** When set, second fixture shows the post-build / wired path (e.g. floor_check). */
   wiredSessionId?: string;
@@ -419,7 +419,7 @@ const PersonaJourneys: React.FC = () => (
     <EditorialTitle
       eyebrow="Observe · Persona Journeys · 15 Boutique hero turns"
       title="Three personas, fifteen hero queries."
-      summary="Each row mirrors one Boutique “Try asking” pill, so the storefront and Agent Trace tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
+      summary="Each row mirrors one Boutique “Try asking” pill, so the storefront and Pellier Labs tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
     />
 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

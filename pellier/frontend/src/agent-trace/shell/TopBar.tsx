@@ -1,5 +1,5 @@
 /**
- * TopBar — Horizontal bar above the Agent Trace canvas.
+ * TopBar — Horizontal bar above Pellier Labs canvas.
  *
  * Contains the SurfaceToggle (reused from existing component),
  * a BreadcrumbTrail derived from the current route, live status
@@ -25,7 +25,7 @@ import { PresencePill } from '../../shared';
 function prettifySegment(segment: string): string {
   // Known labels
   const labels: Record<string, string> = {
-    'agent-trace': 'Agent Trace',
+    'agent-trace': 'Pellier Labs',
     'proof-board': 'Proof Board',
     sessions: 'Sessions',
     observatory: 'Observatory',
@@ -64,8 +64,8 @@ function useBreadcrumbs(): string[] {
       .filter(Boolean)
       .map(prettifySegment);
 
-    // Always start with "Agent Trace" — it's the root
-    if (parts.length === 0) return ['Agent Trace'];
+    // Always start with "Pellier Labs" — it's the root
+    if (parts.length === 0) return ['Pellier Labs'];
     return parts;
   }, [pathname]);
 }

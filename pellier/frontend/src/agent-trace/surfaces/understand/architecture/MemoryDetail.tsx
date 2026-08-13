@@ -365,19 +365,19 @@ const MemoryDetail: React.FC = () => {
       conceptName="Memory"
       category="live"
       title="Memory, with evidence kept separate."
-      prose="Working, semantic, episodic, and procedural memory have different stores and lifetimes. AgentCore Memory owns session turns and learned preferences; Aurora supplies business events; source-controlled skills and MCP schemas supply tool know-how. tool_audit is operational evidence, not memory."
+      prose="Working, semantic, episodic, and procedural memory have different stores and lifetimes. The builders path stores Boutique session turns and business events in Aurora. AgentCore Memory is the optional managed path for session and learned-preference records. Source-controlled skills and MCP schemas supply tool know-how; tool_audit is operational evidence, not memory."
       seeInBoutique={{
         href: '/?ask=Pick+up+where+I+left+off',
-        label: 'See memory.recall fire on the storefront',
+        label: 'See working memory in the current session',
       }}
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'Working - AgentCore Memory holds the last K session turns under user-{id}-session-{sid} (or anon-{sid}). Cheap, bounded, always relevant. Read first on every turn.',
+          text: 'Working - the builders path reads the last K Boutique turns from pellier.messages by session_id and appends each completed turn pair atomically. AgentCore Memory is an optional managed alternative.',
         },
         {
           numeral: 'ii.',
-          text: 'Semantic - durable preference facts a USER_PREFERENCE strategy extracts from conversation, stored as AgentCore Memory records under /pellier/preferences/{actorId}/. Learned asynchronously from turns (pre-baked at deploy); read when the specialist needs durable persona context.',
+          text: 'Semantic - an optional AgentCore USER_PREFERENCE strategy can extract durable preference records under /pellier/preferences/{actorId}/. Seeded profile preferences remain explicitly labeled until managed records exist.',
         },
         {
           numeral: 'iii.',
@@ -416,25 +416,28 @@ const MemoryDetail: React.FC = () => {
             }}
           >
             <TierCard
-              tierName="Working - AgentCore Memory"
+              tierName="Working - Aurora"
               category="live"
               title="Session turns"
-              role="Per-turn append, namespace-scoped"
-              prose={`Every authenticated turn ends with append_session_turn(session_ns, turn). Reads via get_session_history bring the last K turns back. Namespace is user-{user_id}-session-{session_id} or anon-{session_id} - physically disjoint so a sign-in flip never silently merges history. Dashes (not colons) because AgentCore session IDs must match [a-zA-Z0-9][a-zA-Z0-9-_]*.`}
-              codeSnippet={`# Working - AgentCore Memory
-ns = AgentCoreIdentityService.build_namespace(user_id, session_id)
-# → "user-{user_id}-session-{session_id}" or "anon-{session_id}"
-await memory.append_session_turn(ns, turn)
+              role="Builders core path, session-scoped"
+              prose="The Boutique stream reads bounded rows from pellier.messages and atomically appends the completed user/assistant pair. The memory receipt reports how many messages were loaded and whether the new pair persisted."
+              codeSnippet={`# Working - Aurora
+history = await AuroraSessionMemory(db).load_history(session_id)
 
-# Last K turns back into the prompt
-history = await memory.get_session_history(ns)`}
+await memory.append_turn_pair(
+    session_id,
+    user_message=message,
+    assistant_message=response,
+    actor_id=actor_id,
+    agent_name=pattern,
+)`}
             />
             <TierCard
-              tierName="Semantic - AgentCore Memory"
-              category="live"
+              tierName="Semantic - AgentCore Memory (optional)"
+              category="optional"
               title="Extracted preferences"
-              role="Learned from turns, read on every relevant turn"
-              prose={`Stable taste signals - fabric, palette, occasion - a USER_PREFERENCE strategy extracts from conversation into durable AgentCore Memory records under /pellier/preferences/{actorId}/. Because extraction is asynchronous, each shopper's preferences are pre-seeded so they read instantly; the panel reads the learned preference strings, falling back to a fixture until they land.`}
+              role="Managed extension, not a builders prerequisite"
+              prose="A USER_PREFERENCE strategy can extract stable taste signals into durable AgentCore Memory records. Until managed records exist, the panel identifies seeded JSON as a fixture rather than presenting it as a live memory read."
               codeSnippet={`# Semantic - AgentCore Memory (USER_PREFERENCE)
 prefs = await memory.get_semantic_memories(
     actor_id  # e.g. "CUST-MARCO"

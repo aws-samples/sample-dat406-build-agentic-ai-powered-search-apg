@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Performance types
+ * Pellier Labs Observatory — Performance types
  *
  * Metrics, histograms, latency budgets, pgvector comparisons, and storage usage.
  *

@@ -5,7 +5,7 @@ import { cssVar as c } from '../design/cssVars'
  * Four notes total: one for each returning persona (Marco, Anna,
  * Theo) and one editorial note written in the boutique voice. Each
  * note is a tight italic Fraunces dek + a prose body in Instrument Sans, 15px/
- * 1.7, matching the Agent Trace AssistantText register so the page reads
+ * 1.7, matching Pellier Labs AssistantText register so the page reads
  * as "the storefront wrote this, not a marketing page."
  *
  * The footer tagline "Field notes from a slower kind of shopping" is
@@ -37,30 +37,30 @@ const NOTES: readonly Note[] = [
   },
   {
     kicker: 'Field note · No. 02',
-    title: 'Marco, on being remembered.',
+    title: 'Marco, as a workshop profile.',
     body: [
-      "Three weeks between visits is long enough to forget someone in most shops. A natural-fiber wardrobe is narrow enough that you shouldn't have to explain it twice.",
-      "When Marco signs back in, the storefront leads with the piece he'd reach for next — the Italian Linen Camp Shirt in sage — not because it's trending, but because the thread of his purchases points there.",
+      "Marco's declared seed favors natural fibers, warm neutrals, and pieces that travel well. His seeded orders make that history inspectable instead of implied.",
+      "The storefront ranks the Italian Linen Camp Shirt in Indigo from explicit catalog tags. A live turn can add working-memory evidence, but the profile seed is the starting point.",
     ],
-    signature: '— Marco, a regular',
+    signature: '— Workshop profile note',
   },
   {
     kicker: 'Field note · No. 03',
-    title: 'Anna, on gifting as a practiced art.',
+    title: 'Anna, as a workshop profile.',
     body: [
       "Gifts are the hardest search queries a storefront will take. They're indirect by design: the shopper isn't the recipient, the recipient isn't in the room, and the moment the piece is chosen for matters more than the piece itself.",
-      "Anna walks in with recipients, not products. A milestone gift under two hundred is a meaningful constraint. The storefront should know — and does.",
+      "Anna's seed makes milestone occasions, explicit budgets, and ready-to-give pieces visible inputs. Participants can then compare how retrieval strategies handle those constraints.",
     ],
-    signature: '— Anna, a gift-giver',
+    signature: '— Workshop profile note',
   },
   {
     kicker: 'Field note · No. 04',
-    title: 'Theo, on pieces that wear in.',
+    title: 'Theo, as a workshop profile.',
     body: [
-      "A ceramic tumbler set kept for six months before the second order is the opposite of a cart abandonment. It's a purchase that earned its keep first.",
-      "Slow craft is what happens when a shopper doesn't want to be told what's new. Theo returns for ceramics, linen throws, stoneware — pieces that do more of their work later than sooner.",
+      "Theo's seed favors ceramics, linen throws, stoneware, repair, and durable post-purchase handling.",
+      "His damaged-bowl scenario closes the loop with a real ownership check, return write, inventory effect, and action receipt in Aurora.",
     ],
-    signature: '— Theo, a slow shopper',
+    signature: '— Workshop profile note',
   },
 ]
 
@@ -129,9 +129,8 @@ export default function FieldNotes() {
               maxWidth: 560,
             }}
           >
-            Short pieces the boutique wrote about how it reads the
-            floor, what it remembers, and why it answers the way it
-            does.
+            Short notes about the workshop's declared profile seeds,
+            retrieval choices, memory boundary, and action proof.
           </p>
         </header>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 64 }}>

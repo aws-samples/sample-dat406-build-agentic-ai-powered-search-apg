@@ -1,4 +1,4 @@
-"""Tests for ``GET /api/agent-trace/search/explain`` — the Agent Trace "Search"
+"""Tests for ``GET /api/agent-trace/search/explain`` — Pellier Labs "Search"
 mechanism surface (``app.explain_search``).
 
 This endpoint is the *mechanism* counterpart to

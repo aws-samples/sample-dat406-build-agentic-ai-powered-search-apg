@@ -14,7 +14,7 @@
  *     `Continue with email`. Each calls `redirectToSignIn(<provider>)`
  *     with the current URL passed through as `returnTo` so the user lands
  *     back where they started after Cognito Hosted UI.
- *   - Disclaimer line + `Secured by AgentCore Identity` 10px mono footer
+ *   - Disclaimer line + Cognito boundary in a 10px mono footer
  *     with shield icon and `v2.4` version stamp.
  *
  * Visibility is coordinated by UIContext - the modal renders only when
@@ -32,7 +32,7 @@ import { useEffect } from 'react'
 
 import { AUTH_MODAL } from '../copy'
 import { useUI } from '../contexts/UIContext'
-import { redirectToSignIn, type SignInProvider } from '../utils/auth'
+import { redirectToSignIn, safeReturnTo, type SignInProvider } from '../utils/auth'
 import { cssVar as c } from '../design/cssVars'
 
 // === REFERENCE: START ===
@@ -106,10 +106,14 @@ export default function AuthModal() {
 
   // Build the returnTo from the current URL so Cognito lands the user back
   // where they started. Never include the hash (OAuth chains strip it).
-  const currentReturnTo =
-    typeof window === 'undefined'
-      ? '/'
-      : `${window.location.pathname}${window.location.search}`
+  const currentReturnTo = (() => {
+    if (typeof window === 'undefined') return '/'
+    const { pathname, search } = window.location
+    if (pathname.endsWith('/signin')) {
+      return safeReturnTo(new URLSearchParams(search).get('returnTo'))
+    }
+    return safeReturnTo(`${pathname}${search}`)
+  })()
 
   const go = (provider: SignInProvider) => () => {
     redirectToSignIn(provider, { returnTo: currentReturnTo })
@@ -263,7 +267,7 @@ export default function AuthModal() {
           {AUTH_MODAL.DISCLAIMER}
         </p>
 
-        {/* Footer strip: shield + AgentCore Identity + version */}
+        {/* Footer strip: shield + Cognito boundary + version */}
         <div
           data-testid="auth-modal-footer"
           style={{

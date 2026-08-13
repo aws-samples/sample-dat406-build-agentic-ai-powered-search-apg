@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Golden-set journey assertions — deterministic, fixture-driven CI gates. Each entry pins a published Agent Trace session fixture to the agent behavior the workshop teaches as non-negotiable. No AWS calls. Assertions check tool ordering, product surfacing, and routing pattern only — not free-form prose.",
+  "description": "Golden-set journey assertions — deterministic, fixture-driven CI gates. Each entry pins a published Pellier Labs session fixture to the agent behavior the workshop teaches as non-negotiable. No AWS calls. Assertions check tool ordering, product surfacing, and routing pattern only — not free-form prose.",
   "fixtureRoot": "pellier/frontend/src/agent-trace/fixtures",
   "journeys": [
     {

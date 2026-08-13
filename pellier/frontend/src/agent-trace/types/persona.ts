@@ -1,7 +1,7 @@
 /**
- * Agent Trace Observatory — Persona type
+ * Pellier Labs Observatory — Persona type
  *
- * Represents a mock customer profile used as the demo identity in the Agent Trace.
+ * Represents a mock customer profile used as the demo identity in Pellier Labs.
  * Selected via Settings surface.
  *
  * Requirements: 16.5

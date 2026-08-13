@@ -14,7 +14,7 @@
  * context.
  *
  * Runs against the production build on port 8000. PersonaModal now
- * lives on Agent Trace surfaces; the storefront header uses a direct
+ * lives on Pellier Labs surfaces; the storefront header uses a direct
  * persona dropdown instead.
  */
 
@@ -23,14 +23,14 @@ import { expect, test } from '@playwright/test';
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:8000';
 
 test.describe('Persona modal - portal + viewport coverage', () => {
-  test('backdrop fills the viewport when opened from the Agent Trace top bar', async ({
+  test('backdrop fills the viewport when opened from Pellier Labs top bar', async ({
     page,
   }) => {
     await page.goto(`${BASE_URL}/agent-trace`);
     await page.waitForLoadState('networkidle');
 
     // The storefront uses the persona dropdown now. PersonaModal is the
-    // Agent Trace persona switcher, where the portal regression still matters.
+    // Pellier Labs persona switcher, where the portal regression still matters.
     await page.getByTestId('agent-trace-persona-switcher').click();
 
     const backdrop = page.getByTestId('persona-modal-backdrop');
@@ -59,7 +59,7 @@ test.describe('Persona modal - portal + viewport coverage', () => {
     // All three persona cards should be reachable (not clipped).
     await expect(page.getByTestId('persona-card-marco')).toBeVisible();
     await expect(page.getByTestId('persona-card-anna')).toBeVisible();
-    await expect(page.getByTestId('persona-card-fresh')).toBeVisible();
+    await expect(page.getByTestId('persona-card-theo')).toBeVisible();
   });
 
   test('backdrop click dismisses the modal', async ({ page }) => {

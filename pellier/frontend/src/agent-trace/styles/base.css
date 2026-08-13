@@ -1,7 +1,7 @@
 /* ========================================================================
- * Agent Trace Observatory — Base Styles & Resets
+ * Pellier Labs Observatory — Base Styles & Resets
  *
- * Global resets and foundational styles for the Agent Trace surface. Scoped
+ * Global resets and foundational styles for Pellier Labs surface. Scoped
  * to the .agent-trace-root container so nothing leaks into the Boutique
  * storefront.
  *
@@ -20,7 +20,7 @@
 @import './fonts.css';
 
 /* -----------------------------------------------------------------------
- * Agent Trace root container — scopes all observatory styles
+ * Pellier Labs root container — scopes all observatory styles
  * ----------------------------------------------------------------------- */
 
 .agent-trace-root {
@@ -37,7 +37,7 @@
 
 /* -----------------------------------------------------------------------
  * Flat aesthetic enforcement — override any inherited storefront styles
- * that use glassmorphism, blurs, or gradients within the Agent Trace.
+ * that use glassmorphism, blurs, or gradients within Pellier Labs.
  * ----------------------------------------------------------------------- */
 
 .agent-trace-root *,
@@ -56,7 +56,7 @@
 }
 
 /* -----------------------------------------------------------------------
- * Typography resets within Agent Trace
+ * Typography resets within Pellier Labs
  * ----------------------------------------------------------------------- */
 
 .agent-trace-root h1,
@@ -103,7 +103,7 @@
 }
 
 /* Match Daylight `.dl-code-block` (daylight-components.css) — dark ink
- * canvas + accent-soft default text so Agent Trace telemetry SQL matches
+ * canvas + accent-soft default text so Pellier Labs telemetry SQL matches
  * Architecture / Markdown surfaces that already use `.dl-code-block`. */
 .agent-trace-root pre {
   font-family: var(--at-mono);

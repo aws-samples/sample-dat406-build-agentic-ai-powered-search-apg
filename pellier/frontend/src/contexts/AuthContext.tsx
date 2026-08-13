@@ -1,5 +1,5 @@
 /**
- * AuthContext — Cognito OAuth2 login + AgentCore Identity-backed preferences.
+ * AuthContext — Cognito OAuth2 login + server-side preference persistence.
  *
  * Uses the backend authorization-code flow. Cognito tokens remain in secure,
  * httpOnly cookies set by `/api/auth/callback`; browser code never handles
@@ -7,7 +7,7 @@
  * truth for:
  *
  *   - `user`               — Cognito claims (sub, email, givenName)
- *   - `preferences`        — saved preferences from AgentCore Memory
+ *   - `preferences`        — saved preferences from the configured memory store
  *   - `refresh()`          — re-reads /api/auth/me + /api/user/preferences
  *   - `savePreferences(p)` — POSTs /api/user/preferences and bumps prefsVersion
  *   - `isLoading`          — alias for `loading` per the design signature
@@ -44,7 +44,7 @@ interface AuthContextType {
   /** Alias for `loading` — matches the design-document signature. */
   isLoading: boolean
   /**
-   * Saved preferences from AgentCore Memory, fetched via
+   * Saved preferences from the configured backend memory store, fetched via
    * `/api/user/preferences`. `null` means either unauthenticated or no
    * preferences saved yet. AuthStateBand (Task 4.4) uses the null branch
    * to trigger the preferences onboarding modal.

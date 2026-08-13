@@ -3,7 +3,7 @@
  *
  * The endpoint runs ONE hybrid query and returns each intermediate stage
  * of the retrieval pipeline (EMBED → VECTOR → LEXICAL → FUSION → RERANK)
- * shaped as a telemetry-style panel so the Agent Trace "Search" surface can
+ * shaped as a telemetry-style panel so Pellier Labs "Search" surface can
  * render the mechanism, not just the outcome. Rows arrive pre-stringified
  * (string[][]) — the backend has already formatted numbers for display.
  */

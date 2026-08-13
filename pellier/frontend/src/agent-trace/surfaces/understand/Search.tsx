@@ -49,7 +49,7 @@ const EXAMPLES: Array<{ label: string; query: string }> = [
   { label: 'Lexical anchor', query: 'cashmere cardigan' },
 ];
 
-/* Map the backend tagClass to the Agent Trace accent palette. */
+/* Map the backend tagClass to Pellier Labs accent palette. */
 function tagColor(tagClass: SearchTagClass): string {
   switch (tagClass) {
     case 'amber':

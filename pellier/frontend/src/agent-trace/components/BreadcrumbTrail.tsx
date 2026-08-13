@@ -2,7 +2,7 @@
  * BreadcrumbTrail — Dot-separated JetBrains Mono uppercase breadcrumb from route path.
  *
  * Renders a navigation breadcrumb trail with dot separators in the
- * Agent Trace monospace style.
+ * Pellier Labs monospace style.
  *
  * Requirements: 15.3
  */

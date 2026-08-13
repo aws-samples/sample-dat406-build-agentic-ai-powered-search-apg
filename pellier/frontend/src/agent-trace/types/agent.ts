@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Agent type
+ * Pellier Labs Observatory — Agent type
  *
  * Represents one of the 5 peer specialist agents in the system.
  *

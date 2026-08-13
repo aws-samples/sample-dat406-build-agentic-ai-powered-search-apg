@@ -2,7 +2,7 @@
  * CheatSheet — the three-column rule grid at the bottom of Template A
  * (Skills, Evaluations) and Template B (Memory, Runtime) pages.
  *
- * Per the Agent Trace system rules, this appears only on Template A/B
+ * Per Pellier Labs system rules, this appears only on Template A/B
  * pages — not on C (Network) or D (Schema), where the diagram /
  * schema is itself the cheat sheet.
  */

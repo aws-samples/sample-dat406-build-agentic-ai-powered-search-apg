@@ -7,12 +7,12 @@ Exposes two surfaces that share one agent construction path:
 
 1. ``build_recommendation_agent()`` — factory returning a configured
    ``Agent`` instance. Used by the Storefront dispatcher (Pattern III)
-   and the Agent Trace Graph pattern (Pattern II). Reads the persona
+   and Pellier Labs Graph pattern (Pattern II). Reads the persona
    preamble and skill ContextVars at construction time, same as the
    ``@tool`` path does.
 
 2. ``recommendation(query)`` — ``@tool``-decorated wrapper used by the
-   Agent Trace's Agents-as-Tools orchestrator (Pattern I). Delegates to
+   Pellier Labs' Agents-as-Tools orchestrator (Pattern I). Delegates to
    the factory so both surfaces produce identical agents.
 
 Note on naming: the factory and tool keep generic names because the
@@ -70,7 +70,7 @@ def build_recommendation_agent() -> Agent:
 
     === REFERENCE: START ===
     inject_skills() and inject_persona_preamble() are no-ops when
-    their ContextVars are empty (the common case in Agent Trace smoke
+    their ContextVars are empty (the common case in Pellier Labs smoke
     tests and anonymous sessions), so this factory produces the same
     agent as before in those scenarios.
     === REFERENCE: END ===

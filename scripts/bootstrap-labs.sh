@@ -417,7 +417,7 @@ setup_database() {
 
         # ---- 4. Tool registry seed — populates pellier.tools (created
         # empty by migration 002) with the 9 canonical Gateway tool names
-        # plus their Cohere Embed v4 descriptions. The Agent Trace
+        # plus their Cohere Embed v4 descriptions. Pellier Labs
         # Observatory's tool-registry tab and the pgvector
         # tool-discovery card both read from this table and silently
         # render zero rows if the seed is skipped. ----
@@ -433,7 +433,7 @@ setup_database() {
             " 2>&1 | tee -a /var/log/database-setup.log
             local tool_rc=${PIPESTATUS[0]}
             if [ "$tool_rc" -ne 0 ]; then
-                warn "Tool registry seed failed (rc=$tool_rc) — Agent Trace tool-registry tab will show zero rows"
+                warn "Tool registry seed failed (rc=$tool_rc) — Pellier Labs tool-registry tab will show zero rows"
             fi
         fi
 

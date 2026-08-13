@@ -14,7 +14,7 @@
     "title": "Memory",
     "role": "Four memory types; operational history stays evidence",
     "description": "Working memory holds session turns. Semantic memory holds durable learned preferences. Episodic memory comes from customer events in Aurora. Procedural knowledge comes from checked-in runtime skills and MCP schemas. tool_audit is shown separately because it proves what ran; it does not teach the agent how to work.",
-    "codeSnippet": "# Working - AgentCore Memory session events\nawait memory.append_session_turns(session_ns, turns)\n\n# Semantic - AgentCore USER_PREFERENCE records\nprefs = await memory.get_semantic_memories(actor_id)\n\n# Episodic - Aurora customer events\nseed = await fetch_episodic_seed(customer_id)\n\n# Procedural - reviewable source\nskills/*/SKILL.md\nscripts/deploy/gateway_tool_schemas.py\n\n# Operational history - evidence, not memory\nSELECT tool, count(*), avg(latency_ms)\nFROM pellier.tool_audit\nGROUP BY tool;",
+    "codeSnippet": "# Working - Aurora session messages\nhistory = await AuroraSessionMemory(db).load_history(session_id)\n\n# Semantic - optional AgentCore USER_PREFERENCE records\nprefs = await memory.get_semantic_memories(actor_id)\n\n# Episodic - Aurora customer events\nseed = await fetch_episodic_seed(customer_id)\n\n# Procedural - reviewable source\nskills/*/SKILL.md\nscripts/deploy/gateway_tool_schemas.py\n\n# Operational history - evidence, not memory\nSELECT tool, count(*), avg(latency_ms)\nFROM pellier.tool_audit\nGROUP BY tool;",
     "slug": "memory"
   },
   {

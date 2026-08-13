@@ -69,6 +69,17 @@ describe('openSignInChooser', () => {
   })
 })
 
+describe('safeReturnTo', () => {
+  it('accepts same-origin paths and rejects open redirects', async () => {
+    const { safeReturnTo } = await import('./auth')
+
+    expect(safeReturnTo('/discover?view=linen')).toBe('/discover?view=linen')
+    expect(safeReturnTo('https://example.com')).toBe('/')
+    expect(safeReturnTo('//example.com/path')).toBe('/')
+    expect(safeReturnTo('/\\example.com')).toBe('/')
+  })
+})
+
 // --- redirectToSignIn -------------------------------------------------
 
 describe('redirectToSignIn', () => {

@@ -1,5 +1,5 @@
 /**
- * Agent Trace Architecture — shared components.
+ * Pellier Labs Architecture — shared components.
  *
  * The building blocks used by every architecture detail page (Memory,
  * MCP, State Management, Tool Registry, Runtime, Skills, Evaluations).

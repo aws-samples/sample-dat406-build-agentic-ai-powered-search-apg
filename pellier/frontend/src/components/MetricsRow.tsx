@@ -16,7 +16,7 @@ import { cssVar as c } from '../design/cssVars'
  *
  * Skills is sourced from ``pellier-skill-routing-latest`` in
  * localStorage (written by the storefront chat's useAgentChat). The
- * Agent Trace workshop chat shares the same key so the Architecture tab's
+ * Pellier Labs workshop chat shares the same key so the Architecture tab's
  * Skills story gets a live dashboard number.
  */
 

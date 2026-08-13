@@ -1,5 +1,5 @@
 /**
- * Agent Trace Observatory — Chat types
+ * Pellier Labs Observatory — Chat types
  *
  * Types for the multi-turn chat conversation within a session,
  * including tool calls, product cards, plan rows, confidence, and memory pills.

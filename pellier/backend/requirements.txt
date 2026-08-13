@@ -17,6 +17,7 @@ pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 
 # Core Dependencies
+aiohttp>=3.14.3
 numpy>=1.22.0
 tenacity>=8.0.0
 rich>=13.0.0
@@ -32,7 +33,7 @@ tiktoken>=0.5.0
 
 # Lab 4: AgentCore
 PyJWT>=2.8.0
-cryptography>=41.0.0
+cryptography>=50.0.0
 requests>=2.31.0
 bedrock-agentcore>=1.4.3
 

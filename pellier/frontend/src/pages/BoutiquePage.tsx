@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
 import BoutiqueHero from '../components/BoutiqueHero'
-import BoutiqueWelcomeBand from '../components/BoutiqueWelcomeBand'
+import BoutiqueCollections from '../components/BoutiqueCollections'
 import BecauseYouAsked from '../components/BecauseYouAsked'
 import MemoryHandoffCard from '../components/MemoryHandoffCard'
 import RationaleBand from '../components/RationaleBand'
@@ -150,6 +150,10 @@ export default function BoutiquePage() {
       origin: 'manual',
     })
 
+  const handleOpenCatalog = () => {
+    document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   return (
     <div className="min-h-dvh bg-cream-50">
       {/* Announcement bar — full-width above the header */}
@@ -166,18 +170,13 @@ export default function BoutiquePage() {
         {/* ── ACT 1: Full-viewport hero ── */}
         <BoutiqueHero />
 
-        {/* ── Welcome band — dismissible, sits between the hero and the
-             Weekend Edit. Symmetric with /agent-trace's AgentTraceWelcome so
-             first-visit shoppers get a one-glance orientation without
-             touching the photograph. ── */}
-        <BoutiqueWelcomeBand />
+        {/* Four local-image edits bring the catalog into the first scroll,
+            matching the landing shell without adding another route. */}
+        <BoutiqueCollections onOpenCatalog={handleOpenCatalog} />
 
-        {/* ── Memory handoff card — the most demoable agentic moment on
-             the homepage. For returning personas, surfaces what the
-             agent remembers (saved item, holds in bag, restock watch)
-             with each line tool-tagged. Fresh visitors get a
-             learn-as-we-go variant in the same slot so the layout
-             rhythm stays consistent. ── */}
+        {/* ── Profile handoff card — names the deterministic seed and
+             session boundary before the participant generates memory or
+             action evidence. ── */}
         <MemoryHandoffCard />
 
         {/* ── ACT 2: Below the fold ── */}

@@ -132,15 +132,9 @@ export function resolveCover(
 }
 
 interface PersonaCopy {
-  /** Greeting line without time-of-day prefix. For fresh visitors this
-   * is empty and the time-of-day stands alone ("Good evening."). For
-   * returning personas it's the warm back-reference ("Marco — welcome
-   * back."). */
+  /** Greeting line without time-of-day prefix. */
   greetingSuffix: (firstName: string) => string
-  /** Short context paragraph that follows the greeting. Grounded in
-   * persona signals so it reads like the storefront remembers them.
-   * Receives live catalog stats so copy that cites the catalog size
-   * never goes stale. */
+  /** Short context paragraph grounded in the declared profile and catalog. */
   context: (stats: CatalogStats | null) => React.ReactNode
   picks: ReadonlyArray<{ label: string; primary: boolean }>
   ps: ReadonlyArray<string>
@@ -164,13 +158,12 @@ const FRESH_COPY: PersonaCopy = {
     }
     return (
       <>
-        I've been watching the floor —{' '}
+        The workshop catalog contains{' '}
         <span className="sf-context-num">{stats.product_count}</span>{' '}
-        curated pieces across {stats.category_count} categories. The{' '}
+        pieces across {stats.category_count} categories. Start with the{' '}
         <span className="sf-context-product">Nocturne Leather Weekender</span>{' '}
-        and{' '}
-        <span className="sf-context-product">Pellier Linen Shirt</span>{' '}
-        are the standouts this week.
+        or the{' '}
+        <span className="sf-context-product">Hadley Linen Shirt</span>.
       </>
     )
   },
@@ -185,14 +178,13 @@ const FRESH_COPY: PersonaCopy = {
 }
 
 const MARCO_COPY: PersonaCopy = {
-  greetingSuffix: (firstName) => `, ${firstName}. Welcome back.`,
+  greetingSuffix: (firstName) => `, ${firstName}. Your profile is active`,
   context: () => (
     <>
-      I remember you love natural fabrics and pieces that travel well.
+      This workshop profile weights natural fabrics and travel-ready pieces.
       The{' '}
-      <span className="sf-context-product">Pellier Linen Shirt</span>{' '}
-      just landed in ecru — it picks up where your last saved piece
-      left off. Want to build a packing list?
+      <span className="sf-context-product">Italian Linen Camp Shirt</span>{' '}
+      is one catalog match. Want to build a packing list?
     </>
   ),
   picks: [
@@ -206,15 +198,15 @@ const MARCO_COPY: PersonaCopy = {
 }
 
 const ANNA_COPY: PersonaCopy = {
-  greetingSuffix: (firstName) => `, ${firstName}. Welcome back.`,
+  greetingSuffix: (firstName) => `, ${firstName}. Your profile is active`,
   context: () => (
     <>
-      I know you have an eye for thoughtful gifts. The{' '}
+      This workshop profile weights thoughtful gifts and home pieces. The{' '}
       <span className="sf-context-product">Beeswax Taper Candles</span>{' '}
       and{' '}
       <span className="sf-context-product">Ceramic Ring Dish</span>{' '}
-      are our most-gifted pieces this month. Tell me who you're shopping
-      for and I'll find something that lands.
+      are two catalog matches. Tell me who you're shopping for and I'll
+      build a shortlist.
     </>
   ),
   picks: [
@@ -226,15 +218,15 @@ const ANNA_COPY: PersonaCopy = {
 }
 
 const THEO_COPY: PersonaCopy = {
-  greetingSuffix: (firstName) => `, ${firstName}. Good to see you.`,
+  greetingSuffix: (firstName) => `, ${firstName}. Your profile is active`,
   context: () => (
     <>
-      I see you gravitate toward slow-craft pieces. The{' '}
+      This workshop profile weights slow-craft and ceramic pieces. The{' '}
       <span className="sf-context-product">Stoneware Pour-Over Set</span>{' '}
-      pairs beautifully with the{' '}
+      and{' '}
       <span className="sf-context-product">Ceramic Tumblers</span>{' '}
-      — they're from the same kiln run. Your morning table is one piece
-      away from complete.
+      are two catalog matches. You can explore them or run the bowl-return
+      scenario.
     </>
   ),
   picks: [

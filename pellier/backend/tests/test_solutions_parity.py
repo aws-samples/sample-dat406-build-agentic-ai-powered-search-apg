@@ -311,7 +311,7 @@ def test_live_file_has_workshop_markers(
     """Every live participant-edit file MUST carry at least one
     ``# === WORKSHOP ... START ===`` marker. Without the marker
     participants have no visual anchor for where to edit, and the
-    Agent Trace's Code Editor won't know where to focus.
+    Pellier Labs' Code Editor won't know where to focus.
     """
     src = live_path.read_text()
     # Matches "# === WORKSHOP ... START ===" in a tolerant way —
@@ -433,7 +433,7 @@ def test_floor_check_builder_contract() -> None:
     once a participant wires floor_check — wiring it is the exercise, not a
     regression. A participant who completes the exercise and runs the full
     suite should therefore see this as ``SKIPPED``, never as a failure. The
-    real verification of a correct wire is the Agent Trace Tools strip flipping
+    real verification of a correct wire is Pellier Labs Tools strip flipping
     14/15 -> 15/15 and Marco's Brooklyn turn returning a real quantity, both
     in the lab guide. See CLAUDE.md ("How the participant verifies").
     """
@@ -464,7 +464,7 @@ def test_floor_check_builder_contract() -> None:
             "floor_check has been wired in services/agent_tools.py — this is "
             "the expected end state of the exercise, not a regression. The "
             "starter-stub guard only applies to the shipped repo. Verify your "
-            "wire via the Agent Trace Tools 15/15 strip and Marco's Brooklyn turn."
+            "wire via Pellier Labs Tools 15/15 strip and Marco's Brooklyn turn."
         )
 
     # Shipped starter state: the live + preapply builder files carry the stub.

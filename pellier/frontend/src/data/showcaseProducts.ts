@@ -25,11 +25,11 @@ const AUTHORED: ReasoningChip[] = [
   { style: 'matched', text: REASONING.matched('linen', 'resort', 'minimal') },
   { style: 'pricing', text: REASONING.pricing(14, 3).lead, urgentClause: REASONING.pricing(14, 3).urgent },
   { style: 'context', text: 'the scent that turns a Tuesday into a ritual' },
-  { style: 'picked', text: REASONING.picked('you mentioned timeless accessories') },
+  { style: 'picked', text: REASONING.picked('timeless accessories in the catalog') },
   { style: 'matched', text: REASONING.matched('apothecary', 'minimal', 'warm') },
   { style: 'pricing', text: REASONING.pricing(8, 5).lead, urgentClause: REASONING.pricing(8, 5).urgent },
   { style: 'context', text: 'the set that makes staying in feel intentional' },
-  { style: 'picked', text: REASONING.picked('you liked clean activewear') },
+  { style: 'picked', text: REASONING.picked('clean activewear in the catalog') },
   // Marco 11-19
   { style: 'matched', text: REASONING.matched('linen', 'travel', 'resort') },
   { style: 'pricing', text: REASONING.pricing(20, 7).lead, urgentClause: REASONING.pricing(20, 7).urgent },
@@ -42,7 +42,7 @@ const AUTHORED: ReasoningChip[] = [
   { style: 'matched', text: REASONING.matched('linen', 'everyday', 'minimal') },
   // Anna 21-29
   { style: 'pricing', text: REASONING.pricing(18, 6).lead, urgentClause: REASONING.pricing(18, 6).urgent },
-  { style: 'context', text: 'arrives gift-wrapped, no extra effort' },
+  { style: 'context', text: 'pairs with the seeded Gift Wrapping Kit' },
   { style: 'picked', text: REASONING.picked('the ring dish everyone keeps') },
   { style: 'matched', text: REASONING.matched('accessories', 'gift', 'classic') },
   { style: 'pricing', text: REASONING.pricing(10, 8).lead, urgentClause: REASONING.pricing(10, 8).urgent },

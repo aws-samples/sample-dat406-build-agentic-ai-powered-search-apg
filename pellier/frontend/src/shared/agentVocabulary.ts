@@ -1,6 +1,6 @@
 /**
  * agentVocabulary — canonical names + one-line glossaries for every
- * agent concept that appears on BOTH the Boutique and the Agent Trace.
+ * agent concept that appears on BOTH the Boutique and Pellier Labs.
  *
  * One source of truth so a workshop participant crossing between the
  * shopper-facing storefront and the operator-facing observatory sees
@@ -9,7 +9,7 @@
  *
  * Naming rule: snake_dot — `<noun>.<verb>` lowercase, dot-separated.
  * Examples: memory.recall, inventory.live, trend.signal. Stays
- * consistent with the Agent Trace's existing tool-registry vocabulary
+ * consistent with Pellier Labs' existing tool-registry vocabulary
  * (`product_search`, `discover_tools`, `aurora_*`) while keeping the
  * Boutique-facing names compact enough to fit inline on a product
  * card.
@@ -35,13 +35,13 @@ export type AgentToolName =
 interface AgentToolEntry {
   /** Canonical machine-readable name. */
   name: AgentToolName
-  /** Human-readable label for tooltips and Agent Trace deep links. */
+  /** Human-readable label for tooltips and Pellier Labs deep links. */
   label: string
   /** One-line glossary, attendee-friendly. */
   description: string
   /**
-   * Agent Trace route this concept is explained on. Used by the
-   * "How this works" link from a Boutique chip into the Agent Trace.
+   * Pellier Labs route this concept is explained on. Used by the
+   * "How this works" link from a Boutique chip into Pellier Labs.
    */
   agentTracePath: string
 }

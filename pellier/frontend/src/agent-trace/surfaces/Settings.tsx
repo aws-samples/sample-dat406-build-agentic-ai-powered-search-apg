@@ -1,8 +1,8 @@
 /**
- * Settings — Persona selection interface for the Agent Trace Observatory.
+ * Settings — Persona selection interface for Pellier Labs Observatory.
  *
  * Displays available personas as editorial cards. Selecting a persona
- * updates the PersonaContext, which scopes all Agent Trace surfaces to that
+ * updates the PersonaContext, which scopes all Pellier Labs surfaces to that
  * persona's data. Defaults to Marco as the active persona.
  *
  * The Sidebar footer automatically reflects the active persona's name,
@@ -192,7 +192,7 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
         {persona.blurb}
       </p>
 
-      {/* Stats row */}
+      {/* Seed boundary */}
       <div
         style={{
           display: 'flex',
@@ -201,16 +201,8 @@ const PersonaCard: React.FC<PersonaCardProps> = ({
           borderTop: '1px solid var(--at-rule-1)',
         }}
       >
-        <StatChip label="Visits" value={persona.stats.visits} />
-        <StatChip label="Orders" value={persona.stats.orders} />
-        <StatChip
-          label="Last seen"
-          value={
-            persona.stats.last_seen_days !== null
-              ? `${persona.stats.last_seen_days}d ago`
-              : 'Never'
-          }
-        />
+        <StatChip label="Seeded orders" value={persona.stats.orders} />
+        <StatChip label="Scenario" value="Workshop profile" />
       </div>
     </button>
   );
@@ -354,7 +346,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     id: 'marco',
     display_name: 'Marco',
     role_tag: 'Returning',
-    blurb: 'Brooklyn-based, partial to natural fibers. Last visit, three weeks ago. Bought the oat Maren tunic.',
+    blurb: 'Workshop profile seed: natural fibers, linen, travel-ready pieces, and warm neutrals.',
     avatar_color: '#5a3528',
     avatar_initial: 'M',
     stats: { visits: 11, orders: 7, last_seen_days: 21 },
@@ -363,7 +355,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     id: 'anna',
     display_name: 'Anna',
     role_tag: 'Gift-giver',
-    blurb: 'Buys for others - partner, mother, friends. Never for herself. Recent searches lean milestone.',
+    blurb: 'Workshop profile seed: gifting, milestone occasions, explicit budgets, and ready-to-give pieces.',
     avatar_color: '#6b3d2a',
     avatar_initial: 'A',
     stats: { visits: 6, orders: 5, last_seen_days: 9 },
@@ -372,7 +364,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     id: 'theo',
     display_name: 'Theo',
     role_tag: 'Home + slow craft',
-    blurb: 'Keeps a short list of quiet pieces - ceramics, linen throws, stoneware. Finishes what he buys, slowly.',
+    blurb: 'Workshop profile seed: ceramics, linen throws, stoneware, repair, and durable post-purchase handling.',
     avatar_color: '#5a4535',
     avatar_initial: 'T',
     stats: { visits: 8, orders: 4, last_seen_days: 14 },
@@ -428,7 +420,7 @@ const Settings: React.FC = () => {
       <EditorialTitle
         eyebrow="Settings · Persona · workshop identity"
         title="Who walks in."
-        summary="Select a persona to scope every Agent Trace surface to their history, preferences, and memory. The sidebar, sessions, and memory dashboard all follow the active persona."
+        summary="Select a persona to scope every Pellier Labs surface to their history, preferences, and memory. The sidebar, sessions, and memory dashboard all follow the active persona."
       />
 
       {loading && <LoadingState />}

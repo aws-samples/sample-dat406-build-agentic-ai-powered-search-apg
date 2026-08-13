@@ -2,7 +2,7 @@
  * Property test for fixture data round-trip integrity (Property 4)
  *
  * Property 4: Fixture data round-trip integrity — for each fixture key
- * in the Agent Trace fixture set, loading the fixture via useAgentTraceData with
+ * in Pellier Labs fixture set, loading the fixture via useAgentTraceData with
  * source "fixture" SHALL return data that is structurally identical to the
  * raw JSON content of the corresponding fixture file — no fields dropped,
  * no values mutated.

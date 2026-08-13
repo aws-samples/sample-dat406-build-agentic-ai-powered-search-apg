@@ -16,7 +16,7 @@
  * bug we hit with PersonaModal).
  *
  * Reuses ``useAgentChat`` for state, streaming, and persistence.
- * The Agent Trace's ConciergeModal is unaffected by this component.
+ * Pellier Labs' ConciergeModal is unaffected by this component.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -38,16 +38,15 @@ import '../styles/chat-drawer.css'
 // Constants
 // ---------------------------------------------------------------------------
 
-// Persona-specific welcome greetings with personal touch.
-// Each returning persona gets a warm callback to their interests.
-// Fresh visitors get a clean, inviting intro.
+// Persona-specific greetings describe the selected workshop profile. They do
+// not imply prior-session evidence before the participant generates it.
 const PERSONA_GREETINGS: Record<string, string> = {
   marco:
-    "I remember you love natural fabrics and pieces that travel well. Last time you were eyeing linen — shall we pick up where you left off, or explore something new?",
+    "Marco's workshop profile emphasizes natural fabrics and travel-ready pieces. What would you like to build from that starting point?",
   anna:
-    "Always great to see you. I know you have an eye for thoughtful gifts and milestone pieces. Tell me who you're shopping for and I'll find something that lands.",
+    "Anna's workshop profile emphasizes thoughtful gifts and milestone pieces. Tell me who you're shopping for and I'll build a focused shortlist.",
   theo:
-    "Welcome back. I see you gravitate toward slow-craft pieces — ceramics, washed linen, things with patina. What are you looking for today?",
+    "Theo's workshop profile emphasizes slow-craft pieces, ceramics, and washed linen. What would you like to explore or return?",
 }
 
 const FRESH_GREETING =

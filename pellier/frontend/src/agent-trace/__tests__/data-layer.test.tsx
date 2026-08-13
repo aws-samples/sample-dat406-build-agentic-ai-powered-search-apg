@@ -1,5 +1,5 @@
 /**
- * Unit tests for the Agent Trace data layer hooks.
+ * Unit tests for Pellier Labs data layer hooks.
  *
  * Tests verify that useAgentTraceData correctly loads fixture data,
  * manages loading/error states, and that useToolDiscovery calls

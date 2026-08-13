@@ -15,7 +15,7 @@
  * Pedagogical role: anchors Aurora's third capability (system-of-record)
  * the way Tools anchors discovery and Memory anchors LTM. Without this
  * surface, Theo's write-path teaching lives entirely in the lab content
- * with nothing to point at in the Agent Trace.
+ * with nothing to point at in Pellier Labs.
  */
 
 import React, { useEffect, useState } from 'react';

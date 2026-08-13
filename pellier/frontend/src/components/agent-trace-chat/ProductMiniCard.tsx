@@ -1,12 +1,12 @@
 import { cssVar as c } from '../../design/cssVars'
 /**
  * ProductMiniCard — view-only product card rendered inline in the
- * Agent Trace chat when the recommendation agent returns picks.
+ * Pellier Labs chat when the recommendation agent returns picks.
  *
  * Deliberately not the storefront's ProductCard: no hover, no add-to-
  * cart, no wishlist, no swatches. This surface is teaching; the
  * agentic demo needs product identity at a glance, not commerce
- * affordances. Boutique for buying; Agent Trace for watching.
+ * affordances. Boutique for buying; Pellier Labs for watching.
  *
  * Visual: white card, 1px ink-at-14% border, 8px radius. A solid
  * color block across the top (78px) stands in for the product image

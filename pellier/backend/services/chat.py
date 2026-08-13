@@ -1250,9 +1250,9 @@ CURRENT REQUEST: {message}"""
             classifier picks one specialist; that specialist runs
             directly via its factory. One LLM call per turn. Voice
             preserved (no paraphrase cycle).
-          - ``'agents_as_tools'`` — Agent Trace Pattern I. Sonnet orchestrator
+          - ``'agents_as_tools'`` — Pellier Labs Pattern I. Sonnet orchestrator
             + five ``@tool`` specialists. Two LLM calls per turn.
-          - ``'graph'`` — Agent Trace Pattern II. Real Strands
+          - ``'graph'`` — Pellier Labs Pattern II. Real Strands
             ``GraphBuilder`` DAG: Sonnet router node + 5 specialist
             nodes; conditional edges route the turn to exactly one
             specialist. Exposed through ``GraphAgentAdapter`` so the
@@ -1281,8 +1281,8 @@ CURRENT REQUEST: {message}"""
             if cid and isinstance(cid, str) and cid != "anonymous":
                 customer_id = cid
 
-        # Per-turn runtime timing (seeds Agent Trace Runtime page live strip)
-        # and DB query log (seeds Agent Trace State Management live strip).
+        # Per-turn runtime timing (seeds Pellier Labs Runtime page live strip)
+        # and DB query log (seeds Pellier Labs State Management live strip).
         # Markers are recorded inline via time.perf_counter(); the db log
         # is propagated through a ContextVar so tool invocations hit the
         # same buffer even when they run via asyncio.to_thread.
@@ -1667,7 +1667,7 @@ CURRENT REQUEST: {message}"""
         # Its output has two consumers:
         #   1. Pattern III (Dispatcher) uses ``intent_hint`` to pick
         #      which specialist factory to build.
-        #   2. Telemetry (``📨 chat_stream`` log, Agent Trace panels) uses
+        #   2. Telemetry (``📨 chat_stream`` log, Pellier Labs panels) uses
         #      the classification for the routing annotation.
         #
         # The previous ``[ROUTING DIRECTIVE: call the X tool]`` prefix
@@ -1698,7 +1698,7 @@ CURRENT REQUEST: {message}"""
         #
         # The ``skill_routing`` SSE event must fire BEFORE any text tokens
         # so the boutique UI can render the attribution line above the
-        # reply. Storefront reads ``loaded_skills``; Agent Trace renders the
+        # reply. Storefront reads ``loaded_skills``; Pellier Labs renders the
         # full decision in its live activation log.
         skill_decision = None
         skill_t0 = time.perf_counter()
@@ -2049,7 +2049,7 @@ CURRENT REQUEST: {message}"""
                 # Emit a `complete` event so the frontend populates
                 # `finalResponse.response` and `agent_execution` instead
                 # of falling back to the hardcoded default. `agent_execution`
-                # mirrors the shape live agents produce so the Agent Trace
+                # mirrors the shape live agents produce so Pellier Labs
                 # Sessions Brief tab and the inline pill in the chat
                 # surface the fall-through honestly (no agent, no model).
                 yield {
@@ -2479,7 +2479,7 @@ CURRENT REQUEST: {message}"""
 
         # Record this turn's latency breakdown into the process-local
         # perf log so /api/performance/runtime can serve live p50/p95
-        # aggregates to the Agent Trace Performance tab. Any failure is
+        # aggregates to Pellier Labs Performance tab. Any failure is
         # swallowed — measurement must never break a turn.
         try:
             from services.performance_log import record_turn
@@ -2495,7 +2495,7 @@ CURRENT REQUEST: {message}"""
             logger.debug("performance_log.record_turn failed: %s", _exc)
 
         # Emit timing + db query events BEFORE the complete event so the
-        # Agent Trace runtime and state-management pages pick them up via
+        # Pellier Labs runtime and state-management pages pick them up via
         # their useAgentChat localStorage bridge.
         yield {
             "type": "runtime_timing",

@@ -63,7 +63,7 @@ export interface AgentExecution {
  * Shape mirrors the backend ``RouterDecision`` Pydantic model. Emitted
  * once per turn via the ``skill_routing`` SSE event, before any text
  * tokens, so the storefront can render the attribution line above the
- * reply and the Agent Trace can render the live activation log.
+ * reply and Pellier Labs can render the live activation log.
  */
 export interface SkillRouting {
   loaded_skills: string[]
@@ -115,7 +115,7 @@ export interface AgentChatMessage {
   agentExecution?: AgentExecution
   /** Skill routing decision for this turn. Set when the backend emits
    * a ``skill_routing`` SSE event. Boutique uses ``loaded_skills`` to
-   * render the italic burgundy attribution line; Agent Trace renders the
+   * render the italic burgundy attribution line; Pellier Labs renders the
    * full decision in its live activation log. */
   skillRouting?: SkillRouting
   /** Stylist handoff payload when this turn fired escalate_to_stylist.
@@ -132,11 +132,11 @@ export interface UseAgentChatOptions {
   /** localStorage key for conversation persistence. Omit to disable. */
   persistKey?: string
   /**
-   * Session ID for AgentCore STM hydration. When provided, the hook
-   * fetches `/api/agent/session/{sessionId}` on mount and hydrates
-   * the message list from the backend's authoritative STM store if
+   * Session ID for Aurora working-memory hydration. When provided, the hook
+   * fetches `/api/chat/session/{sessionId}` on mount and hydrates
+   * the message list from the same store used by `/api/chat/stream` if
    * localStorage is empty or stale. This bridges the Boutique chat
-   * with the same STM layer the Agent Trace teaches.
+   * with the working-memory path the builders workshop proves.
    */
   sessionId?: string
 }
@@ -282,14 +282,12 @@ export function useAgentChat(
   const [backendOnline, setBackendOnline] = useState(true)
   const [sessionCost, setSessionCost] = useState(0)
 
-  // STM hydration — fetch the authoritative turn history from the
-  // backend's AgentCore Memory (or in-memory fallback). If the backend
-  // has turns that localStorage doesn't, hydrate from backend. This
-  // bridges the Boutique chat with the STM the Agent Trace teaches.
+  // Hydrate from the same Aurora rows that /api/chat/stream writes.
+  // Local storage remains a UI cache, not the authoritative memory source.
   useEffect(() => {
     if (!sessionId) return
     let alive = true
-    fetch(`/api/agent/session/${encodeURIComponent(sessionId)}`)
+    fetch(`/api/chat/session/${encodeURIComponent(sessionId)}`)
       .then(r => r.json())
       .then(data => {
         if (!alive) return
@@ -442,7 +440,7 @@ export function useAgentChat(
         return
       }
 
-      // Thinking placeholder. Agent Trace gets the full instrumentation shell;
+      // Thinking placeholder. Pellier Labs gets the full instrumentation shell;
       // storefront gets a lightweight shell so Boutique can show an optional
       // collapsed "skills + tools" disclosure without surfacing agent steps.
       const showInstrumentation = mode === 'agentTrace'
@@ -496,7 +494,7 @@ export function useAgentChat(
               // Routing event arrives BEFORE any text tokens per the
               // backend ordering contract. Attach to the current
               // assistant message (the thinking placeholder) so both
-              // the storefront attribution line and the Agent Trace
+              // the storefront attribution line and Pellier Labs
               // activation log can read it.
               updateLast(lastMsg =>
                 lastMsg.role === 'assistant'
@@ -504,7 +502,7 @@ export function useAgentChat(
                   : null,
               )
               // Persist the most recent routing to localStorage so the
-              // Agent Trace Skills panel (which lives on a different route)
+              // Pellier Labs Skills panel (which lives on a different route)
               // can render the live activation log without plumbing
               // cross-route state through a context provider.
               try {
@@ -554,7 +552,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'tool_call') {
               // Always persist tool calls to localStorage so the
-              // Agent Trace architecture pages (MCP, Tool Registry) can
+              // Pellier Labs architecture pages (MCP, Tool Registry) can
               // render the live strip without being mounted in the
               // same component tree as the chat. Cross-route state.
               try {
@@ -657,7 +655,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'runtime_timing') {
               // Per-layer wall-clock timing for the most recent turn.
-              // Written to localStorage for the Agent Trace Runtime page
+              // Written to localStorage for Pellier Labs Runtime page
               // to consume via useRuntimeTiming().
               try {
                 localStorage.setItem(
@@ -682,7 +680,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'db_queries') {
               // Per-turn database operations (reads and writes) with
-              // SQL snippets. Written to localStorage for the Agent Trace
+              // SQL snippets. Written to localStorage for Pellier Labs
               // State Management page to consume via useDbQueries().
               try {
                 const list = Array.isArray(data.queries) ? data.queries : []
@@ -702,8 +700,8 @@ export function useAgentChat(
           persona?.customer_id ?? null,
           // Pattern selector — storefront uses the dispatcher (direct
           // specialist invocation, no orchestrator, no paraphrase),
-          // Agent Trace uses the Sonnet orchestrator (Pattern I). Commit 2
-          // adds a user-facing toggle in the Agent Trace for 'graph'.
+          // Pellier Labs uses the Sonnet orchestrator (Pattern I). Commit 2
+          // adds a user-facing toggle in Pellier Labs for 'graph'.
           mode === 'storefront' ? 'dispatcher' : 'agents_as_tools',
         )
 

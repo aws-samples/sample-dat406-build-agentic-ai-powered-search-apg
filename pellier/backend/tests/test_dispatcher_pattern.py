@@ -20,9 +20,9 @@ Asserts three things, in order of importance:
    branches on it; all five specialist factories are reachable via
    the intent classifier.
 
-3. **Agent Trace behavior is unchanged at the wire level.** The default
+3. **Pellier Labs behavior is unchanged at the wire level.** The default
    pattern (absent / None) is ``'agents_as_tools'`` so existing
-   Agent Trace clients keep hitting the Sonnet orchestrator.
+   Pellier Labs clients keep hitting the Sonnet orchestrator.
 
 End-to-end behavior (real Bedrock calls, persona-aware responses)
 is verified manually via the four storefront scenarios in Phase 2's
@@ -202,13 +202,13 @@ def test_dispatcher_log_line_present(chat_module_source: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Pattern I byte-compatibility — Agent Trace is unchanged at the wire level
+# Pattern I byte-compatibility — Pellier Labs is unchanged at the wire level
 # ---------------------------------------------------------------------------
 
 
 def test_default_pattern_is_agents_as_tools() -> None:
     """When no pattern is supplied (pre-Phase-2 clients), the service
-    must default to agents_as_tools so Agent Trace behavior is preserved.
+    must default to agents_as_tools so Pellier Labs behavior is preserved.
     """
     import textwrap
 
@@ -219,7 +219,7 @@ def test_default_pattern_is_agents_as_tools() -> None:
     # so the double-quoted form in the module is what we check.
     assert 'pattern or "agents_as_tools"' in textwrap.dedent(src), (
         "chat_stream does not default pattern to 'agents_as_tools' — "
-        "pre-Phase-2 clients (Agent Trace) would break"
+        "pre-Phase-2 clients (Pellier Labs) would break"
     )
 
 
