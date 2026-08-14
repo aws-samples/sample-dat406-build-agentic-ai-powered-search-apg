@@ -7,7 +7,7 @@
  * below this component.
  */
 import { useCallback, useState, type CSSProperties } from 'react'
-import { Mic, MicOff, Send, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Mic, MicOff, Send, Sparkles } from 'lucide-react'
 import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
 import {
@@ -57,9 +57,40 @@ const PROFILE_FOCUS: Record<string, string> = {
   theo: 'Home rituals',
 }
 
+const STOREFRONT_EDITS = [
+  {
+    id: 'fresh',
+    label: 'The Resort Edit',
+    detail: 'A fresh point of view',
+    image: asset('/products/fresh-olive-branch-vessel.png'),
+    imageAlt: 'Olive branch vessel on a linen surface',
+  },
+  {
+    id: 'marco',
+    label: 'The Travel Edit',
+    detail: 'Linen for the long way out',
+    image: asset('/products/marco-linen-camp-shirt-indigo.png'),
+    imageAlt: 'Indigo linen camp shirt',
+  },
+  {
+    id: 'anna',
+    label: 'The Gift Edit',
+    detail: 'Objects worth giving',
+    image: asset('/products/fresh-santal-fig-candle.png'),
+    imageAlt: 'Santal and fig candle',
+  },
+  {
+    id: 'theo',
+    label: 'The Home Rituals Edit',
+    detail: 'Pieces for daily ceremony',
+    image: asset('/products/theo-stoneware-pour-over.png'),
+    imageAlt: 'Stoneware pour-over set',
+  },
+] as const
+
 export default function BoutiqueHero() {
   const { openDrawerWithQuery } = useUI()
-  const { persona, switchPersona, switching } = usePersona()
+  const { persona, switchPersona, signOut, switching } = usePersona()
   const [searchValue, setSearchValue] = useState('')
 
   const personaId = persona?.id ?? 'fresh'
@@ -92,7 +123,19 @@ export default function BoutiqueHero() {
     [searchValue, submitQuery],
   )
 
+  const selectEdit = useCallback(
+    (id: (typeof STOREFRONT_EDITS)[number]['id']) => {
+      if (id === 'fresh') {
+        signOut()
+        return
+      }
+      void switchPersona(id)
+    },
+    [signOut, switchPersona],
+  )
+
   return (
+    <>
     <section
       data-testid="boutique-hero"
       aria-label="Pellier resort edit"
@@ -131,7 +174,7 @@ export default function BoutiqueHero() {
               style={{ letterSpacing: '0.18em' }}
             >
               <span className="h-px w-7 bg-accent" aria-hidden="true" />
-              Pellier edit No. 06
+              Resort edit No. 06
             </p>
 
             <h1
@@ -299,11 +342,7 @@ export default function BoutiqueHero() {
 
       <div
         data-testid="boutique-hero-trust"
-        className="
-          mx-auto flex max-w-[1440px] flex-col items-start gap-2
-          border-b border-sand px-2 py-3 md:flex-row md:items-center
-          md:justify-between md:px-0
-        "
+        className="mx-auto flex max-w-[1440px] flex-col items-start gap-2 px-2 py-4 md:flex-row md:items-center md:justify-between md:px-0"
       >
         <PresencePill surface="boutique" personaId={persona?.id} />
         <p className="font-sans text-[11px] leading-5 text-ink-soft md:text-right">
@@ -312,5 +351,67 @@ export default function BoutiqueHero() {
         </p>
       </div>
     </section>
+    <section
+      aria-label="Pellier edits"
+      className="mt-3 border-y border-sand bg-[rgba(247,239,226,0.38)]"
+    >
+      <nav
+        className="mx-auto max-w-[1440px] px-3 py-5 md:px-container-x md:py-6"
+        data-testid="boutique-edit-selector"
+      >
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {STOREFRONT_EDITS.map((edit) => {
+            const isActive =
+              edit.id === 'fresh' ? !persona : persona?.id === edit.id
+            return (
+              <button
+                key={edit.id}
+                type="button"
+                data-testid={`boutique-edit-${edit.id}`}
+                disabled={switching}
+                aria-pressed={isActive}
+                onClick={() => selectEdit(edit.id)}
+                className={[
+                  'group relative min-h-[148px] overflow-hidden rounded-[8px] border text-left',
+                  'transition focus-visible:outline-none focus-visible:ring-2',
+                  'focus-visible:ring-espresso focus-visible:ring-offset-2 md:min-h-[168px]',
+                  'disabled:cursor-wait disabled:opacity-60',
+                  isActive
+                    ? 'border-espresso shadow-warm-sm'
+                    : 'border-[rgba(31,20,16,0.14)] hover:border-[rgba(31,20,16,0.34)] hover:shadow-warm-sm',
+                ].join(' ')}
+              >
+                <img
+                  src={edit.image}
+                  alt={edit.imageAlt}
+                  className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-[linear-gradient(180deg,rgba(31,20,16,0.02)_24%,rgba(31,20,16,0.72)_100%)]"
+                />
+                <span className="relative flex min-h-[148px] flex-col justify-end p-3 text-cream md:min-h-[168px] md:p-4">
+                  <span className="flex items-end justify-between gap-2">
+                    <span className="font-display text-[19px] font-semibold leading-5 md:text-[21px]">
+                      {edit.label}
+                    </span>
+                    <ArrowUpRight
+                      aria-hidden="true"
+                      size={18}
+                      strokeWidth={1.6}
+                      className="mb-0.5 shrink-0 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                    />
+                  </span>
+                  <span className="mt-1 block font-sans text-[10px] uppercase leading-4 text-[rgba(255,252,247,0.84)]">
+                    {edit.detail}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+    </section>
+    </>
   )
 }
