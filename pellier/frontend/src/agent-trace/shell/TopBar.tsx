@@ -1,33 +1,27 @@
 /**
- * TopBar — Horizontal bar above Pellier Labs canvas.
+ * Pellier Labs top bar.
  *
- * Contains a persistent return to Pellier, a BreadcrumbTrail derived
- * from the current route, live status metadata, and the persona avatar.
- *
- * Requirements: 1.9, 1.10, 1.11, 1.12
+ * The Labs identity is singular and the storefront return is explicit so the
+ * inspection canvas remains the primary surface at every viewport width.
  */
 
 import React, { useMemo, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Menu } from 'lucide-react';
 import PersonaModal from '../../components/PersonaModal';
 import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
 import { PresencePill } from '../../shared';
 
-/* -----------------------------------------------------------------------
- * Route → breadcrumb mapping
- * ----------------------------------------------------------------------- */
-
-/** Prettify a route segment into a human-readable breadcrumb label. */
 function prettifySegment(segment: string): string {
-  // Known labels
   const labels: Record<string, string> = {
+    'pellier-labs': 'Pellier Labs',
     'agent-trace': 'Pellier Labs',
     'proof-board': 'Proof Board',
+    'audit-proof': 'Audit Proof',
     sessions: 'Sessions',
-    observatory: 'Observatory',
+    observatory: 'Workshop Map',
     'persona-journeys': 'Persona Journeys',
     architecture: 'Architecture',
     agents: 'Agents',
@@ -36,7 +30,7 @@ function prettifySegment(segment: string): string {
     search: 'Search',
     routing: 'Routing',
     memory: 'Memory',
-    'write-path': 'Write-path',
+    'write-path': 'Gateway & Policy',
     performance: 'Performance',
     evaluations: 'Evaluations',
     'production-patterns': 'Production Patterns',
@@ -56,188 +50,77 @@ function prettifySegment(segment: string): string {
 
 function useBreadcrumbs(): string[] {
   const { pathname } = useLocation();
-
   return useMemo(() => {
-    const parts = pathname
-      .split('/')
-      .filter(Boolean)
-      .map(prettifySegment);
-
-    // Always start with "Pellier Labs" — it's the root
-    if (parts.length === 0) return ['Pellier Labs'];
-    return parts;
+    const parts = pathname.split('/').filter(Boolean).map(prettifySegment);
+    return parts.length ? parts : ['Pellier Labs'];
   }, [pathname]);
 }
 
-/* -----------------------------------------------------------------------
- * TopBar component
- * ----------------------------------------------------------------------- */
-
-const TopBar: React.FC<{ onOpenNavigation?: () => void }> = ({
-  onOpenNavigation,
-}) => {
+const TopBar: React.FC = () => {
   const breadcrumbs = useBreadcrumbs();
   const { persona } = usePersona();
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
 
-  const avatarInitial = persona?.avatar_initial ?? 'M';
-  const avatarColor = persona?.avatar_color ?? '#a8423a';
-  const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Persona';
+  const avatarInitial = persona?.avatar_initial ?? '?';
+  const avatarColor = persona?.avatar_color ?? '#665f58';
+  const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Choose profile';
+  const photoUrl = persona ? getPersonaPhoto(persona.id) : undefined;
 
   return (
     <>
-      <header
-        className="agent-trace-topbar"
-        data-testid="agent-trace-topbar"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          padding: '12px 24px',
-          borderBottom: '1px solid var(--at-rule-1)',
-          background: 'var(--at-cream-1)',
-          minHeight: '52px',
-        }}
-      >
-        <Link
-          to="/"
-          data-testid="back-to-pellier"
-          aria-label="Back to Pellier"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            minHeight: '36px',
-            padding: '0 12px',
-            border: '1px solid var(--at-rule-1)',
-            borderRadius: '4px',
-            background: 'var(--at-cream-2)',
-            color: 'var(--at-ink-1)',
-            fontFamily: 'var(--at-sans)',
-            fontSize: '13px',
-            fontWeight: 600,
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
-          <span>Back to Pellier</span>
-        </Link>
+      <header className="pellier-labs-topbar" data-testid="agent-trace-topbar">
+        <div className="pellier-labs-topbar-start">
+          <Link to="/pellier-labs" className="pellier-labs-wordmark">
+            Pellier Labs
+          </Link>
 
-        <button
-          type="button"
-          className="labs-mobile-menu-button"
-          data-testid="open-labs-navigation"
-          aria-label="Open Pellier Labs navigation"
-          title="Open Pellier Labs navigation"
-          onClick={onOpenNavigation}
-        >
-          <Menu size={18} strokeWidth={1.8} aria-hidden="true" />
-        </button>
-
-        {/* Breadcrumb trail */}
-        <div className="labs-topbar-breadcrumb">
-          <BreadcrumbTrail segments={breadcrumbs} />
+          {breadcrumbs.length > 1 ? (
+            <div className="pellier-labs-breadcrumbs">
+              <BreadcrumbTrail segments={breadcrumbs.slice(1)} />
+            </div>
+          ) : null}
         </div>
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
+        <div className="pellier-labs-topbar-end">
+          <div className="pellier-labs-presence">
+            <PresencePill surface="agentTrace" personaId={persona?.id} />
+          </div>
 
-        {/* Presence — same chip as Pellier hero; mono tail only when a
-            persona is signed in (hidden for fresh / anonymous). */}
-        <div className="labs-topbar-presence">
-          <PresencePill surface="boutique" personaId={persona?.id} />
-        </div>
-
-        {/* Persona switcher */}
-        <button
-          type="button"
-          className="labs-topbar-persona"
-          data-testid="agent-trace-persona-switcher"
-          onClick={() => setPersonaModalOpen(true)}
-          aria-label={`Switch persona${persona?.display_name ? ` from ${persona.display_name}` : ''}`}
-          title="Switch persona"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '9px',
-            padding: '4px 9px 4px 4px',
-            border: '1px solid var(--at-rule-1)',
-            borderRadius: '999px',
-            background: 'var(--at-cream-2)',
-            color: 'var(--at-ink-1)',
-            cursor: 'pointer',
-          }}
-        >
-          {(() => {
-            const photoUrl = getPersonaPhoto(persona?.id);
-            return photoUrl ? (
-              <img
-                src={photoUrl}
-                alt=""
-                aria-hidden="true"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  flexShrink: 0,
-                  border: '1.5px solid rgba(31, 20, 16, 0.1)',
-                }}
-              />
+          <button
+            type="button"
+            data-testid="agent-trace-persona-switcher"
+            className="pellier-labs-persona"
+            onClick={() => setPersonaModalOpen(true)}
+            aria-label={`Switch persona${persona?.display_name ? ` from ${persona.display_name}` : ''}`}
+            title="Switch persona"
+          >
+            {photoUrl ? (
+              <img src={photoUrl} alt="" aria-hidden="true" />
             ) : (
               <span
+                className="pellier-labs-persona-initial"
                 aria-hidden="true"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: avatarColor,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'var(--at-sans)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#fff',
-                  flexShrink: 0,
-                }}
+                style={{ background: avatarColor }}
               >
                 {avatarInitial}
               </span>
-            );
-          })()}
-          <span
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              lineHeight: 1.1,
-            }}
+            )}
+            <span className="pellier-labs-persona-copy">
+              <small>Persona</small>
+              <strong>{personaLabel}</strong>
+            </span>
+          </button>
+
+          <Link
+            to="/"
+            data-testid="back-to-pellier"
+            aria-label="Back to Pellier"
+            className="pellier-labs-back"
           >
-            <span
-              style={{
-                fontFamily: 'var(--at-mono)',
-                fontSize: '9px',
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'var(--at-ink-4)',
-              }}
-            >
-              Persona
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--at-sans)',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: 'var(--at-ink-1)',
-              }}
-            >
-              {personaLabel}
-            </span>
-          </span>
-        </button>
+            <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
+            <span>Back to Pellier</span>
+          </Link>
+        </div>
       </header>
       <PersonaModal open={personaModalOpen} onClose={() => setPersonaModalOpen(false)} />
     </>

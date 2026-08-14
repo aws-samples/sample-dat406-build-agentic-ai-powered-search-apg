@@ -70,6 +70,8 @@ export interface ChatResponse {
   estimated_cost_usd?: number
 }
 
+export type ResponseMode = 'balanced' | 'editorial' | 'fast'
+
 /**
  * Send a chat message with streaming support
  */
@@ -81,6 +83,7 @@ export async function sendChatMessageStreaming(
   guardrailsEnabled?: boolean,
   customerId?: string | null,
   pattern?: 'dispatcher' | 'agents_as_tools' | 'graph' | null,
+  responseMode: ResponseMode = 'balanced',
 ): Promise<ChatResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
@@ -98,6 +101,7 @@ export async function sendChatMessageStreaming(
         guardrails_enabled: guardrailsEnabled || false,
         customer_id: customerId ?? null,
         pattern: pattern ?? null,
+        response_mode: responseMode,
       }),
     })
 
@@ -106,56 +110,76 @@ export async function sendChatMessageStreaming(
     }
 
     const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('The response did not include a stream.')
+    }
+
     const decoder = new TextDecoder()
     let finalResponse: ChatResponse | null = null
     let lastContent = ''
+    let streamError: Error | null = null
 
-    if (reader) {
-      let buffer = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+    const processLine = (line: string) => {
+      if (!line.startsWith('data:')) return
 
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
+      let data: Record<string, any>
+      try {
+        data = JSON.parse(line.slice(5).trimStart())
+      } catch {
+        return
+      }
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-              onUpdate(data)
-
-              // Track content updates
-              if (data.type === 'content') {
-                lastContent = data.content
-              } else if (data.type === 'content_delta') {
-                lastContent += data.delta
-              }
-
-              if (data.type === 'complete') {
-                finalResponse = {
-                  response: data.response?.response,
-                  products: data.response?.products || [],
-                  suggestions: data.response?.suggestions || [],
-                  agent_execution: data.response?.agent_execution,
-                  token_count: data.response?.token_count,
-                  estimated_cost_usd: data.response?.estimated_cost_usd
-                }
-              }
-            } catch {
-              // Partial data, will be completed in next chunk
-            }
-          }
+      onUpdate(data)
+      if (data.type === 'error') {
+        streamError = new Error(
+          data.error || data.message || 'The live agent response failed.',
+        )
+        return
+      }
+      if (data.type === 'content') {
+        lastContent = data.content
+      } else if (data.type === 'content_delta') {
+        lastContent += data.delta
+      } else if (data.type === 'complete') {
+        finalResponse = {
+          response: data.response?.response,
+          products: data.response?.products || [],
+          suggestions: data.response?.suggestions || [],
+          agent_execution: data.response?.agent_execution,
+          orchestrator_enabled: data.response?.orchestrator_enabled,
+          token_count: data.response?.token_count,
+          estimated_cost_usd: data.response?.estimated_cost_usd
         }
       }
     }
 
-    return finalResponse || {
-      response: lastContent || 'Response completed',
-      products: [],
-      suggestions: []
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      lines.forEach(processLine)
+      if (streamError) {
+        await reader.cancel()
+        throw streamError
+      }
     }
+
+    buffer += decoder.decode()
+    if (buffer.trim()) processLine(buffer)
+    if (streamError) throw streamError
+    if (!finalResponse) {
+      throw new Error(
+        lastContent
+          ? 'The response stream ended before the agent completed.'
+          : 'The response stream ended without a result.',
+      )
+    }
+
+    return finalResponse
   } catch (error) {
     console.error('Streaming chat error:', error)
     throw error

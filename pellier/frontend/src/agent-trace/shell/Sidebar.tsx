@@ -89,6 +89,7 @@ const Sidebar: React.FC<{
     {
       eyebrow: 'EVIDENCE',
       items: [
+        { label: 'Inspection Workbench', path: '', liveDot: true },
         { label: 'Observatory', path: 'observatory' },
         { label: 'Proof Board', path: 'proof-board', liveDot: true },
         { label: 'Sessions', path: 'sessions' },
@@ -353,11 +354,16 @@ const SidebarNavItem: React.FC<{
   item: NavItemDef;
   onNavigate?: () => void;
 }> = ({ item, onNavigate }) => {
+  const target = item.path ? `/pellier-labs/${item.path}` : '/pellier-labs';
   return (
     <NavLink
-      to={`/agent-trace/${item.path}`}
+      to={target}
       onClick={onNavigate}
-      end={item.path === 'sessions' || item.path === 'architecture'}
+      end={
+        item.path === ''
+        || item.path === 'sessions'
+        || item.path === 'architecture'
+      }
       style={({ isActive }) => ({
         display: 'flex',
         alignItems: 'center',

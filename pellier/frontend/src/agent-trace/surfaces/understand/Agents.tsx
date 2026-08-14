@@ -320,7 +320,7 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
             pgvector discovery.
           </p>
           <Link
-            to="/agent-trace/tools"
+            to="/pellier-labs/tools"
             style={{
               fontFamily: 'var(--at-mono)',
               fontSize: '12px',
@@ -442,7 +442,7 @@ const RelatedCard: React.FC = () => (
           prompt – they change voice and handling, not routing.
         </p>
         <Link
-          to="/agent-trace/architecture/skills"
+          to="/pellier-labs/architecture/skills"
           style={{
             fontFamily: 'var(--at-mono)',
             fontSize: '12px',
@@ -506,7 +506,7 @@ const RelatedCard: React.FC = () => (
           None of the five specialists is a lead – that's the routing layer's job.
         </p>
         <Link
-          to="/agent-trace/routing"
+          to="/pellier-labs/routing"
           style={{
             fontFamily: 'var(--at-mono)',
             fontSize: '12px',

@@ -591,7 +591,7 @@ const SessionsList: React.FC = () => {
               turnIndex={index}
               query={turn.query}
               replayId={turn.replayId}
-              onOpenReplay={(id) => navigate(`/agent-trace/sessions/${id}`)}
+              onOpenReplay={(id) => navigate(`/pellier-labs/sessions/${id}`)}
             />
           ))}
         </div>
@@ -611,7 +611,7 @@ const SessionsList: React.FC = () => {
             <SessionCard
               key={session.id}
               session={session}
-              onClick={() => navigate(`/agent-trace/sessions/${session.id}`)}
+              onClick={() => navigate(`/pellier-labs/sessions/${session.id}`)}
             />
           ))}
         </div>

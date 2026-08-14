@@ -46,7 +46,7 @@ const proofBoardPayload = {
         label: 'Terminal fallback',
         command: 'curl -s http://localhost:8000/api/agent/chat',
       },
-      links: [{ label: 'Tools', to: '/agent-trace/tools' }],
+      links: [{ label: 'Tools', to: '/pellier-labs/tools' }],
     },
     {
       id: 'managed-rail',
@@ -61,7 +61,7 @@ const proofBoardPayload = {
         label: 'Terminal fallback',
         command: 'curl -N http://localhost:8000/api/agent/chat',
       },
-      links: [{ label: 'Sessions', to: '/agent-trace/sessions' }],
+      links: [{ label: 'Sessions', to: '/pellier-labs/sessions' }],
     },
   ],
 };

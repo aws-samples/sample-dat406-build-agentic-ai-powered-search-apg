@@ -58,19 +58,19 @@ const DOMAINS: DomainItem[] = [
     summary:
       'Connect the floor_check implementation, public tool contract, and replay evidence without assuming a particular lab sequence.',
     primary: {
-      to: '/agent-trace/proof-board#marco-floor-check',
+      to: '/pellier-labs/proof-board#marco-floor-check',
       label: 'Open floor_check evidence',
       detail: 'Source, trace, and audit checkpoint',
       testId: 'observatory-cta-proof-board',
     },
     secondary: [
       {
-        to: '/agent-trace/tools',
+        to: '/pellier-labs/tools',
         label: 'Tools',
         detail: 'Canonical tool registry',
       },
       {
-        to: '/agent-trace/sessions',
+        to: '/pellier-labs/sessions',
         label: 'Sessions',
         detail: 'Signed-in conversation replay',
         testId: 'observatory-cta-sessions',
@@ -83,23 +83,23 @@ const DOMAINS: DomainItem[] = [
     summary:
       'Compare retrieval behavior, inspect the SQL audit proof, and connect each visible answer to its database trail.',
     primary: {
-      to: '/agent-trace/proof-board#retrieval-comparison',
+      to: '/pellier-labs/proof-board#retrieval-comparison',
       label: 'Open retrieval proof',
       detail: 'Live comparison checkpoint',
     },
     secondary: [
       {
-        to: '/agent-trace/proof-board#audit-ledger',
+        to: '/pellier-labs/proof-board#audit-ledger',
         label: 'Audit ledger',
         detail: 'tool_audit SQL proof',
       },
       {
-        to: '/agent-trace/search',
+        to: '/pellier-labs/search',
         label: 'Search',
         detail: 'Hybrid and vector evidence',
       },
       {
-        to: '/agent-trace/write-path',
+        to: '/pellier-labs/write-path',
         label: 'Write-path',
         detail: 'Policy-backed audit writes',
       },
@@ -111,23 +111,23 @@ const DOMAINS: DomainItem[] = [
     summary:
       'Compare in-process agent calls with authenticated, policy-controlled Gateway invocations.',
     primary: {
-      to: '/agent-trace/proof-board#runtime-gateway-policy',
+      to: '/pellier-labs/proof-board#runtime-gateway-policy',
       label: 'Open managed trace',
       detail: 'Runtime/Gateway/Policy proof',
     },
     secondary: [
       {
-        to: '/agent-trace/proof-board#managed-rail',
+        to: '/pellier-labs/proof-board#managed-rail',
         label: 'Managed rail',
         detail: 'Invocation comparison',
       },
       {
-        to: '/agent-trace/routing',
+        to: '/pellier-labs/routing',
         label: 'Routing',
         detail: 'Intent to specialist handoff',
       },
       {
-        to: '/agent-trace/production-patterns',
+        to: '/pellier-labs/production-patterns',
         label: 'Production Patterns',
         detail: 'Operational reference',
       },
@@ -137,69 +137,69 @@ const DOMAINS: DomainItem[] = [
 
 const REFERENCE_LINKS: LinkItem[] = [
   {
-    to: '/agent-trace/sessions',
+    to: '/pellier-labs/sessions',
     label: 'Sessions',
     detail: 'Replay shopper conversations turn by turn',
     testId: 'observatory-reference-sessions',
   },
   {
-    to: '/agent-trace/persona-journeys',
+    to: '/pellier-labs/persona-journeys',
     label: 'Persona Journeys',
     detail: 'Trace each shopper path through the boutique',
   },
   {
-    to: '/agent-trace/architecture',
+    to: '/pellier-labs/architecture',
     label: 'Architecture',
     detail: 'System map and component glossary',
     testId: 'observatory-cta-architecture',
   },
   {
-    to: '/agent-trace/agents',
+    to: '/pellier-labs/agents',
     label: 'Agents',
     detail: 'Specialists, shipped references, and build targets',
   },
   {
-    to: '/agent-trace/tools',
+    to: '/pellier-labs/tools',
     label: 'Tools',
     detail: 'Tool contracts, ownership, and status',
   },
   {
-    to: '/agent-trace/skills',
+    to: '/pellier-labs/skills',
     label: 'Skills',
     detail: 'Persona-aware prompt context',
   },
   {
-    to: '/agent-trace/search',
+    to: '/pellier-labs/search',
     label: 'Search',
     detail: 'Retrieval traces and ranking behavior',
   },
   {
-    to: '/agent-trace/routing',
+    to: '/pellier-labs/routing',
     label: 'Routing',
     detail: 'Intent classification and specialist dispatch',
   },
   {
-    to: '/agent-trace/memory',
+    to: '/pellier-labs/memory',
     label: 'Memory',
     detail: 'Short-term and long-term customer memory',
   },
   {
-    to: '/agent-trace/write-path',
+    to: '/pellier-labs/write-path',
     label: 'Write-path',
     detail: 'Cedar policy and audit persistence',
   },
   {
-    to: '/agent-trace/performance',
+    to: '/pellier-labs/performance',
     label: 'Performance',
     detail: 'Latency, recall, and storage measurements',
   },
   {
-    to: '/agent-trace/evaluations',
+    to: '/pellier-labs/evaluations',
     label: 'Evaluations',
     detail: 'Quality checks and grounding measures',
   },
   {
-    to: '/agent-trace/production-patterns',
+    to: '/pellier-labs/production-patterns',
     label: 'Production Patterns',
     detail: 'Managed deployment patterns and tradeoffs',
   },

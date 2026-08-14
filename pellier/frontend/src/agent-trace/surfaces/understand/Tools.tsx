@@ -912,7 +912,7 @@ const RelatedCard: React.FC = () => (
           agents discover tools they weren't explicitly given.
         </p>
         <Link
-          to="/agent-trace/agents"
+          to="/pellier-labs/agents"
           style={{
             fontFamily: 'var(--at-mono)',
             fontSize: '12px',
@@ -986,7 +986,7 @@ const RelatedCard: React.FC = () => (
           same primitive that powers product search, applied to capabilities.
         </p>
         <Link
-          to="/agent-trace/architecture/tool-registry"
+          to="/pellier-labs/architecture/tool-registry"
           style={{
             fontFamily: 'var(--at-mono)',
             fontSize: '12px',

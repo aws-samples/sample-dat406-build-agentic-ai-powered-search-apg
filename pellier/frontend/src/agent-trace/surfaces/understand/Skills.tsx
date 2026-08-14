@@ -832,7 +832,7 @@ const Skills: React.FC = () => {
         }}
       >
         <Link
-          to="/agent-trace/architecture/skills"
+          to="/pellier-labs/architecture/skills"
           style={{ color: 'var(--at-burgundy)', textDecoration: 'none' }}
         >
           → Read the architecture brief on Skills

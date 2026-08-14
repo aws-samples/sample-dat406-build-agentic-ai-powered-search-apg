@@ -233,7 +233,7 @@ const TurnRow: React.FC<{ turn: JourneyTurn; isFirst?: boolean }> = ({ turn, isF
       >
         {turn.sessionId && (
           <Link
-            to={`/agent-trace/sessions/${turn.sessionId}`}
+            to={`/pellier-labs/sessions/${turn.sessionId}`}
             style={{
               fontFamily: 'var(--at-mono)',
               fontSize: '11px',
@@ -247,7 +247,7 @@ const TurnRow: React.FC<{ turn: JourneyTurn; isFirst?: boolean }> = ({ turn, isF
         )}
         {turn.wiredSessionId && (
           <Link
-            to={`/agent-trace/sessions/${turn.wiredSessionId}`}
+            to={`/pellier-labs/sessions/${turn.wiredSessionId}`}
             style={{
               fontFamily: 'var(--at-mono)',
               fontSize: '11px',
@@ -463,7 +463,7 @@ const PersonaJourneys: React.FC = () => (
         </span>
       </p>
       <Link
-        to="/agent-trace/architecture/grounding"
+        to="/pellier-labs/architecture/grounding"
         style={{ color: '#e8927c', textDecoration: 'none' }}
       >
         → Read the architecture brief on Grounding (the capability ladder

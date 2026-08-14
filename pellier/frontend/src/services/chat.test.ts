@@ -58,7 +58,74 @@ describe('chat service auth transport', () => {
       method: 'POST',
       credentials: 'include',
     })
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      response_mode: 'balanced',
+    })
     expect(updates).toHaveLength(1)
     expect(result.response).toBe('done')
+  })
+
+  it('sends the selected live agent configuration', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        'data: {"type":"complete","response":{"response":"done","products":[]}}\n\n',
+        { status: 200 },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+    await sendChatMessageStreaming(
+      'find a gift',
+      [],
+      vi.fn(),
+      undefined,
+      true,
+      'CUST-ANNA',
+      'graph',
+      'fast',
+    )
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      guardrails_enabled: true,
+      customer_id: 'CUST-ANNA',
+      pattern: 'graph',
+      response_mode: 'fast',
+    })
+  })
+
+  it('rejects an SSE error instead of returning fallback success text', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        [
+          'data: {"type":"content_delta","delta":"Starting..."}',
+          'data: {"type":"error","error":"Agent execution timed out"}',
+          '',
+        ].join('\n\n'),
+        { status: 200 },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+    const updates: unknown[] = []
+
+    await expect(
+      sendChatMessageStreaming('hello', [], event => updates.push(event)),
+    ).rejects.toThrow('Agent execution timed out')
+    expect(updates).toHaveLength(2)
+  })
+
+  it('rejects a stream that closes before a complete event', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('data: {"type":"content_delta","delta":"Partial"}\n\n', {
+        status: 200,
+      }),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+
+    await expect(
+      sendChatMessageStreaming('hello', [], vi.fn()),
+    ).rejects.toThrow('ended before the agent completed')
   })
 })

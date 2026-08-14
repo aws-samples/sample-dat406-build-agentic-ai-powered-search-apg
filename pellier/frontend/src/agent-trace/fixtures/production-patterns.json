@@ -44,8 +44,8 @@
       "codeSnippet": "# Workload identity for the agent itself\nworkload_identity_arn = settings.AGENTCORE_WORKLOAD_IDENTITY_ARN\n\n# OAuth2 credential provider for end-user calls\ncredentials = identity_client.get_token(\n    workload_identity_arn=workload_identity_arn,\n    user_token=cognito_id_token,\n)\n\n# Namespace switch — same session, different identity.\n# Built once via AgentCoreIdentityService.build_namespace so the\n# scheme lives in one place.\nnamespace = AgentCoreIdentityService.build_namespace(\n    user_id=cognito_sub,  # None for anon shoppers\n    session_id=session_id,\n)\n# → \"user-{cognito_sub}-session-{session_id}\" or \"anon-{session_id}\"",
       "whatToReachFor": "Identity becomes mandatory the first time you let the agent take an action that mutates a customer's data – orders, returns, profile edits. Until then, the namespace switch is the right boundary.",
       "crossLinks": [
-        { "label": "Sessions", "to": "/agent-trace/sessions" },
-        { "label": "Memory", "to": "/agent-trace/memory" }
+        { "label": "Sessions", "to": "/pellier-labs/sessions" },
+        { "label": "Memory", "to": "/pellier-labs/memory" }
       ]
     },
     {
@@ -81,7 +81,7 @@
       ],
       "codeSnippet": "# Application-layer allow-list (already shipped)\ncat_set = {c.lower(): c for c in KNOWN_CATEGORIES}\ncategories = [\n    cat_set[c.lower()]\n    for c in parsed.get(\"categories\", []) or []\n    if isinstance(c, str) and c.lower() in cat_set\n]\n\n# Bedrock Guardrail at the model boundary\nresponse = bedrock.invoke_model(\n    modelId=settings.BEDROCK_REPORTING_MODEL,\n    body=json.dumps(body),\n    guardrailIdentifier=\"pellier-shopper-guardrail\",\n    guardrailVersion=\"1\",\n)",
       "crossLinks": [
-        { "label": "Performance · search strategies", "to": "/agent-trace/performance" }
+        { "label": "Performance · search strategies", "to": "/pellier-labs/performance" }
       ]
     },
     {
@@ -113,8 +113,8 @@
       ],
       "codeSnippet": "# Session namespace at write time\nns = AgentCoreIdentityService.build_namespace(user_sub, session_id)\n# → \"user-{user_sub}-session-{session_id}\" or \"anon-{session_id}\"\nawait memory.append_session_turn(\n    namespace=ns,\n    turn={\"role\": \"user\", \"content\": query},\n)\n\n# Tenant-safe vector search — predicate FIRST, then cosine\nSELECT product_id, name,\n       1 - (embedding <=> $1::vector) AS similarity\nFROM product_catalog\nWHERE tenant_id = $2\n  AND quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 5;",
       "crossLinks": [
-        { "label": "Memory", "to": "/agent-trace/memory" },
-        { "label": "Sessions", "to": "/agent-trace/sessions" }
+        { "label": "Memory", "to": "/pellier-labs/memory" },
+        { "label": "Sessions", "to": "/pellier-labs/sessions" }
       ]
     },
     {
@@ -142,8 +142,8 @@
       ],
       "codeSnippet": "# Optional Gateway path\nif settings.AGENTCORE_GATEWAY_URL:\n    agent = create_gateway_orchestrator()\nelse:\n    agent = create_in_process_dispatcher()\n\n# Aurora tool registry — semantic tool discovery\nSELECT name, description,\n       1 - (embedding <=> $1::vector) AS similarity\nFROM tools\nORDER BY embedding <=> $1::vector\nLIMIT 5;",
       "crossLinks": [
-        { "label": "Tools", "to": "/agent-trace/tools" },
-        { "label": "Architecture · Routing & State", "to": "/agent-trace/architecture/state-management" }
+        { "label": "Tools", "to": "/pellier-labs/tools" },
+        { "label": "Architecture · Routing & State", "to": "/pellier-labs/architecture/state-management" }
       ]
     }
   ]

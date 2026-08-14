@@ -249,7 +249,7 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       {/* Back link — returns to architecture index */}
       <button
-        onClick={() => navigate('/agent-trace/architecture')}
+        onClick={() => navigate('/pellier-labs/architecture')}
         className="font-sans"
         style={{
           display: 'inline-flex',

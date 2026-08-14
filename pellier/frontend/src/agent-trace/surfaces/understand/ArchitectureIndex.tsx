@@ -3,7 +3,7 @@
  *
  * Each card displays a Roman numeral, CategoryBadge, title, role subtitle,
  * prose description, code snippet, and an "Open [concept]" link that
- * navigates to `/agent-trace/architecture/:slug`.
+ * navigates to `/pellier-labs/architecture/:slug`.
  *
  * A legend card explains what is owned, managed, optional, or teaching-only.
  *
@@ -382,7 +382,7 @@ const ArchitectureIndex: React.FC = () => {
               <ConceptCard
                 key={concept.slug}
                 concept={concept}
-                onOpen={() => navigate(`/agent-trace/architecture/${concept.slug}`)}
+                onOpen={() => navigate(`/pellier-labs/architecture/${concept.slug}`)}
               />
             ))}
           </div>

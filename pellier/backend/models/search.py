@@ -182,7 +182,19 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     workshop_mode: Optional[str] = Field(default=None, description="Workshop progression mode: 'legacy', 'search', 'agentic', 'production'")
     guardrails_enabled: bool = Field(default=False, description="Enable content moderation guardrails")
-    customer_id: Optional[str] = Field(default=None, description="Persona customer id (e.g. 'CUST-MARCO'). None = anonymous.")
+    customer_id: Optional[str] = Field(
+        default=None,
+        pattern=r"^CUST-[A-Z0-9-]{1,40}$",
+        description="Persona customer id (e.g. 'CUST-MARCO'). None = anonymous.",
+    )
+    response_mode: Literal["balanced", "editorial", "fast"] = Field(
+        default="balanced",
+        description=(
+            "Specialist response policy. Balanced keeps the configured "
+            "Opus/Sonnet mix, editorial uses Opus, and fast uses Sonnet. "
+            "Routing remains on the configured Sonnet router."
+        ),
+    )
     pattern: Optional[str] = Field(
         default=None,
         description=(

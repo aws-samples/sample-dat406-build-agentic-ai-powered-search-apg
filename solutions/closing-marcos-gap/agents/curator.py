@@ -24,7 +24,6 @@ import re
 
 from strands import Agent, tool
 from strands.models import BedrockModel
-from config import settings
 from services.agent_tools import (
     find_pieces_hybrid,
     preference_snapshot,
@@ -36,6 +35,7 @@ from services.agent_tools import (
 )
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
+from services.response_mode import resolve_specialist_model
 from boutique_copy import RECOMMENDATION_SYSTEM_PROMPT
 
 
@@ -89,11 +89,12 @@ def build_recommendation_agent() -> Agent:
     # queries blend soft semantic intent ("something beautiful") with
     # literal constraints ("under $100", "for a home office") — the
     # exact regime where vector-alone wears thin.
+    model_id, max_tokens, _ = resolve_specialist_model("opus")
     return Agent(
         name="recommendation",
         model=BedrockModel(
-            model_id=settings.BEDROCK_OPUS_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
+            model_id=model_id,
+            max_tokens=max_tokens,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(RECOMMENDATION_SYSTEM_PROMPT)

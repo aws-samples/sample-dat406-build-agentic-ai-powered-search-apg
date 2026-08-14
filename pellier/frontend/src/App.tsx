@@ -4,7 +4,7 @@
  * Composition is intentionally minimal: provider chain, BrowserRouter,
  * root-level modal hosts (AuthModal, PreferencesModal, ConciergeModal,
  * ComparisonHost), and the final route table. The two surfaces are
- * BoutiquePage (`/`) and AgentTraceFrame (`/agent-trace/*`).
+ * BoutiquePage (`/`) and AgentTraceFrame (`/pellier-labs/*`).
  *
  * AuthGate is exported so Pellier Labs surface can be gated when Cognito
  * is configured.
@@ -45,6 +45,9 @@ const TelemetryTab = lazy(() => import('./agent-trace/surfaces/observe/Telemetry
 const BriefTab = lazy(() => import('./agent-trace/surfaces/observe/BriefTab'))
 const Observatory = lazy(() => import('./agent-trace/surfaces/observe/Observatory'))
 const ProofBoard = lazy(() => import('./agent-trace/surfaces/observe/ProofBoard'))
+const PellierLabsWorkbench = lazy(
+  () => import('./agent-trace/surfaces/observe/PellierLabsWorkbench'),
+)
 const PersonaJourneys = lazy(() => import('./agent-trace/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
   () => import('./agent-trace/surfaces/understand/ArchitectureIndex'),
@@ -113,7 +116,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 // to pathname changes, and closes anything non-persistent. Chat
 // surfaces (drawer / concierge) and the comparison modal are
 // intentional leave-open cases — a user who opens the chat on `/`
-// and navigates to `/agent-trace` should keep talking to Pellier. The
+// and navigates to `/pellier-labs` should keep talking to Pellier. The
 // auth, preferences, and cart modals close because they're
 // context-bound to a specific page.
 // ---------------------------------------------------------------------------
@@ -172,7 +175,7 @@ function SignInChooserRoute() {
 
 function AgentTraceConciergeSlot() {
   const { pathname } = useLocation()
-  if (!pathname.startsWith('/agent-trace')) return null
+  if (!pathname.startsWith('/pellier-labs')) return null
   return (
     <Suspense fallback={null}>
       <ConciergeModal />
@@ -190,6 +193,18 @@ function RouteLoading() {
       <span className="w-7 h-7 rounded-full border-2 border-black/10 border-t-black/50 animate-spin" />
     </div>
   )
+}
+
+// Preserve old workshop links while keeping /pellier-labs as the only
+// user-facing Labs address.
+export function LegacyLabsRedirect({
+  legacyPrefix,
+}: {
+  legacyPrefix: '/agent-trace' | '/labs'
+}) {
+  const { pathname, search, hash } = useLocation()
+  const rest = pathname.slice(legacyPrefix.length)
+  return <Navigate to={`/pellier-labs${rest}${search}${hash}`} replace />
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +240,7 @@ function App() {
                 {/*
                  *   /           → BoutiquePage (storefront shell)
                  *   /signin     → BoutiquePage + provider chooser
-                 *   /agent-trace/*  → AgentTraceFrame (instrumentation, gated by AuthGate)
+                 *   /pellier-labs/*  → AgentTraceFrame (instrumentation, gated by AuthGate)
                  *   /inspector  → InspectorPage (frozen session-scoped trace view)
                  *   /storyboard → StoryboardPage
                  *   /discover   → DiscoverPage
@@ -233,11 +248,10 @@ function App() {
                 */}
                 <Route path="/" element={<BoutiquePage />} />
                 <Route path="/signin" element={<SignInChooserRoute />} />
-                {/* Pellier Labs Observatory — nested routes under AgentTraceFrame shell.
-                    The frame renders the 240px sidebar + canvas grid with
-                    React Router <Outlet /> for surface rendering. */}
-                <Route path="/agent-trace" element={<AgentTraceFrame />}>
-                  <Route index element={<Navigate to="proof-board" replace />} />
+                {/* Pellier Labs — full-width live inspection canvas with
+                    nested reference surfaces. */}
+                <Route path="/pellier-labs" element={<AgentTraceFrame />}>
+                  <Route index element={<PellierLabsWorkbench />} />
                   <Route path="proof-board" element={<ProofBoard />} />
                   <Route path="sessions" element={<SessionsList />} />
                   <Route path="sessions/:id" element={<SessionView />}>
@@ -262,6 +276,11 @@ function App() {
                   <Route path="persona-journeys" element={<PersonaJourneys />} />
                   <Route path="settings" element={<AgentTraceSettings />} />
                 </Route>
+                <Route
+                  path="/agent-trace/*"
+                  element={<LegacyLabsRedirect legacyPrefix="/agent-trace" />}
+                />
+                <Route path="/labs/*" element={<LegacyLabsRedirect legacyPrefix="/labs" />} />
                 <Route path="/inspector" element={<InspectorPage />} />
                 <Route path="/storyboard" element={<StoryboardPage />} />
                 <Route path="/discover" element={<DiscoverPage />} />

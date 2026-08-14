@@ -1237,6 +1237,7 @@ CURRENT REQUEST: {message}"""
         guardrails_enabled: bool = False,
         user: Optional[Dict[str, Any]] = None,
         pattern: Optional[str] = None,
+        response_mode: str = "balanced",
     ):
         """
         Async generator yielding SSE events with real-time agent streaming.
@@ -1262,6 +1263,9 @@ CURRENT REQUEST: {message}"""
         """
         import asyncio
         import time
+        from services.response_mode import normalize_response_mode
+
+        response_mode = normalize_response_mode(response_mode)
 
         # Pattern defaults to agents_as_tools for backwards compat.
         pattern = (pattern or "agents_as_tools").lower()
@@ -1689,6 +1693,8 @@ CURRENT REQUEST: {message}"""
         }[intent]
         timing["intent"] = (time.perf_counter() - intent_t0) * 1000
         logger.info(f"🎯 Intent: {intent} → {intent_hint}")
+        from services.response_mode import build_intent_signal
+        yield build_intent_signal(intent, response_mode)
 
         # --- Skill router ---------------------------------------------------
         # One LLM call to Sonnet 5 decides which skills to inject into the
@@ -1942,6 +1948,27 @@ CURRENT REQUEST: {message}"""
                     logger.warning("Persona ContextVar reset failed: %s", exc)
                 persona_token = None
 
+        # Response mode follows the same per-turn ContextVar contract as
+        # persona and skill context. The Sonnet router is unchanged; only
+        # specialist factories read this value when selecting their model.
+        response_mode_token = None
+        try:
+            from services.response_mode import set_response_mode
+            response_mode_token = set_response_mode(response_mode)
+        except Exception as exc:
+            logger.warning("Response-mode ContextVar set failed: %s", exc)
+
+        def _reset_response_mode_token() -> None:
+            """Idempotent reset so concurrent turns cannot share a mode."""
+            nonlocal response_mode_token
+            if response_mode_token is not None:
+                try:
+                    from services.response_mode import reset_response_mode
+                    reset_response_mode(response_mode_token)
+                except Exception as exc:
+                    logger.warning("Response-mode ContextVar reset failed: %s", exc)
+                response_mode_token = None
+
         # Pattern II (Graph) builds the GraphAdapter here, AFTER the
         # persona + skill ContextVars are live so the specialist
         # factories inside the adapter pick them up at construction
@@ -2071,6 +2098,9 @@ CURRENT REQUEST: {message}"""
                         "success": True,
                     },
                 }
+                _reset_skill_token()
+                _reset_persona_token()
+                _reset_response_mode_token()
                 return
 
             from agents.stock_keeper import build_inventory_agent
@@ -2276,6 +2306,7 @@ CURRENT REQUEST: {message}"""
             # exception paths too.
             _reset_skill_token()
             _reset_persona_token()
+            _reset_response_mode_token()
 
         if timed_out:
             try:
@@ -2548,6 +2579,8 @@ CURRENT REQUEST: {message}"""
                     "orchestrator_enabled": True,
                     "agent_execution": agent_execution,
                     "model": self.model_id,
+                    "response_mode": response_mode,
+                    "rail": "gateway-mcp" if gateway_used else "in-process",
                     "token_count": token_count,
                     "estimated_cost_usd": estimated_cost,
                     "cost_breakdown": cost_breakdown
@@ -2561,7 +2594,9 @@ CURRENT REQUEST: {message}"""
                     "response": parsed["text"],
                     "products": products_sent,
                     "suggestions": parsed["suggestions"],
-                    "success": True
+                    "success": True,
+                    "response_mode": response_mode,
+                    "rail": "gateway-mcp" if gateway_used else "in-process",
                 }
             }
 

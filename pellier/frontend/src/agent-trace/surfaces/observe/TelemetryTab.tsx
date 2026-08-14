@@ -781,7 +781,7 @@ const ExpansionArea: React.FC<{ panels: TelemetryPanel[] }> = ({ panels }) => {
         >
           <Eyebrow label="Memory substrate" />
           <Link
-            to="/agent-trace/architecture/memory"
+            to="/pellier-labs/architecture/memory"
             style={{
               fontFamily: 'var(--at-mono)',
               fontSize: '11px',

@@ -17,7 +17,7 @@ import { matchRoutes, type RouteObject } from 'react-router-dom'
 // ---------------------------------------------------------------------------
 const agentTraceRoutes: RouteObject[] = [
   {
-    path: '/agent-trace',
+    path: '/pellier-labs',
     element: true as unknown as React.ReactNode,
     children: [
       { index: true, element: true as unknown as React.ReactNode },
@@ -85,34 +85,34 @@ const sessionTabArb = fc.constantFrom('chat', 'telemetry', 'brief')
  */
 const agentTracePathArb: fc.Arbitrary<string> = fc.oneof(
   // Static leaf routes
-  fc.constant('/agent-trace'),
-  fc.constant('/agent-trace/proof-board'),
-  fc.constant('/agent-trace/sessions'),
-  fc.constant('/agent-trace/architecture'),
-  fc.constant('/agent-trace/agents'),
-  fc.constant('/agent-trace/skills'),
-  fc.constant('/agent-trace/tools'),
-  fc.constant('/agent-trace/search'),
-  fc.constant('/agent-trace/routing'),
-  fc.constant('/agent-trace/memory'),
-  fc.constant('/agent-trace/write-path'),
-  fc.constant('/agent-trace/performance'),
-  fc.constant('/agent-trace/evaluations'),
-  fc.constant('/agent-trace/production-patterns'),
-  fc.constant('/agent-trace/observatory'),
-  fc.constant('/agent-trace/persona-journeys'),
-  fc.constant('/agent-trace/settings'),
+  fc.constant('/pellier-labs'),
+  fc.constant('/pellier-labs/proof-board'),
+  fc.constant('/pellier-labs/sessions'),
+  fc.constant('/pellier-labs/architecture'),
+  fc.constant('/pellier-labs/agents'),
+  fc.constant('/pellier-labs/skills'),
+  fc.constant('/pellier-labs/tools'),
+  fc.constant('/pellier-labs/search'),
+  fc.constant('/pellier-labs/routing'),
+  fc.constant('/pellier-labs/memory'),
+  fc.constant('/pellier-labs/write-path'),
+  fc.constant('/pellier-labs/performance'),
+  fc.constant('/pellier-labs/evaluations'),
+  fc.constant('/pellier-labs/production-patterns'),
+  fc.constant('/pellier-labs/observatory'),
+  fc.constant('/pellier-labs/persona-journeys'),
+  fc.constant('/pellier-labs/settings'),
 
   // Parameterized: sessions/:id
-  paramValueArb.map((id) => `/agent-trace/sessions/${id}`),
+  paramValueArb.map((id) => `/pellier-labs/sessions/${id}`),
 
   // Parameterized: sessions/:id/:tab
   fc.tuple(paramValueArb, sessionTabArb).map(
-    ([id, tab]) => `/agent-trace/sessions/${id}/${tab}`,
+    ([id, tab]) => `/pellier-labs/sessions/${id}/${tab}`,
   ),
 
   // Parameterized: architecture/:concept
-  conceptSlugArb.map((concept) => `/agent-trace/architecture/${concept}`),
+  conceptSlugArb.map((concept) => `/pellier-labs/architecture/${concept}`),
 )
 
 // ---------------------------------------------------------------------------

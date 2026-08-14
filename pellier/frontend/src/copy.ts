@@ -262,7 +262,7 @@ export const FOOTER = {
     HEADING: "Pellier Labs",
     COPY: "Inspect the routing, retrieval, tools, memory, and evidence behind each workshop turn.",
     CTA_LABEL: "Open Pellier Labs",
-    CTA_HREF: "/agent-trace",
+    CTA_HREF: "/pellier-labs",
   },
   BOTTOM_STRIP: {
     COPYRIGHT: "\u00a9 Pellier",

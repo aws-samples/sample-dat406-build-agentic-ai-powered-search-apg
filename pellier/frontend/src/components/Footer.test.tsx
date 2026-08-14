@@ -8,7 +8,7 @@
  *   - Four sections only: Brand, Explore, Storyboard, Pellier Labs.
  *   - Every Explore link points at a real router route.
  *   - Storyboard + Pellier Labs each carry an italic blurb and a single
- *     call-to-action link to `/storyboard` / `/agent-trace`.
+ *     call-to-action link to `/storyboard` / `/pellier-labs`.
  *   - Bottom strip shows the copyright line and a signature tag.
  *     No placeholder Privacy/Terms/Accessibility links.
  */
@@ -65,12 +65,12 @@ describe('Footer — four live columns', () => {
     expect(cta).toHaveTextContent(FOOTER.STORYBOARD.CTA_LABEL)
   })
 
-  it('renders Pellier Labs column with italic blurb + "Open Pellier Labs" CTA linking to /agent-trace', () => {
+  it('renders Pellier Labs column with italic blurb + "Open Pellier Labs" CTA linking to /pellier-labs', () => {
     renderFooter()
     const col = screen.getByTestId('footer-column-agent-trace')
     expect(within(col).getByText(FOOTER.AGENT_TRACE.COPY)).toBeInTheDocument()
     const cta = within(col).getByTestId('footer-column-agent-trace-cta')
-    expect(cta).toHaveAttribute('href', '/agent-trace')
+    expect(cta).toHaveAttribute('href', '/pellier-labs')
     expect(cta).toHaveTextContent(FOOTER.AGENT_TRACE.CTA_LABEL)
   })
 })

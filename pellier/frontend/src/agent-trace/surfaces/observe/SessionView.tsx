@@ -51,12 +51,12 @@ const SessionView: React.FC = () => {
   useEffect(() => {
     if (!persona || !session) return;
     if (session.personaId !== persona.id) {
-      navigate('/agent-trace/sessions', { replace: true });
+      navigate('/pellier-labs/sessions', { replace: true });
     }
   }, [persona, session, navigate]);
 
   const handleTabChange = (tabId: string) => {
-    navigate(`/agent-trace/sessions/${id}/${tabId}`);
+    navigate(`/pellier-labs/sessions/${id}/${tabId}`);
   };
 
   /* Loading state */

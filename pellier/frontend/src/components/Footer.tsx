@@ -8,7 +8,7 @@
  *   - Brand column: circular P mark + "Pellier" + tagline.
  *   - Explore:      The floor (`/#shop`), Discover, Storyboard.
  *   - Storyboard:   Italic blurb + a real link to `/storyboard`.
- *   - Pellier Labs:      Italic blurb + a real link to `/agent-trace`.
+ *   - Pellier Labs:      Italic blurb + a real link to `/pellier-labs`.
  *   - Bottom strip: Copyright + current year. No Privacy/Terms/
  *                   Accessibility stubs — those were the same dead
  *                   links this rewrite is eliminating. Right-hand

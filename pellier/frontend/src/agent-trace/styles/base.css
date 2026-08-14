@@ -13,7 +13,7 @@
  *   - Crisp 1px borders, solid backgrounds, clear hierarchy
  *
  * Requirements: 15.6 (flat aesthetic, no glassmorphism/blurs/gradients)
- *               22.1 (code organization under /src/agent-trace/)
+ *               22.1 (code organization under /src/pellier-labs/)
  * ======================================================================== */
 
 @import './tokens.css';
@@ -441,5 +441,258 @@
   .agent-trace-root [data-telemetry-panel][data-flash='true'] {
     animation: none;
     border-color: var(--at-red-1);
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Pellier Labs full-width shell
+ * ----------------------------------------------------------------------- */
+
+.agent-trace-frame {
+  display: block;
+  min-height: 100vh;
+}
+
+.agent-trace-canvas {
+  min-width: 0;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+.agent-trace-surface {
+  padding: 32px clamp(20px, 3vw, 48px) 56px;
+}
+
+.agent-trace-surface[data-workbench='true'] {
+  padding: 0;
+}
+
+.agent-trace-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 70;
+  width: min(340px, 88vw) !important;
+  transform: translateX(-102%);
+  transition: transform var(--gov-motion-base, 180ms) var(--gov-motion-ease, ease);
+  box-shadow: 18px 0 48px rgba(31, 20, 16, 0.18);
+  overflow-y: auto;
+}
+
+.agent-trace-sidebar[data-mobile-open='true'] {
+  transform: translateX(0);
+}
+
+.agent-trace-nav-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(31, 20, 16, 0.42) !important;
+  cursor: pointer;
+}
+
+.agent-trace-nav-toggle {
+  display: inline-flex !important;
+}
+
+.pellier-labs-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px clamp(18px, 3vw, 44px);
+  border-bottom: 1px solid var(--at-rule-1);
+  background: color-mix(in srgb, var(--at-cream-1) 96%, white);
+}
+
+.pellier-labs-topbar-start,
+.pellier-labs-topbar-end {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.pellier-labs-topbar-end {
+  justify-content: flex-end;
+}
+
+.pellier-labs-icon-button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--at-rule-1) !important;
+  border-radius: 50% !important;
+  background: var(--at-cream-elev) !important;
+  color: var(--at-ink-1) !important;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.pellier-labs-icon-button:hover {
+  border-color: var(--at-rule-3) !important;
+  background: var(--at-cream-2) !important;
+}
+
+.pellier-labs-wordmark {
+  color: var(--at-ink-1) !important;
+  font-family: var(--at-serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.pellier-labs-breadcrumbs {
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--at-rule-1);
+}
+
+.pellier-labs-presence {
+  display: flex;
+  align-items: center;
+}
+
+.pellier-labs-presence [role='status'] {
+  border-color: rgba(63, 98, 18, 0.2) !important;
+  background: rgba(63, 98, 18, 0.08) !important;
+  color: #334f13 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.pellier-labs-presence [role='status'] > span:first-child {
+  background: #3f6212 !important;
+}
+
+.pellier-labs-persona {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px 4px 4px !important;
+  border: 1px solid var(--at-rule-1) !important;
+  border-radius: 999px !important;
+  background: var(--at-cream-elev) !important;
+}
+
+.pellier-labs-persona > img,
+.pellier-labs-persona-initial {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(31, 20, 16, 0.1);
+  border-radius: 50%;
+  object-fit: cover;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.pellier-labs-persona-copy {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.pellier-labs-persona-copy small {
+  color: var(--at-ink-4);
+  font-family: var(--at-mono);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pellier-labs-persona-copy strong {
+  color: var(--at-ink-1);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.pellier-labs-back {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--at-ink-1);
+  border-radius: 4px;
+  background: var(--at-ink-1);
+  color: var(--at-cream-1) !important;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.pellier-labs-back:hover {
+  background: var(--at-espresso-2);
+}
+
+@media (max-width: 900px) {
+  .pellier-labs-topbar {
+    gap: 10px;
+    padding-inline: 16px;
+  }
+
+  .pellier-labs-breadcrumbs,
+  .pellier-labs-presence {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .agent-trace-surface:not([data-workbench='true']) {
+    padding: 20px 14px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pellier-labs-topbar {
+    min-height: 58px;
+    padding-block: 8px;
+  }
+
+  .pellier-labs-wordmark {
+    font-size: 19px;
+  }
+
+  .pellier-labs-persona-copy,
+  .pellier-labs-back span {
+    display: none;
+  }
+
+  .pellier-labs-persona {
+    min-height: 38px;
+    padding: 2px !important;
+  }
+
+  .pellier-labs-back {
+    width: 38px;
+    min-height: 38px;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-trace-sidebar {
+    transition: none;
   }
 }

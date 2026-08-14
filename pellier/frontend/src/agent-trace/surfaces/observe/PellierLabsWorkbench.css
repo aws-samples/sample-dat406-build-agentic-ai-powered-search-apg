@@ -1,0 +1,1110 @@
+.pellier-labs-workbench {
+  min-height: calc(100vh - 64px);
+  background: #f7f3ec;
+}
+
+.pellier-labs-workbench-inner {
+  width: min(100%, 1840px);
+  margin: 0 auto;
+  padding: 16px clamp(20px, 2.4vw, 44px) 72px;
+}
+
+/* Masthead */
+
+.agent-trace-root .pellier-labs-masthead {
+  position: relative;
+  display: flex;
+  min-height: 158px;
+  align-items: center;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #ded6ca;
+}
+
+.agent-trace-root .pellier-labs-masthead-copy {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 14px 0 18px;
+}
+
+.agent-trace-root .pellier-labs-masthead-copy h1 {
+  margin: 8px 0 6px;
+  color: #251713;
+  font-family: var(--at-serif);
+  font-size: 58px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 0.98;
+}
+
+.agent-trace-root .pellier-labs-masthead-copy > p {
+  max-width: 690px;
+  color: #5f574f;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.pellier-labs-masthead-status {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  z-index: 3;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(63, 98, 18, 0.22);
+  border-radius: 999px;
+  background: rgba(63, 98, 18, 0.09);
+  color: #334f13;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.pellier-labs-masthead-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3f6212;
+  box-shadow: 0 0 0 4px rgba(63, 98, 18, 0.1);
+}
+
+.agent-trace-root .pellier-labs-masthead-flow {
+  position: absolute;
+  inset: 0 -4% 0 36%;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+}
+
+.agent-trace-root .pellier-labs-masthead-flow canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Shared panel headings */
+
+.pellier-labs-panel-heading,
+.pellier-labs-section-heading,
+.pellier-labs-section-heading > div {
+  display: flex;
+  align-items: center;
+}
+
+.pellier-labs-panel-heading,
+.pellier-labs-section-heading {
+  gap: 11px;
+}
+
+.pellier-labs-panel-heading > span,
+.pellier-labs-section-heading > div > span {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(126, 36, 49, 0.09);
+  color: #7e2431;
+}
+
+.pellier-labs-panel-heading > div,
+.pellier-labs-section-heading > div > div {
+  display: grid;
+  gap: 2px;
+}
+
+.pellier-labs-panel-heading small,
+.pellier-labs-section-heading small {
+  color: #7e2431;
+  font-family: var(--at-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.pellier-labs-panel-heading h2,
+.pellier-labs-section-heading h2 {
+  color: #251713;
+  font-family: var(--at-serif);
+  font-size: 25px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+/* Three-panel live workbench */
+
+.pellier-labs-workbench-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.pellier-labs-task-panel,
+.pellier-labs-trace-panel,
+.pellier-labs-results-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #ddd5c9;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(50, 30, 20, 0.04);
+}
+
+.pellier-labs-task-panel {
+  padding: 20px;
+  border-color: #d9cebe;
+  background: #e9decc;
+}
+
+.pellier-labs-trace-panel,
+.pellier-labs-results-panel {
+  background: #fffdf8;
+}
+
+.pellier-labs-task-panel > .pellier-labs-panel-heading {
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(84, 64, 48, 0.16);
+}
+
+.pellier-labs-field-label {
+  display: block;
+  margin: 18px 0 8px;
+  color: #554d45;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.agent-trace-root .pellier-labs-task-panel textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  padding: 13px 14px;
+  border: 1px solid #d0c0aa;
+  border-radius: 6px;
+  outline: none;
+  background: #fffaf2;
+  color: #2c211c;
+  font-family: var(--at-serif);
+  font-size: 18px;
+  letter-spacing: 0;
+  line-height: 1.45;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.agent-trace-root .pellier-labs-task-panel textarea::placeholder {
+  color: #8b8175;
+  font-family: var(--at-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-trace-root .pellier-labs-task-panel textarea:focus {
+  border-color: #7e2431;
+  box-shadow: 0 0 0 3px rgba(126, 36, 49, 0.1);
+}
+
+.agent-trace-root .pellier-labs-task-panel textarea:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.pellier-labs-query-prompts {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pellier-labs-query-prompts > span,
+.pellier-labs-agent-config legend {
+  color: #766c61;
+  font-family: var(--at-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-query-prompts > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agent-trace-root .pellier-labs-query-prompts button {
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid rgba(126, 36, 49, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 250, 242, 0.72);
+  color: #60343a;
+  font-size: 9.5px;
+  line-height: 1.35;
+  text-align: left;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.agent-trace-root .pellier-labs-query-prompts button:hover:not(:disabled) {
+  border-color: rgba(126, 36, 49, 0.45);
+  background: #fffaf2;
+}
+
+.agent-trace-root .pellier-labs-query-prompts button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.pellier-labs-agent-config {
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(84, 64, 48, 0.16);
+}
+
+.pellier-labs-config-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #7e2431;
+}
+
+.pellier-labs-config-heading h3 {
+  color: #352823;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.pellier-labs-agent-config fieldset {
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.pellier-labs-agent-config legend {
+  margin-bottom: 6px;
+}
+
+.pellier-labs-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(84, 64, 48, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 250, 242, 0.55);
+}
+
+.pellier-labs-segmented[data-columns='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.agent-trace-root .pellier-labs-segmented button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 0;
+  border-right: 1px solid rgba(84, 64, 48, 0.16);
+  border-radius: 0;
+  background: transparent;
+  color: #6c6258;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.agent-trace-root .pellier-labs-segmented button:last-child {
+  border-right: 0;
+}
+
+.agent-trace-root .pellier-labs-segmented button[aria-pressed='true'] {
+  background: #fffaf2;
+  box-shadow: inset 0 -2px #7e2431;
+  color: #6f1f2b;
+}
+
+.agent-trace-root .pellier-labs-segmented button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.pellier-labs-mode-note {
+  margin-top: 6px;
+  color: #766c61;
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.pellier-labs-switches {
+  display: grid;
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.pellier-labs-switches > label {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.pellier-labs-switches input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.pellier-labs-switch-track {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: #aaa095;
+  transition: background 150ms ease;
+}
+
+.pellier-labs-switch-track::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fffdf8;
+  box-shadow: 0 1px 3px rgba(45, 30, 22, 0.24);
+  content: '';
+  transition: transform 150ms ease;
+}
+
+.pellier-labs-switches input:checked + .pellier-labs-switch-track {
+  background: #3f6212;
+}
+
+.pellier-labs-switches input:checked + .pellier-labs-switch-track::after {
+  transform: translateX(13px);
+}
+
+.pellier-labs-switches input:focus-visible + .pellier-labs-switch-track {
+  outline: 3px solid rgba(63, 98, 18, 0.2);
+  outline-offset: 2px;
+}
+
+.pellier-labs-switches input:disabled + .pellier-labs-switch-track {
+  opacity: 0.45;
+}
+
+.pellier-labs-switches label > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.pellier-labs-switches strong {
+  color: #3b3029;
+  font-size: 9.5px;
+  line-height: 1.25;
+}
+
+.pellier-labs-switches small {
+  color: #7c7268;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.pellier-labs-session-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 0 0;
+  border-top: 1px solid rgba(84, 64, 48, 0.16);
+  border-left: 1px solid rgba(84, 64, 48, 0.16);
+}
+
+.pellier-labs-session-facts > div {
+  min-width: 0;
+  padding: 10px 8px;
+  border-right: 1px solid rgba(84, 64, 48, 0.16);
+  border-bottom: 1px solid rgba(84, 64, 48, 0.16);
+}
+
+.pellier-labs-session-facts dt {
+  color: #766c61;
+  font-family: var(--at-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-session-facts dd {
+  overflow: hidden;
+  margin: 4px 0 0;
+  color: #2c211c;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-trace-root .pellier-labs-run-agent {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 16px;
+  border: 1px solid #71202b;
+  border-radius: 6px;
+  background: linear-gradient(145deg, #641823 0%, #8b2c23 58%, #a4441e 100%);
+  box-shadow: 0 8px 18px rgba(100, 24, 35, 0.18);
+  color: #fff8f0;
+  font-size: 13px;
+  font-weight: 700;
+  transition: box-shadow 150ms ease, transform 150ms ease, opacity 150ms ease;
+}
+
+.agent-trace-root .pellier-labs-run-agent:hover:not(:disabled) {
+  box-shadow: 0 10px 22px rgba(100, 24, 35, 0.24);
+  transform: translateY(-1px);
+}
+
+.agent-trace-root .pellier-labs-run-agent:focus-visible {
+  outline: 3px solid rgba(126, 36, 49, 0.24);
+  outline-offset: 2px;
+}
+
+.agent-trace-root .pellier-labs-run-agent:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.spin {
+  animation: pellier-labs-spin 900ms linear infinite;
+}
+
+@keyframes pellier-labs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pellier-labs-provenance {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(84, 64, 48, 0.16);
+  color: #756a5f;
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.pellier-labs-provenance svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.pellier-labs-provenance code {
+  overflow-wrap: anywhere;
+  color: #55483e;
+  font-size: 9px;
+}
+
+/* Live journey */
+
+.pellier-labs-trace-panel > .pellier-labs-section-heading,
+.pellier-labs-results-panel > .pellier-labs-section-heading {
+  min-height: 74px;
+  padding: 15px 18px;
+  border-bottom: 1px solid #e4ddd2;
+}
+
+.pellier-labs-trace-panel > .pellier-labs-section-heading {
+  justify-content: space-between;
+}
+
+.pellier-labs-live-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #5f584f;
+  font-family: var(--at-mono);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-live-state > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9a8f82;
+}
+
+.pellier-labs-live-state[data-status='running'] > span {
+  background: #b45309;
+  box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.1);
+}
+
+.pellier-labs-live-state[data-status='complete'] > span {
+  background: #3f6212;
+}
+
+.pellier-labs-live-state[data-status='error'] > span {
+  background: #b42318;
+}
+
+.pellier-labs-error {
+  margin: 14px 18px 0;
+  padding: 13px 14px;
+  border: 1px solid rgba(180, 35, 24, 0.25);
+  border-radius: 6px;
+  background: #fff3f1;
+}
+
+.pellier-labs-error strong {
+  color: #8f1d16;
+  font-size: 12px;
+}
+
+.pellier-labs-error p {
+  margin-top: 4px;
+  color: #6e403a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pellier-labs-intent-signal {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(140px, 0.65fr);
+  gap: 10px;
+  align-items: center;
+  margin: 14px 18px 2px;
+  padding: 11px 12px;
+  border: 1px solid rgba(63, 98, 18, 0.22);
+  border-radius: 6px;
+  background: rgba(241, 247, 231, 0.72);
+}
+
+.pellier-labs-intent-signal > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(63, 98, 18, 0.12);
+  color: #3f6212;
+}
+
+.pellier-labs-intent-signal > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.pellier-labs-intent-signal > div:last-child {
+  padding-left: 12px;
+  border-left: 1px solid rgba(63, 98, 18, 0.18);
+}
+
+.pellier-labs-intent-signal small {
+  color: #597131;
+  font-family: var(--at-mono);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-intent-signal strong {
+  overflow: hidden;
+  color: #2f3d1e;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pellier-labs-intent-signal em {
+  overflow: hidden;
+  color: #687357;
+  font-family: var(--at-mono);
+  font-size: 7.5px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pellier-labs-trace-list {
+  margin: 0;
+  padding: 0 18px 18px;
+  list-style: none;
+}
+
+.pellier-labs-trace-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+  padding-top: 13px;
+}
+
+.pellier-labs-trace-step:not(:last-child)::before {
+  position: absolute;
+  top: 42px;
+  bottom: -14px;
+  left: 15px;
+  width: 1px;
+  background: #ddd5c9;
+  content: '';
+}
+
+.pellier-labs-trace-index {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid #d9c7ba;
+  border-radius: 50%;
+  background: #fffdf8;
+  color: #7e2431;
+  font-family: var(--at-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.pellier-labs-trace-step[data-kind='sql'] .pellier-labs-trace-index {
+  border-color: rgba(63, 98, 18, 0.34);
+  color: #3f6212;
+}
+
+.pellier-labs-trace-step[data-kind='tool'] .pellier-labs-trace-index {
+  border-color: rgba(180, 83, 9, 0.34);
+  color: #9a4a0b;
+}
+
+.pellier-labs-trace-content {
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid #e2dbd0;
+  border-radius: 6px;
+  background: #fffcf7;
+}
+
+.pellier-labs-trace-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pellier-labs-trace-kicker > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #7e2431;
+  font-family: var(--at-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-trace-kicker em {
+  color: #3f6212;
+  font-family: var(--at-mono);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.pellier-labs-trace-content h3 {
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  color: #2d211c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.pellier-labs-trace-content > p {
+  margin-top: 4px;
+  color: #655d55;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pellier-labs-trace-content > small {
+  display: block;
+  margin-top: 7px;
+  color: #746b62;
+  font-family: var(--at-mono);
+  font-size: 9px;
+}
+
+.agent-trace-root pre.pellier-labs-sql {
+  max-width: 100%;
+  margin: 10px 0 0;
+  padding: 15px 16px;
+  overflow-x: auto;
+  border: 1px solid rgba(246, 216, 185, 0.13);
+  border-radius: 6px;
+  background: #221b19;
+  color: #f3d7c7;
+  font-size: 10.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-trace-root pre.pellier-labs-sql code {
+  font-size: inherit;
+}
+
+.pellier-labs-idle-state {
+  display: grid;
+  min-height: 360px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 40px;
+  color: #746c64;
+  text-align: center;
+}
+
+.pellier-labs-idle-state strong {
+  color: #332721;
+  font-size: 14px;
+}
+
+.pellier-labs-idle-state p {
+  max-width: 330px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Live result */
+
+.pellier-labs-agent-response {
+  margin: 14px 14px 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 236, 219, 0.16);
+  border-radius: 7px;
+  background: linear-gradient(145deg, #4a1420 0%, #70202b 48%, #a14021 100%);
+  box-shadow: 0 9px 22px rgba(86, 24, 31, 0.18);
+  color: #fff8f0;
+}
+
+.pellier-labs-agent-response > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #f6d6b8;
+  font-family: var(--at-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-agent-response > p {
+  margin-top: 9px;
+  color: rgba(255, 248, 240, 0.9);
+  font-family: var(--at-serif);
+  font-size: 15px;
+  line-height: 1.48;
+  white-space: pre-wrap;
+}
+
+.pellier-labs-products {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 0;
+}
+
+.pellier-labs-product {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 100px;
+  padding: 10px;
+  border: 1px solid #ded6ca;
+  border-radius: 7px;
+  background: #fffdf8;
+}
+
+.pellier-labs-product-media {
+  display: grid;
+  width: 76px;
+  height: 80px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #eee6da;
+  color: #7e2431;
+  font-family: var(--at-serif);
+  font-size: 24px;
+}
+
+.pellier-labs-product-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pellier-labs-product-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding-right: 56px;
+}
+
+.pellier-labs-product-copy small {
+  color: #7e2431;
+  font-family: var(--at-mono);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-product-copy h3 {
+  overflow-wrap: anywhere;
+  color: #2b1f1a;
+  font-family: var(--at-serif);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.pellier-labs-product-copy p {
+  color: #70685f;
+  font-size: 9.5px;
+}
+
+.pellier-labs-product-price {
+  position: absolute;
+  top: 11px;
+  right: 10px;
+  color: #291d18;
+  font-family: var(--at-serif);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pellier-labs-products-empty {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 14px 0;
+  border: 1px dashed #d8cfc2;
+  border-radius: 6px;
+  color: #776f66;
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.pellier-labs-session-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px;
+  border-top: 1px solid #ded6ca;
+  border-left: 1px solid #ded6ca;
+}
+
+.pellier-labs-session-metrics > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 7px;
+  align-items: center;
+  min-height: 66px;
+  padding: 10px;
+  border-right: 1px solid #ded6ca;
+  border-bottom: 1px solid #ded6ca;
+  background: rgba(255, 253, 248, 0.55);
+}
+
+.pellier-labs-session-metrics svg {
+  color: #7e2431;
+}
+
+.pellier-labs-session-metrics span {
+  color: #746c64;
+  font-size: 9px;
+}
+
+.pellier-labs-session-metrics strong {
+  grid-column: 1 / -1;
+  color: #2c211c;
+  font-family: var(--at-mono);
+  font-size: 12px;
+}
+
+@media (min-width: 1380px) {
+  .pellier-labs-workbench-grid {
+    grid-template-columns:
+      minmax(290px, 320px)
+      minmax(520px, 1fr)
+      minmax(350px, 400px);
+  }
+
+  .pellier-labs-task-panel,
+  .pellier-labs-results-panel {
+    position: sticky;
+    top: 82px;
+  }
+}
+
+@media (max-width: 1379px) {
+  .pellier-labs-results-panel {
+    grid-column: 1 / -1;
+  }
+
+  .pellier-labs-products {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pellier-labs-session-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .pellier-labs-workbench-inner {
+    padding: 24px 16px 56px;
+  }
+
+  .agent-trace-root .pellier-labs-masthead {
+    min-height: 220px;
+  }
+
+  .pellier-labs-masthead-status {
+    position: static;
+    margin-top: 14px;
+  }
+
+  .agent-trace-root .pellier-labs-masthead-copy {
+    width: min(100%, 520px);
+  }
+
+  .agent-trace-root .pellier-labs-masthead-flow {
+    inset-inline-start: 28%;
+    opacity: 0.58;
+  }
+
+  .pellier-labs-workbench-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pellier-labs-results-panel {
+    grid-column: auto;
+  }
+
+  .pellier-labs-intent-signal {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .pellier-labs-intent-signal > div:last-child {
+    grid-column: 2;
+    padding: 7px 0 0;
+    border-top: 1px solid rgba(63, 98, 18, 0.18);
+    border-left: 0;
+  }
+
+  .pellier-labs-products {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pellier-labs-session-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .agent-trace-root .pellier-labs-masthead {
+    min-height: 240px;
+    align-items: flex-start;
+  }
+
+  .agent-trace-root .pellier-labs-masthead-copy {
+    width: min(100%, 320px);
+    padding-block: 24px;
+  }
+
+  .agent-trace-root .pellier-labs-masthead-copy h1 {
+    font-size: 44px;
+  }
+
+  .agent-trace-root .pellier-labs-masthead-copy > p {
+    font-size: 14px;
+  }
+
+  .agent-trace-root .pellier-labs-masthead-flow {
+    inset: 36% -45% 0 18%;
+    opacity: 0.42;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%);
+    mask-image: linear-gradient(90deg, transparent, #000 18%);
+  }
+
+  .pellier-labs-trace-panel > .pellier-labs-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pellier-labs-trace-list {
+    padding-inline: 10px;
+  }
+
+  .pellier-labs-trace-step {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .pellier-labs-trace-index {
+    width: 27px;
+    height: 27px;
+  }
+
+  .pellier-labs-trace-step:not(:last-child)::before {
+    top: 39px;
+    left: 13px;
+  }
+
+  .pellier-labs-trace-kicker {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+
+  .agent-trace-root .pellier-labs-run-agent {
+    transition: none;
+  }
+}

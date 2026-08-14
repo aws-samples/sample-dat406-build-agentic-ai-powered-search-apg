@@ -147,7 +147,7 @@ describe('Header — nav items', () => {
     renderHeader()
     const labsLink = screen.getByTestId('pellier-labs-link')
     expect(labsLink).toHaveTextContent('Pellier Labs')
-    expect(labsLink).toHaveAttribute('href', '/agent-trace')
+    expect(labsLink).toHaveAttribute('href', '/pellier-labs')
     expect(screen.queryByRole('group', { name: 'Switch surface' })).not.toBeInTheDocument()
   })
 
@@ -156,7 +156,7 @@ describe('Header — nav items', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
     const labsLink = screen.getByTestId('pellier-labs-link-mobile')
     expect(labsLink).toHaveTextContent('Pellier Labs')
-    expect(labsLink).toHaveAttribute('href', '/agent-trace')
+    expect(labsLink).toHaveAttribute('href', '/pellier-labs')
   })
 })
 

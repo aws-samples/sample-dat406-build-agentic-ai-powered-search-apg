@@ -877,6 +877,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 guardrails_enabled=request.guardrails_enabled,
                 user=effective_user or None,
                 pattern=request.pattern,
+                response_mode=request.response_mode,
             ):
                 event_type = event.get("type")
                 if event_type == "content_reset":

@@ -25,7 +25,7 @@ export interface SurfaceCrossLinkProps {
   /**
    * For `to-boutique`: optional `?ask=` query that auto-fires the
    * Pellier chat drawer with this prompt. For `to-agent-trace`: the
-   * Pellier Labs path to navigate to (e.g. "/agent-trace/memory").
+   * Pellier Labs path to navigate to (e.g. "/pellier-labs/memory").
    */
   href?: string
   /** Override the default copy. */
@@ -49,7 +49,7 @@ export const SurfaceCrossLink: React.FC<SurfaceCrossLinkProps> = ({
 
   const targetHref =
     href ??
-    (direction === 'to-boutique' ? '/' : '/agent-trace')
+    (direction === 'to-boutique' ? '/' : '/pellier-labs')
 
   const arrow = direction === 'to-boutique' ? '→' : '→'
 

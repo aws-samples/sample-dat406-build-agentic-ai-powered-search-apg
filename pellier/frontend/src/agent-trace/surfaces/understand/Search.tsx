@@ -375,7 +375,7 @@ const CodeReadCard: React.FC = () => (
       }}
     >
       <Link
-        to="/agent-trace/performance"
+        to="/pellier-labs/performance"
         style={{
           fontFamily: 'var(--at-mono)',
           fontSize: '12px',

@@ -26,7 +26,7 @@ test.describe('Persona modal - portal + viewport coverage', () => {
   test('backdrop fills the viewport when opened from Pellier Labs top bar', async ({
     page,
   }) => {
-    await page.goto(`${BASE_URL}/agent-trace`);
+    await page.goto(`${BASE_URL}/pellier-labs`);
     await page.waitForLoadState('networkidle');
 
     // The storefront uses the persona dropdown now. PersonaModal is the
@@ -63,7 +63,7 @@ test.describe('Persona modal - portal + viewport coverage', () => {
   });
 
   test('backdrop click dismisses the modal', async ({ page }) => {
-    await page.goto(`${BASE_URL}/agent-trace`);
+    await page.goto(`${BASE_URL}/pellier-labs`);
     await page.waitForLoadState('networkidle');
 
     await page.getByTestId('agent-trace-persona-switcher').click();

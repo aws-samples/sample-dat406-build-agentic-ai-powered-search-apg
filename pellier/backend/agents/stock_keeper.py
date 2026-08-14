@@ -22,10 +22,10 @@ import json
 import re
 from strands import Agent, tool
 from strands.models import BedrockModel
-from config import settings
 from services.agent_tools import floor_check, restock_shelf, running_low
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
+from services.response_mode import resolve_specialist_model
 
 
 _INVENTORY_SYSTEM_PROMPT = (
@@ -127,11 +127,12 @@ def build_inventory_agent() -> Agent:
     """
     # Stock Keeper — Sonnet 5 reporting profile. Pure factual lookups
     # (warehouse, count, ETA), with no temperature override.
+    model_id, max_tokens, _ = resolve_specialist_model("sonnet")
     return Agent(
         name="inventory",
         model=BedrockModel(
-            model_id=settings.BEDROCK_REPORTING_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_SONNET,
+            model_id=model_id,
+            max_tokens=max_tokens,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_INVENTORY_SYSTEM_PROMPT)

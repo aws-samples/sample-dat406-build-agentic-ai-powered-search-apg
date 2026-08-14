@@ -144,7 +144,7 @@ const NotFoundState: React.FC<{ concept: string }> = ({ concept }) => {
         return to the architecture index.
       </p>
       <button
-        onClick={() => navigate('/agent-trace/architecture')}
+        onClick={() => navigate('/pellier-labs/architecture')}
         style={{
           marginTop: '24px',
           fontFamily: 'var(--at-sans)',
