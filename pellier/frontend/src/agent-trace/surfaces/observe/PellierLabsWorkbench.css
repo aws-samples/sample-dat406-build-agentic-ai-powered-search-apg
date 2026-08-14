@@ -1,6 +1,19 @@
 .pellier-labs-workbench {
+  /* Accent ramp. Terracotta, resolved from the Daylight tokens so this surface
+     tracks the design system instead of restating it. The deep stops and the
+     on-accent tints carry no shared token because only the filled surfaces
+     here (Run agent, agent response) use them. --pl-accent-rgb holds the
+     channels of --pl-accent so tinted borders and rings can take an alpha. */
+  --pl-accent: var(--at-red-1, #9a3412);
+  --pl-accent-rgb: 154, 52, 18;
+  --pl-accent-ink: var(--accent-ink, #5a2a0a);
+  --pl-accent-deep: #7a2a0e;
+  --pl-accent-deepest: #58200a;
+  --pl-on-accent: #fff8f0;
+  --pl-on-accent-eyebrow: #f0c9a8;
+
   min-height: calc(100vh - 64px);
-  background: #f7f3ec;
+  background: var(--dl-bg, #f7f3ec);
 }
 
 .pellier-labs-workbench-inner {
@@ -31,11 +44,11 @@
 .agent-trace-root .pellier-labs-masthead-copy h1 {
   margin: 8px 0 6px;
   color: #251713;
-  font-family: var(--at-serif);
-  font-size: 58px;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 0.98;
+  font-family: var(--at-display);
+  font-size: var(--at-display-size);
+  font-weight: var(--at-display-weight);
+  letter-spacing: var(--at-display-tracking);
+  line-height: var(--at-display-leading);
 }
 
 .agent-trace-root .pellier-labs-masthead-copy > p {
@@ -111,8 +124,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(126, 36, 49, 0.09);
-  color: #7e2431;
+  background: rgba(var(--pl-accent-rgb), 0.09);
+  color: var(--pl-accent);
 }
 
 .pellier-labs-panel-heading > div,
@@ -123,7 +136,7 @@
 
 .pellier-labs-panel-heading small,
 .pellier-labs-section-heading small {
-  color: #7e2431;
+  color: var(--pl-accent);
   font-family: var(--at-mono);
   font-size: 9px;
   font-weight: 700;
@@ -135,7 +148,7 @@
 .pellier-labs-panel-heading h2,
 .pellier-labs-section-heading h2 {
   color: #251713;
-  font-family: var(--at-serif);
+  font-family: var(--at-display);
   font-size: 25px;
   font-weight: 400;
   letter-spacing: 0;
@@ -210,8 +223,8 @@
 }
 
 .agent-trace-root .pellier-labs-task-panel textarea:focus {
-  border-color: #7e2431;
-  box-shadow: 0 0 0 3px rgba(126, 36, 49, 0.1);
+  border-color: var(--pl-accent);
+  box-shadow: 0 0 0 3px rgba(var(--pl-accent-rgb), 0.1);
 }
 
 .agent-trace-root .pellier-labs-task-panel textarea:disabled {
@@ -244,10 +257,10 @@
 .agent-trace-root .pellier-labs-query-prompts button {
   max-width: 100%;
   padding: 6px 9px;
-  border: 1px solid rgba(126, 36, 49, 0.2);
+  border: 1px solid rgba(var(--pl-accent-rgb), 0.2);
   border-radius: 999px;
   background: rgba(255, 250, 242, 0.72);
-  color: #60343a;
+  color: var(--pl-accent-ink);
   font-size: 9.5px;
   line-height: 1.35;
   text-align: left;
@@ -255,7 +268,7 @@
 }
 
 .agent-trace-root .pellier-labs-query-prompts button:hover:not(:disabled) {
-  border-color: rgba(126, 36, 49, 0.45);
+  border-color: rgba(var(--pl-accent-rgb), 0.45);
   background: #fffaf2;
 }
 
@@ -274,7 +287,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #7e2431;
+  color: var(--pl-accent);
 }
 
 .pellier-labs-config-heading h3 {
@@ -330,8 +343,8 @@
 
 .agent-trace-root .pellier-labs-segmented button[aria-pressed='true'] {
   background: #fffaf2;
-  box-shadow: inset 0 -2px #7e2431;
-  color: #6f1f2b;
+  box-shadow: inset 0 -2px var(--pl-accent);
+  color: var(--pl-accent-ink);
 }
 
 .agent-trace-root .pellier-labs-segmented button:disabled {
@@ -466,23 +479,25 @@
   justify-content: center;
   gap: 9px;
   margin-top: 16px;
-  border: 1px solid #71202b;
+  border: 1px solid var(--pl-accent-deep);
   border-radius: 6px;
-  background: linear-gradient(145deg, #641823 0%, #8b2c23 58%, #a4441e 100%);
-  box-shadow: 0 8px 18px rgba(100, 24, 35, 0.18);
-  color: #fff8f0;
+  background: linear-gradient(180deg, var(--pl-accent) 0%, var(--pl-accent-deep) 100%);
+  box-shadow: 0 8px 18px rgba(var(--pl-accent-rgb), 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  color: var(--pl-on-accent);
   font-size: 13px;
   font-weight: 700;
-  transition: box-shadow 150ms ease, transform 150ms ease, opacity 150ms ease;
+  transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease,
+    opacity 150ms ease;
 }
 
 .agent-trace-root .pellier-labs-run-agent:hover:not(:disabled) {
-  box-shadow: 0 10px 22px rgba(100, 24, 35, 0.24);
+  background: linear-gradient(180deg, #a63b16 0%, #83300f 100%);
+  box-shadow: 0 10px 22px rgba(var(--pl-accent-rgb), 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
 }
 
 .agent-trace-root .pellier-labs-run-agent:focus-visible {
-  outline: 3px solid rgba(126, 36, 49, 0.24);
+  outline: 3px solid rgba(var(--pl-accent-rgb), 0.3);
   outline-offset: 2px;
 }
 
@@ -683,7 +698,7 @@
   border: 1px solid #d9c7ba;
   border-radius: 50%;
   background: #fffdf8;
-  color: #7e2431;
+  color: var(--pl-accent);
   font-family: var(--at-mono);
   font-size: 10px;
   font-weight: 700;
@@ -718,7 +733,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #7e2431;
+  color: var(--pl-accent);
   font-family: var(--at-mono);
   font-size: 8px;
   font-weight: 700;
@@ -807,16 +822,16 @@
   padding: 16px;
   border: 1px solid rgba(255, 236, 219, 0.16);
   border-radius: 7px;
-  background: linear-gradient(145deg, #4a1420 0%, #70202b 48%, #a14021 100%);
-  box-shadow: 0 9px 22px rgba(86, 24, 31, 0.18);
-  color: #fff8f0;
+  background: linear-gradient(155deg, var(--pl-accent-deep) 0%, var(--pl-accent-deepest) 100%);
+  box-shadow: 0 9px 22px rgba(88, 32, 10, 0.22);
+  color: var(--pl-on-accent);
 }
 
 .pellier-labs-agent-response > div {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #f6d6b8;
+  color: var(--pl-on-accent-eyebrow);
   font-family: var(--at-mono);
   font-size: 8px;
   font-weight: 700;
@@ -861,8 +876,8 @@
   overflow: hidden;
   border-radius: 5px;
   background: #eee6da;
-  color: #7e2431;
-  font-family: var(--at-serif);
+  color: var(--pl-accent);
+  font-family: var(--at-display);
   font-size: 24px;
 }
 
@@ -880,7 +895,7 @@
 }
 
 .pellier-labs-product-copy small {
-  color: #7e2431;
+  color: var(--pl-accent);
   font-family: var(--at-mono);
   font-size: 7.5px;
   font-weight: 700;
@@ -891,7 +906,7 @@
 .pellier-labs-product-copy h3 {
   overflow-wrap: anywhere;
   color: #2b1f1a;
-  font-family: var(--at-serif);
+  font-family: var(--at-display);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.2;
@@ -907,7 +922,7 @@
   top: 11px;
   right: 10px;
   color: #291d18;
-  font-family: var(--at-serif);
+  font-family: var(--at-display);
   font-size: 15px;
   font-weight: 600;
 }
@@ -947,7 +962,7 @@
 }
 
 .pellier-labs-session-metrics svg {
-  color: #7e2431;
+  color: var(--pl-accent);
 }
 
 .pellier-labs-session-metrics span {
@@ -970,10 +985,17 @@
       minmax(350px, 400px);
   }
 
+  /* Sticky side rails. Without a bounded height a panel taller than the
+     viewport pins at the top and clips its own tail against the shared
+     overflow: hidden, which reads as the column overlapping the page. Cap
+     each rail to the space below the sticky 64px topbar and let it scroll
+     internally instead. */
   .pellier-labs-task-panel,
   .pellier-labs-results-panel {
     position: sticky;
     top: 82px;
+    max-height: calc(100vh - 82px - 24px);
+    overflow-y: auto;
   }
 }
 

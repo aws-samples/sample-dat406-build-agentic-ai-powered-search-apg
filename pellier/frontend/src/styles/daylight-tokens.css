@@ -30,8 +30,10 @@
 
   /* ---------- Type ---------- */
   /* Self-hosted faces from main.tsx (@fontsource). UI = Instrument Sans only
-     (bundles smaller, one sans voice). Serif = Instrument Serif + Fraunces for
-     editorial; JetBrains Mono for code + eyebrows. */
+     (bundles smaller, one sans voice). Fraunces leads the display stack for
+     editorial headings; Instrument Serif leads the serif stack for literary
+     copy; JetBrains Mono for code + eyebrows. */
+  --dl-font-display: "Fraunces Variable","Fraunces",Georgia,"Times New Roman",serif;
   --dl-font-serif:   "Instrument Serif","Fraunces Variable","Fraunces",Georgia,"Times New Roman",serif;
   --dl-font-sans:    "Instrument Sans",system-ui,-apple-system,"Segoe UI","Helvetica Neue",sans-serif;
   --dl-font-mono:    "JetBrains Mono",ui-monospace,"SF Mono",Menlo,Monaco,Consolas,monospace;

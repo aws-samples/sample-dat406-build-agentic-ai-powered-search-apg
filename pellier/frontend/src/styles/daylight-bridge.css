@@ -86,6 +86,7 @@
   --at-espresso-2: #2a2724;
 
   /* Type aliases for Pellier Labs */
+  --at-display: var(--dl-font-display);
   --at-serif: var(--dl-font-serif);
   --at-sans:  var(--dl-font-sans);
   --at-mono:  var(--dl-font-mono);
