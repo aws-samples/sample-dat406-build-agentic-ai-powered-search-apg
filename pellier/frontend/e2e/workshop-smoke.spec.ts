@@ -81,8 +81,19 @@ test.describe('Workshop production build smoke', () => {
     await expect(page).toHaveURL(/\/pellier-labs(?:\/|$)/);
     await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Pellier Labs' })).toBeVisible();
-    await expect(page.getByText('Recorded Agent Trace')).toBeVisible();
-    await expect(page.getByText('Total elapsed')).toBeVisible();
+    await expect(page.getByLabel('Shopper request')).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: 'Find a resort-ready linen shirt under $200',
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Live Agent Journey' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Live Result' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run agent' })).toBeDisabled();
     await page.keyboard.press('Escape');
 
     await page.getByTestId('back-to-pellier').click();
