@@ -36,7 +36,22 @@ describe('Pellier Labs TopBar', () => {
     )
 
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
-      'Pellier LabsProof Board',
+      'Proof Board',
     )
+    expect(
+      screen.getByRole('navigation', { name: 'Breadcrumb' }),
+    ).not.toHaveTextContent('Pellier Labs')
+  })
+
+  it('does not expose a secondary Labs navigation drawer', () => {
+    render(
+      <MemoryRouter initialEntries={['/pellier-labs']}>
+        <TopBar />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.queryByRole('button', { name: /lab navigation/i }),
+    ).not.toBeInTheDocument()
   })
 })

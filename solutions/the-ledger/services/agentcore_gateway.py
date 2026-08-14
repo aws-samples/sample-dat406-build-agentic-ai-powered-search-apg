@@ -120,7 +120,12 @@ def _runtime_or_app_setting(name: str, default: str = "") -> str:
     return str(getattr(settings, name, default) or default)
 
 
-def _managed_specialist_prompt(specialist: str, *, turn_id: str = "") -> str:
+def _managed_specialist_prompt(
+    specialist: str,
+    *,
+    turn_id: str = "",
+    customer_id: str = "",
+) -> str:
     """Return transport-neutral instructions for a Gateway-backed specialist."""
     label = _MANAGED_SPECIALIST_LABELS[specialist]
     prompt = (
@@ -135,6 +140,13 @@ def _managed_specialist_prompt(specialist: str, *, turn_id: str = "") -> str:
         prompt += (
             " For every Gateway tool call, include the exact audit correlation "
             f"argument turn_id={turn_id!r}. Do not invent, shorten, or reuse it."
+        )
+    if customer_id:
+        prompt += (
+            " The Runtime supplied the active workshop profile "
+            f"customer_id={customer_id!r}. Use exactly this value when a "
+            "customer-scoped read tool requires customer_id; do not infer or "
+            "substitute another customer."
         )
     return prompt
 
@@ -228,7 +240,10 @@ def _logical_gateway_tool_name(name: str) -> str:
 
 
 def _managed_specialist_spec(
-    intent: str, *, turn_id: str = ""
+    intent: str,
+    *,
+    turn_id: str = "",
+    customer_id: str = "",
 ) -> tuple[str, str, tuple[str, ...]]:
     """Return specialist name, prompt, and allowed logical tools."""
     if intent == "customer_support":
@@ -238,7 +253,11 @@ def _managed_specialist_spec(
 
     return (
         intent,
-        _managed_specialist_prompt(intent, turn_id=turn_id),
+        _managed_specialist_prompt(
+            intent,
+            turn_id=turn_id,
+            customer_id=customer_id,
+        ),
         MANAGED_SPECIALIST_TOOLS[intent],
     )
 
@@ -248,9 +267,13 @@ class ManagedGatewayDispatcher:
     """Run Pellier's deterministic dispatcher over managed Gateway tools."""
 
     access_token: str
+    response_mode: str = "balanced"
+    customer_id: str = ""
+    routing_query: str = ""
     trace_attributes: Dict[str, str] | None = None
     last_intent: str = ""
     last_specialist: str = ""
+    last_model_id: str = ""
     last_tool_names: tuple[str, ...] = ()
 
     def __call__(self, prompt: str) -> Any:
@@ -259,18 +282,27 @@ class ManagedGatewayDispatcher:
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
         from services.intent_router import classify_intent
+        from services.response_mode import response_model_for_intent
 
-        intent = classify_intent(prompt)
+        # Route on the current shopper request, not the bounded conversation
+        # prompt. Prior turns can contain unrelated keywords and must not
+        # change the current turn's deterministic intent.
+        intent = classify_intent(self.routing_query or prompt)
         turn_id = str((self.trace_attributes or {}).get("turn.id") or "").strip()
         specialist, system_prompt, allowed_tools = _managed_specialist_spec(
-            intent, turn_id=turn_id
+            intent,
+            turn_id=turn_id,
+            customer_id=self.customer_id,
         )
         gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
-        model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
+        model_id, max_tokens, _ = response_model_for_intent(
+            intent,
+            self.response_mode,
+        )
         if not gateway_url or not model_id:
             raise RuntimeError(
-                "Managed dispatcher requires AGENTCORE_GATEWAY_URL and "
-                "BEDROCK_ROUTER_MODEL"
+                "Managed dispatcher requires AGENTCORE_GATEWAY_URL and a "
+                "configured specialist model"
             )
 
         def _create_transport():
@@ -301,7 +333,7 @@ class ManagedGatewayDispatcher:
                 name=specialist,
                 model=BedrockModel(
                     model_id=model_id,
-                    max_tokens=4096,
+                    max_tokens=max_tokens,
                 ),
                 system_prompt=system_prompt,
                 tools=selected,
@@ -311,10 +343,14 @@ class ManagedGatewayDispatcher:
                     **self.trace_attributes,
                     "pellier.intent": intent,
                     "pellier.specialist": specialist,
+                    "pellier.response_mode": self.response_mode,
+                    "gen_ai.request.model": model_id,
+                    "shopper.customer_id": self.customer_id or "anonymous",
                 }
 
             self.last_intent = intent
             self.last_specialist = specialist
+            self.last_model_id = model_id
             self.last_tool_names = selected_names
             return agent(prompt)
         finally:
@@ -323,11 +359,21 @@ class ManagedGatewayDispatcher:
 
 def create_gateway_dispatcher(
     access_token: Optional[str] = None,
+    response_mode: str = "balanced",
+    customer_id: Optional[str] = None,
+    routing_query: str = "",
 ) -> ManagedGatewayDispatcher | None:
     """Create the managed equivalent of the Boutique dispatcher."""
     if not _runtime_or_app_setting("AGENTCORE_GATEWAY_URL") or not access_token:
         return None
-    return ManagedGatewayDispatcher(access_token=access_token)
+    from services.response_mode import normalize_response_mode
+
+    return ManagedGatewayDispatcher(
+        access_token=access_token,
+        response_mode=normalize_response_mode(response_mode),
+        customer_id=str(customer_id or "").strip(),
+        routing_query=routing_query,
+    )
 
 
 def _unwrap_strands_tool(strands_tool: Any) -> Any:

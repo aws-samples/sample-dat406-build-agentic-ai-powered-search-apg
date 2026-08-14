@@ -38,6 +38,10 @@ interface NavSection {
   collapsible?: boolean;
 }
 
+function labsPath(path: string): string {
+  return path ? `/pellier-labs/${path}` : '/pellier-labs';
+}
+
 /**
  * Lab completion state.
  *
@@ -57,7 +61,7 @@ const STATUS_LABEL: Record<LabStatus, string> = {
 function isSectionActive(section: NavSection, pathname: string): boolean {
   return section.items.some((item) => {
     const base = item.path.split('#', 1)[0];
-    const target = `/pellier-labs/${base}`;
+    const target = labsPath(base);
     return pathname === target || pathname.startsWith(`${target}/`);
   });
 }
@@ -125,6 +129,7 @@ const Sidebar: React.FC = () => {
     {
       eyebrow: 'COCKPIT',
       items: [
+        { label: 'Inspection Workbench', path: '', liveDot: true },
         { label: 'Proof Board', path: 'proof-board', liveDot: true },
         { label: 'Workshop Map', path: 'observatory' },
       ],
@@ -212,24 +217,13 @@ const Sidebar: React.FC = () => {
           gap: '10px',
         }}
       >
-        <div
-          className="pellier-logo-chip"
-          style={{
-            background: 'var(--at-espresso-2)',
-            color: 'var(--at-sidebar-text-active)',
-            boxShadow: 'inset 0 0 0 1px rgba(251, 248, 242, 0.12)',
-          }}
-        >
-          {/* Pellier wordmark glyph — matches Boutique footer / header circular P */}
-          P
-        </div>
         <span
           className="font-display text-xl font-medium tracking-tight"
           style={{
             color: 'var(--at-sidebar-text-active)',
           }}
         >
-          Pellier
+          Pellier Labs
         </span>
       </div>
 
@@ -436,9 +430,11 @@ const Sidebar: React.FC = () => {
 const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
   const { pathname, hash } = useLocation();
   const itemPath = item.path.split('#', 1)[0];
-  const targetPath = `/pellier-labs/${itemPath}`;
+  const targetPath = labsPath(itemPath);
   const routeIsActive = pathname === targetPath
     || (
+      itemPath !== ''
+      &&
       itemPath !== 'sessions'
       && itemPath !== 'architecture'
       && pathname.startsWith(`${targetPath}/`)
@@ -449,7 +445,7 @@ const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
 
   return (
     <Link
-      to={`/pellier-labs/${item.path}`}
+      to={labsPath(item.path)}
       // The compact rail hides the visible label, so the link carries its
       // own accessible name. Without this an icon-only rail is a row of
       // unnamed links to a screen reader.

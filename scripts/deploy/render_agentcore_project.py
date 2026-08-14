@@ -34,6 +34,7 @@ RUNTIME_SOURCE_FILES = (
     Path("services/agentcore_gateway.py"),
     Path("services/conversation_context.py"),
     Path("services/intent_router.py"),
+    Path("services/response_mode.py"),
 )
 
 
@@ -112,6 +113,8 @@ def render_project(
     model_id: str,
     workshop_id: str,
     include_policies: bool,
+    opus_model_id: str | None = None,
+    sonnet_model_id: str | None = None,
     action_token: str = PROCESS_RETURN_ACTION,
 ) -> Path:
     """Write agentcore.json, aws-targets.json, and four tool-schema files."""
@@ -120,6 +123,8 @@ def render_project(
     schemas_dir = root / "tool-schemas"
     backend_dir = repo / "pellier" / "backend"
     runtime_dir = _render_runtime_source(root, backend_dir)
+    runtime_opus_model = opus_model_id or model_id
+    runtime_sonnet_model = sonnet_model_id or model_id
     discovery_url = (
         f"https://cognito-idp.{region}.amazonaws.com/"
         f"{cognito_pool}/.well-known/openid-configuration"
@@ -166,6 +171,18 @@ def render_project(
                 "envVars": [
                     {"name": "AGENT_MODEL_ID", "value": model_id},
                     {"name": "BEDROCK_ROUTER_MODEL", "value": model_id},
+                    {
+                        "name": "BEDROCK_OPUS_MODEL",
+                        "value": runtime_opus_model,
+                    },
+                    {
+                        "name": "BEDROCK_SONNET_MODEL",
+                        "value": runtime_sonnet_model,
+                    },
+                    {
+                        "name": "BEDROCK_REPORTING_MODEL",
+                        "value": runtime_sonnet_model,
+                    },
                     {
                         "name": "UNIFIED_TRACES_DESTINATION_ENABLED",
                         "value": "true",
@@ -252,6 +269,8 @@ def main() -> int:
     parser.add_argument("--cognito-pool", required=True)
     parser.add_argument("--cognito-client", required=True)
     parser.add_argument("--model-id", required=True)
+    parser.add_argument("--opus-model-id")
+    parser.add_argument("--sonnet-model-id")
     parser.add_argument("--workshop-id", required=True)
     parser.add_argument("--lambda-arns", type=Path, required=True)
     parser.add_argument("--include-policies", action="store_true")
@@ -269,6 +288,8 @@ def main() -> int:
         model_id=args.model_id,
         workshop_id=args.workshop_id,
         include_policies=args.include_policies,
+        opus_model_id=args.opus_model_id,
+        sonnet_model_id=args.sonnet_model_id,
         action_token=args.action_token,
     )
     print(root)

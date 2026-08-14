@@ -130,7 +130,10 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
     env = {item["name"]: item["value"] for item in runtime["envVars"]}
     assert env == {
         "AGENT_MODEL_ID": "global.anthropic.claude-sonnet-5",
+        "BEDROCK_OPUS_MODEL": "global.anthropic.claude-sonnet-5",
+        "BEDROCK_REPORTING_MODEL": "global.anthropic.claude-sonnet-5",
         "BEDROCK_ROUTER_MODEL": "global.anthropic.claude-sonnet-5",
+        "BEDROCK_SONNET_MODEL": "global.anthropic.claude-sonnet-5",
         "UNIFIED_TRACES_DESTINATION_ENABLED": "true",
     }
     assert runtime["instrumentation"] == {"enableOtel": True}
@@ -152,6 +155,7 @@ def test_runtime_bundle_contains_only_managed_import_graph(tmp_path: Path) -> No
         *renderer.RUNTIME_SOURCE_FILES,
     }
     assert Path("config.py") not in actual
+    assert Path("services/response_mode.py") in actual
     assert not any("tests" in path.parts for path in actual)
 
 

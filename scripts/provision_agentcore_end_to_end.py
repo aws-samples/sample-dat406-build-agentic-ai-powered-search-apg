@@ -483,6 +483,8 @@ def _deploy_cli_project(
     model_id: str,
     workshop_id: str,
     env: dict[str, str],
+    opus_model_id: str | None = None,
+    sonnet_model_id: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Deploy infrastructure first, then add Gateway-scoped Cedar policies."""
     root = _scaffold_cli_project(repo=repo, env=env)
@@ -494,6 +496,8 @@ def _deploy_cli_project(
         "cognito_client": cognito_client,
         "lambda_arns": lambda_arns,
         "model_id": model_id,
+        "opus_model_id": opus_model_id or model_id,
+        "sonnet_model_id": sonnet_model_id or model_id,
         "workshop_id": workshop_id,
     }
 
@@ -1257,6 +1261,14 @@ def main() -> int:
     runtime_log_retention_days = _runtime_log_retention_days(
         _require_env("AGENTCORE_RUNTIME_LOG_RETENTION_DAYS")
     )
+    opus_model_id = (
+        os.environ.get("BEDROCK_OPUS_MODEL", "").strip()
+        or required["model_id"]
+    )
+    sonnet_model_id = (
+        os.environ.get("BEDROCK_SONNET_MODEL", "").strip()
+        or required["model_id"]
+    )
     client_secret_arn = (
         os.environ.get("COGNITO_CLIENT_SECRET_ARN", "").strip() or None
     )
@@ -1319,6 +1331,8 @@ def main() -> int:
             cognito_client=required["cognito_client"],
             lambda_arns=lambda_arns,
             model_id=required["model_id"],
+            opus_model_id=opus_model_id,
+            sonnet_model_id=sonnet_model_id,
             workshop_id=required["workshop_id"],
             env=deploy_env,
         )
@@ -1353,6 +1367,8 @@ def main() -> int:
         result["runtime"] = {
             "runtime_arn": runtime_arn,
             "agent_model_id": required["model_id"],
+            "opus_model_id": opus_model_id,
+            "sonnet_model_id": sonnet_model_id,
         }
         runtime_log_group = _ensure_runtime_log_group(
             region=region,

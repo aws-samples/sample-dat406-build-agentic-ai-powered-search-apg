@@ -1136,6 +1136,21 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     )
                     return
 
+                from services.intent_router import classify_intent
+                from services.response_mode import build_intent_signal
+
+                yield (
+                    "data: "
+                    + json.dumps(
+                        build_intent_signal(
+                            classify_intent(request.message),
+                            request.response_mode,
+                        ),
+                        ensure_ascii=False,
+                    )
+                    + "\n\n"
+                )
+
                 from services.agentcore_runtime import (
                     ManagedRuntimeError,
                     get_latest_trace,
@@ -1151,6 +1166,8 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                         auth_token=(effective_user or {}).get("access_token"),
                         history=history,
                         turn_id=turn_id,
+                        response_mode=request.response_mode,
+                        customer_id=(effective_user or {}).get("customer_id"),
                     )
                 except ManagedRuntimeError as exc:
                     error = classify_chat_error(exc.code)
@@ -1247,6 +1264,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     user=effective_user or None,
                     pattern=request.pattern,
                     turn_id=turn_id,
+                    response_mode=request.response_mode,
                 ):
                     if event.get("type") == "error":
                         event = classify_chat_error(

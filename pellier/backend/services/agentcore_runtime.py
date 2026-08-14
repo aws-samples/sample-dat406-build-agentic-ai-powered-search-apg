@@ -299,6 +299,8 @@ async def run_agent_on_runtime(
     auth_token: Optional[str] = None,
     history: Optional[List[Dict[str, Any]]] = None,
     turn_id: Optional[str] = None,
+    response_mode: str = "balanced",
+    customer_id: Optional[str] = None,
 ) -> str:
     """Invoke the AgentCore Runtime with ``message`` and return the
     response text.
@@ -340,11 +342,15 @@ async def run_agent_on_runtime(
         endpoint.rsplit("/", 1)[-1],
     )
 
+    from services.response_mode import normalize_response_mode
+
     payload_data: Dict[str, Any] = {
         "prompt": message,
         "session_id": session_id,
         "user_id": user_id or "anonymous",
         "history": history or [],
+        "response_mode": normalize_response_mode(response_mode),
+        "customer_id": customer_id or None,
     }
     if turn_id:
         # This is minted by the storefront route, not supplied by the model.
@@ -444,6 +450,7 @@ async def run_agent(
     auth_token: Optional[str] = None,
     history: Optional[List[Dict[str, Any]]] = None,
     turn_id: Optional[str] = None,
+    response_mode: str = "balanced",
 ) -> str:
     """Route a chat request through either the in-process Strands
     orchestrator or the AgentCore Runtime, based on
@@ -478,6 +485,7 @@ async def run_agent(
             "user_id": user_id,
             "auth_token": auth_token,
             "history": history,
+            "response_mode": response_mode,
         }
         if turn_id:
             runtime_kwargs["turn_id"] = turn_id

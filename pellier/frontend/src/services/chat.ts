@@ -274,6 +274,8 @@ export interface ChatResponse {
   }
 }
 
+export type ResponseMode = 'balanced' | 'editorial' | 'fast'
+
 /**
  * Send a chat message with streaming support
  */
@@ -285,6 +287,7 @@ export async function sendChatMessageStreaming(
   guardrailsEnabled?: boolean,
   customerId?: string | null,
   pattern?: 'dispatcher' | 'agents_as_tools' | 'graph' | null,
+  responseMode: ResponseMode = 'balanced',
 ): Promise<ChatResponse> {
   const controller = new AbortController()
   const timeout = globalThis.setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
@@ -306,6 +309,7 @@ export async function sendChatMessageStreaming(
         guardrails_enabled: guardrailsEnabled || false,
         customer_id: customerId ?? null,
         pattern: pattern ?? null,
+        response_mode: responseMode,
       }),
     })
 

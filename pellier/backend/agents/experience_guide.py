@@ -23,7 +23,6 @@ import logging
 import re
 from strands import Agent, tool
 from strands.models import BedrockModel
-from config import settings
 from services.agent_tools import (
     escalate_to_stylist,
     find_pieces,
@@ -33,6 +32,7 @@ from services.agent_tools import (
 )
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
+from services.response_mode import resolve_specialist_model
 
 logger = logging.getLogger(__name__)
 
@@ -134,11 +134,12 @@ def build_support_agent() -> Agent:
     # Experience Guide — Claude Opus 5. Opus for tone when handling a
     # return. Bedrock rejects the deprecated temperature field for this
     # model, so we rely on the model default.
+    model_id, max_tokens, _ = resolve_specialist_model("opus")
     return Agent(
         name="support",
         model=BedrockModel(
-            model_id=settings.BEDROCK_OPUS_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_OPUS,
+            model_id=model_id,
+            max_tokens=max_tokens,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_SUPPORT_SYSTEM_PROMPT)

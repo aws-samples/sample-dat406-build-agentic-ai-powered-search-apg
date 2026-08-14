@@ -37,6 +37,9 @@ const TelemetryTab = lazy(() => import('./agent-trace/surfaces/observe/Telemetry
 const BriefTab = lazy(() => import('./agent-trace/surfaces/observe/BriefTab'))
 const Observatory = lazy(() => import('./agent-trace/surfaces/observe/Observatory'))
 const ProofBoard = lazy(() => import('./agent-trace/surfaces/observe/ProofBoard'))
+const PellierLabsWorkbench = lazy(
+  () => import('./agent-trace/surfaces/observe/PellierLabsWorkbench'),
+)
 const PersonaJourneys = lazy(() => import('./agent-trace/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
   () => import('./agent-trace/surfaces/understand/ArchitectureIndex'),
@@ -213,11 +216,10 @@ function App() {
                  *   *           → redirect to /
                  */}
                 <Route path="/" element={<BoutiquePage />} />
-                {/* Pellier Labs — nested routes under the Labs frame.
-                    The frame renders the wide workshop sidebar + canvas grid with
-                    React Router <Outlet /> for surface rendering. */}
+                {/* Pellier Labs — nested routes under a full-width live
+                    inspection canvas. */}
                 <Route path="/pellier-labs" element={<AgentTraceFrame />}>
-                  <Route index element={<Navigate to="proof-board" replace />} />
+                  <Route index element={<PellierLabsWorkbench />} />
                   <Route path="proof-board" element={<ProofBoard />} />
                   <Route
                     path="audit-proof"

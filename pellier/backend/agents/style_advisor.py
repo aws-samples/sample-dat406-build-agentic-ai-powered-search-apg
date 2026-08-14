@@ -16,7 +16,6 @@ import json
 import re
 from strands import Agent, tool
 from strands.models import BedrockModel
-from config import settings
 from services.agent_tools import (
     escalate_to_stylist,
     explore_collection,
@@ -26,6 +25,7 @@ from services.agent_tools import (
 )
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
+from services.response_mode import resolve_specialist_model
 
 
 _SEARCH_SYSTEM_PROMPT = (
@@ -116,11 +116,16 @@ def build_search_agent(
             "do not attempt a human handoff.</turn-policy>"
         )
 
+    selected_model_id, selected_max_tokens, _ = resolve_specialist_model(
+        "opus",
+        balanced_model_id=model_id,
+        balanced_max_tokens=max_tokens,
+    )
     return Agent(
         name="search",
         model=BedrockModel(
-            model_id=model_id or settings.BEDROCK_OPUS_MODEL,
-            max_tokens=max_tokens or settings.AGENT_MAX_TOKENS_OPUS,
+            model_id=selected_model_id,
+            max_tokens=selected_max_tokens,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(prompt)

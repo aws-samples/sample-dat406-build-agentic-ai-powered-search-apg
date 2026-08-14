@@ -24,7 +24,6 @@ import re
 
 from strands import Agent, tool
 from strands.models import BedrockModel
-from config import settings
 from services.agent_tools import (
     find_pieces_hybrid,
     preference_snapshot,
@@ -36,6 +35,7 @@ from services.agent_tools import (
 )
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
+from services.response_mode import resolve_specialist_model
 from boutique_copy import RECOMMENDATION_SYSTEM_PROMPT
 
 
@@ -113,11 +113,16 @@ def build_recommendation_agent(
             "still an answer; do not attempt a human handoff.</turn-policy>"
         )
 
+    selected_model_id, selected_max_tokens, _ = resolve_specialist_model(
+        "opus",
+        balanced_model_id=model_id,
+        balanced_max_tokens=max_tokens,
+    )
     return Agent(
         name="recommendation",
         model=BedrockModel(
-            model_id=model_id or settings.BEDROCK_OPUS_MODEL,
-            max_tokens=max_tokens or settings.AGENT_MAX_TOKENS_OPUS,
+            model_id=selected_model_id,
+            max_tokens=selected_max_tokens,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(prompt)

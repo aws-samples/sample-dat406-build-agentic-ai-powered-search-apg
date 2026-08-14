@@ -75,8 +75,37 @@ describe('Agent Trace Sidebar', () => {
       </MemoryRouter>,
     );
 
+    expect(
+      screen.getByRole('link', { name: 'Inspection Workbench' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Proof Board/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Workshop Map' })).toBeInTheDocument();
+  });
+
+  it('marks the workbench current only at the Labs root', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/pellier-labs']}>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Inspection Workbench' }),
+    ).toHaveAttribute('aria-current', 'page');
+    unmount();
+
+    render(
+      <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole('link', { name: 'Inspection Workbench' }),
+    ).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Proof Board' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('reports lab status as text, not colour alone', () => {

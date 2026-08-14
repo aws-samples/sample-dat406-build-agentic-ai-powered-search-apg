@@ -1,53 +1,65 @@
 import { useEffect, useRef } from 'react';
 import { Eyebrow } from '../../components';
+import './PellierLabsWorkbench.css';
 
 type Particle = {
   x: number;
-  y: number;
+  spread: number;
   radius: number;
   drift: number;
-  phase: number;
-  tone: 'ink' | 'red' | 'gold';
+  band: number;
+  tint: number;
 };
 
-const PARTICLE_COUNT = 560;
-const CORE_PARTICLE_COUNT = 160;
+const BANDS = 4;
+const PER_BAND = 360;
+const CORE_COUNT = 320;
 const TWO_PI = Math.PI * 2;
-const COLORS = {
-  ink: [66, 47, 39],
-  red: [154, 52, 18],
-  gold: [184, 138, 58],
-} as const;
+const CORE_DEEP = [43, 13, 19];
+const CORE = [126, 36, 49];
+const FRINGE = [201, 112, 58];
+const HIGHLIGHT = [246, 224, 198];
 
-function buildParticles(): Particle[] {
-  const field: Particle[] = Array.from({ length: PARTICLE_COUNT }, (_, index) => {
-    const tone = index % 11 === 0 ? 'gold' : index % 3 === 0 ? 'red' : 'ink';
-    return {
-      x: Math.random(),
-      y: Math.random() * 2 - 1,
-      radius: 0.55 + Math.random() ** 2 * 1.2,
-      drift: 0.01 + Math.random() * 0.018,
-      phase: Math.random() * TWO_PI,
-      tone,
-    };
-  });
-
-  const core: Particle[] = Array.from({ length: CORE_PARTICLE_COUNT }, (_, index) => ({
-    x: 0.06 + Math.random() * 0.94,
-    y: (Math.random() * 2 - 1) * 0.18,
-    radius: 0.7 + Math.random() ** 2 * 1.35,
-    drift: 0.008 + Math.random() * 0.012,
-    phase: Math.random() * TWO_PI,
-    tone: index % 7 === 0 ? 'gold' : 'red',
-  }));
-
-  return [...field, ...core];
+function mixChannel(a: number[], b: number[], t: number, index: number) {
+  return a[index] + (b[index] - a[index]) * Math.min(1, Math.max(0, t));
 }
 
-function waveY(x: number, phase: number, height: number) {
-  const primary = Math.sin(x * TWO_PI * 1.08 + phase);
-  const secondary = Math.sin(x * TWO_PI * 2.1 + phase * 1.45) * 0.24;
-  return height * 0.5 + (primary + secondary) * height * 0.19;
+function buildParticles(): Particle[] {
+  const particles: Particle[] = [];
+  for (let band = 0; band < BANDS; band += 1) {
+    for (let index = 0; index < PER_BAND; index += 1) {
+      particles.push({
+        x: Math.random(),
+        spread: (Math.random() * 2 - 1) * (0.5 + Math.random() ** 2 * 0.5),
+        radius: 0.65 + Math.random() ** 2 * 1.45,
+        drift: 0.012 + Math.random() * 0.035,
+        band,
+        tint: (Math.random() * 2 - 1) * 0.08,
+      });
+    }
+  }
+  for (let index = 0; index < CORE_COUNT; index += 1) {
+    particles.push({
+      x: 0.16 + Math.random() ** 0.72 * 0.84,
+      spread: (Math.random() * 2 - 1) * 0.16,
+      radius: 0.55 + Math.random() ** 2 * 1.1,
+      drift: 0.01 + Math.random() * 0.02,
+      band: -1,
+      tint: Math.random() * 0.3,
+    });
+  }
+  return particles;
+}
+
+function envelope(x: number) {
+  return 0.28 + x ** 1.2 * 0.92;
+}
+
+function centreline(x: number, phase: number, band: number, height: number) {
+  const bandPhase = phase + band * 0.42;
+  const primary = Math.sin(x * TWO_PI * 1.15 + bandPhase);
+  const secondary = Math.sin(x * TWO_PI * 2.3 + bandPhase * 1.7) * 0.22;
+  return height * 0.5 + (primary + secondary) * height * 0.25;
 }
 
 function paint(
@@ -58,38 +70,55 @@ function paint(
   phase: number,
 ) {
   context.clearRect(0, 0, width, height);
-
   for (const particle of particles) {
-    const envelope = 0.32 + particle.x ** 1.3 * 0.68;
-    const y = waveY(particle.x, phase + particle.phase * 0.08, height)
-      + particle.y * height * 0.34 * envelope;
-    const [red, green, blue] = COLORS[particle.tone];
-    const alpha = (particle.tone === 'gold' ? 0.58 : 0.4)
-      * (0.62 + envelope * 0.38)
-      * (1 - Math.min(0.58, Math.abs(particle.y) * 0.34));
-
-    context.fillStyle = `rgb(${red} ${green} ${blue} / ${alpha.toFixed(3)})`;
+    const spread = particle.spread * envelope(particle.x);
+    const y = centreline(particle.x, phase, Math.max(particle.band, 0), height)
+      + spread * height * 0.36;
+    const distance = Math.min(1, Math.abs(spread) / 0.55);
+    const alpha = (particle.band < 0 ? 0.58 : 0.5)
+      * (1 - distance * 0.66)
+      * (0.25 + envelope(particle.x) * 0.75);
+    const channel = (index: number) => {
+      if (particle.band < 0) {
+        const warmth = Math.min(1, particle.tint + envelope(particle.x) * 0.55);
+        return Math.round(mixChannel(CORE, HIGHLIGHT, warmth, index));
+      }
+      const mix = Math.min(1, Math.max(0, distance + particle.tint));
+      const value = mix < 0.5
+        ? mixChannel(CORE_DEEP, CORE, mix * 2, index)
+        : mixChannel(CORE, FRINGE, (mix - 0.5) * 2, index);
+      return Math.round(value);
+    };
+    context.fillStyle =
+      `rgb(${channel(0)} ${channel(1)} ${channel(2)} / ${alpha.toFixed(3)})`;
     context.beginPath();
     context.arc(particle.x * width, y, particle.radius, 0, TWO_PI);
     context.fill();
   }
 }
 
+export interface PellierLabsMastheadProps {
+  eyebrow?: string;
+  title?: string;
+  deck?: string;
+  status?: string;
+}
+
 /**
- * A quiet decorative field for the Pellier Labs entry point.
- *
- * It is intentionally not derived from proof-board data. The data surfaces
- * below it remain the only source of operational measurements and receipts.
+ * Decorative Labs masthead. The particle field encodes no metric or runtime
+ * state; all inspectable evidence is rendered below from the current live run.
  */
-export function PellierLabsMasthead() {
+export function PellierLabsMasthead({
+  eyebrow = 'Inspection surface',
+  title = 'Proof Board',
+  deck = 'Run a live agent turn and inspect the evidence it emits.',
+  status,
+}: PellierLabsMastheadProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    // JSDOM exposes a canvas element without a drawing implementation.
-    // Do not invoke it there; the masthead remains a quiet static band.
-    if (typeof CanvasRenderingContext2D === 'undefined') return;
+    if (!canvas || typeof CanvasRenderingContext2D === 'undefined') return;
 
     let context: CanvasRenderingContext2D | null;
     try {
@@ -129,10 +158,10 @@ export function PellierLabsMasthead() {
     const step = (now: number) => {
       const elapsed = last ? Math.min(now - last, 64) : 16;
       last = now;
-      phase += elapsed * 0.00016;
+      phase += elapsed * 0.00021;
       for (const particle of particles) {
         particle.x += particle.drift * (elapsed / 1000);
-        if (particle.x > 1.02) particle.x -= 1.04;
+        if (particle.x > 1.04) particle.x -= 1.08;
       }
       if (context) paint(context, particles, width, height, phase);
       frame = window.requestAnimationFrame(step);
@@ -194,14 +223,18 @@ export function PellierLabsMasthead() {
   return (
     <header className="pellier-labs-masthead">
       <div className="pellier-labs-masthead-copy">
-        <Eyebrow label="Pellier Labs" />
-        <h1 className="font-display">Proof Board</h1>
-        <p>
-          Trace one governed decision from verified data to a recorded receipt.
-        </p>
+        <Eyebrow label={eyebrow} />
+        <h1 className="font-display">{title}</h1>
+        <p>{deck}</p>
+        {status ? (
+          <span className="pellier-labs-masthead-status">
+            <span aria-hidden="true" />
+            {status}
+          </span>
+        ) : null}
       </div>
       <div className="pellier-labs-masthead-flow" aria-hidden="true">
-        <canvas ref={canvasRef} />
+        <canvas ref={canvasRef} data-testid="pellier-labs-particle-canvas" />
       </div>
     </header>
   );

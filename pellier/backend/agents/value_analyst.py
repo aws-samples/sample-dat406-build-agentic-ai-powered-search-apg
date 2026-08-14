@@ -16,10 +16,10 @@ import json
 import re
 from strands import Agent, tool
 from strands.models import BedrockModel
-from config import settings
 from services.agent_tools import price_intelligence, explore_collection, find_pieces
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
+from services.response_mode import resolve_specialist_model
 
 
 _PRICING_SYSTEM_PROMPT = (
@@ -77,11 +77,12 @@ def build_pricing_agent() -> Agent:
     # Value Analyst — Sonnet 5 reporting profile. Reports numbers and
     # ranges with no temperature override. The only thing worse than a
     # slow price check is a wrong one.
+    model_id, max_tokens, _ = resolve_specialist_model("sonnet")
     return Agent(
         name="pricing",
         model=BedrockModel(
-            model_id=settings.BEDROCK_REPORTING_MODEL,
-            max_tokens=settings.AGENT_MAX_TOKENS_SONNET,
+            model_id=model_id,
+            max_tokens=max_tokens,
         ),
         system_prompt=inject_persona_preamble(
             inject_skills(_PRICING_SYSTEM_PROMPT)

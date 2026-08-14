@@ -38,8 +38,40 @@ describe('chat service auth transport', () => {
       method: 'POST',
       credentials: 'include',
     })
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      response_mode: 'balanced',
+    })
     expect(updates).toHaveLength(1)
     expect(result.response).toBe('done')
+  })
+
+  it('sends the selected live agent configuration', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        'data: {"type":"complete","response":{"response":"done","products":[]}}\n\n',
+        { status: 200 },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+    await sendChatMessageStreaming(
+      'find a gift',
+      [],
+      vi.fn(),
+      undefined,
+      true,
+      'CUST-ANNA',
+      'graph',
+      'fast',
+    )
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      guardrails_enabled: true,
+      customer_id: 'CUST-ANNA',
+      pattern: 'graph',
+      response_mode: 'fast',
+    })
   })
 
   it('classifies non-2xx responses using status and response detail', async () => {

@@ -85,8 +85,13 @@ test.describe('Workshop production build smoke', () => {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
 
     await page.getByTestId('pellier-labs-link').click();
-    await expect(page).toHaveURL(/\/agent-trace(?:\/|$)/);
+    await expect(page).toHaveURL(/\/pellier-labs(?:\/|$)/);
     await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Pellier Labs' }),
+    ).toBeVisible();
+    await expect(page.getByText('Recorded Agent Trace')).toBeVisible();
+    await expect(page.getByText('Total elapsed')).toBeVisible();
 
     await page.getByTestId('back-to-pellier').click();
     await expect(page).toHaveURL(new URL('/', BASE_URL).toString());
