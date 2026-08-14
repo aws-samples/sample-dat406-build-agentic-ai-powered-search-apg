@@ -24,6 +24,7 @@ import { PresencePill } from '../../shared';
 function prettifySegment(segment: string): string {
   // Known labels
   const labels: Record<string, string> = {
+    'pellier-labs': 'Pellier Labs',
     'agent-trace': 'Pellier Labs',
     'proof-board': 'Proof Board',
     'audit-proof': 'Audit Proof',

@@ -9,7 +9,7 @@
  * Usage:
  *
  *   <DetailPageShell
- *     crumb={['Agent Trace', 'Architecture', 'Memory']}
+ *     crumb={['Pellier Labs', 'Architecture', 'Memory']}
  *     title={<>Memory, <em>two-tiered.</em></>}
  *     subtitle="Short-term holds the conversation. Long-term holds everything else worth remembering."
  *     meta={[

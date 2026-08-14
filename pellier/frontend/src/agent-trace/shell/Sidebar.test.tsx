@@ -27,7 +27,7 @@ vi.mock('../hooks/useBuildState', () => ({
 describe('Agent Trace Sidebar', () => {
   it('presents a cockpit, four numbered labs, and deep dives', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/performance']}>
+      <MemoryRouter initialEntries={['/pellier-labs/performance']}>
         <Sidebar />
       </MemoryRouter>,
     );
@@ -53,7 +53,7 @@ describe('Agent Trace Sidebar', () => {
 
   it('expands only the active lab', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/performance']}>
+      <MemoryRouter initialEntries={['/pellier-labs/performance']}>
         <Sidebar />
       </MemoryRouter>,
     );
@@ -70,7 +70,7 @@ describe('Agent Trace Sidebar', () => {
 
   it('keeps the cockpit always expanded', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/performance']}>
+      <MemoryRouter initialEntries={['/pellier-labs/performance']}>
         <Sidebar />
       </MemoryRouter>,
     );
@@ -81,7 +81,7 @@ describe('Agent Trace Sidebar', () => {
 
   it('reports lab status as text, not colour alone', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/performance']}>
+      <MemoryRouter initialEntries={['/pellier-labs/performance']}>
         <Sidebar />
       </MemoryRouter>,
     );
@@ -97,7 +97,7 @@ describe('Agent Trace Sidebar', () => {
     buildState.toolShipped = 15;
     try {
       render(
-        <MemoryRouter initialEntries={['/agent-trace/tools']}>
+        <MemoryRouter initialEntries={['/pellier-labs/tools']}>
           <Sidebar />
         </MemoryRouter>,
       );
@@ -111,7 +111,7 @@ describe('Agent Trace Sidebar', () => {
 
   it('gives every nav link an accessible name for the compact rail', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/tools']}>
+      <MemoryRouter initialEntries={['/pellier-labs/tools']}>
         <Sidebar />
       </MemoryRouter>,
     );
@@ -125,20 +125,20 @@ describe('Agent Trace Sidebar', () => {
 
   it('routes Lab 1 to the tool registry with its shipped badge', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/tools']}>
+      <MemoryRouter initialEntries={['/pellier-labs/tools']}>
         <Sidebar />
       </MemoryRouter>,
     );
 
     expect(screen.getByRole('link', { name: 'Tool Registry' })).toHaveAttribute(
       'href',
-      '/agent-trace/tools',
+      '/pellier-labs/tools',
     );
   });
 
   it('marks only the Audit Proof route as current', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/audit-proof']}>
+      <MemoryRouter initialEntries={['/pellier-labs/audit-proof']}>
         <Sidebar />
       </MemoryRouter>,
     );
@@ -156,17 +156,17 @@ describe('Agent Trace Sidebar', () => {
     // Consolidation must not orphan a route. Routing/Architecture/etc moved
     // rather than disappeared.
     render(
-      <MemoryRouter initialEntries={['/agent-trace/routing']}>
+      <MemoryRouter initialEntries={['/pellier-labs/routing']}>
         <Sidebar />
       </MemoryRouter>,
     );
 
     expect(
       screen.getByRole('link', { name: 'Agent Behavior & Routing' }),
-    ).toHaveAttribute('href', '/agent-trace/routing');
+    ).toHaveAttribute('href', '/pellier-labs/routing');
     expect(screen.getByRole('link', { name: 'Architecture' })).toHaveAttribute(
       'href',
-      '/agent-trace/architecture',
+      '/pellier-labs/architecture',
     );
   });
 });

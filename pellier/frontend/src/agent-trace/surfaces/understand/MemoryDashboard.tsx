@@ -424,7 +424,7 @@ const MemoryDashboard: React.FC = () => {
         }}
       >
         <Link
-          to="/agent-trace/architecture/memory"
+          to="/pellier-labs/architecture/memory"
           style={{ color: 'var(--at-burgundy)', textDecoration: 'none' }}
         >
           → Architecture brief: Memory

@@ -22,7 +22,6 @@ import AgentTraceContextBanner from './AgentTraceContextBanner';
 import AgentTraceErrorBoundary from './AgentTraceErrorBoundary';
 import { useUI } from '../../contexts/UIContext';
 import '../styles/base.css';
-import AgentTraceSpotlight from '../../components/AgentTraceSpotlight';
 
 const AgentTraceFrame: React.FC = () => {
   const { setChatSurface } = useUI();
@@ -90,8 +89,6 @@ const AgentTraceFrame: React.FC = () => {
           }}
         />
       )}
-      {/* First-visit orientation for the evidence surface. Session-gated. */}
-      <AgentTraceSpotlight />
     </div>
   );
 };

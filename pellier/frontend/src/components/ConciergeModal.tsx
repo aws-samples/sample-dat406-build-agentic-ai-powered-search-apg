@@ -10,7 +10,7 @@
  * rendering — scroll, animations, badge layout, Under the Hood block.
  *
  * Mode selection via useLocation():
- *   - pathname.startsWith('/agent-trace') → instrumentation mode. Agent
+ *   - pathname.startsWith('/pellier-labs') → instrumentation mode. Agent
  *     badges render, "Under the Hood" expandable shows tool calls,
  *     guardrails, context stats. Trace-ID footer links to
  *     /inspector?session={id}.
@@ -302,7 +302,7 @@ export default function ConciergeModal() {
   const sessionId = useSessionId()
 
   const isOpen = activeModal === 'concierge'
-  const isWorkshopRoute = location.pathname.startsWith('/agent-trace')
+  const isWorkshopRoute = location.pathname.startsWith('/pellier-labs')
 
   // After the storefront hero-drawer redesign, the ConciergeModal only
   // renders on agentTrace routes. Boutique chat is handled by ChatDrawer.

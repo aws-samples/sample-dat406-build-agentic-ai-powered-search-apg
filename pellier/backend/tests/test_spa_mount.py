@@ -76,10 +76,20 @@ def test_root_mount_serves_spa_at_slash(reload_app):
 
 
 def test_root_mount_deep_link_serves_index(reload_app):
-    """React Router deep link refresh: /agent-trace/agents → index.html."""
+    """React Router deep link refresh: /pellier-labs/agents → index.html."""
     app_module = reload_app("/")
     with TestClient(app_module.app) as client:
-        r = client.get("/agent-trace/agents")
+        r = client.get("/pellier-labs/agents")
+        assert r.status_code == 200
+        assert "SPA" in r.text
+
+
+@pytest.mark.parametrize("path", ["/agent-trace/agents", "/labs/proof-board"])
+def test_root_mount_legacy_labs_links_still_serve_spa(reload_app, path: str):
+    """The client can redirect legacy browser bookmarks to /pellier-labs."""
+    app_module = reload_app("/")
+    with TestClient(app_module.app) as client:
+        r = client.get(path)
         assert r.status_code == 200
         assert "SPA" in r.text
 
@@ -123,7 +133,7 @@ def test_app_mount_bare_app_redirects_to_slash(reload_app):
 def test_app_mount_deep_link_serves_index(reload_app):
     app_module = reload_app("/app")
     with TestClient(app_module.app) as client:
-        r = client.get("/app/agent-trace/agents")
+        r = client.get("/app/pellier-labs/agents")
         assert r.status_code == 200
         assert "SPA" in r.text
 

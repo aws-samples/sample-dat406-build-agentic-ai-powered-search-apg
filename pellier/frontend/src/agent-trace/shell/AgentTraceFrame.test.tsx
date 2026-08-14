@@ -26,9 +26,9 @@ vi.mock('./AgentTraceContextBanner', () => ({
 describe('AgentTraceFrame', () => {
   it('owns the global chat shortcut while an Agent Trace route is active', async () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/proof-board']}>
+      <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
         <Routes>
-          <Route path="/agent-trace" element={<AgentTraceFrame />}>
+          <Route path="/pellier-labs" element={<AgentTraceFrame />}>
             <Route path="proof-board" element={<div>Proof board</div>} />
           </Route>
         </Routes>

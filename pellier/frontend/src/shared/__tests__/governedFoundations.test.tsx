@@ -267,7 +267,7 @@ describe('receipt links', () => {
   it('routes a known session to its telemetry evidence', () => {
     const route = receiptRoute({ sessionId: 'sess-1' })
 
-    expect(route).toBe('/agent-trace/sessions/sess-1/telemetry')
+    expect(route).toBe('/pellier-labs/sessions/sess-1/telemetry')
   })
 
   it('carries the turn id as a query parameter', () => {
@@ -278,8 +278,8 @@ describe('receipt links', () => {
 
   it('falls back to a real evidence route when the session is unknown', () => {
     // An invented session id would land the attendee on a dead view.
-    expect(receiptRoute({})).toBe('/agent-trace/audit-proof')
-    expect(receiptRoute({ sessionId: null })).toBe('/agent-trace/audit-proof')
+    expect(receiptRoute({})).toBe('/pellier-labs/audit-proof')
+    expect(receiptRoute({ sessionId: null })).toBe('/pellier-labs/audit-proof')
   })
 
   it('encodes session ids that contain URL-unsafe characters', () => {

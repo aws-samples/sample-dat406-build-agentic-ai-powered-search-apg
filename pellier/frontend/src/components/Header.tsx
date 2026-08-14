@@ -134,7 +134,7 @@ function PellierLabsLink({
 }) {
   return (
     <Link
-      to="/agent-trace"
+      to="/pellier-labs"
       data-testid={mobile ? 'pellier-labs-link-mobile' : 'pellier-labs-link'}
       onClick={onClick}
       className={[

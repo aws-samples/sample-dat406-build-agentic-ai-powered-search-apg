@@ -13,7 +13,7 @@
  *   - Crisp 1px borders, solid backgrounds, clear hierarchy
  *
  * Requirements: 15.6 (flat aesthetic, no glassmorphism/blurs/gradients)
- *               22.1 (code organization under /src/agent-trace/)
+ *               22.1 (code organization under /src/pellier-labs/)
  * ======================================================================== */
 
 @import './tokens.css';
@@ -458,5 +458,331 @@
 @media (prefers-reduced-motion: reduce) {
   .agent-trace-sidebar {
     transition: none;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Pellier Labs proof entry
+ *
+ * The canvas is decorative atmosphere only. Proof Board data and the
+ * checkpoint cards remain the source of record for every operational claim.
+ * ----------------------------------------------------------------------- */
+
+.proof-board-page {
+  max-width: 1180px;
+  padding: 16px 0 40px;
+}
+
+.pellier-labs-masthead {
+  position: relative;
+  display: flex;
+  min-height: 172px;
+  align-items: center;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--at-rule-1);
+}
+
+.pellier-labs-masthead-copy {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 500px);
+  padding: 20px 0 24px;
+}
+
+.pellier-labs-masthead-copy h1 {
+  margin: 10px 0 8px;
+  color: var(--at-ink-1);
+  font-size: clamp(32px, 3.5vw, 44px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.pellier-labs-masthead-copy > p {
+  max-width: 440px;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.pellier-labs-masthead-flow {
+  position: absolute;
+  inset: 0 -80px 0 44%;
+  pointer-events: none;
+}
+
+.pellier-labs-masthead-flow canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pellier-governed-proof-rail {
+  margin-bottom: 30px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--at-rule-1);
+}
+
+.pellier-governed-proof-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pellier-governed-proof-tab {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  min-height: 78px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--at-rule-1) !important;
+  border-radius: 6px;
+  background: var(--at-cream-2) !important;
+  color: var(--at-ink-2) !important;
+  text-align: left;
+}
+
+.pellier-governed-proof-tab[data-active='true'] {
+  border-color: color-mix(in srgb, var(--at-red-1) 52%, var(--at-rule-1)) !important;
+  background: color-mix(in srgb, var(--at-red-soft) 52%, var(--at-cream-2)) !important;
+  color: var(--at-ink-1) !important;
+  box-shadow: 0 5px 14px rgba(45, 24, 16, 0.06);
+}
+
+.pellier-governed-proof-tab:hover {
+  border-color: color-mix(in srgb, var(--at-red-1) 36%, var(--at-rule-1)) !important;
+  background: color-mix(in srgb, var(--at-red-soft) 28%, var(--at-cream-2)) !important;
+}
+
+.pellier-governed-proof-tab-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 50%;
+  background: var(--at-cream-elev);
+  color: var(--at-red-1);
+}
+
+.pellier-governed-proof-tab-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.pellier-governed-proof-tab-copy > span {
+  color: var(--at-red-1);
+  font-family: var(--at-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.pellier-governed-proof-tab-copy > strong {
+  color: inherit;
+  font-family: var(--at-heading);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.pellier-governed-proof-tab > small {
+  color: var(--at-ink-3);
+  font-family: var(--at-mono);
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.pellier-governed-proof-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.22fr) minmax(270px, 0.78fr);
+  gap: 24px;
+  padding: 20px 0 0;
+}
+
+.pellier-governed-proof-stage-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--at-ink-3);
+  font-family: var(--at-heading);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pellier-governed-proof-stage-label > span:first-child {
+  color: var(--at-red-1);
+  font-family: var(--at-mono);
+}
+
+.pellier-governed-proof-question h3 {
+  max-width: 560px;
+  margin: 10px 0 8px;
+  color: var(--at-ink-1);
+  font-family: var(--at-heading);
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.18;
+}
+
+.pellier-governed-proof-question > p {
+  max-width: 590px;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pellier-governed-proof-evidence {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--at-red-1) 24%, var(--at-card-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--at-red-soft) 25%, var(--at-card-bg));
+}
+
+.pellier-governed-proof-evidence-label {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pellier-governed-proof-evidence-label > span {
+  color: var(--at-red-1);
+  font-family: var(--at-heading);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.pellier-governed-proof-evidence > .font-mono {
+  overflow-wrap: anywhere;
+  color: var(--at-ink-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.pellier-governed-proof-evidence > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  color: var(--at-red-1);
+  font-family: var(--at-heading);
+  font-size: 12.5px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.pellier-governed-proof-evidence > a:hover {
+  text-decoration: underline;
+}
+
+.pellier-governed-proof-unavailable {
+  color: var(--at-ink-3);
+  font-family: var(--at-sans);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.proof-board-section-heading {
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .proof-board-page {
+    padding: 8px 0 32px;
+  }
+
+  .pellier-labs-masthead {
+    min-height: 164px;
+  }
+
+  .pellier-labs-masthead-flow {
+    inset-inline-start: 36%;
+    opacity: 0.72;
+  }
+
+  .pellier-governed-proof-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .proof-board-page {
+    padding: 4px 0 28px;
+  }
+
+  .pellier-labs-masthead {
+    min-height: 182px;
+  }
+
+  .pellier-labs-masthead-copy {
+    width: min(100%, 285px);
+    padding-block: 20px;
+  }
+
+  .pellier-labs-masthead-copy h1 {
+    font-size: 34px;
+  }
+
+  .pellier-labs-masthead-copy > p {
+    max-width: 280px;
+    font-size: 14px;
+  }
+
+  .pellier-labs-masthead-flow {
+    inset-inline-start: 20%;
+    opacity: 0.44;
+  }
+
+  .pellier-governed-proof-rail {
+    padding-bottom: 22px;
+  }
+
+  .pellier-governed-proof-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-bottom: 0;
+  }
+
+  .pellier-governed-proof-tab {
+    min-height: 72px;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .pellier-governed-proof-panel {
+    gap: 16px;
+    padding-top: 18px;
+  }
+
+  .proof-board-section-heading {
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .proof-board-section-heading > span {
+    max-width: 140px;
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    text-align: right;
   }
 }

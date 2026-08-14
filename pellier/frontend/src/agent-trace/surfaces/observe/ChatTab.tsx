@@ -499,7 +499,7 @@ const PlanRowDisplay: React.FC<{ plan: PlanRow; sessionId: string }> = ({
 }) => {
   const plan = normalizePlanRow(rawPlan);
   const traceTarget = plan.traceLink
-    ? `/agent-trace/sessions/${sessionId}/telemetry${plan.traceLink.startsWith('#') ? plan.traceLink : `#${plan.traceLink}`}`
+    ? `/pellier-labs/sessions/${sessionId}/telemetry${plan.traceLink.startsWith('#') ? plan.traceLink : `#${plan.traceLink}`}`
     : undefined;
   return (
     <div
@@ -1478,7 +1478,7 @@ const MemoryCard: React.FC<{ turns: ChatTurn[] }> = ({ turns }) => {
       >
         <Eyebrow label="Memory" />
         <Link
-          to="/agent-trace/architecture/memory"
+          to="/pellier-labs/architecture/memory"
           style={{
             fontFamily: 'var(--at-mono)',
             fontSize: '11px',

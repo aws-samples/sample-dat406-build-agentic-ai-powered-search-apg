@@ -29,15 +29,15 @@ describe('Agent Trace workshop map', () => {
 
     expect(screen.getByRole('link', { name: /Open retrieval comparison/i })).toHaveAttribute(
       'href',
-      '/agent-trace/performance',
+      '/pellier-labs/performance',
     );
     expect(screen.getByRole('link', { name: /Open Lab 3 proofs/i })).toHaveAttribute(
       'href',
-      '/agent-trace/proof-board#managed-rail',
+      '/pellier-labs/proof-board#managed-rail',
     );
     expect(screen.getByRole('link', { name: /Open Gateway & Policy/i })).toHaveAttribute(
       'href',
-      '/agent-trace/write-path',
+      '/pellier-labs/write-path',
     );
   });
 });

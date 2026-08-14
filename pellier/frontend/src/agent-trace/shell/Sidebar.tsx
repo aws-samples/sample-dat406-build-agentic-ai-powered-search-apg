@@ -57,7 +57,7 @@ const STATUS_LABEL: Record<LabStatus, string> = {
 function isSectionActive(section: NavSection, pathname: string): boolean {
   return section.items.some((item) => {
     const base = item.path.split('#', 1)[0];
-    const target = `/agent-trace/${base}`;
+    const target = `/pellier-labs/${base}`;
     return pathname === target || pathname.startsWith(`${target}/`);
   });
 }
@@ -436,7 +436,7 @@ const Sidebar: React.FC = () => {
 const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
   const { pathname, hash } = useLocation();
   const itemPath = item.path.split('#', 1)[0];
-  const targetPath = `/agent-trace/${itemPath}`;
+  const targetPath = `/pellier-labs/${itemPath}`;
   const routeIsActive = pathname === targetPath
     || (
       itemPath !== 'sessions'
@@ -449,7 +449,7 @@ const SidebarNavItem: React.FC<{ item: NavItemDef }> = ({ item }) => {
 
   return (
     <Link
-      to={`/agent-trace/${item.path}`}
+      to={`/pellier-labs/${item.path}`}
       // The compact rail hides the visible label, so the link carries its
       // own accessible name. Without this an icon-only rail is a row of
       // unnamed links to a screen reader.

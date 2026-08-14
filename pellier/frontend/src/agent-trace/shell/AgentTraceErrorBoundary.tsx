@@ -95,7 +95,7 @@ class AgentTraceErrorBoundary extends React.Component<
           )}
 
           <Link
-            to="/agent-trace/sessions"
+            to="/pellier-labs/sessions"
             onClick={this.handleReset}
             style={{
               fontFamily: 'var(--at-mono)',

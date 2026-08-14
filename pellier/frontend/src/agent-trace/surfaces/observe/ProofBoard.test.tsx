@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ProofBoard from './ProofBoard';
@@ -71,7 +71,24 @@ const proofBoardPayload = {
         label: 'Terminal fallback',
         command: 'curl -s http://localhost:8000/api/agent/chat',
       },
-      links: [{ label: 'Tools', to: '/agent-trace/tools' }],
+      links: [{ label: 'Tools', to: '/pellier-labs/tools' }],
+    },
+    {
+      id: 'retrieval-comparison',
+      lab: 'Lab 2: Design the Retrieval Strategy',
+      group: 'Retrieval evidence',
+      title: 'Compare retrieval strategies',
+      status: 'available',
+      required: true,
+      surface: 'Pellier Labs',
+      summary: 'The retrieval comparison keeps source and ranking evidence visible.',
+      evidenceSource: 'Aurora search strategy comparison',
+      evidence: ['Hybrid retrieval preserves candidate provenance.'],
+      fallback: {
+        label: 'Terminal fallback',
+        command: 'curl -s http://localhost:8000/api/agent/search-strategies/compare',
+      },
+      links: [{ label: 'Retrieval comparison', to: '/pellier-labs/performance' }],
     },
     {
       id: 'audit-ledger',
@@ -86,7 +103,7 @@ const proofBoardPayload = {
         label: 'SQL fallback',
         command: 'SELECT audit_id, caller, tool_name FROM pellier.tool_audit ORDER BY audit_id DESC;',
       },
-      links: [{ label: 'Sessions', to: '/agent-trace/sessions' }],
+      links: [{ label: 'Sessions', to: '/pellier-labs/sessions' }],
     },
     {
       id: 'managed-rail',
@@ -97,12 +114,31 @@ const proofBoardPayload = {
       required: true,
       surface: 'Runtime receipt',
       summary: 'After a managed Runtime turn, the receipt shows passthrough.',
-      evidence: ['JWT passthrough: true'],
+      evidence: [
+        'AgentCore Memory configured for authenticated session history',
+        'JWT passthrough: true',
+      ],
       fallback: {
         label: 'Terminal fallback',
         command: 'curl -N http://localhost:8000/api/agent/chat',
       },
-      links: [{ label: 'Sessions', to: '/agent-trace/sessions' }],
+      links: [{ label: 'Sessions', to: '/pellier-labs/sessions' }],
+    },
+    {
+      id: 'runtime-gateway-policy',
+      lab: 'Lab 4: Govern and Trace Agent Actions',
+      group: 'Governance evidence',
+      title: 'Verify Gateway, Cedar, and the governed receipt',
+      status: 'complete',
+      required: true,
+      surface: 'Gateway policy receipt',
+      summary: 'The Gateway decision and the corresponding audit row are correlated.',
+      evidence: ['ALLOW receipt linked to tool_audit 303.'],
+      fallback: {
+        label: 'Terminal fallback',
+        command: 'curl -s http://localhost:8000/api/agent-trace/proof-board',
+      },
+      links: [{ label: 'Gateway & Policy', to: '/pellier-labs/write-path' }],
     },
   ],
 };
@@ -127,7 +163,8 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Evidence checkpoints, in lab order.')).toBeInTheDocument();
+    expect(await screen.findByText('Proof Board')).toBeInTheDocument();
+    expect(screen.getByTestId('governed-proof-rail')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/agent-trace/proof-board', {
       credentials: 'include',
     });
@@ -173,6 +210,76 @@ describe('ProofBoard', () => {
     expect(screen.getAllByText('Lab 3: Run Agents in a Managed Runtime').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
+  });
+
+  it('keeps the governed path compact until a participant selects a stage', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify(proofBoardPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    render(
+      <MemoryRouter>
+        <ProofBoard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('tab', { name: /Ground answers/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('tab', { name: /Runtime & memory/i }));
+    expect(screen.getByRole('tabpanel')).toHaveTextContent(
+      'AgentCore Memory configured for authenticated session history',
+    );
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('Memory and managed receipt');
+
+    fireEvent.click(screen.getByRole('tab', { name: /Policy & receipt/i }));
+
+    expect(screen.getByRole('tab', { name: /Policy & receipt/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tabpanel')).toHaveTextContent(
+      'Was the action allowed, stopped, or recorded with evidence?',
+    );
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('ALLOW · tool_audit 303');
+    expect(screen.getByRole('link', { name: 'Open checkpoint' }))
+      .toHaveAttribute('href', '#runtime-gateway-policy');
+  });
+
+  it('fails closed when a proof-board response is missing a required checkpoint', async () => {
+    const cards = proofBoardPayload.cards.filter((card) => card.id !== 'retrieval-comparison');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ ...proofBoardPayload, cards }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    render(
+      <MemoryRouter>
+        <ProofBoard />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId('governed-proof-rail');
+    fireEvent.click(screen.getByRole('tab', { name: /Retrieval/i }));
+
+    const panel = screen.getByRole('tabpanel');
+    expect(panel).toHaveTextContent('Evidence unavailable');
+    expect(panel).toHaveTextContent(
+      'This Proof Board response does not include the checkpoint required for this stage.',
+    );
+    expect(panel.querySelector('a')).toBeNull();
   });
 
   it('renders Gateway/Cedar DENY as a verified no-row proof', async () => {
@@ -276,7 +383,7 @@ describe('ProofBoard', () => {
     );
 
     render(
-      <MemoryRouter initialEntries={['/agent-trace/proof-board?turn=turn-live']}>
+      <MemoryRouter initialEntries={['/pellier-labs/proof-board?turn=turn-live']}>
         <ProofBoard />
       </MemoryRouter>,
     );
@@ -304,7 +411,7 @@ describe('ProofBoard', () => {
     );
 
     render(
-      <MemoryRouter initialEntries={['/agent-trace/audit-proof']}>
+      <MemoryRouter initialEntries={['/pellier-labs/audit-proof']}>
         <ProofBoard focusCardId="audit-ledger" />
       </MemoryRouter>,
     );
@@ -327,7 +434,7 @@ describe('ProofBoard', () => {
     expect(screen.queryByText('Lab checkpoints')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'All checkpoints' })).toHaveAttribute(
       'href',
-      '/agent-trace/proof-board',
+      '/pellier-labs/proof-board',
     );
   });
 });

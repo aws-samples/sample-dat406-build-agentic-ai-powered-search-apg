@@ -7,9 +7,19 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Cpu,
+  Database,
+  ExternalLink,
+  Search,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import { EditorialTitle, Eyebrow } from '../../components';
 import { PolicyDecisionBadge, type PolicyDecision } from '../../../shared';
+import { PellierLabsMasthead } from './PellierLabsMasthead';
 
 type CheckState = 'pass' | 'warn' | 'fail';
 type CardStatus = 'complete' | 'needs_build' | 'needs_run' | 'needs_data' | 'needs_config' | 'pending' | 'available';
@@ -187,6 +197,55 @@ const LAB_BY_CARD_ID: Record<string, string> = {
   'runtime-gateway-policy': 'Lab 4: Govern and Trace Agent Actions',
 };
 
+interface GovernedProofStage {
+  id: 'ground' | 'retrieval' | 'managed' | 'governed';
+  number: string;
+  title: string;
+  question: string;
+  description: string;
+  cardIds: string[];
+  icon: LucideIcon;
+}
+
+const GOVERNED_PROOF_STAGES: GovernedProofStage[] = [
+  {
+    id: 'ground',
+    number: '01',
+    title: 'Ground answers',
+    question: 'Can Pellier answer from a verified operational fact?',
+    description: 'Start with the Aurora-backed tool result that makes the answer inspectable.',
+    cardIds: ['marco-floor-check'],
+    icon: Database,
+  },
+  {
+    id: 'retrieval',
+    number: '02',
+    title: 'Retrieval',
+    question: 'Can the answer show why these records were selected?',
+    description: 'Inspect the retrieval comparison before any model explanation is accepted.',
+    cardIds: ['retrieval-comparison'],
+    icon: Search,
+  },
+  {
+    id: 'managed',
+    number: '03',
+    title: 'Runtime & memory',
+    question: 'Can managed execution and state be correlated to a receipt?',
+    description: 'The managed Runtime boundary carries the session and trace evidence forward.',
+    cardIds: ['managed-rail', 'audit-ledger'],
+    icon: Cpu,
+  },
+  {
+    id: 'governed',
+    number: '04',
+    title: 'Policy & receipt',
+    question: 'Was the action allowed, stopped, or recorded with evidence?',
+    description: 'Finish at the Gateway, Cedar decision, and linked Aurora audit evidence.',
+    cardIds: ['runtime-gateway-policy'],
+    icon: ShieldCheck,
+  },
+];
+
 function cardLab(card: ProofCard): string {
   return LAB_BY_CARD_ID[card.id] ?? card.lab ?? 'Lab checkpoint';
 }
@@ -241,6 +300,146 @@ function statusPill(status: CardStatus) {
   );
 }
 
+function stageReceiptDetail(
+  stage: GovernedProofStage,
+  card: ProofCard | undefined,
+  receipt: ManagedReceipt,
+) {
+  if (stage.id === 'managed' && receipt.present) {
+    const memoryEvidence = card?.evidence.find((item) => /memory/i.test(item));
+    const detail = [
+      memoryEvidence,
+      receipt.runtime || 'Managed Runtime',
+      receipt.rail || 'managed rail',
+      receipt.sessionId ? `session ${receipt.sessionId}` : undefined,
+      receipt.traceId || receipt.managedTrace?.traceId,
+    ].filter(Boolean).join(' · ');
+    return {
+      label: memoryEvidence ? 'Memory and managed receipt' : 'Managed receipt',
+      detail,
+    };
+  }
+
+  if (stage.id === 'governed' && receipt.governedReceiptPresent) {
+    const detail = [
+      receipt.governedDecision,
+      receipt.governedPolicyName,
+      receipt.gatewayAuditPresent
+        ? `tool_audit ${receipt.latestGatewayAuditId ?? 'recorded'}`
+        : receipt.gatewayAuditAbsenceVerified
+          ? 'no execution row after DENY'
+          : undefined,
+    ].filter(Boolean).join(' · ');
+    return {
+      label: 'Governed receipt',
+      detail,
+    };
+  }
+
+  if (card) {
+    return {
+      label: card.evidenceSource ? 'Evidence source' : 'Latest checkpoint',
+      detail: card.evidenceSource ?? card.evidence[0] ?? card.summary,
+    };
+  }
+
+  return {
+    label: 'Evidence unavailable',
+    detail: 'This Proof Board response does not include the checkpoint required for this stage.',
+  };
+}
+
+const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt }> = ({
+  cards,
+  receipt,
+}) => {
+  const [activeStageId, setActiveStageId] = useState<GovernedProofStage['id']>('ground');
+  const activeStage = GOVERNED_PROOF_STAGES.find((stage) => stage.id === activeStageId)
+    ?? GOVERNED_PROOF_STAGES[0];
+  const activeCard = activeStage.cardIds
+    .map((cardId) => cards.find((card) => card.id === cardId))
+    .find((card): card is ProofCard => Boolean(card));
+  const evidence = stageReceiptDetail(activeStage, activeCard, receipt);
+
+  return (
+    <section
+      aria-label="Governed proof journey"
+      className="pellier-governed-proof-rail"
+      data-testid="governed-proof-rail"
+    >
+      <div
+        aria-label="Governed proof stages"
+        className="pellier-governed-proof-tabs"
+        role="tablist"
+      >
+        {GOVERNED_PROOF_STAGES.map((stage) => {
+          const isActive = stage.id === activeStage.id;
+          const stageCard = stage.cardIds
+            .map((cardId) => cards.find((card) => card.id === cardId))
+            .find((card): card is ProofCard => Boolean(card));
+          const StageIcon = stage.icon;
+          return (
+            <button
+              aria-controls={`governed-proof-panel-${stage.id}`}
+              aria-selected={isActive}
+              className="pellier-governed-proof-tab"
+              data-active={isActive ? 'true' : 'false'}
+              data-testid={`governed-proof-stage-${stage.id}`}
+              id={`governed-proof-tab-${stage.id}`}
+              key={stage.id}
+              onClick={() => setActiveStageId(stage.id)}
+              role="tab"
+              type="button"
+            >
+              <span className="pellier-governed-proof-tab-icon" aria-hidden="true">
+                <StageIcon size={17} strokeWidth={1.7} />
+              </span>
+              <span className="pellier-governed-proof-tab-copy">
+                <span>{stage.number}</span>
+                <strong>{stage.title}</strong>
+              </span>
+              <small>{stageCard ? STATUS_LABEL[stageCard.status] : 'Unavailable'}</small>
+            </button>
+          );
+        })}
+      </div>
+
+      <article
+        aria-labelledby={`governed-proof-tab-${activeStage.id}`}
+        className="pellier-governed-proof-panel"
+        id={`governed-proof-panel-${activeStage.id}`}
+        role="tabpanel"
+      >
+        <div className="pellier-governed-proof-question">
+          <div className="pellier-governed-proof-stage-label">
+            <span>{activeStage.number}</span>
+            <span>{activeStage.title}</span>
+          </div>
+          <h3>{activeStage.question}</h3>
+          <p>{activeStage.description}</p>
+        </div>
+        <div className="pellier-governed-proof-evidence">
+          <div className="pellier-governed-proof-evidence-label">
+            <span>{evidence.label}</span>
+            {activeCard ? statusPill(activeCard.status) : null}
+          </div>
+          <p className="font-mono">{evidence.detail}</p>
+          {activeCard ? (
+            <a href={`#${activeCard.id}`}>
+              Open checkpoint
+              <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          ) : (
+            <p className="pellier-governed-proof-unavailable" role="status">
+              Run the required lab or update the governed backend before using this stage as proof.
+            </p>
+          )}
+        </div>
+      </article>
+    </section>
+  );
+};
+
 const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => {
   const tone = CHECK_TONE[state];
   return (
@@ -268,6 +467,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
   return (
     <section aria-label="Environment readiness" style={{ marginBottom: '32px' }}>
       <div
+        className="proof-board-section-heading"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -276,7 +476,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
           marginBottom: '14px',
         }}
       >
-        <Eyebrow label="Readiness panel" />
+        <Eyebrow label="Readiness" />
         <span
           style={{
             fontFamily: 'var(--at-heading)',
@@ -287,7 +487,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
             color: 'var(--at-ink-3)',
           }}
         >
-          No service calls from this view
+          Read only
         </span>
       </div>
       <div
@@ -1336,10 +1536,10 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
   );
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1180px' }}>
+    <div className="proof-board-page">
       {isAuditFocus && (
         <Link
-          to="/agent-trace/proof-board"
+          to="/pellier-labs/proof-board"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -1356,15 +1556,15 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
           All checkpoints
         </Link>
       )}
-      <EditorialTitle
-        eyebrow={isAuditFocus ? 'Lab 3 · Run Agents in a Managed Runtime' : 'Labs 1-4 · Proof Board'}
-        title={isAuditFocus ? 'Audit proof, row by row.' : 'Evidence checkpoints, in lab order.'}
-        summary={
-          isAuditFocus
-            ? 'A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present.'
-            : "Use this board when a required lab asks for a Pellier Labs check. Checkpoints follow the four-lab order; Memory, managed Runtime, Gateway, and Policy are required in the governed format."
-        }
-      />
+      {isAuditFocus ? (
+        <EditorialTitle
+          eyebrow="Lab 3 · Run Agents in a Managed Runtime"
+          title="Audit proof, row by row."
+          summary="A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present."
+        />
+      ) : (
+        <PellierLabsMasthead />
+      )}
 
       {turnReceipt && <PersistedTurnReceiptPanel receipt={turnReceipt} />}
 
@@ -1415,6 +1615,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
           )
         ) : (
           <>
+            <GovernedProofRail cards={data.cards} receipt={data.managedReceipt} />
             <ReadinessPanel checks={data.readiness.checks} />
 
             <ProofRail

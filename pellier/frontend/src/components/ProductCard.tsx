@@ -66,7 +66,7 @@ interface ProductCardProps {
 /**
  * Derive two trace chips from a product's reasoning chip style + tags
  * when the caller doesn't supply explicit traces. Picks the trace
- * vocabulary so it lines up with the agent surfaces inside /agent-trace
+ * vocabulary so it lines up with the agent surfaces inside /pellier-labs
  * (memory · tools · trend · inventory · pairing), keeping the
  * consumer-facing storefront and developer-facing observatory in the
  * same language.

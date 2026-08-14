@@ -1,13 +1,9 @@
 /**
- * First-visit orientation is actually mounted (audit finding D5).
+ * Boutique orientation remains session-gated. Pellier Labs intentionally
+ * avoids a blocking tour: its Proof Board supplies persistent orientation.
  *
- * The repository shipped `BoutiqueSpotlight` and `AgentTraceSpotlight` as
- * complete, session-gated components that nothing rendered. Dead
- * onboarding code is worse than none: it reads as a delivered feature in
- * review while an attendee lands on four unexplained surfaces.
- *
- * These tests assert the components are referenced by the pages that own
- * them, and that the session gate still suppresses a repeat showing.
+ * The storefront benefits from a short welcome. Pellier Labs is a workshop
+ * surface, where an interstitial hides the proof a participant came to see.
  */
 import { render } from '@testing-library/react';
 import { describe, expect, it, beforeEach } from 'vitest';
@@ -21,7 +17,7 @@ function read(relativePath: string): string {
   return readFileSync(resolve(SRC, relativePath), 'utf8');
 }
 
-describe('first-visit orientation is mounted', () => {
+describe('first-visit orientation', () => {
   it('BoutiquePage renders BoutiqueSpotlight', () => {
     const page = read('pages/BoutiquePage.tsx');
 
@@ -29,32 +25,20 @@ describe('first-visit orientation is mounted', () => {
     expect(page).toContain('<BoutiqueSpotlight />');
   });
 
-  it('AgentTraceFrame renders AgentTraceSpotlight', () => {
+  it('AgentTraceFrame does not mount a blocking Pellier Labs tour', () => {
     const frame = read('agent-trace/shell/AgentTraceFrame.tsx');
 
-    expect(frame).toContain('AgentTraceSpotlight');
-    expect(frame).toContain('<AgentTraceSpotlight />');
+    expect(frame).not.toContain('AgentTraceSpotlight');
   });
 
-  it('both spotlights are session-gated so they show at most once', () => {
-    // A tour that reappears on every route change is worse than no tour.
-    for (const file of [
-      'components/BoutiqueSpotlight.tsx',
-      'components/AgentTraceSpotlight.tsx',
-    ]) {
-      expect(read(file)).toContain('sessionStorage');
-    }
+  it('the Boutique spotlight is session-gated so it shows at most once', () => {
+    expect(read('components/BoutiqueSpotlight.tsx')).toContain('sessionStorage');
   });
 
-  it('both spotlights are dismissible', () => {
-    for (const file of [
-      'components/BoutiqueSpotlight.tsx',
-      'components/AgentTraceSpotlight.tsx',
-    ]) {
-      const source = read(file);
-      // Escape key handling is the skip affordance.
-      expect(source).toContain('Escape');
-    }
+  it('the Boutique spotlight is dismissible', () => {
+    const source = read('components/BoutiqueSpotlight.tsx');
+    // Escape key handling is the skip affordance.
+    expect(source).toContain('Escape');
   });
 });
 

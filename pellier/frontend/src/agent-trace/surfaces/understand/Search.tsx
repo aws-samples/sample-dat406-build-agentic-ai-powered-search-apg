@@ -374,7 +374,7 @@ const CodeReadCard: React.FC = () => (
       }}
     >
       <Link
-        to="/agent-trace/proof-board#retrieval-comparison"
+        to="/pellier-labs/proof-board#retrieval-comparison"
         style={{
           fontFamily: 'var(--at-mono)',
           fontSize: '12px',

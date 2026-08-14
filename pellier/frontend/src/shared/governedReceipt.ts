@@ -9,8 +9,8 @@
  * basename. Nothing concatenates `location.origin`.
  *
  * **Real routes only.** These functions target destinations that already
- * exist in `App.tsx` — `/agent-trace/proof-board`,
- * `/agent-trace/sessions/:id/telemetry`, `/agent-trace/audit-proof`, and
+ * exist in `App.tsx` — `/pellier-labs/proof-board`,
+ * `/pellier-labs/sessions/:id/telemetry`, `/pellier-labs/audit-proof`, and
  * `/inspector`. No route is invented here; a link to a non-existent path
  * would silently fall through to the catch-all redirect and land the
  * attendee on the Boutique home page, which reads as "the evidence is
@@ -57,11 +57,11 @@ function withQuery(path: string, params: Record<string, string | null | undefine
  */
 export function receiptRoute(target: ReceiptTarget): string {
   if (target.turnId) {
-    return withQuery('/agent-trace/proof-board', { [TURN_QUERY_KEY]: target.turnId })
+    return withQuery('/pellier-labs/proof-board', { [TURN_QUERY_KEY]: target.turnId })
   }
-  if (!target.sessionId) return '/agent-trace/audit-proof'
+  if (!target.sessionId) return '/pellier-labs/audit-proof'
   return withQuery(
-    `/agent-trace/sessions/${encodeURIComponent(target.sessionId)}/telemetry`,
+    `/pellier-labs/sessions/${encodeURIComponent(target.sessionId)}/telemetry`,
     { trace: target.traceId },
   )
 }

@@ -19,7 +19,7 @@ import TopBar from './TopBar'
 describe('Pellier Labs TopBar', () => {
   it('provides one explicit route back to Pellier', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/proof-board']}>
+      <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
         <TopBar />
       </MemoryRouter>,
     )
@@ -30,7 +30,7 @@ describe('Pellier Labs TopBar', () => {
 
   it('keeps the current Labs route in the breadcrumb', () => {
     render(
-      <MemoryRouter initialEntries={['/agent-trace/proof-board']}>
+      <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
         <TopBar />
       </MemoryRouter>,
     )

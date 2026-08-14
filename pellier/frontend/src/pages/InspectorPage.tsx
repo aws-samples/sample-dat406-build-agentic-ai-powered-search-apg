@@ -113,7 +113,7 @@ export default function InspectorPage() {
         style={{ borderBottom: `1px solid var(--dl-line)` }}
       >
         <Link
-          to="/agent-trace"
+          to="/pellier-labs"
           className="inline-flex items-center gap-2 text-sm"
           style={{ color: c.ink2 }}
         >
@@ -141,8 +141,8 @@ export default function InspectorPage() {
         <p className="text-sm mb-8" style={{ color: c.ink2 }}>
           Frozen view of agent reasoning for the requested session. Live
           updates continue to flow inside the Concierge modal on
-          <Link to="/agent-trace" className="underline mx-1" style={{ color: c.accent }}>
-            /agent-trace
+          <Link to="/pellier-labs" className="underline mx-1" style={{ color: c.accent }}>
+            /pellier-labs
           </Link>
           — the inspector only reflects what was captured when this page loaded.
         </p>

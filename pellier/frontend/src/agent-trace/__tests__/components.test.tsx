@@ -269,7 +269,7 @@ describe('operational UI typography', () => {
           ]}
           onChange={() => {}}
         />
-        <BreadcrumbTrail segments={['Agent Trace', 'Tool Registry']} />
+        <BreadcrumbTrail segments={['Pellier Labs', 'Tool Registry']} />
       </>,
     );
 

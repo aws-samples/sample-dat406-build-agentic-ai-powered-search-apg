@@ -1226,7 +1226,7 @@
 /* ==========================================================================
  * Evaluations page (ev-*) — Template A, mental-model.
  *
- * Matches docs/agent-trace-evaluations-architecture.html. Three accent
+ * Matches docs/pellier-labs-evaluations-architecture.html. Three accent
  * colors in play: green (truth), burgundy (taste), amber (telemetry).
  * --amber-1 is defined in src/index.css :root and scoped here for now.
  * ========================================================================== */
@@ -1637,7 +1637,7 @@
 /* ==========================================================================
  * Grounding / Approvals / Guardrails page (gt-*) — Template E
  *
- * Matches docs/agent-trace-grounding-architecture.html. Three accent colors
+ * Matches docs/pellier-labs-grounding-architecture.html. Three accent colors
  * in parallel: green (guardrails), amber (approvals), burgundy
  * (grounding). The approvals queue section overrides the frame tick
  * to amber via .gt-queue-wrap .at-frame::before.

@@ -7,7 +7,7 @@
  * The Skills page is the visual contract. Every component here ships
  * with the exact styling Skills used, extracted so the other pages
  * mirror it byte-for-byte. Styling lives in
- * ``src/styles/agent-trace-shared.css`` — all colors reference CSS custom
+ * ``src/styles/pellier-labs-shared.css`` — all colors reference CSS custom
  * properties from ``src/index.css :root``.
  *
  * Token additions for this module:

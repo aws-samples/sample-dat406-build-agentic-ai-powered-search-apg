@@ -473,7 +473,7 @@ async def _collect_readiness() -> dict[str, Any]:
             label="Aurora PostgreSQL",
             state="fail",
             detail="Database unavailable to the backend.",  # copy-allow: agent-trace-readiness-detail
-            href="/agent-trace/search",
+            href="/pellier-labs/search",
         ))
     else:
         catalog_count = counts["catalog_count"]
@@ -492,7 +492,7 @@ async def _collect_readiness() -> dict[str, Any]:
                 f"{' (expected exactly 120)' if governed_format else ''}, "
                 f"audit ledger {audit_count} rows."
             ),
-            href="/agent-trace/search",
+            href="/pellier-labs/search",
         ))
 
     cognito_ready = _gateway_identity_configured(settings)
@@ -506,7 +506,7 @@ async def _collect_readiness() -> dict[str, Any]:
             else "Missing Cognito pool/client/test credential secret; Gateway JWT proof cannot run."
         ),
         required=governed_format,
-        href="/agent-trace/production-patterns",
+        href="/pellier-labs/production-patterns",
     ))
 
     memory_configured = _configured(settings.AGENTCORE_MEMORY_ID)
@@ -520,7 +520,7 @@ async def _collect_readiness() -> dict[str, Any]:
             else "AGENTCORE_MEMORY_ID empty; working and semantic memory cannot show managed records."
         ),
         required=governed_format,
-        href="/agent-trace/memory",
+        href="/pellier-labs/memory",
     ))
 
     runtime_configured = _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
@@ -534,7 +534,7 @@ async def _collect_readiness() -> dict[str, Any]:
             else "AGENTCORE_RUNTIME_ENDPOINT empty; managed runtime invoke cannot be demonstrated."
         ),
         required=governed_format,
-        href="/agent-trace/proof-board#managed-rail",
+        href="/pellier-labs/proof-board#managed-rail",
     ))
 
     gateway_configured = _configured(settings.AGENTCORE_GATEWAY_URL)
@@ -548,7 +548,7 @@ async def _collect_readiness() -> dict[str, Any]:
             else "AGENTCORE_GATEWAY_URL empty; Gateway/JWT tool calls cannot run."
         ),
         required=governed_format,
-        href="/agent-trace/proof-board#managed-rail",
+        href="/pellier-labs/proof-board#managed-rail",
     ))
 
     policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
@@ -563,7 +563,7 @@ async def _collect_readiness() -> dict[str, Any]:
             else "Policy engine id empty; live Gateway ALLOW/DENY enforcement cannot run."
         ),
         required=governed_format,
-        href="/agent-trace/write-path",
+        href="/pellier-labs/write-path",
     ))
 
     model_ids = {
@@ -584,7 +584,7 @@ async def _collect_readiness() -> dict[str, Any]:
             if model_ready
             else "One or more model ids are empty; run the model-access preflight."
         ),
-        href="/agent-trace/settings",
+        href="/pellier-labs/settings",
     ))
 
     blocking = [c for c in checks if c["required"] and c["state"] == "fail"]
@@ -734,8 +734,8 @@ async def _collect_proof_board(
                 ),
             },
             "links": [
-                {"label": "Tools", "to": "/agent-trace/tools"},
-                {"label": "Sessions", "to": "/agent-trace/sessions"},
+                {"label": "Tools", "to": "/pellier-labs/tools"},
+                {"label": "Sessions", "to": "/pellier-labs/sessions"},
             ],
         },
         {
@@ -765,8 +765,8 @@ async def _collect_proof_board(
                 ),
             },
             "links": [
-                {"label": "Retrieval comparison", "to": "/agent-trace/performance"},
-                {"label": "Search pipeline", "to": "/agent-trace/search"},
+                {"label": "Retrieval comparison", "to": "/pellier-labs/performance"},
+                {"label": "Search pipeline", "to": "/pellier-labs/search"},
             ],
         },
         {
@@ -814,7 +814,7 @@ async def _collect_proof_board(
                 ),
             },
             "links": [
-                {"label": "Write-path", "to": "/agent-trace/write-path"},
+                {"label": "Write-path", "to": "/pellier-labs/write-path"},
             ],
         },
         {
@@ -847,7 +847,7 @@ async def _collect_proof_board(
                 "command": "grep -E 'COGNITO|AGENTCORE_(RUNTIME|GATEWAY|POLICY)' pellier/backend/.env",
             },
             "links": [
-                {"label": "Write-path", "to": "/agent-trace/write-path"},
+                {"label": "Write-path", "to": "/pellier-labs/write-path"},
             ],
         },
         {
@@ -907,9 +907,9 @@ async def _collect_proof_board(
                 ),
             },
             "links": [
-                {"label": "Memory", "to": "/agent-trace/memory"},
-                {"label": "Proof Board", "to": "/agent-trace/proof-board#managed-rail"},
-                {"label": "Sessions", "to": "/agent-trace/sessions"},
+                {"label": "Memory", "to": "/pellier-labs/memory"},
+                {"label": "Proof Board", "to": "/pellier-labs/proof-board#managed-rail"},
+                {"label": "Sessions", "to": "/pellier-labs/sessions"},
             ],
         },
     ]
@@ -1721,7 +1721,7 @@ async def get_proof_board(
     The payload is intentionally operational: each card has a stable
     ``id`` for URL anchors, a status, short evidence lines, and a
     curl/SQL fallback. The frontend renders it at
-    ``/agent-trace/proof-board`` and Boutique trace chips deep-link to
+    ``/pellier-labs/proof-board`` and Boutique trace chips deep-link to
     individual anchors.
     """
     try:

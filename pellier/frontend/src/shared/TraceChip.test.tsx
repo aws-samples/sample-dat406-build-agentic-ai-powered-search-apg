@@ -8,7 +8,7 @@ describe('TraceChip', () => {
 
     expect(screen.getByTestId('trace-chip-memory.recall')).toHaveAttribute(
       'href',
-      '/agent-trace/proof-board?from=boutique&trace=memory.recall#runtime-gateway-policy',
+      '/pellier-labs/proof-board?from=boutique&trace=memory.recall#runtime-gateway-policy',
     )
   })
 })

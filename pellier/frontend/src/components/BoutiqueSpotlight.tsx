@@ -6,9 +6,8 @@
  * for those curious about what's under the hood. Shows once per browser
  * session (sessionStorage gate).
  *
- * Mirrors AgentTraceSpotlight in structure, animation, keyboard handling,
- * and visual language. Only the content, the final-step CTA copy, and
- * the sessionStorage key differ.
+ * Uses the same session-gated, keyboard-accessible interaction model as
+ * the boutique welcome surface. The content and final CTA stay boutique-specific.
  *
  * Keyboard: Escape dismisses. ArrowRight / Enter advance. ArrowLeft
  * goes back.

@@ -1021,7 +1021,7 @@ const Routing: React.FC = () => {
         }}
       >
         <Link
-          to="/agent-trace/architecture/state-management"
+          to="/pellier-labs/architecture/state-management"
           style={{ color: 'var(--at-burgundy)', textDecoration: 'none' }}
         >
           → Architecture brief: Routing & State

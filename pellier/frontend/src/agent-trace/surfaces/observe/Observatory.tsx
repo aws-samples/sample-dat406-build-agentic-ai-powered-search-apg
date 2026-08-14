@@ -52,14 +52,14 @@ const LABS: LabItem[] = [
     summary:
       "Complete Stock Keeper and floor_check, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
-      to: '/agent-trace/proof-board#marco-floor-check',
+      to: '/pellier-labs/proof-board#marco-floor-check',
       label: 'Open floor_check proof',
       detail: 'Lab 1 checkpoint',
       testId: 'observatory-cta-proof-board',
     },
     secondary: [
       {
-        to: '/agent-trace/tools',
+        to: '/pellier-labs/tools',
         label: 'Tool Registry',
         detail: 'Before-and-after visual',
       },
@@ -71,18 +71,18 @@ const LABS: LabItem[] = [
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
-      to: '/agent-trace/performance',
+      to: '/pellier-labs/performance',
       label: 'Open retrieval comparison',
       detail: 'Pellier Labs visual',
     },
     secondary: [
       {
-        to: '/agent-trace/proof-board#retrieval-comparison',
+        to: '/pellier-labs/proof-board#retrieval-comparison',
         label: 'Retrieval checkpoint',
         detail: 'Lab 2 proof card',
       },
       {
-        to: '/agent-trace/search',
+        to: '/pellier-labs/search',
         label: 'Search Pipeline',
         detail: 'Mechanism read',
       },
@@ -94,18 +94,18 @@ const LABS: LabItem[] = [
     summary:
       "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {
-      to: '/agent-trace/proof-board#managed-rail',
+      to: '/pellier-labs/proof-board#managed-rail',
       label: 'Open Lab 3 proofs',
       detail: 'Managed rail and audit evidence',
     },
     secondary: [
       {
-        to: '/agent-trace/memory',
+        to: '/pellier-labs/memory',
         label: 'Memory',
         detail: 'Cross-turn continuity',
       },
       {
-        to: '/agent-trace/proof-board#audit-ledger',
+        to: '/pellier-labs/proof-board#audit-ledger',
         label: 'Audit proof',
         detail: 'SQL remains canonical',
       },
@@ -117,18 +117,18 @@ const LABS: LabItem[] = [
     summary:
       'Bind JWT identity to the requested customer, prove DENY leaves no execution row, confirm the matching identity executes, and reset the participant policy.',
     primary: {
-      to: '/agent-trace/write-path',
+      to: '/pellier-labs/write-path',
       label: 'Open Gateway & Policy',
       detail: 'Pellier Labs visual',
     },
     secondary: [
       {
-        to: '/agent-trace/proof-board#runtime-gateway-policy',
+        to: '/pellier-labs/proof-board#runtime-gateway-policy',
         label: 'Policy checkpoint',
         detail: 'Lab 4 proof card',
       },
       {
-        to: '/agent-trace/proof-board#managed-rail',
+        to: '/pellier-labs/proof-board#managed-rail',
         label: 'Governed receipt',
         detail: 'Runtime, Gateway, and JWT',
       },
