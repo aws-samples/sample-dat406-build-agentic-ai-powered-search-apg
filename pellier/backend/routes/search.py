@@ -217,7 +217,7 @@ async def storefront_search(
             # ``embed_query`` raises on empty input; the pydantic
             # min_length=1 guard makes this nearly unreachable, but
             # defense-in-depth keeps the error envelope clean.
-            raise HTTPException(status_code=400, detail=str(exc))
+            raise HTTPException(status_code=400, detail="invalid_query") from exc
         query_embedding_ms = int(
             round((time.perf_counter() - embed_start) * 1000)
         )

@@ -783,12 +783,19 @@ def main() -> int:
             )
         result["status"] = "ready"
         output_path.write_text(json.dumps(result, indent=2) + "\n")
-        print(json.dumps(result))
+        output_path.chmod(0o600)
+        print(json.dumps({"status": "ready", "output_json": str(output_path)}))
         return 0
     except (ClientError, RuntimeError, OSError, ValueError) as exc:
         result["error"] = str(exc)
         output_path.write_text(json.dumps(result, indent=2) + "\n")
-        print(json.dumps(result), file=sys.stderr)
+        output_path.chmod(0o600)
+        print(
+            json.dumps(
+                {"status": "failed", "output_json": str(output_path)}
+            ),
+            file=sys.stderr,
+        )
         return 1
 
 

@@ -249,9 +249,20 @@ log "Installing uv..."
 if ! sudo -u "$CODE_EDITOR_USER" bash -c 'export PATH="$HOME/.local/bin:$PATH" && command -v uv' &>/dev/null; then
     sudo -u "$CODE_EDITOR_USER" bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh' &>/dev/null || \
     sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user uv &>/dev/null
-    log "✅ uv installed"
+fi
+uv_bin="$(
+    sudo -u "$CODE_EDITOR_USER" bash -c \
+        'export PATH="$HOME/.local/bin:$PATH" && command -v uv' 2>/dev/null \
+        || true
+)"
+if [ -n "$uv_bin" ] \
+    && sudo -u "$CODE_EDITOR_USER" "$uv_bin" --version &>/dev/null; then
+    ln -sf "$uv_bin" /usr/local/bin/uv
+    /usr/local/bin/uv --version &>/dev/null \
+        || fail "uv could not be exposed to bootstrap and participant shells"
+    log "✅ uv installed and usable (${uv_bin})"
 else
-    log "✅ uv already installed"
+    fail "uv is missing or unusable; required participant Python commands cannot run"
 fi
 
 # ============================================================================
@@ -610,7 +621,7 @@ fi
 # STEP 14: AUTO-START PELLIER SERVICE (single-process, port 8000)
 # ============================================================================
 # Single systemd service. FastAPI serves:
-#   - the built SPA at /, /agent-trace, /storyboard, /discover, ...
+#   - the built SPA at /, /pellier-labs, /storyboard, /discover, ...
 #   - the API at /api/*
 #   - self-hosted fonts + hashed bundles at /assets/*, /fonts/*
 #

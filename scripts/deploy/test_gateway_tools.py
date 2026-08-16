@@ -12,8 +12,9 @@ import os
 import sys
 
 import anyio
+import httpx
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 
 EXPECTED_TOOLS = {
@@ -41,14 +42,20 @@ def _canonical_name(name: str) -> str:
 
 
 async def _discover_gateway_tools(gateway_url: str, token: str):
-    async with streamablehttp_client(
-        gateway_url,
+    timeout = httpx.Timeout(30.0, read=300.0)
+    async with httpx.AsyncClient(
         headers={"Authorization": f"Bearer {token}"},
-    ) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.list_tools()
-            return result.tools
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        async with streamable_http_client(
+            gateway_url,
+            http_client=http_client,
+        ) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.list_tools()
+                return result.tools
 
 
 def discover_gateway_tools(gateway_url: str, token: str):

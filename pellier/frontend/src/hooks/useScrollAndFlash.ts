@@ -78,19 +78,8 @@ function resolveTarget(
     return panels[idx - 1] ?? null
   }
   // Fall back to the panel tag lookup.
-  return container.querySelector<HTMLElement>(
-    `[data-testid="panel-card-${cssEscape(traceRef)}"]`,
-  )
-}
-
-/**
- * CSS.escape isn't available in all jsdom versions; fall back to a
- * minimal escaper that handles the characters that appear in our
- * panel tags ("·" and spaces).
- */
-function cssEscape(value: string): string {
-  if (typeof (globalThis as unknown as { CSS?: { escape?: (s: string) => string } }).CSS?.escape === 'function') {
-    return (globalThis as unknown as { CSS: { escape: (s: string) => string } }).CSS.escape(value)
-  }
-  return value.replace(/"/g, '\\"')
+  const expectedTestId = `panel-card-${traceRef}`
+  return Array.from(
+    container.querySelectorAll<HTMLElement>('[data-testid^="panel-card-"]'),
+  ).find((panel) => panel.dataset.testid === expectedTestId) ?? null
 }

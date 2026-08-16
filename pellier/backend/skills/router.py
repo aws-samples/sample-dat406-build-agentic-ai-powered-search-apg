@@ -98,7 +98,7 @@ class SkillRouter:
         self._agent = Agent(
             model=BedrockModel(
                 model_id=self._model_id,
-                max_tokens=settings.ROUTER_MAX_TOKENS_SONNET,
+                max_tokens=settings.SKILL_ROUTER_MAX_TOKENS_SONNET,
             ),
             system_prompt=self._build_prompt(),
             tools=[],

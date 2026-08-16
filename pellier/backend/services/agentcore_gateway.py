@@ -27,6 +27,7 @@ MCP (Model Context Protocol) docs: https://modelcontextprotocol.io
 """
 import logging
 import os
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 
@@ -154,7 +155,6 @@ class ManagedGatewayDispatcher:
     last_tool_names: tuple[str, ...] = ()
 
     def __call__(self, prompt: str) -> Any:
-        from mcp.client.streamable_http import streamablehttp_client
         from strands import Agent
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
@@ -171,9 +171,9 @@ class ManagedGatewayDispatcher:
             )
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(self.access_token),
+                self.access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -212,7 +212,7 @@ class ManagedGatewayDispatcher:
             self.last_tool_names = selected_names
             return agent(prompt)
         finally:
-            mcp_client.stop()
+            _stop_mcp_client(mcp_client)
 
 
 def create_gateway_dispatcher(
@@ -297,6 +297,33 @@ def _gateway_headers(access_token: Optional[str] = None) -> Dict[str, str]:
     }
 
 
+@asynccontextmanager
+async def _gateway_streamable_http_transport(
+    gateway_url: str,
+    access_token: Optional[str] = None,
+):
+    """Open the current MCP streamable-HTTP transport with caller identity."""
+    import httpx
+    from mcp.client.streamable_http import streamable_http_client
+
+    timeout = httpx.Timeout(30.0, read=300.0)
+    async with httpx.AsyncClient(
+        headers=_gateway_headers(access_token),
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        async with streamable_http_client(
+            gateway_url,
+            http_client=http_client,
+        ) as transport:
+            yield transport
+
+
+def _stop_mcp_client(mcp_client: Any) -> None:
+    """Close the pinned Strands MCP client with its context-exit contract."""
+    mcp_client.stop(None, None, None)
+
+
 def create_gateway_orchestrator(access_token: Optional[str] = None):
     """Create a Strands Agent that discovers tools via an MCP Gateway URL.
 
@@ -314,18 +341,20 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
     if not gateway_url:
         logger.info("AGENTCORE_GATEWAY_URL not set — gateway disabled")
         return None
+    if not access_token:
+        logger.info("Gateway orchestrator requires verified caller identity")
+        return None
 
     try:
         from strands import Agent
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
-        from mcp.client.streamable_http import streamablehttp_client
         model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(access_token),
+                access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -378,18 +407,22 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
     if not gateway_url:
         logger.info("AGENTCORE_GATEWAY_URL not set — semantic search disabled")
         return None
+    if not access_token:
+        logger.info(
+            "Gateway semantic search requires verified caller identity"
+        )
+        return None
 
     try:
         from strands import Agent
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
-        from mcp.client.streamable_http import streamablehttp_client
         model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(access_token),
+                access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -439,17 +472,16 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
     Returns a list of tool descriptors with name, description, and input schema.
     """
     gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
-    if not gateway_url:
+    if not gateway_url or not access_token:
         return []
 
     try:
         from strands.tools.mcp.mcp_client import MCPClient
-        from mcp.client.streamable_http import streamablehttp_client
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(access_token),
+                access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -465,7 +497,7 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
                 })
             return tools
         finally:
-            mcp_client.stop()
+            _stop_mcp_client(mcp_client)
 
     except ImportError:
         logger.warning("MCP dependencies not installed")

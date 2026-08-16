@@ -10,8 +10,8 @@ policy-filtered. That mirrors the Act II cloud beat — there the *agent* moved
 behind a managed boundary; here the *tools* do.
 
 This is a thin extract of the workshop's own production wiring in
-``pellier/backend/services/agentcore_gateway.py`` (which uses the very same
-``streamablehttp_client`` + Bearer-passthrough pattern), reduced to the
+``pellier/backend/services/agentcore_gateway.py`` (which uses the current
+streamable-HTTP client + Bearer-passthrough pattern), reduced to the
 discovery + one read-only call so you can watch the frames.
 
 Run (after signing in):
@@ -29,6 +29,7 @@ import asyncio
 import json
 import os
 import sys
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 
@@ -85,25 +86,42 @@ def _print_result(result: Any) -> None:
         print(f"    {result!r}")
 
 
+@asynccontextmanager
+async def _gateway_transport(url: str, token: str):
+    import httpx
+    from mcp.client.streamable_http import streamable_http_client
+
+    timeout = httpx.Timeout(30.0, read=300.0)
+    async with httpx.AsyncClient(
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        async with streamable_http_client(
+            url,
+            http_client=http_client,
+            terminate_on_close=False,
+        ) as transport:
+            yield transport
+
+
 async def _run(url: str, token: str) -> int:
     try:
         from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
     except ImportError:
         print("⚠  The `mcp` Python SDK isn't importable here — skipping the live")
         print("   Gateway handshake. (It ships with the backend venv via strands.)")
         print("   Pellier Labs Tool Registry (Card 7) shows the same discovery result.")
         return 0
 
-    headers = {"Authorization": f"Bearer {token}"}
     print(f"→ connecting to the managed Gateway over streamable HTTP")
     print(f"  (Authorization: Bearer <your Cognito token>)\n")
 
     try:
         # NOTE: the exact URL the Gateway expects (bare gatewayUrl vs a /mcp
-        # suffix) is what the backend passes verbatim to streamablehttp_client;
+        # suffix) is what the backend passes verbatim to the MCP transport;
         # confirm on-box. terminate_on_close=False matches the neptune template.
-        async with streamablehttp_client(url, headers, timeout=120, terminate_on_close=False) as (
+        async with _gateway_transport(url, token) as (
             read_stream,
             write_stream,
             _,

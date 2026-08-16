@@ -21,6 +21,92 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.mark.asyncio
+async def test_gateway_transport_forwards_bearer_with_current_mcp_api():
+    from services import agentcore_gateway
+
+    http_client = object()
+    streams = (object(), object(), object())
+    observed: dict[str, object] = {}
+
+    class _AsyncContext:
+        def __init__(self, value):
+            self.value = value
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, *_args):
+            return None
+
+    def transport(url, *, http_client, terminate_on_close=True):
+        observed.update(
+            {
+                "url": url,
+                "http_client": http_client,
+                "terminate_on_close": terminate_on_close,
+            }
+        )
+        return _AsyncContext(streams)
+
+    with patch(
+        "httpx.AsyncClient",
+        return_value=_AsyncContext(http_client),
+    ) as http_client_factory, patch(
+        "mcp.client.streamable_http.streamable_http_client",
+        side_effect=transport,
+    ):
+        async with agentcore_gateway._gateway_streamable_http_transport(
+            "https://gw.example/mcp",
+            "caller-jwt",
+        ) as result:
+            assert result is streams
+
+    assert http_client_factory.call_args.kwargs["headers"] == {
+        "Authorization": "Bearer caller-jwt"
+    }
+    assert http_client_factory.call_args.kwargs["follow_redirects"] is True
+    assert observed == {
+        "url": "https://gw.example/mcp",
+        "http_client": http_client,
+        "terminate_on_close": True,
+    }
+
+
+def test_gateway_client_cleanup_uses_strands_context_exit_contract():
+    from services import agentcore_gateway
+
+    client = MagicMock()
+    agentcore_gateway._stop_mcp_client(client)
+
+    client.stop.assert_called_once_with(None, None, None)
+
+
+def test_chat_explicitly_cleans_up_gateway_tool_provider():
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1] / "services" / "chat.py"
+    ).read_text(encoding="utf-8")
+
+    assert "if gateway_used:" in source
+    assert "await asyncio.to_thread(orchestrator.cleanup)" in source
+
+
+def test_tokenless_gateway_discovery_skips_network():
+    from services import agentcore_gateway
+    from config import settings
+
+    with patch.object(
+        settings,
+        "AGENTCORE_GATEWAY_URL",
+        "https://gw.example/mcp",
+    ), patch("strands.tools.mcp.mcp_client.MCPClient") as client_factory:
+        assert agentcore_gateway.list_gateway_tools() == []
+
+    client_factory.assert_not_called()
+
+
 def test_gateway_status_unset_reports_in_process():
     """With no AGENTCORE_GATEWAY_URL, the status endpoint says the
     backend is using in-process imports."""
@@ -33,33 +119,17 @@ def test_gateway_status_unset_reports_in_process():
         assert agentcore_gateway.create_gateway_orchestrator() is None
 
 
-def test_gateway_status_set_attempts_mcp_path():
-    """With AGENTCORE_GATEWAY_URL set, ``create_gateway_orchestrator``
-    tries the MCP path. We stub MCPClient / Agent / BedrockModel so the
-    test doesn't actually hit a network. Called with no token (the
-    default), which is still a valid signature."""
+def test_tokenless_gateway_orchestrator_skips_network():
+    """A CUSTOM_JWT Gateway is never contacted without caller identity."""
     from services import agentcore_gateway
     from config import settings
 
-    fake_agent = MagicMock(name="gateway-agent")
-    fake_client = MagicMock(name="mcp-client")
-
     with patch.object(settings, "AGENTCORE_GATEWAY_URL", "https://gw.example/mcp"), \
-         patch.object(settings, "AGENTCORE_GATEWAY_API_KEY", "key", create=True), \
-         patch("strands.tools.mcp.mcp_client.MCPClient", return_value=fake_client), \
-         patch("mcp.client.streamable_http.streamablehttp_client"), \
-         patch("strands.Agent", return_value=fake_agent), \
-         patch("strands.models.BedrockModel"):
+         patch("strands.tools.mcp.mcp_client.MCPClient") as client_factory:
         result = agentcore_gateway.create_gateway_orchestrator()
 
-    # create_gateway_orchestrator catches exceptions from missing mcp
-    # or strands imports and returns None; on systems where those are
-    # installed (our test host), the patched constructors are used and
-    # the returned object is our fake_agent.
-    # We only assert "didn't raise" — actual return value may be None
-    # if mcp isn't installed. Either is acceptable here; the goal is
-    # that the function's selection logic is exercised.
-    assert result is fake_agent or result is None
+    assert result is None
+    client_factory.assert_not_called()
 
 
 # --------------------------------------------------------------------------
@@ -100,7 +170,7 @@ def test_create_gateway_orchestrator_accepts_access_token():
 
     with patch.object(settings, "AGENTCORE_GATEWAY_URL", "https://gw.example/mcp"), \
          patch("strands.tools.mcp.mcp_client.MCPClient", return_value=fake_client), \
-         patch("mcp.client.streamable_http.streamablehttp_client"), \
+         patch("mcp.client.streamable_http.streamable_http_client"), \
          patch("strands.Agent", return_value=fake_agent), \
          patch("strands.models.BedrockModel"):
         result = agentcore_gateway.create_gateway_orchestrator(access_token="theo-jwt-xyz")

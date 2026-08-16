@@ -86,6 +86,7 @@ class VectorSearch:
             FROM pellier.product_catalog
             WHERE "imgUrl" IS NOT NULL
               AND embedding IS NOT NULL
+              AND NOT (tags ? 'archive')
             ORDER BY embedding <=> (SELECT emb FROM query_embedding)
             LIMIT %s
         """
@@ -166,6 +167,7 @@ class VectorSearch:
         clauses: List[str] = [
             '"imgUrl" IS NOT NULL',
             "embedding IS NOT NULL",
+            "NOT (tags ? 'archive')",
         ]
         if categories:
             clauses.append("category = ANY(%s)")

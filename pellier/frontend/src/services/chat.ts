@@ -6,20 +6,51 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || ''
 
+const SESSION_ID_KEY = 'pellier-session-id'
+const SESSION_TOKEN_KEY = 'pellier-session-token'
+const SESSION_TOKEN_SESSION_KEY = 'pellier-session-token-session'
+
+function randomHex(bytes: number): string {
+  const values = new Uint8Array(bytes)
+  globalThis.crypto.getRandomValues(values)
+  return Array.from(values, value => value.toString(16).padStart(2, '0')).join('')
+}
+
 /**
  * Get or create session ID for conversation persistence
  */
 function getSessionId(): string {
-  let sessionId = localStorage.getItem('pellier-session-id')
+  let sessionId = localStorage.getItem(SESSION_ID_KEY)
   if (!sessionId) {
-    sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem('pellier-session-id', sessionId)
+    const id = globalThis.crypto.randomUUID?.() ?? randomHex(16)
+    sessionId = `session-${id}`
+    localStorage.setItem(SESSION_ID_KEY, sessionId)
   }
   return sessionId
 }
 
-function getAuthHeaders(): Record<string, string> {
-  return { 'Content-Type': 'application/json' }
+function getSessionToken(sessionId: string): string {
+  const tokenSession = localStorage.getItem(SESSION_TOKEN_SESSION_KEY)
+  let token = localStorage.getItem(SESSION_TOKEN_KEY)
+  if (!token || tokenSession !== sessionId) {
+    token = randomHex(32)
+    localStorage.setItem(SESSION_TOKEN_KEY, token)
+    localStorage.setItem(SESSION_TOKEN_SESSION_KEY, sessionId)
+  }
+  return token
+}
+
+export function getSessionOwnershipHeaders(
+  sessionId: string = getSessionId(),
+): Record<string, string> {
+  return { 'X-Pellier-Session-Token': getSessionToken(sessionId) }
+}
+
+function getAuthHeaders(sessionId: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...getSessionOwnershipHeaders(sessionId),
+  }
 }
 
 export interface ChatMessage {
@@ -86,17 +117,18 @@ export async function sendChatMessageStreaming(
   responseMode: ResponseMode = 'balanced',
 ): Promise<ChatResponse> {
   try {
+    const sessionId = getSessionId()
     const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
       method: 'POST',
       credentials: 'include',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(sessionId),
       body: JSON.stringify({
         message: query,
         conversation_history: conversationHistory.map(msg => ({
           role: msg.role,
           content: msg.content
         })),
-        session_id: getSessionId(),
+        session_id: sessionId,
         workshop_mode: workshopMode || null,
         guardrails_enabled: guardrailsEnabled || false,
         customer_id: customerId ?? null,
@@ -191,17 +223,18 @@ export async function sendChatMessageStreaming(
  */
 export async function sendChatMessage(query: string, conversationHistory: ChatMessage[] = [], enableThinking: boolean = false): Promise<ChatResponse> {
   try {
+    const sessionId = getSessionId()
     const response = await fetch(`${API_BASE_URL}/api/chat?enable_thinking=${enableThinking}`, {
       method: 'POST',
       credentials: 'include',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(sessionId),
       body: JSON.stringify({ 
         message: query,
         conversation_history: conversationHistory.map(msg => ({
           role: msg.role,
           content: msg.content
         })),
-        session_id: getSessionId()
+        session_id: sessionId
       }),
     })
 

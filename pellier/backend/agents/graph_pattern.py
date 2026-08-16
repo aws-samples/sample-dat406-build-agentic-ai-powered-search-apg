@@ -13,10 +13,10 @@ the dataclass repr, not the winning specialist's prose — and it has no
 
 ``GraphAgentAdapter`` bridges the two. It:
 
-  1. Builds a router node (Sonnet classifier) + five specialist nodes
-     (search / recommendation / pricing / inventory / support) via the
-     existing factories. The router's prose picks one specialist; five
-     conditional edges fan out so exactly one specialist runs per turn.
+  1. Builds a deterministic router node + five specialist nodes (search /
+     recommendation / pricing / inventory / support) via the existing
+     factories. Five conditional edges fan out so exactly one specialist
+     runs per turn.
   2. Exposes ``callback_handler`` and ``add_hook`` as plain attributes
      and attaches them to the *specialist* agents at build time, so
      that when the pipeline does ``_attach_streaming_and_hooks(adapter)``
@@ -28,52 +28,91 @@ the dataclass repr, not the winning specialist's prose — and it has no
      the specialist's text — which is what the downstream parser
      feeds to ``_parse_agent_response``.
 
-The adapter is intentionally non-streaming for the router step and
-lets the specialist stream naturally — that keeps Pellier Labs'
-telemetry panel honest: one deterministic route decision, then one
-specialist's prose streams to the client.
+The deterministic router reuses the same classifier that emits the Labs intent
+signal. This avoids a second, hidden model decision disagreeing with the route
+participants see. The selected specialist still streams naturally.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any, Callable, Dict, Optional
 
-from strands import Agent
-from strands.models import BedrockModel
+from strands.agent.agent_result import AgentResult
+from strands.telemetry.metrics import EventLoopMetrics
 
-from config import settings
+from services.intent_router import classify_intent
 
 logger = logging.getLogger(__name__)
 
 
-# Deterministic router prompt. Kept tight — Sonnet's whole job here is
-# to emit exactly one of the five specialist tokens. Any other output
-# falls through to ``search`` as a safe default.
-_ROUTER_SYSTEM_PROMPT = (
-    "You are a routing classifier for a retail assistant. "
-    "Read the shopper's message and respond with EXACTLY ONE word from "
-    "this set: search, recommendation, pricing, inventory, support. "
-    "No punctuation, no explanation, no quotes. Pick the best match.\n"
-    "- search: product search, category browsing, comparisons.\n"
-    "- recommendation: 'what should I get', gifts, trending, personalized picks.\n"
-    "- pricing: 'how much', deals, discounts, price comparisons.\n"
-    "- inventory: 'do you have', stock, availability, restocking.\n"
-    "- support: returns, policies, troubleshooting, account help."
-)
-
-
 _VALID_ROUTES = ("search", "recommendation", "pricing", "inventory", "support")
+_INTENT_TO_ROUTE = {
+    "search": "search",
+    "recommendation": "recommendation",
+    "pricing": "pricing",
+    "inventory": "inventory",
+    "customer_support": "support",
+}
+_MAX_NODE_EXECUTIONS = 2
+_EXECUTION_TIMEOUT_SECONDS = 105
+_NODE_TIMEOUT_SECONDS = 90
 
 
-def _build_router_agent() -> Agent:
-    """Small Sonnet agent that outputs one specialist token."""
-    return Agent(
-        model=BedrockModel(
-            model_id=settings.BEDROCK_ROUTER_MODEL,
-            max_tokens=16,
-        ),
-        system_prompt=_ROUTER_SYSTEM_PROMPT,
+def _result(text: str, *, state: Optional[Dict[str, Any]] = None) -> AgentResult:
+    """Build the minimal real ``AgentResult`` required by Graph nodes."""
+    return AgentResult(
+        stop_reason="end_turn",
+        message={"role": "assistant", "content": [{"text": text}]},
+        metrics=EventLoopMetrics(),
+        state=state or {},
     )
+
+
+class _DeterministicRouterNode:
+    """AgentBase-compatible router backed by Pellier's shared classifier."""
+
+    name = "graph-router"
+
+    @staticmethod
+    def _route(prompt: Any) -> str:
+        query = prompt if isinstance(prompt, str) else str(prompt)
+        return _INTENT_TO_ROUTE.get(classify_intent(query), "search")
+
+    def __call__(self, prompt: Any = None, **_kwargs: Any) -> AgentResult:
+        route = self._route(prompt)
+        return _result(route, state={"route": route, "classifier": "deterministic"})
+
+    async def invoke_async(self, prompt: Any = None, **kwargs: Any) -> AgentResult:
+        return self(prompt, **kwargs)
+
+    async def stream_async(self, prompt: Any = None, **kwargs: Any):
+        yield {"result": await self.invoke_async(prompt, **kwargs)}
+
+
+class _UnavailableSpecialistNode:
+    """Graph node for a specialist intentionally left as a workshop build."""
+
+    def __init__(self, route: str, response: str) -> None:
+        self.name = route
+        self.response = response
+        self.callback_handler: Optional[Callable[..., Any]] = None
+        self.trace_attributes: Dict[str, Any] = {}
+        self.session_manager: Any = None
+
+    def add_hook(self, _hook: Callable[..., Any]) -> None:
+        return None
+
+    def __call__(self, prompt: Any = None, **_kwargs: Any) -> AgentResult:
+        return _result(
+            self.response,
+            state={"route": self.name, "available": False},
+        )
+
+    async def invoke_async(self, prompt: Any = None, **kwargs: Any) -> AgentResult:
+        return self(prompt, **kwargs)
+
+    async def stream_async(self, prompt: Any = None, **kwargs: Any):
+        yield {"result": await self.invoke_async(prompt, **kwargs)}
 
 
 def _extract_route(router_text: str) -> str:
@@ -126,19 +165,28 @@ class GraphAgentAdapter:
         from agents.style_advisor import build_search_agent
         from agents.curator import build_recommendation_agent
         from agents.value_analyst import build_pricing_agent
-        from agents.stock_keeper import build_inventory_agent
+        from agents import stock_keeper as inventory_agent_module
         from agents.experience_guide import build_support_agent
 
-        # Router + specialists. We build the specialists eagerly so
-        # GraphBuilder can validate them and so ``callback_handler`` /
-        # ``add_hook`` assignments propagate to all of them before the
-        # graph runs.
-        self._router = _build_router_agent()
-        self._specialists: Dict[str, Agent] = {
+        # Router + specialists. Governed deliberately ships Stock Keeper
+        # scaffolded. Represent that node explicitly so selecting Graph never
+        # falls through to a different orchestration pattern.
+        self._router = _DeterministicRouterNode()
+        inventory_agent = (
+            _UnavailableSpecialistNode(
+                "inventory",
+                "Inventory is the governed workshop build in this environment. "
+                "Complete the Stock Keeper exercise, then rerun this request "
+                "through the same graph.",
+            )
+            if getattr(inventory_agent_module, "_INVENTORY_AGENT_STUBBED", False)
+            else inventory_agent_module.build_inventory_agent()
+        )
+        self._specialists: Dict[str, Any] = {
             "search": build_search_agent(),
             "recommendation": build_recommendation_agent(),
             "pricing": build_pricing_agent(),
-            "inventory": build_inventory_agent(),
+            "inventory": inventory_agent,
             "support": build_support_agent(),
         }
 
@@ -182,6 +230,10 @@ class GraphAgentAdapter:
                     setattr(agent, name, value)
                 except Exception as exc:
                     logger.debug("GraphAdapter forward %s to specialist failed: %s", name, exc)
+        if name == "trace_attributes":
+            graph = self.__dict__.get("_graph")
+            if graph is not None:
+                graph.trace_attributes = value
 
     def add_hook(self, hook: Callable) -> None:
         """Forward a Strands hook to every specialist.
@@ -211,6 +263,9 @@ class GraphAgentAdapter:
         from strands.multiagent import GraphBuilder
 
         builder = GraphBuilder()
+        builder.set_max_node_executions(_MAX_NODE_EXECUTIONS)
+        builder.set_execution_timeout(_EXECUTION_TIMEOUT_SECONDS)
+        builder.set_node_timeout(_NODE_TIMEOUT_SECONDS)
         builder.add_node(self._router, "router")
 
         for route_key, agent in self._specialists.items():

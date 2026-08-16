@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   Bot,
+  Brain,
   CheckCircle2,
   Database,
   Eye,
   Loader2,
-  Network,
   Play,
   ShoppingBag,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Timer,
@@ -28,8 +29,7 @@ import { PellierLabsMasthead } from './PellierLabsMasthead';
 import './PellierLabsWorkbench.css';
 
 type RunStatus = 'idle' | 'running' | 'complete' | 'error';
-type StepKind = 'routing' | 'agent' | 'tool' | 'sql';
-type AgentPattern = 'agents_as_tools' | 'graph';
+type StepKind = 'routing' | 'memory' | 'guardrail' | 'agent' | 'tool' | 'sql';
 
 const QUERY_SUGGESTIONS: Record<string, string[]> = {
   anonymous: [
@@ -94,10 +94,29 @@ interface StreamEvent {
     considered?: Array<{ name?: string; reason?: string }>;
     elapsed_ms?: number;
   };
+  memory?: {
+    source?: string;
+    customer_id?: string;
+    facts_loaded?: number;
+    orders_loaded?: number;
+    applied?: boolean;
+  };
+  guardrail?: {
+    allowed?: boolean;
+    action?: string;
+    violations?: number;
+    mode?: string;
+    enforced?: boolean;
+  };
   response?: {
     response?: string;
     products?: unknown[];
     rail?: string;
+    orchestration?: {
+      pattern?: string;
+      route?: string;
+      router?: string;
+    };
   };
 }
 
@@ -107,6 +126,12 @@ interface IntentSignal {
   responseMode: ResponseMode;
   modelFamily: 'opus' | 'sonnet';
   modelId: string;
+}
+
+function reconcileAgentResponse(current: string, candidate?: string): string {
+  if (!candidate) return current;
+  if (current && candidate.length < current.length * 0.5) return current;
+  return candidate;
 }
 
 function mapProduct(value: unknown): ChatProduct {
@@ -147,6 +172,40 @@ function mergeProducts(current: ChatProduct[], incoming: unknown[]): ChatProduct
   return next;
 }
 
+function productsForResponse(
+  products: ChatProduct[],
+  response: string,
+): ChatProduct[] {
+  const normalizedResponse = response.toLocaleLowerCase();
+  const ranked = products.map((product, index) => ({
+    product,
+    index,
+    mentionIndex: product.name
+      ? normalizedResponse.indexOf(product.name.toLocaleLowerCase())
+      : -1,
+  }));
+  const mentioned = ranked
+    .filter((item) => item.mentionIndex >= 0)
+    .sort((a, b) =>
+      a.mentionIndex === b.mentionIndex
+        ? a.index - b.index
+        : a.mentionIndex - b.mentionIndex,
+    )
+    .map((item) => item.product);
+
+  if (!mentioned.length) return products;
+
+  const mentionedKeys = new Set(
+    mentioned.map((product) => `${product.id}::${product.name}`),
+  );
+  return [
+    ...mentioned,
+    ...products.filter(
+      (product) => !mentionedKeys.has(`${product.id}::${product.name}`),
+    ),
+  ];
+}
+
 function formatElapsed(elapsedMs: number): string {
   if (elapsedMs < 1000) return `${Math.max(0, Math.round(elapsedMs))} ms`;
   return `${(elapsedMs / 1000).toFixed(1)} s`;
@@ -168,9 +227,16 @@ function statusForMasthead(status: RunStatus): string {
 
 function iconForStep(kind: StepKind) {
   if (kind === 'routing') return <Sparkles size={15} aria-hidden="true" />;
+  if (kind === 'memory') return <Brain size={15} aria-hidden="true" />;
+  if (kind === 'guardrail') return <ShieldCheck size={15} aria-hidden="true" />;
   if (kind === 'tool') return <Wrench size={15} aria-hidden="true" />;
   if (kind === 'sql') return <Database size={15} aria-hidden="true" />;
   return <Bot size={15} aria-hidden="true" />;
+}
+
+function patternLabel(pattern: string): string {
+  if (pattern === 'dispatcher') return 'Dispatcher';
+  return pattern ? 'Unexpected pattern' : 'Server selected';
 }
 
 function errorMessage(error: unknown): string {
@@ -202,14 +268,15 @@ export default function PellierLabsWorkbench() {
   const [agentResponse, setAgentResponse] = useState('');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [runError, setRunError] = useState<string | null>(null);
-  const [pattern, setPattern] = useState<AgentPattern>('agents_as_tools');
   const [responseMode, setResponseMode] =
     useState<ResponseMode>('balanced');
-  const [memoryEnabled, setMemoryEnabled] = useState(Boolean(persona));
+  const [profileEnabled, setProfileEnabled] = useState(Boolean(persona));
   const [guardrailsEnabled, setGuardrailsEnabled] = useState(false);
   const [traceVisible, setTraceVisible] = useState(true);
   const [intentSignal, setIntentSignal] = useState<IntentSignal | null>(null);
   const [executionRail, setExecutionRail] = useState('Server selected');
+  const [executionPattern, setExecutionPattern] = useState<string | null>(null);
+  const [executionRoute, setExecutionRoute] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const eventSequenceRef = useRef(0);
 
@@ -221,9 +288,11 @@ export default function PellierLabsWorkbench() {
     setAgentResponse('');
     setElapsedMs(0);
     setRunError(null);
-    setMemoryEnabled(Boolean(persona));
+    setProfileEnabled(Boolean(persona));
     setIntentSignal(null);
     setExecutionRail('Server selected');
+    setExecutionPattern(null);
+    setExecutionRoute(null);
   }, [personaId]);
 
   useEffect(() => {
@@ -298,6 +367,50 @@ export default function PellierLabsWorkbench() {
     ]);
   };
 
+  const addAuroraProfileStep = (event: StreamEvent) => {
+    const memory = event.memory ?? {};
+    const facts = memory.facts_loaded ?? 0;
+    const orders = memory.orders_loaded ?? 0;
+    const live = memory.source === 'aurora';
+    setSteps((current) => [
+      ...current,
+      {
+        id: `memory-${eventSequenceRef.current++}`,
+        kind: 'memory',
+        title: 'Aurora profile context',
+        detail: live
+          ? `${facts} profile ${facts === 1 ? 'fact' : 'facts'} and ${orders} past ${orders === 1 ? 'order' : 'orders'} loaded`
+          : 'No live Aurora profile context was available for this turn',
+        status: live && memory.applied ? 'completed' : 'unavailable',
+        meta: [memory.source || 'unavailable', memory.customer_id || '']
+          .filter(Boolean)
+          .join(' · '),
+      },
+    ]);
+  };
+
+  const addGuardrailStep = (event: StreamEvent) => {
+    const guardrail = event.guardrail ?? {};
+    const allowed = guardrail.allowed !== false;
+    setSteps((current) => [
+      ...current,
+      {
+        id: `guardrail-${eventSequenceRef.current++}`,
+        kind: 'guardrail',
+        title: 'Input safety inspection',
+        detail: allowed
+          ? 'Request evaluated before agent execution'
+          : 'Request flagged by the input evaluation',
+        status: guardrail.action === 'ERROR' ? 'error' : 'completed',
+        meta: [
+          guardrail.mode || 'configured',
+          guardrail.action || 'NONE',
+          guardrail.enforced ? 'enforced' : 'inspect only',
+        ].join(' · '),
+      },
+    ]);
+  };
+
   const addSqlSteps = (queries: DbQuery[]) => {
     const captured = queries.filter(
       (queryItem): queryItem is DbQuery & { sql: string } =>
@@ -330,7 +443,9 @@ export default function PellierLabsWorkbench() {
     } else if (event.type === 'content_delta' && event.delta) {
       setAgentResponse((current) => current + event.delta);
     } else if (event.type === 'content' && event.content !== undefined) {
-      setAgentResponse(event.content);
+      setAgentResponse((current) =>
+        reconcileAgentResponse(current, event.content),
+      );
     } else if (event.type === 'product' && event.product) {
       setProducts((current) => mergeProducts(current, [event.product]));
     } else if (
@@ -348,6 +463,10 @@ export default function PellierLabsWorkbench() {
       });
     } else if (event.type === 'skill_routing') {
       addRoutingStep(event);
+    } else if (event.type === 'memory_context') {
+      addAuroraProfileStep(event);
+    } else if (event.type === 'guardrail_decision') {
+      addGuardrailStep(event);
     } else if (event.type === 'agent_step') {
       updateAgentStep(event);
     } else if (event.type === 'tool_call') {
@@ -355,9 +474,17 @@ export default function PellierLabsWorkbench() {
     } else if (event.type === 'db_queries') {
       addSqlSteps(Array.isArray(event.queries) ? event.queries : []);
     } else if (event.type === 'complete') {
-      if (event.response?.response) setAgentResponse(event.response.response);
+      if (event.response?.response) {
+        setAgentResponse((current) =>
+          reconcileAgentResponse(current, event.response?.response),
+        );
+      }
       if (event.response?.rail) {
         setExecutionRail(labelRail(event.response.rail));
+      }
+      if (event.response?.orchestration?.pattern) {
+        setExecutionPattern(event.response.orchestration.pattern);
+        setExecutionRoute(event.response.orchestration.route || null);
       }
       if (Array.isArray(event.response?.products)) {
         setProducts((current) =>
@@ -386,6 +513,8 @@ export default function PellierLabsWorkbench() {
     setElapsedMs(0);
     setIntentSignal(null);
     setExecutionRail('Server selected');
+    setExecutionPattern(null);
+    setExecutionRoute(null);
 
     try {
       const response: ChatResponse = await sendChatMessageStreaming(
@@ -394,11 +523,15 @@ export default function PellierLabsWorkbench() {
         handleStreamEvent,
         undefined,
         guardrailsEnabled,
-        memoryEnabled ? persona?.customer_id ?? null : null,
-        pattern,
+        profileEnabled ? persona?.customer_id ?? null : null,
+        'dispatcher',
         responseMode,
       );
-      if (response.response) setAgentResponse(response.response);
+      if (response.response) {
+        setAgentResponse((current) =>
+          reconcileAgentResponse(current, response.response),
+        );
+      }
       if (response.products?.length) {
         setProducts((current) => mergeProducts(current, response.products));
       }
@@ -432,6 +565,7 @@ export default function PellierLabsWorkbench() {
   const personaLabel = persona?.display_name ?? 'Anonymous';
   const querySuggestions =
     QUERY_SUGGESTIONS[personaId] ?? QUERY_SUGGESTIONS.anonymous;
+  const orderedProducts = productsForResponse(products, agentResponse);
 
   return (
     <div className="pellier-labs-workbench">
@@ -495,29 +629,13 @@ export default function PellierLabsWorkbench() {
                 <h3 id="agent-config-title">Agent configuration</h3>
               </div>
 
-              <fieldset>
-                <legend>Orchestration</legend>
-                <div className="pellier-labs-segmented">
-                  <button
-                    type="button"
-                    aria-pressed={pattern === 'agents_as_tools'}
-                    disabled={runStatus === 'running'}
-                    onClick={() => setPattern('agents_as_tools')}
-                  >
-                    <Network size={13} aria-hidden="true" />
-                    Agents as tools
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={pattern === 'graph'}
-                    disabled={runStatus === 'running'}
-                    onClick={() => setPattern('graph')}
-                  >
-                    <Workflow size={13} aria-hidden="true" />
-                    Graph
-                  </button>
-                </div>
-              </fieldset>
+              <div className="pellier-labs-fixed-config">
+                <span>
+                  <Workflow size={13} aria-hidden="true" />
+                  Orchestration
+                </span>
+                <strong>Dispatcher</strong>
+              </div>
 
               <fieldset>
                 <legend>Response mode</legend>
@@ -550,16 +668,16 @@ export default function PellierLabsWorkbench() {
                   <input
                     type="checkbox"
                     role="switch"
-                    checked={memoryEnabled}
+                    checked={profileEnabled}
                     disabled={!persona || runStatus === 'running'}
-                    onChange={(event) => setMemoryEnabled(event.target.checked)}
+                    onChange={(event) => setProfileEnabled(event.target.checked)}
                   />
                   <span className="pellier-labs-switch-track" aria-hidden="true" />
                   <span>
-                    <strong>Memory personalization</strong>
+                    <strong>Aurora profile context</strong>
                     <small>
                       {persona
-                        ? `Use ${persona.display_name}'s live profile context`
+                        ? `Use ${persona.display_name}'s live Aurora profile`
                         : 'Select a persona to enable'}
                     </small>
                   </span>
@@ -576,8 +694,8 @@ export default function PellierLabsWorkbench() {
                   />
                   <span className="pellier-labs-switch-track" aria-hidden="true" />
                   <span>
-                    <strong>Guardrail input check</strong>
-                    <small>Evaluate this request before agent execution</small>
+                    <strong>Input safety inspection</strong>
+                    <small>Observe the configured pre-run evaluation</small>
                   </span>
                 </label>
                 <label>
@@ -606,8 +724,11 @@ export default function PellierLabsWorkbench() {
                 <dd>{executionRail}</dd>
               </div>
               <div>
-                <dt>Status</dt>
-                <dd>{statusLabel(runStatus)}</dd>
+                <dt>Pattern</dt>
+                <dd>
+                  {patternLabel(executionPattern ?? 'dispatcher')}
+                  {executionRoute ? ` · ${labelIntent(executionRoute)}` : ''}
+                </dd>
               </div>
             </dl>
 
@@ -627,8 +748,10 @@ export default function PellierLabsWorkbench() {
 
             <p className="pellier-labs-provenance">
               <Activity size={13} aria-hidden="true" />
-              Live SSE from <code>/api/chat/stream</code>. Every event below
-              comes from this turn.
+              <span>
+                Live SSE from <code>/api/chat/stream</code>. Every event below
+                comes from this turn.
+              </span>
             </p>
           </aside>
 
@@ -765,12 +888,14 @@ export default function PellierLabsWorkbench() {
 
             <div className="pellier-labs-agent-response">
               <div>
-                {runStatus === 'complete' ? (
+                {products.length ? (
+                  <Sparkles size={14} aria-hidden="true" />
+                ) : runStatus === 'complete' ? (
                   <CheckCircle2 size={14} aria-hidden="true" />
                 ) : (
                   <Bot size={14} aria-hidden="true" />
                 )}
-                Agent response
+                {products.length ? 'Top pick' : 'Agent response'}
               </div>
               <p>
                 {agentResponse ||
@@ -781,48 +906,80 @@ export default function PellierLabsWorkbench() {
             </div>
 
             {products.length ? (
-              <div className="pellier-labs-products">
-                {products.map((product, index) => {
-                  const src = imageSrc(product.image);
-                  return (
-                    <article
-                      className="pellier-labs-product"
-                      key={`${product.id || product.name}-${index}`}
-                    >
-                      <div className="pellier-labs-product-media">
-                        {src ? (
-                          <img src={src} alt="" />
-                        ) : (
-                          <span aria-hidden="true">
-                            {product.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="pellier-labs-product-copy">
-                        <small>{product.category || 'Catalog result'}</small>
-                        <h3>{product.name}</h3>
-                        {product.rating ? (
-                          <p>
-                            {product.rating.toFixed(1)} rating
-                            {product.reviews ? ` · ${product.reviews} reviews` : ''}
-                          </p>
-                        ) : null}
-                      </div>
-                      <strong className="pellier-labs-product-price">
-                        ${product.price.toFixed(2)}
-                      </strong>
-                    </article>
-                  );
-                })}
+              <div className="pellier-labs-catalog-edit">
+                <div className="pellier-labs-catalog-heading">
+                  <div>
+                    <small>Live catalog edit</small>
+                    <strong>
+                      {products.length} {products.length === 1 ? 'piece' : 'pieces'}
+                    </strong>
+                  </div>
+                  <span>From this turn</span>
+                </div>
+                <div className="pellier-labs-products">
+                  {orderedProducts.map((product, index) => {
+                    const src = imageSrc(product.image);
+                    return (
+                      <article
+                        className="pellier-labs-product"
+                        key={`${product.id || product.name}-${index}`}
+                      >
+                        <div className="pellier-labs-product-media">
+                          {src ? (
+                            <img src={src} alt={product.name} />
+                          ) : (
+                            <span aria-hidden="true">
+                              {product.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="pellier-labs-product-copy">
+                          <small>
+                            {String(index + 1).padStart(2, '0')} /{' '}
+                            {product.category || 'Catalog result'}
+                          </small>
+                          <h3>{product.name}</h3>
+                          {product.rating ? (
+                            <p>
+                              {product.rating.toFixed(1)} rating
+                              {product.reviews
+                                ? ` · ${product.reviews} reviews`
+                                : ''}
+                            </p>
+                          ) : null}
+                        </div>
+                        <strong className="pellier-labs-product-price">
+                          ${product.price.toFixed(2)}
+                        </strong>
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <div className="pellier-labs-products-empty">
-                <ShoppingBag size={21} aria-hidden="true" />
-                <span>
-                  {runStatus === 'complete'
-                    ? 'This response returned no product cards.'
-                    : 'Returned products will appear here.'}
-                </span>
+              <div
+                className="pellier-labs-products-empty"
+                data-status={runStatus}
+              >
+                {runStatus === 'running' ? (
+                  <Loader2 className="spin" size={21} aria-hidden="true" />
+                ) : (
+                  <ShoppingBag size={21} aria-hidden="true" />
+                )}
+                <div>
+                  <strong>
+                    {runStatus === 'complete'
+                      ? 'No catalog cards attached'
+                      : runStatus === 'running'
+                        ? 'Retrieving the live edit'
+                        : 'Awaiting catalog results'}
+                  </strong>
+                  <span>
+                    {runStatus === 'complete'
+                      ? 'This turn completed without a product result.'
+                      : 'Grounded products from this turn will appear here.'}
+                  </span>
+                </div>
               </div>
             )}
 

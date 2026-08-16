@@ -98,6 +98,20 @@ describe('useScrollAndFlash', () => {
     expect(flashed).toBeNull()
   })
 
+  it('treats selector syntax in a trace reference as plain text', () => {
+    const container = mountContainerWithPanels()
+    const { result } = renderHook(() => useScrollAndFlash())
+    act(() => {
+      result.current.containerRef.current = container
+    })
+    expect(() => {
+      act(() => {
+        result.current.scrollToTrace('TOOL"] [data-testid="plan-card')
+      })
+    }).not.toThrow()
+    expect(container.querySelector('[data-flash="true"]')).toBeNull()
+  })
+
   it('no-ops when containerRef has not been attached', () => {
     const { result } = renderHook(() => useScrollAndFlash())
     expect(() => {

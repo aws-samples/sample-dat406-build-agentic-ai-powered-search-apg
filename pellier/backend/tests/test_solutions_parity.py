@@ -455,6 +455,8 @@ def test_floor_check_builder_contract() -> None:
     assert "product_query: str = \"\"" in solution_src
     assert "floor_check is in stub state" not in solution_src
     assert "logic.floor_check(product_query=query)" in solution_src
+    assert "logger.exception(\"floor_check failed\")" in solution_src
+    assert '\"error\": str(e)' not in solution_src
 
     # If the participant has wired the live file (the exercise is done), the
     # starter-stub assertions below would fail on something they were told to

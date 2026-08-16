@@ -124,32 +124,23 @@ def emit_gateway_panel(
         )
         return {"configured": False, "url": None}
 
-    start = time.time()
-    tools: List[Dict[str, Any]] = []
-    error: Optional[str] = None
-    try:
-        from services.agentcore_gateway import list_gateway_tools
-
-        tools = list_gateway_tools()
-    except Exception as exc:
-        error = str(exc)
-        logger.warning("list_gateway_tools failed: %s", exc)
-
-    duration_ms = int((time.time() - start) * 1000)
-    rows_render = [[t.get("name", ""), (t.get("description") or "")[:80]] for t in tools[:9]]
-    meta = f"{len(tools)} tool(s) published via MCP streamable-http"
-    if error:
-        meta = f'<span style="color:#b45309">error: {error}</span>'
-
     ctx.emit_panel(
         agent="gateway",
         tag="GATEWAY · DISCOVER",
         tag_class="amber",
         title="MCP tool discovery · AgentCore Gateway",
         sql="",
-        columns=["name", "description"] if rows_render else [],
-        rows=rows_render,
-        meta=meta,
-        duration_ms=duration_ms,
+        columns=[],
+        rows=[],
+        meta=(
+            "Gateway configured. Card 7 runs live discovery under the "
+            "authenticated shopper identity."
+        ),
+        duration_ms=0,
     )
-    return {"configured": True, "url": gateway_url, "tools": tools, "error": error}
+    return {
+        "configured": True,
+        "url": gateway_url,
+        "tools": [],
+        "error": None,
+    }

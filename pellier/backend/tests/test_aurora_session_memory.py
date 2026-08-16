@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from services.aurora_session_memory import AuroraSessionMemory
+from services.aurora_session_memory import AuroraSessionMemory, session_actor_id
 
 
 class _StubDB:
@@ -37,16 +37,23 @@ def test_load_history_returns_bounded_chronological_messages() -> None:
         ]
     )
 
-    history = _run(AuroraSessionMemory(db).load_history("session-1", limit=500))
+    history = _run(
+        AuroraSessionMemory(db).load_history(
+            "session-1",
+            actor_id="theo",
+            limit=500,
+        )
+    )
 
     assert history == [
         {"role": "user", "content": "Theo reported a chipped bowl."},
         {"role": "assistant", "content": "I recorded the return."},
     ]
     query, params = db.fetch_calls[0]
-    assert "ORDER BY id DESC" in query
-    assert "ORDER BY id;" in query
-    assert params == ("session-1", 100)
+    assert "conversations.metadata->>'actor_id' = %s" in query
+    assert "ORDER BY messages.id DESC" in query
+    assert "ORDER BY recent.id;" in query
+    assert params == ("session-1", "theo", 100)
 
 
 def test_append_turn_pair_uses_one_atomic_statement() -> None:
@@ -67,6 +74,8 @@ def test_append_turn_pair_uses_one_atomic_statement() -> None:
     query, params = db.execute_calls[0]
     assert "WITH session_row AS" in query
     assert "ON CONFLICT (session_id) DO UPDATE" in query
+    assert "WHERE pellier.conversations.metadata->>'actor_id'" in query
+    assert "session_guard" in query
     assert "INSERT INTO pellier.messages" in query
     assert "jsonb_build_object('source', 'boutique', 'actor_id', %s::text)" in query
     assert params == (
@@ -101,3 +110,24 @@ def test_append_turn_pair_rejects_incomplete_receipts(
             )
         )
     assert db.execute_calls == []
+
+
+def test_session_actor_id_prefers_authenticated_identity() -> None:
+    assert session_actor_id({"sub": "user-123"}, "x" * 64) == "user-123"
+
+
+def test_session_actor_id_hashes_anonymous_token() -> None:
+    first = session_actor_id(None, "a" * 64)
+    second = session_actor_id(None, "b" * 64)
+
+    assert first.startswith("anonymous:")
+    assert len(first) == len("anonymous:") + 64
+    assert first != second
+
+
+@pytest.mark.parametrize("token", [None, "", "too-short"])
+def test_session_actor_id_rejects_missing_or_weak_anonymous_token(
+    token: str | None,
+) -> None:
+    with pytest.raises(ValueError):
+        session_actor_id(None, token)

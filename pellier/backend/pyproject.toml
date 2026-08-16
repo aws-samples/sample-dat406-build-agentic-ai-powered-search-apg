@@ -11,5 +11,6 @@ requires-python = ">=3.12"
 dependencies = [
     "strands-agents[otel]",
     "mcp>=1.0.0",
+    "httpx>=0.28.1",
     "bedrock-agentcore>=1.4.3",
 ]

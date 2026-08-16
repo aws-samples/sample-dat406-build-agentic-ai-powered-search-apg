@@ -21,9 +21,10 @@ from typing import Any
 
 import anyio
 import boto3
+import httpx
 import psycopg
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 
 DEFAULT_TOOL_NAME = "pellier-concierge-experience-target___process_return"
@@ -317,19 +318,25 @@ async def _call_gateway(args: argparse.Namespace, token: str) -> dict[str, Any]:
         "reason": args.reason,
         "idempotency_key": _idempotency_key(args),
     }
-    async with streamablehttp_client(
-        gateway_url,
+    timeout = httpx.Timeout(30.0, read=300.0)
+    async with httpx.AsyncClient(
         headers={"Authorization": f"Bearer {token}"},
-    ) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.call_tool(args.tool_name, tool_args)
-            return {
-                "outcome": "allow",
-                "tool": args.tool_name,
-                "arguments": tool_args,
-                "result": _jsonable(result),
-            }
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        async with streamable_http_client(
+            gateway_url,
+            http_client=http_client,
+        ) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(args.tool_name, tool_args)
+                return {
+                    "outcome": "allow",
+                    "tool": args.tool_name,
+                    "arguments": tool_args,
+                    "result": _jsonable(result),
+                }
 
 
 def _exception_summary(exc: BaseException) -> str:

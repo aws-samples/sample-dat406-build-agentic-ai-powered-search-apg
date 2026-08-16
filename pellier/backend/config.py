@@ -92,7 +92,8 @@ class Settings(BaseSettings):
     # must clear the longest expected reply so it never truncates mid-sentence.
     AGENT_MAX_TOKENS_OPUS: int = 1200       # editorial agents (Style, Experience, Curator)
     AGENT_MAX_TOKENS_SONNET: int = 2048     # Stock Keeper + Value Analyst (richer reveals)
-    ROUTER_MAX_TOKENS_SONNET: int = 320     # router/classifier — tiny structured output
+    SKILL_ROUTER_MAX_TOKENS_SONNET: int = 640  # five-skill audit JSON
+    ROUTER_MAX_TOKENS_SONNET: int = 1200    # tool route plus concise final handoff
     
     # ========================================
     # Application Configuration

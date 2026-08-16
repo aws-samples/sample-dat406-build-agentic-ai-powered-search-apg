@@ -33,6 +33,9 @@ describe('chat service auth transport', () => {
       method: 'POST',
       credentials: 'include',
     })
+    expect(init.headers).toMatchObject({
+      'X-Pellier-Session-Token': expect.stringMatching(/^[a-f0-9]{64}$/),
+    })
   })
 
   it('includes cookies on streaming chat requests', async () => {
@@ -58,11 +61,32 @@ describe('chat service auth transport', () => {
       method: 'POST',
       credentials: 'include',
     })
-    expect(JSON.parse(init.body as string)).toMatchObject({
+    expect(init.headers).toMatchObject({
+      'X-Pellier-Session-Token': expect.stringMatching(/^[a-f0-9]{64}$/),
+    })
+    const body = JSON.parse(init.body as string)
+    expect(body).toMatchObject({
       response_mode: 'balanced',
     })
+    expect(body.session_id).toMatch(/^session-[a-f0-9-]{32,36}$/)
     expect(updates).toHaveLength(1)
     expect(result.response).toBe('done')
+  })
+
+  it('rotates the ownership token when the session changes', async () => {
+    const { getSessionOwnershipHeaders } = await import('./chat')
+
+    const first = getSessionOwnershipHeaders('session-one')
+    const repeated = getSessionOwnershipHeaders('session-one')
+    const second = getSessionOwnershipHeaders('session-two')
+
+    expect(repeated).toEqual(first)
+    expect(second['X-Pellier-Session-Token']).not.toBe(
+      first['X-Pellier-Session-Token'],
+    )
+    expect(localStorage.getItem('pellier-session-token-session')).toBe(
+      'session-two',
+    )
   })
 
   it('sends the selected live agent configuration', async () => {

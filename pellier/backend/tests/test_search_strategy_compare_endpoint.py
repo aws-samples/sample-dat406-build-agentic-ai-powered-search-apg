@@ -94,20 +94,33 @@ def _stub_services(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_comparison_labels_single_run_latency_and_modeled_cost_honestly() -> None:
     body = asyncio.run(
         app_module.compare_search_strategies(
-            query="A milestone gift for a new homeowner"
+            query="A housewarming gift under $100 that is in stock"
         )
     )
 
-    assert body["query"] == "A milestone gift for a new homeowner"
+    assert body["query"] == "A housewarming gift under $100 that is in stock"
     assert body["sharedQueryEmbeddingObservedMs"] >= 0
     assert "not a percentile" in body["measurementAssumptions"]["latency"]
     assert "not a billing measurement" in body["measurementAssumptions"]["cost"]
     assert "not calculated" in body["measurementAssumptions"]["quality"]
+    assert body["costModel"]["pricingReviewedOn"] == "2026-08-16"
+    assert body["costModel"]["pricingSource"].endswith("/bedrock/pricing/")
+    assert (
+        body["costModel"]["components"]["rerank"]["modelId"]
+        == app_module.settings.BEDROCK_RERANK_MODEL
+    )
+    assert (
+        body["costModel"]["components"]["filterExtraction"][
+            "inputTokensPerRequest"
+        ]
+        == 600
+    )
 
     assert len(body["strategies"]) == 4
     for strategy in body["strategies"]:
         assert strategy["observedMs"] >= 0
         assert strategy["modeledCostPerThousandUsd"] >= 0
+        assert strategy["costComponents"]
         assert "p50Ms" not in strategy
         assert "costPerThousandUsd" not in strategy
         assert strategy["products"]
@@ -115,6 +128,8 @@ def test_comparison_labels_single_run_latency_and_modeled_cost_honestly() -> Non
     agentic = body["strategies"][-1]
     assert agentic["extractedFilters"]["priceMaxUsd"] == 100
     assert agentic["extractedFilters"]["filterUsed"] == "strict"
+    assert "filterExtraction" in agentic["costComponents"]
+    assert "additionalSoftSignalEmbedding" in agentic["costComponents"]
 
 
 def test_comparison_rejects_blank_query() -> None:

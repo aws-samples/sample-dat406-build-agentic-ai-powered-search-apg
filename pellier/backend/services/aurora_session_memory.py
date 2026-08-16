@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Dict, List
 
 
 _LOAD_HISTORY_SQL = """
-SELECT role, content
+SELECT recent.role, recent.content
 FROM (
-    SELECT id, role, content
-    FROM pellier.messages
-    WHERE session_id = %s
-      AND role IN ('user', 'assistant')
-    ORDER BY id DESC
+    SELECT messages.id, messages.role, messages.content
+    FROM pellier.messages AS messages
+    INNER JOIN pellier.conversations AS conversations
+        ON conversations.session_id = messages.session_id
+    WHERE messages.session_id = %s
+      AND conversations.metadata->>'actor_id' = %s
+      AND messages.role IN ('user', 'assistant')
+    ORDER BY messages.id DESC
     LIMIT %s
 ) AS recent
-ORDER BY id;
+ORDER BY recent.id;
 """
 
 _APPEND_TURN_SQL = """
@@ -38,15 +42,20 @@ WITH session_row AS (
     SET agent_name = EXCLUDED.agent_name,
         metadata = pellier.conversations.metadata || EXCLUDED.metadata,
         updated_at = CURRENT_TIMESTAMP
+    WHERE pellier.conversations.metadata->>'actor_id'
+        = EXCLUDED.metadata->>'actor_id'
     RETURNING session_id
+),
+session_guard AS (
+    SELECT (SELECT session_id FROM session_row) AS session_id
 )
 INSERT INTO pellier.messages (session_id, role, content, metadata)
 SELECT
-    session_row.session_id,
+    session_guard.session_id,
     turn.role,
     turn.content,
     jsonb_build_object('source', 'boutique')
-FROM session_row
+FROM session_guard
 CROSS JOIN (
     VALUES
         ('user', %s::text, 1),
@@ -54,6 +63,17 @@ CROSS JOIN (
 ) AS turn(role, content, ordinal)
 ORDER BY turn.ordinal;
 """
+
+
+def session_actor_id(user: Dict[str, Any] | None, session_token: str | None) -> str:
+    """Return the durable owner key for authenticated or anonymous sessions."""
+    if user and user.get("sub"):
+        return str(user["sub"])
+    token = (session_token or "").strip()
+    if len(token) < 32 or len(token) > 256:
+        raise ValueError("A valid session ownership token is required")
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"anonymous:{digest}"
 
 
 class AuroraSessionMemory:
@@ -66,6 +86,7 @@ class AuroraSessionMemory:
         self,
         session_id: str,
         *,
+        actor_id: str,
         limit: int = 16,
     ) -> List[Dict[str, str]]:
         """Return the most recent user and assistant messages chronologically."""
@@ -75,6 +96,7 @@ class AuroraSessionMemory:
         rows = await self._db.fetch_all(
             _LOAD_HISTORY_SQL,
             session_id,
+            actor_id,
             bounded_limit,
         )
         return [

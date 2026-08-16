@@ -1120,6 +1120,7 @@ def style_match(product_id: int, limit: int = 5) -> str:
             '1 - (embedding <=> %s::vector) AS similarity_score '
             'FROM pellier.product_catalog '
             'WHERE "productId" != %s '
+            "AND NOT (tags ? 'archive') "
             'ORDER BY embedding <=> %s::vector '
             'LIMIT %s',
             emb_literal, product_id_text,

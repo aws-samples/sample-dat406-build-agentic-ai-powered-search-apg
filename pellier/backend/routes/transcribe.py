@@ -102,7 +102,11 @@ async def _transcribe_stream(
         yield {"type": "error", "text": "Voice search requires amazon-transcribe SDK. Install with: pip install amazon-transcribe"}
     except Exception as exc:
         logger.exception("Transcribe streaming error: %s", exc)
-        yield {"type": "error", "text": f"Transcribe error: {str(exc)[:200]}"}
+        yield {
+            "type": "error",
+            "text": "Voice search is temporarily unavailable.",
+            "code": "transcribe_unavailable",
+        }
 
 
 @router.websocket("/ws/transcribe")

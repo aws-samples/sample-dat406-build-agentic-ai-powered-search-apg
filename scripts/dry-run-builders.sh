@@ -9,7 +9,7 @@
 #   2. Apply solution — wire floor_check (the participant's one build)
 #   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
 #   4. Retrieval      — run the exact four-strategy Lab 2 request
-#   5. Audit ledger   — run process_return and query its exact session receipt
+#   5. Memory + audit — run both Lab 3 turns, then query exact-session evidence
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
 #
@@ -78,6 +78,23 @@ else
   exit 1
 fi
 
+# Prove the installed CLI can resolve the sonnet alias and invoke Bedrock with
+# the participant instance role. This catches package, shell, model-alias, and
+# IAM drift before participants reach the recommended Lab 1 path.
+claude_smoke="$(
+  CLAUDE_CODE_USE_BEDROCK=1 \
+  ANTHROPIC_MODEL=sonnet \
+  AWS_REGION="${AWS_REGION:-us-east-1}" \
+  timeout 75 claude -p \
+    "Reply with exactly PELLIER_CLAUDE_READY and no other text." \
+    --model sonnet 2>/tmp/dryrun-claude.err || true
+)"
+if [[ "$claude_smoke" == *"PELLIER_CLAUDE_READY"* ]]; then
+  pass "Claude Code invoked Sonnet through Amazon Bedrock"
+else
+  fail "Claude Code Bedrock smoke failed — see /tmp/dryrun-claude.err"
+fi
+
 # --- 2. Apply the solution (simulate the participant's build) ---------------
 # Fill ONLY the floor_check body between the START/END markers in the live
 # agent_tools.py — exactly what a participant does. This keeps every other tool
@@ -134,9 +151,12 @@ fi
 # --- 3. Marco Turn 4 via the dispatcher path --------------------------------
 echo "[3/6] Marco Turn 4 — POST /api/chat/stream"
 SESSION="dryrun-$(date +%s)"
+SESSION_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 turn4='{"message":"Is the Hadley shirt at the Brooklyn warehouse?","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
 reply="$(curl -fsN --max-time 60 -X POST "${BASE}/api/chat/stream" \
-  -H 'Content-Type: application/json' -d "$turn4" 2>/dev/null || true)"
+  -H 'Content-Type: application/json' \
+  -H "X-Pellier-Session-Token: ${SESSION_TOKEN}" \
+  -d "$turn4" 2>/dev/null || true)"
 if echo "$reply" | grep -qiE 'brooklyn|BK-01' \
     && echo "$reply" | grep -qiE '[0-9]+[^[:cntrl:]]*(unit|shirt|available|stock|floor)|"quantity"[[:space:]]*:[[:space:]]*[0-9]+' \
     && echo "$reply" | grep -qiE 'ship|business day|[0-9]+[[:space:]]*(-|to)[[:space:]]*[0-9]+[[:space:]]*day'; then
@@ -151,7 +171,7 @@ fi
 
 # --- 4a. Lab 2 retrieval comparison ----------------------------------------
 echo "[4a/6] Lab 2 — GET /api/agent-trace/search-strategies/compare"
-QUERY='A milestone gift for a new homeowner'
+QUERY='A housewarming gift under $100 that is in stock'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     --get --data-urlencode "query=${QUERY}" \
@@ -164,6 +184,10 @@ if retrieval="$(curl --fail --silent --show-error --max-time 75 \
         and (.modeledCostPerThousandUsd | type) == "number"
         and (.products | type) == "array")
       and (.strategies[-1].extractedFilters | type) == "object"
+      and .strategies[-1].extractedFilters.priceMaxUsd == 100
+      and .strategies[-1].extractedFilters.inStockOnly == true
+      and (.costModel.pricingReviewedOn | type) == "string"
+      and (.costModel.components.rerank.formula | type) == "string"
       and (.measurementAssumptions.latency | contains("not a percentile"))
     ' >/dev/null 2>&1; then
     pass "Four retrieval rows returned with observed latency and modeled cost"
@@ -178,23 +202,56 @@ fi
 # --- 4b. Lab 3 exact in-process write request -------------------------------
 echo "[4b/6] Lab 3 — process_return on the dispatcher rail"
 LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
+LEDGER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
 if curl --fail --silent --show-error --no-buffer --max-time 75 \
     -X POST "${BASE}/api/chat/stream" \
     -H 'Content-Type: application/json' \
+    -H "X-Pellier-Session-Token: ${LEDGER_TOKEN}" \
     -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
   pass "Lab 3 stream completed for session ${LEDGER_SESSION}"
 else
   fail "Lab 3 process_return request failed"
 fi
 
-# --- 5. Audit ledger --------------------------------------------------------
-echo "[5/6] Audit ledger — pellier.tool_audit"
+memory_body='{"message":"Without calling a tool, what customer id and damage did I just report?","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
+if curl --fail --silent --show-error --no-buffer --max-time 75 \
+    -X POST "${BASE}/api/chat/stream" \
+    -H 'Content-Type: application/json' \
+    -H "X-Pellier-Session-Token: ${LEDGER_TOKEN}" \
+    -d "$memory_body" > /tmp/pellier-memory-turn.sse; then
+  memory_receipt="$(
+    sed -n 's/^data: //p' /tmp/pellier-memory-turn.sse \
+      | jq -c 'select(.type == "complete") | .response.memory' \
+      | tail -n 1
+  )"
+  if printf '%s' "$memory_receipt" | jq -e '
+      .source == "aurora"
+      and .loaded_messages == 2
+      and .persisted == true
+    ' >/dev/null 2>&1; then
+    pass "Lab 3 turn two loaded two Aurora messages and persisted its response"
+  else
+    fail "Lab 3 turn two did not prove Aurora recall (got: ${memory_receipt:-none})"
+  fi
+else
+  fail "Lab 3 memory-recall request failed"
+fi
+
+# --- 5. Working memory + audit ledger ---------------------------------------
+echo "[5/6] Aurora evidence — pellier.messages + pellier.tool_audit"
 n="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='floor_check' AND session_id LIKE 'dryrun-%';")"
 if [[ "${n:-0}" =~ ^[0-9]+$ ]] && (( n > 0 )); then
   pass "tool_audit has $n floor_check row(s) for this dry run"
 else
   fail "No tool_audit row for floor_check — audit writer not firing"
+fi
+
+message_rows="$(_psql "SELECT count(*) FROM pellier.messages WHERE session_id='${LEDGER_SESSION}' AND role IN ('user','assistant');")"
+if [[ "${message_rows:-0}" == "4" ]]; then
+  pass "Lab 3 session contains exactly four user/assistant messages"
+else
+  fail "Lab 3 session has ${message_rows:-0} messages; expected 4"
 fi
 
 ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='process_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"

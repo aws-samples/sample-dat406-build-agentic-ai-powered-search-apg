@@ -202,7 +202,7 @@ class ChatRequest(BaseModel):
             "'dispatcher' — Storefront production path; direct specialist invocation. "
             "'agents_as_tools' — Pellier Labs Pattern I; Sonnet orchestrator + @tool specialists. "
             "'graph' — Pellier Labs Pattern II (commit 2); Strands GraphBuilder with conditional edges. "
-            "None defaults to 'agents_as_tools' for backwards compatibility."
+            "None defaults to 'dispatcher'."
         ),
     )
 

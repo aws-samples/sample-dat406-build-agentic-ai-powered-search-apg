@@ -11,6 +11,8 @@
 #   2. Catalog row count == expected (40)
 #   3. Warehouse inventory present (~120 rows)
 #   4. Required Bedrock model preflight passed
+#   5. Event-rehearsed Claude Code CLI is installed
+#   6. uv is installed for the participant Python client
 #
 # Exit 0 only if the core one-hour path passes: backend, frontend, catalog,
 # warehouse, and required model access.
@@ -92,6 +94,24 @@ if [[ "${BEDROCK_MODEL_ACCESS_READY:-}" == "true" ]]; then
   pass "Required Bedrock model-access preflight passed"
 else
   fail "Required Bedrock model-access preflight did not pass"
+  ok=false
+fi
+
+# 5. Claude Code CLI used by the recommended Lab 1 path
+claude_version="$(claude --version 2>/dev/null || true)"
+if [[ -n "$claude_version" ]]; then
+  pass "Claude Code CLI installed (${claude_version})"
+else
+  fail "Claude Code CLI is missing or unusable"
+  ok=false
+fi
+
+# 6. uv runs the checked-in participant Python client
+uv_version="$(uv --version 2>/dev/null || true)"
+if [[ -n "$uv_version" ]]; then
+  pass "uv installed (${uv_version})"
+else
+  fail "uv is missing or unusable"
   ok=false
 fi
 

@@ -114,3 +114,16 @@ class TestIntentPairing:
     )
     def test_pairing_turns_route_to_search_for_style_match(self, query: str) -> None:
         assert classify_intent(query) == "search"
+
+
+class TestIntentInventory:
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "Is the Hadley shirt in Brooklyn?",
+            "Do you have the linen overshirt in Austin?",
+            "Can the camp shirt ship from Portland?",
+        ],
+    )
+    def test_city_stock_questions_route_to_inventory(self, query: str) -> None:
+        assert classify_intent(query) == "inventory"

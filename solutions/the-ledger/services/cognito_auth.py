@@ -34,6 +34,7 @@ import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import unquote
 
 import jwt
 import requests
@@ -230,7 +231,8 @@ class CognitoAuthService:
             token = authorization.split(" ", 1)[1].strip()
 
         if not token:
-            token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+            cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+            token = unquote(cookie_token) if cookie_token else None
 
         if not token:
             return None

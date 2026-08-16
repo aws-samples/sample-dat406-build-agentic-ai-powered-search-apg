@@ -15,7 +15,7 @@
 --   4. INSERT into pellier.returns + (if reason='damaged') UPDATE
 --      quantity in pellier.product_catalog. Both in one transaction.
 --   5. AfterToolCallEvent persists the call to pellier.tool_audit so
---      the mutation has a paper trail readable from /agent-trace — every
+--      the mutation has a paper trail readable from /pellier-labs — every
 --      mutation is reconstructible from a single SELECT.
 --
 -- This table is the second source of truth in the workshop. The first

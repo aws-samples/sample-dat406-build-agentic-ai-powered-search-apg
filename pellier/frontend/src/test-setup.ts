@@ -79,6 +79,13 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   })) as unknown as typeof window.matchMedia
 }
 
+// jsdom logs a not-implemented stack before returning null. Exercise the
+// component's existing no-canvas branch without polluting successful test runs.
+Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  configurable: true,
+  value: vi.fn(() => null),
+})
+
 afterEach(() => {
   cleanup()
   localStorageStub.clear()

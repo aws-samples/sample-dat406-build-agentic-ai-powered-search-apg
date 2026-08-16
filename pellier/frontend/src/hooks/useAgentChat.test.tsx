@@ -33,6 +33,9 @@ let releaseStream:
 
 vi.mock('../services/chat', () => ({
   checkBackendHealth: vi.fn().mockResolvedValue(true),
+  getSessionOwnershipHeaders: vi.fn(() => ({
+    'X-Pellier-Session-Token': 'test-session-token',
+  })),
   sendChatMessageStreaming: vi.fn(
     (_q: string, _h: unknown, onUpdate: (d: unknown) => void) => {
       capturedOnUpdate = onUpdate

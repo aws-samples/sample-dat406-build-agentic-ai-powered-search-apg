@@ -11,6 +11,11 @@ from routes import agent_trace
 from routes.agent_trace import router as agent_trace_router
 
 
+def test_fixture_loader_rejects_path_traversal() -> None:
+    assert agent_trace._load_fixture("../personas-config") is None
+    assert agent_trace._load_fixture("tools/../../personas-config") is None
+
+
 class _ProofDB:
     async def fetch_one(self, query: str, *params: Any) -> dict | None:
         if "catalog_count" in query:

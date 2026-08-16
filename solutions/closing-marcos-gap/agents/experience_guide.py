@@ -20,7 +20,6 @@ now runs purely against the local tool set.
 """
 import json
 import logging
-import re
 from strands import Agent, tool
 from strands.models import BedrockModel
 from services.agent_tools import (
@@ -94,9 +93,6 @@ def _ensure_products_in_output(text: str, tool_results: list) -> str:
     plumbing for the write, not recommendations the customer wants
     rendered as cards alongside a damage-return confirmation.
     """
-    if re.search(r'```json\s*\[', text):
-        return text
-
     all_products = []
     return_completed = False
     for result_str in tool_results:
@@ -117,7 +113,8 @@ def _ensure_products_in_output(text: str, tool_results: list) -> str:
         return text
 
     if all_products:
-        text += f"\n\n```json\n{json.dumps(all_products)}\n```"
+        from agents.specialist_hooks import forward_or_append_products
+        return forward_or_append_products(text, all_products)
     return text
 
 

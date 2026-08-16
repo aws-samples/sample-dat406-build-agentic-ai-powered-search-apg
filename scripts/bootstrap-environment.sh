@@ -17,6 +17,7 @@ CFN_WAIT_HANDLE="${CFN_WAIT_HANDLE:-}"
 STAGE2_SCRIPT_URL="${STAGE2_SCRIPT_URL:-}"
 ASSETS_BUCKET_NAME="${ASSETS_BUCKET_NAME:-}"
 ASSETS_BUCKET_PREFIX="${ASSETS_BUCKET_PREFIX:-}"
+CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-2.1.233}"
 
 # Colors
 RED='\033[0;31m'
@@ -39,7 +40,6 @@ log "Assets Prefix: ${ASSETS_BUCKET_PREFIX:-<not set>}"
 # ============================================================================
 
 log "Installing essential system packages..."
-dnf update -y -q
 dnf install --skip-broken -y -q \
     curl \
     gnupg \
@@ -61,34 +61,19 @@ log "✅ System packages installed"
 # ----------------------------------------------------------------------------
 # Node.js 20+ for the frontend toolchain and Claude Code.
 #
-# AL2023's default `nodejs` package is Node 18. Pinning Node 20 keeps the
-# frontend build and globally installed Claude Code CLI on one tested runtime.
-# Falls back to the distro nodejs only if NodeSource is unreachable.
+# The event AMI is pinned and carries the AL2023 Node 20 package. Keeping the
+# distro package avoids introducing a moving third-party repository during
+# bootstrap.
 # ----------------------------------------------------------------------------
-# This step is intentionally non-fatal: the participant can use the manual
-# edit or copy-solution escape hatch if the Claude Code install is unavailable.
 log "Installing Node.js 20 for the frontend and Claude Code..."
 
-# Why this is more than "dnf install nodejs":
-#   On a fresh AL2023 box the distro `nodejs` (18) is often ALREADY installed
-#   (it satisfies build deps). In that state, adding the NodeSource repo and
-#   running `dnf install nodejs` is a NO-OP — dnf sees nodejs as already
-#   present and exits 0 WITHOUT upgrading to 20. The previous logic trusted
-#   that exit 0 and left the box on Node 18 (observed on a fresh-account run:
-#   `node --version` → v18.20.8, every `agentcore` command silently empty).
-#   Fix: (1) remove the distro nodejs first so NodeSource's package is the
-#   only candidate, (2) verify success by the ACTUAL major version, never by
-#   dnf's exit code.
 _node_major() { node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1; }
 _node20_ok=false
 for attempt in 1 2; do
-    # Drop any distro Node (18) so the NodeSource module installs clean rather
-    # than being short-circuited as "already satisfied". Non-fatal if absent.
-    dnf remove -y -q nodejs npm >/dev/null 2>&1 || true
-    if curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - >/dev/null 2>&1; then
-        # NodeSource ships nodejs-20 as the `nodejs` package once its repo is
-        # enabled; --allowerasing lets it replace any lingering distro bits.
-        dnf install -y -q --allowerasing nodejs >/dev/null 2>&1 || true
+    dnf install -y -q --allowerasing nodejs20 npm >/dev/null 2>&1 || true
+    if [ -x /usr/bin/node-20 ]; then
+        update-alternatives --install /usr/bin/node node /usr/bin/node-20 100 \
+            >/dev/null 2>&1 || true
     fi
     _maj="$(_node_major)"
     if echo "$_maj" | grep -qE '^[0-9]+$' && [ "$_maj" -ge 20 ]; then
@@ -138,27 +123,33 @@ if [ "$_node20_ok" = true ]; then
         # role (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_MODEL are exported in the
         # participant .bashrc by bootstrap-labs), so there is NO per-participant
         # login — the same ambient-credential model the rest of the lab uses.
-        # Intentionally non-fatal: the manual edit and copy-solution paths
-        # still complete the exercise if installation fails.
-        log "Installing the latest Claude Code CLI globally for Lab 1..."
-        if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
+        # Pin the event-rehearsed release. Updating this version is a deliberate
+        # release action followed by a provisioned-environment rehearsal.
+        log "Installing Claude Code CLI ${CLAUDE_CODE_VERSION} globally for Lab 1..."
+        if npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
             _claude_bin="$(command -v claude 2>/dev/null || true)"
             if [ -n "$_claude_bin" ] && [ "$_claude_bin" != "/usr/bin/claude" ]; then
                 ln -sf "$_claude_bin" /usr/bin/claude 2>/dev/null || true
             fi
-            log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
+            if ! command -v claude >/dev/null 2>&1 \
+                || ! claude --version >/dev/null 2>&1; then
+                error "Claude Code CLI installation completed without a usable claude binary"
+            fi
+            log "✅ Claude Code CLI installed: $(claude --version) ($(command -v claude))"
         else
-            warn "Claude Code CLI install failed - use the manual edit or copy-solution path in Lab 1."
+            error "Claude Code CLI ${CLAUDE_CODE_VERSION} install failed"
         fi
+    else
+        error "npm is unavailable; Claude Code CLI cannot be installed"
     fi
 else
     # Last resort: ensure some Node runtime exists for the frontend build.
     if ! command -v node >/dev/null 2>&1; then
         dnf install --skip-broken -y -q nodejs >/dev/null 2>&1 || true
     fi
-    warn "Node 20 install failed after retries - node is $(node --version 2>/dev/null || echo 'none'). Frontend or Claude Code setup may fail."
+    error "Node 20 install failed after retries - node is $(node --version 2>/dev/null || echo 'none')"
 fi
 
 # ----------------------------------------------------------------------------
@@ -295,7 +286,7 @@ server {
     # __PELLIER_ORIGIN_VERIFY__
     
     # Pellier (single-process): FastAPI on :8000 serves BOTH
-    # /api/* AND the built SPA (/, /agent-trace, /storyboard, /discover,
+    # /api/* AND the built SPA (/, /pellier-labs, /storyboard, /discover,
     # /assets/*, /fonts/*). Code-server's /ports/<n>/* reverse proxy
     # (or the standalone /app/ alias below) routes the whole app
     # there.
@@ -330,8 +321,8 @@ server {
     }
 
     # /ports/8000/* – the canonical participant URL. It matches the baked
-    # SPA base path (VITE_BASE_PATH=/ports/8000/) and the BoutiqueURL /
-    # AgentTraceURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
+    # SPA base path (VITE_BASE_PATH=/ports/8000/) and the PellierURL /
+    # PellierLabsURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
     # bypassing code-server's port-forward proxy.
     #
     # WHY this block exists: code-server only forwards a port that has been

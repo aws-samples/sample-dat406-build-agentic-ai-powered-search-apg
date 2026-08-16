@@ -16,6 +16,7 @@ MODEL_CHECK = REPO / "scripts" / "check_model_access.py"
 HEALTH_GATE = REPO / "scripts" / "health-gate.sh"
 BUILDERS_BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
 BUILDERS_DRY_RUN = REPO / "scripts" / "dry-run-builders.sh"
+BUILDERS_CLIENT = REPO / "scripts" / "builders_lab.py"
 PROVISIONER = REPO / "scripts" / "provision_agentcore_end_to_end.py"
 SEED_PREFERENCES = REPO / "scripts" / "seed-sample-preferences.sh"
 
@@ -76,7 +77,13 @@ def _write_executable(path: Path, body: str) -> None:
     path.chmod(0o755)
 
 
-def _run_health_gate(tmp_path: Path, model_ready: bool) -> subprocess.CompletedProcess[str]:
+def _run_health_gate(
+    tmp_path: Path,
+    model_ready: bool,
+    *,
+    claude_ready: bool = True,
+    uv_ready: bool = True,
+) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
     fake_bin = tmp_path / "bin"
     repo.mkdir()
@@ -103,7 +110,28 @@ case "$*" in
 esac
 """,
     )
+    if claude_ready:
+        _write_executable(
+            fake_bin / "claude",
+            "#!/bin/bash\nprintf '2.1.233 (Claude Code)\\n'\n",
+        )
+    else:
+        _write_executable(fake_bin / "claude", "#!/bin/bash\nexit 127\n")
+    if uv_ready:
+        _write_executable(fake_bin / "uv", "#!/bin/bash\nprintf 'uv 0.8.11\\n'\n")
+    else:
+        _write_executable(fake_bin / "uv", "#!/bin/bash\nexit 127\n")
     env = os.environ.copy()
+    for managed_key in (
+        "AGENTCORE_MEMORY_ID",
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "USE_AGENTCORE_RUNTIME",
+        "AGENTCORE_GATEWAY_URL",
+        "AGENTCORE_GATEWAY_ARN",
+        "AGENTCORE_POLICY_ENGINE_ID",
+        "AGENTCORE_MANAGED_OUTPUT_JSON",
+    ):
+        env.pop(managed_key, None)
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["PELLIER_REPO"] = str(repo)
     return subprocess.run(
@@ -130,6 +158,18 @@ def test_core_health_gate_requires_model_preflight(tmp_path: Path) -> None:
     assert "model-access preflight did not pass" in proc.stdout
 
 
+def test_core_health_gate_requires_claude_code(tmp_path: Path) -> None:
+    proc = _run_health_gate(tmp_path, model_ready=True, claude_ready=False)
+    assert proc.returncode == 1
+    assert "Claude Code CLI is missing or unusable" in proc.stdout
+
+
+def test_core_health_gate_requires_uv(tmp_path: Path) -> None:
+    proc = _run_health_gate(tmp_path, model_ready=True, uv_ready=False)
+    assert proc.returncode == 1
+    assert "uv is missing or unusable" in proc.stdout
+
+
 def test_builders_path_defaults_managed_extensions_off() -> None:
     bootstrap = BUILDERS_BOOTSTRAP.read_text(encoding="utf-8")
     dry_run = BUILDERS_DRY_RUN.read_text(encoding="utf-8")
@@ -143,6 +183,36 @@ def test_builders_path_defaults_managed_extensions_off() -> None:
         "/api/agentcore/",
     ):
         assert fragment not in dry_run
+
+
+def test_builders_dry_run_rehearses_session_ownership_and_recall() -> None:
+    dry_run = BUILDERS_DRY_RUN.read_text(encoding="utf-8")
+
+    assert dry_run.count("X-Pellier-Session-Token") >= 3
+    assert "LEDGER_TOKEN" in dry_run
+    assert "Without calling a tool" in dry_run
+    assert '.loaded_messages == 2' in dry_run
+    assert "SELECT count(*) FROM pellier.messages" in dry_run
+    assert "CLAUDE_CODE_USE_BEDROCK=1" in dry_run
+    assert "PELLIER_CLAUDE_READY" in dry_run
+
+
+def test_builders_client_contract_is_checked_in() -> None:
+    client = BUILDERS_CLIENT.read_text(encoding="utf-8")
+    bootstrap = BUILDERS_BOOTSTRAP.read_text(encoding="utf-8")
+
+    for fragment in (
+        "# /// script",
+        "/api/health",
+        "/api/agent-trace/build-state",
+        "/api/agent-trace/search-strategies/compare",
+        "/api/chat/stream",
+        "X-Pellier-Session-Token",
+        "/tmp/pellier-ledger-session.txt",
+    ):
+        assert fragment in client
+    assert "uv is missing or unusable" in bootstrap
+    assert 'ln -sf "$uv_bin" /usr/local/bin/uv' in bootstrap
 
 
 def test_runtime_arn_is_recorded_before_smoke() -> None:

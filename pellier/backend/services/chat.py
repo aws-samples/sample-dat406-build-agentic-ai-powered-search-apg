@@ -217,19 +217,49 @@ class ProductExtractor:
 
     @staticmethod
     def extract(tool_result_str: str) -> list:
-        """Parse tool result JSON and return normalized product dicts."""
-        try:
-            data = json.loads(tool_result_str)
-        except (json.JSONDecodeError, TypeError):
-            return []
+        """Parse direct or specialist-wrapped JSON into normalized products.
 
+        Agents-as-Tools only exposes the outer specialist result to this
+        stream. The specialist preserves its inner retrieval result in a
+        fenced JSON block after the shopper-facing prose, so inspect both the
+        complete value and any fenced payloads without asking the outer model
+        to reproduce product data.
+        """
         products = []
-        if isinstance(data, dict) and "products" in data:
-            products = data["products"]
-        elif isinstance(data, list):
-            products = data
+        candidates = [tool_result_str]
+        if isinstance(tool_result_str, str):
+            candidates.extend(
+                match.group(1)
+                for match in re.finditer(
+                    r"```json\s*(.*?)\s*```",
+                    tool_result_str,
+                    re.DOTALL | re.IGNORECASE,
+                )
+            )
 
-        return [ProductExtractor._normalize(p) for p in products if isinstance(p, dict)]
+        for candidate in candidates:
+            try:
+                data = json.loads(candidate)
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            if isinstance(data, dict) and isinstance(data.get("products"), list):
+                products.extend(data["products"])
+            elif isinstance(data, list):
+                products.extend(data)
+
+        normalized = []
+        seen = set()
+        for product in products:
+            if not isinstance(product, dict):
+                continue
+            item = ProductExtractor._normalize(product)
+            identity = item["productId"] or item["name"]
+            if not identity or identity in seen:
+                continue
+            seen.add(identity)
+            normalized.append(item)
+        return normalized
 
     @staticmethod
     def _normalize(p: dict) -> dict:
@@ -253,6 +283,67 @@ class ProductExtractor:
             "badge": p.get("badge"),
             "tags": list(p.get("tags") or []),
         }
+
+
+def _new_unique_products(existing: list, candidates: list) -> list:
+    """Return candidates not already represented by product id or name."""
+
+    def identity(product: dict) -> Optional[tuple[str, str]]:
+        product_id = product.get("id") or product.get("productId")
+        if product_id is not None and str(product_id).strip():
+            return ("id", str(product_id).strip())
+
+        name = product.get("name") or product.get("product_description")
+        if name is not None and str(name).strip():
+            return ("name", str(name).strip().casefold())
+        return None
+
+    seen = {
+        product_identity
+        for product in existing
+        if isinstance(product, dict)
+        and (product_identity := identity(product)) is not None
+    }
+    unique = []
+    for product in candidates:
+        if not isinstance(product, dict):
+            continue
+        product_identity = identity(product)
+        if product_identity is not None and product_identity in seen:
+            continue
+        unique.append(product)
+        if product_identity is not None:
+            seen.add(product_identity)
+    return unique
+
+
+def _specialist_prose(result_str: str) -> str:
+    """Return shopper-facing prose from an Agents-as-Tools result."""
+    if not isinstance(result_str, str):
+        return ""
+    return re.sub(
+        r"\n*```json\s*.*?\s*```",
+        "",
+        result_str,
+        flags=re.DOTALL | re.IGNORECASE,
+    ).strip()
+
+
+def _is_incomplete_router_preface(response_text: str) -> bool:
+    """Identify the short trailing-colon preface Sonnet can emit post-tool."""
+    text = response_text.strip()
+    return bool(text) and text.endswith(":") and len(text.split()) <= 24
+
+
+def _mentions_returned_product(response_text: str, products: list) -> bool:
+    """Return whether prose names at least one product in the live envelope."""
+    normalized = response_text.casefold()
+    return any(
+        isinstance(product, dict)
+        and (name := str(product.get("name") or "").strip())
+        and name.casefold() in normalized
+        for product in products
+    )
 
 
 def _scan_for_escalation(result_str: str) -> Optional[Dict[str, Any]]:
@@ -764,13 +855,10 @@ CURRENT REQUEST: {message}"""
                             # Enforce price limit from user query as safety net
                             if price_limit:
                                 formatted = [p for p in formatted if p.get("price", 0) <= price_limit]
-                            sent_ids = {p.get("id") or p.get("productId") for p in products_buffered}
-                            sent_names = {p.get("name") or p.get("product_description") for p in products_buffered}
-                            new_products = [
-                                p for p in formatted
-                                if (p.get("id") or p.get("productId")) not in sent_ids
-                                and (p.get("name") or p.get("product_description")) not in sent_names
-                            ]
+                            new_products = _new_unique_products(
+                                products_buffered,
+                                formatted,
+                            )
                             products_buffered.extend(new_products)
 
                     yield {"type": "agent_step", "agent": "SearchAssistant", "action": "Done", "status": "completed"}
@@ -1006,8 +1094,14 @@ CURRENT REQUEST: {message}"""
         # Remove plain-text product listings ONLY when we have product cards to show instead.
         # When there are no product cards (e.g. inventory queries), the text IS the response.
         if have_products:
-            # Lines containing price patterns like $xx.xx or $xxx.xx
-            clean_text = re.sub(r'^.*\$\d+[\d,.]*\s*.*$', '', clean_text, flags=re.MULTILINE)
+            # Remove price-bearing product list rows, not ordinary editorial
+            # sentences that name a grounded product and its price.
+            clean_text = re.sub(
+                r'^\s*(?:[-•*]|\d+[.)])\s+.*\$\d+[\d,.]*\s*.*$',
+                '',
+                clean_text,
+                flags=re.MULTILINE,
+            )
             # Lines with star ratings (⭐, ★, or "x.x stars")
             clean_text = re.sub(r'^.*[⭐★].*$', '', clean_text, flags=re.MULTILINE)
             clean_text = re.sub(r'^.*\d+\.\d+\s*stars?.*$', '', clean_text, flags=re.MULTILINE | re.IGNORECASE)
@@ -1251,15 +1345,15 @@ CURRENT REQUEST: {message}"""
             classifier picks one specialist; that specialist runs
             directly via its factory. One LLM call per turn. Voice
             preserved (no paraphrase cycle).
-          - ``'agents_as_tools'`` — Pellier Labs Pattern I. Sonnet orchestrator
-            + five ``@tool`` specialists. Two LLM calls per turn.
-          - ``'graph'`` — Pellier Labs Pattern II. Real Strands
-            ``GraphBuilder`` DAG: Sonnet router node + 5 specialist
-            nodes; conditional edges route the turn to exactly one
-            specialist. Exposed through ``GraphAgentAdapter`` so the
-            downstream streaming/hook pipeline treats it identically
-            to a single Agent.
-          - ``None`` → ``'agents_as_tools'`` for backwards compatibility.
+          - ``'agents_as_tools'`` — optional comparison path. Sonnet
+            orchestrator + five ``@tool`` specialists. Two LLM calls per turn.
+          - ``'graph'`` — optional comparison path. Real Strands
+            ``GraphBuilder`` DAG: deterministic router node + 5 specialist
+            nodes; conditional edges route the turn to exactly one specialist.
+            Exposed through ``GraphAgentAdapter`` so the downstream
+            streaming/hook pipeline treats it identically to a single Agent.
+          - ``None`` → ``'dispatcher'``. All public Pellier surfaces use the
+            same default routing contract.
         """
         import asyncio
         import time
@@ -1267,13 +1361,12 @@ CURRENT REQUEST: {message}"""
 
         response_mode = normalize_response_mode(response_mode)
 
-        # Pattern defaults to agents_as_tools for backwards compat.
-        pattern = (pattern or "agents_as_tools").lower()
+        pattern = (pattern or "dispatcher").lower()
         if pattern not in ("dispatcher", "agents_as_tools", "graph"):
             logger.warning(
-                "Unknown pattern %r; falling back to agents_as_tools", pattern
+                "Unknown pattern %r; falling back to dispatcher", pattern
             )
-            pattern = "agents_as_tools"
+            pattern = "dispatcher"
 
         # Resolve the effective customer_id for this turn. Personas
         # stash their customer_id in user["customer_id"] from the
@@ -1594,6 +1687,9 @@ CURRENT REQUEST: {message}"""
         # they get the editorial fallback.
         persona_preamble = ""
         persona_orders_for_cards: list = []  # hydrated product rows for past-order cards
+        persona_fact_count = 0
+        persona_order_count = 0
+        persona_memory_source = "unavailable"
         if customer_id and self.db_service:
             try:
                 facts_rows = await self.db_service.fetch_all(
@@ -1660,11 +1756,26 @@ CURRENT REQUEST: {message}"""
                     f"👤 Persona LTM | {customer_id} | "
                     f"facts={len(facts_rows)} orders={len(orders_rows)}"
                 )
+                persona_fact_count = len(facts_rows)
+                persona_order_count = len(orders_rows)
+                persona_memory_source = "aurora"
             except Exception as e:
+                persona_memory_source = "error"
                 logger.warning(f"Persona LTM read failed for {customer_id}: {e}")
 
         if persona_preamble:
             full_message = persona_preamble + full_message
+        if customer_id:
+            yield {
+                "type": "memory_context",
+                "memory": {
+                    "source": persona_memory_source,
+                    "customer_id": customer_id,
+                    "facts_loaded": persona_fact_count,
+                    "orders_loaded": persona_order_count,
+                    "applied": bool(persona_preamble),
+                },
+            }
 
         # Deterministic intent classification.
         #
@@ -1969,6 +2080,50 @@ CURRENT REQUEST: {message}"""
                     logger.warning("Response-mode ContextVar reset failed: %s", exc)
                 response_mode_token = None
 
+        # Pattern I specialists forward retrieved products through this
+        # request-scoped collector. Product data therefore stays server-owned
+        # and never consumes the outer router's model output budget.
+        forwarded_products: List[Dict[str, Any]] = []
+        forwarded_specialist_replies: List[str] = []
+        product_collector_token = None
+        specialist_reply_collector_token = None
+        try:
+            from agents.specialist_hooks import (
+                set_product_collector,
+                set_specialist_reply_collector,
+            )
+            product_collector_token = set_product_collector(forwarded_products)
+            specialist_reply_collector_token = set_specialist_reply_collector(
+                forwarded_specialist_replies
+            )
+        except Exception as exc:
+            logger.warning("Product collector ContextVar set failed: %s", exc)
+
+        def _reset_product_collector_token() -> None:
+            """Idempotent reset so concurrent turns cannot share products."""
+            nonlocal product_collector_token, specialist_reply_collector_token
+            if product_collector_token is not None:
+                try:
+                    from agents.specialist_hooks import reset_product_collector
+                    reset_product_collector(product_collector_token)
+                except Exception as exc:
+                    logger.warning("Product collector ContextVar reset failed: %s", exc)
+                product_collector_token = None
+            if specialist_reply_collector_token is not None:
+                try:
+                    from agents.specialist_hooks import (
+                        reset_specialist_reply_collector,
+                    )
+                    reset_specialist_reply_collector(
+                        specialist_reply_collector_token
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Specialist reply collector ContextVar reset failed: %s",
+                        exc,
+                    )
+                specialist_reply_collector_token = None
+
         # Pattern II (Graph) builds the GraphAdapter here, AFTER the
         # persona + skill ContextVars are live so the specialist
         # factories inside the adapter pick them up at construction
@@ -2101,6 +2256,7 @@ CURRENT REQUEST: {message}"""
                 _reset_skill_token()
                 _reset_persona_token()
                 _reset_response_mode_token()
+                _reset_product_collector_token()
                 return
 
             from agents.stock_keeper import build_inventory_agent
@@ -2133,6 +2289,14 @@ CURRENT REQUEST: {message}"""
             except Exception as e:
                 orchestrator_error[0] = e
             finally:
+                if gateway_used:
+                    try:
+                        await asyncio.to_thread(orchestrator.cleanup)
+                    except Exception as exc:
+                        logger.warning(
+                            "Gateway orchestrator cleanup failed: %s",
+                            exc.__class__.__name__,
+                        )
                 await queue.put({"_done": True})
 
         task = asyncio.create_task(run_orchestrator())
@@ -2140,6 +2304,7 @@ CURRENT REQUEST: {message}"""
         # --- Process events from queue in real-time ---
         products_sent = []
         products_buffered = []  # Hold products until text streams first
+        specialist_reply = ""
         current_tool = None
         timed_out = False
         price_limit = self._extract_price_limit(message)
@@ -2226,6 +2391,16 @@ CURRENT REQUEST: {message}"""
                     if candidate is not None:
                         escalation_payload = candidate
                 if result_str:
+                    if pattern == "agents_as_tools" and tool_name in {
+                        "search",
+                        "recommendation",
+                        "pricing",
+                        "inventory",
+                        "support",
+                    }:
+                        candidate_reply = _specialist_prose(result_str)
+                        if candidate_reply:
+                            specialist_reply = candidate_reply
                     raw_products = ProductExtractor.extract(result_str)
                     if raw_products:
                         result_count = len(raw_products)
@@ -2234,24 +2409,11 @@ CURRENT REQUEST: {message}"""
                         if price_limit:
                             formatted = [p for p in formatted if p.get("price", 0) <= price_limit]
                         # Deduplicate: skip products already buffered (by id or name)
-                        sent_ids = {p.get("id") or p.get("productId") for p in products_buffered}
-                        sent_names = {p.get("name") or p.get("product_description") for p in products_buffered}
-                        new_products = [
-                            p for p in formatted
-                            if (p.get("id") or p.get("productId")) not in sent_ids
-                            and (p.get("name") or p.get("product_description")) not in sent_names
-                        ]
+                        new_products = _new_unique_products(
+                            products_buffered,
+                            formatted,
+                        )
                         products_buffered.extend(new_products)
-                    # NOTE: the three-pattern refactor deleted the
-                    # ``last_specialist_text`` capture here — it used
-                    # to snapshot specialist prose so the empty-
-                    # response recovery ladder (workaround #3) could
-                    # recover it when the router's final cycle came back
-                    # blank. Dispatcher has no paraphrase cycle;
-                    # Agents-as-Tools still runs but no longer needs
-                    # the promotion path because the orchestrator output
-                    # is the user-facing reply, period.
-
                 tool_ms = int(
                     (time.time() - tool_starts.pop(tool_name, time.time())) * 1000
                 )
@@ -2307,6 +2469,7 @@ CURRENT REQUEST: {message}"""
             _reset_skill_token()
             _reset_persona_token()
             _reset_response_mode_token()
+            _reset_product_collector_token()
 
         if timed_out:
             try:
@@ -2318,6 +2481,22 @@ CURRENT REQUEST: {message}"""
         if orchestrator_error[0]:
             yield {"type": "error", "error": str(orchestrator_error[0])}
             return
+
+        if forwarded_products:
+            formatted = await self._format_products(forwarded_products)
+            if price_limit:
+                formatted = [
+                    product
+                    for product in formatted
+                    if product.get("price", 0) <= price_limit
+                ]
+            new_products = _new_unique_products(products_buffered, formatted)
+            products_buffered.extend(new_products)
+            if tool_trace and new_products:
+                tool_trace[-1]["results"] = max(
+                    tool_trace[-1].get("results", 0),
+                    len(new_products),
+                )
 
         # --- Inject past-order product cards for retrospective queries ---
         #
@@ -2335,10 +2514,35 @@ CURRENT REQUEST: {message}"""
         # against persona_orders_for_cards).
 
         # --- Parse and send final response ---
+        if forwarded_specialist_replies:
+            specialist_reply = forwarded_specialist_replies[-1]
         response_text = str(orchestrator_result[0]) if orchestrator_result[0] else ""
-        context_manager.add_message("assistant", response_text)
-
         parsed = await self._parse_agent_response(response_text, message, conversation_history, has_tool_products=bool(products_buffered))
+        if (
+            pattern == "agents_as_tools"
+            and products_buffered
+            and specialist_reply
+            and (
+                _is_incomplete_router_preface(parsed["text"])
+                or (
+                    not _mentions_returned_product(
+                        parsed["text"],
+                        products_buffered,
+                    )
+                    and _mentions_returned_product(
+                        specialist_reply,
+                        products_buffered,
+                    )
+                )
+            )
+        ):
+            logger.warning(
+                "Pattern I router reply was incomplete or ungrounded; "
+                "using the completed specialist reply"
+            )
+            response_text = specialist_reply
+            parsed["text"] = specialist_reply
+        context_manager.add_message("assistant", parsed["text"])
 
         # Minimal empty-response fallback. The aggressive recovery
         # ladder (specialist-over-orchestrator promotion and the
@@ -2559,6 +2763,26 @@ CURRENT REQUEST: {message}"""
             f"📤 chat_stream done | {total_ms}ms | products={len(products_sent)} "
             f"| tokens={token_count} | {tool_summary}"
         )
+        route_tools = {"search", "recommendation", "pricing", "inventory", "support"}
+        specialist_route = getattr(orchestrator, "last_route", None)
+        if not specialist_route:
+            specialist_route = next(
+                (
+                    item.get("tool")
+                    for item in tool_trace
+                    if item.get("tool") in route_tools
+                ),
+                intent_hint,
+            )
+        orchestration_receipt = {
+            "pattern": pattern,
+            "route": specialist_route,
+            "router": (
+                "model"
+                if pattern == "agents_as_tools"
+                else "deterministic"
+            ),
+        }
 
         # AgentCore STM — mirror this turn for session continuity labs.
         if session_id and parsed.get("text"):
@@ -2581,6 +2805,7 @@ CURRENT REQUEST: {message}"""
                     "model": self.model_id,
                     "response_mode": response_mode,
                     "rail": "gateway-mcp" if gateway_used else "in-process",
+                    "orchestration": orchestration_receipt,
                     "token_count": token_count,
                     "estimated_cost_usd": estimated_cost,
                     "cost_breakdown": cost_breakdown
@@ -2597,6 +2822,7 @@ CURRENT REQUEST: {message}"""
                     "success": True,
                     "response_mode": response_mode,
                     "rail": "gateway-mcp" if gateway_used else "in-process",
+                    "orchestration": orchestration_receipt,
                 }
             }
 

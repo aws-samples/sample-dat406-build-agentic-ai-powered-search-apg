@@ -61,7 +61,7 @@ Pellier is an editorial retail application with two views:
 
 - **Pellier** (`/`) is where you send shopper requests and inspect grounded
   answers.
-- **Pellier Labs** (`/agent-trace`) is the engineering view for routing, retrieval,
+- **Pellier Labs** (`/pellier-labs`) is the engineering view for routing, retrieval,
   tools, evidence, and optional production patterns. It opens on a proof-first
   board for post-session exploration.
 
@@ -262,7 +262,7 @@ python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Open <http://localhost:8000> for Pellier or
-<http://localhost:8000/agent-trace> for Pellier Labs.
+<http://localhost:8000/pellier-labs> for Pellier Labs.
 
 For frontend HMR, run `npm run dev` from `pellier/frontend` in another
 terminal; the Vite app on `:5173` continues to call the backend on `:8000`.

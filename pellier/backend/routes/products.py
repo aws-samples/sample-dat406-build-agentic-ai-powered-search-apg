@@ -206,13 +206,14 @@ async def _fetch_editorial_catalog(
         # ``Home`` matches ``Home & Kitchen``, etc.
         query = (
             _PRODUCT_SELECT
-            + " WHERE category ILIKE %s"
+            + " WHERE NOT (tags ? 'archive') AND category ILIKE %s"
             + " ORDER BY tier NULLS LAST, \"productId\" ASC"
         )
         rows = await db.fetch_all(query, f"%{category}%")
     else:
         query = (
             _PRODUCT_SELECT
+            + " WHERE NOT (tags ? 'archive')"
             + " ORDER BY tier NULLS LAST, \"productId\" ASC"
         )
         rows = await db.fetch_all(query)

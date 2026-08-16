@@ -25,8 +25,10 @@ def fake_dist(tmp_path: Path) -> Path:
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
     (dist / "fonts").mkdir()
+    (dist / "products").mkdir()
     (dist / "index.html").write_text("<html><body>SPA</body></html>")
     (dist / "assets" / "main.js").write_text("console.log('hi')")
+    (dist / "products" / "sample.png").write_bytes(b"sample-image")
     return dist
 
 
@@ -76,12 +78,20 @@ def test_root_mount_serves_spa_at_slash(reload_app):
 
 
 def test_root_mount_deep_link_serves_index(reload_app):
-    """React Router deep link refresh: /agent-trace/agents → index.html."""
+    """React Router deep link refresh: /pellier-labs/agents -> index.html."""
     app_module = reload_app("/")
     with TestClient(app_module.app) as client:
-        r = client.get("/agent-trace/agents")
+        r = client.get("/pellier-labs/agents")
         assert r.status_code == 200
         assert "SPA" in r.text
+
+
+def test_root_mount_serves_allowlisted_public_file(reload_app):
+    app_module = reload_app("/")
+    with TestClient(app_module.app) as client:
+        r = client.get("/products/sample.png")
+        assert r.status_code == 200
+        assert r.content == b"sample-image"
 
 
 def test_root_mount_api_path_does_not_get_swallowed(reload_app):
@@ -123,7 +133,7 @@ def test_app_mount_bare_app_redirects_to_slash(reload_app):
 def test_app_mount_deep_link_serves_index(reload_app):
     app_module = reload_app("/app")
     with TestClient(app_module.app) as client:
-        r = client.get("/app/agent-trace/agents")
+        r = client.get("/app/pellier-labs/agents")
         assert r.status_code == 200
         assert "SPA" in r.text
 

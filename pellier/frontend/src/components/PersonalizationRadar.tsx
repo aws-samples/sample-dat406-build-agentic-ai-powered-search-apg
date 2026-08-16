@@ -177,7 +177,7 @@ const PersonalizationRadar = ({ isOpen, onClose }: PersonalizationRadarProps) =>
           {AXES.map((axis, i) => (
             <div key={i} className="text-center">
               <div className="text-lg font-bold text-purple-300">{scores[i]}</div>
-              <div className="text-[8px] text-gray-500">{axis.label.replace('\n', ' ')}</div>
+              <div className="text-[8px] text-gray-500">{axis.label.split('\n').join(' ')}</div>
             </div>
           ))}
         </div>

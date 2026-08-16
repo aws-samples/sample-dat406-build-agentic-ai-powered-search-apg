@@ -17,6 +17,9 @@ concurrency:
   group: workshop-smoke-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   smoke:
     name: macos-latest production-build smoke

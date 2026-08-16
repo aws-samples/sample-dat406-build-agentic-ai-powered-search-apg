@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Depends, Request
+from fastapi import FastAPI, HTTPException, Query, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,7 +32,7 @@ from models.search import (
 )
 from models.product import ProductWithScore
 from services.database import DatabaseService
-from services.aurora_session_memory import AuroraSessionMemory
+from services.aurora_session_memory import AuroraSessionMemory, session_actor_id
 from services.auth import get_current_user
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
@@ -305,7 +305,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Pellier API",
-    description="Governed agentic AI search with Aurora, RDS, and Bedrock AgentCore",
+    description="Agentic AI search with Aurora and Bedrock AgentCore",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -411,6 +411,11 @@ FRONTEND_DIST = Path(
 ).resolve()
 
 SPA_MOUNT_PATH = (os.environ.get("SPA_MOUNT_PATH", "/").rstrip("/") or "/")
+SPA_STATIC_FILES = {
+    path.relative_to(FRONTEND_DIST).as_posix(): path
+    for path in FRONTEND_DIST.rglob("*")
+    if path.is_file() and path.name != "index.html"
+}
 
 
 async def _serve_spa_root():
@@ -561,6 +566,7 @@ async def explore_collection(
             FROM pellier.product_catalog
             WHERE (category ILIKE %s OR name ILIKE %s OR description ILIKE %s)
               AND "imgUrl" IS NOT NULL
+              AND NOT (tags ? 'archive')
             ORDER BY rating DESC, reviews::int DESC
             LIMIT %s
         """
@@ -727,11 +733,18 @@ async def chat(request: ChatRequest, user=Depends(get_current_user)):
         
     except Exception as e:
         logger.error(f"Chat failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="chat_failed")
 
 
 @app.post("/api/chat/stream")
-async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
+async def chat_stream(
+    request: ChatRequest,
+    user=Depends(get_current_user),
+    session_token: Optional[str] = Header(
+        default=None,
+        alias="X-Pellier-Session-Token",
+    ),
+):
     """
     Streaming chat endpoint with real-time agent events via SSE.
 
@@ -808,6 +821,16 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
 
+    actor_id: Optional[str] = None
+    if request.session_id:
+        try:
+            actor_id = session_actor_id(user, session_token)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail="session_ownership_required",
+            ) from exc
+
     async def event_generator():
         try:
             history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
@@ -827,7 +850,10 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             }
             if request.session_id:
                 try:
-                    durable_history = await memory.load_history(request.session_id)
+                    durable_history = await memory.load_history(
+                        request.session_id,
+                        actor_id=actor_id or "",
+                    )
                     if durable_history:
                         history = durable_history
                     memory_receipt["loaded_messages"] = len(durable_history)
@@ -847,6 +873,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             # the log captures no entry (accurate — nothing happened).
             # Failures are swallowed: guardrail eval is observational,
             # not a hard turn gate in this demo surface.
+            guardrail_event = None
             if request.guardrails_enabled:
                 try:
                     import time as _time
@@ -866,8 +893,31 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                         text_preview=request.message,
                         mode=_res.get("mode"),
                     )
+                    guardrail_event = {
+                        "type": "guardrail_decision",
+                        "guardrail": {
+                            "allowed": bool(_res.get("allowed", True)),
+                            "action": str(_res.get("action", "NONE")),
+                            "violations": len(_res.get("violations", [])),
+                            "mode": str(_res.get("mode") or "configured"),
+                            "enforced": False,
+                        },
+                    }
                 except Exception as _exc:
                     logger.debug("Input guardrail observational check failed: %s", _exc)
+                    guardrail_event = {
+                        "type": "guardrail_decision",
+                        "guardrail": {
+                            "allowed": True,
+                            "action": "ERROR",
+                            "violations": 0,
+                            "mode": "error",
+                            "enforced": False,
+                        },
+                    }
+
+            if guardrail_event is not None:
+                yield f"data: {json.dumps(guardrail_event, ensure_ascii=False)}\n\n"
 
             async for event in chat_service.chat_stream(
                 message=request.message,
@@ -898,10 +948,8 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                                 request.session_id,
                                 user_message=request.message,
                                 assistant_message=assistant_message,
-                                actor_id=str(
-                                    effective_user.get("sub") or "anonymous"
-                                ),
-                                agent_name=str(request.pattern or "agents_as_tools"),
+                                actor_id=actor_id or "",
+                                agent_name=str(request.pattern or "dispatcher"),
                             )
                             memory_receipt["persisted"] = True
                         except Exception as exc:
@@ -914,7 +962,17 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
         except Exception as e:
             logger.error(f"Streaming chat failed: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "type": "error",
+                        "error": "The live agent response failed.",
+                        "code": "chat_failed",
+                    }
+                )
+                + "\n\n"
+            )
 
     return StreamingResponse(
         event_generator(),
@@ -931,9 +989,24 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
 async def get_boutique_chat_session(
     session_id: str,
     db: DatabaseService = Depends(get_db_service),
+    user=Depends(get_current_user),
+    session_token: Optional[str] = Header(
+        default=None,
+        alias="X-Pellier-Session-Token",
+    ),
 ):
     """Return the Aurora-backed turns written by ``/api/chat/stream``."""
-    turns = await AuroraSessionMemory(db).load_history(session_id)
+    try:
+        actor_id = session_actor_id(user, session_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="session_ownership_required",
+        ) from exc
+    turns = await AuroraSessionMemory(db).load_history(
+        session_id,
+        actor_id=actor_id,
+    )
     return {
         "session_id": session_id,
         "source": "aurora",
@@ -953,6 +1026,7 @@ async def autocomplete(
             SELECT name, category
             FROM pellier.product_catalog
             WHERE name ILIKE %s
+              AND NOT (tags ? 'archive')
             ORDER BY reviews DESC
             LIMIT %s
         """
@@ -1074,7 +1148,11 @@ async def performance_runtime(include_recent: bool = False):
         return agg
     except Exception as e:
         logger.warning(f"Performance runtime stats failed: {e}")
-        return {"turn_count": 0, "empty": True, "error": str(e)}
+        return {
+            "turn_count": 0,
+            "empty": True,
+            "error": "runtime_metrics_unavailable",
+        }
 
 
 @app.get("/api/performance/stats")
@@ -1468,6 +1546,48 @@ async def compare_search_strategies(query: str):
             for r in agentic_pool[:5]
         ]
 
+    # Transparent workshop cost model. These are explicit comparison inputs,
+    # not metering output: update the rates and review date together after
+    # checking the linked Bedrock pricing page for the event region.
+    pricing_reviewed_on = "2026-08-16"
+    embedding_tokens_per_query = 32
+    embedding_usd_per_million_tokens = 0.12
+    rerank_usd_per_thousand_queries = 2.0
+    sonnet_input_tokens = 600
+    sonnet_output_tokens = 100
+    sonnet_input_usd_per_million_tokens = 3.0
+    sonnet_output_usd_per_million_tokens = 15.0
+
+    embedding_cost_per_thousand = round(
+        (
+            embedding_tokens_per_query
+            * embedding_usd_per_million_tokens
+            * 1_000
+        )
+        / 1_000_000,
+        4,
+    )
+    sonnet_cost_per_thousand = round(
+        (
+            sonnet_input_tokens * sonnet_input_usd_per_million_tokens
+            + sonnet_output_tokens * sonnet_output_usd_per_million_tokens
+        )
+        / 1_000,
+        4,
+    )
+    soft_signal_embedding_applied = soft_signal != q
+    agentic_cost_per_thousand = round(
+        embedding_cost_per_thousand
+        + (
+            embedding_cost_per_thousand
+            if soft_signal_embedding_applied
+            else 0
+        )
+        + sonnet_cost_per_thousand
+        + rerank_usd_per_thousand_queries,
+        4,
+    )
+
     return {
         "query": q,
         "sharedQueryEmbeddingObservedMs": shared_embedding_ms,
@@ -1478,37 +1598,107 @@ async def compare_search_strategies(query: str):
                 "query embedding."
             ),
             "cost": (
-                "Modeled incremental request cost per 1,000 queries; not a "
-                "billing measurement and excluding provisioned Aurora compute."
+                "Modeled incremental request cost per 1,000 queries using the "
+                "costModel inputs below; not a billing measurement and "
+                "excluding provisioned Aurora compute."
             ),
             "quality": (
                 "Product order is live. Recall requires labeled relevance "
                 "judgments and is not calculated by this endpoint."
             ),
         },
+        "costModel": {
+            "currency": "USD",
+            "pricingReviewedOn": pricing_reviewed_on,
+            "pricingSource": "https://aws.amazon.com/bedrock/pricing/",
+            "components": {
+                "queryEmbedding": {
+                    "modelId": settings.BEDROCK_EMBEDDING_MODEL,
+                    "inputTokensPerRequest": embedding_tokens_per_query,
+                    "inputUsdPerMillionTokens": (
+                        embedding_usd_per_million_tokens
+                    ),
+                    "modeledCostPerThousandUsd": (
+                        embedding_cost_per_thousand
+                    ),
+                    "formula": (
+                        "tokens × USD per 1M tokens × 1,000 requests / 1,000,000"
+                    ),
+                },
+                "rerank": {
+                    "modelId": settings.BEDROCK_RERANK_MODEL,
+                    "callsPerRequest": 1,
+                    "usdPerThousandQueries": (
+                        rerank_usd_per_thousand_queries
+                    ),
+                    "modeledCostPerThousandUsd": (
+                        rerank_usd_per_thousand_queries
+                    ),
+                    "formula": "one rerank call per request",
+                },
+                "filterExtraction": {
+                    "modelId": settings.BEDROCK_REPORTING_MODEL,
+                    "inputTokensPerRequest": sonnet_input_tokens,
+                    "outputTokensPerRequest": sonnet_output_tokens,
+                    "inputUsdPerMillionTokens": (
+                        sonnet_input_usd_per_million_tokens
+                    ),
+                    "outputUsdPerMillionTokens": (
+                        sonnet_output_usd_per_million_tokens
+                    ),
+                    "modeledCostPerThousandUsd": (
+                        sonnet_cost_per_thousand
+                    ),
+                    "formula": (
+                        "(input tokens × input rate + output tokens × output "
+                        "rate) × 1,000 requests / 1,000,000"
+                    ),
+                },
+            },
+            "additionalSoftSignalEmbeddingApplied": (
+                soft_signal_embedding_applied
+            ),
+        },
         "strategies": [
             {
                 "strategy": "vector only",
                 "observedMs": vec_ms,
-                "modeledCostPerThousandUsd": 0.18,
+                "modeledCostPerThousandUsd": embedding_cost_per_thousand,
+                "costComponents": ["queryEmbedding"],
                 "products": vec_products,
             },
             {
                 "strategy": "hybrid (RRF)",
                 "observedMs": hybrid_ms,
-                "modeledCostPerThousandUsd": 0.18,
+                "modeledCostPerThousandUsd": embedding_cost_per_thousand,
+                "costComponents": ["queryEmbedding"],
                 "products": hybrid_products,
             },
             {
                 "strategy": "hybrid + rerank",
                 "observedMs": rerank_ms,
-                "modeledCostPerThousandUsd": 1.18,
+                "modeledCostPerThousandUsd": round(
+                    embedding_cost_per_thousand
+                    + rerank_usd_per_thousand_queries,
+                    4,
+                ),
+                "costComponents": ["queryEmbedding", "rerank"],
                 "products": rerank_products,
             },
             {
                 "strategy": "agentic (Sonnet → filter → vector → rerank)",
                 "observedMs": agentic_ms,
-                "modeledCostPerThousandUsd": 8.18,
+                "modeledCostPerThousandUsd": agentic_cost_per_thousand,
+                "costComponents": [
+                    "queryEmbedding",
+                    *(
+                        ["additionalSoftSignalEmbedding"]
+                        if soft_signal_embedding_applied
+                        else []
+                    ),
+                    "filterExtraction",
+                    "rerank",
+                ],
                 "products": agentic_products,
                 "extractedFilters": {
                     "categories": extracted.get("categories", []),
@@ -2048,7 +2238,8 @@ async def get_tracing_status():
             "note": "Traces automatically captured by Strands SDK"
         }
     except Exception as e:
-        return {"enabled": False, "error": str(e)}
+        logger.warning("Tracing status fetch failed: %s", e)
+        return {"enabled": False, "error": "tracing_status_unavailable"}
 
 
 @app.get("/api/traces/waterfall")
@@ -2165,7 +2356,12 @@ async def guardrails_decisions(session_id: str = "", limit: int = 50):
         return {"session_id": session_id or "_anonymous", "decisions": decisions, "count": len(decisions)}
     except Exception as e:
         logger.warning(f"Guardrails decisions fetch failed: {e}")
-        return {"session_id": session_id, "decisions": [], "count": 0, "error": str(e)}
+        return {
+            "session_id": session_id,
+            "decisions": [],
+            "count": 0,
+            "error": "guardrail_history_unavailable",
+        }
 
 
 # ============================================================================
@@ -2180,7 +2376,13 @@ async def get_agent_graph():
         return get_graph_structure()
     except Exception as e:
         logger.warning(f"Failed to get graph structure: {e}")
-        return {"available": False, "graph_builder_available": False, "nodes": [], "edges": [], "description": str(e)}
+        return {
+            "available": False,
+            "graph_builder_available": False,
+            "nodes": [],
+            "edges": [],
+            "description": "Graph metadata unavailable.",
+        }
 
 
 # ============================================================================
@@ -2204,7 +2406,7 @@ async def list_policies():
         return {"policies": result.get("policies", []), "source": result.get("source")}
     except Exception as e:
         logger.warning(f"Failed to list policies: {e}")
-        return {"policies": [], "error": str(e)}
+        return {"policies": [], "error": "managed_policy_unavailable"}
 
 
 # NOTE: the former POST /api/agentcore/policy/check route was removed.
@@ -2249,7 +2451,12 @@ async def memory_ltm(customer_id: str = ""):
         return {"customer_id": customer_id, "facts": facts, "source": "aurora"}
     except Exception as e:
         logger.warning(f"Memory LTM fetch failed for {customer_id}: {e}")
-        return {"customer_id": customer_id, "facts": [], "source": "error", "error": str(e)}
+        return {
+            "customer_id": customer_id,
+            "facts": [],
+            "source": "error",
+            "error": "memory_unavailable",
+        }
 
 
 @app.get("/api/agentcore/memory/status")
@@ -2268,12 +2475,11 @@ async def memory_status():
         memory_id = getattr(settings, "AGENTCORE_MEMORY_ID", None) or ""
 
         sdk_available = False
-        sdk_error: str | None = None
         try:
             import bedrock_agentcore  # type: ignore  # noqa: F401
             sdk_available = True
-        except ImportError as exc:
-            sdk_error = str(exc)
+        except ImportError:
+            pass
 
         if memory_id and sdk_available:
             return {
@@ -2289,7 +2495,7 @@ async def memory_status():
                 "source": "in-process-dict",
                 "memory_id": memory_id,
                 "sdk_available": False,
-                "fallback_reason": f"bedrock-agentcore SDK not importable: {sdk_error}",
+                "fallback_reason": "bedrock-agentcore SDK not importable",
             }
         return {
             "live": False,
@@ -2300,7 +2506,11 @@ async def memory_status():
         }
     except Exception as e:
         logger.warning(f"Memory status fetch failed: {e}")
-        return {"live": False, "source": "in-process-dict", "error": str(e)}
+        return {
+            "live": False,
+            "source": "in-process-dict",
+            "error": "memory_status_unavailable",
+        }
 
 
 @app.get("/api/agentcore/gateway/status")
@@ -2330,7 +2540,11 @@ async def gateway_status():
         }
     except Exception as e:
         logger.warning(f"Gateway status fetch failed: {e}")
-        return {"configured": False, "source": "in-process-imports", "error": str(e)}
+        return {
+            "configured": False,
+            "source": "in-process-imports",
+            "error": "gateway_status_unavailable",
+        }
 
 
 @app.get("/api/agentcore/policy/decisions")
@@ -2349,7 +2563,12 @@ async def policy_decisions(session_id: str = "", limit: int = 50):
         return await recent_decisions(db_service, session_id or None, limit=limit)
     except Exception as e:
         logger.warning(f"Policy decisions fetch failed: {e}")
-        return {"session_id": session_id, "decisions": [], "count": 0, "error": str(e)}
+        return {
+            "session_id": session_id,
+            "decisions": [],
+            "count": 0,
+            "error": "policy_history_unavailable",
+        }
 
 
 # ============================================================================
@@ -2367,7 +2586,7 @@ async def agentcore_memories(user=Depends(get_current_user)):
         return {"memories": memories, "user": user["email"]}
     except Exception as e:
         logger.warning(f"Failed to fetch memories: {e}")
-        return {"memories": [], "error": str(e)}
+        return {"memories": [], "error": "managed_memory_unavailable"}
 
 
 @app.get("/api/agentcore/gateway/tools")
@@ -2385,7 +2604,7 @@ async def agentcore_gateway_tools(user=Depends(get_current_user)):
         return {"tools": tools, "gateway_url": settings.AGENTCORE_GATEWAY_URL or "not configured"}
     except Exception as e:
         logger.warning(f"Failed to list gateway tools: {e}")
-        return {"tools": [], "error": str(e)}
+        return {"tools": [], "error": "managed_gateway_unavailable"}
 
 
 @app.get("/api/agentcore/runtime/status")
@@ -2441,7 +2660,7 @@ async def get_episodic_memories(query: str, user=Depends(get_current_user)):
         return {"episodes": episodes, "query": query, "user": user["email"]}
     except Exception as e:
         logger.warning(f"Failed to search episodic memories: {e}")
-        return {"episodes": [], "error": str(e)}
+        return {"episodes": [], "error": "episodic_memory_unavailable"}
 
 
 # NOTE: the former POST /api/agentcore/policy/create route was removed.
@@ -2533,14 +2752,8 @@ if FRONTEND_DIST.is_dir():
             full_path.startswith("api/") or full_path.startswith("ws/")
         ):
             raise HTTPException(status_code=404, detail="Not Found")
-        candidate = (FRONTEND_DIST / full_path).resolve()
-        # Prevent directory traversal — the resolved path must live
-        # inside dist/.
-        try:
-            candidate.relative_to(FRONTEND_DIST)
-        except ValueError:
-            raise HTTPException(status_code=404, detail="Not Found")
-        if candidate.is_file():
+        candidate = SPA_STATIC_FILES.get(full_path)
+        if candidate is not None:
             return FileResponse(candidate)
         # Anything else → SPA entry. React Router handles the rest.
         return FileResponse(

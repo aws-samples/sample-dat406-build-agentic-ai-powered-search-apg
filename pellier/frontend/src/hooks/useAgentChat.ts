@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   checkBackendHealth,
+  getSessionOwnershipHeaders,
   sendChatMessageStreaming,
   type ChatProduct,
 } from '../services/chat'
@@ -287,7 +288,10 @@ export function useAgentChat(
   useEffect(() => {
     if (!sessionId) return
     let alive = true
-    fetch(`/api/chat/session/${encodeURIComponent(sessionId)}`)
+    fetch(`/api/chat/session/${encodeURIComponent(sessionId)}`, {
+      credentials: 'include',
+      headers: getSessionOwnershipHeaders(sessionId),
+    })
       .then(r => r.json())
       .then(data => {
         if (!alive) return

@@ -87,6 +87,13 @@ const PersonaContext = createContext<PersonaContextType | undefined>(undefined)
 
 const PERSONA_STORAGE_KEY = 'pellier-persona'
 const SESSION_KEY = 'pellier-session-id'
+const SESSION_TOKEN_KEY = 'pellier-session-token'
+const SESSION_TOKEN_SESSION_KEY = 'pellier-session-token-session'
+
+function clearSessionOwnership(): void {
+  localStorage.removeItem(SESSION_TOKEN_KEY)
+  localStorage.removeItem(SESSION_TOKEN_SESSION_KEY)
+}
 
 function loadStoredPersona(): PersonaSnapshot | null {
   try {
@@ -139,6 +146,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
       const data = await res.json()
 
       // Store the new session_id so chat picks it up
+      clearSessionOwnership()
       localStorage.setItem(SESSION_KEY, data.session_id)
 
       // Clear any existing chat persistence
@@ -173,7 +181,10 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
         stats: fallback.stats,
       }
 
-      localStorage.setItem(SESSION_KEY, `local-${fallback.id}-${Date.now()}`)
+      clearSessionOwnership()
+      const fallbackSessionId =
+        globalThis.crypto.randomUUID?.() ?? `${Date.now()}-${fallback.id}`
+      localStorage.setItem(SESSION_KEY, `local-${fallback.id}-${fallbackSessionId}`)
       localStorage.removeItem('pellier-storefront-chat')
       localStorage.removeItem('pellier-agent-trace-chat')
       localStorage.removeItem('pellier-concierge-storefront')
@@ -202,6 +213,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     localStorage.removeItem(SESSION_KEY)
+    clearSessionOwnership()
     localStorage.removeItem('pellier-storefront-chat')
     localStorage.removeItem('pellier-agent-trace-chat')
     localStorage.removeItem('pellier-concierge-storefront')

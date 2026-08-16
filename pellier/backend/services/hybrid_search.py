@@ -78,6 +78,7 @@ _VECTOR_BRANCH_SQL = """
                 1 - (embedding <=> (SELECT emb FROM query_embedding)) AS similarity
             FROM pellier.product_catalog
             WHERE "imgUrl" IS NOT NULL
+              AND NOT (tags ? 'archive')
             ORDER BY embedding <=> (SELECT emb FROM query_embedding)
             LIMIT %s
         """
@@ -103,6 +104,7 @@ _FTS_BRANCH_SQL = """
             FROM pellier.product_catalog
             CROSS JOIN q
             WHERE "imgUrl" IS NOT NULL
+              AND NOT (tags ? 'archive')
               AND description_tsv @@ q.ts_q
             ORDER BY fts_rank_score DESC
             LIMIT %s

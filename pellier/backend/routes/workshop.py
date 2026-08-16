@@ -153,7 +153,7 @@ async def tool_registry(
             "rows": [],
             "duration_ms": 0,
             "total_count": 0,
-            "error": str(exc),
+            "error": "pgvector_unavailable",
         }
 
     # Gateway side — reports "not configured" as a first-class state.
@@ -175,7 +175,7 @@ async def tool_registry(
             _token = (user or {}).get("access_token") if isinstance(user, dict) else None
             gateway_block["tools"] = list_gateway_tools(access_token=_token)
         except Exception as exc:
-            gateway_block["error"] = str(exc)
+            gateway_block["error"] = "gateway_tools_unavailable"
             logger.warning("Card 7 gateway list failed: %s", exc)
 
     return {
@@ -375,7 +375,7 @@ async def query(payload: WorkshopQueryRequest) -> StreamingResponse:
         except Exception as exc:
             logger.exception("Workshop turn failed: %s", exc)
             ctx.emit_response(
-                text=f"Workshop turn failed: {exc.__class__.__name__}: {exc}",
+                text="The workshop turn could not be completed.",
                 confidence=None,
             )
             yield flush()
@@ -575,7 +575,7 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
     except Exception as exc:
         logger.exception("Workshop resume failed: %s", exc)
         ctx.emit_response(
-            text=f"Workshop resume failed: {exc.__class__.__name__}: {exc}",
+            text="The saved workshop session could not be resumed.",
             confidence=None,
         )
 

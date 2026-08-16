@@ -425,7 +425,10 @@ def floor_check(product_query: str = "") -> str:
     """
     # === WORKSHOP · Stock Keeper · floor_check: START ===
     if not _db_service:
-        return json.dumps({"error": "Database service not initialized"})
+        return json.dumps({
+            "error": "inventory_unavailable",
+            "message": "The inventory lookup is temporarily unavailable.",
+        })
 
     try:
         from services.business_logic import BusinessLogic
@@ -434,8 +437,12 @@ def floor_check(product_query: str = "") -> str:
         query = (product_query or "").strip() or None
         result = _run_async(logic.floor_check(product_query=query))
         return json.dumps(result, indent=2)
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    except Exception:
+        logger.exception("floor_check failed")
+        return json.dumps({
+            "error": "inventory_lookup_failed",
+            "message": "The inventory lookup could not be completed.",
+        })
     # === WORKSHOP · Stock Keeper · floor_check: END ===
 
 @tool
@@ -1102,6 +1109,7 @@ def style_match(product_id: int, limit: int = 5) -> str:
             '1 - (embedding <=> %s::vector) AS similarity_score '
             'FROM pellier.product_catalog '
             'WHERE "productId" != %s '
+            "AND NOT (tags ? 'archive') "
             'ORDER BY embedding <=> %s::vector '
             'LIMIT %s',
             emb_literal, product_id_text,

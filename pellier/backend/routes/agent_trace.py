@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import runpy
 import time
 from pathlib import Path
@@ -114,9 +115,17 @@ def _load_fixture(name: str) -> Any:
     Results are cached in memory after first load. Returns None if the
     file doesn't exist or can't be parsed.
     """
+    if not re.fullmatch(r"[a-z0-9-]{1,128}", name):
+        logger.warning("Rejected invalid fixture name")
+        return None
     if name in _fixture_cache:
         return _fixture_cache[name]
-    path = _FIXTURE_DIR / f"{name}.json"
+    path = (_FIXTURE_DIR / f"{name}.json").resolve()
+    try:
+        path.relative_to(_FIXTURE_DIR.resolve())
+    except ValueError:
+        logger.warning("Rejected fixture path outside fixture directory")
+        return None
     try:
         data = json.loads(path.read_text())
         _fixture_cache[name] = data
@@ -311,7 +320,7 @@ async def _collect_readiness() -> dict[str, Any]:
             label="Aurora PostgreSQL",
             state="fail",
             detail="Database unavailable to the backend.",  # copy-allow: agent-trace-readiness-detail
-            href="/agent-trace/search",
+            href="/pellier-labs/search",
         ))
     else:
         catalog_count = counts["catalog_count"]
@@ -325,7 +334,7 @@ async def _collect_readiness() -> dict[str, Any]:
                 f"Catalog {catalog_count} products, warehouse "
                 f"{warehouse_count} rows, audit ledger {audit_count} rows."
             ),
-            href="/agent-trace/search",
+            href="/pellier-labs/search",
         ))
 
     cognito_ready = all([
@@ -342,7 +351,7 @@ async def _collect_readiness() -> dict[str, Any]:
             if cognito_ready
             else "Missing Cognito pool/client/domain; managed Runtime and Gateway JWT paths cannot run."
         ),
-        href="/agent-trace/production-patterns",
+        href="/pellier-labs/production-patterns",
     ))
 
     checks.append(_readiness_check(
@@ -354,7 +363,7 @@ async def _collect_readiness() -> dict[str, Any]:
             if _configured(settings.AGENTCORE_MEMORY_ID)
             else "AGENTCORE_MEMORY_ID empty; memory surfaces fall back where possible."
         ),
-        href="/agent-trace/memory",
+        href="/pellier-labs/memory",
     ))
 
     checks.append(_readiness_check(
@@ -366,7 +375,7 @@ async def _collect_readiness() -> dict[str, Any]:
             if _configured(settings.AGENTCORE_RUNTIME_ENDPOINT)
             else "AGENTCORE_RUNTIME_ENDPOINT empty; managed runtime invoke cannot be demonstrated."
         ),
-        href="/agent-trace/proof-board#runtime-gateway-policy",
+        href="/pellier-labs/proof-board#runtime-gateway-policy",
     ))
 
     checks.append(_readiness_check(
@@ -378,7 +387,7 @@ async def _collect_readiness() -> dict[str, Any]:
             if _configured(settings.AGENTCORE_GATEWAY_URL)
             else "AGENTCORE_GATEWAY_URL empty; Gateway/JWT tool calls cannot run."
         ),
-        href="/agent-trace/proof-board#runtime-gateway-policy",
+        href="/pellier-labs/proof-board#runtime-gateway-policy",
     ))
 
     policy_engine_id = getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", None)
@@ -392,7 +401,7 @@ async def _collect_readiness() -> dict[str, Any]:
             else "Policy engine id empty; guided policy reads still work, but live Gateway ENFORCE is not visible."
         ),
         required=False,
-        href="/agent-trace/write-path",
+        href="/pellier-labs/write-path",
     ))
 
     model_ids = {
@@ -413,7 +422,7 @@ async def _collect_readiness() -> dict[str, Any]:
             if model_ready
             else "One or more model ids are empty; run the model-access preflight."
         ),
-        href="/agent-trace/settings",
+        href="/pellier-labs/settings",
     ))
 
     blocking = [c for c in checks if c["required"] and c["state"] == "fail"]
@@ -496,8 +505,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 ),
             },
             "links": [
-                {"label": "Tools", "to": "/agent-trace/tools"},
-                {"label": "Sessions", "to": "/agent-trace/sessions"},
+                {"label": "Tools", "to": "/pellier-labs/tools"},
+                {"label": "Sessions", "to": "/pellier-labs/sessions"},
             ],
         },
         {
@@ -521,8 +530,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 ),
             },
             "links": [
-                {"label": "Search", "to": "/agent-trace/search"},
-                {"label": "Performance", "to": "/agent-trace/performance"},
+                {"label": "Search", "to": "/pellier-labs/search"},
+                {"label": "Performance", "to": "/pellier-labs/performance"},
             ],
         },
         {
@@ -559,7 +568,7 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 ),
             },
             "links": [
-                {"label": "Write-path", "to": "/agent-trace/write-path"},
+                {"label": "Write-path", "to": "/pellier-labs/write-path"},
             ],
         },
         {
@@ -582,8 +591,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 "command": "grep -E 'COGNITO|AGENTCORE_(RUNTIME|GATEWAY|POLICY)' pellier/backend/.env",
             },
             "links": [
-                {"label": "Write-path", "to": "/agent-trace/write-path"},
-                {"label": "Production patterns", "to": "/agent-trace/production-patterns"},
+                {"label": "Write-path", "to": "/pellier-labs/write-path"},
+                {"label": "Production patterns", "to": "/pellier-labs/production-patterns"},
             ],
         },
         {
@@ -620,8 +629,8 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
                 ),
             },
             "links": [
-                {"label": "Proof Board", "to": "/agent-trace/proof-board#managed-rail"},
-                {"label": "Sessions", "to": "/agent-trace/sessions"},
+                {"label": "Proof Board", "to": "/pellier-labs/proof-board#managed-rail"},
+                {"label": "Sessions", "to": "/pellier-labs/sessions"},
             ],
         },
     ]
@@ -1354,7 +1363,7 @@ async def get_proof_board(
     The payload is intentionally operational: each card has a stable
     ``id`` for URL anchors, a status, short evidence lines, and a
     curl/SQL fallback. The frontend renders it at
-    ``/agent-trace/proof-board`` and Pellier trace chips deep-link to
+    ``/pellier-labs/proof-board`` and Pellier trace chips deep-link to
     individual anchors.
     """
     try:
@@ -1398,7 +1407,7 @@ async def route_skills_endpoint(payload: AgentTraceSkillRouteRequest):
             "considered": [],
             "elapsed_ms": 0,
             "user_message": payload.query[:500],
-            "error": str(exc),
+            "error": "skill_routing_unavailable",
         }
 
 
