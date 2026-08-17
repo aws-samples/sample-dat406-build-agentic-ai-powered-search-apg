@@ -73,6 +73,26 @@ class _BusinessDB:
         }
 
 
+class _CollectionBrowseDB:
+    def __init__(self):
+        self.calls = []
+        self.one_calls = []
+
+    async def fetch_all(self, sql, *params):
+        self.calls.append((sql, params))
+        return []
+
+    async def fetch_one(self, sql, *params):
+        self.one_calls.append((sql, params))
+        return {
+            "total_products": 0,
+            "min_price": 0,
+            "max_price": 0,
+            "avg_price": 0,
+            "median_price": 0,
+        }
+
+
 @pytest.mark.asyncio
 async def test_vector_and_hybrid_retrieval_exclude_archive_products():
     db = _VectorDB()
@@ -107,3 +127,41 @@ async def test_catalog_lists_and_business_tools_exclude_archive_products():
     ]
     assert catalog_sql
     assert all(ARCHIVE_FILTER in sql for sql in catalog_sql)
+
+
+@pytest.mark.asyncio
+async def test_collection_browse_matches_material_terms_outside_category_taxonomy():
+    db = _CollectionBrowseDB()
+
+    await BusinessLogic(db).get_products_by_category("linen", context="travel")
+
+    assert len(db.calls) == 1
+    sql, params = db.calls[0]
+    assert "lower(category) LIKE %s" in sql
+    assert "lower(name) LIKE %s" in sql
+    assert "lower(description) LIKE %s" in sql
+    assert "tags ? %s" in sql
+    assert params[:4] == ("%linen%", "%linen%", "%linen%", "linen")
+    assert params[4] == "travel"
+    assert ARCHIVE_FILTER in sql
+
+
+@pytest.mark.asyncio
+async def test_price_intelligence_matches_material_terms_outside_category_taxonomy():
+    db = _CollectionBrowseDB()
+
+    await BusinessLogic(db).price_intelligence("linen")
+
+    assert len(db.calls) == 1
+    sql, params = db.calls[0]
+    assert "lower(category) LIKE %s" in sql
+    assert "lower(name) LIKE %s" in sql
+    assert "lower(description) LIKE %s" in sql
+    assert "tags ? %s" in sql
+    assert params == ("%linen%", "%linen%", "%linen%", "linen")
+    assert ARCHIVE_FILTER in sql
+    assert len(db.one_calls) == 1
+    overall_sql, overall_params = db.one_calls[0]
+    assert "lower(category) LIKE %s" in overall_sql
+    assert "tags ? %s" in overall_sql
+    assert overall_params == ("%linen%", "%linen%", "%linen%", "linen")

@@ -1,8 +1,8 @@
 /**
- * ExpCard — Elevated cream card with burgundy accent line.
+ * ExpCard — Reusable cream content surface.
  *
- * cream-elev background, 1px rule-1 border, 14px border-radius,
- * 24px burgundy accent line at top-left.
+ * Cream background, a quiet 1px rule, and a compact radius. Accent color is
+ * reserved for meaningful status and selection states within the content.
  *
  * Requirements: 15.3
  */
@@ -37,30 +37,18 @@ export const ExpCard: React.FC<ExpCardProps> = ({
             }
           : undefined
       }
-      className={className}
+      className={`pellier-labs-exp-card ${className}`.trim()}
+      data-clickable={isClickable ? 'true' : undefined}
       style={{
         position: 'relative',
         background: 'var(--at-card-bg)',
         border: '1px solid var(--at-card-border)',
-        borderRadius: 'var(--at-card-radius)',
-        padding: '24px',
+        borderRadius: '8px',
+        padding: '22px',
         cursor: isClickable ? 'pointer' : undefined,
         overflow: 'hidden',
       }}
     >
-      {/* Burgundy accent line at top-left */}
-      <span
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: '20px',
-          width: 'var(--at-card-accent-width)',
-          height: '3px',
-          backgroundColor: 'var(--at-card-accent-color)',
-          borderRadius: '0 0 2px 2px',
-        }}
-      />
       {children}
     </div>
   );

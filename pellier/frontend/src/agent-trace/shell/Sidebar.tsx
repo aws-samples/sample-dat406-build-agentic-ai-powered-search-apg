@@ -91,14 +91,12 @@ const Sidebar: React.FC<{
       items: [
         { label: 'Inspection Workbench', path: '', liveDot: true },
         { label: 'Observatory', path: 'observatory' },
-        { label: 'Proof Board', path: 'proof-board', liveDot: true },
         { label: 'Sessions', path: 'sessions' },
       ],
     },
     {
       eyebrow: 'SYSTEM',
       items: [
-        { label: 'Architecture', path: 'architecture', badge: '8' },
         {
           label: 'Agents',
           path: 'agents',

@@ -743,8 +743,8 @@
   text-overflow: ellipsis;
 }
 .ec-followup:hover {
-  background: rgba(196, 69, 54, 0.08);
-  border-color: rgba(196, 69, 54, 0.4);
+  background: color-mix(in srgb, var(--red-1) 8%, transparent);
+  border-color: color-mix(in srgb, var(--red-1) 40%, transparent);
   color: var(--red-1);
 }
 .ec-followup:focus-visible {
@@ -754,10 +754,31 @@
 
 .ec-followup-workshop {
   border-style: dashed;
-  border-color: rgba(196, 69, 54, 0.52);
+  border-color: color-mix(in srgb, var(--red-1) 52%, transparent);
   background: rgba(255, 252, 247, 0.95);
   white-space: normal;
 }
 .ec-followup-workshop:hover {
-  border-color: rgba(196, 69, 54, 0.75);
+  border-color: color-mix(in srgb, var(--red-1) 75%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-dot-pulse::after,
+  .ec-dot-typing,
+  .ec-dot-typing::before,
+  .ec-dot-typing::after,
+  .ec-thinking-label,
+  .ec-msg-streaming,
+  .ec-toolcall,
+  .ec-toolcall-active .ec-toolcall-indicator {
+    animation: none;
+  }
+
+  .ec-icon-btn,
+  .ec-send,
+  .ec-thinking,
+  .ec-thinking-chevron,
+  .ec-followup {
+    transition-duration: 0.01ms;
+  }
 }

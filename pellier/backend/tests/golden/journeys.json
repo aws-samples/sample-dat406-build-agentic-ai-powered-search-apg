@@ -1,23 +1,39 @@
 {
   "schemaVersion": 1,
-  "description": "Golden-set journey assertions — deterministic, fixture-driven CI gates. Each entry pins a published Pellier Labs session fixture to the agent behavior the workshop teaches as non-negotiable. No AWS calls. Assertions check tool ordering, product surfacing, and routing pattern only — not free-form prose.",
+  "description": "Golden-set journey assertions for discovery, comparison, memory proof, audit proof, and read-before-write behavior. These are deterministic fixture-driven CI gates with no AWS calls.",
   "fixtureRoot": "pellier/frontend/src/agent-trace/fixtures",
   "journeys": [
     {
-      "id": "marco-opening-linen",
+      "id": "marco-browse-linen",
       "fixture": "session-marco-opening-demo.json",
       "persona": "marco",
-      "summary": "Opening linen query surfaces the three travel-grade pieces via find_pieces.",
+      "summary": "A category browse uses explore_collection rather than semantic retrieval.",
       "asserts": {
         "routingPattern": "Dispatcher",
         "turn": 1,
-        "expectedTools": ["find_pieces"],
+        "expectedTools": ["explore_collection"],
+        "forbiddenTools": ["find_pieces"],
         "expectedProductsAny": [
-          "Pellier Linen Shirt",
           "Italian Linen Camp Shirt"
         ],
         "expectedProductsAll": [
           "Linen Drawstring Trousers"
+        ]
+      }
+    },
+    {
+      "id": "marco-named-product-comparison",
+      "fixture": "session-marco-capstone.json",
+      "persona": "marco",
+      "summary": "Two named products resolve before side_by_side compares them.",
+      "asserts": {
+        "routingPattern": "Agents-as-Tools",
+        "turn": 1,
+        "expectedToolsInOrder": ["find_pieces", "side_by_side"],
+        "forbiddenTools": ["style_match"],
+        "expectedProductsAll": [
+          "Hadley Linen Shirt",
+          "Italian Linen Camp Shirt"
         ]
       }
     },
@@ -29,33 +45,78 @@
       "asserts": {
         "turn": 1,
         "expectedToolsInOrder": ["floor_check"],
-        "expectedProductsAll": ["Pellier Linen Shirt"]
+        "expectedProductsAll": ["Hadley Linen Shirt"]
       }
     },
     {
-      "id": "anna-gift-hybrid",
-      "fixture": "session-anna-birthday-gift.json",
+      "id": "anna-housewarming-hybrid",
+      "fixture": "session-anna-morning-ritual.json",
       "persona": "anna",
-      "summary": "Anna's anchor gift query routes through hybrid retrieval, not vector-only.",
+      "summary": "Anna's ceramics housewarming query routes through hybrid retrieval.",
       "asserts": {
         "turn": 1,
         "expectedTools": ["find_pieces_hybrid"],
         "forbiddenTools": ["find_pieces"],
         "expectedProductsAny": [
-          "Beeswax Taper Candles",
+          "Olive Branch Vessel",
           "Ceramic Ring Dish"
         ]
+      }
+    },
+    {
+      "id": "anna-memory-before-retrieval",
+      "fixture": "session-anna-under-100.json",
+      "persona": "anna",
+      "summary": "A past-order recommendation reads the Aurora snapshot before retrieval.",
+      "asserts": {
+        "routingPattern": "Dispatcher",
+        "turn": 1,
+        "expectedToolsInOrder": [
+          "preference_snapshot",
+          "find_pieces_hybrid"
+        ],
+        "expectedProductsAll": [
+          "Brass Photo Frame"
+        ]
+      }
+    },
+    {
+      "id": "anna-hybrid-audit-receipt",
+      "fixture": "session-anna-birthday-gift.json",
+      "persona": "anna",
+      "summary": "A proof request reads trace_receipt without rerunning retrieval.",
+      "asserts": {
+        "routingPattern": "Dispatcher",
+        "turn": 1,
+        "expectedTools": ["trace_receipt"],
+        "forbiddenTools": ["find_pieces_hybrid"]
       }
     },
     {
       "id": "theo-ceramics-return",
       "fixture": "session-theo-ceramics-return.json",
       "persona": "theo",
-      "summary": "Return flow runs returns_and_care before process_return — read-then-write order.",
+      "summary": "Return flow resolves the product and policy before process_return.",
       "asserts": {
         "turn": 1,
-        "expectedToolsInOrder": ["returns_and_care", "process_return"],
+        "expectedToolsInOrder": [
+          "find_pieces",
+          "returns_and_care",
+          "process_return"
+        ],
         "expectedProductsAll": ["Wabi-Sabi Bowl"]
+      }
+    },
+    {
+      "id": "theo-return-audit-receipt",
+      "fixture": "session-theo-pour-over-pairing.json",
+      "persona": "theo",
+      "summary": "The follow-up proves the write from tool_audit without issuing another write.",
+      "asserts": {
+        "routingPattern": "Dispatcher",
+        "turn": 1,
+        "expectedTools": ["trace_receipt"],
+        "forbiddenTools": ["process_return"]
       }
     }
   ]

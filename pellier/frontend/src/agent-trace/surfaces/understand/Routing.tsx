@@ -446,7 +446,7 @@ const INTENT_MAPPINGS: IntentMapping[] = [
       'budget', 'value', 'cost', 'save', 'best price', 'on sale',
       'bargain', 'compare price',
     ],
-    examples: ["What's the price range for linen shirts?"],
+    examples: ['Linen shirt price range'],
   },
   {
     intent: 'inventory',
@@ -458,7 +458,7 @@ const INTENT_MAPPINGS: IntentMapping[] = [
       'at the brooklyn', 'at the austin', 'at the portland',
       'on the floor',
     ],
-    examples: ['Is the Hadley shirt at the Brooklyn warehouse?'],
+    examples: ['Hadley availability in Brooklyn'],
   },
   {
     intent: 'customer_support',
@@ -466,9 +466,9 @@ const INTENT_MAPPINGS: IntentMapping[] = [
     fileTokens: [
       'return', 'refund', 'policy', 'troubleshoot', 'issue', 'problem',
       'warranty', 'broken', 'defective', 'chipped', 'damaged',
-      'arrived', 'what now',
+      'arrived', 'what now', 'exception',
     ],
-    examples: ['My Wabi-Sabi Bowl arrived chipped.'],
+    examples: ['Care and return window for the linen throw'],
   },
   {
     intent: 'search',
@@ -476,8 +476,9 @@ const INTENT_MAPPINGS: IntentMapping[] = [
     fileTokens: [
       'search for', 'looking for', 'where can I', 'compare', 'browse',
       'what do you have', 'do you have', 'show me', 'find me',
+      'hand-thrown pieces',
     ],
-    examples: ['What linen do you have for 10 days in Goa?'],
+    examples: ['Browse linen for a Goa carry-on'],
   },
   {
     intent: 'recommendation (default)',
@@ -485,7 +486,7 @@ const INTENT_MAPPINGS: IntentMapping[] = [
     fileTokens: [
       "(any query that doesn't match the above falls through here)",
     ],
-    examples: ['What would go with the Hadley shirt?'],
+    examples: ['Housewarming gift under $200 for a ceramics lover'],
   },
 ];
 

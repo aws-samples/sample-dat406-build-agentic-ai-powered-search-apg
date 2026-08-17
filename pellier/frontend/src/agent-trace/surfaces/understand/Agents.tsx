@@ -112,22 +112,6 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
       }}
     >
-      {/* Burgundy accent line at top-left (shipped only) */}
-      {!isExercise && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: '20px',
-            width: 'var(--at-card-accent-width)',
-            height: '3px',
-            backgroundColor: 'var(--at-card-accent-color)',
-            borderRadius: '0 0 2px 2px',
-          }}
-        />
-      )}
-
       {/* Head: numeral + name + role on left, status on right */}
       <div
         style={{

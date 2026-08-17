@@ -21,7 +21,7 @@ export default function EditorialBrief() {
         aria-label="About this workshop"
         className="w-full"
         style={{
-          background: 'linear-gradient(180deg, #F7F3EE 0%, #EDE4D6 100%)',
+          background: 'transparent',
           scrollMarginTop: 84,
         }}
       >
@@ -56,7 +56,7 @@ export default function EditorialBrief() {
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden
-                  style={{ color: '#a8423a', fontSize: '9px' }}
+                  style={{ color: 'var(--accent)', fontSize: '9px' }}
                 >
                   &#9679;
                 </span>
@@ -67,7 +67,7 @@ export default function EditorialBrief() {
                     fontWeight: 600,
                     letterSpacing: '0.22em',
                     textTransform: 'uppercase',
-                    color: '#a8423a',
+                    color: 'var(--accent)',
                   }}
                 >
                   About
@@ -97,7 +97,7 @@ export default function EditorialBrief() {
                   fontWeight: 600,
                   letterSpacing: '0.2em',
                   textTransform: 'uppercase',
-                  color: 'rgba(31, 20, 16, 0.68)',
+                  color: 'var(--ink-quiet)',
                 }}
               >
                 Storefront + Pellier Labs
@@ -110,7 +110,7 @@ export default function EditorialBrief() {
                   fontSize: '15px',
                   lineHeight: 1.7,
                   maxWidth: '520px',
-                  color: '#4a3a2e',
+                  color: 'var(--ink-soft)',
                 }}
               >
                 Pellier is a workshop boutique for agentic search on Aurora.
@@ -125,7 +125,7 @@ export default function EditorialBrief() {
                   fontSize: '15px',
                   lineHeight: 1.7,
                   maxWidth: '520px',
-                  color: '#4a3a2e',
+                  color: 'var(--ink-soft)',
                 }}
               >
                 Aurora PostgreSQL stores catalog vectors, relational context,
@@ -174,14 +174,18 @@ export default function EditorialBrief() {
       {/* ── Colophon strip ── */}
       <div
         className="w-full text-center"
-        style={{ background: '#E8DFD4', padding: '28px 24px' }}
+        style={{
+          background: 'var(--cream)',
+          borderTop: '1px solid var(--rule-1)',
+          padding: '28px 24px',
+        }}
       >
         <p
           className="font-display italic"
           style={{
             fontSize: '15px',
             lineHeight: 1.5,
-            color: '#6b5a4e',
+            color: 'var(--ink-quiet)',
             letterSpacing: '0.01em',
           }}
         >

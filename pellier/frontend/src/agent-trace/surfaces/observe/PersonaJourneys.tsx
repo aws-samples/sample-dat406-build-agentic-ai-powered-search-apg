@@ -5,7 +5,7 @@
  * hero pills from `PERSONA_HERO_PILLS` — the same strings as the
  * storefront "Try asking" row. For each turn we list agent / tool /
  * model / outcome and link into captured session fixtures when they
- * exist (Marco Turn 4 links twice: opening demo = floor_check stub,
+ * exist (Marco Turn 5 links twice: opening demo = floor_check stub,
  * midpoint = wired warehouse answer).
  *
  * Lives under OBSERVE — adjacent to Sessions (replay) and Observatory.
@@ -21,7 +21,7 @@ interface JourneyTurn {
   pill: string;
   agent: string;
   model: string;
-  skill?: string;
+  skills: string[];
   tool?: string;
   outcome: string;
   /** Primary Pellier Labs fixture for this turn (stub path, or only path). */
@@ -40,137 +40,122 @@ interface PersonaJourney {
   capstoneNote?: string;
 }
 
-const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
+type JourneyTurnMeta = Omit<JourneyTurn, 'pill' | 'n' | 'skills'>;
+
+const MARCO_TURNS_META: JourneyTurnMeta[] = [
   {
     agent: 'Style Advisor',
     model: 'Claude Opus 5',
-    tool: 'find_pieces',
-    outcome: '3 linen pieces with editorial voice',
+    outcome: 'Category browse opens a carry-on linen edit without inventing intent.',
     sessionId: 'marco-opening-demo',
   },
   {
-    agent: 'Curator (the-packing-list)',
+    agent: 'Style Advisor',
     model: 'Claude Opus 5',
-    tool: 'find_pieces → style_match',
-    outcome: 'Complementary pieces; voice mentions packability',
+    outcome: 'Hadley resolves first; style_match returns packable companions.',
     sessionId: 'marco-opening-demo',
+  },
+  {
+    agent: 'Style Advisor',
+    model: 'Claude Opus 5',
+    outcome: 'Two named shirts resolve to product IDs before a factual comparison.',
+    sessionId: 'marco-capstone',
   },
   {
     agent: 'Value Analyst',
     model: 'Claude Sonnet 5',
-    tool: 'price_intelligence',
-    outcome: '"$88 to $285, median $148"',
+    outcome: 'A deterministic price distribution keeps the answer numerical.',
     sessionId: 'marco-opening-demo',
   },
   {
     agent: 'Stock Keeper',
     model: 'Claude Sonnet 5',
-    tool: 'floor_check',
     outcome:
-      'Opening demo: Dispatcher matches stock intent; floor_check still stubbed → fall-through telemetry (no tool). Midpoint: same Pellier pill - real warehouse breakdown after the build.',
+      'Opening path preserves the floor_check stub; the midpoint replay shows the real Brooklyn breakdown after the build.',
     sessionId: 'marco-opening-demo',
     wiredSessionId: 'marco-midpoint-checkpoint',
   },
-  {
-    agent: 'Style Advisor (the-packing-list)',
-    model: 'Claude Opus 5',
-    tool: 'escalate_to_stylist',
-    outcome:
-      'Capstone - human-stylist handoff. Catalog tools cannot dress a body for an occasion; escalate_to_stylist is the honest fallback.',
-    sessionId: 'marco-capstone',
-  },
 ];
 
-const ANNA_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
+const ANNA_TURNS_META: JourneyTurnMeta[] = [
   {
-    agent: 'Curator (the-gift-table)',
+    agent: 'Curator',
     model: 'Claude Opus 5',
-    tool: 'find_pieces_hybrid',
     outcome:
-      'Vector → Postgres FTS → RRF → Rerank v3.5. Four SSE telemetry spans visible.',
+      'Gift and maker skills shape a ceramics-first hybrid result under budget.',
     sessionId: 'anna-morning-ritual',
   },
   {
     agent: 'Curator',
     model: 'Claude Opus 5',
-    tool: 'find_pieces_hybrid',
-    outcome: 'Soft "beautiful" + literal "$100" - hybrid handles both.',
+    outcome: 'Aurora preference proof is read before hybrid retrieval uses past orders.',
     sessionId: 'anna-under-100',
   },
   {
     agent: 'Curator',
     model: 'Claude Opus 5',
-    tool: 'find_pieces_hybrid',
-    outcome: 'Candle as anchor + "with something else" reranks the band.',
+    outcome: 'Popularity is answered by whats_trending rather than another search.',
     sessionId: 'anna-candle-pairing',
   },
   {
     agent: 'Curator',
     model: 'Claude Opus 5',
-    tool: 'find_pieces_hybrid',
-    outcome: 'Beeswax Taper Candles at rank 1 - Cohere reads "wrap-ready" intent.',
+    outcome: 'The Proof Counter reads the latest hybrid-retrieval audit receipt.',
     sessionId: 'anna-birthday-gift',
-  },
-  {
-    agent: 'Curator (the-gift-table)',
-    model: 'Claude Opus 5',
-    tool: 'escalate_to_stylist',
-    outcome:
-      'Capstone - human-stylist handoff for sympathy gifting. Hybrid retrieval can find candles; it cannot read the room.',
-    sessionId: 'anna-housewarming',
-  },
-];
-
-const THEO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
-  {
-    agent: 'Curator (the-makers-shelf)',
-    model: 'Claude Opus 5',
-    tool: 'find_pieces',
-    outcome: 'Stoneware Pour-Over Set at rank 1 - patina vibe matches.',
-    sessionId: 'theo-pour-over',
   },
   {
     agent: 'Curator',
     model: 'Claude Opus 5',
-    tool: 'find_pieces → style_match',
-    outcome: 'Ceramic Tumblers + Woven Mat Set - same kiln register.',
-    sessionId: 'theo-pour-over-pairing',
+    outcome:
+      'Sympathy gifting goes directly to a person; retrieval cannot read the room.',
+    sessionId: 'anna-housewarming',
   },
+];
+
+const THEO_TURNS_META: JourneyTurnMeta[] = [
   {
     agent: 'Style Advisor',
     model: 'Claude Opus 5',
-    tool: 'find_pieces',
-    outcome: 'Washed-linen pieces with patina-leaning prose.',
+    outcome: 'Maker language grounds a semantic search in hand-thrown home objects.',
+    sessionId: 'theo-pour-over',
+  },
+  {
+    agent: 'Experience Guide',
+    model: 'Claude Opus 5',
+    outcome: 'The linen throw resolves before its care guidance and return window.',
     sessionId: 'theo-linen-seasons',
   },
   {
     agent: 'Experience Guide',
     model: 'Claude Opus 5',
-    tool: 'find_pieces → returns_and_care → process_return',
-    outcome:
-      'Three writes in one transaction · returns row + product_catalog decrement + tool_audit · Cedar + SQL gated',
+    outcome: 'Read-before-write order resolves product and policy before filing.',
     sessionId: 'theo-ceramics-return',
   },
   {
-    agent: 'Experience Guide (the-makers-shelf)',
+    agent: 'Experience Guide',
     model: 'Claude Opus 5',
-    tool: 'escalate_to_stylist',
+    outcome: 'The Proof Counter reads tool_audit to verify that the return exists.',
+    sessionId: 'theo-pour-over-pairing',
+  },
+  {
+    agent: 'Experience Guide',
+    model: 'Claude Opus 5',
     outcome:
-      'Capstone - exception-return handoff. Outside the standard window; process_return refuses, escalate_to_stylist is the honest fallback.',
+      'A known out-of-window durability exception bypasses a doomed write and escalates.',
     sessionId: 'theo-home-not-wardrobe',
   },
 ];
 
 function attachPills(
-  meta: Omit<JourneyTurn, 'pill' | 'n'>[],
+  meta: JourneyTurnMeta[],
   pills: string[],
-  traces: Array<{ skill?: string; tools: string[] }>,
+  traces: Array<{ skills: string[]; tools: string[] }>,
 ): JourneyTurn[] {
   return meta.map((m, idx) => ({
     n: idx + 1,
     pill: pills[idx],
     ...m,
-    skill: traces[idx]?.skill,
+    skills: traces[idx]?.skills ?? [],
     tool: traces[idx]?.tools.join(' → ') ?? m.tool,
   }));
 }
@@ -182,10 +167,10 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'pgvector semantic search',
     capabilityRole: 'Foundation · Capability 1',
     blurb:
-      "Returning customer. Natural fabrics, linen, travel-ready, warm tones. Marco's arc anchors pgvector cosine over Cohere Embed v4. Turn 4 is the workshop build: same hero pill ships stub telemetry in opening demo, then a real floor_check replay after the required path lands.",
+      "Returning customer. Marco's five turns move from category browse to pairing, comparison, price intelligence, and live inventory. Turn 5 remains the workshop build: the opening path shows the floor_check gap, then the midpoint replay proves the wired result.",
     turns: attachPills(MARCO_TURNS_META, PERSONA_HERO_PILLS.marco, PERSONA_TURN_TRACES.marco),
     capstoneNote:
-      "Claude Opus 5 handles editorial turns; Claude Sonnet 5 handles routing and reporting turns. That architectural split is visible here - and Turn 4 is where the wiring exercise lands.",
+      "Claude Opus 5 handles editorial discovery and comparison; Claude Sonnet 5 handles numerical and inventory reporting. Turn 5 is where the wiring exercise lands.",
   },
   {
     id: 'anna',
@@ -193,10 +178,10 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'hybrid + Cohere Rerank v3.5',
     capabilityRole: 'Capability 2 · when pure vector wears thin',
     blurb:
-      "Gift-giver - observe & learn only. Her five Pellier hero strings are a live demo of Capability 2 (hybrid + rerank); there is no required wiring exercise on this arc. Use Sessions and Observatory to study spans and cost.",
+      "Gift-giver - observe and learn only. Anna's arc demonstrates hybrid retrieval, Aurora preference proof, popularity ranking, audit receipts, and an honest human handoff.",
     turns: attachPills(ANNA_TURNS_META, PERSONA_HERO_PILLS.anna, PERSONA_TURN_TRACES.anna),
     capstoneNote:
-      "Recall@5 jumps ~20 points; p50 doubles; cost goes 6×. The Performance card lets you decide - there's no universally right answer per query class.",
+      "Her first two turns show where hybrid retrieval earns its cost; the later turns prove that retrieval, memory, audit, and escalation are separate capabilities.",
   },
   {
     id: 'theo',
@@ -204,7 +189,7 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'Aurora as agent system-of-record',
     capabilityRole: 'Capability 3 · writes leave a paper trail',
     blurb:
-      "Slow-craft buyer - observe & learn only. This arc demonstrates Capability 3 (writes + tool_audit / Cedar). No participant coding checkpoint on Theo in the required path; replay session fixtures to see the paper trail.",
+      "Slow-craft buyer - observe and learn only. Theo's arc moves from discovery to care, a read-before-write return, receipt proof, and a durability exception that requires human judgment.",
     turns: attachPills(THEO_TURNS_META, PERSONA_HERO_PILLS.theo, PERSONA_TURN_TRACES.theo),
     capstoneNote:
       'Every mutation is reconstructible from tool_audit - see Write-path.',
@@ -322,7 +307,9 @@ const TurnRow: React.FC<{ turn: JourneyTurn; isFirst?: boolean }> = ({ turn, isF
         >
           <div style={{ color: 'var(--at-ink-1)' }}>{turn.agent}</div>
           <div>{turn.model}</div>
-          {turn.skill && <div>skill.{turn.skill}</div>}
+          {turn.skills.map((skill) => (
+            <div key={skill}>skill.{skill}</div>
+          ))}
           {turn.tool && <div>{turn.tool}</div>}
         </div>
       </div>
@@ -356,7 +343,7 @@ const PersonaSection: React.FC<{ journey: PersonaJourney }> = ({ journey }) => (
       </code>
     </div>
     <h2
-      className="font-display italic text-espresso"
+      className="font-display text-espresso"
       style={{
         fontSize: 'clamp(28px, 3.5vw, 44px)',
         fontWeight: 400,
@@ -419,7 +406,7 @@ const PersonaJourneys: React.FC = () => (
     <EditorialTitle
       eyebrow="Observe · Persona Journeys · 15 Pellier hero turns"
       title="Three personas, fifteen hero queries."
-      summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Labs tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
+      summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Labs tell the same story turn by turn. The right rail shows the loaded skills, ordered tools, and replay evidence. Marco Turn 5 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
     />
 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

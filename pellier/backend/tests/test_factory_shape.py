@@ -41,15 +41,19 @@ from services.persona_context import persona_preamble_var, set_persona_preamble
 # tool in ``services/agent_tools.py`` you have to update this list.
 SPECIALIST_SPECS = [
     ("search", build_search_agent,
-     {"find_pieces", "explore_collection", "side_by_side", "escalate_to_stylist"}),
+     {"find_pieces", "explore_collection", "side_by_side", "style_match",
+      "escalate_to_stylist"}),
     ("recommendation", build_recommendation_agent,
-     {"find_pieces_hybrid", "whats_trending", "side_by_side", "explore_collection"}),
+     {"find_pieces_hybrid", "whats_trending", "preference_snapshot",
+      "trace_receipt", "side_by_side", "explore_collection",
+      "escalate_to_stylist"}),
     ("pricing", build_pricing_agent,
      {"price_intelligence", "explore_collection", "find_pieces"}),
     ("inventory", build_inventory_agent,
      {"floor_check", "restock_shelf", "running_low"}),
     ("support", build_support_agent,
-     {"returns_and_care", "find_pieces", "process_return", "escalate_to_stylist"}),
+     {"returns_and_care", "find_pieces", "process_return", "trace_receipt",
+      "escalate_to_stylist"}),
 ]
 
 SPECIALIST_WRAPPERS = [
@@ -220,3 +224,34 @@ def test_support_agent_has_no_exa_references() -> None:
             f"experience_guide.py contains forbidden token {forbidden!r} "
             f"in executable code (module docstring is excluded from this check)"
         )
+
+
+def test_canonical_multi_tool_rules_are_explicit_in_specialist_prompts() -> None:
+    """Canonical demo sequences should not depend on an ambiguous model guess."""
+    from agents.experience_guide import _SUPPORT_SYSTEM_PROMPT
+    from agents.stock_keeper import _INVENTORY_SYSTEM_PROMPT
+    from agents.style_advisor import _SEARCH_SYSTEM_PROMPT
+    from agents.value_analyst import _PRICING_SYSTEM_PROMPT
+    from boutique_copy import RECOMMENDATION_SYSTEM_PROMPT
+
+    assert "Pass the shopper's collection term verbatim" in _SEARCH_SYSTEM_PROMPT
+    assert "set context to 'travel'" in _SEARCH_SYSTEM_PROMPT
+    assert "starts with 'browse' MUST use explore_collection" in _SEARCH_SYSTEM_PROMPT
+    assert "Do not substitute style_match for an explicit comparison" in _SEARCH_SYSTEM_PROMPT
+    assert "Never mention categories, tags, tools, retrieval" in _SEARCH_SYSTEM_PROMPT
+    assert "do not address the shopper by a persona name" in _SEARCH_SYSTEM_PROMPT
+    assert "Never use persona preferences as shopper-facing facts" in _SEARCH_SYSTEM_PROMPT
+    assert "already on the shopper's shelf" in _SEARCH_SYSTEM_PROMPT
+    assert "make exactly one retrieval call" in _SEARCH_SYSTEM_PROMPT
+    assert "never generalize such a claim across a group of pieces" in _SEARCH_SYSTEM_PROMPT
+    assert "Do not add product recommendations, performance" in _PRICING_SYSTEM_PROMPT
+    assert "call preference_snapshot first" in RECOMMENDATION_SYSTEM_PROMPT
+    assert "explicit sympathy or condolence ask" in RECOMMENDATION_SYSTEM_PROMPT
+    assert "Do not turn a persona profile into a claim" in RECOMMENDATION_SYSTEM_PROMPT
+    assert "rating-and-review score, not sales velocity" in RECOMMENDATION_SYSTEM_PROMPT
+    assert "call whats_trending exactly once" in RECOMMENDATION_SYSTEM_PROMPT
+    assert "explicitly says the return window has closed" in _SUPPORT_SYSTEM_PROMPT
+    assert "Do not supplement policy with general product knowledge" in _SUPPORT_SYSTEM_PROMPT
+    assert "never infer softening, patina" in _SUPPORT_SYSTEM_PROMPT
+    assert "handoff card below the response" in _SUPPORT_SYSTEM_PROMPT
+    assert "stay strictly within the warehouse result" in _INVENTORY_SYSTEM_PROMPT

@@ -2169,7 +2169,7 @@ CURRENT REQUEST: {message}"""
             # Experience Guide, in the Workshop format), the Dispatcher
             # intercepts and returns a voice-matched non-answer INSTEAD
             # of invoking the stub agent. This is the graceful gap
-            # Marco's Turn 4 lands in during the opening demo; wiring
+            # Marco's Turn 5 lands in during the opening demo; wiring
             # the agent flips the flag and the same turn returns real
             # warehouse data.
             #

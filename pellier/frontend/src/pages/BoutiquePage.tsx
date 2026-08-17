@@ -15,7 +15,7 @@
  * The hero occupies the entire viewport so the first impression is
  * the search bar. Scrolling reveals the editorial product showcase.
  */
-import { useEffect, useMemo, type CSSProperties } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
@@ -25,6 +25,7 @@ import BecauseYouAsked from '../components/BecauseYouAsked'
 import MemoryHandoffCard from '../components/MemoryHandoffCard'
 import RationaleBand from '../components/RationaleBand'
 import ProductCard from '../components/ProductCard'
+import ResponsiveImage from '../components/ResponsiveImage'
 import Footer from '../components/Footer'
 // CommandPill removed — hero search bar is the primary entry point
 import { useAuth } from '../contexts/AuthContext'
@@ -52,7 +53,6 @@ import {
   weekendEditForPersona,
 } from '../data/personaCurations'
 import { splitHeadlineAtRe } from '../utils/headlineAccent'
-import { imageSrc } from '../utils/assetPath'
 
 const NAV_ROUTES: Record<NavItem, string> = {
   home: '/',
@@ -98,11 +98,6 @@ export default function BoutiquePage() {
     [gridProducts, personaId],
   )
   const personaInterests = personaId ? PERSONA_INTERESTS[personaId] : undefined
-  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
-  const isPersonalized =
-    !!personaInterests &&
-    Object.keys(personaInterests.tagWeights).length > 0
-  const curatedEyebrow = personaInterests?.curatedEyebrow ?? 'Curated for you'
   const curatedHeadline =
     personaInterests?.curatedHeadline ?? 'Things worth discovering.'
 
@@ -155,18 +150,13 @@ export default function BoutiquePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-cream-50">
+    <div className="pellier-page-surface min-h-dvh bg-cream-50">
       {/* Announcement bar — full-width above the header */}
       <AnnouncementBar />
 
       <Header current="home" onNavigate={handleNavigate} />
 
-      <main
-        style={{
-          background:
-            'linear-gradient(180deg, var(--cream-warm) 0%, var(--cream-50, #fbf8f2) 34%, var(--cream-warm) 100%)',
-        }}
-      >
+      <main className="bg-cream">
         {/* ── ACT 1: Full-viewport hero ── */}
         <BoutiqueHero />
 
@@ -185,53 +175,36 @@ export default function BoutiquePage() {
           className="w-full"
           aria-label="Featured products"
           style={{
-            '--boutique-accent': personaAccent,
             scrollMarginTop: 84,
-            background:
-              'linear-gradient(180deg, var(--cream-50, #fbf8f2) 0%, var(--cream-warm) 48%, var(--cream-50, #fbf8f2) 100%)',
-            borderTop: '1px solid rgba(31,20,16,0.06)',
-          } as CSSProperties}
+            background: 'var(--cream-warm)',
+            borderTop: '1px solid var(--rule-1)',
+          }}
         >
           {/* Featured product: large image + editorial title */}
           <div className="max-w-[1440px] mx-auto px-container-x pt-16 md:pt-24 pb-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
               {/* Left: featured image */}
               <div className="relative aspect-[4/5] rounded-[8px] overflow-hidden shadow-warm-md">
-                <img
-                  src={imageSrc(featuredProduct.imageUrl)}
+                <ResponsiveImage
+                  src={featuredProduct.imageUrl}
                   alt={featuredProduct.name}
+                  widths={[480, 960]}
+                  sizes="(min-width: 1440px) 696px, (min-width: 1024px) 48vw, 100vw"
                   className="w-full h-full object-cover"
                   loading="lazy"
-                />
-                {/* Subtle warm wash */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  aria-hidden="true"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(247,243,238,0.05) 0%, rgba(59,47,47,0.12) 100%)',
-                  }}
-                />
-                <span
-                  aria-hidden="true"
-                  className="absolute left-0 top-0 h-[4px] w-full"
-                  style={{
-                    background:
-                      'linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--boutique-accent) 82%, var(--cream-warm)) 50%, transparent 100%)',
-                  }}
+                  decoding="async"
+                  pictureClassName="block h-full w-full"
                 />
               </div>
 
               {/* Right: editorial title + product info */}
               <div className="flex flex-col justify-center py-8 lg:py-0">
-                <p className="text-[11px] font-sans font-semibold tracking-[0.22em] uppercase text-ink-quiet mb-4">
-                  {weekendEdit.eyebrow}
-                </p>
                 <h2
-                  className="font-display italic"
+                  className="font-display"
                   style={{
                     fontSize: 'clamp(36px, 5vw, 64px)',
-                    lineHeight: 1.05,
-                    letterSpacing: '-0.02em',
+                    lineHeight: 1.08,
+                    letterSpacing: 0,
                     fontWeight: 400,
                     whiteSpace: 'pre-line',
                   }}
@@ -257,10 +230,10 @@ export default function BoutiquePage() {
 
                 {/* Featured product details */}
                 <div className="mt-8 pt-6 border-t border-sand/50">
-                  <p className="text-[10px] font-sans font-semibold tracking-[0.2em] uppercase text-ink-quiet mb-1">
+                  <p className="mb-1 font-sans text-[12px] text-ink-quiet">
                     {featuredProduct.brand}
                   </p>
-                  <p className="font-display italic text-espresso text-xl">
+                  <p className="font-display text-xl text-espresso">
                     {featuredProduct.name}
                   </p>
                   <div className="flex items-center gap-3 mt-2 text-sm text-ink-soft font-sans">
@@ -286,70 +259,23 @@ export default function BoutiquePage() {
               eyebrow + headline + "for <name>" chip so the
               personalization is visible rather than silent. */}
           <div className="max-w-[1440px] mx-auto px-container-x pb-16 md:pb-24">
-            <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div className="mb-8">
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="relative flex h-2 w-2" aria-hidden="true">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-                  </span>
-                  <p
-                    data-testid="curated-eyebrow"
-                    className="text-[11px] font-sans font-semibold tracking-[0.22em] uppercase text-ink-quiet"
-                  >
-                    {curatedEyebrow}
-                  </p>
-                </div>
                 <h2
                   data-testid="curated-headline"
-                  className="font-display italic text-espresso"
+                  className="font-display text-espresso"
                   style={{
                     fontSize: 'clamp(28px, 3.5vw, 44px)',
                     lineHeight: 1.15,
-                    letterSpacing: '-0.01em',
+                    letterSpacing: 0,
                     fontWeight: 400,
                   }}
                 >
                   {curatedHeadline}
                 </h2>
+                <RationaleBand />
               </div>
-
-              {/* Persona chip — renders only when a persona is active,
-                  so the fresh anonymous view stays clean. */}
-              {isPersonalized && persona && (
-                <div
-                  data-testid="curated-persona-chip"
-                  className="inline-flex items-center gap-2 self-start md:self-end"
-                  style={{
-                    fontFamily: 'var(--sans)',
-                    fontSize: '11px',
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase',
-                    fontWeight: 500,
-                    color: 'color-mix(in srgb, var(--boutique-accent) 70%, var(--ink))',
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    background:
-                      'color-mix(in srgb, var(--boutique-accent) 8%, var(--cream-warm))',
-                    border:
-                      '1px solid color-mix(in srgb, var(--boutique-accent) 18%, transparent)',
-                  }}
-                >
-                  <span aria-hidden style={{ color: personaAccent, fontSize: '7px' }}>
-                    &#9679;
-                  </span>
-                  <span>For {persona.display_name.split(' ')[0]}</span>
-                </div>
-              )}
             </div>
-
-            {/* Rationale band — italic pull-quote restating the user's
-                ask and the agent's curation strategy. Renders directly
-                above the grid so the products that follow read as the
-                answer to a stated rationale, not a generic merchandise
-                row. Per-product "because" lines on each card carry the
-                reasoning down to the item level. */}
-            <RationaleBand />
 
             <div
               // Re-mount on prefsVersion OR persona change so the grid's
@@ -367,7 +293,6 @@ export default function BoutiquePage() {
                   product={product}
                   index={index % 3}
                   onAddToBag={handleAddToBag}
-                  accentColor={personaAccent}
                 />
               ))}
             </div>

@@ -23,13 +23,51 @@
  * Pellier Labs root container — scopes all observatory styles
  * ----------------------------------------------------------------------- */
 
+/* Labs consumes the shared `.pellier-page-surface` palette from index.css.
+   Map its legacy Daylight and observatory names back to those shared tokens
+   without redefining `--cream` and restoring the old warm page background. */
 .agent-trace-root {
-  background: var(--at-cream-1);
+  --dl-bg: var(--cream);
+  --dl-paper: var(--cream-warm);
+  --dl-paper-2: var(--cream-2);
+  --dl-line: var(--rule-1);
+  --dl-line-strong: var(--rule-3);
+  --dl-ink: var(--ink);
+  --dl-ink-2: var(--ink-soft);
+  --dl-muted: var(--ink-quiet);
+  --dl-faint: var(--ink-5);
+  --dl-accent: var(--accent);
+  --dl-accent-soft: var(--red-soft);
+  --dl-accent-ink: var(--accent-ink);
+  --dl-font-display: var(--sans);
+  --dl-font-serif: var(--sans);
+  --serif: var(--sans);
+  --at-cream-1: var(--cream);
+  --at-cream-2: var(--cream-2);
+  --at-cream-elev: var(--cream-warm);
+  --at-ink-1: var(--ink);
+  --at-ink-2: var(--ink-soft);
+  --at-ink-3: var(--ink-soft);
+  --at-ink-4: var(--ink-quiet);
+  --at-ink-5: var(--ink-5);
+  --at-rule-1: var(--rule-1);
+  --at-rule-2: var(--rule-2);
+  --at-rule-3: var(--rule-3);
+  --at-red-1: var(--accent);
+  --at-red-soft: var(--red-soft);
+  --at-espresso-1: #262a32;
+  --at-espresso-2: #30343d;
+  --at-display: var(--at-sans);
+  --at-serif: var(--sans);
+  --at-card-radius: 6px;
+
+  background: var(--cream);
   color: var(--at-ink-1);
   font-family: var(--at-sans);
   font-size: var(--at-body-size);
   line-height: var(--at-body-leading);
-  min-height: 100vh;
+  min-height: 100dvh;
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -65,11 +103,29 @@
 .agent-trace-root h5,
 .agent-trace-root h6 {
   margin: 0;
+  font-family: var(--at-sans);
+  font-style: normal;
   font-weight: 400;
-  /* Do not set font-family here — it overrides Tailwind `font-display`
-     (Fraunces / boutique hero headline stack) on EditorialTitle and
-     other headings. Unstyled headings inherit --at-sans from .agent-trace-root. */
+  letter-spacing: 0;
   color: var(--at-ink-1);
+}
+
+.agent-trace-root .font-display {
+  font-family: var(--at-sans) !important;
+  font-style: normal !important;
+}
+
+.agent-trace-root .at-text-tab,
+.agent-trace-root em,
+.agent-trace-root i {
+  font-family: var(--at-sans);
+  font-style: normal;
+}
+
+.agent-trace-root svg text[font-family*='Fraunces'],
+.agent-trace-root svg text[font-family*='Instrument Serif'] {
+  font-family: var(--at-sans) !important;
+  font-style: normal !important;
 }
 
 .agent-trace-root p {
@@ -450,12 +506,12 @@
 
 .agent-trace-frame {
   display: block;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .agent-trace-canvas {
   min-width: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow: visible;
 }
 
@@ -465,6 +521,61 @@
 
 .agent-trace-surface[data-workbench='true'] {
   padding: 0;
+}
+
+.agent-trace-surface:not([data-workbench='true'])
+  .pellier-labs-surface-header {
+  display: grid;
+  max-width: 790px;
+  gap: 12px;
+  margin: 0 0 32px;
+  padding: 0 0 24px;
+  border-bottom: 1px solid var(--at-rule-1);
+}
+
+.agent-trace-surface:not([data-workbench='true'])
+  .pellier-labs-surface-header
+  h1 {
+  max-width: 760px;
+  color: var(--at-ink-1);
+  font-family: var(--dl-font-display, var(--at-display));
+  font-size: 42px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.agent-trace-surface:not([data-workbench='true'])
+  .pellier-labs-surface-header
+  p {
+  max-width: 760px;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 15.5px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.58;
+}
+
+.pellier-labs-exp-card {
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.pellier-labs-exp-card[data-clickable='true']:hover {
+  border-color: color-mix(in srgb, var(--at-red-1) 34%, var(--at-rule-2)) !important;
+  box-shadow: 0 10px 24px rgba(52, 25, 30, 0.06);
+  transform: translateY(-1px);
+}
+
+.pellier-labs-exp-card[data-clickable='true']:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--at-red-1) 30%, transparent);
+  outline-offset: 3px;
 }
 
 .agent-trace-sidebar {
@@ -502,14 +613,25 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 64px;
   align-items: center;
-  justify-content: space-between;
   gap: 20px;
   padding: 10px clamp(18px, 3vw, 44px);
   border-bottom: 1px solid var(--at-rule-1);
-  background: color-mix(in srgb, var(--at-cream-1) 96%, white);
+  background: color-mix(in srgb, var(--cream-warm) 94%, transparent);
+  box-shadow: 0 8px 24px rgba(24, 26, 31, 0.045);
+}
+
+/* One hairline in the one accent. This was a three-stop wine-to-orange
+   gradient, which put a second hue at the top of every Labs surface while the
+   accent below it means "this layer fired". */
+/* The reference top bar is a single hairline, nothing more. Terracotta earns
+   its place in the palette by marking the open ledger row and the running
+   badge; spending it on a decorative bar here dilutes that meaning. */
+.pellier-labs-topbar::after {
+  content: none;
 }
 
 .pellier-labs-topbar-start,
@@ -543,8 +665,8 @@
 }
 
 .pellier-labs-wordmark {
-  color: var(--at-ink-1) !important;
-  font-family: var(--at-serif);
+  color: var(--at-red-1) !important;
+  font-family: var(--dl-font-display, var(--at-display));
   font-size: 22px;
   font-weight: 500;
   letter-spacing: 0;
@@ -553,27 +675,159 @@
   white-space: nowrap;
 }
 
-.pellier-labs-breadcrumbs {
-  min-width: 0;
-  padding-left: 12px;
-  border-left: 1px solid var(--at-rule-1);
-}
-
-.pellier-labs-presence {
-  display: flex;
+.agent-trace-root .pellier-labs-view-trigger {
+  display: inline-flex;
+  min-width: 186px;
+  height: 38px;
+  flex: 0 0 auto;
   align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--at-rule-2) !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--cream-warm) 90%, transparent) !important;
+  color: var(--at-ink-2) !important;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.pellier-labs-presence [role='status'] {
-  border-color: rgba(63, 98, 18, 0.2) !important;
-  background: rgba(63, 98, 18, 0.08) !important;
-  color: #334f13 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+.agent-trace-root .pellier-labs-view-trigger:hover,
+.agent-trace-root .pellier-labs-view-trigger[data-state='open'] {
+  border-color: color-mix(in srgb, var(--at-red-1) 34%, transparent);
+  background: var(--cream-warm);
+  box-shadow: 0 5px 14px rgba(68, 29, 36, 0.07);
 }
 
-.pellier-labs-presence [role='status'] > span:first-child {
-  background: #3f6212 !important;
+.agent-trace-root .pellier-labs-view-trigger:focus-visible {
+  border-color: var(--at-red-1);
+  outline: 2px solid color-mix(in srgb, var(--at-red-1) 18%, transparent);
+  outline-offset: 2px;
+}
+
+.pellier-labs-view-trigger-icon {
+  flex: 0 0 auto;
+  color: var(--at-red-1);
+}
+
+.pellier-labs-view-trigger-label {
+  min-width: 0;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pellier-labs-view-trigger-chevron {
+  margin-left: auto;
+  color: var(--at-ink-4);
+  transition: transform 160ms ease;
+}
+
+.pellier-labs-view-trigger[data-state='open']
+  .pellier-labs-view-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+.pellier-labs-view-menu {
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(650px, calc(100vh - 88px));
+  overflow-y: auto;
+  padding: 8px !important;
+  border: 1px solid var(--at-rule-2) !important;
+  border-radius: 8px !important;
+  background: var(--cream-warm) !important;
+  box-shadow: 0 18px 46px rgba(52, 25, 30, 0.16) !important;
+}
+
+.pellier-labs-view-menu-section + .pellier-labs-view-menu-section {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--at-rule-1);
+}
+
+.pellier-labs-view-menu-label {
+  padding: 7px 9px 5px !important;
+  color: var(--at-ink-4);
+  font-family: var(--at-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.pellier-labs-view-menu-item {
+  display: grid !important;
+  min-height: 54px;
+  grid-template-columns: 28px minmax(0, 1fr) 18px;
+  gap: 9px;
+  align-items: center;
+  padding: 7px 8px !important;
+  border-radius: 6px !important;
+  color: var(--at-ink-2) !important;
+  cursor: pointer !important;
+}
+
+.pellier-labs-view-menu-item:hover,
+.pellier-labs-view-menu-item:focus-visible {
+  background: color-mix(in srgb, var(--at-red-soft) 74%, var(--cream-warm)) !important;
+  color: var(--at-ink-1) !important;
+}
+
+.pellier-labs-view-menu-item[data-active='true'] {
+  background: color-mix(in srgb, var(--at-red-soft) 92%, var(--cream-warm)) !important;
+}
+
+.pellier-labs-view-menu-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--at-rule-1);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--cream) 78%, transparent);
+  color: var(--at-red-1);
+}
+
+.pellier-labs-view-menu-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.pellier-labs-view-menu-copy strong {
+  overflow: hidden;
+  color: var(--at-ink-1);
+  font-family: var(--at-sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pellier-labs-view-menu-copy small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--at-ink-4);
+  font-family: var(--at-sans);
+  font-size: 11px;
+  font-weight: 450;
+  letter-spacing: 0;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.pellier-labs-view-menu-check {
+  color: var(--at-red-1);
 }
 
 .pellier-labs-persona {
@@ -584,7 +838,7 @@
   padding: 4px 10px 4px 4px !important;
   border: 1px solid var(--at-rule-1) !important;
   border-radius: 999px !important;
-  background: var(--at-cream-elev) !important;
+  background: color-mix(in srgb, var(--cream-warm) 84%, transparent) !important;
 }
 
 .pellier-labs-persona > img,
@@ -632,10 +886,10 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border: 1px solid var(--at-ink-1);
+  border: 1px solid var(--at-rule-2);
   border-radius: 4px;
-  background: var(--at-ink-1);
-  color: var(--at-cream-1) !important;
+  background: color-mix(in srgb, var(--cream-warm) 84%, transparent);
+  color: var(--at-red-1) !important;
   font-size: 12.5px;
   font-weight: 650;
   text-decoration: none !important;
@@ -643,18 +897,74 @@
 }
 
 .pellier-labs-back:hover {
-  background: var(--at-espresso-2);
+  border-color: color-mix(in srgb, var(--at-red-1) 34%, transparent);
+  background: var(--at-red-soft);
 }
 
 @media (max-width: 900px) {
   .pellier-labs-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
     padding-inline: 16px;
   }
 
-  .pellier-labs-breadcrumbs,
-  .pellier-labs-presence {
-    display: none;
+  .pellier-labs-topbar-start {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .pellier-labs-topbar-end {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+}
+
+@media (min-width: 900px) {
+  .pellier-labs-view-menu {
+    display: grid;
+    width: min(720px, calc(100vw - 24px));
+    max-height: min(510px, calc(100vh - 88px));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    align-items: start;
+    padding: 10px !important;
+  }
+
+  .pellier-labs-view-menu-section {
+    min-width: 0;
+    padding: 0 6px;
+  }
+
+  .pellier-labs-view-menu-section + .pellier-labs-view-menu-section {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    border-left: 1px solid var(--at-rule-1);
+  }
+
+  .pellier-labs-view-menu-label {
+    padding: 3px 5px 7px !important;
+  }
+
+  .pellier-labs-view-menu-item {
+    min-height: 58px;
+    grid-template-columns: 26px minmax(0, 1fr) 14px;
+    gap: 7px;
+    padding: 7px 5px !important;
+  }
+
+  .pellier-labs-view-menu-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .pellier-labs-view-menu-copy strong {
+    font-size: 12px;
+  }
+
+  .pellier-labs-view-menu-copy small {
+    -webkit-line-clamp: 2;
   }
 }
 
@@ -670,6 +980,40 @@
 
   .pellier-labs-wordmark {
     font-size: 19px;
+  }
+
+  .agent-trace-surface:not([data-workbench='true'])
+    .pellier-labs-surface-header {
+    gap: 10px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+  }
+
+  .agent-trace-surface:not([data-workbench='true'])
+    .pellier-labs-surface-header
+    h1 {
+    font-size: 34px;
+    line-height: 1.12;
+  }
+
+  .agent-trace-surface:not([data-workbench='true'])
+    .pellier-labs-surface-header
+    p {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .agent-trace-root .pellier-labs-view-trigger {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .pellier-labs-view-trigger-label,
+  .pellier-labs-view-trigger-chevron {
+    display: none;
   }
 
   .pellier-labs-persona-copy,

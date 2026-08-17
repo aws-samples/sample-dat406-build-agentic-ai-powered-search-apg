@@ -2,7 +2,7 @@
  * App — root component.
  *
  * Composition is intentionally minimal: provider chain, BrowserRouter,
- * root-level modal hosts (AuthModal, PreferencesModal, ConciergeModal,
+ * root-level modal hosts (AuthModal, PreferencesModal, ChatDrawer,
  * ComparisonHost), and the final route table. The two surfaces are
  * BoutiquePage (`/`) and AgentTraceFrame (`/pellier-labs/*`).
  *
@@ -36,7 +36,6 @@ import { safeReturnTo } from './utils/auth'
 import './styles/premium-heading-styles.css'
 
 const BoutiquePage = lazy(() => import('./pages/BoutiquePage'))
-const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
 const AgentTraceFrame = lazy(() => import('./agent-trace/shell/AgentTraceFrame'))
 const SessionsList = lazy(() => import('./agent-trace/surfaces/observe/SessionsList'))
 const SessionView = lazy(() => import('./agent-trace/surfaces/observe/SessionView'))
@@ -152,6 +151,29 @@ function ModalRouteGuard() {
   return null
 }
 
+export function isPellierSurfacePath(pathname: string) {
+  return (
+    pathname === '/' ||
+    pathname === '/signin' ||
+    pathname.startsWith('/storyboard') ||
+    pathname.startsWith('/discover') ||
+    pathname.startsWith('/about') ||
+    pathname.startsWith('/pellier-labs')
+  )
+}
+
+function PellierSurfaceRoute() {
+  const { pathname } = useLocation()
+  const isPellierSurface = isPellierSurfacePath(pathname)
+
+  useEffect(() => {
+    document.body.classList.toggle('pellier-surface', isPellierSurface)
+    return () => document.body.classList.remove('pellier-surface')
+  }, [isPellierSurface])
+
+  return null
+}
+
 function SignInChooserRoute() {
   const { activeModal, openModal } = useUI()
   const { search } = useLocation()
@@ -171,16 +193,6 @@ function SignInChooserRoute() {
   }, [activeModal, navigate, opened, returnTo])
 
   return <BoutiquePage />
-}
-
-function AgentTraceConciergeSlot() {
-  const { pathname } = useLocation()
-  if (!pathname.startsWith('/pellier-labs')) return null
-  return (
-    <Suspense fallback={null}>
-      <ConciergeModal />
-    </Suspense>
-  )
 }
 
 function LegacyLabsRedirect() {
@@ -211,54 +223,57 @@ function RouteLoading() {
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<RouteLoading />}>
-      <Routes>
-        {/*
-         *   /           -> BoutiquePage (storefront shell)
-         *   /signin     -> BoutiquePage + provider chooser
-         *   /pellier-labs/* -> Pellier Labs
-         *   /inspector  -> InspectorPage (frozen session-scoped trace view)
-         *   /storyboard -> StoryboardPage
-         *   /discover   -> DiscoverPage
-         *   *           -> redirect to /
-         */}
-        <Route path="/" element={<BoutiquePage />} />
-        <Route path="/signin" element={<SignInChooserRoute />} />
-        <Route path="/agent-trace/*" element={<LegacyLabsRedirect />} />
-        <Route path="/labs/*" element={<LegacyLabsRedirect />} />
-        <Route path="/pellier-labs" element={<AgentTraceFrame />}>
-          <Route index element={<PellierLabsWorkbench />} />
-          <Route path="proof-board" element={<ProofBoard />} />
-          <Route path="sessions" element={<SessionsList />} />
-          <Route path="sessions/:id" element={<SessionView />}>
-            <Route index element={<Navigate to="chat" replace />} />
-            <Route path="chat" element={<ChatTab />} />
-            <Route path="telemetry" element={<TelemetryTab />} />
-            <Route path="brief" element={<BriefTab />} />
+    <>
+      <PellierSurfaceRoute />
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          {/*
+           *   /           -> BoutiquePage (storefront shell)
+           *   /signin     -> BoutiquePage + provider chooser
+           *   /pellier-labs/* -> Pellier Labs
+           *   /inspector  -> InspectorPage (frozen session-scoped trace view)
+           *   /storyboard -> StoryboardPage
+           *   /discover   -> DiscoverPage
+           *   *           -> redirect to /
+           */}
+          <Route path="/" element={<BoutiquePage />} />
+          <Route path="/signin" element={<SignInChooserRoute />} />
+          <Route path="/agent-trace/*" element={<LegacyLabsRedirect />} />
+          <Route path="/labs/*" element={<LegacyLabsRedirect />} />
+          <Route path="/pellier-labs" element={<AgentTraceFrame />}>
+            <Route index element={<PellierLabsWorkbench />} />
+            <Route path="proof-board" element={<ProofBoard />} />
+            <Route path="sessions" element={<SessionsList />} />
+            <Route path="sessions/:id" element={<SessionView />}>
+              <Route index element={<Navigate to="chat" replace />} />
+              <Route path="chat" element={<ChatTab />} />
+              <Route path="telemetry" element={<TelemetryTab />} />
+              <Route path="brief" element={<BriefTab />} />
+            </Route>
+            <Route path="architecture" element={<ArchitectureIndex />} />
+            <Route path="architecture/:concept" element={<ArchitectureDetail />} />
+            <Route path="agents" element={<Agents />} />
+            <Route path="tools" element={<Tools />} />
+            <Route path="search" element={<Search />} />
+            <Route path="skills" element={<Skills />} />
+            <Route path="routing" element={<Routing />} />
+            <Route path="memory" element={<MemoryDashboard />} />
+            <Route path="write-path" element={<WritePath />} />
+            <Route path="performance" element={<Performance />} />
+            <Route path="evaluations" element={<Evaluations />} />
+            <Route path="production-patterns" element={<ProductionPatterns />} />
+            <Route path="observatory" element={<Observatory />} />
+            <Route path="persona-journeys" element={<PersonaJourneys />} />
+            <Route path="settings" element={<AgentTraceSettings />} />
           </Route>
-          <Route path="architecture" element={<ArchitectureIndex />} />
-          <Route path="architecture/:concept" element={<ArchitectureDetail />} />
-          <Route path="agents" element={<Agents />} />
-          <Route path="tools" element={<Tools />} />
-          <Route path="search" element={<Search />} />
-          <Route path="skills" element={<Skills />} />
-          <Route path="routing" element={<Routing />} />
-          <Route path="memory" element={<MemoryDashboard />} />
-          <Route path="write-path" element={<WritePath />} />
-          <Route path="performance" element={<Performance />} />
-          <Route path="evaluations" element={<Evaluations />} />
-          <Route path="production-patterns" element={<ProductionPatterns />} />
-          <Route path="observatory" element={<Observatory />} />
-          <Route path="persona-journeys" element={<PersonaJourneys />} />
-          <Route path="settings" element={<AgentTraceSettings />} />
-        </Route>
-        <Route path="/inspector" element={<InspectorPage />} />
-        <Route path="/storyboard" element={<StoryboardPage />} />
-        <Route path="/discover" element={<DiscoverPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+          <Route path="/inspector" element={<InspectorPage />} />
+          <Route path="/storyboard" element={<StoryboardPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </>
   )
 }
 
@@ -276,9 +291,9 @@ function App() {
              * Modal singleton slots. Mounting here puts them above every
              * route; they read `UIContext.activeModal` to decide whether
              * to render, so a route change never interrupts an open modal.
-             * AuthModal + PreferencesModal are route-independent; Concierge
-             * and Comparison live inside BrowserRouter because the
-             * concierge reads useLocation() for route-mode selection.
+             * AuthModal + PreferencesModal are route-independent. Storefront
+             * chat and comparison live inside BrowserRouter; Pellier Labs is
+             * intentionally chat-free.
              */}
             <AuthModal />
             <PreferencesModal />
@@ -287,7 +302,6 @@ function App() {
             <ToastSlot />
             <BrowserRouter basename={routerBasename()}>
               <ModalRouteGuard />
-              <AgentTraceConciergeSlot />
               <ChatDrawer />
               <ComparisonHost />
               <AppRoutes />

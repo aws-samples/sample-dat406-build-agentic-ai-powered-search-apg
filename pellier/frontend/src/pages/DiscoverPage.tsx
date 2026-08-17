@@ -149,10 +149,7 @@ export default function DiscoverPage() {
   return (
     <div
       data-testid="discover-page"
-      style={{
-        minHeight: '100vh',
-        background: c.bg,
-      }}
+      className="pellier-page-surface min-h-dvh"
     >
       <Header current="discover" onNavigate={handleNavigate} />
       <main>

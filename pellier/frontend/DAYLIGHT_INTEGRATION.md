@@ -92,7 +92,7 @@ Mount Daylight component classes on JSX elements:
 ```tsx
 <div className="dl-card">
   <p className="dl-eyebrow">Trace</p>
-  <h3 className="dl-h2">Marco's Turn 4</h3>
+  <h3 className="dl-h2">Marco's Turn 5</h3>
   <pre className="dl-code-block">
     <code>SELECT ...</code>
   </pre>

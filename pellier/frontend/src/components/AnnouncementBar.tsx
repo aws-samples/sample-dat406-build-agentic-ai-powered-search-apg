@@ -14,7 +14,7 @@
  * current catalog and proof language.
  */
 import { useState, useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { LIVE_FLOOR_FINDINGS } from '../copy'
 import { cssVar as c } from '../design/cssVars'
 
@@ -24,20 +24,21 @@ const CYCLE_MS = 5000
 
 export default function AnnouncementBar() {
   const [index, setIndex] = useState(0)
+  const reduceMotion = useReducedMotion()
   const finding = LIVE_FLOOR_FINDINGS[index]
 
   useEffect(() => {
+    if (reduceMotion) return
     const t = setInterval(() => {
       setIndex((i) => (i + 1) % LIVE_FLOOR_FINDINGS.length)
     }, CYCLE_MS)
     return () => clearInterval(t)
-  }, [])
+  }, [reduceMotion])
 
   return (
     <div
       role="region"
       aria-label="Storefront announcements"
-      aria-live="polite"
       data-testid="announcement-bar"
       className="w-full relative overflow-hidden"
       style={{
@@ -79,8 +80,10 @@ export default function AnnouncementBar() {
             position: 'absolute',
             inset: -6,
             borderRadius: 999,
-            background: 'rgba(196, 69, 54, 0.35)',
-            animation: 'pelliers-floor-pulse 1.8s ease-out infinite',
+            background: 'color-mix(in srgb, var(--accent) 35%, transparent)',
+            animation: reduceMotion
+              ? 'none'
+              : 'pelliers-floor-pulse 1.8s ease-out infinite',
           }}
         />
       </span>
@@ -89,10 +92,10 @@ export default function AnnouncementBar() {
         <motion.span
           key={index}
           className="absolute inset-0 flex items-center justify-center"
-          initial={{ opacity: 0, y: 8 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          exit={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+          transition={{ duration: reduceMotion ? 0 : 0.35, ease: 'easeOut' }}
           style={{ padding: '0 60px' }}
         >
           <span

@@ -23,7 +23,7 @@
    * ---------------------------------------------------------------- */
   --at-card-bg: var(--at-cream-elev);
   --at-card-border: var(--at-rule-1);
-  --at-card-radius: 14px;
+  --at-card-radius: 6px;
   --at-card-accent-width: 24px;
   --at-card-accent-color: var(--at-red-1);
 

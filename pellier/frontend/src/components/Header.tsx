@@ -21,7 +21,6 @@ import { useCart } from '../contexts/CartContext'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
 import { NAV } from '../copy'
-import { colors } from '../design/tokens'
 import { Avatar } from '../design/primitives'
 import { getPersonaPhoto } from '../data/personaPhotos'
 import { LOCAL_PERSONAS } from '../data/personas'
@@ -235,11 +234,11 @@ function PersonaDropdown() {
         ].join(' ')}
         style={{
           padding: persona ? '4px 12px 4px 4px' : '7px 14px',
-          background: persona ? colors.espresso : 'transparent',
-          color: persona ? colors.cream : colors.espresso,
+          background: persona ? 'var(--ink)' : 'transparent',
+          color: persona ? 'var(--cream)' : 'var(--ink)',
           border: persona
-            ? `1px solid ${colors.espresso}`
-            : '1px solid rgba(59, 47, 47, 0.18)',
+            ? '1px solid var(--ink)'
+            : '1px solid var(--input-border)',
         }}
         aria-expanded={open}
         aria-haspopup="true"
@@ -316,7 +315,7 @@ function PersonaDropdown() {
                   'hover:bg-sand/50 cursor-pointer',
                   'focus-visible:outline-none focus-visible:bg-sand/50',
                   isActive
-                    ? 'border-espresso bg-[rgba(31,20,16,0.08)] pl-[13px] pr-4'
+                    ? 'border-espresso bg-sand/70 pl-[13px] pr-4'
                     : 'border-transparent pl-[13px] pr-4',
                 ].join(' ')}
               >
@@ -423,7 +422,7 @@ export default function Header({
       data-testid="sticky-header"
       className="sticky top-0 z-40 w-full border-b border-sand/50"
       style={{
-        background: 'rgba(247, 243, 238, 0.92)',
+        background: 'var(--header-bg)',
         WebkitBackdropFilter: 'blur(12px)',
         backdropFilter: 'blur(12px)',
       }}
@@ -455,7 +454,7 @@ export default function Header({
               <div className="hidden xl:block">
                 <IconButton
                   icon={<Search className="w-5 h-5" />}
-                  ariaLabel="Search — ask Pellier"
+                  ariaLabel="Search, ask Pellier"
                   onClick={handleSearchClick}
                   size="md"
                 />

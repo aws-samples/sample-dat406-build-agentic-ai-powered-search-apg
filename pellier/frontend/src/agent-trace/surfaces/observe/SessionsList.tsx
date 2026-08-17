@@ -66,9 +66,9 @@ const REPLAY_BY_PERSONA_TURN: Record<CanonicalPersona, string[]> = {
   marco: [
     'marco-opening-demo',
     'marco-opening-demo',
+    'marco-capstone',
     'marco-opening-demo',
     'marco-midpoint-checkpoint',
-    'marco-capstone',
   ],
   anna: [
     'anna-morning-ritual',
@@ -79,9 +79,9 @@ const REPLAY_BY_PERSONA_TURN: Record<CanonicalPersona, string[]> = {
   ],
   theo: [
     'theo-pour-over',
-    'theo-pour-over-pairing',
     'theo-linen-seasons',
     'theo-ceramics-return',
+    'theo-pour-over-pairing',
     'theo-home-not-wardrobe',
   ],
 };
@@ -305,8 +305,9 @@ const PersonaTurnCard: React.FC<PersonaTurnCardProps> = ({
             alignItems: 'center',
           }}
         >
-          {trace.skill && (
+          {trace.skills.map((skill) => (
             <span
+              key={skill}
               style={{
                 fontFamily: 'var(--at-mono)',
                 fontSize: '11px',
@@ -316,9 +317,9 @@ const PersonaTurnCard: React.FC<PersonaTurnCardProps> = ({
                 padding: '3px 8px',
               }}
             >
-              skill.{trace.skill}
+              skill.{skill}
             </span>
-          )}
+          ))}
           {trace.tools.map((tool) => (
             <span
               key={tool}

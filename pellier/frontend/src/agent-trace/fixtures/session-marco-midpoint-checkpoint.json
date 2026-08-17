@@ -1,61 +1,59 @@
 {
   "id": "marco-midpoint-checkpoint",
   "personaId": "marco",
-  "openingQuery": "Is the Hadley shirt at the Brooklyn warehouse?",
+  "openingQuery": "Hadley availability in Brooklyn",
   "elapsedMs": 1840,
   "agentCount": 1,
   "routingPattern": "Dispatcher",
-  "timestamp": "2026-05-25T17:24:00Z",
+  "timestamp": "2026-05-25T17:24:00.000Z",
   "status": "complete",
   "chat": [
     {
       "role": "user",
-      "content": "Is the Hadley shirt at the Brooklyn warehouse?",
-      "timestamp": "2026-05-25T17:24:00Z"
+      "content": "Hadley availability in Brooklyn",
+      "timestamp": "2026-05-25T17:24:00.000Z"
     },
     {
       "role": "assistant",
-      "content": "Yes - Brooklyn (BK-01) has 8 of the Hadley (Pellier Linen Shirt in ecru) on the floor right now. Also 4 at Austin (ATX-02) and 12 at Portland (PDX-01). Ship window from Brooklyn to your zip is 1\u20132 business days.",
-      "timestamp": "2026-05-25T17:24:02Z",
+      "content": "Yes, Brooklyn has the Hadley Linen Shirt on the floor. The live warehouse result also includes the network total and Brooklyn ship window.",
+      "timestamp": "2026-05-25T17:24:04.000Z",
       "plan": {
         "routingPattern": "Dispatcher",
         "stepCount": 2,
-        "flowSummary": "Dispatcher \u2192 Stock Keeper \u2192 floor_check",
+        "flowSummary": "Dispatcher -> Stock Keeper -> floor_check",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
           "toolName": "floor_check",
-          "description": "Warehouse-level stock lookup for Hadley / Pellier Linen Shirt",
-          "durationMs": 142,
-          "sql": "SELECT warehouse_id, warehouse_name, quantity, restock_eta FROM inventory_by_warehouse WHERE product_id = $1 AND quantity > 0 ORDER BY warehouse_id;",
-          "resultSummary": "3 warehouses, 24 total units, Brooklyn leads with 8"
+          "description": "Read Hadley inventory across Pellier warehouses",
+          "durationMs": 120,
+          "sql": "SELECT warehouse_id, warehouse_name, quantity, ship_window_min, ship_window_max FROM pellier.inventory_by_warehouse WHERE product_id = $1 ORDER BY warehouse_id;",
+          "resultSummary": "Brooklyn inventory and ship window returned"
         }
       ],
       "products": [
         {
-          "name": "Pellier Linen Shirt",
-          "brand": "Pellier Editions",
-          "price": 148,
-          "imageUrl": "/products/marco-pellier-linen-shirt-ecru.png",
-          "traceRef": "panel-2"
+          "name": "Hadley Linen Shirt",
+          "brand": "Hadley",
+          "price": 248,
+          "imageUrl": "/products/fresh-pellier-linen-shirt.png"
         }
       ],
       "confidence": {
-        "percentage": 99,
-        "reasoning": "Deterministic warehouse lookup. Claude Sonnet 5 reporting profile - low variance. The tool participants just wrote is visible in the trace."
+        "percentage": 93,
+        "reasoning": "Grounded in the ordered tool results shown for this turn."
       },
       "memoryPills": [
         {
           "tier": "working",
-          "content": "Hadley shirt confirmed at Brooklyn warehouse (8 units)"
+          "content": "Hadley availability in Brooklyn"
         }
       ],
       "meta": {
         "agent": "Stock Keeper",
         "model": "Claude Sonnet 5",
-        "latencyMs": 184,
-        "note": "This is the checkpoint turn - floor_check is participant-authored code"
+        "latencyMs": 1380
       }
     }
   ],
@@ -63,80 +61,68 @@
     {
       "index": 1,
       "category": "managed",
-      "title": "Intent classification",
-      "description": "Dispatcher matched 'warehouse' as inventory intent",
+      "title": "Intent -> Stock Keeper",
+      "description": "Dispatcher classified: Hadley availability in Brooklyn",
       "status": "complete",
-      "durationMs": 58,
+      "durationMs": 52,
       "agent": "Dispatcher"
     },
     {
       "index": 2,
       "category": "both",
-      "title": "Warehouse stock lookup",
-      "description": "floor_check - participant-authored tool, running on Claude Sonnet 5",
+      "title": "floor_check",
+      "description": "Brooklyn inventory and ship window returned",
       "status": "complete",
-      "durationMs": 142,
+      "durationMs": 120,
       "agent": "Stock Keeper",
-      "sql": "SELECT warehouse_id, warehouse_name, quantity, restock_eta FROM inventory_by_warehouse WHERE product_id = $1 AND quantity > 0 ORDER BY warehouse_id;"
-    },
-    {
-      "index": 3,
-      "category": "owned",
-      "title": "Memory Write - Working",
-      "description": "Wrote turn-scoped result to AgentCore Memory: Hadley shirt confirmed at Brooklyn warehouse (8 units).",
-      "status": "complete",
-      "durationMs": 22
-    },
-    {
-      "index": 4,
-      "category": "managed",
-      "title": "Response composition",
-      "description": "Claude Sonnet 5 reporting profile - 3 warehouses summarized",
-      "status": "complete",
-      "durationMs": 42,
-      "agent": "Stock Keeper"
+      "sql": "SELECT warehouse_id, warehouse_name, quantity, ship_window_min, ship_window_max FROM pellier.inventory_by_warehouse WHERE product_id = $1 ORDER BY warehouse_id;"
     }
   ],
   "brief": {
-    "folioNumber": 43,
-    "headline": "Now it works",
-    "filedTime": "2026-05-25T17:24:30Z",
+    "folioNumber": 21,
+    "headline": "Brooklyn, now visible",
+    "filedTime": "2026-05-25T17:24:00.000Z",
     "sections": [
       {
         "numeral": "i.",
-        "title": "The checkpoint",
+        "title": "The request",
         "paragraphs": [
-          "Same question, different answer. Participants wired floor_check; the Dispatcher routed Turn 4 straight to Stock Keeper; Claude Sonnet 5 returned the warehouse breakdown.",
-          "The code behind this response is yours. The tool you wrote just shipped a real answer to a real question - and nothing about Pellier changed. That's the whole lesson: capability is composable."
+          "Marco's request demonstrates floor_check."
+        ]
+      },
+      {
+        "numeral": "ii.",
+        "title": "The evidence",
+        "paragraphs": [
+          "Ordered tools: floor_check. Loaded skills: none. The replay keeps those claims aligned with its tool calls and telemetry panels."
+        ],
+        "tracePills": [
+          "floor_check"
         ]
       }
     ],
     "products": [
       {
-        "name": "Pellier Linen Shirt",
-        "brand": "Pellier Editions",
-        "price": 148,
-        "imageUrl": "/products/marco-pellier-linen-shirt-ecru.png"
+        "name": "Hadley Linen Shirt",
+        "brand": "Hadley",
+        "price": 248,
+        "imageUrl": "/products/fresh-pellier-linen-shirt.png"
       }
     ],
     "confidence": {
-      "percentage": 99,
+      "percentage": 93,
       "stats": [
         {
-          "label": "Tool latency",
-          "value": "142 ms"
+          "label": "Turns",
+          "value": "1"
         },
         {
-          "label": "End-to-end",
-          "value": "184 ms"
+          "label": "Tools",
+          "value": "1"
         },
         {
-          "label": "Model",
-          "value": "Claude Sonnet 5"
-        },
-        {
-          "label": "Authored by",
-          "value": "you"
+          "label": "Skills",
+          "value": "0"
         }
       ]
     }

@@ -108,6 +108,17 @@ class _StubBusinessLogic:
         payload["metadata"] = metadata
         return payload
 
+    async def floor_check(
+        self, product_query: Optional[str] = None
+    ) -> Dict[str, Any]:
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return {
+            "status": "success",
+            "product_query": product_query,
+            "warehouses": [],
+        }
+
 
 def _install_stub_business_logic(
     monkeypatch: pytest.MonkeyPatch,
@@ -131,6 +142,25 @@ def _invoke_tool(**kwargs: Any) -> str:
     """
     fn = getattr(agent_tools.whats_trending, "__wrapped__",
                  agent_tools.whats_trending)
+    return fn(**kwargs)
+
+
+def _invoke_floor_check(**kwargs: Any) -> str:
+    fn = getattr(agent_tools.floor_check, "__wrapped__", agent_tools.floor_check)
+    return fn(**kwargs)
+
+
+def _invoke_style_match(**kwargs: Any) -> str:
+    fn = getattr(agent_tools.style_match, "__wrapped__", agent_tools.style_match)
+    return fn(**kwargs)
+
+
+def _invoke_escalate_to_stylist(**kwargs: Any) -> str:
+    fn = getattr(
+        agent_tools.escalate_to_stylist,
+        "__wrapped__",
+        agent_tools.escalate_to_stylist,
+    )
     return fn(**kwargs)
 
 
@@ -219,3 +249,84 @@ def test_raised_exception_returns_error_envelope(
     parsed = json.loads(out)
     assert set(parsed.keys()) == {"error"}
     assert parsed["error"] == "db connection refused"
+
+
+def test_floor_check_forwards_named_product_to_live_business_logic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    agent_tools._db_service = _SentinelDB()
+    agent_tools._main_loop = None
+    _install_stub_business_logic(monkeypatch)
+
+    out = _invoke_floor_check(product_query="Hadley shirt")
+
+    assert json.loads(out) == {
+        "status": "success",
+        "product_query": "Hadley shirt",
+        "warehouses": [],
+    }
+
+
+class _VectorWithoutLen:
+    """Mimic pgvector's adapter shape used by psycopg."""
+
+    def __init__(self, values: list[float]) -> None:
+        self._values = values
+
+    def to_list(self) -> list[float]:
+        return list(self._values)
+
+
+class _StyleMatchDB:
+    def __init__(self) -> None:
+        self.fetch_all_args: tuple[Any, ...] | None = None
+
+    async def fetch_one(self, _query: str, _product_id: str) -> dict[str, Any]:
+        return {
+            "productId": 9,
+            "name": "Stoneware Pour-Over",
+            "brand": "Pellier",
+            "price": 86,
+            "category": "Home",
+            "embedding": _VectorWithoutLen([0.125, 0.25]),
+        }
+
+    async def fetch_all(self, _query: str, *args: Any) -> list[dict[str, Any]]:
+        self.fetch_all_args = args
+        return [{
+            "productId": 10,
+            "name": "Olive Wood Board",
+            "brand": "Pellier",
+            "color": "Olive",
+            "price": 64,
+            "rating": 4.8,
+            "reviews": 22,
+            "category": "Home",
+            "imgUrl": "/olive-board.jpg",
+            "similarity_score": 0.92,
+        }]
+
+
+def test_style_match_normalizes_pgvector_adapter_before_building_query() -> None:
+    db = _StyleMatchDB()
+    agent_tools._db_service = db
+    agent_tools._main_loop = None
+
+    result = json.loads(_invoke_style_match(product_id=9, limit=3))
+
+    assert result["source"]["name"] == "Stoneware Pour-Over"
+    assert result["matches"][0]["name"] == "Olive Wood Board"
+    assert db.fetch_all_args == ("[0.125,0.25]", "9", "[0.125,0.25]", 3)
+
+
+def test_stylist_escalation_prepares_a_draft_without_promising_follow_up() -> None:
+    result = json.loads(_invoke_escalate_to_stylist(
+        reason="A human should help with this exception.",
+        customer_id="CUST-THEO",
+    ))
+
+    assert result["status"] == "draft_ready"
+    assert result["customer_id"] == "CUST-THEO"
+    assert result["contact"]["label"] == "Draft a note to a stylist"
+    assert result["contact"]["response_window"] == "Opens a pre-addressed email"
+    assert all("reply" not in step.lower() for step in result["next_steps"])

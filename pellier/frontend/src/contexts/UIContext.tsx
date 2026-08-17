@@ -63,10 +63,11 @@ interface UIContextValue {
   toggleConcierge: () => void
 
   // Chat drawer (storefront-only surface). Route-aware components call
-  // ``setChatSurface('drawer')`` on mount so the global ⌘K handler
-  // opens the right surface without needing useLocation() in UIProvider.
-  chatSurface: 'concierge' | 'drawer'
-  setChatSurface: (s: 'concierge' | 'drawer') => void
+  // Route-aware surfaces select the storefront drawer or disable chat
+  // entirely. Pellier Labs uses `none` so Cmd/Ctrl+K cannot open storefront
+  // chat over the evidence workbench.
+  chatSurface: 'concierge' | 'drawer' | 'none'
+  setChatSurface: (s: 'concierge' | 'drawer' | 'none') => void
   toggleDrawer: () => void
   openDrawerWithQuery: (text: string) => void
 
@@ -118,7 +119,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
   // so the global ⌘K handler opens the right surface without needing
   // useLocation() (UIProvider sits above BrowserRouter).
   // BoutiquePage sets 'drawer' on mount.
-  const [chatSurface, setChatSurface] = useState<'concierge' | 'drawer'>('drawer')
+  const [chatSurface, setChatSurface] = useState<
+    'concierge' | 'drawer' | 'none'
+  >('drawer')
 
   const openModal = useCallback((name: ModalName) => {
     // Opening any modal closes the previous one first (Req 1.11.4).
@@ -184,6 +187,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault()
         const target = chatSurface
+        if (target === 'none') return
         setActiveModal(prev => (prev === target ? null : target))
         return
       }

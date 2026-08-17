@@ -127,3 +127,37 @@ class TestIntentInventory:
     )
     def test_city_stock_questions_route_to_inventory(self, query: str) -> None:
         assert classify_intent(query) == "inventory"
+
+
+class TestCanonicalPersonaIntentRoutes:
+    @pytest.mark.parametrize(
+        "query,expected",
+        [
+            ("Browse linen for a Goa carry-on", "search"),
+            ("Pair something with the Hadley shirt", "search"),
+            ("Compare Hadley with the Italian Linen Camp Shirt", "search"),
+            ("Linen shirt price range", "pricing"),
+            ("Hadley availability in Brooklyn", "inventory"),
+            ("Housewarming gift under $200 for a ceramics lover", "recommendation"),
+            ("Anniversary gift using past orders", "recommendation"),
+            ("Trending home gifts", "recommendation"),
+            ("Latest receipt for find_pieces_hybrid", "recommendation"),
+            ("A sensitive sympathy gift that needs a human touch", "recommendation"),
+            ("Hand-thrown pieces for a morning ritual", "search"),
+            ("Care and return window for the linen throw", "customer_support"),
+            ("File a damaged Wabi-Sabi Bowl return", "customer_support"),
+            ("Prove the return was recorded", "customer_support"),
+            (
+                "Out-of-window durability exception for the linen throw",
+                "customer_support",
+            ),
+            ("Which pieces are running low?", "inventory"),
+            ("Restock product 37 by 12 units.", "inventory"),
+        ],
+    )
+    def test_canonical_turn_reaches_expected_specialist(
+        self,
+        query: str,
+        expected: str,
+    ) -> None:
+        assert classify_intent(query) == expected

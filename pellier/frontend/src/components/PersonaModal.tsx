@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
+import { getPersonaPhoto } from '../data/personaPhotos'
 import { LOCAL_PERSONAS } from '../data/personas'
 import '../styles/persona-modal.css'
 
@@ -99,6 +100,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
           {personas.map((p) => {
             const isActive = persona?.id === p.id
             const isFresh = p.id === 'fresh'
+            const photoUrl = getPersonaPhoto(p.id)
             return (
               <button
                 key={p.id}
@@ -113,6 +115,17 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
                   aria-hidden
                 >
                   {p.avatar_initial}
+                  {photoUrl ? (
+                    <img
+                      className="pm-avatar-photo"
+                      src={photoUrl}
+                      alt=""
+                      aria-hidden="true"
+                      onError={(event) => {
+                        event.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  ) : null}
                 </span>
 
                 <span className="pm-content">

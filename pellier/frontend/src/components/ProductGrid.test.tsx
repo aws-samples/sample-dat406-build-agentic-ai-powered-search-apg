@@ -32,9 +32,11 @@ describe('ProductGrid — render contract', () => {
         screen.queryByTestId(`product-card-add-${product.id}`),
       ).not.toBeInTheDocument()
     }
-    expect(screen.getAllByTestId('product-card-warm-wash')).toHaveLength(
-      SHOWCASE_PRODUCTS.length,
-    )
+    for (const product of SHOWCASE_PRODUCTS) {
+      expect(
+        screen.getByTestId(`product-card-details-${product.id}`),
+      ).not.toHaveAttribute('open')
+    }
   })
 
   it('calls the supplied Add to bag handler with the selected product', async () => {

@@ -162,7 +162,7 @@ function EditorialColumn({
       >
         {heading}
       </h3>
-      <p className="font-display italic font-normal text-[15px] leading-[1.55] text-espresso m-0">
+      <p className="font-display font-normal text-[15px] leading-[1.55] text-espresso m-0">
         {copy}
       </p>
       <Link

@@ -148,15 +148,15 @@ else
   fail "build-state did not flip floor_check to shipped (got: ${bs:0:200})"
 fi
 
-# --- 3. Marco Turn 4 via the dispatcher path --------------------------------
-echo "[3/6] Marco Turn 4 — POST /api/chat/stream"
+# --- 3. Marco Turn 5 via the dispatcher path --------------------------------
+echo "[3/6] Marco Turn 5 - POST /api/chat/stream"
 SESSION="dryrun-$(date +%s)"
 SESSION_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-turn4='{"message":"Is the Hadley shirt at the Brooklyn warehouse?","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
+turn5='{"message":"Hadley availability in Brooklyn","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
 reply="$(curl -fsN --max-time 60 -X POST "${BASE}/api/chat/stream" \
   -H 'Content-Type: application/json' \
   -H "X-Pellier-Session-Token: ${SESSION_TOKEN}" \
-  -d "$turn4" 2>/dev/null || true)"
+  -d "$turn5" 2>/dev/null || true)"
 if echo "$reply" | grep -qiE 'brooklyn|BK-01' \
     && echo "$reply" | grep -qiE '[0-9]+[^[:cntrl:]]*(unit|shirt|available|stock|floor)|"quantity"[[:space:]]*:[[:space:]]*[0-9]+' \
     && echo "$reply" | grep -qiE 'ship|business day|[0-9]+[[:space:]]*(-|to)[[:space:]]*[0-9]+[[:space:]]*day'; then

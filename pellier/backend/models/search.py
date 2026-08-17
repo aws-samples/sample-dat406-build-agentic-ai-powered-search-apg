@@ -195,7 +195,7 @@ class ChatRequest(BaseModel):
             "Routing remains on the configured Sonnet router."
         ),
     )
-    pattern: Optional[str] = Field(
+    pattern: Optional[Literal["dispatcher", "agents_as_tools", "graph"]] = Field(
         default=None,
         description=(
             "Agent orchestration pattern for this turn. "

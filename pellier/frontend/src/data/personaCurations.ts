@@ -223,7 +223,7 @@ export const PERSONA_EDITORIAL: Record<string, EditorialCard[]> = {
       category: 'Quiet accessories',
       title: 'Classic, undated.',
       description:
-        'Rectangular watches, apothecary notes. Pieces that don’t announce themselves — they just show up.',
+        'Rectangular watches, apothecary notes. Pieces that do not announce themselves. They just show up.',
     },
   ],
   anna: [
@@ -231,7 +231,7 @@ export const PERSONA_EDITORIAL: Record<string, EditorialCard[]> = {
       category: 'Gifting',
       title: 'Wrapped with intention.',
       description:
-        'Ceramic, candle, tumbler. Pieces that arrive ready — no last-minute ribbon, no second-guessing.',
+        'Ceramic, candle, tumbler. Pieces that arrive ready, with no last-minute ribbon or second-guessing.',
     },
     {
       category: 'Milestones',
@@ -297,52 +297,29 @@ export function editorialForPersona(
 // Fresh visitors see the canonical set.
 // ---------------------------------------------------------------------
 
-// Hero pills — the first pill in each persona's list is their
-// canonical Turn 1 query, matching Pellier Labs session fixture
-// and the BoutiqueWelcome primary pick. The remaining pills are
-// Turn 2/3 follow-ups so the demo flows as one coherent journey.
+// Hero pills are the canonical five-turn journeys shared by the storefront,
+// Pellier Labs, Persona Journeys, and replay fixtures.
 export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   marco: [
-    // Marco's canonical 4-turn workshop demo sequence (+ capstone Turn 5).
-    // See the Workshop Studio repo's content/ for Marco's arc — these pill
-    // strings must match the demo-conversation fixtures exactly.
-    // Turn 4 clicks twice per session: once during the opening demo
-    // (Stock Keeper stubbed → graceful non-answer), once during the
-    // midpoint checkpoint (Stock Keeper wired → real warehouse data).
-    'What linen do you have for 10 days in Goa?',            // Turn 1 → Style Advisor · find_pieces
-    'What would go with the Hadley shirt?',                  // Turn 2 → Style Advisor + the-packing-list · find_pieces → style_match
-    "What's the price range for linen shirts?",              // Turn 3 → Value Analyst · price_intelligence
-    'Is the Hadley shirt at the Brooklyn warehouse?',        // Turn 4 → Stock Keeper (stub/wired)
-    // Turn 5 (capstone) → Style Advisor · escalate_to_stylist. The
-    // explicit "real Pellier stylist" + "not product cards" framing is
-    // load-bearing: it teaches the orchestrator's stylist-handoff
-    // branch to route to search instead of refusing as "outside
-    // shopping," and it teaches the Style Advisor that catalog tools
-    // can't satisfy the ask.
-    "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding – not product cards.",
+    'Browse linen for a Goa carry-on',
+    'Pair something with the Hadley shirt',
+    'Compare Hadley with the Italian Linen Camp Shirt',
+    'Linen shirt price range',
+    'Hadley availability in Brooklyn',
   ],
   anna: [
-    'A thoughtful gift for someone who loves morning rituals',  // Turn 1
-    'Something beautiful under $100',                            // Turn 2
-    'Help me pair a candle with something else',                 // Turn 3
-    'Wrap-ready gifts with no extra effort',                     // Turn 4
-    // Turn 5 (capstone) → Curator · escalate_to_stylist. Sympathy
-    // gifting is the Curator's honest fallback — catalog tools can
-    // surface candles, but they can't read the room. The explicit
-    // "real stylist" ask routes through the orchestrator's
-    // stylist-handoff branch.
-    "Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.",
+    'Housewarming gift under $200 for a ceramics lover',
+    'Anniversary gift using past orders',
+    'Trending home gifts',
+    'Latest receipt for find_pieces_hybrid',
+    'A sensitive sympathy gift that needs a human touch',
   ],
   theo: [
-    'Hand-thrown ceramics for a slower morning routine',  // Turn 1
-    'What goes well with the pour-over set?',              // Turn 2
-    'Linen pieces that soften over seasons',               // Turn 3
-    "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",  // Turn 4 (Experience Guide payoff)
-    // Turn 5 (capstone) → Experience Guide · escalate_to_stylist.
-    // Durability-expectation framing past the standard return window —
-    // process_return refuses, escalate_to_stylist is the honest
-    // fallback for an exception that needs a human.
-    'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?',
+    'Hand-thrown pieces for a morning ritual',
+    'Care and return window for the linen throw',
+    'File a damaged Wabi-Sabi Bowl return',
+    'Prove the return was recorded',
+    'Out-of-window durability exception for the linen throw',
   ],
   fresh: [
     'A thoughtful gift for someone who runs',
@@ -353,20 +330,19 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
 }
 
-/** Marco Pellier / Pellier Labs Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
-export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
+/** Marco Turn 5 is the workshop's stub-to-wired Stock Keeper checkpoint. */
+export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[4]
 
 /**
  * Short display labels for hero pills. The underlying click-fire query
  * (in PERSONA_HERO_PILLS) stays verbatim — these labels exist purely so
- * Turn 5's 150–200 char stylist-handoff strings don't blow out the
- * 185px-wide pill grid and overlap the "Because" chips below. A `null`
- * (or missing entry) falls back to the full query.
+ * longer query strings do not crowd the compact storefront pill grid. A
+ * `null` (or missing entry) falls back to the full query.
  */
 export const PERSONA_HERO_PILL_LABELS: Record<string, (string | null)[]> = {
-  marco: [null, null, null, null, 'Connect me with a real Pellier stylist'],
-  anna: [null, null, null, null, 'Connect me with a real Pellier stylist'],
-  theo: [null, null, null, null, 'Handle a worn-in piece past the return window'],
+  marco: [null, null, null, null, null],
+  anna: [null, null, null, null, 'A sensitive sympathy gift'],
+  theo: [null, null, null, null, 'Durability exception for the linen throw'],
   fresh: [null, null, null, null, null],
 }
 
@@ -388,33 +364,138 @@ export function heroPillsForPersona(
 }
 
 export interface PersonaTurnTrace {
-  skill?: string
+  skills: string[]
   tools: string[]
 }
 
 export const PERSONA_TURN_TRACES: Record<string, PersonaTurnTrace[]> = {
   marco: [
-    { skill: 'the-packing-list', tools: ['find_pieces'] },
-    { skill: 'the-packing-list', tools: ['find_pieces', 'style_match'] },
-    { tools: ['price_intelligence'] },
-    { tools: ['floor_check'] },
-    { skill: 'the-packing-list', tools: ['escalate_to_stylist'] },
+    { skills: ['the-packing-list'], tools: ['explore_collection'] },
+    {
+      skills: ['the-packing-list'],
+      tools: ['find_pieces', 'style_match'],
+    },
+    { skills: [], tools: ['find_pieces', 'side_by_side'] },
+    { skills: [], tools: ['price_intelligence'] },
+    { skills: [], tools: ['floor_check'] },
   ],
   anna: [
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['escalate_to_stylist'] },
+    {
+      skills: ['the-gift-table', 'the-makers-shelf'],
+      tools: ['find_pieces_hybrid'],
+    },
+    {
+      skills: ['the-proof-counter', 'the-gift-table'],
+      tools: ['preference_snapshot', 'find_pieces_hybrid'],
+    },
+    { skills: ['the-gift-table'], tools: ['whats_trending'] },
+    { skills: ['the-proof-counter'], tools: ['trace_receipt'] },
+    { skills: ['the-gift-table'], tools: ['escalate_to_stylist'] },
   ],
   theo: [
-    { skill: 'the-makers-shelf', tools: ['find_pieces'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces', 'style_match'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces', 'returns_and_care', 'process_return'] },
-    { skill: 'the-makers-shelf', tools: ['escalate_to_stylist'] },
+    { skills: ['the-makers-shelf'], tools: ['find_pieces'] },
+    {
+      skills: ['the-care-card'],
+      tools: ['find_pieces', 'returns_and_care'],
+    },
+    {
+      skills: ['the-care-card'],
+      tools: ['find_pieces', 'returns_and_care', 'process_return'],
+    },
+    { skills: ['the-proof-counter'], tools: ['trace_receipt'] },
+    { skills: ['the-care-card'], tools: ['escalate_to_stylist'] },
   ],
-  fresh: PERSONA_HERO_PILLS.fresh.map(() => ({ tools: ['find_pieces'] })),
+  fresh: PERSONA_HERO_PILLS.fresh.map(() => ({
+    skills: [],
+    tools: ['find_pieces'],
+  })),
+}
+
+export interface OperatorTurn {
+  id: 'running-low' | 'restock-product-37'
+  label: string
+  query: string
+  tools: string[]
+  access: 'read' | 'write'
+}
+
+/** Inventory operations stay explicit and separate from shopper personas. */
+export const OPERATOR_TURNS: OperatorTurn[] = [
+  {
+    id: 'running-low',
+    label: 'Review low stock',
+    query: 'Which pieces are running low?',
+    tools: ['running_low'],
+    access: 'read',
+  },
+  {
+    id: 'restock-product-37',
+    label: 'Restock product 37',
+    query: 'Restock product 37 by 12 units.',
+    tools: ['restock_shelf'],
+    access: 'write',
+  },
+]
+
+// ---------------------------------------------------------------------
+// Turn preview imagery — the catalog photograph shown on each curated
+// turn card in Pellier Labs.
+//
+// Every entry is a real SHOWCASE_PRODUCTS id whose 480/960 AVIF + WebP
+// derivatives exist under public/products/, so Labs renders the same
+// optimized imagery the storefront does.
+//
+// IMPORTANT: this is an editorial preview of the turn's SUBJECT, not a
+// claim about its result set. The live agent decides what a turn
+// actually returns; those results render separately from the run. Card
+// copy must never present these as the products the turn will return.
+//
+// `null` means the card renders with no photograph because the turn returns
+// proof or a human handoff rather than a catalog recommendation.
+// ---------------------------------------------------------------------
+
+export const PERSONA_TURN_PREVIEW: Record<string, (number | null)[]> = {
+  marco: [
+    11, // Italian Linen Camp Shirt - linen for warm-weather travel
+    14, // Linen Drawstring Trousers - the pairing ask
+    2,  // Hadley Linen Shirt - one side of the comparison
+    16, // Linen Overshirt, Sage - a linen shirt in the price band
+    2,  // Hadley Linen Shirt - the inventory ask names it
+  ],
+  anna: [
+    27,   // Ceramic Bud Vase - housewarming ceramics
+    21,   // Beeswax Taper Candles - anniversary gift candidate
+    31,   // Stoneware Pour-Over Set - trending home object
+    null, // audit receipt: no product
+    null, // stylist handoff: no product
+  ],
+  theo: [
+    31,   // Stoneware Pour-Over Set - morning ritual
+    32,   // Raw Linen Throw - care and return policy
+    37,   // Wabi-Sabi Bowl - damaged return
+    null, // audit receipt: no product
+    null, // exception handoff: no product
+  ],
+  fresh: [
+    9,    // Cloudform Studio Runner — a gift for someone who runs
+    8,    // Alba Linen Lounge Set — slow Sunday mornings
+    11,   // Italian Linen Camp Shirt — warm evenings out
+    14,   // Linen Drawstring Trousers — travels well
+    16,   // Linen Overshirt, Sage — a cooler-night layer
+  ],
+}
+
+/**
+ * Preview product id for the curated turn at `index`, or null when the card
+ * should render without a photograph.
+ */
+export function turnPreviewProductId(
+  personaId: string | null | undefined,
+  index: number,
+): number | null {
+  const key = personaId ?? 'fresh'
+  const previews = PERSONA_TURN_PREVIEW[key] ?? PERSONA_TURN_PREVIEW.fresh
+  return previews[index] ?? null
 }
 
 // ---------------------------------------------------------------------
@@ -473,7 +554,7 @@ export const PERSONA_WEEKEND_EDIT: Record<string, WeekendEditContent> = {
     eyebrow: 'Weekend Edit',
     headline: 'Weekend,\nre:defined.',
     subheadline:
-      'Pieces that move with you from morning markets to golden-hour terraces. Linen, leather, ceramic — the weekend wardrobe, considered.',
+      'Pieces that move with you from morning markets to golden-hour terraces. Linen, leather, and ceramic for a considered weekend wardrobe.',
   },
 }
 
@@ -513,7 +594,7 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
     {
       kind: 'trend',
       text: 'build a lightweight edit for a ten-day trip',
-      query: 'What linen do you have for 10 days in Goa?',
+      query: PERSONA_HERO_PILLS.marco[0],
     },
   ],
   anna: [

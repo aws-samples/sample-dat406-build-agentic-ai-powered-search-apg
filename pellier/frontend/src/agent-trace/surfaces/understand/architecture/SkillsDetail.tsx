@@ -70,13 +70,13 @@ const SkillsDetail: React.FC = () => {
               name="the-gift-table"
               trigger="Gifts, milestones, wrap-ready pieces, housewarmings, birthdays"
               description="Anna's giving register – price bands, pairing, tissue-and-ribbon presentation."
-              example='"A thoughtful gift for someone who loves morning rituals."'
+              example='"Housewarming gift under $200 for a ceramics lover."'
             />
             <SkillCard
               name="the-makers-shelf"
               trigger="Hand-thrown ceramics, kiln language, slow craft, patina, studio provenance"
               description="Theo's slow-craft framing – imperfect glazes as feature, care that honors the object."
-              example='"Hand-thrown ceramics for a slower morning routine."'
+              example='"Hand-thrown pieces for a morning ritual."'
             />
             <SkillCard
               name="the-care-card"

@@ -144,8 +144,10 @@
 }
 
 .pm-avatar {
+  position: relative;
   width: 44px;
   height: 44px;
+  overflow: hidden;
   border-radius: 50%;
   background: var(--ink-1);
   color: var(--cream-1);
@@ -158,6 +160,14 @@
   font-size: 20px;
   letter-spacing: -0.01em;
   flex-shrink: 0;
+}
+.pm-avatar-photo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .pm-avatar.fresh {
   background: transparent;

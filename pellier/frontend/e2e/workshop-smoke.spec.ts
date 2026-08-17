@@ -80,20 +80,31 @@ test.describe('Workshop production build smoke', () => {
     await page.getByTestId('pellier-labs-link').click();
     await expect(page).toHaveURL(/\/pellier-labs(?:\/|$)/);
     await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Pellier Labs' })).toBeVisible();
-    await expect(page.getByLabel('Shopper request')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Pellier Labs' })).toBeVisible();
     await expect(
       page.getByRole('button', {
-        name: 'Find a resort-ready linen shirt under $200',
+        name: /^Inspect:/,
+      }),
+    ).toHaveCount(5);
+    await expect(
+      page.getByRole('heading', { name: 'Shopper turns' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Evidence ledger' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Grounded answer', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: 'Pellier Labs view: Live workbench',
       }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Live Agent Journey' }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Live Result' }),
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Run agent' })).toBeDisabled();
+    await expect(page.getByText(/concierge online/i)).toHaveCount(0);
+
+    await page.keyboard.press('Control+K');
+    await expect(page.getByTestId('chat-drawer')).toHaveCount(0);
+    await expect(page.getByTestId('concierge-modal')).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     await page.getByTestId('back-to-pellier').click();
@@ -125,7 +136,7 @@ test.describe('Workshop production build smoke', () => {
     await expect(page.getByTestId('persona-pill')).toContainText(/Marco/i);
     const heroPills = page.getByTestId('boutique-hero-pills');
     await expect(heroPills).toBeVisible();
-    await expect(heroPills).toContainText('What linen do you have for 10 days in Goa?');
+    await expect(heroPills).toContainText('Browse linen for a Goa carry-on');
   });
 
   test('/signin opens the provider chooser instead of falling through', async ({

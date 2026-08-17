@@ -10,7 +10,6 @@ import EditorialBrief from '../components/EditorialBrief'
 import Footer from '../components/Footer'
 import Header, { type NavItem } from '../components/Header'
 import { useUI } from '../contexts/UIContext'
-import { cssVar as c } from '../design/cssVars'
 
 const NAV_ROUTES: Record<NavItem, string> = {
   home: '/',
@@ -43,7 +42,7 @@ export default function AboutPage() {
   return (
     <div
       data-testid="about-page"
-      style={{ minHeight: '100vh', background: c.bg }}
+      className="pellier-page-surface min-h-dvh"
     >
       <Header current="about" onNavigate={handleNavigate} />
       <main>

@@ -194,6 +194,9 @@ describe('DiscoverPage - site chrome (Req 1.13.2)', () => {
   it('renders the header, footer, and CommandPill in both auth states', () => {
     // Signed out.
     const { unmount } = renderDiscover()
+    expect(screen.getByTestId('discover-page')).toHaveClass(
+      'pellier-page-surface',
+    )
     expect(screen.getByTestId('sticky-header')).toBeInTheDocument()
     expect(screen.getByTestId('footer')).toBeInTheDocument()
     expect(screen.getByTestId('command-pill')).toBeInTheDocument()

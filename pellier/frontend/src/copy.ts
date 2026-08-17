@@ -43,7 +43,7 @@ export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   },
   {
     verb: "Workshop",
-    text: "Search the seeded catalog, inspect the evidence, and complete the return scenario without a live transaction.",
+    text: "Search the seeded catalog, inspect the evidence, and complete the return scenario without a live transaction.", // copy-allow: search-as-verb
   },
 ];
 
@@ -193,7 +193,7 @@ export const STORYBOARD_TEASERS: StoryboardTeaser[] = [
     theme: "Catalog",
     title: "The seeded summer catalog.",
     excerpt:
-      "Linen, ceramic, travel, and gifting products create one controlled corpus for comparing retrieval and agent behavior.",
+      "Linen, ceramic, travel, and gifting products create one controlled corpus for comparing retrieval and concierge behavior.",
     link: "Open the workshop story \u203a",
     imageUrl:
       "https://images.unsplash.com/photo-1693928126497-d9bda6903c03?w=1600&q=85",
@@ -254,7 +254,7 @@ export const FOOTER = {
   },
   STORYBOARD: {
     HEADING: "Stories",
-    COPY: "Field notes from a slower kind of shopping \u2014 one short essay at a time.",
+    COPY: "Field notes from a slower kind of shopping, one short essay at a time.",
     CTA_LABEL: "Read the stories",
     CTA_HREF: "/storyboard",
   },

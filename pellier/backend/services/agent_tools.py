@@ -424,36 +424,25 @@ def floor_check(product_query: str = "") -> str:
             for. Empty string falls back to the aggregate summary mode.
     """
     # === WORKSHOP · Stock Keeper · floor_check: START ===
-    # WORKSHOP_EXERCISE_STUB
-    #
-    # Wire this tool to BusinessLogic.floor_check() so Stock Keeper
-    # can answer Marco's Turn 4: "Is the Hadley shirt at the
-    # Brooklyn warehouse?" (Hadley · Pellier Linen Shirt in ecru.)
-    #
-    # Steps:
-    #   1. Guard on _db_service being initialized (return a JSON error
-    #      if not).
-    #   2. Import BusinessLogic from services.business_logic.
-    #   3. Normalize product_query and pass it to logic.floor_check()
-    #      via _run_async() — it's an async method.
-    #   4. Return the result as a JSON string (use json.dumps with
-    #      indent=2).
-    #   5. Catch exceptions and return a JSON error envelope.
-    #
-    # Verify (live, the real check):
-    #   Click Marco's Turn 4 pill in Pellier — Stock Keeper answers
-    #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Pellier Labs Tools strip flip from 14/15 to 15/15 shipped.
-    #
-    # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
-    # check — it asserts this starter file still carries the stub, so it
-    # PASSES while stubbed and SKIPS once you wire it. Don't use it to
-    # verify your edit.
-    return json.dumps({
-        "error": "floor_check is in stub state",
-        "hint": "Implement the tool body or run the cp command.",
-        "received_product_query": product_query,
-    })
+    if not _db_service:
+        return json.dumps({
+            "error": "inventory_unavailable",
+            "message": "The inventory lookup is temporarily unavailable.",
+        })
+
+    try:
+        from services.business_logic import BusinessLogic
+
+        logic = BusinessLogic(_db_service)
+        query = (product_query or "").strip() or None
+        result = _run_async(logic.floor_check(product_query=query))
+        return json.dumps(result, indent=2)
+    except Exception:
+        logger.exception("floor_check failed")
+        return json.dumps({
+            "error": "inventory_lookup_failed",
+            "message": "The inventory lookup could not be completed.",
+        })
     # === WORKSHOP · Stock Keeper · floor_check: END ===
 
 @tool
@@ -481,7 +470,10 @@ def whats_trending(limit: int = 5, category: str = None) -> str:
 
 @tool
 def price_intelligence(category: str = None) -> str:
-    """Get pricing statistics and price distribution analysis for a product category. Use for price comparisons, budget analysis, or average price questions."""
+    """Get pricing statistics for a category, material, or product term.
+
+    Use for price comparisons, budget analysis, or average price questions.
+    """
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
     
@@ -561,15 +553,12 @@ def process_return(customer_id: str, product_id: int, reason: str) -> str:
 # Experience Guide can't process, or catalog misses where the shopper
 # deserves a real person rather than another search.
 #
-# The "stylist" is a placeholder for whatever human escalation channel
-# a production deployment would wire in (live chat, email queue, CX
-# ticket). The tool emits a structured handoff payload that the chat
-# surface renders as a contact card — pure UI, no real human on the
-# other end for the workshop. The workshop teaches this as the
-# escape hatch every agent needs but most demos skip.
+# The "stylist" is a placeholder for a production escalation channel.
+# In this workshop it only prepares a mailto draft; it never sends a
+# message, assigns a person, or creates a queue item.
 @tool
 def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
-    """Hand the conversation off to a human stylist when the agent shouldn't try to answer.
+    """Prepare a stylist email draft when the agent shouldn't try to answer.
 
     Use this tool when:
       - The shopper asks for advice the agent cannot honestly give
@@ -589,30 +578,30 @@ def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
         reason: One short sentence describing why the agent is
             escalating. Surfaced in the handoff card so the customer
             knows what's being routed.
-        customer_id: Optional Salesforce-style customer id so the
-            stylist queue can pre-load the shopper's order history.
+        customer_id: Optional Salesforce-style customer id included in the
+            email draft for the shopper to review before sending.
 
     Returns:
         JSON payload with ``type="escalation"`` so the chat surface
-        renders the stylist handoff card. No products, no audit row —
-        this is a UI handoff, not a database write.
+        renders a pre-addressed email card. No products, no audit row,
+        and no outgoing message — this is a UI affordance, not a
+        database write or live handoff.
     """
     return json.dumps({
         "type": "escalation",
         "channel": "stylist",
-        "status": "handed_off",
+        "status": "draft_ready",
         "reason": (reason or "").strip()
         or "The agent thought a human stylist was the right next step.",
         "customer_id": (customer_id or "").strip() or None,
         "contact": {
-            "label": "Talk to a stylist",
+            "label": "Draft a note to a stylist",
             "mailto": "stylist@pellier.example",
-            "response_window": "Within 1 business day",
+            "response_window": "Opens a pre-addressed email",
         },
         "next_steps": [
-            "A Pellier stylist receives your note with full context.",
-            "They reply within one business day.",
-            "You can keep browsing — we'll pick up where you left off.",
+            "A draft opens with the reason included.",
+            "Review it and choose Send when you are ready.",
         ],
     })
 
@@ -923,15 +912,17 @@ def explore_collection(
     category: str,
     min_rating: float = 0.0,
     max_price: float = None,
-    limit: int = 5
+    limit: int = 5,
+    context: str = "",
 ) -> str:
-    """Browse products within a specific category with rating and price filters. Use when customers want to browse a known category.
-    
+    """Browse products within a category or collection with optional filters.
+
     Args:
-        category: Product category name
+        category: Product category, material, or collection term
         min_rating: Minimum star rating (default: 4.0)
         max_price: Maximum price filter (optional)
         limit: Number of results (default: 10)
+        context: Optional use case such as "travel" to refine the browse
     """
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
@@ -940,7 +931,7 @@ def explore_collection(
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
         result = _run_async(logic.get_products_by_category(
-            category, min_rating, max_price, limit
+            category, min_rating, max_price, limit, context
         ))
         return json.dumps(result, indent=2)
     except Exception as e:
@@ -1036,15 +1027,23 @@ def side_by_side(product_id_1: int, product_id_2: int) -> str:
 
 # === RETURN POLICY TOOL (backed by pellier.return_policies table) ===
 
+_PRODUCT_CARE_GUIDANCE = {
+    "raw linen throw": (
+        "Machine wash cool on a gentle cycle, then line dry or tumble low. "
+        "Skip fabric softener."
+    ),
+}
+
 @tool
-def returns_and_care(category: str = "default") -> str:
-    """Look up the return and refund policy for a specific product category. Use when customers ask about returns, refunds, warranties, or return windows.
+def returns_and_care(category: str = "default", product_name: str = "") -> str:
+    """Look up return policy and supported care guidance for a product.
 
     Args:
         category: Product category name (e.g., "Home Decor", "Apparel")
+        product_name: Optional exact product name after it was resolved
 
     Returns:
-        JSON string with return policy details
+        JSON string with return policy and any product-specific care guidance
     """
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
@@ -1063,12 +1062,16 @@ def returns_and_care(category: str = "default") -> str:
         if not row:
             return json.dumps({"error": f"No return policy found for category: {category}"})
 
-        return json.dumps({
+        payload = {
             "category": row["category_name"],
             "return_window_days": row["return_window_days"],
             "conditions": row["conditions"],
             "refund_method": row["refund_method"],
-        })
+        }
+        care_guidance = _PRODUCT_CARE_GUIDANCE.get(product_name.strip().lower())
+        if care_guidance:
+            payload["care_guidance"] = care_guidance
+        return json.dumps(payload)
     except Exception as e:
         return json.dumps({"error": f"Return policy lookup error: {str(e)}"})
 
@@ -1101,17 +1104,25 @@ def style_match(product_id: int, limit: int = 5) -> str:
         ))
         if not source:
             return json.dumps({"error": f"Product {product_id} not found"})
-        # ``embedding`` comes back as a numpy array (pgvector adapter).
-        # ``if not array`` raises "truth value is ambiguous" — check
-        # for None / length-zero explicitly.
+        # ``embedding`` comes back as either a numpy array or pgvector's
+        # ``Vector`` adapter. Normalize the latter before checking its length
+        # or constructing the vector literal.
         emb = source.get("embedding")
-        if emb is None or len(emb) == 0:
+        to_list = getattr(emb, "to_list", None)
+        values = to_list() if callable(to_list) else emb
+        if values is None:
+            return json.dumps({"error": f"Product {product_id} has no embedding"})
+        try:
+            values = list(values)
+        except TypeError:
+            return json.dumps({"error": f"Product {product_id} has invalid embedding"})
+        if not values:
             return json.dumps({"error": f"Product {product_id} has no embedding"})
 
         # pgvector's text I/O wants ``[v1,v2,...]`` (comma-separated).
         # ``str(numpy_array)`` produces space-separated values which
         # the parser rejects with "invalid input syntax for type vector".
-        emb_literal = "[" + ",".join(repr(float(v)) for v in emb) + "]"
+        emb_literal = "[" + ",".join(repr(float(v)) for v in values) + "]"
 
         limit = max(1, min(int(limit), settings.MAX_SEARCH_LIMIT))
         matches = _run_async(_db_service.fetch_all(

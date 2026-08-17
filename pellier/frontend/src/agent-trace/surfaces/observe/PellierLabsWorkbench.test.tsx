@@ -20,7 +20,32 @@ vi.mock('../../../contexts/PersonaContext', () => ({
   usePersona: () => ({ persona: mocks.persona }),
 }));
 
+import { PERSONA_HERO_PILLS } from '../../../data/personaCurations';
 import PellierLabsWorkbench from './PellierLabsWorkbench';
+
+/**
+ * There is no free-text box any more: a run starts by inspecting one of the
+ * curated turns, and the query the agent receives is the canonical string from
+ * personaCurations. Tests drive the surface the same way a participant does.
+ */
+const FRESH_TURNS = PERSONA_HERO_PILLS.fresh;
+
+async function inspectTurn(
+  user: ReturnType<typeof userEvent.setup>,
+  query: string,
+) {
+  await user.click(screen.getByRole('button', { name: `Inspect: ${query}` }));
+}
+
+/** Tool and skill names appear on the turn cards too, so trace-panel
+ *  assertions must be scoped rather than matched globally. */
+function tracePanel(container: HTMLElement): HTMLElement {
+  const panel = container.querySelector<HTMLElement>(
+    '.pellier-labs-trace-panel',
+  );
+  if (!panel) throw new Error('trace panel not rendered');
+  return panel;
+}
 
 describe('Pellier Labs live agent workbench', () => {
   beforeEach(() => {
@@ -28,7 +53,7 @@ describe('Pellier Labs live agent workbench', () => {
     mocks.persona = null;
   });
 
-  it('starts as an empty live runner without replay or fixture content', () => {
+  it('opens as an inspectable doorway with no request to compose', () => {
     render(
       <MemoryRouter>
         <PellierLabsWorkbench />
@@ -36,25 +61,78 @@ describe('Pellier Labs live agent workbench', () => {
     );
 
     expect(
-      screen.getByRole('heading', { name: 'Pellier Labs' }),
+      screen.getByRole('heading', {
+        name: /Follow one shopper request through routing, retrieval/i,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText('Shopper request')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Run agent' })).toBeDisabled();
+    expect(
+      tracePanel(document.body).querySelector('canvas.labs-hero-field'),
+    ).not.toBeInTheDocument();
+    const proofSummary = screen.getByRole('status', {
+      name: 'Run proof summary',
+    });
+    expect(proofSummary).toHaveTextContent('Ready to inspect');
+    expect(proofSummary).toHaveTextContent(
+      'Choose one of five canonical shopper turns.',
+    );
+
+    // The free-text box is gone: nothing here asks a participant to build.
+    expect(screen.queryByLabelText('Shopper request')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Run agent' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.queryByText(/recorded/i)).not.toBeInTheDocument();
-    expect(screen.getAllByRole('switch')).toHaveLength(3);
+
+    // Five curated turns, straight from the shared storefront source.
+    expect(FRESH_TURNS).toHaveLength(5);
+    for (const query of FRESH_TURNS) {
+      expect(
+        screen.getByRole('button', { name: `Inspect: ${query}` }),
+      ).toBeEnabled();
+    }
+
     expect(
-      screen.getByRole('button', {
-        name: 'Find a resort-ready linen shirt under $200',
-      }),
-    ).toBeEnabled();
-    expect(screen.getByText('Agent configuration')).toBeInTheDocument();
+      screen.getByText('Advanced run settings').closest('details'),
+    ).not.toHaveAttribute('open');
+    expect(screen.getByText('Response mode')).not.toBeVisible();
     expect(screen.getAllByText('Dispatcher')).toHaveLength(2);
+    expect(screen.getByTestId('shopper-answer-sparkle')).toHaveClass(
+      'pellier-labs-agent-sparkle',
+    );
     expect(
       screen.queryByRole('button', { name: 'Graph' }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Awaiting catalog results')).toBeInTheDocument();
+    expect(
+      screen.getByText('Grounded products from this turn will appear here.'),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText('Captured SQL')).not.toBeInTheDocument();
+  });
+
+  it('keeps the idle ledger and metrics honest before a run', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <PellierLabsWorkbench />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole('heading', { name: 'Execution summary' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(tracePanel(container)).getByText(
+        'Select a guided request to populate the live trace.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelectorAll('.pellier-labs-trace-node'),
+    ).toHaveLength(6);
+
+    // Every metric reads "-" rather than 0, so an untouched page claims nothing.
+    const metrics = screen.getByText('Elapsed').closest('dl');
+    expect(metrics).not.toBeNull();
+    expect(tracePanel(container)).toContainElement(metrics);
+    expect(within(metrics!).getAllByText('-')).toHaveLength(4);
   });
 
   it('runs the real chat stream and renders only emitted evidence', async () => {
@@ -70,7 +148,7 @@ describe('Pellier Labs live agent workbench', () => {
           classifier: 'deterministic',
           response_mode: 'balanced',
           model_family: 'opus',
-          model_id: 'global.anthropic.claude-opus-5',
+          model_id: 'global.anthropic.claude-opus-4-8',
         });
         onUpdate({
           type: 'skill_routing',
@@ -144,19 +222,17 @@ describe('Pellier Labs live agent workbench', () => {
     );
 
     const user = userEvent.setup();
-    render(
+    const { container } = render(
       <MemoryRouter>
         <PellierLabsWorkbench />
       </MemoryRouter>,
     );
 
-    const input = screen.getByLabelText('Shopper request');
-    await user.type(input, 'What works for a winter resort trip?');
-    await user.click(screen.getByRole('button', { name: 'Run agent' }));
+    await inspectTurn(user, FRESH_TURNS[0]);
 
     await waitFor(() => {
       expect(mocks.sendChatMessageStreaming).toHaveBeenCalledWith(
-        'What works for a winter resort trip?',
+        FRESH_TURNS[0],
         [],
         expect.any(Function),
         undefined,
@@ -168,29 +244,123 @@ describe('Pellier Labs live agent workbench', () => {
     });
 
     expect(await screen.findByText('Pellier Linen Shirt')).toBeInTheDocument();
-    expect(screen.getByText('Top pick')).toBeInTheDocument();
-    expect(screen.getByText('Live catalog edit')).toBeInTheDocument();
-    expect(screen.getByText('1 piece')).toBeInTheDocument();
+    expect(screen.getByText('Recommended result')).toBeInTheDocument();
+    expect(screen.getByText('Best match')).toBeInTheDocument();
+    expect(
+      screen.getByText('First recommendation from this turn'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Curated pairings')).not.toBeInTheDocument();
     expect(
       screen.getByText('I found a light linen option for the trip.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('find_pieces')).toBeInTheDocument();
+    expect(
+      within(tracePanel(container)).getByText('find_pieces'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Recommendation')).toBeInTheDocument();
-    expect(screen.getByText('Claude Opus 5')).toBeInTheDocument();
+    expect(screen.getByText('Claude Opus 4.8')).toBeInTheDocument();
+    expect(screen.getByText('Routing decision')).toBeInTheDocument();
+    expect(screen.getByText('Deterministic')).toBeInTheDocument();
+    expect(
+      screen.getByText('global.anthropic.claude-opus-4-8'),
+    ).toBeInTheDocument();
     expect(screen.getByText('In process')).toBeInTheDocument();
     expect(
-      screen.getByText('Dispatcher · Recommendation'),
+      screen.getByText('Dispatcher / Recommendation'),
     ).toBeInTheDocument();
-    expect(screen.getByText('SELECT · product_catalog')).toBeInTheDocument();
+    expect(
+      within(tracePanel(container)).getByRole('heading', {
+        name: 'SELECT / product_catalog',
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Captured SQL')).toHaveTextContent(
-      'SELECT name, price FROM pellier.product_catalog LIMIT 12',
+      /SELECT name, price\s+FROM pellier\.product_catalog\s+LIMIT 12/,
     );
-    expect(screen.getAllByText('Completed')).toHaveLength(1);
+    const sqlReceipt = screen
+      .getByText('Aurora SQL receipt')
+      .closest('.pellier-labs-proof-block');
+    expect(sqlReceipt).not.toBeNull();
+    const sqlReceiptElement = sqlReceipt as HTMLElement;
+    expect(within(sqlReceiptElement).getByText('db_queries')).toBeInTheDocument();
+    expect(within(sqlReceiptElement).getByText('None')).toBeInTheDocument();
+    expect(within(sqlReceiptElement).getByText('Completed')).toBeInTheDocument();
+    expect(
+      within(sqlReceiptElement).getByRole('button', {
+        name: 'Copy captured SQL',
+      }),
+    ).toBeInTheDocument();
+    const proofSummary = screen.getByRole('status', {
+      name: 'Run proof summary',
+    });
+    expect(within(proofSummary).getByText('Completed')).toBeInTheDocument();
+    expect(proofSummary).toHaveTextContent('Evidence captured');
+    expect(proofSummary).toHaveTextContent(
+      '4 events. 1 agent. 1 SQL query. 1 product.',
+    );
 
-    const metrics = screen.getByText('Journey steps').closest('dl');
+    const metrics = screen.getByText('Elapsed').closest('dl');
     expect(metrics).not.toBeNull();
-    expect(within(metrics!).getByText('Captured SQL')).toBeInTheDocument();
+    expect(within(metrics!).getByText('SQL')).toBeInTheDocument();
     expect(within(metrics!).getAllByText('1')).toHaveLength(2);
+    expect(
+      tracePanel(container).querySelector('[data-current="true"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('lights and follows only the latest evidence row while a run is active', async () => {
+    let finishRun = () => {};
+    mocks.sendChatMessageStreaming.mockImplementation(
+      (
+        _query: string,
+        _history: unknown[],
+        onUpdate: (event: unknown) => void,
+      ) =>
+        new Promise((resolve) => {
+          onUpdate({
+            type: 'skill_routing',
+            routing: {
+              loaded_skills: ['resort-styling'],
+              considered: [{ name: 'resort-styling' }],
+              elapsed_ms: 21,
+            },
+          });
+          finishRun = () =>
+            resolve({
+              response: 'Finished response',
+              products: [],
+              suggestions: [],
+            });
+        }),
+    );
+
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <PellierLabsWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    await waitFor(() => {
+      const current = tracePanel(container).querySelector(
+        '.pellier-labs-trace-step[data-current="true"]',
+      );
+      expect(current).toBeInTheDocument();
+      expect(current).toHaveTextContent('Skill routing');
+      expect(
+        tracePanel(container).querySelector(
+          '.pellier-labs-trace-progress',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    finishRun();
+
+    await waitFor(() => {
+      expect(
+        tracePanel(container).querySelector('[data-current="true"]'),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it('keeps rich streamed prose when completion text is materially shorter', async () => {
@@ -219,11 +389,46 @@ describe('Pellier Labs live agent workbench', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText('Shopper request'), 'Build a linen edit');
-    await user.click(screen.getByRole('button', { name: 'Run agent' }));
+    await inspectTurn(user, FRESH_TURNS[0]);
 
     expect(await screen.findByText(streamed)).toBeInTheDocument();
     expect(screen.queryByText(fallback)).not.toBeInTheDocument();
+  });
+
+  it('offers a retry after a failed turn and reruns the same request', async () => {
+    mocks.sendChatMessageStreaming
+      .mockRejectedValueOnce(new Error('Temporary stream failure'))
+      .mockResolvedValueOnce({
+        response: 'Recovered response',
+        products: [],
+        suggestions: [],
+      });
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <PellierLabsWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    expect(
+      await screen.findByText('Temporary stream failure'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Run proof summary' }),
+    ).toHaveTextContent(
+      'Turn 1 needs attention',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Retry turn' }));
+
+    await waitFor(() => {
+      expect(mocks.sendChatMessageStreaming).toHaveBeenCalledTimes(2);
+    });
+    expect(mocks.sendChatMessageStreaming.mock.calls[1][0]).toBe(FRESH_TURNS[0]);
+    expect(await screen.findByText('Recovered response')).toBeInTheDocument();
   });
 
   it('applies the selected live configuration to the request', async () => {
@@ -240,28 +445,97 @@ describe('Pellier Labs live agent workbench', () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Editorial' }));
+    await user.click(screen.getByText('Advanced run settings'));
+    await user.click(screen.getByRole('radio', { name: 'Graph' }));
+    await user.click(screen.getByRole('radio', { name: 'Editorial' }));
     await user.click(
       screen.getByRole('switch', { name: /Input safety inspection/i }),
     );
-    await user.type(screen.getByLabelText('Shopper request'), 'Find a gift');
-    await user.click(screen.getByRole('button', { name: 'Run agent' }));
+    await inspectTurn(user, FRESH_TURNS[0]);
 
     await waitFor(() => {
       expect(mocks.sendChatMessageStreaming).toHaveBeenCalledWith(
-        'Find a gift',
+        FRESH_TURNS[0],
         [],
         expect.any(Function),
         undefined,
         true,
         null,
-        'dispatcher',
+        'graph',
         'editorial',
       );
     });
   });
 
+  it('keeps shopper and operator writes on Dispatcher', async () => {
+    mocks.persona = {
+      id: 'theo',
+      display_name: 'Theo',
+      customer_id: 'CUST-THEO',
+    };
+    mocks.sendChatMessageStreaming.mockResolvedValue({
+      response: 'Operator response',
+      products: [],
+      suggestions: [],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <PellierLabsWorkbench />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByText('Advanced run settings'));
+    await user.click(
+      screen.getByRole('radio', { name: 'Agents-as-Tools' }),
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: `Inspect: ${PERSONA_HERO_PILLS.theo[2]}`,
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /Restock product 37/i }),
+    ).toBeDisabled();
+
+    await user.click(
+      screen.getByRole('button', { name: /Review low stock/i }),
+    );
+    await waitFor(() => {
+      expect(mocks.sendChatMessageStreaming).toHaveBeenLastCalledWith(
+        'Which pieces are running low?',
+        [],
+        expect.any(Function),
+        undefined,
+        false,
+        null,
+        'agents_as_tools',
+        'balanced',
+      );
+    });
+
+    await user.click(screen.getByRole('radio', { name: 'Dispatcher' }));
+    await user.click(
+      screen.getByRole('button', { name: /Restock product 37/i }),
+    );
+    await waitFor(() => {
+      expect(mocks.sendChatMessageStreaming).toHaveBeenLastCalledWith(
+        'Restock product 37 by 12 units.',
+        [],
+        expect.any(Function),
+        undefined,
+        false,
+        null,
+        'dispatcher',
+        'balanced',
+      );
+    });
+  });
+
   it('renders live memory and guardrail receipts in the journey', async () => {
+    // Persona set below, so this run uses Marco's curated turns, not fresh's.
     mocks.persona = {
       id: 'marco',
       display_name: 'Marco',
@@ -315,31 +589,35 @@ describe('Pellier Labs live agent workbench', () => {
     );
 
     const user = userEvent.setup();
-    render(
+    const { container } = render(
       <MemoryRouter>
         <PellierLabsWorkbench />
       </MemoryRouter>,
     );
 
+    await user.click(screen.getByText('Advanced run settings'));
     await user.click(
       screen.getByRole('switch', { name: /Input safety inspection/i }),
     );
-    await user.type(screen.getByLabelText('Shopper request'), 'Build an edit');
-    await user.click(screen.getByRole('button', { name: 'Run agent' }));
+    // Marco is the active persona here, so the card offers Marco's turns.
+    await inspectTurn(user, PERSONA_HERO_PILLS.marco[0]);
 
+    const trace = () => within(tracePanel(container));
+    await waitFor(() =>
+      expect(
+        trace().getByText('3 profile facts and 1 past order loaded'),
+      ).toBeInTheDocument(),
+    );
     expect(
-      await screen.findByText('3 profile facts and 1 past order loaded'),
+      trace().getByText('Request evaluated before agent execution'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Request evaluated before agent execution'),
+      trace().getByText('pass-through / NONE / inspect only'),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('pass-through · NONE · inspect only'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Dispatcher · Recommendation')).toBeInTheDocument();
+    expect(screen.getByText('Dispatcher / Recommendation')).toBeInTheDocument();
   });
 
-  it('features products in the order named by the live response', async () => {
+  it('promotes the first named product above its curated pairings', async () => {
     mocks.sendChatMessageStreaming.mockImplementation(
       async (
         _query: string,
@@ -363,17 +641,25 @@ describe('Pellier Labs live agent workbench', () => {
           },
         });
         onUpdate({
+          type: 'product',
+          product: {
+            productId: 34,
+            name: 'Soft Leather Travel Pouch',
+            price: 96,
+          },
+        });
+        onUpdate({
           type: 'complete',
           response: {
             response:
-              'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks for the flight.',
+              'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks and Soft Leather Travel Pouch for the flight.',
             products: [],
             rail: 'in-process',
           },
         });
         return {
           response:
-            'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks for the flight.',
+            'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks and Soft Leather Travel Pouch for the flight.',
           products: [],
           suggestions: [],
         };
@@ -387,41 +673,41 @@ describe('Pellier Labs live agent workbench', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText('Shopper request'), 'Build an edit');
-    await user.click(screen.getByRole('button', { name: 'Run agent' }));
+    await inspectTurn(user, FRESH_TURNS[0]);
     await screen.findByText('Italian Linen Camp Shirt');
 
+    expect(screen.getByText('Best match')).toBeInTheDocument();
+    expect(screen.getByText('Curated pairings')).toBeInTheDocument();
+    expect(screen.getByText('2 supporting pieces')).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-product-role="best-match"] h4'),
+    ).toHaveTextContent('Italian Linen Camp Shirt');
+    const pairingNames = Array.from(
+      container.querySelectorAll('[data-product-role="pairing"] h4'),
+    ).map((heading) => heading.textContent);
+    expect(pairingNames).toEqual([
+      'Merino Travel Socks',
+      'Soft Leather Travel Pouch',
+    ]);
+
     const productNames = Array.from(
-      container.querySelectorAll('.pellier-labs-product-copy h3'),
+      container.querySelectorAll('.pellier-labs-product-copy h4'),
     ).map((heading) => heading.textContent);
     expect(productNames).toEqual([
       'Italian Linen Camp Shirt',
       'Merino Travel Socks',
+      'Soft Leather Travel Pouch',
     ]);
   });
 
+  // A representative turn from each persona must stay byte-for-byte aligned.
   it.each([
-    [
-      'Marco',
-      'marco',
-      'CUST-MARCO',
-      'Build a resort edit around the linen pieces I already own',
-    ],
-    [
-      'Anna',
-      'anna',
-      'CUST-ANNA',
-      'Find a housewarming gift under $100 that feels special',
-    ],
-    [
-      'Theo',
-      'theo',
-      'CUST-THEO',
-      'How should I care for the stoneware I bought?',
-    ],
-  ])(
-    'runs the %s persona pill immediately with live memory',
-    async (displayName, id, customerId, prompt) => {
+    ['Marco', 'marco', 'CUST-MARCO'],
+    ['Anna', 'anna', 'CUST-ANNA'],
+    ['Theo', 'theo', 'CUST-THEO'],
+  ] as const)(
+    'sends %s their canonical curated turn verbatim, with live memory',
+    async (displayName, id, customerId) => {
       mocks.persona = {
         id,
         display_name: displayName,
@@ -440,11 +726,13 @@ describe('Pellier Labs live agent workbench', () => {
         </MemoryRouter>,
       );
 
-      await user.click(screen.getByRole('button', { name: prompt }));
+      const turn4 = PERSONA_HERO_PILLS[id][3];
+      expect(mocks.sendChatMessageStreaming).not.toHaveBeenCalled();
+      await inspectTurn(user, turn4);
 
       await waitFor(() => {
         expect(mocks.sendChatMessageStreaming).toHaveBeenCalledWith(
-          prompt,
+          turn4,
           [],
           expect.any(Function),
           undefined,
@@ -454,9 +742,27 @@ describe('Pellier Labs live agent workbench', () => {
           'balanced',
         );
       });
-      expect(screen.getByLabelText('Shopper request')).toHaveValue(prompt);
     },
   );
+
+  it("keeps Marco's Turn 5 aligned with the warehouse ask in workshop content", () => {
+    mocks.persona = {
+      id: 'marco',
+      display_name: 'Marco',
+      customer_id: 'CUST-MARCO',
+    };
+    render(
+      <MemoryRouter>
+        <PellierLabsWorkbench />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Inspect: Hadley availability in Brooklyn',
+      }),
+    ).toBeInTheDocument();
+  });
 
   it('keeps an SSE failure in the error state', async () => {
     mocks.sendChatMessageStreaming.mockImplementation(
@@ -480,8 +786,7 @@ describe('Pellier Labs live agent workbench', () => {
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText('Shopper request'), 'Find a gift');
-    await user.click(screen.getByRole('button', { name: 'Run agent' }));
+    await inspectTurn(user, FRESH_TURNS[0]);
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Agent run did not complete');

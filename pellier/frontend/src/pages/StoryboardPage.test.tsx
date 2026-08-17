@@ -172,6 +172,9 @@ describe('StoryboardPage - site chrome (Req 1.13.1)', () => {
   it('renders the Footer and floating CommandPill alongside the header', () => {
     renderStoryboard()
 
+    expect(screen.getByTestId('storyboard-page')).toHaveClass(
+      'pellier-page-surface',
+    )
     expect(screen.getByTestId('sticky-header')).toBeInTheDocument()
     expect(screen.getByTestId('footer')).toBeInTheDocument()
     expect(screen.getByTestId('command-pill')).toBeInTheDocument()

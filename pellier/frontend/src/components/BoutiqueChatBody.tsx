@@ -11,7 +11,7 @@
  * All styling comes from storefront-chat.css (the ``ec-*`` classes).
  */
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import type { AgentChatMessage } from '../hooks/useAgentChat'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
 import type { CartItemOrigin } from '../contexts/CartContext'
@@ -206,6 +206,7 @@ export default function BoutiqueChatBody({
   addToCart,
   persona,
 }: BoutiqueChatBodyProps) {
+  const reduceMotion = Boolean(useReducedMotion())
   const lastAssistantIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant') return i
@@ -221,9 +222,12 @@ export default function BoutiqueChatBody({
         return (
           <motion.div
             key={`msg-${index}-${message.timestamp.getTime()}`}
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.25,
+              ease: 'easeOut',
+            }}
           >
             {message.role === 'user' ? (
               <UserMessage message={message} />
@@ -233,6 +237,7 @@ export default function BoutiqueChatBody({
                 addToCart={addToCart}
                 persona={persona}
                 isLastAssistantMessage={index === lastAssistantIndex}
+                reduceMotion={reduceMotion}
                 onFollowUp={(text) => void sendMessage(text)}
               />
             )}
@@ -266,12 +271,14 @@ function AgentMessage({
   onFollowUp,
   persona,
   isLastAssistantMessage,
+  reduceMotion,
 }: {
   message: AgentChatMessage
   addToCart: BoutiqueChatBodyProps['addToCart']
   onFollowUp: (text: string) => void
   persona: PersonaSnapshot | null
   isLastAssistantMessage: boolean
+  reduceMotion: boolean
 }) {
   const isThinking = message.agentStatus === 'thinking' && !message.content
   const isStreaming = message.agentStatus === 'streaming'
@@ -461,11 +468,11 @@ function AgentMessage({
           {orderedProducts.map((product, pIdx) => (
             <motion.div
               key={product.id || pIdx}
-              initial={{ opacity: 0, y: 8, scale: 0.97 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{
-                delay: pIdx * 0.1,
-                duration: 0.38,
+                delay: reduceMotion ? 0 : pIdx * 0.1,
+                duration: reduceMotion ? 0 : 0.38,
                 ease: [0.2, 0.9, 0.3, 1.05],
               }}
             >

@@ -61,6 +61,7 @@ SUPPORT_KEYWORDS = {
     "damaged",
     "arrived",
     "what now",
+    "exception",
 }
 SEARCH_KEYWORDS = {
     "search for",
@@ -72,9 +73,11 @@ SEARCH_KEYWORDS = {
     "do you have",
     "show me",
     "find me",
+    "hand-thrown pieces",
 }
 PAIRING_PATTERN = re.compile(
-    r"\b(go(?:es)? with|go(?:es)? well with|pair(?:s|ed)? with|what pairs with|"
+    r"\b(go(?:es)? with|go(?:es)? well with|pair(?:s|ed)? with|"
+    r"pair\b(?:\s+\w+){1,4}\s+with|what pairs with|"
     r"what would go with|complement(?:s|ary)?)\b",
     re.IGNORECASE,
 )
@@ -83,6 +86,7 @@ PAST_PURCHASE_PATTERN = re.compile(
     r"what (did|have) i (buy|bought|purchase|purchased|order|ordered)|"
     r"what i (bought|purchased|ordered)|"
     r"(my|last) (purchase|purchases|order|orders|time)|"
+    r"past (purchase|purchases|order|orders)|"
     r"last time i (bought|purchased|ordered)|"
     r"previous (purchase|order|orders)|"
     r"order history|purchase history|buy again|reorder"

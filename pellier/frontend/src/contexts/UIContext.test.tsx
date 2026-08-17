@@ -19,15 +19,24 @@ function wrapper({ children }: { children: React.ReactNode }) {
  * global keydown listener installed by UIProvider reacts to window events.
  */
 function Probe() {
-  const { activeModal, openModal, closeModal, toggleConcierge } = useUI()
+  const {
+    activeModal,
+    openModal,
+    closeModal,
+    toggleConcierge,
+    chatSurface,
+    setChatSurface,
+  } = useUI()
   return (
     <div>
       <span data-testid="active">{activeModal ?? 'none'}</span>
+      <span data-testid="chat-surface">{chatSurface}</span>
       <button onClick={() => openModal('concierge')}>open-concierge</button>
       <button onClick={() => openModal('auth')}>open-auth</button>
       <button onClick={() => openModal('preferences')}>open-preferences</button>
       <button onClick={closeModal}>close</button>
       <button onClick={toggleConcierge}>toggle-concierge</button>
+      <button onClick={() => setChatSurface('none')}>disable-chat</button>
     </div>
   )
 }
@@ -93,6 +102,17 @@ describe('UIContext global keyboard shortcuts', () => {
 
     await user.keyboard('{Control>}k{/Control}')
     expect(screen.getByTestId('active')).toHaveTextContent('drawer')
+
+    await user.keyboard('{Control>}k{/Control}')
+    expect(screen.getByTestId('active')).toHaveTextContent('none')
+  })
+
+  it('does not open chat when the active route disables chat', async () => {
+    const user = userEvent.setup()
+    render(<Probe />, { wrapper })
+
+    await user.click(screen.getByText('disable-chat'))
+    expect(screen.getByTestId('chat-surface')).toHaveTextContent('none')
 
     await user.keyboard('{Control>}k{/Control}')
     expect(screen.getByTestId('active')).toHaveTextContent('none')

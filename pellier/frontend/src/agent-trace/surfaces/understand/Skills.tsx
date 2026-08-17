@@ -62,11 +62,17 @@ interface RouterResult {
 }
 
 const EXAMPLES: { label: string; query: string }[] = [
-  { label: "Marco's Turn 2", query: 'What would go with the Hadley shirt?' },
-  { label: "Anna's gift query", query: 'wrap-ready gifts with no extra effort' },
-  { label: "Theo's pairing query", query: 'what goes well with the pour-over set?' },
-  { label: 'Care path', query: 'The bowl arrived damaged. What now?' },
-  { label: 'Proof path', query: 'How do you know this fits my taste?' },
+  { label: "Marco's packing turn", query: 'Browse linen for a Goa carry-on' },
+  {
+    label: "Anna's maker gift",
+    query: 'Housewarming gift under $200 for a ceramics lover',
+  },
+  {
+    label: "Theo's maker turn",
+    query: 'Hand-thrown pieces for a morning ritual',
+  },
+  { label: 'Care path', query: 'Care and return window for the linen throw' },
+  { label: 'Proof path', query: 'Prove the return was recorded' },
 ];
 
 interface SkillRouterDemoCardProps {

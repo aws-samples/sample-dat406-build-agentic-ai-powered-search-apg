@@ -1,74 +1,76 @@
 {
   "id": "theo-pour-over",
   "personaId": "theo",
-  "openingQuery": "Hand-thrown ceramics for a slower morning routine",
+  "openingQuery": "Hand-thrown pieces for a morning ritual",
   "elapsedMs": 6120,
   "agentCount": 2,
   "routingPattern": "Dispatcher",
-  "timestamp": "2026-05-25T18:10:00Z",
+  "timestamp": "2026-05-25T18:10:00.000Z",
   "status": "complete",
   "chat": [
     {
       "role": "user",
-      "content": "Hand-thrown ceramics for a slower morning routine",
-      "timestamp": "2026-05-25T18:10:00Z"
+      "content": "Hand-thrown pieces for a morning ritual",
+      "timestamp": "2026-05-25T18:10:00.000Z"
     },
     {
       "role": "assistant",
-      "content": "Three worth reaching for: the Stoneware Pour-Over Set ($95) - hand-thrown, ash-grey, built for a slow pour. The Ceramic Tumblers in charcoal ($78) pair with it - same kiln run, no two quite alike. And the Woven Mat Set ($42) under both of them finishes the table.",
-      "timestamp": "2026-05-25T18:10:05Z",
+      "content": "The Stoneware Pour-Over Set is the strongest morning anchor, with Ceramic Tumblers as its natural companion. The Wabi-Sabi Bowl adds a smaller hand-thrown object without turning the ritual into a set.",
+      "timestamp": "2026-05-25T18:10:04.000Z",
       "plan": {
-        "flowSummary": "Dispatcher \u2192 Curator + the-makers-shelf \u2192 find_pieces",
+        "routingPattern": "Dispatcher",
+        "stepCount": 2,
+        "flowSummary": "Dispatcher -> Style Advisor -> find_pieces",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
           "toolName": "find_pieces",
-          "description": "Semantic search: hand-thrown ceramics + morning ritual",
-          "durationMs": 284,
-          "sql": "SELECT name, brand, price, 1 - (embedding <=> $1::vector) AS similarity\nFROM product_catalog\nWHERE category ILIKE '%Home Decor%'\n  AND quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 10;",
-          "resultSummary": "3 slow-craft pieces returned by cosine distance"
+          "description": "Search for hand-thrown pieces grounded in a morning ritual",
+          "durationMs": 120,
+          "sql": "SELECT \"productId\", name, price, 1 - (embedding <=> $1::vector) AS similarity FROM pellier.product_catalog WHERE quantity > 0 ORDER BY embedding <=> $1::vector LIMIT $2;",
+          "resultSummary": "Stoneware Pour-Over Set and Ceramic Tumblers ranked highest"
         }
       ],
       "products": [
         {
           "name": "Stoneware Pour-Over Set",
-          "brand": "Pellier Editions",
-          "price": 95,
+          "brand": "Pellier Home",
+          "price": 165,
           "imageUrl": "/products/theo-stoneware-pour-over.png"
         },
         {
           "name": "Ceramic Tumblers",
-          "brand": "Pellier Editions",
+          "brand": "Pellier Home",
           "price": 78,
           "imageUrl": "/products/theo-ceramic-tumblers.png"
         },
         {
-          "name": "Woven Mat Set",
-          "brand": "Pellier Editions",
-          "price": 42,
-          "imageUrl": "/products/theo-woven-mat-set.png"
+          "name": "Wabi-Sabi Bowl",
+          "brand": "Pellier Home",
+          "price": 65,
+          "imageUrl": "/products/theo-wabi-sabi-bowl.png"
         }
       ],
+      "confidence": {
+        "percentage": 93,
+        "reasoning": "Grounded in the ordered tool results shown for this turn."
+      },
       "memoryPills": [
         {
           "tier": "working",
-          "content": "Looking for hand-thrown ceramics for a slower morning"
-        },
-        {
-          "tier": "semantic",
-          "content": "Stoneware, hand-thrown, slow-living tags; tactile, matte materials"
+          "content": "Hand-thrown pieces for a morning ritual"
         },
         {
           "tier": "skill",
-          "content": "the-makers-shelf loaded (persona: theo)"
+          "content": "the-makers-shelf loaded"
         }
       ],
       "meta": {
-        "agent": "Curator",
+        "agent": "Style Advisor",
         "model": "Claude Opus 5",
         "skill": "the-makers-shelf",
-        "latencyMs": 1412
+        "latencyMs": 1380
       }
     }
   ],
@@ -76,91 +78,90 @@
     {
       "index": 1,
       "category": "managed",
-      "title": "Intent \u2192 Curator",
-      "description": "'hand-thrown' + 'slower morning' matched the-makers-shelf skill path",
+      "title": "Intent -> Style Advisor",
+      "description": "Dispatcher classified: Hand-thrown pieces for a morning ritual",
       "status": "complete",
-      "durationMs": 60,
+      "durationMs": 52,
       "agent": "Dispatcher"
     },
     {
       "index": 2,
       "category": "owned",
-      "title": "Skill loaded",
-      "description": "the-makers-shelf bound for persona: theo",
+      "title": "Skill loaded: the-makers-shelf",
+      "description": "the-makers-shelf was selected for this turn",
       "status": "complete",
       "durationMs": 38,
       "agent": "SkillRouter"
     },
     {
       "index": 3,
-      "category": "owned",
-      "title": "Memory Recall - Semantic",
-      "description": "Loaded Theo's maker-collector profile from AgentCore Memory: stoneware, hand-thrown, slow-living tags. Used to weight retrieval.",
-      "status": "complete",
-      "durationMs": 36
-    },
-    {
-      "index": 4,
       "category": "both",
       "title": "find_pieces",
-      "description": "Claude Opus 5 - slow-craft search",
+      "description": "Stoneware Pour-Over Set and Ceramic Tumblers ranked highest",
       "status": "complete",
-      "durationMs": 284,
-      "sql": "SELECT name, brand, price, 1 - (embedding <=> $1::vector) AS similarity\nFROM product_catalog\nWHERE category ILIKE '%Home Decor%'\n  AND quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 10;",
-      "agent": "Curator"
-    },
-    {
-      "index": 5,
-      "category": "owned",
-      "title": "Memory Write - Working",
-      "description": "Wrote turn-scoped context to AgentCore Memory: hand-thrown ceramics for a slower morning routine.",
-      "status": "complete",
-      "durationMs": 22
+      "durationMs": 120,
+      "agent": "Style Advisor",
+      "sql": "SELECT \"productId\", name, price, 1 - (embedding <=> $1::vector) AS similarity FROM pellier.product_catalog WHERE quantity > 0 ORDER BY embedding <=> $1::vector LIMIT $2;"
     }
   ],
   "brief": {
-    "folioNumber": 28,
-    "headline": "The morning table",
-    "filedTime": "2026-05-25T18:11:00Z",
+    "folioNumber": 40,
+    "headline": "A hand-thrown morning",
+    "filedTime": "2026-05-25T18:10:00.000Z",
     "sections": [
       {
         "numeral": "i.",
-        "title": "The ritual",
+        "title": "The request",
         "paragraphs": [
-          "Theo arrived looking for ceramics with patina, not polish. The Curator, with the-makers-shelf skill loaded, returned three pieces from the same kiln register - pour-over, tumblers, mat - a composed table rather than a set of objects."
+          "Theo's request demonstrates find_pieces."
+        ]
+      },
+      {
+        "numeral": "ii.",
+        "title": "The evidence",
+        "paragraphs": [
+          "Ordered tools: find_pieces. Loaded skills: the-makers-shelf. The replay keeps those claims aligned with its tool calls and telemetry panels."
+        ],
+        "tracePills": [
+          "the-makers-shelf",
+          "find_pieces"
         ]
       }
     ],
     "products": [
       {
         "name": "Stoneware Pour-Over Set",
-        "brand": "Pellier Editions",
-        "price": 95,
+        "brand": "Pellier Home",
+        "price": 165,
         "imageUrl": "/products/theo-stoneware-pour-over.png"
       },
       {
         "name": "Ceramic Tumblers",
-        "brand": "Pellier Editions",
+        "brand": "Pellier Home",
         "price": 78,
         "imageUrl": "/products/theo-ceramic-tumblers.png"
       },
       {
-        "name": "Woven Mat Set",
-        "brand": "Pellier Editions",
-        "price": 42,
-        "imageUrl": "/products/theo-woven-mat-set.png"
+        "name": "Wabi-Sabi Bowl",
+        "brand": "Pellier Home",
+        "price": 65,
+        "imageUrl": "/products/theo-wabi-sabi-bowl.png"
       }
     ],
     "confidence": {
-      "percentage": 92,
+      "percentage": 93,
       "stats": [
         {
-          "label": "Skill",
-          "value": "the-makers-shelf"
+          "label": "Turns",
+          "value": "1"
         },
         {
-          "label": "Kiln register",
-          "value": "same"
+          "label": "Tools",
+          "value": "1"
+        },
+        {
+          "label": "Skills",
+          "value": "1"
         }
       ]
     }

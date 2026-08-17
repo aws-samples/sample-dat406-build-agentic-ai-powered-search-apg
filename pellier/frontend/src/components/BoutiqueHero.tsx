@@ -6,8 +6,8 @@
  * submit a query once a profile is active. The catalog edit follows directly
  * below this component.
  */
-import { useCallback, useState, type CSSProperties } from 'react'
-import { ArrowUpRight, Mic, MicOff, Send, Sparkles } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Mic, MicOff, Send, Sparkles } from 'lucide-react'
 import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
 import {
@@ -18,33 +18,32 @@ import {
 import { LOCAL_PERSONAS } from '../data/personas'
 import { getPersonaPhoto } from '../data/personaPhotos'
 import { useVoiceSearch } from '../hooks/useVoiceSearch'
-import { PresencePill } from '../shared'
-import { asset } from '../utils/assetPath'
+import ResponsiveImage from './ResponsiveImage'
 
 const PERSONA_HEROES: Record<
   string,
   { image: string; alt: string; subheadline: string }
 > = {
   fresh: {
-    image: asset('/products/hero-fresh-2.png'),
+    image: '/products/hero-fresh-2.png',
     alt: 'Pellier leather tote, linen, and olive branches in warm daylight',
     subheadline:
       'Choose a workshop profile, then explore a floor shaped by explicit catalog signals.',
   },
   marco: {
-    image: asset('/products/hero-marco.png'),
+    image: '/products/hero-marco.png',
     alt: 'Leather weekender and folded linen shirts in warm daylight',
     subheadline:
       "Marco's seeded profile favors natural fibers, travel-ready layers, and enduring pieces.",
   },
   anna: {
-    image: asset('/products/hero-anna.png'),
+    image: '/products/hero-anna.png',
     alt: 'Wrapped gift, beeswax candles, and ceramic ring dish',
     subheadline:
       "Anna's seeded profile favors considered gifts, home objects, and clear budget constraints.",
   },
   theo: {
-    image: asset('/products/hero-theo.png'),
+    image: '/products/hero-theo.png',
     alt: 'Stoneware pour-over set on a sunlit wooden table',
     subheadline:
       "Theo's seeded profile favors slow craft, ceramics, and durable post-purchase care.",
@@ -57,47 +56,15 @@ const PROFILE_FOCUS: Record<string, string> = {
   theo: 'Home rituals',
 }
 
-const STOREFRONT_EDITS = [
-  {
-    id: 'fresh',
-    label: 'The Resort Edit',
-    detail: 'A fresh point of view',
-    image: asset('/products/fresh-olive-branch-vessel.png'),
-    imageAlt: 'Olive branch vessel on a linen surface',
-  },
-  {
-    id: 'marco',
-    label: 'The Travel Edit',
-    detail: 'Linen for the long way out',
-    image: asset('/products/marco-linen-camp-shirt-indigo.png'),
-    imageAlt: 'Indigo linen camp shirt',
-  },
-  {
-    id: 'anna',
-    label: 'The Gift Edit',
-    detail: 'Objects worth giving',
-    image: asset('/products/fresh-santal-fig-candle.png'),
-    imageAlt: 'Santal and fig candle',
-  },
-  {
-    id: 'theo',
-    label: 'The Home Rituals Edit',
-    detail: 'Pieces for daily ceremony',
-    image: asset('/products/theo-stoneware-pour-over.png'),
-    imageAlt: 'Stoneware pour-over set',
-  },
-] as const
-
 export default function BoutiqueHero() {
   const { openDrawerWithQuery } = useUI()
-  const { persona, switchPersona, signOut, switching } = usePersona()
+  const { persona, switchPersona, switching } = usePersona()
   const [searchValue, setSearchValue] = useState('')
 
   const personaId = persona?.id ?? 'fresh'
   const hero = PERSONA_HEROES[personaId] ?? PERSONA_HEROES.fresh
   const suggestions = heroPillsForPersona(persona?.id).slice(0, 3)
   const profileSignal = becauseChipsForPersona(persona?.id)[0]?.text
-  const personaAccent = persona?.avatar_color ?? 'var(--accent)'
 
   const submitQuery = useCallback(
     (query: string) => {
@@ -123,67 +90,54 @@ export default function BoutiqueHero() {
     [searchValue, submitQuery],
   )
 
-  const selectEdit = useCallback(
-    (id: (typeof STOREFRONT_EDITS)[number]['id']) => {
-      if (id === 'fresh') {
-        signOut()
-        return
-      }
-      void switchPersona(id)
-    },
-    [signOut, switchPersona],
-  )
-
   return (
-    <>
     <section
       data-testid="boutique-hero"
       aria-label="Pellier resort edit"
-      className="px-3 pt-3 md:px-container-x md:pt-5"
-      style={{ '--boutique-accent': personaAccent } as CSSProperties}
+      className="px-3 pt-2 md:px-container-x md:pt-4"
     >
       <div
         className="
-          relative mx-auto min-h-[620px] max-w-[1440px] overflow-hidden
-          rounded-[8px] border border-[rgba(31,20,16,0.12)]
-          md:min-h-[610px] lg:min-h-[630px]
+          relative mx-auto max-w-[1440px] overflow-hidden
+          rounded-[8px] border border-[rgba(24,26,31,0.12)]
         "
+        style={{
+          minHeight: 'clamp(540px, calc(100dvh - 128px), 640px)',
+        }}
       >
-        <img
+        <ResponsiveImage
           src={hero.image}
           alt={hero.alt}
-          className="
-            absolute inset-0 h-full w-full object-cover object-[30%_center]
-            transition-opacity duration-300 md:object-center
-          "
+          widths={[480, 960, 1600]}
+          sizes="(min-width: 1440px) 1440px, 100vw"
+          loading="eager"
+          fetchPriority="high"
+          pictureClassName="absolute inset-0 block h-full w-full"
+          className="h-full w-full object-cover object-[30%_center] transition-opacity duration-300 md:object-center"
         />
         <div
           aria-hidden="true"
           className="
             absolute inset-0
-            bg-[linear-gradient(0deg,rgba(248,241,231,0.98)_0%,rgba(248,241,231,0.88)_46%,rgba(248,241,231,0.08)_78%)]
-            md:bg-[linear-gradient(90deg,rgba(248,241,231,0.02)_24%,rgba(248,241,231,0.50)_50%,rgba(248,241,231,0.98)_76%)]
+            bg-[linear-gradient(0deg,rgba(243,244,246,0.98)_0%,rgba(243,244,246,0.88)_46%,rgba(243,244,246,0.08)_78%)]
+            md:bg-[linear-gradient(90deg,rgba(243,244,246,0.02)_24%,rgba(243,244,246,0.50)_50%,rgba(243,244,246,0.98)_76%)]
           "
         />
 
-        <div className="relative flex min-h-[620px] items-end md:min-h-[610px] md:items-center md:justify-end lg:min-h-[630px]">
-          <div className="w-full px-5 pb-7 pt-72 md:w-[55%] md:max-w-[700px] md:px-10 md:py-10 lg:px-14">
-            <p
-              data-testid="boutique-hero-eyebrow"
-              className="mb-3 flex items-center gap-3 font-sans text-[11px] font-semibold uppercase text-espresso"
-              style={{ letterSpacing: '0.18em' }}
-            >
-              <span className="h-px w-7 bg-accent" aria-hidden="true" />
-              Resort edit No. 06
-            </p>
-
+        <div
+          className="relative flex items-end md:items-center md:justify-end"
+          style={{
+            minHeight: 'clamp(540px, calc(100dvh - 128px), 640px)',
+          }}
+        >
+          <div className="w-full px-5 pb-7 pt-56 md:w-[54%] md:max-w-[680px] md:px-10 md:py-9 lg:px-14">
             <h1
               data-testid="boutique-hero-headline"
-              className="font-display text-[44px] font-normal leading-[0.98] text-espresso md:text-[62px]"
+              className="font-display text-[42px] font-normal leading-[1.02] text-espresso md:text-[60px]"
               style={{ letterSpacing: 0 }}
             >
               Pellier
-              <span className="block italic text-accent-ink">Resort Edit.</span>
+              <span className="block font-medium text-accent-ink">Resort Edit.</span>
             </h1>
 
             <p
@@ -215,13 +169,13 @@ export default function BoutiqueHero() {
                     }
                     aria-label="Ask Pellier anything"
                     className="
-                      h-[58px] w-full rounded-full border border-[rgba(31,20,16,0.16)]
-                      bg-[rgba(255,252,247,0.96)] pl-[52px] pr-[58px]
+                      h-[58px] w-full rounded-full border border-[rgba(24,26,31,0.16)]
+                      bg-[rgba(255,255,255,0.94)] pl-[52px] pr-[58px]
                       font-sans text-[15px] text-espresso shadow-warm-sm
                       outline-none transition
-                      placeholder:text-[rgba(31,20,16,0.44)]
-                      focus:border-[rgba(31,20,16,0.34)] focus:ring-2
-                      focus:ring-[rgba(31,20,16,0.08)]
+                      placeholder:text-[rgba(24,26,31,0.48)]
+                      focus:border-[rgba(24,26,31,0.34)] focus:ring-2
+                      focus:ring-[rgba(122,38,58,0.16)]
                     "
                   />
                   <button
@@ -270,7 +224,7 @@ export default function BoutiqueHero() {
                       onClick={() => submitQuery(query)}
                       className="
                         min-h-10 shrink-0 rounded-full border
-                        border-[rgba(31,20,16,0.16)] bg-[rgba(255,252,247,0.86)]
+                        border-[rgba(24,26,31,0.16)] bg-[rgba(255,255,255,0.84)]
                         px-4 py-2 text-left font-sans text-[12px] leading-4
                         text-espresso transition hover:border-accent hover:bg-cream
                         focus-visible:outline-none focus-visible:ring-2
@@ -293,7 +247,7 @@ export default function BoutiqueHero() {
               </div>
             ) : (
               <div id="profile-selector" className="mt-6 max-w-[620px]">
-                <p className="mb-3 font-sans text-[12px] font-semibold uppercase text-espresso">
+                <p className="mb-3 font-sans text-[13px] font-medium text-espresso">
                   Choose a workshop profile
                 </p>
                 <div className="grid grid-cols-3 gap-2.5">
@@ -301,12 +255,13 @@ export default function BoutiqueHero() {
                     <button
                       key={profile.id}
                       type="button"
+                      data-testid={`hero-profile-${profile.id}`}
                       disabled={switching}
                       onClick={() => void switchPersona(profile.id)}
                       className="
-                        min-w-0 rounded-[8px] border border-[rgba(31,20,16,0.16)]
-                        bg-[rgba(255,252,247,0.92)] p-3 text-left
-                        transition hover:-translate-y-px hover:border-[rgba(31,20,16,0.34)]
+                        min-w-0 rounded-[8px] border border-[rgba(24,26,31,0.16)]
+                        bg-[rgba(255,255,255,0.90)] p-3 text-left
+                        transition hover:-translate-y-px hover:border-[rgba(24,26,31,0.34)]
                         hover:bg-cream focus-visible:outline-none focus-visible:ring-2
                         focus-visible:ring-espresso disabled:cursor-wait disabled:opacity-60
                       "
@@ -326,7 +281,7 @@ export default function BoutiqueHero() {
                           <span className="block truncate font-display text-[16px] font-semibold text-espresso">
                             {profile.display_name}
                           </span>
-                          <span className="block truncate font-sans text-[10px] uppercase text-ink-soft">
+                          <span className="block truncate font-sans text-[11px] text-ink-soft">
                             {PROFILE_FOCUS[profile.id]}
                           </span>
                         </span>
@@ -339,79 +294,6 @@ export default function BoutiqueHero() {
           </div>
         </div>
       </div>
-
-      <div
-        data-testid="boutique-hero-trust"
-        className="mx-auto flex max-w-[1440px] flex-col items-start gap-2 px-2 py-4 md:flex-row md:items-center md:justify-between md:px-0"
-      >
-        <PresencePill surface="boutique" personaId={persona?.id} />
-        <p className="font-sans text-[11px] leading-5 text-ink-soft md:text-right">
-          Seeded catalog and profile weights shape the floor. Live memory and
-          action receipts appear only after a workshop turn runs.
-        </p>
-      </div>
     </section>
-    <section
-      aria-label="Pellier edits"
-      className="mt-3 border-y border-sand bg-[rgba(247,239,226,0.38)]"
-    >
-      <nav
-        className="mx-auto max-w-[1440px] px-3 py-5 md:px-container-x md:py-6"
-        data-testid="boutique-edit-selector"
-      >
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {STOREFRONT_EDITS.map((edit) => {
-            const isActive =
-              edit.id === 'fresh' ? !persona : persona?.id === edit.id
-            return (
-              <button
-                key={edit.id}
-                type="button"
-                data-testid={`boutique-edit-${edit.id}`}
-                disabled={switching}
-                aria-pressed={isActive}
-                onClick={() => selectEdit(edit.id)}
-                className={[
-                  'group relative min-h-[148px] overflow-hidden rounded-[8px] border text-left',
-                  'transition focus-visible:outline-none focus-visible:ring-2',
-                  'focus-visible:ring-espresso focus-visible:ring-offset-2 md:min-h-[168px]',
-                  'disabled:cursor-wait disabled:opacity-60',
-                  isActive
-                    ? 'border-espresso shadow-warm-sm'
-                    : 'border-[rgba(31,20,16,0.14)] hover:border-[rgba(31,20,16,0.34)] hover:shadow-warm-sm',
-                ].join(' ')}
-              >
-                <img
-                  src={edit.image}
-                  alt={edit.imageAlt}
-                  className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-                />
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-0 bg-[linear-gradient(180deg,rgba(31,20,16,0.02)_24%,rgba(31,20,16,0.72)_100%)]"
-                />
-                <span className="relative flex min-h-[148px] flex-col justify-end p-3 text-cream md:min-h-[168px] md:p-4">
-                  <span className="flex items-end justify-between gap-2">
-                    <span className="font-display text-[19px] font-semibold leading-5 md:text-[21px]">
-                      {edit.label}
-                    </span>
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      size={18}
-                      strokeWidth={1.6}
-                      className="mb-0.5 shrink-0 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                    />
-                  </span>
-                  <span className="mt-1 block font-sans text-[10px] uppercase leading-4 text-[rgba(255,252,247,0.84)]">
-                    {edit.detail}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </nav>
-    </section>
-    </>
   )
 }

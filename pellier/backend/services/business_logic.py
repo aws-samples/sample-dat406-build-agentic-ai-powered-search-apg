@@ -15,6 +15,7 @@ real SQL against this column.
 """
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
+import re
 
 
 def convert_decimals(obj):
@@ -254,11 +255,23 @@ class BusinessLogic:
         }
 
     async def price_intelligence(self, category: str = None) -> Dict[str, Any]:
-        """Per-category price statistics."""
+        """Price statistics for a category, material, or named collection."""
         params: List[Any] = []
         if category:
-            cat_condition = "lower(category) LIKE %s"
-            params.append(f"%{category.lower()}%")
+            collection_term = category.strip()
+            collection_pattern = f"%{collection_term.lower()}%"
+            cat_condition = """(
+                lower(category) LIKE %s
+                OR lower(name) LIKE %s
+                OR lower(description) LIKE %s
+                OR tags ? %s
+            )"""
+            params.extend([
+                collection_pattern,
+                collection_pattern,
+                collection_pattern,
+                collection_term.lower(),
+            ])
             query = f"""
                 SELECT
                     category,
@@ -292,7 +305,13 @@ class BusinessLogic:
 
         categories = [convert_decimals(dict(row)) for row in results]
 
-        overall_query = """
+        overall_conditions = ["NOT (tags ? 'archive')"]
+        overall_params: List[Any] = []
+        if category:
+            overall_conditions.insert(0, cat_condition)
+            overall_params.extend(params)
+
+        overall_query = f"""
             SELECT
                 COUNT(*) as total_products,
                 MIN(price) as min_price,
@@ -300,10 +319,10 @@ class BusinessLogic:
                 AVG(price) as avg_price,
                 PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) as median_price
             FROM pellier.product_catalog
-            WHERE NOT (tags ? 'archive')
+            WHERE {" AND ".join(overall_conditions)}
         """
 
-        overall = await self.db.fetch_one(overall_query)
+        overall = await self.db.fetch_one(overall_query, *overall_params)
         overall_dict = convert_decimals(dict(overall))
 
         return {
@@ -550,14 +569,36 @@ class BusinessLogic:
         min_rating: float = 4.0,
         max_price: float = None,
         limit: int = 5,
+        context: str = "",
     ) -> Dict[str, Any]:
-        """Browse products by category with rating and price filters."""
+        """Browse a catalog category or collection term with optional filters."""
+        collection_term = category.strip()
+        collection_pattern = f"%{collection_term.lower()}%"
+        travel_context = bool(
+            re.search(r"\b(travel|carry[- ]?on|goa|resort|trip)\b", context, re.I)
+        )
         conditions = [
-            "lower(category) LIKE %s",
+            """(
+                lower(category) LIKE %s
+                OR lower(name) LIKE %s
+                OR lower(description) LIKE %s
+                OR tags ? %s
+            )""",
             '"imgUrl" IS NOT NULL',
             "NOT (tags ? 'archive')",
         ]
-        params: List[Any] = [f"%{category.lower()}%"]
+        params: List[Any] = [
+            collection_pattern,
+            collection_pattern,
+            collection_pattern,
+            collection_term.lower(),
+        ]
+
+        if travel_context:
+            # Keep a material browse broad by default, but make a carry-on
+            # request return the pieces built for travel rather than home linen.
+            conditions.append("tags ? %s")
+            params.append("travel")
 
         if min_rating:
             conditions.append("rating >= %s")
@@ -600,6 +641,7 @@ class BusinessLogic:
             "filters": {
                 "min_rating": min_rating,
                 "max_price": max_price,
+                "context": context or None,
             },
         }
 

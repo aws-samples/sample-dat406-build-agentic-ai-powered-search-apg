@@ -20,7 +20,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useUI } from '../contexts/UIContext'
 import { useLayout } from '../contexts/LayoutContext'
@@ -74,6 +74,7 @@ export default function ChatDrawer() {
   const { guardrailsEnabled } = useLayout()
   const { addToCart } = useCart()
   const { persona } = usePersona()
+  const reduceMotion = useReducedMotion()
 
   const isOpen = activeModal === 'drawer'
   const [isMac, setIsMac] = useState(false)
@@ -201,11 +202,13 @@ export default function ChatDrawer() {
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
     if (nearBottom) {
       const t = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        messagesEndRef.current?.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+        })
       }, 50)
       return () => clearTimeout(t)
     }
-  }, [messages, isOpen])
+  }, [messages, isOpen, reduceMotion])
 
   // Focus trap: Tab/Shift+Tab cycle within drawer
   const drawerRef = useRef<HTMLDivElement>(null)
@@ -257,10 +260,10 @@ export default function ChatDrawer() {
           <motion.div
             className="cd-backdrop"
             data-testid="chat-drawer-backdrop"
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.24 }}
+            transition={{ duration: reduceMotion ? 0 : 0.24 }}
             onClick={closeModal}
           />
 
@@ -272,10 +275,13 @@ export default function ChatDrawer() {
             role="dialog"
             aria-modal="true"
             aria-label="Chat with Pellier"
-            initial={{ x: '100%' }}
+            initial={reduceMotion ? false : { x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.24,
+              ease: [0.4, 0, 0.2, 1],
+            }}
           >
             {/* Mobile drag handle (decorative) */}
             <div className="cd-drag-handle" aria-hidden />
@@ -385,10 +391,13 @@ export default function ChatDrawer() {
       {!isOpen && hasUserMessages && (
         <motion.div
           data-testid="continue-chat-pill"
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.25, delay: 0.3 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.25,
+            delay: reduceMotion ? 0 : 0.3,
+          }}
           className="cd-continue-shell"
         >
           <button

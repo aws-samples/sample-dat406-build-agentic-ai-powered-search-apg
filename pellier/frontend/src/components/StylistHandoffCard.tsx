@@ -6,13 +6,12 @@
  * out-of-policy returns Cedar can't process, catalog misses where the
  * shopper deserves a real person). The agent's prose still streams
  * above the card; this component replaces the usual product grid with
- * a clear "talk to a human" CTA.
+ * a clear email-draft CTA.
  *
  * The "stylist" address is a placeholder for whatever escalation
  * channel a production deployment wires in (live chat, email queue,
- * CX ticket). For the workshop it's a mailto — pure UI, no real
- * human on the other end. The workshop teaches this as the
- * escape hatch every agent needs but most demos skip.
+ * CX ticket). For the workshop it's a mailto draft: nothing is sent
+ * until the shopper reviews and sends it.
  */
 import { motion } from 'framer-motion'
 import { ArrowUpRight, User } from 'lucide-react'
@@ -26,11 +25,11 @@ interface StylistHandoffCardProps {
 export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps) {
   const subject = encodeURIComponent('Stylist handoff from Pellier concierge')
   const body = encodeURIComponent(
-    `Reason routed to a stylist:\n${handoff.reason}\n\n` +
+    `Reason for this note:\n${handoff.reason}\n\n` +
       (handoff.customer_id
         ? `Customer reference: ${handoff.customer_id}\n\n`
         : '') +
-      'Stylist team — please pick this up from the concierge thread.\n',
+      'Stylist team — I would appreciate your guidance.\n',
   )
   const href = `mailto:${handoff.contact.mailto}?subject=${subject}&body=${body}`
 
@@ -85,7 +84,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
             color: 'rgba(196, 69, 54, 0.98)',
           }}
         >
-          Handed off to a stylist
+          Stylist note ready
         </span>
       </header>
 

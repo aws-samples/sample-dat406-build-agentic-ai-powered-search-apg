@@ -24,7 +24,7 @@ vi.mock('./agent-trace/surfaces/observe/PellierLabsWorkbench', () => ({
   default: () => <div>Pellier Labs workbench</div>,
 }))
 
-import { AppRoutes } from './App'
+import { AppRoutes, isPellierSurfacePath } from './App'
 
 function LocationProbe() {
   const { pathname, search, hash } = useLocation()
@@ -41,6 +41,16 @@ function renderRoute(path: string) {
 }
 
 describe('canonical application routes', () => {
+  it.each([
+    '/',
+    '/storyboard',
+    '/about',
+    '/discover',
+    '/pellier-labs',
+  ])('uses the shared Pellier surface on %s', (path) => {
+    expect(isPellierSurfacePath(path)).toBe(true)
+  })
+
   it('renders Pellier Labs only at the canonical route', async () => {
     renderRoute('/pellier-labs?turn=live#journey')
 
@@ -50,6 +60,7 @@ describe('canonical application routes', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/pellier-labs?turn=live#journey',
     )
+    expect(document.body).toHaveClass('pellier-surface')
   })
 
   it.each([

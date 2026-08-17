@@ -2,144 +2,144 @@
   {
     "id": "marco-opening-demo",
     "personaId": "marco",
-    "openingQuery": "What linen do you have for 10 days in Goa?",
+    "openingQuery": "Browse linen for a Goa carry-on",
     "elapsedMs": 14820,
-    "agentCount": 3,
+    "agentCount": 2,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:00:00Z",
+    "timestamp": "2026-05-25T17:00:00.000Z",
     "status": "complete",
-    "tagline": "Linen for summer in Goa"
+    "tagline": "Browse, pair, compare, price, then expose the stock gap"
   },
   {
     "id": "marco-midpoint-checkpoint",
     "personaId": "marco",
-    "openingQuery": "Is the Hadley shirt at the Brooklyn warehouse?",
+    "openingQuery": "Hadley availability in Brooklyn",
     "elapsedMs": 1840,
     "agentCount": 1,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:24:00Z",
+    "timestamp": "2026-05-25T17:24:00.000Z",
     "status": "complete",
-    "tagline": "Stock check - after the build"
+    "tagline": "Hadley stock after floor_check is wired"
   },
   {
     "id": "marco-capstone",
     "personaId": "marco",
-    "openingQuery": "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding – not product cards.",
+    "openingQuery": "Compare Hadley with the Italian Linen Camp Shirt",
     "elapsedMs": 3680,
     "agentCount": 2,
-    "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:34:00Z",
+    "routingPattern": "Agents-as-Tools",
+    "timestamp": "2026-05-25T17:34:00.000Z",
     "status": "complete",
-    "tagline": "Honest fallback - stylist handoff"
+    "tagline": "Named-product comparison through Agents-as-Tools"
   },
   {
     "id": "anna-morning-ritual",
     "personaId": "anna",
-    "openingQuery": "A thoughtful gift for someone who loves morning rituals",
+    "openingQuery": "Housewarming gift under $200 for a ceramics lover",
     "elapsedMs": 5520,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:42:00Z",
+    "timestamp": "2026-05-25T17:42:00.000Z",
     "status": "complete",
-    "tagline": "Morning ritual gift"
+    "tagline": "Ceramic housewarming gift under $200"
   },
   {
     "id": "anna-under-100",
     "personaId": "anna",
-    "openingQuery": "Something beautiful under $100",
+    "openingQuery": "Anniversary gift using past orders",
     "elapsedMs": 4860,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:44:00Z",
+    "timestamp": "2026-05-25T17:44:00.000Z",
     "status": "complete",
-    "tagline": "Beautiful gift under $100"
+    "tagline": "Past-order memory before anniversary retrieval"
   },
   {
     "id": "anna-candle-pairing",
     "personaId": "anna",
-    "openingQuery": "Help me pair a candle with something else",
+    "openingQuery": "Trending home gifts",
     "elapsedMs": 5120,
     "agentCount": 2,
-    "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:46:00Z",
+    "routingPattern": "Graph",
+    "timestamp": "2026-05-25T17:46:00.000Z",
     "status": "complete",
-    "tagline": "Candle plus companion gift"
+    "tagline": "Trending home gifts through Graph"
   },
   {
     "id": "anna-birthday-gift",
     "personaId": "anna",
-    "openingQuery": "Wrap-ready gifts with no extra effort",
-    "elapsedMs": 5640,
-    "agentCount": 2,
+    "openingQuery": "Latest receipt for find_pieces_hybrid",
+    "elapsedMs": 2640,
+    "agentCount": 1,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:48:00Z",
+    "timestamp": "2026-05-25T17:48:00.000Z",
     "status": "complete",
-    "tagline": "Wrap-ready gifts with no extra effort"
+    "tagline": "Hybrid retrieval audit receipt"
   },
   {
     "id": "anna-housewarming",
     "personaId": "anna",
-    "openingQuery": "Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.",
+    "openingQuery": "A sensitive sympathy gift that needs a human touch",
     "elapsedMs": 3940,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T17:58:00Z",
+    "timestamp": "2026-05-25T17:58:00.000Z",
     "status": "complete",
-    "tagline": "Sympathy gift – stylist handoff"
+    "tagline": "Sensitive gifting routed to a person"
   },
   {
     "id": "theo-pour-over",
     "personaId": "theo",
-    "openingQuery": "Hand-thrown ceramics for a slower morning routine",
+    "openingQuery": "Hand-thrown pieces for a morning ritual",
     "elapsedMs": 6120,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T18:10:00Z",
+    "timestamp": "2026-05-25T18:10:00.000Z",
     "status": "complete",
-    "tagline": "Slow-craft ceramics, mornings"
-  },
-  {
-    "id": "theo-pour-over-pairing",
-    "personaId": "theo",
-    "openingQuery": "What goes well with the pour-over set?",
-    "elapsedMs": 4380,
-    "agentCount": 2,
-    "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T18:13:00Z",
-    "status": "complete",
-    "tagline": "Pour-over companion pieces"
+    "tagline": "Hand-thrown morning ritual"
   },
   {
     "id": "theo-linen-seasons",
     "personaId": "theo",
-    "openingQuery": "Linen pieces that soften over seasons",
+    "openingQuery": "Care and return window for the linen throw",
     "elapsedMs": 4680,
-    "agentCount": 2,
-    "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T18:16:00Z",
+    "agentCount": 1,
+    "routingPattern": "Graph",
+    "timestamp": "2026-05-25T18:16:00.000Z",
     "status": "complete",
-    "tagline": "Linen with patina"
+    "tagline": "Linen throw care and return window"
   },
   {
     "id": "theo-ceramics-return",
     "personaId": "theo",
-    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",
-    "elapsedMs": 2140,
+    "openingQuery": "File a damaged Wabi-Sabi Bowl return",
+    "elapsedMs": 5840,
     "agentCount": 1,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T18:22:00Z",
+    "timestamp": "2026-05-25T18:22:00.000Z",
     "status": "complete",
-    "tagline": "Damaged Wabi-Sabi Bowl return"
+    "tagline": "Damaged bowl read-before-write return"
+  },
+  {
+    "id": "theo-pour-over-pairing",
+    "personaId": "theo",
+    "openingQuery": "Prove the return was recorded",
+    "elapsedMs": 2380,
+    "agentCount": 1,
+    "routingPattern": "Dispatcher",
+    "timestamp": "2026-05-25T18:24:00.000Z",
+    "status": "complete",
+    "tagline": "Proof that process_return was recorded"
   },
   {
     "id": "theo-home-not-wardrobe",
     "personaId": "theo",
-    "openingQuery": "The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?",
+    "openingQuery": "Out-of-window durability exception for the linen throw",
     "elapsedMs": 4280,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
-    "timestamp": "2026-05-25T18:28:00Z",
+    "timestamp": "2026-05-25T18:28:00.000Z",
     "status": "complete",
-    "tagline": "Exception return – stylist handoff"
+    "tagline": "Out-of-window durability exception"
   }
 ]

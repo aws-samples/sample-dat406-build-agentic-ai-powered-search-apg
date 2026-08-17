@@ -1,33 +1,29 @@
 import { ArrowRight } from 'lucide-react'
-import { asset } from '../utils/assetPath'
+import ResponsiveImage from './ResponsiveImage'
 
 const COLLECTIONS = [
   {
-    number: '01',
     title: 'Travel light',
     description: 'Linen and packable layers.',
-    image: asset('/products/marco-linen-camp-shirt-indigo.png'),
+    image: '/products/marco-linen-camp-shirt-indigo.png',
     alt: 'Indigo linen camp shirt from the Pellier catalog',
   },
   {
-    number: '02',
     title: 'Considered gifting',
     description: 'Useful objects, ready to give.',
-    image: asset('/products/anna-beeswax-taper-candles.png'),
+    image: '/products/anna-beeswax-taper-candles.png',
     alt: 'Beeswax taper candles from the Pellier catalog',
   },
   {
-    number: '03',
     title: 'Slow craft',
     description: 'Ceramics for daily rituals.',
-    image: asset('/products/theo-stoneware-pour-over.png'),
+    image: '/products/theo-stoneware-pour-over.png',
     alt: 'Stoneware pour-over set from the Pellier catalog',
   },
   {
-    number: '04',
     title: 'Weekend form',
     description: 'Enduring pieces for the road.',
-    image: asset('/products/fresh-nocturne-leather-weekender.png'),
+    image: '/products/fresh-nocturne-leather-weekender.png',
     alt: 'Nocturne leather weekender from the Pellier catalog',
   },
 ] as const
@@ -47,21 +43,13 @@ export default function BoutiqueCollections({
     >
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-5 flex items-end justify-between gap-5">
-          <div>
-            <p
-              className="mb-2 font-sans text-[10px] font-semibold uppercase text-accent-ink"
-              style={{ letterSpacing: '0.18em' }}
-            >
-              From the seeded catalog
-            </p>
-            <h2
-              id="boutique-collections-title"
-              className="font-display text-[32px] font-normal leading-none text-espresso md:text-[40px]"
-              style={{ letterSpacing: 0 }}
-            >
-              The Pellier edit
-            </h2>
-          </div>
+          <h2
+            id="boutique-collections-title"
+            className="font-display text-[32px] font-normal leading-none text-espresso md:text-[40px]"
+            style={{ letterSpacing: 0 }}
+          >
+            The Pellier edit
+          </h2>
           <button
             type="button"
             onClick={onOpenCatalog}
@@ -86,17 +74,21 @@ export default function BoutiqueCollections({
         >
           {COLLECTIONS.map((collection) => (
             <article
-              key={collection.number}
+              key={collection.title}
               className="
                 group relative aspect-[4/3] w-[78vw] max-w-[300px] shrink-0
                 snap-start overflow-hidden rounded-[8px] bg-espresso
                 md:w-auto md:max-w-none
               "
             >
-              <img
+              <ResponsiveImage
                 src={collection.image}
                 alt={collection.alt}
-                loading="eager"
+                widths={[480, 960]}
+                sizes="(min-width: 768px) 300px, 78vw"
+                loading="lazy"
+                decoding="async"
+                pictureClassName="block h-full w-full"
                 className="
                   h-full w-full object-cover transition-transform duration-300
                   group-hover:scale-[1.025]
@@ -104,17 +96,11 @@ export default function BoutiqueCollections({
               />
               <div
                 aria-hidden="true"
-                className="absolute inset-0 bg-[linear-gradient(0deg,rgba(24,16,12,0.90)_0%,rgba(24,16,12,0.12)_68%)]"
+                className="absolute inset-0 bg-[linear-gradient(0deg,rgba(16,18,22,0.90)_0%,rgba(16,18,22,0.12)_68%)]"
               />
               <div className="absolute inset-x-0 bottom-0 p-4 text-cream md:p-5">
-                <p
-                  className="font-sans text-[9px] font-semibold uppercase text-cream/80"
-                  style={{ letterSpacing: '0.16em' }}
-                >
-                  Edit {collection.number}
-                </p>
                 <h3
-                  className="mt-1 font-display text-[21px] font-medium leading-tight text-cream"
+                  className="font-display text-[21px] font-medium leading-tight text-cream"
                   style={{ letterSpacing: 0 }}
                 >
                   {collection.title}

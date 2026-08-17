@@ -19,7 +19,7 @@ import { CategoryBadge } from '../components/CategoryBadge';
 // ExpCard
 // ---------------------------------------------------------------------------
 describe('ExpCard', () => {
-  it('renders children inside a card with cream-elev bg, rule-1 border, 14px radius', () => {
+  it('renders children inside a quiet cream surface with an 8px radius', () => {
     const { container } = render(
       <ExpCard>
         <span>Card content</span>
@@ -33,23 +33,17 @@ describe('ExpCard', () => {
     // Verify design-system inline styles
     expect(card.style.background).toBe('var(--at-card-bg)');
     expect(card.style.border).toBe('1px solid var(--at-card-border)');
-    expect(card.style.borderRadius).toBe('var(--at-card-radius)');
+    expect(card.style.borderRadius).toBe('8px');
   });
 
-  it('renders a burgundy accent line at top-left', () => {
+  it('does not add decorative accent chrome', () => {
     const { container } = render(
       <ExpCard>
         <span>Content</span>
       </ExpCard>,
     );
 
-    // The accent line is the first child span with aria-hidden
-    const accent = container.querySelector('[aria-hidden="true"]') as HTMLElement;
-    expect(accent).toBeTruthy();
-    expect(accent.style.backgroundColor).toBe('var(--at-card-accent-color)');
-    expect(accent.style.width).toBe('var(--at-card-accent-width)');
-    expect(accent.style.position).toBe('absolute');
-    expect(accent.style.top).toBe('0px');
+    expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
   });
 
   it('applies button role and tabIndex when onClick is provided', () => {

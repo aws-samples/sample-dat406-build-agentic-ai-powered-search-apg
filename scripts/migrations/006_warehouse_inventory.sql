@@ -1,7 +1,7 @@
--- Migration 006: Per-warehouse inventory for Stock Keeper (Marco's Turn 4).
+-- Migration 006: Per-warehouse inventory for Stock Keeper (Marco's Turn 5).
 --
 -- The lab content promises Marco gets a real warehouse breakdown when he
--- asks "Is the Hadley shirt at the Brooklyn warehouse?" (Pellier Linen Shirt in ecru):
+-- asks "Hadley availability in Brooklyn":
 --
 --   "Yes — Brooklyn (BK-01) has the most of the Pellier Linen Shirt in
 --    ecru on the floor right now, with smaller counts at Austin (ATX-02)
