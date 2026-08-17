@@ -1,20 +1,14 @@
 /**
  * BoutiqueSpotlight — guided first-visit walkthrough for the boutique.
  *
- * A three-step spotlight that introduces visitors to Pellier: the
- * editorial storefront, the Ask Pellier concierge, and Pellier Labs toggle
- * for those curious about what's under the hood. Shows once per browser
- * session (sessionStorage gate).
+ * A three-step, once-per-session orientation for the one-hour workshop.
+ * It introduces the shopper point of view, the real concierge interaction,
+ * and the optional evidence surface without teaching the whole application.
  *
- * Mirrors AgentTraceSpotlight in structure, animation, keyboard handling,
- * and visual language. Only the content, the final-step CTA copy, and
- * the sessionStorage key differ.
- *
- * Keyboard: Escape dismisses. ArrowRight / Enter advance. ArrowLeft
- * goes back.
+ * Keyboard: Escape dismisses. ArrowRight advances. ArrowLeft goes back.
  */
-import { useCallback, useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { cssVar as c } from '../design/cssVars'
 
@@ -29,31 +23,25 @@ interface SpotlightStep {
 const STEPS: SpotlightStep[] = [
   {
     numeral: 'I',
-    kicker: 'Welcome to',
-    headline: 'Pellier',
-    body: "An editorial boutique with one trick up its sleeve — search that actually understands what you're after. Browse the floor, or just tell us what you have in mind.",
+    kicker: 'Start with a shopper',
+    headline: 'Choose the point of view',
+    body: 'Browse the fresh edit, or choose Marco, Anna, or Theo. Each profile changes the catalog signals and the workshop story.',
   },
   {
     numeral: 'II',
-    kicker: 'Sign in first',
-    headline: 'Let Pellier remember you',
-    body: "Pick a persona from the top-right pill and watch the boutique tune itself — the cover, the recommendations, the voice of the chat. Try Marco for linen, Anna for gifts, Theo for home, or stay a Fresh visitor to see the editorial default.",
+    kicker: 'Your concierge',
+    headline: 'Ask Pellier',
+    body: 'Use the hero prompt or open the concierge and ask in your own words. The answer is grounded in the live boutique and its deterministic tools.',
   },
   {
     numeral: 'III',
-    kicker: 'Your concierge',
-    headline: 'Ask Pellier',
-    body: "Tap the floating button anytime and ask in your own words — \"a linen piece for slow Sundays,\" \"something that travels well.\" Pellier reads the boutique and pulls what fits.",
-  },
-  {
-    numeral: 'IV',
-    kicker: 'Behind the curtain',
-    headline: 'Pellier Labs',
-    body: "Curious how Pellier thinks? Open Pellier Labs from the header and watch every reasoning step, tool call, and decision unfold in real time. The wires, made visible.",
+    kicker: 'Optional evidence',
+    headline: 'Verify the answer',
+    body: 'Open Pellier Labs after a turn to inspect routing, tools, retrieval, and Aurora evidence. The timed workshop keeps this surface optional.',
   },
 ]
 
-const FINAL_CTA = 'Start browsing'
+const FINAL_CTA = 'Explore Pellier'
 
 // One-shot gate: once the visitor dismisses the spotlight in a
 // session, don't re-show it on route changes or refreshes within
@@ -87,6 +75,9 @@ export default function BoutiqueSpotlight() {
   // across the lifetime of a tab.
   const [visible, setVisible] = useState(() => !hasSeenSpotlight())
   const [step, setStep] = useState(0)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+  const reduceMotion = Boolean(useReducedMotion())
 
   const dismiss = useCallback(() => {
     markSpotlightSeen()
@@ -104,10 +95,38 @@ export default function BoutiqueSpotlight() {
 
   useEffect(() => {
     if (!visible) return
+    const previousOverflow = document.body.style.overflow
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus()
+    return () => {
+      document.body.style.overflow = previousOverflow
+      previousFocusRef.current?.focus()
+    }
+  }, [visible])
+
+  useEffect(() => {
+    if (!visible) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') dismiss()
-      if (e.key === 'ArrowRight' || e.key === 'Enter') next()
+      if (e.key === 'ArrowRight') next()
       if (e.key === 'ArrowLeft') prev()
+      if (e.key === 'Tab') {
+        const focusable = Array.from(
+          dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? [],
+        )
+        const first = focusable[0]
+        const last = focusable.at(-1)
+        if (!first || !last) return
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -123,27 +142,35 @@ export default function BoutiqueSpotlight() {
       <motion.div
         className="fixed inset-0 z-[999] flex items-center justify-center p-4"
         style={{
-          background: 'rgba(45, 24, 16, 0.35)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          background: 'rgba(31, 20, 16, 0.52)',
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.18 }}
         onClick={dismiss}
       >
         <motion.div
-          key={step}
-          className="relative w-full max-w-[460px] rounded-3xl overflow-hidden"
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="boutique-tour-title"
+          aria-describedby="boutique-tour-description"
+          tabIndex={-1}
+          className="relative w-full max-w-[460px] overflow-hidden rounded-[8px] outline-none"
           style={{
             background: c.bg,
             border: '1px solid rgba(45, 24, 16, 0.08)',
             boxShadow: '0 25px 60px rgba(45, 24, 16, 0.18)',
           }}
-          initial={{ opacity: 0, y: 20, scale: 0.97 }}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { type: 'spring', stiffness: 340, damping: 30 }
+          }
           onClick={(e) => e.stopPropagation()}
         >
           {/* Editorial numeral mark — replaces the icon badge */}
@@ -156,7 +183,7 @@ export default function BoutiqueSpotlight() {
                 fontStyle: 'italic',
                 color: c.accent,
                 fontSize: 64,
-                letterSpacing: '-0.02em',
+                letterSpacing: 0,
               }}
             >
               {current.numeral}
@@ -167,23 +194,25 @@ export default function BoutiqueSpotlight() {
           <div className="px-8 pb-3 text-center">
             <p
               className="text-[10px] font-medium uppercase mb-3"
-              style={{ color: c.accent, letterSpacing: '0.2em' }}
+              style={{ color: c.accent, letterSpacing: 0 }}
             >
               {current.kicker}
             </p>
             <h2
+              id="boutique-tour-title"
               className="text-[32px] leading-[1.1] mb-4"
               style={{
                 fontFamily: 'Fraunces, Georgia, serif',
                 fontWeight: 400,
                 fontStyle: 'italic',
                 color: c.ink,
-                letterSpacing: '-0.02em',
+                letterSpacing: 0,
               }}
             >
               {current.headline}
             </h2>
             <p
+              id="boutique-tour-description"
               className="text-[15px] leading-[1.7] mx-auto"
               style={{ color: c.ink2, maxWidth: 360 }}
             >
@@ -201,6 +230,7 @@ export default function BoutiqueSpotlight() {
                   type="button"
                   onClick={() => setStep(i)}
                   aria-label={`Step ${i + 1}`}
+                  aria-current={i === step ? 'step' : undefined}
                   className="rounded-full transition-all duration-200"
                   style={{
                     width: i === step ? 20 : 7,
@@ -220,7 +250,7 @@ export default function BoutiqueSpotlight() {
                 <button
                   type="button"
                   onClick={prev}
-                  className="text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+                  className="rounded-[8px] px-3 py-1.5 text-[13px] font-medium transition-colors"
                   style={{ color: c.ink2 }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background = c.paper)
@@ -236,16 +266,16 @@ export default function BoutiqueSpotlight() {
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="text-[13px] px-3 py-1.5 rounded-lg"
+                  className="rounded-[8px] px-3 py-1.5 text-[13px]"
                   style={{ color: c.muted }}
                 >
-                  Skip
+                  Skip tour
                 </button>
               )}
               <button
                 type="button"
                 onClick={next}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium px-5 py-2 rounded-full transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-[8px] px-5 py-2 text-[13px] font-medium transition-colors"
                 style={{ background: c.ink, color: c.bg }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = 'var(--ink)')

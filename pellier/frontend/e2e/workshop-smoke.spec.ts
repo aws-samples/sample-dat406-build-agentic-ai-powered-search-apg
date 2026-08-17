@@ -39,6 +39,7 @@ async function signInAsMarco(page: import('@playwright/test').Page) {
   await page.goto(BASE_URL, { waitUntil: 'networkidle' });
   await clearBrowserState(page);
   await page.reload({ waitUntil: 'networkidle' });
+  await page.keyboard.press('Escape');
 
   await page.getByTestId('persona-pill').click();
   await page.getByTestId('persona-option-marco').click();
@@ -69,6 +70,24 @@ test.describe('Workshop production build smoke', () => {
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     await expect(page).toHaveTitle(/Pellier/);
     expect(errors, `console errors: ${errors.join('\n')}`).toHaveLength(0);
+  });
+
+  test('first visit offers a concise, session-gated tour', async ({ page }) => {
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await clearBrowserState(page);
+    await page.reload({ waitUntil: 'networkidle' });
+
+    const tour = page.getByRole('dialog');
+    await expect(tour).toBeVisible();
+    await expect(
+      tour.getByRole('heading', { name: 'Choose the point of view' }),
+    ).toBeVisible();
+    await expect(tour.getByRole('button', { name: /^Step / })).toHaveCount(3);
+
+    await tour.getByRole('button', { name: 'Skip tour' }).click();
+    await expect(tour).toHaveCount(0);
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
   test('Pellier Labs has a direct storefront entry and an explicit return', async ({

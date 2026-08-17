@@ -27,6 +27,7 @@ import RationaleBand from '../components/RationaleBand'
 import ProductCard from '../components/ProductCard'
 import ResponsiveImage from '../components/ResponsiveImage'
 import Footer from '../components/Footer'
+import BoutiqueSpotlight from '../components/BoutiqueSpotlight'
 // CommandPill removed — hero search bar is the primary entry point
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
@@ -305,6 +306,7 @@ export default function BoutiquePage() {
 
       <Footer />
       {/* CommandPill removed — hero search bar opens the drawer directly */}
+      <BoutiqueSpotlight />
     </div>
   )
 }

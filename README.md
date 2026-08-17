@@ -9,7 +9,10 @@ _A 60-minute L400 guided build with Aurora PostgreSQL, pgvector, Amazon Bedrock,
 [![Aurora PostgreSQL 18.3](https://img.shields.io/badge/Aurora_PostgreSQL-18.3_·_pgvector-2D72D9?style=flat-square&logo=postgresql&logoColor=white)](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.VectorDB.html)
 [![Strands Agents](https://img.shields.io/badge/Strands-Agents_SDK-232F3E?style=flat-square)](https://strandsagents.com)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Quality](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/quality.yml?query=branch%3Amain)
+[![E2E](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/e2e.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/github/license/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=00b300&label=License)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=yellow)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/stargazers)
 
 </div>
 
@@ -64,6 +67,10 @@ Pellier is an editorial retail application with two views:
 - **Pellier Labs** (`/pellier-labs`) is the engineering view for routing, retrieval,
   tools, evidence, and optional production patterns. It opens on a proof-first
   board for post-session exploration.
+
+On a first visit, a dismissible three-step tour introduces the shopper point
+of view, the concierge, and the optional evidence surface. It is stored only
+for the browser session and does not repeat in the same tab.
 
 ![Pellier showing the three workshop shopper profiles](.github/readme/pellier-boutique.png)
 
