@@ -1,65 +1,54 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Activity,
   Bot,
+  Boxes,
   Brain,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  Copy,
   Database,
   Eye,
-  Loader2,
-  Play,
-  ShoppingBag,
+  PackagePlus,
+  RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Timer,
-  Users,
-  Workflow,
   Wrench,
 } from 'lucide-react';
 import { usePersona } from '../../../contexts/PersonaContext';
 import {
+  Badge,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem,
+} from '../../../components/ui';
+import ResponsiveImage from '../../../components/ResponsiveImage';
+import {
   sendChatMessageStreaming,
   type ChatProduct,
   type ChatResponse,
+  type OrchestrationPattern,
   type ResponseMode,
 } from '../../../services/chat';
-import { imageSrc } from '../../../utils/assetPath';
-import { PellierLabsMasthead } from './PellierLabsMasthead';
+import LabsCuratedTurns from './LabsCuratedTurns';
+import {
+  OPERATOR_TURNS,
+} from '../../../data/personaCurations';
+import './LabsIndex.css';
 import './PellierLabsWorkbench.css';
 
-type RunStatus = 'idle' | 'running' | 'complete' | 'error';
-type StepKind = 'routing' | 'memory' | 'guardrail' | 'agent' | 'tool' | 'sql';
+export type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 
-const QUERY_SUGGESTIONS: Record<string, string[]> = {
-  anonymous: [
-    'Find a resort-ready linen shirt under $200',
-    'Show me a thoughtful housewarming gift under $100',
-    'Is the Italian Linen Camp Shirt available in Brooklyn?',
-  ],
-  marco: [
-    'Build a resort edit around the linen pieces I already own',
-    'Which travel-ready shirt best fits my preferences under $250?',
-    'Is the Italian Linen Camp Shirt available in Brooklyn?',
-  ],
-  anna: [
-    'Find a housewarming gift under $100 that feels special',
-    'What would pair well with gifts I have bought before?',
-    'Show me ready-to-give pieces under $150',
-  ],
-  theo: [
-    'Recommend durable ceramics that fit my slow-craft preferences',
-    'How should I care for the stoneware I bought?',
-    'What is the return policy for a damaged Wabi-Sabi Bowl?',
-  ],
-};
-
-interface DbQuery {
-  op?: string;
-  table?: string;
-  sql?: string;
-  duration_ms?: number;
-}
+type StepKind =
+  | 'routing'
+  | 'memory'
+  | 'guardrail'
+  | 'agent'
+  | 'tool'
+  | 'sql';
 
 interface JourneyStep {
   id: string;
@@ -70,6 +59,28 @@ interface JourneyStep {
   source?: string;
   meta?: string;
   sql?: string;
+}
+
+/**
+ * Step kinds in the order a turn normally emits them. Used only for the empty
+ * and pending skeleton, never presented as evidence that anything ran.
+ */
+const TRACE_SKELETON: StepKind[] = [
+  'routing',
+  'memory',
+  'guardrail',
+  'agent',
+  'tool',
+  'sql',
+];
+
+const TRACE_LINE_TOP = 28;
+
+interface DbQuery {
+  op?: string;
+  table?: string;
+  sql?: string;
+  duration_ms?: number;
 }
 
 interface StreamEvent {
@@ -96,6 +107,10 @@ interface StreamEvent {
   };
   memory?: {
     source?: string;
+    customer_id?: string;
+    facts_loaded?: number;
+    orders_loaded?: number;
+    applied?: boolean;
     turns_loaded?: number;
     turns_persisted?: number;
     namespace_scope?: string;
@@ -131,12 +146,29 @@ interface StreamEvent {
   };
 }
 
+interface ProfileContextReceipt {
+  source?: string;
+  customer_id?: string | null;
+  facts_available?: number;
+  facts_loaded?: number;
+  orders_available?: number;
+  orders_loaded?: number;
+  available?: boolean;
+  applied?: boolean;
+}
+
 interface IntentSignal {
   intent: string;
   classifier: string;
   responseMode: ResponseMode;
   modelFamily: 'opus' | 'sonnet';
   modelId: string;
+}
+
+interface VerifiedClaim {
+  id: string;
+  title: string;
+  detail: string;
 }
 
 function reconcileAgentResponse(current: string, candidate?: string): string {
@@ -217,6 +249,62 @@ function productsForResponse(
   ];
 }
 
+function LabsProductCard({
+  product,
+  role,
+}: {
+  product: ChatProduct;
+  role: 'best-match' | 'pairing';
+}) {
+  return (
+    <article className="pellier-labs-product" data-product-role={role}>
+      <div className="pellier-labs-product-media">
+        {product.image ? (
+          <ResponsiveImage
+            src={product.image}
+            alt={product.name}
+            loading="lazy"
+            decoding="async"
+            sizes={
+              role === 'best-match'
+                ? '(max-width: 560px) 112px, (max-width: 959px) 44vw, 220px'
+                : '(max-width: 560px) 90vw, (max-width: 959px) 44vw, 190px'
+            }
+          />
+        ) : (
+          <span aria-hidden="true">
+            {product.name.charAt(0).toUpperCase()}
+          </span>
+        )}
+      </div>
+      <div className="pellier-labs-product-copy">
+        <small>{product.category || 'Catalog result'}</small>
+        <h4>{product.name}</h4>
+        <strong className="pellier-labs-product-price">
+          ${product.price.toFixed(2)}
+        </strong>
+        <dl className="pellier-labs-product-evidence">
+          {product.similarityScore !== undefined ? (
+            <div>
+              <dt>Similarity</dt>
+              <dd>{product.similarityScore.toFixed(3)}</dd>
+            </div>
+          ) : null}
+          {product.rating ? (
+            <div>
+              <dt>Rating</dt>
+              <dd>
+                {product.rating.toFixed(1)}
+                {product.reviews ? ` (${product.reviews})` : ''}
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
+    </article>
+  );
+}
+
 function formatElapsed(elapsedMs: number): string {
   if (elapsedMs < 1000) return `${Math.max(0, Math.round(elapsedMs))} ms`;
   return `${(elapsedMs / 1000).toFixed(1)} s`;
@@ -229,11 +317,45 @@ function statusLabel(status: RunStatus): string {
   return 'Ready';
 }
 
-function statusForMasthead(status: RunStatus): string {
-  if (status === 'running') return 'Agent running';
-  if (status === 'complete') return 'Live run complete';
-  if (status === 'error') return 'Run needs attention';
-  return 'Live execution ready';
+function runProofSummary(
+  runStatus: RunStatus,
+  activeTurn: number | null,
+  activeQuery: string | null,
+  eventCount: number,
+  agentCount: number,
+  sqlCount: number,
+  productCount: number,
+): { label: string; summary: string } {
+  const turnLabel = activeTurn === null ? 'This turn' : `Turn ${activeTurn + 1}`;
+
+  if (runStatus === 'running') {
+    return {
+      label: `Following ${turnLabel.toLowerCase()}`,
+      summary: activeQuery ?? 'Waiting for the first emitted event.',
+    };
+  }
+  if (runStatus === 'complete') {
+    return {
+      label: 'Evidence captured',
+      summary: `${eventCount} ${eventCount === 1 ? 'event' : 'events'}. ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}. ${sqlCount} SQL ${sqlCount === 1 ? 'query' : 'queries'}. ${productCount} ${productCount === 1 ? 'product' : 'products'}.`,
+    };
+  }
+  if (runStatus === 'error') {
+    return {
+      label: `${turnLabel} needs attention`,
+      summary: 'The stream stopped before the evidence trail completed.',
+    };
+  }
+  return {
+    label: 'Ready to inspect',
+    summary: 'Choose one of five canonical shopper turns.',
+  };
+}
+
+/** Metrics read "-" before a run so an untouched page shows no false zeroes. */
+function metricValue(status: RunStatus, value: number | string): string {
+  if (status === 'idle') return '-';
+  return String(value);
 }
 
 function iconForStep(kind: StepKind) {
@@ -247,6 +369,8 @@ function iconForStep(kind: StepKind) {
 
 function patternLabel(pattern: string): string {
   if (pattern === 'dispatcher') return 'Dispatcher';
+  if (pattern === 'agents_as_tools') return 'Agents-as-Tools';
+  if (pattern === 'graph') return 'Graph';
   return pattern ? 'Unexpected pattern' : 'Server selected';
 }
 
@@ -269,10 +393,41 @@ function labelRail(rail: string): string {
   return rail || 'Server selected';
 }
 
+function modelDisplayName(
+  family: IntentSignal['modelFamily'],
+  modelId: string,
+): string {
+  const familyLabel = family === 'opus' ? 'Opus' : 'Sonnet';
+  const version = modelId
+    .match(/claude-(?:opus|sonnet)-([0-9]+(?:-[0-9]+)?)/i)?.[1]
+    ?.replace('-', '.');
+  return `Claude ${familyLabel}${version ? ` ${version}` : ''}`;
+}
+
+/** Format only the displayed receipt; the captured SQL remains untouched. */
+function formatSqlForDisplay(sql: string): string {
+  return sql
+    .trim()
+    .replace(
+      /\s+(FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|OFFSET|RETURNING)\s+/gi,
+      '\n$1 ',
+    )
+    .replace(/\s+(AND|OR)\s+/gi, '\n  $1 ');
+}
+
+function sqlBindingCount(sql: string): number {
+  return sql.match(/%s|\$\d+/g)?.length ?? 0;
+}
+
 export default function PellierLabsWorkbench() {
   const { persona } = usePersona();
-  const personaId = persona?.id ?? 'anonymous';
-  const [query, setQuery] = useState('');
+  const reduceMotion = useReducedMotion();
+  const personaId = persona?.id ?? 'fresh';
+  const [activeTurn, setActiveTurn] = useState<number | null>(null);
+  const [activeOperatorTurn, setActiveOperatorTurn] = useState<number | null>(
+    null,
+  );
+  const [activeQuery, setActiveQuery] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunStatus>('idle');
   const [steps, setSteps] = useState<JourneyStep[]>([]);
   const [products, setProducts] = useState<ChatProduct[]>([]);
@@ -281,6 +436,8 @@ export default function PellierLabsWorkbench() {
   const [runError, setRunError] = useState<string | null>(null);
   const [responseMode, setResponseMode] =
     useState<ResponseMode>('balanced');
+  const [orchestrationPattern, setOrchestrationPattern] =
+    useState<OrchestrationPattern>('dispatcher');
   const [profileEnabled, setProfileEnabled] = useState(Boolean(persona));
   const [guardrailsEnabled, setGuardrailsEnabled] = useState(false);
   const [traceVisible, setTraceVisible] = useState(true);
@@ -288,11 +445,17 @@ export default function PellierLabsWorkbench() {
   const [executionRail, setExecutionRail] = useState('Server selected');
   const [executionPattern, setExecutionPattern] = useState<string | null>(null);
   const [executionRoute, setExecutionRoute] = useState<string | null>(null);
+  const [copiedSqlId, setCopiedSqlId] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const eventSequenceRef = useRef(0);
+  const traceListRef = useRef<HTMLOListElement | null>(null);
+  const currentTraceStepRef = useRef<HTMLLIElement | null>(null);
+  const [traceLineHeight, setTraceLineHeight] = useState(0);
 
   useEffect(() => {
-    setQuery('');
+    setActiveTurn(null);
+    setActiveOperatorTurn(null);
+    setActiveQuery(null);
     setRunStatus('idle');
     setSteps([]);
     setProducts([]);
@@ -304,6 +467,7 @@ export default function PellierLabsWorkbench() {
     setExecutionRail('Server selected');
     setExecutionPattern(null);
     setExecutionRoute(null);
+    setCopiedSqlId(null);
   }, [personaId]);
 
   useEffect(() => {
@@ -373,28 +537,32 @@ export default function PellierLabsWorkbench() {
             : '',
         ]
           .filter(Boolean)
-          .join(' · '),
+          .join(' / '),
       },
     ]);
   };
 
   const addAuroraProfileStep = (event: StreamEvent) => {
-    const profile = event.profile ?? {};
-    const facts = profile.facts_available ?? 0;
-    const orders = profile.orders_available ?? 0;
+    const profile: ProfileContextReceipt = event.profile ?? event.memory ?? {};
+    const facts = profile.facts_available ?? profile.facts_loaded ?? 0;
+    const orders = profile.orders_available ?? profile.orders_loaded ?? 0;
+    const live = profile.source === 'aurora';
+    const available =
+      profile.available ?? (live && profile.applied !== false);
+    const legacyMemoryEvent = !event.profile;
     setSteps((current) => [
       ...current,
       {
-        id: `profile-${eventSequenceRef.current++}`,
+        id: `memory-${eventSequenceRef.current++}`,
         kind: 'memory',
         title: 'Aurora profile context',
-        detail: profile.available
-          ? `${facts} profile ${facts === 1 ? 'fact' : 'facts'} and ${orders} past ${orders === 1 ? 'order' : 'orders'} available`
-          : 'No verified Aurora customer profile was applied',
-        status: profile.available ? 'completed' : 'unavailable',
+        detail: live && available
+          ? `${facts} profile ${facts === 1 ? 'fact' : 'facts'} and ${orders} past ${orders === 1 ? 'order' : 'orders'} ${legacyMemoryEvent ? 'loaded' : 'available'}`
+          : 'No live Aurora profile context was available for this turn',
+        status: live && available ? 'completed' : 'unavailable',
         meta: [profile.source || 'unavailable', profile.customer_id || '']
           .filter(Boolean)
-          .join(' · '),
+          .join(' / '),
       },
     ]);
   };
@@ -423,7 +591,7 @@ export default function PellierLabsWorkbench() {
           writeFailed ? 'do not repeat the action' : '',
         ]
           .filter(Boolean)
-          .join(' · '),
+          .join(' / '),
       },
     ]);
   };
@@ -445,7 +613,7 @@ export default function PellierLabsWorkbench() {
           guardrail.mode || 'configured',
           guardrail.action || 'NONE',
           guardrail.enforced ? 'enforced' : 'inspect only',
-        ].join(' · '),
+        ].join(' / '),
       },
     ]);
   };
@@ -463,8 +631,8 @@ export default function PellierLabsWorkbench() {
         kind: 'sql' as const,
         title: [queryItem.op?.toUpperCase(), queryItem.table]
           .filter(Boolean)
-          .join(' · ') || 'Database query',
-        detail: 'SQL captured during this live turn',
+          .join(' / ') || 'Database query',
+        detail: 'Aurora emitted a query receipt with source and timing metadata',
         status: 'completed',
         meta:
           queryItem.duration_ms !== undefined
@@ -477,6 +645,7 @@ export default function PellierLabsWorkbench() {
 
   const handleStreamEvent = (rawEvent: unknown) => {
     const event = rawEvent as StreamEvent;
+
     if (event.type === 'content_reset') {
       setAgentResponse('');
     } else if (event.type === 'content_delta' && event.delta) {
@@ -502,7 +671,10 @@ export default function PellierLabsWorkbench() {
       });
     } else if (event.type === 'skill_routing') {
       addRoutingStep(event);
-    } else if (event.type === 'aurora_profile_context') {
+    } else if (
+      event.type === 'memory_context' ||
+      event.type === 'aurora_profile_context'
+    ) {
       addAuroraProfileStep(event);
     } else if (event.type === 'agentcore_memory') {
       addAgentCoreMemoryStep(event);
@@ -539,11 +711,21 @@ export default function PellierLabsWorkbench() {
     }
   };
 
-  const runAgent = async (queryOverride?: string) => {
-    const request = (queryOverride ?? query).trim();
+  /**
+   * Run one curated turn. `request` always comes from personaCurations, so the
+   * string the agent receives is the same one the storefront would send.
+   */
+  const runAgent = async (
+    curatedQuery: string,
+    turnIndex: number | null,
+    operatorTurnIndex: number | null = null,
+  ) => {
+    const request = curatedQuery.trim();
     if (!request || runStatus === 'running') return;
 
-    setQuery(request);
+    setActiveTurn(turnIndex);
+    setActiveOperatorTurn(operatorTurnIndex);
+    setActiveQuery(request);
     eventSequenceRef.current = 0;
     startedAtRef.current = Date.now();
     setRunStatus('running');
@@ -556,6 +738,7 @@ export default function PellierLabsWorkbench() {
     setExecutionRail('Server selected');
     setExecutionPattern(null);
     setExecutionRoute(null);
+    setCopiedSqlId(null);
 
     try {
       const response: ChatResponse = await sendChatMessageStreaming(
@@ -564,8 +747,10 @@ export default function PellierLabsWorkbench() {
         handleStreamEvent,
         undefined,
         guardrailsEnabled,
-        profileEnabled ? persona?.customer_id ?? null : null,
-        'dispatcher',
+        operatorTurnIndex === null && profileEnabled
+          ? persona?.customer_id ?? null
+          : null,
+        orchestrationPattern,
         responseMode,
       );
       if (response.response) {
@@ -604,449 +789,891 @@ export default function PellierLabsWorkbench() {
   ).size;
   const sqlCount = steps.filter((step) => step.kind === 'sql').length;
   const personaLabel = persona?.display_name ?? 'Anonymous';
-  const querySuggestions =
-    QUERY_SUGGESTIONS[personaId] ?? QUERY_SUGGESTIONS.anonymous;
   const orderedProducts = productsForResponse(products, agentResponse);
+  const bestMatch = orderedProducts[0];
+  const curatedPairings = orderedProducts.slice(1, 3);
+  const displayedProductCount =
+    (bestMatch ? 1 : 0) + curatedPairings.length;
+  const currentStepId =
+    runStatus === 'running' && steps.length
+      ? steps[steps.length - 1].id
+      : null;
+
+  useEffect(() => {
+    const currentStep = currentTraceStepRef.current;
+    if (!currentStepId || !currentStep?.scrollIntoView) return;
+    currentStep.scrollIntoView({
+      block: 'nearest',
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    });
+  }, [currentStepId, reduceMotion]);
+
+  useLayoutEffect(() => {
+    const list = traceListRef.current;
+    const latestStep = currentTraceStepRef.current;
+
+    if (!steps.length || !list || !latestStep) {
+      setTraceLineHeight(0);
+      return undefined;
+    }
+
+    const measure = () => {
+      const listRect = list.getBoundingClientRect();
+      const stepRect = latestStep.getBoundingClientRect();
+      const nextHeight =
+        stepRect.bottom - listRect.top - TRACE_LINE_TOP - 10;
+      setTraceLineHeight(Math.max(0, nextHeight));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [currentStepId, steps.length]);
+
+  const verifiedClaims: VerifiedClaim[] = [];
+  const latestSqlStep = [...steps]
+    .reverse()
+    .find((step) => step.kind === 'sql');
+  if (sqlCount) {
+    verifiedClaims.push({
+      id: 'sql',
+      title: `${sqlCount} database ${sqlCount === 1 ? 'lookup' : 'lookups'} captured`,
+      detail: [latestSqlStep?.title, latestSqlStep?.meta]
+        .filter(Boolean)
+        .join(' / '),
+    });
+  }
+  if (bestMatch) {
+    const productContext = [
+      bestMatch.category,
+      bestMatch.price > 0 ? `$${bestMatch.price.toFixed(2)}` : '',
+    ]
+      .filter(Boolean)
+      .join(' / ');
+    verifiedClaims.push({
+      id: 'products',
+      title:
+        products.length === 1
+          ? `${bestMatch.name} returned by the live turn`
+          : `${bestMatch.name} and ${products.length - 1} more returned`,
+      detail: productContext || 'Grounded catalog evidence from this turn.',
+    });
+  }
+  if (executionPattern) {
+    verifiedClaims.push({
+      id: 'route',
+      title: `${patternLabel(executionPattern)} route`,
+      detail: executionRoute
+        ? `Completed through ${labelIntent(executionRoute)}.`
+        : `Completed through ${executionRail}.`,
+    });
+  }
+
+  const proofSummary = runProofSummary(
+    runStatus,
+    activeTurn,
+    activeQuery,
+    steps.length,
+    agentCount,
+    sqlCount,
+    products.length,
+  );
+
+  const copySql = async (step: JourneyStep) => {
+    if (!step.sql || !navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(step.sql);
+      setCopiedSqlId(step.id);
+    } catch {
+      setCopiedSqlId(null);
+    }
+  };
 
   return (
-    <div className="pellier-labs-workbench">
-      <div className="pellier-labs-workbench-inner">
-        <PellierLabsMasthead
-          eyebrow="Live inspection"
-          title="Pellier Labs"
-          deck="Send a request to the live agent, then inspect the tool path, database evidence, and returned catalog result."
-          status={statusForMasthead(runStatus)}
-        />
-
-        <div className="pellier-labs-workbench-grid">
-          <aside
-            className="pellier-labs-task-panel"
-            aria-label="Live agent task"
+    <div className="pellier-labs-workbench labs-index">
+      <h1 className="pellier-labs-page-title">
+        Follow one shopper request through routing, retrieval, and its grounded
+        answer.
+      </h1>
+      <div className="labs-index-inner">
+        <div className="pellier-labs-workbench-grid" aria-label="Live agent run">
+          <motion.aside
+            className="pellier-labs-input-panel"
+            data-motion-panel="requests"
+            aria-label="Guided requests and run settings"
+            initial={
+              reduceMotion
+                ? false
+                : {
+                    opacity: 0,
+                    clipPath: 'inset(0 100% 0 0 round 14px)',
+                  }
+            }
+            animate={{ opacity: 1, clipPath: 'inset(0 0 0 0 round 14px)' }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.46,
+              ease: [0.16, 1, 0.3, 1],
+            }}
           >
-            <div className="pellier-labs-panel-heading">
-              <span aria-hidden="true">
-                <Activity size={17} />
-              </span>
-              <div>
-                <small>Live request</small>
-                <h2>Run a turn</h2>
-              </div>
-            </div>
-
-            <label className="pellier-labs-field-label" htmlFor="labs-query">
-              Shopper request
-            </label>
-            <textarea
-              id="labs-query"
-              value={query}
-              placeholder="Ask Pellier for a product, recommendation, stock check, or support action."
-              disabled={runStatus === 'running'}
-              onChange={(event) => setQuery(event.target.value)}
-              rows={5}
+            <LabsCuratedTurns
+              personaId={personaId}
+              personaLabel={personaLabel}
+              running={runStatus === 'running'}
+              activeIndex={activeTurn}
+              orchestrationPattern={orchestrationPattern}
+              onInspect={(curatedQuery, index) => {
+                void runAgent(curatedQuery, index, null);
+              }}
             />
 
-            <div className="pellier-labs-query-prompts">
-              <span>Try a live query</span>
-              <div>
-                {querySuggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    disabled={runStatus === 'running'}
-                    onClick={() => void runAgent(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <section
-              className="pellier-labs-agent-config"
-              aria-labelledby="agent-config-title"
-            >
-              <div className="pellier-labs-config-heading">
-                <SlidersHorizontal size={14} aria-hidden="true" />
-                <h3 id="agent-config-title">Agent configuration</h3>
-              </div>
-
-              <div className="pellier-labs-fixed-config">
+            <details className="pellier-labs-advanced">
+              <summary>
                 <span>
-                  <Workflow size={13} aria-hidden="true" />
-                  Orchestration
-                </span>
-                <strong>Dispatcher</strong>
-              </div>
-
-              <fieldset>
-                <legend>Response mode</legend>
-                <div className="pellier-labs-segmented" data-columns="3">
-                  {(['balanced', 'editorial', 'fast'] as ResponseMode[]).map(
-                    (mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        aria-pressed={responseMode === mode}
-                        disabled={runStatus === 'running'}
-                        onClick={() => setResponseMode(mode)}
-                      >
-                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                      </button>
-                    ),
-                  )}
-                </div>
-                <p className="pellier-labs-mode-note">
-                  {responseMode === 'balanced'
-                    ? 'Opus for editorial specialists; Sonnet for reporting.'
-                    : responseMode === 'editorial'
-                      ? 'Claude Opus 5 composes the specialist response.'
-                      : 'Claude Sonnet 5 composes the specialist response.'}
-                </p>
-              </fieldset>
-
-              <div className="pellier-labs-switches">
-                <label>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={profileEnabled}
-                    disabled={!persona || runStatus === 'running'}
-                    onChange={(event) => setProfileEnabled(event.target.checked)}
-                  />
-                  <span className="pellier-labs-switch-track" aria-hidden="true" />
+                  <SlidersHorizontal size={15} aria-hidden="true" />
                   <span>
-                    <strong>Aurora profile context</strong>
-                    <small>
-                      {persona
-                        ? `Use the signed-in shopper's Aurora profile`
-                        : 'Select a persona to enable'}
-                    </small>
+                    <strong>Advanced run settings</strong>
+                    <small>Response mode, profile, safety, and trace</small>
                   </span>
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={guardrailsEnabled}
-                    disabled={runStatus === 'running'}
-                    onChange={(event) =>
-                      setGuardrailsEnabled(event.target.checked)
-                    }
-                  />
-                  <span className="pellier-labs-switch-track" aria-hidden="true" />
-                  <span>
-                    <strong>Input safety inspection</strong>
-                    <small>Observe the configured pre-run evaluation</small>
-                  </span>
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={traceVisible}
-                    onChange={(event) => setTraceVisible(event.target.checked)}
-                  />
-                  <span className="pellier-labs-switch-track" aria-hidden="true" />
-                  <span>
-                    <strong>Live trace visibility</strong>
-                    <small>Show emitted agent, tool, and SQL events</small>
-                  </span>
-                </label>
-              </div>
-            </section>
-
-            <dl className="pellier-labs-session-facts">
-              <div>
-                <dt>Persona</dt>
-                <dd>{personaLabel}</dd>
-              </div>
-              <div>
-                <dt>Rail</dt>
-                <dd>{executionRail}</dd>
-              </div>
-              <div>
-                <dt>Pattern</dt>
-                <dd>
-                  {patternLabel(executionPattern ?? 'dispatcher')}
-                  {executionRoute ? ` · ${labelIntent(executionRoute)}` : ''}
-                </dd>
-              </div>
-            </dl>
-
-            <button
-              type="button"
-              className="pellier-labs-run-agent"
-              onClick={() => void runAgent()}
-              disabled={!query.trim() || runStatus === 'running'}
-            >
-              {runStatus === 'running' ? (
-                <Loader2 className="spin" size={17} aria-hidden="true" />
-              ) : (
-                <Play size={16} fill="currentColor" aria-hidden="true" />
-              )}
-              {runStatus === 'running' ? 'Agent running' : 'Run agent'}
-            </button>
-
-            <p className="pellier-labs-provenance">
-              <Activity size={13} aria-hidden="true" />
-              <span>
-                Live SSE from <code>/api/chat/stream</code>. Every event below
-                comes from this turn.
-              </span>
-            </p>
-          </aside>
-
-          <section
-            className="pellier-labs-trace-panel"
-            aria-labelledby="live-journey-title"
-          >
-            <div className="pellier-labs-section-heading">
-              <div>
-                <span aria-hidden="true">
-                  <Bot size={17} />
                 </span>
-                <div>
-                  <small>Execution</small>
-                  <h2 id="live-journey-title">Live Agent Journey</h2>
-                </div>
-              </div>
-              <span
-                className="pellier-labs-live-state"
-                data-status={runStatus}
-              >
-                <span aria-hidden="true" />
-                {statusLabel(runStatus)}
-              </span>
-            </div>
+                <ChevronDown
+                  className="pellier-labs-advanced-chevron"
+                  size={16}
+                  aria-hidden="true"
+                />
+              </summary>
 
-            {traceVisible && intentSignal ? (
-              <div className="pellier-labs-intent-signal" role="status">
-                <span aria-hidden="true">
-                  <Workflow size={16} />
-                </span>
-                <div>
-                  <small>Intent signal</small>
-                  <strong>{labelIntent(intentSignal.intent)}</strong>
-                  <em>
-                    {intentSignal.classifier} classifier
-                    {intentSignal.modelId
-                      ? ` · ${intentSignal.modelId}`
-                      : ''}
-                  </em>
-                </div>
-                <div>
-                  <small>Response</small>
-                  <strong>
-                    Claude {intentSignal.modelFamily === 'opus' ? 'Opus' : 'Sonnet'} 5
-                  </strong>
-                  <em>{labelIntent(intentSignal.responseMode)} mode</em>
-                </div>
-              </div>
-            ) : null}
-
-            {runError ? (
-              <div className="pellier-labs-error" role="alert">
-                <strong>Agent run did not complete</strong>
-                <p>{runError}</p>
-              </div>
-            ) : null}
-
-            {!traceVisible ? (
-              <div className="pellier-labs-idle-state">
-                <Eye size={24} aria-hidden="true" />
-                <strong>Live journey hidden</strong>
-                <p>Turn on live trace visibility to inspect emitted events.</p>
-              </div>
-            ) : steps.length ? (
-              <ol className="pellier-labs-trace-list">
-                {steps.map((step, index) => (
-                  <li
-                    key={step.id}
-                    className="pellier-labs-trace-step"
-                    data-kind={step.kind}
-                  >
-                    <span className="pellier-labs-trace-index">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <div className="pellier-labs-trace-content">
-                      <div className="pellier-labs-trace-kicker">
-                        <span>
-                          {iconForStep(step.kind)}
-                          {step.kind}
-                        </span>
-                        <em>{step.status.replace('_', ' ')}</em>
-                      </div>
-                      <h3>{step.title}</h3>
-                      <p>{step.detail}</p>
-                      {step.meta ? <small>{step.meta}</small> : null}
-                      {step.sql ? (
-                        <pre
-                          className="pellier-labs-sql"
-                          aria-label="Captured SQL"
+              <div className="pellier-labs-advanced-content">
+                <section
+                  className="pellier-labs-agent-config"
+                  aria-label="Agent configuration"
+                >
+                  <fieldset>
+                    <legend>Orchestration pattern</legend>
+                    <ToggleGroup
+                      type="single"
+                      value={orchestrationPattern}
+                      aria-label="Orchestration pattern"
+                      className="pellier-labs-segmented"
+                      data-columns="3"
+                      onValueChange={(value) => {
+                        if (value) {
+                          setOrchestrationPattern(
+                            value as OrchestrationPattern,
+                          );
+                        }
+                      }}
+                    >
+                      {(
+                        [
+                          'dispatcher',
+                          'graph',
+                          'agents_as_tools',
+                        ] as OrchestrationPattern[]
+                      ).map((pattern) => (
+                        <ToggleGroupItem
+                          key={pattern}
+                          value={pattern}
+                          aria-label={patternLabel(pattern)}
+                          disabled={runStatus === 'running'}
                         >
-                          <code>{step.sql}</code>
-                        </pre>
-                      ) : null}
+                          {patternLabel(pattern)}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                    <p className="pellier-labs-mode-note">
+                      {orchestrationPattern === 'dispatcher'
+                        ? 'Deterministic intent routing to one specialist.'
+                        : orchestrationPattern === 'graph'
+                          ? 'GraphBuilder routes through a conditional specialist edge.'
+                          : 'A Sonnet supervisor invokes specialists as tools.'}
+                    </p>
+                  </fieldset>
+
+                  <fieldset>
+                    <legend>Response mode</legend>
+                    <ToggleGroup
+                      type="single"
+                      value={responseMode}
+                      aria-label="Response mode"
+                      className="pellier-labs-segmented"
+                      data-columns="3"
+                      onValueChange={(value) => {
+                        if (value) setResponseMode(value as ResponseMode);
+                      }}
+                    >
+                      {(['balanced', 'editorial', 'fast'] as ResponseMode[]).map(
+                        (mode) => (
+                          <ToggleGroupItem
+                            key={mode}
+                            value={mode}
+                            aria-label={
+                              mode.charAt(0).toUpperCase() + mode.slice(1)
+                            }
+                            disabled={runStatus === 'running'}
+                          >
+                            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                          </ToggleGroupItem>
+                        ),
+                      )}
+                    </ToggleGroup>
+                    <p className="pellier-labs-mode-note">
+                      {responseMode === 'balanced'
+                        ? 'Opus for editorial specialists; Sonnet for reporting.'
+                        : responseMode === 'editorial'
+                          ? 'Claude Opus 4.8 composes the specialist response.'
+                          : 'Claude Sonnet 5 composes the specialist response.'}
+                    </p>
+                  </fieldset>
+
+                  <div className="pellier-labs-switches">
+                    <div>
+                      <Switch
+                        id="labs-profile-context"
+                        checked={profileEnabled}
+                        disabled={!persona || runStatus === 'running'}
+                        onCheckedChange={setProfileEnabled}
+                        aria-label="Aurora profile context"
+                      />
+                      <label htmlFor="labs-profile-context">
+                        <strong>Aurora profile context</strong>
+                        <small>
+                          {persona
+                            ? `Use ${persona.display_name}'s live Aurora profile`
+                            : 'Select a persona to enable'}
+                        </small>
+                      </label>
                     </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="pellier-labs-idle-state">
-                {runStatus === 'running' ? (
-                  <Loader2 className="spin" size={24} aria-hidden="true" />
-                ) : (
-                  <Activity size={24} aria-hidden="true" />
-                )}
-                <strong>
-                  {runStatus === 'running'
-                    ? 'Waiting for the first agent event'
-                    : 'Ready for a live journey'}
-                </strong>
-                <p>
-                  Run the selected request to inspect events emitted by the
-                  active agent path.
+                    <div>
+                      <Switch
+                        id="labs-safety-inspection"
+                        checked={guardrailsEnabled}
+                        disabled={runStatus === 'running'}
+                        onCheckedChange={setGuardrailsEnabled}
+                        aria-label="Input safety inspection"
+                      />
+                      <label htmlFor="labs-safety-inspection">
+                        <strong>Input safety inspection</strong>
+                        <small>Observe the configured pre-run evaluation</small>
+                      </label>
+                    </div>
+                    <div>
+                      <Switch
+                        id="labs-trace-visibility"
+                        checked={traceVisible}
+                        onCheckedChange={setTraceVisible}
+                        aria-label="Live trace visibility"
+                      />
+                      <label htmlFor="labs-trace-visibility">
+                        <strong>Live trace visibility</strong>
+                        <small>Show emitted agent, tool, and SQL events</small>
+                      </label>
+                    </div>
+                  </div>
+
+                  <fieldset className="pellier-labs-operator-runs">
+                    <legend>Operator runs</legend>
+                    <p>
+                      Inventory operations stay separate from shopper
+                      personas. Writes run only through Dispatcher.
+                    </p>
+                    <div>
+                      {OPERATOR_TURNS.map((turn, index) => {
+                        const blocked =
+                          turn.access === 'write' &&
+                          orchestrationPattern !== 'dispatcher';
+                        const active = activeOperatorTurn === index;
+                        return (
+                          <button
+                            key={turn.id}
+                            type="button"
+                            className="pellier-labs-operator-run"
+                            data-access={turn.access}
+                            data-active={active ? 'true' : undefined}
+                            disabled={runStatus === 'running' || blocked}
+                            title={
+                              blocked
+                                ? 'Select Dispatcher to run a write operation.'
+                                : undefined
+                            }
+                            onClick={() => {
+                              void runAgent(turn.query, null, index);
+                            }}
+                          >
+                            <span aria-hidden="true">
+                              {turn.access === 'write' ? (
+                                <PackagePlus size={15} />
+                              ) : (
+                                <Boxes size={15} />
+                              )}
+                            </span>
+                            <span>
+                              <strong>{turn.label}</strong>
+                              <small>{turn.query}</small>
+                            </span>
+                            <Badge
+                              variant={
+                                turn.access === 'write'
+                                  ? 'warning'
+                                  : 'neutral'
+                              }
+                            >
+                              {turn.access}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                </section>
+
+                <dl className="pellier-labs-session-facts">
+                  <div>
+                    <dt>Persona</dt>
+                    <dd>{personaLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Rail</dt>
+                    <dd>{executionRail}</dd>
+                  </div>
+                  <div>
+                    <dt>Pattern</dt>
+                    <dd>
+                      {patternLabel(
+                        executionPattern ?? orchestrationPattern,
+                      )}
+                      {executionRoute ? ` / ${labelIntent(executionRoute)}` : ''}
+                    </dd>
+                  </div>
+                </dl>
+
+                <p className="pellier-labs-provenance">
+                  <Activity size={13} aria-hidden="true" />
+                  <span>
+                    Live SSE from <code>/api/chat/stream</code>. Every event below
+                    comes from this turn.
+                  </span>
                 </p>
               </div>
-            )}
-          </section>
+            </details>
+          </motion.aside>
 
-          <aside
-            className="pellier-labs-results-panel"
-            aria-labelledby="live-result-title"
+          <motion.section
+            className="pellier-labs-trace-panel"
+            data-motion-panel="trace"
+            aria-labelledby="live-journey-title"
+            initial={
+              reduceMotion
+                ? false
+                : {
+                    opacity: 0,
+                    clipPath: 'inset(0 0 100% 0 round 14px)',
+                  }
+            }
+            animate={{ opacity: 1, clipPath: 'inset(0 0 0 0 round 14px)' }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.46,
+              delay: reduceMotion ? 0 : 0.07,
+              ease: [0.16, 1, 0.3, 1],
+            }}
           >
             <div className="pellier-labs-section-heading">
               <div>
-                <span aria-hidden="true">
-                  <ShoppingBag size={17} />
-                </span>
-                <div>
-                  <small>Output</small>
-                  <h2 id="live-result-title">Live Result</h2>
-                </div>
+                <h2 id="live-journey-title">Evidence ledger</h2>
+                <p>
+                  {activeQuery ??
+                    'Real-time lineage of routing, memory, tools, and data.'}
+                </p>
               </div>
-            </div>
-
-            <div className="pellier-labs-agent-response">
-              <div>
-                {products.length ? (
-                  <Sparkles size={14} aria-hidden="true" />
-                ) : runStatus === 'complete' ? (
-                  <CheckCircle2 size={14} aria-hidden="true" />
-                ) : (
-                  <Bot size={14} aria-hidden="true" />
-                )}
-                {products.length ? 'Top pick' : 'Agent response'}
-              </div>
-              <p>
-                {agentResponse ||
-                  (runStatus === 'running'
-                    ? 'The response will appear here as the agent streams.'
-                    : 'Run a journey to receive the live agent response.')}
-              </p>
-            </div>
-
-            {products.length ? (
-              <div className="pellier-labs-catalog-edit">
-                <div className="pellier-labs-catalog-heading">
-                  <div>
-                    <small>Live catalog edit</small>
-                    <strong>
-                      {products.length} {products.length === 1 ? 'piece' : 'pieces'}
-                    </strong>
-                  </div>
-                  <span>From this turn</span>
-                </div>
-                <div className="pellier-labs-products">
-                  {orderedProducts.map((product, index) => {
-                    const src = imageSrc(product.image);
-                    return (
-                      <article
-                        className="pellier-labs-product"
-                        key={`${product.id || product.name}-${index}`}
-                      >
-                        <div className="pellier-labs-product-media">
-                          {src ? (
-                            <img src={src} alt={product.name} />
-                          ) : (
-                            <span aria-hidden="true">
-                              {product.name.charAt(0).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="pellier-labs-product-copy">
-                          <small>
-                            {String(index + 1).padStart(2, '0')} /{' '}
-                            {product.category || 'Catalog result'}
-                          </small>
-                          <h3>{product.name}</h3>
-                          {product.rating ? (
-                            <p>
-                              {product.rating.toFixed(1)} rating
-                              {product.reviews
-                                ? ` · ${product.reviews} reviews`
-                                : ''}
-                            </p>
-                          ) : null}
-                        </div>
-                        <strong className="pellier-labs-product-price">
-                          ${product.price.toFixed(2)}
-                        </strong>
-                      </article>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
               <div
-                className="pellier-labs-products-empty"
-                data-status={runStatus}
+                className="pellier-labs-run-summary"
+                role="status"
+                aria-label="Run proof summary"
+                aria-live="polite"
               >
-                {runStatus === 'running' ? (
-                  <Loader2 className="spin" size={21} aria-hidden="true" />
-                ) : (
-                  <ShoppingBag size={21} aria-hidden="true" />
-                )}
-                <div>
-                  <strong>
-                    {runStatus === 'complete'
-                      ? 'No catalog cards attached'
-                      : runStatus === 'running'
-                        ? 'Retrieving the live edit'
-                        : 'Awaiting catalog results'}
-                  </strong>
-                  <span>
-                    {runStatus === 'complete'
-                      ? 'This turn completed without a product result.'
-                      : 'Grounded products from this turn will appear here.'}
-                  </span>
-                </div>
+                <span className="pellier-labs-run-summary-copy">
+                  {proofSummary.label}. {proofSummary.summary}
+                </span>
+                <Badge
+                  variant={
+                    runStatus === 'complete'
+                      ? 'success'
+                      : runStatus === 'error'
+                        ? 'destructive'
+                        : runStatus === 'running'
+                          ? 'warning'
+                          : 'neutral'
+                  }
+                  className="pellier-labs-live-state"
+                  data-status={runStatus}
+                >
+                  {statusLabel(runStatus)}
+                </Badge>
               </div>
-            )}
+            </div>
+
+            <div className="pellier-labs-panel-scroll pellier-labs-ledger-scroll">
+              {traceVisible && intentSignal ? (
+                <section
+                  className="pellier-labs-run-contract"
+                  role="status"
+                  aria-label="Execution context"
+                >
+                  <header>
+                    <div>
+                      <span>Routing decision</span>
+                      <strong>
+                        {labelIntent(intentSignal.intent)} request
+                      </strong>
+                    </div>
+                    <Badge
+                      variant="neutral"
+                      className="pellier-labs-run-mode"
+                    >
+                      {labelIntent(intentSignal.responseMode)} mode
+                    </Badge>
+                  </header>
+                  <dl>
+                    <div>
+                      <dt>Intent</dt>
+                      <dd>{labelIntent(intentSignal.intent)}</dd>
+                    </div>
+                    <div>
+                      <dt>Classifier</dt>
+                      <dd>{labelIntent(intentSignal.classifier)}</dd>
+                    </div>
+                    <div className="pellier-labs-run-contract-model">
+                      <dt>Response model</dt>
+                      <dd>
+                        {modelDisplayName(
+                          intentSignal.modelFamily,
+                          intentSignal.modelId,
+                        )}
+                      </dd>
+                      <code title={intentSignal.modelId}>
+                        {intentSignal.modelId || 'Server default'}
+                      </code>
+                    </div>
+                  </dl>
+                </section>
+              ) : null}
+
+              {runError ? (
+                <div className="pellier-labs-error" role="alert">
+                  <strong>Agent run did not complete</strong>
+                  <p>{runError}</p>
+                  {activeQuery !== null ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void runAgent(
+                          activeQuery,
+                          activeTurn,
+                          activeOperatorTurn,
+                        );
+                      }}
+                    >
+                      <RotateCcw size={13} aria-hidden="true" />
+                      Retry turn
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {!traceVisible ? (
+                <div className="pellier-labs-idle-state">
+                  <Eye size={24} aria-hidden="true" />
+                  <strong>Live trace hidden</strong>
+                  <p>Turn on live trace visibility to inspect emitted events.</p>
+                </div>
+              ) : steps.length ? (
+                <ol
+                  ref={traceListRef}
+                  className="pellier-labs-trace-list"
+                >
+                  <motion.li
+                    key={`${steps[steps.length - 1]?.id ?? 'trace'}-${Math.round(traceLineHeight)}`}
+                    className="pellier-labs-trace-progress"
+                    role="presentation"
+                    aria-hidden="true"
+                    style={{ height: traceLineHeight }}
+                    initial={reduceMotion ? false : {
+                      clipPath: 'inset(0 0 100% 0)',
+                      opacity: 0.8,
+                    }}
+                    animate={{
+                      clipPath: 'inset(0 0 0% 0)',
+                      opacity: traceLineHeight > 0 ? 1 : 0,
+                    }}
+                    transition={{
+                      duration: reduceMotion ? 0 : 0.74,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                  />
+                  {steps.map((step, index) => (
+                    <motion.li
+                      key={step.id}
+                      ref={
+                        index === steps.length - 1
+                          ? currentTraceStepRef
+                          : null
+                      }
+                      className="pellier-labs-trace-step"
+                      data-kind={step.kind}
+                      data-status={step.status}
+                      data-current={
+                        step.id === currentStepId ? 'true' : undefined
+                      }
+                      data-expanded={
+                        step.id === latestSqlStep?.id ? 'true' : undefined
+                      }
+                      initial={
+                        reduceMotion
+                          ? false
+                          : { opacity: 0.72, transform: 'translateY(6px)' }
+                      }
+                      animate={{ opacity: 1, transform: 'translateY(0)' }}
+                      transition={{
+                        duration: reduceMotion ? 0 : 0.28,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
+                    >
+                      <span className="pellier-labs-trace-index">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="pellier-labs-trace-node" aria-hidden="true">
+                        {iconForStep(step.kind)}
+                      </span>
+                      <div className="pellier-labs-trace-content">
+                        <div className="pellier-labs-trace-kicker">
+                          <span>{step.kind}</span>
+                          <em>{step.status.replace('_', ' ')}</em>
+                        </div>
+                        <h3>{step.title}</h3>
+                        <p>{step.detail}</p>
+                        {step.meta ? <small>{step.meta}</small> : null}
+                        {step.sql && step.id === latestSqlStep?.id ? (
+                          <div className="pellier-labs-proof-block">
+                            <div className="pellier-labs-proof-block-heading">
+                              <div>
+                                <span>
+                                  <Database size={14} aria-hidden="true" />
+                                  Aurora SQL receipt
+                                </span>
+                                <strong>{step.title}</strong>
+                              </div>
+                              <button
+                                type="button"
+                                className="pellier-labs-copy-sql"
+                                title={
+                                  copiedSqlId === step.id
+                                    ? 'SQL copied'
+                                    : 'Copy captured SQL'
+                                }
+                                aria-label={
+                                  copiedSqlId === step.id
+                                    ? 'SQL copied'
+                                    : 'Copy captured SQL'
+                                }
+                                onClick={() => {
+                                  void copySql(step);
+                                }}
+                              >
+                                {copiedSqlId === step.id ? (
+                                  <Check size={14} aria-hidden="true" />
+                                ) : (
+                                  <Copy size={14} aria-hidden="true" />
+                                )}
+                              </button>
+                            </div>
+                            <pre
+                              className="pellier-labs-sql"
+                              aria-label="Captured SQL"
+                            >
+                              <code>{formatSqlForDisplay(step.sql)}</code>
+                            </pre>
+                            <dl className="pellier-labs-proof-receipt">
+                              <div>
+                                <dt>Source</dt>
+                                <dd>
+                                  <code>db_queries</code> event
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Duration</dt>
+                                <dd>{step.meta ?? 'Not reported'}</dd>
+                              </div>
+                              <div>
+                                <dt>Bindings</dt>
+                                <dd>
+                                  {sqlBindingCount(step.sql)
+                                    ? `${sqlBindingCount(step.sql)} positional`
+                                    : 'None'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Status</dt>
+                                <dd data-status={step.status}>
+                                  <CheckCircle2
+                                    size={12}
+                                    aria-hidden="true"
+                                  />
+                                  {labelIntent(step.status)}
+                                </dd>
+                              </div>
+                            </dl>
+                          </div>
+                        ) : null}
+                      </div>
+                    </motion.li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="pellier-labs-trace-skeleton">
+                  <p className="pellier-labs-trace-skeleton-note">
+                    {runStatus === 'running'
+                      ? 'Waiting for the first emitted event.'
+                      : 'Select a guided request to populate the live trace.'}
+                  </p>
+                  <ol
+                    className="pellier-labs-trace-list"
+                    data-skeleton="true"
+                    aria-hidden="true"
+                  >
+                    {TRACE_SKELETON.map((kind, index) => (
+                      <li
+                        key={`${kind}-${index}`}
+                        className="pellier-labs-trace-step"
+                        data-kind={kind}
+                        data-status="pending"
+                        data-pending={runStatus === 'running' ? 'true' : undefined}
+                      >
+                        <span className="pellier-labs-trace-index">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <span
+                          className="pellier-labs-trace-node"
+                          aria-hidden="true"
+                        >
+                          {iconForStep(kind)}
+                        </span>
+                        <div className="pellier-labs-trace-content">
+                          <div className="pellier-labs-trace-kicker">
+                            <span>{kind}</span>
+                          </div>
+                          <span className="pellier-labs-trace-ghost" />
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </div>
 
             <dl className="pellier-labs-session-metrics">
               <div>
-                <Timer size={15} aria-hidden="true" />
-                <span>Client elapsed</span>
-                <strong>{formatElapsed(elapsedMs)}</strong>
+                <span>Elapsed</span>
+                <strong>
+                  {runStatus === 'idle' ? '-' : formatElapsed(elapsedMs)}
+                </strong>
               </div>
               <div>
-                <Activity size={15} aria-hidden="true" />
-                <span>Journey steps</span>
-                <strong>{steps.length}</strong>
+                <span>Steps</span>
+                <strong>{metricValue(runStatus, steps.length)}</strong>
               </div>
               <div>
-                <Users size={15} aria-hidden="true" />
                 <span>Agents</span>
-                <strong>{agentCount}</strong>
+                <strong>{metricValue(runStatus, agentCount)}</strong>
               </div>
               <div>
-                <Database size={15} aria-hidden="true" />
-                <span>Captured SQL</span>
-                <strong>{sqlCount}</strong>
+                <span>SQL</span>
+                <strong>{metricValue(runStatus, sqlCount)}</strong>
               </div>
             </dl>
-          </aside>
+          </motion.section>
+
+          <motion.section
+            className="pellier-labs-results-panel"
+            data-motion-panel="results"
+            aria-labelledby="live-result-title"
+            initial={
+              reduceMotion
+                ? false
+                : {
+                    opacity: 0,
+                    clipPath: 'inset(0 0 0 100% round 14px)',
+                  }
+            }
+            animate={{ opacity: 1, clipPath: 'inset(0 0 0 0 round 14px)' }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.46,
+              delay: reduceMotion ? 0 : 0.14,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+          >
+            <div className="pellier-labs-section-heading">
+              <div>
+                <h2 id="live-result-title">Grounded answer</h2>
+                <p>The shopper reply and its supporting evidence.</p>
+              </div>
+              <Badge
+                variant={
+                  runStatus === 'complete'
+                    ? 'success'
+                    : runStatus === 'error'
+                      ? 'destructive'
+                      : runStatus === 'running'
+                        ? 'warning'
+                        : 'neutral'
+                }
+                className="pellier-labs-answer-state"
+                data-status={runStatus}
+              >
+                {runStatus === 'complete'
+                  ? 'Verified'
+                  : runStatus === 'running'
+                    ? 'Streaming'
+                    : runStatus === 'error'
+                      ? 'Incomplete'
+                      : 'Awaiting turn'}
+              </Badge>
+            </div>
+
+            <div className="pellier-labs-panel-scroll pellier-labs-results-scroll">
+              <section
+                className="pellier-labs-agent-response"
+                aria-label={
+                  products.length ? 'Recommended result' : 'Shopper answer'
+                }
+                data-empty={agentResponse ? undefined : 'true'}
+              >
+                <div>
+                  {products.length ? (
+                    <Sparkles size={14} aria-hidden="true" />
+                  ) : (
+                    <Sparkles
+                      className="pellier-labs-agent-sparkle"
+                      data-testid="shopper-answer-sparkle"
+                      size={15}
+                      strokeWidth={2.2}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {products.length ? 'Recommended result' : 'Shopper answer'}
+                </div>
+                <p>
+                  {agentResponse ||
+                    (runStatus === 'running'
+                      ? 'The answer will appear here as the agent streams.'
+                      : 'Choose a shopper turn to receive the live answer.')}
+                </p>
+              </section>
+
+              {bestMatch ? (
+                <div className="pellier-labs-catalog-edit">
+                  <section aria-labelledby="best-match-title">
+                    <div className="pellier-labs-catalog-heading">
+                      <div>
+                        <h3 id="best-match-title">Best match</h3>
+                        <span>First recommendation from this turn</span>
+                      </div>
+                    </div>
+                    <div
+                      className="pellier-labs-products"
+                      data-layout="feature"
+                    >
+                      <LabsProductCard
+                        product={bestMatch}
+                        role="best-match"
+                      />
+                    </div>
+                  </section>
+
+                  {curatedPairings.length ? (
+                    <section
+                      className="pellier-labs-pairings"
+                      aria-labelledby="curated-pairings-title"
+                    >
+                      <div className="pellier-labs-catalog-heading">
+                        <div>
+                          <h3 id="curated-pairings-title">Curated pairings</h3>
+                          <span>
+                            {curatedPairings.length}{' '}
+                            {curatedPairings.length === 1
+                              ? 'supporting piece'
+                              : 'supporting pieces'}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className="pellier-labs-products"
+                        data-layout="pairings"
+                      >
+                        {curatedPairings.map((product, index) => (
+                          <LabsProductCard
+                            key={`${product.id || product.name}-${index}`}
+                            product={product}
+                            role="pairing"
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {orderedProducts.length > displayedProductCount ? (
+                    <p className="pellier-labs-products-overflow">
+                      Showing the best match and{' '}
+                      {curatedPairings.length === 1
+                        ? 'one pairing'
+                        : `${curatedPairings.length} pairings`}{' '}
+                      from {orderedProducts.length} grounded pieces.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p
+                  className="pellier-labs-products-empty"
+                  data-status={runStatus}
+                >
+                  {runStatus === 'complete'
+                    ? 'This turn completed without a product result.'
+                    : runStatus === 'running'
+                      ? 'Retrieving grounded catalog matches.'
+                      : 'Grounded products from this turn will appear here.'}
+                </p>
+              )}
+
+              <section
+                className="pellier-labs-verified-claims"
+                aria-labelledby="verified-claims-title"
+              >
+                <div className="pellier-labs-results-subheading">
+                  <h3 id="verified-claims-title">Verified claims</h3>
+                  <span>{verifiedClaims.length || '-'}</span>
+                </div>
+                {verifiedClaims.length ? (
+                  <ul>
+                    {verifiedClaims.map((claim) => (
+                      <li key={claim.id}>
+                        <CheckCircle2 size={15} aria-hidden="true" />
+                        <span>
+                          <strong>{claim.title}</strong>
+                          <small>{claim.detail}</small>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="pellier-labs-results-placeholder">
+                    Claims appear only after supporting evidence is emitted.
+                  </p>
+                )}
+              </section>
+
+            </div>
+          </motion.section>
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@
  *   - Brand column: circular P mark + "Pellier" + tagline.
  *   - Explore:      The floor (`/#shop`), Discover, Storyboard.
  *   - Storyboard:   Italic blurb + a real link to `/storyboard`.
- *   - Agent Trace:      Italic blurb + a real link to `/pellier-labs`.
+ *   - Pellier Labs:      Italic blurb + a real link to `/pellier-labs`.
  *   - Bottom strip: Copyright + current year. No Privacy/Terms/
  *                   Accessibility stubs — those were the same dead
  *                   links this rewrite is eliminating. Right-hand
@@ -16,8 +16,9 @@
  *
  * Copy from `FOOTER` in copy.ts.
  *
- * Styling uses the shared Tailwind palette, fluid container, typography,
- * border, and transition tokens.
+ * Phase 2 redesign: replaced all hardcoded hex color constants with
+ * Tailwind token classes. Uses fluid container, font-display / font-sans
+ * utilities, border-sand/50 for borders, and duration-fade for transitions.
  */
 import { Link } from 'react-router-dom'
 
@@ -161,7 +162,7 @@ function EditorialColumn({
       >
         {heading}
       </h3>
-      <p className="font-display italic font-normal text-[15px] leading-[1.55] text-espresso m-0">
+      <p className="font-display font-normal text-[15px] leading-[1.55] text-espresso m-0">
         {copy}
       </p>
       <Link

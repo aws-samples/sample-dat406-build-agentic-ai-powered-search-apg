@@ -102,7 +102,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 500;
   font-size: 14px;
   flex-shrink: 0;
@@ -112,8 +112,8 @@
   flex-direction: column;
 }
 .ec-title {
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
+  font-style: normal;
   font-weight: 400;
   font-size: 17px;
   line-height: 1.1;
@@ -214,13 +214,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.ec-icon-btn:hover {
-  background: rgba(31, 20, 16, 0.06);
-  color: var(--ink-1);
-}
-
 /* ---- Edition strip ---- */
 .ec-edition-strip {
   padding: 8px 22px;
@@ -374,7 +369,7 @@
 
 /* Message body
  *
- * Canonical chat prose for both Boutique and Agent Trace. Instrument Sans at
+ * Canonical chat prose for both Pellier and Pellier Labs. Instrument Sans at
  * 15px / 1.7 leading / -0.003em is the Claude-desktop register —
  * reads cleanly on any width and leaves enough air between lines
  * that a streamed reply doesn't feel cramped. Fraunces stays
@@ -401,18 +396,16 @@
   letter-spacing: inherit;
 }
 
-/* Streaming body — phrase-level prose with a restrained editorial caret. */
+/* Streaming body — the prose grows in place, no cursor. We keep a
+ * whisper of a breathing animation so the bubble feels live during
+ * long tool-call pauses; the amplitude is small enough not to read
+ * as motion while text is actually landing. */
 .ec-msg-streaming {
   animation: streaming-breathe 2.4s ease-in-out infinite;
 }
 @keyframes streaming-breathe {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.96; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ec-msg-streaming {
-    animation: none;
-  }
 }
 
 /* Product artifacts stack */
@@ -444,8 +437,8 @@
 }
 .ec-input-field::placeholder {
   color: var(--ink-4);
-  font-style: italic;
-  font-family: var(--serif);
+  font-style: normal;
+  font-family: var(--sans);
   font-size: 15px;
 }
 .ec-input-field:disabled {
@@ -462,11 +455,7 @@
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 180ms;
-}
-.ec-send:hover:not(:disabled) {
-  background: var(--red-1);
-  transform: scale(1.05);
+  transition: background-color 180ms ease, transform 180ms ease;
 }
 .ec-send:disabled {
   opacity: 0.4;
@@ -481,7 +470,7 @@
   border-radius: 0 8px 8px 0;
   background: var(--cream-2);
   overflow: hidden;
-  transition: all 200ms ease;
+  transition: border-color 200ms ease, background-color 200ms ease;
 }
 .ec-thinking-header {
   padding: 10px 14px;
@@ -525,8 +514,8 @@
 }
 .ec-thinking-body {
   padding: 0 14px 12px;
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
+  font-style: normal;
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--ink-3);
@@ -535,6 +524,18 @@
 }
 .ec-thinking-body p {
   margin-bottom: 6px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ec-icon-btn:hover {
+    background: rgba(31, 20, 16, 0.06);
+    color: var(--ink-1);
+  }
+
+  .ec-send:hover:not(:disabled) {
+    background: var(--red-1);
+    transform: scale(1.05);
+  }
 }
 
 /* ---- Collapsed skills + tools disclosure ---- */
@@ -672,8 +673,8 @@
   animation: toolcall-pulse 1.4s ease-in-out infinite;
 }
 .ec-toolcall-label {
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
+  font-style: normal;
   color: var(--ink-1);
   font-size: 13.5px;
 }
@@ -720,10 +721,10 @@
   padding-top: 14px;
   border-top: 1px dashed rgba(45, 24, 16, 0.12);
 }
-/* Canonical follow-up pill — shared shape between Boutique
- * (persona chips) and Agent Trace (quick-query chips). Sans 12.5px /
+/* Canonical follow-up pill — shared shape between Pellier
+ * (persona chips) and Pellier Labs (quick-query chips). Sans 12.5px /
  * 500 weight / -0.003em, neutral cream background with a hair of
- * red on hover. The Agent Trace side lives on the Tailwind classes
+ * red on hover. Pellier Labs side lives on the Tailwind classes
  * inside QuickQueryChips.tsx; keep the two in lockstep.
  */
 .ec-followup {
@@ -745,8 +746,8 @@
   text-overflow: ellipsis;
 }
 .ec-followup:hover {
-  background: rgba(196, 69, 54, 0.08);
-  border-color: rgba(196, 69, 54, 0.4);
+  background: color-mix(in srgb, var(--red-1) 8%, transparent);
+  border-color: color-mix(in srgb, var(--red-1) 40%, transparent);
   color: var(--red-1);
 }
 .ec-followup:focus-visible {
@@ -756,10 +757,31 @@
 
 .ec-followup-workshop {
   border-style: dashed;
-  border-color: rgba(196, 69, 54, 0.52);
+  border-color: color-mix(in srgb, var(--red-1) 52%, transparent);
   background: rgba(255, 252, 247, 0.95);
   white-space: normal;
 }
 .ec-followup-workshop:hover {
-  border-color: rgba(196, 69, 54, 0.75);
+  border-color: color-mix(in srgb, var(--red-1) 75%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-dot-pulse::after,
+  .ec-dot-typing,
+  .ec-dot-typing::before,
+  .ec-dot-typing::after,
+  .ec-thinking-label,
+  .ec-msg-streaming,
+  .ec-toolcall,
+  .ec-toolcall-active .ec-toolcall-indicator {
+    animation: none;
+  }
+
+  .ec-icon-btn,
+  .ec-send,
+  .ec-thinking,
+  .ec-thinking-chevron,
+  .ec-followup {
+    transition-duration: 0.01ms;
+  }
 }

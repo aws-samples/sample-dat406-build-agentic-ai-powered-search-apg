@@ -55,7 +55,7 @@ import { cssVar as c } from '../design/cssVars'
 // === REFERENCE: START ===
 // --- Design tokens → Daylight via `cssVars` / bridge --------------------
 
-const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
+const SANS_STACK = 'var(--sans)'
 const MONO_STACK =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
 
@@ -402,8 +402,7 @@ export default function PreferencesModal() {
               borderRadius: '50%',
               background: c.ink,
               color: c.bg,
-              fontFamily: FRAUNCES_STACK,
-              fontStyle: 'italic',
+              fontFamily: SANS_STACK,
               fontSize: 20,
               lineHeight: 1,
             }}
@@ -415,7 +414,7 @@ export default function PreferencesModal() {
             data-testid="prefs-modal-header"
             style={{
               margin: 0,
-              fontFamily: FRAUNCES_STACK,
+              fontFamily: SANS_STACK,
               fontSize: 24,
               fontWeight: 500,
               color: c.ink,
@@ -446,8 +445,8 @@ export default function PreferencesModal() {
           <span
             data-testid="prefs-modal-italic-headline"
             style={{
-              fontFamily: FRAUNCES_STACK,
-              fontStyle: 'italic',
+              fontFamily: SANS_STACK,
+              fontWeight: 500,
               fontSize: 22,
               color: c.ink,
               lineHeight: 1.3,

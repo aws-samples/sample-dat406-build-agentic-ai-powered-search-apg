@@ -5,7 +5,7 @@
  *
  * Four styles (keyed by `chip.style`):
  *
- *   - `picked`  — `Picked because {reason}` in italic Fraunces with a
+ *   - `picked`  — `Picked because {reason}` in the storefront UI face with a
  *                 small B mark prefix (Req 1.7.2). The `B` mark is a
  *                 circular cream dot with terracotta fill, echoing the
  *                 wordmark logo used elsewhere in the storefront.
@@ -25,7 +25,7 @@
  *
  *   - `context` — free-form context copy authored by
  *                 `copy.reasoningContext` (Req 1.7.5). Renders in
- *                 italic Fraunces so it carries the editorial voice.
+ *                 Instrument Sans so product rationale matches the chat.
  *
  * Assignment helper:
  *   `assignReasoningChipsCyclic(inputs)` walks a list of `{ style,
@@ -39,7 +39,7 @@ import { cssVar as c } from '../design/cssVars'
 
 // --- Design tokens (storefront.md) ---------------------------------------
 
-const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
+const SANS_STACK = 'var(--sans)'
 const MONO_STACK =
   'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace'
 
@@ -78,8 +78,8 @@ function PickedChip({ chip }: ReasoningChipProps) {
         alignItems: 'center',
         gap: 8,
         color: c.ink2,
-        fontFamily: FRAUNCES_STACK,
-        fontStyle: 'italic',
+        fontFamily: SANS_STACK,
+        fontStyle: 'normal',
         fontSize: 13,
         lineHeight: 1.45,
       }}
@@ -151,8 +151,8 @@ function ContextChip({ chip }: ReasoningChipProps) {
       data-style="context"
       style={{
         color: c.ink2,
-        fontFamily: FRAUNCES_STACK,
-        fontStyle: 'italic',
+        fontFamily: SANS_STACK,
+        fontStyle: 'normal',
         fontSize: 13,
         lineHeight: 1.45,
       }}
@@ -179,8 +179,8 @@ function PMark() {
         borderRadius: '50%',
         background: c.accent,
         color: c.bg,
-        fontFamily: FRAUNCES_STACK,
-        fontStyle: 'italic',
+        fontFamily: SANS_STACK,
+        fontStyle: 'normal',
         fontSize: 10,
         fontWeight: 600,
         lineHeight: 1,

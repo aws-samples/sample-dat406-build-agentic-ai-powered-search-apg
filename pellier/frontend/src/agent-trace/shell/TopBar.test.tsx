@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -53,5 +54,26 @@ describe('Pellier Labs TopBar', () => {
     expect(
       screen.queryByRole('button', { name: /lab navigation/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it('groups the Labs picker by interaction while retaining governed proof routes', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
+        <TopBar />
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByTestId('pellier-labs-view-switcher'))
+
+    expect(screen.getByText('Interactive')).toBeInTheDocument()
+    expect(screen.getByText('Reference')).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: /audit proof/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: /gateway & policy/i }),
+    ).toBeInTheDocument()
   })
 })

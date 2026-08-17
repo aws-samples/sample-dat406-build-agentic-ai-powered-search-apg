@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Eyebrow } from '../../components';
-import './PellierLabsWorkbench.css';
+import './PellierLabsMasthead.css';
 
 type Particle = {
   x: number;

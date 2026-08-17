@@ -128,13 +128,13 @@
   color: var(--ink-1);
 }
 .sf-context-num {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 500;
   color: var(--ink-1);
   font-size: 15px;
 }
 .sf-context-product {
-  font-family: var(--serif);
+  font-family: var(--sans);
   
   color: var(--ink-1);
   border-bottom: 1px solid var(--rule-2);
@@ -246,7 +246,7 @@
   font-size: 15px;
   color: var(--ink-1);
   cursor: pointer;
-  transition: all 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
   text-align: left;
   width: 100%;
 }
@@ -255,19 +255,23 @@
   color: var(--cream-1);
   border-color: var(--ink-1);
 }
-.sf-action:hover {
-  background: var(--ink-1);
-  color: var(--cream-1);
-  border-color: var(--ink-1);
-  transform: translateX(2px);
-}
 .sf-action-arrow {
   font-size: 13px;
   opacity: 0.6;
   transition: transform 180ms;
 }
-.sf-action:hover .sf-action-arrow {
-  transform: translateX(2px);
+
+@media (hover: hover) and (pointer: fine) {
+  .sf-action:hover {
+    background: var(--ink-1);
+    color: var(--cream-1);
+    border-color: var(--ink-1);
+    transform: translateX(2px);
+  }
+
+  .sf-action:hover .sf-action-arrow {
+    transform: translateX(2px);
+  }
 }
 
 /* Centered-dot divider */

@@ -8,7 +8,7 @@
  *   - Centered cream rounded-3xl card over a glass backdrop-blur overlay.
  *   - Header row: B mark + "Welcome to Pellier" + subheader
  *     "Sign in for a storefront built for you".
- *   - Body: `PERSONALIZED VISIONS` eyebrow + italic Fraunces headline
+ *   - Body: `PERSONALIZED VISIONS` eyebrow + Instrument Sans headline
  *     "Let the storefront find you.".
  *   - Three provider buttons: `Continue with Google`, `Continue with Apple`,
  *     `Continue with email`. Each calls `redirectToSignIn(<provider>)`
@@ -38,7 +38,7 @@ import { cssVar as c } from '../design/cssVars'
 // === REFERENCE: START ===
 // --- Design tokens (storefront.md) ---------------------------------------
 
-const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
+const SANS_STACK = 'var(--sans)'
 const MONO_STACK =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
 
@@ -165,8 +165,7 @@ export default function AuthModal() {
               borderRadius: '50%',
               background: c.ink,
               color: c.bg,
-              fontFamily: FRAUNCES_STACK,
-              fontStyle: 'italic',
+              fontFamily: SANS_STACK,
               fontSize: 20,
               lineHeight: 1,
             }}
@@ -178,7 +177,7 @@ export default function AuthModal() {
             data-testid="auth-modal-header"
             style={{
               margin: 0,
-              fontFamily: FRAUNCES_STACK,
+              fontFamily: SANS_STACK,
               fontSize: 24,
               fontWeight: 500,
               color: c.ink,
@@ -200,7 +199,7 @@ export default function AuthModal() {
           </p>
         </div>
 
-        {/* Body eyebrow + italic headline */}
+        {/* Body eyebrow + storefront headline */}
         <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center' }}>
           <span
             data-testid="auth-modal-eyebrow"
@@ -216,8 +215,8 @@ export default function AuthModal() {
           <span
             data-testid="auth-modal-italic-headline"
             style={{
-              fontFamily: FRAUNCES_STACK,
-              fontStyle: 'italic',
+              fontFamily: SANS_STACK,
+              fontWeight: 500,
               fontSize: 22,
               color: c.ink,
               lineHeight: 1.25,

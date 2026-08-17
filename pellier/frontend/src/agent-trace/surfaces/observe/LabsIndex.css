@@ -1,0 +1,403 @@
+/* ========================================================================
+ * Pellier Labs index — request rail and execution summary strip.
+ *
+ * Tokens and proportions come from the editorial-trace-studio /
+ * evidence-ledger references. Values inherit from the --pl-* block in
+ * PellierLabsWorkbench.css so there is one palette, one radius scale, and one
+ * eyebrow recipe across all three columns.
+ *
+ * Type roles: serif for panel titles, sans for card copy and tracked caps,
+ * mono for tool names. Families are the installed faces, unchanged.
+ * ======================================================================== */
+
+.labs-index-inner {
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* -----------------------------------------------------------------------
+ * Request rail
+ * ----------------------------------------------------------------------- */
+
+.labs-turns {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.labs-turns-heading {
+  flex: 0 0 auto;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--pl-line);
+  background: none;
+}
+
+/* Matches .pellier-labs-section-heading h2 so all three panels title alike. */
+.labs-turns-heading h2 {
+  color: var(--pl-accent);
+  font-family: var(--pl-serif);
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.labs-turns-heading p {
+  margin-top: 6px;
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+/* Cards float inside the rail with a gap rather than fusing into a divided
+   list, which is what gives the reference its editorial openness. */
+.labs-turns-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 10px;
+  overflow-y: auto;
+  list-style: none;
+  counter-reset: labs-turn;
+  overscroll-behavior: contain;
+}
+
+.labs-turns-list > li {
+  counter-increment: labs-turn;
+}
+
+.labs-turns-list > li + li {
+  border-top: 0;
+}
+
+.agent-trace-root .labs-turn {
+  position: relative;
+  display: grid;
+  width: 100%;
+  grid-template-columns: 74px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--pl-r-lg);
+  background: transparent;
+  color: var(--pl-ink);
+  text-align: left;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.agent-trace-root .labs-turn::before {
+  content: none;
+}
+
+.agent-trace-root .labs-turn:hover:not(:disabled) {
+  border-color: var(--pl-line);
+  background: var(--pl-paper-solid);
+}
+
+/* Selected request: warm tint, terracotta-tinted hairline, burgundy inset
+   edge. The reference's `.request-card.active`. */
+.agent-trace-root .labs-turn[data-active='true'] {
+  border-color: #e2c5b9;
+  background: #fbf2ef;
+  box-shadow: inset 3px 0 0 var(--pl-accent);
+}
+
+.agent-trace-root .labs-turn:focus-visible {
+  z-index: 1;
+  outline: 2px solid var(--pl-accent);
+  outline-offset: -2px;
+}
+
+.agent-trace-root .labs-turn:disabled {
+  cursor: wait;
+}
+
+.labs-turn-media {
+  display: grid;
+  width: 74px;
+  aspect-ratio: 74 / 92;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px;
+  background: var(--pl-paper-muted);
+}
+
+.labs-turn-media picture,
+.labs-turn-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.labs-turn-media > span {
+  max-width: 9ch;
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.labs-turn-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0;
+}
+
+/* Turn ordinal from a counter, so no markup carries it. */
+.labs-turn-copy::before {
+  color: var(--pl-accent-2);
+  content: 'Turn ' counter(labs-turn);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.labs-turn-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 8px 0 6px;
+  color: var(--pl-ink);
+  font-family: var(--pl-sans);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.labs-turn-copy small {
+  overflow: hidden;
+  color: #8b837c;
+  font-family: var(--pl-mono);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labs-turn-action {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d9b5a8;
+  border-radius: 50%;
+  background: var(--pl-paper-solid);
+  color: var(--pl-accent);
+  transition: background-color 160ms ease, color 160ms ease,
+    border-color 160ms ease;
+}
+
+.labs-turn:hover:not(:disabled) .labs-turn-action {
+  border-color: var(--pl-accent);
+}
+
+.labs-turn[data-active='true'] .labs-turn-action {
+  border-color: var(--pl-accent);
+  background: var(--pl-accent);
+  color: #fffdfa;
+}
+
+/* -----------------------------------------------------------------------
+ * Execution summary strip
+ *
+ * The reference runs a bordered strip across the top of the ledger: one cell
+ * per stage, a tracked cap label, and a state line that turns olive once the
+ * stage reports. Hairline dividers, no per-cell boxes.
+ * ----------------------------------------------------------------------- */
+
+.labs-lens {
+  flex: 0 0 auto;
+  padding: 16px 20px 18px;
+  border-bottom: 1px solid var(--pl-line);
+  background: none;
+}
+
+.labs-lens-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.labs-lens-heading h3 {
+  color: var(--pl-accent-2);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: var(--pl-label-track);
+  text-transform: uppercase;
+}
+
+.labs-lens-heading p {
+  color: var(--pl-faint);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.labs-lens-stages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--pl-line);
+  border-radius: var(--pl-r-md);
+  background: var(--pl-paper-solid);
+  list-style: none;
+}
+
+.labs-lens-stages > li {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 13px 14px;
+}
+
+.labs-lens-stages > li + li {
+  border-left: 1px solid var(--pl-line);
+}
+
+.labs-lens-stages strong {
+  overflow: hidden;
+  color: var(--pl-ink);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.labs-lens-stages span {
+  display: inline-flex;
+  overflow: hidden;
+  align-items: center;
+  gap: 5px;
+  color: var(--pl-faint);
+  font-family: var(--pl-sans);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A reported stage gets the olive tick. A stage that never reported stays grey
+   and unmarked, so the strip cannot imply a stage ran when it did not. */
+.labs-lens-stages > li[data-status='done'] span {
+  color: var(--pl-olive);
+}
+
+.labs-lens-stages > li[data-status='done'] span::before {
+  color: var(--pl-olive);
+  content: '\2713';
+  font-size: 11px;
+}
+
+.labs-lens-stages > li[data-status='active'] span {
+  color: var(--pl-terracotta);
+}
+
+.labs-lens-stages > li[data-status='active'] span::before {
+  color: var(--pl-terracotta);
+  content: '\25CF';
+  font-size: 9px;
+}
+
+.labs-lens-stages > li[data-status='error'] span {
+  color: #8f1d16;
+}
+
+.labs-lens-stages > li[data-status='unavailable'] span {
+  color: var(--pl-muted);
+}
+
+/* -----------------------------------------------------------------------
+ * Responsive
+ * ----------------------------------------------------------------------- */
+
+@media (min-width: 1081px) and (max-width: 1320px) {
+  .agent-trace-root .labs-turn {
+    grid-template-columns: 62px minmax(0, 1fr) 32px;
+    gap: 11px;
+    padding: 10px;
+  }
+
+  .labs-turn-media {
+    width: 62px;
+  }
+
+  .labs-turn-copy strong {
+    margin: 6px 0 5px;
+    font-size: 15px;
+  }
+
+  .labs-turn-action {
+    width: 32px;
+    height: 32px;
+  }
+
+  .labs-lens-stages > li {
+    padding: 11px 10px;
+  }
+
+  .labs-lens-stages span {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .labs-turns-list {
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 560px) {
+  .agent-trace-root .labs-turn {
+    grid-template-columns: 66px minmax(0, 1fr) 34px;
+    gap: 12px;
+  }
+
+  .labs-turn-media {
+    width: 66px;
+  }
+
+  .labs-lens-stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .labs-lens-stages > li:nth-child(3) {
+    border-left: 0;
+  }
+
+  .labs-lens-stages > li:nth-child(n + 3) {
+    border-top: 1px solid var(--pl-line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-trace-root .labs-turn,
+  .labs-turn-action {
+    transition: none;
+  }
+}

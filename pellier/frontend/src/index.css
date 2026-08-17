@@ -12,9 +12,6 @@
 @import './styles/daylight-tokens.css';
 @import './styles/daylight-components.css';
 @import './styles/daylight-bridge.css';
-/* Governed semantic tokens — extends Daylight; must load after the bridge
-   so the --at-* aliases exist. See styles/governed-tokens.css. */
-@import './styles/governed-tokens.css';
 
 @tailwind base;
 @tailwind components;
@@ -50,7 +47,7 @@
   }
 
   /* ========================================================================
-   * Boutique + Agent Trace custom-property names are now ALIASED onto the
+   * Storefront + Pellier Labs custom-property names are now ALIASED onto the
    * Daylight design-system tokens via styles/daylight-bridge.css. The
    * hardcoded :root block that used to live here was removed when
    * Daylight was wired in — see DAYLIGHT_INTEGRATION.md for the
@@ -114,6 +111,66 @@
     transition: background-color 0.4s ease, color 0.4s ease;
   }
 
+  /*
+   * Shared Pellier daylight surface. The route-level class prevents a
+   * first-paint flash; the body class carries the same tokens into portals.
+   * `boutique-surface` remains as a compatibility alias for older embeds.
+   */
+  :where(
+    body.boutique-surface,
+    body.pellier-surface,
+    .pellier-page-surface
+  ) {
+    --cream: #f3f4f6;
+    --cream-warm: #fafafa;
+    --cream-1: #f3f4f6;
+    --cream-2: #e7e9ed;
+    --cream-3: #d9dde3;
+    --cream-elev: #fafafa;
+    --ink: #181a1f;
+    --ink-1: #181a1f;
+    --ink-3: #3d424b;
+    --ink-4: #666d78;
+    --ink-5: #8b929d;
+    --ink-soft: #3d424b;
+    --ink-quiet: #666d78;
+    --rule-1: #d9dde3;
+    --rule-2: #c9ced6;
+    --rule-3: #aeb5c0;
+    --accent: #7a263a;
+    --accent-ink: #651f31;
+    --red-1: #7a263a;
+    --red-soft: #f1e1e5;
+    --dusk: #262a32;
+    --bg-primary: #f3f4f6;
+    --bg-secondary: #e7e9ed;
+    --text-primary: #181a1f;
+    --text-secondary: #525965;
+    --border-color: rgba(24, 26, 31, 0.12);
+    --header-bg: rgba(243, 244, 246, 0.92);
+    --input-bg: rgba(255, 255, 255, 0.76);
+    --input-border: rgba(24, 26, 31, 0.16);
+    --link-color: #7a263a;
+    --link-hover: #651f31;
+    background: var(--cream);
+    color: var(--ink);
+    color-scheme: light;
+  }
+
+  .boutique-surface .font-display,
+  .boutique-surface .product-name,
+  .boutique-surface .pellier-logo-chip,
+  .pellier-surface .font-display,
+  .pellier-surface .product-name,
+  .pellier-surface .pellier-logo-chip,
+  .pellier-page-surface .font-display,
+  .pellier-page-surface .product-name,
+  .pellier-page-surface .pellier-logo-chip {
+    font-family: var(--sans);
+    font-style: normal;
+    letter-spacing: 0;
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -151,7 +208,7 @@
     font-variant-ligatures: contextual common-ligatures;
   }
 
-  /* /workshop ("Agent Trace") font stack — scoped to the telemetry route.
+  /* /workshop ("Pellier Labs") font stack — scoped to the telemetry route.
      Stacks match Daylight tokens (--dl-font-*) via the bridge. */
   .workshop-surface {
     font-family: var(--sans);
@@ -217,17 +274,6 @@
 }
 
 @layer components {
-  /* ========================================================================
-   * Header — Apple frosted nav
-   * ======================================================================== */
-  header, nav, .header, .navigation,
-  [class*="header"], [class*="Header"], [class*="nav"] {
-    background: var(--header-bg) !important;
-    backdrop-filter: saturate(180%) blur(20px) !important;
-    -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
-    border-bottom: 1px solid var(--border-color) !important;
-  }
-
   /* ========================================================================
    * Apple-style link buttons — blue text with › arrow
    * ======================================================================== */
@@ -482,7 +528,7 @@
   .animate-dash-flow { animation: dashFlow 1s linear infinite; }
 
   /* ------------------------------------------------------------------
-   * Boutique keyframes (mock pellier_5.html parity).
+   * Pellier keyframes (mock pellier_5.html parity).
    * Mirrors the names, durations, and easings from the reference mock
    * so React components can opt in via utility classes.
    * ------------------------------------------------------------------ */
@@ -622,7 +668,7 @@
   .bg-bg-secondary { background-color: var(--bg-secondary); }
   .text-text-primary { color: var(--text-primary); }
   .text-text-secondary { color: var(--text-secondary); }
-  .bg-header { background: var(--header-bg) !important; }
+  .bg-header { background: var(--header-bg); }
 
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
@@ -858,7 +904,7 @@
       ),
       rgba(140, 100, 55, 0.06);
     border: 1px solid rgba(140, 100, 55, 0.12);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: inset 0 1px 0 rgba(200, 160, 100, 0.04);
   }
   .wood-card:hover {
@@ -877,6 +923,12 @@
     box-shadow:
       inset 0 1px 0 rgba(200, 160, 100, 0.06),
       0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .product-card:hover .product-card-image {
+      transform: scale(1.025);
+    }
   }
 
   /* Wood divider */

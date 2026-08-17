@@ -5,7 +5,7 @@
  * The storefront benefits from a short welcome. Pellier Labs is a workshop
  * surface, where an interstitial hides the proof a participant came to see.
  */
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -39,6 +39,26 @@ describe('first-visit orientation', () => {
     const source = read('components/BoutiqueSpotlight.tsx');
     // Escape key handling is the skip affordance.
     expect(source).toContain('Escape');
+  });
+
+  it('moves through four concise steps with keyboard navigation', () => {
+    render(<BoutiqueSpotlight />);
+
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByRole('heading', { name: 'Begin with the edit.' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Show / })).toHaveLength(4);
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByRole('button', { name: 'Show Personalize' })).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(screen.getByRole('button', { name: 'Show Browse' })).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
   });
 });
 
