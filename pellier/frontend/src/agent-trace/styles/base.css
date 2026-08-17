@@ -970,6 +970,7 @@
 }
 
 .pellier-labs-icon-button {
+  display: inline-flex;
   width: 38px;
   height: 38px;
   flex: 0 0 38px;
@@ -979,7 +980,14 @@
   border-radius: 50% !important;
   background: var(--at-cream-elev) !important;
   color: var(--at-ink-1) !important;
+  text-decoration: none !important;
   transition: border-color 160ms ease, background 160ms ease;
+}
+
+.pellier-labs-icon-button img {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .pellier-labs-icon-button:hover {
@@ -1120,6 +1128,18 @@
 
   to {
     opacity: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .pellier-labs-topbar {
+    gap: 6px;
+    padding-inline: 10px;
+  }
+
+  .pellier-labs-topbar-start,
+  .pellier-labs-topbar-end {
+    gap: 6px;
   }
 }
 

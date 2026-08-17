@@ -38,11 +38,15 @@ import {
 } from '../../components/ui';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
+import { asset } from '../../utils/assetPath';
 import {
   GROUP_LABELS,
   interactionForPath,
   type LabsInteraction,
 } from './labsInteraction';
+
+const GITHUB_REPOSITORY_URL =
+  'https://github.com/aws-samples/sample-pellier-agentic-search-apg';
 
 interface LabsView {
   label: string;
@@ -346,6 +350,17 @@ const TopBar: React.FC = () => {
             <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
             <span>Back to Pellier</span>
           </Link>
+
+          <a
+            href={GITHUB_REPOSITORY_URL}
+            className="pellier-labs-icon-button"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View Pellier repository on GitHub"
+            title="View Pellier repository on GitHub"
+          >
+            <img src={asset('/github-mark.svg')} alt="" aria-hidden="true" />
+          </a>
         </div>
       </header>
       <PersonaModal open={personaModalOpen} onClose={() => setPersonaModalOpen(false)} />

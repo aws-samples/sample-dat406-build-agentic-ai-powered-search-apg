@@ -30,6 +30,24 @@ describe('Pellier Labs TopBar', () => {
     expect(backLink).toHaveAttribute('href', '/')
   })
 
+  it('links to the public Pellier repository in a new tab', () => {
+    render(
+      <MemoryRouter initialEntries={['/pellier-labs']}>
+        <TopBar />
+      </MemoryRouter>,
+    )
+
+    const repositoryLink = screen.getByRole('link', {
+      name: 'View Pellier repository on GitHub',
+    })
+    expect(repositoryLink).toHaveAttribute(
+      'href',
+      'https://github.com/aws-samples/sample-pellier-agentic-search-apg',
+    )
+    expect(repositoryLink).toHaveAttribute('target', '_blank')
+    expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
   it('shows the current Labs view in the switcher', () => {
     render(
       <MemoryRouter initialEntries={['/pellier-labs/agents']}>
