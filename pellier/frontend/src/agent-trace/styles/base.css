@@ -523,40 +523,273 @@
   padding: 0;
 }
 
+.agent-trace-surface:not([data-workbench='true']) {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background: var(--cream);
+  --at-card-bg: color-mix(in srgb, var(--cream-warm) 96%, var(--cream));
+  --at-card-border: color-mix(in srgb, var(--at-rule-2) 84%, var(--cream-warm));
+}
+
+/* The supporting views inherit the storefront's sunlit setting without
+   putting an image behind dense technical content. The photographic field
+   ends before the primary reading material so code and receipts stay calm. */
+.agent-trace-surface:not([data-workbench='true'])::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0 0 auto;
+  width: 100%;
+  height: clamp(300px, 36vw, 500px);
+  content: '';
+  background: url('/products/hero-fresh-2-1600.avif') center top / cover no-repeat;
+  opacity: 0.18;
+  pointer-events: none;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 48%,
+    rgb(0 0 0 / 0.68) 72%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 48%,
+    rgb(0 0 0 / 0.68) 72%,
+    transparent 100%
+  );
+}
+
+.agent-trace-surface:not([data-workbench='true']) > * {
+  position: relative;
+  z-index: 1;
+}
+
 .agent-trace-surface:not([data-workbench='true'])
   .pellier-labs-surface-header {
   display: grid;
-  max-width: 790px;
+  max-width: 1100px;
   gap: 12px;
   margin: 0 0 32px;
-  padding: 0 0 24px;
-  border-bottom: 1px solid var(--at-rule-1);
+  padding: clamp(8px, 1.2vw, 18px) 0 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--at-rule-2) 78%, var(--cream-warm));
+}
+
+.pellier-labs-reference-page {
+  width: 100%;
+  margin: 0 auto;
 }
 
 .agent-trace-surface:not([data-workbench='true'])
   .pellier-labs-surface-header
   h1 {
-  max-width: 760px;
-  color: var(--at-ink-1);
+  max-width: 820px;
+  color: var(--at-red-1);
   font-family: var(--dl-font-display, var(--at-display));
-  font-size: 42px;
+  font-size: clamp(36px, 3vw, 46px);
   font-style: normal;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.08;
+  text-wrap: balance;
 }
 
 .agent-trace-surface:not([data-workbench='true'])
   .pellier-labs-surface-header
   p {
-  max-width: 760px;
+  max-width: 68ch;
   color: var(--at-ink-2);
   font-family: var(--at-sans);
-  font-size: 15.5px;
+  font-size: 15px;
   font-style: normal;
   font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.5;
+}
+
+.pellier-labs-technical-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 8px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--at-rule-2) 68%, var(--cream-warm));
+}
+
+.pellier-labs-technical-references > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pellier-labs-technical-references dt {
+  color: color-mix(in srgb, var(--at-red-1) 74%, var(--at-ink-2));
+  font-family: var(--at-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pellier-labs-technical-references dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.pellier-labs-technical-references dd[data-code='true'] {
+  color: var(--at-red-1);
+  font-family: var(--at-mono);
+}
+
+.pellier-labs-technical-references code {
+  font: inherit;
+}
+
+.agent-trace-surface:not([data-workbench='true']) .pellier-labs-exp-card {
+  box-shadow: 0 14px 30px rgb(24 26 31 / 4.5%);
+}
+
+.agent-trace-surface:not([data-workbench='true'])
+  .pellier-labs-exp-card[data-clickable='true']:hover {
+  box-shadow: 0 18px 36px rgb(52 25 30 / 9%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .agent-trace-surface:not([data-workbench='true'])::before {
+    display: none;
+  }
+}
+
+.architecture-runtime-topology {
+  margin: 0 0 30px;
+  padding: 0 0 28px;
+  border-bottom: 1px solid var(--at-rule-1);
+}
+
+.architecture-runtime-topology-heading {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+
+.architecture-runtime-topology-heading h2 {
+  color: var(--at-ink-1);
+  font-family: var(--at-sans);
+  font-size: 18px;
+  font-weight: 650;
   letter-spacing: 0;
-  line-height: 1.58;
+  line-height: 1.25;
+}
+
+.architecture-runtime-topology-heading p {
+  max-width: 72ch;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.architecture-runtime-topology-flow {
+  display: grid;
+  grid-template-columns:
+    minmax(118px, 1fr) 22px
+    minmax(118px, 1fr) 22px
+    minmax(118px, 1fr) 22px
+    minmax(118px, 1fr) 22px
+    minmax(118px, 1fr) 22px
+    minmax(118px, 1fr);
+  align-items: stretch;
+  gap: 4px;
+}
+
+.architecture-runtime-topology-node {
+  display: grid;
+  min-height: 94px;
+  align-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 7px;
+  background: var(--at-cream-1);
+  color: var(--at-ink-1);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.architecture-runtime-topology-node:hover {
+  border-color: color-mix(in srgb, var(--at-red-1) 42%, var(--at-rule-2));
+  background: var(--at-cream-elev);
+  transform: translateY(-1px);
+}
+
+.architecture-runtime-topology-node:focus-visible {
+  outline: 2px solid var(--at-red-1);
+  outline-offset: 3px;
+}
+
+.architecture-runtime-topology-node strong {
+  color: var(--at-ink-1);
+  font-family: var(--at-sans);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.architecture-runtime-topology-node code {
+  overflow: hidden;
+  color: var(--at-red-1);
+  font-family: var(--at-mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.architecture-runtime-topology-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--at-ink-4);
+}
+
+@media (max-width: 1160px) {
+  .architecture-runtime-topology-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .architecture-runtime-topology-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .pellier-labs-technical-references {
+    display: grid;
+    gap: 8px;
+  }
+
+  .architecture-runtime-topology {
+    padding-bottom: 22px;
+  }
+
+  .architecture-runtime-topology-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .architecture-runtime-topology-node {
+    min-height: 76px;
+  }
 }
 
 .pellier-labs-exp-card {
@@ -973,6 +1206,12 @@
     padding: 20px 14px calc(28px + env(safe-area-inset-bottom, 0px));
   }
 
+  .agent-trace-surface:not([data-workbench='true'])::before {
+    height: 260px;
+    background-position: center top;
+    opacity: 0.14;
+  }
+
   .pellier-labs-topbar {
     min-height: 58px;
     padding-block: 8px;
@@ -986,14 +1225,14 @@
     .pellier-labs-surface-header {
     gap: 10px;
     margin-bottom: 24px;
-    padding-bottom: 18px;
+    padding: 4px 0 18px;
   }
 
   .agent-trace-surface:not([data-workbench='true'])
     .pellier-labs-surface-header
     h1 {
     font-size: 34px;
-    line-height: 1.12;
+    line-height: 1.1;
   }
 
   .agent-trace-surface:not([data-workbench='true'])

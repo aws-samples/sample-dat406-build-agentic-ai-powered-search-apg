@@ -707,11 +707,15 @@ const Agents: React.FC = () => {
       : undefined;
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Understand · Agents · five peers · Opus 5 + Sonnet 5"
-        title="The cast of five."
-        summary="Five peer specialists – routing sits in Dispatcher (classify_intent) ahead of each turn. Four are shipped reference in the workshop image (including Experience Guide for Theo's write path). Stock Keeper stays exercise until you wire floor_check in the required path; saving the tool body updates build-state and promotes Stock Keeper to shipped."
+        title="Specialists and handoffs"
+        summary="One intent router selects a specialist. Each agent owns a bounded prompt, model role, and tool set."
+        references={[
+          { label: 'Source', value: 'agents/*.py', code: true },
+          { label: 'Pattern', value: 'classify -> specialist -> bounded tools', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}

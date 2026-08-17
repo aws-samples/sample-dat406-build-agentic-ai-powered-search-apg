@@ -367,11 +367,15 @@ const MemoryDashboard: React.FC = () => {
     : 0;
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Understand · Memory · four types · explicit evidence"
-        title="What the system remembers."
-        summary="The builders path stores storefront working turns and business events in Aurora. AgentCore Memory is an optional managed path for session and learned semantic records. Source-controlled skills and MCP schemas supply procedural know-how; tool_audit remains separate operational evidence."
+        title="Durable state"
+        summary="Compare working turns, optional managed memory, source-controlled instructions, and the operational audit record."
+        references={[
+          { label: 'Source', value: 'services/aurora_session_memory.py', code: true },
+          { label: 'Boundary', value: 'working state != tool_audit', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}

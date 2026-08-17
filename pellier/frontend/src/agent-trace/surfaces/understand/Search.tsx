@@ -441,11 +441,15 @@ const Search: React.FC = () => {
   );
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Understand · Search · embed → vector ∥ lexical → RRF → rerank"
-        title="How one query becomes a ranking."
-        summary="Anna's hybrid-search-and-rerank path runs live but is usually invisible. Type a query and watch the real pipeline: a Cohere Embed v4 vector, a pgvector HNSW cosine branch and a Postgres full-text branch running in parallel, Reciprocal Rank Fusion merging the two, and Cohere Rerank v3.5 reordering the survivors. The SQL is the SQL that ran; the reordering is live. This is the mechanism view – Performance keeps the outcome view."
+        title="Retrieval pipeline"
+        summary="Run the live hybrid path and compare vector search, full text, fusion, reranking, and the SQL behind the result."
+        references={[
+          { label: 'Source', value: 'routes/search.py', code: true },
+          { label: 'Pattern', value: 'vector + FTS -> RRF -> rerank', code: true },
+        ]}
       />
 
       {/* Query form + examples */}

@@ -774,13 +774,20 @@ const ProofBoard: React.FC = () => {
   }, [data]);
 
   return (
-    <div className="proof-board-page" style={{ padding: '40px 48px', maxWidth: '1180px', width: '100%' }}>
+    <div
+      className="proof-board-page pellier-labs-reference-page"
+      style={{ maxWidth: '1180px', width: '100%' }}
+    >
       <section className="proof-board-masthead">
         <EditorialTitle
           className="proof-board-title"
           eyebrow="Pellier Labs · evidence"
-          title="Inspect evidence, then boundaries."
-          summary="Each card connects a system claim to live evidence and keeps a terminal fallback beside the visual proof."
+          title="Evidence boundaries"
+          summary="Connect a system claim to emitted evidence, then verify it with the matching terminal fallback."
+          references={[
+            { label: 'Source', value: 'routes/agent_trace.py', code: true },
+            { label: 'Pattern', value: 'claim -> evidence -> terminal proof', code: true },
+          ]}
         />
         <div className="proof-board-flow-wrap">
           <PellierLabsFlow />

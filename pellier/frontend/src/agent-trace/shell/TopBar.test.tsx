@@ -61,12 +61,16 @@ describe('Pellier Labs TopBar', () => {
       name: 'Pellier Labs view: Live workbench',
     })
     expect(screen.queryByRole('menuitem', { name: /Proof Board/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: /Architecture/i })).not.toBeInTheDocument()
-
     await user.click(switcher)
     expect(screen.getByText('Guided demo')).toBeInTheDocument()
     expect(screen.getByText('Inspect')).toBeInTheDocument()
     expect(screen.getByText('Evaluate')).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: /Architecture/i }))
+    expect(screen.getByTestId('location')).toHaveTextContent('/pellier-labs/architecture')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Pellier Labs view: Architecture' }),
+    )
     await user.click(screen.getByRole('menuitem', { name: /Evaluations/i }))
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/pellier-labs/evaluations',

@@ -1619,11 +1619,15 @@ const Performance: React.FC = () => {
   const isEmpty = !data || (data.sampleCount === 0 && data.histogram.length === 0);
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Measure · Performance · latency · pgvector · storage"
-        title="Under the hood."
-        summary="Cold start times, per-panel latency budgets, pgvector index benchmarks, retrieval strategy comparisons, and storage footprint. The Aurora-backed comparison card can run live; advanced pgvector tuning notes come from smoke probes."
+        title="Latency and retrieval budgets"
+        summary="Inspect turn timing, pgvector tradeoffs, retrieval comparisons, and storage pressure with live or fixture-backed measurements."
+        references={[
+          { label: 'Source', value: 'services/performance_log.py', code: true },
+          { label: 'Pattern', value: 'turn telemetry + live probes', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}

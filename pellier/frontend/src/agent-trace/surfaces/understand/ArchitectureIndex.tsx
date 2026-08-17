@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow, CategoryBadge } from '../../components';
 import type { CategoryType } from '../../components/CategoryBadge';
@@ -39,6 +40,74 @@ const legendItems: { category: CategoryType; description: string }[] = [
     description: 'Evaluation and measurement layer used to decide what is worth shipping.',
   },
 ];
+
+const runtimeTopology = [
+  {
+    label: 'Shopper request',
+    detail: '/api/chat/stream',
+    path: '/pellier-labs/sessions',
+  },
+  {
+    label: 'Intent router',
+    detail: 'classify_intent',
+    path: '/pellier-labs/routing',
+  },
+  {
+    label: 'Specialist',
+    detail: 'agent factory',
+    path: '/pellier-labs/agents',
+  },
+  {
+    label: 'Prompt overlays',
+    detail: 'SkillRouter',
+    path: '/pellier-labs/skills',
+  },
+  {
+    label: 'Aurora tools',
+    detail: 'catalog | audit',
+    path: '/pellier-labs/tools',
+  },
+  {
+    label: 'Grounded answer',
+    detail: 'SSE + receipts',
+    path: '/pellier-labs',
+  },
+];
+
+interface RuntimeTopologyProps {
+  onOpen: (path: string) => void;
+}
+
+const RuntimeTopology: React.FC<RuntimeTopologyProps> = ({ onOpen }) => (
+  <section className="architecture-runtime-topology" aria-labelledby="runtime-topology-title">
+    <div className="architecture-runtime-topology-heading">
+      <h2 id="runtime-topology-title">Live request topology</h2>
+      <p>
+        Follow one storefront request from streaming input through routing and tool execution to
+        the answer and its evidence.
+      </p>
+    </div>
+    <div className="architecture-runtime-topology-flow">
+      {runtimeTopology.map((node, index) => (
+        <React.Fragment key={node.label}>
+          <button
+            type="button"
+            className="architecture-runtime-topology-node"
+            onClick={() => onOpen(node.path)}
+          >
+            <strong>{node.label}</strong>
+            <code>{node.detail}</code>
+          </button>
+          {index < runtimeTopology.length - 1 ? (
+            <span className="architecture-runtime-topology-arrow" aria-hidden="true">
+              <ArrowRight size={16} strokeWidth={1.6} />
+            </span>
+          ) : null}
+        </React.Fragment>
+      ))}
+    </div>
+  </section>
+);
 
 /* -----------------------------------------------------------------------
  * Architecture concept card
@@ -348,11 +417,15 @@ const ArchitectureIndex: React.FC = () => {
   const concepts = data ?? [];
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1400px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1400px' }}>
       <EditorialTitle
         eyebrow="Understand · Architecture"
-        title="Architecture"
-        summary="Eight architecture lenses for Pellier. Some are live in the app path, some are optional AgentCore infrastructure, and some are workshop teaching surfaces. Each card says where the idea appears in the codebase."
+        title="Architecture map"
+        summary="Trace the live request path, then open a component for its source and operating boundary."
+        references={[
+          { label: 'Entry', value: 'services/chat.py', code: true },
+          { label: 'Contract', value: 'SSE request to evidence-backed answer' },
+        ]}
       />
 
       {loading && <LoadingState />}
@@ -362,41 +435,44 @@ const ArchitectureIndex: React.FC = () => {
       {!loading && !error && concepts.length === 0 && <EmptyState />}
 
       {!loading && !error && concepts.length > 0 && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 320px',
-            gap: '32px',
-            alignItems: 'start',
-          }}
-        >
-          {/* Left: 2-column grid of concept cards */}
+        <>
+          <RuntimeTopology onOpen={navigate} />
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '24px',
+              gridTemplateColumns: '1fr 320px',
+              gap: '32px',
+              alignItems: 'start',
             }}
           >
-            {concepts.map((concept) => (
-              <ConceptCard
-                key={concept.slug}
-                concept={concept}
-                onOpen={() => navigate(`/pellier-labs/architecture/${concept.slug}`)}
-              />
-            ))}
-          </div>
+            {/* Left: 2-column grid of concept cards */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '24px',
+              }}
+            >
+              {concepts.map((concept) => (
+                <ConceptCard
+                  key={concept.slug}
+                  concept={concept}
+                  onOpen={() => navigate(`/pellier-labs/architecture/${concept.slug}`)}
+                />
+              ))}
+            </div>
 
-          {/* Right: sticky legend rail */}
-          <div
-            style={{
-              position: 'sticky',
-              top: '100px',
-            }}
-          >
-            <LegendCard />
+            {/* Right: sticky legend rail */}
+            <div
+              style={{
+                position: 'sticky',
+                top: '100px',
+              }}
+            >
+              <LegendCard />
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

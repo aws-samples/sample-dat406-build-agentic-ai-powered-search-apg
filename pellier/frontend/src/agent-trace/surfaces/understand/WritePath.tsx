@@ -462,11 +462,15 @@ const ToolAuditCard: React.FC = () => {
 
 const WritePath: React.FC = () => {
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '960px' }}>
       <EditorialTitle
         eyebrow="Understand · Write-path · Aurora as system-of-record"
-        title="Theo's third Aurora capability."
-        summary="Marco read. Anna read harder. Theo writes – and every write leaves a paper trail. The agent calls a mutating tool; Cedar gates on what; SQL gates on whose; Aurora records the turn in tool_audit. Replayable from a single SELECT."
+        title="Guarded writes"
+        summary="Trace a mutation from policy decision through the tool invocation to an Aurora audit receipt."
+        references={[
+          { label: 'Source', value: 'services/tool_audit_writer.py', code: true },
+          { label: 'Pattern', value: 'policy -> tool -> Aurora audit', code: true },
+        ]}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

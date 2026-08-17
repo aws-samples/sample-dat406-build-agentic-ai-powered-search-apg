@@ -14,6 +14,7 @@ import { StatusPill } from '../components/StatusPill';
 import { StatusDot } from '../components/StatusDot';
 import { Eyebrow } from '../components/Eyebrow';
 import { CategoryBadge } from '../components/CategoryBadge';
+import { EditorialTitle } from '../components/EditorialTitle';
 
 // ---------------------------------------------------------------------------
 // ExpCard
@@ -218,5 +219,34 @@ describe('CategoryBadge', () => {
     const badge = screen.getByText('Workshop lens');
     expect(badge.style.color).toBe('var(--at-cat-teaching)');
     expect(badge.style.backgroundColor).toBe('rgba(31, 20, 16, 0.06)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EditorialTitle
+// ---------------------------------------------------------------------------
+describe('EditorialTitle', () => {
+  it('renders concise implementation references beneath the page purpose', () => {
+    render(
+      <EditorialTitle
+        eyebrow="Understand"
+        title="Retrieval pipeline"
+        summary="Run the hybrid path and inspect its evidence."
+        references={[
+          { label: 'Source', value: 'routes/search.py', code: true },
+          { label: 'Pattern', value: 'vector + FTS -> RRF -> rerank', code: true },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Retrieval pipeline' })).toBeInTheDocument();
+    expect(screen.getByText('Run the hybrid path and inspect its evidence.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Implementation references')).toHaveTextContent(
+      'routes/search.py',
+    );
+    expect(screen.getByText('vector + FTS -> RRF -> rerank').closest('dd')).toHaveAttribute(
+      'data-code',
+      'true',
+    );
   });
 });

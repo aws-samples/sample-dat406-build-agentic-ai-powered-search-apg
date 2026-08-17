@@ -402,11 +402,15 @@ const PersonaSection: React.FC<{ journey: PersonaJourney }> = ({ journey }) => (
  * ----------------------------------------------------------------------- */
 
 const PersonaJourneys: React.FC = () => (
-  <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+  <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
     <EditorialTitle
       eyebrow="Observe · Persona Journeys · 15 Pellier hero turns"
-      title="Three personas, fifteen hero queries."
-      summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Labs tell the same story turn by turn. The right rail shows the loaded skills, ordered tools, and replay evidence. Marco Turn 5 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
+      title="Canonical journeys"
+      summary="Compare the storefront prompts with their selected specialist, prompt overlays, tools, and replay evidence."
+      references={[
+        { label: 'Source', value: 'data/personaCurations.ts', code: true },
+        { label: 'Pattern', value: 'storefront prompt -> replay fixture', code: true },
+      ]}
     />
 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

@@ -502,18 +502,22 @@ const SessionsList: React.FC = () => {
   const activePersonaLabel = scopedPersona ? PERSONA_LABELS[scopedPersona] : 'Persona';
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '960px' }}>
       {/* Pellier Labs-wide welcome band lives on Observatory now (the
           default landing surface). Sessions is zoom-in, no need
           to repeat the intro here. */}
       <EditorialTitle
         eyebrow="Observe · Sessions"
-        title={showingPersonaJourney ? `${activePersonaLabel}'s five-turn journey` : 'Sessions'}
+        title={showingPersonaJourney ? `${activePersonaLabel}'s canonical turns` : 'Replay sessions'}
         summary={
           showingPersonaJourney
-            ? 'Sessions opens on the signed-in persona so participants follow one coherent Pellier story. Each turn mirrors Pellier pill text and expected skill/tool trace; instructor view reveals all recorded replays.'
-            : 'Instructor view shows every recorded conversation across personas, captured and ready for inspection. Select a session to explore its chat thread, telemetry timeline, and curator brief.'
+            ? 'Open a request to inspect its expected skill and tool trace. Instructor mode exposes every captured persona replay.'
+            : 'Open a captured request to inspect its chat, telemetry, and grounded result without rerunning the flow.'
         }
+        references={[
+          { label: 'Source', value: 'fixtures/sessions.json', code: true },
+          { label: 'Pattern', value: 'request -> trace -> result', code: true },
+        ]}
       />
 
       <div

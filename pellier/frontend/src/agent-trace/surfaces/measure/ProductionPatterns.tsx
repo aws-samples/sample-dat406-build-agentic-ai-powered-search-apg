@@ -761,14 +761,18 @@ const ProductionPatterns: React.FC = () => {
   });
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Measure · Production patterns · identity · guardrails · tenancy · tools"
-        title="What you reach for once it's real."
+        title="Production patterns"
         summary={
           data?.summary ??
-          'Four production patterns sit underneath every shipped agent. The default builder path runs without any of them – they are the seams you reach for once the prototype is real.'
+          'Review the identity, tenancy, guardrail, and tool-boundary patterns that become necessary beyond a prototype.'
         }
+        references={[
+          { label: 'Source', value: 'services/managed_policy.py', code: true },
+          { label: 'Pattern', value: 'identity + tenancy + guardrails', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}

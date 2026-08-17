@@ -1230,11 +1230,15 @@ const Tools: React.FC = () => {
       : undefined;
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Understand · Tools · fifteen functions · pgvector-discoverable"
-        title="The toolkit, by what each does."
-        summary="Fifteen tools in the registry. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. Each tool has an embedding – discovery ranks by cosine similarity. Replacing the stub updates GET /api/agent-trace/build-state so Stock Keeper and floor_check read as shipped."
+        title="Tool registry"
+        summary="Inspect callable contracts, discovery, and the audited path for tools that read or mutate Aurora."
+        references={[
+          { label: 'Source', value: 'services/agent_tools.py', code: true },
+          { label: 'Pattern', value: 'schema -> invoke -> audit receipt', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}

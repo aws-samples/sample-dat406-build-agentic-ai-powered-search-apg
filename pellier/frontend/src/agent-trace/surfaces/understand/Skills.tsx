@@ -756,11 +756,15 @@ const Skills: React.FC = () => {
   );
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Understand · Skills · five prompt overlays"
-        title="Persona-specific knowledge the agents load."
-        summary="Five Markdown files. Three are persona-tied; two are shared proof and care overlays. Loaded per turn by the SkillRouter – Sonnet 5 with a JSON-only routing prompt – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
+        title="Prompt overlays"
+        summary="Inspect the Markdown instructions that adapt a specialist's handling without changing product facts or tool permissions."
+        references={[
+          { label: 'Source', value: 'skills/router.py', code: true },
+          { label: 'Pattern', value: 'select -> inject -> record', code: true },
+        ]}
       />
       <ExpCard>
         <Eyebrow label="Two routers · different jobs" />

@@ -92,7 +92,7 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Inspect evidence, then boundaries.')).toBeInTheDocument();
+    expect(await screen.findByText('Evidence boundaries')).toBeInTheDocument();
     expect(
       document.querySelector('.pellier-labs-flow[aria-hidden="true"] canvas'),
     ).toBeInTheDocument();

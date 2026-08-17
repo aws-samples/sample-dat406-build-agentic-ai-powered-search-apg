@@ -906,15 +906,19 @@ const Routing: React.FC = () => {
   const scenarioHint = ROUTING_SCENARIOS[scenarioIdx]?.hint;
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Understand · Routing · three patterns"
-        title="How requests find their specialist."
+        title="Intent routing"
         summary={
           activePattern
-            ? `Three orchestration strategies. ${activePattern.name} is the active pattern for boutique sessions – it classifies intent and dispatches to the best-fit specialist. The other two are alternative patterns you can explore.`
-            : 'Three orchestration strategies for routing requests to specialist agents. Each pattern takes a different approach to intent classification and agent coordination.'
+            ? `${activePattern.name} is the live boutique path. Compare it with two alternatives for specialist selection and coordination.`
+            : 'Compare three routes from request classification to specialist coordination.'
         }
+        references={[
+          { label: 'Source', value: 'services/intent_router.py', code: true },
+          { label: 'Pattern', value: 'classify -> dispatch -> evidence', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}

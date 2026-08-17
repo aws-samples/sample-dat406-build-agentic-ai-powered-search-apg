@@ -861,11 +861,15 @@ const Evaluations: React.FC = () => {
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
+    <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
         eyebrow="Measure · Evaluations · accuracy · latency · citations"
-        title="How good is good enough."
-        summary="Scorecards for accuracy, latency, and citations – plus teaching panels on eval methods (LLM-as-judge, RAGAS, AgentCore) and retrieval metrics (Recall@K, MRR, context relevance, faithfulness)."
+        title="Evaluation harness"
+        summary="Review scorecards, retrieval metrics, and the checks that turn grounded answers into a repeatable release gate."
+        references={[
+          { label: 'Source', value: 'tests/golden/journeys.json', code: true },
+          { label: 'Pattern', value: 'golden journeys + scorecards', code: true },
+        ]}
       />
 
       {loading && <LoadingState />}
