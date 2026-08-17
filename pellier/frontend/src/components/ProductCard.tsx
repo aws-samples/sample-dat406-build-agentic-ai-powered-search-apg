@@ -28,16 +28,17 @@
  *   8. <ReasoningChip/>
  *   9. Full-width `Add to bag` secondary button
  *
- * Card chrome uses Tailwind tokens and the shadow-warm-sm / shadow-warm-md
- * scale. The parallax observer keeps the safety defenses above.
+ * Phase 2 redesign: replaced all hardcoded hex colors with Tailwind token
+ * classes. Card chrome uses shadow-warm-sm / shadow-warm-md tokens. The
+ * parallax observer logic and safety defenses are preserved unchanged.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Star } from 'lucide-react'
+import { ChevronDown, Star } from 'lucide-react'
 
 import type { BoutiqueBadge, BoutiqueProduct } from '../services/types'
 import ReasoningChip from './ReasoningChip'
+import ResponsiveImage from './ResponsiveImage'
 import { TraceChip } from '../shared'
-import { imageSrc } from '../utils/assetPath'
 
 const BADGE_LABEL: Record<BoutiqueBadge, string> = {
   EDITORS_PICK: "EDITOR'S PICK",
@@ -47,16 +48,13 @@ const BADGE_LABEL: Record<BoutiqueBadge, string> = {
 
 interface ProductCardProps {
   product: BoutiqueProduct
-  /** Row-wise index (0..2). Drives per-column stagger (`index * 220ms`). */
+  /** Row-wise index (0..2). Drives a compact per-column stagger. */
   index: number
-  /** Optional `Add to bag` handler. Defaults to a no-op. */
+  /** Optional `Add to bag` handler. The button is hidden when omitted. */
   onAddToBag?: (product: BoutiqueProduct) => void
   /**
-   * Optional trace chips rendered as small mono pills under the
-   * reasoning chip. Names the tools/signals the agent used to
-   * surface this product (e.g. `memory.recall`, `trend.signal`,
-   * `inventory.live · 2 left`). Falls back to a tag-derived pair so
-   * every card shows traceability without requiring data migration.
+   * Optional provenance chips rendered under the reasoning chip. When
+   * omitted, the card cites only catalog tags present on the product.
    */
   traces?: string[]
   /** Optional persona or surface accent used for provenance details. */
@@ -64,43 +62,20 @@ interface ProductCardProps {
 }
 
 /**
- * Derive two trace chips from a product's reasoning chip style + tags
- * when the caller doesn't supply explicit traces. Picks the trace
- * vocabulary so it lines up with the agent surfaces inside /pellier-labs
- * (memory · tools · trend · inventory · pairing), keeping the
- * consumer-facing storefront and developer-facing observatory in the
- * same language.
+ * Derive defensible provenance chips from committed catalog metadata.
+ * Runtime tool claims must be supplied explicitly by a live response.
  */
 function deriveTraces(product: BoutiqueProduct): string[] {
-  const traces: string[] = []
-  const style = product.reasoning?.style
-  if (style === 'picked' || style === 'context') traces.push('memory.recall')
-  if (style === 'matched') traces.push('palette.match · 0.92')
-  if (style === 'pricing') traces.push('inventory.live')
-  if (product.badge === 'BESTSELLER') traces.push('trend.signal')
-  if (product.badge === 'JUST_IN') traces.push('inventory.watch')
-  // Fallback so every card has at least one chip — tag-anchored so it
-  // still reads as the agent citing what it noticed.
-  if (traces.length === 0) {
-    const lead = product.tags[0]
-    if (lead) traces.push(`tag.match · ${lead}`)
-    else traces.push('curator.signal')
-  }
-  // Pad to two chips for visual rhythm.
-  if (traces.length === 1) {
-    const second = product.tags[1] ?? product.category
-    traces.push(`pairing.score · ${second}`)
-  }
-  return traces.slice(0, 2)
+  return product.tags.slice(0, 2).map(tag => `tag.match · ${tag}`)
 }
 
-// Per-column stagger in ms. Matches storefront.md — columns within a row play
-// at 0ms, 220ms, 440ms so each row reveals as a left-to-right sweep. We use
+// Per-column stagger in ms. Columns within a row play at 0ms, 50ms, 100ms so
+// the catalog settles quickly while retaining a subtle left-to-right sweep. We use
 // `index % 3` so the card computes the correct 0..2 column regardless of
 // whether the grid passes a row-local or catalog-global index. At 92+ products
-// a linear `index * 220ms` cascade would push later cards to >11s delay,
+// a linear index-based cascade would push later cards well beyond a useful delay,
 // well past the observer's attention window.
-const STAGGER_MS = 220
+const STAGGER_MS = 50
 
 // Columns per row in the desktop grid. The stagger math uses the widest case
 // so the sweep is consistent on desktop; on narrower breakpoints the same
@@ -113,7 +88,7 @@ const GRID_COLUMNS = 3
 const SAFETY_TIMEOUT_MS = 500
 
 // Pre-reveal opacity. Keep this at 1 so a stalled observer never hides
-// product content; the reveal still reads through translate/scale.
+// product content; the reveal still reads through a restrained transform.
 const PRE_REVEAL_OPACITY = 1
 
 // Apple-style ease-out-expo. Don't substitute — `ease-out` reads as too
@@ -136,7 +111,6 @@ export default function ProductCard({
 }: ProductCardProps) {
   const traceChips = traces ?? deriveTraces(product)
   const personaAccent = accentColor ?? 'var(--accent)'
-  const [hovered, setHovered] = useState(false)
   // `isVisible` starts as `prefersReducedMotion` so users with reduced-motion
   // skip the pre-reveal ghost state entirely — first paint is the final state.
   const [isVisible, setIsVisible] = useState<boolean>(() => prefersReducedMotion())
@@ -205,101 +179,64 @@ export default function ProductCard({
       data-index={index}
       data-revealed={isVisible}
       className={`
-        bg-cream-50 rounded-[8px] overflow-hidden flex flex-col
-        border border-[rgba(31,20,16,0.08)]
-        shadow-warm-sm transition-shadow duration-fade ease-out
-        ${hovered ? 'shadow-warm-md' : 'shadow-warm-sm'}
+        group bg-cream-warm rounded-[8px] overflow-hidden flex flex-col
+        border border-[rgba(24,26,31,0.10)]
+        transition duration-fade ease-out hover:border-[rgba(24,26,31,0.20)]
+        hover:shadow-warm-sm
       `}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       style={{
         '--trace-accent': personaAccent,
         opacity: isVisible ? 1 : PRE_REVEAL_OPACITY,
         transform: isVisible
           ? 'translateY(0) scale(1)'
-          : 'translateY(56px) scale(0.975)',
-        transition: `opacity 1100ms ${REVEAL_EASE}, transform 1200ms ${REVEAL_EASE}, box-shadow 180ms ease-out`,
-        willChange: 'opacity, transform',
-        background:
-          'linear-gradient(180deg, rgba(255,252,248,0.98) 0%, var(--cream-warm) 100%)',
+          : 'translateY(12px) scale(0.99)',
+        transition: `opacity 220ms ${REVEAL_EASE}, transform 260ms ${REVEAL_EASE}, box-shadow 180ms ease-out`,
       } as CSSProperties}
     >
       {/* --- Image panel --------------------------------------------- */}
       <div className="relative aspect-[4/5] bg-sand overflow-hidden">
-        <img
-          src={imageSrc(product.imageUrl)}
+        <ResponsiveImage
+          src={product.imageUrl}
           alt={product.name}
-          loading="eager"
-          className="w-full h-full object-cover transition-transform ease-out"
+          widths={[480, 960]}
+          sizes="(min-width: 1280px) 320px, (min-width: 768px) 40vw, 100vw"
+          loading="lazy"
+          decoding="async"
+          pictureClassName="block h-full w-full"
+          className="product-card-image h-full w-full object-cover transition-transform duration-200 ease-out"
           style={{
-            transitionDuration: '600ms',
-            transform: hovered ? 'scale(1.03)' : 'scale(1)',
             objectPosition: product.imagePosition ?? 'center center',
           }}
         />
-        {/* Warm wash overlay (Req 1.6.5 step 1) */}
-        <div
-          data-testid="product-card-warm-wash"
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(180deg, rgba(247,243,238,0.08) 0%, rgba(196,69,54,0.08) 100%)',
-          }}
-        />
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-0 h-[3px] w-full"
-          style={{
-            background:
-              'linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--trace-accent) 72%, var(--cream-warm)) 22%, color-mix(in srgb, var(--trace-accent) 88%, var(--ink)) 50%, color-mix(in srgb, var(--trace-accent) 72%, var(--cream-warm)) 78%, transparent 100%)',
-          }}
-        />
-        {/* Optional top-left badge (Req 1.6.5 step 2) */}
-        {product.badge ? (
-          <span
-            data-testid={`product-card-badge-${product.id}`}
-            className="absolute top-3 left-3 bg-cream-50 text-espresso px-2.5 py-1 text-[10px] tracking-[0.12em] font-sans rounded-full"
-            style={{
-              border: '1px solid color-mix(in srgb, var(--trace-accent) 24%, transparent)',
-              color: 'color-mix(in srgb, var(--trace-accent) 78%, var(--ink))',
-              boxShadow: '0 2px 8px rgba(31, 20, 16, 0.08)',
-            }}
-          >
-            {BADGE_LABEL[product.badge]}
-          </span>
-        ) : null}
       </div>
 
       {/* --- Text block ---------------------------------------------- */}
-      <div className="p-5 flex flex-col gap-3">
-        {/* Brand + color row (Req 1.6.5 step 4) */}
-        <div className="flex justify-between gap-3 text-[11px] tracking-[0.1em] text-ink-quiet font-sans uppercase">
-          <span>{product.category}</span>
+      <div className="flex flex-col gap-3 p-5">
+        <div className="flex justify-between gap-3 font-sans text-[12px] text-ink-quiet">
+          <span>{product.brand}</span>
           <span>{product.color}</span>
         </div>
 
-        {/* Product name — Fraunces italic (Req 1.6.5 step 5). Size bumps
-            20→22px at ≥1024px via `.product-name` in index.css so the
-            breakpoint happens in CSS, not React. */}
         <div>
-          <p
-            className="font-sans uppercase text-ink-quiet"
-            style={{
-              fontSize: 10.5,
-              letterSpacing: '0.16em',
-              fontWeight: 600,
-              margin: '0 0 4px',
-            }}
-          >
-            {product.brand}
-          </p>
           <h3 className="product-name text-espresso">
             {product.name}
           </h3>
+          <div className="mt-1.5 flex items-center gap-2 font-sans text-[12px] text-ink-quiet">
+            <span>{product.category}</span>
+            {product.badge ? (
+              <>
+                <span aria-hidden="true">/</span>
+                <span
+                  data-testid={`product-card-badge-${product.id}`}
+                  className="font-medium text-accent-ink"
+                >
+                  {BADGE_LABEL[product.badge]}
+                </span>
+              </>
+            ) : null}
+          </div>
         </div>
 
-        {/* Price + rating row (Req 1.6.5 step 6) */}
         <div className="flex items-center justify-between text-sm text-ink-soft font-sans">
           <span className="text-espresso">${product.price}</span>
           <span className="inline-flex items-center gap-1.5 text-ink-soft">
@@ -311,61 +248,65 @@ export default function ProductCard({
           </span>
         </div>
 
-        {/* Thin divider (Req 1.6.5 step 7) */}
-        <div
-          aria-hidden
-          className="h-px bg-sand/50 my-0.5"
-        />
-
-        {/* Reasoning chip (Req 1.6.5 step 8) */}
-        {product.reasoning ? <ReasoningChip chip={product.reasoning} /> : null}
-
-        {/* Shopper-facing recommendation signals. */}
-        {traceChips.length > 0 && (
-          <div
-            data-testid={`product-card-traces-${product.id}`}
-            className="flex flex-col gap-2 mt-0.5"
-            aria-label="Why this was surfaced"
+        {(product.reasoning || traceChips.length > 0) && (
+          <details
+            data-testid={`product-card-details-${product.id}`}
+            className="group/details border-t border-sand pt-3"
           >
-            <span
-              className="font-sans uppercase text-ink-quiet"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.16em',
-                fontWeight: 600,
-              }}
+            <summary
+              className="
+                flex cursor-pointer list-none items-center justify-between gap-3
+                font-sans text-[12px] font-medium text-ink-soft
+                focus-visible:outline-none focus-visible:ring-2
+                focus-visible:ring-accent
+              "
             >
-              Why this piece
-            </span>
-            <span className="flex flex-wrap gap-1.5">
-            {traceChips.map((trace) => (
-              <TraceChip
-                key={trace}
-                tool={trace}
-                variant="provenance"
-                labelMode="label"
-                compact
+              <span>Why this piece</span>
+              <ChevronDown
+                aria-hidden="true"
+                className="h-4 w-4 transition-transform group-open/details:rotate-180"
+                strokeWidth={1.8}
               />
-            ))}
-            </span>
-          </div>
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              {product.reasoning ? <ReasoningChip chip={product.reasoning} /> : null}
+              {traceChips.length > 0 ? (
+                <div
+                  data-testid={`product-card-traces-${product.id}`}
+                  className="flex flex-wrap gap-1.5"
+                  aria-label="Recommendation signals"
+                >
+                  {traceChips.map((trace) => (
+                    <TraceChip
+                      key={trace}
+                      tool={trace}
+                      variant="provenance"
+                      labelMode="label"
+                      compact
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </details>
         )}
 
-        {/* Full-width Add to bag secondary button (Req 1.6.5 step 9) */}
-        <button
-          type="button"
-          data-testid={`product-card-add-${product.id}`}
-          onClick={() => onAddToBag?.(product)}
-          className="
-            mt-1 w-full rounded-full bg-espresso text-cream-50 border border-espresso
-            py-2.5 px-3.5 text-[13px] tracking-[0.06em] cursor-pointer
-            font-sans font-medium transition-colors duration-fade ease-out
-            hover:bg-dusk hover:text-cream-50 hover:border-dusk
-            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-          "
-        >
-          Add to bag
-        </button>
+        {onAddToBag ? (
+          <button
+            type="button"
+            data-testid={`product-card-add-${product.id}`}
+            onClick={() => onAddToBag(product)}
+            className="
+              mt-1 w-full rounded-full bg-espresso text-cream-50 border border-espresso
+              py-2.5 px-3.5 text-[13px] tracking-[0.06em] cursor-pointer
+              font-sans font-medium transition-colors duration-fade ease-out
+              hover:bg-dusk hover:text-cream-50 hover:border-dusk
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+            "
+          >
+            Add to bag
+          </button>
+        ) : null}
       </div>
     </article>
   )

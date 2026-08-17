@@ -1,73 +1,78 @@
 /**
- * BoutiqueSpotlight — guided first-visit walkthrough for the boutique.
- *
- * A three-step spotlight that introduces visitors to Pellier: the
- * editorial storefront, the Ask Pellier concierge, and the Pellier Labs entry
- * for those curious about what's under the hood. Shows once per browser
- * session (sessionStorage gate).
- *
- * Uses the same session-gated, keyboard-accessible interaction model as
- * the boutique welcome surface. The content and final CTA stay boutique-specific.
- *
- * Keyboard: Escape dismisses. ArrowRight / Enter advance. ArrowLeft
- * goes back.
+ * BoutiqueSpotlight - the four-screen first-visit orientation for the
+ * governed storefront. It explains the shopper path without interrupting the
+ * Labs proof surface or making claims that have not happened yet.
  */
-import { useCallback, useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight } from 'lucide-react'
-import { cssVar as c } from '../design/cssVars'
-
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import {
+  ArrowRight,
+  FlaskConical,
+  MessageCircle,
+  Store,
+  User,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
+import { asset } from '../utils/assetPath'
 
 interface SpotlightStep {
-  numeral: string
-  kicker: string
+  label: string
+  eyebrow: string
   headline: string
   body: string
+  image: string
+  imageAlt: string
+  icon: LucideIcon
 }
 
 const STEPS: SpotlightStep[] = [
   {
-    numeral: 'I',
-    kicker: 'Welcome to',
-    headline: 'Pellier',
-    body: "An editorial boutique with one trick up its sleeve — search that actually understands what you're after. Browse the floor, or just tell us what you have in mind.",
+    label: 'Browse',
+    eyebrow: 'Welcome to Pellier',
+    headline: 'Begin with the edit.',
+    body: 'Browse the current collection or start with a specific piece you have in mind.',
+    image: asset('/products/hero-fresh-2.png'),
+    imageAlt: 'Pellier leather tote, linen, and olive branches in warm daylight',
+    icon: Store,
   },
   {
-    numeral: 'II',
-    kicker: 'Sign in first',
-    headline: 'Let Pellier remember you',
-    body: "Pick a persona from the top-right pill and watch the boutique tune itself — the cover, the recommendations, the voice of the chat. Try Marco for linen, Anna for gifts, Theo for home, or stay a Fresh visitor to see the editorial default.",
+    label: 'Personalize',
+    eyebrow: 'Choose a profile',
+    headline: 'Make the floor personal.',
+    body: 'Choose Marco, Anna, or Theo in the hero. Each profile applies its own explicit catalog signals.',
+    image: asset('/products/hero-marco.png'),
+    imageAlt: 'Leather weekender and folded linen shirts in warm daylight',
+    icon: User,
   },
   {
-    numeral: 'III',
-    kicker: 'Your concierge',
-    headline: 'Ask Pellier',
-    body: "Tap the floating button anytime and ask in your own words — \"a linen piece for slow Sundays,\" \"something that travels well.\" Pellier reads the boutique and pulls what fits.",
+    label: 'Ask',
+    eyebrow: 'Ask Pellier',
+    headline: 'Use your own words.',
+    body: 'Search from the hero or open the concierge from the header when you are ready to compare pieces.',
+    image: asset('/products/hero-anna.png'),
+    imageAlt: 'Wrapped gift, beeswax candles, and a ceramic ring dish',
+    icon: MessageCircle,
   },
   {
-    numeral: 'IV',
-    kicker: 'Behind the curtain',
-    headline: 'Pellier Labs',
-    body: "Curious how Pellier thinks? Open Pellier Labs from the header and watch every reasoning step, tool call, and decision unfold in real time. The wires, made visible.",
+    label: 'Inspect',
+    eyebrow: 'Pellier Labs',
+    headline: 'See the governed path.',
+    body: 'Open Labs to inspect the tool calls, policy decision, and evidence from a completed turn.',
+    image: asset('/products/hero-theo.png'),
+    imageAlt: 'Stoneware pour-over set on a sunlit wooden table',
+    icon: FlaskConical,
   },
 ]
 
-const FINAL_CTA = 'Start browsing'
-
-// One-shot gate: once the visitor dismisses the spotlight in a
-// session, don't re-show it on route changes or refreshes within
-// the same tab. sessionStorage is the right shelf for this — it
-// clears when the tab closes so a fresh session still gets the
-// walkthrough.
 const SPOTLIGHT_SEEN_KEY = 'pellier-storefront-spotlight-seen'
+const MOTION_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 function hasSeenSpotlight(): boolean {
   if (typeof window === 'undefined') return true
   try {
     return window.sessionStorage.getItem(SPOTLIGHT_SEEN_KEY) === 'true'
   } catch {
-    // private mode / storage disabled — skip rather than re-show
-    // forever. Losing the gate is safer than spamming the overlay.
     return true
   }
 }
@@ -77,15 +82,15 @@ function markSpotlightSeen(): void {
   try {
     window.sessionStorage.setItem(SPOTLIGHT_SEEN_KEY, 'true')
   } catch {
-    /* noop */
+    // Storage is optional. Do not trap the visitor in the tour.
   }
 }
 
 export default function BoutiqueSpotlight() {
-  // Initialize from sessionStorage so the overlay stays dismissed
-  // across the lifetime of a tab.
   const [visible, setVisible] = useState(() => !hasSeenSpotlight())
   const [step, setStep] = useState(0)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = Boolean(useReducedMotion())
 
   const dismiss = useCallback(() => {
     markSpotlightSeen()
@@ -93,150 +98,176 @@ export default function BoutiqueSpotlight() {
   }, [])
 
   const next = useCallback(() => {
-    if (step < STEPS.length - 1) setStep((s) => s + 1)
-    else dismiss()
-  }, [step, dismiss])
+    if (step < STEPS.length - 1) {
+      setStep((current) => current + 1)
+      return
+    }
+    dismiss()
+  }, [dismiss, step])
 
-  const prev = useCallback(() => {
-    if (step > 0) setStep((s) => s - 1)
+  const previous = useCallback(() => {
+    if (step > 0) setStep((current) => current - 1)
   }, [step])
 
   useEffect(() => {
     if (!visible) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dismiss()
-      if (e.key === 'ArrowRight' || e.key === 'Enter') next()
-      if (e.key === 'ArrowLeft') prev()
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialogRef.current?.focus()
+    return () => {
+      document.body.style.overflow = previousOverflow
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [visible, dismiss, next, prev])
+  }, [visible])
+
+  useEffect(() => {
+    if (!visible) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        dismiss()
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        next()
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        previous()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [dismiss, next, previous, visible])
 
   if (!visible) return null
 
   const current = STEPS[step]
+  const CurrentIcon = current.icon
   const isLast = step === STEPS.length - 1
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[999] flex items-center justify-center p-4"
-        style={{
-          background: 'rgba(45, 24, 16, 0.35)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
+        className="fixed inset-0 z-[999] flex items-center justify-center bg-[rgba(24,26,31,0.48)] p-4 sm:p-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0.1 : 0.18, ease: MOTION_EASE }}
         onClick={dismiss}
       >
         <motion.div
-          key={step}
-          className="relative w-full max-w-[460px] rounded-3xl overflow-hidden"
-          style={{
-            background: c.bg,
-            border: '1px solid rgba(45, 24, 16, 0.08)',
-            boxShadow: '0 25px 60px rgba(45, 24, 16, 0.18)',
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="boutique-spotlight-title"
+          aria-describedby="boutique-spotlight-description"
+          tabIndex={-1}
+          className="relative w-full max-w-[500px] overflow-hidden rounded-[8px] border border-[rgba(24,26,31,0.16)] bg-cream-warm text-espresso shadow-[0_28px_70px_rgba(24,26,31,0.26)] outline-none"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.985 }}
+          animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.99 }}
+          transition={{
+            duration: reduceMotion ? 0.1 : 0.24,
+            ease: MOTION_EASE,
           }}
-          initial={{ opacity: 0, y: 20, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
-          {/* Editorial numeral mark — replaces the icon badge */}
-          <div className="flex items-center justify-center pt-12 pb-2">
-            <div
-              className="leading-none select-none"
-              style={{
-                fontFamily: 'Fraunces, Georgia, serif',
-                fontWeight: 300,
-                fontStyle: 'italic',
-                color: c.accent,
-                fontSize: 64,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {current.numeral}
+          <button
+            type="button"
+            aria-label="Skip welcome tour"
+            onClick={dismiss}
+            className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/30 bg-[rgba(24,26,31,0.56)] text-white transition-colors hover:bg-[rgba(24,26,31,0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(24,26,31,0.56)]"
+          >
+            <X size={17} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+
+          <div className="h-[172px] overflow-hidden bg-cream-2">
+            <AnimatePresence initial={false} mode="wait">
+              <motion.img
+                key={current.image}
+                src={current.image}
+                alt={current.imageAlt}
+                className="h-full w-full object-cover"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.035 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.02 }}
+                transition={{
+                  duration: reduceMotion ? 0.1 : 0.28,
+                  ease: MOTION_EASE,
+                }}
+              />
+            </AnimatePresence>
+          </div>
+
+          <div className="relative px-6 pb-2 pt-0 sm:px-8">
+            <div className="-mt-6 flex h-12 w-12 items-center justify-center rounded-[8px] border border-[rgba(24,26,31,0.16)] bg-cream-warm text-accent shadow-[0_8px_20px_rgba(24,26,31,0.11)]">
+              <CurrentIcon size={21} strokeWidth={1.7} aria-hidden="true" />
             </div>
+
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                key={current.label}
+                className="pt-5"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 7 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
+                transition={{
+                  duration: reduceMotion ? 0.1 : 0.2,
+                  ease: MOTION_EASE,
+                }}
+              >
+                <p className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+                  {current.eyebrow}
+                </p>
+                <h2
+                  id="boutique-spotlight-title"
+                  className="max-w-[18ch] font-sans text-[30px] font-semibold leading-[1.08] text-espresso sm:text-[34px]"
+                >
+                  {current.headline}
+                </h2>
+                <p
+                  id="boutique-spotlight-description"
+                  className="mt-3 max-w-[39ch] font-sans text-[15px] leading-6 text-ink-soft"
+                >
+                  {current.body}
+                </p>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          {/* Content */}
-          <div className="px-8 pb-3 text-center">
-            <p
-              className="text-[10px] font-medium uppercase mb-3"
-              style={{ color: c.accent, letterSpacing: '0.2em' }}
-            >
-              {current.kicker}
-            </p>
-            <h2
-              className="text-[32px] leading-[1.1] mb-4"
-              style={{
-                fontFamily: 'Fraunces, Georgia, serif',
-                fontWeight: 400,
-                fontStyle: 'italic',
-                color: c.ink,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {current.headline}
-            </h2>
-            <p
-              className="text-[15px] leading-[1.7] mx-auto"
-              style={{ color: c.ink2, maxWidth: 360 }}
-            >
-              {current.body}
-            </p>
-          </div>
-
-          {/* Footer — dots + navigation */}
-          <div className="px-8 pt-4 pb-8 flex items-center justify-between">
-            {/* Step dots */}
-            <div className="flex items-center gap-2">
-              {STEPS.map((_, i) => (
+          <div className="mt-6 flex items-center justify-between border-t border-sand px-6 py-4 sm:px-8">
+            <nav className="flex items-center gap-1.5" aria-label="Welcome tour progress">
+              {STEPS.map((tourStep, index) => (
                 <button
-                  key={i}
+                  key={tourStep.label}
                   type="button"
-                  onClick={() => setStep(i)}
-                  aria-label={`Step ${i + 1}`}
-                  className="rounded-full transition-all duration-200"
-                  style={{
-                    width: i === step ? 20 : 7,
-                    height: 7,
-                    background:
-                      i === step
-                        ? c.accent
-                        : 'color-mix(in srgb, var(--ink-quiet) 50%, transparent)',
-                  }}
+                  onClick={() => setStep(index)}
+                  aria-label={`Show ${tourStep.label}`}
+                  aria-current={index === step ? 'step' : undefined}
+                  className={[
+                    'h-2 rounded-full transition-[width,background-color] duration-200',
+                    index === step
+                      ? 'w-7 bg-accent'
+                      : 'w-2 bg-[rgba(24,26,31,0.18)] hover:bg-[rgba(24,26,31,0.36)]',
+                  ].join(' ')}
                 />
               ))}
-            </div>
+            </nav>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              {step > 0 && (
+            <div className="flex items-center gap-2">
+              {step > 0 ? (
                 <button
                   type="button"
-                  onClick={prev}
-                  className="text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors"
-                  style={{ color: c.ink2 }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = c.paper)
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = 'transparent')
-                  }
+                  onClick={previous}
+                  className="min-h-10 rounded-[8px] px-3.5 font-sans text-[13px] font-medium text-ink-soft transition-colors hover:bg-cream-2 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   Back
                 </button>
-              )}
-              {!isLast && (
+              ) : (
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="text-[13px] px-3 py-1.5 rounded-lg"
-                  style={{ color: c.muted }}
+                  className="min-h-10 rounded-[8px] px-3.5 font-sans text-[13px] font-medium text-ink-soft transition-colors hover:bg-cream-2 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   Skip
                 </button>
@@ -244,17 +275,10 @@ export default function BoutiqueSpotlight() {
               <button
                 type="button"
                 onClick={next}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium px-5 py-2 rounded-full transition-colors"
-                style={{ background: c.ink, color: c.bg }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = 'var(--ink)')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = c.ink)
-                }
+                className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-accent px-4 font-sans text-[13px] font-semibold text-white transition-colors hover:bg-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                {isLast ? FINAL_CTA : 'Next'}
-                <ArrowRight className="w-3.5 h-3.5" />
+                {isLast ? 'Explore Pellier' : 'Continue'}
+                <ArrowRight size={15} strokeWidth={1.8} aria-hidden="true" />
               </button>
             </div>
           </div>

@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
 import { getPersonaPhoto } from '../data/personaPhotos'
@@ -22,9 +23,23 @@ interface PersonaModalProps {
   onClose: () => void
 }
 
+const PERSONA_MODAL_EASE: [number, number, number, number] = [
+  0.23, 1, 0.32, 1,
+]
+
 export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   const { persona, switchPersona, signOut, switching } = usePersona()
   const [personas, setPersonas] = useState<PersonaListItem[]>([])
+  const reduceMotion = Boolean(useReducedMotion())
+  const cardInitial = reduceMotion
+    ? { opacity: 0 }
+    : { opacity: 0, transform: 'translateY(6px) scale(0.97)' }
+  const cardAnimate = reduceMotion
+    ? { opacity: 1 }
+    : { opacity: 1, transform: 'translateY(0) scale(1)' }
+  const cardExit = reduceMotion
+    ? { opacity: 0 }
+    : { opacity: 0, transform: 'translateY(6px) scale(0.97)' }
 
   // Fetch persona list on first open
   useEffect(() => {
@@ -62,22 +77,40 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
     onClose()
   }, [signOut, onClose])
 
-  if (!open) return null
-
   return createPortal(
-    <div
-      className="pm-backdrop"
-      data-testid="persona-modal-backdrop"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="pm-card" data-testid="persona-modal">
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          className="pm-backdrop"
+          data-testid="persona-modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: PERSONA_MODAL_EASE }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose()
+          }}
+        >
+          <motion.div
+            className="pm-card"
+            data-testid="persona-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="persona-modal-title"
+            initial={cardInitial}
+            animate={cardAnimate}
+            exit={{
+              ...cardExit,
+              transition: { duration: 0.18, ease: PERSONA_MODAL_EASE },
+            }}
+            transition={{ duration: 0.24, ease: PERSONA_MODAL_EASE }}
+            style={{ transformOrigin: 'center' }}
+          >
         {/* Head */}
         <div className="pm-head">
           <div>
             <div className="pm-eyebrow">Sign in</div>
-            <h2 className="pm-title">
+            <h2 id="persona-modal-title" className="pm-title">
               Choose a <em>persona to inhabit.</em>
             </h2>
             <p className="pm-sub">
@@ -181,8 +214,10 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
           </div>
           <div className="pm-foot-meta">v1.0</div>
         </div>
-      </div>
-    </div>,
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body,
   )
 }

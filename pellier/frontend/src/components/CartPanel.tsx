@@ -81,7 +81,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <h2
-                    className="font-display italic"
+                    className="font-display"
                     style={{
                       fontSize: '24px',
                       color: TEXT,
@@ -145,7 +145,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.15 }}
-                  className="font-display italic mb-2"
+                  className="font-display mb-2"
                   style={{ fontSize: '26px', color: TEXT, fontWeight: 400 }}
                 >
                   Order placed.
@@ -203,7 +203,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                         <ShoppingBag className="h-8 w-8" style={{ color: TEXT_QUIET }} strokeWidth={1.5} />
                       </motion.div>
                       <p
-                        className="font-display italic mb-1.5"
+                        className="font-display mb-1.5"
                         style={{ fontSize: '20px', color: TEXT }}
                       >
                         Your bag is empty

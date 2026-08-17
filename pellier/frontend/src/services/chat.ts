@@ -275,6 +275,10 @@ export interface ChatResponse {
 }
 
 export type ResponseMode = 'balanced' | 'editorial' | 'fast'
+export type OrchestrationPattern =
+  | 'dispatcher'
+  | 'agents_as_tools'
+  | 'graph'
 
 /**
  * Send a chat message with streaming support
@@ -286,7 +290,7 @@ export async function sendChatMessageStreaming(
   workshopMode?: string,
   guardrailsEnabled?: boolean,
   customerId?: string | null,
-  pattern?: 'dispatcher' | 'agents_as_tools' | 'graph' | null,
+  pattern?: OrchestrationPattern | null,
   responseMode: ResponseMode = 'balanced',
 ): Promise<ChatResponse> {
   const controller = new AbortController()

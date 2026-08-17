@@ -60,3 +60,28 @@ export function imageSrc(src: string | undefined | null): string | undefined {
   if (src.startsWith('/')) return asset(src)
   return src // http(s):// or data: - pass through untouched
 }
+
+export type ResponsiveImageFormat = 'avif' | 'webp'
+
+/**
+ * Build a width-descriptor srcset for generated local image variants.
+ * Remote and data URLs keep their original source because the repository
+ * cannot guarantee matching derivative files for them.
+ */
+export function responsiveImageSrcSet(
+  src: string | undefined | null,
+  widths: readonly number[],
+  format: ResponsiveImageFormat,
+): string | undefined {
+  if (!src || !src.startsWith('/') || src.startsWith('//')) return undefined
+
+  const extensionPattern = /\.(?:png|jpe?g)$/i
+  if (!extensionPattern.test(src)) return undefined
+
+  return widths
+    .map((width) => {
+      const variant = src.replace(extensionPattern, `-${width}.${format}`)
+      return `${asset(variant)} ${width}w`
+    })
+    .join(', ')
+}

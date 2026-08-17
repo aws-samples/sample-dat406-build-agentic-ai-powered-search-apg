@@ -426,12 +426,12 @@ export default function ConciergeModal() {
                 <div
                   aria-hidden="true"
                   className="inline-flex items-center justify-center rounded-full font-semibold"
-                  style={{ width: 32, height: 32, background: c.ink, color: c.bg, fontFamily: 'Fraunces, serif', fontSize: 15 }}
+                  style={{ width: 32, height: 32, background: c.ink, color: c.bg, fontFamily: 'var(--sans)', fontSize: 15 }}
                 >
                   P
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap" style={{ fontFamily: 'Fraunces, serif', fontSize: 17, color: c.ink, fontWeight: 500 }}>
+                  <div className="flex items-center gap-2 flex-wrap" style={{ fontFamily: 'var(--sans)', fontSize: 17, color: c.ink, fontWeight: 600 }}>
                     <span>Ask Pellier</span>
                     {/* Persona indicator — colored avatar + first name
                         in italic Fraunces with a persona-quote second

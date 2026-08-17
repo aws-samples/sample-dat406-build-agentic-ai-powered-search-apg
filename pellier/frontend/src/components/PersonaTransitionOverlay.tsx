@@ -135,7 +135,7 @@ export default function PersonaTransitionOverlay() {
                   justifyContent: 'center',
                   overflow: 'hidden',
                   color: 'var(--cream-1)',
-                  fontFamily: "'Fraunces Variable', 'Fraunces', Georgia, serif",
+                  fontFamily: 'var(--sans)',
                   fontSize: lastTransition.kind === 'sign-in' ? 42 : 30,
                   fontWeight: 650,
                   lineHeight: 1,

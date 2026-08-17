@@ -417,6 +417,57 @@ export const PERSONA_TURN_TRACES: Record<string, PersonaTurnTrace[]> = {
   fresh: PERSONA_HERO_PILLS.fresh.map(() => ({ tools: ['find_pieces'] })),
 }
 
+export interface OperatorTurn {
+  id: 'running-low' | 'restock-product-37'
+  label: string
+  query: string
+  tools: string[]
+  access: 'read' | 'write'
+}
+
+/**
+ * Inventory operations remain visibly separate from a shopper profile. The
+ * backend keeps mutating tools on the governed path; Labs keeps their
+ * Dispatcher-only constraint explicit before a participant triggers a turn.
+ */
+export const OPERATOR_TURNS: OperatorTurn[] = [
+  {
+    id: 'running-low',
+    label: 'Review low stock',
+    query: 'Which pieces are running low?',
+    tools: ['running_low'],
+    access: 'read',
+  },
+  {
+    id: 'restock-product-37',
+    label: 'Restock product 37',
+    query: 'Restock product 37 by 12 units.',
+    tools: ['restock_shelf'],
+    access: 'write',
+  },
+]
+
+/**
+ * Catalog images provide editorial context for the guided turn only. They
+ * are not a prediction of the result: the live agent response remains the
+ * only evidence of what the request returned.
+ */
+export const PERSONA_TURN_PREVIEW: Record<string, (number | null)[]> = {
+  marco: [11, 14, 2, 16, 2],
+  anna: [27, 21, 31, null, null],
+  theo: [31, 32, 37, null, null],
+  fresh: [9, 8, 11, 14, 16],
+}
+
+export function turnPreviewProductId(
+  personaId: string | null | undefined,
+  index: number,
+): number | null {
+  const key = personaId ?? 'fresh'
+  const previews = PERSONA_TURN_PREVIEW[key] ?? PERSONA_TURN_PREVIEW.fresh
+  return previews[index] ?? null
+}
+
 // ---------------------------------------------------------------------
 // Featured product ID — the big hero product slot per persona.
 // Maps persona → product ID from SHOWCASE_PRODUCTS.

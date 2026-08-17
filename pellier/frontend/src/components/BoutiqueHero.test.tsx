@@ -3,20 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BoutiqueHero from './BoutiqueHero'
 
 const switchPersona = vi.fn()
-const signOut = vi.fn()
+const openDrawerWithQuery = vi.fn()
 let persona: { id: string; avatar_color: string } | null = null
 
 vi.mock('../contexts/PersonaContext', () => ({
   usePersona: () => ({
     persona,
     switchPersona,
-    signOut,
     switching: false,
   }),
 }))
 
 vi.mock('../contexts/UIContext', () => ({
-  useUI: () => ({ openDrawerWithQuery: vi.fn() }),
+  useUI: () => ({ openDrawerWithQuery }),
 }))
 
 vi.mock('../hooks/useVoiceSearch', () => ({
@@ -27,51 +26,27 @@ vi.mock('../hooks/useVoiceSearch', () => ({
   }),
 }))
 
-vi.mock('../shared', () => ({
-  PresencePill: () => <span>Presence</span>,
-}))
-
-describe('BoutiqueHero edit selector', () => {
+describe('BoutiqueHero primary action', () => {
   beforeEach(() => {
     persona = null
     switchPersona.mockReset()
-    signOut.mockReset()
+    openDrawerWithQuery.mockReset()
   })
 
-  it('offers four editorial edits without exposing customer names', () => {
+  it('keeps profile selection in the hero without a duplicate edit rail', () => {
     render(<BoutiqueHero />)
 
-    expect(screen.getByTestId('boutique-edit-selector')).toBeInTheDocument()
-    expect(screen.getByTestId('boutique-edit-fresh')).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(screen.getByTestId('boutique-edit-fresh')).toHaveTextContent(
-      'The Resort Edit',
-    )
-    expect(screen.getByTestId('boutique-edit-marco')).toHaveTextContent(
-      'The Travel Edit',
-    )
-    expect(screen.getByTestId('boutique-edit-anna')).toHaveTextContent(
-      'The Gift Edit',
-    )
-    expect(screen.getByTestId('boutique-edit-theo')).toHaveTextContent(
-      'The Home Rituals Edit',
-    )
-
-    const trust = screen.getByTestId('boutique-hero-trust')
-    const edits = screen.getByTestId('boutique-edit-selector')
-    expect(trust.compareDocumentPosition(edits) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('hero-profile-marco')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-profile-anna')).toBeInTheDocument()
+    expect(screen.getByTestId('hero-profile-theo')).toBeInTheDocument()
+    expect(screen.queryByTestId('boutique-edit-selector')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('boutique-hero-trust')).not.toBeInTheDocument()
   })
 
-  it('uses the existing persona transitions for each edit', () => {
-    persona = { id: 'marco', avatar_color: '#5a3528' }
+  it('uses the existing persona transition from the hero', () => {
     render(<BoutiqueHero />)
 
-    fireEvent.click(screen.getByTestId('boutique-edit-anna'))
+    fireEvent.click(screen.getByTestId('hero-profile-anna'))
     expect(switchPersona).toHaveBeenCalledWith('anna')
-
-    fireEvent.click(screen.getByTestId('boutique-edit-fresh'))
-    expect(signOut).toHaveBeenCalledOnce()
   })
 })

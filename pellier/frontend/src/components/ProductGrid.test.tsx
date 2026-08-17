@@ -7,7 +7,8 @@
  * IntersectionObserver didn't fire — the landmark can't hide itself.
  */
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
 
 import ProductGrid from './ProductGrid'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
@@ -23,17 +24,35 @@ describe('ProductGrid — render contract', () => {
     }
   })
 
-  it('each card includes the warm wash overlay + Add to bag button', () => {
+  it('hides Add to bag when no action handler is provided', () => {
     render(<ProductGrid />)
 
     for (const product of SHOWCASE_PRODUCTS) {
       expect(
-        screen.getByTestId(`product-card-add-${product.id}`),
-      ).toBeInTheDocument()
+        screen.queryByTestId(`product-card-add-${product.id}`),
+      ).not.toBeInTheDocument()
     }
-    expect(screen.getAllByTestId('product-card-warm-wash')).toHaveLength(
-      SHOWCASE_PRODUCTS.length,
+    for (const product of SHOWCASE_PRODUCTS) {
+      expect(
+        screen.getByTestId(`product-card-details-${product.id}`),
+      ).not.toHaveAttribute('open')
+    }
+  })
+
+  it('calls the supplied Add to bag handler with the selected product', async () => {
+    const user = userEvent.setup()
+    const onAddToBag = vi.fn()
+    render(
+      <ProductGrid
+        products={SHOWCASE_PRODUCTS.slice(0, 1)}
+        onAddToBag={onAddToBag}
+      />,
     )
+
+    await user.click(
+      screen.getByTestId(`product-card-add-${SHOWCASE_PRODUCTS[0].id}`),
+    )
+    expect(onAddToBag).toHaveBeenCalledWith(SHOWCASE_PRODUCTS[0])
   })
 
   it('respects the `products` prop when provided', () => {

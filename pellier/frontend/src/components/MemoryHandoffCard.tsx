@@ -1,170 +1,93 @@
 /**
- * MemoryHandoffCard — "Pick up where I left off."
+ * MemoryHandoffCard — workshop profile and session boundary.
  *
- * Sits between the hero and the Weekend Edit after a shopper selects
- * a returning profile. Surfaces what the agent remembers (saved item,
- * holds in bag, restock watches) with each line tagged by the tool
- * that produced it (`memory.recall`, `memory.holds`, `inventory.watch`).
- *
- * Reuses the existing daylight palette — cream-warm background, accent
- * border, espresso italic title, mono tool stamps. No new tokens.
+ * Sits between the editorial collection and the catalog. Surfaces the
+ * selected profile's declared ranking seed and core scenario without turning
+ * the storefront into an evidence dashboard.
  *
  * Clicking the CTA opens the chat drawer with a persona-appropriate
  * resume query.
  */
-import type { CSSProperties } from 'react'
 import { useUI } from '../contexts/UIContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { memoryHandoffForPersona } from '../data/personaCurations'
-import { TraceChip } from '../shared'
 
 const RESUME_QUERY: Record<string, string> = {
-  marco: 'Pick up where I left off — show me the linen pieces I was deciding between',
-  anna: 'Pick up where I left off — the gift shortlist I was building',
-  theo: 'Pick up where I left off — and tell me about the bowl return',
+  marco: 'Pick up where I left off. Show me the linen pieces I was deciding between.',
+  anna: 'Pick up where I left off. Open the gift shortlist I was building.',
+  theo: 'Pick up where I left off and tell me about the bowl return.',
+  fresh: 'A thoughtful gift for someone who runs',
 }
 
 export default function MemoryHandoffCard() {
   const { openDrawerWithQuery } = useUI()
   const { persona } = usePersona()
-  if (!persona || persona.id === 'fresh') return null
+  const personaId = persona?.id ?? null
+  if (!personaId) return null
 
-  const personaId = persona.id
   const content = memoryHandoffForPersona(personaId)
-  const ctaLabel = content.cta ?? 'Pick up where I left off'
-  const personaAccent = persona.avatar_color
+  const ctaLabel = content.cta ?? 'Open profile prompt'
 
   const handleCta = () => {
-    const query = RESUME_QUERY[personaId]
-    if (!query) return
+    const query = RESUME_QUERY[personaId ?? 'fresh'] ?? RESUME_QUERY.fresh
     openDrawerWithQuery(query)
   }
 
   return (
     <section
       data-testid="memory-handoff"
-      data-persona={personaId}
-      aria-label="Pick up where you left off"
-      className="w-full"
-      style={{
-        background:
-          'linear-gradient(180deg, var(--cream-warm) 0%, var(--cream-50, #fbf8f2) 100%)',
-      }}
+      data-persona={personaId ?? 'fresh'}
+      aria-label="Workshop profile context"
+      className="w-full bg-cream-warm"
     >
-      <div className="max-w-[1120px] mx-auto px-container-x py-8 md:py-10">
+      <div className="mx-auto max-w-[1120px] px-container-x py-8 md:py-10">
         <div
           data-testid="memory-handoff-card"
-          className="grid grid-cols-1 items-start gap-5 md:gap-6 lg:grid-cols-[auto_1fr_auto] shadow-warm-sm"
-          style={{
-            '--trace-accent': personaAccent,
-            background: 'color-mix(in srgb, var(--cream-warm) 65%, #ffffff)',
-            border:
-              '1px solid color-mix(in srgb, var(--trace-accent) 18%, var(--rule-1))',
-            borderRadius: 8,
-            padding: '24px 28px',
-            boxShadow:
-              'inset 3px 0 0 color-mix(in srgb, var(--trace-accent) 78%, var(--cream-warm)), 0 8px 26px rgba(31,20,16,0.06)',
-          } as CSSProperties}
+          className="
+            flex flex-col gap-5 border-y border-sand py-6
+            md:flex-row md:items-center md:justify-between md:gap-10
+          "
         >
-          {/* Persona-keyed glyph — espresso disc + cream "P" (matches header wordmark). */}
-          <div
-            aria-hidden="true"
-            style={{
-              width: 54,
-              height: 54,
-              borderRadius: 999,
-              background: 'var(--ink)',
-              color: 'var(--cream-warm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'var(--sans)',
-              fontStyle: 'normal',
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              flexShrink: 0,
-              boxShadow:
-                '0 0 0 3px color-mix(in srgb, var(--trace-accent) 12%, transparent)',
-            }}
-          >
-            P
-          </div>
-
-          {/* Body — mono eyebrow, serif title, tool row + prose row */}
-          <div className="min-w-0">
+          <div className="min-w-0 max-w-[760px]">
             <p
               data-testid="memory-handoff-eyebrow"
-              className="font-mono font-semibold uppercase mb-2"
-              style={{
-                fontSize: 'var(--dl-fs-eyebrow)',
-                letterSpacing: '0.12em',
-                color: 'color-mix(in srgb, var(--trace-accent) 78%, var(--ink))',
-              }}
+              className="mb-2 font-sans text-[13px] font-medium text-accent-ink"
             >
-              {content.eyebrow}
+              Workshop profile
             </p>
             <h3
               data-testid="memory-handoff-title"
-              className="font-display italic text-espresso"
+              className="font-display text-espresso"
               style={{
                 fontSize: 'clamp(20px, 2vw, 26px)',
-                lineHeight: 1.3,
+                lineHeight: 1.25,
                 fontWeight: 400,
-                letterSpacing: '-0.02em',
-                margin: '0 0 14px',
+                letterSpacing: 0,
+                margin: 0,
               }}
             >
               {content.title}
             </h3>
-            <ul
-              data-testid="memory-handoff-list"
-              className="m-0 mb-4 list-none divide-y divide-warm p-0"
+            <p
+              data-testid="memory-handoff-summary"
+              className="mt-3 font-sans text-[14px] leading-6 text-ink-soft"
             >
-              {content.items.map((item) => (
-                <li
-                  key={item.tool}
-                  className="flex flex-wrap items-start gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0"
-                >
-                  <TraceChip
-                    tool={item.tool}
-                    compact
-                    variant="provenance"
-                    labelMode="label"
-                  />
-                  <p
-                    className="m-0 min-w-0 flex-1 font-sans text-ink-soft"
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.55,
-                      letterSpacing: '-0.01em',
-                      fontWeight: 400,
-                    }}
-                  >
-                    {item.text}
-                  </p>
-                </li>
-              ))}
-            </ul>
+              {content.items.map((item) => item.text).join('. ')}.
+            </p>
           </div>
 
-          {/* CTA — opens the drawer with a persona-tailored resume query.
-              Fresh visitors get a "Try a query" CTA that fires the same
-              prompt as the first hero suggestion pill. */}
           <button
             type="button"
             data-testid="memory-handoff-cta"
             onClick={handleCta}
-            className="rounded-full font-sans font-medium tracking-wide transition-colors duration-fade hover:opacity-95 cursor-pointer"
+            className="
+              shrink-0 self-start rounded-full bg-espresso px-5 py-3
+              font-sans text-[14px] font-medium text-cream-warm transition
+              hover:bg-dusk focus-visible:outline-none focus-visible:ring-2
+              focus-visible:ring-espresso focus-visible:ring-offset-2 md:self-center
+            "
             style={{
-              background: 'var(--ink)',
-              color: 'var(--cream-warm)',
-              padding: '14px 22px',
-              fontSize: 14,
-              letterSpacing: '0.04em',
-              border: 0,
               whiteSpace: 'nowrap',
-              alignSelf: 'center',
             }}
           >
             {ctaLabel}

@@ -162,7 +162,7 @@ const ProductCardConcierge = ({
         >
           <h4
             className="text-[14.5px] leading-tight font-semibold line-clamp-2"
-            style={{ color: c.ink, fontFamily: "'Fraunces', serif" }}
+            style={{ color: c.ink, fontFamily: 'var(--sans)' }}
           >
             {displayName}
           </h4>

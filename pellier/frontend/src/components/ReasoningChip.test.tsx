@@ -4,7 +4,7 @@
  * Validates Requirements 1.7.1, 1.7.2, 1.7.3, 1.7.4, 1.7.5.
  *
  * Coverage:
- *   - `picked`   renders `Picked because {reason}` in italic Fraunces
+ *   - `picked`   renders `Picked because {reason}` in Instrument Sans
  *     with a small B mark prefix (Req 1.7.2).
  *   - `matched`  renders `Matched on: {a} · {b} · {c}` (Req 1.7.3).
  *   - `pricing`  renders the lead clause and wraps the urgent clause
@@ -65,9 +65,8 @@ describe('ReasoningChip — picked style (Req 1.7.2)', () => {
     expect(
       within(chip).getByTestId('reasoning-chip-pmark'),
     ).toBeInTheDocument()
-    // Italic Fraunces voice is applied on the container.
-    expect(chip.getAttribute('style') ?? '').toMatch(/font-style:\s*italic/)
-    expect(chip.getAttribute('style') ?? '').toMatch(/Fraunces/)
+    expect(chip.getAttribute('style') ?? '').toMatch(/font-style:\s*normal/)
+    expect(chip.getAttribute('style') ?? '').toMatch(/var\(--sans\)/)
   })
 })
 
@@ -118,7 +117,7 @@ describe('ReasoningChip — pricing style (Req 1.7.4)', () => {
 })
 
 describe('ReasoningChip — context style (Req 1.7.5)', () => {
-  it('renders the provided context copy in italic Fraunces', () => {
+  it('renders the provided context copy in Instrument Sans', () => {
     render(
       <ReasoningChip
         chip={{
@@ -132,8 +131,8 @@ describe('ReasoningChip — context style (Req 1.7.5)', () => {
     expect(chip).toHaveTextContent(
       'Gift-ready: signature packaging, arrives tomorrow',
     )
-    expect(chip.getAttribute('style') ?? '').toMatch(/font-style:\s*italic/)
-    expect(chip.getAttribute('style') ?? '').toMatch(/Fraunces/)
+    expect(chip.getAttribute('style') ?? '').toMatch(/font-style:\s*normal/)
+    expect(chip.getAttribute('style') ?? '').toMatch(/var\(--sans\)/)
   })
 })
 
