@@ -1190,30 +1190,47 @@ async def get_memory(persona: str):
         )
 
         # Live overlays - each promotes source to 'live' on success.
+        #
+        # The label is promoted with it. Previously only ``items`` and
+        # ``source`` were replaced, so a substrate that read successfully from
+        # Aurora or AgentCore kept whatever label the seed fixture carried:
+        # working memory served ``source: "live"`` under the label
+        # "Working - fixture transcript", and the dashboard told attendees the
+        # data was seeded when it was not. Promoting both together is what stops
+        # the two from disagreeing again.
+        _CANONICAL_LABELS = {
+            "working": "Working - AgentCore Memory",
+            "semantic": "Semantic - AgentCore Memory",
+            "episodic": "Episodic - Aurora",
+            "procedural": "Procedural - source controlled",
+            "operational": "Operational History - Aurora",
+        }
+
+        def _promote(key: str, items: list) -> None:
+            """Mark one substrate live: its items, its source, and its label."""
+            data[key]["items"] = items
+            data[key]["source"] = "live"
+            data[key]["label"] = _CANONICAL_LABELS[key]
+
         ep_live = await _load_live_episodic(persona)
         if ep_live:
-            data["episodic"]["items"] = ep_live
-            data["episodic"]["source"] = "live"
+            _promote("episodic", ep_live)
 
         proc_live = await _load_live_procedural()
         if proc_live:
-            data["procedural"]["items"] = proc_live
-            data["procedural"]["source"] = "live"
+            _promote("procedural", proc_live)
 
         operational_live = await _load_live_operational_history()
         if operational_live:
-            data["operational"]["items"] = operational_live
-            data["operational"]["source"] = "live"
+            _promote("operational", operational_live)
 
         wk_live = await _load_live_working(persona)
         if wk_live:
-            data["working"]["items"] = wk_live
-            data["working"]["source"] = "live"
+            _promote("working", wk_live)
 
         sem_live = await _load_live_semantic(persona)
         if sem_live:
-            data["semantic"]["items"] = sem_live
-            data["semantic"]["source"] = "live"
+            _promote("semantic", sem_live)
 
         return data
     except Exception as exc:

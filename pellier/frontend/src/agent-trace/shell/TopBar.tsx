@@ -37,6 +37,11 @@ import {
 } from '../../components/ui';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
+import {
+  GROUP_LABELS,
+  interactionForPath,
+  type LabsInteraction,
+} from './labsInteraction';
 
 interface LabsView {
   label: string;
@@ -154,6 +159,25 @@ const LABS_VIEW_GROUPS: LabsViewGroup[] = [
 
 const LABS_VIEWS = LABS_VIEW_GROUPS.flatMap((group) => group.views);
 
+/*
+ * The picker used to group by subject (Guided demo / Inspect / Evaluate), which
+ * left Live workbench sitting beside two views that run nothing. It now groups
+ * by what the participant does, from the shared contract in labsInteraction, so
+ * "which of these fifteen do I actually operate" is answerable at a glance.
+ * Order inside each group is preserved from the definitions above.
+ */
+const LABS_INTERACTION_GROUPS: Array<{
+  interaction: LabsInteraction;
+  label: string;
+  views: LabsView[];
+}> = (['interactive', 'reference'] as const).map((interaction) => ({
+  interaction,
+  label: GROUP_LABELS[interaction],
+  views: LABS_VIEWS.filter(
+    (view) => interactionForPath(view.path) === interaction,
+  ),
+}));
+
 const TopBar: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -213,10 +237,17 @@ const TopBar: React.FC = () => {
               sideOffset={10}
               collisionPadding={12}
             >
-              {LABS_VIEW_GROUPS.map((group) => (
-                <div className="pellier-labs-view-menu-section" key={group.label}>
+              {LABS_INTERACTION_GROUPS.map((group) => (
+                <div
+                  className="pellier-labs-view-menu-section"
+                  data-interaction={group.interaction}
+                  key={group.label}
+                >
                   <DropdownMenuLabel className="pellier-labs-view-menu-label">
                     {group.label}
+                    <span className="pellier-labs-view-menu-count">
+                      {group.views.length}
+                    </span>
                   </DropdownMenuLabel>
                   <DropdownMenuGroup>
                     {group.views.map((view) => {
@@ -227,6 +258,7 @@ const TopBar: React.FC = () => {
                           key={view.path}
                           className="pellier-labs-view-menu-item"
                           data-active={isActive ? 'true' : undefined}
+                          data-interaction={group.interaction}
                           onSelect={() => navigate(view.path)}
                         >
                           <span

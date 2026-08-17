@@ -62,9 +62,11 @@ describe('Pellier Labs TopBar', () => {
     })
     expect(screen.queryByRole('menuitem', { name: /Proof Board/i })).not.toBeInTheDocument()
     await user.click(switcher)
-    expect(screen.getByText('Guided demo')).toBeInTheDocument()
-    expect(screen.getByText('Inspect')).toBeInTheDocument()
-    expect(screen.getByText('Evaluate')).toBeInTheDocument()
+    // The picker groups by interaction contract now, not by subject. The old
+    // Guided demo / Inspect / Evaluate headings put Live workbench beside two
+    // views that expose no controls at all.
+    expect(screen.getByText('Interactive')).toBeInTheDocument()
+    expect(screen.getByText('Reference')).toBeInTheDocument()
     await user.click(screen.getByRole('menuitem', { name: /Architecture/i }))
     expect(screen.getByTestId('location')).toHaveTextContent('/pellier-labs/architecture')
 

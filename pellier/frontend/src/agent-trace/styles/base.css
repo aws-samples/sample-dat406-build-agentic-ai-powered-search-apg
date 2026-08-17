@@ -85,6 +85,15 @@
   --at-ledger-r-sm: 12px;
   --at-label-track: 0.16em;
 
+  /* Labs was running two greens for one meaning: --at-green-1 resolved to
+   * --dl-ok (#3f6212, a dark forest green) and drove the workshop progress
+   * strip, the shipped status pills, and the managed category badge, while the
+   * evidence ledger and the mode banner used olive (#6a7a4d). Two greens for
+   * "this is done" is drift, not nuance, so the legacy names alias onto olive.
+   * Every shipped / verified / ok state across all fifteen views now matches. */
+  --at-green-1: var(--at-olive);
+  --at-green-soft: var(--at-olive-soft);
+
   background: var(--cream);
   color: var(--at-ink-1);
   font-family: var(--at-sans);
@@ -1265,10 +1274,10 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border: 1px solid var(--at-rule-2);
+  border: 1px solid var(--at-ink-1);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--cream-warm) 84%, transparent);
-  color: var(--at-red-1) !important;
+  background: var(--at-ink-1);
+  color: var(--at-cream-1) !important;
   font-size: 12.5px;
   font-weight: 650;
   text-decoration: none !important;
@@ -1276,8 +1285,7 @@
 }
 
 .pellier-labs-back:hover {
-  border-color: color-mix(in srgb, var(--at-red-1) 34%, transparent);
-  background: var(--at-red-soft);
+  background: var(--at-espresso-2);
 }
 
 @media (max-width: 900px) {
@@ -1423,5 +1431,144 @@
 @media (prefers-reduced-motion: reduce) {
   .agent-trace-sidebar {
     transition: none;
+  }
+}
+
+/* ========================================================================
+ * Interaction contract
+ *
+ * Pellier Labs has fifteen views and only five of them run anything. A
+ * participant in a time-boxed session should not have to open each one to find
+ * that out. The banner states it on arrival; the picker groups by it.
+ *
+ * Colour follows the meaning already established elsewhere on the surface:
+ * olive for something live and actionable, neutral for reference. Nothing is
+ * disabled or hidden, so a facilitator can still send someone anywhere.
+ * ======================================================================== */
+
+.labs-mode-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--at-rule-1);
+}
+
+.labs-mode-banner-label {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 999px;
+  background: var(--at-cream-elev);
+  color: var(--at-ink-4);
+  font-family: var(--at-sans);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: var(--at-label-track);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Interactive surfaces carry the olive that means "live" everywhere else. */
+.labs-mode-banner[data-mode='interactive'] .labs-mode-banner-label {
+  border-color: var(--at-olive-line);
+  background: var(--at-olive-soft);
+  color: var(--at-olive);
+}
+
+.labs-mode-banner-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--at-olive);
+}
+
+.labs-mode-banner-detail {
+  min-width: 0;
+  color: var(--at-ink-4);
+  font-family: var(--at-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* On an interactive surface the sentence describes a capability, so it earns ink. */
+.labs-mode-banner[data-mode='interactive'] .labs-mode-banner-detail {
+  color: var(--at-ink-2);
+}
+
+/* The live workbench fills the viewport and states its own purpose in the
+   masthead, so the banner would be a redundant second header there. */
+.agent-trace-surface[data-workbench='true'] .labs-mode-banner {
+  display: none;
+}
+
+/* ---- Picker grouping ----
+ *
+ * The dropdown renders through a portal, so it mounts OUTSIDE
+ * .agent-trace-root and inherits none of the semantic accents defined there.
+ * Probing it showed the olive rules below applying but resolving to nothing.
+ * The menu therefore carries the few tokens it needs itself. */
+
+.pellier-labs-view-menu {
+  --at-olive: #6a7a4d;
+  --at-olive-soft: #edf2e7;
+  --at-olive-line: #c9d6bc;
+  --at-label-track: 0.16em;
+}
+
+.pellier-labs-view-menu-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pellier-labs-view-menu-count {
+  display: inline-grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--at-cream-2);
+  color: var(--at-ink-4);
+  font-family: var(--at-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* An interactive view gets the olive icon in the picker, matching its banner. */
+.pellier-labs-view-menu-item[data-interaction='interactive'] .pellier-labs-view-menu-icon {
+  color: var(--at-olive);
+}
+
+.pellier-labs-view-menu-section[data-interaction='interactive']
+  .pellier-labs-view-menu-label {
+  color: var(--at-olive);
+}
+
+.pellier-labs-view-menu-section[data-interaction='interactive']
+  .pellier-labs-view-menu-count {
+  background: var(--at-olive-soft);
+  color: var(--at-olive);
+}
+
+/* Reference items sit a step back without being greyed out: still legible,
+   clearly secondary. */
+.pellier-labs-view-menu-item[data-interaction='reference']
+  .pellier-labs-view-menu-copy
+  strong {
+  font-weight: 550;
+}
+
+@media (max-width: 720px) {
+  .labs-mode-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
   }
 }
