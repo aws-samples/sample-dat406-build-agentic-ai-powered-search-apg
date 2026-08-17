@@ -470,7 +470,8 @@ setup_database() {
             011_governed_write_integrity.sql \
             012_retrieval_receipts.sql \
             013_inventory_ledger.sql \
-            014_governed_turn_receipts.sql
+            014_governed_turn_receipts.sql \
+            015_proof_carrying_commerce.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."

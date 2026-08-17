@@ -185,6 +185,16 @@ if $managed_required; then
     fail "Governed turn receipt schema missing. Apply scripts/migrations/014_governed_turn_receipts.sql."
     ok=false
   fi
+
+  commerce_receipts_table="$(_psql "SELECT to_regclass('pellier.commerce_receipts');" || echo '')"
+  commerce_payment_events_table="$(_psql "SELECT to_regclass('pellier.commerce_payment_events');" || echo '')"
+  if [[ "$commerce_receipts_table" == "pellier.commerce_receipts" ]] \
+      && [[ "$commerce_payment_events_table" == "pellier.commerce_payment_events" ]]; then
+    pass "Proof-carrying commerce schema is installed"
+  else
+    fail "Proof-carrying commerce schema missing. Apply scripts/migrations/015_proof_carrying_commerce.sql."
+    ok=false
+  fi
 fi
 
 # 4. Node version (warn — root-cause diagnostic for the managed pillars below).

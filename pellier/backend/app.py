@@ -52,6 +52,7 @@ from routes import (
     products_router,
     search_router,
     boutique_router,
+    commerce_router,
     user_router,
     workshop_router,
 )
@@ -423,6 +424,7 @@ app.include_router(agent_trace_router)
 # via Pydantic and degrade gracefully; they are never allowed to 5xx
 # the homepage.
 app.include_router(boutique_router)
+app.include_router(commerce_router)
 app.include_router(transcribe_router)
 
 

@@ -34,7 +34,7 @@ describe('LiveStatusStrip — static copy', () => {
       /Ships within 1 to 2 days/,
     )
     expect(screen.getByTestId('live-status-secure')).toHaveTextContent(
-      'Secure checkout',
+      'Confirmed totals',
     )
   })
 

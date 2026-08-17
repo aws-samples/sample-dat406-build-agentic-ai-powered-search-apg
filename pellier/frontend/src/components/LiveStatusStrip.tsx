@@ -2,7 +2,7 @@
  * LiveStatusStrip — the reassuring status line above the category chips.
  *
  * Renders the `LIVE_STATUS` copy alongside Shipping / Returns /
- * Secure checkout. The component is intentionally static now: an
+ * Confirmed totals. The component is intentionally static now: an
  * earlier iteration fetched `/api/inventory` and rendered an amber
  * "Catalog refreshing…" warning when the endpoint reported
  * `stale=true`, but the state surfaced frequently in demo envs where
@@ -15,7 +15,7 @@ import {
   LIVE_STATUS,
   SHIPPING,
   RETURNS,
-  SECURE_CHECKOUT,
+  CONFIRMED_TOTALS,
 } from '../copy'
 
 // --- Design tokens (storefront.md) --------------------------------------
@@ -89,7 +89,7 @@ export default function LiveStatusStrip() {
             data-testid="live-status-secure"
             style={{ color: c.ink2 }}
           >
-            {SECURE_CHECKOUT}
+            {CONFIRMED_TOTALS}
           </span>
         </div>
       </div>

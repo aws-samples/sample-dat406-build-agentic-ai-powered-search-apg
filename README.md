@@ -11,6 +11,8 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 [![Strands Agents](https://img.shields.io/badge/Strands-Agents_SDK-232F3E?style=flat-square)](https://strandsagents.com)
 [![MCP](https://img.shields.io/badge/MCP-postgres--mcp--server-4A154B?style=flat-square)](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Governed quality](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/quality.yml/badge.svg?branch=governed)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/quality.yml?query=branch%3Agoverned)
+[![E2E](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/e2e.yml/badge.svg?branch=governed)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/actions/workflows/e2e.yml?query=branch%3Agoverned)
 
 [![License: MIT](https://img.shields.io/github/license/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=00b300&label=License)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/aws-samples/sample-pellier-agentic-search-apg?style=flat-square&color=yellow)](https://github.com/aws-samples/sample-pellier-agentic-search-apg/stargazers)
@@ -20,7 +22,7 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 > Educational reference implementation for a governed agentic AI search workshop.
 > Not intended for production deployment without security hardening.
 
-**Contents:** [Workshop abstract](#workshop-abstract) · [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Governance model](#governance-model) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Resources](#resources)
+**Contents:** [Workshop abstract](#workshop-abstract) · [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Governance model](#governance-model) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Quality gates](#quality-gates) · [Repository layout](#repository-layout) · [Resources](#resources)
 
 ---
 
@@ -62,6 +64,11 @@ The application has two surfaces:
 
 The two surfaces share design tokens, presence pill, trace chips, and a typed agent vocabulary, so an attendee crossing between them sees the same atoms in both places.
 
+The storefront also includes a dismissible, once-per-session four-step
+orientation covering browse, profile, concierge, and evidence inspection. It
+never mounts over Pellier Labs, where the proof surface itself provides the
+workshop orientation.
+
 ### What it demonstrates
 
 Every claim in the workshop abstract maps to something runnable in this repo:
@@ -88,6 +95,25 @@ as one policy engine:
 | Authorization | AgentCore Policy evaluates Cedar before Gateway target execution | Whether a tool call was allowed or denied |
 | Data authorization | Aurora SQL functions validate ownership and write invariants | Which records the permitted tool could actually read or mutate |
 | Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
+| Commerce execution | Aurora quotes, confirmation grants, reservations, payment events, outbox rows, and immutable commerce receipts | Which authenticated shopper confirmed which total, what inventory moved, and which payment state completed |
+
+Pellier is not merely conversational commerce. It is proof-carrying commerce:
+an agent can recommend pieces and prepare a cart, but it cannot complete a
+purchase. Cognito identity, a short-lived server-priced quote, explicit shopper
+consent, deterministic shipping and tax rules, idempotent execution, sandbox
+payment state, and durable Aurora evidence determine what actually executes.
+Each idempotency key is bound to one confirmation grant, and the immutable
+receipt hashes the purchased line snapshot alongside identity, consent,
+inventory, payment, and outbox evidence. The API recomputes that hash when the
+receipt is read. The sandbox adapter is intentionally labeled in the API and
+storefront; this sample does not claim to process cards or move money.
+
+Glue Data Catalog, Amazon DataZone, and SageMaker governance are deliberately
+outside this execution boundary. They can govern analytical data products,
+catalog metadata, and model development, but they do not prove that a shopper
+confirmed a specific total or that an order, payment state, and inventory
+movement agree. Adding them to the required path would broaden the architecture
+without strengthening the transaction claim.
 
 The observability provisioner changes account-level X-Ray Transaction Search
 delivery and creates three workshop log groups. Inspect the bounded cleanup plan
@@ -198,7 +224,8 @@ for migration in \
   011_governed_write_integrity.sql \
   012_retrieval_receipts.sql \
   013_inventory_ledger.sql \
-  014_governed_turn_receipts.sql
+  014_governed_turn_receipts.sql \
+  015_proof_carrying_commerce.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \
@@ -213,7 +240,7 @@ python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 
 # 4. Frontend (separate terminal)
 cd pellier/frontend
-npm install
+npm ci
 npm run build      # production build → served by FastAPI on :8000
 # or: npm run dev   for HMR on :5173 (still hits backend on :8000)
 ```
@@ -348,8 +375,37 @@ Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads
 | Agent infra      | Bedrock AgentCore – Runtime (CUSTOM_JWT, fail-closed Gateway MCP rail) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (15-tool MCP catalog, Cognito access-token passthrough) · Policy (Cedar ENFORCE with live ALLOW/DENY proof) · Identity |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
 | Backend          | FastAPI · Python 3.14 · psycopg3 · boto3 · SSE streaming                                                  |
-| Frontend         | React 18 · TypeScript 5 · Vite · Tailwind · Framer Motion 12                                                             |
-| Editorial system | Fraunces Variable (display) · Inter (body) · JetBrains Mono (code) · cream / espresso / terracotta palette               |
+| Frontend         | React 18 · TypeScript 5 · Vite 6 · Tailwind CSS 3 · Framer Motion 12                                                      |
+| Editorial system | Fraunces Variable and Instrument Serif (display) · Instrument Sans (body) · JetBrains Mono (code) · self-hosted fonts     |
+
+---
+
+## Quality gates
+
+The `governed-quality` workflow runs the complete backend and frontend release
+gate on pushes and pull requests to `governed`:
+
+```bash
+cd pellier/backend
+python -m pytest -q
+python tests/test_copy_compliance.py
+
+cd ../frontend
+npm test -- --run
+npm run type-check
+npm run lint
+npm run build
+npm audit --omit=dev --audit-level=high
+
+cd ../..
+git diff --check
+find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+```
+
+The `e2e` workflow builds the production SPA, serves it through FastAPI in
+smoke mode, and walks the storefront, Pellier Labs, personas, streaming, and
+reset path in Chromium. The optional Cognito suite runs only when its isolated
+development-pool secrets are configured.
 
 ---
 
@@ -384,7 +440,7 @@ sample-pellier-agentic-search-apg/
 │   └── the-concierge/                       Lab 4 MCP and Gateway reference
 │
 └── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-014)
+    ├── migrations/                         Ordered fresh-cluster SQL (001-015)
     ├── seed_boutique_catalog.py             40 curated products + generated retrieval distractors
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
     └── bootstrap-labs.sh                    DB seed + frontend build + service start
@@ -404,18 +460,11 @@ The lab manual, CloudFormation templates, and prereq images live in the separate
 
 ---
 
-## Credits
+## Credits and license
 
 Built and curated by **Shayon Sanyal** (<shayons@amazon.com>).
 
-## License & attribution
-
-Licensed under the **MIT License** — © 2026 Amazon Web Services. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-**If you reuse this code, attribution is required — not optional.** MIT is deliberately chosen over MIT-0 for exactly this reason: copying any substantial portion obligates you to keep the copyright and permission notice intact. Concretely, when you fork, vendor, adapt, or build on this work:
-
-- **Retain** the `LICENSE` and `NOTICE` files (or reproduce their text) in your distribution.
-- **Credit the source** — cite the original author, *Shayon Sanyal*, and link back to <https://github.com/aws-samples/sample-pellier-agentic-search-apg>.
-- **Keep this notice** in copies or substantial portions of the software, per the MIT terms.
-
-This applies to talks, blog posts, derived workshops, and internal forks alike: take the code, but carry the credit with it. See [NOTICE](NOTICE) for the canonical attribution text to copy.
+Licensed under the [MIT License](LICENSE), copyright 2026 Amazon Web Services.
+The license requires the copyright and permission notice to remain in copies or
+substantial portions of the software. See [NOTICE](NOTICE) for the project's
+requested attribution format for derived workshops, talks, and other reuse.

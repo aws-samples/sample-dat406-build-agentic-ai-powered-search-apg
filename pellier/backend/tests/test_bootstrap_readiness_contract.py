@@ -288,6 +288,7 @@ def _run_health_gate(
     audit_count: int = 1,
     retrieval_receipts_exists: bool = True,
     governed_turn_receipts_exists: bool = True,
+    commerce_schema_exists: bool = True,
     managed_receipt: dict[str, object] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
@@ -337,6 +338,8 @@ case "$*" in
   *tool_audit*) printf '{audit_count}\n' ;;
   *"to_regclass('pellier.retrieval_receipts')"*) printf '{"pellier.retrieval_receipts" if retrieval_receipts_exists else ""}\n' ;;
   *"to_regclass('pellier.governed_turn_receipts')"*) printf '{"pellier.governed_turn_receipts" if governed_turn_receipts_exists else ""}\n' ;;
+  *"to_regclass('pellier.commerce_receipts')"*) printf '{"pellier.commerce_receipts" if commerce_schema_exists else ""}\n' ;;
+  *"to_regclass('pellier.commerce_payment_events')"*) printf '{"pellier.commerce_payment_events" if commerce_schema_exists else ""}\n' ;;
 esac
 """,
     )
@@ -445,6 +448,10 @@ def test_governed_health_gate_rejects_incomplete_managed_receipt(
         (
             {"governed_turn_receipts_exists": False},
             "Governed turn receipt schema missing",
+        ),
+        (
+            {"commerce_schema_exists": False},
+            "Proof-carrying commerce schema missing",
         ),
     ],
 )

@@ -8,6 +8,7 @@ rather than declaring every endpoint inline.
   * ``agent`` — ``/api/agent/chat`` SSE stream + session history.
   * ``products`` — editorial and personalized product and inventory APIs.
   * ``search`` — boutique vector search.
+  * ``commerce`` — authenticated quote, consent, order, and receipt APIs.
   * ``workshop`` — Agent Trace query and resume telemetry APIs.
   * ``boutique`` — storefront briefing and pulse APIs.
 """
@@ -19,6 +20,7 @@ from .auth import router as auth_router
 from .products import router as products_router
 from .search import router as search_router
 from .boutique import router as boutique_router
+from .commerce import router as commerce_router
 from .user import router as user_router
 from .workshop import router as workshop_router
 from .agent_trace import router as agent_trace_router
@@ -30,6 +32,7 @@ __all__ = [
     "products_router",
     "search_router",
     "boutique_router",
+    "commerce_router",
     "user_router",
     "workshop_router",
 ]

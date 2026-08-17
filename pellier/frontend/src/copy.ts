@@ -47,7 +47,7 @@ export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   },
   {
     verb: "Service",
-    text: "Secure checkout, careful packaging, complimentary shipping over $150, and easy 30-day returns.",
+    text: "Server-verified totals, careful packaging, complimentary shipping over $150, and easy 30-day returns.",
   },
 ];
 
@@ -224,7 +224,7 @@ export const LIVE_STATUS =
 // the live status strip (mock pellier_5.html parity).
 export const SHIPPING = "Free shipping over $150";
 export const RETURNS = "Ships within 1 to 2 days";
-export const SECURE_CHECKOUT = "Secure checkout";
+export const CONFIRMED_TOTALS = "Confirmed totals";
 
 // Category chips (Requirement 1.5.3)
 export const CATEGORY_CHIPS = [
@@ -407,7 +407,7 @@ export const FOOTER = {
     /** Centered service line \u2014 retail boilerplate moved out of the
      * hero capabilities strip so the strip can stay focused on agent
      * claims. Lives in the footer where shipping/returns info belongs. */
-    SERVICE: "Free shipping over $150 | Returns within 30 days | Secure checkout",
+    SERVICE: "Free shipping over $150 | Returns within 30 days | Confirmed totals",
     /** Right-hand credit in the footer strip (replaces workshop banner). */
     ATTRIBUTION: "\u00a9 Shayon Sanyal",
   },

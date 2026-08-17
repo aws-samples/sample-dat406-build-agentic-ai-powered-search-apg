@@ -51,6 +51,11 @@ FKs.
 14. **`014_governed_turn_receipts.sql`** — links identity, retrieval,
    citations, policy events, Aurora audit rows, and managed trace evidence in
    an append-only receipt for each governed turn.
+15. **`015_proof_carrying_commerce.sql`** — adds server-authoritative quotes,
+    explicit confirmation grants, idempotent commerce orders, inventory
+    reservations, sandbox payment state, a transactional outbox, and immutable
+    purchase receipts. The seeded `pellier.orders` persona history remains
+    separate.
 
 ## Run
 
@@ -76,7 +81,8 @@ for migration in \
     011_governed_write_integrity.sql \
     012_retrieval_receipts.sql \
     013_inventory_ledger.sql \
-    014_governed_turn_receipts.sql
+    014_governed_turn_receipts.sql \
+    015_proof_carrying_commerce.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -126,6 +132,8 @@ workshop state with:
 \dt pellier.approvals
 \dt pellier.retrieval_receipts
 \dt pellier.governed_turn_receipts
+\dt pellier.commerce_receipts
+\dt pellier.commerce_payment_events
 
 SELECT COUNT(*) FROM pellier.product_catalog;          -- 1000 by default
 SELECT COUNT(*) FROM pellier.customers;                -- at least 5

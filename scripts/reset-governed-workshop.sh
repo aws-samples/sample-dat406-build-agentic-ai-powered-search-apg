@@ -71,7 +71,8 @@ for migration in \
   011_governed_write_integrity.sql \
   012_retrieval_receipts.sql \
   013_inventory_ledger.sql \
-  014_governed_turn_receipts.sql
+  014_governed_turn_receipts.sql \
+  015_proof_carrying_commerce.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -84,6 +85,16 @@ pass "Exactly three warehouse rows per curated product reseeded"
 
 _psql_exec "
 TRUNCATE TABLE
+    pellier.commerce_payment_events,
+    pellier.commerce_receipts,
+    pellier.commerce_outbox,
+    pellier.commerce_inventory_reservations,
+    pellier.commerce_payment_attempts,
+    pellier.commerce_order_lines,
+    pellier.commerce_orders,
+    pellier.commerce_confirmation_grants,
+    pellier.commerce_quote_lines,
+    pellier.commerce_quotes,
     pellier.governed_receipts,
     pellier.governed_turn_receipts,
     pellier.tool_audit,
@@ -98,6 +109,10 @@ pass "Live returns, stock movements, write keys, audits, and receipts cleared"
 _psql_file "$REPO/scripts/migrations/013_inventory_ledger.sql" \
   >>/tmp/pellier-governed-reset-db.log
 pass "Inventory ledger reseeded from deterministic warehouse state"
+
+_psql_file "$REPO/scripts/migrations/015_proof_carrying_commerce.sql" \
+  >>/tmp/pellier-governed-reset-db.log
+pass "Proof-carrying commerce lifecycle restored"
 
 if [[ ! -f "$REPO/scripts/migrations/010_governed_receipts.sql" ]]; then
   fail "Missing scripts/migrations/010_governed_receipts.sql"

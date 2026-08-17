@@ -87,22 +87,23 @@ test.describe('Workshop production build smoke', () => {
     await page.getByTestId('pellier-labs-link').click();
     await expect(page).toHaveURL(/\/pellier-labs(?:\/|$)/);
     await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Pellier Labs' }),
-    ).toBeVisible();
-    await expect(page.getByLabel('Shopper request')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Pellier Labs' })).toBeVisible();
     await expect(
       page.getByRole('button', {
-        name: 'Find a resort-ready linen shirt under $200',
+        name: /^Inspect:/,
       }),
+    ).toHaveCount(5);
+    await expect(
+      page.getByRole('heading', { name: 'Shopper turns' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Live Agent Journey' }),
+      page.getByRole('heading', { name: 'Evidence ledger' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Live Result' }),
+      page.getByRole('heading', { name: 'Grounded answer', exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Run agent' })).toBeDisabled();
+    await expect(page.getByLabel('Shopper request')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Run agent' })).toHaveCount(0);
 
     await page.getByTestId('back-to-pellier').click();
     await expect(page).toHaveURL(new URL('/', BASE_URL).toString());
