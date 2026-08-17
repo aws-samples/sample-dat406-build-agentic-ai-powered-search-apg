@@ -38,3 +38,10 @@ def test_exception_groups_are_classified_from_their_children() -> None:
         [RuntimeError("transport issue"), RuntimeError("AccessDeniedException")],
     )
     assert classify_chat_error(grouped)["code"] == "policy_denied"
+
+
+def test_unmapped_verified_customer_is_an_authentication_error() -> None:
+    result = classify_chat_error("customer_identity_unmapped")
+
+    assert result["code"] == "authentication_required"
+    assert result["retryable"] is False

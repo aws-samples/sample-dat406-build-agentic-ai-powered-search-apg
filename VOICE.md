@@ -49,7 +49,7 @@ Avoid in shopper-facing copy:
 - smart, intelligent, magical, perfect, must-have
 - raw tool names, JWTs, ARNs, internal endpoints, and stack identifiers
 
-Agent Trace and workshop copy may use precise architecture terms because the
+Pellier Labs and workshop copy may use precise architecture terms because the
 audience is inspecting the system.
 
 ## Grounding and memory
@@ -104,7 +104,7 @@ from a bare 401.
 
 - No emojis in shopper-facing copy.
 - No em dashes. Use a period, comma, colon, or regular hyphen.
-- No markdown tables in Boutique responses.
+- No markdown tables in Pellier responses.
 - Avoid headings and numbered lists in short chat answers.
 - Use sentence case and ordinary punctuation.
 

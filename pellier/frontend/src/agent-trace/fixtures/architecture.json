@@ -40,7 +40,7 @@
     "category": "workshop",
     "title": "Runtime Envelope",
     "role": "Execution environment and workshop runtime pattern",
-    "description": "Runtime is the managed envelope around execution: model calls, memory, Gateway, and observability. In this codebase, the default Boutique flow is implemented in the app service layer; AgentCore Runtime concepts are surfaced as workshop infrastructure and deployment patterns.",
+    "description": "Runtime is the managed envelope around execution: model calls, Memory, Gateway, Policy, and observability. Pellier uses the same Dispatcher contract in-process for local development and inside AgentCore Runtime for the governed workshop path; a managed turn fails closed instead of falling back locally.",
     "codeSnippet": "# App-layer runtime shape\nrequest → triage → dispatcher → specialist/tool → SSE telemetry\n\n# Managed runtime is introduced as the deployment envelope\n# around the same agent/tool contracts.",
     "slug": "runtime"
   },
@@ -58,7 +58,7 @@
     "category": "workshop",
     "title": "Tool Registry",
     "role": "Semantic tool discovery via pgvector",
-    "description": "The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded with Cohere Embed v4 (1024-dim) and ranked by cosine similarity. The Boutique default still calls in-process Strands tools; the registry is how attendees see discovery as a first-class capability.",
+    "description": "The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded with Cohere Embed v4 (1024-dim) and ranked by cosine similarity. Local Dispatcher turns call the checked-in Strands tools; managed Dispatcher turns discover the corresponding MCP tools through AgentCore Gateway.",
     "codeSnippet": "# Discover by semantic similarity\nSELECT name,\n       1 - (embedding <=> $1) AS similarity\nFROM pellier.tools\nORDER BY embedding <=> $1\nLIMIT 5;",
     "slug": "tool-registry"
   },

@@ -38,6 +38,18 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
+USERNAME_TO_CUSTOMER_ID = {
+    "marco": "CUST-MARCO",
+    "anna": "CUST-ANNA",
+    "theo": "CUST-THEO",
+}
+
+
+def customer_id_for_verified_username(username: Optional[str]) -> Optional[str]:
+    """Map a verified Cognito username to its seeded Aurora customer."""
+    normalized = str(username or "").strip().casefold()
+    return USERNAME_TO_CUSTOMER_ID.get(normalized)
+
 
 @dataclass(frozen=True)
 class TurnIdentity:
@@ -120,16 +132,14 @@ def resolve_turn_identity(
     """
     user = user or {}
     principal_sub = (user.get("sub") or "").strip() or None
-    persona_id = (
-        requested_customer_id or user.get("customer_id") or ""
-    ).strip() or None
+    persona_id = str(requested_customer_id or "").strip() or None
 
     # The customer scope follows the verified principal when we have one.
     # Without a principal, a persona selection is the only scope available
     # and the turn is explicitly marked as simulated.
     if principal_sub:
-        shopper_customer_id = (
-            user.get("customer_id") or requested_customer_id or None
+        shopper_customer_id = customer_id_for_verified_username(
+            user.get("username")
         )
         persona_is_simulated = False
     else:

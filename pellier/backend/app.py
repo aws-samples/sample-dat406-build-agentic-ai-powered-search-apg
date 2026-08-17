@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
+from boutique_copy import MEMORY_WRITE_WARNING
 from models.search import (
     SearchRequest,
     SearchResponse,
@@ -367,7 +368,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Pellier Boutique API",
-    description="Governed agentic AI search with Aurora, RDS, and Bedrock AgentCore",
+    description="Governed agentic AI search with Aurora and Bedrock AgentCore",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -473,6 +474,11 @@ FRONTEND_DIST = Path(
 ).resolve()
 
 SPA_MOUNT_PATH = (os.environ.get("SPA_MOUNT_PATH", "/").rstrip("/") or "/")
+SPA_STATIC_FILES = {
+    path.relative_to(FRONTEND_DIST).as_posix(): path
+    for path in FRONTEND_DIST.rglob("*")
+    if path.is_file() and path.name != "index.html"
+}
 
 
 async def _serve_spa_root():
@@ -814,7 +820,7 @@ async def chat(request: ChatRequest, user=Depends(get_current_user)):
         
     except Exception as e:
         logger.error(f"Chat failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="chat_failed")
 
 
 def new_turn_id() -> str:
@@ -903,6 +909,65 @@ async def _persist_terminal_turn_receipt(
     except Exception as exc:  # pragma: no cover - persistence service is defensive
         logger.warning("governed turn receipt write skipped: %s", exc)
         return None
+
+
+async def _aurora_profile_receipt(customer_id: Optional[str]) -> Dict[str, Any]:
+    """Return bounded evidence that the verified profile exists in Aurora."""
+    if not customer_id:
+        return {
+            "source": "aurora",
+            "customer_id": None,
+            "facts_available": 0,
+            "orders_available": 0,
+            "available": False,
+        }
+    if db_service is None:
+        return {
+            "source": "unavailable",
+            "customer_id": customer_id,
+            "facts_available": 0,
+            "orders_available": 0,
+            "available": False,
+        }
+    try:
+        row = await db_service.fetch_one(
+            """
+            SELECT
+              EXISTS (
+                SELECT 1 FROM pellier.customers WHERE id = %s
+              ) AS customer_exists,
+              (
+                SELECT count(*) FROM pellier.customer_episodic_seed
+                 WHERE customer_id = %s
+              ) AS facts_available,
+              (
+                SELECT count(*) FROM pellier.orders WHERE customer_id = %s
+              ) AS orders_available
+            """,
+            customer_id,
+            customer_id,
+            customer_id,
+        )
+        return {
+            "source": "aurora",
+            "customer_id": customer_id,
+            "facts_available": int((row or {}).get("facts_available") or 0),
+            "orders_available": int((row or {}).get("orders_available") or 0),
+            "available": bool((row or {}).get("customer_exists")),
+        }
+    except Exception as exc:
+        logger.warning(
+            "Aurora profile receipt unavailable for %s: %s",
+            customer_id,
+            exc.__class__.__name__,
+        )
+        return {
+            "source": "error",
+            "customer_id": customer_id,
+            "facts_available": 0,
+            "orders_available": 0,
+            "available": False,
+        }
 
 
 @app.post("/api/chat/stream")
@@ -1040,13 +1105,13 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
 
         try:
             history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
-            # Merge persona customer_id into the user dict so the agent
-            # context and LTM reads scope to the right customer. The
-            # persona's customer_id takes precedence over the Cognito
-            # sub when both are present (workshop affordance).
             effective_user = dict(user) if user else {}
-            if request.customer_id:
-                effective_user["customer_id"] = request.customer_id
+            from services.turn_identity import resolve_turn_identity
+
+            turn_identity = resolve_turn_identity(
+                user=effective_user,
+                requested_customer_id=request.customer_id,
+            )
 
             # Per-turn guardrail INPUT check — records a decision in
             # services/guardrails_log so the Agent Trace Grounding page's
@@ -1055,6 +1120,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             # the log captures no entry (accurate — nothing happened).
             # Failures are swallowed: guardrail eval is observational,
             # not a hard turn gate in this demo surface.
+            guardrail_event = None
             if request.guardrails_enabled:
                 try:
                     import time as _time
@@ -1074,8 +1140,31 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                         text_preview=request.message,
                         mode=_res.get("mode"),
                     )
+                    guardrail_event = {
+                        "type": "guardrail_decision",
+                        "guardrail": {
+                            "allowed": bool(_res.get("allowed", True)),
+                            "action": str(_res.get("action", "NONE")),
+                            "violations": len(_res.get("violations", [])),
+                            "mode": str(_res.get("mode") or "configured"),
+                            "enforced": False,
+                        },
+                    }
                 except Exception as _exc:
                     logger.debug("Input guardrail observational check failed: %s", _exc)
+                    guardrail_event = {
+                        "type": "guardrail_decision",
+                        "guardrail": {
+                            "allowed": True,
+                            "action": "ERROR",
+                            "violations": 0,
+                            "mode": "error",
+                            "enforced": False,
+                        },
+                    }
+
+            if guardrail_event is not None:
+                yield f"data: {json.dumps(guardrail_event, ensure_ascii=False)}\n\n"
 
             # Resolve the execution rail through the same service the
             # managed ``/api/agent/chat`` route uses, so the storefront can
@@ -1136,6 +1225,20 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     )
                     return
 
+                if not turn_identity.shopper_customer_id:
+                    error = classify_chat_error("customer_identity_unmapped")
+                    await persist_terminal(
+                        rail=rail_decision.rail,
+                        terminal_status="failed",
+                        terminal_error_code=error["code"],
+                    )
+                    yield (
+                        "data: "
+                        + json.dumps(error, ensure_ascii=False)
+                        + "\n\n"
+                    )
+                    return
+
                 from services.intent_router import classify_intent
                 from services.response_mode import build_intent_signal
 
@@ -1154,20 +1257,58 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 from services.agentcore_runtime import (
                     ManagedRuntimeError,
                     get_latest_trace,
-                    run_agent_on_runtime,
+                    run_agent_on_runtime_result,
+                )
+                from services.agentcore_identity import AgentCoreIdentityService
+                from services.agentcore_memory import (
+                    AgentCoreMemory,
+                    ManagedMemoryError,
                 )
 
                 managed_started = time.perf_counter()
+                managed_session_id = request.session_id or turn_id
+                memory_namespace = AgentCoreIdentityService.build_namespace(
+                    turn_identity.principal_sub,
+                    managed_session_id,
+                )
+                managed_memory = AgentCoreMemory(strict=True)
                 try:
-                    response_text = await run_agent_on_runtime(
+                    managed_history = await managed_memory.get_session_history(
+                        memory_namespace
+                    )
+                except ManagedMemoryError as exc:
+                    error = classify_chat_error(exc.code)
+                    await persist_terminal(
+                        rail=rail_decision.rail,
+                        terminal_status="failed",
+                        terminal_error_code=error["code"],
+                    )
+                    yield f"data: {json.dumps(error, ensure_ascii=False)}\n\n"
+                    return
+
+                profile_customer_id = turn_identity.shopper_customer_id
+                profile_receipt = await _aurora_profile_receipt(profile_customer_id)
+                yield (
+                    "data: "
+                    + json.dumps(
+                        {
+                            "type": "aurora_profile_context",
+                            "profile": profile_receipt,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n"
+                )
+                try:
+                    managed_result = await run_agent_on_runtime_result(
                         message=request.message,
-                        session_id=request.session_id or turn_id,
-                        user_id=(effective_user or {}).get("sub"),
+                        session_id=managed_session_id,
+                        user_id=turn_identity.principal_sub,
                         auth_token=(effective_user or {}).get("access_token"),
-                        history=history,
+                        history=managed_history,
                         turn_id=turn_id,
                         response_mode=request.response_mode,
-                        customer_id=(effective_user or {}).get("customer_id"),
+                        customer_id=profile_customer_id,
                     )
                 except ManagedRuntimeError as exc:
                     error = classify_chat_error(exc.code)
@@ -1187,21 +1328,143 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     )
                     return
 
+                memory_receipt = {
+                    "source": "agentcore-memory",
+                    "turns_loaded": len(managed_history),
+                    "turns_persisted": 0,
+                    "namespace_scope": "verified-principal",
+                    "read_status": "succeeded",
+                    "write_status": "pending",
+                    "action_status": "completed",
+                    "retry_recommended": False,
+                }
+                try:
+                    await managed_memory.append_session_turns(
+                        memory_namespace,
+                        [
+                            {"role": "user", "content": request.message},
+                            {
+                                "role": "assistant",
+                                "content": managed_result.response,
+                            },
+                        ],
+                    )
+                    memory_receipt["turns_persisted"] = 2
+                    memory_receipt["write_status"] = "succeeded"
+                except ManagedMemoryError as exc:
+                    logger.warning(
+                        "Managed Memory did not persist completed Runtime turn %s",
+                        turn_id,
+                    )
+                    memory_receipt["write_status"] = "failed"
+                    memory_receipt["error_code"] = exc.code
+                except Exception as exc:
+                    logger.warning(
+                        "Managed Memory write failed after completed Runtime "
+                        "turn %s: %s",
+                        turn_id,
+                        exc.__class__.__name__,
+                    )
+                    memory_receipt["source"] = "unavailable"
+                    memory_receipt["write_status"] = "failed"
+                    memory_receipt["error_code"] = "memory_write_failed"
+
+                yield (
+                    "data: "
+                    + json.dumps(
+                        {
+                            "type": "agentcore_memory",
+                            "memory": memory_receipt,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n"
+                )
+                if managed_result.specialist:
+                    yield (
+                        "data: "
+                        + json.dumps(
+                            {
+                                "type": "agent_step",
+                                "agent": managed_result.specialist,
+                                "action": (
+                                    f"Dispatcher routed {managed_result.intent or 'request'}"
+                                ),
+                                "status": "completed",
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n\n"
+                    )
+                for tool_call in managed_result.tool_calls:
+                    yield (
+                        "data: "
+                        + json.dumps(
+                            {
+                                "type": "tool_call",
+                                **tool_call,
+                            },
+                            ensure_ascii=False,
+                            default=str,
+                        )
+                        + "\n\n"
+                    )
+                for product in managed_result.products:
+                    yield (
+                        "data: "
+                        + json.dumps(
+                            {"type": "product", "product": product},
+                            ensure_ascii=False,
+                            default=str,
+                        )
+                        + "\n\n"
+                    )
+
                 managed_trace = get_latest_trace(
-                    request.session_id or turn_id,
-                    principal_sub=(effective_user or {}).get("sub"),
+                    managed_session_id,
+                    principal_sub=turn_identity.principal_sub,
                 )
                 actual_rail = str(managed_trace.get("rail") or "")
                 event = {
                     "type": "complete",
                     "response": {
-                        "response": response_text,
-                        "products": [],
+                        "response": managed_result.response,
+                        "products": managed_result.products,
                         "suggestions": [],
                         "success": True,
+                        "model": managed_result.model,
+                        "memory": memory_receipt,
+                        "warnings": (
+                            [
+                                {
+                                    "code": memory_receipt.get("error_code"),
+                                    "message": MEMORY_WRITE_WARNING,
+                                    "retry_recommended": False,
+                                }
+                            ]
+                            if memory_receipt["write_status"] == "failed"
+                            else []
+                        ),
+                        "orchestration": {
+                            "pattern": managed_result.orchestration,
+                            "route": managed_result.intent,
+                            "router": "deterministic",
+                        },
                         "agent_execution": {
-                            "agent_steps": [],
-                            "tool_calls": [],
+                            "agent_steps": (
+                                [
+                                    {
+                                        "agent": managed_result.specialist,
+                                        "action": (
+                                            "Dispatcher selected specialist"
+                                        ),
+                                        "status": "completed",
+                                    }
+                                ]
+                                if managed_result.specialist
+                                else []
+                            ),
+                            "tool_calls": managed_result.tool_calls,
                             "reasoning_steps": [],
                             "total_duration_ms": int(
                                 (time.perf_counter() - managed_started) * 1000
@@ -1230,7 +1493,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     + json.dumps(
                         {
                             "type": "content",
-                            "content": response_text,
+                            "content": managed_result.response,
                         },
                         ensure_ascii=False,
                     )
@@ -1248,10 +1511,14 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 set_turn_context,
             )
 
+            local_user = dict(effective_user)
+            if turn_identity.shopper_customer_id:
+                local_user["customer_id"] = turn_identity.shopper_customer_id
+
             receipt_context = set_turn_context(
                 turn_id=turn_id,
                 session_id=request.session_id,
-                principal_sub=(effective_user or {}).get("sub"),
+                principal_sub=turn_identity.principal_sub,
                 rail=rail_decision.rail,
             )
             try:
@@ -1261,7 +1528,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     session_id=request.session_id,
                     workshop_mode=request.workshop_mode,
                     guardrails_enabled=request.guardrails_enabled,
-                    user=effective_user or None,
+                    user=local_user or None,
                     pattern=request.pattern,
                     turn_id=turn_id,
                     response_mode=request.response_mode,
@@ -1475,7 +1742,11 @@ async def performance_runtime(include_recent: bool = False):
         return agg
     except Exception as e:
         logger.warning(f"Performance runtime stats failed: {e}")
-        return {"turn_count": 0, "empty": True, "error": str(e)}
+        return {
+            "turn_count": 0,
+            "empty": True,
+            "error": "runtime_metrics_unavailable",
+        }
 
 
 @app.get("/api/performance/stats")
@@ -2463,7 +2734,8 @@ async def get_tracing_status():
             ),
         }
     except Exception as e:
-        return {"enabled": False, "error": str(e)}
+        logger.warning("Tracing status fetch failed: %s", e)
+        return {"enabled": False, "error": "tracing_status_unavailable"}
 
 
 @app.get("/api/traces/waterfall")
@@ -2594,7 +2866,12 @@ async def guardrails_decisions(session_id: str = "", limit: int = 50):
         return {"session_id": session_id or "_anonymous", "decisions": decisions, "count": len(decisions)}
     except Exception as e:
         logger.warning(f"Guardrails decisions fetch failed: {e}")
-        return {"session_id": session_id, "decisions": [], "count": 0, "error": str(e)}
+        return {
+            "session_id": session_id,
+            "decisions": [],
+            "count": 0,
+            "error": "guardrail_history_unavailable",
+        }
 
 
 # ============================================================================
@@ -2630,7 +2907,13 @@ async def get_agent_graph():
         return get_graph_structure()
     except Exception as e:
         logger.warning(f"Failed to get graph structure: {e}")
-        return {"available": False, "graph_builder_available": False, "nodes": [], "edges": [], "description": str(e)}
+        return {
+            "available": False,
+            "graph_builder_available": False,
+            "nodes": [],
+            "edges": [],
+            "description": "Graph metadata unavailable.",
+        }
 
 
 # ============================================================================
@@ -2654,7 +2937,7 @@ async def list_policies(operator: Dict[str, Any] = Depends(require_operator)):
         return {"policies": result.get("policies", []), "source": result.get("source")}
     except Exception as e:
         logger.warning(f"Failed to list policies: {e}")
-        return {"policies": [], "error": str(e)}
+        return {"policies": [], "error": "managed_policy_unavailable"}
 
 
 # NOTE: the former POST /api/agentcore/policy/check route was removed.
@@ -2699,7 +2982,12 @@ async def memory_ltm(customer_id: str = ""):
         return {"customer_id": customer_id, "facts": facts, "source": "aurora"}
     except Exception as e:
         logger.warning(f"Memory LTM fetch failed for {customer_id}: {e}")
-        return {"customer_id": customer_id, "facts": [], "source": "error", "error": str(e)}
+        return {
+            "customer_id": customer_id,
+            "facts": [],
+            "source": "error",
+            "error": "memory_unavailable",
+        }
 
 
 @app.get("/api/agentcore/memory/status")
@@ -2718,7 +3006,11 @@ async def memory_status():
         return await asyncio.to_thread(probe_memory_backend_status)
     except Exception as e:
         logger.warning(f"Memory status fetch failed: {e}")
-        return {"live": False, "source": "in-process-dict", "error": str(e)}
+        return {
+            "live": False,
+            "source": "in-process-dict",
+            "error": "memory_status_unavailable",
+        }
 
 
 @app.get("/api/agentcore/gateway/status")
@@ -2748,7 +3040,11 @@ async def gateway_status():
         }
     except Exception as e:
         logger.warning(f"Gateway status fetch failed: {e}")
-        return {"configured": False, "source": "in-process-imports", "error": str(e)}
+        return {
+            "configured": False,
+            "source": "in-process-imports",
+            "error": "gateway_status_unavailable",
+        }
 
 
 @app.get("/api/agentcore/policy/decisions")
@@ -2775,7 +3071,12 @@ async def policy_decisions(
         )
     except Exception as e:
         logger.warning(f"Policy decisions fetch failed: {e}")
-        return {"session_id": session_id, "decisions": [], "count": 0, "error": str(e)}
+        return {
+            "session_id": session_id,
+            "decisions": [],
+            "count": 0,
+            "error": "policy_history_unavailable",
+        }
 
 
 @app.get("/api/agent-trace/receipts/{turn_id}")
@@ -2809,7 +3110,7 @@ async def agentcore_memories(user=Depends(get_current_user)):
         return {"memories": memories, "user": user["email"]}
     except Exception as e:
         logger.warning(f"Failed to fetch memories: {e}")
-        return {"memories": [], "error": str(e)}
+        return {"memories": [], "error": "managed_memory_unavailable"}
 
 
 @app.get("/api/agentcore/gateway/tools")
@@ -2827,7 +3128,7 @@ async def agentcore_gateway_tools(user=Depends(get_current_user)):
         return {"tools": tools, "gateway_url": settings.AGENTCORE_GATEWAY_URL or "not configured"}
     except Exception as e:
         logger.warning(f"Failed to list gateway tools: {e}")
-        return {"tools": [], "error": str(e)}
+        return {"tools": [], "error": "managed_gateway_unavailable"}
 
 
 @app.get("/api/agentcore/runtime/status")
@@ -2883,7 +3184,7 @@ async def get_episodic_memories(query: str, user=Depends(get_current_user)):
         return {"episodes": episodes, "query": query, "user": user["email"]}
     except Exception as e:
         logger.warning(f"Failed to search episodic memories: {e}")
-        return {"episodes": [], "error": str(e)}
+        return {"episodes": [], "error": "episodic_memory_unavailable"}
 
 
 # NOTE: the former POST /api/agentcore/policy/create route was removed.
@@ -2975,14 +3276,8 @@ if FRONTEND_DIST.is_dir():
             full_path.startswith("api/") or full_path.startswith("ws/")
         ):
             raise HTTPException(status_code=404, detail="Not Found")
-        candidate = (FRONTEND_DIST / full_path).resolve()
-        # Prevent directory traversal — the resolved path must live
-        # inside dist/.
-        try:
-            candidate.relative_to(FRONTEND_DIST)
-        except ValueError:
-            raise HTTPException(status_code=404, detail="Not Found")
-        if candidate.is_file():
+        candidate = SPA_STATIC_FILES.get(full_path)
+        if candidate is not None:
             return FileResponse(candidate)
         # Anything else → SPA entry. React Router handles the rest.
         return FileResponse(

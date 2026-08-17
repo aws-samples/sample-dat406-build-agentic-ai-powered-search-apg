@@ -25,6 +25,7 @@ _AUTH_MARKERS = (
     "http 401",
     "401 unauthorized",
     "authentication failed",
+    "customer_identity_unmapped",
 )
 _RATE_LIMIT_MARKERS = (
     "throttlingexception",

@@ -48,6 +48,9 @@ FKs.
 13. **`013_inventory_ledger.sql`** — adds return quantity integrity and an
    append-only stock ledger, then captures every warehouse quantity change
    at the database boundary.
+14. **`014_governed_turn_receipts.sql`** — links identity, retrieval,
+   citations, policy events, Aurora audit rows, and managed trace evidence in
+   an append-only receipt for each governed turn.
 
 ## Run
 
@@ -72,7 +75,8 @@ for migration in \
     010_governed_receipts.sql \
     011_governed_write_integrity.sql \
     012_retrieval_receipts.sql \
-    013_inventory_ledger.sql
+    013_inventory_ledger.sql \
+    014_governed_turn_receipts.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -120,6 +124,8 @@ workshop state with:
 \dt pellier.tools
 \dt pellier.tool_audit
 \dt pellier.approvals
+\dt pellier.retrieval_receipts
+\dt pellier.governed_turn_receipts
 
 SELECT COUNT(*) FROM pellier.product_catalog;          -- 1000 by default
 SELECT COUNT(*) FROM pellier.customers;                -- at least 5

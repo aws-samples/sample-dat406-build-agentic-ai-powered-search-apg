@@ -13,7 +13,6 @@ Note on naming: the factory and tool keep generic names because the
 Storefront dispatcher's intent classifier emits 'search' as a keyword.
 """
 import json
-import re
 from strands import Agent, tool
 from strands.models import BedrockModel
 from services.agent_tools import (
@@ -64,9 +63,6 @@ _SEARCH_SYSTEM_PROMPT = (
 
 def _ensure_products_in_output(text: str, tool_results: list) -> str:
     """If the LLM output lacks a JSON products block, extract from tool results and append."""
-    if re.search(r'```json\s*\[', text):
-        return text
-
     all_products = []
     for result_str in tool_results:
         try:
@@ -79,7 +75,8 @@ def _ensure_products_in_output(text: str, tool_results: list) -> str:
             pass
 
     if all_products:
-        text += f"\n\n```json\n{json.dumps(all_products)}\n```"
+        from agents.specialist_hooks import forward_or_append_products
+        return forward_or_append_products(text, all_products)
     return text
 
 

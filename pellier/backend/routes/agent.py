@@ -34,9 +34,10 @@ Design notes
     - ``session``  — first event, carries the resolved session_id
                      (and, when present, the anonymous namespace key)
     - ``chunk``    — incremental response text
+    - ``memory``   — managed read/write evidence for this completed turn
     - ``done``     — final event, carries the extracted OTel trace
-    - ``error``    — emitted instead of ``done`` when the agent call
-                     raises; stream ends immediately after
+    - ``error``    — emitted instead of ``done`` when a pre-execution read
+                     or the agent call fails; stream ends immediately after
 * **Runtime dispatch.** ``services.agentcore_runtime.run_agent`` branches
   on ``settings.USE_AGENTCORE_RUNTIME`` so this route handles both in-process
   (in-process Strands) and runtime (managed runtime) without branching here.
@@ -47,8 +48,9 @@ Design notes
   ``agentcore_runtime`` only touches ``_stream_agent_response`` below.
 * **Memory writes.** The turn pair (user + assistant) is appended to
   ``AgentCoreMemory`` under the identity-service namespace after the
-  agent response completes. Managed Runtime fails closed if the managed
-  Memory read or write fails; the in-process path remains fail-soft.
+  agent response completes. A managed read fails before invocation. A
+  post-invocation write failure is emitted as partial evidence and never
+  turns a potentially completed action into a retryable failure.
 
 Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
@@ -64,6 +66,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from boutique_copy import MEMORY_WRITE_WARNING
 from services.agentcore_identity import (
     AgentCoreIdentityService,
     UserContext,
@@ -122,8 +125,9 @@ async def _stream_agent_response(
 
     Emits (in order):
       1. ``session``  with the resolved ``session_id`` (+ namespace)
-      2. ``chunk``    with the full response text
-      3. ``done``     with the extracted OTel trace
+      2. ``memory``   with read/write persistence evidence
+      3. ``chunk``    with the full response text
+      4. ``done``     with the extracted OTel trace
     On failure, ``error`` is emitted instead of ``done`` so the client
     can distinguish a clean close from an interrupted one.
     """
@@ -169,6 +173,7 @@ async def _stream_agent_response(
             user_id=context.user_id,
             auth_token=context.access_token,
             history=history,
+            customer_id=context.customer_id,
         )
     except ManagedRuntimeError as exc:
         logger.warning(
@@ -188,8 +193,15 @@ async def _stream_agent_response(
         return
 
     # --- 3. Memory persistence ------------------------------------------
-    # Persist before emitting the response. On the governed path a managed
-    # Memory failure is part of the turn outcome, not a hidden warning.
+    memory_receipt: Dict[str, Any] = {
+        "source": "agentcore-memory",
+        "turns_loaded": len(history),
+        "turns_persisted": 0,
+        "read_status": "succeeded",
+        "write_status": "pending",
+        "action_status": "completed",
+        "retry_recommended": False,
+    }
     try:
         await memory.append_session_turns(
             context.namespace,
@@ -198,19 +210,26 @@ async def _stream_agent_response(
                 {"role": "assistant", "content": response_text},
             ],
         )
+        memory_receipt["turns_persisted"] = 2
+        memory_receipt["write_status"] = "succeeded"
     except ManagedMemoryError as exc:
         logger.warning(
             "Managed Memory rejected session %s after invocation",
             context.session_id,
         )
-        yield _sse_event("error", {"code": exc.code})
-        return
+        memory_receipt["write_status"] = "failed"
+        memory_receipt["error_code"] = exc.code
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning(
             "Session history append failed for %s: %s",
             context.namespace,
             exc.__class__.__name__,
         )
+        memory_receipt["source"] = "unavailable"
+        memory_receipt["write_status"] = "failed"
+        memory_receipt["error_code"] = "memory_write_failed"
+
+    yield _sse_event("memory", memory_receipt)
 
     # --- 4. Chunk event --------------------------------------------------
     # ``run_agent`` currently returns the full response as one chunk.
@@ -233,6 +252,18 @@ async def _stream_agent_response(
         {
             "session_id": context.session_id,
             "trace": trace,
+            "memory": memory_receipt,
+            "warnings": (
+                [
+                    {
+                        "code": memory_receipt.get("error_code"),
+                        "message": MEMORY_WRITE_WARNING,
+                        "retry_recommended": False,
+                    }
+                ]
+                if memory_receipt["write_status"] == "failed"
+                else []
+            ),
         },
     )
 
@@ -279,6 +310,7 @@ async def chat(
                 context.user_id, payload.session_id
             ),
             access_token=context.access_token,
+            customer_id=context.customer_id,
         )
 
     return StreamingResponse(

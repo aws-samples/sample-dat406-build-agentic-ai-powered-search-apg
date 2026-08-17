@@ -11,5 +11,12 @@ forbid(
 unless {
   principal.hasTag("username") &&
   context.input has customer_id &&
-  principal.getTag("username") == context.input.customer_id
+  (
+    (principal.getTag("username") == "marco" &&
+      context.input.customer_id == "CUST-MARCO") ||
+    (principal.getTag("username") == "anna" &&
+      context.input.customer_id == "CUST-ANNA") ||
+    (principal.getTag("username") == "theo" &&
+      context.input.customer_id == "CUST-THEO")
+  )
 };

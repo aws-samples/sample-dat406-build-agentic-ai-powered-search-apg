@@ -291,3 +291,29 @@ def test_gateway_panel_emits_skipped_when_url_unset(
     assert panel["tag"] == "GATEWAY · DISCOVER"
     assert "not set" in panel["meta"]
     assert panel["rows"] == []
+
+
+def test_gateway_panel_defers_live_discovery_to_authenticated_card(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from config import settings
+
+    monkeypatch.setattr(
+        settings,
+        "AGENTCORE_GATEWAY_URL",
+        "https://gateway.example/mcp",
+        raising=False,
+    )
+
+    ctx = AgentContext(session_id="ws-t", query="linen")
+    result = workshop_panels.emit_gateway_panel(ctx, query_text="linen")
+
+    assert result == {
+        "configured": True,
+        "url": "https://gateway.example/mcp",
+        "tools": [],
+        "error": None,
+    }
+    panel = [event for event in ctx.events if event["type"] == "panel"][0]
+    assert "authenticated shopper identity" in panel["meta"]
+    assert panel["rows"] == []

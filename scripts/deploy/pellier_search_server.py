@@ -146,38 +146,42 @@ def _execute_in_transaction(
     ]
 
 
-def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> None:
-    """Record a Gateway mutation after the target actually executes."""
-    try:
-        rds_client.execute_statement(
-            resourceArn=DB_CLUSTER_ARN,
-            secretArn=SECRET_ARN,
-            database=DATABASE,
-            sql=(
-                f"INSERT INTO {SCHEMA}.tool_audit "
-                "(session_id, tool, caller, args, result, latency_ms) "
-                "VALUES (:sid, :tool, 'gateway', :args::jsonb, "
-                ":result::jsonb, :latency_ms)"
-            ),
-            parameters=[
-                {
-                    "name": "sid",
-                    "value": {"stringValue": "gateway-stock-keeper"},
-                },
-                {"name": "tool", "value": {"stringValue": tool}},
-                {
-                    "name": "args",
-                    "value": {"stringValue": json.dumps(args, default=str)},
-                },
-                {
-                    "name": "result",
-                    "value": {"stringValue": json.dumps(result, default=str)},
-                },
-                {"name": "latency_ms", "value": {"longValue": int(latency_ms)}},
-            ],
-        )
-    except Exception as exc:
-        logger.warning("tool_audit write failed (non-fatal): %s", exc)
+def _write_tool_audit_in_transaction(
+    transaction_id: str,
+    tool: str,
+    args: dict,
+    result: dict,
+    latency_ms: int,
+) -> None:
+    """Write the Gateway audit row in the stock mutation transaction."""
+    rds_client.execute_statement(
+        resourceArn=DB_CLUSTER_ARN,
+        secretArn=SECRET_ARN,
+        database=DATABASE,
+        transactionId=transaction_id,
+        sql=(
+            f"INSERT INTO {SCHEMA}.tool_audit "
+            "(session_id, tool, caller, args, result, latency_ms) "
+            "VALUES (:sid, :tool, 'gateway', :args::jsonb, "
+            ":result::jsonb, :latency_ms)"
+        ),
+        parameters=[
+            {
+                "name": "sid",
+                "value": {"stringValue": "gateway-stock-keeper"},
+            },
+            {"name": "tool", "value": {"stringValue": tool}},
+            {
+                "name": "args",
+                "value": {"stringValue": json.dumps(args, default=str)},
+            },
+            {
+                "name": "result",
+                "value": {"stringValue": json.dumps(result, default=str)},
+            },
+            {"name": "latency_ms", "value": {"longValue": int(latency_ms)}},
+        ],
+    )
 
 
 def _get_embedding(text: str) -> list[float]:
@@ -676,6 +680,8 @@ def restock_product(
     quantity: int,
     idempotency_key: str,
     warehouse_id: str = "BK-01",
+    *,
+    audit_arguments: dict | None = None,
 ) -> dict:
     """Execute the shared idempotent restock transaction in Aurora."""
     if quantity > 500:
@@ -697,6 +703,7 @@ def restock_product(
         separators=(",", ":"),
     )
     request_hash = hashlib.sha256(request_payload.encode("utf-8")).hexdigest()
+    started = time.monotonic()
     transaction = rds_client.begin_transaction(
         resourceArn=DB_CLUSTER_ARN,
         secretArn=SECRET_ARN,
@@ -717,18 +724,36 @@ def restock_product(
                 {"name": "warehouse_id", "value": {"stringValue": clean_warehouse}},
             ],
         )
+        raw_result = rows[0].get("result") if rows else None
+        result = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
+        if result and result.get("status") == "success":
+            response = {"success": True, "product": result}
+        elif result and result.get("status") == "policy_blocked":
+            response = {"error": result.get("message"), "denied": True}
+        else:
+            response = {
+                "error": (result or {}).get("message", "Restock failed"),
+                "result": result,
+            }
+        _write_tool_audit_in_transaction(
+            transaction_id,
+            "restock_shelf",
+            audit_arguments
+            or {
+                "product_id": product_id,
+                "quantity": quantity,
+                "idempotency_key": clean_key,
+                "warehouse_id": clean_warehouse,
+            },
+            response,
+            int((time.monotonic() - started) * 1000),
+        )
         rds_client.commit_transaction(
             resourceArn=DB_CLUSTER_ARN,
             secretArn=SECRET_ARN,
             transactionId=transaction_id,
         )
-        raw_result = rows[0].get("result") if rows else None
-        result = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
-        if result and result.get("status") == "success":
-            return {"success": True, "product": result}
-        if result and result.get("status") == "policy_blocked":
-            return {"error": result.get("message"), "denied": True}
-        return {"error": (result or {}).get("message", "Restock failed"), "result": result}
+        return response
     except Exception:
         rds_client.rollback_transaction(
             resourceArn=DB_CLUSTER_ARN,
@@ -934,6 +959,8 @@ def restock_shelf(
     quantity: int,
     idempotency_key: str,
     warehouse_id: str = "BK-01",
+    *,
+    audit_arguments: dict | None = None,
 ) -> dict:
     """Canonical bounded inventory write used by Stock Keeper."""
     if int(quantity) <= 0:
@@ -943,6 +970,7 @@ def restock_shelf(
         int(quantity),
         idempotency_key,
         warehouse_id,
+        audit_arguments=audit_arguments,
     )
     if result.get("success"):
         product = result["product"]
@@ -1067,7 +1095,13 @@ def lambda_handler(event: dict, context: Any) -> dict:
         execution_arguments = {
             key: value for key, value in arguments.items() if key != "turn_id"
         }
-        result = TOOLS[tool_name]["fn"](**execution_arguments)
+        if tool_name == "restock_shelf":
+            result = restock_shelf(
+                **execution_arguments,
+                audit_arguments=audit_arguments,
+            )
+        else:
+            result = TOOLS[tool_name]["fn"](**execution_arguments)
         receipt_evidence = None
         if tool_name in {"find_pieces", "find_pieces_hybrid"} and isinstance(
             result, dict
@@ -1081,13 +1115,6 @@ def lambda_handler(event: dict, context: Any) -> dict:
                     evidence=receipt_evidence,
                     latency_ms=int((time.monotonic() - started) * 1000),
                 )
-        if tool_name == "restock_shelf":
-            _write_tool_audit(
-                tool_name,
-                audit_arguments,
-                result,
-                int((time.monotonic() - started) * 1000),
-            )
         return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
     except Exception as e:
         logger.error(f"Tool {tool_name} failed: {e}")

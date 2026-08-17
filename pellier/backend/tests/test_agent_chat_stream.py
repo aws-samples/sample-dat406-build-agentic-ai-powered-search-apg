@@ -125,6 +125,7 @@ def _access_claims(
     sub: str = "cognito-sub-chat",
     email: str = "shopper@example.com",
     given_name: str = "Avery",
+    username: str = "marco",
     exp_offset: int = 3600,
 ) -> Dict[str, Any]:
     """Return a claims dict for a Cognito *access* token.
@@ -138,6 +139,7 @@ def _access_claims(
         "sub": sub,
         "email": email,
         "given_name": given_name,
+        "username": username,
         "iss": ISSUER,
         "client_id": CLIENT_ID,
         "token_use": "access",
@@ -246,6 +248,7 @@ def agent_calls(monkeypatch: pytest.MonkeyPatch) -> List[Dict[str, Any]]:
         user_id: Optional[str] = None,
         auth_token: Optional[str] = None,
         history: Optional[List[Dict[str, Any]]] = None,
+        customer_id: Optional[str] = None,
     ) -> str:
         calls.append(
             {
@@ -254,6 +257,7 @@ def agent_calls(monkeypatch: pytest.MonkeyPatch) -> List[Dict[str, Any]]:
                 "user_id": user_id,
                 "auth_token": auth_token,
                 "history": history,
+                "customer_id": customer_id,
             }
         )
         return f"stubbed response for '{message}' in {session_id}"
@@ -315,7 +319,12 @@ def test_chat_emits_session_then_chunk_then_done_events(
         body = resp.read().decode("utf-8")
 
     events = _parse_sse(body)
-    assert [e["event"] for e in events] == ["session", "chunk", "done"]
+    assert [e["event"] for e in events] == [
+        "session",
+        "memory",
+        "chunk",
+        "done",
+    ]
 
     session_event = events[0]
     assert session_event["data"]["authenticated"] is True
@@ -326,8 +335,9 @@ def test_chat_emits_session_then_chunk_then_done_events(
         f"user-user-one-session-{auto_session_id}"
     )
 
-    assert "stubbed response" in events[1]["data"]["content"]
-    assert events[2]["data"]["session_id"] == auto_session_id
+    assert events[1]["data"]["write_status"] == "succeeded"
+    assert "stubbed response" in events[2]["data"]["content"]
+    assert events[3]["data"]["session_id"] == auto_session_id
 
     # The orchestrator was called exactly once with the verified user id.
     assert agent_calls == [
@@ -337,6 +347,7 @@ def test_chat_emits_session_then_chunk_then_done_events(
             "user_id": "user-one",
             "auth_token": token,
             "history": [],
+            "customer_id": "CUST-MARCO",
         }
     ]
 
@@ -356,10 +367,12 @@ def test_chat_done_event_surfaces_runtime_gateway_receipt(
         user_id: Optional[str] = None,
         auth_token: Optional[str] = None,
         history: Optional[List[Dict[str, Any]]] = None,
+        customer_id: Optional[str] = None,
     ) -> str:
         assert user_id == "user-gateway"
         assert auth_token == token
         assert history == []
+        assert customer_id == "CUST-MARCO"
         import services.agentcore_runtime as rt
 
         rt._store_managed_runtime_receipt(
@@ -384,7 +397,12 @@ def test_chat_done_event_surfaces_runtime_gateway_receipt(
         assert resp.status_code == 200
         events = _parse_sse(resp.read().decode("utf-8"))
 
-    assert [e["event"] for e in events] == ["session", "chunk", "done"]
+    assert [e["event"] for e in events] == [
+        "session",
+        "memory",
+        "chunk",
+        "done",
+    ]
     trace = events[-1]["data"]["trace"]
     assert trace["traceKind"] == "managed-runtime-receipt"
     assert trace["runtime"] == "agentcore-managed"
@@ -540,6 +558,7 @@ def test_mid_stream_token_expiry_does_not_abort_the_stream(
         user_id: Optional[str] = None,
         auth_token: Optional[str] = None,
         history: Optional[List[Dict[str, Any]]] = None,
+        customer_id: Optional[str] = None,
     ) -> str:
         agent_calls.append(
             {
@@ -547,6 +566,7 @@ def test_mid_stream_token_expiry_does_not_abort_the_stream(
                 "session_id": session_id,
                 "user_id": user_id,
                 "auth_token": auth_token,
+                "customer_id": customer_id,
             }
         )
         # Advance the clock past the token's exp. Any JWT re-check
@@ -571,9 +591,14 @@ def test_mid_stream_token_expiry_does_not_abort_the_stream(
         body = resp.read().decode("utf-8")
 
     events = _parse_sse(body)
-    # All three events arrived — no ``error`` frame, no truncated stream.
-    assert [e["event"] for e in events] == ["session", "chunk", "done"]
-    assert "response after clock skip" in events[1]["data"]["content"]
+    # All four events arrived — no ``error`` frame, no truncated stream.
+    assert [e["event"] for e in events] == [
+        "session",
+        "memory",
+        "chunk",
+        "done",
+    ]
+    assert "response after clock skip" in events[2]["data"]["content"]
 
     # The agent saw the verified ``user_id`` despite the clock skip —
     # authentication happened exactly once at stream start.
@@ -624,7 +649,7 @@ def test_managed_memory_read_failure_stops_before_runtime(
     assert events[-1]["data"]["code"] == "managed_memory_unavailable"
 
 
-def test_managed_memory_write_failure_never_emits_success_chunk(
+def test_managed_memory_write_failure_preserves_completed_action(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _Memory:
@@ -635,7 +660,7 @@ def test_managed_memory_write_failure_never_emits_success_chunk(
             raise ManagedMemoryError("write failed")
 
     async def _runtime(**_kwargs):
-        return "Runtime response that must not be reported as complete"
+        return "Runtime response from a completed action"
 
     import routes.agent as agent_module
 
@@ -658,8 +683,24 @@ def test_managed_memory_write_failure_never_emits_success_chunk(
         ]
 
     events = _parse_sse("".join(asyncio.run(_collect())))
-    assert [event["event"] for event in events] == ["session", "error"]
-    assert events[-1]["data"]["code"] == "managed_memory_unavailable"
+    assert [event["event"] for event in events] == [
+        "session",
+        "memory",
+        "chunk",
+        "done",
+    ]
+    assert events[1]["data"] == {
+        "source": "agentcore-memory",
+        "turns_loaded": 0,
+        "turns_persisted": 0,
+        "read_status": "succeeded",
+        "write_status": "failed",
+        "action_status": "completed",
+        "retry_recommended": False,
+        "error_code": "managed_memory_unavailable",
+    }
+    assert events[2]["data"]["content"] == "Runtime response from a completed action"
+    assert events[-1]["data"]["warnings"][0]["retry_recommended"] is False
 
 
 # ---------------------------------------------------------------------------

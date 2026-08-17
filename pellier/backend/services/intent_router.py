@@ -39,6 +39,12 @@ INVENTORY_KEYWORDS = {
     "at the brooklyn",
     "at the austin",
     "at the portland",
+    "in brooklyn",
+    "in austin",
+    "in portland",
+    "from brooklyn",
+    "from austin",
+    "from portland",
     "on the floor",
 }
 SUPPORT_KEYWORDS = {

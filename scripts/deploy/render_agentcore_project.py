@@ -27,6 +27,7 @@ GATEWAY_NAME = "pellier-gateway"
 POLICY_ENGINE_NAME = "pellier_policy_engine"
 EXPERIENCE_TARGET = "pellier-concierge-experience-target"
 PROCESS_RETURN_ACTION = f"{EXPERIENCE_TARGET}___process_return"
+RESTOCK_ACTION = "pellier-discovery-search-target___restock_shelf"
 WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
 RUNTIME_SOURCE_FILES = (
     Path("agentcore_runtime.py"),
@@ -34,6 +35,7 @@ RUNTIME_SOURCE_FILES = (
     Path("services/agentcore_gateway.py"),
     Path("services/conversation_context.py"),
     Path("services/intent_router.py"),
+    Path("services/product_envelope.py"),
     Path("services/response_mode.py"),
 )
 
@@ -64,42 +66,118 @@ def _render_runtime_source(root: Path, backend_dir: Path) -> Path:
 
 
 def baseline_policies(action_token: str = PROCESS_RETURN_ACTION) -> list[dict[str, Any]]:
-    """Return the shipped Cedar set added after the first CLI deployment."""
+    """Return the fail-closed Cedar baseline added after initial deployment."""
     gateway_type = "resource is AgentCore::Gateway"
-    action = f'action == AgentCore::Action::"{action_token}"'
-    return [
+    policies: list[dict[str, Any]] = []
+    customer_scoped_actions: dict[str, str] = {}
+    for schema in TOOL_SCHEMAS.values():
+        target = schema["target_name"]
+        for tool in schema["tools"]:
+            tool_name = tool["name"]
+            token = f"{target}___{tool_name}"
+            if tool_name in {
+                "preference_snapshot",
+                "trace_receipt",
+                "escalate_to_stylist",
+            }:
+                customer_scoped_actions[tool_name] = token
+                continue
+            if tool_name in {"process_return", "restock_shelf"}:
+                continue
+            policies.append(
+                {
+                    "name": f"permit_{tool_name}",
+                    "description": f"Permit the authenticated {tool_name} action",
+                    "statement": (
+                        "permit (\n"
+                        "  principal,\n"
+                        f'  action == AgentCore::Action::"{token}",\n'
+                        f"  {gateway_type}\n"
+                        ");"
+                    ),
+                    "validationMode": "FAIL_ON_ANY_FINDINGS",
+                    "enforcementMode": "ACTIVE",
+                }
+            )
+
+    ownership = (
+        'principal.hasTag("username") &&\n'
+        "  context.input has customer_id &&\n"
+        "  (\n"
+        '    (principal.getTag("username") == "marco" && '
+        'context.input.customer_id == "CUST-MARCO") ||\n'
+        '    (principal.getTag("username") == "anna" && '
+        'context.input.customer_id == "CUST-ANNA") ||\n'
+        '    (principal.getTag("username") == "theo" && '
+        'context.input.customer_id == "CUST-THEO")\n'
+        "  )"
+    )
+    process_action = f'action == AgentCore::Action::"{action_token}"'
+    for tool_name, token in customer_scoped_actions.items():
+        policies.append(
+            {
+                "name": f"permit_{tool_name}_owned",
+                "description": (
+                    f"Permit {tool_name} only for the verified Aurora customer"
+                ),
+                "statement": (
+                    "permit (\n"
+                    "  principal,\n"
+                    f'  action == AgentCore::Action::"{token}",\n'
+                    f"  {gateway_type}\n"
+                    ")\n"
+                    "when {\n"
+                    f"  {ownership}\n"
+                    "};"
+                ),
+                "validationMode": "FAIL_ON_ANY_FINDINGS",
+                "enforcementMode": "ACTIVE",
+            }
+        )
+    policies.extend(
+        [
         {
-            "name": "baseline_permit_gateway_tools",
-            "description": "Permit Gateway tools by default; explicit forbids still win",
-            "statement": f"permit (principal, action, {gateway_type});",
-            "validationMode": "IGNORE_ALL_FINDINGS",
-            "enforcementMode": "ACTIVE",
-        },
-        {
-            "name": "process_return_damaged_only",
-            "description": "Forbid process_return unless the item is damaged",
+            "name": "process_return_owned_damaged",
+            "description": "Permit damaged-item returns only for the verified owner",
             "statement": (
-                f"forbid (principal, {action}, {gateway_type})\n"
+                f"permit (principal, {process_action}, {gateway_type})\n"
                 "when {\n"
-                '  !(context.input has reason) || context.input.reason != "damaged"\n'
-                "};"
-            ),
-            "validationMode": "IGNORE_ALL_FINDINGS",
-            "enforcementMode": "ACTIVE",
-        },
-        {
-            "name": "process_return_allow_damaged",
-            "description": "Explicitly permit damaged-item returns",
-            "statement": (
-                f"permit (principal, {action}, {gateway_type})\n"
-                "when {\n"
+                f"  {ownership} &&\n"
                 '  context.input has reason && context.input.reason == "damaged"\n'
                 "};"
             ),
-            "validationMode": "IGNORE_ALL_FINDINGS",
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
             "enforcementMode": "ACTIVE",
         },
-    ]
+        {
+            "name": "process_return_deny_unowned_or_unsupported",
+            "description": "Explicitly deny unowned or unsupported returns",
+            "statement": (
+                f"forbid (principal, {process_action}, {gateway_type})\n"
+                "unless {\n"
+                f"  {ownership} &&\n"
+                '  context.input has reason && context.input.reason == "damaged"\n'
+                "};"
+            ),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+        {
+            "name": "deny_restock_shelf",
+            "description": "Shopper principals may never mutate warehouse stock",
+            "statement": (
+                "forbid (\n"
+                "  principal,\n"
+                f'  action == AgentCore::Action::"{RESTOCK_ACTION}",\n'
+                f"  {gateway_type}\n"
+                ");"
+            ),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+        ]
+    )
+    return policies
 
 
 def render_project(

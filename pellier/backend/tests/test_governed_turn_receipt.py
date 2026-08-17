@@ -238,6 +238,7 @@ def test_visible_tool_audit_uses_receipt_principal_scope() -> None:
     assert db.seen is not None
     assert db.seen[1:] == ("principal-1", "principal-1", 10)
     assert "governed_turn_receipts" in db.seen[0]
+    assert "jsonb_build_object('audit_id', ta.audit_id)" in db.seen[0]
 
 
 def test_recent_policy_decisions_include_explicit_allow_and_deny() -> None:

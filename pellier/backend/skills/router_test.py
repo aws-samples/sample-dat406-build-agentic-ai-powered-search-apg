@@ -23,7 +23,6 @@ from __future__ import annotations
 import sys
 
 from .loader import load_registry
-from .router import SkillRouter
 
 
 # Catalog-grounded canonical test cases. Each tuple is
@@ -139,6 +138,8 @@ def _print_decision(message: str, decision, expected: set[str], rationale: str =
 
 def _run_suite() -> int:
     """Run the canonical catalog-grounded test cases. Returns failure count."""
+    from .router import SkillRouter
+
     registry = load_registry()
     if len(registry) == 0:
         print("No skills loaded — nothing to test.")
@@ -173,6 +174,8 @@ def _run_suite() -> int:
 
 def _run_single(message: str) -> int:
     """Route a single ad-hoc message."""
+    from .router import SkillRouter
+
     registry = load_registry()
     router = SkillRouter(registry)
     decision = router.route(message)

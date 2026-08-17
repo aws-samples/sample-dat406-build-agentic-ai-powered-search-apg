@@ -30,7 +30,7 @@ def test_verified_principal_is_the_memory_actor_not_the_persona() -> None:
     namespace when a real token is present.
     """
     identity = resolve_turn_identity(
-        user={"sub": "cognito-sub-real", "customer_id": "CUST-MARCO"},
+        user={"sub": "cognito-sub-real", "username": "marco"},
         requested_customer_id="CUST-ANNA",
     )
 
@@ -64,7 +64,7 @@ def test_persona_only_turn_is_flagged_as_simulated() -> None:
 
 def test_authenticated_turn_is_not_simulated() -> None:
     identity = resolve_turn_identity(
-        user={"sub": "sub-1", "customer_id": "CUST-MARCO"}
+        user={"sub": "sub-1", "username": "marco"}
     )
 
     assert identity.persona_is_simulated is False
@@ -93,7 +93,7 @@ def test_blank_sub_is_treated_as_absent() -> None:
 
 def test_identity_serializes_all_three_fields_distinctly() -> None:
     payload = resolve_turn_identity(
-        user={"sub": "sub-1", "customer_id": "CUST-MARCO"},
+        user={"sub": "sub-1", "username": "marco"},
         requested_customer_id="CUST-ANNA",
     ).to_dict()
 
@@ -102,6 +102,25 @@ def test_identity_serializes_all_three_fields_distinctly() -> None:
     assert payload["demoPersonaId"] == "CUST-ANNA"
     assert payload["memoryActor"] == "sub-1"
     assert payload["authenticated"] is True
+
+
+def test_authenticated_customer_scope_comes_only_from_verified_username() -> None:
+    identity = resolve_turn_identity(
+        user={"sub": "sub-1", "username": "marco"},
+        requested_customer_id="CUST-ANNA",
+    )
+
+    assert identity.shopper_customer_id == "CUST-MARCO"
+    assert identity.demo_persona_id == "CUST-ANNA"
+
+
+def test_unknown_verified_username_does_not_fall_back_to_persona() -> None:
+    identity = resolve_turn_identity(
+        user={"sub": "sub-1", "username": "participant-99"},
+        requested_customer_id="CUST-THEO",
+    )
+
+    assert identity.shopper_customer_id is None
 
 
 def test_chat_scopes_memory_through_the_identity_service() -> None:

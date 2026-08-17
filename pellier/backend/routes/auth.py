@@ -50,7 +50,7 @@ import re
 import secrets
 import time
 from typing import Any, Dict, Optional
-from urllib.parse import urlencode
+from urllib.parse import quote, unquote, urlencode
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -277,7 +277,7 @@ def _set_session_cookies(
     """
     response.set_cookie(
         key=ACCESS_TOKEN_COOKIE,
-        value=access_token,
+        value=quote(access_token, safe=""),
         max_age=ACCESS_COOKIE_MAX_AGE,
         httponly=True,
         secure=True,
@@ -287,7 +287,7 @@ def _set_session_cookies(
     if id_token:
         response.set_cookie(
             key=ID_TOKEN_COOKIE,
-            value=id_token,
+            value=quote(id_token, safe=""),
             max_age=ID_COOKIE_MAX_AGE,
             httponly=True,
             secure=True,
@@ -297,7 +297,7 @@ def _set_session_cookies(
     if refresh_token:
         response.set_cookie(
             key=REFRESH_TOKEN_COOKIE,
-            value=refresh_token,
+            value=quote(refresh_token, safe=""),
             max_age=REFRESH_COOKIE_MAX_AGE,
             httponly=True,
             secure=True,
@@ -586,7 +586,8 @@ async def me(
 @router.post("/logout")
 async def logout(request: Request) -> Response:
     """Clear the session cookies and revoke the refresh token (Req 3.1.4)."""
-    refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE)
+    raw_refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE)
+    refresh_token = unquote(raw_refresh_token) if raw_refresh_token else None
 
     # Best-effort revoke. Network failures here must not block the user
     # from clearing their local session — cookies are cleared unconditionally.
@@ -624,7 +625,8 @@ async def refresh(
     ``refresh_failed`` when the cookie is missing or the token has
     been revoked so the SPA can route the user back to ``/signin``.
     """
-    refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE)
+    raw_refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE)
+    refresh_token = unquote(raw_refresh_token) if raw_refresh_token else None
     if not refresh_token:
         return JSONResponse(
             status_code=401,

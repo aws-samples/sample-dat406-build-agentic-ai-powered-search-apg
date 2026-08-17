@@ -698,7 +698,7 @@ fi
 # STEP 14: AUTO-START PELLIER SERVICE (single-process, port 8000)
 # ============================================================================
 # Single systemd service. FastAPI serves:
-#   - the built SPA at /, /agent-trace, /storyboard, /discover, ...
+#   - the built SPA at /, /pellier-labs, /storyboard, /discover, ...
 #   - the API at /api/*
 #   - self-hosted fonts + hashed bundles at /assets/*, /fonts/*
 #
@@ -898,7 +898,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-buil
                   "pellier/backend/services/otel_trace_extractor.py" "OTEL trace extractor"
 
     # ---- Frontend agent-identity hook ----
-    # The Boutique chat drawer reads this to attach an identity claim to
+    # The Pellier chat drawer reads this to attach an identity claim to
     # every agent call. auth.ts + AuthModal + PreferencesModal +
     # AuthContext already ship complete in the live frontend tree (real
     # Cognito sign-in, no demo mode), so only the agent-identity hook is
@@ -968,7 +968,7 @@ EOF
     if [ "$AGENTCORE_OK" = true ]; then
         _ac_node_major="$(node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1)"
         if ! echo "$_ac_node_major" | grep -qE '^[0-9]+$' || [ "$_ac_node_major" -lt 20 ]; then
-            warn "Node $(node --version 2>/dev/null || echo 'none') (<20) — @aws/agentcore Runtime deploy cannot run. Skipping managed AgentCore provisioning; Boutique still starts. Fix: install Node 20 (see bootstrap-environment.sh) and re-run scripts/deploy/deploy_all.sh."
+            warn "Node $(node --version 2>/dev/null || echo 'none') (<20) — @aws/agentcore Runtime deploy cannot run. Skipping managed AgentCore provisioning; Pellier still starts. Fix: install Node 20 (see bootstrap-environment.sh) and re-run scripts/deploy/deploy_all.sh."
             write_status_json "failed" "failed" "$MANAGED_OUTPUT_JSON"
             AGENTCORE_OK=false
         fi
@@ -1030,7 +1030,7 @@ EOF
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). The provisioner cannot
         # report ready without this id; keep the explicit guard because Lab 4
-        # and the Agent Trace Policy surface both read it.
+        # and the Pellier Labs Policy surface both read it.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"

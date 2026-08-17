@@ -61,7 +61,7 @@ describe('chat service auth transport', () => {
       undefined,
       true,
       'CUST-ANNA',
-      'graph',
+      'dispatcher',
       'fast',
     )
 
@@ -69,7 +69,7 @@ describe('chat service auth transport', () => {
     expect(JSON.parse(init.body as string)).toMatchObject({
       guardrails_enabled: true,
       customer_id: 'CUST-ANNA',
-      pattern: 'graph',
+      pattern: 'dispatcher',
       response_mode: 'fast',
     })
   })

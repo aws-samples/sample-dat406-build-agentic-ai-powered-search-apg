@@ -10,6 +10,28 @@ from typing import Any
 
 
 EXPECTED_CLI = "@aws/agentcore@0.26.0"
+TRACE_ATTRIBUTE_ALLOWLISTS = {
+    "agent_input": {
+        "gen_ai.input.messages",
+        "gen_ai.request.input",
+        "gen_ai.prompt",
+    },
+    "agent_output": {
+        "gen_ai.output.messages",
+        "gen_ai.response.output",
+        "gen_ai.completion",
+    },
+    "tool_input": {
+        "gen_ai.tool.call.arguments",
+        "gen_ai.tool.input",
+        "gen_ai.tool.parameters",
+    },
+    "tool_output": {
+        "gen_ai.tool.call.result",
+        "gen_ai.tool.output",
+        "gen_ai.tool.result",
+    },
+}
 
 
 def _value(payload: dict[str, Any], path: str) -> Any:
@@ -53,11 +75,13 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "gateway.gateway_url",
         "policy.policy_engine_id",
         "observability.transaction_search.resource_policy",
+        "observability.transaction_search.resource_policy_document",
         "observability.control_plane_audit.event_name",
         "observability.control_plane_audit.event_time",
         "observability.control_plane_audit.resource_type",
         "observability.runtime_log_group.name",
         "observability.runtime_log_group.kms_key_arn",
+        "observability.trace_log_groups.kms_key_arn",
         "observability.unified_trace.trace_id",
         "observability.unified_trace.session_id",
         "observability.unified_trace.runtime_arn",
@@ -77,6 +101,8 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "verification.live_policy_deny",
         "verification.authenticated_runtime_invoke_smoke",
         "verification.transaction_search_ready",
+        "verification.trace_log_groups_encrypted",
+        "verification.trace_log_groups_retention_bounded",
         "verification.control_plane_audit_verified",
         "verification.runtime_log_group_encrypted",
         "verification.runtime_log_group_retention_bounded",
@@ -86,6 +112,7 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "verification.unified_trace_tool_span",
         "verification.unified_trace_agent_input",
         "verification.unified_trace_agent_output",
+        "verification.unified_trace_tool_io_structured",
         "verification.unified_trace_tool_io_sanitized",
         "verification.unified_trace_step_latency",
     ):
@@ -139,17 +166,133 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
         "observability.unified_trace.agent_input_observed",
         "observability.unified_trace.agent_output_observed",
         "observability.unified_trace.tool_input_output_observed",
+        "observability.unified_trace.tool_input_output_structured",
         "observability.unified_trace.tool_input_output_sanitized",
         "observability.unified_trace.step_latency_observed",
     ):
         if _value(payload, path) is not True:
             errors.append(f"{path} must be true")
 
+    attribute_contract = _value(
+        payload, "observability.unified_trace.attribute_contract"
+    )
+    if not isinstance(attribute_contract, dict):
+        errors.append(
+            "observability.unified_trace.attribute_contract must be an object"
+        )
+    else:
+        for role, allowed in TRACE_ATTRIBUTE_ALLOWLISTS.items():
+            observed = attribute_contract.get(role)
+            if observed not in allowed:
+                errors.append(
+                    "observability.unified_trace.attribute_contract."
+                    f"{role}={observed!r} is not allowlisted"
+                )
+
     retention_days = _value(payload, "observability.runtime_log_group.retention_days")
     if type(retention_days) is not int or retention_days <= 0:
         errors.append(
             "observability.runtime_log_group.retention_days must be a positive integer"
         )
+    runtime_cleanup = _value(
+        payload, "observability.runtime_log_group.cleanup"
+    )
+    if (
+        not isinstance(runtime_cleanup, dict)
+        or type(runtime_cleanup.get("created_by_workshop")) is not bool
+        or runtime_cleanup.get("creation_pending") is True
+    ):
+        errors.append(
+            "observability.runtime_log_group.cleanup must capture ownership"
+        )
+
+    trace_groups = _value(payload, "observability.trace_log_groups.groups")
+    expected_trace_groups = {"aws/spans", "/aws/application-signals/data"}
+    if not isinstance(trace_groups, list) or len(trace_groups) != 2:
+        errors.append(
+            "observability.trace_log_groups.groups must contain both trace destinations"
+        )
+    else:
+        names = {
+            group.get("name")
+            for group in trace_groups
+            if isinstance(group, dict)
+        }
+        if names != expected_trace_groups:
+            errors.append(
+                "observability.trace_log_groups.groups must contain "
+                "aws/spans and /aws/application-signals/data"
+            )
+        expected_kms = _value(
+            payload, "observability.trace_log_groups.kms_key_arn"
+        )
+        expected_retention = _value(
+            payload, "observability.trace_log_groups.retention_days"
+        )
+        for group in trace_groups:
+            if not isinstance(group, dict):
+                continue
+            if group.get("kms_key_arn") != expected_kms:
+                errors.append(
+                    f"trace log group {group.get('name')!r} must use the receipt KMS key"
+                )
+            if (
+                type(group.get("retention_days")) is not int
+                or group.get("retention_days") != expected_retention
+                or group["retention_days"] <= 0
+            ):
+                errors.append(
+                    f"trace log group {group.get('name')!r} must use bounded retention"
+                )
+            cleanup = group.get("cleanup")
+            if (
+                not isinstance(cleanup, dict)
+                or type(cleanup.get("created_by_workshop")) is not bool
+                or cleanup.get("creation_pending") is True
+            ):
+                errors.append(
+                    f"trace log group {group.get('name')!r} must capture cleanup ownership"
+                )
+
+    transaction_cleanup = _value(
+        payload, "observability.transaction_search.cleanup"
+    )
+    transaction_policy_document = _value(
+        payload, "observability.transaction_search.resource_policy_document"
+    )
+    if isinstance(transaction_policy_document, str):
+        try:
+            parsed_policy = json.loads(transaction_policy_document)
+        except json.JSONDecodeError:
+            parsed_policy = None
+        if not isinstance(parsed_policy, dict):
+            errors.append(
+                "observability.transaction_search.resource_policy_document "
+                "must be a JSON object"
+            )
+    if not isinstance(transaction_cleanup, dict):
+        errors.append(
+            "observability.transaction_search.cleanup must capture prior state"
+        )
+    else:
+        if type(transaction_cleanup.get("destination_changed")) is not bool:
+            errors.append(
+                "observability.transaction_search.cleanup.destination_changed "
+                "must be boolean"
+            )
+        if transaction_cleanup.get("previous_destination") not in {
+            "XRay",
+            "CloudWatchLogs",
+        }:
+            errors.append(
+                "observability.transaction_search.cleanup.previous_destination "
+                "must be XRay or CloudWatchLogs"
+            )
+        if type(transaction_cleanup.get("resource_policy_created")) is not bool:
+            errors.append(
+                "observability.transaction_search.cleanup.resource_policy_created "
+                "must be boolean"
+            )
 
     step_latencies = _value(payload, "observability.unified_trace.step_latency_ms")
     if not isinstance(step_latencies, dict):

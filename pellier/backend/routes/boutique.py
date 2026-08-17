@@ -201,7 +201,7 @@ async def _catalog_snapshot(db_service: Any) -> dict[str, Any]:
                 "category": str(pick.get("category") or "").strip(),
             }
     except Exception as exc:
-        fallback["error"] = str(exc)
+        fallback["error"] = "catalog_snapshot_unavailable"
         logger.warning("catalog snapshot failed: %s", exc)
     return fallback
 

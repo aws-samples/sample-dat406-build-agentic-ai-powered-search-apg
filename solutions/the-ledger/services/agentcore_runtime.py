@@ -31,6 +31,7 @@ import asyncio
 import json
 import logging
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from config import settings
@@ -56,6 +57,21 @@ class ManagedRuntimeError(RuntimeError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+@dataclass(frozen=True)
+class ManagedRuntimeResult:
+    """Typed evidence returned by the managed Runtime invocation."""
+
+    response: str
+    products: List[Dict[str, Any]] = field(default_factory=list)
+    rail: str = ""
+    intent: str = ""
+    specialist: str = ""
+    response_mode: str = "balanced"
+    model: str = ""
+    tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+    orchestration: str = "dispatcher"
 
 
 def _store_latest_trace(session_id: str, trace: Dict[str, Any]) -> None:
@@ -292,7 +308,7 @@ async def _run_orchestrator_inprocess(
 #
 # ⏩ SHORT ON TIME? Run:
 #    cp solutions/the-ledger/services/agentcore_runtime.py pellier/backend/services/agentcore_runtime.py
-async def run_agent_on_runtime(
+async def run_agent_on_runtime_result(
     message: str,
     session_id: str,
     user_id: Optional[str] = None,
@@ -301,9 +317,8 @@ async def run_agent_on_runtime(
     turn_id: Optional[str] = None,
     response_mode: str = "balanced",
     customer_id: Optional[str] = None,
-) -> str:
-    """Invoke the AgentCore Runtime with ``message`` and return the
-    response text.
+) -> ManagedRuntimeResult:
+    """Invoke AgentCore Runtime and return its observed execution envelope.
 
     Args:
         message: Shopper prompt (one turn).
@@ -316,7 +331,7 @@ async def run_agent_on_runtime(
             AgentCore Memory namespace and forwarded as bounded context.
 
     Returns:
-        The orchestrator's reply as a string.
+        Response text plus observed Gateway calls, products, and routing data.
 
     Raises:
         ManagedRuntimeError: If the managed rail is incomplete or unavailable.
@@ -421,6 +436,9 @@ async def run_agent_on_runtime(
             raise ManagedRuntimeError("managed_gateway_unavailable")
         if not str(parsed.get("response") or "").strip():
             raise ManagedRuntimeError("runtime_invalid_response")
+        orchestration = str(parsed.get("orchestration") or "dispatcher")
+        if orchestration != "dispatcher":
+            raise ManagedRuntimeError("runtime_invalid_response")
 
         _store_managed_runtime_receipt(
             session_id,
@@ -430,7 +448,27 @@ async def run_agent_on_runtime(
             trace_id=_trace_id_from(response_headers),
             request_id=response_headers.get("x-amzn-requestid"),
         )
-        return str(parsed["response"])
+        products = parsed.get("products")
+        tool_calls = parsed.get("tool_calls")
+        return ManagedRuntimeResult(
+            response=str(parsed["response"]),
+            products=(
+                [dict(product) for product in products if isinstance(product, dict)]
+                if isinstance(products, list)
+                else []
+            ),
+            rail=rail,
+            intent=str(parsed.get("intent") or ""),
+            specialist=str(parsed.get("specialist") or ""),
+            response_mode=str(parsed.get("response_mode") or "balanced"),
+            model=str(parsed.get("model") or ""),
+            tool_calls=(
+                [dict(call) for call in tool_calls if isinstance(call, dict)]
+                if isinstance(tool_calls, list)
+                else []
+            ),
+            orchestration="dispatcher",
+        )
     except ManagedRuntimeError:
         raise
     except urllib.error.HTTPError as exc:  # pragma: no cover - SDK error path
@@ -443,6 +481,30 @@ async def run_agent_on_runtime(
 # === REFERENCE: AgentCore Runtime — END ===
 
 
+async def run_agent_on_runtime(
+    message: str,
+    session_id: str,
+    user_id: Optional[str] = None,
+    auth_token: Optional[str] = None,
+    history: Optional[List[Dict[str, Any]]] = None,
+    turn_id: Optional[str] = None,
+    response_mode: str = "balanced",
+    customer_id: Optional[str] = None,
+) -> str:
+    """Compatibility wrapper returning only the managed response text."""
+    result = await run_agent_on_runtime_result(
+        message=message,
+        session_id=session_id,
+        user_id=user_id,
+        auth_token=auth_token,
+        history=history,
+        turn_id=turn_id,
+        response_mode=response_mode,
+        customer_id=customer_id,
+    )
+    return result.response
+
+
 async def run_agent(
     message: str,
     session_id: str,
@@ -451,6 +513,7 @@ async def run_agent(
     history: Optional[List[Dict[str, Any]]] = None,
     turn_id: Optional[str] = None,
     response_mode: str = "balanced",
+    customer_id: Optional[str] = None,
 ) -> str:
     """Route a chat request through either the in-process Strands
     orchestrator or the AgentCore Runtime, based on
@@ -489,6 +552,8 @@ async def run_agent(
         }
         if turn_id:
             runtime_kwargs["turn_id"] = turn_id
+        if customer_id:
+            runtime_kwargs["customer_id"] = customer_id
         return await run_agent_on_runtime(**runtime_kwargs)
     return await _run_orchestrator_inprocess(
         message, session_id, user_id, history

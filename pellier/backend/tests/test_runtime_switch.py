@@ -88,6 +88,7 @@ def stub_runtime_call(monkeypatch: pytest.MonkeyPatch):
         auth_token: Any = None,
         history: Any = None,
         response_mode: str = "balanced",
+        customer_id: Any = None,
     ) -> str:
         calls.append(
             {
@@ -97,6 +98,7 @@ def stub_runtime_call(monkeypatch: pytest.MonkeyPatch):
                 "auth_token": auth_token,
                 "history": history,
                 "response_mode": response_mode,
+                "customer_id": customer_id,
             }
         )
         return f"[stub-runtime] {message}"
@@ -219,6 +221,7 @@ def test_run_agent_dispatches_to_runtime_when_flag_true(
             session_id="sess-runtime",
             user_id="cognito-sub-xyz",
             auth_token="jwt-123",
+            customer_id="CUST-MARCO",
         )
     )
 
@@ -231,6 +234,7 @@ def test_run_agent_dispatches_to_runtime_when_flag_true(
             "auth_token": "jwt-123",
             "history": None,
             "response_mode": "balanced",
+            "customer_id": "CUST-MARCO",
         }
     ]
     assert result == "[stub-runtime] something for warm evenings out"
@@ -469,6 +473,15 @@ def test_run_agent_on_runtime_invokes_agentcore_runtime_with_jwt(
         (
             b'{"response":"local fallback","rail":"runtime"}',
             "managed_gateway_unavailable",
+        ),
+        (
+            b'{"error":"runtime_output_truncated","rail":"gateway-mcp"}',
+            "runtime_output_truncated",
+        ),
+        (
+            b'{"response":"wrong orchestrator","rail":"gateway-mcp",'
+            b'"orchestration":"graph"}',
+            "runtime_invalid_response",
         ),
         (b'not-json', "runtime_invalid_response"),
     ],

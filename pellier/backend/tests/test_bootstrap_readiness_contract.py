@@ -115,6 +115,16 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "destination": "CloudWatchLogs",
                 "status": "ACTIVE",
                 "resource_policy": "TransactionSearchXRayAccess",
+                "resource_policy_document": (
+                    '{"Version":"2012-10-17","Statement":'
+                    '[{"Sid":"TransactionSearchXRayAccess"}]}'
+                ),
+                "cleanup": {
+                    "destination_changed": True,
+                    "previous_destination": "XRay",
+                    "resource_policy_created": True,
+                    "previous_resource_policy_document": None,
+                },
             },
             "control_plane_audit": {
                 "source": "CloudTrail Event History",
@@ -125,6 +135,46 @@ def _valid_managed_receipt() -> dict[str, object]:
             },
             "runtime_log_group": {
                 "name": "/aws/bedrock-agentcore/runtimes/pellier_orchestrator-abc123-DEFAULT",
+                "kms_key_arn": (
+                    "arn:aws:kms:us-east-1:123456789012:"
+                    "key/12345678-1234-1234-1234-1234567890ab"
+                ),
+                "retention_days": 30,
+                "cleanup": {
+                    "created_by_workshop": True,
+                    "previous_kms_key_arn": None,
+                    "previous_retention_days": None,
+                },
+            },
+            "trace_log_groups": {
+                "groups": [
+                    {
+                        "name": "aws/spans",
+                        "kms_key_arn": (
+                            "arn:aws:kms:us-east-1:123456789012:"
+                            "key/12345678-1234-1234-1234-1234567890ab"
+                        ),
+                        "retention_days": 30,
+                        "cleanup": {
+                            "created_by_workshop": True,
+                            "previous_kms_key_arn": None,
+                            "previous_retention_days": None,
+                        },
+                    },
+                    {
+                        "name": "/aws/application-signals/data",
+                        "kms_key_arn": (
+                            "arn:aws:kms:us-east-1:123456789012:"
+                            "key/12345678-1234-1234-1234-1234567890ab"
+                        ),
+                        "retention_days": 30,
+                        "cleanup": {
+                            "created_by_workshop": True,
+                            "previous_kms_key_arn": None,
+                            "previous_retention_days": None,
+                        },
+                    },
+                ],
                 "kms_key_arn": (
                     "arn:aws:kms:us-east-1:123456789012:"
                     "key/12345678-1234-1234-1234-1234567890ab"
@@ -151,7 +201,14 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "agent_input_observed": True,
                 "agent_output_observed": True,
                 "tool_input_output_observed": True,
+                "tool_input_output_structured": True,
                 "tool_input_output_sanitized": True,
+                "attribute_contract": {
+                    "agent_input": "gen_ai.input.messages",
+                    "agent_output": "gen_ai.output.messages",
+                    "tool_input": "gen_ai.tool.call.arguments",
+                    "tool_output": "gen_ai.tool.call.result",
+                },
                 "step_latency_observed": True,
                 "step_latency_ms": {"agent": 125, "model": 80, "tool": 30},
                 "model_ids": ["global.anthropic.claude-sonnet-5"],
@@ -197,6 +254,8 @@ def _valid_managed_receipt() -> dict[str, object]:
             },
             "authenticated_runtime_invoke_smoke": True,
             "transaction_search_ready": True,
+            "trace_log_groups_encrypted": True,
+            "trace_log_groups_retention_bounded": True,
             "control_plane_audit_verified": True,
             "runtime_log_group_encrypted": True,
             "runtime_log_group_retention_bounded": True,
@@ -206,6 +265,7 @@ def _valid_managed_receipt() -> dict[str, object]:
             "unified_trace_tool_span": True,
             "unified_trace_agent_input": True,
             "unified_trace_agent_output": True,
+            "unified_trace_tool_io_structured": True,
             "unified_trace_tool_io_sanitized": True,
             "unified_trace_step_latency": True,
             "runtime_invoke_smoke": {
@@ -226,6 +286,8 @@ def _run_health_gate(
     customer_count: int = 5,
     order_count: int = 20,
     audit_count: int = 1,
+    retrieval_receipts_exists: bool = True,
+    governed_turn_receipts_exists: bool = True,
     managed_receipt: dict[str, object] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
@@ -273,12 +335,24 @@ case "$*" in
   *customers*) printf '{customer_count}\n' ;;
   *orders*) printf '{order_count}\n' ;;
   *tool_audit*) printf '{audit_count}\n' ;;
+  *"to_regclass('pellier.retrieval_receipts')"*) printf '{"pellier.retrieval_receipts" if retrieval_receipts_exists else ""}\n' ;;
+  *"to_regclass('pellier.governed_turn_receipts')"*) printf '{"pellier.governed_turn_receipts" if governed_turn_receipts_exists else ""}\n' ;;
 esac
 """,
     )
     _write_executable(fake_bin / "node", "#!/bin/bash\nprintf 'v20.20.2\\n'\n")
     _write_executable(fake_bin / "aws", "#!/bin/bash\nprintf 'ENFORCE\\n'\n")
     env = os.environ.copy()
+    for managed_key in (
+        "AGENTCORE_MEMORY_ID",
+        "AGENTCORE_RUNTIME_ENDPOINT",
+        "USE_AGENTCORE_RUNTIME",
+        "AGENTCORE_GATEWAY_URL",
+        "AGENTCORE_GATEWAY_ARN",
+        "AGENTCORE_POLICY_ENGINE_ID",
+        "AGENTCORE_MANAGED_OUTPUT_JSON",
+    ):
+        env.pop(managed_key, None)
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["PELLIER_REPO"] = str(repo)
     if managed_ready:
@@ -359,16 +433,24 @@ def test_governed_health_gate_rejects_incomplete_managed_receipt(
     ("missing_data", "message"),
     [
         ({"customer_count": 0}, "Customer records empty or missing"),
-        ({"order_count": 0}, "Orders empty or missing"),
+        ({"order_count": 19}, "Orders incomplete or missing"),
         (
             {"audit_count": 0},
             "JSONB tool execution ledger has no completed agent or Gateway actions",
+        ),
+        (
+            {"retrieval_receipts_exists": False},
+            "Retrieval receipt schema missing",
+        ),
+        (
+            {"governed_turn_receipts_exists": False},
+            "Governed turn receipt schema missing",
         ),
     ],
 )
 def test_governed_health_gate_rejects_missing_operational_data(
     tmp_path: Path,
-    missing_data: dict[str, int],
+    missing_data: dict[str, int | bool],
     message: str,
 ) -> None:
     proc = _run_health_gate(

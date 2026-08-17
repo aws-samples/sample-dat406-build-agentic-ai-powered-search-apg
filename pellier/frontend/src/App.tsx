@@ -153,6 +153,20 @@ function AgentTraceConciergeSlot() {
   )
 }
 
+function LegacyLabsRedirect() {
+  const { pathname, search, hash } = useLocation()
+  const legacyPrefix = pathname.startsWith('/agent-trace')
+    ? '/agent-trace'
+    : '/labs'
+  const suffix = pathname.slice(legacyPrefix.length)
+  return (
+    <Navigate
+      to={`/pellier-labs${suffix}${search}${hash}`}
+      replace
+    />
+  )
+}
+
 function RouteLoading() {
   return (
     <div
@@ -165,16 +179,62 @@ function RouteLoading() {
   )
 }
 
-// LegacyLabsRedirect preserves links printed before Pellier Labs became the
-// only public Labs address. These aliases are neither linked nor documented.
-export function LegacyLabsRedirect({
-  legacyPrefix,
-}: {
-  legacyPrefix: '/agent-trace' | '/labs'
-}) {
-  const { pathname, search, hash } = useLocation()
-  const rest = pathname.slice(legacyPrefix.length)
-  return <Navigate to={`/pellier-labs${rest}${search}${hash}`} replace />
+export function AppRoutes() {
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <Routes>
+        {/*
+         *   /           -> BoutiquePage (storefront shell)
+         *   /pellier-labs/* -> Pellier Labs
+         *   /inspector  -> InspectorPage (frozen session-scoped trace view)
+         *   /storyboard -> StoryboardPage
+         *   /discover   -> DiscoverPage
+         *   *           -> redirect to /
+        */}
+        <Route path="/" element={<BoutiquePage />} />
+        <Route path="/agent-trace/*" element={<LegacyLabsRedirect />} />
+        <Route path="/labs/*" element={<LegacyLabsRedirect />} />
+        <Route path="/pellier-labs" element={<AgentTraceFrame />}>
+          <Route index element={<PellierLabsWorkbench />} />
+          <Route path="proof-board" element={<ProofBoard />} />
+          <Route
+            path="audit-proof"
+            element={<ProofBoard focusCardId="audit-ledger" />}
+          />
+          <Route path="sessions" element={<SessionsList />} />
+          <Route path="sessions/:id" element={<SessionView />}>
+            <Route index element={<Navigate to="chat" replace />} />
+            <Route path="chat" element={<ChatTab />} />
+            <Route path="telemetry" element={<TelemetryTab />} />
+            <Route path="brief" element={<BriefTab />} />
+          </Route>
+          <Route path="architecture" element={<ArchitectureIndex />} />
+          <Route path="architecture/:concept" element={<ArchitectureDetail />} />
+          <Route
+            path="agents"
+            element={<Navigate to="/pellier-labs/tools" replace />}
+          />
+          <Route path="tools" element={<Tools />} />
+          <Route path="search" element={<Search />} />
+          <Route path="skills" element={<Skills />} />
+          <Route path="routing" element={<Routing />} />
+          <Route path="memory" element={<MemoryDashboard />} />
+          <Route path="write-path" element={<WritePath />} />
+          <Route path="performance" element={<Performance />} />
+          <Route path="evaluations" element={<Evaluations />} />
+          <Route path="production-patterns" element={<ProductionPatterns />} />
+          <Route path="observatory" element={<Observatory />} />
+          <Route path="persona-journeys" element={<PersonaJourneys />} />
+          <Route path="settings" element={<AgentTraceSettings />} />
+        </Route>
+        <Route path="/inspector" element={<InspectorPage />} />
+        <Route path="/storyboard" element={<StoryboardPage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -205,61 +265,7 @@ function App() {
               <AgentTraceConciergeSlot />
               <ChatDrawer />
               <ComparisonHost />
-              <Suspense fallback={<RouteLoading />}>
-                <Routes>
-                {/*
-                 *   /           → BoutiquePage (storefront shell)
-                 *   /pellier-labs/* → Pellier Labs
-                 *   /inspector  → InspectorPage (frozen session-scoped trace view)
-                 *   /storyboard → StoryboardPage
-                 *   /discover   → DiscoverPage
-                 *   *           → redirect to /
-                 */}
-                <Route path="/" element={<BoutiquePage />} />
-                {/* Pellier Labs — nested routes under a full-width live
-                    inspection canvas. */}
-                <Route path="/pellier-labs" element={<AgentTraceFrame />}>
-                  <Route index element={<PellierLabsWorkbench />} />
-                  <Route path="proof-board" element={<ProofBoard />} />
-                  <Route
-                    path="audit-proof"
-                    element={<ProofBoard focusCardId="audit-ledger" />}
-                  />
-                  <Route path="sessions" element={<SessionsList />} />
-                  <Route path="sessions/:id" element={<SessionView />}>
-                    <Route index element={<Navigate to="chat" replace />} />
-                    <Route path="chat" element={<ChatTab />} />
-                    <Route path="telemetry" element={<TelemetryTab />} />
-                    <Route path="brief" element={<BriefTab />} />
-                  </Route>
-                  <Route path="architecture" element={<ArchitectureIndex />} />
-                  <Route path="architecture/:concept" element={<ArchitectureDetail />} />
-                  <Route path="agents" element={<Navigate to="/pellier-labs/tools" replace />} />
-                  <Route path="tools" element={<Tools />} />
-                  <Route path="search" element={<Search />} />
-                  <Route path="skills" element={<Skills />} />
-                  <Route path="routing" element={<Routing />} />
-                  <Route path="memory" element={<MemoryDashboard />} />
-                  <Route path="write-path" element={<WritePath />} />
-                  <Route path="performance" element={<Performance />} />
-                  <Route path="evaluations" element={<Evaluations />} />
-                  <Route path="production-patterns" element={<ProductionPatterns />} />
-                  <Route path="observatory" element={<Observatory />} />
-                  <Route path="persona-journeys" element={<PersonaJourneys />} />
-                  <Route path="settings" element={<AgentTraceSettings />} />
-                </Route>
-                <Route
-                  path="/agent-trace/*"
-                  element={<LegacyLabsRedirect legacyPrefix="/agent-trace" />}
-                />
-                <Route path="/labs/*" element={<LegacyLabsRedirect legacyPrefix="/labs" />} />
-                <Route path="/inspector" element={<InspectorPage />} />
-                <Route path="/storyboard" element={<StoryboardPage />} />
-                <Route path="/discover" element={<DiscoverPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
+              <AppRoutes />
             </BrowserRouter>
           </UIProvider>
         </CartProvider>

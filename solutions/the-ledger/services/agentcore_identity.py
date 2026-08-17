@@ -57,6 +57,7 @@ from services.cognito_auth import (
     CognitoAuthService,
     get_cognito_auth_service,
 )
+from services.turn_identity import customer_id_for_verified_username
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,7 @@ class UserContext:
     session_id: str
     namespace: str
     access_token: Optional[str] = None
+    customer_id: Optional[str] = None
 
 
 class AgentCoreIdentityService:
@@ -210,6 +212,9 @@ class AgentCoreIdentityService:
             session_id=session_id,
             namespace=namespace,
             access_token=getattr(user, "access_token", None),
+            customer_id=customer_id_for_verified_username(
+                getattr(user, "username", None)
+            ),
         )
 
 

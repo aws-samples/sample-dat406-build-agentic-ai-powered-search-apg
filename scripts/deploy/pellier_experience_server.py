@@ -90,8 +90,14 @@ def _execute_in_transaction(transaction_id: str, sql: str, parameters: list = No
     return [_row_to_dict(record, columns) for record in response.get("records", [])]
 
 
-def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> None:
-    """Reconstruct the pellier.tool_audit evidence row on the GATEWAY rail.
+def _write_tool_audit_in_transaction(
+    transaction_id: str,
+    tool: str,
+    args: dict,
+    result: dict,
+    latency_ms: int,
+) -> None:
+    """Write the Gateway audit row in the mutation's Aurora transaction.
 
     On the in-process rail the FastAPI PolicyEnforcementHook writes this row;
     behind the Gateway the tool runs in THIS Lambda, so we write it here. This
@@ -109,31 +115,29 @@ def _write_tool_audit(tool: str, args: dict, result: dict, latency_ms: int) -> N
     Schema (scripts/migrations/002_workshop_telemetry.sql):
       tool_audit(session_id, tool, caller, args JSONB, result JSONB, latency_ms)
 
-    Fire-and-forget: a telemetry write must NEVER fail the actual return, so
-    every error here is swallowed (the tool result is already committed).
+    The mutation and evidence row commit or roll back together. A successful
+    write without its audit row would violate the governed workshop contract.
     """
-    try:
-        customer_id = str(args.get("customer_id", "")) or "unknown"
-        rds_client.execute_statement(
-            resourceArn=DB_CLUSTER_ARN,
-            secretArn=SECRET_ARN,
-            database=DATABASE,
-            sql=(
-                f"INSERT INTO {SCHEMA}.tool_audit "
-                "(session_id, tool, caller, args, result, latency_ms) "
-                "VALUES (:sid, :tool, :caller, :args::jsonb, :result::jsonb, :ms)"
-            ),
-            parameters=[
-                {"name": "sid", "value": {"stringValue": f"gateway-{customer_id}"}},
-                {"name": "tool", "value": {"stringValue": tool}},
-                {"name": "caller", "value": {"stringValue": "gateway"}},
-                {"name": "args", "value": {"stringValue": json.dumps(args, default=str)}},
-                {"name": "result", "value": {"stringValue": json.dumps(result, default=str)}},
-                {"name": "ms", "value": {"longValue": int(latency_ms)}},
-            ],
-        )
-    except Exception as exc:  # never let audit failure break the tool
-        logger.warning("tool_audit write failed (non-fatal): %s", exc)
+    customer_id = str(args.get("customer_id", "")) or "unknown"
+    rds_client.execute_statement(
+        resourceArn=DB_CLUSTER_ARN,
+        secretArn=SECRET_ARN,
+        database=DATABASE,
+        transactionId=transaction_id,
+        sql=(
+            f"INSERT INTO {SCHEMA}.tool_audit "
+            "(session_id, tool, caller, args, result, latency_ms) "
+            "VALUES (:sid, :tool, :caller, :args::jsonb, :result::jsonb, :ms)"
+        ),
+        parameters=[
+            {"name": "sid", "value": {"stringValue": f"gateway-{customer_id}"}},
+            {"name": "tool", "value": {"stringValue": tool}},
+            {"name": "caller", "value": {"stringValue": "gateway"}},
+            {"name": "args", "value": {"stringValue": json.dumps(args, default=str)}},
+            {"name": "result", "value": {"stringValue": json.dumps(result, default=str)}},
+            {"name": "ms", "value": {"longValue": int(latency_ms)}},
+        ],
+    )
 
 
 def _write_request_hash(operation: str, arguments: dict) -> str:
@@ -150,6 +154,8 @@ def process_return(
     product_id: int,
     reason: str,
     idempotency_key: str,
+    *,
+    audit_arguments: dict | None = None,
 ) -> dict:
     """Execute the shared idempotent return transaction in Aurora."""
     if reason not in ALLOWED_RETURN_REASONS:
@@ -174,6 +180,7 @@ def process_return(
         },
     )
 
+    started = time.monotonic()
     begin = rds_client.begin_transaction(
         resourceArn=DB_CLUSTER_ARN,
         secretArn=SECRET_ARN,
@@ -195,15 +202,29 @@ def process_return(
                 {"name": "reason", "value": {"stringValue": str(reason)}},
             ],
         )
+        raw_result = rows[0].get("result") if rows else None
+        result = json.loads(raw_result) if isinstance(raw_result, str) else (
+            raw_result or {"status": "error", "message": "Return produced no result."}
+        )
+        _write_tool_audit_in_transaction(
+            transaction_id,
+            "process_return",
+            audit_arguments
+            or {
+                "customer_id": customer_id,
+                "product_id": product_id,
+                "reason": reason,
+                "idempotency_key": clean_key,
+            },
+            result,
+            int((time.monotonic() - started) * 1000),
+        )
         rds_client.commit_transaction(
             resourceArn=DB_CLUSTER_ARN,
             secretArn=SECRET_ARN,
             transactionId=transaction_id,
         )
-        raw_result = rows[0].get("result") if rows else None
-        return json.loads(raw_result) if isinstance(raw_result, str) else (
-            raw_result or {"status": "error", "message": "Return produced no result."}
-        )
+        return result
     except Exception as exc:
         try:
             rds_client.rollback_transaction(
@@ -290,9 +311,9 @@ TOOLS = {
             "type": "object",
             "properties": {
                 "reason": {"type": "string", "description": "One short sentence describing why the handoff is happening"},
-                "customer_id": {"type": "string", "description": "Optional customer id so the stylist queue can pre-load order history"},
+                "customer_id": {"type": "string", "description": "Verified customer id for the handoff context"},
             },
-            "required": [],
+            "required": ["customer_id"],
         },
     },
 }
@@ -321,14 +342,14 @@ def lambda_handler(event: dict, context: Any) -> dict:
         execution_arguments = {
             key: value for key, value in arguments.items() if key != "turn_id"
         }
-        result = TOOLS[tool_name]["fn"](**execution_arguments)
-        latency_ms = int((time.monotonic() - started) * 1000)
-        # Evidence ledger for the audited write tool. Reaching this point means
-        # managed AgentCore Policy ALLOWed the call at the Gateway; a DENY would
-        # have blocked it before the Lambda ran, leaving no row. Mirrors the
-        # in-process hook's record_allow.
         if tool_name == "process_return":
-            _write_tool_audit(tool_name, audit_arguments, result, latency_ms)
+            result = process_return(
+                **execution_arguments,
+                audit_arguments=audit_arguments,
+            )
+        else:
+            result = TOOLS[tool_name]["fn"](**execution_arguments)
+        latency_ms = int((time.monotonic() - started) * 1000)
         return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
     except Exception as e:
         logger.error("Tool %s failed: %s", tool_name, e)

@@ -36,6 +36,7 @@ import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import unquote
 
 import jwt
 import requests
@@ -226,6 +227,7 @@ class CognitoAuthService:
             user_id=subject,
             email=claims.get("email", ""),
             given_name=claims.get("given_name") or claims.get("username", ""),
+            username=str(claims.get("username") or "").strip().casefold(),
             # Preserve the raw bearer token so the request path can pass the
             # caller's identity through to the AgentCore Gateway (JWT
             # passthrough). Excluded from serialization in the model.
@@ -252,7 +254,8 @@ class CognitoAuthService:
             token = authorization.split(" ", 1)[1].strip()
 
         if not token:
-            token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+            cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+            token = unquote(cookie_token) if cookie_token else None
 
         if not token:
             return None

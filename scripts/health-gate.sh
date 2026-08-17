@@ -78,13 +78,13 @@ fi
 
 # 1b. Frontend SPA actually built + served. The backend serves /api even when
 # the Vite bundle is absent (it returns a JSON "bundle not found" note at /),
-# so /api/health alone can read green while the Boutique + Agent Trace are blank.
+# so /api/health alone can read green while Pellier and Pellier Labs are blank.
 # Check that / returns HTML, not that JSON note: this is what a participant
 # sees in the browser. (Root cause when it fails: the frontend build failed,
 # usually `npm run build` in pellier/frontend; recover with `rebuild-frontend`.)
 root_body="$(curl -fs --max-time 5 "${ROOT_URL:-http://localhost:8000/}" 2>/dev/null || true)"
 if echo "$root_body" | grep -qiE '<!doctype html|<div id="root"'; then
-  pass "Frontend SPA built and served at / (Boutique + Agent Trace render)"
+  pass "Frontend SPA built and served at / (Pellier + Pellier Labs render)"
 else
   fail "Frontend SPA not served at / - bundle missing (got: ${root_body:0:80}). Run 'rebuild-frontend' (builds pellier/frontend, restarts pellier)."
   ok=false
@@ -155,10 +155,10 @@ if $managed_required; then
   fi
 
   order_n="$(_psql 'SELECT count(*) FROM pellier.orders;' || echo '')"
-  if [[ "${order_n:-0}" =~ ^[0-9]+$ ]] && (( order_n > 0 )); then
-    pass "Orders queryable ($order_n rows)"
+  if [[ "${order_n:-0}" =~ ^[0-9]+$ ]] && (( order_n >= 20 )); then
+    pass "Orders queryable and fully seeded ($order_n rows)"
   else
-    fail "Orders empty or missing (got: ${order_n:-none})"
+    fail "Orders incomplete or missing (got: ${order_n:-none}, expected at least 20)"
     ok=false
   fi
 
@@ -167,6 +167,22 @@ if $managed_required; then
     pass "JSONB tool execution ledger queryable ($audit_n structured rows)"
   else
     fail "JSONB tool execution ledger has no completed agent or Gateway actions (got: ${audit_n:-none})"
+    ok=false
+  fi
+
+  retrieval_receipts_table="$(_psql "SELECT to_regclass('pellier.retrieval_receipts');" || echo '')"
+  if [[ "$retrieval_receipts_table" == "pellier.retrieval_receipts" ]]; then
+    pass "Retrieval receipt schema is installed"
+  else
+    fail "Retrieval receipt schema missing. Apply scripts/migrations/012_retrieval_receipts.sql."
+    ok=false
+  fi
+
+  governed_turn_receipts_table="$(_psql "SELECT to_regclass('pellier.governed_turn_receipts');" || echo '')"
+  if [[ "$governed_turn_receipts_table" == "pellier.governed_turn_receipts" ]]; then
+    pass "Governed turn receipt schema is installed"
+  else
+    fail "Governed turn receipt schema missing. Apply scripts/migrations/014_governed_turn_receipts.sql."
     ok=false
   fi
 fi

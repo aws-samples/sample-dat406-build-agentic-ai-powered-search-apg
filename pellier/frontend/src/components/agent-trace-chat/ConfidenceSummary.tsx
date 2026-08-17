@@ -11,6 +11,7 @@
  */
 import type { WorkshopPanelEvent } from '../../services/workshop'
 import { cssVar as c } from '../../design/cssVars'
+import { htmlToPlainText } from '../../utils/plainText'
 
 
 const GREEN_BG = 'rgba(192, 221, 151, 0.18)'
@@ -40,16 +41,11 @@ function extractPercent(panel: WorkshopPanelEvent): number | null {
   return match ? parseInt(match[0], 10) : null
 }
 
-/** Strip any HTML in the meta (backend emits small inline <span>s). */
-function stripTags(html: string): string {
-  return html.replace(/<[^>]+>/g, '').trim()
-}
-
 export default function ConfidenceSummary({ panel }: ConfidenceSummaryProps) {
   if (!panel) return null
   const percent = extractPercent(panel)
   if (percent === null) return null
-  const justification = stripTags(panel.meta)
+  const justification = htmlToPlainText(panel.meta)
   return (
     <div
       data-testid="confidence-summary"

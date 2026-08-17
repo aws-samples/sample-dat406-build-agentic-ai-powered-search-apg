@@ -10,8 +10,8 @@ policy-filtered. That mirrors the Act II cloud beat — there the *agent* moved
 behind a managed boundary; here the *tools* do.
 
 This is a thin extract of the workshop's own production wiring in
-``pellier/backend/services/agentcore_gateway.py`` (which uses the very same
-``streamablehttp_client`` + Bearer-passthrough pattern), reduced to the
+``pellier/backend/services/agentcore_gateway.py`` (which uses the current
+streamable-HTTP client + Bearer-passthrough pattern), reduced to the
 discovery + one read-only call so you can watch the frames.
 
 Run (after signing in):
@@ -20,7 +20,7 @@ Run (after signing in):
     python3 solutions/the-concierge/gateway_tools_list.py
 
 Degrades gracefully: if the Gateway URL or a token is absent, it explains the
-Agent Trace **Tool Registry (Card 7)** read-only fallback and exits 0 — this is an
+Pellier Labs **Tool Registry (Card 7)** read-only fallback and exits 0 — this is an
 optional "see it live" beat, never a hard gate.
 """
 from __future__ import annotations
@@ -29,6 +29,7 @@ import asyncio
 import json
 import os
 import sys
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 
@@ -85,25 +86,42 @@ def _print_result(result: Any) -> None:
         print(f"    {result!r}")
 
 
+@asynccontextmanager
+async def _gateway_transport(url: str, token: str):
+    import httpx
+    from mcp.client.streamable_http import streamable_http_client
+
+    timeout = httpx.Timeout(30.0, read=300.0)
+    async with httpx.AsyncClient(
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        async with streamable_http_client(
+            url,
+            http_client=http_client,
+            terminate_on_close=False,
+        ) as transport:
+            yield transport
+
+
 async def _run(url: str, token: str) -> int:
     try:
         from mcp import ClientSession
-        from mcp.client.streamable_http import streamablehttp_client
     except ImportError:
         print("⚠  The `mcp` Python SDK isn't importable here — skipping the live")
         print("   Gateway handshake. (It ships with the backend venv via strands.)")
-        print("   The Agent Trace Tool Registry (Card 7) shows the same discovery result.")
+        print("   Pellier Labs Tool Registry (Card 7) shows the same discovery result.")
         return 0
 
-    headers = {"Authorization": f"Bearer {token}"}
     print(f"→ connecting to the managed Gateway over streamable HTTP")
     print(f"  (Authorization: Bearer <your Cognito token>)\n")
 
     try:
         # NOTE: the exact URL the Gateway expects (bare gatewayUrl vs a /mcp
-        # suffix) is what the backend passes verbatim to streamablehttp_client;
+        # suffix) is what the backend passes verbatim to the MCP transport;
         # confirm on-box. terminate_on_close=False matches the neptune template.
-        async with streamablehttp_client(url, headers, timeout=120, terminate_on_close=False) as (
+        async with _gateway_transport(url, token) as (
             read_stream,
             write_stream,
             _,
@@ -143,7 +161,7 @@ async def _run(url: str, token: str) -> int:
         if "401" in msg or "403" in msg or "Unauthorized" in msg:
             print("   That looks like an auth issue — re-run `source ~/pellier-token.sh`")
             print("   to mint a fresh token (they last ~1h), then try again.")
-        print("   This is optional. The Agent Trace Tool Registry (Card 7) shows the")
+        print("   This is optional. Pellier Labs Tool Registry (Card 7) shows the")
         print("   same GATEWAY · DISCOVER result without the live call.")
         return 0
 
@@ -153,7 +171,7 @@ def main() -> int:
     if not url:
         print("⚠  No Gateway URL in the environment (AGENTCORE_GATEWAY_URL / MCP_GATEWAY_URL).")
         print("   The managed Gateway wasn't provisioned in this environment, so this")
-        print("   live beat is unavailable — read the Agent Trace Tool Registry (Card 7)")
+        print("   live beat is unavailable — read Pellier Labs Tool Registry (Card 7)")
         print("   instead; it shows the same tool-discovery result. Skipping.")
         return 0
 
@@ -163,7 +181,7 @@ def main() -> int:
         print("   tools/list needs a token. Mint one and retry:")
         print("     source ~/pellier-token.sh")
         print("     python3 solutions/the-concierge/gateway_tools_list.py")
-        print("   (Or read the Agent Trace Tool Registry / Card 7 for the same result.)")
+        print("   (Or read Pellier Labs Tool Registry / Card 7 for the same result.)")
         return 0
 
     return asyncio.run(_run(url, token))

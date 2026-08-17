@@ -2,27 +2,26 @@
 
 Asserts three things, in order of importance:
 
-1. **The workarounds are gone.** The three band-aids that used to
-   compensate for the Pattern I orchestrator's paraphrase are structurally
-   absent from the chat path:
+1. **The broad workarounds are gone.** The three band-aids that used to
+   compensate for any short Pattern I paraphrase are structurally absent
+   from the chat path:
 
      - No ``[ROUTING DIRECTIVE:]`` prefix injection
      - No "Preferring specialist prose" promotion branch
      - No aggressive empty-response recovery ladder
        (``last_specialist_text`` capture, ``pre_reset_buffer`` walk)
 
-   A single minimal empty-response fallback is retained (in case
-   Bedrock itself returns nothing) — that's not a workaround, it's
-   defensive hygiene.
+   A minimal empty-response fallback remains, plus one bounded Pattern I
+   guard for a short trailing-colon preface after grounded products return.
 
 2. **The dispatcher path is wired.** The chat request accepts a
    ``pattern`` field with value ``'dispatcher'``; ``chat_stream()``
    branches on it; all five specialist factories are reachable via
    the intent classifier.
 
-3. **Agent Trace behavior is unchanged at the wire level.** The default
-   pattern (absent / None) is ``'agents_as_tools'`` so existing
-   Agent Trace clients keep hitting the Sonnet orchestrator.
+3. **The public default is Dispatcher.** An absent / ``None`` pattern
+   resolves to ``'dispatcher'`` so every Pellier surface shares one routing
+   contract.
 
 End-to-end behavior with real Bedrock calls and persona-aware responses
 is covered by the live dispatcher smoke script, not here. This test is a
@@ -92,9 +91,12 @@ def test_no_routing_directive_injection(chat_module_source: str) -> None:
     )
 
 
-def test_no_specialist_prose_promotion(chat_module_source: str) -> None:
-    """Workaround #2: the specialist-over-orchestrator promotion
-    branch must be gone from executable code.
+def test_no_broad_specialist_prose_promotion(chat_module_source: str) -> None:
+    """Workaround #2's broad short-paraphrase promotion must stay gone.
+
+    A bounded trailing-colon check is allowed for Pattern I because that
+    output is syntactically incomplete; complete router replies remain
+    canonical.
     """
     forbidden_phrases = [
         "Preferring specialist prose",
@@ -256,14 +258,12 @@ def test_each_dispatcher_intent_constructs_a_distinct_specialist() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Pattern I byte-compatibility — Agent Trace is unchanged at the wire level
+# Optional Pattern I remains explicit; Dispatcher owns the public default
 # ---------------------------------------------------------------------------
 
 
-def test_default_pattern_is_agents_as_tools() -> None:
-    """When no pattern is supplied (pre-Phase-2 clients), the service
-    must default to agents_as_tools so Agent Trace behavior is preserved.
-    """
+def test_default_pattern_is_dispatcher() -> None:
+    """When no pattern is supplied, the service must use Dispatcher."""
     import textwrap
 
     from services import chat as chat_mod
@@ -271,9 +271,8 @@ def test_default_pattern_is_agents_as_tools() -> None:
     src = inspect.getsource(chat_mod.EnhancedChatService.chat_stream)
     # ast.unparse is NOT applied here — this reads the literal source —
     # so the double-quoted form in the module is what we check.
-    assert 'pattern or "agents_as_tools"' in textwrap.dedent(src), (
-        "chat_stream does not default pattern to 'agents_as_tools' — "
-        "pre-Phase-2 clients (Agent Trace) would break"
+    assert 'pattern or "dispatcher"' in textwrap.dedent(src), (
+        "chat_stream does not default pattern to 'dispatcher'"
     )
 
 
@@ -310,7 +309,7 @@ def test_orchestrator_constructed_only_for_agents_as_tools() -> None:
     body = ast.unparse(tree)
 
     assert "pattern == 'agents_as_tools'" in body
-    normalize_idx = body.find("pattern or 'agents_as_tools'")
+    normalize_idx = body.find("pattern or 'dispatcher'")
     create_idx = body.find("orchestrator = create_orchestrator()")
     assert normalize_idx > 0, "pattern normalization missing from chat_stream"
     assert create_idx > 0, "create_orchestrator() not found in chat_stream"

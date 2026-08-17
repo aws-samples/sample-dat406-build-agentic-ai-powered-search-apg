@@ -1,14 +1,14 @@
 # Pellier frontend guidance
 
-This directory owns the React/Vite Boutique and Agent Trace experiences.
+This directory owns the React/Vite Pellier and Pellier Labs experiences.
 Read the repository `CLAUDE.md` and `VOICE.md` before editing.
 
 ## Product boundaries
 
-- Boutique is a fast, editorial shopping experience.
-- Agent Trace is a quiet operator console organized around the four required labs.
+- Pellier is a fast, editorial shopping experience.
+- Pellier Labs is a quiet inspection surface organized around the four required labs.
 - Code Editor, curl, and SQL remain the canonical proof surfaces.
-- Agent Trace may summarize live evidence but must not invent or replace proof.
+- Pellier Labs may summarize live evidence but must not invent or replace proof.
 - Do not reintroduce the old Act I/II/III navigation.
 
 ## Interaction rules
@@ -23,7 +23,7 @@ Read the repository `CLAUDE.md` and `VOICE.md` before editing.
 - Human handoff is an explicit outcome, not a fallback for an ordinary
   partial catalog match.
 - Use the existing icon library and design tokens.
-- Keep SQL, code, IDs, and telemetry in JetBrains Mono; use the Agent Trace
+- Keep SQL, code, IDs, and telemetry in JetBrains Mono; use the Pellier Labs
   sans/display typography for labels and prose.
 - Keep proof data backend-driven. Browser state is not evidence.
 

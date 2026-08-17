@@ -33,14 +33,6 @@ SCHEMA = "pellier"
 rds_client = boto3.client("rds-data", region_name=DB_REGION)
 bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
 
-_PERSONA_CUSTOMER_IDS = {
-    "marco": "CUST-MARCO",
-    "anna": "CUST-ANNA",
-    "theo": "CUST-THEO",
-    "fresh": "CUST-FRESH",
-}
-
-
 def _execute_sql(sql: str, parameters: list = None) -> list[dict]:
     """Execute SQL via RDS Data API and return rows as dicts."""
     params = {
@@ -86,26 +78,23 @@ def _decode_json(value: Any) -> Any:
         return value
 
 
-def _resolve_customer_id(customer_id: str = "", persona: str = "") -> str:
-    explicit = (customer_id or "").strip()
-    if explicit:
-        return _PERSONA_CUSTOMER_IDS.get(explicit.lower(), explicit.upper())
-    return _PERSONA_CUSTOMER_IDS.get((persona or "").strip().lower(), "")
+def _resolve_customer_id(customer_id: str = "") -> str:
+    """Normalize only the server-bound Aurora customer identifier."""
+    return (customer_id or "").strip().upper()
 
 
 # --- Tool implementations ---
 
 def preference_snapshot(
     customer_id: str = "",
-    persona: str = "",
     limit: int = 5,
 ) -> dict:
     """Return a read-only customer, order, and episodic-memory snapshot."""
-    resolved = _resolve_customer_id(customer_id, persona)
+    resolved = _resolve_customer_id(customer_id)
     if not resolved:
         return {
             "status": "no_customer_context",
-            "message": "No customer_id or persona context was supplied.",
+            "message": "Verified customer_id is required for profile context.",
             "read_only": True,
         }
 
@@ -169,14 +158,28 @@ def preference_snapshot(
 
 
 def trace_receipt(
+    customer_id: str = "",
     session_id: str = "",
     tool_name: str = "",
     caller: str = "",
     limit: int = 3,
 ) -> dict:
-    """Return recent read-only audit receipts for the requested rail."""
-    filters = []
-    parameters = []
+    """Return recent read-only audit receipts for one verified customer."""
+    resolved_customer = _resolve_customer_id(customer_id)
+    if not resolved_customer:
+        return {
+            "status": "no_customer_context",
+            "message": "Verified customer_id is required for trace receipts.",
+            "read_only": True,
+        }
+
+    filters = ["args->>'customer_id' = :customer_id"]
+    parameters = [
+        {
+            "name": "customer_id",
+            "value": {"stringValue": resolved_customer},
+        }
+    ]
     for field, value in (
         ("session_id", session_id),
         ("tool", tool_name),
@@ -207,6 +210,7 @@ def trace_receipt(
             "status": "no_allow_receipt",
             "read_only": True,
             "filters": {
+                "customer_id": resolved_customer,
                 "session_id": (session_id or "").strip() or None,
                 "tool_name": (tool_name or "").strip() or None,
                 "caller": (caller or "").strip().lower() or None,
@@ -373,10 +377,9 @@ TOOLS = {
             "type": "object",
             "properties": {
                 "customer_id": {"type": "string"},
-                "persona": {"type": "string"},
                 "limit": {"type": "integer", "default": 5},
             },
-            "required": [],
+            "required": ["customer_id"],
         },
     },
     "trace_receipt": {
@@ -385,12 +388,13 @@ TOOLS = {
         "inputSchema": {
             "type": "object",
             "properties": {
+                "customer_id": {"type": "string"},
                 "session_id": {"type": "string"},
                 "tool_name": {"type": "string"},
                 "caller": {"type": "string"},
                 "limit": {"type": "integer", "default": 3},
             },
-            "required": [],
+            "required": ["customer_id"],
         },
     },
     "whats_trending": {

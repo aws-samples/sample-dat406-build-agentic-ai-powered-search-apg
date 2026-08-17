@@ -19,6 +19,7 @@
 import { useState } from 'react'
 import type { WorkshopPanelEvent } from '../../services/workshop'
 import { cssVar as c } from '../../design/cssVars'
+import { htmlToPlainText } from '../../utils/plainText'
 
 
 export interface ToolChipProps {
@@ -44,7 +45,7 @@ function defaultSummary(panel: WorkshopPanelEvent): string {
     return `— ${n} ${n === 1 ? 'result' : 'results'}`
   }
   if (panel.meta) {
-    const plain = panel.meta.replace(/<[^>]+>/g, '').trim()
+    const plain = htmlToPlainText(panel.meta)
     return plain.length > 60 ? `— ${plain.slice(0, 57)}…` : `— ${plain}`
   }
   return ''
@@ -135,7 +136,7 @@ export default function ToolChip({
           <div className="flex justify-between items-center text-[11px]">
             {panel.meta ? (
               <span className="italic" style={{ color: c.muted }}>
-                {panel.meta.replace(/<[^>]+>/g, '')}
+                {htmlToPlainText(panel.meta)}
               </span>
             ) : (
               <span />

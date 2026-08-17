@@ -12,5 +12,6 @@ dependencies = [
     "strands-agents[otel]",
     "aws-opentelemetry-distro>=0.18.0",
     "mcp>=1.0.0",
+    "httpx>=0.28.1",
     "bedrock-agentcore>=1.4.3",
 ]

@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import runpy
 import time
 from pathlib import Path
@@ -116,9 +117,17 @@ def _load_fixture(name: str) -> Any:
     Results are cached in memory after first load. Returns None if the
     file doesn't exist or can't be parsed.
     """
+    if not re.fullmatch(r"[a-z0-9-]{1,128}", name):
+        logger.warning("Rejected invalid fixture name")
+        return None
     if name in _fixture_cache:
         return _fixture_cache[name]
-    path = _FIXTURE_DIR / f"{name}.json"
+    path = (_FIXTURE_DIR / f"{name}.json").resolve()
+    try:
+        path.relative_to(_FIXTURE_DIR.resolve())
+    except ValueError:
+        logger.warning("Rejected fixture path outside fixture directory")
+        return None
     try:
         data = json.loads(path.read_text())
         _fixture_cache[name] = data
@@ -280,7 +289,9 @@ async def _latest_audit_row(
               LEFT JOIN pellier.governed_receipts gr
                 ON gr.audit_id = ta.audit_id
               LEFT JOIN pellier.governed_turn_receipts gtr
-                ON gtr.tool_audit_ids @> jsonb_build_array(ta.audit_id)
+                ON gtr.tool_audit_ids @> jsonb_build_array(
+                    jsonb_build_object('audit_id', ta.audit_id)
+                )
               {where}
              ORDER BY ta.audit_id DESC
              LIMIT 1
@@ -322,7 +333,9 @@ async def _audit_row_by_id(
               LEFT JOIN pellier.governed_receipts gr
                 ON gr.audit_id = ta.audit_id
               LEFT JOIN pellier.governed_turn_receipts gtr
-                ON gtr.tool_audit_ids @> jsonb_build_array(ta.audit_id)
+                ON gtr.tool_audit_ids @> jsonb_build_array(
+                    jsonb_build_object('audit_id', ta.audit_id)
+                )
              WHERE ta.audit_id = %s
                AND (gr.principal_id = %s OR gtr.principal_sub = %s)
              LIMIT 1
@@ -1767,7 +1780,7 @@ async def route_skills_endpoint(payload: AgentTraceSkillRouteRequest):
             "considered": [],
             "elapsed_ms": 0,
             "user_message": payload.query[:500],
-            "error": str(exc),
+            "error": "skill_routing_unavailable",
         }
 
 

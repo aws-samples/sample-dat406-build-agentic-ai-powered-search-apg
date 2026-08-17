@@ -678,11 +678,9 @@ export function useAgentChat(
           mode === 'storefront' ? undefined : workshopMode,
           guardrailsEnabled,
           persona?.customer_id ?? null,
-          // Pattern selector — storefront uses the dispatcher (direct
-          // specialist invocation, no orchestrator, no paraphrase),
-          // agentTrace uses the Sonnet orchestrator (Pattern I). Commit 2
-          // adds a user-facing toggle in the Agent Trace for 'graph'.
-          mode === 'storefront' ? 'dispatcher' : 'agents_as_tools',
+          // Pellier and Pellier Labs share the same fixed Dispatcher
+          // contract. Optional comparison patterns remain backend-only.
+          'dispatcher',
         )
 
         await editorialStream.settle()

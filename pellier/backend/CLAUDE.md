@@ -66,7 +66,7 @@ the same file:
 Do not change the decorator, signature, docstring, comments, imports, tests,
 or any code outside the markers. Never inspect `solutions/`.
 
-The participant verifies through `/api/agent-trace/build-state`, Agent Trace's Tool
+The participant verifies through `/api/agent-trace/build-state`, Pellier Labs' Tool
 Registry, and Marco's Brooklyn warehouse turn. Do not run tests or git for
 them.
 

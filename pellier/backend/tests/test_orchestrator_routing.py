@@ -321,6 +321,19 @@ def test_orchestrator_system_prompt_enforces_priority_order(
     )
 
 
+def test_orchestrator_system_prompt_preserves_specialist_answer(
+    orchestrator_factory,
+) -> None:
+    """The post-tool cycle must relay grounded specialist prose instead of
+    reducing it to a generic introduction that no longer names the products."""
+    orchestrator_factory()
+
+    prompt = _StubAgent.last_kwargs.get("system_prompt", "")
+    assert "relay its shopper-facing answer in full" in prompt
+    assert "Preserve product names, prices, constraints, and qualifiers" in prompt
+    assert "Omit fenced JSON product payloads" in prompt
+
+
 # ---------------------------------------------------------------------------
 # Req 2.4.8 - five representative queries, one per specialist intent
 # ---------------------------------------------------------------------------

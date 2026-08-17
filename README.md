@@ -26,7 +26,7 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 
 ## Workshop abstract
 
-Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, and a queryable JSONB audit ledger. AgentCore Runtime, Memory, Gateway, and Policy orchestrate agents, preserve context, expose tools, and apply Cedar authorization to sensitive actions. Leave with reusable patterns for auditable, policy-aware agentic search applications.
+Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, and a queryable JSONB audit ledger. AgentCore Runtime hosts the dispatcher, Memory preserves context, Gateway exposes tools, Policy applies Cedar authorization before sensitive actions, and OpenTelemetry traces connect the managed path. Leave with reusable patterns for auditable, policy-aware agentic search applications.
 
 ---
 
@@ -57,8 +57,8 @@ cite sources, and hand off to a human stylist when they should.
 
 The application has two surfaces:
 
-- **Pellier** (`/`) – the customer-facing storefront (internally "Boutique"). Editorial photography, AI search bar, persona-aware recommendations, conversational chat drawer.
-- **Pellier Labs** (`/agent-trace`) – the operator evidence view (internally "Agent Trace"). It correlates agent decisions, tool calls, memory reads, retrieval comparisons, and routing hops. Same agent, different lens.
+- **Pellier** (`/`) – the customer-facing storefront. Editorial photography, AI search, persona-aware recommendations, and a conversational drawer.
+- **Pellier Labs** (`/pellier-labs`) – the live inspection surface. It runs the same Dispatcher path and exposes emitted routing, tool, Aurora, memory, and safety evidence from the current turn.
 
 The two surfaces share design tokens, presence pill, trace chips, and a typed agent vocabulary, so an attendee crossing between them sees the same atoms in both places.
 
@@ -69,11 +69,11 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | Claim | Where it lives |
 |---|---|
 | **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
-| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · dispatcher routes intent → one specialist → cosine-discovered tools |
+| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · deterministic dispatcher routes intent to one specialist · each specialist receives an explicit tool allowlist |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
-| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` discovers all 15 tools at runtime via `MCPClient.list_tools_sync()` over a Cognito-JWT-gated Gateway · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable · the separate builders format retains local execution |
+| **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` lists the Gateway catalog via `MCPClient.list_tools_sync()`, then selects the routed specialist's explicit allowlist · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable |
 | **Memory and personalization** | AgentCore Memory stores session events and durable preferences extracted by a `USER_PREFERENCE` strategy · Aurora customer events provide episodic history · runtime skills and MCP schemas provide procedural know-how · `tool_audit` remains operational evidence, not memory |
-| **Managed AgentCore path** | One `@aws/agentcore@0.26.0` project owns Runtime, Memory, Gateway, four Lambda target registrations, AgentCore-managed service roles, the Policy engine, and Cedar policies · `deploy_lambda.py` separately creates the external Lambda functions and their Lambda execution roles · `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · CUSTOM_JWT invocation must return `rail=gateway-mcp` |
+| **Managed AgentCore path** | One `@aws/agentcore@0.26.0` project owns Runtime, Memory, Gateway, four Lambda target registrations, AgentCore-managed service roles, the Policy engine, and Cedar policies · `deploy_lambda.py` separately creates the external Lambda functions and their Lambda execution roles · `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · CUSTOM_JWT invocation must return `rail=gateway-mcp` · encrypted, retention-bounded Runtime and trace log groups carry correlated agent, model, and structured tool spans |
 
 ## Governance model
 
@@ -89,6 +89,20 @@ as one policy engine:
 | Data authorization | Aurora SQL functions validate ownership and write invariants | Which records the permitted tool could actually read or mutate |
 | Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
 
+The observability provisioner changes account-level X-Ray Transaction Search
+delivery and creates three workshop log groups. Inspect the bounded cleanup plan
+before an event account is retired, then run it while the workshop role still
+exists:
+
+```bash
+python3 scripts/teardown_agentcore_observability.py --dry-run
+python3 scripts/teardown_agentcore_observability.py --confirm-workshop-cleanup
+```
+
+The receipt records the prior account-level destination, resource policy, KMS,
+and retention state. Cleanup restores resources that already existed and
+deletes only log groups or policy state created by this workshop run.
+
 ### Memory model
 
 Pellier separates four memory categories by owner and lifetime:
@@ -102,9 +116,13 @@ Pellier separates four memory categories by owner and lifetime:
 
 `pellier.tool_audit` is intentionally outside that table. It records what
 executed and how long it took; it does not teach the agent how to work. When
-managed Runtime is enabled, AgentCore Memory reads and writes fail closed. The
-governed path never substitutes a process-local store for managed proof.
-| Operator reconstruction | Pellier Labs Proof Board | One correlated policy, execution, and data story |
+managed Runtime is enabled, AgentCore Memory reads fail closed before
+invocation. A post-invocation Memory write failure is surfaced as partial
+evidence without recasting an action that may already have executed as failed.
+The governed path never substitutes a process-local store for managed proof.
+
+Pellier Labs provides the operator reconstruction layer: one correlated policy,
+execution, trace, and Aurora data story for a selected turn.
 
 The durable join is intentionally small. `session_id` follows the conversation
 and managed invocation, `turn_id` follows an application turn, `receipt_id`
@@ -179,7 +197,8 @@ for migration in \
   010_governed_receipts.sql \
   011_governed_write_integrity.sql \
   012_retrieval_receipts.sql \
-  013_inventory_ledger.sql
+  013_inventory_ledger.sql \
+  014_governed_turn_receipts.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \
@@ -199,7 +218,7 @@ npm run build      # production build → served by FastAPI on :8000
 # or: npm run dev   for HMR on :5173 (still hits backend on :8000)
 ```
 
-Open <http://localhost:8000> for Pellier, or <http://localhost:8000/agent-trace> for Pellier Labs.
+Open <http://localhost:8000> for Pellier, or <http://localhost:8000/pellier-labs> for Pellier Labs.
 
 ### AgentCore CLI (pinned)
 
@@ -270,7 +289,9 @@ performance. Neither workshop depends on the other.
 
 ### Agents
 
-Five specialist agents + one orchestrator. Three orchestration patterns ship in the codebase; the boutique runs the dispatcher pattern in production and exposes the other two as Pellier Labs toggles.
+Five specialist agents sit behind one deterministic Dispatcher. Pellier and the
+managed AgentCore Runtime both use that routing contract; Pellier Labs runs it
+live and reports the route actually observed.
 
 | Agent              | Role                                            | Model            |
 | ------------------ | ----------------------------------------------- | ---------------- |
@@ -288,7 +309,10 @@ Per-agent model choice is an architectural decision – Stock Keeper's terse war
 
 `find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` · `price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` · `restock_shelf` · `running_low` · `returns_and_care` · `process_return` · `preference_snapshot` · `trace_receipt` · `escalate_to_stylist`
 
-The tool registry is itself stored in Aurora pgvector; the orchestrator uses cosine similarity to discover the right tool from a natural-language query – the same primitive that powers product search, applied to capabilities.
+Aurora also stores a semantic tool registry for the retrieval-strategy teaching
+surface. It is not the governed execution selector. The managed Dispatcher
+classifies intent, chooses one specialist, lists Gateway tools, and filters that
+catalog against the specialist's checked-in allowlist.
 
 ### Skills
 
@@ -320,7 +344,7 @@ Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads
 | Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
 | Models           | Claude Opus 5 (`global.anthropic.claude-opus-5`, editorial) · Claude Sonnet 5 (`global.anthropic.claude-sonnet-5`, routing/reporting, no temperature override) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`cohere.rerank-v3-5:0`) |
-| Agent framework  | Strands Agents SDK – `Agent`, `@tool`, `GraphBuilder`, `BeforeToolCallEvent` hooks                                       |
+| Agent framework  | Strands Agents SDK – `Agent`, `@tool`, deterministic Dispatcher, and before/after tool-call hooks |
 | Agent infra      | Bedrock AgentCore – Runtime (CUSTOM_JWT, fail-closed Gateway MCP rail) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (15-tool MCP catalog, Cognito access-token passthrough) · Policy (Cedar ENFORCE with live ALLOW/DENY proof) · Identity |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
 | Backend          | FastAPI · Python 3.14 · psycopg3 · boto3 · SSE streaming                                                  |
@@ -345,7 +369,7 @@ sample-pellier-agentic-search-apg/
 │   │   ├── routes/                          FastAPI routers (transcribe, agent_trace, chat)
 │   │   └── app.py
 │   └── frontend/                          React 18 + TS + Vite SPA
-│       ├── CLAUDE.md                        Boutique and Agent Trace rules
+│       ├── CLAUDE.md                        Storefront and Pellier Labs rules
 │       └── src/
 │           ├── components/                  BoutiqueHero, ChatDrawer, ProductCard, ...
 │           ├── shared/                      Cross-surface atoms – TraceChip, PresencePill
@@ -360,7 +384,7 @@ sample-pellier-agentic-search-apg/
 │   └── the-concierge/                       Lab 4 MCP and Gateway reference
 │
 └── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-013)
+    ├── migrations/                         Ordered fresh-cluster SQL (001-014)
     ├── seed_boutique_catalog.py             40 curated products + generated retrieval distractors
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
     └── bootstrap-labs.sh                    DB seed + frontend build + service start

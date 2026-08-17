@@ -30,7 +30,7 @@ async function openLabsAsReturningVisitor(
   await page.addInitScript(() => {
     sessionStorage.setItem('pellier-labs-spotlight-seen', 'true');
   });
-  await page.goto(`${BASE_URL}/agent-trace`);
+  await page.goto(`${BASE_URL}/pellier-labs`);
   await page.waitForLoadState('networkidle');
 }
 

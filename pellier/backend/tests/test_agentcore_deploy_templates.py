@@ -204,19 +204,39 @@ def test_memory_gateway_targets_and_policy_engine_share_one_project(
 def test_second_phase_adds_only_the_baseline_cedar_set(tmp_path: Path) -> None:
     _, project = _render(tmp_path, include_policies=True)
     policies = project["policyEngines"][0]["policies"]
-
-    assert {policy["name"] for policy in policies} == {
-        "baseline_permit_gateway_tools",
-        "process_return_damaged_only",
-        "process_return_allow_damaged",
+    read_tool_names = {
+        tool["name"]
+        for schema in renderer.TOOL_SCHEMAS.values()
+        for tool in schema["tools"]
+        if tool["name"]
+        not in {
+            "preference_snapshot",
+                "trace_receipt",
+                "process_return",
+                "restock_shelf",
+                "escalate_to_stylist",
+            }
     }
+
+    assert len(policies) == 16
+    assert {policy["name"] for policy in policies} == {
+        *(f"permit_{name}" for name in read_tool_names),
+        "permit_preference_snapshot_owned",
+        "permit_trace_receipt_owned",
+            "process_return_owned_damaged",
+            "process_return_deny_unowned_or_unsupported",
+            "deny_restock_shelf",
+            "permit_escalate_to_stylist_owned",
+        }
     assert all(policy["enforcementMode"] == "ACTIVE" for policy in policies)
     assert all(
-        policy["validationMode"] == "IGNORE_ALL_FINDINGS" for policy in policies
+        policy["validationMode"] == "FAIL_ON_ANY_FINDINGS" for policy in policies
     )
     statements = "\n".join(policy["statement"] for policy in policies)
     assert renderer.PROCESS_RETURN_ACTION in statements
+    assert renderer.RESTOCK_ACTION in statements
     assert "resource is AgentCore::Gateway" in statements
+    assert "permit (principal, action, resource is AgentCore::Gateway)" not in statements
 
 
 def test_deployed_state_reads_mcp_gateway_shape() -> None:
@@ -346,6 +366,9 @@ def test_transaction_search_setup_is_scoped_and_requires_active_destination(
         policy_name = ""
         policy_document = ""
 
+        def describe_resource_policies(self, **_: Any) -> dict[str, Any]:
+            return {"resourcePolicies": []}
+
         def put_resource_policy(
             self, *, policyName: str, policyDocument: str
         ) -> None:
@@ -387,7 +410,14 @@ def test_transaction_search_setup_is_scoped_and_requires_active_destination(
         "destination": "CloudWatchLogs",
         "status": "ACTIVE",
         "resource_policy": "TransactionSearchXRayAccess",
+        "resource_policy_document": logs.policy_document,
         "span_log_group": "aws/spans",
+        "cleanup": {
+            "destination_changed": True,
+            "previous_destination": "XRay",
+            "resource_policy_created": True,
+            "previous_resource_policy_document": None,
+        },
     }
     assert logs.policy_name == "TransactionSearchXRayAccess"
     policy = json.loads(logs.policy_document)
@@ -480,6 +510,14 @@ def test_runtime_log_group_is_customer_encrypted_and_retention_bounded(
         "name": "/aws/bedrock-agentcore/runtimes/pellier_orchestrator-abc123-DEFAULT",
         "kms_key_arn": kms_key_arn,
         "retention_days": 30,
+        "cleanup": {
+            "created_by_workshop": False,
+            "creation_pending": False,
+            "previous_kms_key_arn": (
+                "arn:aws:kms:us-east-1:123456789012:key/old"
+            ),
+            "previous_retention_days": 7,
+        },
     }
     assert logs.associated_kms_key == kms_key_arn
     assert logs.retention_days == 30
@@ -497,6 +535,323 @@ def test_runtime_log_group_rejects_alias_and_unbounded_retention() -> None:
         )
     with pytest.raises(RuntimeError, match="must be one of"):
         provisioner._runtime_log_retention_days("0")
+
+
+def test_trace_log_groups_are_created_encrypted_and_retention_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provisioner = _load_provisioner()
+    kms_key_arn = (
+        "arn:aws:kms:us-east-1:123456789012:"
+        "key/12345678-1234-1234-1234-1234567890ab"
+    )
+
+    class _Paginator:
+        def __init__(self, logs: Any) -> None:
+            self.logs = logs
+
+        def paginate(self, **kwargs: Any) -> list[dict[str, Any]]:
+            name = kwargs["logGroupNamePrefix"]
+            group = self.logs.groups.get(name)
+            return [{"logGroups": [group] if group else []}]
+
+    class _Logs:
+        class exceptions:
+            class ResourceAlreadyExistsException(Exception):
+                pass
+
+        def __init__(self) -> None:
+            self.groups: dict[str, dict[str, Any]] = {}
+
+        def create_log_group(
+            self, *, logGroupName: str, kmsKeyId: str
+        ) -> None:
+            self.groups[logGroupName] = {
+                "logGroupName": logGroupName,
+                "kmsKeyId": kmsKeyId,
+            }
+
+        def get_paginator(self, name: str) -> _Paginator:
+            assert name == "describe_log_groups"
+            return _Paginator(self)
+
+        def associate_kms_key(
+            self, *, logGroupName: str, kmsKeyId: str
+        ) -> None:
+            self.groups[logGroupName]["kmsKeyId"] = kmsKeyId
+
+        def put_retention_policy(
+            self, *, logGroupName: str, retentionInDays: int
+        ) -> None:
+            self.groups[logGroupName]["retentionInDays"] = retentionInDays
+
+    logs = _Logs()
+    monkeypatch.setattr(provisioner.boto3, "client", lambda *_args, **_kwargs: logs)
+
+    proof = provisioner._ensure_trace_log_groups(
+        region="us-east-1",
+        kms_key_arn=kms_key_arn,
+        retention_days=30,
+    )
+
+    assert [group["name"] for group in proof["groups"]] == [
+        "aws/spans",
+        "/aws/application-signals/data",
+    ]
+    assert all(group["kms_key_arn"] == kms_key_arn for group in proof["groups"])
+    assert all(group["retention_days"] == 30 for group in proof["groups"])
+    assert all(
+        group["cleanup"]
+        == {
+            "created_by_workshop": True,
+            "creation_pending": False,
+            "previous_kms_key_arn": None,
+            "previous_retention_days": None,
+        }
+        for group in proof["groups"]
+    )
+    assert {
+        name: (group["kmsKeyId"], group["retentionInDays"])
+        for name, group in logs.groups.items()
+    } == {
+        "aws/spans": (kms_key_arn, 30),
+        "/aws/application-signals/data": (kms_key_arn, 30),
+    }
+
+
+def test_log_group_create_race_checkpoints_existing_ownership_before_repair() -> None:
+    provisioner = _load_provisioner()
+    kms_key_arn = (
+        "arn:aws:kms:us-east-1:123456789012:"
+        "key/12345678-1234-1234-1234-1234567890ab"
+    )
+    log_group_name = "aws/spans"
+    events: list[str] = []
+    checkpoints: list[dict[str, Any]] = []
+
+    class _Paginator:
+        def __init__(self, logs: Any) -> None:
+            self.logs = logs
+
+        def paginate(self, **_: Any) -> list[dict[str, Any]]:
+            return [{"logGroups": [self.logs.group] if self.logs.group else []}]
+
+    class _Logs:
+        class exceptions:
+            class ResourceAlreadyExistsException(Exception):
+                pass
+
+        def __init__(self) -> None:
+            self.group: dict[str, Any] | None = None
+
+        def get_paginator(self, _: str) -> _Paginator:
+            return _Paginator(self)
+
+        def create_log_group(self, **_: Any) -> None:
+            events.append("create")
+            self.group = {
+                "logGroupName": log_group_name,
+                "kmsKeyId": "arn:aws:kms:us-east-1:123456789012:key/external",
+                "retentionInDays": 7,
+            }
+            raise self.exceptions.ResourceAlreadyExistsException()
+
+        def associate_kms_key(self, **_: Any) -> None:
+            events.append("associate")
+            assert self.group is not None
+            self.group["kmsKeyId"] = kms_key_arn
+
+        def put_retention_policy(self, **_: Any) -> None:
+            events.append("retention")
+            assert self.group is not None
+            self.group["retentionInDays"] = 30
+
+    def checkpoint(group: dict[str, Any]) -> None:
+        checkpoints.append(json.loads(json.dumps(group)))
+        if group["cleanup"]["creation_pending"]:
+            ownership = "pending"
+        elif group["cleanup"]["created_by_workshop"]:
+            ownership = "created"
+        else:
+            ownership = "preexisting"
+        events.append(f"checkpoint:{ownership}")
+
+    proof = provisioner._ensure_protected_log_group(
+        logs=_Logs(),
+        log_group_name=log_group_name,
+        kms_key_arn=kms_key_arn,
+        retention_days=30,
+        on_cleanup_state=checkpoint,
+    )
+
+    assert events == [
+        "checkpoint:pending",
+        "create",
+        "checkpoint:preexisting",
+        "associate",
+        "retention",
+    ]
+    assert checkpoints[-1]["cleanup"] == {
+        "created_by_workshop": False,
+        "creation_pending": False,
+        "previous_kms_key_arn": (
+            "arn:aws:kms:us-east-1:123456789012:key/external"
+        ),
+        "previous_retention_days": 7,
+    }
+    assert proof["cleanup"] == checkpoints[-1]["cleanup"]
+
+
+def test_trace_log_group_failure_keeps_partial_cleanup_receipts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provisioner = _load_provisioner()
+    kms_key_arn = (
+        "arn:aws:kms:us-east-1:123456789012:"
+        "key/12345678-1234-1234-1234-1234567890ab"
+    )
+    checkpoints: list[dict[str, Any]] = []
+
+    class _Paginator:
+        def __init__(self, logs: Any) -> None:
+            self.logs = logs
+
+        def paginate(self, **kwargs: Any) -> list[dict[str, Any]]:
+            group = self.logs.groups.get(kwargs["logGroupNamePrefix"])
+            return [{"logGroups": [group] if group else []}]
+
+    class _Logs:
+        class exceptions:
+            class ResourceAlreadyExistsException(Exception):
+                pass
+
+        def __init__(self) -> None:
+            self.groups: dict[str, dict[str, Any]] = {}
+
+        def get_paginator(self, _: str) -> _Paginator:
+            return _Paginator(self)
+
+        def create_log_group(
+            self,
+            *,
+            logGroupName: str,
+            kmsKeyId: str,
+        ) -> None:
+            if logGroupName == "/aws/application-signals/data":
+                raise RuntimeError("injected create failure")
+            self.groups[logGroupName] = {
+                "logGroupName": logGroupName,
+                "kmsKeyId": kmsKeyId,
+            }
+
+        def associate_kms_key(self, **_: Any) -> None:
+            raise AssertionError("new groups already use the required key")
+
+        def put_retention_policy(
+            self,
+            *,
+            logGroupName: str,
+            retentionInDays: int,
+        ) -> None:
+            self.groups[logGroupName]["retentionInDays"] = retentionInDays
+
+    logs = _Logs()
+    monkeypatch.setattr(provisioner.boto3, "client", lambda *_args, **_kwargs: logs)
+
+    with pytest.raises(RuntimeError, match="injected create failure"):
+        provisioner._ensure_trace_log_groups(
+            region="us-east-1",
+            kms_key_arn=kms_key_arn,
+            retention_days=30,
+            on_cleanup_state=lambda group: checkpoints.append(
+                json.loads(json.dumps(group))
+            ),
+        )
+
+    assert [group["name"] for group in checkpoints] == [
+        "aws/spans",
+        "aws/spans",
+        "/aws/application-signals/data",
+    ]
+    assert checkpoints[0]["cleanup"] == {
+        "created_by_workshop": False,
+        "creation_pending": True,
+        "previous_kms_key_arn": None,
+        "previous_retention_days": None,
+    }
+    assert checkpoints[1]["cleanup"] == {
+        "created_by_workshop": True,
+        "creation_pending": False,
+        "previous_kms_key_arn": None,
+        "previous_retention_days": None,
+    }
+    assert checkpoints[2]["cleanup"] == {
+        "created_by_workshop": False,
+        "creation_pending": True,
+        "previous_kms_key_arn": None,
+        "previous_retention_days": None,
+    }
+    assert logs.groups["aws/spans"]["retentionInDays"] == 30
+
+
+def test_transaction_search_checkpoints_prior_state_before_policy_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provisioner = _load_provisioner()
+    events: list[str] = []
+    checkpoints: list[dict[str, Any]] = []
+
+    class _Logs:
+        def describe_resource_policies(self, **_: Any) -> dict[str, Any]:
+            return {"resourcePolicies": []}
+
+        def put_resource_policy(self, **_: Any) -> None:
+            events.append("put-policy")
+            raise RuntimeError("injected policy failure")
+
+    class _XRay:
+        def get_trace_segment_destination(self) -> dict[str, str]:
+            return {"Destination": "XRay", "Status": "ACTIVE"}
+
+    logs = _Logs()
+    xray = _XRay()
+    monkeypatch.setattr(
+        provisioner.boto3,
+        "client",
+        lambda service, **_: logs if service == "logs" else xray,
+    )
+
+    def checkpoint(receipt: dict[str, Any]) -> None:
+        events.append("checkpoint")
+        checkpoints.append(json.loads(json.dumps(receipt)))
+
+    with pytest.raises(RuntimeError, match="injected policy failure"):
+        provisioner._configure_transaction_search(
+            region="us-east-1",
+            account_id="123456789012",
+            partition="aws",
+            on_cleanup_state=checkpoint,
+        )
+
+    assert events == ["checkpoint", "put-policy"]
+    policy_document = checkpoints[0].pop("resource_policy_document")
+    assert json.loads(policy_document)["Statement"][0]["Sid"] == (
+        "TransactionSearchXRayAccess"
+    )
+    assert checkpoints == [
+        {
+            "destination": "CloudWatchLogs",
+            "status": "CONFIGURING",
+            "resource_policy": "TransactionSearchXRayAccess",
+            "span_log_group": "aws/spans",
+            "cleanup": {
+                "destination_changed": True,
+                "previous_destination": "XRay",
+                "resource_policy_created": True,
+                "previous_resource_policy_document": None,
+            },
+        }
+    ]
 
 
 def _unified_trace_records(
@@ -584,7 +939,14 @@ def test_unified_trace_summary_requires_correlated_agent_model_and_tool_spans() 
     assert proof["tool_span"] is True
     assert proof["agent_input_observed"] is True
     assert proof["agent_output_observed"] is True
+    assert proof["tool_input_output_structured"] is True
     assert proof["tool_input_output_sanitized"] is True
+    assert proof["attribute_contract"] == {
+        "agent_input": "gen_ai.input.messages",
+        "agent_output": "gen_ai.output.messages",
+        "tool_input": "gen_ai.tool.call.arguments",
+        "tool_output": "gen_ai.tool.call.result",
+    }
     assert proof["step_latency_ms"] == {"agent": 900, "model": 320, "tool": 45}
     assert proof["model_ids"] == ["global.anthropic.claude-sonnet-5"]
     assert proof["tool_names"] == ["find_pieces_hybrid"]
@@ -635,6 +997,32 @@ def test_unified_trace_summary_rejects_secret_bearing_tool_io() -> None:
     }
 
     with pytest.raises(RuntimeError, match="secret or credential marker"):
+        provisioner._summarize_trace_records(
+            records,
+            trace_id=trace_id,
+            session_id=session_id,
+            runtime_arn=runtime_arn,
+        )
+
+
+def test_unified_trace_summary_rejects_unstructured_tool_io() -> None:
+    provisioner = _load_provisioner()
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    session_id = "runtime-proof-000000000000000000001"
+    runtime_arn = (
+        "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+        "runtime/pellier_orchestrator-abc123"
+    )
+    records = _unified_trace_records(
+        trace_id=trace_id,
+        session_id=session_id,
+        runtime_arn=runtime_arn,
+    )
+    records[2]["@message"]["attributes"]["gen_ai.tool.call.result"] = (
+        "free-form result"
+    )
+
+    with pytest.raises(RuntimeError, match="structured JSON"):
         provisioner._summarize_trace_records(
             records,
             trace_id=trace_id,

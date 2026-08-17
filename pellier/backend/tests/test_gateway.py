@@ -82,6 +82,59 @@ def test_logical_gateway_tool_name_strips_target_prefix(
     assert gateway._logical_gateway_tool_name(published) == logical
 
 
+def test_server_context_overrides_model_identity_and_correlation() -> None:
+    bound = gateway._bind_server_tool_context(
+        {
+            "name": "recommendation-target___preference_snapshot",
+            "toolUseId": "call-1",
+            "input": {
+                "customer_id": "CUST-THEO",
+                "persona": "theo",
+                "turn_id": "turn-model-value",
+                "limit": 3,
+            },
+        },
+        customer_id="CUST-MARCO",
+        turn_id="turn-" + ("a" * 32),
+    )
+
+    assert bound["input"] == {
+        "customer_id": "CUST-MARCO",
+        "turn_id": "turn-" + ("a" * 32),
+        "limit": 3,
+    }
+
+
+def test_customer_scoped_tool_requires_verified_customer_context() -> None:
+    with pytest.raises(ValueError, match="verified Aurora customer context"):
+        gateway._bind_server_tool_context(
+            {
+                "name": "experience-target___process_return",
+                "toolUseId": "call-2",
+                "input": {"product_id": 21, "reason": "damaged"},
+            },
+            customer_id="",
+            turn_id="turn-" + ("b" * 32),
+        )
+
+
+def test_non_customer_tool_still_receives_server_turn_id() -> None:
+    bound = gateway._bind_server_tool_context(
+        {
+            "name": "search-target___find_pieces_hybrid",
+            "toolUseId": "call-3",
+            "input": {"query": "linen", "turn_id": "untrusted"},
+        },
+        customer_id="CUST-MARCO",
+        turn_id="turn-" + ("c" * 32),
+    )
+
+    assert bound["input"] == {
+        "query": "linen",
+        "turn_id": "turn-" + ("c" * 32),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -115,7 +115,8 @@ test.describe('Workshop production build smoke', () => {
     const googleFontRequests: string[] = [];
     page.on('request', (req) => {
       const url = req.url();
-      if (url.includes('fonts.gstatic.com') || url.includes('fonts.googleapis.com')) {
+      const hostname = new URL(url).hostname.toLowerCase();
+      if (hostname === 'fonts.gstatic.com' || hostname === 'fonts.googleapis.com') {
         googleFontRequests.push(url);
       }
     });

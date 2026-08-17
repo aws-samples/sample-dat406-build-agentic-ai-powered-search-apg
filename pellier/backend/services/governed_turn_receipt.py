@@ -108,7 +108,9 @@ _VISIBLE_AUDIT_SQL = """
       LEFT JOIN pellier.governed_receipts gr
         ON gr.audit_id = ta.audit_id
       LEFT JOIN pellier.governed_turn_receipts gtr
-        ON gtr.tool_audit_ids @> jsonb_build_array(ta.audit_id)
+        ON gtr.tool_audit_ids @> jsonb_build_array(
+            jsonb_build_object('audit_id', ta.audit_id)
+        )
      WHERE gr.principal_id = %s
         OR gtr.principal_sub = %s
      ORDER BY ta.audit_id DESC

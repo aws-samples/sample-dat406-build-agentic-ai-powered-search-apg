@@ -27,8 +27,12 @@ MCP (Model Context Protocol) docs: https://modelcontextprotocol.io
 """
 import logging
 import os
+import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
+
+from services.product_envelope import ProductExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -185,16 +189,16 @@ GATEWAY_TOOL_TIERS: Dict[str, str] = {
     "returns_and_care": TIER_READ,
     "preference_snapshot": TIER_READ,
     "trace_receipt": TIER_READ,
-    # Operator-facing inventory reads sit in the read tier, but they expose
-    # operational data a shopper has no business seeing, so they are named
-    # separately from catalog reads in the Policy lab.
+    # Inventory reads expose only the bounded workshop availability contract;
+    # the stock mutation remains a separately denied operator capability.
     "floor_check": TIER_READ,
     "running_low": TIER_READ,
     # Writes the customer owns: a return against their own order.
     "process_return": TIER_CUSTOMER_MUTATION,
     # Writes only an operator may perform.
     "restock_shelf": TIER_OPERATOR_MUTATION,
-    # Human handoff. Not a data mutation, but it commits a person's time.
+    # Customer-scoped handoff instruction; no external ticket is created in
+    # this workshop implementation.
     "escalate_to_stylist": TIER_ESCALATION,
 }
 
@@ -239,6 +243,120 @@ def _logical_gateway_tool_name(name: str) -> str:
     return name
 
 
+_SAFE_TOOL_INPUT_FIELDS = frozenset(
+    {
+        "category",
+        "customer_id",
+        "idempotency_key",
+        "limit",
+        "max_price",
+        "min_rating",
+        "persona",
+        "product_id",
+        "product_id_1",
+        "product_id_2",
+        "product_query",
+        "quantity",
+        "query",
+        "reason",
+        "turn_id",
+        "warehouse_id",
+    }
+)
+_CUSTOMER_SCOPED_TOOL_NAMES = frozenset(
+    {
+        "preference_snapshot",
+        "trace_receipt",
+        "process_return",
+        "escalate_to_stylist",
+    }
+)
+
+
+def _bind_server_tool_context(
+    tool_use: Dict[str, Any],
+    *,
+    customer_id: str,
+    turn_id: str,
+) -> Dict[str, Any]:
+    """Bind server-owned identity and correlation arguments before execution."""
+    bound = dict(tool_use)
+    tool_input = dict(bound.get("input") or {})
+    logical_name = _logical_gateway_tool_name(str(bound.get("name") or ""))
+
+    if turn_id:
+        tool_input["turn_id"] = turn_id
+    if logical_name in _CUSTOMER_SCOPED_TOOL_NAMES:
+        if not customer_id:
+            raise ValueError(
+                f"{logical_name} requires verified Aurora customer context"
+            )
+        tool_input["customer_id"] = customer_id
+        tool_input.pop("persona", None)
+
+    bound["input"] = tool_input
+    return bound
+
+
+def _safe_tool_input(tool_use: Dict[str, Any]) -> Dict[str, Any]:
+    """Return only documented scalar tool arguments for inspection."""
+    raw = tool_use.get("input")
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        key: value
+        for key, value in raw.items()
+        if key in _SAFE_TOOL_INPUT_FIELDS
+        and isinstance(value, (str, int, float, bool))
+    }
+
+
+def _tool_result_values(result: Any) -> list[Any]:
+    """Extract text or JSON values from a Strands ToolResult."""
+    if not isinstance(result, dict):
+        return []
+    values: list[Any] = []
+    for block in result.get("content", []):
+        if isinstance(block, dict):
+            if "text" in block:
+                values.append(block["text"])
+            elif "json" in block:
+                values.append(block["json"])
+        elif isinstance(block, str):
+            values.append(block)
+    return values
+
+
+def _result_summary(result: Any, products: list[dict[str, Any]]) -> Dict[str, Any]:
+    """Build a bounded observed-result summary without copying free-form output."""
+    summary: Dict[str, Any] = {
+        "product_count": len(products),
+        "product_ids": [
+            product["productId"]
+            for product in products
+            if product.get("productId") not in (None, "")
+        ][:12],
+    }
+    for value in _tool_result_values(result):
+        parsed = value
+        if isinstance(value, str):
+            try:
+                import json
+
+                parsed = json.loads(value)
+            except (TypeError, ValueError):
+                continue
+        if not isinstance(parsed, dict):
+            continue
+        for key in ("status", "count", "success", "denied", "type"):
+            if key in parsed and isinstance(parsed[key], (str, int, float, bool)):
+                summary[key] = parsed[key]
+        if "error" in parsed:
+            summary["error"] = True
+        break
+    return summary
+
+
 def _managed_specialist_spec(
     intent: str,
     *,
@@ -275,11 +393,13 @@ class ManagedGatewayDispatcher:
     last_specialist: str = ""
     last_model_id: str = ""
     last_tool_names: tuple[str, ...] = ()
+    last_tool_events: list[Dict[str, Any]] | None = None
+    last_products: list[dict[str, Any]] | None = None
 
     def __call__(self, prompt: str) -> Any:
-        from mcp.client.streamable_http import streamablehttp_client
         from strands import Agent
         from strands.models import BedrockModel
+        from strands.hooks.events import AfterToolCallEvent, BeforeToolCallEvent
         from strands.tools.mcp.mcp_client import MCPClient
         from services.intent_router import classify_intent
         from services.response_mode import response_model_for_intent
@@ -306,9 +426,9 @@ class ManagedGatewayDispatcher:
             )
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(self.access_token),
+                self.access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -338,6 +458,71 @@ class ManagedGatewayDispatcher:
                 system_prompt=system_prompt,
                 tools=selected,
             )
+            tool_events: list[Dict[str, Any]] = []
+            products: list[dict[str, Any]] = []
+            started_by_id: Dict[str, float] = {}
+
+            def before_tool(event: BeforeToolCallEvent) -> None:
+                tool_use = event.tool_use
+                try:
+                    bound_tool_use = _bind_server_tool_context(
+                        tool_use,
+                        customer_id=self.customer_id,
+                        turn_id=turn_id,
+                    )
+                except ValueError as exc:
+                    event.cancel_tool = str(exc)
+                    return
+                # Strands retains the original dict after the hook returns, so
+                # update it in place instead of replacing only event.tool_use.
+                tool_use.clear()
+                tool_use.update(bound_tool_use)
+                tool_use_id = str(tool_use.get("toolUseId") or "")
+                if tool_use_id:
+                    started_by_id[tool_use_id] = time.monotonic()
+
+            def after_tool(event: AfterToolCallEvent) -> None:
+                tool_use = event.tool_use
+                tool_use_id = str(tool_use.get("toolUseId") or "")
+                tool_name = _logical_gateway_tool_name(
+                    str(tool_use.get("name") or "unknown")
+                )
+                observed_products: list[dict[str, Any]] = []
+                for value in _tool_result_values(event.result):
+                    observed_products.extend(ProductExtractor.extract(value))
+                existing = {
+                    str(product.get("productId") or product.get("name"))
+                    for product in products
+                }
+                for product in observed_products:
+                    identity = str(product.get("productId") or product.get("name"))
+                    if identity and identity not in existing:
+                        products.append(product)
+                        existing.add(identity)
+                started = started_by_id.pop(tool_use_id, None)
+                duration_ms = (
+                    int((time.monotonic() - started) * 1000)
+                    if started is not None
+                    else None
+                )
+                status = (
+                    "error"
+                    if event.exception is not None
+                    else str((event.result or {}).get("status") or "success")
+                )
+                tool_events.append(
+                    {
+                        "id": tool_use_id,
+                        "tool": tool_name,
+                        "status": status,
+                        "duration_ms": duration_ms,
+                        "input": _safe_tool_input(tool_use),
+                        "result": _result_summary(event.result, observed_products),
+                    }
+                )
+
+            agent.add_hook(before_tool)
+            agent.add_hook(after_tool)
             if self.trace_attributes:
                 agent.trace_attributes = {
                     **self.trace_attributes,
@@ -352,9 +537,12 @@ class ManagedGatewayDispatcher:
             self.last_specialist = specialist
             self.last_model_id = model_id
             self.last_tool_names = selected_names
-            return agent(prompt)
+            response = agent(prompt)
+            self.last_tool_events = tool_events
+            self.last_products = products
+            return response
         finally:
-            mcp_client.stop()
+            _stop_mcp_client(mcp_client)
 
 
 def create_gateway_dispatcher(
@@ -449,6 +637,33 @@ def _gateway_headers(access_token: Optional[str] = None) -> Dict[str, str]:
     }
 
 
+@asynccontextmanager
+async def _gateway_streamable_http_transport(
+    gateway_url: str,
+    access_token: Optional[str] = None,
+):
+    """Open the current MCP streamable-HTTP transport with caller identity."""
+    import httpx
+    from mcp.client.streamable_http import streamable_http_client
+
+    timeout = httpx.Timeout(30.0, read=300.0)
+    async with httpx.AsyncClient(
+        headers=_gateway_headers(access_token),
+        timeout=timeout,
+        follow_redirects=True,
+    ) as http_client:
+        async with streamable_http_client(
+            gateway_url,
+            http_client=http_client,
+        ) as transport:
+            yield transport
+
+
+def _stop_mcp_client(mcp_client: Any) -> None:
+    """Close the pinned Strands MCP client with its context-exit contract."""
+    mcp_client.stop(None, None, None)
+
+
 def create_gateway_orchestrator(access_token: Optional[str] = None):
     """Create a Strands Agent that discovers tools via an MCP Gateway URL.
 
@@ -465,18 +680,20 @@ def create_gateway_orchestrator(access_token: Optional[str] = None):
     if not gateway_url:
         logger.info("AGENTCORE_GATEWAY_URL not set — gateway disabled")
         return None
+    if not access_token:
+        logger.info("Gateway orchestrator requires verified caller identity")
+        return None
 
     try:
         from strands import Agent
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
-        from mcp.client.streamable_http import streamablehttp_client
         model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(access_token),
+                access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -529,18 +746,22 @@ def create_gateway_orchestrator_with_semantic_search(access_token: Optional[str]
     if not gateway_url:
         logger.info("AGENTCORE_GATEWAY_URL not set — semantic search disabled")
         return None
+    if not access_token:
+        logger.info(
+            "Gateway semantic search requires verified caller identity"
+        )
+        return None
 
     try:
         from strands import Agent
         from strands.models import BedrockModel
         from strands.tools.mcp.mcp_client import MCPClient
-        from mcp.client.streamable_http import streamablehttp_client
         model_id = _runtime_or_app_setting("BEDROCK_ROUTER_MODEL")
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(access_token),
+                access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -590,17 +811,16 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
     Returns a list of tool descriptors with name, description, and input schema.
     """
     gateway_url = _runtime_or_app_setting("AGENTCORE_GATEWAY_URL")
-    if not gateway_url:
+    if not gateway_url or not access_token:
         return []
 
     try:
         from strands.tools.mcp.mcp_client import MCPClient
-        from mcp.client.streamable_http import streamablehttp_client
 
         def _create_transport():
-            return streamablehttp_client(
+            return _gateway_streamable_http_transport(
                 gateway_url,
-                headers=_gateway_headers(access_token),
+                access_token,
             )
 
         mcp_client = MCPClient(_create_transport)
@@ -616,7 +836,7 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
                 })
             return tools
         finally:
-            mcp_client.stop()
+            _stop_mcp_client(mcp_client)
 
     except ImportError:
         logger.warning("MCP dependencies not installed")

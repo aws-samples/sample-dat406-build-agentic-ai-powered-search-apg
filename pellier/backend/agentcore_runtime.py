@@ -142,15 +142,28 @@ try:
         from services.conversation_context import build_conversation_prompt
 
         response = dispatcher(build_conversation_prompt(prompt, history))
+        stop_reason = str(getattr(response, "stop_reason", "") or "")
+        if stop_reason == "max_tokens":
+            logger.warning(
+                "Managed Runtime output rejected because the model reached max_tokens"
+            )
+            return {
+                "error": "runtime_output_truncated",
+                "products": list(dispatcher.last_products or []),
+                "rail": rail,
+                "tool_calls": list(dispatcher.last_tool_events or []),
+            }
         return {
             "response": str(response),
-            "products": [],
+            "products": list(dispatcher.last_products or []),
             "rail": rail,
             "intent": dispatcher.last_intent,
             "specialist": dispatcher.last_specialist,
             "response_mode": dispatcher.response_mode,
             "model": dispatcher.last_model_id,
             "gateway_tools": list(dispatcher.last_tool_names),
+            "tool_calls": list(dispatcher.last_tool_events or []),
+            "orchestration": "dispatcher",
         }
 
 except ImportError:

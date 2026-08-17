@@ -73,7 +73,7 @@ log "✅ System packages installed"
 # follows whichever got installed.
 # ----------------------------------------------------------------------------
 # This step is intentionally NON-fatal: a NodeSource hiccup must not abort the
-# whole box (the Boutique still works on Node 18; only the managed-Runtime deploy
+# whole box (Pellier still works on Node 18; only the managed-Runtime deploy
 # needs 20). We retry NodeSource, and if Node 20 lands we pin it ahead of any
 # distro Node 18 via update-alternatives so downstream `node`/`npx` resolve to
 # 20 deterministically. The hard "is this actually 20?" guard lives at the
@@ -124,7 +124,7 @@ if [ "$_node20_ok" = true ]; then
     # that only has Node). AL2023 doesn't preinstall it. Our agent is Python,
     # but the CLI's own build needs tsc regardless. Pinned major to avoid a
     # surprise tsc behavior change. Non-fatal: only the managed-Runtime deploy
-    # needs it; Boutique + frontend build don't.
+    # needs it; Pellier + frontend build don't.
     if command -v npm >/dev/null 2>&1; then
         log "Installing TypeScript compiler globally (tsc – required by @aws/agentcore deploy)..."
         if npm install -g typescript@5 >/dev/null 2>&1; then
@@ -168,7 +168,7 @@ else
     if ! command -v node >/dev/null 2>&1; then
         dnf install --skip-broken -y -q nodejs >/dev/null 2>&1 || true
     fi
-    warn "Node 20 install failed after retries — node is $(node --version 2>/dev/null || echo 'none') (<20). The @aws/agentcore Runtime/Gateway/Policy deploy will be SKIPPED (Boutique + frontend build still work). Recover: 'sudo dnf remove -y nodejs && curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - && sudo dnf install -y --allowerasing nodejs' then re-run scripts/deploy/deploy_all.sh."
+    warn "Node 20 install failed after retries — node is $(node --version 2>/dev/null || echo 'none') (<20). The @aws/agentcore Runtime/Gateway/Policy deploy will be SKIPPED (Pellier + frontend build still work). Recover: 'sudo dnf remove -y nodejs && curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash - && sudo dnf install -y --allowerasing nodejs' then re-run scripts/deploy/deploy_all.sh."
 fi
 
 # ----------------------------------------------------------------------------
@@ -305,7 +305,7 @@ server {
     # __PELLIER_ORIGIN_VERIFY__
     
     # Pellier (single-process): FastAPI on :8000 serves BOTH
-    # /api/* AND the built SPA (/, /agent-trace, /storyboard, /discover,
+    # /api/* AND the built SPA (/, /pellier-labs, /storyboard, /discover,
     # /assets/*, /fonts/*). Code-server's /ports/<n>/* reverse proxy
     # (or the standalone /app/ alias below) routes the whole app
     # there.
@@ -340,8 +340,8 @@ server {
     }
 
     # /ports/8000/* – the canonical participant URL. It matches the baked
-    # SPA base path (VITE_BASE_PATH=/ports/8000/) and the BoutiqueURL /
-    # AgentTraceURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
+    # SPA base path (VITE_BASE_PATH=/ports/8000/) and the PellierURL /
+    # PellierLabsURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
     # bypassing code-server's port-forward proxy.
     #
     # WHY this block exists: code-server only forwards a port that has been
@@ -351,7 +351,7 @@ server {
     # rejects it with HTTP 400 ("This page isn't working"). That made the
     # storefront reachable only from inside an open, authenticated IDE tab –
     # fragile, and the first thing a participant trips on. Owning the prefix
-    # here makes the Boutique/Agent Trace load token-free, in any browser, with
+    # here makes Pellier and Pellier Labs load token-free in any browser, with
     # no dependency on the IDE. Trailing slashes on both location and
     # proxy_pass strip the prefix: /ports/8000/assets/x serves /assets/x,
     # /ports/8000/api/... serves /api/... (SSE-safe: buffering + gzip off).
@@ -694,7 +694,7 @@ cat << EOF
   Build, measure, and prove search with Aurora PostgreSQL
 
   START       Keep the lab guide open. Work primarily in this terminal and
-              the Boutique shopper view.
+              the Pellier storefront.
 
   BUILD       Required path: wire floor_check in
               pellier/backend/services/agent_tools.py.
@@ -703,11 +703,11 @@ cat << EOF
 
   PROVE       Lab 4: query pellier.tool_audit from psql.
 
-  AGENT_TRACE     Use Agent Trace only when a step names a specific verification or
-              comparison view.
+  PELLIER_LABS Use Pellier Labs only when a step names a specific verification
+              or comparison view.
 
   FILE        agent_tools.py is open. Find the floor_check WORKSHOP markers,
-              implement, save, then test in Boutique.
+              implement, save, then test in Pellier.
 
 EOF
 

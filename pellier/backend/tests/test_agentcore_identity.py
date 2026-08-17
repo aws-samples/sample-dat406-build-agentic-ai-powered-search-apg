@@ -90,8 +90,14 @@ def _verified_user(
     user_id: str = "cognito-sub-123",
     email: str = "shopper@example.com",
     given_name: str = "Avery",
+    username: str = "marco",
 ) -> VerifiedUser:
-    return VerifiedUser(user_id=user_id, email=email, given_name=given_name)
+    return VerifiedUser(
+        user_id=user_id,
+        email=email,
+        given_name=given_name,
+        username=username,
+    )
 
 
 class _StubAuth(CognitoAuthService):
@@ -156,6 +162,7 @@ def test_authenticated_request_yields_user_namespace(
     assert ctx.user_id == "verified-abc"
     assert ctx.session_id == "session-xyz"
     assert ctx.namespace == "user-verified-abc-session-session-xyz"
+    assert ctx.customer_id == "CUST-MARCO"
 
 
 def test_user_id_equals_request_state_user_user_id(
@@ -226,6 +233,7 @@ def test_unauthenticated_request_yields_anon_namespace(
     ctx = _run(identity_service_anon.get_verified_user_context(req))
 
     assert ctx.user_id is None
+    assert ctx.customer_id is None
     assert ctx.session_id == "anon-sess-1"
     assert ctx.namespace == "anon-anon-sess-1"
 

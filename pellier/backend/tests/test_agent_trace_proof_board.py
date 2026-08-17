@@ -11,6 +11,11 @@ from routes import agent_trace
 from routes.agent_trace import router as agent_trace_router
 
 
+def test_fixture_loader_rejects_path_traversal() -> None:
+    assert agent_trace._load_fixture("../personas-config") is None
+    assert agent_trace._load_fixture("tools/../../personas-config") is None
+
+
 class _ProofDB:
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
@@ -305,6 +310,10 @@ def test_proof_board_joins_evidence_to_the_verified_principal(monkeypatch) -> No
     ]
     assert audit_queries
     assert all("governed_turn_receipts" in query for query, _ in audit_queries)
+    assert all(
+        "jsonb_build_object('audit_id', ta.audit_id)" in query
+        for query, _ in audit_queries
+    )
     assert all(params.count("CUST-MARCO") >= 2 for _, params in audit_queries)
     governed_queries = [
         (query, params)

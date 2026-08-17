@@ -25,8 +25,10 @@ def fake_dist(tmp_path: Path) -> Path:
     dist = tmp_path / "dist"
     (dist / "assets").mkdir(parents=True)
     (dist / "fonts").mkdir()
+    (dist / "products").mkdir()
     (dist / "index.html").write_text("<html><body>SPA</body></html>")
     (dist / "assets" / "main.js").write_text("console.log('hi')")
+    (dist / "products" / "sample.png").write_bytes(b"sample-image")
     return dist
 
 
@@ -84,14 +86,12 @@ def test_root_mount_deep_link_serves_index(reload_app):
         assert "SPA" in r.text
 
 
-@pytest.mark.parametrize("path", ["/agent-trace/agents", "/labs/proof-board"])
-def test_root_mount_legacy_labs_links_still_serve_spa(reload_app, path: str):
-    """The client can redirect legacy browser bookmarks to /pellier-labs."""
+def test_root_mount_serves_allowlisted_public_file(reload_app):
     app_module = reload_app("/")
     with TestClient(app_module.app) as client:
-        r = client.get(path)
+        r = client.get("/products/sample.png")
         assert r.status_code == 200
-        assert "SPA" in r.text
+        assert r.content == b"sample-image"
 
 
 def test_root_mount_api_path_does_not_get_swallowed(reload_app):

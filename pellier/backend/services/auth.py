@@ -34,7 +34,7 @@ async def get_current_user(request: Request) -> Optional[Dict[str, Any]]:
     FastAPI dependency: extract and verify the optional Cognito user.
 
     Returns None for anonymous users (demo mode).
-    Returns {sub, email, given_name, access_token} for authenticated users.
+    Returns {sub, username, email, given_name, access_token} for authenticated users.
     """
     try:
         from services.cognito_auth import get_cognito_auth_service
@@ -49,12 +49,16 @@ async def get_current_user(request: Request) -> Optional[Dict[str, Any]]:
 
     # Include the raw token so chat can pass the caller's identity through to
     # AgentCore Gateway/Runtime. This dict remains server-side.
-    return {
+    payload = {
         "sub": user.user_id,
         "email": user.email or "anonymous",
         "given_name": user.given_name,
         "access_token": user.access_token,
     }
+    username = getattr(user, "username", None)
+    if username:
+        payload["username"] = username
+    return payload
 
 
 async def require_operator(request: Request) -> Dict[str, Any]:
@@ -69,7 +73,7 @@ async def require_operator(request: Request) -> Dict[str, Any]:
             ``Authorization: Bearer`` header or an ``access_token`` cookie.
 
     Returns:
-        ``{sub, email, given_name, access_token}`` for the verified caller.
+        ``{sub, username, email, given_name, access_token}`` for the verified caller.
         ``sub`` is guaranteed non-empty.
 
     Raises:
@@ -102,12 +106,16 @@ async def require_operator(request: Request) -> Dict[str, Any]:
         # A token that verifies but carries no subject cannot be audited.
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
-    return {
+    payload = {
         "sub": subject,
         "email": user.email or "anonymous",
         "given_name": user.given_name,
         "access_token": user.access_token,
     }
+    username = getattr(user, "username", None)
+    if username:
+        payload["username"] = username
+    return payload
 
 
 def _has_presented_credentials(request: Request) -> bool:

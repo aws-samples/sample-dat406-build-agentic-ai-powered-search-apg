@@ -75,17 +75,43 @@ def test_no_dangling_local_policy_imports() -> None:
 def test_renderer_owns_baseline_cedar_and_enforce_attachment() -> None:
     policies = renderer.baseline_policies()
     names = {policy["name"] for policy in policies}
+    read_tool_names = {
+        tool["name"]
+        for schema in renderer.TOOL_SCHEMAS.values()
+        for tool in schema["tools"]
+        if tool["name"]
+        not in {
+            "preference_snapshot",
+            "trace_receipt",
+            "escalate_to_stylist",
+            "process_return",
+            "restock_shelf",
+        }
+    }
 
+    assert len(policies) == 16
     assert names == {
-        "baseline_permit_gateway_tools",
-        "process_return_damaged_only",
-        "process_return_allow_damaged",
+        *(f"permit_{name}" for name in read_tool_names),
+        "permit_preference_snapshot_owned",
+        "permit_trace_receipt_owned",
+        "permit_escalate_to_stylist_owned",
+        "process_return_owned_damaged",
+        "process_return_deny_unowned_or_unsupported",
+        "deny_restock_shelf",
     }
     assert all(policy["enforcementMode"] == "ACTIVE" for policy in policies)
+    assert all(
+        policy["validationMode"] == "FAIL_ON_ANY_FINDINGS"
+        for policy in policies
+    )
     statements = "\n".join(policy["statement"] for policy in policies)
     assert renderer.PROCESS_RETURN_ACTION in statements
-    assert 'context.input.reason != "damaged"' in statements
+    assert renderer.RESTOCK_ACTION in statements
+    assert 'context.input.reason == "damaged"' in statements
+    assert 'principal.getTag("username") == "marco"' in statements
+    assert 'context.input.customer_id == "CUST-MARCO"' in statements
     assert "resource is AgentCore::Gateway" in statements
+    assert "permit (principal, action, resource is AgentCore::Gateway)" not in statements
 
     source = RENDERER_PATH.read_text()
     assert '"mode": "ENFORCE"' in source
@@ -112,8 +138,14 @@ def test_participant_cedar_files_are_direct_cli_sources() -> None:
     assert "unless" in solution
     assert 'principal.hasTag("username")' in solution
     assert "context.input has customer_id" in solution
-    assert 'principal.getTag("username") == context.input.customer_id' in solution
-    assert 'principal.getTag("username") != context.input.customer_id' not in solution
+    for username, customer_id in (
+        ("marco", "CUST-MARCO"),
+        ("anna", "CUST-ANNA"),
+        ("theo", "CUST-THEO"),
+    ):
+        assert f'principal.getTag("username") == "{username}"' in solution
+        assert f'context.input.customer_id == "{customer_id}"' in solution
+    assert 'principal.getTag("username") == context.input.customer_id' not in solution
 
 
 def test_advanced_dogwood_example_teaches_sequence_without_false_enforcement() -> None:
@@ -298,8 +330,9 @@ def test_gateway_absence_proof_uses_the_exact_invocation_key() -> None:
 
 def test_experience_lambda_writes_gateway_tool_audit() -> None:
     source = EXPERIENCE_LAMBDA.read_text()
-    assert "_write_tool_audit" in source
+    assert "_write_tool_audit_in_transaction" in source
     assert "INSERT INTO" in source and "tool_audit" in source
+    assert "transactionId=transaction_id" in source
     assert "::jsonb" in source
     assert 'tool_name == "process_return"' in source
     assert '"gateway"' in source or "'gateway'" in source

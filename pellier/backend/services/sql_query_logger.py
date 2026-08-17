@@ -96,15 +96,16 @@ class SQLQueryLogger:
             "index_used": None,
             "query_plan": None
         }
+
+        if not self.enabled:
+            yield query_metadata
+            return
         
         try:
             # Execute the query (happens in the with block)
             yield query_metadata
             
         finally:
-            if not self.enabled:
-                return
-            
             # Calculate execution time
             execution_time_ms = (time.time() - start_time) * 1000
             

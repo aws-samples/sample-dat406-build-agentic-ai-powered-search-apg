@@ -2,6 +2,7 @@
 
 Scope:
   * ``_extract_route`` normalizes noisy LLM output to a valid route key.
+  * The Graph router reuses the deterministic classifier shown in telemetry.
   * ``GraphAgentAdapter`` forwards the callback/hook/trace/session
     attributes that ``services/chat.py`` relies on to every specialist.
   * The adapter returns an object whose ``str()`` yields specialist
@@ -54,6 +55,22 @@ def test_extract_route_normalization(raw, expected):
     assert _extract_route(raw) == expected
 
 
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("Find a linen shirt under $150", "search"),
+        ("What is currently on sale?", "pricing"),
+        ("Is the Hadley shirt in Brooklyn?", "inventory"),
+        ("Can I return a damaged candle?", "support"),
+        ("Build a resort edit around linen", "recommendation"),
+    ],
+)
+def test_deterministic_router_matches_visible_intent_signal(query, expected):
+    from agents.graph_pattern import _DeterministicRouterNode
+
+    assert str(_DeterministicRouterNode()(query)).strip() == expected
+
+
 # ---------------------------------------------------------------------
 # GraphAgentAdapter — attribute forwarding
 # ---------------------------------------------------------------------
@@ -67,7 +84,6 @@ def _patched_adapter():
     """
     from agents import graph_pattern
 
-    router = MagicMock(name="router")
     specialists = {
         "search": MagicMock(name="search"),
         "recommendation": MagicMock(name="recommendation"),
@@ -78,10 +94,10 @@ def _patched_adapter():
 
     # Stub the five factory imports that __init__ pulls in. Keep them
     # scoped to this call so parallel tests stay isolated.
-    with patch.object(graph_pattern, "_build_router_agent", return_value=router), \
-         patch("agents.style_advisor.build_search_agent", return_value=specialists["search"]), \
+    with patch("agents.style_advisor.build_search_agent", return_value=specialists["search"]), \
          patch("agents.curator.build_recommendation_agent", return_value=specialists["recommendation"]), \
          patch("agents.value_analyst.build_pricing_agent", return_value=specialists["pricing"]), \
+         patch("agents.stock_keeper._INVENTORY_AGENT_STUBBED", False), \
          patch("agents.stock_keeper.build_inventory_agent", return_value=specialists["inventory"]), \
          patch("agents.experience_guide.build_support_agent", return_value=specialists["support"]):
         # Also stub GraphBuilder so its internal validation (which
@@ -92,7 +108,7 @@ def _patched_adapter():
         with patch("strands.multiagent.GraphBuilder", return_value=fake_builder):
             adapter = graph_pattern.GraphAgentAdapter()
 
-    return adapter, router, specialists, fake_graph
+    return adapter, adapter._router, specialists, fake_graph
 
 
 def test_callback_handler_assignment_forwards_to_specialists():
@@ -118,6 +134,7 @@ def test_trace_attributes_assignment_forwards_to_specialists():
 
     for spec in specialists.values():
         assert spec.trace_attributes == attrs
+    assert adapter._graph.trace_attributes == attrs
 
 
 def test_session_manager_assignment_forwards_to_specialists():
@@ -142,6 +159,25 @@ def test_add_hook_registers_on_every_specialist():
 
     for spec in specialists.values():
         spec.add_hook.assert_called_once_with(hook)
+
+
+def test_graph_has_bounded_execution():
+    from agents import graph_pattern
+
+    with patch("agents.style_advisor.build_search_agent", return_value=MagicMock()), \
+         patch("agents.curator.build_recommendation_agent", return_value=MagicMock()), \
+         patch("agents.value_analyst.build_pricing_agent", return_value=MagicMock()), \
+         patch("agents.stock_keeper._INVENTORY_AGENT_STUBBED", False), \
+         patch("agents.stock_keeper.build_inventory_agent", return_value=MagicMock()), \
+         patch("agents.experience_guide.build_support_agent", return_value=MagicMock()):
+        fake_builder = MagicMock()
+        fake_builder.build.return_value = MagicMock()
+        with patch("strands.multiagent.GraphBuilder", return_value=fake_builder):
+            graph_pattern.GraphAgentAdapter()
+
+    fake_builder.set_max_node_executions.assert_called_once_with(2)
+    fake_builder.set_execution_timeout.assert_called_once_with(105)
+    fake_builder.set_node_timeout.assert_called_once_with(90)
 
 
 # ---------------------------------------------------------------------

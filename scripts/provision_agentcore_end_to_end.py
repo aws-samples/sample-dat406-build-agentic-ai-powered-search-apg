@@ -24,7 +24,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import boto3
 from botocore.config import Config
@@ -107,6 +107,10 @@ _RUNTIME_LOG_RETENTION_DAYS = frozenset(
         3288,
         3653,
     }
+)
+_TRACE_LOG_GROUP_NAMES = (
+    "aws/spans",
+    "/aws/application-signals/data",
 )
 _AGENT_INPUT_ATTRIBUTE_KEYS = (
     "gen_ai.input.messages",
@@ -210,19 +214,16 @@ def _find_runtime_log_group(logs: Any, log_group_name: str) -> dict[str, Any] | 
     return None
 
 
-def _ensure_runtime_log_group(
-    *,
-    region: str,
-    runtime_arn: str,
-    kms_key_arn: str,
-    retention_days: int,
-) -> dict[str, Any]:
-    """Create or repair the Runtime log group before it receives a smoke turn.
+def _write_result(path: Path, result: dict[str, Any]) -> None:
+    """Atomically checkpoint the deployment receipt."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    temporary.chmod(0o600)
+    temporary.replace(path)
 
-    AgentCore emits Runtime payloads to this group. A deployment receipt is
-    useful only when the payload-bearing destination has a customer key and
-    bounded retention, so this check happens before Runtime invocation.
-    """
+
+def _validate_log_kms_key_arn(kms_key_arn: str) -> None:
     if not re.match(
         r"^arn:[^:]+:kms:[^:]+:\d{12}:key/(?:mrk-)?[0-9a-f-]{36}$",
         kms_key_arn,
@@ -231,16 +232,71 @@ def _ensure_runtime_log_group(
             "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN must be a customer-managed KMS key ARN"
         )
 
-    logs = boto3.client("logs", region_name=region, config=AWS_CONFIG)
-    log_group_name = _runtime_log_group_name(runtime_arn)
-    try:
-        logs.create_log_group(logGroupName=log_group_name, kmsKeyId=kms_key_arn)
-    except logs.exceptions.ResourceAlreadyExistsException:
-        pass
+
+def _ensure_protected_log_group(
+    *,
+    logs: Any,
+    log_group_name: str,
+    kms_key_arn: str,
+    retention_days: int,
+    on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Create or repair one CloudWatch Logs destination."""
+    observed_previous = _find_runtime_log_group(logs, log_group_name)
+    previous = dict(observed_previous) if observed_previous is not None else None
+    creation_pending = previous is None
+    created_by_workshop = False
+
+    def receipt() -> dict[str, Any]:
+        return {
+            "name": log_group_name,
+            "kms_key_arn": kms_key_arn,
+            "retention_days": retention_days,
+            "cleanup": {
+                "created_by_workshop": created_by_workshop,
+                "creation_pending": creation_pending,
+                "previous_kms_key_arn": (
+                    previous.get("kmsKeyId")
+                    if isinstance(previous, dict)
+                    else None
+                ),
+                "previous_retention_days": (
+                    previous.get("retentionInDays")
+                    if isinstance(previous, dict)
+                    else None
+                ),
+            },
+        }
+
+    if on_cleanup_state is not None:
+        on_cleanup_state(receipt())
+
+    if creation_pending:
+        try:
+            logs.create_log_group(
+                logGroupName=log_group_name,
+                kmsKeyId=kms_key_arn,
+            )
+        except logs.exceptions.ResourceAlreadyExistsException:
+            raced = _find_runtime_log_group(logs, log_group_name)
+            if raced is None:
+                raise RuntimeError(
+                    "CloudWatch reported an existing log group that could not "
+                    f"be read: {log_group_name}"
+                )
+            previous = dict(raced)
+            creation_pending = False
+            if on_cleanup_state is not None:
+                on_cleanup_state(receipt())
+        else:
+            created_by_workshop = True
+            creation_pending = False
+            if on_cleanup_state is not None:
+                on_cleanup_state(receipt())
 
     observed = _find_runtime_log_group(logs, log_group_name)
     if observed is None:
-        raise RuntimeError(f"Runtime log group was not created: {log_group_name}")
+        raise RuntimeError(f"CloudWatch log group was not created: {log_group_name}")
 
     if observed.get("kmsKeyId") != kms_key_arn:
         logs.associate_kms_key(logGroupName=log_group_name, kmsKeyId=kms_key_arn)
@@ -252,14 +308,67 @@ def _ensure_runtime_log_group(
 
     verified = _find_runtime_log_group(logs, log_group_name)
     if verified is None:
-        raise RuntimeError(f"Runtime log group disappeared: {log_group_name}")
+        raise RuntimeError(f"CloudWatch log group disappeared: {log_group_name}")
     if verified.get("kmsKeyId") != kms_key_arn:
-        raise RuntimeError("Runtime log group KMS key does not match the required key")
+        raise RuntimeError(
+            f"CloudWatch log group KMS key is incorrect: {log_group_name}"
+        )
     if verified.get("retentionInDays") != retention_days:
-        raise RuntimeError("Runtime log group retention does not match the required days")
+        raise RuntimeError(
+            f"CloudWatch log group retention is incorrect: {log_group_name}"
+        )
 
+    return receipt()
+
+
+def _ensure_runtime_log_group(
+    *,
+    region: str,
+    runtime_arn: str,
+    kms_key_arn: str,
+    retention_days: int,
+    on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Create or repair the Runtime log group before it receives a smoke turn.
+
+    AgentCore emits Runtime payloads to this group. A deployment receipt is
+    useful only when the payload-bearing destination has a customer key and
+    bounded retention, so this check happens before Runtime invocation.
+    """
+    _validate_log_kms_key_arn(kms_key_arn)
+    logs = boto3.client("logs", region_name=region, config=AWS_CONFIG)
+    return _ensure_protected_log_group(
+        logs=logs,
+        log_group_name=_runtime_log_group_name(runtime_arn),
+        kms_key_arn=kms_key_arn,
+        retention_days=retention_days,
+        on_cleanup_state=on_cleanup_state,
+    )
+
+
+def _ensure_trace_log_groups(
+    *,
+    region: str,
+    kms_key_arn: str,
+    retention_days: int,
+    on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Protect both Transaction Search destinations before X-Ray writes spans."""
+    _validate_log_kms_key_arn(kms_key_arn)
+    logs = boto3.client("logs", region_name=region, config=AWS_CONFIG)
+    groups: list[dict[str, Any]] = []
+    for name in _TRACE_LOG_GROUP_NAMES:
+        groups.append(
+            _ensure_protected_log_group(
+                logs=logs,
+                log_group_name=name,
+                kms_key_arn=kms_key_arn,
+                retention_days=retention_days,
+                on_cleanup_state=on_cleanup_state,
+            )
+        )
     return {
-        "name": log_group_name,
+        "groups": groups,
         "kms_key_arn": kms_key_arn,
         "retention_days": retention_days,
     }
@@ -270,10 +379,44 @@ def _configure_transaction_search(
     region: str,
     account_id: str,
     partition: str,
+    on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Install the scoped X-Ray delivery policy and require an active destination."""
     logs = boto3.client("logs", region_name=region, config=AWS_CONFIG)
     xray = boto3.client("xray", region_name=region, config=AWS_CONFIG)
+    previous_policy: dict[str, Any] | None = None
+    next_token: str | None = None
+    while True:
+        request = {"nextToken": next_token} if next_token else {}
+        response = logs.describe_resource_policies(**request)
+        previous_policy = next(
+            (
+                item
+                for item in response.get("resourcePolicies", [])
+                if item.get("policyName") == TRANSACTION_SEARCH_POLICY
+            ),
+            None,
+        )
+        if previous_policy is not None:
+            break
+        next_token = response.get("nextToken")
+        if not next_token:
+            break
+
+    destination = xray.get_trace_segment_destination()
+    previous_destination = str(destination.get("Destination") or "")
+    if previous_destination not in {"XRay", "CloudWatchLogs"}:
+        raise RuntimeError(
+            "Transaction Search returned an unsupported prior trace destination"
+        )
+    cleanup = {
+        "destination_changed": previous_destination != "CloudWatchLogs",
+        "previous_destination": previous_destination,
+        "resource_policy_created": previous_policy is None,
+        "previous_resource_policy_document": (
+            previous_policy.get("policyDocument") if previous_policy else None
+        ),
+    }
     policy = {
         "Version": "2012-10-17",
         "Statement": [
@@ -303,13 +446,24 @@ def _configure_transaction_search(
             }
         ],
     }
+    policy_document = json.dumps(policy, separators=(",", ":"))
+    configuring_receipt = {
+        "destination": "CloudWatchLogs",
+        "status": "CONFIGURING",
+        "resource_policy": TRANSACTION_SEARCH_POLICY,
+        "resource_policy_document": policy_document,
+        "span_log_group": "aws/spans",
+        "cleanup": cleanup,
+    }
+    if on_cleanup_state is not None:
+        on_cleanup_state(configuring_receipt)
+
     logs.put_resource_policy(
         policyName=TRANSACTION_SEARCH_POLICY,
-        policyDocument=json.dumps(policy, separators=(",", ":")),
+        policyDocument=policy_document,
     )
 
-    destination = xray.get_trace_segment_destination()
-    if destination.get("Destination") != "CloudWatchLogs":
+    if previous_destination != "CloudWatchLogs":
         xray.update_trace_segment_destination(Destination="CloudWatchLogs")
 
     deadline = time.monotonic() + 120
@@ -323,7 +477,9 @@ def _configure_transaction_search(
                 "destination": "CloudWatchLogs",
                 "status": "ACTIVE",
                 "resource_policy": TRANSACTION_SEARCH_POLICY,
+                "resource_policy_document": policy_document,
                 "span_log_group": "aws/spans",
+                "cleanup": cleanup,
             }
         time.sleep(5)
     raise RuntimeError(
@@ -945,14 +1101,24 @@ def _summarize_trace_records(
 
     def first_attribute(
         span_list: list[dict[str, Any]], keys: tuple[str, ...]
-    ) -> Any:
+    ) -> tuple[str | None, Any]:
         for span in span_list:
             span_attributes = attributes(span)
             for key in keys:
                 value = span_attributes.get(key)
                 if value not in (None, "", [], {}):
-                    return value
-        return None
+                    return key, value
+        return None, None
+
+    def structured_value(value: Any) -> Any:
+        """Decode JSON-bearing OTEL values without evaluating free-form text."""
+        current = attribute_value(value)
+        if isinstance(current, str):
+            try:
+                current = json.loads(current)
+            except json.JSONDecodeError:
+                return None
+        return current if isinstance(current, (dict, list)) else None
 
     def numeric_value(value: Any) -> int | None:
         if isinstance(value, bool):
@@ -1039,10 +1205,18 @@ def _summarize_trace_records(
             "Unified trace is missing required span classes: " + ", ".join(missing)
         )
 
-    agent_input = first_attribute(spans, _AGENT_INPUT_ATTRIBUTE_KEYS)
-    agent_output = first_attribute(spans, _AGENT_OUTPUT_ATTRIBUTE_KEYS)
-    tool_input = first_attribute(tool_spans, _TOOL_INPUT_ATTRIBUTE_KEYS)
-    tool_output = first_attribute(tool_spans, _TOOL_OUTPUT_ATTRIBUTE_KEYS)
+    agent_input_key, agent_input = first_attribute(
+        spans, _AGENT_INPUT_ATTRIBUTE_KEYS
+    )
+    agent_output_key, agent_output = first_attribute(
+        spans, _AGENT_OUTPUT_ATTRIBUTE_KEYS
+    )
+    tool_input_key, tool_input = first_attribute(
+        tool_spans, _TOOL_INPUT_ATTRIBUTE_KEYS
+    )
+    tool_output_key, tool_output = first_attribute(
+        tool_spans, _TOOL_OUTPUT_ATTRIBUTE_KEYS
+    )
     if agent_input is None or agent_output is None:
         raise RuntimeError(
             "Unified trace is missing required Agent input/output attributes"
@@ -1051,7 +1225,15 @@ def _summarize_trace_records(
         raise RuntimeError(
             "Unified trace is missing required sanitized tool input/output attributes"
         )
-    if contains_sensitive_value(tool_input) or contains_sensitive_value(tool_output):
+    structured_tool_input = structured_value(tool_input)
+    structured_tool_output = structured_value(tool_output)
+    if structured_tool_input is None or structured_tool_output is None:
+        raise RuntimeError(
+            "Unified trace tool input/output must be structured JSON values"
+        )
+    if contains_sensitive_value(
+        structured_tool_input
+    ) or contains_sensitive_value(structured_tool_output):
         raise RuntimeError(
             "Unified trace tool input/output contains a secret or credential marker"
         )
@@ -1078,7 +1260,14 @@ def _summarize_trace_records(
         "agent_input_observed": True,
         "agent_output_observed": True,
         "tool_input_output_observed": True,
+        "tool_input_output_structured": True,
         "tool_input_output_sanitized": True,
+        "attribute_contract": {
+            "agent_input": agent_input_key,
+            "agent_output": agent_output_key,
+            "tool_input": tool_input_key,
+            "tool_output": tool_output_key,
+        },
         "step_latency_observed": True,
         "step_latency_ms": step_latencies,
         "model_ids": sorted(
@@ -1292,6 +1481,35 @@ def main() -> int:
         "verification": {},
     }
 
+    def checkpoint() -> None:
+        _write_result(output_path, result)
+
+    def checkpoint_trace_log_group(group: dict[str, Any]) -> None:
+        trace_log_groups = result["observability"].setdefault(
+            "trace_log_groups",
+            {
+                "groups": [],
+                "kms_key_arn": required["runtime_log_kms_key_arn"],
+                "retention_days": runtime_log_retention_days,
+            },
+        )
+        groups = trace_log_groups.setdefault("groups", [])
+        groups[:] = [
+            existing
+            for existing in groups
+            if existing.get("name") != group.get("name")
+        ]
+        groups.append(group)
+        checkpoint()
+
+    def checkpoint_transaction_search(receipt: dict[str, Any]) -> None:
+        result["observability"]["transaction_search"] = receipt
+        checkpoint()
+
+    def checkpoint_runtime_log_group(group: dict[str, Any]) -> None:
+        result["observability"]["runtime_log_group"] = group
+        checkpoint()
+
     try:
         _ensure_data_api_enabled(db_region, required["db_cluster_arn"])
         local_schema = _verify_local_schema()
@@ -1315,12 +1533,24 @@ def main() -> int:
         caller = sts.get_caller_identity()
         account_id = caller["Account"]
         partition = str(caller.get("Arn", "arn:aws:")).split(":", 2)[1]
+        trace_log_groups = _ensure_trace_log_groups(
+            region=region,
+            kms_key_arn=required["runtime_log_kms_key_arn"],
+            retention_days=runtime_log_retention_days,
+            on_cleanup_state=checkpoint_trace_log_group,
+        )
+        result["observability"]["trace_log_groups"] = trace_log_groups
+        checkpoint()
+        result["verification"]["trace_log_groups_encrypted"] = True
+        result["verification"]["trace_log_groups_retention_bounded"] = True
         transaction_search = _configure_transaction_search(
             region=region,
             account_id=account_id,
             partition=partition,
+            on_cleanup_state=checkpoint_transaction_search,
         )
         result["observability"]["transaction_search"] = transaction_search
+        checkpoint()
         result["verification"]["transaction_search_ready"] = True
         agentcore_deployment_started_at = datetime.now(timezone.utc)
         root, state = _deploy_cli_project(
@@ -1375,8 +1605,10 @@ def main() -> int:
             runtime_arn=runtime_arn,
             kms_key_arn=required["runtime_log_kms_key_arn"],
             retention_days=runtime_log_retention_days,
+            on_cleanup_state=checkpoint_runtime_log_group,
         )
         result["observability"]["runtime_log_group"] = runtime_log_group
+        checkpoint()
         result["verification"]["runtime_log_group_encrypted"] = True
         result["verification"]["runtime_log_group_retention_bounded"] = True
         result["memory"] = {
@@ -1482,6 +1714,9 @@ def main() -> int:
         result["verification"]["unified_trace_tool_io_sanitized"] = trace_proof[
             "tool_input_output_sanitized"
         ]
+        result["verification"]["unified_trace_tool_io_structured"] = trace_proof[
+            "tool_input_output_structured"
+        ]
         result["verification"]["unified_trace_step_latency"] = trace_proof[
             "step_latency_observed"
         ]
@@ -1494,6 +1729,8 @@ def main() -> int:
             "live_policy_deny",
             "authenticated_runtime_invoke_smoke",
             "transaction_search_ready",
+            "trace_log_groups_encrypted",
+            "trace_log_groups_retention_bounded",
             "control_plane_audit_verified",
             "runtime_log_group_encrypted",
             "runtime_log_group_retention_bounded",
@@ -1503,6 +1740,7 @@ def main() -> int:
             "unified_trace_tool_span",
             "unified_trace_agent_input",
             "unified_trace_agent_output",
+            "unified_trace_tool_io_structured",
             "unified_trace_tool_io_sanitized",
             "unified_trace_step_latency",
         )
@@ -1516,13 +1754,18 @@ def main() -> int:
                 "Managed readiness checks did not pass: " + ", ".join(missing)
             )
         result["status"] = "ready"
-        output_path.write_text(json.dumps(result, indent=2) + "\n")
-        print(json.dumps(result))
+        checkpoint()
+        print(json.dumps({"status": "ready", "output_json": str(output_path)}))
         return 0
     except (ClientError, RuntimeError, OSError, ValueError) as exc:
         result["error"] = str(exc)
-        output_path.write_text(json.dumps(result, indent=2) + "\n")
-        print(json.dumps(result), file=sys.stderr)
+        checkpoint()
+        print(
+            json.dumps(
+                {"status": "failed", "output_json": str(output_path)}
+            ),
+            file=sys.stderr,
+        )
         return 1
 
 

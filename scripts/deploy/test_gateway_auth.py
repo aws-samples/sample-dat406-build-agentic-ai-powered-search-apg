@@ -71,10 +71,13 @@ def get_cognito_token(
         print("ERROR: Invalid credentials. Check COGNITO_USERNAME and COGNITO_PASSWORD env vars.")
         sys.exit(1)
     except client.exceptions.UserNotFoundException:
-        print(f"ERROR: User '{username}' not found in pool {pool_id}.")
+        print("ERROR: The configured Cognito test user was not found.")
         sys.exit(1)
     except Exception as e:
-        print(f"ERROR: Failed to obtain Cognito token: {e}")
+        print(
+            "ERROR: Failed to obtain a Cognito token "
+            f"({e.__class__.__name__})."
+        )
         sys.exit(1)
 
 

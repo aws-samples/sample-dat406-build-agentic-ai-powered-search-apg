@@ -51,6 +51,10 @@ def account_label_signed_in(given_name: str) -> str:
 HERO_BREADCRUMB = "Someone just asked"
 CURATED_FOR_YOU_CHIP = "Curated for you"
 SEARCH_PILL_PLACEHOLDER = "Tell Pellier what you're looking for..."
+MEMORY_WRITE_WARNING = (
+    "The action completed, but this turn was not added to managed memory. "
+    "Do not repeat the action."
+)
 
 # The 8 rotating intents (Requirement 1.3.1, storefront.md "The 8 rotating intents").
 # Intent 2 carries a productOverride: the Featherweight Trail Runner at $168
@@ -536,7 +540,12 @@ ORCHESTRATOR_SYSTEM_PROMPT = (
     "before the call. Do not call more than one specialist in the same "
     "turn. Do not answer the shopper without a specialist call unless "
     "the message is a pure greeting or a question outside shopping "
-    "(in which case reply with one short warm sentence and stop).\n"
+    "(in which case reply with one short warm sentence and stop). After "
+    "the specialist returns, relay its shopper-facing answer in full. "
+    "Preserve product names, prices, constraints, and qualifiers. Do not "
+    "replace it with an introduction, a generic summary, or a trailing "
+    "preface. Omit fenced JSON product payloads because product data is "
+    "delivered separately.\n"
     "</rules>\n"
     "\n"
     "<stylist-handoff>\n"

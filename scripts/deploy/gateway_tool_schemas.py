@@ -157,10 +157,9 @@ TOOL_SCHEMAS = {
                     "type": "object",
                     "properties": {
                         "customer_id": {"type": "string"},
-                        "persona": {"type": "string"},
                         "limit": {"type": "integer", "default": 5},
                     },
-                    "required": [],
+                    "required": ["customer_id"],
                 },
             },
             {
@@ -169,12 +168,13 @@ TOOL_SCHEMAS = {
                 "inputSchema": {
                     "type": "object",
                     "properties": {
+                        "customer_id": {"type": "string"},
                         "session_id": {"type": "string"},
                         "tool_name": {"type": "string"},
                         "caller": {"type": "string"},
                         "limit": {"type": "integer", "default": 3},
                     },
-                    "required": [],
+                    "required": ["customer_id"],
                 },
             },
             {
@@ -264,7 +264,7 @@ TOOL_SCHEMAS = {
                         "reason": {"type": "string"},
                         "customer_id": {"type": "string"},
                     },
-                    "required": [],
+                    "required": ["customer_id"],
                 },
             },
         ],

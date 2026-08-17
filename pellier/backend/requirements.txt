@@ -28,6 +28,8 @@ python-json-logger>=3.0.0
 strands-agents[otel]
 strands-agents-tools
 strands-agents-builder
+mcp>=1.0.0
+httpx>=0.28.1
 tiktoken>=0.5.0
 
 # Lab 4: AgentCore

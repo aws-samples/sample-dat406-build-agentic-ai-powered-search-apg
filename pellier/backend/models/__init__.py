@@ -69,6 +69,7 @@ class VerifiedUser(BaseModel):
     user_id: str
     email: str
     given_name: str
+    username: str = Field(default="", exclude=True)
     # Raw Cognito access token (the original bearer string), kept server-side
     # only so it can be passed through to the AgentCore Gateway for
     # identity-preserving MCP tool calls. ``exclude=True`` keeps it out of all

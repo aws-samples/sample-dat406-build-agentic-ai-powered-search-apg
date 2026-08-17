@@ -249,5 +249,6 @@ def test_gateway_restock_writes_execution_audit() -> None:
 
     assert '"product_id": product.get("product_id")' in source
     assert 'if tool_name == "restock_shelf"' in source
-    assert "_write_tool_audit(" in source
+    assert "_write_tool_audit_in_transaction(" in source
+    assert "transactionId=transaction_id" in source
     assert '"gateway-stock-keeper"' in source
