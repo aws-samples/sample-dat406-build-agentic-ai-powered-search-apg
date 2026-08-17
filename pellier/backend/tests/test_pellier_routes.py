@@ -1,4 +1,4 @@
-"""Tests for routes/boutique.py — briefing + pulse.
+"""Tests for routes/pellier.py — briefing + pulse.
 
 Covers:
   - Time-of-day greeting branching (morning / afternoon / evening / night).
@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from routes import boutique
+from routes import pellier
 
 
 # ---------------------------------------------------------------------------
@@ -42,12 +42,12 @@ from routes import boutique
 )
 def test_time_of_day_greeting_with_name(hour: int, expected_phase: str) -> None:
     now = datetime(2026, 4, 25, hour, 0, 0)
-    greeting = boutique._time_of_day_greeting(now, "Shayon")
+    greeting = pellier._time_of_day_greeting(now, "Shayon")
     assert greeting == f"Good {expected_phase}, Shayon."
 
 
 def test_time_of_day_greeting_anonymous_has_no_name() -> None:
-    greeting = boutique._time_of_day_greeting(
+    greeting = pellier._time_of_day_greeting(
         datetime(2026, 4, 25, 9, 0, 0), None
     )
     assert greeting == "Good morning."
@@ -60,7 +60,7 @@ def test_time_of_day_greeting_anonymous_has_no_name() -> None:
 
 
 def test_extract_given_name_prefers_explicit_claim() -> None:
-    name = boutique._extract_given_name(
+    name = pellier._extract_given_name(
         {"given_name": "Ana", "email": "ignored@example.com"}
     )
     assert name == "Ana"
@@ -68,23 +68,23 @@ def test_extract_given_name_prefers_explicit_claim() -> None:
 
 def test_extract_given_name_derives_from_email_local_part() -> None:
     assert (
-        boutique._extract_given_name({"email": "shayon.sanyal@example.com"})
+        pellier._extract_given_name({"email": "shayon.sanyal@example.com"})
         == "Shayon"
     )
     # `+` and `_` split as local-part separators.
-    assert boutique._extract_given_name({"email": "ana+pellier@x.com"}) == "Ana"
-    assert boutique._extract_given_name({"email": "yuki_ito@x.com"}) == "Yuki"
+    assert pellier._extract_given_name({"email": "ana+pellier@x.com"}) == "Ana"
+    assert pellier._extract_given_name({"email": "yuki_ito@x.com"}) == "Yuki"
 
 
 def test_extract_given_name_handles_anonymous_or_missing() -> None:
-    assert boutique._extract_given_name(None) is None
-    assert boutique._extract_given_name({}) is None
-    assert boutique._extract_given_name({"email": "anonymous"}) is None
+    assert pellier._extract_given_name(None) is None
+    assert pellier._extract_given_name({}) is None
+    assert pellier._extract_given_name({"email": "anonymous"}) is None
 
 
 def test_extract_given_name_strips_digits() -> None:
     """Local-part like ``user42`` should drop to ``User``, not ``User42``."""
-    assert boutique._extract_given_name({"email": "user42@x.com"}) == "User"
+    assert pellier._extract_given_name({"email": "user42@x.com"}) == "User"
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ class FakeDB:
 
 @pytest.fixture
 def fake_db_full() -> FakeDB:
-    """Fake DB keyed on the live boutique catalog column names.
+    """Fake DB keyed on the live Pellier catalog column names.
 
     The catalog uses ``name``, ``description``, ``category``,
     ``badge``, ``rating``, ``reviews``. Legacy columns (``category_name``,
@@ -152,7 +152,7 @@ async def test_briefing_signed_in_uses_given_name_and_preference(
     monkeypatch.setattr("app.db_service", fake_db_full, raising=False)
     user = {"sub": "u_marco", "email": "marco@example.com"}
 
-    resp = await boutique.briefing(user=user)
+    resp = await pellier.briefing(user=user)
 
     assert resp.greeting.startswith("Good ")
     assert "Marco" in resp.greeting
@@ -178,7 +178,7 @@ async def test_briefing_anonymous_omits_name_and_preference(
     monkeypatch: pytest.MonkeyPatch, fake_db_full: FakeDB
 ) -> None:
     monkeypatch.setattr("app.db_service", fake_db_full, raising=False)
-    resp = await boutique.briefing(user=None)
+    resp = await pellier.briefing(user=None)
 
     assert "," not in resp.greeting  # "Good evening." not "Good evening, ."
     # The preference line is signed-in only — must not leak for anon.
@@ -195,7 +195,7 @@ async def test_briefing_degrades_when_db_unavailable(
     briefing MUST still return 200-shape data rather than raise."""
     monkeypatch.setattr("app.db_service", None, raising=False)
 
-    resp = await boutique.briefing(user=None)
+    resp = await pellier.briefing(user=None)
     # Greeting + actions always ship.
     assert resp.greeting.startswith("Good ")
     assert len(resp.actions) == 3
@@ -207,10 +207,10 @@ async def test_briefing_handles_empty_catalog(
 ) -> None:
     """Zero-product catalog drops the count-clause + pick but keeps actions."""
     monkeypatch.setattr("app.db_service", fake_db_empty, raising=False)
-    resp = await boutique.briefing(user=None)
+    resp = await pellier.briefing(user=None)
     # Doesn't claim "92 products" when there are 0.
     assert "0 products" not in resp.line
-    assert "watching the boutique" in resp.line
+    assert "watching the collection" in resp.line
     assert len(resp.actions) == 3
 
 
@@ -225,7 +225,7 @@ async def test_pulse_returns_four_metrics_with_valid_source_tags(
 ) -> None:
     monkeypatch.setattr("app.db_service", fake_db_full, raising=False)
 
-    resp = await boutique.pulse()
+    resp = await pellier.pulse()
 
     assert len(resp.metrics) == 4
     ids = [m.id for m in resp.metrics]
@@ -251,12 +251,12 @@ async def test_catalog_snapshot_uses_live_column_names_not_legacy(
     """Regression test for the first-ship bug: the catalog snapshot was
     written against the legacy column names (``category_name``,
     ``"isBestSeller"``, ``product_description``, ``stars``) which no
-    longer exist on the boutique catalog. The snapshot SHALL query only
+    longer exist on the Pellier catalog. The snapshot SHALL query only
     columns that live in ``services/business_logic.py``'s documented
     schema: ``name``, ``category``, ``description``, ``badge``,
     ``rating``, ``reviews``."""
     monkeypatch.setattr("app.db_service", fake_db_full, raising=False)
-    await boutique._catalog_snapshot(fake_db_full)
+    await pellier._catalog_snapshot(fake_db_full)
 
     joined_sql = " ".join(fake_db_full.calls).lower()
     # Legacy columns — SHALL NOT appear.
@@ -282,7 +282,7 @@ async def test_pulse_survives_db_snapshot_failure(
             raise RuntimeError("connection refused")
 
     monkeypatch.setattr("app.db_service", BoomDB(), raising=False)
-    resp = await boutique.pulse()
+    resp = await pellier.pulse()
 
     assert len(resp.metrics) == 4
     catalog = next(m for m in resp.metrics if m.id == "catalog")

@@ -16,7 +16,7 @@
 --   'default' row when a category has no specific policy, so the 'default'
 --   row is required; the per-category rows make the answer feel curated.
 --
--- Category names match seed_boutique_catalog.py CATEGORY_NAMES
+-- Category names match seed_pellier_catalog.py CATEGORY_NAMES
 -- (Apparel, Accessories, Home Decor, Footwear, ...), plus 'default'.
 --
 -- Idempotent: CREATE TABLE IF NOT EXISTS + INSERT ... ON CONFLICT DO NOTHING.

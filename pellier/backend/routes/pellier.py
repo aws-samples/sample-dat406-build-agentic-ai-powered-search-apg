@@ -1,6 +1,6 @@
-"""``/api/storefront/*`` — boutique concierge briefing + pulse bar.
+"""``/api/storefront/*`` - Pellier concierge briefing and pulse bar.
 
-Two small GET endpoints that power the boutique's "premium agentic"
+Two small GET endpoints that power Pellier's storefront
 chrome (see the pre-Week-3 enhancement plan):
 
 - ``GET /api/storefront/briefing`` — shift-handover greeting for the
@@ -32,7 +32,7 @@ from services.embeddings import get_cache_stats
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/storefront", tags=["boutique"])
+router = APIRouter(prefix="/api/storefront", tags=["pellier"])
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ class PulseResponse(BaseModel):
 
 
 class CatalogStatsResponse(BaseModel):
-    """Lightweight catalog-size payload for the boutique welcome card.
+    """Lightweight catalog-size payload for the Pellier welcome card.
 
     Exposes only the three signals the concierge briefing cites —
     product count, category count, and the current standout pick — so
@@ -157,7 +157,7 @@ async def _catalog_snapshot(db_service: Any) -> dict[str, Any]:
     failure returns a zeros-shape payload with an ``error`` key so
     callers can still render and log.
 
-    Column names match the live boutique catalog (see
+    Column names match the live Pellier catalog (see
     ``services/business_logic.py`` header): ``name``, ``category``,
     ``description``, ``badge``, ``rating``, ``reviews``. Legacy
     columns (``category_name``, ``"isBestSeller"``,
@@ -177,7 +177,7 @@ async def _catalog_snapshot(db_service: Any) -> dict[str, Any]:
         fallback["product_count"] = int(row["n"] or 0) if row else 0
         fallback["category_count"] = int(row["c"] or 0) if row else 0
 
-        # Bestseller pick: no ``isBestSeller`` column on the boutique
+        # Bestseller pick: no ``isBestSeller`` column on the Pellier
         # schema. Approximate with the ``badge`` column (values like
         # "Bestseller", "Staff Pick"), falling back to the highest-
         # rated / most-reviewed row when no badge is set.
@@ -192,7 +192,7 @@ async def _catalog_snapshot(db_service: Any) -> dict[str, Any]:
             "LIMIT 1"
         )
         if pick:
-            # ``name`` is the short display name on the boutique catalog;
+            # ``name`` is the short display name on the Pellier catalog;
             # ``description`` is the long-form. Prefer name for the chip,
             # fall back to first clause of description if name is empty.
             display = (pick.get("name") or "").strip()
@@ -266,7 +266,7 @@ async def briefing(
     # never fabricated.
     if snapshot["product_count"] > 0:
         line_parts.append(
-            f"I've been watching the boutique — {snapshot['product_count']} "
+            f"I've been watching the collection - {snapshot['product_count']} "
             f"products across {snapshot['category_count']} categories."
         )
         chips.append(
@@ -278,7 +278,7 @@ async def briefing(
             )
         )
     else:
-        line_parts.append("I've been watching the boutique.")
+        line_parts.append("I've been watching the collection.")
 
     pick = snapshot.get("bestseller_pick")
     if pick and pick.get("description"):
@@ -343,7 +343,7 @@ async def catalog_stats() -> CatalogStatsResponse:
     """Real-time catalog size signals for the concierge welcome card.
 
     No auth required. Always 200 — DB errors degrade to zeros so the
-    boutique welcome never breaks on a briefing miss. Cached briefly
+    Pellier welcome never breaks on a briefing miss. Cached briefly
     at the HTTP layer via ``Cache-Control`` since the catalog size
     changes on the order of minutes, not seconds.
     """

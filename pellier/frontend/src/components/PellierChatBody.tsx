@@ -1,12 +1,12 @@
 /**
- * BoutiqueChatBody — message rendering for the storefront chat.
+ * PellierChatBody — message rendering for the storefront chat.
  *
  * Body-only component: renders user bubbles, agent blocks, product
  * cards, and follow-up chips. No header, no footer, no input — those
  * live in the parent surface (ChatDrawer for storefront, ConciergeModal
  * for Pellier Labs).
  *
- * Extracted from BoutiqueChat.tsx so both the drawer and the legacy
+ * Extracted from PellierChat.tsx so both the drawer and the legacy
  * modal can consume the same editorial rendering without duplication.
  * All styling comes from storefront-chat.css (the ``ec-*`` classes).
  */
@@ -19,18 +19,18 @@ import MarkdownMessage from './MarkdownMessage'
 import ProductArtifactCard from './ProductArtifactCard'
 import StylistHandoffCard from './StylistHandoffCard'
 import { TraceChip } from '../shared/TraceChip'
-import { resolveCover } from './BoutiqueWelcome'
+import { resolveCover } from './PellierWelcome'
 import { PERSONA_HERO_PILLS } from '../data/personaCurations'
 import { useCatalogStats } from '../hooks/useCatalogStats'
 import { imageSrc } from '../utils/assetPath'
-import '../styles/boutique-chat.css'
-import '../styles/boutique-welcome.css'
+import '../styles/pellier-chat.css'
+import '../styles/pellier-welcome.css'
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
-interface BoutiqueChatBodyProps {
+interface PellierChatBodyProps {
   messages: AgentChatMessage[]
   sendMessage: (text?: string) => Promise<void>
   addToCart: (item: {
@@ -44,7 +44,7 @@ interface BoutiqueChatBodyProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers (shared with BoutiqueChat — kept here as the canonical copy)
+// Helpers (shared with PellierChat — kept here as the canonical copy)
 // ---------------------------------------------------------------------------
 
 function relativeTime(ts: Date): string {
@@ -161,7 +161,7 @@ function followupsForPersona(persona?: PersonaSnapshot | null): string[] {
 }
 
 // Time-of-day helper for cover eyebrow resolution. Duplicated from
-// BoutiqueWelcome so the chat body stays self-contained.
+// PellierWelcome so the chat body stays self-contained.
 type TimeOfDay = 'morning' | 'afternoon' | 'evening'
 function timeOfDay(): TimeOfDay {
   const h = new Date().getHours()
@@ -174,7 +174,7 @@ function timeOfDay(): TimeOfDay {
 // Persona cover banner
 //
 // Compact editorial banner that sits above the chat stream. Shows the
-// same persona-matched cover image the BoutiqueWelcome hero used, so
+// same persona-matched cover image the PellierWelcome hero used, so
 // the warm "standout" moment doesn't vanish the second the user fires
 // their first query. Resolves per persona via resolveCover().
 // ---------------------------------------------------------------------------
@@ -200,12 +200,12 @@ function PersonaCoverBanner({ persona }: { persona: PersonaSnapshot | null }) {
 // Body component
 // ---------------------------------------------------------------------------
 
-export default function BoutiqueChatBody({
+export default function PellierChatBody({
   messages,
   sendMessage,
   addToCart,
   persona,
-}: BoutiqueChatBodyProps) {
+}: PellierChatBodyProps) {
   const reduceMotion = Boolean(useReducedMotion())
   const lastAssistantIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -278,7 +278,7 @@ function AgentMessage({
   reduceMotion,
 }: {
   message: AgentChatMessage
-  addToCart: BoutiqueChatBodyProps['addToCart']
+  addToCart: PellierChatBodyProps['addToCart']
   onFollowUp: (text: string) => void
   persona: PersonaSnapshot | null
   isLastAssistantMessage: boolean
@@ -414,7 +414,7 @@ function AgentMessage({
       {/* Thinking block — collapsible with shimmer. In storefront mode
           agentExecution is typically undefined so hasReasoning is false
           and this block never renders. Kept for structural parity with
-          BoutiqueChat.tsx so the rendering path is byte-identical. */}
+          PellierChat.tsx so the rendering path is byte-identical. */}
       {hasReasoning && (
         <div className={`ec-thinking ${thinkingOpen ? 'ec-thinking-open' : ''}`}>
           <button

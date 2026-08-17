@@ -84,7 +84,7 @@ export default function EditorialBrief() {
                   fontWeight: 400,
                 }}
               >
-                A boutique surface.
+                A Pellier surface.
                 <br />
                 A proof surface.
               </h2>
@@ -113,7 +113,7 @@ export default function EditorialBrief() {
                   color: 'var(--ink-soft)',
                 }}
               >
-                Pellier is a workshop boutique for agentic search on Aurora.
+                Pellier is a workshop storefront for agentic search on Aurora.
                 The static floor uses a seeded catalog and explicit profile tag
                 weights. Natural-language turns invoke specialist tools and
                 retrieval paths that participants can inspect.

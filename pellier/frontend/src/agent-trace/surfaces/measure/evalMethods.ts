@@ -13,7 +13,7 @@ export interface EvaluationMethod {
   bestFor: string[];
   watchOuts: string[];
   pellierFit: EvalMethodFit;
-  /** When this method shines in the Pellier boutique arc */
+  /** When this method shines in the Pellier storefront arc */
   workshopNote: string;
 }
 

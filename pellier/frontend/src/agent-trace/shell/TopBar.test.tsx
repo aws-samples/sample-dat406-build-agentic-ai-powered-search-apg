@@ -48,19 +48,22 @@ describe('Pellier Labs TopBar', () => {
     expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('shows the current Labs view in the switcher', () => {
+  it('keeps supporting routes under Optional References', () => {
     render(
       <MemoryRouter initialEntries={['/pellier-labs/agents']}>
         <TopBar />
       </MemoryRouter>,
     )
 
+    expect(screen.getByRole('link', { name: 'Live Workbench' })).not.toHaveAttribute(
+      'aria-current',
+    )
     expect(
-      screen.getByRole('button', { name: 'Pellier Labs view: Agents' }),
-    ).toBeInTheDocument()
+      screen.getByRole('link', { name: 'Optional References' }),
+    ).toHaveAttribute('aria-current', 'page')
   })
 
-  it('keeps the top bar focused on useful Labs views', async () => {
+  it('offers only the workbench and reference index as first-level views', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter initialEntries={['/pellier-labs']}>
@@ -74,26 +77,12 @@ describe('Pellier Labs TopBar', () => {
       '/pellier-labs',
     )
     expect(screen.queryByText(/concierge online/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Pellier Labs view/i })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /Live Workbench|Optional References/ })).toHaveLength(2)
 
-    const switcher = screen.getByRole('button', {
-      name: 'Pellier Labs view: Live workbench',
-    })
-    expect(screen.queryByRole('menuitem', { name: /Proof Board/i })).not.toBeInTheDocument()
-    await user.click(switcher)
-    // The picker groups by interaction contract now, not by subject. The old
-    // Guided demo / Inspect / Evaluate headings put Live workbench beside two
-    // views that expose no controls at all.
-    expect(screen.getByText('Interactive')).toBeInTheDocument()
-    expect(screen.getByText('Reference')).toBeInTheDocument()
-    await user.click(screen.getByRole('menuitem', { name: /Architecture/i }))
-    expect(screen.getByTestId('location')).toHaveTextContent('/pellier-labs/architecture')
-
-    await user.click(
-      screen.getByRole('button', { name: 'Pellier Labs view: Architecture' }),
-    )
-    await user.click(screen.getByRole('menuitem', { name: /Evaluations/i }))
+    await user.click(screen.getByRole('link', { name: 'Optional References' }))
     expect(screen.getByTestId('location')).toHaveTextContent(
-      '/pellier-labs/evaluations',
+      '/pellier-labs/references',
     )
   })
 })

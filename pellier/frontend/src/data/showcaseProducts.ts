@@ -1,16 +1,16 @@
 /**
- * 40 showcase products for the Pellier boutique — 10 per persona.
+ * 40 showcase products for Pellier - 10 per persona.
  *
  * Fresh (1-9), Marco (11-19), Anna (21-29), Theo (31-39).
  * Zero overlap between personas. Each persona's set includes a hero
  * product, a weekend-edit featured, and 8 grid cards.
  *
- * Tag sets match the seed_boutique_catalog.py data so the backend's
+ * Tag sets match the seed_pellier_catalog.py data so the backend's
  * pgvector embeddings and the frontend's tag-weight scoring stay aligned.
  */
 import type {
   ReasoningChip,
-  BoutiqueProduct,
+  PellierProduct,
 } from '../services/types'
 import { REASONING } from '../copy'
 import {
@@ -72,7 +72,7 @@ if (findAdjacentDuplicateStyleIndex(CHIPS) !== -1) {
   )
 }
 
-export const SHOWCASE_PRODUCTS: BoutiqueProduct[] = [
+export const SHOWCASE_PRODUCTS: PellierProduct[] = [
   // ─── FRESH (1-9) ───
   { id: 1, brand: 'Pellier Home', name: 'Olive Branch Vessel', color: 'Ivory', price: 185, rating: 4.9, reviewCount: 127, category: 'Home Decor', imageUrl: '/products/fresh-olive-branch-vessel.png', tags: ['ceramic', 'sculptural', 'minimal', 'warm', 'neutral', 'home', 'housewarming', 'milestone'], reasoning: CHIPS[0] },
   { id: 2, brand: 'Hadley', name: 'Hadley Linen Shirt', color: 'Ivory', price: 248, rating: 4.8, reviewCount: 312, category: 'Apparel', imageUrl: '/products/fresh-pellier-linen-shirt.png', badge: 'EDITORS_PICK', tags: ['linen', 'minimal', 'resort', 'warm', 'neutral', 'everyday'], reasoning: CHIPS[1] },

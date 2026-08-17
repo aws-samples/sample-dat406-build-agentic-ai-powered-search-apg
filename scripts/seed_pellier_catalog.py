@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Seed the boutique catalog — 40 curated products with real Cohere Embed v4 embeddings.
+Seed the Pellier catalog — 40 curated products with real Cohere Embed v4 embeddings.
 
 10 products per persona (Marco / Anna / Theo / Fresh), zero overlap.
 Each persona: 1 hero + 1 weekend edit featured + 8 grid = 10 total.
@@ -9,17 +9,17 @@ stored in Aurora's pgvector column for HNSW-indexed similarity search.
 
 Usage:
     # Generate embeddings via Bedrock + seed directly into Aurora:
-    python scripts/seed_boutique_catalog.py
+    python scripts/seed_pellier_catalog.py
 
     # Generate embeddings + write CSV + embeddings cache (no DB connection):
-    python scripts/seed_boutique_catalog.py --csv-only
+    python scripts/seed_pellier_catalog.py --csv-only
 
     # PREFERRED FOR WORKSHOPS — seed from the committed embeddings cache,
     # no Bedrock embedding calls (deterministic, fast, no throttle/AccessDenied):
-    python scripts/seed_boutique_catalog.py --from-cache
+    python scripts/seed_pellier_catalog.py --from-cache
 
     # Skip embedding generation (use zero vectors, for local dev):
-    python scripts/seed_boutique_catalog.py --skip-embeddings --csv-only
+    python scripts/seed_pellier_catalog.py --skip-embeddings --csv-only
 
 Environment:
     DB_HOST, DB_NAME, DB_USER, DB_PASSWORD — Aurora connection
@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-CSV_OUT = os.path.join(DATA_DIR, "boutique_catalog_40.csv")
+CSV_OUT = os.path.join(DATA_DIR, "pellier_catalog_40.csv")
 # Committed cache of precomputed 1024-dim embeddings, keyed by productId.
 # Generated once via --csv-only; loaded by --from-cache so the workshop
 # bootstrap never has to call Bedrock to embed the catalog.
@@ -128,7 +128,7 @@ class Product:
             "marco": "For a traveler who loves natural fibers, linen, leather, and warm neutrals. Travel-ready, packable, timeless.",
             "anna": "For a gift-giver who values thoughtful, wrap-ready pieces across price bands. Milestone occasions, considered objects.",
             "theo": "For a slow-living enthusiast who values ceramics, artisanal craft, patina, and home ritual objects.",
-            "fresh": "For a new visitor exploring a curated boutique. Editorial bestsellers, versatile everyday pieces.",
+            "fresh": "For a new visitor exploring Pellier. Editorial bestsellers, versatile everyday pieces.",
         }
         context = persona_context.get(self.persona, "")
         return (
@@ -430,7 +430,7 @@ def load_embeddings_cache(products: List[Product], path: str) -> int:
     if not os.path.exists(path):
         raise FileNotFoundError(
             f"Embeddings cache not found at {path}. Generate it once with "
-            f"`python scripts/seed_boutique_catalog.py --csv-only` and commit it."
+            f"`python scripts/seed_pellier_catalog.py --csv-only` and commit it."
         )
     with open(path) as f:
         payload = json.load(f)
@@ -446,7 +446,7 @@ def load_embeddings_cache(products: List[Product], path: str) -> int:
             "⚠️  Embeddings cache model mismatch: cache was built with '%s' but "
             "runtime expects '%s'. Vectors from different models are NOT "
             "comparable — regenerate the cache with "
-            "`python scripts/seed_boutique_catalog.py --csv-only` against an "
+            "`python scripts/seed_pellier_catalog.py --csv-only` against an "
             "account that has the expected model enabled, then commit "
             "data/embeddings_cache.json.",
             cache_model, expected_model,
@@ -503,11 +503,11 @@ def seed_database(products: List[Product]) -> None:
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
-            # Clear existing boutique products (IDs 1-40)
+            # Clear existing Pellier products (IDs 1-40)
             cur.execute(
                 'DELETE FROM pellier.product_catalog WHERE "productId"::int BETWEEN 1 AND 40'
             )
-            logger.info("Cleared existing boutique products (IDs 1-40)")
+            logger.info("Cleared existing Pellier products (IDs 1-40)")
 
             for p in products:
                 tags_json = json.dumps(p.tags)
@@ -573,7 +573,7 @@ def print_summary(products: List[Product]) -> None:
 
     total = len(products)
     print("\n" + "=" * 72)
-    print(f"BOUTIQUE CATALOG — {total} PRODUCTS (10 per persona)")
+    print(f"PELLIER CATALOG — {total} PRODUCTS (10 per persona)")
     print("=" * 72)
 
     for persona_id in ["fresh", "marco", "anna", "theo"]:
@@ -598,7 +598,7 @@ def print_summary(products: List[Product]) -> None:
 # =========================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Seed boutique catalog with embeddings")
+    parser = argparse.ArgumentParser(description="Seed Pellier catalog with embeddings")
     parser.add_argument("--csv-only", action="store_true", help="Write CSV + embeddings cache only, no DB connection")
     parser.add_argument("--from-cache", action="store_true", help="Seed using committed embeddings cache (no Bedrock calls) — preferred for workshops")
     parser.add_argument("--skip-embeddings", action="store_true", help="Skip Cohere embedding generation (zero vectors)")

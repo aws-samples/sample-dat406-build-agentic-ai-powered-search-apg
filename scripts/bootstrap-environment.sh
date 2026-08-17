@@ -18,6 +18,7 @@ STAGE2_SCRIPT_URL="${STAGE2_SCRIPT_URL:-}"
 ASSETS_BUCKET_NAME="${ASSETS_BUCKET_NAME:-}"
 ASSETS_BUCKET_PREFIX="${ASSETS_BUCKET_PREFIX:-}"
 CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-2.1.233}"
+AGENTCORE_CLI_VERSION="${AGENTCORE_CLI_VERSION:-1.0.0-preview.26}"
 
 # Colors
 RED='\033[0;31m'
@@ -58,6 +59,27 @@ dnf install --skip-broken -y -q \
 
 log "✅ System packages installed"
 
+# Runtime libraries used by the optional headless Chromium process behind the
+# Playwright MCP server. Keep this best-effort so browser preview can degrade
+# without blocking the required Code Editor and storefront environment.
+if ! dnf install --skip-broken -y -q \
+    alsa-lib \
+    atk \
+    at-spi2-atk \
+    cairo \
+    cups-libs \
+    libdrm \
+    libXcomposite \
+    libXdamage \
+    libXfixes \
+    libXrandr \
+    mesa-libgbm \
+    nspr \
+    nss \
+    pango >/dev/null 2>&1; then
+    warn "Optional Chromium runtime libraries were not fully installed"
+fi
+
 # ----------------------------------------------------------------------------
 # Node.js 20+ for the frontend toolchain and Claude Code.
 #
@@ -90,21 +112,19 @@ if [ "$_node20_ok" = true ]; then
     [ -n "$_node_bin" ] && update-alternatives --install /usr/bin/node node "$_node_bin" 100 >/dev/null 2>&1 || true
     log "✅ Node.js installed and pinned: $(node --version 2>/dev/null)"
 
-    # TypeScript compiler (tsc), global. The optional managed path is itself a
+    # TypeScript compiler (tsc), global. The required AgentCore Memory path is a
     # TypeScript/Node tool, and its `deploy` build step shells out to `tsc`
     # (`sh: line 1: tsc: command not found` aborts the Runtime deploy on a box
     # that only has Node). AL2023 doesn't preinstall it. Our agent is Python,
     # but the CLI's own build needs tsc regardless. Pinned major to avoid a
-    # surprise tsc behavior change. Non-fatal: only the managed-Runtime deploy
-    # needs it; Pellier + frontend build don't.
-    if [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" = "true" ] \
-        && command -v npm >/dev/null 2>&1; then
-        log "Installing TypeScript compiler globally (tsc – required by @aws/agentcore deploy)..."
+    # surprise tsc behavior change.
+    if command -v npm >/dev/null 2>&1; then
+        log "Installing TypeScript compiler globally (tsc - required by @aws/agentcore deploy)..."
         if npm install -g typescript@5 >/dev/null 2>&1; then
             # The CLI's deploy build runs `sh -c tsc` as the PARTICIPANT user
             # (provisioning is `sudo -u $CODE_EDITOR_USER`). npm's global prefix
             # may not be on that user's PATH, so symlink tsc into /usr/bin
-            # (always on PATH) rather than trust the prefix location – same
+            # (always on PATH) rather than trust the prefix location - same
             # defensive pattern as the aws-v2 symlink above.
             _tsc_bin="$(command -v tsc 2>/dev/null || true)"
             if [ -n "$_tsc_bin" ] && [ "$_tsc_bin" != "/usr/bin/tsc" ]; then
@@ -112,9 +132,10 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ tsc installed: $(tsc --version 2>/dev/null || echo 'version check skipped') ($(command -v tsc 2>/dev/null))"
         else
-            warn "Global typescript install failed – @aws/agentcore deploy may fail with 'tsc: command not found'. Recover: 'sudo npm install -g typescript' then re-run scripts/deploy/deploy_all.sh."
+            error "Global TypeScript install failed; required AgentCore Memory cannot deploy."
         fi
-
+    else
+        error "npm is unavailable; required AgentCore Memory cannot deploy."
     fi
 
     if command -v npm >/dev/null 2>&1; then
@@ -140,6 +161,21 @@ if [ "$_node20_ok" = true ]; then
             log "✅ Claude Code CLI installed: $(claude --version) ($(command -v claude))"
         else
             error "Claude Code CLI ${CLAUDE_CODE_VERSION} install failed"
+        fi
+
+        log "Installing AgentCore CLI ${AGENTCORE_CLI_VERSION} globally..."
+        if npm install -g "@aws/agentcore@${AGENTCORE_CLI_VERSION}" >/dev/null 2>&1; then
+            _agentcore_bin="$(command -v agentcore 2>/dev/null || true)"
+            if [ -n "$_agentcore_bin" ] && [ "$_agentcore_bin" != "/usr/bin/agentcore" ]; then
+                ln -sf "$_agentcore_bin" /usr/bin/agentcore 2>/dev/null || true
+            fi
+            if ! command -v agentcore >/dev/null 2>&1 \
+                || [ "$(agentcore --version 2>/dev/null)" != "$AGENTCORE_CLI_VERSION" ]; then
+                error "AgentCore CLI installation completed without the pinned release"
+            fi
+            log "✅ AgentCore CLI installed: $(agentcore --version) ($(command -v agentcore))"
+        else
+            error "AgentCore CLI ${AGENTCORE_CLI_VERSION} install failed"
         fi
     else
         error "npm is unavailable; Claude Code CLI cannot be installed"
@@ -396,31 +432,29 @@ AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/plac
 log "AWS Region: $AWS_REGION"
 
 # ----------------------------------------------------------------------------
-# CDK bootstrap (required by @aws/agentcore 0.26.0 `deploy`).
+# CDK bootstrap (required by @aws/agentcore 1.0.0-preview.26 `deploy`).
 #
 # `agentcore deploy` synthesizes a CloudFormation stack and deploys it via the
 # CDK toolkit. CDK requires the account/region to be "bootstrapped" first — a
 # one-time CDKToolkit stack that provisions the assets S3 bucket, the
 # cdk-hnb659fds-* execution roles, and the SSM version parameter the deploy
 # reads. Without it, `agentcore deploy` fails on the missing toolkit. This is
-# idempotent (re-running is a no-op if already bootstrapped), runs as root in
-# UserData with the instance-profile credentials, and is best-effort: a failure
-# is logged but does not abort the box (the AgentCore provisioning step later
-# surfaces it via the health gate). Requires Node 20 (installed above).
+# idempotent (re-running is a no-op if already bootstrapped) and runs as root in
+# UserData with the instance-profile credentials. Memory is required, so a CDK
+# bootstrap failure must stop the account before Workshop Studio reports ready.
+# Requires Node 20 (installed above).
 # ----------------------------------------------------------------------------
-if [ "${ENABLE_BUILDERS_MANAGED_PATH:-false}" = "true" ]; then
-log "Bootstrapping CDK for the explicitly enabled managed path (region $AWS_REGION)..."
+log "Bootstrapping CDK for required AgentCore Memory (region $AWS_REGION)..."
 CDK_ACCOUNT="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo '')"
 if [ -n "$CDK_ACCOUNT" ]; then
 if AWS_REGION="$AWS_REGION" AWS_DEFAULT_REGION="$AWS_REGION" \
     npx -y aws-cdk@2 bootstrap "aws://${CDK_ACCOUNT}/$AWS_REGION" >/dev/null 2>&1; then
         log "✅ CDK bootstrapped for aws://${CDK_ACCOUNT}/${AWS_REGION}"
     else
-        warn "CDK bootstrap failed — @aws/agentcore Runtime deploy may fail until 'npx aws-cdk@2 bootstrap' succeeds for aws://${CDK_ACCOUNT}/${AWS_REGION}"
+        error "CDK bootstrap failed; required AgentCore Memory cannot deploy for aws://${CDK_ACCOUNT}/${AWS_REGION}"
     fi
 else
-    warn "Could not resolve account id (sts get-caller-identity) — skipping CDK bootstrap; AgentCore Runtime deploy will need it run manually"
-fi
+    error "Could not resolve account id; required AgentCore Memory cannot deploy."
 fi
 
 cat > /etc/systemd/system/code-editor@.service << EOF

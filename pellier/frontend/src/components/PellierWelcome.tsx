@@ -1,10 +1,10 @@
 /**
- * BoutiqueWelcome — editorial welcome state for the storefront concierge.
+ * PellierWelcome — editorial welcome state for the storefront concierge.
  *
  * Renders when the conversation is empty (no user messages yet) in
  * storefront mode. Matches the design in docs/pellier-chat-synthesis.html:
  *
- *   Cover image (CSS-only vessel composition) → greeting → boutique
+ *   Cover image (CSS-only vessel composition) → greeting → pellier
  *   stats → pre-vetted picks (first 3 of 5 hero prompts) → centered-dot divider
  *   → "Or tell me what you're after" prompt → P.S. close (hero 4–5 of 5)
  *
@@ -14,15 +14,15 @@
  * All picks and P.S. suggestions fire `onSend(text)` on click, which
  * the parent wires to `useAgentChat.sendMessage`.
  */
-import '../styles/boutique-welcome.css'
+import '../styles/pellier-welcome.css'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
 import { useCatalogStats, type CatalogStats } from '../hooks/useCatalogStats'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
 import { PERSONA_HERO_PILLS } from '../data/personaCurations'
-import type { BoutiqueProduct } from '../services/types'
+import type { PellierProduct } from '../services/types'
 import { imageSrc } from '../utils/assetPath'
 
-interface BoutiqueWelcomeProps {
+interface PellierWelcomeProps {
   onSend: (text: string) => void
   persona?: PersonaSnapshot | null
 }
@@ -43,9 +43,9 @@ const TOD_GREETING: Record<TimeOfDay, string> = {
 }
 
 const TOD_EYEBROW: Record<TimeOfDay, string> = {
-  morning: 'This morning at the boutique',
-  afternoon: 'This afternoon at the boutique',
-  evening: 'Tonight at the boutique',
+  morning: 'This morning at Pellier',
+  afternoon: 'This afternoon at Pellier',
+  evening: 'Tonight at Pellier',
 }
 
 const TOD_COVER_EYEBROW: Record<TimeOfDay, string> = {
@@ -62,7 +62,7 @@ const TOD_COVER_EYEBROW: Record<TimeOfDay, string> = {
 // language for something that reads as curated-for-them. Fresh users
 // (and null) fall through to the global standout from the catalog-
 // stats endpoint with the time-of-day eyebrow — no signal to tailor
-// against, so the boutique voice stays honest.
+// against, so the Pellier voice stays honest.
 //
 // If a pinned piece isn't found in the provided catalog (defensive
 // guard against future showcase edits), the persona falls through to
@@ -96,7 +96,7 @@ const PERSONA_COVERS: Record<string, PersonaCover> = {
 }
 
 export interface CoverResolution {
-  product: BoutiqueProduct
+  product: PellierProduct
   eyebrow: string
 }
 
@@ -104,7 +104,7 @@ export function resolveCover(
   persona: PersonaSnapshot | null | undefined,
   stats: CatalogStats | null,
   tod: TimeOfDay,
-  catalog: readonly BoutiqueProduct[] = SHOWCASE_PRODUCTS,
+  catalog: readonly PellierProduct[] = SHOWCASE_PRODUCTS,
 ): CoverResolution {
   // Persona-specific cover path. Try the pinned piece; fall through if
   // it isn't in the catalog.
@@ -252,7 +252,7 @@ function copyForPersona(persona?: PersonaSnapshot | null): PersonaCopy {
   }
 }
 
-export default function BoutiqueWelcome({ onSend, persona }: BoutiqueWelcomeProps) {
+export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps) {
   const copy = copyForPersona(persona)
   const tod = timeOfDay()
   const firstName = persona ? persona.display_name.split(' ')[0] : ''

@@ -1,15 +1,12 @@
 /**
- * MemoryDashboard - four memory types plus operational history.
+ * MemoryDashboard - the builders memory contract.
  *
- * Shows working / semantic / episodic / procedural memory for the active
- * persona, then separates tool execution history. Each panel carries a
- * provenance pill ('live' | 'fixture' | 'sketch') so attendees see
- * which reads hit the real source on this request and which fell
- * back to a teaching fixture.
+ * Shows AgentCore working turns and learned preferences, then separates
+ * Aurora-backed operational evidence. The governed workshop owns the deeper
+ * episodic and procedural memory treatment.
  */
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   EditorialTitle,
   ExpCard,
@@ -295,7 +292,7 @@ const EmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Start a conversation in the boutique to build memory, or check that the
+      Start a conversation in Pellier to build memory, or check that the
       memory fixture data is available.
     </p>
   </div>
@@ -350,16 +347,12 @@ const MemoryDashboard: React.FC = () => {
     data != null &&
     (data.working.items.length > 0 ||
       data.semantic.items.length > 0 ||
-      data.episodic.items.length > 0 ||
-      data.procedural.items.length > 0 ||
       data.operational.items.length > 0);
 
   const liveCount = data
     ? [
         data.working,
         data.semantic,
-        data.episodic,
-        data.procedural,
         data.operational,
       ].filter(
         (p) => p.source === 'live',
@@ -369,14 +362,91 @@ const MemoryDashboard: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
-        eyebrow="Understand · Memory · four types · explicit evidence"
-        title="Durable state"
-        summary="Compare working turns, optional managed memory, source-controlled instructions, and the operational audit record."
+        eyebrow="Understand · Memory · builders contract"
+        title="State, with clear owners"
+        summary="Inspect the managed conversational state Pellier uses without conflating it with Aurora business records or tool evidence."
         references={[
-          { label: 'Source', value: 'services/aurora_session_memory.py', code: true },
-          { label: 'Boundary', value: 'working state != tool_audit', code: true },
+          { label: 'AgentCore', value: 'session turns + preferences', code: true },
+          { label: 'Aurora', value: 'business state + tool evidence', code: true },
         ]}
       />
+
+      <section
+        aria-labelledby="builders-memory-contract"
+        style={{
+          margin: '8px 0 28px',
+          padding: '20px 0',
+          borderTop: '1px solid var(--at-card-border)',
+          borderBottom: '1px solid var(--at-card-border)',
+        }}
+      >
+        <h2
+          id="builders-memory-contract"
+          style={{
+            margin: '0 0 14px',
+            fontFamily: 'var(--at-serif)',
+            fontSize: '22px',
+            fontWeight: 400,
+            color: 'var(--at-ink-1)',
+          }}
+        >
+          Builders memory contract
+        </h2>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '18px 28px',
+          }}
+        >
+          <div>
+            <strong style={{ fontFamily: 'var(--at-sans)', color: 'var(--at-ink-1)' }}>
+              AgentCore Memory
+            </strong>
+            <p
+              style={{
+                margin: '6px 0 0',
+                fontFamily: 'var(--at-sans)',
+                fontSize: '14px',
+                lineHeight: 1.55,
+                color: 'var(--at-ink-2)',
+              }}
+            >
+              Loads bounded storefront turns, appends each completed turn pair,
+              and extracts durable shopper preferences.
+            </p>
+          </div>
+          <div>
+            <strong style={{ fontFamily: 'var(--at-sans)', color: 'var(--at-ink-1)' }}>
+              Aurora PostgreSQL
+            </strong>
+            <p
+              style={{
+                margin: '6px 0 0',
+                fontFamily: 'var(--at-sans)',
+                fontSize: '14px',
+                lineHeight: 1.55,
+                color: 'var(--at-ink-2)',
+              }}
+            >
+              Remains the system of record for catalog and business state.
+              Tool audit rows are execution evidence, not agent memory.
+            </p>
+          </div>
+        </div>
+        <p
+          style={{
+            margin: '16px 0 0',
+            fontFamily: 'var(--at-sans)',
+            fontSize: '13px',
+            lineHeight: 1.5,
+            color: 'var(--at-ink-4)',
+          }}
+        >
+          The governed workshop extends this boundary with deeper episodic and
+          procedural memory patterns.
+        </p>
+      </section>
 
       {loading && <LoadingState />}
       {error && <ErrorState message={error} onRetry={refetch} />}
@@ -405,7 +475,7 @@ const MemoryDashboard: React.FC = () => {
               color: 'var(--at-ink-2)',
             }}
           >
-            <span>Live sources: {liveCount} / 5</span>
+            <span>Live sources: {liveCount} / 3</span>
             <span style={{ color: 'var(--at-ink-4)' }}>·</span>
             <span>Persona: {data.persona}</span>
           </div>
@@ -419,8 +489,6 @@ const MemoryDashboard: React.FC = () => {
           >
             <SubstratePanel panel={data.working} />
             <SubstratePanel panel={data.semantic} />
-            <SubstratePanel panel={data.episodic} />
-            <SubstratePanel panel={data.procedural} />
             <div style={{ gridColumn: '1 / -1' }}>
               <SubstratePanel panel={data.operational} />
             </div>
@@ -428,24 +496,6 @@ const MemoryDashboard: React.FC = () => {
         </>
       )}
 
-      {/* Cross-link to the Architecture concept brief on Memory. */}
-      <div
-        style={{
-          marginTop: '32px',
-          paddingTop: '20px',
-          borderTop: '1px solid var(--at-card-border)',
-          fontFamily: 'var(--at-mono)',
-          fontSize: '13px',
-          color: 'var(--at-ink-2)',
-        }}
-      >
-        <Link
-          to="/pellier-labs/architecture/memory"
-          style={{ color: 'var(--at-burgundy)', textDecoration: 'none' }}
-        >
-          → Read the architecture brief on Memory
-        </Link>
-      </div>
     </div>
   );
 };

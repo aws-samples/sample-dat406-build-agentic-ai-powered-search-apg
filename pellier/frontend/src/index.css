@@ -114,10 +114,8 @@
   /*
    * Shared Pellier daylight surface. The route-level class prevents a
    * first-paint flash; the body class carries the same tokens into portals.
-   * `boutique-surface` remains as a compatibility alias for older embeds.
    */
   :where(
-    body.boutique-surface,
     body.pellier-surface,
     .pellier-page-surface
   ) {
@@ -157,9 +155,6 @@
     color-scheme: light;
   }
 
-  .boutique-surface .font-display,
-  .boutique-surface .product-name,
-  .boutique-surface .pellier-logo-chip,
   .pellier-surface .font-display,
   .pellier-surface .product-name,
   .pellier-surface .pellier-logo-chip,

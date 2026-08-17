@@ -78,7 +78,7 @@ export const HERO_HEADLINE = {
   SUBHEADLINE: "Tell Pellier what you're looking for. Watch the pieces find you.",
 } as const;
 
-export const BOUTIQUE_HERO_SIGNED_OUT = {
+export const PELLIER_HERO_SIGNED_OUT = {
   LINE_1: "Choose a shopper profile to begin.",
   LINE_2: "Pellier will tailor the floor around that visit.",
 } as const;
@@ -93,7 +93,7 @@ export const PRODUCT_GRID_HEADER = {
 // Sign-in strip (Requirement 1.4.1)
 export const SIGN_IN_STRIP = {
   EYEBROW: "PERSONALIZED VISIONS",
-  HEADLINE: "Sign in and watch Pellier tailor the boutique to you.",
+  HEADLINE: "Sign in and watch Pellier tailor the collection to you.",
   CTA: "Sign in for personalized visions",
   DISMISS: "Not now",
 } as const;
@@ -229,7 +229,7 @@ export const STORYBOARD_TEASERS: StoryboardTeaser[] = [
 export const STORYBOARD_PAGE_COMING_SOON =
   "Coming soon - the full editorial hub arrives with the next Edit.";
 export const DISCOVER_PAGE_SIGNED_OUT =
-  "Discover is tailored to you. Sign in and watch the boutique tune itself.";
+  "Discover is tailored to you. Sign in and watch Pellier tune itself.";
 export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
 
 // Footer \u2014 three live columns + a brand + a bottom strip.
@@ -285,9 +285,9 @@ export const COMMAND_PILL = {
 // Auth modal (storefront.md "Auth modal" section, Requirement 2.6.6)
 export const AUTH_MODAL = {
   HEADER: "Welcome to Pellier",
-  SUBHEADER: "Sign in for a boutique built for you",
+  SUBHEADER: "Sign in for Pellier, built for you",
   EYEBROW: "PERSONALIZED VISIONS",
-  ITALIC_HEADLINE: "Let the boutique find you.",
+  ITALIC_HEADLINE: "Let Pellier find you.",
   BUTTON_GOOGLE: "Continue with Google",
   BUTTON_APPLE: "Continue with Apple",
   BUTTON_EMAIL: "Continue with email",
@@ -362,7 +362,7 @@ export const PREFERENCES_MODAL = {
     },
   ] as PreferenceGroup[],
   SKIP: "Skip for now",
-  SUBMIT: "Save and see my boutique",
+  SUBMIT: "Save and see my Pellier edit",
   FOOTER: "Preferences are scoped to your signed-in profile",
 } as const;
 

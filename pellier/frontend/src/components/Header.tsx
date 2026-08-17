@@ -151,6 +151,12 @@ function PellierLabsLink({
     >
       <FlaskConical className="h-4 w-4" strokeWidth={1.8} aria-hidden />
       <span>Pellier Labs</span>
+      <span
+        className="border border-sand px-1.5 py-0.5 text-[9px] font-semibold uppercase text-ink-soft"
+        style={{ letterSpacing: '0.08em' }}
+      >
+        Optional
+      </span>
     </Link>
   )
 }
@@ -417,7 +423,7 @@ export default function Header({
     ? NAV_ITEMS
     : NAV_ITEMS.filter(({ item }) => item !== 'ask-pellier')
 
-  // The boutique's search is Pellier — the chat drawer. Clicking the
+  // Pellier's search is the chat drawer. Clicking the
   // Search icon opens the same concierge pill uses, which keeps the
   // header honest: one search surface, two entry points.
   const handleSearchClick = useCallback(() => {

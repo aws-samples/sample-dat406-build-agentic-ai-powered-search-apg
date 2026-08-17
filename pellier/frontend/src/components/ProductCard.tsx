@@ -35,23 +35,23 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, Star } from 'lucide-react'
 
-import type { BoutiqueBadge, BoutiqueProduct } from '../services/types'
+import type { PellierBadge, PellierProduct } from '../services/types'
 import ReasoningChip from './ReasoningChip'
 import ResponsiveImage from './ResponsiveImage'
 import { TraceChip } from '../shared'
 
-const BADGE_LABEL: Record<BoutiqueBadge, string> = {
+const BADGE_LABEL: Record<PellierBadge, string> = {
   EDITORS_PICK: "EDITOR'S PICK",
   BESTSELLER: 'BESTSELLER',
   JUST_IN: 'JUST IN',
 }
 
 interface ProductCardProps {
-  product: BoutiqueProduct
+  product: PellierProduct
   /** Row-wise index (0..2). Drives a compact per-column stagger. */
   index: number
   /** Optional `Add to bag` handler. The button is hidden when omitted. */
-  onAddToBag?: (product: BoutiqueProduct) => void
+  onAddToBag?: (product: PellierProduct) => void
   /**
    * Optional provenance chips rendered under the reasoning chip. When
    * omitted, the card cites only catalog tags present on the product.
@@ -65,7 +65,7 @@ interface ProductCardProps {
  * Derive defensible provenance chips from committed catalog metadata.
  * Runtime tool claims must be supplied explicitly by a live response.
  */
-function deriveTraces(product: BoutiqueProduct): string[] {
+function deriveTraces(product: PellierProduct): string[] {
   return product.tags.slice(0, 2).map(tag => `tag.match · ${tag}`)
 }
 

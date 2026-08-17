@@ -39,7 +39,7 @@ Design notes
 
 * **Default editorial order.** "Editorial order" is the curator-chosen
   order the 9 showcase products appear in ``storefront.md``. The
-  boutique catalog encodes this via the ``tier`` column (1=featured,
+  Pellier catalog encodes this via the ``tier`` column (1=featured,
   2=editorial, 3=extended) and we break ties by ``"productId"``
   ascending so the list stays stable for ``sort_personalized``.
 
@@ -136,7 +136,7 @@ _PRODUCT_SELECT = """
 """
 
 
-# The boutique catalog still uses the curator-import taxonomy
+# The Pellier catalog still uses the curator-import taxonomy
 # ("Apparel", "Home Decor", "Beauty", "Gifts" — see
 # ``services/structured_extract.KNOWN_CATEGORIES``). The wire shape
 # uses the editorial Literal in ``models/search.StorefrontCategory``.
@@ -155,7 +155,7 @@ _VALID_BADGES = {"EDITORS_PICK", "BESTSELLER", "JUST_IN"}
 def _row_to_storefront_product(row: Dict[str, Any]) -> StorefrontProduct:
     """Project a raw catalog row onto the ``StorefrontProduct`` wire shape.
 
-    The boutique catalog stores ``reviews`` as TEXT (numeric strings like
+    The Pellier catalog stores ``reviews`` as TEXT (numeric strings like
     "214") and the image column as quoted camelCase ``"imgUrl"``. The
     SELECT above aliases both into plain snake_case keys so this function
     only handles defensive fallbacks for fields that could be ``None`` in
@@ -331,7 +331,7 @@ async def get_inventory_signal(
     (Req 3.5.2). The frontend status strip uses the flag to flip an
     amber warning without hiding the counts.
     """
-    # Group all catalog rows by ``category``. The boutique schema has no
+    # Group all catalog rows by ``category``. The pellier schema has no
     # ``quantity`` column (everything in the editorial catalog is treated
     # as in-stock); the filter was removed with the schema migration.
     # ``last_refreshed`` is the MAX(updated_at) across rows — the loader

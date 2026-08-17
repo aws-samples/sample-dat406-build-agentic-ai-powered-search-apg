@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import FastAPI
@@ -106,6 +107,76 @@ def test_readiness_reports_live_pillars(monkeypatch) -> None:
     assert checks["gateway"]["state"] == "pass"
     assert checks["policy"]["state"] == "pass"
     assert body["counts"]["catalog_count"] == 40
+
+
+def test_build_state_tracks_tool_and_agent_completion_independently(
+    monkeypatch,
+) -> None:
+    client = _client(_ProofDB())
+    monkeypatch.setattr(
+        agent_trace,
+        "_floor_check_is_workshop_stub",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        agent_trace,
+        "_stock_keeper_has_floor_check_grant",
+        lambda: False,
+    )
+
+    starter = client.get("/api/agent-trace/build-state").json()
+    assert starter["tools"]["floor_check"] == "exercise"
+    assert starter["agents"]["Stock Keeper"] == "exercise"
+
+    monkeypatch.setattr(
+        agent_trace,
+        "_floor_check_is_workshop_stub",
+        lambda: False,
+    )
+    tool_wired = client.get("/api/agent-trace/build-state").json()
+    assert tool_wired["tools"]["floor_check"] == "shipped"
+    assert tool_wired["agents"]["Stock Keeper"] == "exercise"
+
+    monkeypatch.setattr(
+        agent_trace,
+        "_stock_keeper_has_floor_check_grant",
+        lambda: True,
+    )
+    complete = client.get("/api/agent-trace/build-state").json()
+    assert complete["tools"]["floor_check"] == "shipped"
+    assert complete["agents"]["Stock Keeper"] == "shipped"
+
+
+def test_floor_check_runner_executes_participant_tool_before_agent_grant(
+    monkeypatch,
+) -> None:
+    from services import agent_tools
+
+    monkeypatch.setattr(
+        agent_trace,
+        "_floor_check_is_workshop_stub",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        agent_tools,
+        "floor_check",
+        lambda product_query="": json.dumps(
+            {
+                "status": "success",
+                "product_query": product_query,
+                "warehouses": [],
+            }
+        ),
+    )
+    client = _client(_ProofDB())
+
+    response = client.get(
+        "/api/agent-trace/tools/floor-check/run",
+        params={"product_query": "Hadley shirt"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["product_query"] == "Hadley shirt"
 
 
 def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:

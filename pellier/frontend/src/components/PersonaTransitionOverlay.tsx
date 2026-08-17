@@ -3,7 +3,7 @@
  * sign-out moments.
  *
  * Reads PersonaContext.lastTransition. On sign-in: cream card with
- * sans "Welcome back, {name}." (same register as BoutiqueWelcome)
+ * sans "Welcome back, {name}." (same register as PellierWelcome)
  * + a persona-specific tag line + animated red-1 check. On sign-out:
  * smaller farewell card
  * with "See you soon, {name}." — mirrored but quieter.
@@ -39,7 +39,7 @@ const WELCOME_TAGLINES: Record<string, string> = {
 function welcomeTagFor(personaId: string): string {
   return (
     WELCOME_TAGLINES[personaId] ??
-    'The boutique remembers. Pick up where you left off.'
+    'The pellier remembers. Pick up where you left off.'
   )
 }
 
@@ -175,7 +175,7 @@ export default function PersonaTransitionOverlay() {
                 )}
               </motion.div>
 
-              {/* Sans greeting — matches .sf-greeting on BoutiqueWelcome
+              {/* Sans greeting — matches .sf-greeting on PellierWelcome
                   (readable; avoid heavy italic Fraunces on cream). */}
               <h2
                 style={{

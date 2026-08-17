@@ -2,13 +2,13 @@
 --
 -- pellier-database.yml provisions an empty Aurora cluster. This
 -- migration is the bridge between "empty cluster" and "schema ready
--- for seed_boutique_catalog.py to INSERT rows."
+-- for seed_pellier_catalog.py to INSERT rows."
 --
 -- What it creates:
 --
 --   1. pgvector extension (Cohere Embed v4 → 1024-dim vectors)
 --   2. pellier schema
---   3. pellier.product_catalog table (boutique source of truth)
+--   3. pellier.product_catalog table (pellier source of truth)
 --   4. HNSW index on the embedding column for sub-millisecond
 --      cosine-similarity search
 --   5. updated_at trigger for soft tracking
@@ -45,7 +45,7 @@ CREATE SCHEMA IF NOT EXISTS pellier;
 -- ---------------------------------------------------------------------
 -- 3. Product catalog
 --
--- Column set matches scripts/seed_boutique_catalog.py exactly. The
+-- Column set matches scripts/seed_pellier_catalog.py exactly. The
 -- seeder INSERTs 40 rows (10 per persona × Marco / Anna / Theo /
 -- Fresh) with Cohere Embed v4 embeddings already generated.
 --
@@ -113,7 +113,7 @@ CREATE INDEX IF NOT EXISTS product_catalog_embedding_hnsw
     USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 
--- Lightweight btree on category for boutique grid filters.
+-- Lightweight btree on category for pellier grid filters.
 CREATE INDEX IF NOT EXISTS product_catalog_category_idx
     ON pellier.product_catalog (category);
 

@@ -490,7 +490,7 @@ def restock_shelf(product_id: int, quantity: int) -> str:
     """Restock a specific product by adding inventory quantity. Use when an inventory manager needs to replenish stock for a product ID.
 
     Args:
-        product_id: Integer productId (1-40 in the boutique catalog).
+        product_id: Integer productId (1-40 in the Pellier catalog).
         quantity: Units to add to current stock.
 
     """
@@ -528,7 +528,7 @@ def process_return(customer_id: str, product_id: int, reason: str) -> str:
     Args:
         customer_id: Salesforce-style customer ID (must exist in customers
             and must have an order for this product_id).
-        product_id: INTEGER productId (1-40 in the boutique catalog).
+        product_id: INTEGER productId (1-40 in the Pellier catalog).
         reason: One of 'damaged', 'wrong_size', 'not_as_described',
             'changed_mind', 'other'. The tool validates this canonical set;
             the managed Gateway policy can narrow which calls execute.
@@ -678,7 +678,7 @@ def find_pieces(
         # Track whether the category was explicitly passed by the
         # agent vs. auto-detected from a keyword map. Auto-detected
         # categories (e.g. "linen" → "Linen") are speculative — the
-        # boutique catalog uses higher-level taxonomy ("Apparel",
+        # Pellier catalog uses higher-level taxonomy ("Apparel",
         # "Home Decor", "Accessories"), so a strict substring filter
         # on an auto-detected category drops every vector-search hit.
         # The query embedding already encodes the user's intent; we
@@ -731,7 +731,7 @@ def find_pieces(
                 continue
             # Only apply category as a hard filter when the agent
             # explicitly passed one. Auto-detected categories filter
-            # too aggressively against the boutique's higher-level
+            # too aggressively against Pellier's higher-level
             # category taxonomy.
             if (
                 category_was_explicit
@@ -800,7 +800,7 @@ def find_pieces_hybrid(
 
         # Same explicit-vs-auto category guard as find_pieces. Anna's
         # auto-detected categories ("linen" → "Linen") still don't match
-        # the boutique's higher-level taxonomy ("Apparel"); only filter
+        # Pellier's higher-level taxonomy ("Apparel"); only filter
         # when the agent supplies an explicit category.
         category_was_explicit = bool(category)
 
@@ -961,8 +961,8 @@ def side_by_side(product_id_1: int, product_id_2: int) -> str:
     """Compare two products side by side by their product IDs. Use when customers want to see differences in price, rating, and features.
 
     Args:
-        product_id_1: First integer productId to compare (1-92 in the boutique catalog).
-        product_id_2: Second integer productId to compare (1-92 in the boutique catalog).
+        product_id_1: First integer productId to compare (1-92 in the Pellier catalog).
+        product_id_2: Second integer productId to compare (1-92 in the Pellier catalog).
     """
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})

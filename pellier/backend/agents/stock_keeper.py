@@ -92,10 +92,14 @@ _INVENTORY_SYSTEM_PROMPT = (
     "</output-rules>"
 )
 
-# ``_INVENTORY_AGENT_STUBBED`` — legacy flag still read by chat fall-back when
-# Stock Keeper cannot run; Pellier Labs shipped vs exercise uses ``agents.json``
-# plus ``GET /api/agent-trace/build-state`` (live ``floor_check`` stub detection).
-_INVENTORY_AGENT_STUBBED = False
+# === WORKSHOP: Stock Keeper agent grant: START ===
+INVENTORY_AGENT_TOOLS = [floor_check, restock_shelf, running_low]
+# === WORKSHOP: Stock Keeper agent grant: END ===
+
+# The builders bootstrap removes floor_check from the marked list. Keeping the
+# fallback flag derived from the real grant prevents workshop state from
+# drifting away from the Agent configuration participants edit.
+_INVENTORY_AGENT_STUBBED = floor_check not in INVENTORY_AGENT_TOOLS
 
 
 def _ensure_products_in_output(text: str, tool_results: list) -> str:
@@ -138,7 +142,7 @@ def build_inventory_agent() -> Agent:
         system_prompt=inject_persona_preamble(
             inject_skills(_INVENTORY_SYSTEM_PROMPT)
         ),
-        tools=[floor_check, restock_shelf, running_low],
+        tools=INVENTORY_AGENT_TOOLS,
     )
 
 

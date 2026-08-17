@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # ///
-"""Participant-facing Python client for the three Builders' Session labs."""
+"""Participant-facing client for the two exercises and agent wiring step."""
 
 from __future__ import annotations
 
@@ -150,9 +150,55 @@ def build_state(args: argparse.Namespace) -> int:
         "floor_check": (payload.get("tools") or {}).get("floor_check"),
     }
     print(json.dumps(result, indent=2))
-    if set(result.values()) != {args.expect}:
+    expected_agent = args.expect_agent or args.expect
+    expected_tool = args.expect_tool or args.expect
+    if expected_agent is None or expected_tool is None:
         print(
-            f"Expected both values to be {args.expect!r}.",
+            "Set --expect for both states or set both "
+            "--expect-tool and --expect-agent.",
+            file=sys.stderr,
+        )
+        return 2
+    if (
+        result["Stock Keeper"] != expected_agent
+        or result["floor_check"] != expected_tool
+    ):
+        print(
+            "Expected "
+            f"Stock Keeper={expected_agent!r}, floor_check={expected_tool!r}.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
+def tool_check(args: argparse.Namespace) -> int:
+    payload = _request_json(
+        args.base_url,
+        "/api/agent-trace/tools/floor-check/run",
+        query={"product_query": args.query},
+        timeout=30,
+    )
+    print(json.dumps(payload, indent=2))
+    brooklyn = next(
+        (
+            warehouse
+            for warehouse in payload.get("warehouses", [])
+            if warehouse.get("city") == "Brooklyn"
+            or warehouse.get("warehouse_id") == "BK-01"
+        ),
+        None,
+    )
+    valid = (
+        payload.get("status") == "success"
+        and isinstance(brooklyn, dict)
+        and isinstance(brooklyn.get("quantity"), int)
+        and isinstance(brooklyn.get("ship_window_min"), int)
+        and isinstance(brooklyn.get("ship_window_max"), int)
+    )
+    if not valid:
+        print(
+            "floor_check did not return the Brooklyn quantity and ship window.",
             file=sys.stderr,
         )
         return 1
@@ -259,12 +305,15 @@ def ledger(args: argparse.Namespace) -> int:
     print(json.dumps(memory, indent=2))
     print(f"Session file: {args.session_file}")
     valid = (
-        memory.get("source") == "aurora"
+        memory.get("source") == "agentcore-memory"
         and memory.get("loaded_messages") == 2
         and memory.get("persisted") is True
     )
     if not valid:
-        print("Lab 3 did not prove ownership-scoped Aurora recall.", file=sys.stderr)
+        print(
+            "The recall check did not prove AgentCore session memory.",
+            file=sys.stderr,
+        )
         return 1
     args.session_file.write_text(session_id + "\n", encoding="utf-8")
     return 0
@@ -279,8 +328,20 @@ def parser() -> argparse.ArgumentParser:
     readiness_parser.set_defaults(handler=readiness)
 
     build_parser = commands.add_parser("build-state")
-    build_parser.add_argument("--expect", choices=("exercise", "shipped"), required=True)
+    build_parser.add_argument("--expect", choices=("exercise", "shipped"))
+    build_parser.add_argument(
+        "--expect-tool",
+        choices=("exercise", "shipped"),
+    )
+    build_parser.add_argument(
+        "--expect-agent",
+        choices=("exercise", "shipped"),
+    )
     build_parser.set_defaults(handler=build_state)
+
+    tool_parser = commands.add_parser("tool-check")
+    tool_parser.add_argument("--query", default="Hadley shirt")
+    tool_parser.set_defaults(handler=tool_check)
 
     compare_parser = commands.add_parser("compare")
     compare_parser.add_argument("--query", default=DEFAULT_QUERY)

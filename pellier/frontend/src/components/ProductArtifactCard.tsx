@@ -6,7 +6,7 @@
  * 160px image area, italic-serif name, and espresso "Add to bag" action.
  * Mounts with artifact-mount keyframe (380ms).
  *
- * Used exclusively in BoutiqueChat. Pellier Labs branch continues
+ * Used exclusively in PellierChat. Pellier Labs branch continues
  * to use ProductCardConcierge.
  */
 import type { ChatProduct } from '../services/chat'

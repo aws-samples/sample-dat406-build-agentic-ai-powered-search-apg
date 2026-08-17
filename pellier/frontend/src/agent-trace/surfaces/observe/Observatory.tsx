@@ -47,7 +47,7 @@ const PILLARS: PillarItem[] = [
     verb: 'Evaluate',
     title: 'Performance & Routing',
     description:
-      'P50 cold start, HNSW recall, router decisions, and the operational proof behind the boutique experience.',
+      'P50 cold start, HNSW recall, router decisions, and the operational proof behind the Pellier experience.',
   },
 ];
 
@@ -145,7 +145,7 @@ const REFERENCE_LINKS: LinkItem[] = [
   {
     to: '/pellier-labs/persona-journeys',
     label: 'Persona Journeys',
-    detail: 'Trace each shopper path through the boutique',
+    detail: 'Trace each shopper path through Pellier',
   },
   {
     to: '/pellier-labs/architecture',

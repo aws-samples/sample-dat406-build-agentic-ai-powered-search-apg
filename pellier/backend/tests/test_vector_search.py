@@ -211,7 +211,7 @@ def test_iterative_scan_false_skips_set_local(embedding: List[float]) -> None:
 def test_filters_rows_with_null_image_url(embedding: List[float]) -> None:
     """SQL SHALL require a non-null ``imgUrl`` so unrendered rows stay out.
 
-    The boutique catalog has no ``quantity`` column — the image-availability
+    The Pellier catalog has no ``quantity`` column — the image-availability
     filter is the canonical "is this row ready to show?" guard.
     """
     db, _ = _call(embedding)

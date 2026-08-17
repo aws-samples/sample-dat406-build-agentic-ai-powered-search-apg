@@ -34,7 +34,7 @@ recorded.
 > production deployment without workload-specific security, resilience,
 > compliance, and operational hardening.
 
-![Pellier first-visit tour over the profile-guided storefront](.github/readme/pellier-boutique.png)
+![Pellier first-visit tour over the profile-guided storefront](.github/readme/pellier-storefront.png)
 
 **Explore:** [Experience](#experience) | [Capabilities](#capabilities) |
 [Architecture](#architecture) | [Governed edition](#governed-edition) |
@@ -77,11 +77,11 @@ keeps the sample reproducible.
 | Retrieval refinement | Cohere Rerank v3.5 reorders hybrid candidates; Claude can extract structured filters for agentic retrieval |
 | Agent orchestration | A deterministic dispatcher routes each request to one of five Strands specialists |
 | Controlled tool use | Specialists receive explicit tool allowlists across 15 declared `@tool` functions |
-| Working memory | Aurora-backed conversations and messages preserve successful turn pairs and bounded context |
+| Working memory | AgentCore Memory preserves session-scoped turns and supplies bounded context |
 | Durable evidence | JSONB tool-audit records capture caller, arguments, result, latency, session, and timestamp |
 | Runtime skills | Five checked-in markdown skills add task-specific guidance without changing product selection |
 | Operator inspection | Pellier Labs reconstructs routing, retrieval, tool, memory, evaluation, and evidence paths |
-| Managed extension | Optional AgentCore Runtime, Memory, Gateway, Identity, Policy, Evals, and MCP implementations |
+| Managed foundation | Required AgentCore Memory; optional Runtime, Gateway, Identity, Policy, Evals, and MCP implementations |
 
 ## Architecture
 
@@ -95,7 +95,9 @@ flowchart LR
     Specialist --> Tools["Allowlisted tools"]
     Tools --> Aurora[("Aurora PostgreSQL")]
     Aurora --> Retrieval["pgvector + full-text search"]
-    Aurora --> Evidence["Memory + durable evidence"]
+    Aurora --> Evidence["Business state + durable evidence"]
+    API --> Memory["AgentCore Memory"]
+    Memory --> Dispatcher
     Retrieval --> Specialist
     Evidence --> Labs["Pellier Labs"]
     API --> Labs
@@ -103,11 +105,11 @@ flowchart LR
 
 For each concierge request:
 
-1. FastAPI loads bounded session context from Aurora.
+1. FastAPI loads bounded session context from AgentCore Memory.
 2. The dispatcher classifies the request and selects one specialist.
 3. The specialist invokes Amazon Bedrock and only its declared tools.
 4. Retrieval uses semantic, lexical, hybrid, reranked, or agentic strategies.
-5. Aurora stores completed conversation turns and tool evidence.
+5. AgentCore Memory stores completed conversation turns; Aurora stores tool evidence.
 6. The storefront streams the answer while Pellier Labs exposes the
    corresponding engineering detail.
 
@@ -143,8 +145,8 @@ Pellier keeps memory and audit evidence distinct:
 
 | Concern | Owner | Purpose |
 |---|---|---|
-| Working context | Aurora conversations and messages | Supply bounded, successful prior turns |
-| Semantic preference | Optional AgentCore Memory | Preserve durable shopper preferences |
+| Working context | AgentCore Memory session events | Supply bounded, successful prior turns |
+| Semantic preference | AgentCore Memory `USER_PREFERENCE` strategy | Preserve durable shopper preferences |
 | Episodic history | Aurora orders, returns, and customer events | Keep business history in the system of record |
 | Procedural guidance | Checked-in skills and MCP schemas | Make instructions and tool contracts reviewable |
 | Operational evidence | Aurora tool audit and receipts | Record what executed and why |
@@ -256,7 +258,7 @@ PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
   -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
   -f scripts/migrations/001_schema.sql
 
-python scripts/seed_boutique_catalog.py --from-cache
+python scripts/seed_pellier_catalog.py --from-cache
 
 for migration in \
   002_workshop_telemetry.sql \

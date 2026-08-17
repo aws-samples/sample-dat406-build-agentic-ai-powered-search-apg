@@ -1,5 +1,5 @@
 /**
- * BoutiqueWelcome.resolveCover tests — persona-specific cover
+ * PellierWelcome.resolveCover tests — persona-specific cover
  * resolution for the welcome card.
  *
  * Anna (gift-shopper) gets a pinned gift piece + gift eyebrow.
@@ -8,9 +8,9 @@
  * rendering the component.
  */
 import { describe, expect, it } from 'vitest'
-import { resolveCover } from './BoutiqueWelcome'
+import { resolveCover } from './PellierWelcome'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
-import type { BoutiqueProduct } from '../services/types'
+import type { PellierProduct } from '../services/types'
 import type { CatalogStats } from '../hooks/useCatalogStats'
 
 function persona(id: string, overrides: Partial<PersonaSnapshot> = {}): PersonaSnapshot {
@@ -28,7 +28,7 @@ function persona(id: string, overrides: Partial<PersonaSnapshot> = {}): PersonaS
 
 // Tight synthetic catalog with just the pieces the resolver needs to
 // find. Keeps the test independent of real showcase-data edits.
-const CATALOG: BoutiqueProduct[] = [
+const CATALOG: PellierProduct[] = [
   {
     id: 1,
     brand: 'Pellier Editions',

@@ -232,7 +232,7 @@ def test_canonical_multi_tool_rules_are_explicit_in_specialist_prompts() -> None
     from agents.stock_keeper import _INVENTORY_SYSTEM_PROMPT
     from agents.style_advisor import _SEARCH_SYSTEM_PROMPT
     from agents.value_analyst import _PRICING_SYSTEM_PROMPT
-    from boutique_copy import RECOMMENDATION_SYSTEM_PROMPT
+    from pellier_copy import RECOMMENDATION_SYSTEM_PROMPT
 
     assert "Pass the shopper's collection term verbatim" in _SEARCH_SYSTEM_PROMPT
     assert "set context to 'travel'" in _SEARCH_SYSTEM_PROMPT

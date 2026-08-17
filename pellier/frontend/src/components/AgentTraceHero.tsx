@@ -3,7 +3,7 @@
  *
  * Mirrors the storefront's hero register (kicker · display italic ·
  * epigraph) so the two surfaces read as siblings rather than a
- * boutique paired with a developer dashboard.
+ * pellier paired with a developer dashboard.
  */
 import { cssVar as c } from '../design/cssVars'
 

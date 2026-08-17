@@ -183,7 +183,7 @@ export const AgentTraceWelcome: React.FC = () => {
           maxWidth: '900px',
         }}
       >
-        The operator's side of the boutique.
+        The operator's side of Pellier.
       </h1>
 
       {/* Summary */}

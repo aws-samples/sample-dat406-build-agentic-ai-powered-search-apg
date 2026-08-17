@@ -27,12 +27,18 @@ Runnable from the repo root per ``pytest.ini``:
 from __future__ import annotations
 
 import asyncio
+import sys
+from types import ModuleType
 from typing import Any
 
 import pytest
 
 from models import Preferences
-from services.agentcore_memory import AgentCoreMemory, ManagedMemoryError
+from services.agentcore_memory import (
+    AgentCoreMemory,
+    ManagedMemoryError,
+    probe_memory_backend_status,
+)
 
 
 def _run(coro: Any) -> Any:
@@ -60,6 +66,69 @@ def memory():
     from services.agentcore_memory import AgentCoreMemory
 
     return AgentCoreMemory()
+
+
+def test_memory_status_requires_active_control_plane_resource(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An env id and importable SDK cannot make a stale resource look live."""
+    import boto3
+
+    monkeypatch.setitem(
+        sys.modules,
+        "bedrock_agentcore",
+        ModuleType("bedrock_agentcore"),
+    )
+
+    class Control:
+        def get_memory(self, *, memoryId):
+            assert memoryId == "memory-stale"
+            raise RuntimeError("resource not found")
+
+    monkeypatch.setattr(boto3, "client", lambda *_args, **_kwargs: Control())
+
+    status = probe_memory_backend_status(
+        memory_id="memory-stale",
+        region="us-east-1",
+    )
+
+    assert status["live"] is False
+    assert status["source"] == "in-process-dict"
+    assert status["resource_status"] is None
+    assert "GetMemory verification failed" in status["fallback_reason"]
+
+
+def test_memory_status_accepts_active_control_plane_resource(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import boto3
+
+    monkeypatch.setitem(
+        sys.modules,
+        "bedrock_agentcore",
+        ModuleType("bedrock_agentcore"),
+    )
+
+    class Control:
+        def get_memory(self, *, memoryId):
+            assert memoryId == "memory-active"
+            return {"memory": {"id": memoryId, "status": "ACTIVE"}}
+
+    monkeypatch.setattr(boto3, "client", lambda *_args, **_kwargs: Control())
+
+    status = probe_memory_backend_status(
+        memory_id="memory-active",
+        region="us-east-1",
+    )
+
+    assert status == {
+        "live": True,
+        "source": "agentcore-sdk",
+        "memory_id": "memory-active",
+        "sdk_available": True,
+        "resource_status": "ACTIVE",
+        "fallback_reason": None,
+    }
 
 
 # ---------------------------------------------------------------------------

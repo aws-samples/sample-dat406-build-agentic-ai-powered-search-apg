@@ -153,7 +153,7 @@ test.describe('Workshop production build smoke', () => {
   test('persona sign-in updates the storefront to Marco', async ({ page }) => {
     await signInAsMarco(page);
     await expect(page.getByTestId('persona-pill')).toContainText(/Marco/i);
-    const heroPills = page.getByTestId('boutique-hero-pills');
+    const heroPills = page.getByTestId('pellier-hero-pills');
     await expect(heroPills).toBeVisible();
     await expect(heroPills).toContainText('Browse linen for a Goa carry-on');
   });

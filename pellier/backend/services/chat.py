@@ -156,11 +156,11 @@ def classify_triage(query: str) -> Optional[str]:
 
 
 # Canned responses per triage bucket. Kept short + on-brand so the
-# demo still feels boutique, not transactional. Multiple variants so
+# demo still feels like Pellier, not a transactional service. Multiple variants so
 # repeat demos don't sound identical.
 _TRIAGE_REPLIES = {
     "greeting": (
-        "Hi! I'm Pellier — your concierge for the boutique. "
+        "Hi! I'm your Pellier concierge. "
         "Tell me what you're after: a piece, a vibe, a price range, or a gift."
     ),
     "meta": (
@@ -174,17 +174,17 @@ _TRIAGE_REPLIES = {
 }
 
 
-async def _append_boutique_stm_turn(
+async def _append_pellier_stm_turn(
     session_id: Optional[str],
     user_message: str,
     assistant_message: str,
     user: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Mirror a Pellier turn to configured AgentCore Memory.
+    """Append a Pellier turn when the transport does not own persistence.
 
-    Aurora is the required-path working-memory store. This optional mirror is
-    only active when a managed Memory resource is configured; an in-process
-    fallback must not be presented as managed persistence.
+    The storefront transport owns the required AgentCore Memory read/write and
+    disables this helper to avoid duplicate events. Other callers may use it
+    when a managed Memory resource is configured.
     """
     if not session_id:
         return
@@ -265,7 +265,7 @@ class ProductExtractor:
     def _normalize(p: dict) -> dict:
         """Normalize field names from various tool output formats.
 
-        Tool results today come from the boutique catalog (``name``,
+        Tool results today come from the Pellier catalog (``name``,
         ``category``, ``imgUrl``); legacy keys (``product_description``,
         ``category_name``, ``product_url``) are retained as fallbacks so
         older unit fixtures and any cached agent output still resolve.
@@ -1332,6 +1332,7 @@ CURRENT REQUEST: {message}"""
         user: Optional[Dict[str, Any]] = None,
         pattern: Optional[str] = None,
         response_mode: str = "balanced",
+        memory_managed_by_caller: bool = False,
     ):
         """
         Async generator yielding SSE events with real-time agent streaming.
@@ -1561,7 +1562,7 @@ CURRENT REQUEST: {message}"""
         from agents.orchestrator import create_orchestrator, create_guarded_orchestrator
 
         session_manager = None
-        if session_id:
+        if session_id and not memory_managed_by_caller:
             from config import settings
             if user and settings.AGENTCORE_MEMORY_ID:
                 try:
@@ -1814,7 +1815,7 @@ CURRENT REQUEST: {message}"""
         # thanks) short-circuits before reaching here.
         #
         # The ``skill_routing`` SSE event must fire BEFORE any text tokens
-        # so the boutique UI can render the attribution line above the
+        # so the Pellier UI can render the attribution line above the
         # reply. Storefront reads ``loaded_skills``; Pellier Labs renders the
         # full decision in its live activation log.
         skill_decision = None
@@ -1839,7 +1840,7 @@ CURRENT REQUEST: {message}"""
         timing["skill_router"] = (time.perf_counter() - skill_t0) * 1000
 
         # Emit the routing event immediately — before any text — so the
-        # boutique attribution line is mounted above the streamed reply.
+        # pellier attribution line is mounted above the streamed reply.
         if skill_decision is not None:
             yield {
                 "type": "skill_routing",
@@ -2784,9 +2785,13 @@ CURRENT REQUEST: {message}"""
             ),
         }
 
-        # AgentCore STM — mirror this turn for session continuity labs.
-        if session_id and parsed.get("text"):
-            await _append_boutique_stm_turn(
+        # Persist only when the transport has not already claimed ownership.
+        if (
+            session_id
+            and parsed.get("text")
+            and not memory_managed_by_caller
+        ):
+            await _append_pellier_stm_turn(
                 session_id, message, parsed["text"], user=user
             )
 

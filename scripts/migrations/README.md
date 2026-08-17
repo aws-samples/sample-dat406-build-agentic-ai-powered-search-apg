@@ -15,7 +15,7 @@ FKs.
 
 1. **`001_schema.sql`** — creates `vector`, the `pellier` schema,
    `pellier.product_catalog`, the HNSW index, and the `updated_at`
-   trigger. Run before `scripts/seed_boutique_catalog.py`.
+   trigger. Run before `scripts/seed_pellier_catalog.py`.
 2. **`002_workshop_telemetry.sql`** — creates `pellier.{agent_trace_spans,
    tools, tool_audit, customers, orders, approvals}`. Run after the
    catalog seed because `pellier.orders.product_id` references
@@ -46,7 +46,7 @@ PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -v ON_ERROR_STOP=1 \
     -f scripts/migrations/001_schema.sql
 
-python3 scripts/seed_boutique_catalog.py
+python3 scripts/seed_pellier_catalog.py
 
 for migration in \
     002_workshop_telemetry.sql \

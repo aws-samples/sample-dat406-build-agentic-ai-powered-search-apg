@@ -28,23 +28,23 @@ const COLLECTIONS = [
   },
 ] as const
 
-interface BoutiqueCollectionsProps {
+interface PellierCollectionsProps {
   onOpenCatalog: () => void
 }
 
-export default function BoutiqueCollections({
+export default function PellierCollections({
   onOpenCatalog,
-}: BoutiqueCollectionsProps) {
+}: PellierCollectionsProps) {
   return (
     <section
-      data-testid="boutique-collections"
-      aria-labelledby="boutique-collections-title"
+      data-testid="pellier-collections"
+      aria-labelledby="pellier-collections-title"
       className="w-full px-container-x py-10 md:py-14"
     >
       <div className="mx-auto max-w-[1440px]">
         <header className="mb-5 flex items-end justify-between gap-5">
           <h2
-            id="boutique-collections-title"
+            id="pellier-collections-title"
             className="font-display text-[32px] font-normal leading-none text-espresso md:text-[40px]"
             style={{ letterSpacing: 0 }}
           >

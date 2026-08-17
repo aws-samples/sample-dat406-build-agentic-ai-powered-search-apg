@@ -65,7 +65,7 @@ def test_owner_agent_assigned_for_every_tool(seeder_module) -> None:
     """Pellier Labs Tools surface shows provenance per tool; 'unknown' owner
     means the map fell out of sync with Gateway's name list.
 
-    Owners are the 5 boutique-branded specialists. Mirrors the
+    Owners are the 5 Pellier-branded specialists. Mirrors the
     agents/*.py factories.
     """
     specs = seeder_module._load_tool_specs()

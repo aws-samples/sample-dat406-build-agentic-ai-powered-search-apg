@@ -14,7 +14,7 @@
 --   pellier.orders             — demo orders; backs the headline 3-table JOIN panel.
 --   pellier.approvals          — Identity-gated sensitive-tool gate (Card 10).
 --
--- Runs after 001_schema.sql and scripts/seed_boutique_catalog.py. The
+-- Runs after 001_schema.sql and scripts/seed_pellier_catalog.py. The
 -- product_catalog table is this migration's FK target.
 --
 -- Run with:
@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS pellier.orders (
     id           BIGSERIAL PRIMARY KEY,
     customer_id  TEXT NOT NULL
                  REFERENCES pellier.customers(id) ON DELETE CASCADE,
-    -- product_catalog."productId" is TEXT in the boutique schema.
+    -- product_catalog."productId" is TEXT in the pellier schema.
     -- Keep orders.product_id TEXT too so fresh-cluster bootstrap can
     -- create the FK without type coercion surprises.
     product_id   TEXT NOT NULL

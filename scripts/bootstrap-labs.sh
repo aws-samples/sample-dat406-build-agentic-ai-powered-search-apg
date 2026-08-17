@@ -13,6 +13,9 @@ HOME_FOLDER="${HOME_FOLDER:-/workshop}"
 REPO_NAME="sample-pellier-agentic-search-apg"
 REPO_PATH="$HOME_FOLDER/$REPO_NAME"
 AWS_REGION="${AWS_REGION:-us-east-1}"
+AGENTCORE_CLI_VERSION="${AGENTCORE_CLI_VERSION:-1.0.0-preview.26}"
+PLAYWRIGHT_MCP_VERSION="${PLAYWRIGHT_MCP_VERSION:-0.0.79}"
+PLAYWRIGHT_BROWSER_VERSION="${PLAYWRIGHT_BROWSER_VERSION:-1.63.0-alpha-2026-08-05}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
@@ -30,7 +33,8 @@ write_status_json() {
     "components": {
         "pellier_backend": "ready",
         "pellier_frontend": "ready",
-        "database_config": "ready"
+        "database_config": "ready",
+        "agentcore_memory": "ready"
     },
     "builders_managed_path": {
         "status": "${managed_status}",
@@ -178,6 +182,8 @@ BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}'
 BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-5}'
 WORKSHOP_ID='${WORKSHOP_ID:-}'
 WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-builders}'
+USE_AGENTCORE_RUNTIME='false'
+AGENTCORE_MEMORY_ID=''
 AUTH_MODE='${AUTH_MODE:-cognito}'
 COGNITO_USER_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_POOL_ID='${COGNITO_USER_POOL_ID:-}'
@@ -319,7 +325,7 @@ setup_frontend() {
 }
 
 setup_database() {
-    if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/scripts/seed_boutique_catalog.py" ]; then
+    if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/scripts/seed_pellier_catalog.py" ]; then
         cd "$REPO_PATH"
         export DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD AWS_REGION
         export ASSETS_BUCKET_NAME ASSETS_BUCKET_PREFIX
@@ -333,7 +339,7 @@ setup_database() {
         # ---- 1. Schema bootstrap (CREATE EXTENSION vector + schema +
         # product_catalog table + HNSW index). pellier-database.yml
         # provisions an empty Aurora cluster; this migration is what
-        # makes the cluster boutique-ready. Runs first because the
+        # makes the cluster Pellier-ready. Runs first because the
         # seeder INSERTs into pellier.product_catalog and assumes the
         # vector(1024) column exists. ----
         if [ -f "$REPO_PATH/scripts/migrations/001_schema.sql" ]; then
@@ -363,7 +369,7 @@ setup_database() {
         # Bedrock on every account. This removes the slowest, most
         # throttle-prone step from the bootstrap critical path and makes the
         # seed a deterministic SQL load. To regenerate the cache after a
-        # catalog change, run `python scripts/seed_boutique_catalog.py --csv-only`
+        # catalog change, run `python scripts/seed_pellier_catalog.py --csv-only`
         # on a machine with Bedrock access and commit the updated cache.
         #
         # Must run as $CODE_EDITOR_USER: psycopg is installed via
@@ -379,7 +385,7 @@ setup_database() {
             export ASSETS_BUCKET_PREFIX='${ASSETS_BUCKET_PREFIX:-}'
             export DATABASE_URL='$DATABASE_URL'
             cd '$REPO_PATH'
-            python3 scripts/seed_boutique_catalog.py --from-cache
+            python3 scripts/seed_pellier_catalog.py --from-cache
         " 2>&1 | tee /var/log/database-setup.log
         local seed_rc=${PIPESTATUS[0]}
         if [ "$seed_rc" -ne 0 ]; then
@@ -457,14 +463,76 @@ setup_frontend & PID_FE=$!
 setup_database & PID_DB=$!
 wait $PID_FE && log "✅ Frontend dependencies installed" || warn "Frontend install issues"
 if wait $PID_DB; then
-    log "✅ Database setup complete (40 boutique products, HNSW index, workshop tables)"
+    log "✅ Database setup complete (40 Pellier products, HNSW index, workshop tables)"
 else
     warn "Database setup had issues - check /var/log/database-setup.log"
 fi
 
 # ============================================================================
-# Memory belongs to the optional AgentCore CLI project deployed in STEP 16.
-# The default one-hour path does not create managed resources.
+# STEP 10b: OPTIONAL BROWSER PREVIEW TOOLING
+# ============================================================================
+# Claude Code uses this MCP server only when a participant asks it to preview
+# or test the running app. It is intentionally outside the required exercise
+# path and must never make the storefront bootstrap fail.
+log "Installing optional Playwright MCP browser tooling..."
+PLAYWRIGHT_LOG="/var/log/pellier-playwright-mcp.log"
+if sudo -u "$CODE_EDITOR_USER" bash -c "
+    export HOME='/home/$CODE_EDITOR_USER'
+    export PATH='/usr/local/bin:/usr/bin:/bin'
+    mkdir -p \"\$HOME/.cache/ms-playwright\" /tmp/pellier-playwright
+    npx -y 'playwright@${PLAYWRIGHT_BROWSER_VERSION}' install chromium
+    claude mcp remove playwright --scope user >/dev/null 2>&1 || true
+    claude mcp add --scope user playwright -- \
+        npx -y '@playwright/mcp@${PLAYWRIGHT_MCP_VERSION}' \
+        --headless --isolated --output-dir /tmp/pellier-playwright
+" >>"$PLAYWRIGHT_LOG" 2>&1; then
+    log "✅ Playwright MCP ready for Claude Code browser preview"
+else
+    warn "Playwright MCP setup failed; core workshop remains ready. See $PLAYWRIGHT_LOG"
+fi
+
+# ============================================================================
+# STEP 10c: REQUIRED AGENTCORE MEMORY
+# ============================================================================
+# Runtime, Gateway, and Policy remain optional in the one-hour workshop.
+# AgentCore Memory does not depend on those services, so provision it as an
+# independent CLI resource and use it for storefront session turns.
+log "Provisioning required AgentCore Memory..."
+MEMORY_OUTPUT_JSON="/tmp/pellier-agentcore-memory.json"
+MEMORY_LOG="/var/log/pellier-agentcore-memory.log"
+if ! sudo -u "$CODE_EDITOR_USER" bash -c "
+    export HOME='/home/$CODE_EDITOR_USER'
+    export PATH='/usr/bin:/usr/local/bin:\$HOME/.local/bin:\$PATH'
+    set -a
+    source '$REPO_PATH/.env'
+    set +a
+    export AWS_REGION='$AWS_REGION'
+    export AWS_DEFAULT_REGION='$AWS_REGION'
+    export WORKSHOP_ID='${WORKSHOP_ID:-unknown}'
+    export REPO_PATH='$REPO_PATH'
+    python3 '$REPO_PATH/scripts/provision_agentcore_memory.py' \
+        --repo-path '$REPO_PATH' \
+        --output-json '$MEMORY_OUTPUT_JSON'
+" 2>&1 | tee "$MEMORY_LOG"; then
+    fail "Required AgentCore Memory provisioning failed; see $MEMORY_LOG"
+fi
+
+MEMORY_ID="$(jq -r '.memory.memory_id // empty' "$MEMORY_OUTPUT_JSON")"
+MEMORY_STATUS="$(jq -r '.memory.resource_status // empty' "$MEMORY_OUTPUT_JSON")"
+PROVISION_STATUS="$(jq -r '.status // empty' "$MEMORY_OUTPUT_JSON")"
+if [ -z "$MEMORY_ID" ] \
+    || [ "$MEMORY_STATUS" != "ACTIVE" ] \
+    || [ "$PROVISION_STATUS" != "ready" ]; then
+    fail "Required AgentCore Memory did not reach ACTIVE; see $MEMORY_OUTPUT_JSON"
+fi
+
+upsert_env "AGENTCORE_MEMORY_ID" "$MEMORY_ID" "$REPO_PATH/.env"
+upsert_env "USE_AGENTCORE_RUNTIME" "false" "$REPO_PATH/.env"
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
+if [ -d "$REPO_PATH/.agentcore-project" ]; then
+    chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.agentcore-project/"
+fi
+log "Required AgentCore Memory is ACTIVE: $MEMORY_ID"
 
 # ============================================================================
 # STEP 11: CREATE START SCRIPTS (~5 sec)
@@ -530,12 +598,13 @@ alias frontend='cd /workshop/sample-pellier-agentic-search-apg/pellier/frontend'
 # One-shot readiness check for the required participant path
 alias health='bash /workshop/sample-pellier-agentic-search-apg/scripts/health-gate.sh'
 
-# AgentCore CLI (pinned 0.26.0). The one-hour path stays in-process, but the
-# optional managed path uses the same declarative CLI project as governed.
+# AgentCore CLI (pinned preview release). The one-hour agent runtime stays
+# in-process, while required Memory and optional managed resources share the
+# same declarative CLI project.
 # Running from the project root lets the CLI resolve deployed-state.json.
 agentcore() {
     ( cd /workshop/sample-pellier-agentic-search-apg/.agentcore-project/pellier 2>/dev/null \
-        && if _ac_bin="$(type -P agentcore)"; then "$_ac_bin" "$@"; else npx -y @aws/agentcore@0.26.0 "$@"; fi )
+        && if _ac_bin="$(type -P agentcore)"; then "$_ac_bin" "$@"; else npx -y @aws/agentcore@1.0.0-preview.26 "$@"; fi )
 }
 
 # Pellier service shortcuts — see FORMAT_ALIASES below (workshop vs builders).
@@ -743,11 +812,10 @@ log "✅ Status marker created"
 # STEP 16: WORKSHOP FORMAT — Pre-apply everything participants don't build
 # ============================================================================
 #
-# The required path wires the floor_check tool body in
-# services/agent_tools.py and then proves the same production path
-# through retrieval, memory, Runtime, Gateway, Policy, and the Aurora
-# audit ledger. Stock Keeper's system prompt and orchestrator are
-# already in place before participants arrive.
+# Exercise 1 wires the floor_check tool body in services/agent_tools.py.
+# The later agent step grants that tool to Stock Keeper and observes the live
+# Strands call. Both gaps are installed and verified below before provisioning
+# may report success.
 #
 # This block copies finished reference files from solutions/ into
 # their runtime locations under pellier/backend/ and pellier/frontend/.
@@ -759,8 +827,9 @@ log "✅ Status marker created"
 #   solutions/closing-marcos-gap/ — the required-path (the only edited module)
 #   solutions/the-ledger/    — governance reference (observe-only)
 #
-# Files we explicitly do NOT copy (participants build these):
-#   inside agent_tools.py — the floor_check tool body only
+# Files participants complete:
+#   agent_tools.py — the floor_check tool body
+#   stock_keeper.py — the floor_check entry in INVENTORY_AGENT_TOOLS
 if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     log "=========================================="
     log "Workshop: pre-applying reference files"
@@ -787,12 +856,16 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
     copy_solution "solutions/closing-marcos-gap/agents/orchestrator.py" \
                   "pellier/backend/agents/orchestrator.py" "Orchestrator"
 
-    # ---- agent_tools.py builders variant ----
-    # Wires restock_shelf + running_low (everything Stock Keeper-adjacent
-    # except floor_check itself). Participants will edit this file in
-    # the required-path to add the floor_check body — and only that body.
-    copy_solution "solutions/closing-marcos-gap/services/agent_tools_builders_preapply.py" \
-                  "pellier/backend/services/agent_tools.py" "Agent tools (builders variant)"
+    # ---- Required starter state: fail closed ----
+    #
+    # Do not use the warning-only copy helper for participant gaps. A missing
+    # starter overlay must fail UserData rather than silently ship completed
+    # source to one or more accounts.
+    python3 "$REPO_PATH/scripts/builders_starter.py" \
+        --repo "$REPO_PATH" apply
+    python3 "$REPO_PATH/scripts/builders_starter.py" \
+        --repo "$REPO_PATH" verify --expect starter
+    log "  builders: verified floor_check body + Stock Keeper grant are incomplete"
 
     # ---- AgentCore production plumbing ----
     # Memory + Gateway + Policy + Runtime + Identity all import each
@@ -1000,17 +1073,12 @@ EOF
         chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.agentcore-project/"
     fi
 
-    # Warm the exact CLI version used by the project. Keep this independent of
-    # AGENTCORE_OK so a partial deployment remains inspectable.
-    if command -v npm &>/dev/null; then
-        log "Installing pinned AgentCore CLI globally (@aws/agentcore@0.26.0)..."
-        npm install -g @aws/agentcore@0.26.0 >/dev/null 2>&1 \
-            && log "✅ agentcore CLI installed globally ($(command agentcore --version 2>/dev/null || echo 'version check skipped'))" \
-            || warn "Global @aws/agentcore@0.26.0 install failed — the agentcore function will fall back to npx; see npm logs."
+    if [ "$(command agentcore --version 2>/dev/null || true)" != "$AGENTCORE_CLI_VERSION" ]; then
+        fail "Pinned AgentCore CLI $AGENTCORE_CLI_VERSION is unavailable"
     fi
     else
         write_status_json "complete" "not_applicable" ""
-        log "Skipping managed Runtime, Gateway, and Policy for the one-hour builders path"
+        log "Required Memory is ready; skipping optional Runtime, Gateway, and Policy"
     fi
 
     # Participant edits and service reloads need ownership regardless of
@@ -1020,7 +1088,7 @@ EOF
     # The pellier.service unit (STEP 14) already runs uvicorn with --reload
     # for builders format and rebuilds the frontend in ExecStartPre. Now
     # that the solution files are in place, restart the unit
-    # once so it picks them up. systemd owns the process — no nohup, no PID
+    # once so it picks them up. systemd owns the process - no nohup, no PID
     # file, no second backend fighting for :8000. A restart failure is
     # non-fatal (the health gate reports it); --reload keeps the live-edit DX.
     log "Restarting pellier service to pick up builders solutions..."

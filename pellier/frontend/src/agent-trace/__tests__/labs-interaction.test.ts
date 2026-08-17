@@ -25,14 +25,20 @@ describe('labs interaction contract', () => {
     // surface announced itself as reference.
     expect(isInteractivePath('/pellier-labs/')).toBe(true)
     expect(interactionForPath('/pellier-labs/')).toBe('interactive')
-    expect(modeCopyForPath('/pellier-labs/').label).toBe('Interactive')
+    expect(modeCopyForPath('/pellier-labs/').label).toBe('Live Workbench')
   })
 
   it('marks the explainer views as reference', () => {
     for (const path of [
       '/pellier-labs/architecture',
+      '/pellier-labs/references',
       '/pellier-labs/persona-journeys',
       '/pellier-labs/sessions',
+      '/pellier-labs/tools',
+      '/pellier-labs/search',
+      '/pellier-labs/skills',
+      '/pellier-labs/agents',
+      '/pellier-labs/memory',
       '/pellier-labs/routing',
       '/pellier-labs/proof-board',
       '/pellier-labs/evaluations',
@@ -41,36 +47,26 @@ describe('labs interaction contract', () => {
       '/pellier-labs/performance',
     ]) {
       expect(interactionForPath(path), path).toBe('reference')
-      expect(modeCopyForPath(path).label, path).toBe('Reference')
+      expect(modeCopyForPath(path).label, path).toBe('Optional reference')
     }
   })
 
   it('does not let an interactive path leak onto an unrelated sibling route', () => {
-    // `/pellier-labs/tools` is interactive; a different route that merely starts
-    // with the same characters is not.
+    // A different route that merely starts with the root text is not live.
     expect(isInteractivePath('/pellier-labs/toolsmith')).toBe(false)
     expect(isInteractivePath('/pellier-labs/searchable')).toBe(false)
   })
 
-  it('keeps Agents and Memory interactive', () => {
-    // Both read live sources, so participants are meant to operate them.
-    for (const path of ['/pellier-labs/agents', '/pellier-labs/memory']) {
-      expect(interactionForPath(path), path).toBe('interactive')
-      expect(modeCopyForPath(path).label, path).toBe('Interactive')
-    }
-  })
-
-  it('lets a nested route inherit its parent contract', () => {
-    expect(interactionForPath('/pellier-labs/tools/find_pieces')).toBe('interactive')
+  it('keeps nested supporting routes optional', () => {
+    expect(interactionForPath('/pellier-labs/tools/find_pieces')).toBe('reference')
     expect(modeCopyForPath('/pellier-labs/tools/find_pieces').label).toBe(
-      'Interactive',
+      'Optional reference',
     )
     expect(interactionForPath('/pellier-labs/sessions/marco-x')).toBe('reference')
   })
 
-  it('gives each interactive surface its own description', () => {
-    const details = INTERACTIVE_PATHS.map((p) => modeCopyForPath(p).detail)
-    expect(new Set(details).size).toBe(INTERACTIVE_PATHS.length)
-    for (const d of details) expect(d.length).toBeGreaterThan(20)
+  it('declares only the workbench as interactive', () => {
+    expect(INTERACTIVE_PATHS).toEqual(['/pellier-labs'])
+    expect(modeCopyForPath('/pellier-labs').detail.length).toBeGreaterThan(20)
   })
 })

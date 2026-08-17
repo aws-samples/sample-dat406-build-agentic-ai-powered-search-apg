@@ -6,195 +6,34 @@
  */
 
 import React, { useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
 import {
   ArrowLeft,
   BookOpen,
-  Check,
-  ChevronDown,
-  ClipboardCheck,
-  Gauge,
-  ListChecks,
-  IdCard,
-  Layers,
-  PackageSearch,
-  ConciergeBell,
-  Map,
   ReceiptText,
-  Signpost,
-  Tags,
-  Search,
-  Workflow,
 } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PersonaModal from '../../components/PersonaModal';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '../../components/ui';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
-import {
-  GROUP_LABELS,
-  interactionForPath,
-  type LabsInteraction,
-} from './labsInteraction';
 
 const GITHUB_REPOSITORY_URL =
   'https://github.com/aws-samples/sample-pellier-agentic-search-apg';
 
-interface LabsView {
-  label: string;
-  path: string;
-  description: string;
-  icon: LucideIcon;
-  /**
-   * Persona ids to render as stacked portraits in place of the icon.
-   *
-   * Persona journeys is about three named shoppers, and a glyph cannot say that
-   * the way their faces can. This is the one row in the picker where real
-   * photography beats iconography, so it opts out of the icon slot rather than
-   * settling for an abstract one. `icon` stays set as the fallback.
-   */
-  faces?: readonly string[];
-}
-
-interface LabsViewGroup {
-  label: string;
-  views: LabsView[];
-}
-
-const LABS_VIEW_GROUPS: LabsViewGroup[] = [
+const LABS_TABS = [
   {
-    label: 'Guided demo',
-    views: [
-      {
-        label: 'Live workbench',
-        path: '/pellier-labs',
-        description: 'Run a request and inspect emitted evidence.',
-        icon: ReceiptText,
-      },
-      {
-        label: 'Persona journeys',
-        faces: ['marco', 'anna', 'theo'],
-        path: '/pellier-labs/persona-journeys',
-        description: 'Compare canonical request and tool paths.',
-        icon: Workflow,
-      },
-      {
-        label: 'Sessions',
-        path: '/pellier-labs/sessions',
-        description: 'Replay a captured request and trace.',
-        icon: ListChecks,
-      },
-    ],
+    label: 'Live Workbench',
+    path: '/pellier-labs',
+    icon: ReceiptText,
   },
   {
-    label: 'Inspect',
-    views: [
-      {
-        label: 'Architecture',
-        path: '/pellier-labs/architecture',
-        description: 'Live request topology and component boundaries.',
-        icon: Map,
-      },
-      {
-        label: 'Agents',
-        path: '/pellier-labs/agents',
-        description: 'Specialist contracts and handoffs.',
-        icon: ConciergeBell,
-      },
-      {
-        label: 'Tools',
-        path: '/pellier-labs/tools',
-        description: 'Callable contracts and Aurora operations.',
-        icon: Tags,
-      },
-      {
-        label: 'Skills',
-        path: '/pellier-labs/skills',
-        description: 'Prompt overlays selected per request.',
-        icon: BookOpen,
-      },
-      {
-        label: 'Search',
-        path: '/pellier-labs/search',
-        description: 'Hybrid retrieval, fusion, and reranking.',
-        icon: Search,
-      },
-      {
-        label: 'Routing',
-        path: '/pellier-labs/routing',
-        description: 'Intent classification and dispatch.',
-        icon: Signpost,
-      },
-      {
-        label: 'Memory',
-        path: '/pellier-labs/memory',
-        description: 'Working state and durable records.',
-        icon: IdCard,
-      },
-      {
-        label: 'Write path',
-        path: '/pellier-labs/write-path',
-        description: 'Policy-gated, audited mutations.',
-        icon: PackageSearch,
-      },
-    ],
+    label: 'Optional References',
+    path: '/pellier-labs/references',
+    icon: BookOpen,
   },
-  {
-    label: 'Evaluate',
-    views: [
-      {
-        label: 'Performance',
-        path: '/pellier-labs/performance',
-        description: 'Turn timing and retrieval budgets.',
-        icon: Gauge,
-      },
-      {
-        label: 'Evaluations',
-        path: '/pellier-labs/evaluations',
-        description: 'Golden journeys and response checks.',
-        icon: ClipboardCheck,
-      },
-      {
-        label: 'Production patterns',
-        path: '/pellier-labs/production-patterns',
-        description: 'Identity, tenancy, and guardrails.',
-        icon: Layers,
-      },
-    ],
-  },
-];
-
-const LABS_VIEWS = LABS_VIEW_GROUPS.flatMap((group) => group.views);
-
-/*
- * The picker used to group by subject (Guided demo / Inspect / Evaluate), which
- * left Live workbench sitting beside two views that run nothing. It now groups
- * by what the participant does, from the shared contract in labsInteraction, so
- * "which of these fifteen do I actually operate" is answerable at a glance.
- * Order inside each group is preserved from the definitions above.
- */
-const LABS_INTERACTION_GROUPS: Array<{
-  interaction: LabsInteraction;
-  label: string;
-  views: LabsView[];
-}> = (['interactive', 'reference'] as const).map((interaction) => ({
-  interaction,
-  label: GROUP_LABELS[interaction],
-  views: LABS_VIEWS.filter(
-    (view) => interactionForPath(view.path) === interaction,
-  ),
-}));
+] as const;
 
 const TopBar: React.FC = () => {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const { persona } = usePersona();
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
 
@@ -202,14 +41,8 @@ const TopBar: React.FC = () => {
   const avatarColor = persona?.avatar_color ?? '#665f58';
   const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Choose profile';
   const photoUrl = persona ? getPersonaPhoto(persona.id) : undefined;
-  const activeLabsView =
-    LABS_VIEWS.find(
-      (view) =>
-        pathname === view.path ||
-        (view.path !== '/pellier-labs' &&
-          pathname.startsWith(`${view.path}/`)),
-    ) ?? LABS_VIEW_GROUPS[0].views[0];
-  const ActiveViewIcon = activeLabsView.icon;
+  const isWorkbench =
+    pathname === '/pellier-labs' || pathname === '/pellier-labs/';
 
   return (
     <>
@@ -218,101 +51,26 @@ const TopBar: React.FC = () => {
           <Link to="/pellier-labs" className="pellier-labs-wordmark">
             Pellier Labs
           </Link>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="pellier-labs-view-trigger"
-                data-testid="pellier-labs-view-switcher"
-                aria-label={`Pellier Labs view: ${activeLabsView.label}`}
-                title="Open Pellier Labs navigation"
-              >
-                <ActiveViewIcon
-                  className="pellier-labs-view-trigger-icon"
-                  size={16}
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-                <span className="pellier-labs-view-trigger-label">
-                  {activeLabsView.label}
-                </span>
-                <ChevronDown
-                  className="pellier-labs-view-trigger-chevron"
-                  size={15}
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="pellier-labs-view-menu"
-              align="start"
-              sideOffset={10}
-              collisionPadding={12}
-            >
-              {LABS_INTERACTION_GROUPS.map((group) => (
-                <div
-                  className="pellier-labs-view-menu-section"
-                  data-interaction={group.interaction}
-                  key={group.label}
-                >
-                  <DropdownMenuLabel className="pellier-labs-view-menu-label">
-                    {group.label}
-                    <span className="pellier-labs-view-menu-count">
-                      {group.views.length}
-                    </span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuGroup>
-                    {group.views.map((view) => {
-                      const isActive = view.path === activeLabsView.path;
-                      const ViewIcon = view.icon;
-                      return (
-                        <DropdownMenuItem
-                          key={view.path}
-                          className="pellier-labs-view-menu-item"
-                          data-active={isActive ? 'true' : undefined}
-                          data-interaction={group.interaction}
-                          onSelect={() => navigate(view.path)}
-                        >
-                          {view.faces ? (
-                            <span
-                              className="pellier-labs-view-menu-faces"
-                              aria-hidden="true"
-                            >
-                              {view.faces.map((id) => (
-                                <img key={id} src={getPersonaPhoto(id)} alt="" />
-                              ))}
-                            </span>
-                          ) : (
-                            <span
-                              className="pellier-labs-view-menu-icon"
-                              aria-hidden="true"
-                            >
-                              <ViewIcon size={15} strokeWidth={1.8} />
-                            </span>
-                          )}
-                          <span className="pellier-labs-view-menu-copy">
-                            <strong>{view.label}</strong>
-                            <small>{view.description}</small>
-                          </span>
-                          {isActive ? (
-                            <Check
-                              className="pellier-labs-view-menu-check"
-                              size={15}
-                              strokeWidth={2}
-                              aria-hidden="true"
-                            />
-                          ) : null}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuGroup>
-                </div>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
+
+        <nav className="pellier-labs-tabs" aria-label="Pellier Labs views">
+          {LABS_TABS.map((tab, index) => {
+            const isActive = index === 0 ? isWorkbench : !isWorkbench;
+            const TabIcon = tab.icon;
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                className="pellier-labs-tab"
+                data-active={isActive ? 'true' : undefined}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <TabIcon size={15} strokeWidth={1.8} aria-hidden="true" />
+                <span>{tab.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         <div className="pellier-labs-topbar-end">
           <button

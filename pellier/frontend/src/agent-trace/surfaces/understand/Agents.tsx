@@ -298,7 +298,7 @@ const AgentRow: React.FC<AgentRowProps> = ({ agent, isSelected, rowRef, onSelect
               margin: '0 0 10px',
             }}
           >
-            Routed via <code style={CODE_INLINE}>Dispatcher</code> in the boutique – no agent
+            Routed via <code style={CODE_INLINE}>Dispatcher</code> in Pellier – no agent
             is a lead. {agent.tools.length} tool
             {agent.tools.length === 1 ? '' : 's'} registered; see the Tools surface for
             pgvector discovery.
@@ -483,7 +483,7 @@ const RelatedCard: React.FC = () => (
           }}
         >
           Three patterns:{' '}
-          <code style={CODE_INLINE}>Dispatcher</code> (active in the boutique),{' '}
+          <code style={CODE_INLINE}>Dispatcher</code> (active in Pellier),{' '}
           <code style={CODE_INLINE}>Agents-as-Tools</code>,{' '}
           <code style={CODE_INLINE}>Graph</code>. The first classifies intent
           ahead of each turn; the other two re-shape how specialists collaborate.

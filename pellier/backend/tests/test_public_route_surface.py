@@ -1,11 +1,10 @@
 """Regression checks for intentionally absent public routes."""
 
 import asyncio
-from typing import Any
 
 import app as app_module
 import pytest
-from services.aurora_session_memory import session_actor_id
+from services.agentcore_memory import AgentCoreMemory
 
 
 def test_unauthenticated_dev_chaos_routes_are_not_registered() -> None:
@@ -18,25 +17,20 @@ def test_unauthenticated_dev_chaos_routes_are_not_registered() -> None:
     assert "/api/dev/chaos" not in paths
 
 
-class _HistoryDB:
-    async def fetch_all(self, query: str, *params: Any) -> list[dict[str, str]]:
-        assert "FROM pellier.messages" in query
-        assert params == (
-            "session-123",
-            session_actor_id(None, "token-" * 8),
-            16,
-        )
+def test_pellier_session_route_reads_agentcore_working_memory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_history(_self, namespace: str):
+        assert namespace == "anon-session-123"
         return [
             {"role": "user", "content": "The bowl arrived chipped."},
             {"role": "assistant", "content": "I recorded the return."},
         ]
 
-
-def test_boutique_session_route_reads_aurora_working_memory() -> None:
+    monkeypatch.setattr(AgentCoreMemory, "get_session_history", fake_history)
     payload = asyncio.run(
-        app_module.get_boutique_chat_session(
+        app_module.get_pellier_chat_session(
             "session-123",
-            db=_HistoryDB(),
             user=None,
             session_token="token-" * 8,
         )
@@ -44,7 +38,7 @@ def test_boutique_session_route_reads_aurora_working_memory() -> None:
 
     assert payload == {
         "session_id": "session-123",
-        "source": "aurora",
+        "source": "agentcore-memory",
         "turns": [
             {"role": "user", "content": "The bowl arrived chipped."},
             {"role": "assistant", "content": "I recorded the return."},
@@ -52,12 +46,11 @@ def test_boutique_session_route_reads_aurora_working_memory() -> None:
     }
 
 
-def test_boutique_session_route_requires_anonymous_ownership_token() -> None:
+def test_pellier_session_route_requires_anonymous_ownership_token() -> None:
     with pytest.raises(app_module.HTTPException) as exc_info:
         asyncio.run(
-            app_module.get_boutique_chat_session(
+            app_module.get_pellier_chat_session(
                 "session-123",
-                db=_HistoryDB(),
                 user=None,
                 session_token=None,
             )

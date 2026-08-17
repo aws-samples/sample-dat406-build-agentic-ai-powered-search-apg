@@ -1,4 +1,4 @@
-"""Static tests for Pellier's AgentCore CLI 0.26 project contract."""
+"""Static tests for Pellier's pinned AgentCore CLI project contract."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ BACKEND_DIR = REPO_ROOT / "pellier" / "backend"
 DEPLOY_DIR = REPO_ROOT / "scripts" / "deploy"
 DEPLOY_SCRIPT = DEPLOY_DIR / "deploy_all.sh"
 PROVISIONER_PATH = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
+MEMORY_PROVISIONER_PATH = REPO_ROOT / "scripts" / "provision_agentcore_memory.py"
 RENDERER_PATH = DEPLOY_DIR / "render_agentcore_project.py"
 ENTRYPOINT = BACKEND_DIR / "agentcore_runtime.py"
 RUNTIME_SERVICE = BACKEND_DIR / "services" / "agentcore_runtime.py"
@@ -36,6 +37,17 @@ import render_agentcore_project as renderer  # noqa: E402
 def _load_provisioner() -> Any:
     spec = importlib.util.spec_from_file_location(
         "pellier_agentcore_provisioner", PROVISIONER_PATH
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_memory_provisioner() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "pellier_agentcore_memory_provisioner",
+        MEMORY_PROVISIONER_PATH,
     )
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -81,16 +93,18 @@ def _render(tmp_path: Path, *, include_policies: bool) -> tuple[Path, dict[str, 
 
 
 def test_agentcore_cli_is_pinned_once() -> None:
-    assert renderer.AGENTCORE_CLI == "@aws/agentcore@0.26.0"
-    source = PROVISIONER_PATH.read_text()
-    assert "AGENTCORE_CLI" in source
-    assert "@aws/agentcore@latest" not in source
+    assert renderer.AGENTCORE_CLI == "@aws/agentcore@1.0.0-preview.26"
+    for path in (PROVISIONER_PATH, MEMORY_PROVISIONER_PATH):
+        source = path.read_text()
+        assert "AGENTCORE_CLI" in source
+        assert "@aws/agentcore@latest" not in source
 
 
 def test_renderer_emits_valid_cdk_managed_project_shape(tmp_path: Path) -> None:
     root, project = _render(tmp_path, include_policies=False)
 
     assert project["managedBy"] == "CDK"
+    assert project["$schema"] == "https://schema.agentcore.aws.dev/v1/agentcore.json"
     assert project["name"] == "pellier"
     assert project["version"] == 1
     assert project["credentials"] == []
@@ -160,6 +174,10 @@ def test_memory_gateway_targets_and_policy_engine_share_one_project(
     memory = project["memories"][0]
     assert memory["name"] == renderer.MEMORY_NAME
     assert memory["strategies"][0]["type"] == "USER_PREFERENCE"
+    assert memory["strategies"][0]["name"] == renderer.MEMORY_STRATEGY_NAME
+    assert memory["strategies"][0]["namespaceTemplates"] == [
+        renderer.MEMORY_NAMESPACE
+    ]
 
     gateway = project["agentCoreGateways"][0]
     assert gateway["name"] == renderer.GATEWAY_NAME
@@ -183,6 +201,83 @@ def test_memory_gateway_targets_and_policy_engine_share_one_project(
     engine = project["policyEngines"][0]
     assert engine["name"] == renderer.POLICY_ENGINE_NAME
     assert engine["policies"] == []
+
+
+def test_required_memory_provisioner_uses_cli_add_validate_and_deploy(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    provisioner = _load_memory_provisioner()
+    root = tmp_path / "project"
+    config_dir = root / "agentcore"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "agentcore.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "$schema": "https://schema.agentcore.aws.dev/v1/agentcore.json",
+                "name": "pellier",
+                "version": 1,
+                "managedBy": "CDK",
+                "tags": {},
+                "runtimes": [],
+                "memories": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def fake_agentcore(_root, *arguments, **_kwargs):
+        calls.append(arguments)
+        if arguments[:2] == ("add", "memory"):
+            project = json.loads(config_path.read_text(encoding="utf-8"))
+            project["memories"].append(
+                {
+                    "name": renderer.MEMORY_NAME,
+                    "eventExpiryDuration": 30,
+                    "strategies": [{"type": "USER_PREFERENCE"}],
+                }
+            )
+            config_path.write_text(json.dumps(project), encoding="utf-8")
+
+    monkeypatch.setattr(provisioner, "_agentcore", fake_agentcore)
+
+    provisioner._configure_memory(
+        root=root,
+        account_id="123456789012",
+        region="us-east-1",
+        workshop_id="builders-test",
+        env={},
+    )
+    configured = json.loads(config_path.read_text(encoding="utf-8"))
+    memory = configured["memories"][0]
+
+    assert calls[0][:6] == (
+        "add",
+        "memory",
+        "--name",
+        renderer.MEMORY_NAME,
+        "--strategies",
+        "USER_PREFERENCE",
+    )
+    assert memory["strategies"][0]["namespaceTemplates"] == [
+        renderer.MEMORY_NAMESPACE
+    ]
+    assert json.loads(
+        (config_dir / "aws-targets.json").read_text(encoding="utf-8")
+    ) == [
+        {
+            "name": "default",
+            "account": "123456789012",
+            "region": "us-east-1",
+        }
+    ]
+
+    source = MEMORY_PROVISIONER_PATH.read_text(encoding="utf-8")
+    assert '"validate", "--json"' in source
+    assert '"deploy", "--yes", "--json"' in source
+    assert ".create_memory(" not in source
 
 
 def test_second_phase_adds_only_the_baseline_cedar_set(tmp_path: Path) -> None:

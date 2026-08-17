@@ -1,5 +1,5 @@
 /**
- * BoutiqueHero - the storefront's compact first-viewport entry point.
+ * PellierHero - the storefront's compact first-viewport entry point.
  *
  * Pellier's local, persona-specific photography carries the scene. The
  * interaction layer stays deliberately small: choose a workshop profile, or
@@ -56,7 +56,7 @@ const PROFILE_FOCUS: Record<string, string> = {
   theo: 'Home rituals',
 }
 
-export default function BoutiqueHero() {
+export default function PellierHero() {
   const { openDrawerWithQuery } = useUI()
   const { persona, switchPersona, switching } = usePersona()
   const [searchValue, setSearchValue] = useState('')
@@ -92,7 +92,7 @@ export default function BoutiqueHero() {
 
   return (
     <section
-      data-testid="boutique-hero"
+      data-testid="pellier-hero"
       aria-label="Pellier resort edit"
       className="px-3 pt-2 md:px-container-x md:pt-4"
     >
@@ -132,7 +132,7 @@ export default function BoutiqueHero() {
         >
           <div className="w-full px-5 pb-7 pt-56 md:w-[54%] md:max-w-[680px] md:px-10 md:py-9 lg:px-14">
             <h1
-              data-testid="boutique-hero-headline"
+              data-testid="pellier-hero-headline"
               className="font-display text-[42px] font-normal leading-[1.02] text-espresso md:text-[60px]"
               style={{ letterSpacing: 0 }}
             >
@@ -141,7 +141,7 @@ export default function BoutiqueHero() {
             </h1>
 
             <p
-              data-testid="boutique-hero-subheadline"
+              data-testid="pellier-hero-subheadline"
               className="mt-4 max-w-[540px] font-sans text-[15px] leading-6 text-ink-soft md:text-[16px]"
             >
               {hero.subheadline}
@@ -161,7 +161,7 @@ export default function BoutiqueHero() {
                   />
                   <input
                     type="text"
-                    data-testid="boutique-hero-search"
+                    data-testid="pellier-hero-search"
                     value={searchValue}
                     onChange={(event) => setSearchValue(event.target.value)}
                     placeholder={
@@ -213,7 +213,7 @@ export default function BoutiqueHero() {
                 </form>
 
                 <div
-                  data-testid="boutique-hero-pills"
+                  data-testid="pellier-hero-pills"
                   className="mt-3 flex max-w-[620px] gap-2 overflow-x-auto pb-1"
                   aria-label="Suggested queries"
                 >

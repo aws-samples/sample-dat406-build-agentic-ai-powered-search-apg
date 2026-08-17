@@ -1,6 +1,6 @@
 /**
  * ProductCardConcierge — slim editorial product card used inside
- * ConciergeModal. Matches the cream/ink boutique palette of the rest
+ * ConciergeModal. Matches the cream/ink Pellier palette of the rest
  * of the modal (ProductCardCompact is dark-themed for the workshop /
  * RAG surfaces and stays).
  *

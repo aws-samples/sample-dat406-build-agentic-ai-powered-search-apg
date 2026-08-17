@@ -1,11 +1,11 @@
 /* ========================================================================
- * BoutiqueChat — editorial active-chat styles.
+ * PellierChat — editorial active-chat styles.
  * Matches docs/pellier-chat-experience.html.
  * All colors reference CSS custom properties from index.css :root.
  * ======================================================================== */
 
 /* ---- Persona cover banner ----
- * Compact version of the BoutiqueWelcome hero cover. Sits above the
+ * Compact version of the PellierWelcome hero cover. Sits above the
  * chat stream so the warm persona-matched product photograph stays
  * visible once the conversation starts. Uses the same editorial
  * treatment (cream dot eyebrow, cream edition numeral) but shorter

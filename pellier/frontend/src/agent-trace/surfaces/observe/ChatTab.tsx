@@ -1439,14 +1439,14 @@ const MEMORY_SUBSTRATES: {
   {
     tier: 'working',
     label: 'Working',
-    store: 'Aurora · pellier.messages',
-    gloss: "The current Pellier session's last K turns - read first, written as a completed pair.",
+    store: 'AgentCore Memory · session events',
+    gloss: "The current Pellier session's last K turns - read first, written as one completed event.",
   },
   {
     tier: 'semantic',
     label: 'Semantic',
-    store: 'AgentCore Memory · optional durable preferences',
-    gloss: 'Managed preference records when configured; otherwise identified as fixture data.',
+    store: 'AgentCore Memory · durable preferences',
+    gloss: 'Managed USER_PREFERENCE records, with fixture data identified when extraction has not completed.',
   },
   {
     tier: 'episodic',

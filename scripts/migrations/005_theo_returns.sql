@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS pellier.returns (
     id            BIGSERIAL PRIMARY KEY,
     customer_id   TEXT NOT NULL
                   REFERENCES pellier.customers(id) ON DELETE CASCADE,
-    -- product_catalog."productId" is TEXT in the boutique schema.
+    -- product_catalog."productId" is TEXT in the pellier schema.
     -- Match it here so the FK applies cleanly on fresh Builder clusters.
     product_id    TEXT NOT NULL
                   REFERENCES pellier.product_catalog("productId")

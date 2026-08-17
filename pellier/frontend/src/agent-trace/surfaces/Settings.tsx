@@ -370,7 +370,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     stats: { visits: 8, orders: 4, last_seen_days: 14 },
   },
   // Fresh visitor removed — signed-out state IS the baseline.
-  // The boutique renders editorial defaults when no persona is active.
+  // The pellier renders editorial defaults when no persona is active.
 ];
 
 const Settings: React.FC = () => {

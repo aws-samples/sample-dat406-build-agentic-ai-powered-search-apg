@@ -639,7 +639,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
             marginTop: '8px',
           }}
         >
-          The boutique catalog has only 40 products, so full benchmarking would
+          The Pellier catalog has only 40 products, so full benchmarking would
           be theater. The smoke probes prove the features exist on Aurora; the
           workshop keeps the hands-on moment on agent tools and uses this card
           to name the production knobs participants should tune at scale.
@@ -1239,7 +1239,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           ("thoughtful gift for someone who loves morning rituals")
           matches zero products if no product's indexed text (name, brand,
           category, color, tags, and description combined) contains all six
-          stems together – exactly the shape of query a boutique shopper asks.
+          stems together – exactly the shape of query a Pellier shopper asks.
           Pellier OR-joins content tokens via{' '}
           <code style={{ fontFamily: 'var(--at-mono)', fontSize: '13px' }}>
             HybridSearch._build_or_tsquery

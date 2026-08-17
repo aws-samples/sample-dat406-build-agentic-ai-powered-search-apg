@@ -6,7 +6,7 @@
  * cream-2 bg), agent list as chips, active indicator (StatusDot + "Active"
  * pill for Dispatcher).
  *
- * Dispatcher is shown as active for boutique sessions.
+ * Dispatcher is shown as active for pellier sessions.
  * Falls back to fixture data when unavailable.
  * Includes loading, error, and empty states.
  *
@@ -912,7 +912,7 @@ const Routing: React.FC = () => {
         title="Intent routing"
         summary={
           activePattern
-            ? `${activePattern.name} is the live boutique path. Compare it with two alternatives for specialist selection and coordination.`
+            ? `${activePattern.name} is the live pellier path. Compare it with two alternatives for specialist selection and coordination.`
             : 'Compare three routes from request classification to specialist coordination.'
         }
         references={[

@@ -31,6 +31,9 @@ Endpoints:
 
 from __future__ import annotations
 
+import ast
+import asyncio
+import inspect
 import json
 import logging
 import re
@@ -163,7 +166,6 @@ def _tool_discovery_status(tool_name: str) -> str:
 def _floor_check_is_workshop_stub() -> bool:
     """True when the live ``floor_check`` body still returns the starter stub."""
     try:
-        import inspect
         from services import agent_tools
 
         src = inspect.getsource(agent_tools.floor_check)
@@ -173,6 +175,34 @@ def _floor_check_is_workshop_stub() -> bool:
         return True
     if "received_product_query" in src:
         return True
+    return False
+
+
+def _stock_keeper_has_floor_check_grant() -> bool:
+    """Read the live Stock Keeper tool list without trusting fixture status."""
+    try:
+        from agents import stock_keeper
+
+        source_path = Path(inspect.getsourcefile(stock_keeper) or "")
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, TypeError):
+        return False
+
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(
+            isinstance(target, ast.Name)
+            and target.id == "INVENTORY_AGENT_TOOLS"
+            for target in node.targets
+        ):
+            continue
+        if not isinstance(node.value, (ast.List, ast.Tuple)):
+            return False
+        return any(
+            isinstance(item, ast.Name) and item.id == "floor_check"
+            for item in node.value.elts
+        )
     return False
 
 
@@ -1317,12 +1347,11 @@ async def get_architecture():
 
 @router.get("/build-state")
 async def get_build_state():
-    """Shipped vs exercise for agents and tools (fixtures + live lab overlay).
+    """Report the tool implementation and Stock Keeper grant independently.
 
-    Loads ``agents.json`` / ``tools.json`` then, when ``floor_check`` in
-    ``services.agent_tools`` is no longer the workshop starter stub,
-    marks ``floor_check`` and **Stock Keeper** as shipped so Pellier Labs
-    progress strip matches a completed required-path exercise.
+    Exercise 1 replaces the ``floor_check`` starter body. The later agent step
+    grants that tool to Stock Keeper. Reporting the states separately prevents
+    a completed function from being mistaken for a completed agent path.
 
     Shape matches ``BuildStateApiResponse`` in the frontend ``useBuildState`` hook.
     """
@@ -1342,14 +1371,56 @@ async def get_build_state():
             if isinstance(fn, str) and isinstance(status, str):
                 tool_map[fn] = status
 
-        if not _floor_check_is_workshop_stub():
+        floor_check_wired = not _floor_check_is_workshop_stub()
+        if floor_check_wired:
             tool_map["floor_check"] = "shipped"
+        if floor_check_wired and _stock_keeper_has_floor_check_grant():
             agent_map["Stock Keeper"] = "shipped"
 
         return {"agents": agent_map, "tools": tool_map}
     except Exception as exc:
         logger.error("Failed to build build-state: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load build state")  # copy-allow: agent-trace-error-detail
+
+
+@router.get("/tools/floor-check/run")
+async def run_floor_check(
+    product_query: str = Query(
+        default="Hadley shirt",
+        min_length=1,
+        max_length=160,
+    ),
+):
+    """Run the participant's tool implementation before it is agent-granted."""
+    if _floor_check_is_workshop_stub():
+        raise HTTPException(
+            status_code=409,
+            detail="floor_check is still in the workshop starter state",
+        )
+
+    from services import agent_tools
+
+    floor_check = getattr(
+        agent_tools.floor_check,
+        "__wrapped__",
+        agent_tools.floor_check,
+    )
+    try:
+        raw = await asyncio.to_thread(floor_check, product_query)
+        payload = json.loads(raw)
+    except Exception as exc:
+        logger.error("Participant floor_check verification failed: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="floor_check did not return its JSON contract",
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=500,
+            detail="floor_check returned a non-object JSON value",
+        )
+    return payload
 
 
 @router.get("/readiness")

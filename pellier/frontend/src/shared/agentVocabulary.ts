@@ -89,7 +89,7 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
   'trend.signal': {
     name: 'trend.signal',
     label: 'Trending',
-    description: 'This piece is moving quickly across the boutique right now.',
+    description: 'This piece is moving quickly across Pellier right now.',
     agentTracePath: '/pellier-labs/proof-board#retrieval-comparison',
   },
   'pairing.score': {

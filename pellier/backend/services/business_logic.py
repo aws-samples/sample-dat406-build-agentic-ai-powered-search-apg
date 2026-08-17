@@ -3,13 +3,13 @@ Business Logic Layer for Pellier
 Contains custom business logic for pricing, trending, inventory, and
 category analysis.
 
-Aligned to the boutique catalog schema:
+Aligned to the Pellier catalog schema:
     productId, name, brand, color, price, description, category, tags,
     rating, reviews (TEXT), "imgUrl", badge, tier, image_verified,
     quantity, embedding, created_at, updated_at
 
 The ``quantity`` column is created by ``001_schema.sql`` and seeded by
-``seed_boutique_catalog.py``. Stock-level
+``seed_pellier_catalog.py``. Stock-level
 functions (floor_check, running_low, restock_shelf) now issue
 real SQL against this column.
 """
@@ -484,7 +484,7 @@ class BusinessLogic:
         min_similarity: float = 0.1,
         limit: int = 5,
     ) -> Dict[str, Any]:
-        """Filtered semantic search with pgvector against the boutique schema."""
+        """Filtered semantic search with pgvector against the pellier schema."""
         from services.embeddings import EmbeddingService
         import time
 

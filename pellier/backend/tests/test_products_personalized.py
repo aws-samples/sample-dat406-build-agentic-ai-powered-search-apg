@@ -690,7 +690,7 @@ def test_inventory_stale_field_present(client: TestClient) -> None:
 # Schema/data drift — converter boundary
 # ---------------------------------------------------------------------------
 #
-# The boutique catalog seed still uses the curator-import taxonomy
+# The Pellier catalog seed still uses the curator-import taxonomy
 # ("Apparel", "Home Decor", "Beauty", "Gifts"; see
 # ``services/structured_extract.KNOWN_CATEGORIES``) while the wire shape
 # uses the editorial Literal in ``models/search.StorefrontCategory``. The

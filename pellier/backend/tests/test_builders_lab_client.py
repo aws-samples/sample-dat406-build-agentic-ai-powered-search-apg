@@ -105,12 +105,64 @@ def test_build_state_enforces_expected_state(
             "tools": {"floor_check": "shipped"},
         },
     )
-    args = argparse.Namespace(base_url="http://example", expect="shipped")
+    args = argparse.Namespace(
+        base_url="http://example",
+        expect="shipped",
+        expect_agent=None,
+        expect_tool=None,
+    )
 
     assert client.build_state(args) == 0
 
     args.expect = "exercise"
     assert client.build_state(args) == 1
+
+    args.expect = None
+    args.expect_agent = "shipped"
+    args.expect_tool = "shipped"
+    assert client.build_state(args) == 0
+
+    args.expect_agent = "exercise"
+    assert client.build_state(args) == 1
+
+
+def test_tool_check_requires_brooklyn_quantity_and_ship_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _load_client()
+    seen: dict[str, Any] = {}
+
+    def fake_request(
+        _base_url: str,
+        path: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        seen["path"] = path
+        seen["query"] = kwargs["query"]
+        return {
+            "status": "success",
+            "warehouses": [
+                {
+                    "warehouse_id": "BK-01",
+                    "city": "Brooklyn",
+                    "quantity": 8,
+                    "ship_window_min": 1,
+                    "ship_window_max": 2,
+                }
+            ],
+        }
+
+    monkeypatch.setattr(client, "_request_json", fake_request)
+    args = argparse.Namespace(
+        base_url="http://example",
+        query="Hadley shirt",
+    )
+
+    assert client.tool_check(args) == 0
+    assert seen == {
+        "path": "/api/agent-trace/tools/floor-check/run",
+        "query": {"product_query": "Hadley shirt"},
+    }
 
 
 def test_compare_writes_full_response_and_checks_filters(
@@ -174,7 +226,7 @@ def test_ledger_reuses_one_ownership_token_and_writes_session(
                     "type": "complete",
                     "response": {
                         "memory": {
-                            "source": "aurora",
+                            "source": "agentcore-memory",
                             "loaded_messages": 2,
                             "persisted": True,
                         }
@@ -216,7 +268,7 @@ def test_ledger_does_not_publish_session_before_recall_is_proven(
                 "type": "complete",
                 "response": {
                     "memory": {
-                        "source": "aurora",
+                        "source": "agentcore-memory",
                         "loaded_messages": 0,
                         "persisted": True,
                     }

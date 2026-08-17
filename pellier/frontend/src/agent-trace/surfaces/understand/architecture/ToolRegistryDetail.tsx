@@ -28,7 +28,7 @@ const ToolRegistryDetail: React.FC = () => {
       category="workshop"
       title="Tools, discovered."
       prose="The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded, searched with pgvector, and compared with the optional MCP Gateway view. Pellier's default path still calls in-process Strands tools unless Gateway is configured."
-      seeInBoutique={{
+      seeInPellier={{
         href: '/?ask=Show+me+linen+pieces+like+the+Camp+Shirt',
         label: 'See tool discovery fire on the storefront',
       }}

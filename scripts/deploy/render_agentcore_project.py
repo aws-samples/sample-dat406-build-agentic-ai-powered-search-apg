@@ -19,10 +19,12 @@ from typing import Any
 from gateway_tool_schemas import TOOL_SCHEMAS, schema_for
 
 
-AGENTCORE_CLI = "@aws/agentcore@0.26.0"
+AGENTCORE_CLI = "@aws/agentcore@1.0.0-preview.26"
 PROJECT_NAME = "pellier"
 RUNTIME_NAME = "pellier_orchestrator"
 MEMORY_NAME = "PellierMemory"
+MEMORY_STRATEGY_NAME = "PellierUserPreferences"
+MEMORY_NAMESPACE = "/pellier/preferences/{actorId}/"
 GATEWAY_NAME = "pellier-gateway"
 POLICY_ENGINE_NAME = "pellier_policy_engine"
 EXPERIENCE_TARGET = "pellier-concierge-experience-target"
@@ -143,7 +145,7 @@ def render_project(
         )
 
     project = {
-        "$schema": "https://raw.githubusercontent.com/aws/agentcore-cli/main/schemas/agentcore.schema.v1.json",
+        "$schema": "https://schema.agentcore.aws.dev/v1/agentcore.json",
         "name": PROJECT_NAME,
         "version": 1,
         "managedBy": "CDK",
@@ -181,14 +183,15 @@ def render_project(
                 "strategies": [
                     {
                         "type": "USER_PREFERENCE",
-                        "name": "PellierUserPreferences",
+                        "name": MEMORY_STRATEGY_NAME,
                         "description": "Extract durable shopper preferences",
-                        "namespaceTemplates": ["/pellier/preferences/{actorId}/"],
+                        "namespaceTemplates": [MEMORY_NAMESPACE],
                     }
                 ],
                 "tags": tags,
             }
         ],
+        "knowledgeBases": [],
         "credentials": [],
         "payments": [],
         "evaluators": [],
@@ -223,6 +226,10 @@ def render_project(
                 "policies": baseline_policies(action_token) if include_policies else [],
             }
         ],
+        "configBundles": [],
+        "abTests": [],
+        "harnesses": [],
+        "datasets": [],
     }
 
     _write_json(config_dir / "agentcore.json", project)

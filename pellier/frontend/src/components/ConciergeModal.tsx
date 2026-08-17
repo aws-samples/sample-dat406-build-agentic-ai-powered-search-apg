@@ -545,7 +545,7 @@ export default function ConciergeModal() {
             <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
               {/* Messages — Pellier Labs mode only renders the instrumented
                   conversation. Welcome state is handled by the storefront
-                  branch via BoutiqueChat. */}
+                  branch via PellierChat. */}
               <AnimatePresence initial={false}>
                 {messages.map((message, index) => (
                   <motion.div
@@ -582,7 +582,7 @@ export default function ConciergeModal() {
                             </div>
                           ) : message.role === 'assistant' ? (
                             // Streaming cursor intentionally removed —
-                            // see BoutiqueChatBody for rationale. The
+                            // see PellierChatBody for rationale. The
                             // prose growing in place is the indicator;
                             // a blinking caret on top fights the
                             // Claude-desktop feel we're matching.

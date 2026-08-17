@@ -223,12 +223,15 @@ def test_default_pattern_is_dispatcher() -> None:
     )
 
 
-def test_app_persists_the_dispatcher_default() -> None:
-    """Aurora conversation metadata must describe the pattern that ran."""
+def test_app_owns_agentcore_session_memory_writes() -> None:
+    """FastAPI must write each completed turn pair exactly once."""
     import app
 
     source = inspect.getsource(app.chat_stream)
-    assert 'agent_name=str(request.pattern or "dispatcher")' in source
+    assert "memory_managed_by_caller=True" in source
+    assert "await memory.append_session_turns(" in source
+    assert '"role": "user"' in source
+    assert '"role": "assistant"' in source
 
 
 def test_orchestrator_constructed_only_for_agents_as_tools() -> None:

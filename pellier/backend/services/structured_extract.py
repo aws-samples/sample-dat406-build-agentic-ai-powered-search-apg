@@ -63,7 +63,7 @@ KNOWN_TAGS: List[str] = [
 ]
 
 
-_SYSTEM_PROMPT = """You extract structured retrieval filters from a boutique \
+_SYSTEM_PROMPT = """You extract structured retrieval filters from a Pellier \
 shopper's query.
 
 You return JSON with exactly these keys:

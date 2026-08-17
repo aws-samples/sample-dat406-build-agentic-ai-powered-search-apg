@@ -1,11 +1,9 @@
 /**
- * MemoryDetail - Architecture detail page for Memory.
+ * MemoryDetail - builders architecture detail for Memory.
  *
- * Four memory types plus operational history, each shown with explicit
- * provenance: 'live' when the
- * panel was just read from the real source, 'fixture' when it fell
- * back to a per-persona JSON, 'sketch' when the source schema is
- * partial (e.g. tool_audit lacks intent / persona_id columns).
+ * Keeps managed conversational state distinct from Aurora business state and
+ * operational evidence. Deeper episodic and procedural models belong to the
+ * governed workshop.
  */
 
 import React from 'react';
@@ -344,8 +342,6 @@ const MemoryDetail: React.FC = () => {
     ? [
         data.working,
         data.semantic,
-        data.episodic,
-        data.procedural,
         data.operational,
       ].filter(
         (p) => p.source === 'live',
@@ -354,8 +350,6 @@ const MemoryDetail: React.FC = () => {
   const totalItems = data
     ? data.working.items.length +
       data.semantic.items.length +
-      data.episodic.items.length +
-      data.procedural.items.length +
       data.operational.items.length
     : 0;
 
@@ -364,28 +358,24 @@ const MemoryDetail: React.FC = () => {
       numeral="II"
       conceptName="Memory"
       category="live"
-      title="Memory, with evidence kept separate."
-      prose="Working, semantic, episodic, and procedural memory have different stores and lifetimes. The builders path stores storefront session turns and business events in Aurora. AgentCore Memory is the optional managed path for session and learned-preference records. Source-controlled skills and MCP schemas supply tool know-how; tool_audit is operational evidence, not memory."
-      seeInBoutique={{
+      title="Memory, with one owner per kind of state."
+      prose="AgentCore Memory stores storefront session turns and learned preferences. Aurora remains the system of record for catalog and business state, while tool_audit records execution evidence. This builders workshop keeps that contract narrow; deeper episodic and procedural memory patterns belong to the governed workshop."
+      seeInPellier={{
         href: '/?ask=Pick+up+where+I+left+off',
         label: 'See working memory in the current session',
       }}
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'Working - the builders path reads the last K Pellier turns from pellier.messages by session_id and appends each completed turn pair atomically. AgentCore Memory is an optional managed alternative.',
+          text: 'Working - the builders path reads the last K Pellier turns from AgentCore Memory and appends each completed turn pair as one session event.',
         },
         {
           numeral: 'ii.',
-          text: 'Semantic - an optional AgentCore USER_PREFERENCE strategy can extract durable preference records under /pellier/preferences/{actorId}/. Seeded profile preferences remain explicitly labeled until managed records exist.',
+          text: 'Semantic - the required AgentCore USER_PREFERENCE strategy extracts durable preference records under /pellier/preferences/{actorId}/. Seeded profile preferences remain explicitly labeled until managed records exist.',
         },
         {
           numeral: 'iii.',
-          text: 'Episodic - per-customer events in Aurora. customer_episodic_seed for the seeded story today; orders and returns are the real ledger. Reach into it when the turn earns the latency.',
-        },
-        {
-          numeral: 'iv.',
-          text: 'Procedural - checked-in runtime skills and MCP schemas define how the agent should work and which arguments each tool accepts. This workshop inspects those contracts; it does not claim they are learned dynamically.',
+          text: 'Evidence - Aurora remains authoritative for business records and tool_audit receipts. Those rows prove execution; they are not conversation memory.',
         },
       ]}
       liveState={
@@ -393,7 +383,7 @@ const MemoryDetail: React.FC = () => {
           ? {
               label: 'Current memory state for the active persona. Each substrate reads from its own backing store; the source pill tells you which panels were live on this request.',
               values: [
-                { label: 'Live sources', value: `${liveCount} / 5` },
+                { label: 'Live sources', value: `${liveCount} / 3` },
                 { label: 'Items', value: String(totalItems) },
                 { label: 'Persona', value: data.persona },
               ],
@@ -406,7 +396,7 @@ const MemoryDetail: React.FC = () => {
 
       {!loading && !error && data && (
         <>
-          {/* Tier explainer cards - 2x2 */}
+          {/* AgentCore owns the two managed memory tiers in builders. */}
           <div
             style={{
               display: 'grid',
@@ -416,27 +406,27 @@ const MemoryDetail: React.FC = () => {
             }}
           >
             <TierCard
-              tierName="Working - Aurora"
+              tierName="Working - AgentCore Memory"
               category="live"
               title="Session turns"
-              role="Builders core path, session-scoped"
-              prose="The Pellier stream reads bounded rows from pellier.messages and atomically appends the completed user/assistant pair. The memory receipt reports how many messages were loaded and whether the new pair persisted."
-              codeSnippet={`# Working - Aurora
-history = await AuroraSessionMemory(db).load_history(session_id)
+              role="Required builders path, session-scoped"
+              prose="The Pellier stream reads bounded AgentCore session events and appends the completed user/assistant pair. The memory receipt reports how many messages were loaded and whether the new pair persisted."
+              codeSnippet={`# Working - AgentCore Memory
+history = await memory.get_session_history(namespace)
 
-await memory.append_turn_pair(
-    session_id,
-    user_message=message,
-    assistant_message=response,
-    actor_id=actor_id,
-    agent_name=pattern,
+await memory.append_session_turns(
+    namespace,
+    [
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": response},
+    ],
 )`}
             />
             <TierCard
-              tierName="Semantic - AgentCore Memory (optional)"
-              category="optional"
+              tierName="Semantic - AgentCore Memory"
+              category="live"
               title="Extracted preferences"
-              role="Managed extension, not a builders prerequisite"
+              role="Required managed strategy"
               prose="A USER_PREFERENCE strategy can extract stable taste signals into durable AgentCore Memory records. Until managed records exist, the panel identifies seeded JSON as a fixture rather than presenting it as a live memory read."
               codeSnippet={`# Semantic - AgentCore Memory (USER_PREFERENCE)
 prefs = await memory.get_semantic_memories(
@@ -444,36 +434,6 @@ prefs = await memory.get_semantic_memories(
 )
 # → ["Prefers lightweight linen in warm neutrals", ...]
 # records live under /pellier/preferences/{actor_id}/`}
-            />
-            <TierCard
-              tierName="Episodic - Aurora"
-              category="live"
-              title="Per-customer events"
-              role="What this customer has done over time"
-              prose="Aurora as system of record. customer_episodic_seed holds 3-6 curated summaries per persona today (with ts_offset_days); orders and returns are the real per-customer ledger that production episodic recall would derive from."
-              codeSnippet={`# Episodic - Aurora customer_episodic_seed
-seed = await fetch_episodic_seed(customer_id)
-# -> [{summary_text, ts_offset_days}, ...]
-
-# Real ledger lives in orders + returns
-SELECT product_id, placed_at FROM pellier.orders
-WHERE customer_id = $1
-ORDER BY placed_at DESC;`}
-            />
-            <TierCard
-              tierName="Procedural - source controlled"
-              category="live"
-              title="Instructions and contracts"
-              role="How the agent should perform work"
-              prose="Runtime skills provide conditional operating guidance. Canonical MCP schemas define each tool's arguments. Both are checked-in, reviewable source and survive process restarts because the runtime reloads them from the deployed artifact."
-              codeSnippet={`# Procedural knowledge
-skills/*/SKILL.md
-scripts/deploy/gateway_tool_schemas.py
-
-# Operational history remains separate
-SELECT tool, count(*), avg(latency_ms)
-FROM pellier.tool_audit
-GROUP BY tool;`}
             />
           </div>
 
@@ -510,8 +470,6 @@ GROUP BY tool;`}
           >
             <SubstratePanel panel={data.working} />
             <SubstratePanel panel={data.semantic} />
-            <SubstratePanel panel={data.episodic} />
-            <SubstratePanel panel={data.procedural} />
             <div style={{ gridColumn: '1 / -1' }}>
               <SubstratePanel panel={data.operational} />
             </div>
@@ -634,7 +592,7 @@ const MemoryEmptyState: React.FC = () => (
         marginTop: '8px',
       }}
     >
-      Start a conversation in the boutique to build memory, or check that the
+      Start a conversation in Pellier to build memory, or check that the
       memory fixture data is available.
     </p>
   </div>

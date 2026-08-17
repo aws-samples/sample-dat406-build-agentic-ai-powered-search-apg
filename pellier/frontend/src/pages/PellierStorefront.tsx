@@ -1,10 +1,10 @@
 /**
- * BoutiquePage — the `/` route composition (Pellier redesign).
+ * PellierStorefront — the `/` route composition (Pellier redesign).
  *
  * Two-act layout:
  *
  *   ACT 1 (above the fold — full viewport):
- *     Header (sticky) → BoutiqueHero (full-height search surface)
+ *     Header (sticky) → PellierHero (full-height search surface)
  *
  *   ACT 2 (below the fold — scroll to discover):
  *     Featured product image (weekender bag) + "Weekend, re:defined."
@@ -19,15 +19,15 @@ import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
-import BoutiqueHero from '../components/BoutiqueHero'
-import BoutiqueCollections from '../components/BoutiqueCollections'
+import PellierHero from '../components/PellierHero'
+import PellierCollections from '../components/PellierCollections'
 import BecauseYouAsked from '../components/BecauseYouAsked'
 import MemoryHandoffCard from '../components/MemoryHandoffCard'
 import RationaleBand from '../components/RationaleBand'
 import ProductCard from '../components/ProductCard'
 import ResponsiveImage from '../components/ResponsiveImage'
 import Footer from '../components/Footer'
-import BoutiqueSpotlight from '../components/BoutiqueSpotlight'
+import PellierSpotlight from '../components/PellierSpotlight'
 // CommandPill removed — hero search bar is the primary entry point
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
@@ -68,7 +68,7 @@ const NAV_ROUTES: Record<NavItem, string> = {
 
 // Featured product + grid are now persona-aware (computed inside component)
 
-export default function BoutiquePage() {
+export default function PellierStorefront() {
   const { prefsVersion } = useAuth()
   const { openModal, setChatSurface } = useUI()
   const { addToCart } = useCart()
@@ -159,11 +159,11 @@ export default function BoutiquePage() {
 
       <main className="bg-cream">
         {/* ── ACT 1: Full-viewport hero ── */}
-        <BoutiqueHero />
+        <PellierHero />
 
         {/* Four local-image edits bring the catalog into the first scroll,
             matching the landing shell without adding another route. */}
-        <BoutiqueCollections onOpenCatalog={handleOpenCatalog} />
+        <PellierCollections onOpenCatalog={handleOpenCatalog} />
 
         {/* ── Profile handoff card — names the deterministic seed and
              session boundary before the participant generates memory or
@@ -306,7 +306,7 @@ export default function BoutiquePage() {
 
       <Footer />
       {/* CommandPill removed — hero search bar opens the drawer directly */}
-      <BoutiqueSpotlight />
+      <PellierSpotlight />
     </div>
   )
 }

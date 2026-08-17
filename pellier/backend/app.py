@@ -32,7 +32,7 @@ from models.search import (
 )
 from models.product import ProductWithScore
 from services.database import DatabaseService
-from services.aurora_session_memory import AuroraSessionMemory, session_actor_id
+from services.session_ownership import session_actor_id
 from services.auth import get_current_user
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
@@ -47,7 +47,7 @@ from routes import (
     auth_router,
     products_router,
     search_router,
-    boutique_router,
+    pellier_router,
     user_router,
     workshop_router,
 )
@@ -346,7 +346,7 @@ app.include_router(search_router)
 
 # Workshop telemetry surface — returns flat
 # {session_id, events: list[dict]} payloads for the panel renderer.
-# Intentionally separate from /api/agent/chat so the boutique SSE
+# Intentionally separate from /api/agent/chat so the Pellier SSE
 # stream isn't reshaped for the workshop's replay needs.
 app.include_router(workshop_router)
 
@@ -359,7 +359,7 @@ app.include_router(agent_trace_router)
 # (4 live metrics above the hero). Both endpoints are contract-typed
 # via Pydantic and degrade gracefully; they are never allowed to 5xx
 # the homepage.
-app.include_router(boutique_router)
+app.include_router(pellier_router)
 app.include_router(transcribe_router)
 
 
@@ -764,7 +764,7 @@ async def chat_stream(
             )
             if request.message.strip().lower() in {"hi", "hello", "hey"}:
                 content = (
-                    "I'm Pellier, your boutique concierge. I can help you "
+                    "I'm your Pellier concierge. I can help you "
                     "search linen, compare pieces, and keep the edit grounded."
                 )
 
@@ -821,10 +821,9 @@ async def chat_stream(
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
 
-    actor_id: Optional[str] = None
     if request.session_id:
         try:
-            actor_id = session_actor_id(user, session_token)
+            session_actor_id(user, session_token)
         except ValueError as exc:
             raise HTTPException(
                 status_code=401,
@@ -842,24 +841,32 @@ async def chat_stream(
             if request.customer_id:
                 effective_user["customer_id"] = request.customer_id
 
-            memory = AuroraSessionMemory(db_service)
+            from services.agentcore_identity import AgentCoreIdentityService
+            from services.agentcore_memory import AgentCoreMemory
+
+            memory_namespace = AgentCoreIdentityService.build_namespace(
+                user.get("sub") if user else None,
+                request.session_id or "",
+            )
+            memory = AgentCoreMemory(
+                strict=bool(settings.AGENTCORE_MEMORY_ID),
+            )
             memory_receipt = {
-                "source": "aurora",
+                "source": "agentcore-memory",
                 "loaded_messages": 0,
                 "persisted": False,
             }
             if request.session_id:
                 try:
-                    durable_history = await memory.load_history(
-                        request.session_id,
-                        actor_id=actor_id or "",
-                    )
+                    durable_history = (
+                        await memory.get_session_history(memory_namespace)
+                    )[-16:]
                     if durable_history:
                         history = durable_history
                     memory_receipt["loaded_messages"] = len(durable_history)
                 except Exception as exc:
                     logger.warning(
-                        "Aurora session history read failed for %s: %s",
+                        "AgentCore session history read failed for %s: %s",
                         request.session_id,
                         exc.__class__.__name__,
                     )
@@ -928,6 +935,7 @@ async def chat_stream(
                 user=effective_user or None,
                 pattern=request.pattern,
                 response_mode=request.response_mode,
+                memory_managed_by_caller=True,
             ):
                 event_type = event.get("type")
                 if event_type == "content_reset":
@@ -944,17 +952,23 @@ async def chat_stream(
                     )
                     if request.session_id and assistant_message:
                         try:
-                            await memory.append_turn_pair(
-                                request.session_id,
-                                user_message=request.message,
-                                assistant_message=assistant_message,
-                                actor_id=actor_id or "",
-                                agent_name=str(request.pattern or "dispatcher"),
+                            await memory.append_session_turns(
+                                memory_namespace,
+                                [
+                                    {
+                                        "role": "user",
+                                        "content": request.message,
+                                    },
+                                    {
+                                        "role": "assistant",
+                                        "content": assistant_message,
+                                    },
+                                ],
                             )
                             memory_receipt["persisted"] = True
                         except Exception as exc:
                             logger.warning(
-                                "Aurora session history append failed for %s: %s",
+                                "AgentCore session history append failed for %s: %s",
                                 request.session_id,
                                 exc.__class__.__name__,
                             )
@@ -986,30 +1000,41 @@ async def chat_stream(
 
 
 @app.get("/api/chat/session/{session_id}")
-async def get_boutique_chat_session(
+async def get_pellier_chat_session(
     session_id: str,
-    db: DatabaseService = Depends(get_db_service),
     user=Depends(get_current_user),
     session_token: Optional[str] = Header(
         default=None,
         alias="X-Pellier-Session-Token",
     ),
 ):
-    """Return the Aurora-backed turns written by ``/api/chat/stream``."""
+    """Return AgentCore Memory turns written by ``/api/chat/stream``."""
     try:
-        actor_id = session_actor_id(user, session_token)
+        session_actor_id(user, session_token)
     except ValueError as exc:
         raise HTTPException(
             status_code=401,
             detail="session_ownership_required",
         ) from exc
-    turns = await AuroraSessionMemory(db).load_history(
+    from services.agentcore_identity import AgentCoreIdentityService
+    from services.agentcore_memory import AgentCoreMemory, ManagedMemoryError
+
+    namespace = AgentCoreIdentityService.build_namespace(
+        user.get("sub") if user else None,
         session_id,
-        actor_id=actor_id,
     )
+    try:
+        turns = await AgentCoreMemory(
+            strict=bool(settings.AGENTCORE_MEMORY_ID),
+        ).get_session_history(namespace)
+    except ManagedMemoryError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=exc.code,
+        ) from exc
     return {
         "session_id": session_id,
-        "source": "aurora",
+        "source": "agentcore-memory",
         "turns": turns,
     }
 
@@ -2461,49 +2486,18 @@ async def memory_ltm(customer_id: str = ""):
 
 @app.get("/api/agentcore/memory/status")
 async def memory_status():
-    """Return whether AgentCore Memory is SDK-backed or using the
-    in-memory dict fallback.
+    """Return whether an ACTIVE AgentCore Memory is backing the SDK path.
 
     The MemoryArchPage in Pellier Labs reads this to show an honest
     banner — either 'Live: AgentCore Memory (id=...)' or 'Fallback:
-    in-process dict; set AGENTCORE_MEMORY_ID to enable LIVE'. Also
-    reports whether the bedrock-agentcore SDK is importable, so a
-    broken install surfaces distinctly from a missing env var.
+    in-process dict; set AGENTCORE_MEMORY_ID to enable LIVE'. An ID and
+    importable SDK are not sufficient: the control-plane resource must
+    exist and report ACTIVE.
     """
     try:
-        from config import settings
-        memory_id = getattr(settings, "AGENTCORE_MEMORY_ID", None) or ""
+        from services.agentcore_memory import probe_memory_backend_status
 
-        sdk_available = False
-        try:
-            import bedrock_agentcore  # type: ignore  # noqa: F401
-            sdk_available = True
-        except ImportError:
-            pass
-
-        if memory_id and sdk_available:
-            return {
-                "live": True,
-                "source": "agentcore-sdk",
-                "memory_id": memory_id,
-                "sdk_available": True,
-                "fallback_reason": None,
-            }
-        if memory_id and not sdk_available:
-            return {
-                "live": False,
-                "source": "in-process-dict",
-                "memory_id": memory_id,
-                "sdk_available": False,
-                "fallback_reason": "bedrock-agentcore SDK not importable",
-            }
-        return {
-            "live": False,
-            "source": "in-process-dict",
-            "memory_id": "",
-            "sdk_available": sdk_available,
-            "fallback_reason": "AGENTCORE_MEMORY_ID env var not set",
-        }
+        return await asyncio.to_thread(probe_memory_backend_status)
     except Exception as e:
         logger.warning(f"Memory status fetch failed: {e}")
         return {

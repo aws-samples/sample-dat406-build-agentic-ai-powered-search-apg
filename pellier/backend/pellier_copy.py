@@ -2,7 +2,7 @@
 
 This module is the single source of truth for every customer-facing string
 that the backend authors. Error envelopes, validation messages, and any
-server-rendered strings that surface to the boutique live here.
+server-rendered strings that surface in Pellier live here.
 
 Specialist system prompts (RECOMMENDATION_SYSTEM_PROMPT, and later the
 orchestrator prompt) also live here so a single file review catches copy
@@ -11,10 +11,10 @@ and 2.4). The compliance scanner applies the same forbidden-word and
 no-emoji rules to these prompts; the prompts are phrased with "specialist"
 and "Pellier" instead of the forbidden terms.
 
-All strings in this module must satisfy the boutique copy rules:
+All strings in this module must satisfy the Pellier copy rules:
   - no emoji
   - no em dashes (use regular hyphens)
-  - none of the forbidden words listed in the boutique conventions
+  - none of the forbidden words listed in the Pellier conventions
 
 The companion scanner lives at tests/test_copy_compliance.py.
 """
@@ -457,8 +457,8 @@ RECOMMENDATION_SYSTEM_PROMPT = (
     "produce a concise proof answer, not a shopping recommendation.\n"
     "- escalate_to_stylist: ONLY use when the ask is genuinely outside what "
     "the catalog tools can answer – sympathy or condolence gifting, "
-    "sentimental milestones, deep personal-style coaching beyond the "
-    "boutique's pieces, or a shopper in distress who deserves a real "
+    "sentimental milestones, deep personal-style coaching beyond "
+    "Pellier's catalog, or a shopper in distress who deserves a real "
     "person. For an explicit sympathy or condolence ask, call "
     "escalate_to_stylist directly; product retrieval is not a substitute for "
     "human judgment. For other ambiguous asks, try find_pieces_hybrid or "
@@ -566,7 +566,7 @@ ORCHESTRATOR_SYSTEM_PROMPT = (
     "If the shopper explicitly asks for a real person, a stylist, or "
     "human concierge help – or for guidance that catalog tools can't "
     "answer (body-image fit, cultural dressing norms, sympathy framing, "
-    "personal-style coaching beyond the boutique's pieces) – STILL route "
+    "personal-style coaching beyond Pellier's catalog) – STILL route "
     "to a specialist. Never refuse with 'that's outside shopping' or 'I "
     "don't have a stylist' – every specialist has an escalate_to_stylist "
     "tool for exactly this case, and they decide whether to use it. "

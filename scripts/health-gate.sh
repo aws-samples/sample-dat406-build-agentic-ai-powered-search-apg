@@ -13,6 +13,7 @@
 #   4. Required Bedrock model preflight passed
 #   5. Event-rehearsed Claude Code CLI is installed
 #   6. uv is installed for the participant Python client
+#   7. Required AgentCore Memory exists and reports ACTIVE
 #
 # Exit 0 only if the core one-hour path passes: backend, frontend, catalog,
 # warehouse, and required model access.
@@ -23,6 +24,7 @@ REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
 EXPECTED_CATALOG="${EXPECTED_CATALOG:-40}"
 HEALTH_URL="${HEALTH_URL:-http://localhost:8000/api/health}"
+MEMORY_STATUS_URL="${MEMORY_STATUS_URL:-http://localhost:8000/api/agentcore/memory/status}"
 
 GREEN='\033[32m'; RED='\033[31m'; YEL='\033[33m'; NC='\033[0m'
 pass() { printf "  ${GREEN}✓ PASS${NC}  %s\n" "$1"; }
@@ -112,6 +114,34 @@ if [[ -n "$uv_version" ]]; then
   pass "uv installed (${uv_version})"
 else
   fail "uv is missing or unusable"
+  ok=false
+fi
+
+# 7. Required AgentCore Memory is configured and ACTIVE
+memory_json="$(curl -fs --max-time 10 "$MEMORY_STATUS_URL" 2>/dev/null || true)"
+memory_ready="$(
+  printf '%s' "$memory_json" | python3 -c '
+import json
+import sys
+
+try:
+    payload = json.load(sys.stdin)
+except (json.JSONDecodeError, TypeError):
+    print("false")
+else:
+    ready = (
+        payload.get("live") is True
+        and payload.get("source") == "agentcore-sdk"
+        and payload.get("resource_status") == "ACTIVE"
+        and bool(payload.get("memory_id"))
+    )
+    print("true" if ready else "false")
+' 2>/dev/null || echo false
+)"
+if [[ "$memory_ready" == "true" ]]; then
+  pass "AgentCore Memory is configured and ACTIVE"
+else
+  fail "AgentCore Memory is not ACTIVE (got: ${memory_json:-no response})"
   ok=false
 fi
 

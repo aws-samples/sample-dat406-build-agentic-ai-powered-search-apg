@@ -1,8 +1,8 @@
 /**
- * BoutiqueWelcomeBand — dismissible editorial welcome under the hero.
+ * PellierWelcomeBand — dismissible editorial welcome under the hero.
  *
  * Symmetric with AgentTraceWelcome (which lives atop /pellier-labs/sessions).
- * Sits between the BoutiqueHero photograph and the memory handoff.
+ * Sits between the PellierHero photograph and the memory handoff.
  * This is intentionally compact: the hero owns the drama, and the
  * memory card owns the agentic proof moment.
  *
@@ -17,7 +17,7 @@
 import { useState } from 'react'
 import { X, Sparkles, UserCircle2, History } from 'lucide-react'
 
-const DISMISS_KEY = 'boutique-welcome-dismissed'
+const DISMISS_KEY = 'pellier-welcome-dismissed'
 
 function hasBeenDismissed(): boolean {
   try {
@@ -108,7 +108,7 @@ function Pillar({ icon, verb, title, description }: PillarProps) {
   )
 }
 
-export default function BoutiqueWelcomeBand() {
+export default function PellierWelcomeBand() {
   const [dismissed, setDismissed] = useState(hasBeenDismissed)
 
   const handleDismiss = () => {

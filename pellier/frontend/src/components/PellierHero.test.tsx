@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import BoutiqueHero from './BoutiqueHero'
+import PellierHero from './PellierHero'
 
 const switchPersona = vi.fn()
 const openDrawerWithQuery = vi.fn()
@@ -26,7 +26,7 @@ vi.mock('../hooks/useVoiceSearch', () => ({
   }),
 }))
 
-describe('BoutiqueHero primary action', () => {
+describe('PellierHero primary action', () => {
   beforeEach(() => {
     persona = null
     switchPersona.mockReset()
@@ -34,17 +34,17 @@ describe('BoutiqueHero primary action', () => {
   })
 
   it('keeps profile selection in the hero without a duplicate edit rail', () => {
-    render(<BoutiqueHero />)
+    render(<PellierHero />)
 
     expect(screen.getByTestId('hero-profile-marco')).toBeInTheDocument()
     expect(screen.getByTestId('hero-profile-anna')).toBeInTheDocument()
     expect(screen.getByTestId('hero-profile-theo')).toBeInTheDocument()
-    expect(screen.queryByTestId('boutique-edit-selector')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('boutique-hero-trust')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pellier-edit-selector')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pellier-hero-trust')).not.toBeInTheDocument()
   })
 
   it('uses the existing persona transition from the hero', () => {
-    render(<BoutiqueHero />)
+    render(<PellierHero />)
 
     fireEvent.click(screen.getByTestId('hero-profile-anna'))
     expect(switchPersona).toHaveBeenCalledWith('anna')

@@ -5,7 +5,7 @@
  * Pellier Labs concept, the conversation pane, and the reasoning tabs.
  * Shows once per browser session (sessionStorage gate).
  *
- * Mirrors BoutiqueSpotlight in structure, animation, keyboard
+ * Mirrors PellierSpotlight in structure, animation, keyboard
  * handling, and visual language — editorial roman numerals, Fraunces
  * italic headlines, warm cream card. Only the content, the final-step
  * CTA copy, and the sessionStorage key differ.
@@ -31,13 +31,13 @@ const STEPS: SpotlightStep[] = [
     numeral: 'I',
     kicker: 'Welcome to',
     headline: 'Pellier Labs',
-    body: "This is where Pellier thinks out loud. Every agent decision, every tool call, every database read — visible in real time. The workshop behind the boutique.",
+    body: "This is where Pellier thinks out loud. Every agent decision, every tool call, every database read — visible in real time. The workshop behind Pellier.",
   },
   {
     numeral: 'II',
     kicker: 'On the left',
     headline: 'The conversation',
-    body: "Ask Pellier anything you'd ask in the boutique. The difference here: you see exactly how the answer was built — which specialist handled it, what tools fired, how long each step took.",
+    body: "Ask Pellier anything you'd ask in the storefront. The difference here: you see exactly how the answer was built — which specialist handled it, what tools fired, how long each step took.",
   },
   {
     numeral: 'III',

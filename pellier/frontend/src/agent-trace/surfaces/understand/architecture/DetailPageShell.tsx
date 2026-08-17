@@ -62,7 +62,7 @@ export interface DetailPageShellProps {
    * concept. Keeps Pellier Labs↔Pellier round trip one click away on
    * every deep-dive page.
    */
-  seeInBoutique?: {
+  seeInPellier?: {
     /** Storefront href, optionally with `?ask=...`. */
     href: string;
     /** Override the default copy. */
@@ -241,7 +241,7 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
   children,
   cheatSheet,
   liveState,
-  seeInBoutique,
+  seeInPellier,
 }) => {
   const navigate = useNavigate();
 
@@ -328,17 +328,17 @@ const DetailPageShell: React.FC<DetailPageShellProps> = ({
           one. Pairs the deep-dive explainer with a one-click drop
           back onto the storefront so the round trip is always
           available. */}
-      {seeInBoutique && (
+      {seeInPellier && (
         <div style={{ margin: '0 0 40px 0' }}>
           <SurfaceCrossLink
-            direction="to-boutique"
-            href={seeInBoutique.href}
-            label={seeInBoutique.label}
+            direction="to-pellier"
+            href={seeInPellier.href}
+            label={seeInPellier.label}
             italic={false}
           />
         </div>
       )}
-      {!seeInBoutique && <div style={{ height: 24 }} />}
+      {!seeInPellier && <div style={{ height: 24 }} />}
 
       {/* Concept-specific content */}
       {children}

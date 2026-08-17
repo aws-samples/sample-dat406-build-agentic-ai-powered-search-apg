@@ -146,7 +146,7 @@ async function clickFirstHeroPill(page) {
   // don't have individual testids — match by visible text first, then fall
   // back to the first pill inside the rail.
   const byText = page
-    .locator('[data-testid="boutique-hero-pills"] button', {
+    .locator('[data-testid="pellier-hero-pills"] button', {
       hasText: /linen.*goa/i,
     })
     .first();
@@ -156,7 +156,7 @@ async function clickFirstHeroPill(page) {
     return;
   }
   const fallback = page
-    .locator('[data-testid="boutique-hero-pills"] button')
+    .locator('[data-testid="pellier-hero-pills"] button')
     .first();
   if (await fallback.isVisible().catch(() => false)) {
     await fallback.scrollIntoViewIfNeeded().catch(() => {});

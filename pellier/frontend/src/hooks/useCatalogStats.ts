@@ -8,7 +8,7 @@
  * catalog grows or shrinks.
  *
  * Returns ``null`` until the first response lands so callers can show
- * a graceful fallback ("the boutique") during the first paint. On
+ * a graceful fallback ("Pellier") during the first paint. On
  * fetch failure, stays on the last successful payload — the endpoint
  * is contract-bound to never 5xx but network blips happen.
  */

@@ -3,7 +3,7 @@ import { cssVar as c } from '../design/cssVars'
  * FieldNotes — short editorial essays for the Storyboard route.
  *
  * Four notes total: one for each returning persona (Marco, Anna,
- * Theo) and one editorial note written in the boutique voice. Each
+ * Theo) and one editorial note written in the Pellier voice. Each
  * note is a tight italic Fraunces dek + a prose body in Instrument Sans, 15px/
  * 1.7, matching Pellier Labs AssistantText register so the page reads
  * as "the storefront wrote this, not a marketing page."
@@ -30,7 +30,7 @@ const NOTES: readonly Note[] = [
     kicker: 'Field note · No. 01',
     title: 'On asking for the piece, not the product.',
     body: [
-      'A boutique that really knows its floor should answer "a linen piece that travels well" the same way it answers "medium oatmeal camp shirt, size M." Both are the same question dressed differently. The first is softer; the second assumes too much.',
+      'Pellier should answer "a linen piece that travels well" as confidently as it answers "medium oatmeal camp shirt, size M." Both are the same question dressed differently. The first is softer; the second assumes too much.',
       'Pellier is built on that smaller, quieter assumption — that you know what you want, not what it\'s called.',
     ],
     signature: '— The editors',

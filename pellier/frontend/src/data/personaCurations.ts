@@ -23,7 +23,7 @@
  * fallback that mirrors the server's ranking heuristic.
  */
 
-import type { BoutiqueProduct } from '../services/types'
+import type { PellierProduct } from '../services/types'
 
 // ---------------------------------------------------------------------
 // Persona interest profiles. Scores are 0-10; higher = stronger lean.
@@ -117,7 +117,7 @@ export const PERSONA_INTERESTS: Record<string, PersonaInterests> = {
  * callers fall through to the product's natural order.
  */
 export function scoreProduct(
-  product: BoutiqueProduct,
+  product: PellierProduct,
   weights: Record<string, number>,
 ): number {
   if (!product.tags || product.tags.length === 0) return 0
@@ -134,7 +134,7 @@ export function scoreProduct(
  * a persona without a full coverage of the catalog still sees the
  * remainder in a predictable sequence.
  */
-export function rankProductsForPersona<T extends BoutiqueProduct>(
+export function rankProductsForPersona<T extends PellierProduct>(
   products: readonly T[],
   personaId: string | null | undefined,
 ): T[] {
@@ -521,7 +521,7 @@ export function featuredProductIdForPersona(
 
 // ---------------------------------------------------------------------
 // Weekend Edit — persona-specific editorial eyebrow + headline + copy.
-// The "Weekend, re:defined." block on BoutiquePage swaps entirely
+// The "Weekend, re:defined." block on PellierStorefront swaps entirely
 // based on persona so the editorial voice matches the shopper.
 // ---------------------------------------------------------------------
 

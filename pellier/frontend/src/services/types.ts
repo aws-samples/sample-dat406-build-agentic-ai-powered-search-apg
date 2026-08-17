@@ -90,12 +90,12 @@ export interface ApiError {
 // `/api/search` endpoint (snake_case plus camelCase, matching the backend's
 // historical column names).
 //
-// The boutique types below are the editorial façade consumed by the new
+// The Pellier types below are the editorial facade consumed by the new
 // home page and the personalization endpoints (`/api/products?personalized=…`
 // and the personalized `SearchResponse` shape from design.md). They are named
-// with a `Boutique` prefix so they never collide with the legacy types.
+// with a `Pellier` prefix so they never collide with the legacy types.
 // The legacy `/api/search` endpoint keeps its current `SearchResponse` shape;
-// personalization endpoints use `BoutiqueSearchResponse`.
+// personalization endpoints use `PellierSearchResponse`.
 
 
 export type ReasoningStyle = 'picked' | 'matched' | 'pricing' | 'context'
@@ -106,7 +106,7 @@ export interface ReasoningChip {
   urgentClause?: string
 }
 
-export type BoutiqueCategory =
+export type PellierCategory =
   | 'Linen'
   | 'Dresses'
   | 'Accessories'
@@ -121,9 +121,9 @@ export type BoutiqueCategory =
   | 'Beauty'
   | 'Wellness'
 
-export type BoutiqueBadge = 'EDITORS_PICK' | 'BESTSELLER' | 'JUST_IN'
+export type PellierBadge = 'EDITORS_PICK' | 'BESTSELLER' | 'JUST_IN'
 
-export interface BoutiqueProduct {
+export interface PellierProduct {
   id: number
   brand: string
   name: string
@@ -131,9 +131,9 @@ export interface BoutiqueProduct {
   price: number
   rating: number
   reviewCount: number
-  category: BoutiqueCategory
+  category: PellierCategory
   imageUrl: string
-  badge?: BoutiqueBadge
+  badge?: PellierBadge
   tags: string[]
   reasoning?: ReasoningChip
   /** Optional CSS object-position override for the card image crop. */
@@ -176,11 +176,11 @@ export interface Preferences {
   categories: CategoryTag[]
 }
 
-export interface BoutiqueSearchResponse {
-  products: BoutiqueProduct[]
+export interface PellierSearchResponse {
+  products: PellierProduct[]
   queryEmbeddingMs: number
   searchMs: number
   totalMs: number
 }
 
-export type BoutiqueSearchResult = BoutiqueSearchResponse
+export type PellierSearchResult = PellierSearchResponse

@@ -5,7 +5,7 @@
  * session jargon.
  *
  * Used on Pellier capability strip (cream-tinted, glass background)
- * and on Pellier Labs TopBar (same boutique styling on the light cream bar).
+ * and on Pellier Labs TopBar (same Pellier styling on the light cream bar).
  *
  * Pass `sessionLabel=""` explicitly to force-hide the fragment, or rely
  * on defaults: fresh / anonymous → no fragment; returning shoppers →
@@ -13,7 +13,7 @@
  */
 import React from 'react'
 
-export type PresenceSurface = 'boutique' | 'agentTrace'
+export type PresenceSurface = 'pellier' | 'agentTrace'
 export type PresenceMode = 'listening' | 'thinking' | 'idle'
 
 export interface PresencePillProps {

@@ -59,7 +59,7 @@ _psql_exec() {
 echo "Pellier governed reset - $(date '+%H:%M:%S')"
 echo "------------------------------------------------------------"
 
-if ! "$PYTHON" "$REPO/scripts/seed_boutique_catalog.py" \
+if ! "$PYTHON" "$REPO/scripts/seed_pellier_catalog.py" \
     --from-cache >/tmp/pellier-governed-reset-catalog.log 2>&1; then
   fail "Deterministic catalog reset failed; see /tmp/pellier-governed-reset-catalog.log"
   exit 1
@@ -129,7 +129,7 @@ _agentcore() {
     if command -v agentcore >/dev/null 2>&1; then
       command agentcore "$@"
     else
-      npx -y @aws/agentcore@0.26.0 "$@"
+      npx -y @aws/agentcore@1.0.0-preview.26 "$@"
     fi
   )
 }

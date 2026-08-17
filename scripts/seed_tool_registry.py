@@ -69,7 +69,7 @@ EMBEDDING_DIMENSION = 1024
 SENSITIVE_TOOLS = {"restock_shelf", "process_return"}
 
 # Which "specialist" owns each tool. Names match the five
-# boutique-branded specialists (Style Advisor, Curator, Value Analyst,
+# Pellier-branded specialists (Style Advisor, Curator, Value Analyst,
 # Stock Keeper, Experience Guide). Used by Card 7 to show provenance
 # per tool row in Pellier Labs.
 TOOL_OWNER: Dict[str, str] = {

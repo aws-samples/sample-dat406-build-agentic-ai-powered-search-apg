@@ -29,7 +29,7 @@ from .curator import recommendation
 from .value_analyst import pricing
 from .experience_guide import support
 from .style_advisor import search
-from boutique_copy import ORCHESTRATOR_SYSTEM_PROMPT
+from pellier_copy import ORCHESTRATOR_SYSTEM_PROMPT
 from config import settings
 
 
@@ -38,7 +38,7 @@ from config import settings
 # one specialist using the Strands "Agents as Tools" pattern. Uses the Sonnet
 # router profile without a temperature override. Priority order
 # (pricing > inventory > support > search > recommendation) is enforced
-# by the system prompt in boutique_copy.ORCHESTRATOR_SYSTEM_PROMPT.
+# by the system prompt in pellier_copy.ORCHESTRATOR_SYSTEM_PROMPT.
 #
 # ⏩ SHORT ON TIME? Run:
 #    cp solutions/closing-marcos-gap/agents/orchestrator.py pellier/backend/agents/orchestrator.py

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('./pages/BoutiquePage', () => ({
+vi.mock('./pages/PellierStorefront', () => ({
   default: () => <div>Storefront route</div>,
 }))
 
@@ -22,6 +22,10 @@ vi.mock('./agent-trace/shell/AgentTraceFrame', async () => {
 
 vi.mock('./agent-trace/surfaces/observe/PellierLabsWorkbench', () => ({
   default: () => <div>Pellier Labs workbench</div>,
+}))
+
+vi.mock('./agent-trace/surfaces/ReferencesIndex', () => ({
+  default: () => <div>Optional references index</div>,
 }))
 
 import { AppRoutes, isPellierSurfacePath } from './App'
@@ -61,6 +65,15 @@ describe('canonical application routes', () => {
       '/pellier-labs?turn=live#journey',
     )
     expect(document.body).toHaveClass('pellier-surface')
+  })
+
+  it('renders the optional reference index at its canonical route', async () => {
+    renderRoute('/pellier-labs/references')
+
+    expect(await screen.findByText('Optional references index')).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/pellier-labs/references',
+    )
   })
 
   it.each([

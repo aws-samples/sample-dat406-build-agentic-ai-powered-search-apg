@@ -69,7 +69,7 @@ export const EVALUATION_METRICS: EvaluationMetric[] = [
     catches:
       'Right answer buried on page two – common when Postgres FTS and vector disagree and rerank is off.',
     pellierExample:
-      'Compare MRR for vector-only vs hybrid+rerank on the same 50 boutique queries; a +0.15 MRR often matters more than a prettier prose answer.',
+      'Compare MRR for vector-only vs hybrid+rerank on the same 50 Pellier queries; a +0.15 MRR often matters more than a prettier prose answer.',
     measuredVia: ['Labeled search benchmarks', 'Performance search-strategy compare'],
   },
   {

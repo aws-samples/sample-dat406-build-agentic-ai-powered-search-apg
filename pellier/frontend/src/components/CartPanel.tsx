@@ -1,8 +1,8 @@
 /**
- * CartPanel — slide-over bag panel in the boutique warm palette.
+ * CartPanel — slide-over bag panel in the Pellier palette.
  *
  * Cream background, espresso text, warm borders. Replaces the
- * Apple-dark-theme CSS vars with inline boutique values so the
+ * Apple-dark-theme CSS vars with inline pellier values so the
  * panel matches the rest of the storefront without needing a
  * global theme class on <html>.
  *

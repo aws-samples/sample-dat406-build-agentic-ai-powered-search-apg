@@ -3,20 +3,20 @@
 # dry-run-builders.sh — end-to-end simulation of the participant path
 # =============================================================================
 # Run this before a 100-person room to catch breakage the health gate can't:
-# it actually exercises the three required labs against the live backend.
+# it exercises both required exercises plus the required agent wiring step.
 #
 #   1. Preconditions  — health gate must be READY
-#   2. Apply solution — wire floor_check (the participant's one build)
-#   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
-#   4. Retrieval      — run the exact four-strategy Lab 2 request
-#   5. Memory + audit — run both Lab 3 turns, then query exact-session evidence
+#   2. Exercise 1    — wire and directly verify floor_check while ungranted
+#   3. Observe       — grant to Stock Keeper and assert the Strands path
+#   4. Exercise 2    — run the exact four-strategy retrieval request
+#   5. Action receipt — query the floor_check evidence row
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
 #
-# This applies the floor_check solution temporarily and creates the same return
-# and audit evidence rows as a participant. It backs agent_tools.py up and
-# restores it on exit unless --keep is passed. Run it on a workshop environment,
-# not a production database.
+# This applies the floor_check solution and agent grant temporarily and creates
+# the same floor_check audit evidence as a participant. It backs both edited
+# files up and restores them on exit unless --keep is passed. Run it on a
+# workshop environment, not a production database.
 #
 # Usage:
 #   scripts/dry-run-builders.sh            # apply solution, test, restore stub
@@ -28,10 +28,11 @@ REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
 BASE="${PELLIER_BASE_URL:-http://localhost:8000}"
 TOOLS="${REPO}/pellier/backend/services/agent_tools.py"
+STOCK_KEEPER="${REPO}/pellier/backend/agents/stock_keeper.py"
 # The participant fills ONLY the floor_check body between the START/END markers
 # in the already-in-place agent_tools.py (the builders pre-apply variant, which
-# defines process_return, escalate_to_stylist, etc.). The dry-run mirrors that
-# exactly — it patches the body in place rather than swapping the whole file,
+# also defines shared application tools). The dry-run mirrors that exactly - it
+# patches the body in place rather than swapping the whole file,
 # so it can't drift from the live participant artifact. BODY is the canonical
 # reference body (same one the required-path's paste-only escape hatch uses).
 BODY="${REPO}/solutions/closing-marcos-gap/services/floor_check_tool_body.py"
@@ -58,7 +59,12 @@ _psql() {
 restore() {
   if ! $KEEP && [[ -f "${TOOLS}.dryrun.bak" ]]; then
     mv "${TOOLS}.dryrun.bak" "$TOOLS"
-    info "Restored original agent_tools.py (stub). Backend will reload."
+  fi
+  if ! $KEEP && [[ -f "${STOCK_KEEPER}.dryrun.bak" ]]; then
+    mv "${STOCK_KEEPER}.dryrun.bak" "$STOCK_KEEPER"
+  fi
+  if ! $KEEP; then
+    info "Restored the original tool and Stock Keeper starter files."
   fi
 }
 trap restore EXIT
@@ -95,61 +101,69 @@ else
   fail "Claude Code Bedrock smoke failed — see /tmp/dryrun-claude.err"
 fi
 
-# --- 2. Apply the solution (simulate the participant's build) ---------------
+if python3 "${REPO}/scripts/builders_starter.py" \
+    --repo "$REPO" verify --expect starter >/tmp/dryrun-starter-state.json; then
+  pass "Both intentional starter gaps are installed"
+else
+  fail "Dry run must start from the verified tool + agent starter state"
+  exit 1
+fi
+
+# --- 2. Exercise 1: apply and directly verify the tool ----------------------
 # Fill ONLY the floor_check body between the START/END markers in the live
-# agent_tools.py — exactly what a participant does. This keeps every other tool
-# (process_return, escalate_to_stylist, ...) intact, so the import graph the
-# Experience Guide relies on is never broken. (A prior version swapped the whole
-# file for a separate "solution" copy that had drifted — it was missing
-# process_return, which crashed experience_guide.py's module-load import.)
-echo "[2/6] Wire floor_check (fill the body between the markers)"
+# agent_tools.py — exactly what the checked-in participant recovery does.
+echo "[2/6] Exercise 1 - wire and directly verify floor_check"
 if [[ ! -f "$BODY" ]]; then
   fail "Reference body file missing: $BODY"; exit 1
 fi
-if ! grep -q "WORKSHOP_EXERCISE_STUB" "$TOOLS"; then
-  info "floor_check already wired (no stub marker) — leaving agent_tools.py as-is"
-else
-  # Guard the backup explicitly: if it fails we must NOT patch the file in
-  # place, or restore() (which keys on the .bak existing) would leave
-  # agent_tools.py permanently in the patched state. (This script runs with
-  # `set -uo pipefail`, not `-e`, by design – it accumulates FAILED and
-  # reports a summary – so a bare cp failure would otherwise pass silently.)
-  if ! cp "$TOOLS" "${TOOLS}.dryrun.bak"; then
-    fail "Could not back up agent_tools.py (cp failed) – refusing to patch in place"; exit 1
-  fi
-  python3 - "$TOOLS" "$BODY" <<'PYEOF'
-import sys, re
-tools_path, body_path = sys.argv[1], sys.argv[2]
-src = open(tools_path).read()
-# Body file has a 2-line "# Paste inside ..." comment header; keep only the code.
-body_lines = open(body_path).read().splitlines()
-body = "\n".join(l for l in body_lines if not l.lstrip().startswith("# Paste"))
-body = body.strip("\n")
-start = "# === WORKSHOP · Stock Keeper · floor_check: START ==="
-end   = "# === WORKSHOP · Stock Keeper · floor_check: END ==="
-pat = re.compile(re.escape(start) + r".*?" + re.escape(end), re.DOTALL)
-repl = start + "\n" + body + "\n    " + end
-new, n = pat.subn(repl, src)
-if n != 1:
-    sys.stderr.write(f"expected 1 marker block, replaced {n}\n"); sys.exit(1)
-open(tools_path, "w").write(new)
-PYEOF
-  if [[ $? -ne 0 ]]; then fail "Could not patch floor_check body into agent_tools.py"; exit 1; fi
-  pass "Filled floor_check body in agent_tools.py (other tools untouched)"
+if ! cp "$TOOLS" "${TOOLS}.dryrun.bak"; then
+  fail "Could not back up agent_tools.py - refusing to patch in place"; exit 1
 fi
-info "Waiting 4s for uvicorn --reload to pick up the change…"
+if ! python3 "${REPO}/scripts/builders_starter.py" \
+    --repo "$REPO" complete-tool >/tmp/dryrun-tool-solution.json; then
+  fail "Could not patch floor_check body into agent_tools.py"; exit 1
+fi
+pass "Filled floor_check body in agent_tools.py (other tools untouched)"
+
+info "Waiting 4s for uvicorn --reload to pick up the tool change..."
+sleep 4
+if uv run "${REPO}/scripts/builders_lab.py" \
+    --base-url "$BASE" tool-check >/tmp/dryrun-tool-check.json; then
+  pass "Direct tool check returned Brooklyn quantity and ship window"
+else
+  fail "Direct floor_check verification failed"; exit 1
+fi
+if uv run "${REPO}/scripts/builders_lab.py" \
+    --base-url "$BASE" build-state \
+    --expect-tool shipped --expect-agent exercise \
+    >/tmp/dryrun-tool-wired-state.json; then
+  pass "Intermediate state is tool shipped / agent ungranted"
+else
+  fail "Exercise 1 did not preserve the independent agent gap"; exit 1
+fi
+
+# --- 3. Grant the tool and observe the Strands path -------------------------
+echo "[3/6] Trace Agent Actions - grant floor_check and invoke Stock Keeper"
+if ! cp "$STOCK_KEEPER" "${STOCK_KEEPER}.dryrun.bak"; then
+  fail "Could not back up stock_keeper.py - refusing to edit the agent grant"; exit 1
+fi
+if python3 "${REPO}/scripts/builders_starter.py" \
+    --repo "$REPO" complete-agent >/tmp/dryrun-agent-grant.json; then
+  pass "Granted floor_check to the Strands Stock Keeper"
+else
+  fail "Could not grant floor_check to Stock Keeper"; exit 1
+fi
+info "Waiting 4s for uvicorn --reload to pick up the agent grant..."
 sleep 4
 
-# Confirm the strip flipped to shipped via build-state
-bs="$(curl -fs --max-time 5 "${BASE}/api/agent-trace/build-state" 2>/dev/null || true)"
-if echo "$bs" | grep -q '"floor_check"[[:space:]]*:[[:space:]]*"shipped"'; then
-  pass "build-state reports floor_check = shipped"
+if uv run "${REPO}/scripts/builders_lab.py" \
+    --base-url "$BASE" build-state --expect shipped \
+    >/tmp/dryrun-complete-state.json; then
+  pass "Complete state is tool shipped / Stock Keeper shipped"
 else
-  fail "build-state did not flip floor_check to shipped (got: ${bs:0:200})"
+  fail "Agent grant did not produce the complete build state"; exit 1
 fi
 
-# --- 3. Marco Turn 5 via the dispatcher path --------------------------------
-echo "[3/6] Marco Turn 5 - POST /api/chat/stream"
 SESSION="dryrun-$(date +%s)"
 SESSION_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 turn5='{"message":"Hadley availability in Brooklyn","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
@@ -169,8 +183,8 @@ if echo "$reply" | grep -qi 'floor_check is in stub state'; then
   fail "Stub envelope still present — solution did not take effect"
 fi
 
-# --- 4a. Lab 2 retrieval comparison ----------------------------------------
-echo "[4a/6] Lab 2 — GET /api/agent-trace/search-strategies/compare"
+# --- 4. Exercise 2 retrieval comparison ------------------------------------
+echo "[4/6] Exercise 2 - GET /api/agent-trace/search-strategies/compare"
 QUERY='A housewarming gift under $100 that is in stock'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
@@ -196,69 +210,16 @@ if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     info "First 300 chars: ${retrieval:0:300}"
   fi
 else
-  fail "Lab 2 comparison failed — see /tmp/dryrun-retrieval.err"
+  fail "Exercise 2 comparison failed - see /tmp/dryrun-retrieval.err"
 fi
 
-# --- 4b. Lab 3 exact in-process write request -------------------------------
-echo "[4b/6] Lab 3 — process_return on the dispatcher rail"
-LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
-LEDGER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
-if curl --fail --silent --show-error --no-buffer --max-time 75 \
-    -X POST "${BASE}/api/chat/stream" \
-    -H 'Content-Type: application/json' \
-    -H "X-Pellier-Session-Token: ${LEDGER_TOKEN}" \
-    -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
-  pass "Lab 3 stream completed for session ${LEDGER_SESSION}"
-else
-  fail "Lab 3 process_return request failed"
-fi
-
-memory_body='{"message":"Without calling a tool, what customer id and damage did I just report?","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
-if curl --fail --silent --show-error --no-buffer --max-time 75 \
-    -X POST "${BASE}/api/chat/stream" \
-    -H 'Content-Type: application/json' \
-    -H "X-Pellier-Session-Token: ${LEDGER_TOKEN}" \
-    -d "$memory_body" > /tmp/pellier-memory-turn.sse; then
-  memory_receipt="$(
-    sed -n 's/^data: //p' /tmp/pellier-memory-turn.sse \
-      | jq -c 'select(.type == "complete") | .response.memory' \
-      | tail -n 1
-  )"
-  if printf '%s' "$memory_receipt" | jq -e '
-      .source == "aurora"
-      and .loaded_messages == 2
-      and .persisted == true
-    ' >/dev/null 2>&1; then
-    pass "Lab 3 turn two loaded two Aurora messages and persisted its response"
-  else
-    fail "Lab 3 turn two did not prove Aurora recall (got: ${memory_receipt:-none})"
-  fi
-else
-  fail "Lab 3 memory-recall request failed"
-fi
-
-# --- 5. Working memory + audit ledger ---------------------------------------
-echo "[5/6] Aurora evidence — pellier.messages + pellier.tool_audit"
+# --- 5. Optional deeper action receipt -------------------------------------
+echo "[5/6] Optional deeper trace - pellier.tool_audit"
 n="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='floor_check' AND session_id LIKE 'dryrun-%';")"
 if [[ "${n:-0}" =~ ^[0-9]+$ ]] && (( n > 0 )); then
   pass "tool_audit has $n floor_check row(s) for this dry run"
 else
   fail "No tool_audit row for floor_check — audit writer not firing"
-fi
-
-message_rows="$(_psql "SELECT count(*) FROM pellier.messages WHERE session_id='${LEDGER_SESSION}' AND role IN ('user','assistant');")"
-if [[ "${message_rows:-0}" == "4" ]]; then
-  pass "Lab 3 session contains exactly four user/assistant messages"
-else
-  fail "Lab 3 session has ${message_rows:-0} messages; expected 4"
-fi
-
-ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='process_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"
-if [[ "${ledger_rows:-0}" =~ ^[0-9]+$ ]] && (( ledger_rows > 0 )); then
-  pass "Session-specific process_return receipt is complete for ${LEDGER_SESSION}"
-else
-  fail "No complete process_return receipt for session ${LEDGER_SESSION}"
 fi
 
 # --- 6. SQL-claim checks (pin run-of-show numbers + verify pg_trgm) ----------

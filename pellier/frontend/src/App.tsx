@@ -4,7 +4,7 @@
  * Composition is intentionally minimal: provider chain, BrowserRouter,
  * root-level modal hosts (AuthModal, PreferencesModal, ChatDrawer,
  * ComparisonHost), and the final route table. The two surfaces are
- * BoutiquePage (`/`) and AgentTraceFrame (`/pellier-labs/*`).
+ * PellierStorefront (`/`) and AgentTraceFrame (`/pellier-labs/*`).
  *
  * AuthGate is exported so Pellier Labs surface can be gated when Cognito
  * is configured.
@@ -35,7 +35,7 @@ import { routerBasename } from './utils/assetPath'
 import { safeReturnTo } from './utils/auth'
 import './styles/premium-heading-styles.css'
 
-const BoutiquePage = lazy(() => import('./pages/BoutiquePage'))
+const PellierStorefront = lazy(() => import('./pages/PellierStorefront'))
 const AgentTraceFrame = lazy(() => import('./agent-trace/shell/AgentTraceFrame'))
 const SessionsList = lazy(() => import('./agent-trace/surfaces/observe/SessionsList'))
 const SessionView = lazy(() => import('./agent-trace/surfaces/observe/SessionView'))
@@ -46,6 +46,9 @@ const Observatory = lazy(() => import('./agent-trace/surfaces/observe/Observator
 const ProofBoard = lazy(() => import('./agent-trace/surfaces/observe/ProofBoard'))
 const PellierLabsWorkbench = lazy(
   () => import('./agent-trace/surfaces/observe/PellierLabsWorkbench'),
+)
+const ReferencesIndex = lazy(
+  () => import('./agent-trace/surfaces/ReferencesIndex'),
 )
 const PersonaJourneys = lazy(() => import('./agent-trace/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
@@ -192,7 +195,7 @@ function SignInChooserRoute() {
     }
   }, [activeModal, navigate, opened, returnTo])
 
-  return <BoutiquePage />
+  return <PellierStorefront />
 }
 
 function LegacyLabsRedirect() {
@@ -228,20 +231,21 @@ export function AppRoutes() {
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           {/*
-           *   /           -> BoutiquePage (storefront shell)
-           *   /signin     -> BoutiquePage + provider chooser
+           *   /           -> PellierStorefront (storefront shell)
+           *   /signin     -> PellierStorefront + provider chooser
            *   /pellier-labs/* -> Pellier Labs
            *   /inspector  -> InspectorPage (frozen session-scoped trace view)
            *   /storyboard -> StoryboardPage
            *   /discover   -> DiscoverPage
            *   *           -> redirect to /
            */}
-          <Route path="/" element={<BoutiquePage />} />
+          <Route path="/" element={<PellierStorefront />} />
           <Route path="/signin" element={<SignInChooserRoute />} />
           <Route path="/agent-trace/*" element={<LegacyLabsRedirect />} />
           <Route path="/labs/*" element={<LegacyLabsRedirect />} />
           <Route path="/pellier-labs" element={<AgentTraceFrame />}>
             <Route index element={<PellierLabsWorkbench />} />
+            <Route path="references" element={<ReferencesIndex />} />
             <Route path="proof-board" element={<ProofBoard />} />
             <Route path="sessions" element={<SessionsList />} />
             <Route path="sessions/:id" element={<SessionView />}>
