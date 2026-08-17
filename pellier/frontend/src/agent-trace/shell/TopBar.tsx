@@ -9,19 +9,24 @@ import React, { useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowLeft,
-  Brain,
+  BookOpen,
   Check,
   ChevronDown,
   ClipboardCheck,
+  Compass,
+  FileCheck,
   Gauge,
-  GitBranch,
+  IdCard,
+  Layers,
   ListChecks,
-  MemoryStick,
-  Network,
-  PackageSearch,
-  PanelLeft,
+  Map,
+  ReceiptText,
+  ScrollText,
   Search,
-  Wrench,
+  Settings,
+  ShieldCheck,
+  Signpost,
+  Tags,
   Workflow,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -91,6 +96,13 @@ interface LabsView {
   path: string;
   description: string;
   icon: LucideIcon;
+  /**
+   * Persona ids to render as stacked portraits in place of the icon.
+   *
+   * Persona journeys is about three named shoppers, and a glyph cannot say that
+   * the way their faces can. `icon` stays set as the fallback.
+   */
+  faces?: readonly string[];
 }
 
 const LABS_VIEWS: LabsView[] = [
@@ -98,13 +110,13 @@ const LABS_VIEWS: LabsView[] = [
     label: 'Live workbench',
     path: '/pellier-labs',
     description: 'Run a governed request and inspect its evidence.',
-    icon: PanelLeft,
+    icon: ReceiptText,
   },
   {
     label: 'Tools',
     path: '/pellier-labs/tools',
     description: 'Inspect callable contracts and Aurora operations.',
-    icon: Wrench,
+    icon: Tags,
   },
   {
     label: 'Search',
@@ -116,25 +128,25 @@ const LABS_VIEWS: LabsView[] = [
     label: 'Skills',
     path: '/pellier-labs/skills',
     description: 'Run the governed skill router.',
-    icon: Brain,
+    icon: BookOpen,
   },
   {
     label: 'Memory',
     path: '/pellier-labs/memory',
     description: 'Inspect live persona memory substrates.',
-    icon: MemoryStick,
+    icon: IdCard,
   },
   {
     label: 'Proof board',
     path: '/pellier-labs/proof-board',
     description: 'Review governed claims and their evidence.',
-    icon: ClipboardCheck,
+    icon: FileCheck,
   },
   {
     label: 'Audit proof',
     path: '/pellier-labs/audit-proof',
     description: 'Focus on persisted audit receipts.',
-    icon: ClipboardCheck,
+    icon: ScrollText,
   },
   {
     label: 'Sessions',
@@ -146,25 +158,25 @@ const LABS_VIEWS: LabsView[] = [
     label: 'Workshop map',
     path: '/pellier-labs/observatory',
     description: 'Trace the workshop through its proof path.',
-    icon: Network,
+    icon: Compass,
   },
   {
     label: 'Architecture',
     path: '/pellier-labs/architecture',
     description: 'Inspect runtime boundaries and control planes.',
-    icon: Network,
+    icon: Map,
   },
   {
     label: 'Routing',
     path: '/pellier-labs/routing',
     description: 'Read intent classification and dispatch rules.',
-    icon: GitBranch,
+    icon: Signpost,
   },
   {
     label: 'Gateway & policy',
     path: '/pellier-labs/write-path',
     description: 'Review policy-gated and audited mutations.',
-    icon: PackageSearch,
+    icon: ShieldCheck,
   },
   {
     label: 'Performance',
@@ -182,7 +194,7 @@ const LABS_VIEWS: LabsView[] = [
     label: 'Production patterns',
     path: '/pellier-labs/production-patterns',
     description: 'Read the identity, tenancy, and guardrails model.',
-    icon: Network,
+    icon: Layers,
   },
   {
     label: 'Persona journeys',
@@ -194,7 +206,7 @@ const LABS_VIEWS: LabsView[] = [
     label: 'Settings',
     path: '/pellier-labs/settings',
     description: 'Review the active Labs configuration.',
-    icon: Wrench,
+    icon: Settings,
   },
 ];
 
@@ -294,12 +306,23 @@ const TopBar: React.FC = () => {
                           data-interaction={group.interaction}
                           onSelect={() => navigate(view.path)}
                         >
-                          <span
-                            className="pellier-labs-view-menu-icon"
-                            aria-hidden="true"
-                          >
-                            <ViewIcon size={15} strokeWidth={1.8} />
-                          </span>
+                          {view.faces ? (
+                            <span
+                              className="pellier-labs-view-menu-faces"
+                              aria-hidden="true"
+                            >
+                              {view.faces.map((id) => (
+                                <img key={id} src={getPersonaPhoto(id)} alt="" />
+                              ))}
+                            </span>
+                          ) : (
+                            <span
+                              className="pellier-labs-view-menu-icon"
+                              aria-hidden="true"
+                            >
+                              <ViewIcon size={15} strokeWidth={1.8} />
+                            </span>
+                          )}
                           <span className="pellier-labs-view-menu-copy">
                             <strong>{view.label}</strong>
                             <small>{view.description}</small>

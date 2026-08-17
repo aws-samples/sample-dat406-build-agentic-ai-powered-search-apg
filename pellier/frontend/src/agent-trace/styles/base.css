@@ -1459,3 +1459,30 @@
     text-align: right;
   }
 }
+
+/* Persona journeys shows the three shoppers instead of a glyph.
+ *
+ * The menu row is a grid whose first column is exactly 26px, the icon box. The
+ * cluster must resolve to 26px of CONTENT, not merely be constrained to a 26px
+ * box: at 17px per face it measured 39px wide and spilled over the description
+ * text. 14px faces overlapped by 8px land on 26px exactly. */
+.pellier-labs-view-menu-faces {
+  display: inline-flex;
+  width: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.pellier-labs-view-menu-faces img {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 1px solid var(--at-cream-elev, #fafafa);
+  border-radius: 50%;
+  background: #e7e9ed;
+}
+
+.pellier-labs-view-menu-faces img + img {
+  margin-left: -8px;
+}
