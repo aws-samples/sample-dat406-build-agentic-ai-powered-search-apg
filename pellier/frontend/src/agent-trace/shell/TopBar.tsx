@@ -9,20 +9,21 @@ import React, { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowLeft,
-  Bot,
-  Brain,
+  BookOpen,
   Check,
   ChevronDown,
   ClipboardCheck,
   Gauge,
-  GitBranch,
   ListChecks,
-  MemoryStick,
-  Network,
+  IdCard,
+  Layers,
   PackageSearch,
-  PanelLeft,
+  ConciergeBell,
+  Map,
+  ReceiptText,
+  Signpost,
+  Tags,
   Search,
-  Wrench,
   Workflow,
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -48,6 +49,15 @@ interface LabsView {
   path: string;
   description: string;
   icon: LucideIcon;
+  /**
+   * Persona ids to render as stacked portraits in place of the icon.
+   *
+   * Persona journeys is about three named shoppers, and a glyph cannot say that
+   * the way their faces can. This is the one row in the picker where real
+   * photography beats iconography, so it opts out of the icon slot rather than
+   * settling for an abstract one. `icon` stays set as the fallback.
+   */
+  faces?: readonly string[];
 }
 
 interface LabsViewGroup {
@@ -63,10 +73,11 @@ const LABS_VIEW_GROUPS: LabsViewGroup[] = [
         label: 'Live workbench',
         path: '/pellier-labs',
         description: 'Run a request and inspect emitted evidence.',
-        icon: PanelLeft,
+        icon: ReceiptText,
       },
       {
         label: 'Persona journeys',
+        faces: ['marco', 'anna', 'theo'],
         path: '/pellier-labs/persona-journeys',
         description: 'Compare canonical request and tool paths.',
         icon: Workflow,
@@ -86,25 +97,25 @@ const LABS_VIEW_GROUPS: LabsViewGroup[] = [
         label: 'Architecture',
         path: '/pellier-labs/architecture',
         description: 'Live request topology and component boundaries.',
-        icon: Network,
+        icon: Map,
       },
       {
         label: 'Agents',
         path: '/pellier-labs/agents',
         description: 'Specialist contracts and handoffs.',
-        icon: Bot,
+        icon: ConciergeBell,
       },
       {
         label: 'Tools',
         path: '/pellier-labs/tools',
         description: 'Callable contracts and Aurora operations.',
-        icon: Wrench,
+        icon: Tags,
       },
       {
         label: 'Skills',
         path: '/pellier-labs/skills',
         description: 'Prompt overlays selected per request.',
-        icon: Brain,
+        icon: BookOpen,
       },
       {
         label: 'Search',
@@ -116,13 +127,13 @@ const LABS_VIEW_GROUPS: LabsViewGroup[] = [
         label: 'Routing',
         path: '/pellier-labs/routing',
         description: 'Intent classification and dispatch.',
-        icon: GitBranch,
+        icon: Signpost,
       },
       {
         label: 'Memory',
         path: '/pellier-labs/memory',
         description: 'Working state and durable records.',
-        icon: MemoryStick,
+        icon: IdCard,
       },
       {
         label: 'Write path',
@@ -151,7 +162,7 @@ const LABS_VIEW_GROUPS: LabsViewGroup[] = [
         label: 'Production patterns',
         path: '/pellier-labs/production-patterns',
         description: 'Identity, tenancy, and guardrails.',
-        icon: Network,
+        icon: Layers,
       },
     ],
   },
@@ -261,12 +272,23 @@ const TopBar: React.FC = () => {
                           data-interaction={group.interaction}
                           onSelect={() => navigate(view.path)}
                         >
-                          <span
-                            className="pellier-labs-view-menu-icon"
-                            aria-hidden="true"
-                          >
-                            <ViewIcon size={15} strokeWidth={1.8} />
-                          </span>
+                          {view.faces ? (
+                            <span
+                              className="pellier-labs-view-menu-faces"
+                              aria-hidden="true"
+                            >
+                              {view.faces.map((id) => (
+                                <img key={id} src={getPersonaPhoto(id)} alt="" />
+                              ))}
+                            </span>
+                          ) : (
+                            <span
+                              className="pellier-labs-view-menu-icon"
+                              aria-hidden="true"
+                            >
+                              <ViewIcon size={15} strokeWidth={1.8} />
+                            </span>
+                          )}
                           <span className="pellier-labs-view-menu-copy">
                             <strong>{view.label}</strong>
                             <small>{view.description}</small>
