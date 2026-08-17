@@ -1,9 +1,9 @@
 /**
  * ChatDrawer — right-side chat drawer for the storefront.
  *
- * Replaces the centered ConciergeModal on storefront routes. Slides in
- * from the right at 240ms ease-out; backdrop dims the storefront to 35%
- * espresso. Matches docs/storefront-hero-drawer.html State 3.
+ * Replaces the centered ConciergeModal on storefront routes. Pointer opens
+ * slide in from the right; keyboard invocation opens immediately so Cmd/Ctrl+K
+ * stays responsive. Matches docs/storefront-hero-drawer.html State 3.
  *
  * Three entry points (all external — the drawer itself is passive):
  *   1. Floating CommandPill click → ``activeModal === 'drawer'``
@@ -70,13 +70,21 @@ function detectMac(): boolean {
 // ---------------------------------------------------------------------------
 
 export default function ChatDrawer() {
-  const { activeModal, closeModal, openModal, consumePendingQuery } = useUI()
+  const {
+    activeModal,
+    closeModal,
+    openModal,
+    consumePendingQuery,
+    modalActivationSource,
+  } = useUI()
   const { guardrailsEnabled } = useLayout()
   const { addToCart } = useCart()
   const { persona } = usePersona()
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = Boolean(useReducedMotion())
 
   const isOpen = activeModal === 'drawer'
+  const suppressDrawerMotion =
+    reduceMotion || modalActivationSource === 'keyboard'
   const [isMac, setIsMac] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
@@ -260,10 +268,10 @@ export default function ChatDrawer() {
           <motion.div
             className="cd-backdrop"
             data-testid="chat-drawer-backdrop"
-            initial={reduceMotion ? false : { opacity: 0 }}
+            initial={suppressDrawerMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.24 }}
+            transition={{ duration: suppressDrawerMotion ? 0 : 0.18 }}
             onClick={closeModal}
           />
 
@@ -275,12 +283,16 @@ export default function ChatDrawer() {
             role="dialog"
             aria-modal="true"
             aria-label="Chat with Pellier"
-            initial={reduceMotion ? false : { x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={
+              suppressDrawerMotion
+                ? false
+                : { transform: 'translateX(100%)' }
+            }
+            animate={{ transform: 'translateX(0)' }}
+            exit={{ transform: 'translateX(100%)' }}
             transition={{
-              duration: reduceMotion ? 0 : 0.24,
-              ease: [0.4, 0, 0.2, 1],
+              duration: suppressDrawerMotion ? 0 : 0.24,
+              ease: [0.23, 1, 0.32, 1],
             }}
           >
             {/* Mobile drag handle (decorative) */}
@@ -391,9 +403,13 @@ export default function ChatDrawer() {
       {!isOpen && hasUserMessages && (
         <motion.div
           data-testid="continue-chat-pill"
-          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
+          initial={
+            reduceMotion
+              ? false
+              : { opacity: 0, transform: 'translateY(12px)' }
+          }
+          animate={{ opacity: 1, transform: 'translateY(0)' }}
+          exit={{ opacity: 0, transform: 'translateY(12px)' }}
           transition={{
             duration: reduceMotion ? 0 : 0.25,
             delay: reduceMotion ? 0 : 0.3,

@@ -119,7 +119,16 @@ interface ConceptCardProps {
 }
 
 const ConceptCard: React.FC<ConceptCardProps> = ({ concept, onOpen }) => (
-  <ExpCard>
+  /*
+   * The category is stated in the legend but the eight cards all looked
+   * identical, so the taxonomy was information the reader had to hold rather
+   * than something the page showed. Passing it down lets each card carry its
+   * own category rule, which is what turns the legend into a key.
+   */
+  <ExpCard
+    className="architecture-concept-card"
+    data-category={concept.category}
+  >
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Top row: Roman numeral + category badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

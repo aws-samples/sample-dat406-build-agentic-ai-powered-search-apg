@@ -300,11 +300,13 @@ const LatencyBudgetTable: React.FC<LatencyBudgetProps> = ({ budget }) => {
                 <div
                   style={{
                     height: '100%',
-                    width: `${barPct}%`,
+                    width: '100%',
                     backgroundColor: color,
                     borderRadius: '7px',
                     opacity: 0.7,
-                    transition: 'width 0.4s ease',
+                    transform: `scaleX(${barPct / 100})`,
+                    transformOrigin: 'left center',
+                    transition: 'transform 240ms cubic-bezier(0.23, 1, 0.32, 1)',
                   }}
                 />
               </div>
@@ -1307,11 +1309,13 @@ const StorageUsageBars: React.FC<StorageUsageProps> = ({ usage }) => {
               <div
                 style={{
                   height: '100%',
-                  width: `${item.percentage}%`,
+                  width: '100%',
                   backgroundColor: barColors[i % barColors.length],
                   borderRadius: '5px',
                   opacity: 0.7,
-                  transition: 'width 0.4s ease',
+                  transform: `scaleX(${item.percentage / 100})`,
+                  transformOrigin: 'left center',
+                  transition: 'transform 240ms cubic-bezier(0.23, 1, 0.32, 1)',
                 }}
               />
             </div>

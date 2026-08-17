@@ -222,8 +222,12 @@ export default function BoutiqueChatBody({
         return (
           <motion.div
             key={`msg-${index}-${message.timestamp.getTime()}`}
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={
+              reduceMotion
+                ? false
+                : { opacity: 0, transform: 'translateY(8px)' }
+            }
+            animate={{ opacity: 1, transform: 'translateY(0)' }}
             transition={{
               duration: reduceMotion ? 0 : 0.25,
               ease: 'easeOut',
@@ -468,8 +472,15 @@ function AgentMessage({
           {orderedProducts.map((product, pIdx) => (
             <motion.div
               key={product.id || pIdx}
-              initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
+              initial={
+                reduceMotion
+                  ? false
+                  : {
+                      opacity: 0,
+                      transform: 'translateY(8px) scale(0.97)',
+                    }
+              }
+              animate={{ opacity: 1, transform: 'translateY(0) scale(1)' }}
               transition={{
                 delay: reduceMotion ? 0 : pIdx * 0.1,
                 duration: reduceMotion ? 0 : 0.38,

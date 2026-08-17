@@ -14,7 +14,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow } from '../../components';
+import { getPersonaPhoto } from '../../../data/personaPhotos';
 import { PERSONA_HERO_PILLS, PERSONA_TURN_TRACES } from '../../../data/personaCurations';
+import './PersonaJourneys.css';
 
 interface JourneyTurn {
   n: number;
@@ -208,112 +210,51 @@ function sessionLinkLabel(id: string, suffix?: string): string {
 const TurnRow: React.FC<{ turn: JourneyTurn; isFirst?: boolean }> = ({ turn, isFirst }) => {
   const links =
     turn.sessionId || turn.wiredSessionId ? (
-      <div
-        style={{
-          marginTop: '10px',
-          display: 'flex',
-          flexWrap: 'wrap' as const,
-          gap: '12px',
-        }}
-      >
+      <div className="labs-turnrow-links">
         {turn.sessionId && (
-          <Link
-            to={`/pellier-labs/sessions/${turn.sessionId}`}
-            style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '11px',
-              color: 'var(--at-burgundy)',
-              textDecoration: 'none',
-            }}
-          >
+          <Link to={`/pellier-labs/sessions/${turn.sessionId}`}>
             {sessionLinkLabel(turn.sessionId, turn.wiredSessionId ? 'stub / arc' : 'replay')}
-            →
+            <span aria-hidden="true">→</span>
           </Link>
         )}
         {turn.wiredSessionId && (
           <Link
             to={`/pellier-labs/sessions/${turn.wiredSessionId}`}
-            style={{
-              fontFamily: 'var(--at-mono)',
-              fontSize: '11px',
-              color: 'var(--at-burgundy)',
-              textDecoration: 'none',
-            }}
+            data-wired="true"
           >
-            {sessionLinkLabel(turn.wiredSessionId, 'wired')}→
+            {sessionLinkLabel(turn.wiredSessionId, 'wired')}
+            <span aria-hidden="true">→</span>
           </Link>
         )}
       </div>
     ) : null;
 
+  /*
+   * Styling moved from inline objects to classes so a row can express state in
+   * the shared palette. Inline styles win the cascade, which is why these rows
+   * could only ever be grey.
+   */
   return (
-    <div
-      style={{
-        padding: '14px 16px',
-        borderTop: isFirst ? 'none' : '1px solid var(--at-card-border)',
-      }}
-    >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '32px 1fr 200px',
-          gap: '14px',
-          alignItems: 'flex-start',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '13px',
-            color: 'var(--at-ink-3)',
-            paddingTop: '2px',
-          }}
-        >
-          T{turn.n}
-        </span>
+    <li className="labs-turnrow" data-first={isFirst ? 'true' : undefined}>
+      <span className="labs-turnrow-ordinal">T{turn.n}</span>
 
-        <div>
-          <div
-            style={{
-              fontFamily: 'var(--at-sans)',
-              fontSize: '14px',
-              color: 'var(--at-ink-1)',
-              marginBottom: '4px',
-            }}
-          >
-            “{turn.pill}”
-          </div>
-          <div
-            style={{
-              fontFamily: 'var(--at-sans)',
-              fontSize: '13px',
-              color: 'var(--at-ink-2)',
-              lineHeight: 1.55,
-            }}
-          >
-            {turn.outcome}
-          </div>
-          {links}
-        </div>
-
-        <div
-          style={{
-            fontFamily: 'var(--at-mono)',
-            fontSize: '12px',
-            color: 'var(--at-ink-3)',
-            textAlign: 'right' as const,
-            lineHeight: 1.6,
-          }}
-        >
-          <div style={{ color: 'var(--at-ink-1)' }}>{turn.agent}</div>
-          <div>{turn.model}</div>
-          {turn.skills.map((skill) => (
-            <div key={skill}>skill.{skill}</div>
-          ))}
-          {turn.tool && <div>{turn.tool}</div>}
-        </div>
+      <div className="labs-turnrow-body">
+        <p className="labs-turnrow-pill">{turn.pill}</p>
+        <p className="labs-turnrow-outcome">{turn.outcome}</p>
+        {links}
       </div>
-    </div>
+
+      <div className="labs-turnrow-stack">
+        <span className="labs-turnrow-agent">{turn.agent}</span>
+        <span className="labs-turnrow-model">{turn.model}</span>
+        {turn.skills.map((skill) => (
+          <span className="labs-turnrow-skill" key={skill}>
+            skill.{skill}
+          </span>
+        ))}
+        {turn.tool && <span className="labs-turnrow-tool">{turn.tool}</span>}
+      </div>
+    </li>
   );
 };
 
@@ -323,61 +264,38 @@ const TurnRow: React.FC<{ turn: JourneyTurn; isFirst?: boolean }> = ({ turn, isF
 
 const PersonaSection: React.FC<{ journey: PersonaJourney }> = ({ journey }) => (
   <ExpCard>
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-        marginBottom: '8px',
-      }}
-    >
-      <Eyebrow label={journey.capabilityRole} />
-      <code
-        style={{
-          fontFamily: 'var(--at-mono)',
-          fontSize: '12px',
-          color: 'var(--at-burgundy)',
-        }}
-      >
-        {journey.capability}
-      </code>
-    </div>
-    <h2
-      className="font-display text-espresso"
-      style={{
-        fontSize: 'clamp(28px, 3.5vw, 44px)',
-        fontWeight: 400,
-        margin: '4px 0 12px',
-        letterSpacing: '-0.015em',
-        lineHeight: 1.1,
-      }}
-    >
-      {journey.displayName}
-    </h2>
-    <p
-      style={{
-        fontFamily: 'var(--at-sans)',
-        fontSize: '14px',
-        lineHeight: 1.6,
-        color: 'var(--at-ink-2)',
-        marginBottom: '20px',
-      }}
-    >
-      {journey.blurb}
-    </p>
+    {/*
+     * This page is about three people, and it used to show none of them: a
+     * sans name over a metadata table. The live workbench next door puts a
+     * photograph on every single row, so the identity block here reuses that
+     * device rather than inventing one. getPersonaPhoto is the same helper the
+     * top bar and sidebar already render.
+     */}
+    <div className="labs-persona-head">
+      <img
+        className="labs-persona-portrait"
+        src={getPersonaPhoto(journey.id)}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        decoding="async"
+      />
 
-    <div
-      style={{
-        border: '1px solid var(--at-card-border)',
-        borderRadius: '6px',
-        background: 'var(--at-cream-1)',
-        overflow: 'hidden' as const,
-      }}
-    >
+      <div className="labs-persona-identity">
+        <div className="labs-persona-meta">
+          <Eyebrow label={journey.capabilityRole} />
+          <code>{journey.capability}</code>
+        </div>
+        <h2>{journey.displayName}</h2>
+        <p>{journey.blurb}</p>
+      </div>
+    </div>
+
+    <ol className="labs-turnrow-list">
       {journey.turns.map((t, i) => (
         <TurnRow key={t.n} turn={t} isFirst={i === 0} />
       ))}
-    </div>
+    </ol>
 
     {journey.capstoneNote && (
       <div

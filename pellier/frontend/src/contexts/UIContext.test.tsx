@@ -21,6 +21,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 function Probe() {
   const {
     activeModal,
+    modalActivationSource,
     openModal,
     closeModal,
     toggleConcierge,
@@ -30,6 +31,7 @@ function Probe() {
   return (
     <div>
       <span data-testid="active">{activeModal ?? 'none'}</span>
+      <span data-testid="modal-activation-source">{modalActivationSource}</span>
       <span data-testid="chat-surface">{chatSurface}</span>
       <button onClick={() => openModal('concierge')}>open-concierge</button>
       <button onClick={() => openModal('auth')}>open-auth</button>
@@ -91,6 +93,7 @@ describe('UIContext global keyboard shortcuts', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     expect(screen.getByTestId('active')).toHaveTextContent('drawer')
+    expect(screen.getByTestId('modal-activation-source')).toHaveTextContent('keyboard')
 
     await user.keyboard('{Meta>}k{/Meta}')
     expect(screen.getByTestId('active')).toHaveTextContent('none')

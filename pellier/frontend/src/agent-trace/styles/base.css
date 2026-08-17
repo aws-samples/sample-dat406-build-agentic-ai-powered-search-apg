@@ -61,6 +61,30 @@
   --at-serif: var(--sans);
   --at-card-radius: 6px;
 
+  /* Semantic accents, shared with the live workbench.
+   *
+   * These were defined only inside .pellier-labs-workbench, so every
+   * supporting Labs view resolved them to nothing and had to fall back to grey
+   * for states the index renders in colour. That is the main reason the
+   * sub-pages read flatter than the ledger: they could not say "verified",
+   * "live", or "not emitted" in the product's own vocabulary.
+   *
+   *   accent-2    section labels and tracked caps
+   *   olive       verified, live, present
+   *   terracotta  running, open, needs attention
+   *   ledger-*    shared radii so cards match the ledger's shape
+   */
+  --at-accent-2: #8a3943;
+  --at-olive: #6a7a4d;
+  --at-olive-soft: #edf2e7;
+  --at-olive-line: #c9d6bc;
+  --at-terracotta: #b6603a;
+  --at-terracotta-soft: #f7ebe5;
+  --at-terracotta-line: #e1b9a6;
+  --at-ledger-r: 18px;
+  --at-ledger-r-sm: 12px;
+  --at-label-track: 0.16em;
+
   background: var(--cream);
   color: var(--at-ink-1);
   font-family: var(--at-sans);
@@ -696,40 +720,85 @@
   line-height: 1.5;
 }
 
+/* Six equal stations. The template previously interleaved 22px arrow columns;
+   now that the spine replaces the arrow glyphs those spans are not rendered, so
+   an interleaved template would auto-place two nodes into one slot and overlap
+   their labels. */
 .architecture-runtime-topology-flow {
   display: grid;
-  grid-template-columns:
-    minmax(118px, 1fr) 22px
-    minmax(118px, 1fr) 22px
-    minmax(118px, 1fr) 22px
-    minmax(118px, 1fr) 22px
-    minmax(118px, 1fr) 22px
-    minmax(118px, 1fr);
-  align-items: stretch;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: start;
   gap: 4px;
 }
 
-.architecture-runtime-topology-node {
-  display: grid;
-  min-height: 94px;
-  align-content: space-between;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--at-rule-2);
-  border-radius: 7px;
-  background: var(--at-cream-1);
-  color: var(--at-ink-1);
-  text-align: left;
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    transform 160ms ease;
+/* The request path is the best idea on this page and it was rendering as six
+ * near-invisible boxes: --at-rule-2 on --at-cream-1 is barely a border, so the
+ * stations read as loose labels with arrows between them.
+ *
+ * It now uses the live ledger's signature device, a numbered circular node on a
+ * connecting hairline, laid out horizontally. Same vocabulary as the workbench
+ * timeline, so the two surfaces describe one system. The counter supplies the
+ * station number without touching the markup. */
+.architecture-runtime-topology-flow {
+  counter-reset: topology-station;
 }
 
-.architecture-runtime-topology-node:hover {
-  border-color: color-mix(in srgb, var(--at-red-1) 42%, var(--at-rule-2));
+.architecture-runtime-topology-node {
+  position: relative;
+  display: grid;
+  min-height: 104px;
+  align-content: start;
+  counter-increment: topology-station;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--at-ink-1);
+  text-align: left;
+  transition: color 160ms ease;
+}
+
+/* The spine. Drawn behind the node badges and stopped at the last station. */
+.architecture-runtime-topology-node::after {
+  position: absolute;
+  z-index: 0;
+  top: 15px;
+  right: -14px;
+  left: 24px;
+  height: 1px;
+  background: var(--at-rule-2);
+  content: '';
+}
+
+.architecture-runtime-topology-node:last-of-type::after {
+  content: none;
+}
+
+/* Numbered station badge. */
+.architecture-runtime-topology-node::before {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 50%;
   background: var(--at-cream-elev);
-  transform: translateY(-1px);
+  color: var(--at-accent-2);
+  content: counter(topology-station, decimal-leading-zero);
+  font-family: var(--at-mono);
+  font-size: 11px;
+  font-weight: 600;
+  transition: border-color 160ms ease, background-color 160ms ease,
+    color 160ms ease;
+}
+
+.architecture-runtime-topology-node:hover::before {
+  border-color: var(--at-red-1);
+  background: var(--at-red-1);
+  color: var(--at-cream-elev);
 }
 
 .architecture-runtime-topology-node:focus-visible {
@@ -740,32 +809,44 @@
 .architecture-runtime-topology-node strong {
   color: var(--at-ink-1);
   font-family: var(--at-sans);
-  font-size: 14px;
-  font-weight: 650;
-  letter-spacing: 0;
-  line-height: 1.25;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: var(--at-label-track);
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.architecture-runtime-topology-node:hover strong {
+  color: var(--at-red-1);
 }
 
 .architecture-runtime-topology-node code {
   overflow: hidden;
-  color: var(--at-red-1);
+  color: var(--at-ink-4);
   font-family: var(--at-mono);
-  font-size: 10.5px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
+/* The spine replaces the arrow glyphs. */
 .architecture-runtime-topology-arrow {
-  display: grid;
-  place-items: center;
-  color: var(--at-ink-4);
+  display: none;
 }
 
 @media (max-width: 1160px) {
   .architecture-runtime-topology-flow {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 9px;
+    gap: 18px 9px;
+  }
+
+  /* Once the stations wrap onto two rows the spine would run off the end of
+     each row and point at nothing, so it is dropped and the numbered badges
+     carry the sequence on their own. */
+  .architecture-runtime-topology-node::after {
+    content: none;
   }
 
   .architecture-runtime-topology-arrow {
@@ -976,6 +1057,71 @@
   border-radius: 8px !important;
   background: var(--cream-warm) !important;
   box-shadow: 0 18px 46px rgba(52, 25, 30, 0.16) !important;
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+}
+
+.pellier-labs-view-menu[data-state='open'] {
+  animation: pellier-labs-view-menu-enter 160ms cubic-bezier(0.16, 1, 0.3, 1)
+    both;
+}
+
+.pellier-labs-view-menu[data-state='closed'] {
+  animation: pellier-labs-view-menu-exit 120ms cubic-bezier(0.4, 0, 1, 1)
+    both;
+}
+
+@keyframes pellier-labs-view-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pellier-labs-view-menu-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+@keyframes pellier-labs-view-menu-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pellier-labs-view-menu-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pellier-labs-view-menu[data-state='open'] {
+    animation: pellier-labs-view-menu-fade-in 100ms linear both !important;
+  }
+
+  .pellier-labs-view-menu[data-state='closed'] {
+    animation: pellier-labs-view-menu-fade-out 80ms linear both !important;
+  }
 }
 
 .pellier-labs-view-menu-section + .pellier-labs-view-menu-section {

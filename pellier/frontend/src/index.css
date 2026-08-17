@@ -904,7 +904,7 @@
       ),
       rgba(140, 100, 55, 0.06);
     border: 1px solid rgba(140, 100, 55, 0.12);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: inset 0 1px 0 rgba(200, 160, 100, 0.04);
   }
   .wood-card:hover {
@@ -923,6 +923,12 @@
     box-shadow:
       inset 0 1px 0 rgba(200, 160, 100, 0.06),
       0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .product-card:hover .product-card-image {
+      transform: scale(1.025);
+    }
   }
 
   /* Wood divider */

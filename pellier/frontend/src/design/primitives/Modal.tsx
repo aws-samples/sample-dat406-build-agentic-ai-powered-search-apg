@@ -12,6 +12,7 @@ export interface ModalProps {
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const MODAL_EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 /**
  * Modal primitive — focus trap, Escape close, portal to body.
@@ -91,23 +92,23 @@ export const Modal: React.FC<ModalProps> = ({
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }
     : {
         hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { duration: 0.18, ease: 'easeOut' as const } },
-        exit: { opacity: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
+        visible: { opacity: 1, transition: { duration: 0.18, ease: MODAL_EASE } },
+        exit: { opacity: 0, transition: { duration: 0.18, ease: MODAL_EASE } },
       };
 
   const contentVariants = reducedMotion
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }
     : {
-        hidden: { opacity: 0, scale: 0.95 },
+        hidden: { opacity: 0, transform: 'scale(0.95)' },
         visible: {
           opacity: 1,
-          scale: 1,
-          transition: { duration: 0.24, ease: 'easeOut' as const },
+          transform: 'scale(1)',
+          transition: { duration: 0.24, ease: MODAL_EASE },
         },
         exit: {
           opacity: 0,
-          scale: 0.95,
-          transition: { duration: 0.18, ease: 'easeOut' as const },
+          transform: 'scale(0.95)',
+          transition: { duration: 0.18, ease: MODAL_EASE },
         },
       };
 

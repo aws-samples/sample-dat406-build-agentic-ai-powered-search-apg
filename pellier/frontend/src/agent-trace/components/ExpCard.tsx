@@ -13,12 +13,19 @@ export interface ExpCardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
+  /**
+   * Optional taxonomy hook. Surfaces that group cards (the architecture index
+   * groups by live / workshop / optional / quality) set this so CSS can give a
+   * card its category colour without every caller inventing a wrapper.
+   */
+  'data-category'?: string;
 }
 
 export const ExpCard: React.FC<ExpCardProps> = ({
   children,
   className = '',
   onClick,
+  'data-category': dataCategory,
 }) => {
   const isClickable = !!onClick;
 
@@ -39,6 +46,7 @@ export const ExpCard: React.FC<ExpCardProps> = ({
       }
       className={`pellier-labs-exp-card ${className}`.trim()}
       data-clickable={isClickable ? 'true' : undefined}
+      data-category={dataCategory}
       style={{
         position: 'relative',
         background: 'var(--at-card-bg)',

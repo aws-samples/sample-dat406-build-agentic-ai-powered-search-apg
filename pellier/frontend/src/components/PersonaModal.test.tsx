@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -39,6 +39,9 @@ describe('PersonaModal', () => {
     await waitFor(() => {
       expect(screen.getByTestId('persona-card-marco')).toBeInTheDocument()
     })
+    expect(
+      screen.getByRole('dialog', { name: 'Choose a workshop profile.' }),
+    ).toHaveAttribute('aria-modal', 'true')
 
     for (const persona of LOCAL_PERSONAS) {
       const photo = screen
@@ -48,5 +51,24 @@ describe('PersonaModal', () => {
       expect(photo).not.toBeNull()
       expect(photo).toHaveAttribute('src', getPersonaPhoto(persona.id))
     }
+  })
+
+  it('keeps the overlay mounted through the close exit', async () => {
+    const onClose = vi.fn()
+    const { rerender } = render(<PersonaModal open onClose={onClose} />)
+
+    await screen.findByRole('dialog', { name: 'Choose a workshop profile.' })
+    fireEvent.click(screen.getByTestId('persona-modal-close'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    rerender(<PersonaModal open={false} onClose={onClose} />)
+    expect(
+      screen.getByRole('dialog', { name: 'Choose a workshop profile.' }),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Choose a workshop profile.' }),
+      ).not.toBeInTheDocument()
+    })
   })
 })

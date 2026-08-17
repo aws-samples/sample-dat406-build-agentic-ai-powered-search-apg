@@ -10,7 +10,7 @@ export interface CardProps {
 const variantClasses: Record<NonNullable<CardProps['variant']>, string> = {
   default: 'bg-cream-50 rounded-xl shadow-warm-sm',
   product:
-    'bg-cream-50 rounded-xl shadow-warm-sm hover:shadow-warm-md hover:-translate-y-0.5 transition-all duration-slide ease-out',
+    'bg-cream-50 rounded-xl shadow-warm-sm hover:shadow-warm-md hover:-translate-y-0.5 transition-[transform,box-shadow] duration-slide ease-out',
   recommendation:
     'bg-cream-50 rounded-xl shadow-warm-sm border-l-2 border-l-accent',
   reasoning: 'bg-cream-50 rounded-xl shadow-warm-sm',

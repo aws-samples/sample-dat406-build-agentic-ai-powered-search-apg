@@ -190,7 +190,7 @@
   font-size: 11px;
   line-height: 1.2;
   cursor: pointer;
-  transition: all 160ms ease;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
 }
 
 .pa-quick:hover {

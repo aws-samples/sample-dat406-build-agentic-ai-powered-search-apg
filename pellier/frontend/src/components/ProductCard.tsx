@@ -48,7 +48,7 @@ const BADGE_LABEL: Record<BoutiqueBadge, string> = {
 
 interface ProductCardProps {
   product: BoutiqueProduct
-  /** Row-wise index (0..2). Drives per-column stagger (`index * 220ms`). */
+  /** Row-wise index (0..2). Drives a compact per-column stagger. */
   index: number
   /** Optional `Add to bag` handler. The button is hidden when omitted. */
   onAddToBag?: (product: BoutiqueProduct) => void
@@ -69,13 +69,13 @@ function deriveTraces(product: BoutiqueProduct): string[] {
   return product.tags.slice(0, 2).map(tag => `tag.match · ${tag}`)
 }
 
-// Per-column stagger in ms. Matches storefront.md — columns within a row play
-// at 0ms, 220ms, 440ms so each row reveals as a left-to-right sweep. We use
+// Per-column stagger in ms. Columns within a row play at 0ms, 50ms, 100ms so
+// the catalog settles quickly while retaining a subtle left-to-right sweep. We use
 // `index % 3` so the card computes the correct 0..2 column regardless of
 // whether the grid passes a row-local or catalog-global index. At 92+ products
-// a linear `index * 220ms` cascade would push later cards to >11s delay,
+// a linear index-based cascade would push later cards well beyond a useful delay,
 // well past the observer's attention window.
-const STAGGER_MS = 220
+const STAGGER_MS = 50
 
 // Columns per row in the desktop grid. The stagger math uses the widest case
 // so the sweep is consistent on desktop; on narrower breakpoints the same
@@ -88,7 +88,7 @@ const GRID_COLUMNS = 3
 const SAFETY_TIMEOUT_MS = 500
 
 // Pre-reveal opacity. Keep this at 1 so a stalled observer never hides
-// product content; the reveal still reads through translate/scale.
+// product content; the reveal still reads through a restrained transform.
 const PRE_REVEAL_OPACITY = 1
 
 // Apple-style ease-out-expo. Don't substitute — `ease-out` reads as too
@@ -189,9 +189,8 @@ export default function ProductCard({
         opacity: isVisible ? 1 : PRE_REVEAL_OPACITY,
         transform: isVisible
           ? 'translateY(0) scale(1)'
-          : 'translateY(56px) scale(0.975)',
-        transition: `opacity 1100ms ${REVEAL_EASE}, transform 1200ms ${REVEAL_EASE}, box-shadow 180ms ease-out`,
-        willChange: 'opacity, transform',
+          : 'translateY(12px) scale(0.99)',
+        transition: `opacity 220ms ${REVEAL_EASE}, transform 260ms ${REVEAL_EASE}, box-shadow 180ms ease-out`,
       } as CSSProperties}
     >
       {/* --- Image panel --------------------------------------------- */}
@@ -204,7 +203,7 @@ export default function ProductCard({
           loading="lazy"
           decoding="async"
           pictureClassName="block h-full w-full"
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.025]"
+          className="product-card-image h-full w-full object-cover transition-transform duration-200 ease-out"
           style={{
             objectPosition: product.imagePosition ?? 'center center',
           }}

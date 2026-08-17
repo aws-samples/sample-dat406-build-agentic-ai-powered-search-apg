@@ -1,0 +1,278 @@
+/* ========================================================================
+ * Canonical journeys — persona identity and turn ledger.
+ *
+ * This page reads flat because it opted out of two moves the live workbench
+ * already makes: it shows photography of nothing while the ledger puts an image
+ * on every row, and it renders every turn as identical grey table text while the
+ * ledger colours state. Both are fixed here in the system's own vocabulary.
+ *
+ * No new primitive: colours come from the --at-olive / --at-terracotta /
+ * --at-accent-2 set now shared on .agent-trace-root, radii from --at-ledger-r,
+ * and the type stays Instrument Sans plus JetBrains Mono. No serif is
+ * introduced, because this surface deliberately runs one sans voice.
+ * ======================================================================== */
+
+/* -----------------------------------------------------------------------
+ * Identity block
+ * ----------------------------------------------------------------------- */
+
+.labs-persona-head {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+
+/* A real face, at a size that reads as a portrait rather than an avatar chip. */
+.labs-persona-portrait {
+  display: block;
+  width: 84px;
+  height: 104px;
+  object-fit: cover;
+  border-radius: var(--at-ledger-r-sm);
+  background: var(--at-cream-2);
+}
+
+.labs-persona-identity {
+  min-width: 0;
+}
+
+.labs-persona-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.labs-persona-meta code {
+  color: var(--at-accent-2);
+  font-family: var(--at-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.labs-persona-identity h2 {
+  margin: 0 0 10px;
+  color: var(--at-red-1);
+  font-family: var(--at-sans);
+  font-size: clamp(30px, 3.4vw, 42px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+}
+
+.labs-persona-identity > p {
+  max-width: 74ch;
+  color: var(--at-ink-2);
+  font-family: var(--at-sans);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* -----------------------------------------------------------------------
+ * Turn ledger
+ *
+ * Rows become cards separated by a gap, the same shape the live ledger uses,
+ * so five turns read as a sequence of events rather than a spreadsheet.
+ * ----------------------------------------------------------------------- */
+
+.labs-turnrow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-turnrow {
+  display: grid;
+  /* The right column holds tool chains like `find_pieces -> style_match`, which
+     truncated at 190px. Sized to the longest real chain instead of a guess. */
+  grid-template-columns: 34px minmax(0, 1fr) minmax(190px, 238px);
+  gap: 16px;
+  align-items: start;
+  padding: 15px 16px;
+  border: 1px solid var(--at-rule-1);
+  border-radius: var(--at-ledger-r);
+  background: var(--at-cream-elev);
+  transition: border-color 150ms ease;
+}
+
+.labs-turnrow:hover {
+  border-color: var(--at-rule-3);
+}
+
+.labs-turnrow-ordinal {
+  padding-top: 1px;
+  color: var(--at-accent-2);
+  font-family: var(--at-mono);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.labs-turnrow-body {
+  min-width: 0;
+}
+
+/* The shopper's own words are the subject of the row, so they get the size.
+   Quote marks come from CSS so the string in the data stays clean. */
+.labs-turnrow-pill {
+  margin: 0 0 5px;
+  color: var(--at-ink-1);
+  font-family: var(--at-sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+}
+
+.labs-turnrow-pill::before {
+  content: '\201C';
+}
+
+.labs-turnrow-pill::after {
+  content: '\201D';
+}
+
+.labs-turnrow-outcome {
+  margin: 0;
+  color: var(--at-ink-4);
+  font-family: var(--at-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* Replay links: olive for the wired path because that is the proven one, and
+   the accent for the stub or arc path. Same meaning the ledger gives olive. */
+.labs-turnrow-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.agent-trace-root .labs-turnrow-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--at-rule-2);
+  border-radius: 999px;
+  color: var(--at-red-1);
+  font-family: var(--at-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.agent-trace-root .labs-turnrow-links a:hover {
+  border-color: var(--at-red-1);
+  background: var(--at-red-soft);
+  text-decoration: none;
+}
+
+.agent-trace-root .labs-turnrow-links a[data-wired='true'] {
+  border-color: var(--at-olive-line);
+  background: var(--at-olive-soft);
+  color: var(--at-olive);
+}
+
+.agent-trace-root .labs-turnrow-links a[data-wired='true']:hover {
+  border-color: var(--at-olive);
+  background: var(--at-olive-soft);
+}
+
+/* Right stack: the machine's account of the row. Agent named in ink, the rest
+   stepped down so the column reads as one block rather than four equal lines. */
+.labs-turnrow-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  text-align: right;
+}
+
+.labs-turnrow-stack > span {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--at-mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labs-turnrow-agent {
+  color: var(--at-ink-1);
+  font-weight: 600;
+}
+
+.labs-turnrow-model {
+  color: var(--at-ink-5);
+}
+
+.labs-turnrow-skill {
+  color: var(--at-accent-2);
+}
+
+/* The tool is the row's operational fact, so it gets the one pill. It wraps
+   rather than truncating: a half-shown tool name is worse than two lines. */
+.labs-turnrow-tool {
+  margin-top: 4px;
+  padding: 4px 9px;
+  border: 1px solid var(--at-rule-2);
+  border-radius: var(--at-ledger-r-sm);
+  background: var(--at-cream-1);
+  color: var(--at-ink-2);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+/* -----------------------------------------------------------------------
+ * Responsive
+ * ----------------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .labs-persona-head {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .labs-persona-portrait {
+    width: 64px;
+    height: 80px;
+  }
+
+  .labs-persona-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .labs-turnrow {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .labs-turnrow-stack {
+    grid-column: 2;
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .labs-turnrow,
+  .agent-trace-root .labs-turnrow-links a {
+    transition: none;
+  }
+}

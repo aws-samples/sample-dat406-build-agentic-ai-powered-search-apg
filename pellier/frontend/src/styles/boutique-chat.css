@@ -214,13 +214,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.ec-icon-btn:hover {
-  background: rgba(31, 20, 16, 0.06);
-  color: var(--ink-1);
-}
-
 /* ---- Edition strip ---- */
 .ec-edition-strip {
   padding: 8px 22px;
@@ -460,11 +455,7 @@
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 180ms;
-}
-.ec-send:hover:not(:disabled) {
-  background: var(--red-1);
-  transform: scale(1.05);
+  transition: background-color 180ms ease, transform 180ms ease;
 }
 .ec-send:disabled {
   opacity: 0.4;
@@ -479,7 +470,7 @@
   border-radius: 0 8px 8px 0;
   background: var(--cream-2);
   overflow: hidden;
-  transition: all 200ms ease;
+  transition: border-color 200ms ease, background-color 200ms ease;
 }
 .ec-thinking-header {
   padding: 10px 14px;
@@ -533,6 +524,18 @@
 }
 .ec-thinking-body p {
   margin-bottom: 6px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ec-icon-btn:hover {
+    background: rgba(31, 20, 16, 0.06);
+    color: var(--ink-1);
+  }
+
+  .ec-send:hover:not(:disabled) {
+    background: var(--red-1);
+    transform: scale(1.05);
+  }
 }
 
 /* ---- Collapsed skills + tools disclosure ---- */

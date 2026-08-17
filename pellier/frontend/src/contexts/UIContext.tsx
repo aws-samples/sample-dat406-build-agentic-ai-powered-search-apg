@@ -38,6 +38,7 @@ export type ModalName =
   | 'comparison'
 
 export type ActiveModal = ModalName | null
+export type ModalActivationSource = 'keyboard' | 'pointer'
 
 /**
  * Minimal product shape understood by ProductComparison. We keep the fields
@@ -58,7 +59,8 @@ export interface ComparisonProduct {
 interface UIContextValue {
   // Modal singleton
   activeModal: ActiveModal
-  openModal: (name: ModalName) => void
+  modalActivationSource: ModalActivationSource
+  openModal: (name: ModalName, source?: ModalActivationSource) => void
   closeModal: () => void
   toggleConcierge: () => void
 
@@ -103,6 +105,8 @@ export function useUI() {
 export function UIProvider({ children }: { children: ReactNode }) {
   // --- Modal singleton -----------------------------------------------------
   const [activeModal, setActiveModal] = useState<ActiveModal>(null)
+  const [modalActivationSource, setModalActivationSource] =
+    useState<ModalActivationSource>('pointer')
   const [comparisonProducts, setComparisonProducts] = useState<
     ComparisonProduct[]
   >([])
@@ -123,8 +127,12 @@ export function UIProvider({ children }: { children: ReactNode }) {
     'concierge' | 'drawer' | 'none'
   >('drawer')
 
-  const openModal = useCallback((name: ModalName) => {
+  const openModal = useCallback((
+    name: ModalName,
+    source: ModalActivationSource = 'pointer',
+  ) => {
     // Opening any modal closes the previous one first (Req 1.11.4).
+    setModalActivationSource(source)
     setActiveModal(name)
   }, [])
 
@@ -140,15 +148,18 @@ export function UIProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggleConcierge = useCallback(() => {
+    setModalActivationSource('pointer')
     setActiveModal(prev => (prev === 'concierge' ? null : 'concierge'))
   }, [])
 
   const toggleDrawer = useCallback(() => {
+    setModalActivationSource('pointer')
     setActiveModal(prev => (prev === 'drawer' ? null : 'drawer'))
   }, [])
 
   const openComparison = useCallback((products: ComparisonProduct[]) => {
     setComparisonProducts(products)
+    setModalActivationSource('pointer')
     setActiveModal('comparison')
   }, [])
 
@@ -157,6 +168,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     if (!trimmed) return
     pendingQueryRef.current = trimmed
     setPendingConciergeQuery(trimmed)
+    setModalActivationSource('pointer')
     setActiveModal('concierge')
   }, [])
 
@@ -165,6 +177,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     if (!trimmed) return
     pendingQueryRef.current = trimmed
     setPendingConciergeQuery(trimmed)
+    setModalActivationSource('pointer')
     setActiveModal('drawer')
   }, [])
 
@@ -188,6 +201,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
         e.preventDefault()
         const target = chatSurface
         if (target === 'none') return
+        setModalActivationSource('keyboard')
         setActiveModal(prev => (prev === target ? null : target))
         return
       }
@@ -230,6 +244,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const value = useMemo<UIContextValue>(
     () => ({
       activeModal,
+      modalActivationSource,
       openModal,
       closeModal,
       toggleConcierge,
@@ -248,6 +263,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     }),
     [
       activeModal,
+      modalActivationSource,
       openModal,
       closeModal,
       toggleConcierge,

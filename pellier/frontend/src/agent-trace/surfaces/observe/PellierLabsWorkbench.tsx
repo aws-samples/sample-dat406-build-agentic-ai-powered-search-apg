@@ -1266,9 +1266,11 @@ export default function PellierLabsWorkbench() {
                         step.id === latestSqlStep?.id ? 'true' : undefined
                       }
                       initial={
-                        reduceMotion ? false : { opacity: 0.72, y: 6 }
+                        reduceMotion
+                          ? false
+                          : { opacity: 0.72, transform: 'translateY(6px)' }
                       }
-                      animate={{ opacity: 1, y: 0 }}
+                      animate={{ opacity: 1, transform: 'translateY(0)' }}
                       transition={{
                         duration: reduceMotion ? 0 : 0.28,
                         ease: [0.16, 1, 0.3, 1],

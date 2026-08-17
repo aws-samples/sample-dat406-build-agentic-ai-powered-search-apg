@@ -14,6 +14,7 @@ export interface DrawerProps {
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const DRAWER_EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 /**
  * Drawer primitive — Framer Motion slide, 240ms ease-out.
@@ -94,16 +95,19 @@ export const Drawer: React.FC<DrawerProps> = ({
   const slideVariants = reducedMotion
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }
     : {
-        hidden: { x: isLeft ? '-100%' : '100%', opacity: 0 },
+        hidden: {
+          transform: `translateX(${isLeft ? '-100%' : '100%'})`,
+          opacity: 0,
+        },
         visible: {
-          x: 0,
+          transform: 'translateX(0)',
           opacity: 1,
-          transition: { duration: 0.24, ease: 'easeOut' as const },
+          transition: { duration: 0.24, ease: DRAWER_EASE },
         },
         exit: {
-          x: isLeft ? '-100%' : '100%',
+          transform: `translateX(${isLeft ? '-100%' : '100%'})`,
           opacity: 0,
-          transition: { duration: 0.24, ease: 'easeOut' as const },
+          transition: { duration: 0.24, ease: DRAWER_EASE },
         },
       };
 
@@ -111,8 +115,8 @@ export const Drawer: React.FC<DrawerProps> = ({
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } }
     : {
         hidden: { opacity: 0 },
-        visible: { opacity: 1, transition: { duration: 0.18, ease: 'easeOut' as const } },
-        exit: { opacity: 0, transition: { duration: 0.18, ease: 'easeOut' as const } },
+        visible: { opacity: 1, transition: { duration: 0.18, ease: DRAWER_EASE } },
+        exit: { opacity: 0, transition: { duration: 0.18, ease: DRAWER_EASE } },
       };
 
   const positionClasses = isLeft

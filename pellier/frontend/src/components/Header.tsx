@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCart } from '../contexts/CartContext'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
@@ -62,6 +63,8 @@ const NAV_ITEMS: Array<{ item: NavItem; label: string }> = [
   { item: 'ask-pellier', label: NAV.ASK_PELLIER },
   { item: 'about', label: NAV.ABOUT },
 ]
+
+const MENU_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
 // ---------------------------------------------------------------------------
 // Wordmark
@@ -162,6 +165,7 @@ function PersonaDropdown() {
   const [personas, setPersonas] = useState<PersonaListItem[]>([])
   const [fetched, setFetched] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = Boolean(useReducedMotion())
 
   // Fetch persona list on first open
   useEffect(() => {
@@ -279,97 +283,118 @@ function PersonaDropdown() {
       </button>
 
       {/* Dropdown */}
-      {open && (
-        <div
-          data-testid="persona-dropdown"
-          className={[
-            'absolute right-0 top-full mt-2 z-50',
-            'bg-cream-50 border border-sand rounded-lg shadow-warm-md',
-            'min-w-[240px] py-2',
-            'transition-opacity duration-fade ease-out',
-          ].join(' ')}
-          role="menu"
-          aria-label="Persona menu"
-        >
-          {!fetched && personas.length === 0 && (
-            <div
-              className="px-4 py-2.5 text-ink-soft text-[12px]"
-              style={{ fontFamily: 'var(--sans)' }}
-              aria-live="polite"
-            >
-              Loading personas…
-            </div>
-          )}
-          {personas.map((p) => {
-            const isActive = persona?.id === p.id
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="menuitem"
-                disabled={switching}
-                data-testid={`persona-option-${p.id}`}
-                onClick={() => handleSelect(p.id)}
-                className={[
-                  'w-full flex items-center gap-3 py-2.5 text-left border-l-[3px] transition-colors duration-fade ease-out',
-                  'hover:bg-sand/50 cursor-pointer',
-                  'focus-visible:outline-none focus-visible:bg-sand/50',
-                  isActive
-                    ? 'border-espresso bg-sand/70 pl-[13px] pr-4'
-                    : 'border-transparent pl-[13px] pr-4',
-                ].join(' ')}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            data-testid="persona-dropdown"
+            className={[
+              'absolute right-0 top-full mt-2 z-50',
+              'bg-cream-50 border border-sand rounded-lg shadow-warm-md',
+              'min-w-[240px] py-2',
+            ].join(' ')}
+            role="menu"
+            aria-label="Persona menu"
+            initial={
+              reduceMotion
+                ? { opacity: 0 }
+                : { opacity: 0, transform: 'translateY(-4px) scale(0.98)' }
+            }
+            animate={
+              reduceMotion
+                ? { opacity: 1 }
+                : { opacity: 1, transform: 'translateY(0) scale(1)' }
+            }
+            exit={
+              reduceMotion
+                ? { opacity: 0 }
+                : { opacity: 0, transform: 'translateY(-4px) scale(0.98)' }
+            }
+            transition={{
+              duration: reduceMotion ? 0.12 : 0.18,
+              ease: MENU_EASE,
+            }}
+            style={{ transformOrigin: 'top right' }}
+          >
+            {!fetched && personas.length === 0 && (
+              <div
+                className="px-4 py-2.5 text-ink-soft text-[12px]"
+                style={{ fontFamily: 'var(--sans)' }}
+                aria-live="polite"
               >
-                <Avatar
-                  initial={p.avatar_initial}
-                  bgColor={p.avatar_color}
-                  photoUrl={getPersonaPhoto(p.id)}
-                  size="sm"
-                />
-                <div className="flex flex-col min-w-0">
-                  <span
-                    className="text-espresso text-[13px] font-medium truncate"
-                    style={{ fontFamily: 'var(--sans)' }}
-                  >
-                    {p.display_name}
-                  </span>
-                  <span
-                    className="text-ink-soft text-[11px] truncate"
-                    style={{ fontFamily: 'var(--sans)' }}
-                  >
-                    {p.role_tag}
-                  </span>
-                </div>
-              </button>
-            )
-          })}
-
-          {persona && (
-            <>
-              <div className="border-t border-sand my-1" />
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="persona-sign-out"
-                onClick={handleSignOut}
-                className={[
-                  'w-full flex items-center gap-3 px-4 py-2.5 text-left',
-                  'transition-colors duration-fade ease-out',
-                  'hover:bg-sand/50 cursor-pointer text-espresso',
-                  'focus-visible:outline-none focus-visible:bg-sand/50',
-                ].join(' ')}
-              >
-                <LogOut size={16} className="text-ink-soft" aria-hidden />
-                <span
-                  className="text-[13px] font-medium"
-                  style={{ fontFamily: 'var(--sans)' }}
+                Loading personas…
+              </div>
+            )}
+            {personas.map((p) => {
+              const isActive = persona?.id === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="menuitem"
+                  disabled={switching}
+                  data-testid={`persona-option-${p.id}`}
+                  onClick={() => handleSelect(p.id)}
+                  className={[
+                    'w-full flex items-center gap-3 py-2.5 text-left border-l-[3px] transition-colors duration-fade ease-out',
+                    'hover:bg-sand/50 cursor-pointer',
+                    'focus-visible:outline-none focus-visible:bg-sand/50',
+                    isActive
+                      ? 'border-espresso bg-sand/70 pl-[13px] pr-4'
+                      : 'border-transparent pl-[13px] pr-4',
+                  ].join(' ')}
                 >
-                  Sign out
-                </span>
-              </button>
-            </>
-          )}
-        </div>
-      )}
+                  <Avatar
+                    initial={p.avatar_initial}
+                    bgColor={p.avatar_color}
+                    photoUrl={getPersonaPhoto(p.id)}
+                    size="sm"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span
+                      className="text-espresso text-[13px] font-medium truncate"
+                      style={{ fontFamily: 'var(--sans)' }}
+                    >
+                      {p.display_name}
+                    </span>
+                    <span
+                      className="text-ink-soft text-[11px] truncate"
+                      style={{ fontFamily: 'var(--sans)' }}
+                    >
+                      {p.role_tag}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+
+            {persona && (
+              <>
+                <div className="border-t border-sand my-1" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="persona-sign-out"
+                  onClick={handleSignOut}
+                  className={[
+                    'w-full flex items-center gap-3 px-4 py-2.5 text-left',
+                    'transition-colors duration-fade ease-out',
+                    'hover:bg-sand/50 cursor-pointer text-espresso',
+                    'focus-visible:outline-none focus-visible:bg-sand/50',
+                  ].join(' ')}
+                >
+                  <LogOut size={16} className="text-ink-soft" aria-hidden />
+                  <span
+                    className="text-[13px] font-medium"
+                    style={{ fontFamily: 'var(--sans)' }}
+                  >
+                    Sign out
+                  </span>
+                </button>
+              </>
+            )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }
@@ -386,6 +411,7 @@ export default function Header({
   const { openModal } = useUI()
   const { persona } = usePersona()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const reduceMotion = Boolean(useReducedMotion())
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
   const navItems = persona
     ? NAV_ITEMS
@@ -502,33 +528,55 @@ export default function Header({
           </div>
         </div>
 
-        {mobileMenuOpen ? (
-          <div
-            data-testid="mobile-menu"
-            className="
-              absolute left-0 right-0 top-full border-b border-sand
-              bg-cream px-4 py-3 shadow-warm-md lg:hidden
-            "
-          >
-            <div className="grid gap-1">
-              {navItems.map(({ item, label }) => (
-                <NavLink
-                  key={item}
-                  item={item}
-                  label={label}
-                  current={current}
-                  onClick={handleNavigate}
+        <AnimatePresence initial={false}>
+          {mobileMenuOpen ? (
+            <motion.div
+              data-testid="mobile-menu"
+              className="
+                absolute left-0 right-0 top-full border-b border-sand
+                bg-cream px-4 py-3 shadow-warm-md lg:hidden
+              "
+              initial={
+                reduceMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, transform: 'translateY(-6px)' }
+              }
+              animate={
+                reduceMotion
+                  ? { opacity: 1 }
+                  : { opacity: 1, transform: 'translateY(0)' }
+              }
+              exit={
+                reduceMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, transform: 'translateY(-6px)' }
+              }
+              transition={{
+                duration: reduceMotion ? 0.12 : 0.18,
+                ease: MENU_EASE,
+              }}
+              style={{ transformOrigin: 'top center' }}
+            >
+              <div className="grid gap-1">
+                {navItems.map(({ item, label }) => (
+                  <NavLink
+                    key={item}
+                    item={item}
+                    label={label}
+                    current={current}
+                    onClick={handleNavigate}
+                  />
+                ))}
+              </div>
+              <div className="mt-3 border-t border-sand pt-3">
+                <PellierLabsLink
+                  mobile
+                  onClick={() => setMobileMenuOpen(false)}
                 />
-              ))}
-            </div>
-            <div className="mt-3 border-t border-sand pt-3">
-              <PellierLabsLink
-                mobile
-                onClick={() => setMobileMenuOpen(false)}
-              />
-            </div>
-          </div>
-        ) : null}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </nav>
     </header>
   )

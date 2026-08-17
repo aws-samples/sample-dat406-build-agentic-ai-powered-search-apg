@@ -10,7 +10,7 @@
  * with a checkmark animation and "Continue shopping" reset.
  */
 import { X, ShoppingBag, Plus, Minus, ChevronRight, Package, Check } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useCart } from '../contexts/CartContext'
 import { imageSrc } from '../utils/assetPath'
 
@@ -25,6 +25,7 @@ const TEXT_SOFT = 'var(--ink-soft)'
 const TEXT_QUIET = 'var(--ink-quiet)'
 const BORDER = 'color-mix(in srgb, var(--dl-ink) 8%, transparent)'
 const GREEN = '#2d8a56'
+const CART_EASE: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
 interface CartPanelProps {
   isOpen: boolean
@@ -41,6 +42,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
     resetCheckout,
     clearCart,
   } = useCart()
+  const reduceMotion = Boolean(useReducedMotion())
 
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -57,10 +59,10 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
             }}
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: reduceMotion ? 0 : 0.18, ease: CART_EASE }}
             onClick={onClose}
           />
 
@@ -71,10 +73,14 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
               background: BG,
               boxShadow: '-4px 0 32px rgba(31, 20, 16, 0.15)',
             }}
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            initial={reduceMotion ? false : { transform: 'translateX(100%)' }}
+            animate={{ transform: 'translateX(0)' }}
+            exit={{ transform: 'translateX(100%)' }}
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : { type: 'spring', stiffness: 320, damping: 34 }
+            }
           >
             {/* ── Header ── */}
             <div className="px-7 pt-7 pb-5">
@@ -92,22 +98,19 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                     Your Bag
                   </h2>
                   {itemCount > 0 && !checkoutComplete && (
-                    <motion.span
-                      key={itemCount}
-                      initial={{ scale: 0.6, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
+                    <span
                       className="text-xs font-semibold px-2 py-0.5 rounded-full"
                       style={{ background: TEXT, color: BG }}
                     >
                       {itemCount}
-                    </motion.span>
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-1">
                   {items.length > 0 && !checkoutComplete && (
                     <button
                       onClick={clearCart}
-                      className="text-xs font-medium px-3 py-1.5 rounded-full transition-all duration-200
+                      className="text-xs font-medium px-3 py-1.5 rounded-full transition-[background-color,transform] duration-200
                                hover:bg-[rgba(168,66,58,0.08)] active:scale-95"
                       style={{ color: TEXT_QUIET }}
                     >
@@ -116,7 +119,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                   )}
                   <button
                     onClick={onClose}
-                    className="p-2 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+                      className="p-2 rounded-full transition-[background-color,transform] duration-200 active:scale-95"
                     style={{ background: BG_CARD }}
                     aria-label="Close bag"
                   >
@@ -133,27 +136,51 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
             {checkoutComplete ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center px-10">
                 <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                  initial={
+                    reduceMotion
+                      ? false
+                      : { transform: 'scale(0.95)', opacity: 0 }
+                  }
+                  animate={{ transform: 'scale(1)', opacity: 1 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { duration: 0.24, ease: CART_EASE }
+                  }
                   className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
                   style={{ background: 'rgba(45, 138, 86, 0.12)' }}
                 >
                   <Check className="h-9 w-9" style={{ color: GREEN }} strokeWidth={2.5} />
                 </motion.div>
                 <motion.h3
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
+                  initial={
+                    reduceMotion
+                      ? false
+                      : { opacity: 0, transform: 'translateY(8px)' }
+                  }
+                  animate={{ opacity: 1, transform: 'translateY(0)' }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.2,
+                    delay: reduceMotion ? 0 : 0.08,
+                    ease: CART_EASE,
+                  }}
                   className="font-display italic mb-2"
                   style={{ fontSize: '26px', color: TEXT, fontWeight: 400 }}
                 >
                   Order placed.
                 </motion.h3>
                 <motion.p
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 }}
+                  initial={
+                    reduceMotion
+                      ? false
+                      : { opacity: 0, transform: 'translateY(8px)' }
+                  }
+                  animate={{ opacity: 1, transform: 'translateY(0)' }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.2,
+                    delay: reduceMotion ? 0 : 0.14,
+                    ease: CART_EASE,
+                  }}
                   style={{ fontSize: '14px', lineHeight: 1.6, color: TEXT_SOFT }}
                 >
                   This is a demo — no real transaction occurred.
@@ -161,13 +188,19 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                   Your ${total.toFixed(2)} order would ship in 1–2 days.
                 </motion.p>
                 <motion.button
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  initial={
+                    reduceMotion
+                      ? false
+                      : { opacity: 0, transform: 'translateY(8px)' }
+                  }
+                  animate={{ opacity: 1, transform: 'translateY(0)' }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.2,
+                    delay: reduceMotion ? 0 : 0.2,
+                    ease: CART_EASE,
+                  }}
                   onClick={resetCheckout}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="mt-8 px-8 py-3 rounded-full font-medium text-[14px] tracking-wide transition-shadow duration-200"
+                  className="mt-8 px-8 py-3 rounded-full font-medium text-[14px] tracking-wide transition-[transform,box-shadow] duration-200 active:scale-[0.98]"
                   style={{
                     background: TEXT,
                     color: BG,
@@ -194,9 +227,17 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                   {items.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center px-8">
                       <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.15, type: 'spring', stiffness: 200 }}
+                        initial={
+                          reduceMotion
+                            ? false
+                            : { transform: 'scale(0.96)', opacity: 0 }
+                        }
+                        animate={{ transform: 'scale(1)', opacity: 1 }}
+                        transition={{
+                          duration: reduceMotion ? 0 : 0.2,
+                          delay: reduceMotion ? 0 : 0.08,
+                          ease: CART_EASE,
+                        }}
                         className="w-20 h-20 rounded-full flex items-center justify-center mb-5"
                         style={{ background: BG_CARD }}
                       >
@@ -219,10 +260,25 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                           <motion.div
                             key={item.productId}
                             layout
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: 60, transition: { duration: 0.2 } }}
-                            transition={{ duration: 0.25, delay: index * 0.03 }}
+                            initial={
+                              reduceMotion
+                                ? false
+                                : { opacity: 0, transform: 'translateY(8px)' }
+                            }
+                            animate={{ opacity: 1, transform: 'translateY(0)' }}
+                            exit={{
+                              opacity: 0,
+                              transform: 'translateX(24px)',
+                              transition: {
+                                duration: reduceMotion ? 0 : 0.18,
+                                ease: CART_EASE,
+                              },
+                            }}
+                            transition={{
+                              duration: reduceMotion ? 0 : 0.2,
+                              delay: reduceMotion ? 0 : index * 0.03,
+                              ease: CART_EASE,
+                            }}
                           >
                             <div className="flex gap-4 py-4">
                               {/* Product Image */}
@@ -285,15 +341,12 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                                     >
                                       <Minus className="h-3 w-3" strokeWidth={2.5} />
                                     </button>
-                                    <motion.span
-                                      key={item.quantity}
-                                      initial={{ scale: 0.7, opacity: 0 }}
-                                      animate={{ scale: 1, opacity: 1 }}
+                                    <span
                                       className="text-xs font-semibold w-7 text-center tabular-nums"
                                       style={{ color: TEXT }}
                                     >
                                       {item.quantity}
-                                    </motion.span>
+                                    </span>
                                     <button
                                       onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                                       className="px-2.5 py-1.5 transition-colors duration-150"
@@ -307,7 +360,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                                   {/* Remove */}
                                   <button
                                     onClick={() => removeFromCart(item.productId)}
-                                    className="text-[11px] font-medium px-2 py-1 rounded-md transition-all duration-200
+                                    className="text-[11px] font-medium px-2 py-1 rounded-md transition-[background-color,transform] duration-200
                                              hover:bg-[rgba(168,66,58,0.08)] active:scale-95"
                                     style={{ color: TEXT_QUIET }}
                                   >
@@ -333,9 +386,17 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                   <motion.div
                     className="px-7 pb-7 pt-5"
                     style={{ borderTop: `1px solid ${BORDER}` }}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : { opacity: 0, transform: 'translateY(8px)' }
+                    }
+                    animate={{ opacity: 1, transform: 'translateY(0)' }}
+                    transition={{
+                      duration: reduceMotion ? 0 : 0.2,
+                      delay: reduceMotion ? 0 : 0.06,
+                      ease: CART_EASE,
+                    }}
                   >
                     {/* Subtotal Row */}
                     <div className="flex items-center justify-between mb-1.5">
@@ -361,23 +422,18 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                       <span className="font-semibold" style={{ fontSize: '16px', color: TEXT }}>
                         Total
                       </span>
-                      <motion.span
-                        key={total.toFixed(2)}
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
+                      <span
                         className="font-bold tracking-tight"
                         style={{ fontSize: '22px', color: TEXT }}
                       >
                         ${total.toFixed(2)}
-                      </motion.span>
+                      </span>
                     </div>
 
                     {/* Checkout Button */}
-                    <motion.button
+                    <button
                       onClick={handleCheckout}
-                      whileHover={{ scale: 1.015 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full py-3.5 rounded-full font-medium flex items-center justify-center gap-2 transition-shadow duration-200"
+                      className="w-full py-3.5 rounded-full font-medium flex items-center justify-center gap-2 transition-[transform,box-shadow] duration-200 active:scale-[0.98]"
                       style={{
                         fontSize: '15px',
                         letterSpacing: '0.02em',
@@ -390,7 +446,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                     >
                       Check Out
                       <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
-                    </motion.button>
+                    </button>
 
                     <p
                       className="text-center mt-3"

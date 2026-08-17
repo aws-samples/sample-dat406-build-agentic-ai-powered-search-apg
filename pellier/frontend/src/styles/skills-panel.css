@@ -260,7 +260,7 @@
   border: 1px solid var(--rule-1);
   border-radius: 12px;
   overflow: hidden;
-  transition: all 200ms ease;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .sk-card-active {
   border-color: var(--red-1);

@@ -205,7 +205,7 @@
   border: 1px solid var(--rule-1);
   border-radius: 10px;
   overflow: hidden;
-  transition: all 180ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 .mcp-tool-card-active {
   border-color: var(--red-1);
@@ -994,7 +994,7 @@
   border: 1px solid var(--rule-1);
   border-radius: 8px;
   overflow: hidden;
-  transition: all 200ms ease;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .sm-tbl-touched {
   border-color: var(--red-1);
@@ -1423,7 +1423,9 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 3px;
-  transition: width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+  transform-origin: left center;
+  transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .ev-meter-fill-truth { background: var(--green-1); }
 .ev-meter-fill-taste { background: var(--accent); }
@@ -2279,4 +2281,44 @@
   .gt-audit-row-head {
     display: none;
   }
+}
+
+/* ------------------------------------------------------------------------
+ * Concept card category colour
+ *
+ * The four categories were declared in the legend and then rendered
+ * identically on all eight cards, so the reader had to remember the key
+ * instead of seeing it.
+ *
+ * First attempt used a 3px coloured stripe along the card's top edge. The
+ * detector flagged it as a side-tab accent, correctly: a thick coloured bar on
+ * one edge of a card is a recognisable tell, and I had already removed that
+ * exact pattern from the results panel earlier. So the category is carried by
+ * the card's own border instead. It groups the eight cards at a glance, needs
+ * no extra element, and reads as a family marker rather than a tab.
+ *
+ * Colours are the shared --at-olive / --at-terracotta / --at-accent-2 set, so
+ * nothing new was introduced and the legend badges already match.
+ * ---------------------------------------------------------------------- */
+
+/* Live path: this really runs on every request. Olive is the product's
+   "verified / present" colour. */
+.agent-trace-root .architecture-concept-card[data-category='live'] {
+  border-color: var(--at-olive-line);
+}
+
+/* Workshop lens: a teaching surface, not the request path. */
+.agent-trace-root .architecture-concept-card[data-category='workshop'] {
+  border-color: #d8bcc1;
+}
+
+/* Optional infra: available when configured. */
+.agent-trace-root .architecture-concept-card[data-category='optional'] {
+  border-color: var(--at-terracotta-line);
+}
+
+/* Quality layer: measurement, deliberately the quietest of the four, so it
+   keeps the default neutral rule. */
+.agent-trace-root .architecture-concept-card[data-category='quality'] {
+  border-color: var(--at-rule-3);
 }
