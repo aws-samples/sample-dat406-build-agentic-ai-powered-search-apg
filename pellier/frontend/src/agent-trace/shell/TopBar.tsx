@@ -26,7 +26,7 @@ const LABS_TABS = [
     icon: ReceiptText,
   },
   {
-    label: 'Optional References',
+    label: 'Optional Deep Dives',
     path: '/pellier-labs/references',
     icon: BookOpen,
   },

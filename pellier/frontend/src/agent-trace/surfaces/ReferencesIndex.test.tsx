@@ -4,16 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 import ReferencesIndex from './ReferencesIndex';
 
-describe('Pellier Labs optional references', () => {
+describe('Pellier Labs optional deep dives', () => {
   it('groups every supporting view behind one optional index', () => {
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ReferencesIndex />
       </MemoryRouter>,
     );
 
     expect(
-      screen.getByRole('heading', { name: 'Optional References', level: 1 }),
+      screen.getByRole('heading', { name: 'Optional Deep Dives', level: 1 }),
     ).toBeInTheDocument();
 
     const groups = [
@@ -41,5 +41,22 @@ describe('Pellier Labs optional references', () => {
         name: /AgentCore session turns and preferences, separated from Aurora state and evidence/,
       }),
     ).toBeInTheDocument();
+
+    const expectedIcons = [
+      ['Persona journeys', 'lucide-footprints'],
+      ['Sessions', 'lucide-rotate-ccw-clock'],
+      ['Architecture', 'lucide-network'],
+      ['Tools', 'lucide-wrench'],
+      ['Write path', 'lucide-database-zap'],
+    ] as const;
+
+    for (const [linkName, iconClass] of expectedIcons) {
+      const link = screen.getByRole('link', { name: new RegExp(linkName, 'i') });
+      expect(link.querySelector(`.${iconClass}`)).not.toBeNull();
+    }
+
+    expect(
+      container.querySelectorAll('.pellier-labs-reference-link-icon svg'),
+    ).toHaveLength(13);
   });
 });

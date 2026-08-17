@@ -908,6 +908,7 @@ const Routing: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Routing · three patterns"
         title="Intent routing"
         summary={

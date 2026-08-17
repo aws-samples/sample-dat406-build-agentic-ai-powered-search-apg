@@ -573,23 +573,25 @@
   z-index: 0;
   inset: 0 0 auto;
   width: 100%;
-  height: clamp(300px, 36vw, 500px);
+  height: clamp(380px, 44vw, 640px);
   content: '';
-  background: url('/products/hero-fresh-2-1600.avif') center top / cover no-repeat;
-  opacity: 0.18;
+  background: url('/products/hero-fresh-2-1600.webp') center 42% / cover
+    no-repeat;
+  filter: saturate(0.92) contrast(1.02);
+  opacity: 0.29;
   pointer-events: none;
   mask-image: linear-gradient(
     to bottom,
     #000 0%,
-    #000 48%,
-    rgb(0 0 0 / 0.68) 72%,
+    #000 52%,
+    rgb(0 0 0 / 0.68) 76%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
     to bottom,
     #000 0%,
-    #000 48%,
-    rgb(0 0 0 / 0.68) 72%,
+    #000 52%,
+    rgb(0 0 0 / 0.68) 76%,
     transparent 100%
   );
 }
@@ -639,6 +641,38 @@
   font-weight: 400;
   letter-spacing: 0.005em;
   line-height: 1.5;
+}
+
+.pellier-labs-reference-return {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  color: var(--at-ink-3) !important;
+  font-family: var(--at-sans);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none !important;
+}
+
+.pellier-labs-reference-return svg {
+  transition: transform 160ms ease;
+}
+
+.pellier-labs-reference-return:hover {
+  color: var(--at-red-1) !important;
+}
+
+.pellier-labs-reference-return:hover svg {
+  transform: translateX(-2px);
+}
+
+.pellier-labs-reference-return:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid color-mix(in srgb, var(--at-red-1) 28%, transparent);
+  outline-offset: 3px;
 }
 
 .pellier-labs-technical-references {
@@ -695,7 +729,8 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .agent-trace-surface:not([data-workbench='true'])::before {
+  .agent-trace-surface:not([data-workbench='true'])::before,
+  .pellier-labs-workbench::before {
     display: none;
   }
 }
@@ -937,7 +972,7 @@
   top: 0;
   z-index: 50;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   min-height: 64px;
   align-items: center;
   gap: 20px;
@@ -965,7 +1000,12 @@
   gap: 12px;
 }
 
+.pellier-labs-topbar-start {
+  justify-self: start;
+}
+
 .pellier-labs-topbar-end {
+  justify-self: end;
   justify-content: flex-end;
 }
 
@@ -1012,6 +1052,7 @@
   height: 44px;
   align-items: stretch;
   gap: 4px;
+  justify-self: center;
 }
 
 .pellier-labs-tab {
@@ -1134,7 +1175,7 @@
 
 @media (max-width: 900px) {
   .pellier-labs-topbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     gap: 10px;
     padding-inline: 16px;
   }
@@ -1160,6 +1201,7 @@
     height: 40px;
     grid-column: 1 / -1;
     grid-row: 2;
+    justify-self: stretch;
   }
 
   .pellier-labs-tab {
@@ -1176,9 +1218,9 @@
   }
 
   .agent-trace-surface:not([data-workbench='true'])::before {
-    height: 260px;
-    background-position: center top;
-    opacity: 0.14;
+    height: 340px;
+    background-position: 38% top;
+    opacity: 0.21;
   }
 
   .pellier-labs-topbar {
@@ -1263,10 +1305,10 @@
 
 .labs-mode-banner {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
-  margin-bottom: 22px;
-  padding-bottom: 14px;
+  margin-bottom: 26px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--at-rule-1);
 }
 
@@ -1274,16 +1316,18 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 7px;
-  padding: 5px 11px;
-  border: 1px solid var(--at-rule-2);
-  border-radius: 999px;
-  background: var(--at-cream-elev);
-  color: var(--at-ink-4);
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid
+    color-mix(in srgb, var(--at-red-1) 25%, var(--at-rule-2));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--cream-warm) 91%, white);
+  color: var(--at-red-1);
+  box-shadow: 0 7px 18px rgb(61 29 32 / 7%);
   font-family: var(--at-sans);
   font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: var(--at-label-track);
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -1304,7 +1348,7 @@
 
 .labs-mode-banner-detail {
   min-width: 0;
-  color: var(--at-ink-4);
+  color: var(--at-ink-2);
   font-family: var(--at-sans);
   font-size: 13.5px;
   line-height: 1.5;
@@ -1330,7 +1374,7 @@
 }
 
 /* ========================================================================
- * Optional references index
+ * Optional deep dives index
  * ======================================================================== */
 
 .pellier-labs-references {
@@ -1430,7 +1474,19 @@
   height: 32px;
   align-items: center;
   justify-content: center;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--at-red-soft) 42%, var(--cream-warm));
   color: var(--at-red-1);
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.pellier-labs-reference-link:hover .pellier-labs-reference-link-icon {
+  background: color-mix(in srgb, var(--at-red-soft) 70%, var(--cream-warm));
+  color: color-mix(in srgb, var(--at-red-1) 88%, var(--at-ink-1));
+  transform: translateY(-1px);
 }
 
 .pellier-labs-reference-link-copy {
@@ -1461,6 +1517,18 @@
 
 .pellier-labs-reference-link:hover .pellier-labs-reference-link-arrow {
   transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pellier-labs-reference-link-icon,
+  .pellier-labs-reference-link-arrow {
+    transition: none;
+  }
+
+  .pellier-labs-reference-link:hover .pellier-labs-reference-link-icon,
+  .pellier-labs-reference-link:hover .pellier-labs-reference-link-arrow {
+    transform: none;
+  }
 }
 
 @media (max-width: 820px) {

@@ -1232,6 +1232,7 @@ const Tools: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Tools · fifteen functions · pgvector-discoverable"
         title="Tool registry"
         summary="Inspect callable contracts, discovery, and the audited path for tools that read or mutate Aurora."

@@ -80,11 +80,11 @@ test.describe('Workshop production build smoke', () => {
     const tour = page.getByRole('dialog');
     await expect(tour).toBeVisible();
     await expect(
-      tour.getByRole('heading', { name: 'Choose the point of view' }),
+      tour.getByRole('heading', { name: 'Begin with the edit.' }),
     ).toBeVisible();
-    await expect(tour.getByRole('button', { name: /^Step / })).toHaveCount(3);
+    await expect(tour.getByRole('button', { name: /^Show / })).toHaveCount(4);
 
-    await tour.getByRole('button', { name: 'Skip tour' }).click();
+    await tour.getByRole('button', { name: 'Skip welcome tour' }).click();
     await expect(tour).toHaveCount(0);
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -115,9 +115,10 @@ test.describe('Workshop production build smoke', () => {
       page.getByRole('heading', { name: 'Grounded answer', exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', {
-        name: 'Pellier Labs view: Live workbench',
-      }),
+      page.getByRole('link', { name: 'Live Workbench' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Optional Deep Dives' }),
     ).toBeVisible();
     await expect(page.getByText(/concierge online/i)).toHaveCount(0);
 
@@ -188,7 +189,7 @@ test.describe('Workshop production build smoke', () => {
 
     // Triage reply should land in under 3 seconds — no LLM in loop.
     const body = page.locator('.ec-msg-body').last();
-    await expect(body).toContainText(/I'm Pellier/i, { timeout: 3000 });
+    await expect(body).toContainText(/Pellier concierge/i, { timeout: 3000 });
   });
 
   test('real query: streaming tokens land, reply is non-empty', async ({

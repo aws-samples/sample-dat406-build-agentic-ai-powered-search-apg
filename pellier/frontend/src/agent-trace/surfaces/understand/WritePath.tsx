@@ -464,6 +464,7 @@ const WritePath: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '960px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Write-path · Aurora as system-of-record"
         title="Guarded writes"
         summary="Trace a mutation from policy decision through the tool invocation to an Aurora audit receipt."

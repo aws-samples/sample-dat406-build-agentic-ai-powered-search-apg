@@ -25,6 +25,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '../../../components/ui';
+import MarkdownMessage from '../../../components/MarkdownMessage';
 import ResponsiveImage from '../../../components/ResponsiveImage';
 import {
   sendChatMessageStreaming,
@@ -37,6 +38,7 @@ import LabsCuratedTurns from './LabsCuratedTurns';
 import {
   OPERATOR_TURNS,
 } from '../../../data/personaCurations';
+import { emphasizeProductMentions } from '../../../utils/productProse';
 import './LabsIndex.css';
 import './PellierLabsWorkbench.css';
 
@@ -729,6 +731,10 @@ export default function PellierLabsWorkbench() {
   const orderedProducts = productsForResponse(products, agentResponse);
   const bestMatch = orderedProducts[0];
   const curatedPairings = orderedProducts.slice(1, 3);
+  const displayedAgentResponse =
+    bestMatch && agentResponse
+      ? emphasizeProductMentions(agentResponse, [bestMatch])
+      : agentResponse;
   const displayedProductCount =
     (bestMatch ? 1 : 0) + curatedPairings.length;
   const currentStepId =
@@ -830,11 +836,20 @@ export default function PellierLabsWorkbench() {
 
   return (
     <div className="pellier-labs-workbench labs-index">
-      <h1 className="pellier-labs-page-title">
-        Follow one shopper request through routing, retrieval, and its grounded
-        answer.
-      </h1>
       <div className="labs-index-inner">
+        <header className="pellier-labs-workbench-intro">
+          <div className="pellier-labs-workbench-intro-copy">
+            <h1 className="pellier-labs-page-title">Live Workbench</h1>
+            <p className="pellier-labs-workbench-purpose">
+              Run a shopper request and inspect the agents, retrieval, memory,
+              and Aurora evidence behind the answer.
+            </p>
+          </div>
+          <span className="pellier-labs-workbench-presence">
+            <span aria-hidden="true" />
+            Live agent surface
+          </span>
+        </header>
         <div className="pellier-labs-workbench-grid" aria-label="Live agent run">
           <motion.aside
             className="pellier-labs-input-panel"
@@ -1485,7 +1500,7 @@ export default function PellierLabsWorkbench() {
                 }
                 data-empty={agentResponse ? undefined : 'true'}
               >
-                <div>
+                <div className="pellier-labs-agent-response-label">
                   {products.length ? (
                     <Sparkles size={14} aria-hidden="true" />
                   ) : (
@@ -1499,12 +1514,16 @@ export default function PellierLabsWorkbench() {
                   )}
                   {products.length ? 'Recommended result' : 'Shopper answer'}
                 </div>
-                <p>
-                  {agentResponse ||
-                    (runStatus === 'running'
-                      ? 'The answer will appear here as the agent streams.'
-                      : 'Choose a shopper turn to receive the live answer.')}
-                </p>
+                <div className="pellier-labs-agent-answer">
+                  <MarkdownMessage
+                    content={
+                      displayedAgentResponse ||
+                      (runStatus === 'running'
+                        ? 'The answer will appear here as the agent streams.'
+                        : 'Choose a shopper turn to receive the live answer.')
+                    }
+                  />
+                </div>
               </section>
 
               {bestMatch ? (

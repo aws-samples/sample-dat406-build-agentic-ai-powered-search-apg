@@ -709,6 +709,7 @@ const Agents: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Agents · five peers · Opus 5 + Sonnet 5"
         title="Specialists and handoffs"
         summary="One intent router selects a specialist. Each agent owns a bounded prompt, model role, and tool set."

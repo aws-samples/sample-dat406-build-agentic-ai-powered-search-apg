@@ -4,16 +4,16 @@ import {
   BookOpen,
   ClipboardCheck,
   ConciergeBell,
+  DatabaseZap,
+  Footprints,
   Gauge,
+  History,
   IdCard,
   Layers,
-  ListChecks,
-  Map,
-  PackageSearch,
+  Network,
   Search,
   Signpost,
-  Tags,
-  Workflow,
+  Wrench,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -40,13 +40,13 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
         label: 'Persona journeys',
         description: 'Compare Marco, Anna, and Theo across request and tool paths.',
         path: '/pellier-labs/persona-journeys',
-        icon: Workflow,
+        icon: Footprints,
       },
       {
         label: 'Sessions',
         description: 'Replay captured conversations and their emitted evidence.',
         path: '/pellier-labs/sessions',
-        icon: ListChecks,
+        icon: History,
       },
     ],
   },
@@ -59,7 +59,7 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
         label: 'Architecture',
         description: 'Request topology, runtime boundaries, and component ownership.',
         path: '/pellier-labs/architecture',
-        icon: Map,
+        icon: Network,
       },
       {
         label: 'Agents',
@@ -71,7 +71,7 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
         label: 'Tools',
         description: 'Callable contracts and Aurora-backed operations.',
         path: '/pellier-labs/tools',
-        icon: Tags,
+        icon: Wrench,
       },
       {
         label: 'Skills',
@@ -102,7 +102,7 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
         label: 'Write path',
         description: 'Audited mutations and the controls around them.',
         path: '/pellier-labs/write-path',
-        icon: PackageSearch,
+        icon: DatabaseZap,
       },
     ],
   },
@@ -137,10 +137,10 @@ export default function ReferencesIndex() {
   return (
     <div className="pellier-labs-references">
       <header className="pellier-labs-references-header">
-        <h1>Optional References</h1>
+        <h1>Optional Deep Dives</h1>
         <p>
-          Keep the Live Workbench as your primary surface. Open these focused
-          views when a lab step, facilitator, or investigation sends you deeper.
+          Keep the Live Workbench as your primary surface. Open a deep dive when
+          a lab step, facilitator, or investigation sends you further.
         </p>
       </header>
 
@@ -167,7 +167,7 @@ export default function ReferencesIndex() {
                       className="pellier-labs-reference-link"
                     >
                       <span className="pellier-labs-reference-link-icon">
-                        <ItemIcon size={18} strokeWidth={1.7} aria-hidden="true" />
+                        <ItemIcon size={19} strokeWidth={1.85} aria-hidden="true" />
                       </span>
                       <span className="pellier-labs-reference-link-copy">
                         <strong>{item.label}</strong>

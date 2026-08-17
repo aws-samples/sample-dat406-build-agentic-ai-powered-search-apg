@@ -1625,6 +1625,7 @@ const Performance: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Measure · Performance · latency · pgvector · storage"
         title="Latency and retrieval budgets"
         summary="Inspect turn timing, pgvector tradeoffs, retrieval comparisons, and storage pressure with live or fixture-backed measurements."

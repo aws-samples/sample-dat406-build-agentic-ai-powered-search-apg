@@ -23,6 +23,7 @@ import { resolveCover } from './PellierWelcome'
 import { PERSONA_HERO_PILLS } from '../data/personaCurations'
 import { useCatalogStats } from '../hooks/useCatalogStats'
 import { imageSrc } from '../utils/assetPath'
+import { emphasizeProductMentions } from '../utils/productProse'
 import '../styles/pellier-chat.css'
 import '../styles/pellier-welcome.css'
 
@@ -73,10 +74,6 @@ function toolTraceTool(toolName: string): string {
   return toolName.includes('.') ? toolName : `tool.${toolName}`
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function productsForRenderedProse(
   products: NonNullable<AgentChatMessage['products']>,
   content: string,
@@ -116,33 +113,6 @@ function productsForRenderedProse(
   })
 
   return [...orderedMentioned, ...backfill].slice(0, Math.min(3, products.length))
-}
-
-function emphasizeProductMentionsAndPrices(
-  content: string,
-  products: NonNullable<AgentChatMessage['products']>,
-): string {
-  const names = Array.from(
-    new Set(
-      products
-        .map((product) => product.name?.trim())
-        .filter((name): name is string => !!name),
-    ),
-  ).sort((a, b) => b.length - a.length)
-
-  if (names.length === 0) return content
-
-  // Leave existing markdown bold spans and code fences untouched.
-  return content
-    .split(/(```[\s\S]*?```|\*\*.*?\*\*)/g)
-    .map((segment) => {
-      if (segment.startsWith('```') || segment.startsWith('**')) return segment
-      return names.reduce((text, name) => {
-        const pattern = new RegExp(`(${escapeRegExp(name)})`, 'gi')
-        return text.replace(pattern, '**$1**')
-      }, segment).replace(/(\$\d+(?:,\d{3})*(?:\.\d{2})?)/g, '**$1**')
-    })
-    .join('')
 }
 
 // Follow-up chips = Turns 2–5 for each persona: same strings as the
@@ -328,7 +298,9 @@ function AgentMessage({
     : []
   const displayContent =
     orderedProducts.length > 0
-      ? emphasizeProductMentionsAndPrices(message.content, orderedProducts)
+      ? emphasizeProductMentions(message.content, orderedProducts, {
+          includePrices: true,
+        })
       : message.content
 
   return (

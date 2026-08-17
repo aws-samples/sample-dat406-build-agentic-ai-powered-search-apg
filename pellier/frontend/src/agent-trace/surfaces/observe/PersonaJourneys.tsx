@@ -322,6 +322,7 @@ const PersonaSection: React.FC<{ journey: PersonaJourney }> = ({ journey }) => (
 const PersonaJourneys: React.FC = () => (
   <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
     <EditorialTitle
+      backToReferences
       eyebrow="Observe · Persona Journeys · 15 Pellier hero turns"
       title="Canonical journeys"
       summary="Compare the storefront prompts with their selected specialist, prompt overlays, tools, and replay evidence."

@@ -62,9 +62,15 @@ describe('Pellier Labs live agent workbench', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /Follow one shopper request through routing, retrieval/i,
+        name: 'Live Workbench',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Run a shopper request and inspect the agents, retrieval, memory, and Aurora evidence behind the answer.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Live agent surface')).toBeInTheDocument();
     expect(
       tracePanel(document.body).querySelector('canvas.labs-hero-field'),
     ).not.toBeInTheDocument();
@@ -674,7 +680,9 @@ describe('Pellier Labs live agent workbench', () => {
     );
 
     await inspectTurn(user, FRESH_TURNS[0]);
-    await screen.findByText('Italian Linen Camp Shirt');
+    await screen.findByRole('heading', {
+      name: 'Italian Linen Camp Shirt',
+    });
 
     expect(screen.getByText('Best match')).toBeInTheDocument();
     expect(screen.getByText('Curated pairings')).toBeInTheDocument();
@@ -698,6 +706,20 @@ describe('Pellier Labs live agent workbench', () => {
       'Merino Travel Socks',
       'Soft Leather Travel Pouch',
     ]);
+
+    const shopperAnswer = screen.getByRole('region', {
+      name: 'Recommended result',
+    });
+    expect(
+      within(shopperAnswer).getByText('Italian Linen Camp Shirt', {
+        selector: 'strong',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(shopperAnswer).queryByText('Merino Travel Socks', {
+        selector: 'strong',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   // A representative turn from each persona must stay byte-for-byte aligned.

@@ -3,6 +3,8 @@
  */
 
 import React from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export interface TechnicalReference {
   label: string;
@@ -16,6 +18,7 @@ export interface EditorialTitleProps {
   summary?: string;
   references?: TechnicalReference[];
   className?: string;
+  backToReferences?: boolean;
 }
 
 export const EditorialTitle: React.FC<EditorialTitleProps> = ({
@@ -24,9 +27,20 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
   summary,
   references = [],
   className = '',
+  backToReferences = false,
 }) => {
   return (
     <header className={`pellier-labs-surface-header ${className}`.trim()}>
+      {backToReferences ? (
+        <Link
+          to="/pellier-labs/references"
+          className="pellier-labs-reference-return"
+          aria-label="Back to Deep Dives"
+        >
+          <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
+          <span>Deep Dives</span>
+        </Link>
+      ) : null}
       <span className="sr-only">{eyebrow}</span>
       <h1>{title}</h1>
       {summary ? <p>{summary}</p> : null}

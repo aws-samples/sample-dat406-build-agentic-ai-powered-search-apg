@@ -362,6 +362,7 @@ const MemoryDashboard: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Memory · builders contract"
         title="State, with clear owners"
         summary="Inspect the managed conversational state Pellier uses without conflating it with Aurora business records or tool evidence."

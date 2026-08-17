@@ -863,6 +863,7 @@ const Evaluations: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Measure · Evaluations · accuracy · latency · citations"
         title="Evaluation harness"
         summary="Review scorecards, retrieval metrics, and the checks that turn grounded answers into a repeatable release gate."

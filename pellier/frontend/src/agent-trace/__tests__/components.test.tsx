@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ExpCard } from '../components/ExpCard';
 import { StatusPill } from '../components/StatusPill';
 import { StatusDot } from '../components/StatusDot';
@@ -226,6 +227,22 @@ describe('CategoryBadge', () => {
 // EditorialTitle
 // ---------------------------------------------------------------------------
 describe('EditorialTitle', () => {
+  it('can return to the deep dives anchor page', () => {
+    render(
+      <MemoryRouter>
+        <EditorialTitle
+          eyebrow="Understand"
+          title="State, with clear owners"
+          backToReferences
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Back to Deep Dives' }),
+    ).toHaveAttribute('href', '/pellier-labs/references');
+  });
+
   it('renders concise implementation references beneath the page purpose', () => {
     render(
       <EditorialTitle

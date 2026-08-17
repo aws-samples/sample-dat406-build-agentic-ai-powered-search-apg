@@ -47,7 +47,7 @@ describe('labs interaction contract', () => {
       '/pellier-labs/performance',
     ]) {
       expect(interactionForPath(path), path).toBe('reference')
-      expect(modeCopyForPath(path).label, path).toBe('Optional reference')
+      expect(modeCopyForPath(path).label, path).toBe('Optional deep dive')
     }
   })
 
@@ -60,7 +60,7 @@ describe('labs interaction contract', () => {
   it('keeps nested supporting routes optional', () => {
     expect(interactionForPath('/pellier-labs/tools/find_pieces')).toBe('reference')
     expect(modeCopyForPath('/pellier-labs/tools/find_pieces').label).toBe(
-      'Optional reference',
+      'Optional deep dive',
     )
     expect(interactionForPath('/pellier-labs/sessions/marco-x')).toBe('reference')
   })

@@ -25,7 +25,7 @@ vi.mock('./agent-trace/surfaces/observe/PellierLabsWorkbench', () => ({
 }))
 
 vi.mock('./agent-trace/surfaces/ReferencesIndex', () => ({
-  default: () => <div>Optional references index</div>,
+  default: () => <div>Optional deep dives index</div>,
 }))
 
 import { AppRoutes, isPellierSurfacePath } from './App'
@@ -67,10 +67,10 @@ describe('canonical application routes', () => {
     expect(document.body).toHaveClass('pellier-surface')
   })
 
-  it('renders the optional reference index at its canonical route', async () => {
+  it('renders the optional deep dives index at its canonical route', async () => {
     renderRoute('/pellier-labs/references')
 
-    expect(await screen.findByText('Optional references index')).toBeInTheDocument()
+    expect(await screen.findByText('Optional deep dives index')).toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/pellier-labs/references',
     )

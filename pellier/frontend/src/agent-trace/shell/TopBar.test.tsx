@@ -48,7 +48,7 @@ describe('Pellier Labs TopBar', () => {
     expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('keeps supporting routes under Optional References', () => {
+  it('keeps supporting routes under Optional Deep Dives', () => {
     render(
       <MemoryRouter initialEntries={['/pellier-labs/agents']}>
         <TopBar />
@@ -59,7 +59,7 @@ describe('Pellier Labs TopBar', () => {
       'aria-current',
     )
     expect(
-      screen.getByRole('link', { name: 'Optional References' }),
+      screen.getByRole('link', { name: 'Optional Deep Dives' }),
     ).toHaveAttribute('aria-current', 'page')
   })
 
@@ -78,9 +78,9 @@ describe('Pellier Labs TopBar', () => {
     )
     expect(screen.queryByText(/concierge online/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Pellier Labs view/i })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /Live Workbench|Optional References/ })).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: /Live Workbench|Optional Deep Dives/ })).toHaveLength(2)
 
-    await user.click(screen.getByRole('link', { name: 'Optional References' }))
+    await user.click(screen.getByRole('link', { name: 'Optional Deep Dives' }))
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/pellier-labs/references',
     )

@@ -758,6 +758,7 @@ const Skills: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Skills · five prompt overlays"
         title="Prompt overlays"
         summary="Inspect the Markdown instructions that adapt a specialist's handling without changing product facts or tool permissions."

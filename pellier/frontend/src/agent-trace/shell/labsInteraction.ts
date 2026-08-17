@@ -3,7 +3,7 @@
  * they only read.
  *
  * The Live Workbench is the one participant-facing interactive surface.
- * Everything else is optional reference, even when a deeper page happens to
+ * Everything else is an optional deep dive, even when a deeper page happens to
  * expose a control. This keeps the curriculum contract aligned with the
  * workshop: storefront + code editor first, workbench when directed, depth on
  * demand.
@@ -32,14 +32,15 @@ export interface LabsModeCopy {
 const INTERACTIVE_COPY: Record<string, LabsModeCopy> = {
   '/pellier-labs': {
     label: 'Live Workbench',
-    detail: 'Pick a shopper turn and watch the evidence ledger fill as it runs.',
+    detail:
+      'Run a shopper request and inspect the agents, retrieval, memory, and Aurora evidence behind the answer.',
   },
 };
 
 const REFERENCE_COPY: LabsModeCopy = {
-  label: 'Optional reference',
+  label: 'Optional deep dive',
   detail:
-    'Use this supporting view only when a lab step or your investigation sends you here.',
+    'Use this deep dive only when a lab step or your investigation sends you here.',
 };
 
 /** Longest-prefix match, so nested routes inherit their parent's contract. */

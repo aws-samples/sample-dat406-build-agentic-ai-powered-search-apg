@@ -763,6 +763,7 @@ const ProductionPatterns: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Measure · Production patterns · identity · guardrails · tenancy · tools"
         title="Production patterns"
         summary={

@@ -443,6 +443,7 @@ const Search: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Search · embed → vector ∥ lexical → RRF → rerank"
         title="Retrieval pipeline"
         summary="Run the live hybrid path and compare vector search, full text, fusion, reranking, and the SQL behind the result."

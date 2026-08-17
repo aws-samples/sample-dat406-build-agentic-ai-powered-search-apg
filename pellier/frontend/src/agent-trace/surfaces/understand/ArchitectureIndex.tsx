@@ -428,6 +428,7 @@ const ArchitectureIndex: React.FC = () => {
   return (
     <div className="pellier-labs-reference-page" style={{ maxWidth: '1400px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Architecture"
         title="Architecture map"
         summary="Trace the live request path, then open a component for its source and operating boundary."
