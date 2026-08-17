@@ -984,7 +984,7 @@
   transition: border-color 160ms ease, background 160ms ease;
 }
 
-.pellier-labs-icon-button img {
+.pellier-labs-icon-button svg {
   display: block;
   width: 18px;
   height: 18px;

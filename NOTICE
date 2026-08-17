@@ -35,9 +35,10 @@ Canonical attribution line (copy this)
 
 Third-party asset
 -----------------
-The GitHub Octicon mark at pellier/frontend/public/github-mark.svg is sourced
-from https://commons.wikimedia.org/wiki/File:Octicons-mark-github.svg and the
-GitHub Octicons project at https://github.com/primer/octicons.
+The GitHub Octicon mark embedded in
+pellier/frontend/src/agent-trace/shell/TopBar.tsx is sourced from
+https://commons.wikimedia.org/wiki/File:Octicons-mark-github.svg and the GitHub
+Octicons project at https://github.com/primer/octicons.
 
 MIT License
 
