@@ -506,6 +506,7 @@ const SessionsList: React.FC = () => {
           default landing surface). Sessions is zoom-in, no need
           to repeat the intro here. */}
       <EditorialTitle
+        backToReferences
         eyebrow="Observe · Sessions"
         title={showingPersonaJourney ? `${activePersonaLabel}'s five-turn journey` : 'Sessions'}
         summary={

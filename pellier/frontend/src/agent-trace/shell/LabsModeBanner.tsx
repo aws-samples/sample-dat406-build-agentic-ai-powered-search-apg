@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { BookOpen } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 import { interactionForPath, modeCopyForPath } from './labsInteraction';
@@ -17,7 +18,9 @@ const LabsModeBanner: React.FC = () => {
       <span className="labs-mode-banner-label">
         {mode === 'interactive' ? (
           <span className="labs-mode-banner-dot" aria-hidden="true" />
-        ) : null}
+        ) : (
+          <BookOpen size={13} strokeWidth={1.8} aria-hidden="true" />
+        )}
         {copy.label}
       </span>
       <p className="labs-mode-banner-detail">{copy.detail}</p>

@@ -417,6 +417,7 @@ const PersonaSection: React.FC<{ journey: PersonaJourney }> = ({ journey }) => (
 const PersonaJourneys: React.FC = () => (
   <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
     <EditorialTitle
+      backToReferences
       eyebrow="Observe · Persona Journeys · 15 Pellier hero turns"
       title="Three personas, fifteen hero queries."
       summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Labs tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."

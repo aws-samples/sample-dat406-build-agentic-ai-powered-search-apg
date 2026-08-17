@@ -1556,8 +1556,19 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
           All checkpoints
         </Link>
       )}
+      {!isAuditFocus ? (
+        <Link
+          to="/pellier-labs/references"
+          className="pellier-labs-reference-return proof-board-reference-return"
+          aria-label="Back to Deep Dives"
+        >
+          <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
+          <span>Deep Dives</span>
+        </Link>
+      ) : null}
       {isAuditFocus ? (
         <EditorialTitle
+          backToReferences
           eyebrow="Lab 3 · Run Agents in a Managed Runtime"
           title="Audit proof, row by row."
           summary="A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present."

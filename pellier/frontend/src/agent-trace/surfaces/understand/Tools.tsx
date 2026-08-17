@@ -1290,6 +1290,7 @@ const Tools: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Tools · five agents · fifteen functions"
         title="The toolkit, by owner and action."
         summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."

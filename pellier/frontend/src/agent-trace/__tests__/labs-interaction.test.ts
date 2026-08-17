@@ -17,11 +17,15 @@ describe('governed Labs interaction contract', () => {
 
   it('normalizes a trailing slash on the workbench', () => {
     expect(interactionForPath('/pellier-labs/')).toBe('interactive');
-    expect(modeCopyForPath('/pellier-labs/').label).toBe('Interactive');
+    expect(modeCopyForPath('/pellier-labs/').label).toBe('Live Workbench');
   });
 
-  it('keeps governed proof and Cedar reference surfaces read-only', () => {
+  it('keeps governed supporting surfaces optional', () => {
     for (const path of [
+      '/pellier-labs/tools',
+      '/pellier-labs/search',
+      '/pellier-labs/skills',
+      '/pellier-labs/memory',
       '/pellier-labs/proof-board',
       '/pellier-labs/audit-proof',
       '/pellier-labs/architecture',
@@ -30,7 +34,7 @@ describe('governed Labs interaction contract', () => {
       '/pellier-labs/production-patterns',
     ]) {
       expect(interactionForPath(path), path).toBe('reference');
-      expect(modeCopyForPath(path).label, path).toBe('Reference');
+      expect(modeCopyForPath(path).label, path).toBe('Optional deep dive');
     }
   });
 
@@ -39,9 +43,9 @@ describe('governed Labs interaction contract', () => {
     expect(isInteractivePath('/pellier-labs/searchable')).toBe(false);
   });
 
-  it('lets a nested interactive route inherit its parent contract', () => {
+  it('keeps nested supporting routes optional', () => {
     expect(interactionForPath('/pellier-labs/tools/find_pieces')).toBe(
-      'interactive',
+      'reference',
     );
     expect(interactionForPath('/pellier-labs/architecture/runtime')).toBe(
       'reference',

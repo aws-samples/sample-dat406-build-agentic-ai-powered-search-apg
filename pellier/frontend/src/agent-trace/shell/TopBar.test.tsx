@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../contexts/PersonaContext', () => ({
@@ -16,6 +16,11 @@ vi.mock('../../shared', () => ({
 }))
 
 import TopBar from './TopBar'
+
+function LocationProbe() {
+  const { pathname } = useLocation()
+  return <output data-testid="location">{pathname}</output>
+}
 
 describe('Pellier Labs TopBar', () => {
   it('provides one explicit route back to Pellier', () => {
@@ -47,51 +52,44 @@ describe('Pellier Labs TopBar', () => {
     expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('keeps the current Labs route in the breadcrumb', () => {
+  it('keeps supporting routes under Optional Deep Dives', () => {
     render(
       <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
         <TopBar />
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
-      'Proof Board',
-    )
     expect(
-      screen.getByRole('navigation', { name: 'Breadcrumb' }),
-    ).not.toHaveTextContent('Pellier Labs')
+      screen.getByRole('link', { name: 'Optional Deep Dives' }),
+    ).toHaveAttribute('aria-current', 'page')
+    expect(
+      screen.getByRole('link', { name: 'Live Workbench' }),
+    ).not.toHaveAttribute('aria-current')
   })
 
-  it('does not expose a secondary Labs navigation drawer', () => {
+  it('offers only the workbench and reference index as first-level views', async () => {
+    const user = userEvent.setup()
     render(
       <MemoryRouter initialEntries={['/pellier-labs']}>
         <TopBar />
+        <LocationProbe />
       </MemoryRouter>,
     )
 
-    expect(
-      screen.queryByRole('button', { name: /lab navigation/i }),
-    ).not.toBeInTheDocument()
-  })
-
-  it('groups the Labs picker by interaction while retaining governed proof routes', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <MemoryRouter initialEntries={['/pellier-labs/proof-board']}>
-        <TopBar />
-      </MemoryRouter>,
+    expect(screen.getByRole('link', { name: 'Pellier Labs' })).toHaveAttribute(
+      'href',
+      '/pellier-labs',
     )
-
-    await user.click(screen.getByTestId('pellier-labs-view-switcher'))
-
-    expect(screen.getByText('Interactive')).toBeInTheDocument()
-    expect(screen.getByText('Reference')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Pellier Labs view/i })).not.toBeInTheDocument()
     expect(
-      screen.getByRole('menuitem', { name: /audit proof/i }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('menuitem', { name: /gateway & policy/i }),
-    ).toBeInTheDocument()
+      screen.getAllByRole('link', {
+        name: /Live Workbench|Optional Deep Dives/,
+      }),
+    ).toHaveLength(2)
+
+    await user.click(screen.getByRole('link', { name: 'Optional Deep Dives' }))
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/pellier-labs/references',
+    )
   })
 })

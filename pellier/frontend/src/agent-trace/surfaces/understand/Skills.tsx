@@ -752,6 +752,7 @@ const Skills: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Skills · five prompt overlays"
         title="Persona-specific knowledge the agents load."
         summary="Five Markdown files. Three are persona-tied; two are shared proof and care overlays. Loaded per turn by the SkillRouter – Sonnet 5 with a JSON-only routing prompt – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."

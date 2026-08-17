@@ -894,11 +894,20 @@ export default function PellierLabsWorkbench() {
 
   return (
     <div className="pellier-labs-workbench labs-index">
-      <h1 className="pellier-labs-page-title">
-        Follow one shopper request through routing, retrieval, and its grounded
-        answer.
-      </h1>
       <div className="labs-index-inner">
+        <header className="pellier-labs-workbench-intro">
+          <div className="pellier-labs-workbench-intro-copy">
+            <h1 className="pellier-labs-page-title">Live Workbench</h1>
+            <p className="pellier-labs-workbench-purpose">
+              Run a governed shopper request and inspect identity, policy
+              decisions, transaction state, and durable evidence.
+            </p>
+          </div>
+          <span className="pellier-labs-workbench-presence">
+            <span aria-hidden="true" />
+            Live governed surface
+          </span>
+        </header>
         <div className="pellier-labs-workbench-grid" aria-label="Live agent run">
           <motion.aside
             className="pellier-labs-input-panel"

@@ -7,6 +7,8 @@
  */
 
 import React from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Eyebrow } from './Eyebrow';
 
 export interface EditorialTitleProps {
@@ -14,6 +16,7 @@ export interface EditorialTitleProps {
   title: string;
   summary?: string;
   className?: string;
+  backToReferences?: boolean;
 }
 
 export const EditorialTitle: React.FC<EditorialTitleProps> = ({
@@ -21,6 +24,7 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
   title,
   summary,
   className = '',
+  backToReferences = false,
 }) => {
   return (
     <header
@@ -32,6 +36,16 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
         marginBottom: '32px',
       }}
     >
+      {backToReferences ? (
+        <Link
+          to="/pellier-labs/references"
+          className="pellier-labs-reference-return"
+          aria-label="Back to Deep Dives"
+        >
+          <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
+          <span>Deep Dives</span>
+        </Link>
+      ) : null}
       <Eyebrow label={eyebrow} />
 
       <h1

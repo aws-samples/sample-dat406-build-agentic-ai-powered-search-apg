@@ -357,6 +357,7 @@ const MemoryDashboard: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Memory · four types · explicit evidence"
         title="What the system remembers."
         summary="AgentCore Memory owns working turns and learned semantic preferences. Aurora supplies episodic business events. Source-controlled skills and MCP schemas supply procedural know-how. Operational history is shown separately because tool_audit proves what ran; it is not memory."

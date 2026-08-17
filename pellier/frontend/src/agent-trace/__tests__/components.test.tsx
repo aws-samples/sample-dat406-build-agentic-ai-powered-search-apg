@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ExpCard } from '../components/ExpCard';
 import { StatusPill } from '../components/StatusPill';
 import { StatusDot } from '../components/StatusDot';
@@ -18,6 +19,28 @@ import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { ModeStrip } from '../components/ModeStrip';
 import { SurfaceFilterBar } from '../components/SurfaceFilterBar';
 import { TabNav } from '../components/TabNav';
+import { EditorialTitle } from '../components/EditorialTitle';
+
+// ---------------------------------------------------------------------------
+// EditorialTitle
+// ---------------------------------------------------------------------------
+describe('EditorialTitle', () => {
+  it('can return to the deep dives anchor page', () => {
+    render(
+      <MemoryRouter>
+        <EditorialTitle
+          eyebrow="Understand"
+          title="State, with clear owners"
+          backToReferences
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Back to Deep Dives' }),
+    ).toHaveAttribute('href', '/pellier-labs/references');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // ExpCard

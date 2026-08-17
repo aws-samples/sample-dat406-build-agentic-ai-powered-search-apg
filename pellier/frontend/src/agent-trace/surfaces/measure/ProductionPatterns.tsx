@@ -764,6 +764,7 @@ const ProductionPatterns: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Measure · Production patterns · identity · guardrails · tenancy · tools"
         title="What you reach for once it's real."
         summary={

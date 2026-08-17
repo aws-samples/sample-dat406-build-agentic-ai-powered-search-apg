@@ -1735,6 +1735,7 @@ const Performance: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Measure · Performance · latency · pgvector · storage"
         title="Under the hood."
         summary="Cold start times, per-panel latency budgets, pgvector index benchmarks, retrieval strategy comparisons, and storage footprint. The Aurora-backed comparison card can run live; advanced pgvector tuning notes come from smoke probes."

@@ -1,234 +1,36 @@
 /**
  * Pellier Labs top bar.
  *
- * The Labs identity is singular and the storefront return is explicit so the
- * inspection canvas remains the primary surface at every viewport width.
+ * The governed workbench is the primary destination. Every deeper surface is
+ * intentionally grouped behind one Optional Deep Dives index.
  */
 
-import React, { useMemo, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import {
-  ArrowLeft,
-  BookOpen,
-  Check,
-  ChevronDown,
-  ClipboardCheck,
-  Compass,
-  FileCheck,
-  Gauge,
-  IdCard,
-  Layers,
-  ListChecks,
-  Map,
-  ReceiptText,
-  ScrollText,
-  Search,
-  Settings,
-  ShieldCheck,
-  Signpost,
-  Tags,
-  Workflow,
-} from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { ArrowLeft, BookOpen, ReceiptText } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import PersonaModal from '../../components/PersonaModal';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '../../components/ui';
-import { BreadcrumbTrail } from '../components/BreadcrumbTrail';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
 import { PresencePill } from '../../shared';
-import {
-  GROUP_LABELS,
-  interactionForPath,
-  type LabsInteraction,
-} from './labsInteraction';
 
 const GITHUB_REPOSITORY_URL =
   'https://github.com/aws-samples/sample-pellier-agentic-search-apg';
 
-function prettifySegment(segment: string): string {
-  const labels: Record<string, string> = {
-    'pellier-labs': 'Pellier Labs',
-    'agent-trace': 'Pellier Labs',
-    'proof-board': 'Proof Board',
-    'audit-proof': 'Audit Proof',
-    sessions: 'Sessions',
-    observatory: 'Workshop Map',
-    'persona-journeys': 'Persona Journeys',
-    architecture: 'Architecture',
-    agents: 'Agents',
-    skills: 'Skills',
-    tools: 'Tools',
-    search: 'Search',
-    routing: 'Routing',
-    memory: 'Memory',
-    'write-path': 'Gateway & Policy',
-    performance: 'Performance',
-    evaluations: 'Evaluations',
-    'production-patterns': 'Production Patterns',
-    settings: 'Settings',
-    chat: 'Chat',
-    telemetry: 'Telemetry',
-    brief: 'Brief',
-    mcp: 'MCP',
-    runtime: 'Runtime',
-    grounding: 'Grounding',
-    'state-management': 'State Management',
-    'tool-registry': 'Tool Registry',
-  };
-
-  return labels[segment.toLowerCase()] ?? segment;
-}
-
-function useBreadcrumbs(): string[] {
-  const { pathname } = useLocation();
-  return useMemo(() => {
-    const parts = pathname.split('/').filter(Boolean).map(prettifySegment);
-    return parts.length ? parts : ['Pellier Labs'];
-  }, [pathname]);
-}
-
-interface LabsView {
-  label: string;
-  path: string;
-  description: string;
-  icon: LucideIcon;
-  /**
-   * Persona ids to render as stacked portraits in place of the icon.
-   *
-   * Persona journeys is about three named shoppers, and a glyph cannot say that
-   * the way their faces can. `icon` stays set as the fallback.
-   */
-  faces?: readonly string[];
-}
-
-const LABS_VIEWS: LabsView[] = [
+const LABS_TABS = [
   {
-    label: 'Live workbench',
+    label: 'Live Workbench',
     path: '/pellier-labs',
-    description: 'Run a governed request and inspect its evidence.',
     icon: ReceiptText,
   },
   {
-    label: 'Tools',
-    path: '/pellier-labs/tools',
-    description: 'Inspect callable contracts and Aurora operations.',
-    icon: Tags,
-  },
-  {
-    label: 'Search',
-    path: '/pellier-labs/search',
-    description: 'Compare hybrid retrieval, fusion, and rerank.',
-    icon: Search,
-  },
-  {
-    label: 'Skills',
-    path: '/pellier-labs/skills',
-    description: 'Run the governed skill router.',
+    label: 'Optional Deep Dives',
+    path: '/pellier-labs/references',
     icon: BookOpen,
   },
-  {
-    label: 'Memory',
-    path: '/pellier-labs/memory',
-    description: 'Inspect live persona memory substrates.',
-    icon: IdCard,
-  },
-  {
-    label: 'Proof board',
-    path: '/pellier-labs/proof-board',
-    description: 'Review governed claims and their evidence.',
-    icon: FileCheck,
-  },
-  {
-    label: 'Audit proof',
-    path: '/pellier-labs/audit-proof',
-    description: 'Focus on persisted audit receipts.',
-    icon: ScrollText,
-  },
-  {
-    label: 'Sessions',
-    path: '/pellier-labs/sessions',
-    description: 'Replay captured governed turns.',
-    icon: ListChecks,
-  },
-  {
-    label: 'Workshop map',
-    path: '/pellier-labs/observatory',
-    description: 'Trace the workshop through its proof path.',
-    icon: Compass,
-  },
-  {
-    label: 'Architecture',
-    path: '/pellier-labs/architecture',
-    description: 'Inspect runtime boundaries and control planes.',
-    icon: Map,
-  },
-  {
-    label: 'Routing',
-    path: '/pellier-labs/routing',
-    description: 'Read intent classification and dispatch rules.',
-    icon: Signpost,
-  },
-  {
-    label: 'Gateway & policy',
-    path: '/pellier-labs/write-path',
-    description: 'Review policy-gated and audited mutations.',
-    icon: ShieldCheck,
-  },
-  {
-    label: 'Performance',
-    path: '/pellier-labs/performance',
-    description: 'Compare retrieval timing and budgets.',
-    icon: Gauge,
-  },
-  {
-    label: 'Evaluations',
-    path: '/pellier-labs/evaluations',
-    description: 'Inspect golden journeys and checks.',
-    icon: ClipboardCheck,
-  },
-  {
-    label: 'Production patterns',
-    path: '/pellier-labs/production-patterns',
-    description: 'Read the identity, tenancy, and guardrails model.',
-    icon: Layers,
-  },
-  {
-    label: 'Persona journeys',
-    path: '/pellier-labs/persona-journeys',
-    description: 'Compare canonical shopper paths.',
-    icon: Workflow,
-  },
-  {
-    label: 'Settings',
-    path: '/pellier-labs/settings',
-    description: 'Review the active Labs configuration.',
-    icon: Settings,
-  },
-];
-
-const LABS_INTERACTION_GROUPS: Array<{
-  interaction: LabsInteraction;
-  label: string;
-  views: LabsView[];
-}> = (['interactive', 'reference'] as const).map((interaction) => ({
-  interaction,
-  label: GROUP_LABELS[interaction],
-  views: LABS_VIEWS.filter(
-    (view) => interactionForPath(view.path) === interaction,
-  ),
-}));
+] as const;
 
 const TopBar: React.FC = () => {
-  const breadcrumbs = useBreadcrumbs();
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const { persona } = usePersona();
   const [personaModalOpen, setPersonaModalOpen] = useState(false);
 
@@ -236,14 +38,8 @@ const TopBar: React.FC = () => {
   const avatarColor = persona?.avatar_color ?? '#665f58';
   const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Choose profile';
   const photoUrl = persona ? getPersonaPhoto(persona.id) : undefined;
-  const activeLabsView =
-    LABS_VIEWS.find(
-      (view) =>
-        pathname === view.path ||
-        (view.path !== '/pellier-labs' &&
-          pathname.startsWith(`${view.path}/`)),
-    ) ?? LABS_VIEWS[0];
-  const ActiveViewIcon = activeLabsView.icon;
+  const isWorkbench =
+    pathname === '/pellier-labs' || pathname === '/pellier-labs/';
 
   return (
     <>
@@ -252,107 +48,26 @@ const TopBar: React.FC = () => {
           <Link to="/pellier-labs" className="pellier-labs-wordmark">
             Pellier Labs
           </Link>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="pellier-labs-view-trigger"
-                data-testid="pellier-labs-view-switcher"
-                aria-label={`Pellier Labs view: ${activeLabsView.label}`}
-                title="Open Pellier Labs navigation"
-              >
-                <ActiveViewIcon
-                  className="pellier-labs-view-trigger-icon"
-                  size={16}
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-                <span className="pellier-labs-view-trigger-label">
-                  {activeLabsView.label}
-                </span>
-                <ChevronDown
-                  className="pellier-labs-view-trigger-chevron"
-                  size={15}
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="pellier-labs-view-menu"
-              align="start"
-              sideOffset={10}
-              collisionPadding={12}
-            >
-              {LABS_INTERACTION_GROUPS.map((group) => (
-                <div
-                  className="pellier-labs-view-menu-section"
-                  data-interaction={group.interaction}
-                  key={group.interaction}
-                >
-                  <DropdownMenuLabel className="pellier-labs-view-menu-label">
-                    {group.label}
-                    <span className="pellier-labs-view-menu-count">
-                      {group.views.length}
-                    </span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuGroup>
-                    {group.views.map((view) => {
-                      const isActive = view.path === activeLabsView.path;
-                      const ViewIcon = view.icon;
-                      return (
-                        <DropdownMenuItem
-                          key={view.path}
-                          className="pellier-labs-view-menu-item"
-                          data-active={isActive ? 'true' : undefined}
-                          data-interaction={group.interaction}
-                          onSelect={() => navigate(view.path)}
-                        >
-                          {view.faces ? (
-                            <span
-                              className="pellier-labs-view-menu-faces"
-                              aria-hidden="true"
-                            >
-                              {view.faces.map((id) => (
-                                <img key={id} src={getPersonaPhoto(id)} alt="" />
-                              ))}
-                            </span>
-                          ) : (
-                            <span
-                              className="pellier-labs-view-menu-icon"
-                              aria-hidden="true"
-                            >
-                              <ViewIcon size={15} strokeWidth={1.8} />
-                            </span>
-                          )}
-                          <span className="pellier-labs-view-menu-copy">
-                            <strong>{view.label}</strong>
-                            <small>{view.description}</small>
-                          </span>
-                          {isActive ? (
-                            <Check
-                              className="pellier-labs-view-menu-check"
-                              size={15}
-                              strokeWidth={2}
-                              aria-hidden="true"
-                            />
-                          ) : null}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuGroup>
-                </div>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {breadcrumbs.length > 1 ? (
-            <div className="pellier-labs-breadcrumbs">
-              <BreadcrumbTrail segments={breadcrumbs.slice(1)} />
-            </div>
-          ) : null}
         </div>
+
+        <nav className="pellier-labs-tabs" aria-label="Pellier Labs views">
+          {LABS_TABS.map((tab, index) => {
+            const isActive = index === 0 ? isWorkbench : !isWorkbench;
+            const TabIcon = tab.icon;
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                className="pellier-labs-tab"
+                data-active={isActive ? 'true' : undefined}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <TabIcon size={15} strokeWidth={1.8} aria-hidden="true" />
+                <span>{tab.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         <div className="pellier-labs-topbar-end">
           <div className="pellier-labs-presence">

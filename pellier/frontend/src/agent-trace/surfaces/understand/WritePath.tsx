@@ -472,6 +472,7 @@ const WritePath: React.FC = () => {
   return (
     <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
       <EditorialTitle
+        backToReferences
         eyebrow="Understand · Write-path · Aurora as system-of-record"
         title="Theo's third Aurora capability."
         summary="Marco read. Anna read harder. Theo writes – and every write leaves a paper trail. The agent calls a mutating tool; Cedar gates on what; SQL gates on whose; Aurora records the turn in tool_audit. Replayable from a single SELECT."

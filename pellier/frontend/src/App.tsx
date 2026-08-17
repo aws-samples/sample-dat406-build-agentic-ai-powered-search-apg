@@ -40,6 +40,9 @@ const ProofBoard = lazy(() => import('./agent-trace/surfaces/observe/ProofBoard'
 const PellierLabsWorkbench = lazy(
   () => import('./agent-trace/surfaces/observe/PellierLabsWorkbench'),
 )
+const ReferencesIndex = lazy(
+  () => import('./agent-trace/surfaces/ReferencesIndex'),
+)
 const PersonaJourneys = lazy(() => import('./agent-trace/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
   () => import('./agent-trace/surfaces/understand/ArchitectureIndex'),
@@ -196,6 +199,7 @@ export function AppRoutes() {
         <Route path="/labs/*" element={<LegacyLabsRedirect />} />
         <Route path="/pellier-labs" element={<AgentTraceFrame />}>
           <Route index element={<PellierLabsWorkbench />} />
+          <Route path="references" element={<ReferencesIndex />} />
           <Route path="proof-board" element={<ProofBoard />} />
           <Route
             path="audit-proof"

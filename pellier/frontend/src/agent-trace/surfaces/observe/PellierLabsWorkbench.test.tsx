@@ -62,9 +62,15 @@ describe('Pellier Labs live agent workbench', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /Follow one shopper request through routing, retrieval/i,
+        name: 'Live Workbench',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Run a governed shopper request and inspect identity, policy decisions, transaction state, and durable evidence.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Live governed surface')).toBeInTheDocument();
     expect(
       tracePanel(document.body).querySelector('canvas.labs-hero-field'),
     ).not.toBeInTheDocument();
