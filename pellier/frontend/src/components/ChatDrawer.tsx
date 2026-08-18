@@ -200,23 +200,27 @@ export default function ChatDrawer() {
     }
   }, [isOpen, consumePendingQuery, sendMessage, clearChat, initialMessages])
 
-  // Auto-scroll
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  // Auto-scroll: follow output while the reader is near the bottom.
+  //
+  // Streaming appends a delta per SSE event, so this effect can run many
+  // times per frame. The old 50ms debounce cancelled its pending scroll on
+  // every delta, so the view stood still through a fast stream and lurched
+  // once at the end. Pinning scrollTop in at most one rAF per frame follows
+  // the stream instead, and checking nearBottom first keeps a reader who
+  // scrolled up unpinned.
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrollFrameRef = useRef(0)
   useEffect(() => {
-    if (!isOpen) return
     const el = scrollAreaRef.current
-    if (!el) return
+    if (!isOpen || !el) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    if (nearBottom) {
-      const t = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: reduceMotion ? 'auto' : 'smooth',
-        })
-      }, 50)
-      return () => clearTimeout(t)
-    }
-  }, [messages, isOpen, reduceMotion])
+    if (!nearBottom || scrollFrameRef.current) return
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = 0
+      el.scrollTop = el.scrollHeight
+    })
+  }, [messages, isOpen])
+  useEffect(() => () => cancelAnimationFrame(scrollFrameRef.current), [])
 
   // Focus trap: Tab/Shift+Tab cycle within drawer
   const drawerRef = useRef<HTMLDivElement>(null)
@@ -356,7 +360,6 @@ export default function ChatDrawer() {
                   persona={persona}
                 />
               )}
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Footer */}
