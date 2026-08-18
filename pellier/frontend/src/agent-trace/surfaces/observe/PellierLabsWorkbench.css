@@ -434,11 +434,12 @@
   display: grid;
   width: 100%;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--pl-line);
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(var(--pl-accent-rgb), 0.28);
   border-radius: 8px;
-  background: var(--pl-paper-muted);
+  background: rgba(var(--pl-accent-rgb), 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .agent-trace-root .pellier-labs-segmented button {
@@ -448,18 +449,41 @@
   align-items: center;
   justify-content: center;
   padding: 4px 6px;
-  border: 0;
+  border: 1px solid rgba(var(--pl-accent-rgb), 0.1);
   border-radius: 6px;
-  background: transparent;
-  color: var(--pl-muted);
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--pl-ink-soft);
   font-size: 10px;
   font-weight: 650;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
 }
 
+.agent-trace-root
+  .pellier-labs-segmented
+  button:hover:not(:disabled):not([data-state='on']) {
+  border-color: rgba(var(--pl-accent-rgb), 0.28);
+  background: rgba(var(--pl-accent-rgb), 0.09);
+  color: var(--pl-accent-deep);
+}
+
+.agent-trace-root .pellier-labs-segmented button[data-state='on'],
+.agent-trace-root .pellier-labs-segmented button[aria-checked='true'],
 .agent-trace-root .pellier-labs-segmented button[aria-pressed='true'] {
-  background: var(--pl-paper-solid);
-  color: var(--pl-accent);
-  box-shadow: 0 1px 3px rgba(78, 48, 36, 0.08);
+  border-color: var(--pl-accent-deep);
+  background: var(--pl-accent-deep);
+  color: #fff;
+  box-shadow:
+    0 2px 6px rgba(var(--pl-accent-rgb), 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.agent-trace-root .pellier-labs-segmented button:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 2px;
 }
 
 .agent-trace-root .pellier-labs-segmented button:disabled {
@@ -485,6 +509,33 @@
   grid-template-columns: 32px minmax(0, 1fr);
   gap: 9px;
   align-items: center;
+}
+
+.agent-trace-root .pellier-labs-switches [role='switch'] {
+  border-color: rgba(var(--pl-accent-rgb), 0.42);
+  background: rgba(var(--pl-accent-rgb), 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.46),
+    0 1px 2px rgba(63, 31, 40, 0.08);
+}
+
+.agent-trace-root
+  .pellier-labs-switches
+  [role='switch'][data-state='checked'] {
+  border-color: var(--pl-accent-deep);
+  background: var(--pl-accent-deep);
+  box-shadow:
+    0 2px 5px rgba(var(--pl-accent-rgb), 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.agent-trace-root .pellier-labs-switches [role='switch']:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 2px;
+}
+
+.agent-trace-root .pellier-labs-switches [role='switch']:disabled {
+  opacity: 0.68;
 }
 
 .pellier-labs-switches label {

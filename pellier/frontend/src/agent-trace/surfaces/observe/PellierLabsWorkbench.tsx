@@ -992,7 +992,7 @@ export default function PellierLabsWorkbench() {
                         <strong>Aurora profile context</strong>
                         <small>
                           {persona
-                            ? `Use ${persona.display_name}'s live Aurora profile`
+                            ? `Add ${persona.display_name}'s Aurora facts and order history`
                             : 'Select a persona to enable'}
                         </small>
                       </label>
@@ -1007,7 +1007,9 @@ export default function PellierLabsWorkbench() {
                       />
                       <label htmlFor="labs-safety-inspection">
                         <strong>Input safety inspection</strong>
-                        <small>Observe the configured pre-run evaluation</small>
+                        <small>
+                          Run the pre-run evaluation and emit its receipt
+                        </small>
                       </label>
                     </div>
                     <div>
@@ -1019,7 +1021,9 @@ export default function PellierLabsWorkbench() {
                       />
                       <label htmlFor="labs-trace-visibility">
                         <strong>Live trace visibility</strong>
-                        <small>Show emitted agent, tool, and SQL events</small>
+                        <small>
+                          View only: show or hide agent, tool, and SQL events
+                        </small>
                       </label>
                     </div>
                   </div>
