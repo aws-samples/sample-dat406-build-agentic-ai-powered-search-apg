@@ -61,45 +61,9 @@
     --persona-anna: #6b3d2a;
   }
 
-  /* ========================================================================
-   * Apple.com Design Tokens
-   * Dark:  pure black bg, #f5f5f7 text, #2997ff links
-   * Light: pure white bg, #1d1d1f text, #0071e3 links
-   * ======================================================================== */
-
-  :root.dark {
-    --bg-primary: #000000;
-    --bg-secondary: #1d1d1f;
-    --text-primary: #f5f5f7;
-    --text-secondary: #a1a1a6;
-    --border-color: rgba(255, 255, 255, 0.08);
-    --card-bg: rgba(28, 28, 30, 0.6);
-    --glass-bg: rgba(28, 28, 30, 0.85);
-    --input-bg: rgba(255, 255, 255, 0.06);
-    --input-border: rgba(255, 255, 255, 0.12);
-    --header-bg: rgba(0, 0, 0, 0.92);
-    --text-tertiary: #636366;
-    --link-color: #2997ff;
-    --link-hover: #6cb6ff;
-    --section-alt-bg: #1d1d1f;
-  }
-
-  :root.light {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f5f5f7;
-    --text-primary: #1d1d1f;
-    --text-secondary: #6e6e73;
-    --border-color: rgba(0, 0, 0, 0.08);
-    --card-bg: rgba(245, 245, 247, 0.8);
-    --glass-bg: rgba(255, 255, 255, 0.88);
-    --input-bg: rgba(0, 0, 0, 0.04);
-    --input-border: rgba(0, 0, 0, 0.1);
-    --header-bg: rgba(255, 255, 255, 0.92);
-    --text-tertiary: #aeaeb2;
-    --link-color: #0071e3;
-    --link-hover: #0077ed;
-    --section-alt-bg: #f5f5f7;
-  }
+  /* The old Apple-era :root.dark / :root.light token sets are gone: nothing
+   * ever toggled those classes, so the daylight surface below is the only
+   * live definition of the shared tokens. */
 
   body {
     @apply antialiased;
@@ -244,28 +208,6 @@
     }
   }
 
-  /* Custom scrollbar - Dark mode */
-  .dark .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-  .dark .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 4px; }
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
-
-  /* Custom scrollbar - Light mode */
-  .light .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-  .light .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.03); border-radius: 4px; }
-  .light .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.12); border-radius: 4px; }
-  .light .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
-
-  /* Search overlay scrollbar */
-  .dark .search-scroll::-webkit-scrollbar { width: 4px; }
-  .dark .search-scroll::-webkit-scrollbar-track { background: transparent; }
-  .dark .search-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
-  .dark .search-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-
-  .light .search-scroll::-webkit-scrollbar { width: 4px; }
-  .light .search-scroll::-webkit-scrollbar-track { background: transparent; }
-  .light .search-scroll::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 2px; }
-  .light .search-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
 }
 
 @layer components {
@@ -313,47 +255,6 @@
   .btn-secondary:hover {
     background: var(--input-bg);
   }
-
-  /* ========================================================================
-   * Cards — clean with subtle border
-   * ======================================================================== */
-  .card {
-    background: var(--card-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--border-color);
-    @apply rounded-3xl p-8 transition-all duration-500;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
-  }
-  .card:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-  }
-  .light .card {
-    background: rgba(255, 255, 255, 0.8);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  }
-  .light .card:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-  }
-
-  /* ========================================================================
-   * Glassmorphism
-   * ======================================================================== */
-  .glass {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border-color);
-  }
-
-  .glass-strong {
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border: 1px solid var(--border-color);
-  }
-  .dark .glass-strong { background: rgba(0, 0, 0, 0.95); }
-  .light .glass-strong { background: rgba(255, 255, 255, 0.95); }
 
   /* ========================================================================
    * Input fields
@@ -675,19 +576,6 @@
   }
   .animate-fadeIn { animation: fadeIn 0.5s ease-in; }
 
-  @keyframes floatParticle {
-    0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.3; }
-    25% { transform: translateY(-20px) translateX(10px) scale(1.1); opacity: 0.5; }
-    50% { transform: translateY(-40px) translateX(-10px) scale(0.9); opacity: 0.7; }
-    75% { transform: translateY(-20px) translateX(15px) scale(1.05); opacity: 0.4; }
-  }
-  .particle {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-    animation: floatParticle 15s ease-in-out infinite;
-  }
-
   @keyframes shimmerFlow {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
@@ -697,42 +585,6 @@
     background-size: 200% 100%;
     animation: shimmerFlow 1.5s ease-in-out infinite;
   }
-
-  .glass-depth-1 {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-  .glass-depth-2 {
-    background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
-  .glass-depth-3 {
-    background: var(--glass-bg);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-  }
-
-  /* Orb animations */
-  @keyframes orbFloat1 {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    25% { transform: translate(80px, -60px) scale(1.1); }
-    50% { transform: translate(-40px, -120px) scale(0.95); }
-    75% { transform: translate(60px, -30px) scale(1.05); }
-  }
-  @keyframes orbFloat2 {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(-100px, 50px) scale(1.15); }
-    66% { transform: translate(70px, 80px) scale(0.9); }
-  }
-  @keyframes orbFloat3 {
-    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.15; }
-    50% { transform: translate(50px, -80px) scale(1.2); opacity: 0.25; }
-  }
-  .orb-float-1 { animation: orbFloat1 20s ease-in-out infinite; }
-  .orb-float-2 { animation: orbFloat2 25s ease-in-out infinite; }
-  .orb-float-3 { animation: orbFloat3 18s ease-in-out infinite; }
 
   .category-default { --category-accent: #888888; }
 
@@ -1105,12 +957,6 @@
 @keyframes editorial-typing-dot {
   0%, 60%, 100% { opacity: 0.3; transform: scale(0.85); }
   30%           { opacity: 1;   transform: scale(1.1); }
-}
-
-/* Product artifact card mount */
-@keyframes artifact-mount {
-  0%   { opacity: 0; transform: translateY(8px) scale(0.97); }
-  100% { opacity: 1; transform: translateY(0)   scale(1); }
 }
 
 /* Tool-call indicator pulse (active state) */
