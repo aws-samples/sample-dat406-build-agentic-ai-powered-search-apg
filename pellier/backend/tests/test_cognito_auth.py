@@ -333,11 +333,22 @@ def test_extract_user_reads_bearer_header(
 def test_extract_user_falls_back_to_cookie(
     auth_service: CognitoAuthService, signer: _Signer
 ) -> None:
+    from services.cognito_auth import encode_token_cookie
+
     token = signer.sign(_valid_access_claims())
-    req = _make_request(cookies={ACCESS_TOKEN_COOKIE: token})
+    req = _make_request(
+        cookies={ACCESS_TOKEN_COOKIE: encode_token_cookie(token)}
+    )
     user = _run(auth_service.extract_user(req))
     assert user is not None
     assert user.user_id == "cognito-sub-123"
+
+
+def test_extract_user_rejects_malformed_encoded_cookie(
+    auth_service: CognitoAuthService,
+) -> None:
+    req = _make_request(cookies={ACCESS_TOKEN_COOKIE: "b64.invalid!"})
+    assert _run(auth_service.extract_user(req)) is None
 
 
 def test_extract_user_prefers_header_over_cookie(

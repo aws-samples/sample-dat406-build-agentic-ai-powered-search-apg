@@ -338,7 +338,11 @@ def test_extract_trace_returns_empty_shape_when_no_spans(
     assert trace["otel_enabled"] is True
 
 
-def _emit_session_trace(session_id: str, specialist: str) -> None:
+def _emit_session_trace(
+    session_id: str,
+    specialist: str,
+    user_id: str = "test-user",
+) -> None:
     """Emit a minimal Strands-shaped trace tagged to one session.
 
     Strands only applies ``Agent.trace_attributes`` to spans owned by
@@ -350,6 +354,9 @@ def _emit_session_trace(session_id: str, specialist: str) -> None:
     with tracer.start_as_current_span("invoke_agent orchestrator") as root:
         root.set_attribute("gen_ai.agent.name", "orchestrator")
         root.set_attribute("session.id", session_id)
+        root.set_attribute("session.user", user_id)
+        root.set_attribute("system_prompt", "private system instructions")
+        root.set_attribute("user.query", "private shopper query")
         with tracer.start_as_current_span(f"execute_tool {specialist}") as span:
             span.set_attribute("gen_ai.tool.name", specialist)
             with tracer.start_as_current_span("execute_tool find_pieces") as leaf:
@@ -371,10 +378,10 @@ def test_agent_execution_filters_by_session_and_keeps_trace_children(
     assert execution["otel_enabled"] is True
     assert execution["span_count"] == 3
     assert execution["specialistRoute"] == "recommendation"
-    assert {
-        s["attributes"].get("session.id")
-        for s in execution["spans"]
-    } == {"sess-b", None}
+    assert all("session.id" not in s["attributes"] for s in execution["spans"])
+    assert all("session.user" not in s["attributes"] for s in execution["spans"])
+    assert all("system_prompt" not in s["attributes"] for s in execution["spans"])
+    assert all("user.query" not in s["attributes"] for s in execution["spans"])
     assert otel_spans.get_finished_spans()
 
 
@@ -423,16 +430,36 @@ def test_waterfall_filters_by_session_and_keeps_trace_children(
     _emit_session_trace("sess-water-a", "search")
     _emit_session_trace("sess-water-b", "inventory")
 
-    trace = get_waterfall_data(session_id="sess-water-a")
+    trace = get_waterfall_data(
+        session_id="sess-water-a",
+        user_id="test-user",
+    )
 
     assert trace["otel_enabled"] is True
     assert trace["span_count"] == 3
     assert trace["specialistRoute"] == "search"
-    assert {
-        s["attributes"].get("session.id")
-        for s in trace["spans"]
-    } == {"sess-water-a", None}
+    assert all("session.id" not in s["attributes"] for s in trace["spans"])
+    assert all("session.user" not in s["attributes"] for s in trace["spans"])
+    assert all("system_prompt" not in s["attributes"] for s in trace["spans"])
+    assert all("user.query" not in s["attributes"] for s in trace["spans"])
     assert otel_spans.get_finished_spans()
+
+
+def test_waterfall_rejects_session_owned_by_another_user(
+    otel_spans: InMemorySpanExporter,
+) -> None:
+    from services.otel_trace_extractor import get_waterfall_data
+
+    _emit_session_trace("sess-owned", "inventory", user_id="alice")
+
+    trace = get_waterfall_data(
+        session_id="sess-owned",
+        user_id="bob",
+    )
+
+    assert trace["otel_enabled"] is True
+    assert trace["span_count"] == 0
+    assert trace["spans"] == []
 
 
 def test_agentcore_runtime_drains_trace_after_inprocess_run(

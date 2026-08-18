@@ -48,6 +48,7 @@ from config import settings
 from services.cognito_auth import (
     ACCESS_TOKEN_COOKIE,
     CognitoAuthService,
+    decode_token_cookie,
     get_cognito_auth_service,
 )
 from routes import auth as auth_module
@@ -392,11 +393,11 @@ def test_callback_happy_path_sets_four_cookies_and_redirects_home(
     assert "samesite=lax" in jsi_lower
     assert "max-age=60" in jsi_lower
 
-    # Request state cookies also surface the access token verbatim (so
-    # ``/api/auth/me`` can read it on subsequent requests).
-    assert f"{ACCESS_TOKEN_COOKIE}={access_token}" in set_cookies[0] or any(
-        access_token in sc for sc in set_cookies
+    access_header = next(
+        sc for sc in set_cookies if sc.startswith(f"{ACCESS_TOKEN_COOKIE}=")
     )
+    access_cookie_value = access_header.split(";", 1)[0].split("=", 1)[1]
+    assert decode_token_cookie(access_cookie_value) == access_token
 
 
 def test_callback_invalid_access_token_returns_502(
@@ -602,12 +603,14 @@ def test_refresh_happy_path_rotates_cookies(
 
     # Access cookie carries the freshly minted token.
     access_cookie = next(sc for sc in set_cookies if sc.startswith(f"{ACCESS_TOKEN_COOKIE}="))
-    assert new_access in access_cookie
+    access_cookie_value = access_cookie.split(";", 1)[0].split("=", 1)[1]
+    assert decode_token_cookie(access_cookie_value) == new_access
     # Refresh cookie falls back to the incoming value (rotation disabled).
     refresh_cookie = next(
         sc for sc in set_cookies if sc.startswith(f"{REFRESH_TOKEN_COOKIE}=")
     )
-    assert "existing-refresh-token" in refresh_cookie
+    refresh_cookie_value = refresh_cookie.split(";", 1)[0].split("=", 1)[1]
+    assert decode_token_cookie(refresh_cookie_value) == "existing-refresh-token"
 
 
 def test_refresh_cognito_rejection_clears_cookies(

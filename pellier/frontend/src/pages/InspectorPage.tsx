@@ -43,7 +43,7 @@ function agentGradient(agent: string): string {
 }
 
 interface WaterfallStatus {
-  otel_enabled: boolean
+  enabled: boolean
   reason?: string
 }
 
@@ -63,14 +63,14 @@ export default function InspectorPage() {
   const [waterfallStatus, setWaterfallStatus] = useState<WaterfallStatus | null>(null)
   useEffect(() => {
     let cancelled = false
-    fetch('/api/traces/waterfall')
+    fetch('/api/traces/status')
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (cancelled || !data) return
-        if (data.otel_enabled === false) {
-          setWaterfallStatus({ otel_enabled: false, reason: data.reason })
+        if (data.enabled === false) {
+          setWaterfallStatus({ enabled: false, reason: data.error })
         } else {
-          setWaterfallStatus({ otel_enabled: true })
+          setWaterfallStatus({ enabled: true })
         }
       })
       .catch(() => {
@@ -87,7 +87,7 @@ export default function InspectorPage() {
     m => m.role === 'assistant' && m.agentExecution?.otel_enabled === false,
   )
   const showGlobalBanner =
-    (waterfallStatus && !waterfallStatus.otel_enabled) || hasFailedExecution
+    (waterfallStatus && !waterfallStatus.enabled) || hasFailedExecution
   const globalBannerReason =
     (hasFailedExecution
       ? messages.find(

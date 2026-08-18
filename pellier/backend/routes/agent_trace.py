@@ -110,6 +110,13 @@ _FIXTURE_DIR = (
 )
 
 _fixture_cache: dict[str, Any] = {}
+_fixture_paths = {
+    path.stem: path
+    for path in _FIXTURE_DIR.iterdir()
+    if path.is_file()
+    and path.suffix == ".json"
+    and re.fullmatch(r"[a-z0-9-]{1,128}", path.stem)
+}
 
 
 def _load_fixture(name: str) -> Any:
@@ -123,19 +130,14 @@ def _load_fixture(name: str) -> Any:
         return None
     if name in _fixture_cache:
         return _fixture_cache[name]
-    path = (_FIXTURE_DIR / f"{name}.json").resolve()
-    try:
-        path.relative_to(_FIXTURE_DIR.resolve())
-    except ValueError:
-        logger.warning("Rejected fixture path outside fixture directory")
+    path = _fixture_paths.get(name)
+    if path is None:
+        logger.warning("Fixture file not found: %s", name)
         return None
     try:
         data = json.loads(path.read_text())
         _fixture_cache[name] = data
         return data
-    except FileNotFoundError:
-        logger.warning("Fixture file not found: %s", path)
-        return None
     except json.JSONDecodeError as exc:
         logger.warning("Fixture file malformed: %s — %s", path, exc)
         return None

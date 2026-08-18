@@ -31,7 +31,9 @@ the reference block here byte-for-byte (enforced by solution parity tests).
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
+import re
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import unquote
@@ -60,6 +62,28 @@ logger = logging.getLogger(__name__)
 
 JWKS_CACHE_TTL_SECONDS = 3600  # 1 hour per Req 4.2.1
 ACCESS_TOKEN_COOKIE = "access_token"
+TOKEN_COOKIE_PREFIX = "b64."
+_TOKEN_COOKIE_RE = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def encode_token_cookie(token: str) -> str:
+    """Encode an opaque Cognito token into a cookie-safe ASCII value."""
+    encoded = base64.urlsafe_b64encode(token.encode("utf-8")).decode("ascii").rstrip("=")
+    if not encoded or not _TOKEN_COOKIE_RE.fullmatch(encoded):
+        raise ValueError("token could not be encoded safely")
+    return f"{TOKEN_COOKIE_PREFIX}{encoded}"
+
+
+def decode_token_cookie(value: str) -> str:
+    """Decode current token cookies while accepting pre-encoding sessions."""
+    if not value.startswith(TOKEN_COOKIE_PREFIX):
+        return unquote(value)
+
+    encoded = value.removeprefix(TOKEN_COOKIE_PREFIX)
+    if not _TOKEN_COOKIE_RE.fullmatch(encoded):
+        raise ValueError("invalid token cookie encoding")
+    padding = "=" * (-len(encoded) % 4)
+    return base64.urlsafe_b64decode(encoded + padding).decode("utf-8")
 
 
 class CognitoAuthService:
@@ -232,7 +256,11 @@ class CognitoAuthService:
 
         if not token:
             cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
-            token = unquote(cookie_token) if cookie_token else None
+            if cookie_token:
+                try:
+                    token = decode_token_cookie(cookie_token)
+                except (UnicodeDecodeError, ValueError):
+                    return None
 
         if not token:
             return None

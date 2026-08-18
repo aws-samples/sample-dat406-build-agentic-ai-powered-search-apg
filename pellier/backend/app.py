@@ -34,6 +34,7 @@ from models.product import ProductWithScore
 from services.database import DatabaseService
 from services.session_ownership import session_actor_id
 from services.auth import get_current_user
+from services.cognito_auth import require_user
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
 from datetime import datetime
@@ -2268,7 +2269,10 @@ async def get_tracing_status():
 
 
 @app.get("/api/traces/waterfall")
-async def get_trace_waterfall(session_id: Optional[str] = Query(None)):
+async def get_trace_waterfall(
+    session_id: str = Query(..., min_length=1, max_length=256),
+    user=Depends(require_user),
+):
     """Get waterfall timing data from captured OTEL spans.
 
     Always returns HTTP 200 with a structured payload. When OTEL is not
@@ -2278,9 +2282,12 @@ async def get_trace_waterfall(session_id: Optional[str] = Query(None)):
     """
     try:
         from services.otel_trace_extractor import get_waterfall_data
-        return get_waterfall_data(session_id=session_id)
+        return get_waterfall_data(
+            session_id=session_id,
+            user_id=user.user_id,
+        )
     except Exception as e:
-        logger.error(f"get_waterfall_data raised: {e}")
+        logger.error("get_waterfall_data raised: %s", type(e).__name__)
         return {
             "spans": [],
             "totalMs": 0,

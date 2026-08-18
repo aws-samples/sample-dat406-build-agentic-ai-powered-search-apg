@@ -53,7 +53,7 @@ import re
 import secrets
 import time
 from typing import Any, Dict, Optional
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import urlencode
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -63,6 +63,8 @@ from config import settings
 from services.cognito_auth import (
     ACCESS_TOKEN_COOKIE,
     CognitoAuthService,
+    decode_token_cookie,
+    encode_token_cookie,
     get_cognito_auth_service,
 )
 
@@ -268,7 +270,7 @@ def _set_session_cookies(
     """
     response.set_cookie(
         key=ACCESS_TOKEN_COOKIE,
-        value=quote(access_token, safe=""),
+        value=encode_token_cookie(access_token),
         max_age=ACCESS_COOKIE_MAX_AGE,
         httponly=True,
         secure=True,
@@ -278,7 +280,7 @@ def _set_session_cookies(
     if id_token:
         response.set_cookie(
             key=ID_TOKEN_COOKIE,
-            value=quote(id_token, safe=""),
+            value=encode_token_cookie(id_token),
             max_age=ID_COOKIE_MAX_AGE,
             httponly=True,
             secure=True,
@@ -288,7 +290,7 @@ def _set_session_cookies(
     if refresh_token:
         response.set_cookie(
             key=REFRESH_TOKEN_COOKIE,
-            value=quote(refresh_token, safe=""),
+            value=encode_token_cookie(refresh_token),
             max_age=REFRESH_COOKIE_MAX_AGE,
             httponly=True,
             secure=True,
@@ -518,7 +520,10 @@ async def me(
 async def logout(request: Request) -> Response:
     """Clear the session cookies and revoke the refresh token (Req 3.1.4)."""
     raw_refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE)
-    refresh_token = unquote(raw_refresh_token) if raw_refresh_token else None
+    try:
+        refresh_token = decode_token_cookie(raw_refresh_token) if raw_refresh_token else None
+    except (UnicodeDecodeError, ValueError):
+        refresh_token = None
 
     # Best-effort revoke. Network failures here must not block the user
     # from clearing their local session — cookies are cleared unconditionally.
@@ -557,7 +562,10 @@ async def refresh(
     been revoked so the SPA can route the user back to ``/signin``.
     """
     raw_refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE)
-    refresh_token = unquote(raw_refresh_token) if raw_refresh_token else None
+    try:
+        refresh_token = decode_token_cookie(raw_refresh_token) if raw_refresh_token else None
+    except (UnicodeDecodeError, ValueError):
+        refresh_token = None
     if not refresh_token:
         return JSONResponse(
             status_code=401,

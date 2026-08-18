@@ -6,9 +6,10 @@ them into the shape the frontend `/inspector` view consumes:
 
     { spans: Span[], totalMs: number, specialistRoute: string }
 
-Each ``Span`` carries ``name``, ``kind`` (``orchestrator`` | ``specialist``
-| ``tool``), ``startMs``, ``durationMs`` and raw ``attributes`` so the
-waterfall can render the orchestrator → specialist → tool hand-off.
+Each browser-visible ``Span`` carries ``name``, ``kind`` (``orchestrator`` |
+``specialist`` | ``tool``), ``startMs``, ``durationMs`` and an allow-listed
+attribute subset so the waterfall can render the orchestrator → specialist →
+tool hand-off without exposing prompts, shopper context, or session identifiers.
 """
 import logging
 from typing import Any, Dict, Iterable, List, Optional
@@ -49,6 +50,24 @@ _SPECIALIST_TOOL_NAMES = frozenset(
         "pricing",
         "inventory",
         "support",
+    }
+)
+
+_PUBLIC_SPAN_ATTRIBUTE_KEYS = frozenset(
+    {
+        "gen_ai.operation.name",
+        "gen_ai.agent.name",
+        "gen_ai.tool.name",
+        "gen_ai.tool.status",
+        "gen_ai.request.model",
+        "gen_ai.usage.prompt_tokens",
+        "gen_ai.usage.completion_tokens",
+        "gen_ai.usage.input_tokens",
+        "gen_ai.usage.output_tokens",
+        "gen_ai.usage.total_tokens",
+        "service",
+        "pattern",
+        "workshop",
     }
 )
 
@@ -175,6 +194,23 @@ def _span_to_dict(span: Any, base_ms: int) -> Dict[str, Any]:
     }
 
 
+def _public_span(span: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the browser-safe subset of an extracted span."""
+    attrs = span.get("attributes") or {}
+    return {
+        **span,
+        "attributes": {
+            key: attrs[key]
+            for key in _PUBLIC_SPAN_ATTRIBUTE_KEYS
+            if key in attrs
+        },
+    }
+
+
+def _public_spans(spans: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [_public_span(span) for span in spans]
+
+
 def extract_trace(spans: Optional[Iterable[Any]] = None) -> Dict[str, Any]:
     """Extract the current trace in the inspector's expected shape.
 
@@ -276,8 +312,12 @@ def _span_trace_id(span: Any) -> Optional[int]:
     return None
 
 
-def _filter_spans_for_session(spans: List[Any], session_id: Optional[str]) -> List[Any]:
-    """Return spans in traces tagged for ``session_id`` when supplied."""
+def _filter_spans_for_session(
+    spans: List[Any],
+    session_id: Optional[str],
+    user_id: Optional[str] = None,
+) -> List[Any]:
+    """Return spans in traces tagged for the requested owned session."""
     if not session_id:
         return spans
 
@@ -288,6 +328,21 @@ def _filter_spans_for_session(spans: List[Any], session_id: Optional[str]) -> Li
         if str((getattr(span, "attributes", None) or {}).get("session.id") or "")
         == wanted
     ]
+    if user_id is not None:
+        owner = str(user_id)
+        owned = [
+            span
+            for span in directly_tagged
+            if str(
+                (getattr(span, "attributes", None) or {}).get("session.user")
+                or ""
+            )
+            == owner
+        ]
+        if not owned:
+            return []
+        directly_tagged = owned
+
     directly_tagged_ids = {id(span) for span in directly_tagged}
     tagged_trace_ids = {
         trace_id
@@ -380,7 +435,7 @@ def extract_agent_execution_from_otel(session_id: Optional[str] = None) -> Dict[
         "tool_calls": tool_calls,
         "reasoning_steps": [],
         "waterfall": waterfall,
-        "spans": trace["spans"],
+        "spans": _public_spans(trace["spans"]),
         "totalMs": trace["totalMs"],
         "specialistRoute": trace["specialistRoute"],
         "total_duration_ms": trace["totalMs"],
@@ -390,7 +445,10 @@ def extract_agent_execution_from_otel(session_id: Optional[str] = None) -> Dict[
     }
 
 
-def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
+def get_waterfall_data(
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """Return the current trace in the shape
     ``{ spans, totalMs, specialistRoute, waterfall, span_count, otel_enabled }``
     for the ``/api/traces/waterfall`` endpoint and the ``/inspector`` view.
@@ -424,7 +482,7 @@ def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
             "reason": reason,
         }
 
-    finished = _filter_spans_for_session(finished, session_id)
+    finished = _filter_spans_for_session(finished, session_id, user_id)
     trace = extract_trace(finished)
     # Legacy waterfall shape for AgentReasoningTraces keeps the same
     # start/duration fields as the new spans list.
@@ -440,7 +498,7 @@ def get_waterfall_data(session_id: Optional[str] = None) -> Dict[str, Any]:
         for s in trace["spans"]
     ]
     return {
-        "spans": trace["spans"],
+        "spans": _public_spans(trace["spans"]),
         "totalMs": trace["totalMs"],
         "specialistRoute": trace["specialistRoute"],
         "waterfall": waterfall,

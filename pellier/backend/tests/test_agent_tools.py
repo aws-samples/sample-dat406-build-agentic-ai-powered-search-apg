@@ -12,6 +12,7 @@ these tests run offline. Runnable from the repo root per `pytest.ini`:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Dict, Optional
 
@@ -84,6 +85,17 @@ def reset_module_globals():
     yield
     agent_tools._db_service = saved_db
     agent_tools._main_loop = saved_loop
+
+
+def test_run_async_rejects_same_thread_event_loop_without_deadlock() -> None:
+    async def invoke() -> None:
+        with pytest.raises(
+            RuntimeError,
+            match="cannot be called from the thread running an event loop",
+        ):
+            agent_tools._run_async(asyncio.sleep(0))
+
+    asyncio.run(invoke())
 
 
 class _StubBusinessLogic:

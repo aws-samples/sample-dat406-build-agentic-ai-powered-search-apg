@@ -67,9 +67,13 @@ def _run_async(coro):
     except RuntimeError:
         loop = None
     if loop is not None:
-        # A loop is already running on this thread — hand the coroutine to it.
-        future = asyncio.run_coroutine_threadsafe(_run_in_ctx(), loop)
-        return future.result(timeout=30)
+        # Blocking this thread would also block the loop that must execute the
+        # coroutine. Fail immediately instead of deadlocking for 30 seconds.
+        if hasattr(coro, "close"):
+            coro.close()
+        raise RuntimeError(
+            "_run_async cannot be called from the thread running an event loop"
+        )
     # No running loop: create a private one, run to completion, and tear down.
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
