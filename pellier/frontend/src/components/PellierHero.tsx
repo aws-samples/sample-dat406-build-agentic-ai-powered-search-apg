@@ -63,7 +63,12 @@ export default function PellierHero() {
 
   const personaId = persona?.id ?? 'fresh'
   const hero = PERSONA_HEROES[personaId] ?? PERSONA_HEROES.fresh
-  const suggestions = heroPillsForPersona(persona?.id).slice(0, 3)
+  const allSuggestions = heroPillsForPersona(persona?.id)
+  const suggestionIndexes = persona?.id === 'marco' ? [0, 1, 4] : [0, 1, 2]
+  const suggestions = suggestionIndexes.map((index) => ({
+    index,
+    query: allSuggestions[index],
+  }))
   const profileSignal = becauseChipsForPersona(persona?.id)[0]?.text
 
   const submitQuery = useCallback(
@@ -217,7 +222,7 @@ export default function PellierHero() {
                   className="mt-3 flex max-w-[620px] gap-2 overflow-x-auto pb-1"
                   aria-label="Suggested queries"
                 >
-                  {suggestions.map((query, index) => (
+                  {suggestions.map(({ index, query }) => (
                     <button
                       key={query}
                       type="button"

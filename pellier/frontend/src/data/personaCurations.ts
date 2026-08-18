@@ -340,7 +340,7 @@ export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[4]
  * `null` (or missing entry) falls back to the full query.
  */
 export const PERSONA_HERO_PILL_LABELS: Record<string, (string | null)[]> = {
-  marco: [null, null, null, null, null],
+  marco: [null, null, null, null, 'Check Hadley stock in Brooklyn'],
   anna: [null, null, null, null, 'A sensitive sympathy gift'],
   theo: [null, null, null, null, 'Durability exception for the linen throw'],
   fresh: [null, null, null, null, null],
