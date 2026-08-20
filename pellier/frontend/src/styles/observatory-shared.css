@@ -1,0 +1,433 @@
+/* ========================================================================
+ * Observatory architecture — shared styles.
+ *
+ * Lifted from the Skills page's skills-panel.css and renamed with the
+ * ``at-`` prefix so every architecture detail page shares one contract.
+ * The Skills page is the visual source of truth; diffs between Skills
+ * and any other page are bugs, not creative choices.
+ *
+ * All colors reference CSS custom properties from index.css :root.
+ * No local hex values below — any change to the palette lives in one
+ * place upstream.
+ * ======================================================================== */
+
+/* ---- Page shell ---- */
+.at-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.at-crumb {
+  font-family: var(--obs-heading);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.at-crumb .at-sep { color: var(--ink-5); }
+.at-crumb .at-here { color: var(--red-1); }
+
+.at-title {
+  font-family: var(--obs-display);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink-1);
+  margin: 0;
+}
+.at-title em { font-style: italic; }
+
+.at-sub {
+  font-family: var(--obs-sans);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  max-width: 720px;
+  margin-top: 10px;
+}
+
+.at-meta {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--ink-4);
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.at-meta-label {
+  font-family: var(--obs-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--red-1);
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+/* ---- Section frame (the cream-1 box with burgundy tick) ---- */
+.at-frame {
+  background: var(--cream-1);
+  border: 1px solid var(--rule-1);
+  border-radius: 14px;
+  padding: 28px 32px;
+  position: relative;
+}
+.at-frame::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 32px;
+  width: 28px;
+  height: 1px;
+  background: var(--red-1);
+}
+.at-frame-elevated {
+  background: var(--cream-elev);
+}
+
+/* Section header (eyebrow + title + description) — standalone version
+   used outside .at-frame too (e.g., the library/live-log columns). */
+.at-section-eyebrow {
+  font-family: var(--obs-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--red-1);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.at-section-eyebrow::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red-1);
+}
+.at-section-title {
+  font-family: var(--obs-heading);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: 0;
+  color: var(--ink-1);
+  margin: 0 0 6px;
+}
+.at-section-title em { font-style: italic; }
+.at-section-desc {
+  font-family: var(--obs-sans);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  margin-bottom: 22px;
+  max-width: 640px;
+}
+
+/* ---- Status badges ---- */
+.at-badge {
+  font-family: var(--obs-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 100px;
+  white-space: nowrap;
+  display: inline-block;
+  line-height: 1.4;
+}
+.at-badge-active,
+.at-badge-fired {
+  background: var(--red-1);
+  color: var(--cream-1);
+}
+.at-badge-considered,
+.at-badge-watch {
+  background: var(--cream-2);
+  color: var(--ink-3);
+  border: 1px solid var(--rule-2);
+}
+.at-badge-dormant,
+.at-badge-idle {
+  background: transparent;
+  color: var(--ink-4);
+  border: 1px solid var(--rule-1);
+}
+.at-badge-success,
+.at-badge-pass {
+  background: var(--green-1);
+  color: var(--cream-1);
+}
+.at-badge-warning {
+  background: var(--amber-1);
+  color: var(--cream-1);
+}
+.at-badge-error,
+.at-badge-fail {
+  background: var(--ink-1);
+  color: var(--cream-1);
+}
+.at-badge-touched {
+  background: var(--red-soft);
+  color: var(--red-1);
+  border: 1px solid rgba(168, 66, 58, 0.3);
+}
+
+/* ---- Cheat sheet (Template A/B footer) ---- */
+.at-cheat {
+  padding-top: 22px;
+  border-top: 1px solid var(--rule-2);
+}
+.at-cheat-title {
+  font-family: var(--obs-heading);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: 0;
+  margin-bottom: 20px;
+  color: var(--ink-1);
+}
+.at-cheat-title em { font-style: italic; }
+.at-cheat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--rule-1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+@media (max-width: 900px) {
+  .at-cheat-grid { grid-template-columns: 1fr; }
+}
+.at-cheat-cell {
+  padding: 20px 22px;
+  background: var(--cream-1);
+  border-right: 1px solid var(--rule-1);
+}
+.at-cheat-cell:last-child { border-right: none; }
+@media (max-width: 900px) {
+  .at-cheat-cell { border-right: none; border-bottom: 1px solid var(--rule-1); }
+  .at-cheat-cell:last-child { border-bottom: none; }
+}
+.at-cheat-key {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--red-1);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.at-cheat-name {
+  font-family: var(--obs-heading);
+  font-style: normal;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink-1);
+  margin-bottom: 6px;
+}
+.at-cheat-q {
+  font-family: var(--obs-sans);
+  font-style: normal;
+  font-size: 13.5px;
+  color: var(--ink-3);
+  margin-bottom: 12px;
+}
+.at-cheat-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-1);
+}
+.at-cheat-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.at-cheat-list li::before {
+  content: '·';
+  color: var(--red-1);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.at-cheat-list em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-3);
+}
+
+/* ---- Live strip (universal bottom band) ---- */
+.at-live {
+  background: var(--cream-1);
+  border: 1px solid var(--rule-1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.at-live-head {
+  padding: 14px 22px;
+  background: var(--ink-1);
+  color: var(--cream-1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.at-live-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.at-live-eyebrow {
+  font-family: var(--obs-heading);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(250, 243, 232, 0.65);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.at-live-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red-1);
+  animation: at-pulse 1.6s ease-in-out infinite;
+}
+@keyframes at-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}
+.at-live-title {
+  font-family: var(--obs-heading);
+  font-style: normal;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--cream-1);
+  margin: 0;
+}
+.at-live-title em { font-style: italic; }
+.at-live-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: rgba(250, 243, 232, 0.65);
+}
+.at-live-body {
+  padding: 0;
+}
+.at-live-stub-caption {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+  padding: 10px 22px 0;
+  margin: 0;
+}
+
+/* ---- Diagram frame (cream-elev SVG container) ---- */
+.at-diagram {
+  background: var(--cream-elev);
+  border: 1px solid var(--rule-1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.at-diagram-head {
+  padding: 11px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--rule-1);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 500;
+}
+.at-diagram-label {
+  color: var(--ink-3);
+  font-family: var(--obs-heading);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.at-diagram-meta { color: var(--ink-4); }
+.at-diagram-body {
+  padding: 24px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.at-diagram-body > svg {
+  width: 100%;
+  height: auto;
+  max-width: 480px;
+}
+.at-diagram-legend {
+  padding: 10px 16px;
+  border-top: 1px solid var(--rule-1);
+  background: var(--cream-2);
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.at-diagram-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.at-diagram-legend em {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-1);
+}
+
+/* ---- Mono block (code snippet / handoff block) ---- */
+.at-mono {
+  background: var(--cream-2);
+  border: 1px solid var(--rule-1);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--ink-1);
+  overflow-x: auto;
+}
+.at-mono-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 500;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--rule-1);
+  margin-bottom: 8px;
+}
+.at-mono-comment { color: var(--ink-4); font-style: italic; }
+.at-mono-key { color: var(--red-1); }
+.at-mono-str { color: var(--green-1); }
+.at-mono-arrow { color: var(--red-1); font-weight: 600; }

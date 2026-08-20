@@ -64,6 +64,14 @@ export const NAV = {
   ACCOUNT: "Account",
   ASK_PELLIER: "Ask Pellier",
   WORDMARK: "Pellier",
+  /** The inspection surface. Renamed from "Pellier Labs": participants read
+   *  "Labs" as a fifth lab they still owed, on top of the four required ones. */
+  OBSERVATORY: "Pellier Observatory",
+  /** Sits beside every entry point into the Observatory. The surface is worth
+   *  exploring and is not required to finish the workshop, and a participant
+   *  watching the clock deserves to know which of those is true before they
+   *  click rather than after. */
+  OBSERVATORY_OPTIONAL: "Optional",
 } as const;
 
 // Account button labels (Requirement 1.2.2, 1.2.3)
@@ -85,9 +93,213 @@ export const HERO_HEADLINE = {
   SUBHEADLINE: "Tell Pellier what you're looking for. Watch the pieces find you.",
 } as const;
 
-export const BOUTIQUE_HERO_SIGNED_OUT = {
+export const PELLIER_HERO_SIGNED_OUT = {
   LINE_1: "Choose a shopper profile to begin.",
   LINE_2: "Pellier will tailor the floor around that visit.",
+} as const;
+
+/**
+ * Concierge panel that sits beside the hero image.
+ *
+ * `PROFILES` descriptors are one line each, in the same voice as the
+ * `blurb` field on `data/personas.ts`. Guest is a real state: the
+ * storefront renders the canonical unranked floor when no profile is
+ * active, so the guest action browses that floor rather than pretending
+ * to personalize it.
+ */
+export const HERO_CONCIERGE = {
+  EYEBROW: "Welcome to Pellier",
+  TITLE: "Who are you shopping for?",
+  HELPER:
+    "Get a more personal experience with recommendations tailored to their style.",
+  GUEST_ACTION: "Continue as guest",
+  /**
+   * One line per profile, and each must match that persona's actual
+   * curation. The mockup carried generic luxury copy which contradicted the
+   * seeded profiles: Anna is the gift-giver, so a descriptor that never
+   * mentions giving teaches the wrong expectation before the floor reranks.
+   *
+   * Aligned with the existing authoritative sources:
+   *   role_tag           (data/personas.ts)      Returning / Gift-giver / Home + slow craft
+   *   curatedHeadline    (personaCurations.ts)   Pieces that travel. / Gifts, thoughtfully matched. / Quiet pieces, lived-in.
+   *   weekend edit brow  (personaCurations.ts)   The Travel Edit / The Gift Edit / The Slow Edit
+   */
+  PROFILES: {
+    marco: "Natural fibers and travel-ready layers.",
+    anna: "Considered gifts, ready to give.",
+    theo: "Slow craft for daily rituals.",
+  },
+} as const;
+
+/**
+ * Editorial hero statement. One accent word per line is rendered in the
+ * burgundy italic; `ACCENT` must appear verbatim inside `HEADLINE` or the
+ * headline renders unaccented rather than mis-split.
+ *
+ * Persona headlines reuse the approved `curatedHeadline` vocabulary from
+ * `data/personaCurations.ts` so the storefront speaks one voice.
+ */
+export const HERO_STATEMENT = {
+  CTA: "Shop the collection",
+  fresh: {
+    HEADLINE: "Pieces that travel well.",
+    ACCENT: "travel",
+  },
+  marco: {
+    HEADLINE: "Pieces that travel.",
+    ACCENT: "travel",
+  },
+  anna: {
+    HEADLINE: "Gifts, thoughtfully matched.",
+    ACCENT: "thoughtfully",
+  },
+  theo: {
+    HEADLINE: "Quiet pieces, lived-in.",
+    ACCENT: "lived-in",
+  },
+} as const;
+
+/**
+ * Mood rail under the hero. Each tile browses the floor: the collections
+ * are an editorial entry point into the same catalog, not four separate
+ * routes that do not exist.
+ */
+export const COLLECTIONS = {
+  EYEBROW: "Curated collections",
+  TITLE: "Explore by mood",
+  VIEW_ALL: "View all",
+  ITEMS: [
+    {
+      title: "Weekend Away",
+      description: "Effortless pieces for unhurried escapes.",
+      image: "/products/landing-collection-weekend-away.png",
+      alt: "Leather weekender on travertine beside folded linen",
+      tone: "light",
+    },
+    {
+      title: "At Home",
+      description: "Objects that elevate the everyday.",
+      image: "/products/landing-collection-at-home.png",
+      alt: "Amber glass candle on a travertine slab with a wooden bowl",
+      tone: "light",
+    },
+    {
+      title: "Warm Evenings",
+      description: "Layers and textures for golden hours.",
+      image: "/products/landing-collection-warm-evenings.png",
+      alt: "Linen shirt and open-knit layer in late afternoon light",
+      tone: "light",
+    },
+    {
+      title: "Gifting",
+      description: "Considered pieces they will keep.",
+      image: "/products/landing-collection-gifting.png",
+      alt: "Wrapped gift box tied with a burgundy ribbon",
+      tone: "dark",
+    },
+  ],
+} as const;
+
+/**
+ * The storefront's bridge into Pellier Observatory. Every claim here is one a
+ * participant can open and check, which is the point of the module: it
+ * earns the link rather than decorating it. Do not add a claim without a
+ * surface that proves it.
+ */
+export const PELLIER_APPROACH = {
+  EYEBROW: "The Pellier approach",
+  TITLE_TOP: "Made with purpose.",
+  TITLE_BOTTOM: "Proven by evidence.",
+  ACCENT: "evidence",
+  BODY:
+    "Every piece begins with intention, and every recommendation is grounded in data, not guesswork.",
+  CTA_LABEL: "Discover Pellier Observatory",
+  CTA_HREF: "/observatory",
+  IMAGE: "/products/landing-approach-atelier.png",
+  IMAGE_ALT: "A maker stitching a leather bag by hand at the bench",
+  PILLARS: [
+    {
+      title: "Grounded answers",
+      body: "Our recommendations are supported by verified data and clear sources.",
+      linkLabel: "Learn how",
+      href: "/observatory",
+    },
+    {
+      title: "Provenance first",
+      body: "We prioritize makers who value craft, ethics, and traceable production.",
+      linkLabel: "Our standards",
+      href: "/about",
+    },
+    {
+      title: "Quality you can feel",
+      body: "Materials chosen for their beauty, durability, and everyday performance.",
+      linkLabel: "See materials",
+      href: "/#shop",
+    },
+    {
+      title: "Built to last",
+      body: "Timeless design and thoughtful construction. Pieces made to be lived in.",
+      linkLabel: "Read our philosophy",
+      href: "/storyboard",
+    },
+  ],
+} as const;
+
+/**
+ * Service strip above the footer. The shipping and returns numbers match
+ * `FOOTER.BOTTOM_STRIP.SERVICE`; change both together.
+ */
+export const SERVICE_STRIP = {
+  ITEMS: [
+    { title: "Complimentary shipping", body: "On orders over $150" },
+    { title: "Easy returns", body: "30-day returns and exchanges" },
+    { title: "Thoughtful gift wrapping", body: "Complimentary on all orders" },
+    { title: "Concierge support", body: "We are here to help" },
+  ],
+  LABS: {
+    title: "Pellier Observatory",
+    body: "Grounded intelligence behind every recommendation",
+    href: "/observatory",
+  },
+} as const;
+
+/**
+ * Product detail page (`/product/:id`).
+ *
+ * Every claim here is either structural chrome or a label over a value the
+ * page actually read. The availability copy is deliberately split three
+ * ways — reading / read / not read — because "not read" must never be
+ * rendered as "out of stock". `ON_HAND_LABEL` and `WAREHOUSE_CAPTION` name
+ * their source column so a shopper-facing number stays traceable to Aurora.
+ */
+export const PRODUCT_DETAIL = {
+  BREADCRUMB_ROOT: "Pellier",
+  ADD_TO_BAG: "Add to bag",
+  ASK_LABEL: "Ask Pellier about this piece",
+  askQuestion: (name: string): string => `Tell me about the ${name}.`,
+  CHECK_STOCK_LABEL: "Check stock with Pellier",
+  stockQuestion: (name: string): string => `Is the ${name} in stock?`,
+  DESCRIPTION_HEADING: "About this piece",
+  DESCRIPTION_UNAVAILABLE:
+    "Catalog copy for this piece is served from Aurora and was not reachable.",
+  AVAILABILITY_HEADING: "Availability",
+  AVAILABILITY_SOURCE: "Live from Aurora",
+  AVAILABILITY_READING: "Reading inventory",
+  AVAILABILITY_UNAVAILABLE:
+    "Inventory was not read for this piece, so no stock figure is shown.",
+  ON_HAND_LABEL: "units on hand",
+  WAREHOUSE_CAPTION:
+    "Per-warehouse counts, the same rows the Stock Keeper reads.",
+  WAREHOUSE_EMPTY: "No warehouse holds this piece right now.",
+  shipWindow: (min: number, max: number): string =>
+    min === max ? `Ships in ${min} days` : `Ships in ${min} to ${max} days`,
+  WHY_HEADING: "Why this piece",
+  SIGNALS_HEADING: "Catalog signals",
+  MORE_HEADING: "More from this edit",
+  NOT_FOUND_TITLE: "This piece is not in the edit",
+  NOT_FOUND_BODY:
+    "The catalog has no piece with that number. Browse the current edit instead.",
+  NOT_FOUND_ACTION: "Back to the floor",
 } as const;
 
 // Product grid section header that reveals on scroll (parallax).
@@ -199,7 +411,7 @@ export const INTENTS: Intent[] = [
 // Sign-in strip (Requirement 1.4.1)
 export const SIGN_IN_STRIP = {
   EYEBROW: "PERSONALIZED VISIONS",
-  HEADLINE: "Sign in and watch Pellier tailor the boutique to you.",
+  HEADLINE: "Sign in and watch Pellier tailor the storefront to you.",
   CTA: "Sign in for personalized visions",
   DISMISS: "Not now",
 } as const;
@@ -220,7 +432,7 @@ export const CURATED_BANNER = {
 // Live status strip (Requirement 1.5.1)
 export const LIVE_STATUS =
   "Live inventory \u00b7 refreshed daily \u00b7 curated by hand";
-// Boutique policy phrases rendered as plain labels on the right side of
+// Pellier policy phrases rendered as plain labels on the right side of
 // the live status strip (mock pellier_5.html parity).
 export const SHIPPING = "Free shipping over $150";
 export const RETURNS = "Ships within 1 to 2 days";
@@ -344,15 +556,15 @@ export const STORYBOARD_TEASERS: StoryboardTeaser[] = [
 export const STORYBOARD_PAGE_COMING_SOON =
   "Coming soon - the full editorial hub arrives with the next Edit.";
 export const DISCOVER_PAGE_SIGNED_OUT =
-  "Discover is tailored to you. Sign in and watch the boutique tune itself.";
+  "Discover is tailored to you. Sign in and watch the storefront tune itself.";
 export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
 
 export const ABOUT_BRIEF = {
   EYEBROW: "About",
-  TITLE_LINES: ["A boutique surface.", "A proof surface."],
-  LABEL: "Pellier + Pellier Labs",
+  TITLE_LINES: ["A storefront surface.", "A proof surface."],
+  LABEL: "Pellier + Pellier Observatory",
   PARAGRAPHS: [
-    "Pellier is a working boutique built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while Pellier Labs shows how each answer was built.",
+    "Pellier is a working storefront built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while Pellier Observatory shows how each answer was built.",
     "Every recommendation is grounded in Aurora PostgreSQL, shaped by specialist agents, checked against tools and inventory, and traceable back to the signals that produced it. The promise is simple: recommendations can feel personal without becoming invisible.",
   ],
   STACK: [
@@ -376,7 +588,7 @@ export const ABOUT_BRIEF = {
 // dozen links, a newsletter form, and a bottom strip. Every one of
 // those links was a stub. Replaced with three columns pointing at
 // routes that actually exist: Explore (the three real storefront
-// routes), Storyboard (editorial entry), Pellier Labs (the workshop).
+// routes), Storyboard (editorial entry), Pellier Observatory (the workshop).
 // Fewer promises, every promise kept.
 export const FOOTER = {
   BRAND: {
@@ -392,15 +604,15 @@ export const FOOTER = {
   },
   STORYBOARD: {
     HEADING: "Stories",
-    COPY: "Field notes from a slower kind of shopping \u2014 one short essay at a time.",
+    COPY: "Field notes from a slower kind of shopping. One short essay at a time.",
     CTA_LABEL: "Read the stories",
     CTA_HREF: "/storyboard",
   },
-  AGENT_TRACE: {
-    HEADING: "Pellier Labs",
+  OBSERVATORY: {
+    HEADING: "Pellier Observatory",
     COPY: "Inspect the routing, retrieval, tools, memory, and evidence behind each workshop turn.",
-    CTA_LABEL: "Open Pellier Labs",
-    CTA_HREF: "/pellier-labs",
+    CTA_LABEL: "Open Pellier Observatory",
+    CTA_HREF: "/observatory",
   },
   BOTTOM_STRIP: {
     COPYRIGHT: "\u00a9 Pellier",
@@ -423,9 +635,9 @@ export const COMMAND_PILL = {
 // Auth modal (storefront.md "Auth modal" section, Requirement 2.6.6)
 export const AUTH_MODAL = {
   HEADER: "Welcome to Pellier",
-  SUBHEADER: "Sign in for a boutique built for you",
+  SUBHEADER: "Sign in for a storefront built for you",
   EYEBROW: "PERSONALIZED VISIONS",
-  ITALIC_HEADLINE: "Let the boutique find you.",
+  ITALIC_HEADLINE: "Let Pellier find the right pieces.",
   BUTTON_GOOGLE: "Continue with Google",
   BUTTON_APPLE: "Continue with Apple",
   BUTTON_EMAIL: "Continue with email",
@@ -500,7 +712,7 @@ export const PREFERENCES_MODAL = {
     },
   ] as PreferenceGroup[],
   SKIP: "Skip for now",
-  SUBMIT: "Save and see my boutique",
+  SUBMIT: "Save and see my storefront",
   FOOTER: "Preferences stored with AgentCore Memory",
 } as const;
 
@@ -553,7 +765,7 @@ export const CHAT_FAILURES = {
   },
   network_error: {
     eyebrow: "Connection interrupted",
-    title: "Pellier cannot reach the boutique right now.",
+    title: "Pellier cannot reach the catalog right now.",
     body: "Your conversation is saved. Check the connection and try this request again.",
   },
   request_failed: {

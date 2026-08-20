@@ -44,7 +44,7 @@ export default function StoryboardTeaser() {
       data-testid="storyboard-teaser"
       aria-labelledby="storyboard-teaser-heading"
       style={{
-        background: c.bg,
+        background: c.paper,
         color: c.ink,
         padding: '96px 24px',
         fontFamily: 'var(--sans)',
@@ -123,7 +123,7 @@ function StoryboardCard({ card, index }: StoryboardCardProps) {
         display: 'flex',
         flexDirection: 'column',
         gap: 16,
-        background: c.bg,
+        background: c.paper,
       }}
     >
       {/* --- Image panel with golden wash ----------------------------- */}

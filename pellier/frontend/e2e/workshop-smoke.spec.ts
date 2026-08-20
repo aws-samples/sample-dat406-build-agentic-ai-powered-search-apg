@@ -75,19 +75,19 @@ test.describe('Workshop production build smoke', () => {
     expect(errors, `console errors: ${errors.join('\n')}`).toHaveLength(0);
   });
 
-  test('Pellier Labs has a direct storefront entry and an explicit return', async ({
+  test('Pellier Observatory has a direct storefront entry and an explicit return', async ({
     page,
   }) => {
     await page.addInitScript(() => {
       sessionStorage.setItem('pellier-storefront-spotlight-seen', 'true');
-      sessionStorage.setItem('pellier-labs-spotlight-seen', 'true');
+      sessionStorage.setItem('observatory-spotlight-seen', 'true');
     });
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
 
-    await page.getByTestId('pellier-labs-link').click();
-    await expect(page).toHaveURL(/\/pellier-labs(?:\/|$)/);
-    await expect(page.getByTestId('agent-trace-topbar')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Pellier Labs' })).toBeVisible();
+    await page.getByTestId('observatory-link').click();
+    await expect(page).toHaveURL(/\/observatory(?:\/|$)/);
+    await expect(page.getByTestId('observatory-topbar')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Pellier Observatory' })).toBeVisible();
     await expect(
       page.getByRole('button', {
         name: /^Inspect:/,
@@ -132,7 +132,7 @@ test.describe('Workshop production build smoke', () => {
   test('persona sign-in updates the storefront to Marco', async ({ page }) => {
     await signInAsMarco(page);
     await expect(page.getByTestId('persona-pill')).toContainText(/Marco/i);
-    const heroPills = page.getByTestId('boutique-hero-pills');
+    const heroPills = page.getByTestId('pellier-hero-pills');
     await expect(heroPills).toBeVisible();
     await expect(heroPills).toContainText('What linen do you have for 10 days in Goa?');
   });

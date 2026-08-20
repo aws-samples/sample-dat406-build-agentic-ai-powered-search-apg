@@ -1,13 +1,13 @@
 """Tool Registry — Aurora pgvector deconstruction of MCP Gateway discovery.
 
-This module is the *teaching* surface for Agent Trace tool discovery. It
+This module is the *teaching* surface for Observatory tool discovery. It
 demonstrates the same primitive AgentCore Gateway provides (semantic
 tool discovery) implemented directly over Postgres + pgvector, so
 attendees can see what a managed primitive does for them.
 
 Production recommendation stays "use Gateway". This module runs in
 **shadow mode** alongside Gateway during workshop turns: both rank
-the 15 tools on every query and Agent Trace shows the two rankings
+the 15 tools on every query and Observatory shows the two rankings
 side-by-side. When Gateway isn't configured, the panel explicitly
 identifies the pgvector ranking as the only available source.
 
@@ -48,7 +48,7 @@ async def discover_tools(
         query_embedding: 1024-float Cohere embedding of the user turn
             (same vector the orchestrator uses for semantic product
             search — emitted once, reused for both).
-        limit: Top-K to return. Agent Trace shows the top 3 for visual parity
+        limit: Top-K to return. Observatory shows the top 3 for visual parity
             with typical Gateway ``semantic_search`` result sets.
         ef_search: HNSW per-query accuracy knob. 40 matches vector_search
             default; tools table is tiny so accuracy is not the concern.

@@ -1,0 +1,125 @@
+.observatory-root .observatory-masthead {
+  position: relative;
+  display: flex;
+  min-height: 158px;
+  align-items: center;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--rule-1);
+}
+
+.observatory-root .observatory-masthead-copy {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 14px 0 18px;
+}
+
+.observatory-root .observatory-masthead-copy h1 {
+  margin: 8px 0 6px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 42px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.observatory-root .observatory-masthead-copy > p {
+  max-width: 690px;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.observatory-masthead-status {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  z-index: 3;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(73, 116, 88, 0.28);
+  border-radius: 999px;
+  background: rgba(73, 116, 88, 0.1);
+  color: #3d654b;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.observatory-masthead-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #497458;
+  box-shadow: 0 0 0 4px rgba(73, 116, 88, 0.1);
+}
+
+.observatory-root .observatory-masthead-flow {
+  position: absolute;
+  inset: 0 -4% 0 36%;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+}
+
+.observatory-root .observatory-masthead-flow canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 900px) {
+  .observatory-root .observatory-masthead {
+    min-height: 220px;
+  }
+
+  .observatory-masthead-status {
+    position: static;
+    margin-top: 14px;
+  }
+
+  .observatory-root .observatory-masthead-copy {
+    width: min(100%, 520px);
+  }
+
+  .observatory-root .observatory-masthead-flow {
+    inset-inline-start: 28%;
+    opacity: 0.58;
+  }
+}
+
+@media (max-width: 640px) {
+  .observatory-root .observatory-masthead {
+    min-height: 240px;
+    align-items: flex-start;
+  }
+
+  .observatory-root .observatory-masthead-copy {
+    width: min(100%, 320px);
+    padding-block: 24px;
+  }
+
+  .observatory-root .observatory-masthead-copy h1 {
+    font-size: 36px;
+  }
+
+  .observatory-root .observatory-masthead-copy > p {
+    font-size: 14px;
+  }
+
+  .observatory-root .observatory-masthead-flow {
+    inset: 36% -45% 0 18%;
+    opacity: 0.42;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%);
+    mask-image: linear-gradient(90deg, transparent, #000 18%);
+  }
+}

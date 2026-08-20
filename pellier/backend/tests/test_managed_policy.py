@@ -329,10 +329,22 @@ def test_gateway_absence_proof_uses_the_exact_invocation_key() -> None:
 
 
 def test_experience_lambda_writes_gateway_tool_audit() -> None:
+    """The surface wires the audit; the shared transport performs it.
+
+    Split deliberately. The INSERT moved to `common/dataapi.py` when the four
+    surface servers stopped each carrying a copy, so asserting the SQL against
+    the surface file would now pass only by accident of duplication returning.
+    """
     source = EXPERIENCE_LAMBDA.read_text()
     assert "_write_tool_audit_in_transaction" in source
-    assert "INSERT INTO" in source and "tool_audit" in source
-    assert "transactionId=transaction_id" in source
-    assert "::jsonb" in source
     assert 'tool_name == "process_return"' in source
-    assert '"gateway"' in source or "'gateway'" in source
+    # Keyed on the real identity, which this tool's arguments carry.
+    assert 'f"gateway-{customer_id}"' in source
+
+    transport = (
+        EXPERIENCE_LAMBDA.parent / "common" / "dataapi.py"
+    ).read_text()
+    assert "INSERT INTO" in transport and "tool_audit" in transport
+    assert "transactionId=transaction_id" in transport
+    assert "::jsonb" in transport
+    assert '"gateway"' in transport or "'gateway'" in transport

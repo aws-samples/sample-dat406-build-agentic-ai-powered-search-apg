@@ -2,7 +2,7 @@
  * AboutPage — dedicated `/about` route.
  *
  * Renders just the Editorial Brief workshop-credit section, wrapped in
- * the standard Boutique chrome (Header + Footer). Keeps the Boutique
+ * the standard Pellier chrome (Header + Footer). Keeps the Pellier
  * main page lean and gives "About" in the nav an honest destination.
  */
 import { useNavigate } from 'react-router-dom'
@@ -43,7 +43,8 @@ export default function AboutPage() {
   return (
     <div
       data-testid="about-page"
-      style={{ minHeight: '100vh', background: c.bg }}
+      className="pellier-page-surface"
+      style={{ minHeight: '100vh', background: c.paper }}
     >
       <Header current="about" onNavigate={handleNavigate} />
       <main>

@@ -61,7 +61,7 @@ class _Dispatcher:
         self.last_intent = "recommendation"
         self.last_specialist = "recommendation"
         self.response_mode = "balanced"
-        self.last_model_id = "global.anthropic.claude-opus-5"
+        self.last_model_id = "global.anthropic.claude-opus-4-6-v1"
         self.last_tool_names = ["find_pieces_hybrid"]
 
     def __call__(self, prompt: str) -> _Response:
@@ -160,7 +160,7 @@ def test_entrypoint_runs_fixed_dispatcher_and_returns_observed_evidence(
         "intent": "recommendation",
         "specialist": "recommendation",
         "response_mode": "balanced",
-        "model": "global.anthropic.claude-opus-5",
+        "model": "global.anthropic.claude-opus-4-6-v1",
         "gateway_tools": ["find_pieces_hybrid"],
         "tool_calls": dispatcher.last_tool_events,
         "orchestration": "dispatcher",

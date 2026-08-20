@@ -53,7 +53,7 @@ _RRF_K_DEFAULT = 60
 
 
 # Both branch queries are built by one function per branch so the live
-# retrieval path (``_vector_search`` / ``_fts_search``) and the Agent Trace
+# retrieval path (``_vector_search`` / ``_fts_search``) and the Observatory
 # "explain" surface (``search_explained``) read from the *same* builder.
 # That guarantees the SQL a workshop participant sees on the Search page
 # is the SQL that actually ran — no drift, no separate "display copy".
@@ -238,7 +238,7 @@ class HybridSearch:
         """Run the same hybrid retrieval as :meth:`search`, but return the
         *intermediate* state instead of just the final ranking.
 
-        This exists purely for the Agent Trace "Search" teaching surface. It
+        This exists purely for the Observatory "Search" teaching surface. It
         re-uses the exact same branch queries and the exact same
         :meth:`_rrf_merge` as the shipped path, so what a participant sees
         is what actually runs — there is no parallel "demo" pipeline.

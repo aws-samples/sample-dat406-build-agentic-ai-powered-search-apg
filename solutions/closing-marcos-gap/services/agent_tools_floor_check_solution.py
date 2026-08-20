@@ -91,7 +91,7 @@ def _extract_query_structure(query: str) -> dict | None:
     Gated behind ``SEARCH_PLANNER_EXTRACT_ENABLED`` (default off) because
     it is a second live Bedrock call on the shopper's critical path: it
     adds roughly 1-3 s and a Sonnet invocation to *every* search. The
-    Agent Trace comparison surface runs the extractor unconditionally, which
+    Observatory comparison surface runs the extractor unconditionally, which
     is where the workshop teaches what typed planning buys you; paying
     that cost on each storefront turn is a product decision, not a
     correctness one.
@@ -727,18 +727,105 @@ def process_return(
         return json.dumps({"error": "Database service not initialized"})
     try:
         from services.business_logic import BusinessLogic
+        from services.turn_identity import current_principal_sub
+
         logic = BusinessLogic(_db_service)
+        # A verified principal puts the write on the governed rail: a
+        # non-owner role with the principal bound, so Row-Level Security
+        # decides which customer's rows may change. Anonymous and
+        # simulated-persona turns keep the owner rail, where the only gate is
+        # the customer_id argument the caller supplied.
         result = _run_async(logic.process_return(
             customer_id,
             product_id,
             reason,
             idempotency_key,
+            principal_sub=current_principal_sub(),
         ))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
+# === GOVERNED NATURAL-LANGUAGE DATA ACCESS — query_business_records =========
+#
+# Named for the business question it answers, not for the substrate. The same
+# PostgreSQL primitives apply on Amazon RDS for PostgreSQL, so the identifier
+# must not encode Aurora; the docstring names the implementation.
+#
+# The model writes SQL, and `services/governed_query.py` decides whether that
+# SQL may run: `pellier_query` (no write grants, no evidence-ledger access), a
+# READ ONLY transaction, a statement timeout, a fixed search_path, a schema
+# allowlist, an implementation-owned row cap, and Row-Level Security bound to
+# the same principal a curated tool would use. Prompt constraints improve the
+# generated SQL; they are not the boundary.
+#
+# Every attempt writes a receipt to `pellier.governed_query_receipts`,
+# including refusals — a refusal that leaves no artifact cannot be inspected.
+
+
+@tool
+def query_business_records(question: str) -> str:
+    """Answer a question about business records by generating and running read-only SQL.
+
+    Use for questions the curated tools do not cover: aggregate counts,
+    comparisons across orders and returns, or ad-hoc reporting on the catalog.
+    Do NOT use it for a question another tool already answers precisely.
+
+    The generated statement runs against Aurora PostgreSQL under a read-only
+    role inside a read-only transaction, scoped by Row-Level Security to the
+    verified principal for this turn, and capped to a fixed number of rows.
+    A rejected statement returns the reason rather than an answer.
+
+    Args:
+        question: A business question in plain language.
+
+    Returns:
+        JSON with the answer rows and the governance evidence for the query.
+    """
+    if not _db_service:
+        return json.dumps({"error": "Database service not initialized"})
+    try:
+        from services.governed_query import run_governed_query
+        from services.governed_query_generation import generate_sql
+        from services.turn_identity import (
+            current_principal_sub,
+            current_turn_id,
+        )
+
+        sql = generate_sql(question)
+        if not sql:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "Could not turn that question into a query.",
+                },
+                indent=2,
+            )
+
+        result = _run_async(
+            run_governed_query(
+                _db_service,
+                sql,
+                turn_id=current_turn_id(),
+                principal_sub=current_principal_sub(),
+                caller="agent",
+            )
+        )
+        payload = {
+            "status": "success" if result.accepted else "rejected",
+            "question": question,
+            "rows": result.rows,
+            "evidence": result.evidence(),
+        }
+        if not result.accepted:
+            payload["message"] = (
+                "The generated query was refused before it ran: "
+                f"{result.rejection_reason}"
+            )
+        return json.dumps(payload, indent=2, default=str)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
 # === ESCAPE HATCH — escalate_to_stylist =====================================
 #
 # Honest "when the agent shouldn't try to answer" tool. The agent calls
@@ -805,7 +892,7 @@ def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
 
 
 _CATEGORY_MAP = {
-    # Boutique catalog categories (92 products, 9 categories)
+    # Pellier catalog categories (92 products, 9 categories)
     'linen': 'Linen', 'camp shirt': 'Linen', 'oxford': 'Linen',
     'dress': 'Dresses', 'gown': 'Dresses', 'sundress': 'Dresses', 'maxi': 'Dresses',
     'slip dress': 'Dresses', 'kaftan': 'Dresses', 'shirtdress': 'Dresses',
@@ -876,7 +963,7 @@ def find_pieces(
         # Track whether the category was explicitly passed by the
         # agent vs. auto-detected from a keyword map. Auto-detected
         # categories (e.g. "linen" → "Linen") are speculative — the
-        # boutique catalog uses higher-level taxonomy ("Apparel",
+        # Pellier catalog uses higher-level taxonomy ("Apparel",
         # "Home Decor", "Accessories"), so a strict substring filter
         # on an auto-detected category drops every vector-search hit.
         # The query embedding already encodes the user's intent; we
@@ -929,7 +1016,7 @@ def find_pieces(
                 continue
             # Only apply category as a hard filter when the agent
             # explicitly passed one. Auto-detected categories filter
-            # too aggressively against the boutique's higher-level
+            # too aggressively against the catalog's higher-level
             # category taxonomy.
             if (
                 category_was_explicit
@@ -999,13 +1086,13 @@ def find_pieces_hybrid(
 
         # Same explicit-vs-auto category guard as find_pieces. Anna's
         # auto-detected categories ("linen" → "Linen") still don't match
-        # the boutique's higher-level taxonomy ("Apparel"); only filter
+        # the catalog's higher-level taxonomy ("Apparel"); only filter
         # when the agent supplies an explicit category.
         category_was_explicit = bool(category)
 
         # PLAN. The model proposes a typed plan; deterministic code
         # validates it and compiles the predicates. This is the same
-        # planner the Agent Trace comparison surface runs, so the "agentic"
+        # planner the Observatory comparison surface runs, so the "agentic"
         # strategy the workshop demonstrates is the one shoppers get —
         # not a parallel implementation that only exists in a demo.
         #
@@ -1064,7 +1151,7 @@ def find_pieces_hybrid(
         )
 
         # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Agent Trace will show
+        # (returned []), fall back to RRF order — the Observatory will show
         # this as a missing rerank stage in telemetry.
         if rerank_results:
             ordered = [
@@ -1213,8 +1300,8 @@ def side_by_side(product_id_1: int, product_id_2: int) -> str:
     """Compare two products side by side by their product IDs. Use when customers want to see differences in price, rating, and features.
 
     Args:
-        product_id_1: First integer productId to compare (1-92 in the boutique catalog).
-        product_id_2: Second integer productId to compare (1-92 in the boutique catalog).
+        product_id_1: First integer productId to compare (1-92 in the Pellier catalog).
+        product_id_2: Second integer productId to compare (1-92 in the Pellier catalog).
     """
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})

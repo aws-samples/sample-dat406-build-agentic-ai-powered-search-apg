@@ -2,7 +2,7 @@
 SkillRouter — one-call LLM decider.
 
 Given a user message and the registry's library of skills, the router
-asks Sonnet 5 which skills to load for this turn. One
+asks Sonnet 4.6 which skills to load for this turn. One
 LLM call. No embeddings, no scoring, no multi-call cascades. The skill
 descriptions ARE the activation contract — the router trusts them.
 
@@ -10,7 +10,7 @@ The output feeds two consumers:
   - The specialist agents, which inject loaded skill bodies into
     their system prompts via ``inject_skills()``
   - The SSE stream, which emits a ``skill_routing`` event so the
-    Agent Trace UI can render the live activation log and the storefront
+    Observatory UI can render the live activation log and the storefront
     can render the minimal attribution line
 
 Parse behavior is defensive on purpose: Sonnet is reliable, but the
@@ -83,7 +83,7 @@ class SkillRouter:
         """
         Build (or return cached) the Strands Agent used for routing.
 
-        We construct a tool-free Agent with Sonnet 5 and a fixed system
+        We construct a tool-free Agent with Sonnet 4.6 and a fixed system
         prompt. The skill library is baked into the
         system prompt at construction time; when a skill is added at
         runtime we'd need to reset this cache (not a v1 concern — the
@@ -191,7 +191,7 @@ class SkillRouter:
                         "Router loaded unknown skill %r — dropping", name
                     )
 
-        # The considered list is for the Agent Trace UI's live log. Keep
+        # The considered list is for the Observatory UI's live log. Keep
         # shape stable: each entry is {name: str, reason: str}.
         considered: list[dict] = []
         if isinstance(considered_raw, list):

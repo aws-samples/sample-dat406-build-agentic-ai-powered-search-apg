@@ -16,6 +16,7 @@
  *     free of adjacent duplicates for representative inputs.
  */
 import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
 import ReasoningChip, {
@@ -31,6 +32,15 @@ import {
   reasoningPricing,
 } from '../copy'
 import type { ReasoningChip as ReasoningChipModel } from '../services/types'
+
+// ProductCard links to /product/:id, so the grid needs router context.
+function renderGrid() {
+  return render(
+    <MemoryRouter>
+      <ProductGrid />
+    </MemoryRouter>,
+  )
+}
 
 // Stub IntersectionObserver once for this suite — ProductGrid renders
 // ProductCards that call useScrollReveal, which requires the global.
@@ -181,7 +191,7 @@ describe('assignReasoningChipsCyclic — no adjacent duplicates', () => {
 
 describe('ProductGrid — reasoning chip distribution (Req 1.7.1)', () => {
   it('renders all four chip styles across the 9 showcase cards', () => {
-    render(<ProductGrid />)
+    renderGrid()
     const chips = screen.getAllByTestId('reasoning-chip')
     expect(chips).toHaveLength(SHOWCASE_PRODUCTS.length)
 
@@ -192,7 +202,7 @@ describe('ProductGrid — reasoning chip distribution (Req 1.7.1)', () => {
   })
 
   it('no two adjacent cards share a reasoning chip style', () => {
-    render(<ProductGrid />)
+    renderGrid()
 
     // Walk the showcase products in declaration order — that order
     // matches the row-wise rendering in the grid.
@@ -212,7 +222,7 @@ describe('ProductGrid — reasoning chip distribution (Req 1.7.1)', () => {
   })
 
   it('pricing cards render their urgent clause in terracotta', () => {
-    render(<ProductGrid />)
+    renderGrid()
     const urgentSpans = screen.queryAllByTestId('reasoning-chip-urgent')
     // At least one of the nine cards should use the pricing style with
     // an urgent clause — the storefront's live pricing signal.

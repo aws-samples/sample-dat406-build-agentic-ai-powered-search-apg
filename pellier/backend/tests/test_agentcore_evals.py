@@ -203,7 +203,7 @@ def test_skipped_when_flag_on_but_log_groups_missing(
 def test_describe_configuration_envelope_shape(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The Agent Trace Measure surface relies on these keys — pin them."""
+    """The Observatory Measure surface relies on these keys — pin them."""
     _enable(monkeypatch)
 
     cfg = agentcore_evals.describe_configuration()
@@ -282,7 +282,7 @@ def test_get_batch_evaluation_requires_an_id(
 
 
 # ---------------------------------------------------------------------------
-# Provenance states on the Agent Trace surface (audit finding C2)
+# Provenance states on the Observatory surface (audit finding C2)
 # ---------------------------------------------------------------------------
 def test_evaluations_endpoint_labels_its_three_provenance_states(
     monkeypatch: pytest.MonkeyPatch,
@@ -295,7 +295,7 @@ def test_evaluations_endpoint_labels_its_three_provenance_states(
     """
     import asyncio
 
-    import routes.agent_trace as observatory
+    import routes.observatory as observatory
 
     monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", False, raising=False)
     monkeypatch.setattr(
@@ -320,7 +320,7 @@ def test_evaluations_endpoint_reports_managed_when_provisioned(
 ) -> None:
     import asyncio
 
-    import routes.agent_trace as observatory
+    import routes.observatory as observatory
 
     _enable(monkeypatch)
 

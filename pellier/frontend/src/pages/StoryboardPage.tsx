@@ -54,9 +54,10 @@ export default function StoryboardPage() {
   return (
     <div
       data-testid="storyboard-page"
+      className="pellier-page-surface"
       style={{
         minHeight: '100vh',
-        background: c.bg,
+        background: c.paper,
       }}
     >
       <Header current="stories" onNavigate={handleNavigate} />

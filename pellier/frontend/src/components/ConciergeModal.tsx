@@ -10,7 +10,7 @@
  * rendering — scroll, animations, badge layout, Under the Hood block.
  *
  * Mode selection via useLocation():
- *   - pathname.startsWith('/pellier-labs') → instrumentation mode. Agent
+ *   - pathname.startsWith('/observatory') → instrumentation mode. Agent
  *     badges render, "Under the Hood" expandable shows tool calls,
  *     guardrails, context stats. Trace-ID footer links to
  *     /inspector?session={id}.
@@ -266,7 +266,7 @@ function UnderTheHood({ index, message, expanded, onToggle, guardrailsEnabled }:
                 </span>
                 <TurnReceipt
                   reference={message.agentExecution.trace_id}
-                  surface="agentTrace"
+                  surface="observatory"
                 />
               </div>
             )}
@@ -302,11 +302,11 @@ export default function ConciergeModal() {
   const sessionId = useSessionId()
 
   const isOpen = activeModal === 'concierge'
-  const isWorkshopRoute = location.pathname.startsWith('/pellier-labs')
+  const isWorkshopRoute = location.pathname.startsWith('/observatory')
 
   // After the storefront hero-drawer redesign, the ConciergeModal only
-  // renders on agentTrace routes. Boutique chat is handled by ChatDrawer.
-  const mode: 'storefront' | 'agentTrace' = 'agentTrace'
+  // renders on observatory routes. Pellier chat is handled by ChatDrawer.
+  const mode: 'storefront' | 'observatory' = 'observatory'
 
   const initialMessages = useMemo<AgentChatMessage[]>(
     () => [
@@ -381,8 +381,8 @@ export default function ConciergeModal() {
     }
   }
 
-  // Gate: ConciergeModal only renders on agentTrace routes after the
-  // storefront hero-drawer redesign. Boutique chat is ChatDrawer.
+  // Gate: ConciergeModal only renders on observatory routes after the
+  // storefront hero-drawer redesign. Pellier chat is ChatDrawer.
   if (!isWorkshopRoute) return null
 
   return (
@@ -414,7 +414,7 @@ export default function ConciergeModal() {
           >
               {/* ============================================================
                * AGENT TRACE MODE - the only mode ConciergeModal renders now.
-               * Boutique chat is handled by ChatDrawer.
+               * Pellier chat is handled by ChatDrawer.
                * ============================================================ */}
               <>
             {/* Header */}
@@ -483,7 +483,7 @@ export default function ConciergeModal() {
                     ) : (
                       <span className="flex items-center gap-1.5" style={{ color: c.ink2 }}>
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#047857' }} />
-                        {mode === 'agentTrace' ? 'Pellier Labs mode · instrumentation on' : 'Concierge ready'}
+                        {mode === 'observatory' ? 'Pellier Observatory mode · instrumentation on' : 'Concierge ready'}
                       </span>
                     )}
                   </div>
@@ -518,9 +518,9 @@ export default function ConciergeModal() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
-              {/* Messages — agentTrace mode only renders the instrumented
+              {/* Messages — observatory mode only renders the instrumented
                   conversation. Welcome state is handled by the storefront
-                  branch via BoutiqueChat. */}
+                  branch via PellierChat. */}
               <AnimatePresence initial={false}>
                 {messages.map((message, index) => (
                   <motion.div
@@ -533,7 +533,7 @@ export default function ConciergeModal() {
                     {message.failure ? (
                       <ChatFailureCard
                         failure={message.failure}
-                        surface="agentTrace"
+                        surface="observatory"
                         onRetry={(query) => void retryMessage(query)}
                         onEditRequest={(query) => {
                           setInputValue(query)
@@ -554,7 +554,7 @@ export default function ConciergeModal() {
                             letterSpacing: '-0.003em',
                           }}
                         >
-                          {mode === 'agentTrace' && message.role === 'assistant' && message.agent && message.agentStatus !== 'thinking' && (
+                          {mode === 'observatory' && message.role === 'assistant' && message.agent && message.agentStatus !== 'thinking' && (
                             <AgentBadgeRow message={message} />
                           )}
                           {message.agentStatus === 'thinking' && !message.content ? (
@@ -580,7 +580,7 @@ export default function ConciergeModal() {
 
                     {message.products && message.products.length > 0 && (
                       <div className="flex flex-col gap-2.5 w-full">
-                        {mode === 'agentTrace' && message.agent && <AgentBadgeRow message={message} />}
+                        {mode === 'observatory' && message.agent && <AgentBadgeRow message={message} />}
                         {message.content && (
                           <div style={{ color: c.ink2 }} className="text-sm font-light leading-relaxed">
                             <MarkdownMessage
@@ -634,7 +634,7 @@ export default function ConciergeModal() {
                       </div>
                     )}
 
-                    {mode === 'agentTrace' &&
+                    {mode === 'observatory' &&
                       message.role === 'assistant' &&
                       message.agentStatus === 'complete' &&
                       (message.agent || message.agentExecution) && (
@@ -690,7 +690,7 @@ export default function ConciergeModal() {
                   placeholder={
                     isLoading
                       ? 'Thinking...'
-                      : mode === 'agentTrace'
+                      : mode === 'observatory'
                         ? 'Ask something that exercises the specialists'
                         : "Tell Pellier what you're looking for..."
                   }
@@ -720,8 +720,8 @@ export default function ConciergeModal() {
                 </motion.button>
               </div>
 
-              {/* Trace-ID footer — agentTrace route only */}
-              {mode === 'agentTrace' && sessionId && (
+              {/* Trace-ID footer — observatory route only */}
+              {mode === 'observatory' && sessionId && (
                 <div className="mt-3 flex items-center justify-between text-[10px]" style={{ fontFamily: 'ui-monospace, monospace', color: c.muted }}>
                   <span>session {sessionId.slice(0, 18)}...</span>
                   <Link

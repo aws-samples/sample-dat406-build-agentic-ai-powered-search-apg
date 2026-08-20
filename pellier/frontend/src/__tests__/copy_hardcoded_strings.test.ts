@@ -67,7 +67,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const FRONTEND_SRC = resolve(__dirname, '..')
 
-// Boutique spec surfaces (tasks 4.1 - 4.12, 5.2, 5.3). Each path is
+// Pellier spec surfaces (tasks 4.1 - 4.12, 5.2, 5.3). Each path is
 // resolved against `src/`. Files that have not been authored yet are
 // skipped so the test does not fail for a missing sibling task.
 const SPEC_FILES: string[] = [
@@ -86,6 +86,8 @@ const SPEC_FILES: string[] = [
   'components/CommandPill.tsx',
   'components/AuthModal.tsx',
   'components/PreferencesModal.tsx',
+  'components/ProductAvailabilityPanel.tsx',
+  'pages/ProductDetailPage.tsx',
   'pages/StoryboardPage.tsx',
   'pages/DiscoverPage.tsx',
   'pages/ComingSoonLine.tsx',

@@ -33,10 +33,48 @@ made the request.
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# The verified principal for the turn currently executing.
+#
+# Deterministic tools run through `asyncio.to_thread` with the caller's
+# context captured, the same way `db_query_log_var` reaches them, so a tool
+# can read the acting identity without it being threaded through every
+# signature. `services/chat.py` sets this once per turn.
+#
+# It holds `principal_sub` and nothing else. A persona id must never travel
+# here: this value decides which database rows are writable, and a UI
+# selection is not an authorization claim.
+#
+# Default `None` means anonymous, which the governed write path treats as
+# "no scope" rather than "unrestricted".
+principal_sub_var: ContextVar[Optional[str]] = ContextVar(
+    "principal_sub_var", default=None
+)
+
+
+def current_principal_sub() -> Optional[str]:
+    """Return the verified principal for the executing turn, if any."""
+    return principal_sub_var.get()
+
+
+# The correlation key for the turn currently executing.
+#
+# Travels the same way as the principal, and for the same reason: a
+# deterministic tool that writes evidence needs the turn's id so a span query
+# and a SQL query resolve the same turn. Threading it through every tool
+# signature would mean touching every tool for a property none of them act on.
+turn_id_var: ContextVar[Optional[str]] = ContextVar("turn_id_var", default=None)
+
+
+def current_turn_id() -> Optional[str]:
+    """Return the correlation id for the executing turn, if any."""
+    return turn_id_var.get()
 
 USERNAME_TO_CUSTOMER_ID = {
     "marco": "CUST-MARCO",

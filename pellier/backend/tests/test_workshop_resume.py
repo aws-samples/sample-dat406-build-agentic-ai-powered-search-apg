@@ -1,4 +1,4 @@
-"""Tests for ``POST /api/agent-trace/resume`` — welcome-back turn.
+"""Tests for ``POST /api/observatory/resume`` — welcome-back turn.
 
 Validates:
 - 400 on anonymous / empty customer_id.
@@ -85,7 +85,7 @@ def test_resume_rejects_anonymous_customer() -> None:
     db = _StubDB()
     client = _make_client(db)
     # "anonymous" triggers the 400 in the handler body.
-    r = client.post("/api/agent-trace/resume", json={"customer_id": "anonymous"})
+    r = client.post("/api/observatory/resume", json={"customer_id": "anonymous"})
     assert r.status_code == 400
 
 
@@ -102,7 +102,7 @@ def test_resume_emits_memory_and_operational_panels_in_order() -> None:
     )
     client = _make_client(db)
 
-    r = client.post("/api/agent-trace/resume", json={"customer_id": "CUST-MARCO"})
+    r = client.post("/api/observatory/resume", json={"customer_id": "CUST-MARCO"})
     assert r.status_code == 200
     body = r.json()
     assert "session_id" in body
@@ -145,7 +145,7 @@ def test_resume_operational_history_is_not_customer_scoped() -> None:
     db = _StubDB(episodic_rows=[], identity_row={"name": "Marco", "preferences_summary": "linen"})
     client = _make_client(db)
 
-    r = client.post("/api/agent-trace/resume", json={"customer_id": "CUST-MARCO"})
+    r = client.post("/api/observatory/resume", json={"customer_id": "CUST-MARCO"})
     assert r.status_code == 200
 
     audit_calls = [c for c in db.fetch_all_calls if "tool_audit" in c[0]]
@@ -161,7 +161,7 @@ def test_resume_db_failure_emits_empty_panels_and_graceful_response() -> None:
     db = _StubDB(raise_exc=RuntimeError("connection reset"))
     client = _make_client(db)
 
-    r = client.post("/api/agent-trace/resume", json={"customer_id": "CUST-MARCO"})
+    r = client.post("/api/observatory/resume", json={"customer_id": "CUST-MARCO"})
     assert r.status_code == 200
     body = r.json()
 
@@ -190,7 +190,7 @@ def test_resume_session_id_roundtrips_when_supplied() -> None:
     client = _make_client(db)
 
     r = client.post(
-        "/api/agent-trace/resume",
+        "/api/observatory/resume",
         json={"customer_id": "CUST-MARCO", "session_id": "ws-fixed123"},
     )
     assert r.status_code == 200

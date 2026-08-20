@@ -4,7 +4,8 @@ Implements Requirements 3.3.1–3.3.5 and 3.5.1–3.5.2 of the
 pellier-storefront spec:
 
   * ``GET /api/products``              editorial or personalized product list
-  * ``GET /api/products/{id}``         single product row (404 on unknown id)
+  * ``GET /api/products/{id}``         one product with catalog copy and
+                                       live stock (404 on unknown id)
   * ``GET /api/inventory``             live status-strip signal
 
 Design notes
@@ -39,7 +40,7 @@ Design notes
 
 * **Default editorial order.** "Editorial order" is the curator-chosen
   order the 9 showcase products appear in ``storefront.md``. The
-  boutique catalog encodes this via the ``tier`` column (1=featured,
+  Pellier catalog encodes this via the ``tier`` column (1=featured,
   2=editorial, 3=extended) and we break ties by ``"productId"``
   ascending so the list stays stable for ``sort_personalized``.
 
@@ -59,7 +60,15 @@ Design notes
 * **Response shape.** Wire format is the storefront ``StorefrontProduct``
   camelCase shape from Task 1.3 (``reviewCount``, ``imageUrl``, etc.).
   We use ``model_dump(by_alias=True)`` at the edge so TypeScript
-  consumers in Task 4.6 can keep their existing types.
+  consumers in Task 4.6 can keep their existing types. The single-product
+  route returns the ``StorefrontProductDetail`` superset — the same fields
+  plus ``description`` and ``availability`` — so the listing payload stays
+  byte-identical while the product page gets what it needs.
+
+* **Catalog key is text.** ``product_catalog."productId"`` is a ``text``
+  column. Binding an int to it makes Postgres reject the comparison
+  outright (``operator does not exist: text = smallint``), so every
+  single-product read must pass ``str(product_id)``.
 
 Routes are not participant-edit surfaces. They ship as reference runtime code.
 """
@@ -73,7 +82,13 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
-from models import Preferences, StorefrontProduct
+from models import (
+    Preferences,
+    ProductAvailability,
+    StorefrontProduct,
+    StorefrontProductDetail,
+    WarehouseStock,
+)
 from services.agentcore_identity import (
     AgentCoreIdentityService,
     get_agentcore_identity_service,
@@ -135,8 +150,44 @@ _PRODUCT_SELECT = """
     FROM pellier.product_catalog
 """
 
+# Detail select — the listing columns plus the two the product page needs.
+# Kept separate so the grid payload never pays for the description text.
+_PRODUCT_DETAIL_SELECT = """
+    SELECT
+        "productId"          AS id,
+        brand,
+        name,
+        color,
+        price,
+        rating,
+        reviews,
+        category,
+        "imgUrl"             AS image_url,
+        badge,
+        tags,
+        tier,
+        description,
+        quantity
+    FROM pellier.product_catalog
+"""
 
-# The boutique catalog still uses the curator-import taxonomy
+# Per-warehouse on-hand counts. Same join ``BusinessLogic._floor_check_by_product``
+# uses, so the product page and the Stock Keeper tool read one source.
+_WAREHOUSE_SELECT = """
+    SELECT w.id           AS warehouse_id,
+           w.display_name AS name,
+           w.city,
+           w.ship_window_min,
+           w.ship_window_max,
+           wi.quantity
+      FROM pellier.warehouse_inventory wi
+      JOIN pellier.warehouses w ON w.id = wi.warehouse_id
+     WHERE wi.product_id = %s
+     ORDER BY wi.quantity DESC, w.id ASC
+"""
+
+
+# The Pellier catalog still uses the curator-import taxonomy
 # ("Apparel", "Home Decor", "Beauty", "Gifts" — see
 # ``services/structured_extract.KNOWN_CATEGORIES``). The wire shape
 # uses the editorial Literal in ``models/search.StorefrontCategory``.
@@ -155,7 +206,7 @@ _VALID_BADGES = {"EDITORS_PICK", "BESTSELLER", "JUST_IN"}
 def _row_to_storefront_product(row: Dict[str, Any]) -> StorefrontProduct:
     """Project a raw catalog row onto the ``StorefrontProduct`` wire shape.
 
-    The boutique catalog stores ``reviews`` as TEXT (numeric strings like
+    The Pellier catalog stores ``reviews`` as TEXT (numeric strings like
     "214") and the image column as quoted camelCase ``"imgUrl"``. The
     SELECT above aliases both into plain snake_case keys so this function
     only handles defensive fallbacks for fields that could be ``None`` in
@@ -291,27 +342,88 @@ async def list_storefront_products(
     )
 
 
+async def _fetch_warehouse_stock(db: Any, product_id: str) -> List[WarehouseStock]:
+    """Return per-warehouse on-hand rows for one product.
+
+    The warehouse join is best-effort on purpose: a cluster seeded before
+    the warehouse migration has ``product_catalog.quantity`` but no
+    ``pellier.warehouse_inventory``. That must degrade to an empty
+    warehouse list, not a 500 on the whole product page.
+
+    Args:
+        db: Shared ``DatabaseService``.
+        product_id: Catalog key as text — ``"productId"`` is a ``text``
+            column, so an int here fails to type-check in Postgres.
+
+    Returns:
+        One entry per warehouse holding the product, highest count first.
+        Empty when the inventory tables are unreadable.
+    """
+    warehouses: List[WarehouseStock] = []
+    try:
+        rows = await db.fetch_all(_WAREHOUSE_SELECT, product_id)
+    except Exception:
+        # Missing table, revoked grant, or a transient pool error. The
+        # catalog on-hand count below is still worth returning.
+        logger.warning(
+            "warehouse inventory unavailable for product %s", product_id, exc_info=True
+        )
+    else:
+        for row in rows:
+            row_dict = dict(row)
+            warehouses.append(
+                WarehouseStock(
+                    warehouse_id=str(row_dict.get("warehouse_id") or ""),
+                    name=str(row_dict.get("name") or row_dict.get("warehouse_id") or ""),
+                    city=str(row_dict.get("city") or ""),
+                    quantity=int(row_dict.get("quantity") or 0),
+                    ship_window_min=row_dict.get("ship_window_min"),
+                    ship_window_max=row_dict.get("ship_window_max"),
+                )
+            )
+    return warehouses
+
+
 @router.get("/api/products/{product_id}")
 async def get_storefront_product(
     product_id: int,
     db: Any = Depends(get_db_service),
 ) -> JSONResponse:
-    """Return one product or 404 (Req 3.3.5).
+    """Return one product with catalog copy and live stock, or 404 (Req 3.3.5).
 
-    The legacy ``/api/products/{product_id}`` route in ``app.py`` uses
-    the older ``Product`` wire shape. This router is mounted earlier
-    (``include_router`` runs before the module-level ``@app.get``
-    decorators), so this handler wins and the response follows the
-    ``StorefrontProduct`` camelCase shape.
+    The path parameter stays ``int`` so a non-numeric id is a 422 rather
+    than a database round trip, but it is bound as **text** in the query:
+    ``product_catalog."productId"`` is a ``text`` column, and passing an
+    int made Postgres reject the comparison (``operator does not exist:
+    text = smallint``), which surfaced as a 500 on every product.
     """
-    row = await db.fetch_one(_PRODUCT_SELECT + ' WHERE "productId" = %s', product_id)
+    catalog_key = str(product_id)
+    row = await db.fetch_one(
+        _PRODUCT_DETAIL_SELECT + ' WHERE "productId" = %s', catalog_key
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="product_not_found")
 
-    product = _row_to_storefront_product(dict(row))
+    row_dict = dict(row)
+    base = _row_to_storefront_product(row_dict)
+
+    quantity = row_dict.get("quantity")
+    availability: Optional[ProductAvailability] = None
+    if quantity is not None:
+        availability = ProductAvailability(
+            on_hand=int(quantity),
+            warehouses=await _fetch_warehouse_stock(db, catalog_key),
+        )
+
+    description = row_dict.get("description")
+    detail = StorefrontProductDetail(
+        **base.model_dump(),
+        description=str(description).strip() if description else None,
+        availability=availability,
+    )
     return JSONResponse(
         status_code=200,
-        content=product.model_dump(mode="json", by_alias=True),
+        content=detail.model_dump(mode="json", by_alias=True),
     )
 
 
@@ -331,7 +443,7 @@ async def get_inventory_signal(
     (Req 3.5.2). The frontend status strip uses the flag to flip an
     amber warning without hiding the counts.
     """
-    # Group all catalog rows by ``category``. The boutique schema has no
+    # Group all catalog rows by ``category``. The Pellier catalog schema has no
     # ``quantity`` column (everything in the editorial catalog is treated
     # as in-stock); the filter was removed with the schema migration.
     # ``last_refreshed`` is the MAX(updated_at) across rows — the loader

@@ -1,0 +1,79 @@
+/**
+ * EditorialTitle — Page-level title block (eyebrow + Fraunces title + summary paragraph).
+ *
+ * Used at the top of each Observatory surface for consistent editorial hierarchy.
+ *
+ * Requirements: 15.3, 15.7
+ */
+
+import React from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Eyebrow } from './Eyebrow';
+
+export interface EditorialTitleProps {
+  eyebrow: string;
+  title: string;
+  summary?: string;
+  className?: string;
+  backToReferences?: boolean;
+}
+
+export const EditorialTitle: React.FC<EditorialTitleProps> = ({
+  eyebrow,
+  title,
+  summary,
+  className = '',
+  backToReferences = false,
+}) => {
+  return (
+    <header
+      className={className}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        marginBottom: '32px',
+      }}
+    >
+      {backToReferences ? (
+        <Link
+          to="/observatory/references"
+          className="observatory-reference-return"
+          aria-label="Back to Proof & References"
+        >
+          <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
+          <span>Proof &amp; References</span>
+        </Link>
+      ) : null}
+      <Eyebrow label={eyebrow} />
+
+      <h1
+        className="font-display italic text-espresso"
+        style={{
+          fontSize: 'clamp(34px, 4.5vw, 56px)',
+          lineHeight: 1.08,
+          letterSpacing: 0,
+          fontWeight: 400,
+          margin: 0,
+        }}
+      >
+        {title}
+      </h1>
+
+      {summary && (
+        <p
+          className="font-sans text-ink-soft"
+          style={{
+            fontSize: 'clamp(15px, 1.2vw, 17px)',
+            lineHeight: 1.65,
+            maxWidth: '640px',
+            margin: 0,
+          }}
+        >
+          {summary}
+        </p>
+      )}
+    </header>
+  );
+};

@@ -9,7 +9,7 @@
  *
  * `mode` switches high-level behavior:
  *   - 'storefront' — no agent inference, no agent badges, plain chat
- *   - 'agentTrace'    — populate agent/agentExecution so instrumentation UI
+ *   - 'observatory'    — populate agent/agentExecution so instrumentation UI
  *                    (badges, Under the Hood) can render
  *
  * `workshopMode` and `guardrailsEnabled` are passed through to the
@@ -29,7 +29,7 @@ import type { WorkshopMode } from '../contexts/LayoutContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { createEditorialStreamController } from '../utils/editorialStream'
 
-export type ChatMode = 'storefront' | 'agentTrace'
+export type ChatMode = 'storefront' | 'observatory'
 
 export interface AgentStep {
   agent: string
@@ -69,7 +69,7 @@ export interface AgentExecution {
  * Shape mirrors the backend ``RouterDecision`` Pydantic model. Emitted
  * once per turn via the ``skill_routing`` SSE event, before any text
  * tokens, so the storefront can render the attribution line above the
- * reply and the Agent Trace can render the live activation log.
+ * reply and the Observatory can render the live activation log.
  */
 export interface SkillRouting {
   loaded_skills: string[]
@@ -127,8 +127,8 @@ export interface AgentChatMessage {
   agentStatus?: 'thinking' | 'streaming' | 'complete'
   agentExecution?: AgentExecution
   /** Skill routing decision for this turn. Set when the backend emits
-   * a ``skill_routing`` SSE event. Boutique uses ``loaded_skills`` to
-   * render the italic burgundy attribution line; Agent Trace renders the
+   * a ``skill_routing`` SSE event. Pellier uses ``loaded_skills`` to
+   * render the italic burgundy attribution line; Observatory renders the
    * full decision in its live activation log. */
   skillRouting?: SkillRouting
   /** Stylist handoff payload when this turn fired escalate_to_stylist.
@@ -158,8 +158,8 @@ export interface UseAgentChatOptions {
    * Session ID for AgentCore STM hydration. When provided, the hook
    * fetches `/api/agent/session/{sessionId}` on mount and hydrates
    * the message list from the backend's authoritative STM store if
-   * localStorage is empty or stale. This bridges the Boutique chat
-   * with the same STM layer the Agent Trace teaches.
+   * localStorage is empty or stale. This bridges the Pellier chat
+   * with the same STM layer the Observatory teaches.
    */
   sessionId?: string
 }
@@ -272,7 +272,7 @@ export function useAgentChat(
   // STM hydration — fetch the authoritative turn history from the
   // backend's AgentCore Memory (or in-memory fallback). If the backend
   // has turns that localStorage doesn't, hydrate from backend. This
-  // bridges the Boutique chat with the STM the Agent Trace teaches.
+  // bridges the Pellier chat with the STM the Observatory teaches.
   useEffect(() => {
     if (!sessionId) return
     let alive = true
@@ -430,10 +430,10 @@ export function useAgentChat(
           window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
       })
 
-      // Thinking placeholder. Agent Trace gets the full instrumentation shell;
-      // storefront gets a lightweight shell so Boutique can show an optional
+      // Thinking placeholder. Observatory gets the full instrumentation shell;
+      // storefront gets a lightweight shell so Pellier can show an optional
       // collapsed "skills + tools" disclosure without surfacing agent steps.
-      const showInstrumentation = mode === 'agentTrace'
+      const showInstrumentation = mode === 'observatory'
       const trackToolCalls = showInstrumentation || mode === 'storefront'
       const thinkingAgentName =
         workshopMode === 'production'
@@ -482,7 +482,7 @@ export function useAgentChat(
               // Routing event arrives BEFORE any text tokens per the
               // backend ordering contract. Attach to the current
               // assistant message (the thinking placeholder) so both
-              // the storefront attribution line and the Agent Trace
+              // the storefront attribution line and the Observatory
               // activation log can read it.
               updateLast(lastMsg =>
                 lastMsg.role === 'assistant'
@@ -490,7 +490,7 @@ export function useAgentChat(
                   : null,
               )
               // Persist the most recent routing to localStorage so the
-              // Agent Trace Skills panel (which lives on a different route)
+              // Observatory Skills panel (which lives on a different route)
               // can render the live activation log without plumbing
               // cross-route state through a context provider.
               try {
@@ -540,7 +540,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'tool_call') {
               // Always persist tool calls to localStorage so the
-              // Agent Trace architecture pages (MCP, Tool Registry) can
+              // Observatory architecture pages (MCP, Tool Registry) can
               // render the live strip without being mounted in the
               // same component tree as the chat. Cross-route state.
               try {
@@ -635,7 +635,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'runtime_timing') {
               // Per-layer wall-clock timing for the most recent turn.
-              // Written to localStorage for the Agent Trace Runtime page
+              // Written to localStorage for the Observatory Runtime page
               // to consume via useRuntimeTiming().
               try {
                 localStorage.setItem(
@@ -660,7 +660,7 @@ export function useAgentChat(
               })
             } else if (data.type === 'db_queries') {
               // Per-turn database operations (reads and writes) with
-              // SQL snippets. Written to localStorage for the Agent Trace
+              // SQL snippets. Written to localStorage for the Observatory
               // State Management page to consume via useDbQueries().
               try {
                 const list = Array.isArray(data.queries) ? data.queries : []
@@ -673,12 +673,12 @@ export function useAgentChat(
               }
             }
           },
-          // Boutique mode always gets full chat access regardless of
+          // Pellier mode always gets full chat access regardless of
           // which workshop module the participant has completed.
           mode === 'storefront' ? undefined : workshopMode,
           guardrailsEnabled,
           persona?.customer_id ?? null,
-          // Pellier and Pellier Labs share the same fixed Dispatcher
+          // Pellier and Pellier Observatory share the same fixed Dispatcher
           // contract. Optional comparison patterns remain backend-only.
           'dispatcher',
         )

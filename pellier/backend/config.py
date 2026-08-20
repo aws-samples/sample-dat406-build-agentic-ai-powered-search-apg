@@ -62,28 +62,28 @@ class Settings(BaseSettings):
     # See the Workshop Studio repo's content/90-appendix/01-reference/
     # (the cast table) for the rationale:
     #
-    #   Claude Opus 5   — editorial specialists (Style Advisor, Curator,
+    #   Claude Opus 4.6   — editorial specialists (Style Advisor, Curator,
     #                  Experience Guide). Needs voice + personality.
-    #   Claude Sonnet 5 — routing, structured extraction, and reporting
+    #   Claude Sonnet 4.6 — routing, structured extraction, and reporting
     #                  specialists (Value Analyst, Stock Keeper).
     #
     # Model IDs follow Bedrock cross-region inference profile naming.
     # Editorial agents (Style Advisor, Curator, Experience Guide) read
     # BEDROCK_OPUS_MODEL. It is intentionally env-OVERRIDABLE: the model-access
     # preflight (scripts/check_model_access.py, run in bootstrap) detects
-    # whether Opus 5 is reachable on the account, and if it is NOT, writes
-    #   BEDROCK_OPUS_MODEL=global.anthropic.claude-sonnet-5
-    # into .env so editorial agents fall back to Sonnet 5 cleanly — no code
+    # whether Opus 4.6 is reachable on the account, and if it is NOT, writes
+    #   BEDROCK_OPUS_MODEL=global.anthropic.claude-sonnet-4-6
+    # into .env so editorial agents fall back to Sonnet 4.6 cleanly — no code
     # path change, no per-request retry. BEDROCK_SONNET_MODEL is the canonical
-    # fallback target (real Sonnet 5, not an Opus alias).
-    BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-5"
-    BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-5"
-    BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-5"
-    BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-5"
+    # fallback target (real Sonnet 4.6, not an Opus alias).
+    BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
+    BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-4-6"
+    BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-4-6"
+    BEDROCK_REPORTING_MODEL: str = "global.anthropic.claude-sonnet-4-6"
 
     # Legacy alias — kept for tests + scripts that still reference it.
     # Prefer the role-specific Opus/Sonnet settings in agent factories.
-    BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-5"
+    BEDROCK_CHAT_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
 
     # max_tokens is a safety ceiling, not a target — billing and latency track
     # tokens actually generated, so a higher cap costs nothing unless a reply
@@ -152,7 +152,7 @@ class Settings(BaseSettings):
     # its hard predicates into both retrieval branches before RRF. This
     # flag controls only whether the *model* also proposes constraints via
     # `services.structured_extract` — a second Sonnet call that adds ~1-3 s
-    # to every storefront search. Off by default: the Agent Trace comparison
+    # to every storefront search. Off by default: the Observatory comparison
     # surface runs the extractor unconditionally, which is where the
     # workshop teaches the trade-off. Turning this on does not change any
     # hard-constraint guarantee; it only adds model-inferred constraints
@@ -219,6 +219,35 @@ class Settings(BaseSettings):
     # 4d — Observability
     CLOUDWATCH_LOG_GROUP: str = "/pellier/agents"
     OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = None
+
+    # Collectorless span export to the CloudWatch X-Ray OTLP endpoint.
+    #
+    # Distinct from OTEL_EXPORTER_OTLP_ENDPOINT above, which drives Strands'
+    # unsigned OTLP exporter and therefore cannot reach X-Ray: that endpoint
+    # authenticates with SigV4 only, so an unsigned POST is rejected. This
+    # flag attaches a SigV4-signing exporter instead.
+    #
+    # On by default because a governed turn without exported spans has no
+    # execution evidence outside the process, which is the whole point of
+    # the observability spine. It degrades to an explicit "unavailable"
+    # state (never a startup failure) when credentials, permissions, or
+    # Transaction Search are missing.
+    OTEL_CLOUDWATCH_TRACES_ENABLED: bool = True
+
+    # Endpoint override. Left unset the region default is used:
+    #   https://xray.<AWS_REGION>.amazonaws.com/v1/traces
+    OTEL_CLOUDWATCH_TRACES_ENDPOINT: Optional[str] = None
+
+    # Keep model prompts, completions, and tool results off exported spans.
+    #
+    # Strands records all of them as span content by default. A turn is
+    # reconstructable from turn_id, identity, policy verdict, and execution
+    # outcome, so the content is payload in broadly readable telemetry
+    # rather than in the access-controlled ledger.
+    #
+    # Set false to export full content — useful when debugging what a
+    # specialist actually saw, and not a posture for real shopper data.
+    OTEL_REDACT_MODEL_CONTENT: bool = True
 
     # 4e — Runtime
     AGENTCORE_RUNTIME_ENDPOINT: Optional[str] = None

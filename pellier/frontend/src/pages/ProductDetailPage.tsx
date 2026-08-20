@@ -1,0 +1,528 @@
+/**
+ * ProductDetailPage — the `/product/:productId` route.
+ *
+ * A real route rather than a modal, so a piece can be linked, opened in a
+ * new tab, and shared. The existing `UIContext.activeModal` singleton keeps
+ * coordinating the concierge, cart, and comparison overlays; product detail
+ * is a destination, not an overlay.
+ *
+ * Two data layers, in this order:
+ *
+ *   1. `SHOWCASE_PRODUCTS` — the committed editorial set. Present on first
+ *      paint, so the page never flashes empty and works with no backend.
+ *      This layer wins for every presentation field, because the page must
+ *      show the same brand, name, price, and image as the card the shopper
+ *      clicked.
+ *   2. `GET /api/products/{id}` — Aurora. Contributes exactly two things
+ *      the committed set does not carry: the catalog's own `description`
+ *      and live `availability`. Nothing else is taken from it while a local
+ *      row exists.
+ *
+ * When the id is one Aurora carries but the showcase set does not (10, 20,
+ * 30, 40), layer 2 supplies the whole page. When neither layer has the id,
+ * the page states that plainly instead of rendering a shell.
+ *
+ * No fabrication rules for this surface: product copy comes from the
+ * catalog or is absent; stock comes from the inventory read or is declared
+ * unread; the reasoning chip and provenance chips are the same committed
+ * catalog metadata the grid card cites. Nothing here invents a material, a
+ * delivery date, a review, or an agent step.
+ */
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, MessageCircle, Star } from 'lucide-react'
+
+import AnnouncementBar from '../components/AnnouncementBar'
+import Footer from '../components/Footer'
+import Header, { type NavItem } from '../components/Header'
+import ProductAvailabilityPanel from '../components/ProductAvailabilityPanel'
+import ProductCard from '../components/ProductCard'
+import ReasoningChip from '../components/ReasoningChip'
+import ResponsiveImage from '../components/ResponsiveImage'
+import { TraceChip } from '../shared'
+import { useCart } from '../contexts/CartContext'
+import { useUI } from '../contexts/UIContext'
+import { PRODUCT_DETAIL } from '../copy'
+import { editForProduct, findShowcaseProduct } from '../data/showcaseProducts'
+import type {
+  PellierBadge,
+  PellierProduct,
+  PellierProductDetail,
+  ProductAvailability,
+} from '../services/types'
+
+const NAV_ROUTES: Record<NavItem, string> = {
+  home: '/',
+  shop: '/#shop',
+  storyboard: '/storyboard',
+  stories: '/storyboard',
+  discover: '/discover',
+  about: '/about',
+  account: '/',
+  'ask-pellier': '/',
+}
+
+const BADGE_LABEL: Record<PellierBadge, string> = {
+  EDITORS_PICK: "EDITOR'S PICK",
+  BESTSELLER: 'BESTSELLER',
+  JUST_IN: 'JUST IN',
+}
+
+/** Siblings shown under "More from this edit". */
+const SIBLING_COUNT = 3
+
+/**
+ * What the page renders. Presentation fields only — `description` and
+ * `availability` stay separate because they have their own provenance and
+ * their own degraded states.
+ */
+interface ProductView {
+  id: number
+  brand: string
+  name: string
+  color: string
+  price: number
+  rating: number
+  reviewCount: number
+  category: string
+  imageUrl: string
+  badge?: PellierBadge
+  tags: string[]
+  reasoning?: PellierProduct['reasoning']
+  imagePosition?: string
+}
+
+function viewFromLocal(product: PellierProduct): ProductView {
+  return { ...product, category: String(product.category) }
+}
+
+function viewFromRemote(detail: PellierProductDetail): ProductView {
+  return {
+    id: detail.id,
+    brand: detail.brand,
+    name: detail.name,
+    color: detail.color,
+    price: detail.price,
+    rating: detail.rating,
+    reviewCount: detail.reviewCount,
+    category: detail.category,
+    imageUrl: detail.imageUrl,
+    badge: detail.badge ?? undefined,
+    tags: detail.tags,
+  }
+}
+
+/**
+ * Provenance chips over committed catalog tags — the same derivation
+ * `ProductCard` uses, so the card and the page cite identical signals.
+ */
+function catalogSignals(tags: string[]): string[] {
+  return tags.slice(0, 4).map(tag => `tag.match · ${tag}`)
+}
+
+export default function ProductDetailPage() {
+  const { productId } = useParams<{ productId: string }>()
+  const navigate = useNavigate()
+  const { addToCart } = useCart()
+  const { openModal, openDrawerWithQuery, setChatSurface } = useUI()
+
+  const numericId = Number.parseInt(productId ?? '', 10)
+  const hasValidId = Number.isSafeInteger(numericId) && numericId > 0
+
+  const local = useMemo(
+    () => (hasValidId ? findShowcaseProduct(numericId) : undefined),
+    [hasValidId, numericId],
+  )
+
+  const [detail, setDetail] = useState<PellierProductDetail | null>(null)
+  // Starts true only when there is something to read. An invalid id resolves
+  // to "not found" immediately rather than sitting in a loading state.
+  const [loading, setLoading] = useState(hasValidId)
+
+  useEffect(() => {
+    setChatSurface('drawer')
+  }, [setChatSurface])
+
+  useEffect(() => {
+    document.body.classList.add('pellier-surface')
+    return () => document.body.classList.remove('pellier-surface')
+  }, [])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [numericId])
+
+  // Aurora read. A failure leaves `detail` null, which the description and
+  // availability blocks render as an explicit "not read" — never as absent
+  // copy or zero stock.
+  useEffect(() => {
+    if (!hasValidId) {
+      setDetail(null)
+      setLoading(false)
+      return
+    }
+    let active = true
+    const controller = new AbortController()
+    setLoading(true)
+    setDetail(null)
+    fetch(`/api/products/${numericId}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+      .then(response => (response.ok ? response.json() : null))
+      .then((data: PellierProductDetail | null) => {
+        if (active) {
+          setDetail(data)
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setDetail(null)
+          setLoading(false)
+        }
+      })
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [hasValidId, numericId])
+
+  const view: ProductView | null = useMemo(() => {
+    if (local) return viewFromLocal(local)
+    if (detail) return viewFromRemote(detail)
+    return null
+  }, [local, detail])
+
+  const siblings = useMemo(() => {
+    if (!view) return []
+    return editForProduct(view.id)
+      .filter(p => p.id !== view.id)
+      .slice(0, SIBLING_COUNT)
+  }, [view])
+
+  const handleNavigate = (item: NavItem) => {
+    if (item === 'account') {
+      openModal('auth')
+      return
+    }
+    if (item === 'ask-pellier') {
+      openModal('drawer')
+      return
+    }
+    const target = NAV_ROUTES[item]
+    if (target) navigate(target)
+  }
+
+  const handleAddToBag = (product: { id: number; name: string; price: number; imageUrl: string }) =>
+    addToCart({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.imageUrl,
+      origin: 'manual',
+    })
+
+  // Still reading, and nothing committed to paint from: hold the frame
+  // rather than briefly claiming the piece does not exist.
+  if (!view && loading) {
+    return (
+      <div className="pellier-page-surface flex min-h-dvh flex-col bg-cream-50">
+        <Header current="shop" onNavigate={handleNavigate} />
+        <main
+          role="status"
+          aria-label="Loading"
+          className="flex flex-1 items-center justify-center bg-cream"
+        >
+          <span className="h-7 w-7 animate-spin rounded-full border-2 border-black/10 border-t-black/50" />
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  if (!view) {
+    return (
+      <div
+        data-testid="product-detail-not-found"
+        className="pellier-page-surface flex min-h-dvh flex-col bg-cream-50"
+      >
+        <Header current="shop" onNavigate={handleNavigate} />
+        <main className="flex-1 bg-cream">
+          <div className="mx-auto max-w-[720px] px-container-x py-24 text-center">
+            <h1
+              className="font-display text-espresso"
+              style={{ fontSize: 'clamp(28px, 4vw, 44px)', lineHeight: 1.15 }}
+            >
+              {PRODUCT_DETAIL.NOT_FOUND_TITLE}
+            </h1>
+            <p className="mt-4 font-sans text-ink-soft">
+              {PRODUCT_DETAIL.NOT_FOUND_BODY}
+            </p>
+            <Link
+              to="/#shop"
+              className="
+                mt-8 inline-flex items-center gap-2 rounded-full bg-espresso
+                px-7 py-3 font-sans text-[13px] font-medium text-cream-50
+                transition-colors duration-fade hover:bg-dusk
+              "
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              {PRODUCT_DETAIL.NOT_FOUND_ACTION}
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    )
+  }
+
+  const availability: ProductAvailability | null = detail?.availability ?? null
+  const description = detail?.description?.trim() || null
+  const signals = catalogSignals(view.tags)
+
+  return (
+    <div data-testid="product-detail-page" className="pellier-page-surface min-h-dvh bg-cream-50">
+      <AnnouncementBar />
+      <Header current="shop" onNavigate={handleNavigate} />
+
+      <main className="bg-cream">
+        <nav
+          aria-label="Breadcrumb"
+          className="mx-auto max-w-[1280px] px-container-x pt-6 font-sans text-[12px] text-ink-quiet"
+        >
+          <ol className="flex flex-wrap items-center gap-2">
+            <li>
+              <Link to="/" className="transition-colors hover:text-espresso">
+                {PRODUCT_DETAIL.BREADCRUMB_ROOT}
+              </Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li>
+              <Link to="/#shop" className="transition-colors hover:text-espresso">
+                {view.category}
+              </Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="text-espresso">
+              {view.name}
+            </li>
+          </ol>
+        </nav>
+
+        <div className="mx-auto max-w-[1280px] px-container-x pb-16 pt-8 md:pb-24">
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+            {/* --- Piece ------------------------------------------------ */}
+            <div className="overflow-hidden rounded-[8px] bg-sand shadow-warm-md">
+              <div className="relative aspect-[4/5]">
+                <ResponsiveImage
+                  src={view.imageUrl}
+                  alt={view.name}
+                  widths={[480, 960, 1440]}
+                  sizes="(min-width: 1280px) 640px, (min-width: 1024px) 50vw, 100vw"
+                  loading="eager"
+                  decoding="async"
+                  pictureClassName="block h-full w-full"
+                  className="h-full w-full object-cover"
+                  style={{ objectPosition: view.imagePosition ?? 'center center' }}
+                />
+              </div>
+            </div>
+
+            {/* --- Detail ---------------------------------------------- */}
+            <div data-testid="product-detail-summary" className="flex flex-col gap-6">
+              <div>
+                <p className="font-sans text-[12px] uppercase tracking-[0.14em] text-ink-quiet">
+                  {view.brand}
+                </p>
+                <h1
+                  data-testid="product-detail-name"
+                  className="mt-2 font-display text-espresso"
+                  style={{ fontSize: 'clamp(30px, 3.6vw, 48px)', lineHeight: 1.1 }}
+                >
+                  {view.name}
+                </h1>
+                <div className="mt-3 flex flex-wrap items-center gap-2 font-sans text-[13px] text-ink-quiet">
+                  <span>{view.color}</span>
+                  <span aria-hidden="true">/</span>
+                  <span>{view.category}</span>
+                  {view.badge ? (
+                    <>
+                      <span aria-hidden="true">/</span>
+                      <span
+                        data-testid="product-detail-badge"
+                        className="font-medium text-accent-ink"
+                      >
+                        {BADGE_LABEL[view.badge]}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 border-y border-sand py-4 font-sans">
+                <span className="text-xl text-espresso">${view.price}</span>
+                <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
+                  <Star
+                    size={13}
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                    className="fill-ink-soft text-ink-soft"
+                  />
+                  {view.rating.toFixed(1)}
+                  <span className="text-xs text-ink-quiet">({view.reviewCount})</span>
+                </span>
+              </div>
+
+              {/* Catalog copy, or an explicit statement that it was not read. */}
+              <section aria-labelledby="product-description-heading">
+                <h2
+                  id="product-description-heading"
+                  className="font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft"
+                >
+                  {PRODUCT_DETAIL.DESCRIPTION_HEADING}
+                </h2>
+                {description ? (
+                  <p
+                    data-testid="product-description"
+                    className="mt-3 max-w-[52ch] font-sans text-[15px] leading-relaxed text-ink-soft"
+                  >
+                    {description}
+                  </p>
+                ) : (
+                  <p
+                    data-testid="product-description-degraded"
+                    className="mt-3 font-sans text-[13px] text-ink-quiet"
+                  >
+                    {loading
+                      ? PRODUCT_DETAIL.AVAILABILITY_READING
+                      : PRODUCT_DETAIL.DESCRIPTION_UNAVAILABLE}
+                  </p>
+                )}
+              </section>
+
+              <ProductAvailabilityPanel
+                availability={availability}
+                loading={loading}
+                onCheckStock={() =>
+                  openDrawerWithQuery(PRODUCT_DETAIL.stockQuestion(view.name))
+                }
+              />
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  data-testid="product-detail-add"
+                  onClick={() => handleAddToBag(view)}
+                  className="
+                    flex-1 min-w-[200px] rounded-full border border-espresso bg-espresso
+                    px-7 py-3 font-sans text-[13px] font-medium tracking-[0.06em]
+                    text-cream-50 cursor-pointer transition-colors duration-fade
+                    hover:border-dusk hover:bg-dusk
+                    focus-visible:outline-2 focus-visible:outline-offset-2
+                    focus-visible:outline-accent
+                  "
+                >
+                  {PRODUCT_DETAIL.ADD_TO_BAG}
+                </button>
+                <button
+                  type="button"
+                  data-testid="product-detail-ask"
+                  onClick={() => openDrawerWithQuery(PRODUCT_DETAIL.askQuestion(view.name))}
+                  className="
+                    inline-flex items-center gap-2 rounded-full border border-espresso
+                    px-6 py-3 font-sans text-[13px] font-medium tracking-[0.06em]
+                    text-espresso cursor-pointer transition-colors duration-fade
+                    hover:bg-cream-warm
+                    focus-visible:outline-2 focus-visible:outline-offset-2
+                    focus-visible:outline-accent
+                  "
+                >
+                  <MessageCircle size={15} aria-hidden="true" />
+                  {PRODUCT_DETAIL.ASK_LABEL}
+                </button>
+              </div>
+
+              {view.reasoning ? (
+                <section aria-labelledby="product-why-heading">
+                  <h2
+                    id="product-why-heading"
+                    className="font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft"
+                  >
+                    {PRODUCT_DETAIL.WHY_HEADING}
+                  </h2>
+                  <div className="mt-3">
+                    <ReasoningChip chip={view.reasoning} />
+                  </div>
+                </section>
+              ) : null}
+
+              {signals.length > 0 ? (
+                <section aria-labelledby="product-signals-heading">
+                  <h2
+                    id="product-signals-heading"
+                    className="font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft"
+                  >
+                    {PRODUCT_DETAIL.SIGNALS_HEADING}
+                  </h2>
+                  <div
+                    data-testid="product-detail-signals"
+                    className="mt-3 flex flex-wrap gap-1.5"
+                  >
+                    {/* `labelMode="tool"` prints the raw signal. The
+                        friendly `label` mode resolves every `tag.match`
+                        entry to the same vocabulary label, which would
+                        render four identical chips and hide the tags
+                        that make them worth showing. */}
+                    {signals.map(signal => (
+                      <TraceChip
+                        key={signal}
+                        tool={signal}
+                        variant="provenance"
+                        labelMode="tool"
+                        compact
+                      />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {siblings.length > 0 ? (
+          <section
+            aria-labelledby="product-more-heading"
+            className="border-t border-sand bg-cream-warm"
+          >
+            <div className="mx-auto max-w-[1280px] px-container-x py-16">
+              <h2
+                id="product-more-heading"
+                className="font-display text-espresso"
+                style={{ fontSize: 'clamp(24px, 2.6vw, 34px)', lineHeight: 1.15 }}
+              >
+                {PRODUCT_DETAIL.MORE_HEADING}
+              </h2>
+              <div
+                data-testid="product-detail-siblings"
+                className="mt-8 grid gap-6"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
+              >
+                {siblings.map((product, index) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    index={index % 3}
+                    onAddToBag={handleAddToBag}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </main>
+
+      <Footer />
+    </div>
+  )
+}

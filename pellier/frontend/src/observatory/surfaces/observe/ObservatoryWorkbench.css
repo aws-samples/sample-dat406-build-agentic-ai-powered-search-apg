@@ -1,0 +1,2394 @@
+/* ========================================================================
+ * Pellier Observatory workbench — evidence-ledger design system.
+ *
+ * Tokens track the editorial-trace-studio / evidence-ledger references. Four
+ * semantic colours, not one: burgundy names things and titles them, terracotta
+ * marks the live or open row, olive means verified, neutrals carry warm paper.
+ * Radii are large (10 to 22px) and surfaces sit on one soft shadow, which is a
+ * deliberate reversal of the "flat, no shadow" note still sitting at the top of
+ * styles/base.css. That note predates this direction; treat this block as the
+ * current system for this surface.
+ *
+ * TYPE ROLES:
+ *   UI     --pl-sans    Instrument Sans headings, answers, summaries, cards
+ *   mono   --pl-mono    JetBrains Mono  timestamps, tool names, SQL, receipts
+ * ======================================================================== */
+
+.observatory-workbench {
+  /* Warm paper */
+  --pl-bg: var(--cream);
+  --pl-paper: var(--cream-warm);
+  --pl-paper-solid: var(--cream-warm);
+  --pl-paper-muted: var(--cream-2);
+  --pl-line: var(--rule-1);
+  --pl-line-strong: var(--rule-2);
+
+  /* Ink */
+  --pl-ink: var(--ink);
+  --pl-ink-soft: var(--ink-soft);
+  --pl-muted: var(--ink-quiet);
+  --pl-faint: var(--ink-5);
+
+  /* Semantic accents */
+  --pl-accent: #6d1f28;
+  --pl-accent-2: #8a3943;
+  --pl-accent-deep: #6d1f28;
+  --pl-accent-rgb: 109, 31, 40;
+  --pl-olive: #6a7a4d;
+  --pl-olive-soft: #edf2e7;
+  --pl-olive-line: #c9d6bc;
+  --pl-terracotta: #b6603a;
+  --pl-terracotta-soft: #f7ebe5;
+  --pl-terracotta-line: #e1b9a6;
+  --pl-success: #6a7a4d;
+  --pl-success-soft: #edf2e7;
+
+  /* Shape and depth */
+  --pl-r-xl: 14px;
+  --pl-r-lg: 12px;
+  --pl-r-md: 10px;
+  --pl-r-sm: 8px;
+  --pl-shadow:
+    0 18px 44px rgba(63, 31, 40, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+
+  /* Three registers, one per job.
+     --pl-sans     interface: labels, controls, status, panel titles.
+     --pl-display  editorial: the shopper-facing answer, which is the only
+                   model-authored prose on this surface.
+     --pl-mono     system proof: SQL, identifiers, timings, receipts.
+
+     --pl-display works on prose but NOT on headings. Two rules outrank any
+     reasonable selector here: `base.css` sets
+     `.observatory-root h*:not(.font-display) { font-family: ... !important }`,
+     and adding `.font-display` to escape it hands the element to
+     `index.css`'s `.pellier-page-surface .font-display { font-family:
+     var(--sans) }` at higher specificity. Both are deliberate: Labs headings
+     are interface structure and belong to the sans register. Restyle heading
+     SCALE and COLOUR here; do not try to change a heading's family. */
+  --pl-sans: var(--sans, var(--obs-sans));
+  --pl-serif: var(--pl-sans);
+  --pl-display: var(--display, var(--obs-display));
+  --pl-mono: var(--mono, var(--obs-mono));
+
+  /* Eyebrow recipe */
+  --pl-label-size: 11px;
+  --pl-label-track: 0.16em;
+
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100dvh - 64px);
+  overflow: clip;
+  background: var(--pl-bg);
+  color: var(--pl-ink);
+  font-family: var(--pl-sans);
+  letter-spacing: 0;
+}
+
+.observatory-workbench::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: clamp(210px, 24vw, 340px);
+  content: '';
+  background: url('/products/hero-fresh-2-1600.webp') center 42% / cover
+    no-repeat;
+  filter: saturate(0.9) contrast(1.02);
+  opacity: 0.2;
+  pointer-events: none;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgb(0 0 0 / 0.9) 44%,
+    rgb(0 0 0 / 0.42) 76%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgb(0 0 0 / 0.9) 44%,
+    rgb(0 0 0 / 0.42) 76%,
+    transparent 100%
+  );
+}
+
+.observatory-workbench ::selection {
+  background: rgba(var(--pl-accent-rgb), 0.18);
+  color: var(--pl-ink);
+}
+
+.observatory-workbench * {
+  scrollbar-color: rgba(var(--pl-accent-rgb), 0.32) transparent;
+  scrollbar-width: thin;
+}
+
+.observatory-page-title {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--pl-accent);
+  font-size: 25px;
+  line-height: 1.08;
+  white-space: nowrap;
+}
+
+.observatory-workbench .labs-index-inner {
+  width: 100%;
+  max-width: none;
+  padding: 14px clamp(12px, 1.2vw, 22px) 0;
+}
+
+.observatory-workbench-intro {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 2px 12px;
+}
+
+.observatory-workbench-intro-copy {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 18px;
+}
+
+.observatory-workbench-purpose {
+  max-width: 74ch;
+  margin: 0;
+  color: var(--pl-ink-soft);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.observatory-workbench-presence {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: color-mix(in srgb, var(--pl-olive) 84%, var(--pl-ink));
+  font-size: 10.5px;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.observatory-workbench-presence > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pl-olive);
+}
+
+/* Three columns, reference proportions: a narrow request rail, the ledger as
+   the widest column, and a right column wide enough to carry the answer quote,
+   the verified claims, and a product grid. */
+/* 23 / 49 / 28 at desktop: the ledger is the widest column because it is the
+   thing an attendee reads, the request rail only has to hold five prompts,
+   and the answer needs room for a product card plus its claims. */
+.observatory-workbench-grid {
+  display: grid;
+  height: calc(100dvh - 146px);
+  min-height: 0;
+  max-height: none;
+  grid-template-columns:
+    minmax(320px, 0.23fr)
+    minmax(600px, 0.49fr)
+    minmax(400px, 0.28fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+/* Panels stay translucent while the page canvas remains the storefront's. */
+.observatory-input-panel,
+.observatory-trace-panel,
+.observatory-results-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid var(--pl-line);
+  border-radius: var(--pl-r-xl);
+  background: color-mix(in srgb, var(--pl-paper) 88%, transparent);
+  box-shadow: var(--pl-shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .observatory-input-panel,
+  .observatory-trace-panel,
+  .observatory-results-panel {
+    background: var(--pl-paper-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.observatory-trace-panel {
+  position: relative;
+}
+
+/* The reference gives the ledger column no coloured cap: the panel titles
+   already carry the burgundy, and a bar here would compete with the terracotta
+   that marks the open row. */
+.observatory-trace-panel::before {
+  content: none;
+}
+
+.observatory-panel-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.observatory-section-heading {
+  display: flex;
+  min-height: 78px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--pl-line);
+  background: none;
+}
+
+.observatory-section-heading > div {
+  min-width: 0;
+}
+
+/* Panel titles name the room and are interface structure, so they hold the
+   sans register. Burgundy and scale carry the hierarchy instead. Family,
+   weight, and tracking are set by the heading reset in base.css. */
+.observatory-section-heading h2 {
+  color: var(--pl-accent);
+  font-size: 25px;
+  line-height: 1.14;
+}
+
+.observatory-section-heading p {
+  display: -webkit-box;
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 14.5px;
+  letter-spacing: 0;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Reference badge: pill, hairline, uppercase and tracked, olive when the run
+   completed. */
+.observatory-live-state {
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: 999px;
+  background: var(--pl-paper-solid);
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.observatory-live-state[data-status='complete'] {
+  border-color: var(--pl-olive-line);
+  background: var(--pl-olive-soft);
+  color: var(--pl-olive);
+}
+
+.observatory-live-state[data-status='running'] {
+  border-color: var(--pl-terracotta-line);
+  background: var(--pl-terracotta-soft);
+  color: var(--pl-terracotta);
+}
+
+.observatory-run-summary {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.observatory-run-summary-copy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -----------------------------------------------------------------------
+ * Run controls.
+ *
+ * The heavy expanded panel this replaces competed with the shopper turns for
+ * attention, which inverted the narrative: the turns are the exercise, the
+ * controls are the operator's dial. So the current configuration is always
+ * legible as a quiet readout, and only the editing sits behind a disclosure.
+ *
+ * Every row names a control that exists in the component. Do not add a row
+ * for a setting the request does not carry.
+ * ----------------------------------------------------------------------- */
+.observatory-run-controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  border-top: 1px solid var(--pl-line);
+  background: color-mix(in srgb, var(--pl-paper) 78%, transparent);
+}
+
+.observatory-run-controls-heading {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 16px 5px;
+}
+
+.observatory-run-controls-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--pl-ink);
+  font-family: var(--pl-sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.observatory-run-controls-heading svg {
+  flex: 0 0 auto;
+  color: var(--pl-accent);
+}
+
+.observatory-root .observatory-run-chip {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid rgba(var(--pl-accent-rgb), 0.26);
+  border-radius: 999px;
+  background: rgba(var(--pl-accent-rgb), 0.06);
+  color: var(--pl-accent-deep);
+  font-family: var(--pl-sans);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Hairline rows, no boxes: the readout is reference material, not a control
+   surface, and containment would read as something to click. */
+.observatory-run-readout {
+  display: grid;
+  margin: 0;
+  padding: 0 16px 4px;
+  gap: 0;
+}
+
+.observatory-run-readout > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.observatory-run-readout > div + div {
+  border-top: 1px solid color-mix(in srgb, var(--pl-line) 62%, transparent);
+}
+
+.observatory-run-readout dt {
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.observatory-run-readout dd {
+  margin: 0;
+  color: var(--pl-ink);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: right;
+}
+
+/* Advanced settings */
+
+.observatory-advanced {
+  flex: 0 0 auto;
+}
+
+.observatory-advanced[open] {
+  max-height: 52vh;
+  overflow-y: auto;
+}
+
+.observatory-advanced > summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 7px 14px 10px;
+  padding: 7px 14px;
+  border: 1px solid var(--pl-line);
+  border-radius: 999px;
+  color: var(--pl-ink-soft);
+  cursor: pointer;
+  list-style: none;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.observatory-advanced > summary:hover {
+  border-color: rgba(var(--pl-accent-rgb), 0.34);
+  color: var(--pl-accent-deep);
+}
+
+.observatory-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.observatory-advanced > summary > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.observatory-advanced > summary svg {
+  flex: 0 0 auto;
+  color: var(--pl-accent);
+}
+
+.observatory-advanced-summary {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  text-align: left;
+}
+
+/* Two pills sit side by side under the readout: Edit controls and Operator
+   runs. Equal weight on purpose — neither is the primary action, and the
+   readout above them is what the panel is for. */
+.observatory-advanced + .observatory-advanced {
+  margin-top: -4px;
+}
+
+.observatory-advanced > summary strong {
+  color: inherit;
+  font-family: var(--pl-sans);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.observatory-advanced > summary:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.42);
+  outline-offset: -2px;
+}
+
+.observatory-advanced-chevron {
+  transition: transform 160ms ease;
+}
+
+.observatory-advanced[open] .observatory-advanced-chevron {
+  transform: rotate(180deg);
+}
+
+.observatory-advanced-content {
+  padding: 0 14px 14px;
+}
+
+.observatory-agent-config fieldset {
+  min-width: 0;
+  margin: 13px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.observatory-agent-config legend {
+  margin-bottom: 7px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.observatory-fixed-config {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-fixed-config > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.observatory-segmented {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(var(--pl-accent-rgb), 0.28);
+  border-radius: 8px;
+  background: rgba(var(--pl-accent-rgb), 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.observatory-root .observatory-segmented button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  border: 1px solid rgba(var(--pl-accent-rgb), 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--pl-ink-soft);
+  font-size: 10px;
+  font-weight: 650;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.observatory-root
+  .observatory-segmented
+  button:hover:not(:disabled):not([data-state='on']) {
+  border-color: rgba(var(--pl-accent-rgb), 0.28);
+  background: rgba(var(--pl-accent-rgb), 0.09);
+  color: var(--pl-accent-deep);
+}
+
+.observatory-root .observatory-segmented button[data-state='on'],
+.observatory-root .observatory-segmented button[aria-checked='true'],
+.observatory-root .observatory-segmented button[aria-pressed='true'] {
+  border-color: var(--pl-accent-deep);
+  background: var(--pl-accent-deep);
+  color: #fff;
+  box-shadow:
+    0 2px 6px rgba(var(--pl-accent-rgb), 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.observatory-root .observatory-segmented button:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 2px;
+}
+
+.observatory-root .observatory-segmented button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.observatory-mode-note {
+  margin-top: 6px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.observatory-switches {
+  display: grid;
+  gap: 10px;
+  margin-top: 13px;
+}
+
+.observatory-switches > div {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+}
+
+.observatory-root .observatory-switches [role='switch'] {
+  border-color: rgba(var(--pl-accent-rgb), 0.42);
+  background: rgba(var(--pl-accent-rgb), 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.46),
+    0 1px 2px rgba(63, 31, 40, 0.08);
+}
+
+.observatory-root
+  .observatory-switches
+  [role='switch'][data-state='checked'] {
+  border-color: var(--pl-accent-deep);
+  background: var(--pl-accent-deep);
+  box-shadow:
+    0 2px 5px rgba(var(--pl-accent-rgb), 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.observatory-root .observatory-switches [role='switch']:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 2px;
+}
+
+.observatory-root .observatory-switches [role='switch']:disabled {
+  opacity: 0.68;
+}
+
+.observatory-switches label {
+  display: grid;
+  gap: 1px;
+  cursor: pointer;
+}
+
+.observatory-switches strong {
+  color: var(--pl-ink);
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+
+.observatory-switches small {
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+/* Its own disclosure, named for what it does. It came out of "Edit controls"
+   because running a turn is not a setting; it stays collapsed because three
+   buttons and a caveat in the resting state made a five-fact readout hard to
+   read past. */
+.observatory-operator-runs .observatory-advanced-content > p {
+  margin: 0 0 9px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.observatory-operator-cell {
+  display: grid;
+  gap: 4px;
+}
+
+/* The reason a write is unavailable, in text. `aria-disabled` keeps the button
+   focusable so this is reachable; a `title` on a `disabled` button was not. */
+.observatory-operator-blocked {
+  margin: 0 0 2px 34px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.observatory-root .observatory-operator-run[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.observatory-operator-runs > p {
+  margin: -1px 0 9px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.observatory-operator-runs > div {
+  display: grid;
+  gap: 6px;
+}
+
+.observatory-root .observatory-operator-run {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--pl-line);
+  border-radius: 7px;
+  background: rgba(255, 253, 250, 0.72);
+  color: var(--pl-ink);
+  text-align: left;
+}
+
+.observatory-root .observatory-operator-run > span:first-child {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--pl-paper-muted);
+  color: var(--pl-accent);
+}
+
+.observatory-operator-run > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.observatory-operator-run strong {
+  overflow: hidden;
+  color: var(--pl-ink);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observatory-operator-run small {
+  overflow: hidden;
+  color: var(--pl-muted);
+  font-size: 9.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observatory-root .observatory-operator-run[data-access='write'] {
+  border-color: var(--pl-terracotta-line);
+}
+
+.observatory-root .observatory-operator-run[data-active='true'] {
+  border-color: rgba(var(--pl-accent-rgb), 0.34);
+  background: var(--pl-paper-solid);
+  box-shadow: 0 0 0 2px rgba(var(--pl-accent-rgb), 0.07);
+}
+
+.observatory-root .observatory-operator-run:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.observatory-session-facts {
+  display: grid;
+  margin: 14px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-session-facts > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.observatory-session-facts dt {
+  color: var(--pl-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.observatory-session-facts dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--pl-ink);
+  font-size: 10px;
+  font-weight: 650;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observatory-provenance {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.observatory-provenance svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.observatory-provenance code {
+  color: var(--pl-ink-soft);
+  font-size: 9.5px;
+}
+
+/* Evidence ledger */
+
+.observatory-ledger-scroll {
+  padding: 0 20px 18px;
+}
+
+.observatory-run-contract {
+  margin: 12px 0 18px 84px;
+  padding: 14px 0;
+  border-top: 1px solid var(--pl-line-strong);
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-run-contract > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 14px;
+}
+
+.observatory-run-contract > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.observatory-run-contract > header > div > span {
+  color: var(--pl-accent-2);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.observatory-run-contract > header strong {
+  color: var(--pl-ink);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.observatory-run-mode {
+  flex: 0 0 auto;
+  border-color: var(--pl-line-strong);
+  background: transparent;
+  color: var(--pl-accent);
+  font-size: 10px;
+  text-transform: none;
+}
+
+.observatory-run-contract dl {
+  display: grid;
+  grid-template-columns: 0.7fr 0.85fr minmax(210px, 1.6fr);
+  margin: 14px 0 0;
+}
+
+.observatory-run-contract dl > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 0 14px;
+  border-left: 1px solid var(--pl-line);
+}
+
+.observatory-run-contract dl > div:first-child {
+  border-left: 0;
+}
+
+.observatory-run-contract dt {
+  color: var(--pl-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.observatory-run-contract dd {
+  margin: 0;
+  color: var(--pl-ink);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.observatory-run-contract code {
+  overflow-wrap: anywhere;
+  color: var(--pl-muted);
+  font-family: var(--pl-mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.observatory-error {
+  margin: 10px 0 16px 84px;
+  padding: 12px;
+  border: 1px solid rgba(153, 27, 27, 0.25);
+  border-radius: 8px;
+  background: #fff4f3;
+}
+
+.observatory-error strong {
+  color: #8f1d16;
+  font-size: 11.5px;
+}
+
+.observatory-error p {
+  margin-top: 3px;
+  color: #6e403a;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.observatory-root .observatory-error button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 5px 9px;
+  border: 1px solid rgba(143, 29, 22, 0.32);
+  border-radius: 6px;
+  background: transparent;
+  color: #8f1d16;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.observatory-root .observatory-error button:hover {
+  background: rgba(143, 29, 22, 0.06);
+}
+
+/* ------------------------------------------------------------------------
+ * Evidence ledger
+ *
+ * Events share one append-only ledger so the center reads as a chronology,
+ * not a stack of interchangeable cards. The expanded SQL event gets the only
+ * warm emphasis because it carries the run's inspectable proof.
+ * ---------------------------------------------------------------------- */
+
+.observatory-trace-list {
+  position: relative;
+  display: block;
+  margin: 0;
+  padding: 6px 0 10px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  list-style: none;
+}
+
+.observatory-trace-list::before {
+  position: absolute;
+  top: 28px;
+  bottom: 10px;
+  left: 63px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    var(--pl-line-strong),
+    var(--pl-line) 78%,
+    transparent
+  );
+  content: '';
+}
+
+.observatory-trace-progress {
+  position: absolute;
+  top: 28px;
+  left: 62.5px;
+  z-index: 0;
+  display: block;
+  width: 2px;
+  border-radius: 2px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.48) 0 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      180deg,
+      var(--pl-accent) 0%,
+      var(--pl-terracotta) 100%
+    );
+  box-shadow: 0 0 0 1px rgba(var(--pl-accent-rgb), 0.045);
+  pointer-events: none;
+}
+
+.observatory-trace-step {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 44px 40px minmax(0, 1fr);
+  gap: 0 0;
+  overflow: visible;
+  align-items: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.observatory-trace-step::before {
+  position: absolute;
+  inset: 4px -8px 4px 38px;
+  z-index: 0;
+  border-radius: var(--pl-r-md);
+  background:
+    linear-gradient(
+      98deg,
+      rgba(182, 96, 58, 0.16) 0%,
+      rgba(182, 96, 58, 0.07) 42%,
+      rgba(109, 31, 40, 0.035) 68%,
+      transparent 88%
+    );
+  background-position: 100% 50%;
+  background-size: 180% 100%;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+}
+
+.observatory-trace-step[data-current='true']::before {
+  opacity: 1;
+}
+
+.observatory-trace-step > * {
+  position: relative;
+  z-index: 1;
+}
+
+.observatory-trace-step + .observatory-trace-step {
+  border-top: 0;
+}
+
+.observatory-trace-step[data-expanded='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.observatory-trace-index {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 18px 10px 0 0;
+  color: var(--pl-terracotta);
+  font-family: var(--pl-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.observatory-trace-node {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: 50%;
+  background: var(--pl-paper-solid);
+  color: var(--pl-accent);
+  box-shadow: 0 0 0 5px var(--pl-paper);
+}
+
+.observatory-trace-step[data-status='error'] .observatory-trace-node {
+  border-color: rgba(143, 29, 22, 0.4);
+  color: #8f1d16;
+}
+
+.observatory-trace-step[data-status='in_progress']
+  .observatory-trace-node,
+.observatory-trace-step[data-status='executing']
+  .observatory-trace-node {
+  border-color: var(--pl-terracotta);
+  background: var(--pl-terracotta-soft);
+  color: var(--pl-terracotta);
+}
+
+.observatory-trace-step[data-current='true'] .observatory-trace-node {
+  border-color: var(--pl-terracotta);
+  background: #fff8f1;
+  color: var(--pl-terracotta);
+  box-shadow:
+    0 0 0 5px var(--pl-paper),
+    0 6px 16px rgba(182, 96, 58, 0.16);
+}
+
+.observatory-trace-step[data-status='pending']
+  .observatory-trace-node,
+.observatory-trace-step[data-status='unavailable']
+  .observatory-trace-node {
+  color: var(--pl-faint);
+  opacity: 0.72;
+}
+
+.observatory-trace-content {
+  min-width: 0;
+  padding: 13px 0 17px 14px;
+}
+
+.observatory-trace-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Step name: sans, heavily tracked caps, in the lighter burgundy. */
+.observatory-trace-kicker > span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  color: var(--pl-accent-2);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: var(--pl-label-track);
+  text-transform: uppercase;
+}
+
+/* Status becomes an olive pill, the reference's `badge success`. */
+.observatory-trace-kicker em {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid var(--pl-olive-line);
+  border-radius: 999px;
+  background: var(--pl-olive-soft);
+  color: var(--pl-olive);
+  font-family: var(--pl-sans);
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.observatory-trace-step[data-status='in_progress']
+  .observatory-trace-kicker em,
+.observatory-trace-step[data-status='executing']
+  .observatory-trace-kicker em {
+  border-color: var(--pl-terracotta-line);
+  background: var(--pl-terracotta-soft);
+  color: var(--pl-terracotta);
+}
+
+.observatory-trace-step[data-status='error'] .observatory-trace-kicker em {
+  border-color: rgba(143, 29, 22, 0.22);
+  background: #fff4f3;
+  color: #8f1d16;
+}
+
+.observatory-trace-step[data-status='unavailable']
+  .observatory-trace-kicker em {
+  border-color: var(--pl-line);
+  background: var(--pl-paper-muted);
+  color: var(--pl-muted);
+}
+
+.observatory-trace-content h3 {
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  color: var(--pl-ink);
+  font-family: var(--pl-sans);
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.observatory-trace-content > p {
+  margin-top: 4px;
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-sans);
+  font-size: 14px;
+  font-style: normal;
+  letter-spacing: 0;
+  line-height: 1.45;
+}
+
+/* Machine metadata sits in a mono pill, the reference's `badge mono`. */
+.observatory-trace-content > small {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 0;
+  color: var(--pl-muted);
+  font-family: var(--pl-mono);
+  font-size: 10.5px;
+  letter-spacing: 0;
+}
+
+.observatory-proof-block {
+  margin: 13px 0 2px;
+  overflow: hidden;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: var(--pl-r-md);
+  background: color-mix(in srgb, var(--pl-paper-solid) 92%, transparent);
+  box-shadow: 0 10px 28px rgba(63, 31, 40, 0.055);
+}
+
+.observatory-proof-block-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-proof-block-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.observatory-proof-block-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pl-accent-2);
+  font-family: var(--pl-sans);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.observatory-proof-block-heading strong {
+  overflow: hidden;
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-mono);
+  font-size: 11.5px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observatory-root .observatory-copy-sql {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pl-accent);
+}
+
+.observatory-root .observatory-copy-sql:hover {
+  border-color: rgba(var(--pl-accent-rgb), 0.35);
+  background: rgba(var(--pl-accent-rgb), 0.055);
+}
+
+.observatory-root .observatory-copy-sql:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.3);
+  outline-offset: 2px;
+}
+
+.observatory-root pre.observatory-sql {
+  max-width: 100%;
+  margin: 0;
+  padding: 16px 18px;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(var(--pl-accent-rgb), 0.055) 0 1px,
+      transparent 1px
+    ),
+    var(--pl-paper-muted);
+  background-position: 14px 0, 0 0;
+  color: var(--pl-ink);
+  font-family: var(--pl-mono);
+  font-size: 12.5px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.observatory-root pre.observatory-sql code {
+  font-size: inherit;
+}
+
+.observatory-proof-receipt {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 11px 13px;
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-proof-receipt > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.observatory-proof-receipt dt {
+  color: var(--pl-faint);
+  font-family: var(--pl-sans);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.observatory-proof-receipt dd {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.observatory-proof-receipt dd code {
+  color: var(--pl-accent);
+  font-family: var(--pl-mono);
+  font-size: 10.5px;
+}
+
+.observatory-proof-receipt dd[data-status='completed'] {
+  color: var(--pl-olive);
+}
+
+.observatory-idle-state {
+  display: grid;
+  min-height: 210px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 28px;
+  color: var(--pl-muted);
+  text-align: center;
+}
+
+.observatory-idle-state strong {
+  color: var(--pl-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.observatory-idle-state p {
+  max-width: 300px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.observatory-trace-skeleton-note {
+  margin: 14px 0 8px 84px;
+  color: var(--pl-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* Skeleton rows carry no summary, badge, or metadata, so at full step padding
+   they rendered as six tall empty pills. Compacting them keeps the shape of the
+   ledger legible without pretending there is content in it. */
+.observatory-trace-list[data-skeleton='true'] {
+  opacity: 0.52;
+}
+
+.observatory-trace-list[data-skeleton='true'] .observatory-trace-index {
+  padding-top: 18px;
+}
+
+.observatory-trace-list[data-skeleton='true'] .observatory-trace-content {
+  padding: 13px 0 17px 14px;
+}
+
+.observatory-trace-ghost {
+  display: block;
+  width: min(100%, 230px);
+  height: 7px;
+  margin-top: 7px;
+  border-radius: 4px;
+  background: var(--pl-paper-muted);
+}
+
+.observatory-trace-step[data-pending='true'] .observatory-trace-ghost {
+  animation: observatory-pulse 1200ms ease-in-out infinite;
+}
+
+/* Grounded answer */
+
+.observatory-agent-response {
+  position: relative;
+  margin: 0;
+  padding: 24px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--pl-line);
+  background: transparent;
+}
+
+.observatory-agent-response::before {
+  content: '';
+}
+
+.observatory-agent-response > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--pl-accent);
+  font-family: var(--mono, var(--obs-mono));
+  font-size: var(--pl-label-size);
+  font-weight: 650;
+  letter-spacing: var(--pl-label-track);
+  text-transform: uppercase;
+}
+
+.observatory-agent-sparkle {
+  flex: 0 0 auto;
+  color: var(--pl-accent-deep);
+}
+
+/* The shopper reply is the primary object on this panel, and it is the one
+   piece of model-authored language on the surface. It gets the editorial
+   register; every system fact around it stays sans or mono, so a reader can
+   tell prose from proof by the typeface alone. */
+.observatory-agent-response > p {
+  margin-top: 10px;
+  color: var(--pl-ink);
+  font-family: var(--pl-display);
+  font-size: 17.5px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: -0.008em;
+  line-height: 1.52;
+  white-space: pre-wrap;
+}
+
+.observatory-agent-response[data-density='compact'] > p {
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.observatory-agent-response[data-empty='true'] > p {
+  color: var(--pl-muted);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.observatory-results-subheading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.observatory-results-subheading h3 {
+  color: var(--pl-accent-deep);
+  font-family: var(--pl-serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.observatory-results-subheading > span {
+  color: var(--pl-faint);
+  font-family: var(--mono, var(--obs-mono));
+  font-size: 9px;
+}
+
+.observatory-verified-claims {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-verified-claims ul {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--pl-line);
+  border-radius: 8px;
+  background: rgba(255, 252, 247, 0.48);
+  list-style: none;
+}
+
+.observatory-verified-claims li {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+}
+
+.observatory-verified-claims li {
+  grid-template-columns: 18px minmax(0, 1fr);
+}
+
+.observatory-verified-claims li + li {
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-verified-claims li > svg {
+  color: var(--pl-success);
+}
+
+.observatory-verified-claims li > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.observatory-verified-claims strong {
+  color: var(--pl-ink);
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.observatory-verified-claims small {
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.observatory-results-placeholder {
+  color: var(--pl-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.observatory-answer-state {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: 999px;
+  background: var(--pl-paper-solid);
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.observatory-answer-state[data-status='complete'] {
+  border-color: var(--pl-olive-line);
+  background: var(--pl-olive-soft);
+  color: var(--pl-olive);
+}
+
+.observatory-answer-state[data-status='running'] {
+  border-color: var(--pl-terracotta-line);
+  background: var(--pl-terracotta-soft);
+  color: var(--pl-terracotta);
+}
+
+.observatory-answer-state[data-status='error'] {
+  border-color: rgba(143, 29, 22, 0.22);
+  background: #fff4f3;
+  color: #8f1d16;
+}
+
+.observatory-results-scroll {
+  padding: 0 20px 18px;
+}
+
+.observatory-results-scroll .observatory-agent-response {
+  padding: 24px 4px;
+}
+
+.observatory-results-scroll .observatory-agent-response > p {
+  font-size: 17.5px;
+  line-height: 1.52;
+}
+
+.observatory-results-scroll
+  .observatory-agent-response[data-density='compact']
+  > p {
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.observatory-verified-claims {
+  padding-block: 20px;
+}
+
+.observatory-verified-claims ul {
+  display: grid;
+  gap: 8px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.observatory-verified-claims li,
+.observatory-verified-claims li + li {
+  padding: 10px 11px;
+  border: 1px dashed var(--pl-olive);
+  border-radius: var(--pl-r-sm);
+  background: rgba(237, 242, 231, 0.22);
+}
+
+/* A third column appears only on a claim that resolves to a ledger event. */
+.observatory-verified-claims li[data-linkable='true'] {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+}
+
+.observatory-verified-claims strong {
+  font-family: var(--pl-serif);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.observatory-catalog-heading {
+  margin: 0 0 12px;
+}
+
+.observatory-catalog-heading > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.observatory-catalog-heading h3,
+.observatory-catalog-heading strong {
+  margin: 0;
+  color: var(--pl-accent-deep);
+  font-family: var(--pl-serif);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.observatory-catalog-heading span {
+  color: var(--pl-faint);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.observatory-catalog-edit {
+  padding: 20px 0 22px;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-pairings {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-products {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.observatory-products[data-layout='feature'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.observatory-product {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.observatory-product:hover {
+  opacity: 0.92;
+}
+
+.observatory-product-media {
+  display: grid;
+  aspect-ratio: 4 / 5;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--pl-line);
+  border-radius: var(--pl-r-md);
+  background: var(--pl-paper-muted);
+  color: var(--pl-accent);
+  font-size: 28px;
+  font-weight: 650;
+}
+
+.observatory-product-media picture,
+.observatory-product-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.observatory-product-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 2px 2px;
+}
+
+.observatory-product-copy small {
+  overflow: hidden;
+  color: var(--pl-muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.observatory-product-copy h3,
+.observatory-product-copy h4 {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--pl-ink);
+  font-family: var(--pl-serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.observatory-product-price {
+  color: var(--pl-ink);
+  font-family: var(--mono, var(--obs-mono));
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.observatory-product-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-product-evidence:empty {
+  display: none;
+}
+
+.observatory-product-evidence > div {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.observatory-product-evidence dt {
+  color: var(--pl-faint);
+  font-size: 8.5px;
+}
+
+.observatory-product-evidence dd {
+  margin: 0;
+  color: var(--pl-ink-soft);
+  font-family: var(--mono, var(--obs-mono));
+  font-size: 8.5px;
+}
+
+.observatory-products[data-layout='feature'] .observatory-product {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(160px, 55%) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--pl-line);
+  border-radius: var(--pl-r-md);
+  background: var(--pl-paper-solid);
+}
+
+.observatory-products[data-layout='feature'] .observatory-product-media {
+  aspect-ratio: auto;
+  min-height: 236px;
+  border: 0;
+  border-right: 1px solid var(--pl-line);
+  border-radius: 0;
+}
+
+.observatory-products[data-layout='feature'] .observatory-product-copy {
+  justify-content: center;
+  gap: 7px;
+  padding: 18px 16px;
+}
+
+.observatory-products[data-layout='feature'] .observatory-product-copy h3,
+.observatory-products[data-layout='feature'] .observatory-product-copy h4 {
+  font-size: 19px;
+}
+
+.observatory-products[data-layout='pairings'] .observatory-product {
+  padding-bottom: 2px;
+}
+
+.observatory-products-overflow {
+  margin-top: 10px;
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.observatory-products-empty {
+  margin: 0;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--pl-line);
+  color: var(--pl-muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.observatory-session-metrics {
+  display: grid;
+  min-height: 50px;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 9px 16px;
+  border-top: 1px solid var(--pl-line);
+  background: rgba(247, 243, 238, 0.62);
+}
+
+.observatory-session-metrics > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 8px;
+  border-right: 1px solid var(--pl-line);
+}
+
+.observatory-session-metrics > div:last-child {
+  border-right: 0;
+}
+
+.observatory-session-metrics span {
+  color: var(--pl-faint);
+  font-family: var(--pl-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.observatory-session-metrics strong {
+  color: var(--pl-ink);
+  font-family: var(--pl-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@keyframes observatory-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Ledger controls and the claim-to-evidence relationship.
+ * ----------------------------------------------------------------------- */
+
+/* Bulk disclosure for the ledger. Rendered only when more than one receipt
+   exists, so it is never a control that cannot change anything. */
+.observatory-ledger-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 6px 11px;
+  border: 1px solid var(--pl-line);
+  border-radius: 999px;
+  background: var(--pl-paper-solid);
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-sans);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.observatory-ledger-action:hover {
+  border-color: rgba(var(--pl-accent-rgb), 0.34);
+  color: var(--pl-accent-deep);
+}
+
+.observatory-ledger-action:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 2px;
+}
+
+/* Per-event disclosure. Sits on the row's trailing edge, present only on
+   events that carry a receipt. */
+/* Space for the toggle is reserved on every row, receipt or not, so the rows
+   stay on one grid instead of jogging where a receipt happens to exist. */
+.observatory-trace-content {
+  padding-right: 30px;
+}
+
+.observatory-receipt-toggle {
+  position: absolute;
+  top: 14px;
+  right: 8px;
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: none;
+  color: var(--pl-muted);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 180ms ease;
+}
+
+.observatory-receipt-toggle:hover {
+  border-color: var(--pl-line-strong);
+  color: var(--pl-accent-deep);
+}
+
+.observatory-receipt-toggle:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 1px;
+}
+
+.observatory-receipt-toggle[aria-expanded='true'] {
+  color: var(--pl-accent-deep);
+  transform: rotate(180deg);
+}
+
+/* A claim that was just opened. Burgundy names the relationship, and the
+   inset hairline keeps the row identifiable without relying on tint alone. */
+.observatory-trace-step[data-linked='true'] {
+  border-radius: var(--pl-r-md);
+  background: rgba(var(--pl-accent-rgb), 0.055);
+  box-shadow: inset 0 0 0 1px rgba(var(--pl-accent-rgb), 0.26);
+}
+
+.observatory-claim-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  align-self: center;
+  padding: 5px 9px;
+  border: 1px solid var(--pl-line);
+  border-radius: 999px;
+  background: var(--pl-paper-solid);
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-sans);
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.observatory-claim-link:hover {
+  border-color: var(--pl-olive-line);
+  color: var(--pl-olive);
+}
+
+.observatory-claim-link:focus-visible {
+  outline: 2px solid rgba(var(--pl-accent-rgb), 0.48);
+  outline-offset: 2px;
+}
+
+/* Counts the claims that actually resolve to an event, so the footer never
+   implies more linkage than exists. */
+.observatory-claims-linked {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--pl-olive);
+  font-family: var(--pl-sans);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* -----------------------------------------------------------------------
+ * Why this answer. Restates emitted values, never the model's account of
+ * its own reasoning.
+ * ----------------------------------------------------------------------- */
+.observatory-rationale {
+  padding-top: 16px;
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-rationale ul {
+  display: grid;
+  margin: 10px 0 0;
+  padding: 0;
+  gap: 7px;
+  list-style: none;
+}
+
+.observatory-rationale li {
+  position: relative;
+  padding-left: 13px;
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-sans);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.observatory-rationale li::before {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--pl-line-strong);
+  content: '';
+}
+
+.observatory-rationale-source {
+  margin: 12px 0 0;
+  color: var(--pl-faint);
+  font-family: var(--pl-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* -----------------------------------------------------------------------
+ * Ledger footer. Metrics plus the append-only line, both read from the
+ * events held in state.
+ * ----------------------------------------------------------------------- */
+.observatory-ledger-footer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--pl-line);
+}
+
+.observatory-ledger-footer .observatory-session-metrics {
+  border-top: 0;
+}
+
+.observatory-append-only {
+  margin: 0;
+  padding: 0 16px 10px;
+  color: var(--pl-faint);
+  font-family: var(--pl-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.spin {
+  animation: observatory-spin 900ms linear infinite;
+}
+
+@keyframes observatory-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (min-width: 1321px) {
+  .observatory-trace-content {
+    display: grid;
+    grid-template-columns:
+      minmax(115px, 0.78fr)
+      minmax(135px, 0.92fr)
+      minmax(170px, 1.35fr)
+      auto;
+    gap: 3px 15px;
+    align-items: center;
+  }
+
+  .observatory-trace-kicker {
+    display: contents;
+  }
+
+  .observatory-trace-kicker > span {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .observatory-trace-content h3 {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .observatory-trace-content > p {
+    grid-column: 3;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .observatory-trace-kicker em {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .observatory-trace-content > small {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .observatory-proof-block {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1.4fr) minmax(170px, 0.6fr);
+    gap: 10px 12px;
+  }
+
+  .observatory-proof-block-heading {
+    grid-column: 1 / -1;
+  }
+
+  .observatory-root pre.observatory-sql {
+    grid-column: 1;
+    margin-top: 0;
+  }
+
+  .observatory-proof-receipt {
+    grid-column: 2;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 0;
+    margin-top: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--pl-line);
+    border-radius: var(--pl-r-md);
+    background: var(--pl-paper);
+  }
+
+  .observatory-proof-receipt > div {
+    padding: 10px 11px;
+  }
+
+  .observatory-proof-receipt > div + div {
+    border-top: 1px solid var(--pl-line);
+  }
+
+  .observatory-trace-ghost {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .observatory-results-panel
+    .observatory-products[data-layout='pairings'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .observatory-results-panel
+    .observatory-products[data-layout='feature']
+    .observatory-product {
+    grid-template-columns: minmax(180px, 54%) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1440px) and (min-width: 1081px) {
+  .observatory-workbench-grid {
+    grid-template-columns:
+      minmax(248px, 0.78fr)
+      minmax(450px, 1.7fr)
+      minmax(320px, 1fr);
+    gap: 9px;
+  }
+
+  .observatory-section-heading {
+    padding-inline: 14px;
+  }
+
+  .observatory-panel-scroll {
+    padding-inline: 13px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .observatory-workbench {
+    overflow: visible;
+  }
+
+  .observatory-workbench-grid {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .observatory-input-panel,
+  .observatory-trace-panel,
+  .observatory-results-panel {
+    min-height: 0;
+  }
+
+  .observatory-input-panel {
+    order: 1;
+  }
+
+  .observatory-trace-panel {
+    order: 2;
+  }
+
+  .observatory-results-panel {
+    order: 3;
+  }
+
+  .observatory-panel-scroll {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .observatory-advanced[open] {
+    max-height: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .observatory-workbench .labs-index-inner {
+    padding: 10px;
+  }
+
+  .observatory-workbench::before {
+    height: 300px;
+    background-position: 42% top;
+    opacity: 0.17;
+  }
+
+  .observatory-workbench-intro {
+    min-height: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    margin: 2px 2px 12px;
+  }
+
+  .observatory-workbench-intro-copy {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .observatory-page-title {
+    font-size: 22px;
+  }
+
+  .observatory-workbench-purpose {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .observatory-section-heading {
+    min-height: 70px;
+    align-items: flex-start;
+    padding: 13px 14px;
+  }
+
+  .observatory-run-contract {
+    margin-left: 0;
+  }
+
+  .observatory-run-contract dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .observatory-run-contract dl > div:nth-child(3) {
+    grid-column: 1 / -1;
+    padding-top: 12px;
+    border-top: 1px solid var(--pl-line);
+    border-left: 0;
+  }
+
+  .observatory-products,
+  .observatory-products[data-layout='pairings'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .observatory-products[data-layout='feature'] .observatory-product {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .observatory-products[data-layout='feature'] .observatory-product-media {
+    min-height: 148px;
+  }
+
+  .observatory-proof-receipt {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .observatory-trace-step[data-expanded='true']
+    .observatory-proof-block {
+    width: calc(100% + 105px);
+    margin-inline-start: -105px;
+  }
+
+  .observatory-session-metrics {
+    min-height: 62px;
+    padding: 9px 6px;
+  }
+
+  .observatory-session-metrics > div {
+    flex-direction: column;
+    gap: 3px;
+    padding-inline: 4px;
+  }
+
+  .observatory-agent-response > p {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .observatory-input-panel,
+  .observatory-trace-panel,
+  .observatory-results-panel {
+    background: var(--pl-paper-solid);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .observatory-trace-step[data-pending='true'] .observatory-trace-ghost {
+    animation: none;
+  }
+
+  .observatory-advanced-chevron {
+    transition: none;
+  }
+}

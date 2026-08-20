@@ -551,7 +551,7 @@ def create_gateway_dispatcher(
     customer_id: Optional[str] = None,
     routing_query: str = "",
 ) -> ManagedGatewayDispatcher | None:
-    """Create the managed equivalent of the Boutique dispatcher."""
+    """Create the managed equivalent of Pellier dispatcher."""
     if not _runtime_or_app_setting("AGENTCORE_GATEWAY_URL") or not access_token:
         return None
     from services.response_mode import normalize_response_mode
@@ -805,7 +805,7 @@ def list_gateway_tools(access_token: Optional[str] = None) -> List[Dict[str, Any
 
     ``access_token`` is forwarded as a Bearer token (JWT passthrough) when
     supplied. Against a JWT-protected Gateway, calling without a token returns
-    [] (the call is rejected with 401) — which the Agent Trace panel renders as a
+    [] (the call is rejected with 401) — which the Observatory panel renders as a
     "skipped / needs identity" state rather than failing the turn.
 
     Returns a list of tool descriptors with name, description, and input schema.

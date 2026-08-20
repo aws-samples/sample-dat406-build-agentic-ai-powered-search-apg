@@ -1,7 +1,7 @@
 """Tests for the shared execution-rail dispatcher.
 
 The governed-workshop audit's B1 finding: ``USE_AGENTCORE_RUNTIME`` only
-affected ``/api/agent/chat``, while the Boutique posts to
+affected ``/api/agent/chat``, while Pellier posts to
 ``/api/chat/stream``. The storefront could therefore serve every shopper
 turn in-process while the operator believed the managed Runtime, Gateway,
 and Policy chain was carrying them.

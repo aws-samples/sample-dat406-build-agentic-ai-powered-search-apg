@@ -23,7 +23,7 @@
  * fallback that mirrors the server's ranking heuristic.
  */
 
-import type { BoutiqueProduct } from '../services/types'
+import type { PellierProduct } from '../services/types'
 
 // ---------------------------------------------------------------------
 // Persona interest profiles. Scores are 0-10; higher = stronger lean.
@@ -117,7 +117,7 @@ export const PERSONA_INTERESTS: Record<string, PersonaInterests> = {
  * callers fall through to the product's natural order.
  */
 export function scoreProduct(
-  product: BoutiqueProduct,
+  product: PellierProduct,
   weights: Record<string, number>,
 ): number {
   if (!product.tags || product.tags.length === 0) return 0
@@ -134,7 +134,7 @@ export function scoreProduct(
  * a persona without a full coverage of the catalog still sees the
  * remainder in a predictable sequence.
  */
-export function rankProductsForPersona<T extends BoutiqueProduct>(
+export function rankProductsForPersona<T extends PellierProduct>(
   products: readonly T[],
   personaId: string | null | undefined,
 ): T[] {
@@ -223,7 +223,7 @@ export const PERSONA_EDITORIAL: Record<string, EditorialCard[]> = {
       category: 'Quiet accessories',
       title: 'Classic, undated.',
       description:
-        'Rectangular watches, apothecary notes. Pieces that don’t announce themselves — they just show up.',
+        'Rectangular watches, apothecary notes. Pieces that don’t announce themselves. They just show up.',
     },
   ],
   anna: [
@@ -231,7 +231,7 @@ export const PERSONA_EDITORIAL: Record<string, EditorialCard[]> = {
       category: 'Gifting',
       title: 'Wrapped with intention.',
       description:
-        'Ceramic, candle, tumbler. Pieces that arrive ready — no last-minute ribbon, no second-guessing.',
+        'Ceramic, candle, tumbler. Pieces that arrive ready, with no last-minute ribbon and no second-guessing.',
     },
     {
       category: 'Milestones',
@@ -298,8 +298,8 @@ export function editorialForPersona(
 // ---------------------------------------------------------------------
 
 // Hero pills — the first pill in each persona's list is their
-// canonical Turn 1 query, matching the Agent Trace session fixture
-// and the BoutiqueWelcome primary pick. The remaining pills are
+// canonical Turn 1 query, matching the Observatory session fixture
+// and the PellierWelcome primary pick. The remaining pills are
 // Turn 2/3 follow-ups so the demo flows as one coherent journey.
 export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   marco: [
@@ -353,7 +353,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
 }
 
-/** Marco Boutique / Agent Trace Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
+/** Marco Pellier / Observatory Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
 export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
 
 /**
@@ -366,7 +366,15 @@ export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
 export const PERSONA_HERO_PILL_LABELS: Record<string, (string | null)[]> = {
   marco: [null, null, null, null, 'Connect me with a real Pellier stylist'],
   anna: [null, null, null, null, 'Connect me with a real Pellier stylist'],
-  theo: [null, null, null, null, 'Handle a worn-in piece past the return window'],
+  // Index 3 is Theo's governed return. It is surfaced on sign-on, so it needs
+  // a short label; the pill sends the full canonical query regardless.
+  theo: [
+    null,
+    null,
+    null,
+    'File a damaged return for the Wabi-Sabi Bowl',
+    'Handle a worn-in piece past the return window',
+  ],
   fresh: [null, null, null, null, null],
 }
 
@@ -491,7 +499,7 @@ export function featuredProductIdForPersona(
 
 // ---------------------------------------------------------------------
 // Weekend Edit — persona-specific editorial eyebrow + headline + copy.
-// The "Weekend, re:defined." block on BoutiquePage swaps entirely
+// The "Weekend, re:defined." block on PellierPage swaps entirely
 // based on persona so the editorial voice matches the shopper.
 // ---------------------------------------------------------------------
 
@@ -524,7 +532,7 @@ export const PERSONA_WEEKEND_EDIT: Record<string, WeekendEditContent> = {
     eyebrow: 'Weekend Edit',
     headline: 'Weekend,\nre:defined.',
     subheadline:
-      'Pieces that move with you from morning markets to golden-hour terraces. Linen, leather, ceramic — the weekend wardrobe, considered.',
+      'Pieces that move with you from morning markets to golden-hour terraces. Linen, leather, ceramic: the weekend wardrobe, considered.',
   },
 }
 

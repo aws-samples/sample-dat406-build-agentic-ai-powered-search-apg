@@ -65,6 +65,17 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   } as unknown as typeof ResizeObserver
 }
 
+// Scroll stubs — jsdom defines these but throws "Not implemented" when
+// called, which turns an ordinary scroll-to-top effect into console noise
+// that the zero-warnings gate treats as a failure signal. Components that
+// assert on scrolling spy on these directly.
+if (typeof window !== 'undefined') {
+  window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = vi.fn()
+  }
+}
+
 // matchMedia default — jsdom doesn't ship this either. Tests that care
 // about responsive behavior override this per-test.
 if (typeof window !== 'undefined' && !window.matchMedia) {

@@ -280,6 +280,61 @@ def _policy_events(
     ]
 
 
+def _record_policy_span(
+    policy_events: List[Dict[str, Any]],
+    *,
+    turn_id: str,
+    principal_sub: Optional[str],
+) -> None:
+    """Emit the policy boundary span for this turn's resolved decision.
+
+    Pellier does not make the Cedar decision — AgentCore Gateway evaluates
+    policy before the target runs, out of process. What happens here is
+    Pellier *resolving* what that decision was, from the
+    ``pellier.governed_receipts`` rows the Gateway rail wrote. The span
+    records that resolution so the reconstruction CLI can show the policy
+    leg alongside identity and execution.
+
+    Three verdicts reach this function and all three are meaningful:
+
+    ``ALLOW`` / ``DENY``
+        A governed decision was recorded for the turn.
+    ``NOT_EVALUATED``
+        No Cedar decision exists — the ordinary in-process rail. This is
+        emitted deliberately rather than skipped: "no policy ran" and
+        "policy allowed it" are different facts, and a missing span would
+        let a reader infer the second from the first.
+
+    ``policy_mode`` is omitted on purpose. The Gateway's LOG_ONLY/ENFORCE
+    setting is engine configuration, not turn data, and reading it per turn
+    would mean a control-plane call on every receipt. Guessing it would be
+    worse than leaving it absent.
+
+    Observability never fails evidence collection: any exception here is
+    swallowed, because the receipt insert is the durable artifact and this
+    span is only a locator for it.
+    """
+    try:
+        from services import evidence_spans
+
+        verdict = None
+        for event in policy_events:
+            decision = event.get("decision")
+            if decision:
+                verdict = str(decision)
+                break
+
+        with evidence_spans.policy_span(
+            turn_id=turn_id,
+            principal_sub=principal_sub,
+            policy_verdict=verdict,
+            caller="gateway" if verdict in {"ALLOW", "DENY"} else "in-process",
+        ):
+            pass
+    except Exception:  # pragma: no cover - a span must never break a receipt
+        logger.debug("policy evidence span skipped", exc_info=True)
+
+
 def _summary(
     *,
     turn_id: str,
@@ -324,10 +379,26 @@ async def persist_turn_receipt(
     if db is None:
         return None
     try:
+        # Policy first, and the evidence span with it.
+        #
+        # Ordering is deliberate: the policy read and the span used to sit
+        # after the retrieval and citation reads, so a cluster missing
+        # `pellier.retrieval_receipts` lost the policy evidence entirely —
+        # the whole block aborted before the span was emitted. The policy
+        # leg does not depend on retrieval, so it no longer waits on it.
+        policy_rows = _as_rows(await db.fetch_all(_POLICY_SQL, turn_id))
+        policy_events = _policy_events(
+            policy_rows, terminal_error_code=terminal_error_code
+        )
+        _record_policy_span(
+            policy_events,
+            turn_id=turn_id,
+            principal_sub=principal_sub,
+        )
+
         retrieval = await db.fetch_one(_RETRIEVAL_SQL, turn_id)
         retrieval_row = dict(retrieval) if retrieval else None
         audit_rows = _as_rows(await db.fetch_all(_AUDIT_SQL, turn_id))
-        policy_rows = _as_rows(await db.fetch_all(_POLICY_SQL, turn_id))
         receipt_id = (
             int(retrieval_row["receipt_id"])
             if retrieval_row and retrieval_row.get("receipt_id") is not None
@@ -337,9 +408,6 @@ async def persist_turn_receipt(
             db,
             retrieval_receipt_id=receipt_id,
             citation_ids=(retrieval_row or {}).get("citation_ids"),
-        )
-        policy_events = _policy_events(
-            policy_rows, terminal_error_code=terminal_error_code
         )
         outcome = {
             "error_code": terminal_error_code,

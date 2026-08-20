@@ -2,12 +2,12 @@
 --
 -- Runs after:
 --   001_schema.sql
---   scripts/seed_boutique_catalog.py
+--   scripts/seed_pellier_catalog.py
 --   002_workshop_telemetry.sql
 --
 -- Why this is required:
 --   * Marco / Anna / Theo / Fresh need customer rows for memory and
---     Agent Trace overlays.
+--     Observatory overlays.
 --   * Theo's process_return tool checks ownership in pellier.orders
 --     before it writes to pellier.returns.
 --   * The memory surfaces read pellier.customer_episodic_seed directly.
@@ -166,7 +166,7 @@ BEGIN
             'Persona seed produced only % orders (expected >= 15). '
             'Most likely cause: pellier.product_catalog is empty or '
             'product names do not match the order_seed VALUES list. '
-            'Check that scripts/seed_boutique_catalog.py succeeded before '
+            'Check that scripts/seed_pellier_catalog.py succeeded before '
             'this migration ran.', n_orders;
     END IF;
 

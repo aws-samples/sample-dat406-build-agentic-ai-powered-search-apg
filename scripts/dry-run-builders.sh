@@ -171,7 +171,7 @@ info "Waiting 4s for uvicorn --reload to pick up the change…"
 sleep 4
 
 # Confirm both independent build markers flipped to shipped.
-bs="$(curl -fs --max-time 5 "${BASE}/api/agent-trace/build-state" 2>/dev/null || true)"
+bs="$(curl -fs --max-time 5 "${BASE}/api/observatory/build-state" 2>/dev/null || true)"
 if echo "$bs" | grep -q '"Stock Keeper"[[:space:]]*:[[:space:]]*"shipped"'; then
   pass "build-state reports Stock Keeper = shipped"
 else
@@ -202,12 +202,12 @@ if echo "$reply" | grep -qi 'floor_check is in stub state'; then
 fi
 
 # --- 4a. Lab 2 retrieval comparison ----------------------------------------
-echo "[4a/6] Lab 2 — GET /api/agent-trace/search-strategies/compare"
+echo "[4a/6] Lab 2 — GET /api/observatory/search-strategies/compare"
 QUERY='A milestone gift for a new homeowner'
 retrieval=""
 if retrieval="$(curl --fail --silent --show-error --max-time 75 \
     --get --data-urlencode "query=${QUERY}" \
-    "${BASE}/api/agent-trace/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
+    "${BASE}/api/observatory/search-strategies/compare" 2>/tmp/dryrun-retrieval.err)"; then
   printf '%s\n' "$retrieval" > /tmp/retrieval-comparison.json
   if printf '%s' "$retrieval" | jq -e '
       (.strategies | length) == 4

@@ -285,8 +285,8 @@ def test_orchestrator_constructed_only_for_agents_as_tools() -> None:
     Scoped to ``chat_stream()`` specifically — the non-streaming
     ``_strands_enhanced_chat()`` path has its own separate orchestrator
     construction that doesn't need the pattern branch (it serves the
-    older POST /api/chat endpoint and the Agent Trace
-    /api/agent-trace/query panel, both always-orchestrator).
+    older POST /api/chat endpoint and the Observatory
+    /api/observatory/query panel, both always-orchestrator).
     """
     import textwrap
 
@@ -367,7 +367,7 @@ def test_dispatcher_path_attaches_audit_hooks(chat_module_source: str) -> None:
 
 def test_nonstreaming_path_attaches_audit_hooks() -> None:
     """The non-streaming orchestrator path (POST /api/chat and the Agent
-    Trace /api/agent-trace/query panel) must register the same two-phase
+    Trace /api/observatory/query panel) must register the same two-phase
     tool_audit hooks as the streamed turn — no in-process rail may
     execute a tool off-ledger."""
     import textwrap

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Per-turn query logger — feeds the Agent Trace State Management live strip.
+# Per-turn query logger — feeds the Observatory State Management live strip.
 # ---------------------------------------------------------------------------
 # ``chat_stream`` sets this ContextVar to a fresh list at the start of each
 # turn. fetch_all / fetch_one / execute_query append to it with
@@ -34,6 +34,18 @@ logger = logging.getLogger(__name__)
 db_query_log_var: ContextVar[Optional[list]] = ContextVar(
     "db_query_log_var", default=None
 )
+
+
+# Runtime roles created by migration 016. `SET ROLE` takes no parameters, so
+# any role name reaching SQL must come from this set rather than from a
+# caller-supplied string.
+#
+#   pellier_agent — business tables, INSERT-only on the evidence ledger
+#   pellier_query — read-only, and deliberately blind to the ledger
+#
+# The owner is absent on purpose: assuming the owner would bypass RLS, which
+# would make a "governed" session silently ungoverned.
+_RUNTIME_ROLES = frozenset({"pellier_agent", "pellier_query"})
 
 
 def _classify_op(sql: str) -> str:
@@ -390,7 +402,7 @@ class DatabaseService:
                 async with conn.cursor() as cur:
                     await cur.execute("SET hnsw.iterative_scan = 'relaxed_order'")
                 # Wrap the connection's cursor factory to log queries for
-                # the Agent Trace State Management live strip. This catches
+                # the Observatory State Management live strip. This catches
                 # raw cursor usage (VectorSearch, etc.) that bypasses
                 # fetch_all / fetch_one.
                 _instrument_connection(conn)
@@ -401,6 +413,159 @@ class DatabaseService:
                 logger.error(f"Database error (rolled back): {e}")
                 raise
     
+    @asynccontextmanager
+    async def principal_session(
+        self,
+        principal_sub: Optional[str],
+        *,
+        role: str = "pellier_agent",
+    ) -> AsyncIterator[AsyncConnection]:
+        """Run statements under a non-owner role with the principal bound.
+
+        Row-Level Security on ``pellier.orders`` and ``pellier.returns`` keys
+        off ``pellier.principal_sub`` and applies to the *effective* role. Two
+        things must therefore be true at once, on one physical connection,
+        inside one transaction: the role is not the table owner, and the
+        principal setting is present. This context manager is the only place
+        that guarantees both.
+
+        Why the other accessors cannot be used for protected statements:
+        ``fetch_all``, ``fetch_one``, and ``execute_query`` each acquire their
+        own pooled connection and release it. A ``SET LOCAL`` issued through
+        one of them is invisible to the next call — and worse, the protected
+        statement would then run with *no* principal, which fails closed and
+        looks like "the row does not exist" rather than "you are not
+        authorized". Two statements in the same Python function are not two
+        statements in the same transaction.
+
+        Both settings are transaction-local, so returning the connection to
+        the pool cannot leak principal state into the next borrower. That is a
+        structural property of ``SET LOCAL``, not a cleanup step that could be
+        skipped on an error path.
+
+        Args:
+            principal_sub: Verified Cognito subject, or ``None`` for an
+                anonymous turn. ``None`` binds an empty principal, which the
+                policies resolve to no customer scope — access is denied, not
+                widened. It is bound explicitly rather than left unset so the
+                intent is legible in the transaction.
+            role: Runtime role to assume. Must be a known non-owner role;
+                ``SET ROLE`` cannot be parameterized, so the value is
+                whitelisted rather than interpolated.
+
+        Yields:
+            AsyncConnection: inside an open transaction with the role and
+            principal bound. Committing or rolling back is the caller's
+            responsibility via the transaction block.
+
+        Raises:
+            ValueError: ``role`` is not a recognized runtime role.
+            RuntimeError: The database service is not connected.
+
+        Example:
+            ```python
+            async with db.principal_session(sub) as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        "SELECT id FROM pellier.returns WHERE customer_id = %s",
+                        (customer_id,),
+                    )
+            ```
+        """
+        if role not in _RUNTIME_ROLES:
+            raise ValueError(
+                f"Unknown runtime role {role!r}; expected one of "
+                f"{', '.join(sorted(_RUNTIME_ROLES))}"
+            )
+
+        async with self.get_connection() as conn:
+            # An explicit transaction block makes the LOCAL scope unambiguous.
+            # Outside a transaction, SET LOCAL is a no-op with a warning, and
+            # a silently unbound principal is the failure mode this whole
+            # method exists to prevent.
+            async with conn.transaction():
+                async with conn.cursor() as cur:
+                    # Role name is a validated literal — SET ROLE takes no
+                    # parameters. The principal IS parameterized, through
+                    # set_config, so a subject value can never be SQL.
+                    await cur.execute(f"SET LOCAL ROLE {role}")
+                    await cur.execute(
+                        "SELECT set_config('pellier.principal_sub', %s, true)",
+                        (principal_sub or "",),
+                    )
+                yield conn
+
+    @asynccontextmanager
+    async def query_session(
+        self,
+        principal_sub: Optional[str],
+        *,
+        statement_timeout: str = "3s",
+        search_path: str = "pellier, pg_temp",
+    ) -> AsyncIterator[AsyncConnection]:
+        """Run model-generated SQL under every containment the design requires.
+
+        A separate primitive from ``principal_session`` on purpose. That one
+        exists so a *known* statement can write within a principal's scope;
+        this one exists so an *unknown* statement can read and nothing else.
+        Conflating them behind a flag would make it possible to get the write
+        role while believing the session was read-only.
+
+        Four containments, none of which depends on the generated SQL being
+        well-behaved:
+
+        * ``pellier_query`` — SELECT on a scoped set, no write grants
+          anywhere, and no access to ``pellier.tool_audit`` at all, so
+          generated SQL can neither read the evidence ledger nor manufacture
+          evidence.
+        * ``READ ONLY`` transaction — the server refuses any write attempt
+          regardless of what the statement asks for.
+        * ``statement_timeout`` — a generated query cannot hold resources
+          indefinitely.
+        * fixed ``search_path`` — unqualified names resolve where expected
+          rather than wherever the caller's search path happens to point.
+
+        ``pellier.principal_sub`` is bound too, so Row-Level Security applies
+        to generated SQL exactly as it does to a curated tool. Generated SQL
+        does not get a wider view of customer data than the agent has.
+
+        Args:
+            principal_sub: Verified subject, or ``None`` for anonymous, which
+                resolves to no customer scope.
+            statement_timeout: Postgres interval string.
+            search_path: Schemas unqualified names may resolve in.
+
+        Yields:
+            AsyncConnection inside an open read-only transaction.
+        """
+        async with self.get_connection() as conn:
+            async with conn.transaction():
+                async with conn.cursor() as cur:
+                    # READ ONLY first: `SET TRANSACTION` must precede the
+                    # first query in the transaction, and putting it after the
+                    # role switch would leave a window where it is not set.
+                    await cur.execute("SET TRANSACTION READ ONLY")
+                    await cur.execute("SET LOCAL ROLE pellier_query")
+                    # `SET` takes no parameters — `SET LOCAL statement_timeout
+                    # = %s` fails with `syntax error at or near "$1"`, and
+                    # because that error aborts every query the module looks
+                    # like a boundary that refuses everything, including
+                    # legitimate questions. `set_config(..., is_local => true)`
+                    # is the parameterizable equivalent.
+                    await cur.execute(
+                        "SELECT set_config('statement_timeout', %s, true)",
+                        (statement_timeout,),
+                    )
+                    await cur.execute(
+                        "SELECT set_config('search_path', %s, true)",
+                        (search_path,),
+                    )
+                    await cur.execute(
+                        "SELECT set_config('pellier.principal_sub', %s, true)",
+                        (principal_sub or "",),
+                    )
+                yield conn
+
     async def fetch_all(self, query: str, *params: Any) -> list[dict]:
         """
         Execute query and fetch all results.

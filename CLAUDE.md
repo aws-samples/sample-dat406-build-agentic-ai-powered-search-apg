@@ -107,12 +107,25 @@ documentation.
   row are distinct, intentional evidence.
 - Cognito identity travels in the signed token. Do not invent ambient identity
   or correlation fields across managed boundaries.
-- Pellier is shopper-facing, Pellier Labs is an assisted inspection surface, and
-  Code Editor plus SQL/curl remain canonical workshop proof. Participant-facing
-  chrome and public routes use "Pellier", "Pellier Labs", `/`, and
-  `/pellier-labs`. Existing internal component, module, API, and test names may
-  retain Boutique and Agent Trace where renaming would add risk without changing
-  the participant experience.
+- Pellier is shopper-facing, Pellier Observatory is an assisted inspection
+  surface, and Code Editor plus SQL/curl remain canonical workshop proof.
+  Participant-facing chrome and public routes use "Pellier", "Pellier
+  Observatory", `/`, and `/observatory`.
+- **One name for the inspection surface: Observatory.** It is the display name,
+  the route (`/observatory`), the API prefix (`/api/observatory`), the source
+  directories (`src/observatory/`, `routes/observatory.py`), the CSS and
+  `data-testid` namespace (`observatory-*`), the span table
+  (`pellier.observatory_spans`), and the CSS custom-property prefix
+  (`--obs-*`). Both former names are fully retired in every casing and
+  separator, including `Agent Trace` and its `--at-` variable prefix, and
+  `Pellier Labs`. No component, module, file, route, class, test id, API path,
+  CSS variable, or database object carries either. The only permitted
+  exceptions are the legacy-path redirects in `App.tsx` and the tests that
+  assert them, which must name the old paths to do their job, plus the one-time
+  `ALTER TABLE` in migration 002 that converges an existing cluster.
+  `tests/test_surface_naming.py` enforces this by scanning the repository.
+- Boutique is fully retired on the same terms. "boutique" survives only as an
+  ordinary noun in shopper copy and model prompts, which `VOICE.md` sanctions.
 - Editorial specialists use the configured Opus profile when available;
   reporting and routing specialists use the configured Sonnet profile.
 - Never hardcode credentials, JWTs, account IDs, endpoints, or `.env` values

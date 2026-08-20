@@ -1,8 +1,8 @@
 /**
- * PersonaContext — workshop persona state shared across storefront + Agent Trace.
+ * PersonaContext — workshop persona state shared across storefront + Observatory.
  *
  * One source of truth for the active persona. Both the storefront header
- * pill and the Agent Trace breadcrumb indicator read from this context. The
+ * pill and the Observatory breadcrumb indicator read from this context. The
  * persona modal (shared component, two entry points) writes to it via
  * ``switchPersona()``.
  *
@@ -143,12 +143,12 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
 
       // Clear any existing chat persistence
       localStorage.removeItem('pellier-storefront-chat')
-      localStorage.removeItem('pellier-agent-trace-chat')
+      localStorage.removeItem('pellier-observatory-chat')
       // ConciergeModal uses its own persist keys — clear those too so the
       // personalized welcome ("Good evening, Marco") actually renders on
       // the next open instead of being shadowed by a stale cached reply.
       localStorage.removeItem('pellier-concierge-storefront')
-      localStorage.removeItem('pellier-concierge-agent-trace')
+      localStorage.removeItem('pellier-concierge-observatory')
       // ChatDrawer uses its own persist key.
       localStorage.removeItem('pellier-drawer-storefront')
 
@@ -175,9 +175,9 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
 
       localStorage.setItem(SESSION_KEY, `local-${fallback.id}-${Date.now()}`)
       localStorage.removeItem('pellier-storefront-chat')
-      localStorage.removeItem('pellier-agent-trace-chat')
+      localStorage.removeItem('pellier-observatory-chat')
       localStorage.removeItem('pellier-concierge-storefront')
-      localStorage.removeItem('pellier-concierge-agent-trace')
+      localStorage.removeItem('pellier-concierge-observatory')
       localStorage.removeItem('pellier-drawer-storefront')
 
       setPersona(fallbackPersona)
@@ -203,9 +203,9 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
     }
     localStorage.removeItem(SESSION_KEY)
     localStorage.removeItem('pellier-storefront-chat')
-    localStorage.removeItem('pellier-agent-trace-chat')
+    localStorage.removeItem('pellier-observatory-chat')
     localStorage.removeItem('pellier-concierge-storefront')
-    localStorage.removeItem('pellier-concierge-agent-trace')
+    localStorage.removeItem('pellier-concierge-observatory')
     localStorage.removeItem('pellier-drawer-storefront')
     if (outgoing) {
       setLastTransition({

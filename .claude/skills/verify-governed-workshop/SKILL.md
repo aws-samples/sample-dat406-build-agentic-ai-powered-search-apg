@@ -20,7 +20,7 @@ Read `references/contract.md` before starting.
 5. Check bootstrap branch selection, model IDs, migrations, service startup,
    and participant-global Claude Code guidance.
 6. Run the validation gates in the root `CLAUDE.md`.
-7. Verify Pellier and named Pellier Labs routes in a browser. Check console errors,
+7. Verify Pellier and named Pellier Observatory routes in a browser. Check console errors,
    layout, streaming, identity state, and evidence provenance.
 8. Report findings first, ordered by severity, with file and line references.
    Separate blockers from polish.
@@ -38,7 +38,7 @@ Read `references/contract.md` before starting.
 ## Scope control
 
 - Preserve the flagship title and four-lab spine.
-- Keep Pellier and Code Editor primary; open Pellier Labs only at named proof
+- Keep Pellier and Code Editor primary; open Pellier Observatory only at named proof
   points.
 - Do not add a persona, specialist, business flow, or unrelated AWS service
   merely to make the workshop look broader.

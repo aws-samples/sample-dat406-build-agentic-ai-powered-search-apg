@@ -1,7 +1,7 @@
 """One execution contract shared by the storefront and the managed route.
 
 Before this module existed, ``USE_AGENTCORE_RUNTIME`` only affected
-``/api/agent/chat``. The Boutique posts to ``/api/chat/stream``, so the
+``/api/agent/chat``. Pellier posts to ``/api/chat/stream``, so the
 storefront kept working entirely in-process even when the workshop had
 just finished provisioning Runtime, Gateway, and Policy — an attendee
 could watch the shopper experience succeed without any of it touching the

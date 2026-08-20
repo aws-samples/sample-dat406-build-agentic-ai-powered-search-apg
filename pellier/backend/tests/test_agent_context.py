@@ -2,7 +2,7 @@
 
 ``trace_index`` is the stable referent for frontend citation pills.
 Ordering + monotonicity + panel-only scope are contract surfaces —
-the Agent Trace chat's ``[trace N]`` citation pills read directly from
+the Observatory chat's ``[trace N]`` citation pills read directly from
 this field, so drift would break every citation link.
 """
 

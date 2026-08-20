@@ -1,9 +1,9 @@
 /**
  * GovernedTurnReceipt — the compact receipt under a completed answer.
  *
- * Design stance: quiet governance in Boutique. The shopper gets a beautiful
+ * Design stance: quiet governance in Pellier. The shopper gets a beautiful
  * answer; the receipt is a single restrained line that says what the system
- * actually did, with the full accounting one click away in Agent Trace.
+ * actually did, with the full accounting one click away in Observatory.
  *
  * The hard rule is **only render what the turn emitted**. Every field here
  * is optional, and an absent field renders as an honest "not reported"
@@ -137,7 +137,7 @@ export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
     }
     let active = true
     const controller = new AbortController()
-    fetch(`/api/agent-trace/receipts/${encodeURIComponent(turnId)}`, {
+    fetch(`/api/observatory/receipts/${encodeURIComponent(turnId)}`, {
       credentials: 'include',
       signal: controller.signal,
     })

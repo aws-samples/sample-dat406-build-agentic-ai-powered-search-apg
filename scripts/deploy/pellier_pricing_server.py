@@ -14,7 +14,11 @@ from typing import Any
 
 import boto3
 
-from common.types import resolve_invocation
+from common.handler import build_handler
+from common.dataapi import (
+    execute_sql as _execute_sql,
+    query_embedding as _get_embedding,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,60 +33,10 @@ EMBED_MODEL_ID = os.environ.get("BEDROCK_EMBED_MODEL_ID", "us.cohere.embed-v4:0"
 SCHEMA = "pellier"
 
 # Module-level clients for Lambda warm start reuse
-rds_client = boto3.client("rds-data", region_name=DB_REGION)
-bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
 
 
-def _execute_sql(sql: str, parameters: list = None) -> list[dict]:
-    """Execute SQL via RDS Data API and return rows as dicts."""
-    params = {
-        "resourceArn": DB_CLUSTER_ARN,
-        "secretArn": SECRET_ARN,
-        "database": DATABASE,
-        "sql": sql,
-        # Without this the Data API omits columnMetadata entirely, columns
-        # is [] and the first returned row IndexErrors (box-verified
-        # 2026-06-12 — "list index out of range" on every successful SELECT).
-        "includeResultMetadata": True,
-    }
-    if parameters:
-        params["parameters"] = parameters
-    response = rds_client.execute_statement(**params)
-    columns = [col["name"] for col in response.get("columnMetadata", [])]
-    rows = []
-    for record in response.get("records", []):
-        row = {}
-        for i, field in enumerate(record):
-            if "stringValue" in field:
-                row[columns[i]] = field["stringValue"]
-            elif "longValue" in field:
-                row[columns[i]] = field["longValue"]
-            elif "doubleValue" in field:
-                row[columns[i]] = field["doubleValue"]
-            elif "booleanValue" in field:
-                row[columns[i]] = field["booleanValue"]
-            elif "isNull" in field:
-                row[columns[i]] = None
-            else:
-                row[columns[i]] = str(field)
-        rows.append(row)
-    return rows
 
 
-def _get_embedding(text: str) -> list[float]:
-    """Generate a query embedding via Cohere Embed v4.
-
-    Must match the catalog seed + in-process path (Cohere Embed v4,
-    output_dimension=1024). Titan v2 would be a different vector space and
-    break pgvector cosine ranking even at matching dimension.
-    """
-    response = bedrock_client.invoke_model(
-        modelId=EMBED_MODEL_ID,
-        body=json.dumps(
-            {"texts": [text], "input_type": "search_query", "output_dimension": 1024}
-        ),
-    )
-    return json.loads(response["body"].read())["embeddings"]["float"][0]
 
 
 # --- Tool implementations ---
@@ -191,29 +145,6 @@ TOOLS = {
 }
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
-    """Lambda handler for MCP tool invocation via AgentCore Gateway."""
-    # Resolve BOTH invocation shapes (Gateway client_context-prefixed vs direct
-    # {name,arguments}); shared helper in common/types.py, packaged into the zip.
-    tool_name, arguments = resolve_invocation(event, context)
-
-    if tool_name == "list_tools":
-        return {
-            "tools": [
-                {"name": name, "description": spec["description"], "inputSchema": spec["inputSchema"]}
-                for name, spec in TOOLS.items()
-            ]
-        }
-
-    if tool_name not in TOOLS:
-        return {"error": f"Unknown tool: {tool_name}"}
-
-    try:
-        execution_arguments = {
-            key: value for key, value in arguments.items() if key != "turn_id"
-        }
-        result = TOOLS[tool_name]["fn"](**execution_arguments)
-        return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
-    except Exception as e:
-        logger.error(f"Tool {tool_name} failed: {e}")
-        return {"content": [{"type": "text", "text": json.dumps({"error": str(e)})}], "isError": True}
+# No transaction or audit wiring on this surface, so the shared
+# invocation contract is used as-is.
+lambda_handler = build_handler(TOOLS)

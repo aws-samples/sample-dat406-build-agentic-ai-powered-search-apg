@@ -1,7 +1,7 @@
 /**
  * Tests for the Turn primitive ``eventsToTurn`` — pure grouping of
  * a single submit's event bundle into the categorized shape the
- * Agent Trace chat's AssistantTurn renderer consumes.
+ * Observatory chat's AssistantTurn renderer consumes.
  */
 import { describe, expect, it } from 'vitest'
 

@@ -3,13 +3,13 @@ Business Logic Layer for Pellier
 Contains custom business logic for pricing, trending, inventory, and
 category analysis.
 
-Aligned to the boutique catalog schema:
+Aligned to the Pellier catalog schema:
     productId, name, brand, color, price, description, category, tags,
     rating, reviews (TEXT), "imgUrl", badge, tier, image_verified,
     quantity, embedding, created_at, updated_at
 
 The ``quantity`` column is created by ``001_schema.sql`` and seeded by
-``seed_boutique_catalog.py``. Stock-level
+``seed_pellier_catalog.py``. Stock-level
 functions (floor_check, running_low, restock_shelf) now issue
 real SQL against this column.
 """
@@ -330,6 +330,7 @@ class BusinessLogic:
         product_id: int,
         reason: str,
         idempotency_key: str,
+        principal_sub: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Theo's idempotent return write, executed atomically in Aurora.
 
@@ -345,6 +346,29 @@ class BusinessLogic:
         not a static policy. Cedar gates *what* the agent can do; SQL
         gates *whose* state the agent is allowed to mutate. Two
         separate enforcement layers, two separate teaching surfaces.
+
+        Two rails, chosen by ``principal_sub``:
+
+        * **No principal** — the write runs on the ordinary connection, which
+          belongs to the table owner and therefore bypasses Row-Level
+          Security. This is the anonymous and simulated-persona path the
+          storefront uses today, and it is why an agent on this rail can
+          process *another* customer's return: the only gate is the
+          ``customer_id`` argument, and the caller supplies that.
+        * **Verified principal** — the write runs inside
+          ``principal_session``, as a non-owner role with the principal bound
+          transaction-locally, so RLS binds. The same request for another
+          customer's return is refused by the database.
+
+        Args:
+            customer_id: Customer whose return is being processed.
+            product_id: Product being returned.
+            reason: Must be one of the canonical reasons.
+            idempotency_key: Caller-supplied key; a repeat returns the first
+                result rather than writing twice.
+            principal_sub: Verified Cognito subject, or ``None`` for the
+                owner rail. Never a persona id — a UI selection must not
+                choose which rows are writable.
 
         Returns one of:
           {"status": "success",
@@ -372,22 +396,103 @@ class BusinessLogic:
             product_id=int(product_id),
             reason=str(reason),
         )
-        row = await self.db.fetch_one(
+        sql = (
             "SELECT pellier.process_return_idempotent(%s, %s, %s, %s, %s) "
-            "AS result",
+            "AS result"
+        )
+        params = (
             clean_key,
             request_hash,
             str(customer_id),
             str(product_id),
             str(reason),
         )
-        result = row.get("result") if row else None
-        if isinstance(result, str):
-            result = json.loads(result)
+
+        if principal_sub is None:
+            row = await self.db.fetch_one(sql, *params)
+            result = row.get("result") if row else None
+            if isinstance(result, str):
+                result = json.loads(result)
+        else:
+            result = await self._process_return_governed(
+                sql, params, customer_id=str(customer_id), principal_sub=principal_sub
+            )
+
         return convert_decimals(result or {
             "status": "error",
             "message": "Return operation produced no result.",
         })
+
+    async def _process_return_governed(
+        self,
+        sql: str,
+        params: tuple,
+        *,
+        customer_id: str,
+        principal_sub: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Run the return write with RLS bound, and report denials honestly.
+
+        The database stays the enforcer. This only translates one outcome that
+        would otherwise be a false statement.
+
+        ``process_return_idempotent`` establishes ownership by selecting the
+        matching row from ``pellier.orders``. Under RLS that select is scoped
+        to the principal, so a request for a customer outside that scope finds
+        nothing and the function reports "Customer X did not order product Y".
+        That message is wrong: the order may well exist. Reporting it would
+        state a falsehood about Aurora's contents and would disguise an
+        authorization boundary as a data fact — the conflation the denial
+        taxonomy exists to prevent.
+
+        So when the function reports not-ordered, we ask the database, inside
+        the same transaction, whether that customer is in scope at all. If it
+        is not, the outcome is an authorization denial and says so. If it is,
+        the original message was true and stands.
+        """
+        async with self.db.principal_session(principal_sub) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(sql, params)
+                row = await cur.fetchone()
+                result = row.get("result") if row else None
+                if isinstance(result, str):
+                    result = json.loads(result)
+
+                if not self._reports_not_ordered(result):
+                    return result
+
+                await cur.execute(
+                    "SELECT count(*) AS in_scope FROM"
+                    " pellier.current_principal_customers()"
+                    " WHERE customer_id = %s",
+                    (customer_id,),
+                )
+                scope_row = await cur.fetchone()
+                in_scope = bool(scope_row and scope_row.get("in_scope"))
+
+        if in_scope:
+            return result
+
+        return {
+            "status": "policy_blocked",
+            "message": (
+                f"This session is not authorized to act on {customer_id}'s "
+                "orders. The database refused the read the return depends on, "
+                "so nothing was changed."
+            ),
+            "denied_by": "database_row_level_security",
+        }
+
+    @staticmethod
+    def _reports_not_ordered(result: Optional[Dict[str, Any]]) -> bool:
+        """True when the write function concluded the customer never ordered.
+
+        Matches on the function's own phrasing rather than a status code
+        because ``status: error`` covers several unrelated outcomes.
+        """
+        if not isinstance(result, dict) or result.get("status") != "error":
+            return False
+        return "did not order" in str(result.get("message", ""))
 
     async def restock_shelf(
         self,
@@ -444,7 +549,7 @@ class BusinessLogic:
         min_similarity: float = 0.1,
         limit: int = 5,
     ) -> Dict[str, Any]:
-        """Filtered semantic search with pgvector against the boutique schema."""
+        """Filtered semantic search with pgvector against the Pellier catalog schema."""
         from services.embeddings import EmbeddingService
         import time
 

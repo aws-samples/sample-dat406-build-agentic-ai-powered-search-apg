@@ -5,8 +5,8 @@ search, category browsing, and side-by-side comparisons.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_search_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``search(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and the Observatory Graph pattern.
+2. ``search(query)`` — ``@tool`` wrapper used by the Observatory's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: the factory and tool keep generic names because the
@@ -91,7 +91,7 @@ def build_search_agent(
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Callers set those ContextVars before invoking.
     """
-    # Style Advisor — Claude Opus 5. Editorial voice + fit/fabric
+    # Style Advisor — Claude Opus 4.6. Editorial voice + fit/fabric
     # description. Bedrock rejects the deprecated temperature field for
     # this model, so we rely on the model default.
     tools = [

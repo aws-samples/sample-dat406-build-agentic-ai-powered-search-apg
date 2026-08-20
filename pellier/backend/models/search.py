@@ -322,6 +322,63 @@ class StorefrontProduct(BaseModel):
     )
 
 
+class WarehouseStock(BaseModel):
+    """One warehouse's on-hand count for a product.
+
+    Projected straight from ``pellier.warehouse_inventory`` joined to
+    ``pellier.warehouses`` — the same rows ``floor_check`` reports when
+    Stock Keeper is asked about a single product. Ship windows are the
+    warehouse's configured range in days, not a delivery promise.
+    """
+
+    warehouse_id: str
+    name: str
+    city: str
+    quantity: int
+    ship_window_min: Optional[int] = None
+    ship_window_max: Optional[int] = None
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+
+class ProductAvailability(BaseModel):
+    """Live Aurora inventory for one product.
+
+    ``on_hand`` is ``product_catalog.quantity`` — the catalog column
+    ``floor_check``'s overall mode aggregates. ``warehouses`` is the
+    per-location breakdown. Both are reported as read rather than
+    reconciled, so a divergence between them stays visible instead of
+    being silently resolved in the API layer.
+    """
+
+    on_hand: int
+    warehouses: List[WarehouseStock] = Field(default_factory=list)
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
+
+
+class StorefrontProductDetail(StorefrontProduct):
+    """Single-product shape: the card fields plus catalog copy and stock.
+
+    The listing endpoint keeps returning bare ``StorefrontProduct`` so the
+    grid payload stays unchanged; only ``GET /api/products/{id}`` pays for
+    the extra description column and inventory join.
+
+    ``availability`` is ``None`` when the inventory tables are unreachable.
+    A null is an explicit "not read", which the storefront renders as a
+    degraded state — it must never be displayed as zero stock.
+    """
+
+    description: Optional[str] = None
+    availability: Optional[ProductAvailability] = None
+
+
 class StorefrontSearchResponse(BaseModel):
     """Personalized search response wire shape (camelCase on the wire).
 

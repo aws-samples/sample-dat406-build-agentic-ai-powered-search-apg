@@ -39,4 +39,4 @@ skills/<skill-name>/SKILL.md
   `VOICE.md` and shared runtime behavior in the appropriate base prompt.
 
 After editing, restart the backend so the boot-time registry reloads, then
-run the skill/router tests and replay the relevant Boutique turn.
+run the skill/router tests and replay the relevant Pellier turn.

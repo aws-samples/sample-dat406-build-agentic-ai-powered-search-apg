@@ -2,7 +2,7 @@
 
 Validates Req 1.12.1 through 1.12.4 on the backend side: every
 user-facing string a FastAPI route surfaces to the storefront UI must
-live in ``pellier/backend/boutique_copy.py``. This test is the CI tripwire:
+live in ``pellier/backend/pellier_copy.py``. This test is the CI tripwire:
 it scans the ``routes/`` package for string literals in response bodies
 and raised-detail positions that look like customer-facing English
 sentences AND do not come from ``copy.py``.
@@ -15,7 +15,7 @@ response body or error envelope can surface to the storefront UI. It
 does NOT scan service modules, models, or agents - those layers either
 never surface text to the shopper directly (service-internal
 exceptions bubble up as machine codes) or have their own compliance
-test (``tests/test_copy_compliance.py`` for ``boutique_copy.py``).
+test (``tests/test_copy_compliance.py`` for ``pellier_copy.py``).
 
 Detection heuristic (mirrors the frontend scanner in
 ``frontend/src/__tests__/copy_hardcoded_strings.test.ts``):
@@ -35,7 +35,7 @@ Detection heuristic (mirrors the frontend scanner in
     comma, period, question mark, exclamation mark, or hyphen.
 
 Allowed strings. A flagged string is cleared when it is imported from
-the ``boutique_copy`` module (``from boutique_copy import ...``
+the ``pellier_copy`` module (``from pellier_copy import ...``
 pattern) in the same file. In practice the routes we ship today emit
 only machine codes like ``"auth_failed"`` and ``"invalid_state"`` - so
 the expected state is zero violations.
@@ -50,7 +50,7 @@ Self-verification. The scanner is exercised twice:
      and ..."`` hardcoded sentence inside a ``JSONResponse`` body: the
      test asserts the scanner surfaces it.
   2. On the real ``routes/*.py`` files: the test asserts zero
-     violations. Moving any such string into ``boutique_copy.py`` clears it.
+     violations. Moving any such string into ``pellier_copy.py`` clears it.
 
 Both assertions must pass for CI to go green.
 """
@@ -299,7 +299,7 @@ def scan_source(file_name: str, raw_source: str) -> List[str]:
 
         violations.append(
             f"{file_name}:{lineno + 1}:{col + 1}: hardcoded user-facing "
-            f"string {literal!r} (move to boutique_copy.py and import "
+            f"string {literal!r} (move to pellier_copy.py and import "
             f"it, or add "
             f"a '# {SUPPRESS_MARKER} <reason>' suppression on the same line)"
         )

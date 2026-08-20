@@ -11,6 +11,7 @@ import os
 from typing import List, Dict, Any, Optional
 import re
 
+from services import evidence_spans
 from services.intent_router import classify_intent
 from services.product_envelope import ProductExtractor
 
@@ -175,13 +176,13 @@ _TRIAGE_REPLIES = {
 }
 
 
-async def _append_boutique_stm_turn(
+async def _append_pellier_stm_turn(
     session_id: Optional[str],
     user_message: str,
     assistant_message: str,
     user: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Persist a Boutique dispatcher turn to AgentCore Memory (STM).
+    """Persist a Pellier dispatcher turn to AgentCore Memory (STM).
 
     Keeps ``GET /api/agent/session/{id}`` aligned with Marco pills on
     ``/api/chat/stream`` so the Builder's STM lab sees continuity without
@@ -415,16 +416,45 @@ def _extract_tool_result_text(raw: Any) -> str:
     return result_str
 
 
-def make_tool_audit_hooks(session_id: Optional[str] = None, turn_id: Optional[str] = None):
+def _tool_result_status(raw: Any) -> str:
+    """Classify a Strands tool result as ``success`` or ``error``.
+
+    Strands sets ``status`` on the tool result. Anything that is not
+    explicitly an error is reported as success, because this value only
+    labels the span for navigation: Aurora stays authoritative for what
+    actually changed (design spec Invariant 11). Deliberately conservative
+    about claiming failure, so a shape we do not recognise never invents one.
+    """
+    if isinstance(raw, dict):
+        status = raw.get("status")
+        if isinstance(status, str) and status.lower() == "error":
+            return "error"
+    return "success"
+
+
+def make_tool_audit_hooks(
+    session_id: Optional[str] = None,
+    turn_id: Optional[str] = None,
+    principal_sub: Optional[str] = None,
+):
     """Build the (before, after) tool-lifecycle hooks that write the
     two-phase ``pellier.tool_audit`` evidence row for the in-process rail.
 
     Shared by the streamed storefront turn and the non-streaming
-    orchestrator path (``POST /api/chat`` and the Agent Trace
-    ``/api/agent-trace/query`` panel) so no in-process rail can execute a
+    orchestrator path (``POST /api/chat`` and the Observatory
+    ``/api/observatory/query`` panel) so no in-process rail can execute a
     tool off-ledger. Raises ``ImportError``/``AttributeError`` when the
     Strands hook events are unavailable; callers keep their existing
     fallback behavior.
+
+    Args:
+        session_id: Session the audit rows belong to.
+        turn_id: Correlation key written into ``args->>'turn_id'`` and onto
+            the tool span, so a CloudWatch span query and a SQL audit query
+            resolve the same turn.
+        principal_sub: Verified Cognito ``sub``, or ``None`` when anonymous.
+            Recorded on the span only. Never the persona: a span naming a UI
+            selection as the acting principal would misattribute execution.
     """
     import time
 
@@ -450,6 +480,17 @@ def make_tool_audit_hooks(session_id: Optional[str] = None, turn_id: Optional[st
         if not (tool_use_id and tool_name):
             return
         tool_t0[tool_use_id] = time.perf_counter()
+        # Evidence spine, tool boundary. Strands' [otel] integration already
+        # opened a span for this tool call, so annotate it rather than adding
+        # a second one (design spec 8.4). This is what lets a CloudWatch span
+        # query on pellier.turn_id join to the tool_audit row written below on
+        # args->>'turn_id'.
+        evidence_spans.annotate_current_span(
+            turn_id=turn_id,
+            principal_sub=principal_sub,
+            caller="agent",
+            tool=tool_name,
+        )
         try:
             # turn_id rides in the args JSONB: pellier.tool_audit has no
             # turn column, and adding one would fork the schema the
@@ -490,6 +531,13 @@ def make_tool_audit_hooks(session_id: Optional[str] = None, turn_id: Optional[st
                 audited_result = json.loads(result_str)
             except Exception:
                 audited_result = result_str
+        # Record the outcome on the tool span before the audit UPDATE. Aurora
+        # remains authoritative for what actually changed (Invariant 11); this
+        # only lets an operator locate the turn and see how it ended.
+        evidence_spans.annotate_current_span(
+            turn_id=turn_id,
+            execution_outcome=_tool_result_status(getattr(event, "result", None)),
+        )
         try:
             tool_audit_writer.record_after(
                 tool_use_id=tool_use_id,
@@ -655,11 +703,17 @@ class EnhancedChatService:
                     "Check the backend logs (/tmp/pellier/uvicorn.log)."
                 )
 
-            # Add OpenTelemetry trace attributes
+            # Add OpenTelemetry trace attributes.
+            #
+            # The shopper's message is deliberately NOT here. It used to ride
+            # out as `user.query`, which put customer text into broadly
+            # readable telemetry — verified leaking into the aws/spans log
+            # group. A turn is locatable from session.id and pellier.turn_id;
+            # the question itself belongs in the session record, not on a
+            # span. Nothing read this attribute.
             orchestrator.trace_attributes = {
                 "session.id": session_id or "anonymous",
                 "session.user": user.get("sub", "anonymous") if user else "anonymous",
-                "user.query": message[:100],
                 "workshop": "pellier",
                 "service": "pellier"
             }
@@ -672,7 +726,7 @@ class EnhancedChatService:
                 _safe_register_hooks(session_manager, orchestrator)
 
             # Two-phase Aurora tool_audit hooks. This path is reachable via
-            # POST /api/chat and the Agent Trace /api/agent-trace/query
+            # POST /api/chat and the Observatory /api/observatory/query
             # panel — neither may execute a tool off-ledger. Same shared
             # factory as the streamed storefront turn, so the "every
             # executed tool call is audited" claim holds on every rail.
@@ -1167,7 +1221,7 @@ CURRENT REQUEST: {message}"""
         Async generator yielding SSE events with real-time agent streaming.
 
         ``turn_id`` is minted by the route before the stream opens and is
-        recorded on every ``tool_audit`` row this turn writes, so Agent Trace
+        recorded on every ``tool_audit`` row this turn writes, so Observatory
         can resolve a receipt deep link back to the exact tool calls that
         ran. It is threaded through rather than regenerated here because
         the id must be identical in the SSE envelope and the audit rows.
@@ -1214,8 +1268,33 @@ CURRENT REQUEST: {message}"""
             if cid and isinstance(cid, str) and cid != "anonymous":
                 customer_id = cid
 
-        # Per-turn runtime timing (seeds Agent Trace Runtime page live strip)
-        # and DB query log (seeds Agent Trace State Management live strip).
+        # Resolve the turn's three identities once, here, for the whole
+        # stream. This used to happen inside the AgentCore Memory branch,
+        # which meant an anonymous turn — or any turn on a box without
+        # AGENTCORE_MEMORY_ID — had no resolved identity at all, and the
+        # evidence spans below could not name a principal without risking a
+        # NameError. `resolve_turn_identity` is a pure function over
+        # arguments already in scope, so hoisting it costs nothing and gives
+        # one identity per turn instead of one per code path.
+        from services.turn_identity import (
+            principal_sub_var,
+            resolve_turn_identity,
+            turn_id_var,
+        )
+
+        turn_identity = resolve_turn_identity(
+            user=user, requested_customer_id=customer_id
+        )
+        turn_id_var.set(turn_id)
+        # Publish the verified principal for the deterministic tools, which
+        # run in this context via asyncio.to_thread. Set unconditionally,
+        # including to None: an anonymous turn must not inherit whatever the
+        # previous turn resolved, and "no principal" is a decision the
+        # governed write path acts on rather than a missing value.
+        principal_sub_var.set(turn_identity.principal_sub)
+
+        # Per-turn runtime timing (seeds Observatory Runtime page live strip)
+        # and DB query log (seeds Observatory State Management live strip).
         # Markers are recorded inline via time.perf_counter(); the db log
         # is propagated through a ContextVar so tool invocations hit the
         # same buffer even when they run via asyncio.to_thread.
@@ -1402,7 +1481,6 @@ CURRENT REQUEST: {message}"""
             if user and settings.AGENTCORE_MEMORY_ID:
                 try:
                     from services.agentcore_memory import create_agentcore_session_manager
-                    from services.turn_identity import resolve_turn_identity
 
                     # Memory namespaces durable records by actor, so the
                     # actor must be the *verified* identity when one
@@ -1410,9 +1488,8 @@ CURRENT REQUEST: {message}"""
                     # dropdown read another attendee's durable records —
                     # the persona is simulation context, not an identity
                     # claim. It is used only when no token was presented.
-                    turn_identity = resolve_turn_identity(
-                        user=user, requested_customer_id=customer_id
-                    )
+                    # `turn_identity` is resolved once at the top of the
+                    # stream so this branch and the evidence spans agree.
                     memory_user_id = turn_identity.memory_actor()
                     session_manager = create_agentcore_session_manager(
                         session_id=session_id,
@@ -1489,10 +1566,12 @@ CURRENT REQUEST: {message}"""
         # Trace attributes are applied once ``orchestrator`` is bound.
         # For ``agents_as_tools`` that's here; for ``dispatcher`` that's
         # after the specialist factory call below.
+        # The shopper's message is deliberately absent — see the matching
+        # note on the non-streaming path. `session.user` stays: an identity
+        # is correlation, not payload.
         trace_attributes = {
             "session.id": session_id or "anonymous",
             "session.user": user.get("sub", "anonymous") if user else "anonymous",
-            "user.query": message[:100],
             "workshop": "pellier",
             "service": "pellier",
             "pattern": pattern,
@@ -1626,7 +1705,7 @@ CURRENT REQUEST: {message}"""
         # Its output has two consumers:
         #   1. Pattern III (Dispatcher) uses ``intent_hint`` to pick
         #      which specialist factory to build.
-        #   2. Telemetry (``📨 chat_stream`` log, Agent Trace panels) uses
+        #   2. Telemetry (``📨 chat_stream`` log, Observatory panels) uses
         #      the classification for the routing annotation.
         #
         # The previous ``[ROUTING DIRECTIVE: call the X tool]`` prefix
@@ -1638,7 +1717,22 @@ CURRENT REQUEST: {message}"""
         # Pattern III skips the router LLM entirely and dispatches by the
         # classifier directly.
         intent_t0 = time.perf_counter()
-        intent = classify_intent(message)
+        # Evidence spine, routing boundary. Unlike the tool boundary there is
+        # no framework-emitted span here: intent classification is Pellier's
+        # own logic, so this is one of the three spans we author (spec 8.3).
+        #
+        # `principal_sub` is the verified identity or absent — never the
+        # persona. A span that named the persona as principal would teach the
+        # exact inversion `turn_identity` exists to prevent, so the persona
+        # travels as `persona_is_simulated` instead: it says "this turn's
+        # scope came from a UI selection, not a token".
+        with evidence_spans.routing_span(
+            turn_id=turn_id,
+            principal_sub=turn_identity.principal_sub,
+            authenticated=turn_identity.authenticated,
+            persona_is_simulated=turn_identity.persona_is_simulated,
+        ):
+            intent = classify_intent(message)
         intent_hint = {
             "pricing": "pricing",
             "inventory": "inventory",
@@ -1652,14 +1746,14 @@ CURRENT REQUEST: {message}"""
         yield build_intent_signal(intent, response_mode)
 
         # --- Skill router ---------------------------------------------------
-        # One LLM call to Sonnet 5 decides which skills to inject into the
+        # One LLM call to Sonnet 4.6 decides which skills to inject into the
         # reasoning specialists' system prompts for this turn. Runs after
         # intent classification so the triage fast-path (greetings, meta,
         # thanks) short-circuits before reaching here.
         #
         # The ``skill_routing`` SSE event must fire BEFORE any text tokens
-        # so the boutique UI can render the attribution line above the
-        # reply. Storefront reads ``loaded_skills``; Agent Trace renders the
+        # so the Pellier UI can render the attribution line above the
+        # reply. Storefront reads ``loaded_skills``; Observatory renders the
         # full decision in its live activation log.
         skill_decision = None
         skill_t0 = time.perf_counter()
@@ -1683,7 +1777,7 @@ CURRENT REQUEST: {message}"""
         timing["skill_router"] = (time.perf_counter() - skill_t0) * 1000
 
         # Emit the routing event immediately — before any text — so the
-        # boutique attribution line is mounted above the streamed reply.
+        # Pellier attribution line is mounted above the streamed reply.
         if skill_decision is not None:
             yield {
                 "type": "skill_routing",
@@ -1720,7 +1814,9 @@ CURRENT REQUEST: {message}"""
                 # streamed and non-streaming paths cannot drift: same
                 # record_allow / record_after semantics, same JSONB keys.
                 audit_before, audit_after = make_tool_audit_hooks(
-                    session_id=session_id, turn_id=turn_id
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    principal_sub=turn_identity.principal_sub,
                 )
 
                 def on_before_tool(event: BeforeToolCallEvent):
@@ -2025,7 +2121,7 @@ CURRENT REQUEST: {message}"""
                 # Emit a `complete` event so the frontend populates
                 # `finalResponse.response` and `agent_execution` instead
                 # of falling back to the hardcoded default. `agent_execution`
-                # mirrors the shape live agents produce so the Agent Trace
+                # mirrors the shape live agents produce so the Observatory
                 # Sessions Brief tab and the inline pill in the chat
                 # surface the fall-through honestly (no agent, no model).
                 yield {
@@ -2512,7 +2608,7 @@ CURRENT REQUEST: {message}"""
 
         # Record this turn's latency breakdown into the process-local
         # perf log so /api/performance/runtime can serve live p50/p95
-        # aggregates to the Agent Trace Performance tab. Any failure is
+        # aggregates to the Observatory Performance tab. Any failure is
         # swallowed — measurement must never break a turn.
         try:
             from services.performance_log import record_turn
@@ -2528,7 +2624,7 @@ CURRENT REQUEST: {message}"""
             logger.debug("performance_log.record_turn failed: %s", _exc)
 
         # Emit timing + db query events BEFORE the complete event so the
-        # Agent Trace runtime and state-management pages pick them up via
+        # Observatory runtime and state-management pages pick them up via
         # their useAgentChat localStorage bridge.
         yield {
             "type": "runtime_timing",
@@ -2584,7 +2680,7 @@ CURRENT REQUEST: {message}"""
 
         # AgentCore STM — mirror this turn for session continuity labs.
         if session_id and parsed.get("text"):
-            await _append_boutique_stm_turn(
+            await _append_pellier_stm_turn(
                 session_id, message, parsed["text"], user=user
             )
 

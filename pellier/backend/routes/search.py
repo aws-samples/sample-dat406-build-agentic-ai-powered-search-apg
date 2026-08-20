@@ -130,7 +130,7 @@ _STOREFRONT_CATEGORIES = {
 def _vector_row_to_storefront_product(row: dict) -> StorefrontProduct:
     """Project a ``vector_search`` row onto the storefront wire shape.
 
-    The boutique catalog exposes ``name``, ``brand``, ``color``,
+    The Pellier catalog exposes ``name``, ``brand``, ``color``,
     ``category``, ``tags`` and ``badge`` directly, so the projection is
     largely a 1:1 copy. We retain fallbacks for legacy fixture rows
     (``product_description``, ``category_name``) so the search endpoint

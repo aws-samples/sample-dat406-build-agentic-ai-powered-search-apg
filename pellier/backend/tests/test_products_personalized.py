@@ -181,6 +181,11 @@ def _showcase_rows() -> List[Dict[str, Any]]:
                 "image_url": f"https://example.com/{row['id']}.jpg",
                 "badge": None,
                 "tier": 1,
+                # Detail-route columns. ``description`` is the catalog's
+                # editorial copy; ``quantity`` is the on-hand count the
+                # product page reports as live Aurora stock.
+                "description": f"Editorial description for {row['name']}.",
+                "quantity": 40 + idx,
                 # A recent timestamp keeps ``/api/inventory`` reporting
                 # ``stale: false`` without the test having to freeze time.
                 "updated_at": datetime.now(timezone.utc),
@@ -206,10 +211,22 @@ class FakeDatabaseService:
     def __init__(self, rows: List[Dict[str, Any]]) -> None:
         self._rows = list(rows)
         self.calls: List[Dict[str, Any]] = []
+        # Per-product warehouse rows, keyed by the TEXT catalog id. Empty
+        # means "table present, product not stocked anywhere".
+        self.warehouse_rows: Dict[str, List[Dict[str, Any]]] = {}
+        # When set, the warehouse join raises it — the shape of a cluster
+        # seeded before the warehouse migration, or a revoked grant.
+        self.warehouse_error: Optional[Exception] = None
 
     async def fetch_all(self, query: str, *params: Any) -> List[Dict[str, Any]]:
         self.calls.append({"kind": "all", "query": query, "params": params})
         q = " ".join(query.split())
+
+        # --- Per-warehouse inventory join ---------------------------
+        if "warehouse_inventory" in q:
+            if self.warehouse_error is not None:
+                raise self.warehouse_error
+            return [dict(r) for r in self.warehouse_rows.get(str(params[0]), [])]
 
         # --- Inventory GROUP BY -------------------------------------
         # The route SELECTs ``category`` and ``MAX(updated_at)``.
@@ -249,8 +266,19 @@ class FakeDatabaseService:
         if not params:
             return None
         product_id = params[0]
+        # ``product_catalog."productId"`` is a TEXT column. Postgres rejects
+        # an int bind outright — ``operator does not exist: text = smallint``
+        # — so this stub refuses one too. An earlier revision compared
+        # ``row["id"] == params[0]`` against int fixture ids, which made the
+        # fake more permissive than Aurora and let a 500 on every real
+        # product-detail request pass the suite.
+        if not isinstance(product_id, str):
+            raise TypeError(
+                'product_catalog."productId" is text, got '
+                f"{type(product_id).__name__} — bind str(product_id)"
+            )
         for row in self._rows:
-            if row["id"] == product_id:
+            if str(row["id"]) == product_id:
                 return dict(row)
         return None
 
@@ -640,6 +668,105 @@ def test_get_product_by_id_returns_404_for_unknown(client: TestClient) -> None:
     assert resp.json() == {"detail": "product_not_found"}
 
 
+def test_get_product_by_id_binds_catalog_key_as_text(
+    client: TestClient, fake_db: FakeDatabaseService
+) -> None:
+    """Regression: the catalog key SHALL be bound as text, not int.
+
+    ``product_catalog."productId"`` is a ``text`` column. Binding an int
+    made Aurora reject the comparison (``operator does not exist:
+    text = smallint``), so ``GET /api/products/{id}`` returned 500 for
+    every product while the mocked suite stayed green.
+    """
+    assert client.get("/api/products/5").status_code == 200
+
+    lookups = [c for c in fake_db.calls if c["kind"] == "one"]
+    assert lookups, "expected a single-row catalog lookup"
+    assert lookups[-1]["params"] == ("5",)
+
+
+def test_get_product_by_id_returns_description_and_live_stock(
+    client: TestClient, fake_db: FakeDatabaseService
+) -> None:
+    """The detail route SHALL carry catalog copy plus per-warehouse stock."""
+    fake_db.warehouse_rows["5"] = [
+        {
+            "warehouse_id": "BK-01",
+            "name": "Brooklyn",
+            "city": "Brooklyn, NY",
+            "ship_window_min": 1,
+            "ship_window_max": 2,
+            "quantity": 12,
+        },
+        {
+            "warehouse_id": "ATX-02",
+            "name": "Austin",
+            "city": "Austin, TX",
+            "ship_window_min": 2,
+            "ship_window_max": 4,
+            "quantity": 6,
+        },
+    ]
+
+    body = client.get("/api/products/5").json()
+
+    assert body["description"] == "Editorial description for Sundress in Washed Linen."
+    # ``quantity`` is 40 + index; product 5 is the fifth fixture row.
+    assert body["availability"]["onHand"] == 44
+    warehouses = body["availability"]["warehouses"]
+    assert [w["warehouseId"] for w in warehouses] == ["BK-01", "ATX-02"]
+    assert warehouses[0] == {
+        "warehouseId": "BK-01",
+        "name": "Brooklyn",
+        "city": "Brooklyn, NY",
+        "quantity": 12,
+        "shipWindowMin": 1,
+        "shipWindowMax": 2,
+    }
+    # The listing fields survive on the superset shape.
+    assert body["id"] == 5
+    assert "reviewCount" in body and "imageUrl" in body
+
+
+def test_get_product_by_id_degrades_when_warehouse_join_fails(
+    client: TestClient, fake_db: FakeDatabaseService
+) -> None:
+    """A missing warehouse table SHALL NOT 500 the product page.
+
+    Clusters seeded before the warehouse migration have
+    ``product_catalog.quantity`` but no ``pellier.warehouse_inventory``.
+    The catalog on-hand count is still reported; the breakdown is empty.
+    """
+    fake_db.warehouse_error = RuntimeError(
+        'relation "pellier.warehouse_inventory" does not exist'
+    )
+
+    resp = client.get("/api/products/5")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["availability"]["onHand"] == 44
+    assert body["availability"]["warehouses"] == []
+
+
+def test_get_product_by_id_reports_null_availability_without_quantity(
+    client: TestClient, fake_db: FakeDatabaseService
+) -> None:
+    """A null catalog quantity SHALL surface as null, never as zero stock.
+
+    ``availability: null`` means "not read". Coercing it to ``0`` would
+    render as out-of-stock on the product page, which is a fabricated
+    claim about the authoritative system.
+    """
+    for row in fake_db._rows:  # noqa: SLF001 - fixture surgery, not API use
+        if row["id"] == 5:
+            row["quantity"] = None
+
+    body = client.get("/api/products/5").json()
+
+    assert body["availability"] is None
+
+
 # ---------------------------------------------------------------------------
 # GET /api/inventory (Req 3.5.1–3.5.2)
 # ---------------------------------------------------------------------------
@@ -690,7 +817,7 @@ def test_inventory_stale_field_present(client: TestClient) -> None:
 # Schema/data drift — converter boundary
 # ---------------------------------------------------------------------------
 #
-# The boutique catalog seed still uses the curator-import taxonomy
+# The Pellier catalog seed still uses the curator-import taxonomy
 # ("Apparel", "Home Decor", "Beauty", "Gifts"; see
 # ``services/structured_extract.KNOWN_CATEGORIES``) while the wire shape
 # uses the editorial Literal in ``models/search.StorefrontCategory``. The

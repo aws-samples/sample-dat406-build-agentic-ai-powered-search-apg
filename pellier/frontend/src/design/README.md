@@ -1,6 +1,6 @@
 # Pellier Design System
 
-The visual foundation for the Pellier frontend redesign. Every component in the rebuilt storefront (Boutique) and observatory (Agent Trace) surfaces draws from this module. Colors, typography, spacing, shadows, radii, animation timing, breakpoints, and fluid layout values are defined once in `tokens.ts` and consumed by the 11 reusable primitives in `primitives/`.
+The visual foundation for the Pellier frontend redesign. Every component in the rebuilt storefront (Pellier) and observatory (Observatory) surfaces draws from this module. Colors, typography, spacing, shadows, radii, animation timing, breakpoints, and fluid layout values are defined once in `tokens.ts` and consumed by the 11 reusable primitives in `primitives/`.
 
 ---
 
@@ -10,7 +10,7 @@ All color tokens are exported from `tokens.ts` and extended into the Tailwind co
 
 | Token          | Hex       | Usage                                         |
 | -------------- | --------- | --------------------------------------------- |
-| `cream`        | `#F7F3EE` | Primary background (Boutique), light surfaces |
+| `cream`        | `#F7F3EE` | Primary background (Pellier), light surfaces |
 | `sand`         | `#E8DFD4` | Secondary background, muted fills             |
 | `espresso`     | `#3B2F2F` | Dark text, primary actions                    |
 | `olive`        | `#6B705C` | Accent green, tags, secondary indicators      |
@@ -20,8 +20,8 @@ All color tokens are exported from `tokens.ts` and extended into the Tailwind co
 | `inkQuiet`     | `#A68668` | Tertiary text, metadata (preserved)           |
 | `dusk`         | `#3D2518` | Dark surfaces, hover states (preserved)       |
 | `creamWarm`    | `#F5E8D3` | Secondary background, hover fills (preserved) |
-| `espressoDark` | `#1F1410` | Agent Trace sidebar background                    |
-| `espressoMid`  | `#2A1E18` | Agent Trace dark surface mid-tone                 |
+| `espressoDark` | `#1F1410` | Observatory sidebar background                    |
+| `espressoMid`  | `#2A1E18` | Observatory dark surface mid-tone                 |
 
 > **Naming note:** The Tailwind class is `cream-50` (not `cream-new`). This avoids collision with the existing `cream` token (`#fbf4e8`) which remains for backward compatibility until all phases are complete.
 
@@ -114,7 +114,7 @@ Two breakpoints define three layout bands. Content is fluid within each band.
 | ---------------- | ------ | ------------------------------------------------------------ | ------------------------------------------------------------------- |
 | `mobile`         | 768px  | Mobile (< 768px): single column, bottom nav, stacked layouts | Desktop (768px+): multi-column, persistent sidebar                  |
 | `wide`           | 1440px | Desktop (768px - 1440px): 2-3 grid columns, fluid scaling    | Wide (> 1440px): content centers at max-width, extra breathing room |
-| `expansionStack` | 1280px | Agent Trace expansion area stacks from 3-col to 2+1 layout       | Full 3-column expansion area                                        |
+| `expansionStack` | 1280px | Observatory expansion area stacks from 3-col to 2+1 layout       | Full 3-column expansion area                                        |
 
 ### Three-Band Layout
 
@@ -221,8 +221,8 @@ Circular ghost button for icon-only actions (header, toolbars).
 
 Navigation sidebar with dark and light variants.
 
-- **Dark variant:** Espresso `#1F1410` background, cream text (Agent Trace)
-- **Light variant:** Cream background, ink text (Boutique)
+- **Dark variant:** Espresso `#1F1410` background, cream text (Observatory)
+- **Light variant:** Cream background, ink text (Pellier)
 - **Key props:** `variant`, `items` (array of `SidebarItem`), `activeItem`, `onItemClick`
 - `SidebarItem`: `{ id, label, icon?, badge? }`
 
@@ -239,6 +239,6 @@ Vertical numbered step sequence with connecting lines.
 
 ## Notes
 
-- The `expansionStack` token (1280px) defines where the Agent Trace three-column expansion area transitions from 3 equal columns to a 2+1 stacked layout. This is separate from the `mobile` breakpoint.
+- The `expansionStack` token (1280px) defines where the Observatory three-column expansion area transitions from 3 equal columns to a 2+1 stacked layout. This is separate from the `mobile` breakpoint.
 - `cream-50` (`#F7F3EE`) was chosen over `cream-new` to follow Tailwind's numeric shade convention and avoid confusion with the existing `cream` token (`#fbf4e8`).
 - The body text narrow `clamp()` range (14px to 16px) is intentional — reading distance doesn't change meaningfully between laptop sizes, so body text stays near-constant while display type does the scaling work.

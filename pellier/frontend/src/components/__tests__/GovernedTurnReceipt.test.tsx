@@ -162,7 +162,7 @@ describe('GovernedTurnReceipt', () => {
     renderReceipt({ turnId: 'turn-abc' })
 
     const link = screen.getByTestId('governed-receipt-link')
-    expect(link.getAttribute('href')).toContain('/pellier-labs/proof-board')
+    expect(link.getAttribute('href')).toContain('/observatory/proof-board')
     expect(link.getAttribute('href')).toContain('turn=turn-abc')
   })
 
@@ -170,7 +170,7 @@ describe('GovernedTurnReceipt', () => {
     renderReceipt()
 
     const link = screen.getByTestId('governed-receipt-link')
-    expect(link.getAttribute('href')).toBe('/pellier-labs/sessions/sess-1/telemetry')
+    expect(link.getAttribute('href')).toBe('/observatory/sessions/sess-1/telemetry')
     expect(link.getAttribute('href')).not.toContain('turn=')
   })
 
@@ -183,7 +183,7 @@ describe('GovernedTurnReceipt', () => {
 
     expect(
       screen.getByTestId('governed-receipt-link').getAttribute('href'),
-    ).toBe('/pellier-labs/audit-proof')
+    ).toBe('/observatory/audit-proof')
   })
 
   it('offers one plain-language way into the full evidence', () => {

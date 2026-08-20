@@ -18,8 +18,19 @@ build/
 .env
 .env.local
 .env.*.local
+# Any derivative of .env, including timestamped rotation backups. `.env`
+# alone does not match `.env.bak.20260818-154821`, so a backup holding live
+# database credentials was untracked but perfectly committable.
+.env.*
+*.env.bak*
 lab2/backend/.env
 lab2/frontend/.env
+
+# Generated per-box MCP client config. Written by
+# pellier/backend/generate_mcp_config.py from .env, and it carries the account
+# id, cluster ARN, and Secrets Manager ARN for whichever account bootstrapped
+# the box. Environment-specific and never worth committing.
+pellier/config/mcp-server-config.json
 
 # Claude Code worktrees, debug logs, scheduled tasks, and local settings are
 # machine-local. Project skills are reviewed source and ship with the workshop.

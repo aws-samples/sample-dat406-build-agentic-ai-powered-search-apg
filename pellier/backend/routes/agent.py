@@ -66,7 +66,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from boutique_copy import MEMORY_WRITE_WARNING
+from pellier_copy import MEMORY_WRITE_WARNING
 from services.agentcore_identity import (
     AgentCoreIdentityService,
     UserContext,

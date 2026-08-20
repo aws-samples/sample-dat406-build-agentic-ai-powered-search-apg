@@ -1,5 +1,5 @@
 /**
- * Shared atoms used by BOTH the Boutique storefront and the Agent Trace
+ * Shared atoms used by BOTH the Pellier storefront and the Observatory
  * observatory. Importing from `../../shared` (or `../shared`) keeps
  * the two surfaces visually and semantically aligned.
  */
@@ -42,7 +42,7 @@ export type {
 
 export {
   TURN_QUERY_KEY,
-  boutiqueRoute,
+  pellierRoute,
   inspectorHref,
   inspectorRoute,
   receiptHref,

@@ -1,7 +1,7 @@
 """episodic_memory — Aurora-backed episodic recall for memory panels.
 
 Teaching frame: AgentCore Memory owns session history in production.
-The Agent Trace demo needs deterministic, pre-seeded episodes so a
+The Observatory demo needs deterministic, pre-seeded episodes so a
 workshop attendee picking "Marco" sees continuity from a real database
 read. The table it reads from is ``pellier.customer_episodic_seed``,
 seeded by migration 003, and later code can blend in orders / returns.
@@ -11,7 +11,7 @@ Two callers:
 - ``routes/workshop.py`` — invokes ``emit_memory_episodic_panel`` when
   the turn's customer_id is not anonymous so the right-rail telemetry
   tab shows a real MEMORY · EPISODIC card on the resume turn.
-- ``routes/agent-trace_observatory.py`` — the Memory page uses direct Aurora
+- ``routes/observatory_observatory.py`` — the Memory page uses direct Aurora
   reads for episodic state and keeps AgentCore for working / semantic memory.
 
 Failure semantics: on any DB or schema error we emit a skipped panel
@@ -158,7 +158,7 @@ async def emit_memory_episodic_panel(
 # Procedural memory is checked-in runtime skills plus MCP tool schemas. It is
 # inspectable source, not a per-persona read on the resume turn.
 #
-# Working + Semantic read the same path the standalone Agent Trace panels read
+# Working + Semantic read the same path the standalone Observatory panels read
 # (services.agentcore_memory) so the resume turn and GET /memory/{persona}
 # agree. Both degrade honestly to an empty panel (never a fabricated row)
 # when the session has no turns / the extraction strategy is unsettled.
@@ -166,7 +166,7 @@ async def emit_memory_episodic_panel(
 
 
 # Resolve a persona's most-recent storefront session — the exact query the
-# standalone Working panel (agent_trace._load_live_working) uses, so
+# standalone Working panel (observatory._load_live_working) uses, so
 # the resume turn surfaces the same "what we were just talking about" thread.
 _SELECT_LATEST_PERSONA_SESSION_SQL = (
     "SELECT session_id "
@@ -191,7 +191,7 @@ async def emit_memory_working_panel(
 
     - With a ``persona`` (the resume "welcome back" turn), we resolve that
       persona's latest *storefront* session from ``pellier.tool_audit`` and
-      read it back — the same path the standalone Agent Trace Working panel
+      read it back — the same path the standalone Observatory Working panel
       takes, so "what we were just talking about" matches the dashboard.
     - Without one, we fall back to this turn's own ``session_id``.
 

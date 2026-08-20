@@ -1,14 +1,14 @@
 """
 Managed AgentCore Policy — read surface for the Gateway-enforced Cedar engine.
 
-The boutique's policy gate is a **managed AgentCore Policy Engine** attached to
+Pellier's policy gate is a **managed AgentCore Policy Engine** attached to
 the AgentCore Gateway in ENFORCE mode by the declarative AgentCore CLI project.
 The Gateway intercepts every tool call and evaluates it against Cedar BEFORE
 the Lambda runs — argument-aware, default-deny, forbid-wins. This replaced the
 old local ``BeforeToolCall`` hook + hand-rolled fake-Cedar engine (both removed).
 
 This module is the **read side** of that managed gate. It does NOT enforce
-anything (the Gateway does) — it just lets the Agent Trace Policy surface show, live,
+anything (the Gateway does) — it just lets the Observatory Policy surface show, live,
 which Cedar policies are attached to the engine and what evidence the managed
 rail produced.
 
@@ -28,7 +28,7 @@ Two reads:
 
 Both reads are best-effort: a missing engine id, missing boto3, or an
 unreachable control-plane returns an empty list with a ``source`` marker rather
-than raising, so the Agent Trace surface degrades to "(no policies)" instead of a
+than raising, so the Observatory surface degrades to "(no policies)" instead of a
 500.
 """
 from __future__ import annotations
@@ -63,7 +63,7 @@ def _region() -> str:
 def list_managed_policies() -> Dict[str, Any]:
     """Return the Cedar policies attached to the managed policy engine.
 
-    Shape (compatible with the Agent Trace Policy surface):
+    Shape (compatible with the Observatory Policy surface):
         {
             "source": "managed-engine" | "no-engine-id" | "error",
             "policy_engine_id": "<id or ''>",

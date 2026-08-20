@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync Agent Trace `skills.json` fixture from `/skills/*/SKILL.md`.
+"""Sync Observatory `skills.json` fixture from `/skills/*/SKILL.md`.
 
 This keeps frontend fixture copy aligned with the runtime skill registry.
 """
@@ -17,7 +17,7 @@ FIXTURE_PATH = (
     / "pellier"
     / "frontend"
     / "src"
-    / "agent-trace"
+    / "observatory"
     / "fixtures"
     / "skills.json"
 )

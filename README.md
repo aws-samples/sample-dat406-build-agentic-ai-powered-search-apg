@@ -60,13 +60,13 @@ cite sources, and hand off to a human stylist when they should.
 The application has two surfaces:
 
 - **Pellier** (`/`) – the customer-facing storefront. Editorial photography, AI search, persona-aware recommendations, and a conversational drawer.
-- **Pellier Labs** (`/pellier-labs`) – the live inspection surface. It runs the same Dispatcher path and exposes emitted routing, tool, Aurora, memory, and safety evidence from the current turn.
+- **Pellier Observatory** (`/observatory`) – the live inspection surface. It runs the same Dispatcher path and exposes emitted routing, tool, Aurora, memory, and safety evidence from the current turn.
 
 The two surfaces share design tokens, presence pill, trace chips, and a typed agent vocabulary, so an attendee crossing between them sees the same atoms in both places.
 
 The storefront also includes a dismissible, once-per-session four-step
 orientation covering browse, profile, concierge, and evidence inspection. It
-never mounts over Pellier Labs, where the proof surface itself provides the
+never mounts over Pellier Observatory, where the proof surface itself provides the
 workshop orientation.
 
 ### What it demonstrates
@@ -76,7 +76,7 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | Claim | Where it lives |
 |---|---|
 | **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
-| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists × 15 `@tool` functions · deterministic dispatcher routes intent to one specialist · each specialist receives an explicit tool allowlist |
+| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists · 16 `@tool` functions in process, 15 of them published as the Gateway catalog · deterministic dispatcher routes intent to one specialist · each specialist receives an explicit tool allowlist |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
 | **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` lists the Gateway catalog via `MCPClient.list_tools_sync()`, then selects the routed specialist's explicit allowlist · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable |
 | **Memory and personalization** | AgentCore Memory stores session events and durable preferences extracted by a `USER_PREFERENCE` strategy · Aurora customer events provide episodic history · runtime skills and MCP schemas provide procedural know-how · `tool_audit` remains operational evidence, not memory |
@@ -94,7 +94,9 @@ as one policy engine:
 | Tool contract | AgentCore Gateway exposes 15 target-qualified MCP tools | Which callable capability and input schema the agent received |
 | Authorization | AgentCore Policy evaluates Cedar before Gateway target execution | Whether a tool call was allowed or denied |
 | Data authorization | Aurora SQL functions validate ownership and write invariants | Which records the permitted tool could actually read or mutate |
-| Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
+| Row-level authorization | PostgreSQL RLS policies on `orders` and `returns`, enforced against the `pellier_agent` and `pellier_query` roles (neither holds `BYPASSRLS`) and scoped by the `pellier.principal_sub` GUC through `pellier.principal_customers` | That a permitted tool holding a valid token still cannot read another shopper's rows, enforced by the database rather than by application code |
+| Generated-SQL authorization | `services/governed_query.py` wraps model-generated SQL as a subquery, inspects the plan with `EXPLAIN (FORMAT JSON, VERBOSE)`, and executes read-only under a statement timeout, fixed `search_path`, schema allowlist, and row cap | That structure and privilege, not prompt wording, decide what a natural-language question may reach |
+| Application evidence | `pellier.governed_receipts`, `pellier.tool_audit`, `pellier.governed_turn_receipts`, `pellier.governed_query_receipts`, `pellier.retrieval_receipts`, and the inventory ledger | Which decision was made, which tool ran, and what reached Aurora |
 | Commerce execution | Aurora quotes, confirmation grants, reservations, payment events, outbox rows, and immutable commerce receipts | Which authenticated shopper confirmed which total, what inventory moved, and which payment state completed |
 
 Pellier is not merely conversational commerce. It is proof-carrying commerce:
@@ -147,7 +149,7 @@ invocation. A post-invocation Memory write failure is surfaced as partial
 evidence without recasting an action that may already have executed as failed.
 The governed path never substitutes a process-local store for managed proof.
 
-Pellier Labs provides the operator reconstruction layer: one correlated policy,
+Pellier Observatory provides the operator reconstruction layer: one correlated policy,
 execution, trace, and Aurora data story for a selected turn.
 
 The durable join is intentionally small. `session_id` follows the conversation
@@ -210,7 +212,7 @@ PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
   -U "$DB_USER" -d "$DB_NAME" \
   -v ON_ERROR_STOP=1 \
   -f scripts/migrations/001_schema.sql
-python3 scripts/seed_boutique_catalog.py --from-cache
+python3 scripts/seed_pellier_catalog.py --from-cache
 for migration in \
   002_workshop_telemetry.sql \
   003_persona_seed.sql \
@@ -245,7 +247,7 @@ npm run build      # production build → served by FastAPI on :8000
 # or: npm run dev   for HMR on :5173 (still hits backend on :8000)
 ```
 
-Open <http://localhost:8000> for Pellier, or <http://localhost:8000/pellier-labs> for Pellier Labs.
+Open <http://localhost:8000> for Pellier, or <http://localhost:8000/observatory> for Pellier Observatory.
 
 ### AgentCore CLI (pinned)
 
@@ -292,7 +294,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 
 | Section | What attendees do |
 |---|---|
-| Introduction | Open the workspace and land in Pellier + Pellier Labs — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
+| Introduction | Open the workspace and land in Pellier + Pellier Observatory — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
 | Lab 1: Ground Answers in Live Data | Complete Stock Keeper and `floor_check`, then prove Marco's answer against live inventory and `tool_audit`. |
 | Lab 2: Design the Retrieval Strategy | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
 | Lab 3: Run Agents in a Managed Runtime | Invoke Runtime, enumerate Gateway tools, read turn one from Memory in a fresh process, prove turn-two recall, and reconstruct the seeded identity mismatch from Aurora evidence. |
@@ -317,29 +319,127 @@ performance. Neither workshop depends on the other.
 ### Agents
 
 Five specialist agents sit behind one deterministic Dispatcher. Pellier and the
-managed AgentCore Runtime both use that routing contract; Pellier Labs runs it
+managed AgentCore Runtime both use that routing contract; Pellier Observatory runs it
 live and reports the route actually observed.
 
 | Agent              | Role                                            | Model            |
 | ------------------ | ----------------------------------------------- | ---------------- |
-| **Style Advisor**      | Interprets intent, runs semantic search         | Claude Opus 5  |
-| **Curator**            | Pairing, palette, occasion, editorial picks     | Claude Opus 5  |
-| **Value Analyst**      | Price intelligence, deals, percentile context   | Claude Sonnet 5 |
-| **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 5 |
-| **Experience Guide**   | Returns, care, post-purchase                    | Claude Opus 5  |
+| **Style Advisor**      | Interprets intent, runs semantic search         | Claude Opus 4.6  |
+| **Curator**            | Pairing, palette, occasion, editorial picks     | Claude Opus 4.6  |
+| **Value Analyst**      | Price intelligence, deals, percentile context   | Claude Sonnet 4.6 |
+| **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 4.6 |
+| **Experience Guide**   | Returns, care, post-purchase                    | Claude Opus 4.6  |
 
-Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-5`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 5 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. Pellier Labs surfaces the mix.
+Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-4-6`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 4.6 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. Pellier Observatory surfaces the mix.
 
 ### Tools
 
-15 `@tool` functions across the agent set:
+15 `@tool` functions form the Gateway catalog, registered under these exact
+names and asserted by discovery tests:
 
 `find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` · `price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` · `restock_shelf` · `running_low` · `returns_and_care` · `process_return` · `preference_snapshot` · `trace_receipt` · `escalate_to_stylist`
+
+A 16th tool, `query_business_records`, runs **only** on the in-process rail.
+Not because the Gateway path is incapable. The RDS Data API is single-statement
+per `execute_statement` call ("Multistatements aren't supported", box-verified:
+a prepended `SET` once killed every read tool on the Gateway path), but it does
+support explicit transactions, and session-local state persists across calls
+that share a `transactionId`. Measured on the live cluster:
+
+```
+begin_transaction()
+  SET LOCAL ROLE pellier_query          -> current_user becomes pellier_query
+  SET TRANSACTION READ ONLY             -> a subsequent write is refused
+  set_config('pellier.principal_sub',…) -> readable in the next call
+  SELECT DISTINCT customer_id FROM pellier.orders
+      as CUST-THEO -> ['CUST-THEO']     (own row visible)
+      as CUST-ANNA -> []                (someone else's row invisible)
+```
+
+So the owner identity behind the fixed `--secret_arn` is not the obstacle
+either: `SET LOCAL ROLE` drops into a role that holds neither `BYPASSRLS` nor
+superuser, and RLS then applies to the rest of the transaction.
+
+The tool stays in process for two other reasons. First, cost shape: each
+statement is one HTTPS round trip, so a governed query needs seven where the
+existing read tools need one. Second, and decisive, publishing it would mean a
+second copy of the boundary (subquery wrap, plan inspection, schema allowlist,
+row cap, receipt write) living in a Lambda deploy artifact, reviewed and tested
+apart from `services/governed_query.py`. These same Lambdas already record two
+drift incidents against the in-process rail: column names (`42703`) and
+`hnsw.iterative_scan` tuning. Duplicating a query is a bug; duplicating a
+security boundary is a class of bug. If it is ever published, the target should
+call the reviewed boundary rather than restate it.
+
+`tests/test_managed_gateway_tool_contract.py` pins this: the assertion is
+`in-process == CANONICAL | IN_PROCESS_ONLY`, so adding a tool without deciding
+which category it belongs to fails rather than silently diverging.
 
 Aurora also stores a semantic tool registry for the retrieval-strategy teaching
 surface. It is not the governed execution selector. The managed Dispatcher
 classifies intent, chooses one specialist, lists Gateway tools, and filters that
 catalog against the specialist's checked-in allowlist.
+
+### Governed natural-language data access
+
+A shopper question becomes SQL only through a boundary the model cannot argue
+with. Generation is constrained (approved schema context, temperature 0,
+explicit read-only contract), but generation is not the security boundary.
+Every statement is wrapped as a subquery, planned before it runs, and executed
+as `pellier_query`:
+
+```
+READ ONLY · statement_timeout = 3s · fixed search_path
+SET LOCAL ROLE pellier_query · pellier.principal_sub bound for RLS
+schema allowlist from the plan · implementation-owned row cap
+```
+
+A write, a utility statement, a data-modifying CTE, or a stacked statement
+fails on the planner's grammar rather than on a keyword blocklist. Every
+attempt writes a row to `pellier.governed_query_receipts`, refusals included,
+because a rejected statement leaves no trace anywhere else: it never reached
+the database. The receipt is written by `run_governed_query` itself, so no
+caller can produce an unreceipted attempt.
+
+`scripts/compare_query_lanes.py` runs the same question through this lane and
+through the Postgres MCP lane and reports what each leaves behind. The point is
+not that one is better. The MCP lane's credential is the table owner, so it
+sees every customer and can read the authorization map itself; the governed
+lane answers to a shopper's identity. Choosing between them is a governance
+decision, and the difference is visible in the evidence.
+
+### Observability and reconstruction
+
+Evidence spans carry `turn_id`, identity, policy verdict, and execution
+outcome, and export collectorless to the CloudWatch X-Ray OTLP endpoint. The
+endpoint accepts SigV4 only, and signing happens in a `requests` auth hook so
+the bytes signed are the bytes sent, with refreshable credentials so a rotating
+instance role keeps exporting. Spans land in the `aws/spans` log group through
+Transaction Search at 100% indexing, because the reconstruction exercise asks a
+participant to find one specific turn and a sampled turn cannot be found by
+`turn_id`.
+
+Model prompts and completions are withheld: Strands' attribute redaction is
+installed before the tracer is constructed, so `gen_ai.input.messages` and its
+siblings export as `[REDACTED]` while `pellier.*` correlation attributes pass
+through untouched. Spans locate a turn. Aurora proves what it did.
+
+| Script | What it does |
+|---|---|
+| `scripts/reconstruct_turn.py <turn_id>` | Reconstructs one turn from exported spans. `--aurora` adds the correlated Aurora artifacts, which is the answer key for the forensic exercise. Prints the Aurora side even when a turn has no spans, since the seeded turns are Aurora-only |
+| `scripts/policy_mode.py` | Reads live Cedar modes, and changes them through the AgentCore CLI project rather than boto3. `--restore-shipped` resets. Refuses to edit a declaration it cannot deploy |
+| `scripts/prove_governance_windows.py` | Runs the same forbidden request in both enforcement windows. Restores the shipped mode in a `finally` block so a crashed run cannot leave the account in monitor mode |
+| `scripts/score_governance_evidence.py` | Scores the governance invariants from evidence alone, with no model and no managed evaluation service |
+| `scripts/seed_forensic_dataset.py` | Seeds the three reconstruction turns: allowed, enforce-denied, and log-only dual refusal |
+| `scripts/seed_principal_mappings.py` | Maps each named shopper's Cognito subject to their customer id. An empty mapping denies every signed-in shopper their own orders, so `--check` runs during reset |
+
+Cedar enforcement has two independent scopes with different vocabularies, and
+conflating them is the usual mistake: a policy carries
+`UpdatePolicy.enforcementMode` (`ACTIVE` or `LOG_ONLY`), while the gateway
+attachment carries `policyEngineConfiguration.mode` (`ENFORCE` or `LOG_ONLY`).
+The "on" value differs by scope, `UpdatePolicyEngine` carries no mode at all,
+and effective behavior is the conjunction: `LOG_ONLY` at either scope means no
+denial.
 
 ### Skills
 
@@ -370,7 +470,7 @@ Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads
 | Vector retrieval | pgvector 0.8.1 · `vector(1024)` column · HNSW (m=16, ef_construction=64, `vector_cosine_ops`) · `<=>` cosine operator |
 | Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
-| Models           | Claude Opus 5 (`global.anthropic.claude-opus-5`, editorial) · Claude Sonnet 5 (`global.anthropic.claude-sonnet-5`, routing/reporting, no temperature override) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`cohere.rerank-v3-5:0`) |
+| Models           | Claude Opus 4.6 (`global.anthropic.claude-opus-4-6-v1`, editorial) · Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`, routing/reporting, no temperature override) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`cohere.rerank-v3-5:0`) |
 | Agent framework  | Strands Agents SDK – `Agent`, `@tool`, deterministic Dispatcher, and before/after tool-call hooks |
 | Agent infra      | Bedrock AgentCore – Runtime (CUSTOM_JWT, fail-closed Gateway MCP rail) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (15-tool MCP catalog, Cognito access-token passthrough) · Policy (Cedar ENFORCE with live ALLOW/DENY proof) · Identity |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
@@ -403,7 +503,7 @@ find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 ```
 
 The `e2e` workflow builds the production SPA, serves it through FastAPI in
-smoke mode, and walks the storefront, Pellier Labs, personas, streaming, and
+smoke mode, and walks the storefront, Pellier Observatory, personas, streaming, and
 reset path in Chromium. The optional Cognito suite runs only when its isolated
 development-pool secrets are configured.
 
@@ -422,14 +522,14 @@ sample-pellier-agentic-search-apg/
 │   │   ├── CLAUDE.md                        Backend and Lab 1 rules
 │   │   ├── agents/                          Style Advisor, Curator, Stock Keeper, ...
 │   │   ├── services/                        agent_tools, chat, agentcore_*, db
-│   │   ├── routes/                          FastAPI routers (transcribe, agent_trace, chat)
+│   │   ├── routes/                          FastAPI routers (transcribe, observatory, chat)
 │   │   └── app.py
 │   └── frontend/                          React 18 + TS + Vite SPA
-│       ├── CLAUDE.md                        Storefront and Pellier Labs rules
+│       ├── CLAUDE.md                        Storefront and Pellier Observatory rules
 │       └── src/
-│           ├── components/                  BoutiqueHero, ChatDrawer, ProductCard, ...
+│           ├── components/                  PellierHero, ChatDrawer, ProductCard, ...
 │           ├── shared/                      Cross-surface atoms – TraceChip, PresencePill
-│           ├── agent-trace/                    Operator evidence surface
+│           ├── observatory/                    Operator evidence surface
 │           └── data/                        showcaseProducts.ts (40), personaCurations.ts
 │
 ├── skills/                                Strands runtime skills (5) + scoped guidance
@@ -441,7 +541,7 @@ sample-pellier-agentic-search-apg/
 │
 └── scripts/
     ├── migrations/                         Ordered fresh-cluster SQL (001-015)
-    ├── seed_boutique_catalog.py             40 curated products + generated retrieval distractors
+    ├── seed_pellier_catalog.py             40 curated products + generated retrieval distractors
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
     └── bootstrap-labs.sh                    DB seed + frontend build + service start
 ```

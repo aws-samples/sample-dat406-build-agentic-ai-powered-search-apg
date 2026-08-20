@@ -1,0 +1,952 @@
+/* ========================================================================
+ * Pellier landing — editorial storefront layer.
+ *
+ * Extends the Daylight bridge rather than forking it. Two things live here:
+ *
+ *   1. The burgundy brand tokens. Daylight's `--dl-accent` is terracotta and
+ *      is load-bearing: `governed-tokens.css` maps it to `--gov-terracotta`
+ *      and the Observatory aliases it to `--obs-red-1`. Repointing it would
+ *      re-colour every status chip in the product, so burgundy is added as
+ *      its own token instead of an override. The value matches `--pl-accent`
+ *      in `ObservatoryWorkbench.css` so the storefront and Labs agree on one
+ *      brand swatch.
+ *
+ *   2. The landing compositions that utilities express badly: the asymmetric
+ *      hero grid, the mood rail, the approach module, the service strip.
+ *
+ * COLOUR ROLES (the whole product speaks one language):
+ *   burgundy    brand and authority. Wordmark, accent word, primary action.
+ *   terracotta  active or in flight. Focus, hover, a running step.
+ *   olive       verified. A claim with evidence behind it.
+ *   neutral     not evaluated.
+ * Burgundy is never a status and terracotta is never a brand mark.
+ *
+ * SHAPE: images and tiles 8px, elevated panels 14px, interactive controls
+ * pill. One rule, applied everywhere on this surface.
+ *
+ * TYPE REGISTERS:
+ *   --display  Fraunces. Editorial statements, hero, section anchors.
+ *   --sans     Instrument Sans. Navigation, controls, labels, body.
+ *   --mono     JetBrains Mono. Never used on this surface; the storefront
+ *              shows no identifiers. It belongs to Labs.
+ * ======================================================================== */
+
+:root {
+  /* Brand burgundy. Same swatch as --pl-accent on the Labs surface. */
+  --pellier-burgundy: #6d1f28;
+  --pellier-burgundy-soft: #8a3943;
+  --pellier-burgundy-rgb: 109, 31, 40;
+
+  /* Editorial rhythm for the landing bands. */
+  --pellier-band-y: clamp(48px, 5.5vw, 88px);
+  --pellier-hero-min: clamp(430px, calc(100dvh - 340px), 580px);
+  /* Matches the `container-x` spacing token in tailwind.config.js. */
+  --pellier-gutter: clamp(16px, 4vw, 48px);
+}
+
+/* -----------------------------------------------------------------------
+ * Editorial statement type. One accent word per statement, set in the
+ * burgundy italic of the same family: a mixed-family accent reads as an
+ * accident rather than emphasis.
+ *
+ * `leading` stays at 1.06 rather than 1 because Fraunces italic descenders
+ * (g, j, p, q, y) clip against a tighter line box, and the accent word is
+ * frequently one of those.
+ * ----------------------------------------------------------------------- */
+.pellier-statement {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  line-height: 1.06;
+  text-wrap: balance;
+}
+
+.pellier-statement em {
+  padding-bottom: 0.06em;
+  color: var(--pellier-burgundy);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.pellier-eyebrow {
+  display: block;
+  margin: 0;
+  color: var(--ink-quiet);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* Primary storefront action. Burgundy fill, cream label: 8.9:1. */
+.pellier-action {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 26px;
+  border: 1px solid var(--pellier-burgundy);
+  border-radius: 999px;
+  background: var(--pellier-burgundy);
+  color: var(--cream);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--gov-motion-base, 200ms) ease,
+    transform var(--gov-motion-fast, 120ms) ease;
+}
+
+.pellier-action:hover {
+  background: var(--pellier-burgundy-soft);
+}
+
+.pellier-action:active {
+  transform: translateY(1px);
+}
+
+.pellier-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Quiet action. Used where a burgundy fill would compete with a nearby
+   primary, so the page never shows two equal-weight calls to action. */
+.pellier-action-quiet {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--gov-motion-base, 200ms) ease;
+}
+
+.pellier-action-quiet:hover {
+  color: var(--pellier-burgundy);
+}
+
+.pellier-action-quiet:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* -----------------------------------------------------------------------
+ * Hero. Three zones: editorial copy, the product image, the concierge.
+ *
+ * The image is not a panel beside the type: it runs the full width of the copy
+ * and image columns and the type sits directly on it, which is the whole
+ * difference between an editorial hero and a card with a picture next to it.
+ * Both sides of the hero keep the same gutter, so the extra width comes from a
+ * wider container rather than from bleeding off one edge.
+ *
+ * This works because of the assets, not the CSS: every hero photograph is
+ * composed with its subject in the right two-thirds and an empty sunlit wall
+ * in the left third, so the type has light ground at full contrast. Keep that
+ * contract when replacing them.
+ * ----------------------------------------------------------------------- */
+.pellier-hero {
+  position: relative;
+  width: 100%;
+  padding: clamp(20px, 2.4vw, 40px) 0 clamp(28px, 3vw, 48px);
+  overflow: clip;
+  background: var(--cream);
+}
+
+.pellier-hero-inner {
+  display: grid;
+  width: 100%;
+  max-width: 1600px;
+  min-height: var(--pellier-hero-min);
+  margin: 0 auto;
+  padding-inline: var(--pellier-gutter);
+  gap: clamp(20px, 2.4vw, 40px);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+
+.pellier-hero-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding-block: 8px;
+}
+
+/* The hero eyebrow is the wordmark, so it takes the brand burgundy. Scoped to
+   the hero on purpose: the section eyebrows further down the page are labels,
+   not brand marks, and keeping them neutral stops burgundy from becoming
+   decoration. */
+.pellier-hero-copy .pellier-eyebrow {
+  color: var(--pellier-burgundy);
+}
+
+.pellier-hero-copy .pellier-statement {
+  /* Capped at 50px: the copy column is ~335px once the photograph spans the
+     wide zone, and 60px pushed Theo's three-word statement onto three lines. */
+  font-size: clamp(34px, 3.4vw, 50px);
+}
+
+.pellier-hero-lede {
+  /* Narrower than the copy column on purpose: this keeps the lede inside the
+     photograph's empty left zone. The headline is large and dark enough to
+     cross onto the shadow; this is not. */
+  max-width: 26ch;
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: clamp(14px, 1.05vw, 16px);
+  line-height: 1.62;
+}
+
+/* The suggestion row scrolls rather than wrapping, because the labels are full
+   questions and wrapping them stacks three tall rows under the search field.
+   The right edge fades so a cut-off pill reads as "scroll for more" instead of
+   as a clipped element. */
+.pellier-hero-pills {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - 32px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - 32px),
+    transparent 100%
+  );
+}
+
+.pellier-hero-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.pellier-hero-media {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pellier-hero-media picture,
+.pellier-hero-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 46%;
+}
+
+@media (min-width: 1024px) {
+  .pellier-hero-inner {
+    grid-template-columns:
+      minmax(0, 0.86fr)
+      minmax(0, 1.62fr)
+      minmax(330px, 0.84fr);
+    gap: clamp(14px, 1.4vw, 26px);
+  }
+
+  /* The photograph runs from the container's left edge across to the concierge.
+
+     No mask. The hero assets are composed with an empty sunlit wall in their
+     left third precisely so the type can sit on the photograph at full
+     contrast. Fading the left edge here would throw away the part of the frame
+     the composition exists to provide. If a future asset puts its subject on
+     the left, replace the asset rather than re-adding a fade.
+
+     The image is NOT bled off-canvas: equal space on both sides of the hero
+     matters more than the extra 150px, so the width comes from a wider
+     container instead.
+
+     Explicit placement on all three children: the media spans 1/3, so leaving
+     the concierge to auto-placement would drop it into a second row. */
+  .pellier-hero-media {
+    grid-row: 1;
+    grid-column: 1 / 3;
+    aspect-ratio: auto;
+    align-self: stretch;
+    height: 100%;
+    margin-inline-start: 0;
+    border-radius: 8px;
+  }
+
+  .pellier-hero-copy {
+    position: relative;
+    z-index: 1;
+    grid-row: 1;
+    grid-column: 1;
+    /* Inset the type off the photograph's left edge. Flush against the gutter
+       the words start exactly where the image starts, which reads as crowded;
+       a small indent gives the block air without moving it out of the column. */
+    margin-inline-start: 18px;
+  }
+
+  .pellier-concierge {
+    grid-row: 1;
+    grid-column: 3;
+  }
+
+}
+
+/* -----------------------------------------------------------------------
+ * Concierge panel. The one genuinely elevated surface in the hero, because
+ * it is the only thing in it a shopper acts on before browsing.
+ * ----------------------------------------------------------------------- */
+.pellier-concierge {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+  padding: clamp(20px, 1.6vw, 28px);
+  border: 1px solid var(--rule-1);
+  border-radius: 14px;
+  background: var(--cream-warm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 14px 34px rgba(107, 74, 53, 0.07);
+}
+
+.pellier-concierge-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pellier-concierge-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  /* Capped so the question holds one line inside the panel; Fraunces sets
+     wider than the mock's face and wrapped "for?" onto its own line. */
+  font-size: clamp(19px, 1.42vw, 23px);
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  line-height: 1.16;
+  text-wrap: balance;
+}
+
+.pellier-concierge-heading p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.pellier-concierge-profiles {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+}
+
+.pellier-profile {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--gov-motion-base, 200ms) ease,
+    background-color var(--gov-motion-base, 200ms) ease,
+    transform var(--gov-motion-fast, 120ms) ease;
+}
+
+.pellier-profile:hover:not(:disabled) {
+  border-color: var(--rule-1);
+  background: var(--cream);
+  transform: translateY(-1px);
+}
+
+.pellier-profile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pellier-profile:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* Active profile is named by a burgundy hairline and a label, never by
+   colour alone. */
+.pellier-profile[data-active='true'] {
+  border-color: rgba(var(--pellier-burgundy-rgb), 0.34);
+  background: var(--cream);
+}
+
+.pellier-profile-portrait {
+  position: relative;
+  display: block;
+  width: clamp(58px, 5vw, 76px);
+  height: clamp(58px, 5vw, 76px);
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--cream-2);
+}
+
+.pellier-profile-portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pellier-profile[data-active='true'] .pellier-profile-portrait {
+  box-shadow: 0 0 0 2px var(--cream-warm), 0 0 0 4px var(--pellier-burgundy);
+}
+
+.pellier-profile-name {
+  display: block;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 16.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+}
+
+.pellier-profile-note {
+  display: block;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+
+.pellier-profile-state {
+  display: block;
+  color: var(--pellier-burgundy);
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pellier-concierge-guest {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--rule-2);
+  border-radius: 999px;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--gov-motion-base, 200ms) ease,
+    color var(--gov-motion-base, 200ms) ease;
+}
+
+.pellier-concierge-guest:hover {
+  border-color: var(--pellier-burgundy);
+  color: var(--pellier-burgundy);
+}
+
+.pellier-concierge-guest:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pellier-concierge-seed {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-1);
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.pellier-concierge-seed strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* -----------------------------------------------------------------------
+ * Mood rail. A section anchor on the left, four photographs on the right.
+ * ----------------------------------------------------------------------- */
+.pellier-moods {
+  width: 100%;
+  padding-block: var(--pellier-band-y);
+  background: var(--cream);
+}
+
+.pellier-moods-inner {
+  display: grid;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: var(--pellier-gutter);
+  gap: clamp(18px, 2vw, 32px);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pellier-moods-anchor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pellier-moods-anchor .pellier-statement {
+  font-size: clamp(28px, 3vw, 42px);
+}
+
+.pellier-moods-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pellier-mood {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  isolation: isolate;
+}
+
+.pellier-mood picture,
+.pellier-mood img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pellier-mood:hover img {
+  transform: scale(1.03);
+}
+
+.pellier-mood::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: '';
+  background: linear-gradient(
+    to top,
+    rgba(20, 14, 11, 0.78) 0%,
+    rgba(20, 14, 11, 0.34) 42%,
+    rgba(20, 14, 11, 0.04) 74%
+  );
+  pointer-events: none;
+}
+
+.pellier-mood[data-tone='dark']::after {
+  background: linear-gradient(
+    to top,
+    rgba(12, 8, 7, 0.82) 0%,
+    rgba(12, 8, 7, 0.42) 52%,
+    rgba(12, 8, 7, 0.1) 82%
+  );
+}
+
+/* Stretched hit area. Sits above the scrim and the copy so the whole tile is
+   one target, while the heading stays a real heading outside the control. */
+.pellier-mood-hit {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.pellier-mood-hit:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: -4px;
+}
+
+.pellier-mood-copy {
+  position: absolute;
+  z-index: 2;
+  inset: auto 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: clamp(14px, 1.2vw, 20px);
+  /* Clicks fall through to .pellier-mood-hit. */
+  pointer-events: none;
+}
+
+.pellier-mood-copy h3 {
+  margin: 0;
+  color: var(--cream);
+  font-family: var(--display);
+  font-size: clamp(18px, 1.4vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+}
+
+.pellier-mood-copy p {
+  max-width: 26ch;
+  margin: 0;
+  color: rgba(250, 246, 240, 0.84);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.pellier-mood-arrow {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  border: 1px solid rgba(250, 246, 240, 0.44);
+  border-radius: 50%;
+  color: var(--cream);
+  transition:
+    border-color var(--gov-motion-base, 200ms) ease,
+    background-color var(--gov-motion-base, 200ms) ease;
+}
+
+.pellier-mood:hover .pellier-mood-arrow {
+  border-color: var(--cream);
+  background: rgba(250, 246, 240, 0.16);
+}
+
+@media (min-width: 1160px) {
+  .pellier-moods-inner {
+    grid-template-columns: minmax(224px, 0.72fr) minmax(0, 3.4fr);
+    align-items: stretch;
+  }
+
+  .pellier-moods-anchor {
+    justify-content: space-between;
+    padding-block: 4px;
+  }
+
+  .pellier-moods-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .pellier-mood {
+    aspect-ratio: 3 / 4;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * The Pellier approach. The bridge from the storefront into Labs.
+ *
+ * Each claim here names a surface a participant can open and check. That is
+ * the module's whole justification, so the pillar links are real routes,
+ * not decoration.
+ * ----------------------------------------------------------------------- */
+.pellier-approach {
+  width: 100%;
+  padding-block: var(--pellier-band-y);
+  background: var(--cream-warm);
+  border-block: 1px solid var(--rule-1);
+}
+
+.pellier-approach-inner {
+  display: grid;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: var(--pellier-gutter);
+  gap: clamp(22px, 2.4vw, 44px);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+
+.pellier-approach-media {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--cream-2);
+}
+
+.pellier-approach-media picture,
+.pellier-approach-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pellier-approach-statement {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pellier-approach-statement .pellier-statement {
+  font-size: clamp(27px, 2.7vw, 40px);
+}
+
+.pellier-approach-statement > p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.62;
+}
+
+.pellier-approach-pillars {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  gap: clamp(18px, 1.8vw, 26px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  list-style: none;
+}
+
+.pellier-pillar {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pellier-pillar p {
+  flex: 1 1 auto;
+}
+
+.pellier-pillar-icon {
+  display: inline-flex;
+  color: var(--ink-quiet);
+}
+
+.pellier-pillar h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.pellier-pillar p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.pellier-pillar a {
+  align-self: flex-start;
+  margin-top: 2px;
+  color: var(--pellier-burgundy);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: text-decoration-color var(--gov-motion-base, 200ms) ease;
+}
+
+.pellier-pillar a:hover {
+  text-decoration: underline;
+}
+
+.pellier-pillar a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (min-width: 1160px) {
+  .pellier-approach-inner {
+    grid-template-columns:
+      minmax(0, 0.8fr)
+      minmax(0, 0.88fr)
+      minmax(0, 1.72fr);
+  }
+
+  .pellier-approach-media {
+    aspect-ratio: auto;
+    align-self: stretch;
+    height: 100%;
+    min-height: 300px;
+  }
+
+  .pellier-approach-pillars {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Service strip. Retail assurances plus the Labs doorway, divided by
+ * hairlines rather than boxed into five cards.
+ * ----------------------------------------------------------------------- */
+.pellier-services {
+  width: 100%;
+  background: var(--cream);
+  border-top: 1px solid var(--rule-1);
+}
+
+.pellier-services-inner {
+  display: grid;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: var(--pellier-gutter);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pellier-service {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 18px clamp(12px, 1.2vw, 22px);
+  border-top: 1px solid var(--rule-1);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.pellier-services-inner > :nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.pellier-service-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--ink-quiet);
+}
+
+.pellier-service-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pellier-service-copy strong {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.pellier-service-copy span {
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.pellier-service-labs {
+  justify-content: space-between;
+  transition: background-color var(--gov-motion-base, 200ms) ease;
+}
+
+.pellier-service-labs:hover {
+  background: var(--cream-warm);
+}
+
+.pellier-service-labs:hover .pellier-service-copy strong {
+  color: var(--pellier-burgundy);
+}
+
+.pellier-service-labs:focus-visible {
+  outline: 2px solid var(--pellier-burgundy);
+  outline-offset: -2px;
+}
+
+.pellier-service-labs-arrow {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule-2);
+  border-radius: 50%;
+  color: var(--ink);
+}
+
+.pellier-service-labs:hover .pellier-service-labs-arrow {
+  border-color: var(--pellier-burgundy);
+  color: var(--pellier-burgundy);
+}
+
+@media (min-width: 900px) {
+  .pellier-services-inner {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(200px, 1.25fr);
+  }
+
+  .pellier-service {
+    border-top: 0;
+    border-left: 1px solid var(--rule-1);
+  }
+
+  .pellier-services-inner > :first-child {
+    border-left: 0;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * Motion. Scroll reveals are opt-in per band and collapse to nothing when
+ * the OS asks for less. Hover transforms stay: they are feedback, not
+ * decoration, and reduced motion does not mean no affordance.
+ * ----------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .pellier-mood picture,
+  .pellier-mood img,
+  .pellier-action,
+  .pellier-profile {
+    transition: none;
+  }
+
+  .pellier-mood:hover img {
+    transform: none;
+  }
+}

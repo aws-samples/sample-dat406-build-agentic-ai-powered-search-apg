@@ -1,6 +1,6 @@
 """
 Graph Pattern (Pattern II) — real Strands ``GraphBuilder`` execution for
-Pellier Labs' `pattern="graph"` chat request.
+Pellier Observatory's `pattern="graph"` chat request.
 
 The chat streaming pipeline in ``services/chat.py`` was written against
 a single Strands ``Agent`` shape: it calls ``orchestrator(full_message)``

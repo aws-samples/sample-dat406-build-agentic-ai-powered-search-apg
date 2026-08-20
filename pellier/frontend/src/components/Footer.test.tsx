@@ -5,10 +5,10 @@
  * Terms/Accessibility bottom strip) was frozen around placeholder
  * links. This rewrite replaces it with a living spec:
  *
- *   - Four sections only: Brand, Explore, Storyboard, Pellier Labs.
+ *   - Four sections only: Brand, Explore, Storyboard, Pellier Observatory.
  *   - Every Explore link points at a real router route.
- *   - Storyboard + Pellier Labs each carry an italic blurb and a single
- *     call-to-action link to `/storyboard` / `/pellier-labs`.
+ *   - Storyboard + Pellier Observatory each carry an italic blurb and a single
+ *     call-to-action link to `/storyboard` / `/observatory`.
  *   - Bottom strip shows the copyright line and a signature tag.
  *     No placeholder Privacy/Terms/Accessibility links.
  */
@@ -36,7 +36,7 @@ describe('Footer — four live columns', () => {
     expect(screen.getByTestId('footer-column-brand')).toBeInTheDocument()
     expect(screen.getByTestId('footer-column-explore')).toBeInTheDocument()
     expect(screen.getByTestId('footer-column-storyboard')).toBeInTheDocument()
-    expect(screen.getByTestId('footer-column-agent-trace')).toBeInTheDocument()
+    expect(screen.getByTestId('footer-column-observatory')).toBeInTheDocument()
   })
 
   it('renders the brand column with the tagline from copy.ts', () => {
@@ -65,13 +65,13 @@ describe('Footer — four live columns', () => {
     expect(cta).toHaveTextContent(FOOTER.STORYBOARD.CTA_LABEL)
   })
 
-  it('renders Pellier Labs column with italic blurb + "Open Pellier Labs" CTA linking to /pellier-labs', () => {
+  it('renders Pellier Observatory column with italic blurb + "Open Pellier Observatory" CTA linking to /observatory', () => {
     renderFooter()
-    const col = screen.getByTestId('footer-column-agent-trace')
-    expect(within(col).getByText(FOOTER.AGENT_TRACE.COPY)).toBeInTheDocument()
-    const cta = within(col).getByTestId('footer-column-agent-trace-cta')
-    expect(cta).toHaveAttribute('href', '/pellier-labs')
-    expect(cta).toHaveTextContent(FOOTER.AGENT_TRACE.CTA_LABEL)
+    const col = screen.getByTestId('footer-column-observatory')
+    expect(within(col).getByText(FOOTER.OBSERVATORY.COPY)).toBeInTheDocument()
+    const cta = within(col).getByTestId('footer-column-observatory-cta')
+    expect(cta).toHaveAttribute('href', '/observatory')
+    expect(cta).toHaveTextContent(FOOTER.OBSERVATORY.CTA_LABEL)
   })
 })
 

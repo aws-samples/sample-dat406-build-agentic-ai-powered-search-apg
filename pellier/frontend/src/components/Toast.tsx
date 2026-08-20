@@ -1,7 +1,7 @@
 /**
  * Toast — warm slide-in notification for cart and system events.
  *
- * Boutique palette: cream background, espresso text, burgundy check.
+ * Pellier palette: cream background, espresso text, burgundy check.
  * Slides in from top-right, auto-dismisses after `duration` ms.
  */
 import { useEffect, useState } from 'react'

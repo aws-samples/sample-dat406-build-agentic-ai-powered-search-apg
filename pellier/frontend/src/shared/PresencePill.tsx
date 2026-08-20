@@ -4,8 +4,8 @@
  * appears for signed-in personas so first-time visitors are not hit with
  * session jargon.
  *
- * Used on the Boutique capability strip (cream-tinted, glass background)
- * and on the Agent Trace TopBar (same boutique styling on the light cream bar).
+ * Used on the Pellier capability strip (cream-tinted, glass background)
+ * and on the Observatory TopBar (same Pellier styling on the light cream bar).
  *
  * Pass `sessionLabel=""` explicitly to force-hide the fragment, or rely
  * on defaults: fresh / anonymous → no fragment; returning shoppers →
@@ -13,7 +13,7 @@
  */
 import React from 'react'
 
-export type PresenceSurface = 'boutique' | 'agentTrace'
+export type PresenceSurface = 'pellier' | 'observatory'
 export type PresenceMode = 'listening' | 'thinking' | 'idle'
 
 export interface PresencePillProps {
@@ -74,7 +74,7 @@ export const PresencePill: React.FC<PresencePillProps> = ({
   // <style> tags would re-render on every mount; this hoists them.
   ensureKeyframes()
 
-  const isAgentTrace = surface === 'agentTrace'
+  const isObservatory = surface === 'observatory'
   const session = sessionLabel ?? deriveSessionLabel(personaId)
 
   const animation =
@@ -96,10 +96,10 @@ export const PresencePill: React.FC<PresencePillProps> = ({
         gap: 10,
         padding: '6px 12px',
         borderRadius: 999,
-        border: isAgentTrace
+        border: isObservatory
           ? '1px solid color-mix(in srgb, var(--cream-warm) 18%, transparent)'
           : '1px solid color-mix(in srgb, var(--dl-ink) 16%, transparent)',
-        background: isAgentTrace
+        background: isObservatory
           ? 'color-mix(in srgb, var(--cream-warm) 6%, transparent)'
           : 'color-mix(in srgb, var(--cream-warm) 72%, transparent)',
         backdropFilter: 'blur(6px)',
@@ -107,7 +107,7 @@ export const PresencePill: React.FC<PresencePillProps> = ({
         fontSize: '11px',
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: isAgentTrace
+        color: isObservatory
           ? 'color-mix(in srgb, var(--cream-warm) 92%, transparent)'
           : 'var(--ink)',
         fontWeight: 500,
@@ -131,13 +131,13 @@ export const PresencePill: React.FC<PresencePillProps> = ({
             fontFamily: 'var(--mono)',
             fontSize: 10,
             letterSpacing: '0.06em',
-            color: isAgentTrace
+            color: isObservatory
               ? 'color-mix(in srgb, var(--cream-warm) 55%, transparent)'
               : 'var(--ink-soft)',
             textTransform: 'none',
             marginLeft: 4,
             paddingLeft: 10,
-            borderLeft: isAgentTrace
+            borderLeft: isObservatory
               ? '1px solid color-mix(in srgb, var(--cream-warm) 18%, transparent)'
               : '1px solid color-mix(in srgb, var(--dl-ink) 18%, transparent)',
           }}

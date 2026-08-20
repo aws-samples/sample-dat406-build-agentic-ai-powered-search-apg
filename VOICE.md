@@ -5,7 +5,7 @@ brief. The voice should help a shopper decide, not make the system sound
 impressive.
 
 This file guides developers and coding agents. The runtime implementation
-lives in `pellier/backend/boutique_copy.py`, specialist prompts, and
+lives in `pellier/backend/pellier_copy.py`, specialist prompts, and
 `skills/*/SKILL.md`; changing this file alone does not change model behavior.
 
 ## Core qualities
@@ -49,7 +49,7 @@ Avoid in shopper-facing copy:
 - smart, intelligent, magical, perfect, must-have
 - raw tool names, JWTs, ARNs, internal endpoints, and stack identifiers
 
-Pellier Labs and workshop copy may use precise architecture terms because the
+Pellier Observatory and workshop copy may use precise architecture terms because the
 audience is inspecting the system.
 
 ## Grounding and memory

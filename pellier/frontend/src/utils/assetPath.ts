@@ -8,10 +8,10 @@
  * through the reverse proxy.
  *
  * Usage:
- *   <img src={asset('/products/hero-fresh.png')} />
+ *   <img src={asset('/products/hero-fresh-2.png')} />
  *
- * Local dev (base = "/"): returns "/products/hero-fresh.png"
- * Workshop Studio (base = "/ports/8000/"): returns "/ports/8000/products/hero-fresh.png"
+ * Local dev (base = "/"): returns "/products/hero-fresh-2.png"
+ * Workshop Studio (base = "/ports/8000/"): returns "/ports/8000/products/hero-fresh-2.png"
  */
 const BASE = import.meta.env.BASE_URL ?? '/'
 

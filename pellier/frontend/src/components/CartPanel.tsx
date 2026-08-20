@@ -1,8 +1,8 @@
 /**
- * CartPanel — slide-over bag panel in the boutique warm palette.
+ * CartPanel - slide-over bag panel in the Pellier daylight palette.
  *
  * Cream background, espresso text, warm borders. Replaces the
- * Apple-dark-theme CSS vars with inline boutique values so the
+ * Apple-dark-theme CSS vars with inline pellier values so the
  * panel matches the rest of the storefront without needing a
  * global theme class on <html>.
  *
@@ -31,7 +31,7 @@ import { imageSrc } from '../utils/assetPath'
 // Re-export CartItem for backward compatibility with existing import paths
 export type { CartItem } from '../contexts/CartContext'
 
-// --- Boutique palette tokens (inline to avoid dark-theme var fallthrough) ---
+// --- Pellier palette tokens (inline to avoid dark-theme var fallthrough) ---
 const BG = 'var(--cream-warm)'
 const BG_CARD = 'color-mix(in srgb, var(--dl-ink) 4%, transparent)'
 const TEXT = 'var(--ink)'
@@ -209,7 +209,7 @@ const CartPanel = ({ isOpen, onClose }: CartPanelProps) => {
                 >
                   {checkoutReceipt?.status === 'paid'
                     ? `${checkoutReceipt.orderNumber} is recorded with its payment and inventory evidence.`
-                    : 'The order did not complete. Reserved inventory was returned to the boutique.'}
+                    : 'The order did not complete. Reserved inventory was returned to the catalog.'}
                 </motion.p>
                 {checkoutReceipt && (
                   <motion.div

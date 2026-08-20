@@ -2,30 +2,30 @@
  * SurfaceCrossLink — small inline anchor that bridges the two surfaces.
  *
  * Two preset modes:
- *   - "to-boutique" — used on Agent Trace surfaces. Reads "→ See this in
- *      the Boutique" and links back to the storefront, optionally
+ *   - "to-pellier" - used on Observatory surfaces. Reads "See this in
+ *      Pellier →" and links back to the storefront, optionally
  *      with an `?ask=` query that opens the chat drawer with a
  *      pre-filled prompt that exercises this concept.
- *   - "to-agent-trace" — used on Boutique surfaces. Reads "How this works
- *      →" and deep-links to the Agent Trace route that explains the
+ *   - "to-observatory" — used on Pellier surfaces. Reads "How this works
+ *      →" and deep-links to the Observatory route that explains the
  *      concept (memory, tools, agents, etc).
  *
  * Visual: Instrument Serif / Fraunces italic, 15px, terracotta accent,
- * subtle dotted underline — reads as editorial caption, not a banner CTA.
- * vocabulary (`see · this · in · the · Boutique`) on every Agent Trace
+ * subtle dotted underline - reads as editorial caption, not a banner CTA.
+ * Consistent vocabulary (`See this in Pellier`) on every Observatory
  * surface keeps the round trip predictable.
  */
 import React from 'react'
 import { Link } from 'react-router-dom'
 
-export type CrossLinkDirection = 'to-boutique' | 'to-agent-trace'
+export type CrossLinkDirection = 'to-pellier' | 'to-observatory'
 
 export interface SurfaceCrossLinkProps {
   direction: CrossLinkDirection
   /**
-   * For `to-boutique`: optional `?ask=` query that auto-fires the
-   * Boutique chat drawer with this prompt. For `to-agent-trace`: the
-   * Agent Trace path to navigate to (e.g. "/pellier-labs/memory").
+   * For `to-pellier`: optional `?ask=` query that auto-fires the
+   * Pellier chat drawer with this prompt. For `to-observatory`: the
+   * Observatory path to navigate to (e.g. "/observatory/memory").
    */
   href?: string
   /** Override the default copy. */
@@ -43,15 +43,15 @@ export const SurfaceCrossLink: React.FC<SurfaceCrossLinkProps> = ({
   italic = true,
 }) => {
   const defaultLabel =
-    direction === 'to-boutique'
+    direction === 'to-pellier'
       ? 'See this in Pellier'
       : 'How this works'
 
   const targetHref =
     href ??
-    (direction === 'to-boutique' ? '/' : '/pellier-labs')
+    (direction === 'to-pellier' ? '/' : '/observatory')
 
-  const arrow = direction === 'to-boutique' ? '→' : '→'
+  const arrow = direction === 'to-pellier' ? '→' : '→'
 
   return (
     <Link

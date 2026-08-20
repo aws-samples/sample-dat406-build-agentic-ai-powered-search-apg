@@ -5,7 +5,7 @@ import '../styles/chat-outcomes.css'
 
 interface TurnReceiptProps {
   reference: string
-  surface?: 'boutique' | 'agentTrace'
+  surface?: 'pellier' | 'observatory'
 }
 
 function shortReference(reference: string): string {
@@ -15,7 +15,7 @@ function shortReference(reference: string): string {
 
 export default function TurnReceipt({
   reference,
-  surface = 'boutique',
+  surface = 'pellier',
 }: TurnReceiptProps) {
   const [copied, setCopied] = useState(false)
 

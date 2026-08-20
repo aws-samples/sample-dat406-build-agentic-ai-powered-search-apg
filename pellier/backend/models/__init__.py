@@ -21,6 +21,7 @@ from .search import (
     CategoryTag,
     ColorTag,
     OccasionTag,
+    ProductAvailability,
     ReasoningChip,
     ReasoningStyle,
     SearchRequest,
@@ -29,8 +30,10 @@ from .search import (
     StorefrontBadge,
     StorefrontCategory,
     StorefrontProduct,
+    StorefrontProductDetail,
     StorefrontSearchResponse,
     VibeTag,
+    WarehouseStock,
 )
 
 
@@ -113,7 +116,11 @@ __all__ = [
     "StorefrontCategory",
     "StorefrontBadge",
     "StorefrontProduct",
+    "StorefrontProductDetail",
     "StorefrontSearchResponse",
+    # Storefront live inventory (product detail only)
+    "WarehouseStock",
+    "ProductAvailability",
     # Storefront user + preferences
     "Preferences",
     "VerifiedUser",

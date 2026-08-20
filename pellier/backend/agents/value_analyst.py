@@ -5,8 +5,8 @@ surfaces deals.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_pricing_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``pricing(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and the Observatory Graph pattern.
+2. ``pricing(query)`` — ``@tool`` wrapper used by the Observatory's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: the factory and tool keep generic names because the
@@ -68,10 +68,10 @@ def build_pricing_agent() -> Agent:
     construction time. The pricing specialist didn't read these in
     earlier revisions; adding them in the factory keeps behavior
     consistent across all five specialists without changing anonymous
-    agentTrace output (both injections are no-ops when their
+    observatory output (both injections are no-ops when their
     ContextVars are empty).
     """
-    # Value Analyst — Sonnet 5 reporting profile. Reports numbers and
+    # Value Analyst — Sonnet 4.6 reporting profile. Reports numbers and
     # ranges with no temperature override. The only thing worse than a
     # slow price check is a wrong one.
     model_id, max_tokens, _ = resolve_specialist_model("sonnet")

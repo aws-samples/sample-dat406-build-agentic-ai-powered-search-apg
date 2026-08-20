@@ -52,7 +52,7 @@ describe('ChatFailureCard', () => {
         onRetry={onRetry}
         onEditRequest={vi.fn()}
         onAuthenticate={onAuthenticate}
-        surface="agentTrace"
+        surface="observatory"
       />,
     )
 
@@ -69,7 +69,7 @@ describe('ChatFailureCard', () => {
         onRetry={onRetry}
         onEditRequest={vi.fn()}
         onAuthenticate={onAuthenticate}
-        surface="agentTrace"
+        surface="observatory"
       />,
     )
 
@@ -88,7 +88,7 @@ describe('TurnReceipt', () => {
     })
     const reference = 'trace-0123456789-abcdefghijklmnopqrstuvwxyz'
 
-    render(<TurnReceipt reference={reference} surface="agentTrace" />)
+    render(<TurnReceipt reference={reference} surface="observatory" />)
 
     expect(screen.getByTestId('turn-receipt')).toHaveTextContent('Recorded')
     expect(screen.getByTitle(reference)).not.toHaveTextContent(reference)

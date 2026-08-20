@@ -18,7 +18,7 @@ interface ChatFailureCardProps {
   onRetry: (query: string) => void
   onEditRequest: (query: string) => void
   onAuthenticate: () => void
-  surface?: 'boutique' | 'agentTrace'
+  surface?: 'pellier' | 'observatory'
 }
 
 function failureIcon(code: ChatErrorCode) {
@@ -34,7 +34,7 @@ export default function ChatFailureCard({
   onRetry,
   onEditRequest,
   onAuthenticate,
-  surface = 'boutique',
+  surface = 'pellier',
 }: ChatFailureCardProps) {
   const copy = CHAT_FAILURES[failure.code]
   const FailureIcon = failureIcon(failure.code)

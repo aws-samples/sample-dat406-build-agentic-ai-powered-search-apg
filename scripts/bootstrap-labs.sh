@@ -174,7 +174,7 @@ AWS_REGION='${AWS_REGION}'
 AWS_DEFAULT_REGION='${AWS_REGION}'
 BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}'
 BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}'
-BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-5}'
+BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-6-v1}'
 WORKSHOP_ID='${WORKSHOP_ID:-}'
 WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-builders}'
 AUTH_MODE='${AUTH_MODE:-cognito}'
@@ -381,7 +381,7 @@ setup_frontend() {
 }
 
 setup_database() {
-    if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/scripts/seed_boutique_catalog.py" ]; then
+    if [ -n "$DB_HOST" ] && [ -f "$REPO_PATH/scripts/seed_pellier_catalog.py" ]; then
         cd "$REPO_PATH"
         export DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD AWS_REGION
         export ASSETS_BUCKET_NAME ASSETS_BUCKET_PREFIX
@@ -395,7 +395,7 @@ setup_database() {
         # ---- 1. Schema bootstrap (CREATE EXTENSION vector + schema +
         # product_catalog table + HNSW index). pellier-database.yml
         # provisions an empty Aurora cluster; this migration is what
-        # makes the cluster boutique-ready. Runs first because the
+        # makes the cluster Pellier-ready. Runs first because the
         # seeder INSERTs into pellier.product_catalog and assumes the
         # vector(1024) column exists. ----
         if [ -f "$REPO_PATH/scripts/migrations/001_schema.sql" ]; then
@@ -415,7 +415,7 @@ setup_database() {
             warn "001_schema.sql not found — seeder will fail without the table"
         fi
 
-        # ---- 2. Boutique catalog seeder — 40 hand-curated products
+        # ---- 2. Pellier catalog seeder — 40 hand-curated products
         # across the four personas (Marco / Anna / Theo / Fresh), plus
         # generated high-ID archive distractors for retrieval measurement.
         # Authoritative source for pellier.product_catalog.
@@ -426,7 +426,7 @@ setup_database() {
         # cache. This removes the slowest, most throttle-prone step from the
         # bootstrap critical path and makes the seed a deterministic SQL load.
         # To regenerate the cache after a curated catalog change, run
-        # `python scripts/seed_boutique_catalog.py --csv-only --no-distractors`
+        # `python scripts/seed_pellier_catalog.py --csv-only --no-distractors`
         # on a machine with Bedrock access and commit the updated cache.
         #
         # Must run as $CODE_EDITOR_USER: psycopg is installed via
@@ -442,11 +442,11 @@ setup_database() {
             export ASSETS_BUCKET_PREFIX='${ASSETS_BUCKET_PREFIX:-}'
             export DATABASE_URL='$DATABASE_URL'
             cd '$REPO_PATH'
-            python3 scripts/seed_boutique_catalog.py --from-cache
+            python3 scripts/seed_pellier_catalog.py --from-cache
         " 2>&1 | tee /var/log/database-setup.log
         local seed_rc=${PIPESTATUS[0]}
         if [ "$seed_rc" -ne 0 ]; then
-            warn "Boutique catalog seed failed (rc=$seed_rc) — see /var/log/database-setup.log"
+            warn "Pellier catalog seed failed (rc=$seed_rc) — see /var/log/database-setup.log"
             return "$seed_rc"
         fi
 
@@ -471,7 +471,9 @@ setup_database() {
             012_retrieval_receipts.sql \
             013_inventory_ledger.sql \
             014_governed_turn_receipts.sql \
-            015_proof_carrying_commerce.sql
+            015_proof_carrying_commerce.sql \
+            016_runtime_roles_rls.sql \
+            017_governed_query_receipts.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -493,7 +495,7 @@ setup_database() {
 
         # ---- 4. Tool registry seed — populates pellier.tools (created
         # empty by migration 002) with the 15 canonical Gateway tool names
-        # plus their Cohere Embed v4 descriptions. The Agent Trace
+        # plus their Cohere Embed v4 descriptions. The Observatory
         # Observatory's tool-registry tab and the pgvector
         # tool-discovery card both read from this table and silently
         # render zero rows if the seed is skipped. ----
@@ -509,7 +511,7 @@ setup_database() {
             " 2>&1 | tee -a /var/log/database-setup.log
             local tool_rc=${PIPESTATUS[0]}
             if [ "$tool_rc" -ne 0 ]; then
-                warn "Tool registry seed failed (rc=$tool_rc) — Agent Trace tool-registry tab will show zero rows"
+                warn "Tool registry seed failed (rc=$tool_rc) — Observatory tool-registry tab will show zero rows"
             fi
         fi
 
@@ -696,10 +698,94 @@ else
 fi
 
 # ============================================================================
+# STEP 13b: CLOUDWATCH TRANSACTION SEARCH (observability prerequisite)
+# ============================================================================
+# The governed workshop reconstructs one agent turn from CloudWatch spans plus
+# Aurora evidence. Spans only reach CloudWatch once Transaction Search routes
+# trace segments to CloudWatch Logs, and AWS requires that to be enabled
+# BEFORE the OTLP traces endpoint will accept data.
+#
+# Idempotent by design: this checks first and only mutates what is missing, so
+# re-running bootstrap on an account that already has it is a no-op.
+#
+# Deliberately non-fatal. A missing prerequisite degrades the observability
+# exercise, but the required application path still works, so this warns
+# loudly rather than aborting a workshop box. Silent absence of spans is the
+# one outcome that is unacceptable.
+log "Verifying CloudWatch Transaction Search..."
+
+TS_LOG_GROUPS="arn:aws:logs:${AWS_REGION}:*:log-group:aws/spans:*"
+TS_DESIRED_SAMPLING=100
+
+ts_account_id="$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")"
+
+if [ -z "$ts_account_id" ]; then
+    warn "⚠️  Transaction Search: no AWS credentials resolved — skipping."
+    warn "    Observability proof will read: unavailable (credentials)"
+else
+    # 1. Resource policy so X-Ray may write spans into CloudWatch Logs.
+    if aws logs describe-resource-policies --region "$AWS_REGION" \
+        --query "resourcePolicies[?policyName=='TransactionSearchXRayAccess'].policyName" \
+        --output text 2>/dev/null | grep -q "TransactionSearchXRayAccess"; then
+        log "✅ Transaction Search resource policy present"
+    else
+        log "Creating Transaction Search resource policy..."
+        if aws logs put-resource-policy \
+            --region "$AWS_REGION" \
+            --policy-name TransactionSearchXRayAccess \
+            --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"TransactionSearchXRayAccess\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"xray.amazonaws.com\"},\"Action\":\"logs:PutLogEvents\",\"Resource\":[\"arn:aws:logs:${AWS_REGION}:${ts_account_id}:log-group:aws/spans:*\",\"arn:aws:logs:${AWS_REGION}:${ts_account_id}:log-group:/aws/application-signals/data:*\"],\"Condition\":{\"ArnLike\":{\"aws:SourceArn\":\"arn:aws:xray:${AWS_REGION}:${ts_account_id}:*\"},\"StringEquals\":{\"aws:SourceAccount\":\"${ts_account_id}\"}}}]}" \
+            >/dev/null 2>&1; then
+            log "✅ Transaction Search resource policy created"
+        else
+            warn "⚠️  Could not create Transaction Search resource policy (needs logs:PutResourcePolicy)"
+        fi
+    fi
+
+    # 2. Route trace segments to CloudWatch Logs. This is the actual switch.
+    ts_destination="$(aws xray get-trace-segment-destination --region "$AWS_REGION" \
+        --query Destination --output text 2>/dev/null || echo "")"
+    ts_status="$(aws xray get-trace-segment-destination --region "$AWS_REGION" \
+        --query Status --output text 2>/dev/null || echo "")"
+
+    if [ "$ts_destination" = "CloudWatchLogs" ] && [ "$ts_status" = "ACTIVE" ]; then
+        log "✅ Transaction Search active (destination=CloudWatchLogs)"
+    else
+        log "Enabling Transaction Search (destination=CloudWatchLogs)..."
+        if aws xray update-trace-segment-destination \
+            --region "$AWS_REGION" --destination CloudWatchLogs >/dev/null 2>&1; then
+            log "✅ Transaction Search enabled"
+        else
+            warn "⚠️  Could not enable Transaction Search (needs xray:UpdateTraceSegmentDestination)"
+            warn "    Observability proof will read: unavailable (Transaction Search)"
+        fi
+    fi
+
+    # 3. Index every workshop span. Participant proof must be deterministic, so
+    #    probabilistic sampling below 100% is not acceptable here even though
+    #    production guidance differs.
+    ts_sampling="$(aws xray get-indexing-rules --region "$AWS_REGION" \
+        --query "IndexingRules[?Name=='Default'].Rule.Probabilistic.DesiredSamplingPercentage | [0]" \
+        --output text 2>/dev/null || echo "")"
+
+    if [ "${ts_sampling%.*}" = "$TS_DESIRED_SAMPLING" ]; then
+        log "✅ Span indexing at ${TS_DESIRED_SAMPLING}% (deterministic capture)"
+    else
+        log "Setting span indexing to ${TS_DESIRED_SAMPLING}% (was: ${ts_sampling:-unset})..."
+        if aws xray update-indexing-rule --region "$AWS_REGION" --name "Default" \
+            --rule "{\"Probabilistic\":{\"DesiredSamplingPercentage\":${TS_DESIRED_SAMPLING}}}" \
+            >/dev/null 2>&1; then
+            log "✅ Span indexing set to ${TS_DESIRED_SAMPLING}%"
+        else
+            warn "⚠️  Could not set span indexing to ${TS_DESIRED_SAMPLING}% — workshop turns may not all be indexed"
+        fi
+    fi
+fi
+
+# ============================================================================
 # STEP 14: AUTO-START PELLIER SERVICE (single-process, port 8000)
 # ============================================================================
 # Single systemd service. FastAPI serves:
-#   - the built SPA at /, /pellier-labs, /storyboard, /discover, ...
+#   - the built SPA at /, /observatory, /storyboard, /discover, ...
 #   - the API at /api/*
 #   - self-hosted fonts + hashed bundles at /assets/*, /fonts/*
 #
@@ -1031,7 +1117,7 @@ EOF
         upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
         # Managed AgentCore Policy engine (4th pillar). The provisioner cannot
         # report ready without this id; keep the explicit guard because Lab 4
-        # and the Pellier Labs Policy surface both read it.
+        # and the Pellier Observatory Policy surface both read it.
         if [ -n "$POLICY_ENGINE_ID" ]; then
             upsert_env "AGENTCORE_POLICY_ENGINE_ID" "$POLICY_ENGINE_ID" "$REPO_PATH/.env"
             log "✅ Managed AgentCore Policy engine: $POLICY_ENGINE_ID"
@@ -1221,6 +1307,32 @@ if [ -n "${COGNITO_USER_POOL_ID:-}" ] && [ -x "$REPO_PATH/scripts/seed-sample-pr
     export BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
     bash "$REPO_PATH/scripts/seed-sample-preferences.sh" 2>&1 | tee /var/log/pellier-seed-preferences.log || \
         warn "seed-sample-preferences.sh reported issues"
+fi
+
+# ============================================================================
+# STEP 18b: SEED RLS PRINCIPAL MAPPINGS
+#
+# Migration 016 keys its Row-Level Security policies on a verified Cognito
+# subject, and Cognito assigns each subject at user-creation time, so no
+# migration can carry them. Until this runs the mapping table is empty — which
+# does not read as "governance", it reads as a broken application: every
+# signed-in shopper is denied their own orders.
+#
+# Runs after Cognito provisioning because it resolves username -> sub against
+# the live pool. Non-fatal: the app connects as the table owner today, so an
+# unseeded mapping degrades the governed exercise rather than the storefront.
+# ============================================================================
+if [ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ] \
+   && [ -f "$REPO_PATH/scripts/seed_principal_mappings.py" ]; then
+    log "Seeding RLS principal mappings (Cognito subject -> customer scope)..."
+    export COGNITO_POOL_ID="${COGNITO_POOL_ID:-$COGNITO_USER_POOL_ID}"
+    export COGNITO_REGION="${COGNITO_REGION:-$AWS_REGION}"
+    if python3 "$REPO_PATH/scripts/seed_principal_mappings.py" 2>&1 \
+         | tee /var/log/pellier-seed-principal-mappings.log; then
+        log "✅ Principal mappings seeded"
+    else
+        warn "seed_principal_mappings.py reported issues — RLS will deny signed-in shoppers until it succeeds"
+    fi
 fi
 
 # ============================================================================

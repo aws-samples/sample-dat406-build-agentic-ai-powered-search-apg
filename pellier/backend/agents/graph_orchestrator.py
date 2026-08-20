@@ -35,42 +35,42 @@ def get_graph_structure() -> Dict[str, Any]:
             "label": "Orchestrator",
             "type": "decision",
             "description": "Analyzes query intent and routes to one specialist agent",
-            "model": "Claude Sonnet 5",
+            "model": "Claude Sonnet 4.6",
         },
         {
             "id": "recommendation",
             "label": "Product Recommendation",
             "type": "agent",
             "description": "Trending products, personalized recommendations, and gift suggestions",
-            "model": "Claude Opus 5",
+            "model": "Claude Opus 4.6",
         },
         {
             "id": "pricing",
             "label": "Price Optimization",
             "type": "agent",
             "description": "Price analysis, deals, and discount finder",
-            "model": "Claude Sonnet 5",
+            "model": "Claude Sonnet 4.6",
         },
         {
             "id": "inventory",
             "label": "Inventory & Restock",
             "type": "agent",
             "description": "Stock levels, restocking, and availability",
-            "model": "Claude Sonnet 5",
+            "model": "Claude Sonnet 4.6",
         },
         {
             "id": "support",
             "label": "Customer Support",
             "type": "agent",
             "description": "Return policies, troubleshooting, and general support",
-            "model": "Claude Opus 5",
+            "model": "Claude Opus 4.6",
         },
         {
             "id": "search",
             "label": "Product Search",
             "type": "agent",
             "description": "Product search, category browsing, and product comparison",
-            "model": "Claude Opus 5",
+            "model": "Claude Opus 4.6",
         },
     ]
 
@@ -89,7 +89,7 @@ def get_graph_structure() -> Dict[str, Any]:
         "edges": edges,
         "description": (
             "The orchestrator routes each user query to one specialist agent. "
-            "The Orchestrator (Sonnet 5) classifies intent and dispatches to "
+            "The Orchestrator (Sonnet 4.6) classifies intent and dispatches to "
             "Recommendation, Pricing, Inventory, Customer Support, or Search "
             "(Opus for editorial specialists, Sonnet for reporting specialists)."
         ),

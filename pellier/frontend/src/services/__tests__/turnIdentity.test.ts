@@ -157,7 +157,7 @@ describe('turn identity', () => {
   })
 
   it('passes turn_start through to the onUpdate consumer', async () => {
-    // The Boutique needs the id mid-stream to prepare the receipt link.
+    // The Pellier needs the id mid-stream to prepare the receipt link.
     stubFetch([{ type: 'turn_start', turn_id: 'turn-3' }, COMPLETE])
     const seen: string[] = []
 

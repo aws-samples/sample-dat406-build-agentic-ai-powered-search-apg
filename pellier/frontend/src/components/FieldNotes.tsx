@@ -3,9 +3,9 @@ import { cssVar as c } from '../design/cssVars'
  * FieldNotes — short editorial essays for the Storyboard route.
  *
  * Four notes total: one for each returning persona (Marco, Anna,
- * Theo) and one editorial note written in the boutique voice. Each
+ * Theo) and one editorial note written in the Pellier voice. Each
  * note is a tight italic Fraunces dek + a prose body in Instrument Sans, 15px/
- * 1.7, matching the Agent Trace AssistantText register so the page reads
+ * 1.7, matching the Observatory AssistantText register so the page reads
  * as "the storefront wrote this, not a marketing page."
  *
  * The footer tagline "Field notes from a slower kind of shopping" is
@@ -30,7 +30,7 @@ const NOTES: readonly Note[] = [
     kicker: 'Field note · No. 01',
     title: 'On asking for the piece, not the product.',
     body: [
-      'A boutique that really knows its floor should answer "a linen piece that travels well" the same way it answers "medium oatmeal camp shirt, size M." Both are the same question dressed differently. The first is softer; the second assumes too much.',
+      'A storefront that really knows its floor should answer "a linen piece that travels well" the same way it answers "medium oatmeal camp shirt, size M." Both are the same question dressed differently. The first is softer; the second assumes too much.',
       'Pellier is built on that smaller, quieter assumption — that you know what you want, not what it\'s called.',
     ],
     signature: '— The editors',
@@ -70,7 +70,7 @@ export default function FieldNotes() {
       data-testid="field-notes"
       aria-labelledby="field-notes-heading"
       style={{
-        background: c.bg,
+        background: c.paper,
         padding: '72px 24px 96px',
       }}
     >
@@ -129,7 +129,7 @@ export default function FieldNotes() {
               maxWidth: 560,
             }}
           >
-            Short pieces the boutique wrote about how it reads the
+            Short pieces Pellier wrote about how it reads the
             floor, what it remembers, and why it answers the way it
             does.
           </p>

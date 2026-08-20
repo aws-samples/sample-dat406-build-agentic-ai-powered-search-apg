@@ -8,14 +8,21 @@
  */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import ProductGrid from './ProductGrid'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
 
+// Cards link to /product/:id, so the grid needs router context.
+function renderGrid(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
+
 describe('ProductGrid — render contract', () => {
   it('renders all 9 showcase cards in declaration order', () => {
-    render(<ProductGrid />)
+    renderGrid(<ProductGrid />)
 
     for (const [index, product] of SHOWCASE_PRODUCTS.entries()) {
       const card = screen.getByTestId(`product-card-${product.id}`)
@@ -25,7 +32,7 @@ describe('ProductGrid — render contract', () => {
   })
 
   it('hides Add to bag when no action handler is provided', () => {
-    render(<ProductGrid />)
+    renderGrid(<ProductGrid />)
 
     for (const product of SHOWCASE_PRODUCTS) {
       expect(
@@ -42,7 +49,7 @@ describe('ProductGrid — render contract', () => {
   it('calls the supplied Add to bag handler with the selected product', async () => {
     const user = userEvent.setup()
     const onAddToBag = vi.fn()
-    render(
+    renderGrid(
       <ProductGrid
         products={SHOWCASE_PRODUCTS.slice(0, 1)}
         onAddToBag={onAddToBag}
@@ -57,7 +64,7 @@ describe('ProductGrid — render contract', () => {
 
   it('respects the `products` prop when provided', () => {
     const subset = SHOWCASE_PRODUCTS.slice(0, 3)
-    render(<ProductGrid products={subset} />)
+    renderGrid(<ProductGrid products={subset} />)
 
     for (const product of subset) {
       expect(

@@ -1,4 +1,4 @@
-"""Safe error envelopes for the Boutique streaming chat surface."""
+"""Safe error envelopes for Pellier streaming chat surface."""
 
 from __future__ import annotations
 

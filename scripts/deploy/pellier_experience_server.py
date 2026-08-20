@@ -28,6 +28,14 @@ from typing import Any
 import boto3
 
 from common.types import resolve_invocation
+from common.dataapi import (
+    begin_transaction as _begin_transaction,
+    commit_transaction as _commit_transaction,
+    rollback_transaction as _rollback_transaction,
+    execute_in_transaction as _execute_in_transaction,
+    row_to_dict as _row_to_dict,
+    write_tool_audit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,45 +57,12 @@ ALLOWED_RETURN_REASONS = {
     "other",
 }
 
-rds_client = boto3.client("rds-data", region_name=DB_REGION)
 
 
-def _row_to_dict(record: list, columns: list[str]) -> dict:
-    out: dict = {}
-    for i, field in enumerate(record):
-        if "stringValue" in field:
-            out[columns[i]] = field["stringValue"]
-        elif "longValue" in field:
-            out[columns[i]] = field["longValue"]
-        elif "doubleValue" in field:
-            out[columns[i]] = field["doubleValue"]
-        elif "booleanValue" in field:
-            out[columns[i]] = field["booleanValue"]
-        elif "isNull" in field:
-            out[columns[i]] = None
-        else:
-            out[columns[i]] = str(field)
-    return out
 
 
-def _execute_in_transaction(transaction_id: str, sql: str, parameters: list = None) -> list[dict]:
-    params = {
-        "resourceArn": DB_CLUSTER_ARN,
-        "secretArn": SECRET_ARN,
-        "database": DATABASE,
-        "sql": sql,
-        "transactionId": transaction_id,
-        # Without this the Data API omits columnMetadata entirely, columns
-        # is [] and the first returned row IndexErrors (box-verified
-        # 2026-06-12). The ALLOW beat only passed before because the
-        # ownership check returned ZERO rows — nothing reached the parser.
-        "includeResultMetadata": True,
-    }
-    if parameters:
-        params["parameters"] = parameters
-    response = rds_client.execute_statement(**params)
-    columns = [col["name"] for col in response.get("columnMetadata", [])]
-    return [_row_to_dict(record, columns) for record in response.get("records", [])]
+
+
 
 
 def _write_tool_audit_in_transaction(
@@ -97,46 +72,20 @@ def _write_tool_audit_in_transaction(
     result: dict,
     latency_ms: int,
 ) -> None:
-    """Write the Gateway audit row in the mutation's Aurora transaction.
+    """Audit a return in its own transaction.
 
-    On the in-process rail the FastAPI PolicyEnforcementHook writes this row;
-    behind the Gateway the tool runs in THIS Lambda, so we write it here. This
-    is what makes the governed ALLOW proof queryable: every
-    tool call that REACHES this Lambda was already ALLOWed by managed AgentCore
-    Policy at the Gateway (a DENY never executes the Lambda, so no row is
-    written — that absence is the proof).
-
-    Keying note: the Gateway → Lambda event is ``{name, arguments}`` only — it
-    carries NO session_id. So we key by the real identity that IS present
-    (``customer_id``, surfaced in ``args``) and use ``session_id =
-    'gateway-<customer_id>'`` as a stable, queryable handle. The governed query
-    therefore filters on ``args->>'customer_id'`` rather than session_id.
-
-    Schema (scripts/migrations/002_workshop_telemetry.sql):
-      tool_audit(session_id, tool, caller, args JSONB, result JSONB, latency_ms)
-
-    The mutation and evidence row commit or roll back together. A successful
-    write without its audit row would violate the governed workshop contract.
+    `process_return` is customer-scoped and its arguments carry `customer_id`,
+    so the session handle keys on the real identity and governed queries can
+    filter on `args->>'customer_id'`.
     """
     customer_id = str(args.get("customer_id", "")) or "unknown"
-    rds_client.execute_statement(
-        resourceArn=DB_CLUSTER_ARN,
-        secretArn=SECRET_ARN,
-        database=DATABASE,
-        transactionId=transaction_id,
-        sql=(
-            f"INSERT INTO {SCHEMA}.tool_audit "
-            "(session_id, tool, caller, args, result, latency_ms) "
-            "VALUES (:sid, :tool, :caller, :args::jsonb, :result::jsonb, :ms)"
-        ),
-        parameters=[
-            {"name": "sid", "value": {"stringValue": f"gateway-{customer_id}"}},
-            {"name": "tool", "value": {"stringValue": tool}},
-            {"name": "caller", "value": {"stringValue": "gateway"}},
-            {"name": "args", "value": {"stringValue": json.dumps(args, default=str)}},
-            {"name": "result", "value": {"stringValue": json.dumps(result, default=str)}},
-            {"name": "ms", "value": {"longValue": int(latency_ms)}},
-        ],
+    write_tool_audit(
+        transaction_id,
+        tool=tool,
+        args=args,
+        result=result,
+        latency_ms=latency_ms,
+        session_id=f"gateway-{customer_id}",
     )
 
 
@@ -181,12 +130,7 @@ def process_return(
     )
 
     started = time.monotonic()
-    begin = rds_client.begin_transaction(
-        resourceArn=DB_CLUSTER_ARN,
-        secretArn=SECRET_ARN,
-        database=DATABASE,
-    )
-    transaction_id = begin["transactionId"]
+    transaction_id = _begin_transaction()
 
     try:
         rows = _execute_in_transaction(
@@ -219,21 +163,10 @@ def process_return(
             result,
             int((time.monotonic() - started) * 1000),
         )
-        rds_client.commit_transaction(
-            resourceArn=DB_CLUSTER_ARN,
-            secretArn=SECRET_ARN,
-            transactionId=transaction_id,
-        )
+        _commit_transaction(transaction_id)
         return result
     except Exception as exc:
-        try:
-            rds_client.rollback_transaction(
-                resourceArn=DB_CLUSTER_ARN,
-                secretArn=SECRET_ARN,
-                transactionId=transaction_id,
-            )
-        except Exception:
-            logger.warning("rollback failed for transaction %s", transaction_id)
+        _rollback_transaction(transaction_id)
         logger.error("process_return failed: %s", exc)
         return {"status": "error", "message": str(exc)}
 

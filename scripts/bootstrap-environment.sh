@@ -305,7 +305,7 @@ server {
     # __PELLIER_ORIGIN_VERIFY__
     
     # Pellier (single-process): FastAPI on :8000 serves BOTH
-    # /api/* AND the built SPA (/, /pellier-labs, /storyboard, /discover,
+    # /api/* AND the built SPA (/, /observatory, /storyboard, /discover,
     # /assets/*, /fonts/*). Code-server's /ports/<n>/* reverse proxy
     # (or the standalone /app/ alias below) routes the whole app
     # there.
@@ -341,7 +341,7 @@ server {
 
     # /ports/8000/* – the canonical participant URL. It matches the baked
     # SPA base path (VITE_BASE_PATH=/ports/8000/) and the PellierURL /
-    # PellierLabsURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
+    # ObservatoryURL CFN outputs. Serve it DIRECTLY here (nginx then FastAPI),
     # bypassing code-server's port-forward proxy.
     #
     # WHY this block exists: code-server only forwards a port that has been
@@ -351,7 +351,7 @@ server {
     # rejects it with HTTP 400 ("This page isn't working"). That made the
     # storefront reachable only from inside an open, authenticated IDE tab –
     # fragile, and the first thing a participant trips on. Owning the prefix
-    # here makes Pellier and Pellier Labs load token-free in any browser, with
+    # here makes Pellier and Pellier Observatory load token-free in any browser, with
     # no dependency on the IDE. Trailing slashes on both location and
     # proxy_pass strip the prefix: /ports/8000/assets/x serves /assets/x,
     # /ports/8000/api/... serves /api/... (SSE-safe: buffering + gzip off).
@@ -703,7 +703,7 @@ cat << EOF
 
   PROVE       Lab 4: query pellier.tool_audit from psql.
 
-  PELLIER_LABS Use Pellier Labs only when a step names a specific verification
+  OBSERVATORY Use Pellier Observatory only when a step names a specific verification
               or comparison view.
 
   FILE        agent_tools.py is open. Find the floor_check WORKSHOP markers,
@@ -951,7 +951,7 @@ if [ ! -z "${STAGE2_SCRIPT_URL}" ]; then
         export AWS_REGION='$AWS_REGION' && \
         export BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}' && \
         export BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}' && \
-        export BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-5}' && \
+        export BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-6-v1}' && \
         export ASSETS_BUCKET_NAME='${ASSETS_BUCKET_NAME:-}' && \
         export ASSETS_BUCKET_PREFIX='${ASSETS_BUCKET_PREFIX:-}' && \
         nohup /tmp/bootstrap-labs.sh > /var/log/bootstrap-labs.log 2>&1 &"

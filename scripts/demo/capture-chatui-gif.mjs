@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // capture-chatui-gif.mjs
 //
-// Captures a 12–15 s demo of the Pellier Boutique (Marco signed in) and
+// Captures a 12–15 s demo of Pellier (Marco signed in) and
 // encodes it into docs/demo-assets/chatui.gif. Copy that file into the
 // Workshop Studio repo's static/imgs/ to publish it in the lab manual.
 //
@@ -146,7 +146,7 @@ async function clickFirstHeroPill(page) {
   // don't have individual testids — match by visible text first, then fall
   // back to the first pill inside the rail.
   const byText = page
-    .locator('[data-testid="boutique-hero-pills"] button', {
+    .locator('[data-testid="pellier-hero-pills"] button', {
       hasText: /linen.*goa/i,
     })
     .first();
@@ -156,7 +156,7 @@ async function clickFirstHeroPill(page) {
     return;
   }
   const fallback = page
-    .locator('[data-testid="boutique-hero-pills"] button')
+    .locator('[data-testid="pellier-hero-pills"] button')
     .first();
   if (await fallback.isVisible().catch(() => false)) {
     await fallback.scrollIntoViewIfNeeded().catch(() => {});

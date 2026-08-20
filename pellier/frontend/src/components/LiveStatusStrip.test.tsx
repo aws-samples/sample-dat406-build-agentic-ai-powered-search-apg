@@ -4,7 +4,7 @@
  *
  * The previous version fetched /api/inventory and rendered an amber
  * "Catalog refreshing…" warning when stale=true. That warning showed
- * up too often in demo envs and distracted from the boutique voice,
+ * up too often in demo envs and distracted from the Pellier voice,
  * so it was removed along with the network round-trip. The test spec
  * is rewritten here as a living contract around what the component
  * does now — render three pieces of static copy — and an explicit

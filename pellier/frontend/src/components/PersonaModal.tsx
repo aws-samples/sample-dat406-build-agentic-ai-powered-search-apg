@@ -2,7 +2,7 @@
  * PersonaModal — the shared persona switcher.
  *
  * One component, two entry points: the storefront header pill and the
- * Agent Trace breadcrumb indicator both open this same modal. Structure
+ * Observatory breadcrumb indicator both open this same modal. Structure
  * matches docs/persona-switcher.html byte-for-byte; styling lives in
  * src/styles/persona-modal.css.
  *
@@ -44,7 +44,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   // Fetch persona list on first open
   useEffect(() => {
     if (!open || personas.length > 0) return
-    fetch('/api/agent-trace/personas')
+    fetch('/api/observatory/personas')
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : []
@@ -114,7 +114,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
               Choose a <em>persona to inhabit.</em>
             </h2>
             <p className="pm-sub">
-              Three histories. The boutique shifts depending on who you are.
+              Three histories. Pellier shifts depending on who you are.
             </p>
           </div>
           <button

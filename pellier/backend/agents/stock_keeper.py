@@ -6,8 +6,8 @@ questions.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_inventory_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``inventory(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and the Observatory Graph pattern.
+2. ``inventory(query)`` — ``@tool`` wrapper used by the Observatory's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: this module is the home of the Stock Keeper persona.
@@ -107,7 +107,7 @@ _INVENTORY_MAX_TOKENS = 0
 # Field 5: the three tools Stock Keeper owns.
 _INVENTORY_TOOLS = []
 #
-# Source delta: Stock Keeper has no temperature field. Sonnet 5 rejects the
+# Source delta: Stock Keeper has no temperature field. Sonnet 4.6 rejects the
 # deprecated temperature kwarg, so the correct definition omits it.
 # === WORKSHOP · Stock Keeper · definition: END ===
 
@@ -136,7 +136,7 @@ def build_inventory_agent() -> Agent:
 
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Both injections are no-ops when their
-    ContextVars are empty, so anonymous agentTrace behavior is
+    ContextVars are empty, so anonymous observatory behavior is
     unchanged by consolidating the five factories onto the same
     substrate.
     """
@@ -145,7 +145,7 @@ def build_inventory_agent() -> Agent:
             "Stock Keeper definition is still scaffolded for the governed workshop"
         )
 
-    # Stock Keeper — Sonnet 5 reporting profile. Pure factual lookups
+    # Stock Keeper — Sonnet 4.6 reporting profile. Pure factual lookups
     # (warehouse, count, ETA), with no temperature override.
     model_id, max_tokens, _ = resolve_specialist_model(
         "sonnet",

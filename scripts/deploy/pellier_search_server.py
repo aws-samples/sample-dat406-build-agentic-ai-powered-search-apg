@@ -33,6 +33,16 @@ from typing import Any
 import boto3
 
 from common.types import resolve_invocation
+from common.dataapi import (
+    execute_write as _execute_write,
+    begin_transaction as _begin_transaction,
+    commit_transaction as _commit_transaction,
+    rollback_transaction as _rollback_transaction,
+    execute_in_transaction as _execute_in_transaction,
+    execute_sql as _execute_sql,
+    query_embedding as _get_embedding,
+    write_tool_audit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,80 +80,18 @@ _GATEWAY_RETRIEVAL_INSERT = f"""
 """
 
 # Module-level clients for Lambda warm start reuse
-rds_client = boto3.client("rds-data", region_name=DB_REGION)
-bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
 bedrock_agent_runtime_client = boto3.client("bedrock-agent-runtime", region_name=REGION)
 
 
-def _execute_sql(sql: str, parameters: list = None) -> list[dict]:
-    """Execute SQL via RDS Data API and return rows as dicts."""
-    params = {
-        "resourceArn": DB_CLUSTER_ARN,
-        "secretArn": SECRET_ARN,
-        "database": DATABASE,
-        "sql": sql,
-        # Without this the Data API omits columnMetadata entirely, columns
-        # is [] and the first returned row IndexErrors (box-verified
-        # 2026-06-12 — "list index out of range" on every successful SELECT).
-        "includeResultMetadata": True,
-    }
-    if parameters:
-        params["parameters"] = parameters
-
-    response = rds_client.execute_statement(**params)
-    columns = [col["name"] for col in response.get("columnMetadata", [])]
-    rows = []
-    for record in response.get("records", []):
-        row = {}
-        for i, field in enumerate(record):
-            if "stringValue" in field:
-                row[columns[i]] = field["stringValue"]
-            elif "longValue" in field:
-                row[columns[i]] = field["longValue"]
-            elif "doubleValue" in field:
-                row[columns[i]] = field["doubleValue"]
-            elif "booleanValue" in field:
-                row[columns[i]] = field["booleanValue"]
-            elif "isNull" in field:
-                row[columns[i]] = None
-            else:
-                row[columns[i]] = str(field)
-        rows.append(row)
-    return rows
 
 
-def _execute_in_transaction(
-    transaction_id: str,
-    sql: str,
-    parameters: list | None = None,
-) -> list[dict]:
-    params = {
-        "resourceArn": DB_CLUSTER_ARN,
-        "secretArn": SECRET_ARN,
-        "database": DATABASE,
-        "sql": sql,
-        "transactionId": transaction_id,
-        "includeResultMetadata": True,
-    }
-    if parameters:
-        params["parameters"] = parameters
-    response = rds_client.execute_statement(**params)
-    columns = [col["name"] for col in response.get("columnMetadata", [])]
-    return [
-        {
-            columns[index]: (
-                field.get("stringValue")
-                if "stringValue" in field
-                else field.get("longValue")
-                if "longValue" in field
-                else field.get("doubleValue")
-                if "doubleValue" in field
-                else None
-            )
-            for index, field in enumerate(record)
-        }
-        for record in response.get("records", [])
-    ]
+
+
+
+
+
+
+# --- MCP Tool implementations ---
 
 
 def _write_tool_audit_in_transaction(
@@ -153,58 +101,21 @@ def _write_tool_audit_in_transaction(
     result: dict,
     latency_ms: int,
 ) -> None:
-    """Write the Gateway audit row in the stock mutation transaction."""
-    rds_client.execute_statement(
-        resourceArn=DB_CLUSTER_ARN,
-        secretArn=SECRET_ARN,
-        database=DATABASE,
-        transactionId=transaction_id,
-        sql=(
-            f"INSERT INTO {SCHEMA}.tool_audit "
-            "(session_id, tool, caller, args, result, latency_ms) "
-            "VALUES (:sid, :tool, 'gateway', :args::jsonb, "
-            ":result::jsonb, :latency_ms)"
-        ),
-        parameters=[
-            {
-                "name": "sid",
-                "value": {"stringValue": "gateway-stock-keeper"},
-            },
-            {"name": "tool", "value": {"stringValue": tool}},
-            {
-                "name": "args",
-                "value": {"stringValue": json.dumps(args, default=str)},
-            },
-            {
-                "name": "result",
-                "value": {"stringValue": json.dumps(result, default=str)},
-            },
-            {"name": "latency_ms", "value": {"longValue": int(latency_ms)}},
-        ],
-    )
+    """Audit a stock mutation in its own transaction.
 
-
-def _get_embedding(text: str) -> list[float]:
-    """Generate a query embedding via Cohere Embed v4.
-
-    Must match the in-process path (pellier/backend/services/embeddings.py):
-    the catalog was seeded with Cohere Embed v4 at output_dimension=1024, so the
-    managed Gateway path has to embed in the SAME vector space — Titan v2 vectors
-    are a different space and would make pgvector cosine search return wrong
-    rankings even though the dimension (1024) happens to match. input_type is
-    "search_query" because these are live shopper queries, not catalog docs.
+    `restock_shelf` is an operator action: its arguments carry a product and a
+    warehouse, never a customer, so the session handle names the acting role.
+    Deriving `gateway-<customer_id>` here would write `gateway-unknown` on
+    every row.
     """
-    response = bedrock_client.invoke_model(
-        modelId=EMBED_MODEL_ID,
-        body=json.dumps(
-            {"texts": [text], "input_type": "search_query", "output_dimension": 1024}
-        ),
+    write_tool_audit(
+        transaction_id,
+        tool=tool,
+        args=args,
+        result=result,
+        latency_ms=latency_ms,
+        session_id="gateway-stock-keeper",
     )
-    result = json.loads(response["body"].read())
-    return result["embeddings"]["float"][0]
-
-
-# --- MCP Tool implementations ---
 
 
 def semantic_search(query: str, limit: int = 5, max_price: float = None, min_rating: float = None) -> dict:
@@ -304,7 +215,7 @@ def find_pieces_hybrid(
          preserved.
 
     On a Bedrock failure (rate limit, invalid response), we fall back to
-    RRF order — the Agent Trace surfaces this as a missing rerank stage in
+    RRF order — the Observatory surfaces this as a missing rerank stage in
     telemetry rather than crashing the request.
     """
     retrieval_started = time.monotonic()
@@ -616,13 +527,7 @@ def _persist_gateway_retrieval_receipt(
         _receipt_string_parameter("rail", "gateway-mcp"),
     ]
     try:
-        rds_client.execute_statement(
-            resourceArn=DB_CLUSTER_ARN,
-            secretArn=SECRET_ARN,
-            database=DATABASE,
-            sql=_GATEWAY_RETRIEVAL_INSERT,
-            parameters=parameters,
-        )
+        _execute_write(_GATEWAY_RETRIEVAL_INSERT, parameters)
         return True
     except Exception as exc:
         logger.warning("Gateway retrieval receipt insert failed: %s", exc)
@@ -633,7 +538,7 @@ def _bedrock_rerank(query: str, documents: list, top_n: int) -> list:
     """Call Cohere Rerank v3.5 on Bedrock; return [] on any failure.
 
     Returning [] (instead of raising) matches the in-process service so
-    the caller can fall back to RRF order. The Agent Trace surfaces a
+    the caller can fall back to RRF order. The Observatory surfaces a
     missing-rerank state from this signal — useful demo when the
     workshop wants to show graceful degradation under Bedrock pressure.
     """
@@ -704,12 +609,7 @@ def restock_product(
     )
     request_hash = hashlib.sha256(request_payload.encode("utf-8")).hexdigest()
     started = time.monotonic()
-    transaction = rds_client.begin_transaction(
-        resourceArn=DB_CLUSTER_ARN,
-        secretArn=SECRET_ARN,
-        database=DATABASE,
-    )
-    transaction_id = transaction["transactionId"]
+    transaction_id = _begin_transaction()
     try:
         rows = _execute_in_transaction(
             transaction_id,
@@ -748,18 +648,10 @@ def restock_product(
             response,
             int((time.monotonic() - started) * 1000),
         )
-        rds_client.commit_transaction(
-            resourceArn=DB_CLUSTER_ARN,
-            secretArn=SECRET_ARN,
-            transactionId=transaction_id,
-        )
+        _commit_transaction(transaction_id)
         return response
     except Exception:
-        rds_client.rollback_transaction(
-            resourceArn=DB_CLUSTER_ARN,
-            secretArn=SECRET_ARN,
-            transactionId=transaction_id,
-        )
+        _rollback_transaction(transaction_id)
         raise
 
 

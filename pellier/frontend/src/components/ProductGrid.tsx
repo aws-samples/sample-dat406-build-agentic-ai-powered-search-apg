@@ -33,7 +33,7 @@
  * The current grid uses CSS Grid auto-fill for fluid column adjustment and
  * shared design tokens for its container and background.
  */
-import type { BoutiqueProduct } from '../services/types'
+import type { PellierProduct } from '../services/types'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
 import ProductCard from './ProductCard'
 
@@ -43,9 +43,9 @@ interface ProductGridProps {
    * `storefront.md`. When the personalized endpoint lands, the parent
    * passes in the server-sorted list instead.
    */
-  products?: BoutiqueProduct[]
+  products?: PellierProduct[]
   /** Called when a card's `Add to bag` button is clicked. */
-  onAddToBag?: (product: BoutiqueProduct) => void
+  onAddToBag?: (product: PellierProduct) => void
 }
 
 export default function ProductGrid({

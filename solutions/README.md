@@ -18,7 +18,7 @@ cp solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py \
   pellier/backend/services/agent_tools.py
 ```
 
-After copying, both `/api/agent-trace/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `floor_check` row from `pellier.tool_audit`.
+After copying, both `/api/observatory/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `floor_check` row from `pellier.tool_audit`.
 
 ## Lab 2: Design the Retrieval Strategy
 

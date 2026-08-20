@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
-from boutique_copy import MEMORY_WRITE_WARNING
+from pellier_copy import MEMORY_WRITE_WARNING
 from models.search import (
     SearchRequest,
     SearchResponse,
@@ -47,11 +47,11 @@ from services.vector_search import VectorSearch
 from services.cache import init_cache, get_cache
 from routes import (
     agent_router,
-    agent_trace_router,
+    observatory_router,
     auth_router,
     products_router,
     search_router,
-    boutique_router,
+    storefront_router,
     commerce_router,
     user_router,
     workshop_router,
@@ -199,7 +199,7 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events
     """
     # Startup
-    logger.info("Starting Pellier Boutique API...")
+    logger.info("Starting Pellier API...")
     
     global db_service, embedding_service, chat_service, query_logger, index_performance_service
 
@@ -209,7 +209,7 @@ async def lifespan(app: FastAPI):
             "Strands, and AgentCore service initialization"
         )
         yield
-        logger.info("Shutting down Pellier Boutique API smoke process...")
+        logger.info("Shutting down Pellier API smoke process...")
         logger.info("👋 Goodbye!")
         return
     
@@ -218,7 +218,17 @@ async def lifespan(app: FastAPI):
         try:
             from strands.telemetry import StrandsTelemetry
             import sys
-            
+
+            # MUST run before StrandsTelemetry(): strands.telemetry.Tracer
+            # reads OTEL_SEMCONV_STABILITY_OPT_IN once, in __init__. Setting
+            # it afterwards leaves the tracer built with redaction off and
+            # the setting silently does nothing.
+            from services.otel_content_redaction import apply_model_content_redaction
+
+            apply_model_content_redaction(
+                enabled=settings.OTEL_REDACT_MODEL_CONTENT
+            )
+
             strands_telemetry = StrandsTelemetry()
             
             # Custom formatter for cleaner trace output
@@ -264,6 +274,27 @@ async def lifespan(app: FastAPI):
                     logger.info("ℹ️  OTLP exporter skipped (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
             except Exception as e:
                 logger.warning(f"⚠️ OTLP exporter not available: {e}")
+
+            # Collectorless span export to the CloudWatch X-Ray OTLP
+            # endpoint. Separate from setup_otlp_exporter() above: that one
+            # posts unsigned OTLP, and the X-Ray endpoint accepts SigV4 only.
+            # Attached after StrandsTelemetry so there is an SDK provider to
+            # add a processor to.
+            try:
+                from services.otel_cloudwatch_export import init_cloudwatch_span_export
+
+                span_export = init_cloudwatch_span_export(
+                    enabled=settings.OTEL_CLOUDWATCH_TRACES_ENABLED,
+                    region=settings.AWS_REGION,
+                    endpoint=settings.OTEL_CLOUDWATCH_TRACES_ENDPOINT,
+                )
+                if not span_export.attached:
+                    logger.info(
+                        "ℹ️  CloudWatch span export unavailable — %s",
+                        span_export.reason,
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ CloudWatch span export not initialized: {e}")
 
             # Attach in-memory span capture for trace extraction
             try:
@@ -349,7 +380,7 @@ async def lifespan(app: FastAPI):
                 voice_status["python"],
             )
 
-        logger.info("🚀 Pellier Boutique API is ready!")
+        logger.info("🚀 Pellier API is ready!")
         
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -358,7 +389,7 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
-    logger.info("Shutting down Pellier Boutique API...")
+    logger.info("Shutting down Pellier API...")
     
     if db_service:
         await db_service.disconnect()
@@ -368,7 +399,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Pellier Boutique API",
+    title="Pellier API",
     description="Governed agentic AI search with Aurora and Bedrock AgentCore",
     version="1.0.0",
     lifespan=lifespan,
@@ -410,20 +441,20 @@ app.include_router(search_router)
 
 # Workshop telemetry surface — returns flat
 # {session_id, events: list[dict]} payloads for the panel renderer.
-# Intentionally separate from /api/agent/chat so the boutique SSE
+# Intentionally separate from /api/agent/chat so the Pellier SSE
 # stream isn't reshaped for the workshop's replay needs.
 app.include_router(workshop_router)
 
-# Agent Trace Observatory read-only API endpoints — sessions, agents, tools,
+# Pellier Observatory read-only API endpoints — sessions, agents, tools,
 # routing, memory, performance, evaluations, observatory dashboard.
-# Additive to workshop_router (same /api/agent-trace/ prefix, no path conflicts).
-app.include_router(agent_trace_router)
+# Additive to workshop_router (same /api/observatory/ prefix, no path conflicts).
+app.include_router(observatory_router)
 
-# Boutique ambient chrome — briefing (concierge empty state) + pulse
+# Pellier ambient chrome — briefing (concierge empty state) + pulse
 # (4 live metrics above the hero). Both endpoints are contract-typed
 # via Pydantic and degrade gracefully; they are never allowed to 5xx
 # the homepage.
-app.include_router(boutique_router)
+app.include_router(storefront_router)
 app.include_router(commerce_router)
 app.include_router(transcribe_router)
 
@@ -493,7 +524,7 @@ async def _serve_spa_root():
         )
     return JSONResponse(
         {
-            "message": "Pellier Boutique API",
+            "message": "Pellier API",
             "version": "1.0.0",
             "note": (
                 "Frontend bundle not found at "
@@ -829,8 +860,8 @@ def new_turn_id() -> str:
     """Mint a stable identifier for one shopper turn.
 
     Every turn gets one, minted server-side before the stream opens. This
-    is what makes a receipt deep link reproducible: the Boutique can hand
-    the id to Agent Trace, and a reload resolves the same turn rather than
+    is what makes a receipt deep link reproducible: Pellier can hand
+    the id to Observatory, and a reload resolves the same turn rather than
     whatever happens to be newest.
 
     Deliberately not derived from message position or display order — a
@@ -1116,7 +1147,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             )
 
             # Per-turn guardrail INPUT check — records a decision in
-            # services/guardrails_log so the Agent Trace Grounding page's
+            # services/guardrails_log so the Observatory Grounding page's
             # Guardrails lane shows live audit rows. Only runs when
             # the user enabled guardrails in their request; otherwise
             # the log captures no entry (accurate — nothing happened).
@@ -1191,7 +1222,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             # Mint the turn identity before streaming so the id is stable
             # for the whole turn and can be emitted on the first event.
             # The client persists it and uses it to deep-link the exact
-            # turn's evidence in Agent Trace.
+            # turn's evidence in Observatory.
             turn_id = new_turn_id()
             yield (
                 "data: "
@@ -1206,7 +1237,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 + "\n\n"
             )
 
-            # The Boutique is the governed workshop's participant path. Once
+            # Pellier is the governed workshop's participant path. Once
             # the managed rail is selected, it must execute through Runtime
             # rather than run the local chat service and attach a managed
             # label afterward. A Runtime response is currently one complete
@@ -1730,7 +1761,7 @@ async def compare_index_performance(
 async def performance_runtime(include_recent: bool = False):
     """Return rolling aggregates of chat turn latency breakdowns.
 
-    Feeds the Agent Trace Performance tab — layer p50/p95 replace the
+    Feeds the Observatory Performance tab — layer p50/p95 replace the
     hardcoded 3779ms/4ms numbers, cold-start histogram replaces the
     stub bars, tool p50 fuels the per-tool legend. Empty buffer is
     reported honestly so the UI can show a placeholder instead of
@@ -1917,14 +1948,14 @@ async def personalized_search(
 # WORKSHOP MODULE STATUS ENDPOINT
 # ============================================================================
 
-@app.get("/api/agent-trace/skills")
+@app.get("/api/observatory/skills")
 async def list_skills():
     """
-    List all skills in the registry for the Agent Trace surfaces.
+    List all skills in the registry for the Observatory surfaces.
 
     Returns a bare JSON array, matching the sibling list endpoints
-    (``/api/agent-trace/agents``, ``/api/agent-trace/tools/list``) and the
-    ``skills.json`` fixture shape. ``useAgentTraceData`` stores the response
+    (``/api/observatory/agents``, ``/api/observatory/tools/list``) and the
+    ``skills.json`` fixture shape. ``useObservatoryData`` stores the response
     verbatim, so a bare array keeps ``data ?? []`` an array even if a
     surface is ever switched from fixture mode to ``source: 'api'`` for the
     ``skills`` key — a wrapper object would break the downstream ``.map``.
@@ -1951,14 +1982,14 @@ async def list_skills():
     ]
 
 
-@app.get("/api/agent-trace/search-strategies/compare")
+@app.get("/api/observatory/search-strategies/compare")
 async def compare_search_strategies(query: str):
     """Run the same query through four retrieval strategies, return
     one observed duration per strategy + top-5 product names + (when present) the
     structured filters Sonnet extracted.
 
     Surfaces Anna's anchor-capability comparison live to the
-    Agent Trace Performance page so workshop participants can see the
+    Observatory Performance page so workshop participants can see the
     delta between vector-only / hybrid / hybrid+rerank / agentic
     against the real catalog rather than reading a static fixture.
 
@@ -1970,7 +2001,7 @@ async def compare_search_strategies(query: str):
          loses on conversational queries with this corpus.
       3. **hybrid + rerank** — same as #2 plus Cohere Rerank v3.5.
       4. **agentic (Sonnet → filter → vector → rerank)** — Anna's
-         shipped path. Sonnet 5 extracts {categories, tags,
+         shipped path. Sonnet 4.6 extracts {categories, tags,
          price_max, in_stock, soft_signal}; pgvector cosine
          runs over the filtered candidate set with
          ``hnsw.iterative_scan = 'relaxed_order'`` so filtered recall
@@ -2203,10 +2234,10 @@ async def compare_search_strategies(query: str):
     }
 
 
-@app.get("/api/agent-trace/search/explain")
+@app.get("/api/observatory/search/explain")
 async def explain_search(query: str):
     """Run one hybrid query and return every *intermediate* stage so the
-    Agent Trace "Search" surface can show the mechanism, not just the outcome.
+    Observatory "Search" surface can show the mechanism, not just the outcome.
 
     This is the mechanism counterpart to ``/search-strategies/compare``
     (which shows the *outcome* — which products win, how fast, at what
@@ -2424,10 +2455,10 @@ async def explain_search(query: str):
     }
 
 
-@app.get("/api/agent-trace/catalog")
-async def agent_trace_catalog():
+@app.get("/api/observatory/catalog")
+async def observatory_catalog():
     """
-    Tool catalog + agent grants for the Agent Trace Architecture pages.
+    Tool catalog + agent grants for the Observatory Architecture pages.
 
     Powers three surfaces:
       - MCP page's tool card grid (Fired / Idle state + p50 latency)
@@ -2582,7 +2613,7 @@ def _load_personas() -> list:
     return _personas_cache
 
 
-@app.get("/api/agent-trace/personas/reload")
+@app.get("/api/observatory/personas/reload")
 async def reload_personas():
     """Dev helper — force re-read of personas-config.json."""
     global _personas_cache
@@ -2595,7 +2626,7 @@ async def reload_personas():
 _session_persona: dict[str, str] = {}
 
 
-@app.get("/api/agent-trace/personas")
+@app.get("/api/observatory/personas")
 async def list_personas():
     """Return the three persona definitions (without internal customer_ids)."""
     personas = _load_personas()
@@ -2674,11 +2705,11 @@ async def get_current_persona(session_id: Optional[str] = Query(default=None)):
     }
 
 
-# NOTE: the legacy /api/agent-trace/status endpoint (multi-module stub detection
+# NOTE: the legacy /api/observatory/status endpoint (multi-module stub detection
 # for an older workshop draft) was removed from the current required path.
-# The Agent Trace progress strip reads GET /api/agent-trace/build-state instead,
+# The Observatory progress strip reads GET /api/observatory/build-state instead,
 # which tracks the Stock Keeper definition and floor_check body independently.
-# See routes/agent_trace.py::get_build_state.
+# See routes/observatory.py::get_build_state.
 
 
 # ============================================================================
@@ -2813,7 +2844,7 @@ async def check_guardrails(request: Request):
     """Demo endpoint to test Bedrock Guardrails on input/output text.
 
     Also records the decision in ``services/guardrails_log`` so the
-    Agent Trace Grounding page's Guardrails lane can surface a live audit
+    Observatory Grounding page's Guardrails lane can surface a live audit
     trail alongside the Cedar policy decisions.
     """
     import time as _time
@@ -2858,7 +2889,7 @@ async def check_guardrails(request: Request):
 async def guardrails_decisions(session_id: str = "", limit: int = 50):
     """Return recent guardrail outcomes for a session.
 
-    Feeds the Agent Trace Grounding page's Guardrails lane. Distinct from
+    Feeds the Observatory Grounding page's Guardrails lane. Distinct from
     ``/api/agentcore/policy/decisions`` (Cedar tool-call enforcement);
     these are Bedrock content filter outcomes on the prose side.
     """
@@ -2996,7 +3027,7 @@ async def memory_ltm(customer_id: str = ""):
 async def memory_status():
     """Return whether an ACTIVE AgentCore Memory is backing the SDK path.
 
-    The MemoryArchPage in the Agent Trace reads this to show an honest
+    The MemoryArchPage in the Observatory reads this to show an honest
     banner — either 'Live: AgentCore Memory (id=...)' or 'Fallback:
     in-process dict; set AGENTCORE_MEMORY_ID to enable LIVE'. An ID and
     importable SDK are not sufficient: the control-plane resource must
@@ -3019,7 +3050,7 @@ async def memory_status():
 async def gateway_status():
     """Return the effective Gateway wiring for the current backend.
 
-    The Agent Trace MCP / Tool Registry tabs use this to show whether tools
+    The Observatory MCP / Tool Registry tabs use this to show whether tools
     are being discovered via MCP (Gateway configured) or loaded via
     direct @tool imports (fallback). The ``source`` field is the
     human-readable label shown next to the tool list.
@@ -3081,7 +3112,7 @@ async def policy_decisions(
         }
 
 
-@app.get("/api/agent-trace/receipts/{turn_id}")
+@app.get("/api/observatory/receipts/{turn_id}")
 async def governed_turn_receipt(
     turn_id: str,
     operator: Dict[str, Any] = Depends(require_operator),

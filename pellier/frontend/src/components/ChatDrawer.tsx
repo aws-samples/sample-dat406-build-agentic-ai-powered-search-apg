@@ -16,7 +16,7 @@
  * bug we hit with PersonaModal).
  *
  * Reuses ``useAgentChat`` for state, streaming, and persistence.
- * The Agent Trace's ConciergeModal is unaffected by this component.
+ * The Observatory's ConciergeModal is unaffected by this component.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -31,8 +31,8 @@ import {
   type AgentChatMessage,
 } from '../hooks/useAgentChat'
 import { useVoiceSearch } from '../hooks/useVoiceSearch'
-import BoutiqueChatBody from './BoutiqueChatBody'
-import BoutiqueWelcome from './BoutiqueWelcome'
+import PellierChatBody from './PellierChatBody'
+import PellierWelcome from './PellierWelcome'
 import '../styles/chat-drawer.css'
 
 // ---------------------------------------------------------------------------
@@ -367,13 +367,13 @@ export default function ChatDrawer() {
             {/* Body */}
             <div className="cd-body" ref={scrollAreaRef}>
               {!hasUserMessages && (
-                <BoutiqueWelcome
+                <PellierWelcome
                   persona={persona}
                   onSend={(text) => void sendMessage(text)}
                 />
               )}
               {hasUserMessages && (
-                <BoutiqueChatBody
+                <PellierChatBody
                   messages={messages}
                   sendMessage={sendMessage}
                   retryMessage={retryMessage}

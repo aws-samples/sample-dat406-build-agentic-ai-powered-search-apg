@@ -1,4 +1,4 @@
-"""Shared helpers that turn service calls into Agent Trace panels.
+"""Shared helpers that turn service calls into Observatory panels.
 
 Each helper takes an ``AgentContext`` + the raw inputs, performs the
 underlying work (or detects a skip condition), and emits a panel event.

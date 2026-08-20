@@ -81,12 +81,26 @@ def _parameter_values(call: dict[str, Any]) -> dict[str, Any]:
     return values
 
 
+
+def _shared_transport():
+    """Return the module that owns the only Data API client.
+
+    The surface servers share `common/dataapi.py` rather than each holding a
+    client, so this is where a fake belongs. Reads are stubbed separately at
+    `_execute_sql`; the receipt INSERT goes through `execute_write`, so a fake
+    client here still captures it.
+    """
+    import common.dataapi as dataapi
+
+    return dataapi
+
+
 def test_gateway_hybrid_search_persists_actual_ranking_evidence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server = _load_server(monkeypatch)
     rds = _Rds()
-    monkeypatch.setattr(server, "rds_client", rds)
+    monkeypatch.setattr(_shared_transport(), "rds_client", rds)
     monkeypatch.setattr(server, "_get_embedding", lambda _query: [0.1, 0.2])
     monkeypatch.setattr(server, "_execute_sql", lambda *_args, **_kwargs: _candidate_rows())
     monkeypatch.setattr(
@@ -138,7 +152,7 @@ def test_gateway_hybrid_search_never_persists_an_untrusted_turn_id(
 ) -> None:
     server = _load_server(monkeypatch)
     rds = _Rds()
-    monkeypatch.setattr(server, "rds_client", rds)
+    monkeypatch.setattr(_shared_transport(), "rds_client", rds)
     monkeypatch.setattr(server, "_get_embedding", lambda _query: [0.1, 0.2])
     monkeypatch.setattr(server, "_execute_sql", lambda *_args, **_kwargs: _candidate_rows())
     monkeypatch.setattr(server, "_bedrock_rerank", lambda *_args, **_kwargs: [])
@@ -164,7 +178,7 @@ def test_gateway_semantic_search_persists_cosine_order_without_rerank(
 ) -> None:
     server = _load_server(monkeypatch)
     rds = _Rds()
-    monkeypatch.setattr(server, "rds_client", rds)
+    monkeypatch.setattr(_shared_transport(), "rds_client", rds)
     monkeypatch.setattr(server, "_get_embedding", lambda _query: [0.1, 0.2])
     monkeypatch.setattr(
         server,

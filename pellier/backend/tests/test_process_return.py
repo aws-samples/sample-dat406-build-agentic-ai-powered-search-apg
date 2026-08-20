@@ -250,5 +250,14 @@ def test_gateway_restock_writes_execution_audit() -> None:
     assert '"product_id": product.get("product_id")' in source
     assert 'if tool_name == "restock_shelf"' in source
     assert "_write_tool_audit_in_transaction(" in source
-    assert "transactionId=transaction_id" in source
+    # An operator tool: its arguments carry no customer, so the session handle
+    # names the acting role rather than deriving "gateway-unknown".
     assert '"gateway-stock-keeper"' in source
+
+    # The INSERT and its transaction binding live in the shared transport the
+    # four surface servers now share.
+    transport = (
+        repo / "scripts" / "deploy" / "common" / "dataapi.py"
+    ).read_text()
+    assert "transactionId=transaction_id" in transport
+    assert "tool_audit" in transport

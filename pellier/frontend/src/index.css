@@ -2,7 +2,7 @@
  * Daylight design system — load before Tailwind so every
  * downstream rule can reference --dl-* tokens, and the bridge
  * file can re-alias Pellier's existing --cream / --espresso /
- * --accent / --at-* names onto Daylight values.
+ * --accent / --obs-* names onto Daylight values.
  *
  * Source: dat409 (sample-dat409-hybrid-search-aurora-mcp/
  * design-system/daylight/). Files vendored into
@@ -12,6 +12,10 @@
 @import './styles/daylight-tokens.css';
 @import './styles/daylight-components.css';
 @import './styles/daylight-bridge.css';
+/* Storefront brand tokens + landing compositions. Loaded after the bridge
+   so it can reference the aliased names, and before Tailwind so a utility
+   on the same element still wins. */
+@import './styles/pellier-landing.css';
 
 @tailwind base;
 @tailwind components;
@@ -47,7 +51,7 @@
   }
 
   /* ========================================================================
-   * Storefront + Pellier Labs custom-property names are now ALIASED onto the
+   * Storefront + Pellier Observatory custom-property names are now ALIASED onto the
    * Daylight design-system tokens via styles/daylight-bridge.css. The
    * hardcoded :root block that used to live here was removed when
    * Daylight was wired in — see DAYLIGHT_INTEGRATION.md for the
@@ -114,10 +118,9 @@
   /*
    * Shared Pellier daylight surface. The route-level class prevents a
    * first-paint flash; the body class carries the same tokens into portals.
-   * `boutique-surface` remains as a compatibility alias for older embeds.
+   * `pellier-surface` carries the same palette into document-level surfaces.
    */
   :where(
-    body.boutique-surface,
     body.pellier-surface,
     .pellier-page-surface
   ) {
@@ -157,9 +160,6 @@
     color-scheme: light;
   }
 
-  .boutique-surface .font-display,
-  .boutique-surface .product-name,
-  .boutique-surface .pellier-logo-chip,
   .pellier-surface .font-display,
   .pellier-surface .product-name,
   .pellier-surface .pellier-logo-chip,
@@ -208,7 +208,7 @@
     font-variant-ligatures: contextual common-ligatures;
   }
 
-  /* /workshop ("Pellier Labs") font stack — scoped to the telemetry route.
+  /* /workshop ("Pellier Observatory") font stack — scoped to the telemetry route.
      Stacks match Daylight tokens (--dl-font-*) via the bridge. */
   .workshop-surface {
     font-family: var(--sans);
@@ -376,54 +376,6 @@
   }
   .input-field::placeholder {
     color: var(--text-secondary);
-  }
-
-  /* ========================================================================
-   * Gradient text — adapts to theme
-   * ======================================================================== */
-  .gradient-text {
-    background: linear-gradient(135deg, var(--text-secondary) 0%, var(--text-primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .dark .gradient-text-chrome {
-    background: linear-gradient(135deg, #aaa 0%, #ccc 20%, #e8e8e8 40%, #fff 50%, #e8e8e8 60%, #ccc 80%, #aaa 100%);
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: chrome-shift 8s ease-in-out infinite;
-  }
-  .light .gradient-text-chrome {
-    background: linear-gradient(135deg, #6e6e73 0%, #4a4a4f 20%, #2d2d30 40%, #1d1d1f 50%, #2d2d30 60%, #4a4a4f 80%, #6e6e73 100%);
-    background-size: 200% 200%;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: chrome-shift 8s ease-in-out infinite;
-  }
-
-  @keyframes chrome-shift {
-    0%, 100% { background-position: 0% 50%; }
-    25% { background-position: 50% 25%; }
-    50% { background-position: 100% 50%; }
-    75% { background-position: 50% 75%; }
-  }
-
-  .gradient-text-subtle {
-    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .chrome-reflection {
-    font-weight: 200;
-    letter-spacing: 0.05em;
-    color: var(--text-primary);
-    -webkit-text-fill-color: unset;
   }
 
   /* ========================================================================

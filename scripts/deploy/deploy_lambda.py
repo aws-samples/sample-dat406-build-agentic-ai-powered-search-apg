@@ -319,9 +319,16 @@ def main():
     if not os.path.exists(args.mcp_server_path):
         raise FileNotFoundError(f"MCP server file not found: {args.mcp_server_path}")
 
-    types_path = os.path.join(os.path.dirname(args.mcp_server_path), 'common/types.py')
-    if not os.path.exists(types_path):
-        raise FileNotFoundError(f"Type definition file not found: {types_path}")
+    # Shared modules every surface server imports. Checked here rather than
+    # discovered at cold start: a missing entry is a ModuleNotFoundError on the
+    # first Gateway call, long after the deploy reported success.
+    shared_dir = os.path.dirname(args.mcp_server_path)
+    shared_modules = {}
+    for module in ('common/types.py', 'common/dataapi.py', 'common/handler.py'):
+        module_path = os.path.join(shared_dir, module)
+        if not os.path.exists(module_path):
+            raise FileNotFoundError(f"Shared module not found: {module_path}")
+        shared_modules[module] = module_path
 
     # Build environment variables, only include DB vars if provided
     db_region = args.db_region or _region_from_arn(args.db_cluster_arn, args.region)
@@ -347,7 +354,7 @@ def main():
       role_arn=lambda_role_arn,
       handler=args.handler,
       files={
-        'common/types.py': types_path,
+        **shared_modules,
         target_filename: args.mcp_server_path
       },
       dependencies=['mcp==1.28.1'] + args.extra_deps,

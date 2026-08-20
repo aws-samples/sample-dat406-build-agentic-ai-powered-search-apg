@@ -2,16 +2,16 @@
  * TraceChip — a small mono pill naming the tool/signal that produced
  * a result.
  *
- * The same atom appears on the Boutique (under product cards, in the
- * Live Floor Strip, on the Memory Handoff card) and on the Agent Trace
+ * The same atom appears in Pellier (under product cards, in the
+ * Live Floor Strip, on the Memory Handoff card) and on the Observatory
  * (Tools surface, Sessions, Observatory). Importing both surfaces
  * from this single file is the cohesion guarantee — when the visual
  * treatment evolves, every place that names a tool updates together.
  *
  * Visual: warm tint + 1px accent border, mono label at 11px with slight
  * tracking for readable dot-syntax. Optional `duration` renders a faint
- * right-aligned mono timestamp ("· 2.1s ago"). Optional `linkToAgentTrace`
- * wraps the chip in an anchor that deep-links to the Agent Trace route that
+ * right-aligned mono timestamp ("· 2.1s ago"). Optional `linkToObservatory`
+ * wraps the chip in an anchor that deep-links to the Observatory route that
  * explains this concept (the "how this works" handoff).
  */
 import React from 'react'
@@ -26,13 +26,13 @@ export interface TraceChipProps {
   duration?: string
   /**
    * When true, wraps the chip in an anchor tag pointing to the
-   * Agent Trace route that explains this tool. Lets shoppers click
+   * Observatory route that explains this tool. Lets shoppers click
    * any trace and land on the developer-facing explainer for it.
    */
-  linkToAgentTrace?: boolean
+  linkToObservatory?: boolean
   /** Visual variant. `solid` is the default technical treatment;
    *  `ghost` is a softer fill suitable for dark surfaces, and
-   *  `provenance` is the shopper-facing Boutique label treatment. */
+   *  `provenance` is the shopper-facing Pellier label treatment. */
   variant?: 'solid' | 'ghost' | 'provenance'
   /** Label display. `tool` preserves the raw trace, `label` uses the
    *  attendee-friendly vocabulary label while keeping the raw trace in
@@ -42,11 +42,11 @@ export interface TraceChipProps {
   compact?: boolean
 }
 
-function withBoutiqueTraceContext(path: string, tool: string): string {
+function withPellierTraceContext(path: string, tool: string): string {
   const [pathAndSearch, hash] = path.split('#')
   const separator = pathAndSearch.includes('?') ? '&' : '?'
   const params = new URLSearchParams({
-    from: 'boutique',
+    from: 'pellier',
     trace: tool,
   })
   return `${pathAndSearch}${separator}${params.toString()}${hash ? `#${hash}` : ''}`
@@ -55,7 +55,7 @@ function withBoutiqueTraceContext(path: string, tool: string): string {
 export const TraceChip: React.FC<TraceChipProps> = ({
   tool,
   duration,
-  linkToAgentTrace = false,
+  linkToObservatory = false,
   variant = 'solid',
   labelMode = 'tool',
   compact = false,
@@ -92,7 +92,7 @@ export const TraceChip: React.FC<TraceChipProps> = ({
       : compact ? '4px 8px' : '5px 10px',
     whiteSpace: 'nowrap',
     textDecoration: 'none',
-    cursor: linkToAgentTrace ? 'pointer' : 'default',
+    cursor: linkToObservatory ? 'pointer' : 'default',
     transition: 'background 0.15s, border-color 0.15s',
   }
 
@@ -117,7 +117,7 @@ export const TraceChip: React.FC<TraceChipProps> = ({
           · {duration}
         </span>
       ) : null}
-      {isProvenance && linkToAgentTrace ? (
+      {isProvenance && linkToObservatory ? (
         <ArrowUpRight
           aria-hidden="true"
           size={11}
@@ -128,10 +128,10 @@ export const TraceChip: React.FC<TraceChipProps> = ({
     </>
   )
 
-  if (linkToAgentTrace) {
+  if (linkToObservatory) {
     return (
       <a
-        href={routePath(withBoutiqueTraceContext(vocab.agentTracePath, tool))}
+        href={routePath(withPellierTraceContext(vocab.observatoryPath, tool))}
         title={`${vocab.label} — ${vocab.description}`}
         data-testid={`trace-chip-${tool}`}
         style={baseStyle}

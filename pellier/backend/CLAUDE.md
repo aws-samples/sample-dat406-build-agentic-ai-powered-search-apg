@@ -66,7 +66,7 @@ the same file:
 Do not change the decorator, signature, docstring, comments, imports, tests,
 or any code outside the markers. Never inspect `solutions/`.
 
-The participant verifies through `/api/agent-trace/build-state`, Pellier Labs' Tool
+The participant verifies through `/api/observatory/build-state`, Pellier Observatory's Tool
 Registry, and Marco's Brooklyn warehouse turn. Do not run tests or git for
 them.
 
@@ -79,7 +79,7 @@ them.
 - `agents/` owns specialist construction and tool grants.
 - `services/agent_tools.py` owns deterministic business-tool boundaries.
 - `skills/` loads root `skills/*/SKILL.md` files into specialist prompts.
-- `routes/agent_trace.py` serves evidence read models. It must not
+- `routes/observatory.py` serves evidence read models. It must not
   fabricate readiness or call managed services merely to render a page.
 - `agentcore_runtime.py`, `services/agentcore_*`, and `services/managed_policy.py`
   own managed-boundary behavior.
@@ -87,7 +87,7 @@ them.
 ## Backend rules
 
 - Read `../../VOICE.md` before editing model prompts or shopper-visible copy.
-- Keep centralized shopper copy in `boutique_copy.py` when practical.
+- Keep centralized shopper copy in `pellier_copy.py` when practical.
 - Preserve JSON/SSE machine fields while improving human-readable messages.
 - Distinguish Cedar policy denial, authentication failure, service
   unavailability, and request validation failures.

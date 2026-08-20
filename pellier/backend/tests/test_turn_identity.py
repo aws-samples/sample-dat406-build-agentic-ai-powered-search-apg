@@ -1,6 +1,6 @@
 """Tests for the three-way identity split and managed trace correlation.
 
-Audit finding B7: the Boutique preferred a request ``customer_id`` persona
+Audit finding B7: Pellier preferred a request ``customer_id`` persona
 over Cognito identity for memory scoping. Persona switching is a useful
 workshop affordance, but a demo persona must never become the
 authorization principal or the memory namespace key — otherwise a UI

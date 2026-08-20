@@ -1,4 +1,4 @@
-"""Per-turn specialist model selection for Pellier Labs.
+"""Per-turn specialist model selection for Pellier Observatory.
 
 Routing remains on the configured Sonnet router. This module selects only the
 specialist that composes the shopper-facing response.

@@ -1,6 +1,6 @@
 """Guardrails decision log — per-session ring buffer.
 
-A small per-session ring buffer of guardrail outcomes so the Agent Trace
+A small per-session ring buffer of guardrail outcomes so the Observatory
 Grounding page can plot guardrail decisions in a stable row format,
 alongside the Cedar policy view sourced from the managed AgentCore
 Policy engine at the Gateway.
@@ -9,7 +9,7 @@ Populated from two places:
 
   1. ``routes/chat.py`` / ``services/chat.py`` — when a turn invokes
      ``GuardrailsService.check_input`` or ``check_output``, the result
-     is recorded here so the Agent Trace Guardrails lane shows live status.
+     is recorded here so the Observatory Guardrails lane shows live status.
   2. ``chat.py`` fast-path — declines and empty-response fallbacks
      also record a synthetic PASS entry so the lane shows activity
      even on turns that didn't trip a filter.
@@ -45,10 +45,10 @@ def record_guardrail(
 
     ``source`` is "INPUT" or "OUTPUT" (Bedrock's own vocabulary).
     ``action`` is the raw Bedrock action string ("NONE" / "GUARDRAIL_INTERVENED"
-    / "ERROR") — preserved verbatim so the Agent Trace can surface exact
+    / "ERROR") — preserved verbatim so the Observatory can surface exact
     Bedrock semantics without reinterpretation.
     ``mode`` is "pass-through" when the guardrail isn't configured so
-    the Agent Trace can label those rows honestly.
+    the Observatory can label those rows honestly.
     """
     key = session_id or "_anonymous"
     entry: Dict[str, Any] = {

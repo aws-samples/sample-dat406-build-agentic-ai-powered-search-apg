@@ -85,9 +85,9 @@ logger = logging.getLogger(__name__)
 _SESSION_STORE: Dict[str, List[Dict[str, Any]]] = {}
 _PREFS_STORE: Dict[str, Dict[str, Any]] = {}
 
-# Module-level SDK import status. The Agent Trace memory route constructs a
+# Module-level SDK import status. The Observatory memory route constructs a
 # fresh ``AgentCoreMemory`` on every request (see
-# ``routes/agent-trace_observatory.py::_load_live_semantic``), so a per-instance
+# ``routes/observatory_observatory.py::_load_live_semantic``), so a per-instance
 # cache for the SDK handle is useless — every new instance would retry the
 # import and log "bedrock-agentcore not installed" again. Caching the
 # success/failure at module level means the warning fires once per process.
@@ -223,7 +223,7 @@ class AgentCoreMemory:
         takes over without any try/except gymnastics at call sites.
 
         The "SDK installed?" probe is cached at module scope (not
-        per-instance) because the Agent Trace memory route builds a fresh
+        per-instance) because the Observatory memory route builds a fresh
         ``AgentCoreMemory`` per request — without this the warning would
         fire on every page load when ``bedrock-agentcore`` isn't
         importable in the running interpreter (e.g. uvicorn launched
@@ -407,7 +407,7 @@ class AgentCoreMemory:
         uppercase; ``content`` may be a nested dict or a bare string;
         timestamps arrive as ``datetime``). This collapses that into the
         flat ``{"role": "user"|"assistant", "content": <str>,
-        "timestamp": <str>}`` list the route serializes and the Boutique
+        "timestamp": <str>}`` list the route serializes and Pellier
         chat hydrates from.
         """
         def _attr(obj: Any, key: str, default: Any = None) -> Any:
@@ -585,7 +585,7 @@ class AgentCoreMemory:
 
         Returns ``[]`` (never raises, never fabricates) when the SDK or
         ``AGENTCORE_MEMORY_ID`` is unavailable, the strategy has not
-        extracted yet, or no records exist. The Agent Trace route renders the
+        extracted yet, or no records exist. The Observatory route renders the
         empty live state with a caveat instead of substituting seeded text.
         """
         import json as _json

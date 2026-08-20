@@ -257,7 +257,7 @@ def test_build_mcp_server_returns_fastmcp_with_streamable_http_app() -> None:
 
 
 def test_discovery_returns_exactly_the_fifteen_tools_by_exact_name() -> None:
-    """Discovery SHALL return the 15 tools the Agent Trace Tools surface ships."""
+    """Discovery SHALL return the 15 tools the Observatory Tools surface ships."""
     server = gateway.build_mcp_server()
 
     tools = _run(server.list_tools())

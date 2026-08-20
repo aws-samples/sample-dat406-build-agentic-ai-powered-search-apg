@@ -7,12 +7,12 @@ Exposes two surfaces that share one agent construction path:
 
 1. ``build_recommendation_agent()`` — factory returning a configured
    ``Agent`` instance. Used by the Storefront dispatcher (Pattern III)
-   and the Agent Trace Graph pattern (Pattern II). Reads the persona
+   and the Observatory Graph pattern (Pattern II). Reads the persona
    preamble and skill ContextVars at construction time, same as the
    ``@tool`` path does.
 
 2. ``recommendation(query)`` — ``@tool``-decorated wrapper used by the
-   Agent Trace's Agents-as-Tools orchestrator (Pattern I). Delegates to
+   Observatory's Agents-as-Tools orchestrator (Pattern I). Delegates to
    the factory so both surfaces produce identical agents.
 
 Note on naming: the factory and tool keep generic names because the
@@ -35,7 +35,7 @@ from services.agent_tools import (
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble
 from services.response_mode import resolve_specialist_model
-from boutique_copy import RECOMMENDATION_SYSTEM_PROMPT
+from pellier_copy import RECOMMENDATION_SYSTEM_PROMPT
 
 
 def _ensure_products_in_output(text: str, tool_results: list) -> str:
@@ -72,12 +72,12 @@ def build_recommendation_agent(
 
     === REFERENCE: START ===
     inject_skills() and inject_persona_preamble() are no-ops when
-    their ContextVars are empty (the common case in agentTrace smoke
+    their ContextVars are empty (the common case in observatory smoke
     tests and anonymous sessions), so this factory produces the same
     agent as before in those scenarios.
     === REFERENCE: END ===
     """
-    # Curator — Claude Opus 5. Recommendations carry "taste";
+    # Curator — Claude Opus 4.6. Recommendations carry "taste";
     # Bedrock rejects the deprecated temperature field for this model,
     # so we rely on the model default.
     #

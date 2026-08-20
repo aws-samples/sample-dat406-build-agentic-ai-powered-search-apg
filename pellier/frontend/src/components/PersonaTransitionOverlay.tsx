@@ -38,7 +38,7 @@ const WELCOME_TAGLINES: Record<string, string> = {
 function welcomeTagFor(personaId: string): string {
   return (
     WELCOME_TAGLINES[personaId] ??
-    'The boutique remembers. Pick up where you left off.'
+    'Pellier remembers. Pick up where you left off.'
   )
 }
 
@@ -171,7 +171,7 @@ export default function PersonaTransitionOverlay() {
                 &nbsp;&nbsp;<span aria-hidden>●</span>
               </div>
 
-              {/* Sans greeting — matches .sf-greeting on BoutiqueWelcome
+              {/* Sans greeting — matches .sf-greeting on PellierWelcome
                   (readable; avoid heavy italic Fraunces on cream). */}
               <h2
                 style={{

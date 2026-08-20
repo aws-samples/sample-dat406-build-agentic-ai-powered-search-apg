@@ -1,4 +1,4 @@
-"""Live response-mode contract for Pellier Labs."""
+"""Live response-mode contract for Pellier Observatory."""
 
 from __future__ import annotations
 

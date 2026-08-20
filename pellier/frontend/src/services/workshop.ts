@@ -1,7 +1,7 @@
 /**
  * Workshop telemetry API client.
  *
- * Thin fetch wrapper around `POST /api/agent-trace/query`. Intentionally
+ * Thin fetch wrapper around `POST /api/observatory/query`. Intentionally
  * separate from `services/chat.ts` (ConciergeModal's SSE path) because
  * the shapes don't overlap — workshop returns a flat
  * `{session_id, events: WorkshopEvent[]}` payload, chat streams SSE
@@ -97,7 +97,7 @@ export interface WorkshopQueryResponse {
 /**
  * A Turn groups the user's query with the full event bundle the agent
  * emitted in response, categorized so the renderer can compose the
- * interleaved Agent Trace chat (text → plan chip → tool chips → text →
+ * interleaved Observatory chat (text → plan chip → tool chips → text →
  * products → text → confidence) without re-scanning the event list
  * each render.
  *
@@ -150,7 +150,7 @@ const RECOMMENDATION_TAG_RE = /^RECOMMENDATION /
  * Turn the raw events of a single submit into a Turn.
  *
  * Pure function — pass it the user's prompt text and the events
- * returned by /api/agent-trace/query for that prompt. Safe to call from
+ * returned by /api/observatory/query for that prompt. Safe to call from
  * ``useMemo``; idempotent for the same inputs.
  */
 export function eventsToTurn(
@@ -269,7 +269,7 @@ export async function queryWorkshopStream(
   req: WorkshopQueryRequest,
   onEvent: (ev: WorkshopEvent) => void,
 ): Promise<{ session_id: string }> {
-  const res = await fetch(`${API_BASE_URL}/api/agent-trace/query`, {
+  const res = await fetch(`${API_BASE_URL}/api/observatory/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -363,7 +363,7 @@ export interface WorkshopResumeRequest {
 export async function resumeWorkshop(
   req: WorkshopResumeRequest,
 ): Promise<WorkshopQueryResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/agent-trace/resume`, {
+  const res = await fetch(`${API_BASE_URL}/api/observatory/resume`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

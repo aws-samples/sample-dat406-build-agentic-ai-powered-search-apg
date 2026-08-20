@@ -6,7 +6,7 @@ Numbered in apply order; running a migration twice is safe.
 Every operational table lives under the `pellier` schema. Older
 deploys that created `tool_audit` / `customers` / `orders` /
 `approvals` / `customer_episodic_seed` / `returns` / `tools` /
-`agent_trace_spans` at `public` are auto-relocated by the
+`observatory_spans` at `public` are auto-relocated by the
 `ALTER TABLE ... SET SCHEMA pellier` blocks at the top of migrations
 002, 003, 005, and 006. The schema move preserves rows, indexes, and
 FKs.
@@ -16,8 +16,8 @@ FKs.
 1. **`001_schema.sql`** — creates `vector`, the `pellier` schema,
    `pellier.product_catalog`, the `product_id` SQL alias for the public
    `productId` field, the HNSW index, and the `updated_at` trigger. Run
-   before `scripts/seed_boutique_catalog.py`.
-2. **`002_workshop_telemetry.sql`** — creates `pellier.{agent_trace_spans,
+   before `scripts/seed_pellier_catalog.py`.
+2. **`002_workshop_telemetry.sql`** — creates `pellier.{observatory_spans,
    tools, tool_audit, customers, orders, approvals}`. Run after the
    catalog seed because `pellier.orders.product_id` references
    `pellier.product_catalog`.
@@ -66,7 +66,7 @@ PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -v ON_ERROR_STOP=1 \
     -f scripts/migrations/001_schema.sql
 
-python3 scripts/seed_boutique_catalog.py
+python3 scripts/seed_pellier_catalog.py
 
 for migration in \
     002_workshop_telemetry.sql \
@@ -111,7 +111,7 @@ snake_case SQL alias created by `001_schema.sql`.
 
 If `pg_cron` isn't installed, `002_workshop_telemetry.sql` emits a
 `WARNING` and continues —
-`pellier.agent_trace_spans` will then grow unbounded unless the workshop
+`pellier.observatory_spans` will then grow unbounded unless the workshop
 operator schedules a cleanup out-of-band. To install:
 
 ```sql
@@ -126,7 +126,7 @@ workshop state with:
 ```sql
 \dt pellier.customers
 \dt pellier.orders
-\dt pellier.agent_trace_spans
+\dt pellier.observatory_spans
 \dt pellier.tools
 \dt pellier.tool_audit
 \dt pellier.approvals

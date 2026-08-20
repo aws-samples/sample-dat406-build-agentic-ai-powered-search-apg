@@ -59,7 +59,7 @@ _psql_exec() {
 echo "Pellier governed reset - $(date '+%H:%M:%S')"
 echo "------------------------------------------------------------"
 
-if ! "$PYTHON" "$REPO/scripts/seed_boutique_catalog.py" \
+if ! "$PYTHON" "$REPO/scripts/seed_pellier_catalog.py" \
     --from-cache >/tmp/pellier-governed-reset-catalog.log 2>&1; then
   fail "Deterministic catalog reset failed; see /tmp/pellier-governed-reset-catalog.log"
   exit 1
@@ -72,7 +72,9 @@ for migration in \
   012_retrieval_receipts.sql \
   013_inventory_ledger.sql \
   014_governed_turn_receipts.sql \
-  015_proof_carrying_commerce.sql
+  015_proof_carrying_commerce.sql \
+  016_runtime_roles_rls.sql \
+  017_governed_query_receipts.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -97,6 +99,7 @@ TRUNCATE TABLE
     pellier.commerce_quotes,
     pellier.governed_receipts,
     pellier.governed_turn_receipts,
+    pellier.governed_query_receipts,
     pellier.tool_audit,
     pellier.retrieval_receipts,
     pellier.inventory_ledger,
@@ -109,6 +112,20 @@ pass "Live returns, stock movements, write keys, audits, and receipts cleared"
 _psql_file "$REPO/scripts/migrations/013_inventory_ledger.sql" \
   >>/tmp/pellier-governed-reset-db.log
 pass "Inventory ledger reseeded from deterministic warehouse state"
+
+# Row-Level Security authorization mapping.
+#
+# `pellier.principal_customers` is authorization configuration, not turn
+# evidence, so it is deliberately absent from the TRUNCATE above. It still
+# gets verified here: an empty mapping denies every signed-in shopper their
+# own orders, which presents as a broken application rather than as
+# governance, and reset is where a deterministic starting state is asserted.
+if "$PYTHON" "$REPO/scripts/seed_principal_mappings.py" --check \
+     >/tmp/pellier-governed-reset-principals.log 2>&1; then
+  pass "RLS principal mappings intact for every named shopper"
+else
+  warn "RLS principal mappings incomplete — run scripts/seed_principal_mappings.py (see /tmp/pellier-governed-reset-principals.log)"
+fi
 
 _psql_file "$REPO/scripts/migrations/015_proof_carrying_commerce.sql" \
   >>/tmp/pellier-governed-reset-db.log
@@ -183,6 +200,22 @@ if [[ "$(jq -r \
   exit 1
 fi
 pass "Gateway Policy remains configured in ENFORCE mode"
+
+# The check above reads the CLI project file, which is the declared intent. The
+# live engine can disagree: a participant who switches a policy to LOG_ONLY
+# during the monitor-mode exercise leaves enforcement off while the file still
+# says ENFORCE. Restoring only the file would report a reset workshop whose
+# denials silently do not happen, so the live mode is restored at both scopes
+# (per-policy `enforcementMode`, gateway `policyEngineConfiguration.mode`).
+#
+# Non-fatal: many boxes have no AgentCore Policy engine provisioned, and on
+# those the policy leg is legitimately NOT_EVALUATED rather than broken.
+if "$PYTHON" "$REPO/scripts/policy_mode.py" --restore-shipped \
+     >/tmp/pellier-governed-reset-policy-mode.log 2>&1; then
+  pass "Live Cedar enforcement mode restored at both scopes"
+else
+  warn "Could not restore live Cedar enforcement mode (see /tmp/pellier-governed-reset-policy-mode.log)"
+fi
 
 if [[ -x "$REPO/scripts/health-gate.sh" ]]; then
   echo "------------------------------------------------------------"

@@ -22,36 +22,40 @@
  *   2. Optional top-left badge (EDITOR'S PICK / BESTSELLER / JUST IN)
  *   3. Top-right heart (fades in on hover)
  *   4. Brand + color row
- *   5. Product name (Fraunces italic)
+ *   5. Product name (Fraunces italic), linking to the piece's page
  *   6. Price + rating row
  *   7. Thin divider
  *   8. <ReasoningChip/>
  *   9. Full-width `Add to bag` secondary button
+ *
+ * The card renders react-router `Link`s to `/product/:id`, so it must be
+ * mounted inside a router. Tests wrap it in `MemoryRouter`.
  *
  * Phase 2 redesign: replaced all hardcoded hex colors with Tailwind token
  * classes. Card chrome uses shadow-warm-sm / shadow-warm-md tokens. The
  * parallax observer logic and safety defenses are preserved unchanged.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronDown, Star } from 'lucide-react'
 
-import type { BoutiqueBadge, BoutiqueProduct } from '../services/types'
+import type { PellierBadge, PellierProduct } from '../services/types'
 import ReasoningChip from './ReasoningChip'
 import ResponsiveImage from './ResponsiveImage'
 import { TraceChip } from '../shared'
 
-const BADGE_LABEL: Record<BoutiqueBadge, string> = {
+const BADGE_LABEL: Record<PellierBadge, string> = {
   EDITORS_PICK: "EDITOR'S PICK",
   BESTSELLER: 'BESTSELLER',
   JUST_IN: 'JUST IN',
 }
 
 interface ProductCardProps {
-  product: BoutiqueProduct
+  product: PellierProduct
   /** Row-wise index (0..2). Drives a compact per-column stagger. */
   index: number
   /** Optional `Add to bag` handler. The button is hidden when omitted. */
-  onAddToBag?: (product: BoutiqueProduct) => void
+  onAddToBag?: (product: PellierProduct) => void
   /**
    * Optional provenance chips rendered under the reasoning chip. When
    * omitted, the card cites only catalog tags present on the product.
@@ -65,9 +69,10 @@ interface ProductCardProps {
  * Derive defensible provenance chips from committed catalog metadata.
  * Runtime tool claims must be supplied explicitly by a live response.
  */
-function deriveTraces(product: BoutiqueProduct): string[] {
+function deriveTraces(product: PellierProduct): string[] {
   return product.tags.slice(0, 2).map(tag => `tag.match · ${tag}`)
 }
+
 
 // Per-column stagger in ms. Columns within a row play at 0ms, 50ms, 100ms so
 // the catalog settles quickly while retaining a subtle left-to-right sweep. We use
@@ -111,6 +116,9 @@ export default function ProductCard({
 }: ProductCardProps) {
   const traceChips = traces ?? deriveTraces(product)
   const personaAccent = accentColor ?? 'var(--accent)'
+  // Router `basename` prefixes this for the Workshop Studio /ports/8000/
+  // proxy, so the path stays base-relative here.
+  const detailPath = `/product/${product.id}`
   // `isVisible` starts as `prefersReducedMotion` so users with reduced-motion
   // skip the pre-reveal ghost state entirely — first paint is the final state.
   const [isVisible, setIsVisible] = useState<boolean>(() => prefersReducedMotion())
@@ -193,8 +201,19 @@ export default function ProductCard({
         transition: `opacity 220ms ${REVEAL_EASE}, transform 260ms ${REVEAL_EASE}, box-shadow 180ms ease-out`,
       } as CSSProperties}
     >
-      {/* --- Image panel --------------------------------------------- */}
-      <div className="relative aspect-[4/5] bg-sand overflow-hidden">
+      {/* --- Image panel ---------------------------------------------
+       * The image and the product name both link to the piece's page. The
+       * image link is a decorative duplicate: `aria-hidden` plus
+       * `tabIndex={-1}` keeps it out of the accessibility tree and the tab
+       * order, so assistive tech and keyboard users get exactly one link
+       * per card while a pointer can still click the photograph.
+       * ------------------------------------------------------------- */}
+      <Link
+        to={detailPath}
+        aria-hidden="true"
+        tabIndex={-1}
+        className="relative block aspect-[4/5] bg-sand overflow-hidden"
+      >
         <ResponsiveImage
           src={product.imageUrl}
           alt={product.name}
@@ -208,7 +227,7 @@ export default function ProductCard({
             objectPosition: product.imagePosition ?? 'center center',
           }}
         />
-      </div>
+      </Link>
 
       {/* --- Text block ---------------------------------------------- */}
       <div className="flex flex-col gap-3 p-5">
@@ -219,7 +238,17 @@ export default function ProductCard({
 
         <div>
           <h3 className="product-name text-espresso">
-            {product.name}
+            <Link
+              to={detailPath}
+              data-testid={`product-card-link-${product.id}`}
+              className="
+                transition-colors duration-fade hover:text-accent-ink
+                focus-visible:outline-2 focus-visible:outline-offset-2
+                focus-visible:outline-accent
+              "
+            >
+              {product.name}
+            </Link>
           </h3>
           <div className="mt-1.5 flex items-center gap-2 font-sans text-[12px] text-ink-quiet">
             <span>{product.category}</span>
@@ -276,12 +305,17 @@ export default function ProductCard({
                   className="flex flex-wrap gap-1.5"
                   aria-label="Recommendation signals"
                 >
+                  {/* `labelMode="tool"` prints the raw signal. The friendly
+                      `label` mode resolves every `tag.match` entry to one
+                      vocabulary label, so two chips citing different tags both
+                      read "Category match" — identical pills that hide the only
+                      information they carry. */}
                   {traceChips.map((trace) => (
                     <TraceChip
                       key={trace}
                       tool={trace}
                       variant="provenance"
-                      labelMode="label"
+                      labelMode="tool"
                       compact
                     />
                   ))}

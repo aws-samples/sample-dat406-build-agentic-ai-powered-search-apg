@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+
 import json
 import sys
 from pathlib import Path
@@ -43,6 +45,25 @@ def _value(payload: dict[str, Any], path: str) -> Any:
     return current
 
 
+def _expected_policy_mode() -> str:
+    """Return the gateway policy mode this receipt is expected to report.
+
+    Enforcement mode is a deliberate state transition, not a constant: the
+    workshop has a monitor window in which Cedar reports WOULD_DENY and the
+    database is the enforcer. Hard-coding ENFORCE made a receipt captured
+    during that window look like a provisioning failure.
+
+    Set `PELLIER_EXPECTED_POLICY_MODE=LOG_ONLY` while the monitor window is
+    open. The default stays ENFORCE, which is the shipped state reset restores.
+    """
+    expected = os.environ.get("PELLIER_EXPECTED_POLICY_MODE", "ENFORCE").strip()
+    if expected not in {"ENFORCE", "LOG_ONLY"}:
+        raise SystemExit(
+            f"PELLIER_EXPECTED_POLICY_MODE must be ENFORCE or LOG_ONLY, got {expected!r}"
+        )
+    return expected
+
+
 def validate_receipt(payload: dict[str, Any]) -> list[str]:
     """Return human-readable contract violations; an empty list means ready."""
     errors: list[str] = []
@@ -50,8 +71,8 @@ def validate_receipt(payload: dict[str, Any]) -> list[str]:
     expected_values = {
         "status": "ready",
         "cli.package": EXPECTED_CLI,
-        "policy.mode": "ENFORCE",
-        "verification.gateway_control_plane.policy_mode": "ENFORCE",
+        "policy.mode": _expected_policy_mode(),
+        "verification.gateway_control_plane.policy_mode": _expected_policy_mode(),
         "memory.seed.status": "ready",
         "observability.transaction_search.destination": "CloudWatchLogs",
         "observability.transaction_search.status": "ACTIVE",

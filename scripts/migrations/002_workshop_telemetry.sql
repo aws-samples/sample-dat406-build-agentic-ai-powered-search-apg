@@ -7,14 +7,14 @@
 -- the "Aurora as agent system-of-record" anchor for Theo doesn't have
 -- to span ``public`` and ``pellier``:
 --
---   pellier.agent_trace_spans  — OTEL span persistence for trace replay.
+--   pellier.observatory_spans  — OTEL span persistence for trace replay.
 --   pellier.tools              — pgvector-backed tool registry (Card 7).
 --   pellier.tool_audit         — unified audit row per tool call (read + write).
 --   pellier.customers          — demo customers for personalization + approvals.
 --   pellier.orders             — demo orders; backs the headline 3-table JOIN panel.
 --   pellier.approvals          — Identity-gated sensitive-tool gate (Card 10).
 --
--- Runs after 001_schema.sql and scripts/seed_boutique_catalog.py. The
+-- Runs after 001_schema.sql and scripts/seed_pellier_catalog.py. The
 -- product_catalog table is this migration's FK target.
 --
 -- Run with:
@@ -59,6 +59,10 @@ BEGIN
         'orders',
         'approvals',
         'tool_audit',
+        -- Legacy name on purpose: this array names tables to relocate out
+        -- of `public`, and an old cluster has `public.agent_trace_spans`.
+        -- It lands in `pellier` here and is renamed to `observatory_spans`
+        -- by the block further down, which runs after this one.
         'agent_trace_spans',
         'tools'
     ]
@@ -76,13 +80,42 @@ BEGIN
     END LOOP;
 END $$;
 
--- -- pellier.agent_trace_spans -------------------------------------------
+-- -- pellier.observatory_spans -------------------------------------------
+-- Renamed from `agent_trace_spans` when the inspection surface became the
+-- Observatory. The ALTER runs first and is idempotent: on a cluster that
+-- already has the old table it renames in place, and on a fresh cluster it
+-- is a no-op that the CREATE below satisfies. Without it, a re-provisioned
+-- box would carry both tables and the TTL job would expire only one.
+DO $rename$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+         WHERE table_schema = 'pellier' AND table_name = 'agent_trace_spans'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+         WHERE table_schema = 'pellier' AND table_name = 'observatory_spans'
+    ) THEN
+        ALTER TABLE pellier.agent_trace_spans RENAME TO observatory_spans;
+        ALTER INDEX IF EXISTS pellier.agent_trace_spans_session_idx
+            RENAME TO observatory_spans_session_idx;
+        ALTER INDEX IF EXISTS pellier.agent_trace_spans_created_idx
+            RENAME TO observatory_spans_created_idx;
+        -- The primary key's implicit index carries the old table name too. A
+        -- fresh cluster names it `observatory_spans_pkey` from the table, so
+        -- without this a re-provisioned box and a new one disagree on one
+        -- index name — the kind of drift that makes two clusters diff.
+        ALTER INDEX IF EXISTS pellier.agent_trace_spans_pkey
+            RENAME TO observatory_spans_pkey;
+    END IF;
+END
+$rename$;
+
 -- OTEL span persistence. Populated by the Strands OTLP exporter when we
 -- ship a custom SpanProcessor that INSERTs alongside the
 -- InMemorySpanExporter path. The 24h pg_cron cleanup at the bottom of
 -- this file expires old rows so the table doesn't grow unbounded between
 -- workshop runs.
-CREATE TABLE IF NOT EXISTS pellier.agent_trace_spans (
+CREATE TABLE IF NOT EXISTS pellier.observatory_spans (
     trace_id        UUID NOT NULL,
     span_id         UUID PRIMARY KEY,
     parent_span_id  UUID,
@@ -93,10 +126,10 @@ CREATE TABLE IF NOT EXISTS pellier.agent_trace_spans (
     session_id      TEXT NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS agent_trace_spans_session_idx
-    ON pellier.agent_trace_spans (session_id, started_at);
-CREATE INDEX IF NOT EXISTS agent_trace_spans_created_idx
-    ON pellier.agent_trace_spans (created_at);
+CREATE INDEX IF NOT EXISTS observatory_spans_session_idx
+    ON pellier.observatory_spans (session_id, started_at);
+CREATE INDEX IF NOT EXISTS observatory_spans_created_idx
+    ON pellier.observatory_spans (created_at);
 
 -- -- pellier.tools -------------------------------------------------------
 -- Aurora-teaching tool registry. Sits next to GatewayToolsPanel on
@@ -166,7 +199,7 @@ CREATE TABLE IF NOT EXISTS pellier.orders (
     id           BIGSERIAL PRIMARY KEY,
     customer_id  TEXT NOT NULL
                  REFERENCES pellier.customers(id) ON DELETE CASCADE,
-    -- product_catalog."productId" is TEXT in the boutique schema.
+    -- product_catalog."productId" is TEXT in the Pellier catalog schema.
     -- Keep orders.product_id TEXT too so fresh-cluster bootstrap can
     -- create the FK without type coercion surprises.
     product_id   TEXT NOT NULL
@@ -201,7 +234,7 @@ CREATE INDEX IF NOT EXISTS approvals_status_idx
     ON pellier.approvals (status, requested_at);
 
 -- -- pg_cron cleanup ----------------------------------------------------
--- 24h TTL on pellier.agent_trace_spans. pg_cron runs in the postgres
+-- 24h TTL on pellier.observatory_spans. pg_cron runs in the postgres
 -- database on Aurora; we wrap the schedule call in a DO block so
 -- missing-extension is a WARNING rather than a hard error (workshop
 -- envs without the extension can still run this migration and opt
@@ -222,7 +255,7 @@ BEGIN
             PERFORM cron.schedule(
                 'cleanup_trace_spans',
                 '0 * * * *',
-                $cleanup$DELETE FROM pellier.agent_trace_spans
+                $cleanup$DELETE FROM pellier.observatory_spans
                          WHERE created_at < now() - interval '24 hours'$cleanup$
             );
             RAISE NOTICE 'pg_cron job cleanup_trace_spans scheduled';
@@ -231,7 +264,7 @@ BEGIN
         END IF;
     ELSE
         RAISE WARNING
-            'pg_cron extension not installed — pellier.agent_trace_spans will grow unbounded. '
+            'pg_cron extension not installed — pellier.observatory_spans will grow unbounded. '
             'Install with: CREATE EXTENSION pg_cron;';
     END IF;
 EXCEPTION
@@ -246,4 +279,4 @@ END $$;
 
 COMMIT;
 
-\echo '✅ Migration 002 complete — pellier.{agent_trace_spans, tools, tool_audit, customers, orders, approvals} ready'
+\echo '✅ Migration 002 complete — pellier.{observatory_spans, tools, tool_audit, customers, orders, approvals} ready'

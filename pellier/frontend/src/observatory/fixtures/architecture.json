@@ -1,0 +1,74 @@
+[
+  {
+    "numeral": "I",
+    "category": "live",
+    "title": "Grounding",
+    "role": "Factual anchoring via Aurora PostgreSQL",
+    "description": "The live Pellier path grounds recommendations in Aurora data: product_catalog for products, inventory/quantity fields for availability, return policy tables for support, and pgvector/FTS for retrieval.",
+    "codeSnippet": "# Ground a recommendation in catalog rows\nSELECT product_id, name, brand, price, quantity\nFROM product_catalog\nWHERE quantity > 0\nORDER BY embedding <=> $1::vector\nLIMIT 5;",
+    "slug": "grounding"
+  },
+  {
+    "numeral": "II",
+    "category": "live",
+    "title": "Memory",
+    "role": "Four memory types; operational history stays evidence",
+    "description": "Working memory holds session turns. Semantic memory holds durable learned preferences. Episodic memory comes from customer events in Aurora. Procedural knowledge comes from checked-in runtime skills and MCP schemas. tool_audit is shown separately because it proves what ran; it does not teach the agent how to work.",
+    "codeSnippet": "# Working - AgentCore Memory session events\nawait memory.append_session_turns(session_ns, turns)\n\n# Semantic - AgentCore USER_PREFERENCE records\nprefs = await memory.get_semantic_memories(actor_id)\n\n# Episodic - Aurora customer events\nseed = await fetch_episodic_seed(customer_id)\n\n# Procedural - reviewable source\nskills/*/SKILL.md\nscripts/deploy/gateway_tool_schemas.py\n\n# Operational history - evidence, not memory\nSELECT tool, count(*), avg(latency_ms)\nFROM pellier.tool_audit\nGROUP BY tool;",
+    "slug": "memory"
+  },
+  {
+    "numeral": "III",
+    "category": "live",
+    "title": "Skills",
+    "role": "Persona and proof instructions loaded per turn",
+    "description": "Five skills are loaded by the SkillRouter when a turn needs specific handling: three persona overlays plus the shared Care Card and Proof Counter. They shape voice, care handling, and proof language; they do not change the database contract.",
+    "codeSnippet": "# SkillRouter may load persona or shared overlays\nskills = route_skills(query, persona)\nprompt += inject_loaded_skills(skills)",
+    "slug": "skills"
+  },
+  {
+    "numeral": "IV",
+    "category": "live",
+    "title": "Routing & State",
+    "role": "Dispatcher-first request flow",
+    "description": "The production Pellier path uses deterministic routing in services/chat.py: triage, intent classification, optional skill routing, then one owning specialist/tool path. The Agents-as-Tools orchestrator is a separate teaching pattern, not the default storefront runtime.",
+    "codeSnippet": "# Pellier default path\nintent = classify_intent(query)\nskills = route_skills(query, persona)\nreturn await run_dispatcher_pattern(intent, skills, query)",
+    "slug": "state-management"
+  },
+  {
+    "numeral": "V",
+    "category": "workshop",
+    "title": "Runtime Envelope",
+    "role": "Execution environment and workshop runtime pattern",
+    "description": "Runtime is the managed envelope around execution: model calls, Memory, Gateway, Policy, and observability. Pellier uses the same Dispatcher contract in-process for local development and inside AgentCore Runtime for the governed workshop path; a managed turn fails closed instead of falling back locally.",
+    "codeSnippet": "# App-layer runtime shape\nrequest → triage → dispatcher → specialist/tool → SSE telemetry\n\n# Managed runtime is introduced as the deployment envelope\n# around the same agent/tool contracts.",
+    "slug": "runtime"
+  },
+  {
+    "numeral": "VI",
+    "category": "quality",
+    "title": "Evaluations",
+    "role": "Quality checks and capability scorecards",
+    "description": "Evaluation cards are the owned quality layer: latency, relevance, grounding, and scenario checks for the three workshop capabilities. They are not the request path; they are how the team decides whether a path is worth shipping.",
+    "codeSnippet": "# Evaluation scorecard shape\nscorecard = {\n    'capability': 'agentic (Sonnet → filter → vector → rerank)',\n    'recall_at_5': 0.96,\n    'latency_p50_ms': 2300,\n    'grounded': true\n}",
+    "slug": "evaluations"
+  },
+  {
+    "numeral": "VII",
+    "category": "workshop",
+    "title": "Tool Registry",
+    "role": "Semantic tool discovery via pgvector",
+    "description": "The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded with Cohere Embed v4 (1024-dim) and ranked by cosine similarity. Local Dispatcher turns call the checked-in Strands tools; managed Dispatcher turns discover the corresponding MCP tools through AgentCore Gateway.",
+    "codeSnippet": "# Discover by semantic similarity\nSELECT name,\n       1 - (embedding <=> $1) AS similarity\nFROM pellier.tools\nORDER BY embedding <=> $1\nLIMIT 5;",
+    "slug": "tool-registry"
+  },
+  {
+    "numeral": "VIII",
+    "category": "workshop",
+    "title": "MCP Gateway",
+    "role": "Required managed tool rail in the governed format",
+    "description": "AgentCore Gateway publishes Pellier's 15 tools over MCP. Governed Runtime requests require this managed rail and fail closed when it is unavailable; the separate builders format retains in-process Strands tools.",
+    "codeSnippet": "# Governed requests fail closed without Gateway\nif WORKSHOP_FORMAT == \"governed\":\n    require(AGENTCORE_GATEWAY_URL)\n    tools = await mcp_client.list_tools()\n    result = await mcp_client.call_tool(name, args)\nelse:\n    result = await strands_dispatch(name, args)",
+    "slug": "mcp"
+  }
+]

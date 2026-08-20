@@ -6,7 +6,7 @@
 --
 -- The teaching shape:
 --
---   1. An agent (Experience Guide on Opus 5 at 0.2) calls a @tool
+--   1. An agent (Experience Guide on Opus 4.6 at 0.2) calls a @tool
 --      that mutates Aurora — process_return.
 --   2. On the managed Gateway rail, AgentCore Policy gates the call
 --      before the Lambda executes. Bad reason → DENY → no Gateway
@@ -16,7 +16,7 @@
 --   4. INSERT into pellier.returns + (if reason='damaged') UPDATE
 --      quantity in pellier.product_catalog. Both in one transaction.
 --   5. The execution rail persists the call to pellier.tool_audit so
---      the mutation has a paper trail readable from /pellier-labs — every
+--      the mutation has a paper trail readable from /observatory — every
 --      mutation is reconstructible from a single SELECT.
 --
 -- This table is the second source of truth in the workshop. The first
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS pellier.returns (
     id            BIGSERIAL PRIMARY KEY,
     customer_id   TEXT NOT NULL
                   REFERENCES pellier.customers(id) ON DELETE CASCADE,
-    -- product_catalog."productId" is TEXT in the boutique schema.
+    -- product_catalog."productId" is TEXT in the Pellier catalog schema.
     -- Match it here so the FK applies cleanly on fresh Builder clusters.
     product_id    TEXT NOT NULL
                   REFERENCES pellier.product_catalog("productId")
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS pellier.returns (
     resolved_at   TIMESTAMPTZ
 );
 
--- Index for "show me a customer's recent returns" lookups (Agent Trace's
+-- Index for "show me a customer's recent returns" lookups (Observatory's
 -- session brief tab joins this when rendering Theo's ceramics-return
 -- folio).
 CREATE INDEX IF NOT EXISTS returns_customer_idx

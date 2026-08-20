@@ -48,7 +48,7 @@ export default function CommandPill() {
   const pressed = activeModal === 'concierge'
   const keycap = isMac ? COMMAND_PILL.KEY_CAP_MAC : COMMAND_PILL.KEY_CAP_WIN
 
-  // On storefront routes chatSurface is 'drawer'; on agentTrace it's
+  // On storefront routes chatSurface is 'drawer'; on observatory it's
   // 'concierge'. The pill always opens whichever is active.
   const handleClick = chatSurface === 'drawer' ? toggleDrawer : toggleConcierge
 

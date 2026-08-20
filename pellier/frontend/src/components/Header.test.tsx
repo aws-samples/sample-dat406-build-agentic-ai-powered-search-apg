@@ -1,5 +1,5 @@
 /**
- * Header tests — Boutique sticky header.
+ * Header tests — Pellier sticky header.
  *
  * Validates Requirements 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 15.3.
  *
@@ -143,19 +143,19 @@ describe('Header — nav items', () => {
     expect(wordmarkWrapper.className).not.toMatch(/\bhidden\b/)
   })
 
-  it('links directly to Pellier Labs without repeating the storefront name', () => {
+  it('links directly to Pellier Observatory without repeating the storefront name', () => {
     renderHeader()
-    const labsLink = screen.getByTestId('pellier-labs-link')
-    expect(labsLink).toHaveTextContent('Pellier Labs')
-    expect(labsLink).toHaveAttribute('href', '/pellier-labs')
+    const labsLink = screen.getByTestId('observatory-link')
+    expect(labsLink).toHaveTextContent('Pellier Observatory')
+    expect(labsLink).toHaveAttribute('href', '/observatory')
   })
 
-  it('includes Pellier Labs in the mobile navigation', () => {
+  it('includes Pellier Observatory in the mobile navigation', () => {
     renderHeader()
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }))
-    const labsLink = screen.getByTestId('pellier-labs-link-mobile')
-    expect(labsLink).toHaveTextContent('Pellier Labs')
-    expect(labsLink).toHaveAttribute('href', '/pellier-labs')
+    const labsLink = screen.getByTestId('observatory-link-mobile')
+    expect(labsLink).toHaveTextContent('Pellier Observatory')
+    expect(labsLink).toHaveAttribute('href', '/observatory')
   })
 })
 

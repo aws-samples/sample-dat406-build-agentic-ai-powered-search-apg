@@ -4,7 +4,7 @@
  * Two-part closer before the footer:
  *
  *   1. About band — editorial portrait left, "About" eyebrow,
- *      Boutique/Agent Trace positioning, and tech-stack chips.
+ *      Pellier/Observatory positioning, and tech-stack chips.
  *   2. Colophon strip — single centered italic line on a slightly
  *      darker warm ground, doubling as the visual page-end signal.
  */
@@ -84,7 +84,7 @@ export default function EditorialBrief() {
                   fontWeight: 400,
                 }}
               >
-                A boutique surface.
+                A storefront surface.
                 <br />
                 A proof surface.
               </h2>
@@ -100,7 +100,7 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Pellier + Pellier Labs
+                Pellier + Pellier Observatory
               </div>
 
               {/* Philosophy */}
@@ -113,11 +113,11 @@ export default function EditorialBrief() {
                   color: '#4a3a2e',
                 }}
               >
-                Pellier is a working boutique built to show governed agentic
+                Pellier is a working storefront built to show governed agentic
                 search in motion. Shoppers ask in natural language: a linen
                 shirt for Goa, a thoughtful gift, a slow-craft object for home.
                 The storefront answers with pieces that feel personal, while
-                Pellier Labs shows how each answer was built.
+                Pellier Observatory shows how each answer was built.
               </p>
 
               <p

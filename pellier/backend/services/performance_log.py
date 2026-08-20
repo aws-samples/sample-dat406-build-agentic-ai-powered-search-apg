@@ -1,6 +1,6 @@
 """Performance metrics log — per-turn latency + rolling aggregates.
 
-The Agent Trace Performance tab used to hardcode numbers (3779ms LLM
+The Observatory Performance tab used to hardcode numbers (3779ms LLM
 synthesize, 4ms HNSW, etc.) lifted from an offline benchmark. That
 worked for screenshots but lied once attendees started running real
 queries. This module captures the real per-turn timing the chat

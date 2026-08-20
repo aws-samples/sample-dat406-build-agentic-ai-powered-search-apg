@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ PROVISIONER = REPO / "scripts" / "provision_agentcore_end_to_end.py"
 AGENTCORE_RENDERER = REPO / "scripts" / "deploy" / "render_agentcore_project.py"
 BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
 RESET_GOVERNED = REPO / "scripts" / "reset-governed-workshop.sh"
-CATALOG_SEED = REPO / "scripts" / "seed_boutique_catalog.py"
+CATALOG_SEED = REPO / "scripts" / "seed_pellier_catalog.py"
 WAREHOUSE_MIGRATION = REPO / "scripts" / "migrations" / "006_warehouse_inventory.sql"
 SEED_PREFERENCES = REPO / "scripts" / "seed-sample-preferences.sh"
 FACILITATOR_DRY_RUN = REPO / "scripts" / "dry-run-builders.sh"
@@ -211,7 +212,7 @@ def _valid_managed_receipt() -> dict[str, object]:
                 },
                 "step_latency_observed": True,
                 "step_latency_ms": {"agent": 125, "model": 80, "tool": 30},
-                "model_ids": ["global.anthropic.claude-sonnet-5"],
+                "model_ids": ["global.anthropic.claude-sonnet-4-6"],
                 "tool_names": ["find_pieces_hybrid"],
                 "provenance": "agentcore-unified-telemetry",
             },
@@ -654,7 +655,7 @@ def test_governed_reset_restores_catalog_before_exact_warehouse_matrix() -> None
     seeder = CATALOG_SEED.read_text(encoding="utf-8")
     warehouse = WAREHOUSE_MIGRATION.read_text(encoding="utf-8")
 
-    catalog_reset = '"$REPO/scripts/seed_boutique_catalog.py"'
+    catalog_reset = '"$REPO/scripts/seed_pellier_catalog.py"'
     warehouse_reset = "006_warehouse_inventory.sql"
     assert reset.index(catalog_reset) < reset.index(warehouse_reset)
     assert "quantity = EXCLUDED.quantity" in seeder
@@ -688,3 +689,166 @@ def test_hash_locked_test_requirements_include_async_pytest_plugin() -> None:
         encoding="utf-8"
     )
     assert "pytest-asyncio==1.4.0" in lock
+
+
+# ---------------------------------------------------------------------------
+# Governed database roles and RLS provisioning (spec sections 10, 11)
+# ---------------------------------------------------------------------------
+#
+# Three separate steps have to survive edits to two long shell scripts, and a
+# missing one fails quietly rather than loudly:
+#
+#   * bootstrap must apply migration 016, or the runtime roles and policies
+#     never exist and the governed rail silently runs ungoverned;
+#   * bootstrap must seed the principal mappings, or Row-Level Security denies
+#     every signed-in shopper their own orders;
+#   * reset must re-apply 016, because a participant experimenting with
+#     `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` would otherwise leave the
+#     box in a state where the exercise cannot be repeated.
+
+RLS_MIGRATION = REPO / "scripts" / "migrations" / "016_runtime_roles_rls.sql"
+PRINCIPAL_SEED = REPO / "scripts" / "seed_principal_mappings.py"
+
+
+def test_rls_migration_and_seeder_exist() -> None:
+    assert RLS_MIGRATION.is_file(), "migration 016 is missing"
+    assert PRINCIPAL_SEED.is_file(), "principal mapping seeder is missing"
+
+
+def test_bootstrap_applies_the_rls_migration() -> None:
+    assert "016_runtime_roles_rls.sql" in BOOTSTRAP.read_text(), (
+        "bootstrap must apply migration 016, or pellier_agent, pellier_query, "
+        "and the RLS policies never exist on a fresh box"
+    )
+
+
+def test_bootstrap_seeds_the_principal_mappings() -> None:
+    body = BOOTSTRAP.read_text()
+    assert "seed_principal_mappings.py" in body, (
+        "bootstrap must seed pellier.principal_customers; an empty mapping "
+        "denies every signed-in shopper their own orders"
+    )
+
+
+def test_reset_reapplies_the_rls_migration() -> None:
+    assert "016_runtime_roles_rls.sql" in RESET_GOVERNED.read_text(), (
+        "reset must re-apply migration 016 so a disabled policy or altered "
+        "grant returns to the shipped state"
+    )
+
+
+def test_reset_verifies_the_principal_mappings() -> None:
+    body = RESET_GOVERNED.read_text()
+    invocation = next(
+        (line for line in body.splitlines() if "seed_principal_mappings.py" in line),
+        "",
+    )
+    assert invocation and "--check" in invocation, (
+        "reset must verify pellier.principal_customers; it is authorization "
+        "config rather than evidence, so it is not truncated, but an empty "
+        "mapping must not pass silently"
+    )
+
+
+def test_reset_does_not_truncate_the_authorization_mapping() -> None:
+    """The mapping is configuration, not turn evidence.
+
+    Truncating it would make every reset break every signed-in shopper until
+    someone re-ran the seeder.
+    """
+    body = RESET_GOVERNED.read_text()
+    truncate_block = body.split("TRUNCATE TABLE", 1)
+    assert len(truncate_block) == 2, "reset no longer truncates evidence tables"
+    statement = truncate_block[1].split(";", 1)[0]
+    assert "principal_customers" not in statement
+
+
+# Tables the reset script's migrations create that are deliberately NOT
+# truncated, each with the reason it is configuration rather than turn
+# evidence. Anything not listed here and not truncated fails the test below.
+_RESET_EXEMPT_TABLES = {
+    # Authorization mapping. Truncating it denies every signed-in shopper
+    # their own orders; reset verifies it instead (see the test above).
+    "principal_customers",
+    # Deterministic warehouse rows, reseeded by 006 rather than emptied.
+    "warehouse_inventory",
+    # Warehouse dimension (code, city, ship window). Reference data 006
+    # re-inserts; `warehouse_inventory` has an FK onto it.
+    "warehouses",
+    # Idempotency-key registry recreated by 011 with its own constraints.
+    "write_keys",
+}
+
+
+def test_reset_truncates_every_evidence_table_its_migrations_create() -> None:
+    """A surviving evidence row makes the next participant's first proof lie.
+
+    Several proofs read "this table was empty, you acted, now there is one
+    row". `pellier.governed_query_receipts` was created by migration 017 and
+    re-applied by reset for a full workshop cycle without being truncated,
+    so a second run started with the previous participant's receipts and the
+    count-based proof read as already-done.
+
+    Rather than pin today's list, this derives it: every table created by a
+    migration reset applies must be truncated or exempted with a reason.
+    """
+    body = RESET_GOVERNED.read_text()
+    migrations_dir = REPO / "scripts" / "migrations"
+
+    applied = [
+        name
+        for name in sorted(p.name for p in migrations_dir.glob("*.sql"))
+        if name in body
+    ]
+    assert applied, "reset applies no migrations — the list moved"
+
+    created: dict[str, str] = {}
+    for name in applied:
+        sql = (migrations_dir / name).read_text()
+        for match in re.finditer(
+            r"CREATE TABLE\s+(?:IF NOT EXISTS\s+)?pellier\.([a-z_]+)", sql
+        ):
+            created.setdefault(match.group(1), name)
+
+    truncated = body.split("TRUNCATE TABLE", 1)[1].split(";", 1)[0]
+    missing = {
+        table: migration
+        for table, migration in created.items()
+        if table not in truncated and table not in _RESET_EXEMPT_TABLES
+    }
+
+    assert not missing, (
+        "reset creates these tables but neither truncates nor exempts them, "
+        "so rows survive into the next run: "
+        + ", ".join(f"pellier.{t} (from {m})" for t, m in sorted(missing.items()))
+    )
+
+
+def test_runtime_roles_never_request_bypassrls() -> None:
+    """A runtime role with BYPASSRLS would void every policy silently.
+
+    Scoped to role-defining statements: the migration legitimately mentions
+    BYPASSRLS in comments, in a `pg_roles` verification query, and in the
+    exception message that query raises.
+    """
+    sql = RLS_MIGRATION.read_text()
+
+    for line in sql.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("--"):
+            continue
+        lowered = stripped.lower()
+        if not ("create role" in lowered or "alter role" in lowered):
+            continue
+        if "bypassrls" not in lowered:
+            continue
+        assert "nobypassrls" in lowered, (
+            f"role statement grants BYPASSRLS, voiding every policy: {stripped}"
+        )
+
+    # And the migration must actively verify it rather than only asserting it,
+    # because ALTER ROLE ... NOBYPASSRLS needs a true superuser on Aurora.
+    assert "rolbypassrls" in sql.lower(), (
+        "the migration should verify pg_roles.rolbypassrls, since it cannot "
+        "set the attribute on Aurora"
+    )

@@ -5,8 +5,8 @@ recommendations.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_inventory_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``inventory(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and the Observatory Graph pattern.
+2. ``inventory(query)`` — ``@tool`` wrapper used by the Observatory's
    Agents-as-Tools orchestrator. Delegates to the factory.
 """
 import json
@@ -81,7 +81,7 @@ _INVENTORY_SYSTEM_PROMPT = (
 )
 
 # Solution state — the challenge is complete; flip the flag so the
-# Agent Trace renders Stock Keeper as a shipped agent.
+# Observatory renders Stock Keeper as a shipped agent.
 _INVENTORY_AGENT_STUBBED = False
 
 
@@ -111,11 +111,11 @@ def build_inventory_agent() -> Agent:
 
     Reads persona preamble + loaded skills from ContextVars at
     construction time. Both injections are no-ops when their
-    ContextVars are empty, so anonymous agentTrace behavior is
+    ContextVars are empty, so anonymous observatory behavior is
     unchanged by consolidating the five factories onto the same
     substrate.
     """
-    # Stock Keeper — Sonnet 5 reporting profile. Pure factual lookups
+    # Stock Keeper — Sonnet 4.6 reporting profile. Pure factual lookups
     # (warehouse, count, ETA), with no temperature override.
     return Agent(
         name="inventory",

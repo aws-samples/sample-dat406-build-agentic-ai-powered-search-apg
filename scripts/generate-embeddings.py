@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DEPRECATED — DO NOT RUN. Use scripts/seed_boutique_catalog.py instead.
+DEPRECATED — DO NOT RUN. Use scripts/seed_pellier_catalog.py instead.
 
 This script targets the legacy product_catalog schema (columns like
 product_description, imgurl, isbestseller, category_id) which does not
@@ -8,7 +8,7 @@ exist in the current pellier.product_catalog defined by
 scripts/migrations/001_schema.sql. Running it against the current schema
 will fail with "column does not exist".
 
-The authoritative seeder is scripts/seed_boutique_catalog.py — it loads
+The authoritative seeder is scripts/seed_pellier_catalog.py — it loads
 the 40 curated Cohere Embed v4 vectors from the committed cache, derives
 archive distractor vectors, and INSERTs the expanded corpus into
 pellier.product_catalog with the matching column names. bootstrap-labs.sh
@@ -30,7 +30,7 @@ from datetime import datetime
 # clear pointer instead of a confusing SQL error 30 seconds in.
 sys.stderr.write(
     "ERROR: scripts/generate-embeddings.py is deprecated.\n"
-    "       Use scripts/seed_boutique_catalog.py instead.\n"
+    "       Use scripts/seed_pellier_catalog.py instead.\n"
 )
 sys.exit(2)
 

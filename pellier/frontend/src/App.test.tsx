@@ -38,9 +38,9 @@ const mockFetch = vi.fn(async (input: RequestInfo | URL) => {
   if (url.includes('/api/auth/me') || url.includes('/api/user/preferences')) {
     return new Response(null, { status: 401 })
   }
-  if (url.includes('/api/agent-trace/build-state')) {
+  if (url.includes('/api/observatory/build-state')) {
     // useBuildState reads `{ agents: {name: status}, tools: {fn: status} }`
-    // (see routes/pellier-labs_observatory.py::get_build_state). Return a
+    // (see routes/observatory_observatory.py::get_build_state). Return a
     // well-shaped starter payload (floor_check still an exercise) so the
     // Sidebar progress badges resolve without a jsdom network error.
     return new Response(

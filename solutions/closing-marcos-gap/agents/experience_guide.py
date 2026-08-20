@@ -5,8 +5,8 @@ policies, troubleshooting, and general post-purchase questions.
 Exposes two surfaces that share one agent construction path:
 
 1. ``build_support_agent()`` — factory returning a configured Agent,
-   used by the Storefront dispatcher and the Agent Trace Graph pattern.
-2. ``support(query)`` — ``@tool`` wrapper used by the Agent Trace's
+   used by the Storefront dispatcher and the Observatory Graph pattern.
+2. ``support(query)`` — ``@tool`` wrapper used by the Observatory's
    Agents-as-Tools orchestrator. Delegates to the factory.
 
 Note on naming: the factory and tool keep generic names because the
@@ -78,7 +78,7 @@ _SUPPORT_SYSTEM_PROMPT = (
     "knows the write actually happened.\n"
 )
 
-# ``_SUPPORT_AGENT_STUBBED`` — legacy flag still read by chat routing; Agent Trace
+# ``_SUPPORT_AGENT_STUBBED`` — legacy flag still read by chat routing; Observatory
 # lists Experience Guide as shipped in ``agents.json``.
 _SUPPORT_AGENT_STUBBED = False
 
@@ -128,7 +128,7 @@ def build_support_agent() -> Agent:
     actual order history; both injections are no-ops for anonymous
     sessions.
     """
-    # Experience Guide — Claude Opus 5. Opus for tone when handling a
+    # Experience Guide — Claude Opus 4.6. Opus for tone when handling a
     # return. Bedrock rejects the deprecated temperature field for this
     # model, so we rely on the model default.
     model_id, max_tokens, _ = resolve_specialist_model("opus")

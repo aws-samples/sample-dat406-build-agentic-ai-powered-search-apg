@@ -4,9 +4,9 @@
  * Composition is intentionally minimal: provider chain, BrowserRouter,
  * root-level modal hosts (AuthModal, PreferencesModal, ConciergeModal,
  * ComparisonHost), and the final route table. The two surfaces are
- * BoutiquePage (`/`) and the Pellier Labs frame (`/pellier-labs/*`).
+ * PellierPage (`/`) and the Pellier Observatory frame (`/observatory/*`).
  *
- * AuthGate is exported so the Pellier Labs surface can be gated when Cognito
+ * AuthGate is exported so the Pellier Observatory surface can be gated when Cognito
  * is configured.
  */
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
@@ -27,50 +27,51 @@ import SignInPage from './components/SignInPage'
 import { routerBasename } from './utils/assetPath'
 import './styles/premium-heading-styles.css'
 
-const BoutiquePage = lazy(() => import('./pages/BoutiquePage'))
+const PellierPage = lazy(() => import('./pages/PellierPage'))
 const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
-const AgentTraceFrame = lazy(() => import('./agent-trace/shell/AgentTraceFrame'))
-const SessionsList = lazy(() => import('./agent-trace/surfaces/observe/SessionsList'))
-const SessionView = lazy(() => import('./agent-trace/surfaces/observe/SessionView'))
-const ChatTab = lazy(() => import('./agent-trace/surfaces/observe/ChatTab'))
-const TelemetryTab = lazy(() => import('./agent-trace/surfaces/observe/TelemetryTab'))
-const BriefTab = lazy(() => import('./agent-trace/surfaces/observe/BriefTab'))
-const Observatory = lazy(() => import('./agent-trace/surfaces/observe/Observatory'))
-const ProofBoard = lazy(() => import('./agent-trace/surfaces/observe/ProofBoard'))
-const PellierLabsWorkbench = lazy(
-  () => import('./agent-trace/surfaces/observe/PellierLabsWorkbench'),
+const ObservatoryFrame = lazy(() => import('./observatory/shell/ObservatoryFrame'))
+const SessionsList = lazy(() => import('./observatory/surfaces/observe/SessionsList'))
+const SessionView = lazy(() => import('./observatory/surfaces/observe/SessionView'))
+const ChatTab = lazy(() => import('./observatory/surfaces/observe/ChatTab'))
+const TelemetryTab = lazy(() => import('./observatory/surfaces/observe/TelemetryTab'))
+const BriefTab = lazy(() => import('./observatory/surfaces/observe/BriefTab'))
+const WorkshopMap = lazy(() => import('./observatory/surfaces/observe/WorkshopMap'))
+const ProofBoard = lazy(() => import('./observatory/surfaces/observe/ProofBoard'))
+const ObservatoryWorkbench = lazy(
+  () => import('./observatory/surfaces/observe/ObservatoryWorkbench'),
 )
 const ReferencesIndex = lazy(
-  () => import('./agent-trace/surfaces/ReferencesIndex'),
+  () => import('./observatory/surfaces/ReferencesIndex'),
 )
-const PersonaJourneys = lazy(() => import('./agent-trace/surfaces/observe/PersonaJourneys'))
+const PersonaJourneys = lazy(() => import('./observatory/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
-  () => import('./agent-trace/surfaces/understand/ArchitectureIndex'),
+  () => import('./observatory/surfaces/understand/ArchitectureIndex'),
 )
 const ArchitectureDetail = lazy(
-  () => import('./agent-trace/surfaces/understand/ArchitectureDetail'),
+  () => import('./observatory/surfaces/understand/ArchitectureDetail'),
 )
-const Tools = lazy(() => import('./agent-trace/surfaces/understand/Tools'))
-const Search = lazy(() => import('./agent-trace/surfaces/understand/Search'))
-const Skills = lazy(() => import('./agent-trace/surfaces/understand/Skills'))
-const Routing = lazy(() => import('./agent-trace/surfaces/understand/Routing'))
+const Tools = lazy(() => import('./observatory/surfaces/understand/Tools'))
+const Search = lazy(() => import('./observatory/surfaces/understand/Search'))
+const Skills = lazy(() => import('./observatory/surfaces/understand/Skills'))
+const Routing = lazy(() => import('./observatory/surfaces/understand/Routing'))
 const MemoryDashboard = lazy(
-  () => import('./agent-trace/surfaces/understand/MemoryDashboard'),
+  () => import('./observatory/surfaces/understand/MemoryDashboard'),
 )
-const WritePath = lazy(() => import('./agent-trace/surfaces/understand/WritePath'))
-const Performance = lazy(() => import('./agent-trace/surfaces/measure/Performance'))
-const Evaluations = lazy(() => import('./agent-trace/surfaces/measure/Evaluations'))
+const WritePath = lazy(() => import('./observatory/surfaces/understand/WritePath'))
+const Performance = lazy(() => import('./observatory/surfaces/measure/Performance'))
+const Evaluations = lazy(() => import('./observatory/surfaces/measure/Evaluations'))
 const ProductionPatterns = lazy(
-  () => import('./agent-trace/surfaces/measure/ProductionPatterns'),
+  () => import('./observatory/surfaces/measure/ProductionPatterns'),
 )
-const AgentTraceSettings = lazy(() => import('./agent-trace/surfaces/Settings'))
+const ObservatorySettings = lazy(() => import('./observatory/surfaces/Settings'))
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
 const InspectorPage = lazy(() => import('./pages/InspectorPage'))
 const StoryboardPage = lazy(() => import('./pages/StoryboardPage'))
 const DiscoverPage = lazy(() => import('./pages/DiscoverPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
 
 // ---------------------------------------------------------------------------
-// AuthGate — Cognito-aware auth wrapper. Gates the Pellier Labs surface when
+// AuthGate — Cognito-aware auth wrapper. Gates the Pellier Observatory surface when
 // Cognito is configured. When Cognito is not configured (local dev without
 // env vars), children pass through directly.
 // ---------------------------------------------------------------------------
@@ -110,7 +111,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 // to pathname changes, and closes anything non-persistent. Chat
 // surfaces (drawer / concierge) and the comparison modal are
 // intentional leave-open cases — a user who opens the chat on `/`
-// and navigates to `/pellier-labs` should keep talking to Pellier. The
+// and navigates to `/observatory` should keep talking to Pellier. The
 // auth, preferences, and cart modals close because they're
 // context-bound to a specific page.
 // ---------------------------------------------------------------------------
@@ -146,9 +147,9 @@ function ModalRouteGuard() {
   return null
 }
 
-function AgentTraceConciergeSlot() {
+function ObservatoryConciergeSlot() {
   const { pathname } = useLocation()
-  if (!pathname.startsWith('/pellier-labs')) return null
+  if (!pathname.startsWith('/observatory')) return null
   return (
     <Suspense fallback={null}>
       <ConciergeModal />
@@ -156,18 +157,29 @@ function AgentTraceConciergeSlot() {
   )
 }
 
-function LegacyLabsRedirect() {
+/**
+ * Every path the inspection surface has ever lived at, newest last.
+ *
+ * The surface has been renamed twice: Observatory, then Pellier Labs, now the
+ * Observatory. Workshop screenshots, the lab guide, and browser history all
+ * still point at the old paths, and a participant following a screenshot into
+ * a 404 has no way to know the page was renamed rather than removed.
+ *
+ * Order matters only in that no entry may be a prefix of `/observatory`, or the
+ * redirect would resolve to itself.
+ */
+const LEGACY_SURFACE_PREFIXES = ['/agent-trace', '/pellier-labs', '/labs'] as const
+
+function LegacyPathRedirect() {
   const { pathname, search, hash } = useLocation()
-  const legacyPrefix = pathname.startsWith('/agent-trace')
-    ? '/agent-trace'
-    : '/labs'
-  const suffix = pathname.slice(legacyPrefix.length)
-  return (
-    <Navigate
-      to={`/pellier-labs${suffix}${search}${hash}`}
-      replace
-    />
+  const legacyPrefix = LEGACY_SURFACE_PREFIXES.find((prefix) =>
+    pathname.startsWith(prefix),
   )
+  // Nothing matched, which means this component was mounted on a route it does
+  // not own. Send the visitor to the surface root rather than to a path built
+  // from a prefix that was never there.
+  const suffix = legacyPrefix ? pathname.slice(legacyPrefix.length) : ''
+  return <Navigate to={`/observatory${suffix}${search}${hash}`} replace />
 }
 
 function RouteLoading() {
@@ -187,18 +199,23 @@ export function AppRoutes() {
     <Suspense fallback={<RouteLoading />}>
       <Routes>
         {/*
-         *   /           -> BoutiquePage (storefront shell)
-         *   /pellier-labs/* -> Pellier Labs
+         *   /           -> PellierPage (storefront shell)
+         *   /product/:id -> ProductDetailPage (one piece, deep-linkable)
+         *   /observatory/* -> Pellier Observatory
          *   /inspector  -> InspectorPage (frozen session-scoped trace view)
          *   /storyboard -> StoryboardPage
          *   /discover   -> DiscoverPage
          *   *           -> redirect to /
         */}
-        <Route path="/" element={<BoutiquePage />} />
-        <Route path="/agent-trace/*" element={<LegacyLabsRedirect />} />
-        <Route path="/labs/*" element={<LegacyLabsRedirect />} />
-        <Route path="/pellier-labs" element={<AgentTraceFrame />}>
-          <Route index element={<PellierLabsWorkbench />} />
+        <Route path="/" element={<PellierPage />} />
+        <Route path="/product/:productId" element={<ProductDetailPage />} />
+        {/* Legacy surface paths. `/observatory/*` is deliberately absent: it
+            would shadow the real surface below and redirect to itself. */}
+        <Route path="/agent-trace/*" element={<LegacyPathRedirect />} />
+        <Route path="/pellier-labs/*" element={<LegacyPathRedirect />} />
+        <Route path="/labs/*" element={<LegacyPathRedirect />} />
+        <Route path="/observatory" element={<ObservatoryFrame />}>
+          <Route index element={<ObservatoryWorkbench />} />
           <Route path="references" element={<ReferencesIndex />} />
           <Route path="proof-board" element={<ProofBoard />} />
           <Route
@@ -216,7 +233,7 @@ export function AppRoutes() {
           <Route path="architecture/:concept" element={<ArchitectureDetail />} />
           <Route
             path="agents"
-            element={<Navigate to="/pellier-labs/tools" replace />}
+            element={<Navigate to="/observatory/tools" replace />}
           />
           <Route path="tools" element={<Tools />} />
           <Route path="search" element={<Search />} />
@@ -227,9 +244,17 @@ export function AppRoutes() {
           <Route path="performance" element={<Performance />} />
           <Route path="evaluations" element={<Evaluations />} />
           <Route path="production-patterns" element={<ProductionPatterns />} />
-          <Route path="observatory" element={<Observatory />} />
+          <Route path="workshop-map" element={<WorkshopMap />} />
+          {/* The page was routed at `observatory` while the navigation
+              called it "Workshop Map". The shell now owns that name, so the
+              old path redirects rather than 404s for anyone holding a link
+              or a screenshot of it. */}
+          <Route
+            path="observatory"
+            element={<Navigate to="/observatory/workshop-map" replace />}
+          />
           <Route path="persona-journeys" element={<PersonaJourneys />} />
-          <Route path="settings" element={<AgentTraceSettings />} />
+          <Route path="settings" element={<ObservatorySettings />} />
         </Route>
         <Route path="/inspector" element={<InspectorPage />} />
         <Route path="/storyboard" element={<StoryboardPage />} />
@@ -266,7 +291,7 @@ function App() {
             <ToastSlot />
             <BrowserRouter basename={routerBasename()}>
               <ModalRouteGuard />
-              <AgentTraceConciergeSlot />
+              <ObservatoryConciergeSlot />
               <ChatDrawer />
               <ComparisonHost />
               <AppRoutes />

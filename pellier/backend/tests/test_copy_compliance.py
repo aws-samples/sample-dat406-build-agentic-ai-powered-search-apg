@@ -1,4 +1,4 @@
-"""Scan backend/boutique_copy.py for copy compliance violations.
+"""Scan backend/pellier_copy.py for copy compliance violations.
 
 Rules enforced (Requirement 1.12):
   1. No emoji (any Unicode codepoint outside ASCII-plus-common-punctuation,
@@ -6,7 +6,7 @@ Rules enforced (Requirement 1.12):
      and middle dots used as typographic separators).
   2. No em dashes (U+2014).
   3. No forbidden words (case-insensitive whole-word match) from the
-     boutique conventions: AI, intelligent, smart, agent, LLM, vector,
+     Pellier conventions: AI, intelligent, smart, agent, LLM, vector,
      embedding, and 'search' used as a standalone noun.
 
 The scanner strips comments and the module-level docstring before matching
@@ -28,7 +28,7 @@ from io import BytesIO
 from pathlib import Path
 
 
-COPY_PATH = Path(__file__).resolve().parents[1] / "boutique_copy.py"
+COPY_PATH = Path(__file__).resolve().parents[1] / "pellier_copy.py"
 
 # Allow these Unicode codepoints even though they are non-ASCII. They are
 # typographic punctuation used in our copy and are not emoji.

@@ -74,7 +74,7 @@ def _render(tmp_path: Path, *, include_policies: bool) -> tuple[Path, dict[str, 
         cognito_pool="us-east-1_example",
         cognito_client="client-id",
         lambda_arns=_lambda_arns(),
-        model_id="global.anthropic.claude-sonnet-5",
+        model_id="global.anthropic.claude-sonnet-4-6",
         workshop_id="p12345678",
         include_policies=include_policies,
     )
@@ -129,11 +129,11 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
 
     env = {item["name"]: item["value"] for item in runtime["envVars"]}
     assert env == {
-        "AGENT_MODEL_ID": "global.anthropic.claude-sonnet-5",
-        "BEDROCK_OPUS_MODEL": "global.anthropic.claude-sonnet-5",
-        "BEDROCK_REPORTING_MODEL": "global.anthropic.claude-sonnet-5",
-        "BEDROCK_ROUTER_MODEL": "global.anthropic.claude-sonnet-5",
-        "BEDROCK_SONNET_MODEL": "global.anthropic.claude-sonnet-5",
+        "AGENT_MODEL_ID": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_OPUS_MODEL": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_REPORTING_MODEL": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_ROUTER_MODEL": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_SONNET_MODEL": "global.anthropic.claude-sonnet-4-6",
         "UNIFIED_TRACES_DESTINATION_ENABLED": "true",
     }
     assert runtime["instrumentation"] == {"enableOtel": True}
@@ -882,7 +882,7 @@ def _unified_trace_records(
                     "name": "chat",
                     "durationNanos": "320000000",
                     "attributes": {
-                        "gen_ai.request.model": "global.anthropic.claude-sonnet-5"
+                        "gen_ai.request.model": "global.anthropic.claude-sonnet-4-6"
                     },
                     "resource": resource(),
                 }
@@ -948,7 +948,7 @@ def test_unified_trace_summary_requires_correlated_agent_model_and_tool_spans() 
         "tool_output": "gen_ai.tool.call.result",
     }
     assert proof["step_latency_ms"] == {"agent": 900, "model": 320, "tool": 45}
-    assert proof["model_ids"] == ["global.anthropic.claude-sonnet-5"]
+    assert proof["model_ids"] == ["global.anthropic.claude-sonnet-4-6"]
     assert proof["tool_names"] == ["find_pieces_hybrid"]
     assert proof["provenance"] == "agentcore-unified-telemetry"
 

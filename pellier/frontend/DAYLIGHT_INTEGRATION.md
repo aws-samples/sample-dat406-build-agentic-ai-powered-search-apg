@@ -2,8 +2,8 @@
 
 Pellier consumes the Daylight design system (originally built for the
 DAT409 Wayfare workshop) as the source of truth for color, type,
-spacing, radius, shadow, and component CSS. Every Boutique and
-Agent Trace surface inherits from these tokens.
+spacing, radius, shadow, and component CSS. Every Pellier and
+Observatory surface inherits from these tokens.
 
 ## Layout
 
@@ -18,8 +18,8 @@ pellier/frontend/
     ├── index.css                    @imports Daylight + bridge before Tailwind
     ├── styles/
     │   └── daylight-bridge.css      Aliases Pellier names → --dl-* tokens
-    └── agent-trace/styles/
-        └── tokens.css               --at-* semantic aliases (cards, pills, sidebar)
+    └── observatory/styles/
+        └── tokens.css               --obs-* semantic aliases (cards, pills, sidebar)
 ```
 
 ## Cascade order (load priority)
@@ -27,9 +27,9 @@ pellier/frontend/
 ```
 1. public/design-system/daylight/tokens.css     ← --dl-* values
 2. public/design-system/daylight/daylight.css   ← .dl-* component styles
-3. src/styles/daylight-bridge.css               ← --cream / --ink / --accent / --at-* → --dl-*
+3. src/styles/daylight-bridge.css               ← --cream / --ink / --accent / --obs-* → --dl-*
 4. tailwind base / components / utilities        (inside @layer base)
-5. src/agent-trace/styles/tokens.css                 ← --at-* semantic aliases
+5. src/observatory/styles/tokens.css                 ← --obs-* semantic aliases
 6. component-level CSS / inline styles
 ```
 
@@ -58,19 +58,19 @@ component file needs editing.
 | `--ink-quiet` | `--dl-muted` | Captions, eyebrows |
 | `--accent` | `--dl-accent` | Terracotta accent |
 | `--rule-1` | `--dl-line` | Hairline borders |
-| `--at-cream-1` | `--dl-bg` | Agent Trace background |
-| `--at-ink-1` | `--dl-ink` | Agent Trace primary text |
-| `--at-red-1` | `--dl-accent` | Agent Trace accent |
-| `--at-green-1` | `--dl-ok` | Agent Trace "shipped" status |
-| `--serif` / `--at-serif` | `--dl-font-serif` | Instrument Serif → Fraunces → Georgia |
-| `--sans` / `--at-sans` | `--dl-font-sans` | Instrument Sans → system UI |
-| `--mono` / `--at-mono` | `--dl-font-mono` | JetBrains Mono |
+| `--obs-cream-1` | `--dl-bg` | Observatory background |
+| `--obs-ink-1` | `--dl-ink` | Observatory primary text |
+| `--obs-red-1` | `--dl-accent` | Observatory accent |
+| `--obs-green-1` | `--dl-ok` | Observatory "shipped" status |
+| `--serif` / `--obs-serif` | `--dl-font-serif` | Instrument Serif → Fraunces → Georgia |
+| `--sans` / `--obs-sans` | `--dl-font-sans` | Instrument Sans → system UI |
+| `--mono` / `--obs-mono` | `--dl-font-mono` | JetBrains Mono |
 
 Full list in `src/styles/daylight-bridge.css`.
 
-**Agent Trace semantic aliases (`--at-card-bg`, `--at-status-shipped-bg`,
-`--at-sidebar-bg`, ...)** — declared in `src/agent-trace/styles/tokens.css`.
-These reference `--at-*` aliases and the bridge resolves the chain
+**Observatory semantic aliases (`--obs-card-bg`, `--obs-status-shipped-bg`,
+`--obs-sidebar-bg`, ...)** — declared in `src/observatory/styles/tokens.css`.
+These reference `--obs-*` aliases and the bridge resolves the chain
 back to `--dl-*`.
 
 ## How to override a single surface
@@ -127,8 +127,8 @@ need to touch.
 
 - The hardcoded `:root` block in `index.css` (60+ lines of color hex
   values — replaced by the bridge)
-- The hardcoded `--at-*` color values in `agent-trace/styles/tokens.css`
-  (the file now holds only Agent Trace-specific semantic aliases)
+- The hardcoded `--obs-*` color values in `observatory/styles/tokens.css`
+  (the file now holds only Observatory-specific semantic aliases)
 - Hardcoded hex values in `tailwind.config.js` (`'cream': '#fbf4e8'`,
   etc. — repointed at `var(--cream)`)
 

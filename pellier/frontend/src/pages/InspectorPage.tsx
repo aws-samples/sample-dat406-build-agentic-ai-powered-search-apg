@@ -21,7 +21,7 @@ import { cssVar as c } from '../design/cssVars'
 
 function loadWorkshopMessages(): AgentChatMessage[] {
   try {
-    const saved = localStorage.getItem('pellier-concierge-agent-trace')
+    const saved = localStorage.getItem('pellier-concierge-observatory')
     if (!saved) return []
     const parsed = JSON.parse(saved)
     return parsed.map((msg: any) => ({
@@ -113,12 +113,12 @@ export default function InspectorPage() {
         style={{ borderBottom: `1px solid var(--dl-line)` }}
       >
         <Link
-          to="/pellier-labs"
+          to="/observatory"
           className="inline-flex items-center gap-2 text-sm"
           style={{ color: c.ink2 }}
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to agentTrace
+          Back to observatory
         </Link>
         <div
           className="inline-flex items-center gap-2 text-[11px] font-mono"
@@ -141,8 +141,8 @@ export default function InspectorPage() {
         <p className="text-sm mb-8" style={{ color: c.ink2 }}>
           Frozen view of agent reasoning for the requested session. Live
           updates continue to flow inside the Concierge modal on
-          <Link to="/pellier-labs" className="underline mx-1" style={{ color: c.accent }}>
-            /pellier-labs
+          <Link to="/observatory" className="underline mx-1" style={{ color: c.accent }}>
+            /observatory
           </Link>
           — the inspector only reflects what was captured when this page loaded.
         </p>

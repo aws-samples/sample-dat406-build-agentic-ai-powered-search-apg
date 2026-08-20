@@ -104,7 +104,7 @@ describe('useAgentChat — StrictMode purity', () => {
   })
 
   it('content_reset clears content without doubling subsequent deltas', async () => {
-    const { result } = renderHook(() => useAgentChat({ mode: 'agentTrace' }), {
+    const { result } = renderHook(() => useAgentChat({ mode: 'observatory' }), {
       wrapper,
     })
 
@@ -131,7 +131,7 @@ describe('useAgentChat — StrictMode purity', () => {
   })
 
   it('product dedupe survives double-invocation (single product added once)', async () => {
-    const { result } = renderHook(() => useAgentChat({ mode: 'agentTrace' }), {
+    const { result } = renderHook(() => useAgentChat({ mode: 'observatory' }), {
       wrapper,
     })
 

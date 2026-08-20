@@ -14,7 +14,7 @@
  * context.
  *
  * Runs against the production build on port 8000. PersonaModal now
- * lives on Agent Trace surfaces; the storefront header uses a direct
+ * lives on Observatory surfaces; the storefront header uses a direct
  * persona dropdown instead.
  */
 
@@ -28,21 +28,21 @@ async function openLabsAsReturningVisitor(
   // The portal check targets the persistent Labs control, not the
   // first-visit onboarding overlay that intentionally blocks the page.
   await page.addInitScript(() => {
-    sessionStorage.setItem('pellier-labs-spotlight-seen', 'true');
+    sessionStorage.setItem('observatory-spotlight-seen', 'true');
   });
-  await page.goto(`${BASE_URL}/pellier-labs`);
+  await page.goto(`${BASE_URL}/observatory`);
   await page.waitForLoadState('networkidle');
 }
 
 test.describe('Persona modal - portal + viewport coverage', () => {
-  test('backdrop fills the viewport when opened from the Agent Trace top bar', async ({
+  test('backdrop fills the viewport when opened from the Observatory top bar', async ({
     page,
   }) => {
     await openLabsAsReturningVisitor(page);
 
     // The storefront uses the persona dropdown now. PersonaModal is the
-    // Agent Trace persona switcher, where the portal regression still matters.
-    await page.getByTestId('agent-trace-persona-switcher').click();
+    // Observatory persona switcher, where the portal regression still matters.
+    await page.getByTestId('observatory-persona-switcher').click();
 
     const backdrop = page.getByTestId('persona-modal-backdrop');
     await expect(backdrop).toBeVisible();
@@ -76,7 +76,7 @@ test.describe('Persona modal - portal + viewport coverage', () => {
   test('backdrop click dismisses the modal', async ({ page }) => {
     await openLabsAsReturningVisitor(page);
 
-    await page.getByTestId('agent-trace-persona-switcher').click();
+    await page.getByTestId('observatory-persona-switcher').click();
     const backdrop = page.getByTestId('persona-modal-backdrop');
     await expect(backdrop).toBeVisible();
 

@@ -195,7 +195,7 @@ def test_local_turn_receives_server_resolved_aurora_customer(
 def test_managed_storefront_turn_invokes_runtime_not_local_chat(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The Boutique must execute the rail it reports on a managed turn."""
+    """Pellier must execute the rail it reports on a managed turn."""
     import services.agentcore_runtime as runtime_module
 
     async def _managed_runtime(**kwargs: Any) -> runtime_module.ManagedRuntimeResult:
@@ -215,7 +215,7 @@ def test_managed_storefront_turn_invokes_runtime_not_local_chat(
             rail="gateway-mcp",
             intent="recommendation",
             specialist="recommendation",
-            model="global.anthropic.claude-opus-5",
+            model="global.anthropic.claude-opus-4-6-v1",
             tool_calls=[
                 {
                     "id": "tool-1",

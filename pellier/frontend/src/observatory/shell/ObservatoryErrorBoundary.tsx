@@ -1,0 +1,122 @@
+/**
+ * ObservatoryErrorBoundary — React Error Boundary for the Observatory canvas.
+ *
+ * Wraps the <Outlet /> in ObservatoryFrame so that if any surface component
+ * throws during render, the sidebar and top bar remain functional while
+ * the canvas shows an editorial error page.
+ *
+ * React Error Boundaries must be class components — there is no hook
+ * equivalent for componentDidCatch / getDerivedStateFromError.
+ *
+ * Requirements: 19.2, 19.4
+ */
+
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Eyebrow } from '../components/Eyebrow';
+
+interface ObservatoryErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ObservatoryErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ObservatoryErrorBoundary extends React.Component<
+  ObservatoryErrorBoundaryProps,
+  ObservatoryErrorBoundaryState
+> {
+  constructor(props: ObservatoryErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ObservatoryErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // Log for debugging — could wire to telemetry in a future phase
+    console.error('[ObservatoryErrorBoundary]', error, errorInfo);
+  }
+
+  private handleReset = (): void => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '60vh',
+            padding: '48px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <Eyebrow label="Something went wrong" variant="burgundy" />
+
+          <h1
+            className="font-display italic text-espresso"
+            style={{
+              fontSize: 'clamp(36px, 4vw, 48px)',
+              fontWeight: 400,
+              lineHeight: 1.15,
+              margin: '20px 0 16px',
+              letterSpacing: '-0.015em',
+            }}
+          >
+            The observatory hit a snag.
+          </h1>
+
+          {this.state.error?.message && (
+            <p
+              style={{
+                fontFamily: 'var(--obs-mono)',
+                fontSize: 'var(--obs-mono-size)',
+                lineHeight: 'var(--obs-mono-leading)',
+                color: 'var(--obs-ink-1)',
+                backgroundColor: 'var(--obs-cream-2)',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                maxWidth: '520px',
+                wordBreak: 'break-word',
+                margin: '0 0 32px',
+              }}
+            >
+              {this.state.error.message}
+            </p>
+          )}
+
+          <Link
+            to="/observatory/sessions"
+            onClick={this.handleReset}
+            style={{
+              fontFamily: 'var(--obs-mono)',
+              fontSize: 'var(--obs-eyebrow-size)',
+              fontWeight: 500,
+              letterSpacing: 'var(--obs-eyebrow-tracking)',
+              textTransform: 'uppercase',
+              color: 'var(--obs-red-1)',
+              textDecoration: 'none',
+              borderBottom: '1px solid var(--obs-red-1)',
+              paddingBottom: '2px',
+            }}
+          >
+            Return to Sessions
+          </Link>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default ObservatoryErrorBoundary;

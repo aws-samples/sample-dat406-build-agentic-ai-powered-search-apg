@@ -19,7 +19,7 @@
  *   unknown     neutral no rail reported
  *
  * With no rail evidence at all the component renders nothing in `compact`
- * mode rather than guessing, so the Boutique header stays quiet until the
+ * mode rather than guessing, so the Pellier header stays quiet until the
  * system has something true to say.
  */
 import type React from 'react'

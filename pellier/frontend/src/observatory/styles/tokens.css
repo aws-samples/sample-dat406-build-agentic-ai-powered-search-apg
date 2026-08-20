@@ -1,0 +1,67 @@
+/* ========================================================================
+ * Pellier Observatory — Design Tokens
+ *
+ * The core --obs-* color, surface, type, and spacing tokens are now
+ * aliased onto the Daylight design-system tokens via
+ * src/styles/daylight-bridge.css. The hardcoded values that used to
+ * live here are gone — see DAYLIGHT_INTEGRATION.md for the cascade
+ * order and the bridge contract.
+ *
+ * What remains in this file are the SEMANTIC ALIASES specific to the
+ * Observatory (card patterns, status pills, sidebar, category badges).
+ * They reference --obs-* tokens, which the bridge resolves to Daylight
+ * values. Override these at scope to re-skin a surface without
+ * touching the bridge.
+ *
+ * Naming convention:
+ *   --obs-<token>   Observatory-scoped semantic alias
+ * ======================================================================== */
+
+:root {
+  /* ------------------------------------------------------------------
+   * Card pattern (Exp_Card)
+   * ---------------------------------------------------------------- */
+  --obs-card-bg: var(--obs-cream-elev);
+  --obs-card-border: var(--obs-rule-1);
+  --obs-card-radius: 14px;
+  --obs-card-accent-width: 24px;
+  --obs-card-accent-color: var(--obs-red-1);
+
+  /* ------------------------------------------------------------------
+   * Status pills
+   * ---------------------------------------------------------------- */
+  --obs-status-shipped-bg: var(--obs-green-soft);
+  --obs-status-shipped-text: var(--obs-green-1);
+  --obs-status-exercise-bg: var(--obs-red-soft);
+  --obs-status-exercise-text: var(--obs-red-1);
+
+  /* ------------------------------------------------------------------
+   * Status dots
+   * ---------------------------------------------------------------- */
+  --obs-dot-live: var(--obs-red-1);
+  --obs-dot-idle: var(--obs-ink-4);
+  --obs-dot-empty-border: var(--obs-red-1);
+
+  /* ------------------------------------------------------------------
+   * Sidebar — dark espresso surface that contrasts the cream page
+   * ---------------------------------------------------------------- */
+  --obs-sidebar-bg: var(--obs-espresso-1);
+  --obs-sidebar-active-bg: var(--obs-espresso-2);
+  --obs-sidebar-text: rgba(250, 243, 232, 0.75);
+  --obs-sidebar-text-active: var(--cream-warm);
+  --obs-sidebar-accent: var(--obs-red-1);
+  /* Rail width. 440px consumed a third of a 1280px workshop laptop before
+     canvas padding, leaving the evidence surface — the thing an attendee is
+     actually reading — unnecessarily narrow. 300px fits the five-lab spine
+     without truncating labels. Overridden per breakpoint in base.css. */
+  --obs-sidebar-width: 300px;
+  --obs-sidebar-width-compact: 76px;
+
+  /* ------------------------------------------------------------------
+   * Category badges (Architecture index)
+   * ---------------------------------------------------------------- */
+  --obs-cat-both: var(--obs-red-1);
+  --obs-cat-managed: var(--obs-green-1);
+  --obs-cat-owned: #b88a3a;        /* Amber for owned */
+  --obs-cat-teaching: var(--obs-ink-4);
+}

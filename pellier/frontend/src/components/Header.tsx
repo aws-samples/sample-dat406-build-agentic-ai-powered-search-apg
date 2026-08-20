@@ -1,11 +1,11 @@
 /**
- * Header — Boutique sticky header.
+ * Header — Pellier sticky header.
  *
  * Centered "Pellier" wordmark — Fraunces (`font-display`) + circular P
  * chip; word one step above footer (`text-2xl` vs `text-xl`). Four left
  * nav items (Shop, Stories, Ask Pellier, About), and right cluster: search
  * IconButton, persona Avatar dropdown, bag IconButton with count badge, and
- * a direct link to Pellier Labs.
+ * a direct link to Pellier Observatory.
  *
  * The persona Avatar dropdown replaces the old PersonaPill + PersonaModal
  * pattern. It calls `switchPersona` and `signOut` directly from `usePersona()`.
@@ -34,7 +34,7 @@ import {
   LogOut,
   Menu,
   X,
-  FlaskConical,
+  Telescope,
 } from 'lucide-react'
 
 // Keep old NavItem values for backward compatibility with consuming pages,
@@ -127,7 +127,7 @@ function NavLink({ item, label, current, onClick }: NavLinkProps) {
   )
 }
 
-function PellierLabsLink({
+function ObservatoryLink({
   mobile = false,
   onClick,
 }: {
@@ -136,8 +136,8 @@ function PellierLabsLink({
 }) {
   return (
     <Link
-      to="/pellier-labs"
-      data-testid={mobile ? 'pellier-labs-link-mobile' : 'pellier-labs-link'}
+      to="/observatory"
+      data-testid={mobile ? 'observatory-link-mobile' : 'observatory-link'}
       onClick={onClick}
       className={[
         'items-center gap-2 text-[13px] font-medium text-espresso',
@@ -149,8 +149,21 @@ function PellierLabsLink({
       ].join(' ')}
       style={{ fontFamily: 'var(--sans)' }}
     >
-      <FlaskConical className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-      <span>Pellier Labs</span>
+      <Telescope className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+      <span>{NAV.OBSERVATORY}</span>
+      {/* The badge is part of the link's accessible name on purpose: a screen
+          reader should hear "Pellier Observatory, Optional" rather than a bare
+          destination, since optionality is the thing a participant most needs
+          before deciding to spend time here. */}
+      <span
+        data-testid={mobile ? 'observatory-optional-mobile' : 'observatory-optional'}
+        className={[
+          'rounded-full border border-sand bg-cream-warm px-1.5 py-0.5',
+          'text-[10px] font-medium uppercase tracking-[0.08em] text-ink-quiet',
+        ].join(' ')}
+      >
+        {NAV.OBSERVATORY_OPTIONAL}
+      </span>
     </Link>
   )
 }
@@ -170,7 +183,7 @@ function PersonaDropdown() {
   // Fetch persona list on first open
   useEffect(() => {
     if (!open || fetched) return
-    fetch('/api/agent-trace/personas')
+    fetch('/api/observatory/personas')
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : []
@@ -417,7 +430,7 @@ export default function Header({
     ? NAV_ITEMS
     : NAV_ITEMS.filter(({ item }) => item !== 'ask-pellier')
 
-  // The boutique's search is Pellier — the chat drawer. Clicking the
+  // The storefront's search is Pellier - the chat drawer. Clicking the
   // Search icon opens the same concierge pill uses, which keeps the
   // header honest: one search surface, two entry points.
   const handleSearchClick = useCallback(() => {
@@ -518,7 +531,7 @@ export default function Header({
             </div>
 
             <div className="hidden lg:block ml-1">
-              <PellierLabsLink />
+              <ObservatoryLink />
             </div>
 
             <IconButton
@@ -580,7 +593,7 @@ export default function Header({
                 ))}
               </div>
               <div className="mt-3 border-t border-sand pt-3">
-                <PellierLabsLink
+                <ObservatoryLink
                   mobile
                   onClick={() => setMobileMenuOpen(false)}
                 />
