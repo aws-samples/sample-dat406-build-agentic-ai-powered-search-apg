@@ -28,7 +28,7 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 
 ## Workshop abstract
 
-Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, and a queryable JSONB audit ledger. AgentCore Runtime hosts the dispatcher, Memory preserves context, Gateway exposes tools, Policy applies Cedar authorization before sensitive actions, and OpenTelemetry traces connect the managed path. Leave with reusable patterns for auditable, policy-aware agentic search applications.
+Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, and a queryable JSONB audit ledger. AgentCore Runtime hosts the dispatcher, Memory preserves context, Gateway exposes tools, Policy applies Cedar authorization before sensitive actions, Aurora Row-Level Security scopes what each shopper's agent can read, and OpenTelemetry traces connect the managed path. Leave with reusable patterns for auditable, policy-aware agentic search applications.
 
 ---
 
