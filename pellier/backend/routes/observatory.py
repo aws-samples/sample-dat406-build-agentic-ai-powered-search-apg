@@ -20,7 +20,6 @@ Endpoints:
     GET  /memory/{persona}     — four memory types plus operational history
     GET  /performance          — metrics and benchmarks
     GET  /evaluations          — agent scorecards
-    GET  /observatory          — dashboard summary
     GET  /architecture         - system architecture diagram payload
     GET  /build-state          - shipped vs exercise maps for agents and tools
     GET  /readiness            - workshop readiness checks for live pillars
@@ -1627,30 +1626,6 @@ async def get_evaluations():
     except Exception as exc:
         logger.error("Failed to load evaluations: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load evaluations")  # copy-allow: observatory-error-detail
-
-
-@router.get("/observatory")
-async def get_observatory():
-    """Return dashboard summary for the Observatory wide-angle view.
-
-    Returns fixture data matching the frontend observatory.json shape.
-    """
-    try:
-        data = _load_fixture("observatory")
-        if data is None:
-            return {
-                "activeSessions": 0,
-                "totalSessions": 0,
-                "agentStatus": [],
-                "toolInvocations": 0,
-                "memoryItems": {"stm": 0, "ltm": 0},
-                "performanceHeadlines": [],
-                "lastUpdated": "",
-            }
-        return data
-    except Exception as exc:
-        logger.error("Failed to load observatory data: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load observatory data")  # copy-allow: observatory-error-detail
 
 
 @router.get("/architecture")

@@ -39,7 +39,6 @@ import rawSkills from '../fixtures/skills.json';
 import rawRouting from '../fixtures/routing.json';
 import rawPerformance from '../fixtures/performance.json';
 import rawEvaluations from '../fixtures/evaluations.json';
-import rawObservatory from '../fixtures/observatory.json';
 import rawArchitecture from '../fixtures/architecture.json';
 import rawProductionPatterns from '../fixtures/production-patterns.json';
 
@@ -70,7 +69,6 @@ const fixtureEntries: [string, unknown][] = [
   ['routing', rawRouting],
   ['performance', rawPerformance],
   ['evaluations', rawEvaluations],
-  ['observatory', rawObservatory],
   ['architecture', rawArchitecture],
   ['production-patterns', rawProductionPatterns],
 ];

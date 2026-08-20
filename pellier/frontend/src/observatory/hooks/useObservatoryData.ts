@@ -60,7 +60,6 @@ const fixtureImporters: Record<string, () => Promise<{ default: unknown }>> = {
   routing: () => import('../fixtures/routing.json'),
   performance: () => import('../fixtures/performance.json'),
   evaluations: () => import('../fixtures/evaluations.json'),
-  observatory: () => import('../fixtures/observatory.json'),
   architecture: () => import('../fixtures/architecture.json'),
   'production-patterns': () => import('../fixtures/production-patterns.json'),
 };
@@ -87,7 +86,6 @@ const apiEndpoints: Record<string, string> = {
   skills: '/api/observatory/skills',
   performance: '/api/observatory/performance',
   evaluations: '/api/observatory/evaluations',
-  observatory: '/api/observatory/observatory',
   architecture: '/api/observatory/architecture',
 };
 
