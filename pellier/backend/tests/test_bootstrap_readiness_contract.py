@@ -852,3 +852,108 @@ def test_runtime_roles_never_request_bypassrls() -> None:
         "the migration should verify pg_roles.rolbypassrls, since it cannot "
         "set the attribute on Aurora"
     )
+
+
+# ---------------------------------------------------------------------------
+# Participant workspace: Code Editor conventions
+#
+# Derived from delivery experience across sibling workshops, not from this
+# repo's own behaviour, so the assertions cannot cement a local bug.
+# ---------------------------------------------------------------------------
+
+BOOTSTRAP_ENV = REPO / "scripts" / "bootstrap-environment.sh"
+
+
+def _settings_blocks() -> list[dict]:
+    """Return every Code Editor settings heredoc as parsed JSON."""
+    source = BOOTSTRAP_ENV.read_text(encoding="utf-8")
+    blocks = []
+    for tag in ("VSCODE_SETTINGS", "WORKSPACE_SETTINGS"):
+        match = re.search(rf"<< '{tag}'\n(.*?)\n{tag}\n", source, re.S)
+        assert match, f"{tag} heredoc not found"
+        blocks.append(json.loads(match.group(1)))
+    return blocks
+
+
+def test_both_settings_files_are_valid_json() -> None:
+    """A malformed settings file is ignored silently; the editor just looks wrong."""
+    assert len(_settings_blocks()) == 2
+
+
+def test_the_editor_opens_without_a_dialog() -> None:
+    """Any first-run prompt costs every participant the same minute."""
+    user_settings, _workspace = _settings_blocks()
+    assert user_settings["workbench.startupEditor"] == "none"
+    assert user_settings["workbench.tips.enabled"] is False
+    assert user_settings["update.showReleaseNotes"] is False
+    # VS Code's setting id carries the `workbench.` prefix. Asserting the
+    # abbreviated form some notes use would fail against correct settings.
+    assert (
+        user_settings["workbench.welcomePage.walkthroughs.openOnInstall"] is False
+    )
+    trust = [k for k in user_settings if k.startswith("security.workspace.trust")]
+    assert len(trust) >= 4, f"workspace-trust prompts not fully disabled: {trust}"
+
+
+def test_the_ui_scales_for_a_projector() -> None:
+    """Editor font alone leaves the sidebar, tabs, and palette unreadable.
+
+    `window.zoomLevel` is the setting that scales the whole interface, which is
+    what a participant reading from the back of a room actually needs.
+    """
+    for settings in _settings_blocks():
+        assert settings.get("window.zoomLevel", 0) >= 1
+        assert settings["terminal.integrated.fontSize"] >= 18
+        assert settings["workbench.colorTheme"] == "Default Dark Modern"
+
+
+def test_the_automatic_terminal_task_can_actually_fire() -> None:
+    """A folderOpen task only runs from the .vscode of the folder that opened.
+
+    It also needs automatic tasks allowed, or the editor prompts instead of
+    running it - which is the same as not having the task.
+    """
+    _user, workspace = _settings_blocks()
+    assert workspace["task.allowAutomaticTasks"] == "on"
+    source = BOOTSTRAP_ENV.read_text(encoding="utf-8")
+    assert "folderOpen" in source
+    # The task must be written into the repo folder's .vscode, not the parent.
+    assert "REPO_VSCODE" in source
+
+
+def test_source_control_is_hidden_from_the_editor() -> None:
+    """An injected lab seam otherwise reads as a mistake worth reverting."""
+    user_settings, _workspace = _settings_blocks()
+    assert user_settings["git.enabled"] is False
+    assert user_settings["git.decorations.enabled"] is False
+    assert user_settings["scm.diffDecorations"] == "none"
+
+
+def test_the_workspace_is_detached_from_git_on_every_path() -> None:
+    """Hiding the panel does not stop `git checkout -- .` in a terminal.
+
+    The fallback clone always deleted .git. The CloudFormation path did not, so
+    an event box shipped a live detached checkout and a participant could revert
+    the exercise mid-lab, or stash it, with nothing on screen to explain where
+    their work went. Both paths must converge.
+    """
+    source = (REPO / "scripts" / "bootstrap-labs.sh").read_text(encoding="utf-8")
+    removals = re.findall(r'rm -rf "\$REPO_PATH/\.git"', source)
+    assert removals, "bootstrap no longer removes .git"
+
+    # The removal must not be reachable only from inside the clone branch.
+    guard = 'if [ -d "$REPO_PATH/.git" ]; then'
+    assert guard in source, "unconditional .git removal guard is missing"
+    assert source.index(guard) > source.index('log "✅ Repository exists"'), (
+        ".git removal must sit after the clone branch, so it covers the event path"
+    )
+
+
+def test_provenance_survives_removing_git() -> None:
+    """After .git is gone, a file must still answer which content this box runs."""
+    source = (REPO / "scripts" / "bootstrap-labs.sh").read_text(encoding="utf-8")
+    assert source.count(".workshop-ref.json") >= 2, (
+        "provenance is written on only one of the two paths"
+    )
+    assert "cloudformation-userdata" in source
+    assert "bootstrap-fallback" in source

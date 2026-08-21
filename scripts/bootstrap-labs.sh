@@ -88,10 +88,46 @@ if [ ! -d "$REPO_PATH" ]; then
 }
 EOF
 
-    rm -rf "$REPO_PATH/.git"
     log "✅ Repository cloned (default branch @ ${resolved_sha:0:8})"
 else
     log "✅ Repository exists"
+fi
+
+# Remove .git on BOTH paths, not just the fallback.
+#
+# The fallback above always deleted it. The event path did not, so a Workshop
+# Studio box shipped with a live detached checkout at the pinned SHA and the
+# workspace stayed on live git. `"git.enabled": false` hides the Source Control
+# panel, but the terminal is untouched: `git checkout -- .` silently reverts the
+# floor_check exercise a participant is midway through, and `git stash` loses it
+# with no visible trace. Neither is a thing anyone does on purpose; both are
+# things people type out of habit.
+#
+# Safe to remove here because nothing downstream reads it:
+#   - the pinned-SHA assertion runs in CloudFormation UserData, before this
+#     script (`git rev-parse HEAD` = RepoRevision),
+#   - provenance on the event path is WORKSHOP_SOURCE_REVISION, exported by the
+#     same UserData, and on the fallback path .workshop-ref.json written above,
+#   - no application code shells out to git,
+#   - no lab instructs a participant to run git.
+if [ -d "$REPO_PATH/.git" ]; then
+    # Record provenance for the event path too, so "which content is this box
+    # running?" has a file answer after .git is gone, not just an env var that
+    # dies with the shell.
+    if [ ! -f "$REPO_PATH/.workshop-ref.json" ]; then
+        event_sha=$(sudo -u "$CODE_EDITOR_USER" git -C "$REPO_PATH" rev-parse HEAD 2>/dev/null || echo unknown)
+        sudo -u "$CODE_EDITOR_USER" tee "$REPO_PATH/.workshop-ref.json" >/dev/null << EOF
+{
+    "repo_url": "${REPO_URL}",
+    "repo_ref": "${WORKSHOP_SOURCE_REVISION:-<pinned>}",
+    "resolved_sha": "${event_sha}",
+    "cloned_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "clone_path": "cloudformation-userdata"
+}
+EOF
+    fi
+    rm -rf "$REPO_PATH/.git"
+    log "✅ Workspace detached from git (participants cannot revert the exercise)"
 fi
 
 # ============================================================================
