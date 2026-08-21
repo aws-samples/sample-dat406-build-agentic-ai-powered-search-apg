@@ -957,3 +957,40 @@ def test_provenance_survives_removing_git() -> None:
     )
     assert "cloudformation-userdata" in source
     assert "bootstrap-fallback" in source
+
+
+def test_participant_psql_is_proven_during_bootstrap() -> None:
+    """Every SQL step in the guide is typed as a bare `psql`.
+
+    If that path is broken, Lab 1 is where a participant finds out. The check
+    must run as the participant with no PGPASSWORD, so a pass means `.pgpass`
+    was found and readable; running it as root with the script's own password
+    would prove something no participant does.
+    """
+    source = (REPO / "scripts" / "bootstrap-labs.sh").read_text(encoding="utf-8")
+    probe = re.search(
+        r"sudo -u \"\$CODE_EDITOR_USER\" env -i(.*?)psql -X -Atc 'SELECT 1'",
+        source,
+        re.S,
+    )
+    assert probe, "no participant psql probe in bootstrap"
+    env_block = probe.group(1)
+    assert "PGPASSWORD" not in env_block, (
+        "the probe passes PGPASSWORD, so it cannot prove .pgpass works"
+    )
+    assert "PGSSLMODE=require" in env_block
+    assert 'HOME="$PGPASS_DIR"' in env_block, "probe must resolve the user's .pgpass"
+
+
+def test_a_bare_psql_negotiates_tls() -> None:
+    """Aurora accepts TLS but does not require it unless rds.force_ssl is on."""
+    source = (REPO / "scripts" / "bootstrap-labs.sh").read_text(encoding="utf-8")
+    assert "export PGSSLMODE=require" in source
+
+
+def test_the_pgpass_file_is_not_world_readable() -> None:
+    source = (REPO / "scripts" / "bootstrap-labs.sh").read_text(encoding="utf-8")
+    assert 'chmod 600 "$PGPASS_DIR/.pgpass"' in source
+    # And the shell profile belongs in the user's own .bashrc, never in
+    # /etc/profile.d, which every account on the box can read.
+    assert "/etc/profile.d" not in source
