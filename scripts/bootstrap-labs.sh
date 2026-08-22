@@ -959,6 +959,40 @@ log "   App URL (Workshop Studio): https://<cloudfront>/ports/8000/"
 log "   App URL (local):           http://localhost:8000/"
 log "   Frontend rebuild: run 'rebuild-frontend' alias or restart the service"
 
+# --- pellier-oauth-callback: register the CloudFront sign-in callback -------
+#
+# The CloudFront distribution is created only AFTER this bootstrap signals
+# CloudFormation, so the Cognito hosted-UI callback cannot be registered
+# here synchronously (and the template cannot reference the distribution
+# from the app client without a circular dependency — see the header of
+# scripts/register_oauth_callback.sh). A detached oneshot polls for the
+# distribution and registers https://<cf-domain>/api/auth/callback once it
+# exists. Its failure is benign: browser sign-in stays unregistered and
+# nothing on the required workshop path is affected.
+cat > /etc/systemd/system/pellier-oauth-callback.service << EOF
+[Unit]
+Description=Register the CloudFront OAuth callback on the Cognito app client
+After=network-online.target pellier.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME_FOLDER=$HOME_FOLDER
+Environment=REPO_PATH=$REPO_PATH
+ExecStart=/bin/bash $REPO_PATH/scripts/register_oauth_callback.sh
+TimeoutStartSec=1800
+StandardOutput=append:/tmp/pellier/oauth-callback.log
+StandardError=append:/tmp/pellier/oauth-callback.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable pellier-oauth-callback 2>/dev/null || true
+systemctl start --no-block pellier-oauth-callback || \
+    warn "pellier-oauth-callback did not start — browser sign-in callback stays unregistered"
+log "✅ OAuth callback registration queued (polls for CloudFront post-boot)"
+
 # ============================================================================
 # STEP 15: STATUS MARKER
 # ============================================================================
