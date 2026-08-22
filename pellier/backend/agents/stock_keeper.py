@@ -177,6 +177,21 @@ def inventory(query: str) -> str:
     Returns:
         Restocking recommendations or restock confirmation with product details
     """
+    # The other orchestration patterns carry their own scaffold seams
+    # (graph_pattern's _UnavailableSpecialistNode, the dispatcher
+    # short-circuit in chat.py). Without this one, a scaffolded Stock
+    # Keeper surfaces here as build_inventory_agent()'s RuntimeError
+    # wrapped in a generic error envelope, and the orchestrator
+    # improvises around a tool that looks broken rather than unbuilt.
+    if _INVENTORY_AGENT_STUBBED:
+        return json.dumps({
+            "status": "unavailable",
+            "message": (
+                "Inventory is the governed workshop build in this "
+                "environment. Complete the Stock Keeper exercise, "
+                "then rerun this request."
+            ),
+        })
     try:
         tool_results = []
         agent = build_inventory_agent()

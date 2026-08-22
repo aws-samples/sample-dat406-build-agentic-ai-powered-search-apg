@@ -168,6 +168,26 @@ def test_tool_wrapper_has_strands_metadata(name: str, wrapper) -> None:
     )
 
 
+def test_inventory_wrapper_reports_scaffold_not_error() -> None:
+    """A scaffolded Stock Keeper is unbuilt, not broken — Pattern I included.
+
+    Pattern II substitutes ``_UnavailableSpecialistNode`` and Pattern III
+    short-circuits in ``chat.py``. Before the wrapper grew its own check,
+    Pattern I leaked ``build_inventory_agent()``'s RuntimeError as
+    ``{"error": "Inventory agent error: ..."}`` and the orchestrator
+    improvised around a tool that looked broken.
+    """
+    import json
+
+    if not getattr(stock_keeper_module, "_INVENTORY_AGENT_STUBBED", False):
+        pytest.skip("Stock Keeper definition already completed in this checkout")
+
+    payload = json.loads(inventory("Is the Brooklyn tote in stock?"))
+    assert payload.get("status") == "unavailable"
+    assert "Stock Keeper exercise" in payload.get("message", "")
+    assert "error" not in payload
+
+
 # ---------------------------------------------------------------------------
 # Pattern I byte-compatibility gate
 # ---------------------------------------------------------------------------
