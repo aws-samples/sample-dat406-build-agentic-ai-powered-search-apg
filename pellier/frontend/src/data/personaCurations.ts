@@ -326,11 +326,12 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
     'Something beautiful under $100',                            // Turn 2
     'Help me pair a candle with something else',                 // Turn 3
     'Wrap-ready gifts with no extra effort',                     // Turn 4
-    // Turn 5 (capstone) → Curator · escalate_to_stylist. Sympathy
-    // gifting is the Curator's honest fallback — catalog tools can
+    // Turn 5 (capstone) → Style Advisor · escalate_to_stylist. Sympathy
+    // gifting is the honest fallback seam — catalog tools can
     // surface candles, but they can't read the room. The explicit
     // "real stylist" ask routes through the orchestrator's
-    // stylist-handoff branch.
+    // stylist-handoff branch to search, the specialist that owns
+    // escalate_to_stylist.
     "Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.",
   ],
   theo: [

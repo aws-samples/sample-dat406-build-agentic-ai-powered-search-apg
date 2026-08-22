@@ -1,8 +1,8 @@
 """
 Chat Service with Product Card Support
 
-Uses Strands SDK for multi-agent orchestration with direct asyncpg database access.
-Context Manager tracks tokens and manages conversation state.
+Uses Strands SDK for multi-agent orchestration over the psycopg-backed
+database service. Context Manager tracks tokens and manages conversation state.
 """
 
 import json

@@ -103,6 +103,12 @@ _PAIRS = [
 # silently boots stale code (e.g. a curator.py missing
 # ``build_recommendation_agent`` → ImportError on the dispatcher path).
 #
+# The copy block is gated on ``WORKSHOP_FORMAT=builders``. A governed box
+# skips it entirely ("preserving Stock Keeper and floor_check scaffolds"),
+# so a desync cannot clobber a governed provision — but byte-identity is
+# still enforced here because the builders format runs from this same
+# branch and the files double as documented recovery drop-ins.
+#
 # ``agent_tools_builders_preapply.py`` is checked separately below. It is a
 # full-module bootstrap replacement and must match the live starter file
 # everywhere *outside* the ``floor_check`` markers. The body itself is the

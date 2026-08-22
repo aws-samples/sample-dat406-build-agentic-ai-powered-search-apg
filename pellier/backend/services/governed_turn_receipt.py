@@ -53,6 +53,13 @@ _AUDIT_SQL = """
      ORDER BY audit_id ASC
 """
 
+# No current writer of pellier.governed_receipts puts a turn_id in args —
+# the Lab 4 CLI, the forensic seed, and the migration seed all correlate by
+# session_id instead — so this query returns no rows today and the receipt
+# honestly reports NOT_EVALUATED. The join is kept as the contract for a
+# future writer that records per-turn Cedar decisions; do not "fix" it by
+# joining on session_id, which would attribute one turn's decision to every
+# turn in the session.
 _POLICY_SQL = """
     SELECT receipt_id,
            audit_id,
@@ -290,10 +297,13 @@ def _record_policy_span(
 
     Pellier does not make the Cedar decision — AgentCore Gateway evaluates
     policy before the target runs, out of process. What happens here is
-    Pellier *resolving* what that decision was, from the
-    ``pellier.governed_receipts`` rows the Gateway rail wrote. The span
-    records that resolution so the reconstruction CLI can show the policy
-    leg alongside identity and execution.
+    Pellier *resolving* what that decision was, from any
+    ``pellier.governed_receipts`` row recorded with this turn's id. No
+    current writer records one (see the note on ``_POLICY_SQL``), so today
+    every turn resolves to ``NOT_EVALUATED`` — an honest "no per-turn Cedar
+    record exists", not a defect. The span records that resolution so the
+    reconstruction CLI can show the policy leg alongside identity and
+    execution.
 
     Three verdicts reach this function and all three are meaningful:
 

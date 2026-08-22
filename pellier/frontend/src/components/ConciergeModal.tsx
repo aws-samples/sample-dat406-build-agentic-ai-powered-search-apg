@@ -413,8 +413,8 @@ export default function ConciergeModal() {
             onClick={e => e.stopPropagation()}
           >
               {/* ============================================================
-               * AGENT TRACE MODE - the only mode ConciergeModal renders now.
-               * Pellier chat is handled by ChatDrawer.
+               * Observatory trace mode - the only mode ConciergeModal
+               * renders now. Pellier chat is handled by ChatDrawer.
                * ============================================================ */}
               <>
             {/* Header */}

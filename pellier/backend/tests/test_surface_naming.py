@@ -37,6 +37,7 @@ RETIRED = (
     # tokens above. 312 display strings and 2,264 variable references survived
     # a rename that looked complete.
     "Agent Trace",
+    "AGENT TRACE",
     "--at-",
     "pellier-labs",
     "pellier_labs",

@@ -14,7 +14,7 @@ Endpoints:
     GET  /sessions             — session list for persona
     GET  /sessions/{id}        — full session detail or 404
     GET  /agents               — 5 agents with status, tools, model config
-    GET  /tools                — tools with signatures, status, metadata
+    GET  /tools/list           — tools with signatures, status, metadata
     POST /tools/discover       — pgvector semantic search
     GET  /routing              — 3 routing patterns with active indicator
     GET  /memory/{persona}     — four memory types plus operational history
@@ -45,7 +45,7 @@ from services.auth import require_operator
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/observatory", tags=["observatory-observatory"])
+router = APIRouter(prefix="/api/observatory", tags=["observatory"])
 
 # ---------------------------------------------------------------------------
 # Pydantic models
