@@ -12,9 +12,9 @@
  *
  * Scope. The scanner deliberately targets the Layer-4 storefront spec
  * surfaces (the components and pages authored by tasks 4.1 through 4.12,
- * 5.2, and 5.3). It does NOT scan the legacy workshop chrome
- * (SignInPage, AIAssistant, GraphVisualization, ...) - those predate
- * the storefront spec and are owned elsewhere. This matches the task
+ * 5.2, and 5.3). It does NOT scan legacy workshop chrome outside those
+ * surfaces - components that predate the storefront spec are owned
+ * elsewhere. This matches the task
  * 6.3 note that scanners should be pragmatic, not flag every string.
  *
  * Detection heuristic. A quoted string is flagged when it looks like a

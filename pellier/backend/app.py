@@ -2929,27 +2929,6 @@ async def get_chaos_status():
 
 
 # ============================================================================
-# GRAPH ORCHESTRATOR ENDPOINT
-# ============================================================================
-
-@app.get("/api/agents/graph")
-async def get_agent_graph():
-    """Get the multi-agent orchestrator graph structure for visualization"""
-    try:
-        from agents.graph_orchestrator import get_graph_structure
-        return get_graph_structure()
-    except Exception as e:
-        logger.warning(f"Failed to get graph structure: {e}")
-        return {
-            "available": False,
-            "graph_builder_available": False,
-            "nodes": [],
-            "edges": [],
-            "description": "Graph metadata unavailable.",
-        }
-
-
-# ============================================================================
 # AGENTCORE POLICY ENDPOINTS (Cedar)
 # ============================================================================
 
