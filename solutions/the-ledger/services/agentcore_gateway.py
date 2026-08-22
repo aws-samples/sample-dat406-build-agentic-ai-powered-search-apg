@@ -205,7 +205,12 @@ GATEWAY_TOOL_TIERS: Dict[str, str] = {
 # Tiers whose tools mutate state and therefore must travel the managed
 # rail in the governed format. Kept as a derived value so adding a tool to
 # a mutation tier automatically brings the fail-closed rule with it.
-MUTATION_TIERS = frozenset({TIER_CUSTOMER_MUTATION, TIER_OPERATOR_MUTATION, TIER_ESCALATION})
+# TIER_ESCALATION is deliberately absent: escalate_to_stylist writes nothing
+# (no products, no audit row, no external ticket — a pure UI handoff), and
+# degraded storefront turns keep it as the honest fallback when a mutation
+# is refused. Gating it would make degraded receipts claim a withheld
+# capability that never mutates state.
+MUTATION_TIERS = frozenset({TIER_CUSTOMER_MUTATION, TIER_OPERATOR_MUTATION})
 
 
 def tool_tier(tool_name: str) -> str:

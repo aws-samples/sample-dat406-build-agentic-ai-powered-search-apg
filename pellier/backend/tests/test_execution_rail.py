@@ -143,7 +143,10 @@ def test_mutation_tools_require_the_managed_rail_when_governed(
 
     assert requires_managed_rail("process_return") is True
     assert requires_managed_rail("restock_shelf") is True
-    assert requires_managed_rail("escalate_to_stylist") is True
+    # escalate_to_stylist mutates nothing (pure UI handoff), so it stays
+    # available on degraded turns as the honest fallback when a mutation
+    # is refused.
+    assert requires_managed_rail("escalate_to_stylist") is False
 
 
 def test_read_tools_never_require_the_managed_rail(
@@ -292,7 +295,6 @@ def test_mutation_tiers_capture_exactly_the_write_tools() -> None:
     from services.agentcore_gateway import mutation_tool_names
 
     assert sorted(mutation_tool_names()) == [
-        "escalate_to_stylist",
         "process_return",
         "restock_shelf",
     ]

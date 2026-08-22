@@ -187,7 +187,6 @@ _MUTATION_TOOLS_FALLBACK = frozenset(
     {
         "process_return",
         "restock_shelf",
-        "escalate_to_stylist",
     }
 )
 
