@@ -198,6 +198,8 @@ const ProductCardCompact = ({ product, onAddToCart, similarityScore, recommendat
               href={amazonUrl}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`View ${product.name} details`}
+              title="View product details"
               className="p-1.5 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-60 hover:!opacity-100"
             >
               <ExternalLink className="h-3.5 w-3.5 text-text-secondary" />
@@ -205,6 +207,8 @@ const ProductCardCompact = ({ product, onAddToCart, similarityScore, recommendat
             {onAddToCart && (
               <button
                 onClick={onAddToCart}
+                aria-label={`Add ${product.name} to bag`}
+                title="Add to bag"
                 className="p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95"
                 style={{ background: 'var(--link-color)' }}
               >
