@@ -29,6 +29,7 @@ receipt.
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -126,13 +127,39 @@ def evidence_span(name: str, **attributes: Any) -> Iterator[Optional[Any]]:
         return
 
     resolved = evidence_attributes(**attributes)
+    # Enter the span outside the yield so a TRACING failure degrades to
+    # untraced, while an exception raised by the caller's body propagates
+    # unchanged. Wrapping the yield itself in try/except would yield a
+    # second time after a body exception, and contextlib would replace the
+    # original error with "generator didn't stop after throw()".
     try:
-        with tracer.start_as_current_span(name, attributes=resolved) as span:
-            yield span
+        span_cm = tracer.start_as_current_span(name, attributes=resolved)
+        span = span_cm.__enter__()
     except Exception:
-        # A tracing failure mid-turn must not surface as a turn failure.
-        logger.warning("evidence span %s failed; continuing untraced", name, exc_info=True)
+        logger.warning(
+            "evidence span %s failed to open; continuing untraced", name, exc_info=True
+        )
         yield None
+        return
+
+    try:
+        yield span
+    except BaseException:
+        exc_info = sys.exc_info()
+        try:
+            span_cm.__exit__(*exc_info)
+        except Exception:
+            logger.warning(
+                "evidence span %s failed to close; continuing", name, exc_info=True
+            )
+        raise
+    else:
+        try:
+            span_cm.__exit__(None, None, None)
+        except Exception:
+            logger.warning(
+                "evidence span %s failed to close; continuing", name, exc_info=True
+            )
 
 
 @contextmanager

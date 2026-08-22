@@ -111,6 +111,24 @@ def test_a_failing_tracer_does_not_propagate(monkeypatch):
         assert span is None
 
 
+def test_a_caller_body_exception_propagates_unchanged(monkeypatch, recorded_spans):
+    """An error INSIDE the span body is the caller's, not the span's.
+
+    The earlier implementation caught it and yielded a second time, so the
+    caller saw contextlib's "generator didn't stop after throw()" instead of
+    the real error. The span must still be ended and exported.
+    """
+    tracer, exporter = recorded_spans
+    monkeypatch.setattr(ev, "_tracer", lambda: tracer)
+
+    with pytest.raises(ValueError, match="classification failed"):
+        with ev.routing_span(turn_id="t"):
+            raise ValueError("classification failed")
+
+    finished = exporter.get_finished_spans()
+    assert [span.name for span in finished] == [ev.SPAN_ROUTING]
+
+
 # ---------------------------------------------------------------------------
 # Recording path, with a real in-memory SDK provider
 # ---------------------------------------------------------------------------
