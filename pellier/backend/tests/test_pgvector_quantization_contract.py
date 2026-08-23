@@ -315,7 +315,50 @@ def test_hnsw_result_reports_whether_the_plan_used_an_index(
 
 
 # ---------------------------------------------------------------------------
-# 4. Feature-version attributions
+# 4. The index-stats query has to be executable
+# ---------------------------------------------------------------------------
+
+
+def test_index_stats_sizes_the_index_by_oid_not_indexrelid(
+    service: IndexPerformanceService, sql_log: List[str]
+) -> None:
+    """``pg_indexes`` exposes no ``indexrelid``.
+
+    ``pg_relation_size(indexrelid)`` raised ``UndefinedColumn``, so
+    ``/api/performance/stats`` returned 500 on every call and the surface that
+    reports the live pgvector version had nothing to read. Live-verified after
+    the fix against Aurora PostgreSQL 18.3 / pgvector 0.8.1.
+    """
+    asyncio.run(service.get_index_stats())
+    index_queries = [s for s in sql_log if "pg_indexes" in s]
+    assert index_queries, "get_index_stats never queried pg_indexes"
+    for statement in index_queries:
+        assert "pg_relation_size(indexrelid)" not in statement, statement
+        assert "pg_relation_size(c.oid)" in statement, statement
+
+
+def test_index_stats_binds_size_to_the_reported_schema(
+    service: IndexPerformanceService, sql_log: List[str]
+) -> None:
+    """Joining on name alone can size a same-named index in another schema."""
+    asyncio.run(service.get_index_stats())
+    index_queries = [s for s in sql_log if "pg_indexes" in s]
+    for statement in index_queries:
+        assert "pg_namespace" in statement, statement
+        assert "n.nspname = i.schemaname" in statement, statement
+
+
+def test_index_stats_reports_the_installed_extension_version(
+    service: IndexPerformanceService, sql_log: List[str]
+) -> None:
+    """The surface must source the version from the cluster, not a literal."""
+    result = asyncio.run(service.get_index_stats())
+    assert any("extversion" in s and "pg_extension" in s for s in sql_log)
+    assert result["pgvector_version"] == "0.8.0"  # the fake cursor's value
+
+
+# ---------------------------------------------------------------------------
+# 5. Feature-version attributions
 # ---------------------------------------------------------------------------
 
 
