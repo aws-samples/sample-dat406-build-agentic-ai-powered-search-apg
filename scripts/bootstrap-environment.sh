@@ -605,6 +605,12 @@ log "Configuring VS Code settings..."
 SETTINGS_DIR="/home/$CODE_EDITOR_USER/.code-editor-server/data/User"
 sudo -u "$CODE_EDITOR_USER" mkdir -p "$SETTINGS_DIR"
 
+# files.exclude keeps the Explorer on the participant path: pellier/backend
+# (both exercises), README.md, and CLAUDE.md. Everything else stays on disk
+# for the terminal commands the lab guide runs (scripts/, solutions/, data/,
+# the frontend build) but is hidden from the tree and from editor search.
+# The lab content references no other path in the editor, so widen this list
+# only after re-checking the Workshop Studio content.
 cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 {
     "workbench.colorTheme": "Default Dark Modern",
@@ -675,7 +681,18 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
         "logs": true,
         "tmp": true,
         "package.json": true,
-        "package-lock.json": true
+        "package-lock.json": true,
+        ".gitignore": true,
+        "LICENSE": true,
+        "NOTICE": true,
+        "data": true,
+        "plans": true,
+        "policies": true,
+        "skills": true,
+        "solutions": true,
+        "pellier/frontend": true,
+        "pellier/START_BACKEND.sh": true,
+        "pellier/START_FRONTEND.sh": true
     }
 }
 VSCODE_SETTINGS

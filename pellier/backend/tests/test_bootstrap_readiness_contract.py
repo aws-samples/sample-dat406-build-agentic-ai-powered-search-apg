@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +14,7 @@ import pytest
 
 
 REPO = Path(__file__).resolve().parents[3]
+ENVIRONMENT_BOOTSTRAP = REPO / "scripts" / "bootstrap-environment.sh"
 MODEL_CHECK = REPO / "scripts" / "check_model_access.py"
 HEALTH_GATE = REPO / "scripts" / "health-gate.sh"
 BUILDERS_BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
@@ -77,6 +80,23 @@ def test_claude_code_pins_global_sonnet_46_profile() -> None:
     assert "ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6" in dry_run
     assert "ANTHROPIC_MODEL=sonnet" not in dry_run
     assert "CLAUDE_CODE_MODEL" not in source
+
+
+def test_explorer_shows_only_the_participant_path() -> None:
+    """The Code Editor tree must greet participants with pellier/backend,
+    README.md, and CLAUDE.md. Everything else stays on disk for the terminal
+    commands the lab guide runs, but is hidden from the Explorer and editor
+    search so solutions/ (the answers) and the 500-plus-file frontend never
+    compete with the two exercise files."""
+    source = ENVIRONMENT_BOOTSTRAP.read_text(encoding="utf-8")
+    match = re.search(r"<< 'VSCODE_SETTINGS'\n(.*?)\nVSCODE_SETTINGS\n", source, re.S)
+    assert match, "VSCODE_SETTINGS heredoc not found"
+    excludes = json.loads(match.group(1))["files.exclude"]
+    hidden_folders = ("solutions", "skills", "plans", "policies", "data", "pellier/frontend")
+    for hidden in hidden_folders:
+        assert excludes.get(hidden) is True, f"{hidden} should be hidden from the Explorer"
+    for visible in ("pellier", "pellier/backend", "README.md", "CLAUDE.md"):
+        assert visible not in excludes, f"{visible} must stay visible in the Explorer"
 
 
 def test_playwright_mcp_is_pinned_and_optional() -> None:
