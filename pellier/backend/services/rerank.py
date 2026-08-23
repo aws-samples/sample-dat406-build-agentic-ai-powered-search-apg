@@ -13,9 +13,10 @@ Why Cohere Rerank v3.5 specifically:
     descriptions land in-distribution.
   - Returns calibrated relevance scores in [0, 1], so we can
     threshold ("don't show below 0.4") if we want.
-  - Latency ~250-350ms for 30 candidates; the workshop's "is the
-    extra spend worth it?" question has a real answer instead of
-    a hand-wave.
+  - Adds one extra Bedrock call per request; the Lab 2 compare
+    endpoint reports the observed latency per strategy, so the
+    workshop's "is the extra spend worth it?" question has a live
+    answer instead of a hand-wave.
   - Already configured in config.py as
     ``BEDROCK_RERANK_MODEL = "cohere.rerank-v3-5:0"`` so wiring is a
     single import away.
@@ -41,13 +42,22 @@ logger = logging.getLogger(__name__)
 
 
 class RerankService:
-    """Cohere Rerank v3.5 via Bedrock invoke_model.
+    """Cohere Rerank v3.5 via the Bedrock Agent Runtime Rerank API.
 
     Bedrock exposes Cohere Rerank through the Bedrock Agent Runtime
     ``rerank`` operation. We send the candidate documents as inline text
     sources — the agent_tools wrapper builds these from product fields
     (name/description/category) so the reranker has enough signal to make
     a meaningful judgment.
+
+    Deliberate branch divergence: this branch (``governed``) calls the
+    ``bedrock-agent-runtime`` Rerank API (IAM: ``bedrock:Rerank``), which
+    is also what the Lambda-backed Gateway tool uses, so the in-process
+    and Gateway rails exercise the same Bedrock surface. ``main`` calls
+    ``bedrock-runtime`` ``invoke_model`` instead (IAM:
+    ``bedrock:InvokeModel``). Both are valid surfaces for
+    ``cohere.rerank-v3-5:0``; the Workshop Studio template grants both
+    actions.
     """
 
     def __init__(self, region: Optional[str] = None):

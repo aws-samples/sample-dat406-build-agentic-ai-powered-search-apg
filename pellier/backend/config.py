@@ -46,14 +46,20 @@ class Settings(BaseSettings):
     # Bedrock Model Configuration
     # ========================================
     # Embedding model for semantic search.
-    # Cohere Embed v4, enabled in AWS Workshop Studio. Like Rerank v3.5, v4
-    # has no on-demand throughput by bare model ID — invoke via a cross-region
-    # inference profile (us.* / eu.* / apac.*). We request output_dimension=1024
-    # (services/embeddings.py) so vectors match the pellier.product_catalog
-    # vector(1024) column and the committed embeddings cache — no schema change.
+    # Cohere Embed v4, enabled in AWS Workshop Studio. The us.* cross-region
+    # inference profile is a deliberate configuration choice — profiles route
+    # requests across US regions for throughput headroom. The bare model ID
+    # also serves on-demand invoke_model (live-verified 2026-08-23,
+    # us-east-1). We request output_dimension=1024 (services/embeddings.py)
+    # so vectors match the pellier.product_catalog vector(1024) column and
+    # the committed embeddings cache — no schema change.
     BEDROCK_EMBEDDING_MODEL: str = "us.cohere.embed-v4:0"
 
-    # Rerank model for hybrid search (Cohere Rerank v3.5).
+    # Rerank model for hybrid search (Cohere Rerank v3.5), configured as a
+    # bare model ID. This branch invokes it through the Bedrock Agent Runtime
+    # `rerank` API (services/rerank.py) and derives the model ARN from this
+    # ID; `main` invokes the same model through `invoke_model`. Both are
+    # valid — see the divergence note in services/rerank.py.
     BEDROCK_RERANK_MODEL: str = "cohere.rerank-v3-5:0"
 
     # --- Agent model config ---
@@ -76,6 +82,27 @@ class Settings(BaseSettings):
     # into .env so editorial agents fall back to Sonnet 4.6 cleanly — no code
     # path change, no per-request retry. BEDROCK_SONNET_MODEL is the canonical
     # fallback target (real Sonnet 4.6, not an Opus alias).
+    #
+    # DELIBERATE BRANCH DIVERGENCE: `main` pins Opus 4.8 here; this branch
+    # stays on Opus 4.6. Both profile IDs are live and reachable
+    # (verified 2026-08-23, us-east-1), so this is a release-contract choice,
+    # not a fallback. Two reasons to keep it:
+    #
+    #   1. The Observatory ships recorded fixture sessions whose spans name
+    #      the model that actually produced each turn ("Claude Opus 4.6").
+    #      Re-pinning config without re-recording those sessions would make
+    #      shipped evidence misstate its own provenance — the opposite of
+    #      what this workshop teaches.
+    #   2. The two workshops release independently (see the branch contract
+    #      in the repository CLAUDE.md). The governed content, reference
+    #      table, and facilitator notes describe the 4.6 → Sonnet 4.6 ladder
+    #      consistently; changing one end of that alone would desynchronize
+    #      the guide from the app.
+    #
+    # Revisit only as a deliberate governed-branch model refresh: config,
+    # preflight ladder, README, Observatory fixtures, and the Workshop Studio
+    # reference/facilitator pages move together, and the fixtures are
+    # re-recorded rather than relabeled.
     BEDROCK_OPUS_MODEL: str = "global.anthropic.claude-opus-4-6-v1"
     BEDROCK_SONNET_MODEL: str = "global.anthropic.claude-sonnet-4-6"
     BEDROCK_ROUTER_MODEL: str = "global.anthropic.claude-sonnet-4-6"

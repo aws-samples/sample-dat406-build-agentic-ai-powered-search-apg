@@ -222,7 +222,8 @@ class IndexPerformanceService:
                     "all_times_ms": [round(t, 2) for t in execution_times],
                     "results": results,
                     "result_count": len(results),
-                    "index_used": index_name or "product_catalog_embedding_hnsw_idx",
+                    "index_used": index_name,
+                    "plan_used_index": index_name is not None,
                     "ef_search": ef_search,
                     "index_type": "HNSW",
                     "query_plan": query_plan,
@@ -418,9 +419,9 @@ class IndexPerformanceService:
             ef_search_note = "At this dataset size, ef_search changes have limited impact on latency. Index overhead dominates query time."
             cache_note = (
                 "⚠️ Cache Behavior: With small datasets, PostgreSQL's shared buffer cache stores the entire "
-                "dataset in memory after the first query (warm cache). This causes timing variations: "
-                "• First run (cold cache): 200-400ms - realistic for cache misses\n"
-                "• Subsequent runs (warm cache): 10-60ms - realistic for cached data\n\n"
+                "dataset in memory after the first query (warm cache). Expect the first (cold-cache) run to be "
+                "noticeably slower than the warm-cache runs that follow — compare the per-run timings this "
+                "endpoint returns rather than expecting fixed numbers.\n\n"
                 "This is expected enterprise behavior. Databases cache frequently accessed data. "
                 "The ef_search parameter's impact is most visible with:\n"
                 "1. Large datasets (>100K rows) where cache can't hold everything\n"
@@ -513,7 +514,7 @@ class IndexPerformanceService:
         # Calculations
         dim = 1024
         bytes_per_vec_f32 = dim * 4  # 4096 bytes
-        bytes_per_vec_sq = dim * 1   # 1024 bytes (int8)
+        bytes_per_vec_sq = dim * 2   # 2048 bytes (halfvec, fp16)
         bytes_per_vec_bq = dim // 8  # 128 bytes (1-bit)
 
         sq_estimated_bytes = int(index_bytes * (bytes_per_vec_sq / bytes_per_vec_f32))
@@ -533,12 +534,15 @@ class IndexPerformanceService:
                 "index_bytes": index_bytes,
                 "index_size": index_size,
             },
+            # Key kept as scalar_quantization for API compatibility; the
+            # technique shown is pgvector halfvec (fp16), not int8 SQ —
+            # pgvector has no native int8 scalar quantization.
             "scalar_quantization": {
-                "type": "int8 (SQ)",
+                "type": "halfvec (fp16)",
                 "bytes_per_vector": bytes_per_vec_sq,
                 "estimated_index_bytes": sq_estimated_bytes,
                 "estimated_index_size": pretty(sq_estimated_bytes),
-                "memory_reduction": "4x",
+                "memory_reduction": "2x",
             },
             "binary_quantization": {
                 "type": "1-bit (BQ)",
@@ -549,13 +553,13 @@ class IndexPerformanceService:
             },
             "sql_examples": {
                 "sq": f"CREATE INDEX ON pellier.product_catalog USING hnsw ((embedding::halfvec({dim})) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64);",
-                "bq": f"-- pgvector 0.8.1+ required for binary quantization\n-- Binary quantization trades accuracy for massive memory savings\n-- Best for initial candidate retrieval with re-ranking",
+                "bq": f"-- binary_quantize + bit Hamming ops (pgvector 0.7+)\n-- Trades accuracy for massive memory savings; best for initial\n-- candidate retrieval with re-ranking\nCREATE INDEX ON pellier.product_catalog USING hnsw ((binary_quantize(embedding)::bit({dim})) bit_hamming_ops) WITH (m = 16, ef_construction = 64);",
             },
             "note": "SQ/BQ sizes are estimated — cannot create additional indexes on shared Aurora cluster.",
         }
 
     # ================================================================
-    # Feature: pgvector 0.8.1 Iterative Scans
+    # Feature: pgvector 0.8.0 Iterative Scans
     # ================================================================
 
     async def get_distinct_categories(self) -> List[str]:
@@ -585,7 +589,7 @@ class IndexPerformanceService:
         of candidates, then applies WHERE filters. If the filter is selective,
         most candidates are discarded, returning fewer results than requested.
 
-        Iterative scan (pgvector 0.8.1+) continues the HNSW traversal until
+        Iterative scan (pgvector 0.8.0+) continues the HNSW traversal until
         LIMIT is satisfied or max_scan_tuples is reached.
         """
         ef_search = _clamp_ef_search(ef_search)
@@ -654,7 +658,7 @@ class IndexPerformanceService:
                 except Exception as e:
                     results["pgvector_080_available"] = False
                     results["with_iterative_scan"] = {
-                        "error": f"pgvector 0.8.1 required: {e}",
+                        "error": f"pgvector 0.8.0+ required for iterative scan: {e}",
                         "results": [],
                         "result_count": 0,
                     }
@@ -754,7 +758,7 @@ class IndexPerformanceService:
                             SELECT "productId", description, price, rating
                             FROM pellier.product_catalog
                             WHERE embedding IS NOT NULL
-                            ORDER BY (binary_quantize(embedding)::bit(1024)) <#> binary_quantize(%s::vector)::bit(1024)
+                            ORDER BY (binary_quantize(embedding)::bit(1024)) <~> binary_quantize(%s::vector)::bit(1024)
                             LIMIT %s
                         """, (embedding, limit))
                         rows = [dict(r) for r in cur.fetchall()]
@@ -811,12 +815,24 @@ class IndexPerformanceService:
                 
                 cur.execute(table_query)
                 table_stats = dict(cur.fetchone())
-                
+
+                # Report the installed extension version rather than a
+                # hardcoded one — feature availability (halfvec/binary_quantize
+                # 0.7+, iterative scan 0.8.0+) depends on what is actually
+                # installed on this cluster.
+                cur.execute("""
+                    SELECT extversion
+                    FROM pg_extension
+                    WHERE extname = 'vector'
+                """)
+                version_row = cur.fetchone()
+
                 return {
                     "indexes": indexes,
                     "table_stats": table_stats,
                     "vector_dimensions": 1024,
-                    "index_type": "HNSW"
+                    "index_type": "HNSW",
+                    "pgvector_version": version_row["extversion"] if version_row else None
                 }
 
 

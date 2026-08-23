@@ -106,7 +106,16 @@ function inferErrorCode(detail: string, status?: number): ChatErrorCode {
   ) {
     return 'service_unavailable'
   }
-  if (status === 400 || status === 404 || status === 422) {
+  // 404 is NOT a wording problem. It means the route is not there — a wrong
+  // backend target, a dev proxy pointed at the other branch's port, or a
+  // half-started service. Classing it as invalid_request tells the shopper to
+  // "adjust the request and send it again", so they retype a perfectly good
+  // question while the real fault is infrastructure. Keep 400/422 (genuine
+  // request validation) separate from a missing endpoint.
+  if (status === 404) {
+    return 'service_unavailable'
+  }
+  if (status === 400 || status === 422) {
     return 'invalid_request'
   }
   return 'request_failed'

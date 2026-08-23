@@ -84,6 +84,36 @@ def test_claude_code_pins_global_sonnet_46_profile() -> None:
     assert "CLAUDE_CODE_MODEL" not in source
 
 
+def test_facilitator_dry_run_preflights_the_recommended_claude_lane() -> None:
+    """Lab 1 recommends Claude Code, so the release gate must prove it starts.
+
+    The two things that drift per account are the CLI package and Bedrock model
+    access under the participant instance role. Both fail silently for a
+    facilitator until a room hits them, so the rehearsal probes them directly.
+    """
+    source = FACILITATOR_DRY_RUN.read_text(encoding="utf-8")
+    assert "command -v claude" in source
+    assert "CLAUDE_CODE_USE_BEDROCK=1" in source
+    assert "PELLIER_CLAUDE_READY" in source
+
+
+def test_facilitator_dry_run_probes_the_pinned_model_not_the_floating_alias() -> None:
+    """``--model sonnet`` would override the pin with the CLI's floating alias.
+
+    A current CLI resolves that alias to a newer Sonnet than Workshop Studio
+    accounts expose, so passing it would either fail on a correctly provisioned
+    account or pass while testing a model no participant uses. Selection must
+    come from ANTHROPIC_MODEL, which bootstrap pins to the same profile.
+    """
+    source = FACILITATOR_DRY_RUN.read_text(encoding="utf-8")
+    assert "--model sonnet" not in source
+    assert 'ANTHROPIC_MODEL="$CLAUDE_MODEL_PIN"' in source
+    assert (
+        'CLAUDE_MODEL_PIN="${ANTHROPIC_MODEL:-global.anthropic.claude-sonnet-4-6}"'
+        in source
+    )
+
+
 def test_facilitator_dry_run_covers_both_lab1_build_sites() -> None:
     source = FACILITATOR_DRY_RUN.read_text(encoding="utf-8")
     assert "agents/stock_keeper.py" in source

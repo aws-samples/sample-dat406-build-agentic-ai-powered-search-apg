@@ -7,7 +7,7 @@
  * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   EditorialTitle,
   ExpCard,
@@ -444,6 +444,39 @@ interface PgvectorTuningProps {
   tuning: PerformanceData['pgvectorTuning'];
 }
 
+/**
+ * Read the pgvector version from the running cluster.
+ *
+ * The extension version decides which of the knobs on this card actually
+ * exist (`halfvec` and `binary_quantize` need 0.7+, `hnsw.iterative_scan`
+ * needs 0.8.0+), so a hardcoded literal here would be a claim about an
+ * environment we are not looking at. `/api/performance/stats` reads
+ * `pg_extension.extversion`; anything else renders as unavailable rather
+ * than guessing.
+ */
+const usePgvectorVersion = (): string | null => {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/performance/stats')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (cancelled) return;
+        const reported = payload?.pgvector_version;
+        setVersion(typeof reported === 'string' && reported ? reported : null);
+      })
+      .catch(() => {
+        if (!cancelled) setVersion(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return version;
+};
+
 const STATUS_STYLES: Record<
   PerformanceData['pgvectorTuning'][number]['status'],
   { label: string; color: string }
@@ -453,6 +486,7 @@ const STATUS_STYLES: Record<
 };
 
 const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
+  const pgvectorVersion = usePgvectorVersion();
   const headerStyle: React.CSSProperties = {
     fontFamily: 'var(--obs-mono)',
     fontSize: '11px',
@@ -504,7 +538,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
         }}
       >
         {[
-          ['pgvector', '0.8.1'],
+          ['pgvector version', pgvectorVersion ?? 'unavailable'],
           ['iterative scan', 'relaxed_order'],
           ['baseline HNSW', '536 KB'],
         ].map(([label, value]) => (

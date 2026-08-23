@@ -54,8 +54,9 @@ logging.basicConfig(
 logger = logging.getLogger("seed_tool_registry")
 
 
-# Cohere Embed v4 via cross-region inference profile (no on-demand by bare
-# ID). Overridable via BEDROCK_EMBED_MODEL_ID. output_dimension is pinned to
+# Cohere Embed v4 via a cross-region inference profile (a deliberate choice
+# for throughput headroom; the bare model ID also serves on-demand traffic).
+# Overridable via BEDROCK_EMBED_MODEL_ID. output_dimension is pinned to
 # EMBEDDING_DIMENSION in the request body so vectors match the catalog.
 COHERE_MODEL_ID = os.getenv("BEDROCK_EMBED_MODEL_ID", "us.cohere.embed-v4:0")
 EMBEDDING_DIMENSION = 1024

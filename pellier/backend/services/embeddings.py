@@ -20,8 +20,16 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
+# Embedding spend estimate for the Context & Cost dashboard. Token-based:
+# Bedrock reports billed input tokens on every invoke_model response
+# (x-amzn-bedrock-input-token-count header), multiplied by the same Cohere
+# Embed v4 rate the /api/search/compare cost model uses. Update the rate and
+# review date together after checking the pricing source for the event
+# region. A display estimate, not a billing measurement.
+_EMBEDDING_USD_PER_MILLION_INPUT_TOKENS = 0.12
+_EMBEDDING_PRICING_REVIEWED_ON = "2026-08-16"  # https://aws.amazon.com/bedrock/pricing/
+_TOTAL_EMBEDDING_INPUT_TOKENS = 0
 _TOTAL_EMBEDDING_COST = 0.0
-_EMBEDDING_COST_PER_CALL = 0.00001  # ~$0.01 per 1K Cohere Embed v4 calls
 
 
 def get_cache_stats() -> dict:
@@ -30,6 +38,8 @@ def get_cache_stats() -> dict:
     cache = get_cache()
     stats = cache.stats() if cache else {"hits": 0, "misses": 0, "hit_rate": 0.0, "total_requests": 0}
     stats["total_embedding_cost_usd"] = round(_TOTAL_EMBEDDING_COST, 6)
+    stats["total_embedding_input_tokens"] = _TOTAL_EMBEDDING_INPUT_TOKENS
+    stats["embedding_pricing_reviewed_on"] = _EMBEDDING_PRICING_REVIEWED_ON
     return stats
 
 
@@ -73,9 +83,14 @@ class EmbeddingService:
             return vec
         return [v / norm for v in vec]
 
-    def _call_bedrock_embedding(self, request_body: dict) -> dict:
+    def _call_bedrock_embedding(self, request_body: dict) -> tuple:
         """
         Call Bedrock embedding API with retry logic.
+
+        Returns:
+            Tuple of (parsed response body, billed input tokens). The token
+            count comes from Bedrock's x-amzn-bedrock-input-token-count
+            response header; 0 when the header is absent.
         """
         max_attempts = 3
         last_error = None
@@ -87,7 +102,12 @@ class EmbeddingService:
                     accept="*/*",
                     body=json.dumps(request_body)
                 )
-                return json.loads(response['body'].read())
+                headers = response.get("ResponseMetadata", {}).get("HTTPHeaders", {})
+                try:
+                    input_tokens = int(headers.get("x-amzn-bedrock-input-token-count", 0) or 0)
+                except (TypeError, ValueError):
+                    input_tokens = 0
+                return json.loads(response['body'].read()), input_tokens
             except ClientError as e:
                 last_error = e
                 error_code = e.response['Error']['Code']
@@ -137,7 +157,7 @@ class EmbeddingService:
         max_length = 8192  # characters
         text = text[:max_length].strip()
 
-        global _TOTAL_EMBEDDING_COST
+        global _TOTAL_EMBEDDING_COST, _TOTAL_EMBEDDING_INPUT_TOKENS
 
         from services.cache import get_cache
         cache = get_cache()
@@ -167,7 +187,7 @@ class EmbeddingService:
             }
 
             # Call Bedrock API with retry logic
-            response_body = self._call_bedrock_embedding(request_body)
+            response_body, billed_input_tokens = self._call_bedrock_embedding(request_body)
 
             # Extract embedding vector (Cohere format)
             embeddings_data = response_body.get("embeddings", {})
@@ -187,7 +207,10 @@ class EmbeddingService:
             if normalize:
                 embedding = self._normalize_embedding(embedding)
 
-            _TOTAL_EMBEDDING_COST += _EMBEDDING_COST_PER_CALL
+            _TOTAL_EMBEDDING_INPUT_TOKENS += billed_input_tokens
+            _TOTAL_EMBEDDING_COST += (
+                billed_input_tokens * _EMBEDDING_USD_PER_MILLION_INPUT_TOKENS / 1_000_000
+            )
 
             # Store in cache (1 hour TTL for embeddings)
             if cache:

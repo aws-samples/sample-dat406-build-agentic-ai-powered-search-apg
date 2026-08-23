@@ -6,6 +6,7 @@
 # it actually exercises the required lab path against the live backend.
 #
 #   1. Preconditions  — health gate must be READY
+#   1b. Claude Code   — CLI present + pinned Bedrock model reachable
 #   2. Apply solutions — complete Stock Keeper and wire floor_check
 #   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
 #   4. Retrieval      — run the exact four-strategy Lab 2 request
@@ -144,6 +145,46 @@ else
   fail "Health gate NOT READY — see /tmp/dryrun-health.log; aborting"
   cat /tmp/dryrun-health.log
   exit 1
+fi
+
+# --- 1b. Claude Code preflight (Lab 1's recommended participant path) --------
+#
+# Lab 1 recommends Claude Code as the default build lane, so the release gate
+# has to prove the lane can start. This checks the two things that actually
+# drift between accounts — the CLI package and Bedrock model access under the
+# participant instance role — before a room discovers them.
+#
+# Model selection is left to ANTHROPIC_MODEL on purpose. Passing `--model
+# sonnet` would override the pin with the CLI's floating alias, which a current
+# CLI resolves to a newer Sonnet than Workshop Studio accounts expose; the
+# check would then fail on a correctly provisioned account or pass while
+# testing a model no participant uses. bootstrap-labs.sh pins the same
+# variable, so this exercises the participant path.
+#
+# What this deliberately does NOT do: drive a real Claude Code edit. A
+# generated diff is nondeterministic, and the deterministic contract is the
+# tool implementation plus its proof — which stage 2 applies and stage 3
+# verifies through the same commands a participant runs. The AI edit path
+# itself is a manual fresh-account check; see the facilitator notes.
+echo "[1b/6] Claude Code preflight (Lab 1 recommended lane)"
+CLAUDE_MODEL_PIN="${ANTHROPIC_MODEL:-global.anthropic.claude-sonnet-4-6}"
+if ! command -v claude >/dev/null 2>&1; then
+  fail "Claude Code CLI not on PATH — Lab 1's recommended lane cannot start"
+else
+  pass "Claude Code CLI present ($(claude --version 2>/dev/null | head -1))"
+  claude_smoke="$(
+    CLAUDE_CODE_USE_BEDROCK=1 \
+    ANTHROPIC_MODEL="$CLAUDE_MODEL_PIN" \
+    AWS_REGION="${AWS_REGION:-us-east-1}" \
+    timeout 75 claude -p \
+      "Reply with exactly PELLIER_CLAUDE_READY and no other text." \
+      2>/tmp/dryrun-claude.err || true
+  )"
+  if [[ "$claude_smoke" == *"PELLIER_CLAUDE_READY"* ]]; then
+    pass "Claude Code reached ${CLAUDE_MODEL_PIN} through Amazon Bedrock"
+  else
+    fail "Claude Code Bedrock smoke failed for ${CLAUDE_MODEL_PIN} — see /tmp/dryrun-claude.err"
+  fi
 fi
 
 # --- 2. Apply the solutions (simulate both participant edits) ----------------

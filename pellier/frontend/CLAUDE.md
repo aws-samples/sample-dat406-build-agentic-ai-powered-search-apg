@@ -31,8 +31,14 @@ Read the repository `CLAUDE.md` and `VOICE.md` before editing.
   participants arrive by deep link and screenshot as often as by the nav. State
   it once per screen: the badge owns it, so page copy and the mode banner must
   not repeat it.
-- This workshop is self-paced. No copy may route a participant through a
-  facilitator.
+- **Application copy is self-paced; the lab guide is not.** No copy shipped in
+  this app may route a participant through a facilitator, because the app also
+  runs for anyone who clones the repo with no room around them. The Workshop
+  Studio lab guide is the opposite case: it runs on a clock in a staffed room,
+  so its escape hatches legitimately say "raise a hand" and name a table lead.
+  Keep the boundary at the repository edge — never copy an app string that
+  assumes a facilitator, and never strip a facilitator escape hatch out of the
+  lab guide to match this rule.
 - Code Editor, curl, and SQL remain the canonical proof surfaces.
 - Pellier Observatory may summarize live evidence but must not invent or replace proof.
 - Do not reintroduce the old Act I/II/III navigation.

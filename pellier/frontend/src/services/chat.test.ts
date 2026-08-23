@@ -94,6 +94,47 @@ describe('chat service auth transport', () => {
     })
   })
 
+  it('does not blame the shopper for a missing route', async () => {
+    // A 404 means the endpoint is not there — a wrong backend target or a dev
+    // proxy pointed at the other branch's port. Classing it as a request
+    // validation failure told the shopper to reword a perfectly good question,
+    // so it must degrade as service availability and stay retryable.
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: 'Not Found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+
+    await expect(
+      sendChatMessageStreaming('Is the Hadley shirt at the Brooklyn warehouse?', [], vi.fn()),
+    ).rejects.toMatchObject({
+      code: 'service_unavailable',
+      status: 404,
+      retryable: true,
+    })
+  })
+
+  it('still classifies real request validation as invalid_request', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: 'customer_id failed pattern check' }), {
+        status: 422,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+
+    await expect(
+      sendChatMessageStreaming('hello', [], vi.fn()),
+    ).rejects.toMatchObject({
+      code: 'invalid_request',
+      status: 422,
+    })
+  })
+
   it('does not misclassify a bare 401 as a policy denial', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
