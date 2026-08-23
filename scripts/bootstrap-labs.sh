@@ -179,7 +179,7 @@ AWS_REGION='${AWS_REGION}'
 AWS_DEFAULT_REGION='${AWS_REGION}'
 BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}'
 BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}'
-BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-5}'
+BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-8}'
 WORKSHOP_ID='${WORKSHOP_ID:-}'
 WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-builders}'
 USE_AGENTCORE_RUNTIME='false'
@@ -619,11 +619,12 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
 # instance role (the same ambient-credential chain used elsewhere in the lab)
 # - no Anthropic API key, per-participant login, or secret to paste.
-# Model: the `sonnet` alias lets the latest installed Claude Code release choose
-# its current Sonnet model at workshop time. This lane is intentionally
-# independent of the app's tested Opus/Sonnet model resolution.
+# Model: pinned to the global Sonnet 4.6 inference profile. Workshop Studio
+# accounts do not expose the Claude 5 family, so the floating `sonnet` alias
+# (which a current CLI resolves to Sonnet 5 on Bedrock) would be DENIED at the
+# event. The pin matches the app's tested Sonnet profile.
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}
+export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-global.anthropic.claude-sonnet-4-6}
 export AWS_REGION=${AWS_REGION:-us-east-1}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix

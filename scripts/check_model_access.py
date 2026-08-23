@@ -41,14 +41,23 @@ REGION = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or
 
 MODELS = [
     {
-        "name": "Claude Opus 5",
-        "model_id": "global.anthropic.claude-opus-5",
+        "name": "Claude Opus",
+        # Workshop Studio accounts do not expose the Claude 5 family, so the
+        # editorial tier probes the newest globally-available Opus generations
+        # in order and pins config to the first that answers.
+        "model_id_variants": [
+            "global.anthropic.claude-opus-4-8",
+            "global.anthropic.claude-opus-4-6",
+        ],
         # Editorial specialists (Style Advisor, Curator, Experience Guide).
         # NOT hard-required: if Opus is denied but a Sonnet fallback
         # below passes, the session still runs (editorial agents fall back to
         # Sonnet via BEDROCK_OPUS_MODEL). main() enforces "Opus OR Sonnet".
         "required": False,
         "role": "editorial",  # consumed by the fallback logic in main()
+        "access_hint": (
+            "Enable Claude Opus 4.8 or Claude Opus 4.6 in Bedrock model access."
+        ),
         "body": {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 16,
@@ -58,17 +67,16 @@ MODELS = [
     {
         "name": "Claude Sonnet",
         "model_id_variants": [
-            "global.anthropic.claude-sonnet-5",
             "global.anthropic.claude-sonnet-4-6",
         ],
         # Hard-required: routing, reporting specialists, structured extraction,
-        # the AgentCore Runtime use the first tested Sonnet generation
-        # available in the workshop account. Claude Code resolves its separate
-        # `sonnet` alias through the latest CLI installed at workshop time.
+        # the AgentCore Runtime, AND the Claude Code CLI lane all pin this
+        # global Sonnet 4.6 profile (Workshop Studio does not expose Sonnet 5,
+        # so the floating `sonnet` CLI alias would resolve to a denied model).
         "required": True,
         "role": "sonnet",
         "access_hint": (
-            "Enable Claude Sonnet 5 or Claude Sonnet 4.6 in Bedrock model access."
+            "Enable Claude Sonnet 4.6 in Bedrock model access."
         ),
         "body": {
             "anthropic_version": "bedrock-2023-05-31",
@@ -319,8 +327,8 @@ def main():
             print(f"    {model['_note']}")
 
     # --- Editorial resolution: Opus OR Sonnet must work ---
-    opus_ok = results.get("Claude Opus 5", (False,))[0]
-    opus_id = results.get("Claude Opus 5", (False, None, ""))[2]
+    opus_ok = results.get("Claude Opus", (False,))[0]
+    opus_id = results.get("Claude Opus", (False, None, ""))[2]
     sonnet_name = "Claude Sonnet"
     sonnet_ok = results.get(sonnet_name, (False,))[0]
     sonnet_id = results.get(sonnet_name, (False, None, ""))[2]
@@ -328,11 +336,11 @@ def main():
     editorial_ok = opus_ok or sonnet_ok
     print()
     if opus_ok:
-        print("Editorial agents: \033[32mOpus 5\033[0m (primary).")
+        print(f"Editorial agents: \033[32m{opus_id}\033[0m (primary).")
     elif sonnet_ok:
-        print("Editorial agents: \033[33mOpus 5 unavailable → falling back to Sonnet\033[0m.")
+        print("Editorial agents: \033[33mOpus unavailable → falling back to Sonnet\033[0m.")
     else:
-        print("\033[31mEditorial agents: NEITHER Opus 5 nor a Sonnet fallback is accessible.\033[0m")
+        print("\033[31mEditorial agents: NEITHER Opus nor a Sonnet fallback is accessible.\033[0m")
 
     editorial_id = opus_id if opus_ok else sonnet_id
     if editorial_ok and args.write_env:

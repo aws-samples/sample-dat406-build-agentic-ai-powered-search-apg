@@ -10,7 +10,7 @@ This is **not** the Dispatcher. The codebase has two routing patterns:
     object — the Dispatcher *is* the routing function.
 
   * **Orchestrator (Pattern I)** — Pellier Labs' "Agents as Tools"
-    teaching surface (this file). A Sonnet 5 Agent that sees each
+    teaching surface (this file). A Sonnet 4.6 Agent that sees each
     specialist as a ``@tool`` (search, recommendation, pricing,
     inventory, support) and picks one to call. Two LLM calls per turn
     (router + specialist). Useful for teaching the AaT pattern;

@@ -84,12 +84,12 @@ else
   exit 1
 fi
 
-# Prove the installed CLI can resolve the sonnet alias and invoke Bedrock with
-# the participant instance role. This catches package, shell, model-alias, and
+# Prove the installed CLI can invoke the pinned global Sonnet 4.6 profile with
+# the participant instance role. This catches package, shell, model-access, and
 # IAM drift before participants reach the recommended Lab 1 path.
 claude_smoke="$(
   CLAUDE_CODE_USE_BEDROCK=1 \
-  ANTHROPIC_MODEL=sonnet \
+  ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6 \
   AWS_REGION="${AWS_REGION:-us-east-1}" \
   timeout 75 claude -p \
     "Reply with exactly PELLIER_CLAUDE_READY and no other text." \

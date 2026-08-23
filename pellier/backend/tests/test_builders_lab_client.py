@@ -85,7 +85,9 @@ def test_readiness_requires_database_claude_and_starter_state(
         ),
     )
     monkeypatch.setenv("CLAUDE_CODE_USE_BEDROCK", "1")
-    monkeypatch.setenv("ANTHROPIC_MODEL", "sonnet")
+    monkeypatch.setenv(
+        "ANTHROPIC_MODEL", "global.anthropic.claude-sonnet-4-6"
+    )
 
     assert client.readiness(argparse.Namespace(base_url="http://example")) == 0
 

@@ -2,7 +2,7 @@
 SkillRouter — one-call LLM decider.
 
 Given a user message and the registry's library of skills, the router
-asks Sonnet 5 which skills to load for this turn. One
+asks Sonnet 4.6 which skills to load for this turn. One
 LLM call. No embeddings, no scoring, no multi-call cascades. The skill
 descriptions ARE the activation contract — the router trusts them.
 
@@ -83,7 +83,7 @@ class SkillRouter:
         """
         Build (or return cached) the Strands Agent used for routing.
 
-        We construct a tool-free Agent with Sonnet 5 and a fixed system
+        We construct a tool-free Agent with Sonnet 4.6 and a fixed system
         prompt. The skill library is baked into the
         system prompt at construction time; when a skill is added at
         runtime we'd need to reset this cache (not a v1 concern — the

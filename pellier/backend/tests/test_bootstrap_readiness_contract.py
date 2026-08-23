@@ -65,10 +65,17 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
     assert values["BEDROCK_MODEL_ACCESS_READY"] == "true"
 
 
-def test_claude_code_uses_latest_sonnet_alias() -> None:
+def test_claude_code_pins_global_sonnet_46_profile() -> None:
+    """Workshop Studio does not expose Sonnet 5, so the CLI must pin the
+    global Sonnet 4.6 profile instead of the floating ``sonnet`` alias
+    (which a current CLI resolves to a denied model on the event account)."""
     source = BUILDERS_BOOTSTRAP.read_text(encoding="utf-8")
+    dry_run = BUILDERS_DRY_RUN.read_text(encoding="utf-8")
+    pin = "ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-global.anthropic.claude-sonnet-4-6}"
     assert "export CLAUDE_CODE_USE_BEDROCK=1" in source
-    assert "export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}" in source
+    assert f"export {pin}" in source
+    assert "ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6" in dry_run
+    assert "ANTHROPIC_MODEL=sonnet" not in dry_run
     assert "CLAUDE_CODE_MODEL" not in source
 
 
