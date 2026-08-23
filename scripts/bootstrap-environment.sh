@@ -588,6 +588,12 @@ log "Configuring VS Code settings..."
 SETTINGS_DIR="/home/$CODE_EDITOR_USER/.code-editor-server/data/User"
 sudo -u "$CODE_EDITOR_USER" mkdir -p "$SETTINGS_DIR"
 
+# files.exclude keeps the Explorer on what the flagship lab guide actually
+# opens: pellier/, policies/, skills/, solutions/, README.md, and CLAUDE.md.
+# Repo meta (licenses, VOICE.md, .claude/, data/) stays on disk for Claude
+# Code and the terminal but is hidden from the tree and from editor search.
+# Do NOT hide policies/, skills/, or solutions/ here - Lab 4 and the
+# documented fallback lane direct participants to files inside them.
 cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 {
     "workbench.colorTheme": "Default Dark Modern",
@@ -659,7 +665,13 @@ cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
         "logs": true,
         "tmp": true,
         "package.json": true,
-        "package-lock.json": true
+        "package-lock.json": true,
+        ".claude": true,
+        ".gitignore": true,
+        "LICENSE": true,
+        "NOTICE": true,
+        "VOICE.md": true,
+        "data": true
     }
 }
 VSCODE_SETTINGS
