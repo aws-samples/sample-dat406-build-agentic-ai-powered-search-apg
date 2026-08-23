@@ -17,6 +17,7 @@ CFN_WAIT_HANDLE="${CFN_WAIT_HANDLE:-}"
 STAGE2_SCRIPT_URL="${STAGE2_SCRIPT_URL:-}"
 ASSETS_BUCKET_NAME="${ASSETS_BUCKET_NAME:-}"
 ASSETS_BUCKET_PREFIX="${ASSETS_BUCKET_PREFIX:-}"
+CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-2.1.233}"
 
 # Colors
 RED='\033[0;31m'
@@ -149,8 +150,13 @@ if [ "$_node20_ok" = true ]; then
         # login — the same ambient-credential model the rest of the lab uses.
         # Intentionally NON-fatal: the pacing fallback copies the two checked-in
         # references and then runs the same live proof.
-        log "Installing the latest Claude Code CLI globally for Lab 1..."
-        if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
+        # Pin the event-rehearsed release. A floating install re-introduces
+        # CLI-behaviour drift on a date nobody chose - the same class of failure
+        # that made the floating `sonnet` alias resolve to a denied model.
+        # Updating this version is a deliberate release action followed by a
+        # provisioned-environment rehearsal.
+        log "Installing Claude Code CLI ${CLAUDE_CODE_VERSION} globally for Lab 1..."
+        if npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" >/dev/null 2>&1; then
             # Same /usr/bin symlink defense as tsc above: the CLI runs as the
             # PARTICIPANT user, whose PATH may not include npm's global prefix.
             _claude_bin="$(command -v claude 2>/dev/null || true)"
@@ -159,7 +165,7 @@ if [ "$_node20_ok" = true ]; then
             fi
             log "✅ Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'version check skipped') ($(command -v claude 2>/dev/null))"
         else
-            warn "Claude Code CLI install failed - use the copy-reference pacing fallback in Lab 1. Recover: 'sudo npm install -g @anthropic-ai/claude-code'."
+            warn "Claude Code CLI ${CLAUDE_CODE_VERSION} install failed - use the copy-reference pacing fallback in Lab 1. Recover: 'sudo npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}'."
         fi
     fi
 else
@@ -594,10 +600,19 @@ sudo -u "$CODE_EDITOR_USER" mkdir -p "$SETTINGS_DIR"
 # Code and the terminal but is hidden from the tree and from editor search.
 # Do NOT hide policies/, skills/, or solutions/ here - Lab 4 and the
 # documented fallback lane direct participants to files inside them.
+# Room-tested Code Editor appearance, identical across the two Pellier formats
+# and Mosaic: 16/18 reads at arm's length on a laptop, zoomLevel 1 lifts the
+# whole chrome without breaking the layout, and the forced white terminal
+# foreground is the same value Mosaic already ships on this AMI, so it is known
+# to render here. Keep this block strict JSON - the readiness contract parses it
+# with json.loads, not a JSONC reader.
 cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 {
     "workbench.colorTheme": "Default Dark Modern",
-    "editor.fontSize": 13,
+    "workbench.colorCustomizations": {
+        "terminal.foreground": "#FFFFFF"
+    },
+    "editor.fontSize": 16,
     "terminal.integrated.fontSize": 18,
     "window.zoomLevel": 1,
     "explorer.compactFolders": false,
@@ -780,7 +795,7 @@ TASKS_EOF
 cat > "$REPO_VSCODE/settings.json" << 'WORKSPACE_SETTINGS'
 {
     "workbench.colorTheme": "Default Dark Modern",
-    "editor.fontSize": 13,
+    "editor.fontSize": 16,
     "terminal.integrated.fontSize": 18,
     "window.zoomLevel": 1,
     "python.defaultInterpreterPath": "/usr/bin/python3",
