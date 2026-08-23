@@ -35,6 +35,7 @@ export default function LoginButton() {
         </div>
         <button
           onClick={logout}
+          aria-label="Sign out"
           className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
           title="Sign out"
         >

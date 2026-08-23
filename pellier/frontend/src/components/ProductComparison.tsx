@@ -44,7 +44,7 @@ const ProductComparison = ({ products, onClose }: ProductComparisonProps) => {
           <span className="text-sm font-semibold text-white">Compare Products</span>
           <span className="text-[10px]" style={{ color: 'rgba(255, 255, 255, 0.4)' }}>({compareProducts.length} items)</span>
         </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+        <button onClick={onClose} aria-label="Close comparison" className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
           <X className="h-4 w-4" style={{ color: 'rgba(255, 255, 255, 0.5)' }} />
         </button>
       </div>
