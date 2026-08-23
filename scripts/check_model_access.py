@@ -87,6 +87,15 @@ MODELS = [
         },
     },
     {
+        # Probed through the Bedrock Agent Runtime `rerank` API. The
+        # in-process path (services/rerank.py) calls the same model through
+        # `invoke_model` instead, and the Lambda search server uses this
+        # `rerank` API — both are valid surfaces for this model and need
+        # different IAM actions (`bedrock:InvokeModel` vs `bedrock:Rerank`;
+        # the Workshop Studio template grants both). The failure this
+        # preflight exists to catch — the model not being enabled for the
+        # account — surfaces identically on either API, so one probe covers
+        # both call paths.
         "name": "Cohere Rerank v3.5",
         "model_id": "cohere.rerank-v3-5:0",
         "required": True,  # Anna's rerank proof + find_pieces at runtime

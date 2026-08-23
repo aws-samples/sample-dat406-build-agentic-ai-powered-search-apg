@@ -46,14 +46,17 @@ class Settings(BaseSettings):
     # Bedrock Model Configuration
     # ========================================
     # Embedding model for semantic search.
-    # Cohere Embed v4, enabled in AWS Workshop Studio. Like Rerank v3.5, v4
-    # has no on-demand throughput by bare model ID — invoke via a cross-region
-    # inference profile (us.* / eu.* / apac.*). We request output_dimension=1024
-    # (services/embeddings.py) so vectors match the pellier.product_catalog
-    # vector(1024) column and the committed embeddings cache — no schema change.
+    # Cohere Embed v4, enabled in AWS Workshop Studio. The us.* cross-region
+    # inference profile is a deliberate configuration choice — profiles route
+    # requests across US regions for throughput headroom. The bare model ID
+    # also serves on-demand invoke_model (live-verified 2026-08-23,
+    # us-east-1). We request output_dimension=1024 (services/embeddings.py)
+    # so vectors match the pellier.product_catalog vector(1024) column and
+    # the committed embeddings cache — no schema change.
     BEDROCK_EMBEDDING_MODEL: str = "us.cohere.embed-v4:0"
 
-    # Rerank model for hybrid search (Cohere Rerank v3.5).
+    # Rerank model for hybrid search (Cohere Rerank v3.5), invoked by bare
+    # model ID (on-demand invoke_model works; live-verified 2026-08-23).
     BEDROCK_RERANK_MODEL: str = "cohere.rerank-v3-5:0"
 
     # --- Agent model config ---

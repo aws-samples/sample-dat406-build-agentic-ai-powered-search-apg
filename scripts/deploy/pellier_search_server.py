@@ -199,9 +199,11 @@ def semantic_search(query: str, limit: int = 5, max_price: float = None, min_rat
         parameters.append({"name": "min_rating", "value": {"doubleValue": float(min_rating)}})
     where_sql = " AND ".join(where_clauses)
 
-    # NO session GUCs here: Data API execute_statement is single-statement
-    # ("Multistatements aren't supported", box-verified 2026-06-12 — a
-    # prepended SET killed EVERY read tool on the Gateway path). The
+    # NO session GUCs here: each Data API execute_statement carries exactly
+    # one statement ("Multistatements aren't supported", box-verified
+    # 2026-06-12 — a prepended SET killed EVERY read tool on the Gateway
+    # path). Multi-call transactions via transactionId are fine; a second
+    # statement inside ONE call is not. The
     # hnsw.iterative_scan tuning stays on the in-process rail (psycopg);
     # at this catalog's scale it doesn't change recall anyway.
     #
@@ -268,11 +270,15 @@ def find_pieces_hybrid(
 
       1. Vector branch (pgvector cosine, k=20) and FTS branch
          (`ts_rank_cd`, k=20) execute in a single SQL statement against
-         `pellier.product_catalog`. RDS Data API can't run multi-statement
-         transactions, so we fold the two ranked lists into a CTE plus
-         Reciprocal Rank Fusion (RRF) inside the same query.
+         `pellier.product_catalog`. Each Data API `ExecuteStatement`
+         carries exactly one statement, so we fold the two ranked lists
+         into a CTE plus Reciprocal Rank Fusion (RRF) inside the same
+         query. (Multi-call transactions are supported — see the
+         `transactionId` path in `process_return` — but they still send
+         one statement per call.)
       2. The merged ~30-candidate pool is sent to Cohere Rerank v3.5
-         (`cohere.rerank-v3-5:0`) via Bedrock `invoke_model`.
+         (`cohere.rerank-v3-5:0`) through the Bedrock Agent Runtime
+         `rerank` API (see `_bedrock_rerank`; IAM: `bedrock:Rerank`).
       3. Top `limit` results are returned, with post-rerank filters for
          max_price and min_rating applied last so the rerank order is
          preserved.

@@ -7,7 +7,7 @@
  * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   EditorialTitle,
   ExpCard,
@@ -446,6 +446,39 @@ interface PgvectorTuningProps {
   tuning: PerformanceData['pgvectorTuning'];
 }
 
+/**
+ * Read the pgvector version from the running cluster.
+ *
+ * The extension version decides which of the knobs on this card actually
+ * exist (`halfvec` and `binary_quantize` need 0.7+, `hnsw.iterative_scan`
+ * needs 0.8.0+), so a hardcoded literal here would be a claim about an
+ * environment we are not looking at. `/api/performance/stats` reads
+ * `pg_extension.extversion`; anything else renders as unavailable rather
+ * than guessing.
+ */
+const usePgvectorVersion = (): string | null => {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/performance/stats')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (cancelled) return;
+        const reported = payload?.pgvector_version;
+        setVersion(typeof reported === 'string' && reported ? reported : null);
+      })
+      .catch(() => {
+        if (!cancelled) setVersion(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return version;
+};
+
 const STATUS_STYLES: Record<
   PerformanceData['pgvectorTuning'][number]['status'],
   { label: string; color: string }
@@ -455,6 +488,7 @@ const STATUS_STYLES: Record<
 };
 
 const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
+  const pgvectorVersion = usePgvectorVersion();
   const headerStyle: React.CSSProperties = {
     fontFamily: 'var(--at-mono)',
     fontSize: '11px',
@@ -506,7 +540,7 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
         }}
       >
         {[
-          ['pgvector', '0.8.1'],
+          ['pgvector version', pgvectorVersion ?? 'unavailable'],
           ['iterative scan', 'relaxed_order'],
           ['baseline HNSW', '536 KB'],
         ].map(([label, value]) => (
@@ -1085,6 +1119,16 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
                       {(s.recallAt5 * 100).toFixed(0)}%
+                      <span
+                        style={{
+                          display: 'block',
+                          color: 'var(--at-ink-3)',
+                          fontSize: '10px',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        fixture baseline
+                      </span>
                     </td>
                     <td style={{ ...cellStyle, textAlign: 'right' }}>
                       {formatMs(s.observedMs ?? s.modeledLatencyMs)}
@@ -1164,6 +1208,30 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Three different kinds of number share this table; say which is
+          which. Latency and products refresh from a live run; cost is a
+          published-rate model; recall@5 stays the checked-in fixture value
+          because scoring it needs labeled relevance judgments this session
+          does not run. */}
+      <p
+        style={{
+          fontFamily: 'var(--at-sans)',
+          fontSize: '12px',
+          lineHeight: 1.5,
+          color: 'var(--at-ink-3)',
+          marginTop: '10px',
+          maxWidth: '720px',
+        }}
+      >
+        Read the three columns differently. <strong>Latency</strong> is one
+        wall-clock observation per strategy after a live run, not a percentile.{' '}
+        <strong>Cost</strong> is modeled from published per-token rates, not
+        metered spend. <strong>Recall@5</strong> stays the checked-in fixture
+        baseline even after a live run: scoring relevance needs labeled
+        judgments, so treat that column as the shape of the tradeoff across
+        the seeded catalog rather than a score for the query you just ran.
+      </p>
 
       {/* Why the agentic row is Anna's path — the framing the workshop
           lands on after participants compare the four strategies. */}

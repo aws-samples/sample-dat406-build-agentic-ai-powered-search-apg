@@ -342,10 +342,11 @@ ALL_PRODUCTS = FRESH_PRODUCTS + MARCO_PRODUCTS + ANNA_PRODUCTS + THEO_PRODUCTS
 def generate_embeddings(products: List[Product], region: str) -> None:
     """Generate Cohere Embed v4 embeddings via Bedrock for all products.
 
-    Cohere Embed v4 is enabled in AWS Workshop Studio. Like Rerank v3.5, v4
-    has no on-demand throughput by bare model ID — invoke via a cross-region
-    inference profile (us.* / eu.* / apac.*), derived from the region here.
-    Overridable via BEDROCK_EMBED_MODEL_ID for an explicit ID/ARN.
+    Cohere Embed v4 is enabled in AWS Workshop Studio. We invoke it through a
+    cross-region inference profile (us.* / eu.* / apac.*, derived from the
+    region here) for throughput headroom during a seeded room; the bare model
+    ID also serves on-demand traffic. Overridable via BEDROCK_EMBED_MODEL_ID
+    for an explicit ID/ARN.
 
     output_dimension is pinned to EMBED_DIM (1024) so generated vectors match
     the vector(1024) schema and the runtime query embeddings (which also

@@ -25,10 +25,11 @@ Why a separate writer module:
 
 The writes go through ``DatabaseService.execute_query`` so they share
 the same connection pool + per-cursor logging the rest of the backend
-uses. Latency-wise the INSERT adds ~5-10ms; we take that cost on
-every tool call because the alternative — async fire-and-forget
-through a queue — would be a bigger teaching distraction than the
-cost itself.
+uses. The INSERT/UPDATE pair costs one pooled round trip each; we take
+that cost on every tool call because the alternative — async
+fire-and-forget through a queue — would be a bigger teaching
+distraction than the cost itself. The per-call latency is visible in
+``pellier.tool_audit.latency_ms`` rather than asserted here.
 """
 from __future__ import annotations
 
