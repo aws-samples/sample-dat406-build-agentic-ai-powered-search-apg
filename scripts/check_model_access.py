@@ -45,9 +45,11 @@ MODELS = [
         # Workshop Studio accounts do not expose the Claude 5 family, so the
         # editorial tier probes the newest globally-available Opus generations
         # in order and pins config to the first that answers.
+        # Live profile ids verified via `aws bedrock list-inference-profiles`:
+        # Opus 4.8 has no suffix, Opus 4.6 carries `-v1`.
         "model_id_variants": [
             "global.anthropic.claude-opus-4-8",
-            "global.anthropic.claude-opus-4-6",
+            "global.anthropic.claude-opus-4-6-v1",
         ],
         # Editorial specialists (Style Advisor, Curator, Experience Guide).
         # NOT hard-required: if Opus is denied but a Sonnet fallback
