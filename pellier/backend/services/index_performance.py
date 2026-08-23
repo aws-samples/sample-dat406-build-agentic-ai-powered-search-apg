@@ -788,17 +788,28 @@ class IndexPerformanceService:
         """
         with psycopg.connect(self.conn_string) as conn:
             with conn.cursor(row_factory=dict_row) as cur:
-                # Get index information
+                # Get index information.
+                #
+                # Size comes from pg_class.oid: pg_indexes exposes no
+                # indexrelid, so pg_relation_size(indexrelid) raised
+                # UndefinedColumn and this endpoint returned 500 on every
+                # call. The namespace join keeps the size bound to the index
+                # in the schema pg_indexes actually reported, rather than a
+                # same-named index in another schema.
                 query = """
                     SELECT
-                        schemaname,
-                        tablename,
-                        indexname,
-                        pg_size_pretty(pg_relation_size(indexrelid)) as index_size
-                    FROM pg_indexes
-                    JOIN pg_class ON pg_class.relname = indexname
-                    WHERE tablename = 'product_catalog'
-                      AND indexname LIKE '%embedding%'
+                        i.schemaname,
+                        i.tablename,
+                        i.indexname,
+                        pg_size_pretty(pg_relation_size(c.oid)) as index_size
+                    FROM pg_indexes i
+                    JOIN pg_class c
+                      ON c.relname = i.indexname
+                    JOIN pg_namespace n
+                      ON n.oid = c.relnamespace
+                     AND n.nspname = i.schemaname
+                    WHERE i.tablename = 'product_catalog'
+                      AND i.indexname LIKE '%embedding%'
                 """
                 
                 cur.execute(query)
