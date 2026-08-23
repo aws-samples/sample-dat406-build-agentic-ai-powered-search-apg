@@ -611,11 +611,21 @@ sudo -u "$CODE_EDITOR_USER" mkdir -p "$SETTINGS_DIR"
 # the frontend build) but is hidden from the tree and from editor search.
 # The lab content references no other path in the editor, so widen this list
 # only after re-checking the Workshop Studio content.
+# Room-tested Code Editor appearance, identical across the two Pellier formats
+# and Mosaic: 16/18 reads at arm's length on a laptop, zoomLevel 1 lifts the
+# whole chrome without breaking the layout, and the forced white terminal
+# foreground is the same value Mosaic already ships on this AMI, so it is known
+# to render here. Keep this block strict JSON - the readiness contract parses it
+# with json.loads, not a JSONC reader.
 cat > "$SETTINGS_DIR/settings.json" << 'VSCODE_SETTINGS'
 {
     "workbench.colorTheme": "Default Dark Modern",
-    "editor.fontSize": 13,
+    "workbench.colorCustomizations": {
+        "terminal.foreground": "#FFFFFF"
+    },
+    "editor.fontSize": 16,
     "terminal.integrated.fontSize": 18,
+    "window.zoomLevel": 1,
     "explorer.compactFolders": false,
     "explorer.autoReveal": true,
     "git.enabled": false,
@@ -801,7 +811,7 @@ TASKS_EOF
 cat > "$REPO_VSCODE/settings.json" << 'WORKSPACE_SETTINGS'
 {
     "workbench.colorTheme": "Default Dark Modern",
-    "editor.fontSize": 13,
+    "editor.fontSize": 16,
     "terminal.integrated.fontSize": 18,
     "python.defaultInterpreterPath": "/usr/bin/python3",
     "task.autoDetect": "on",
