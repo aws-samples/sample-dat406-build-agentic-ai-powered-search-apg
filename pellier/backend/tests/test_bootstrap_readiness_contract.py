@@ -70,10 +70,17 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
     assert values["BEDROCK_MODEL_ACCESS_READY"] == "true"
 
 
-def test_claude_code_uses_latest_sonnet_alias() -> None:
+def test_claude_code_pins_global_sonnet_46_profile() -> None:
+    """Workshop Studio does not expose Sonnet 5, so the CLI must pin the
+    global Sonnet 4.6 profile instead of the floating ``sonnet`` alias
+    (which a current CLI resolves to a denied model on the event account)."""
     source = BOOTSTRAP.read_text(encoding="utf-8")
     assert "export CLAUDE_CODE_USE_BEDROCK=1" in source
-    assert "export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}" in source
+    assert (
+        "export ANTHROPIC_MODEL="
+        "${ANTHROPIC_MODEL:-global.anthropic.claude-sonnet-4-6}" in source
+    )
+    assert "ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}" not in source
     assert "CLAUDE_CODE_MODEL" not in source
 
 
@@ -927,6 +934,19 @@ def test_source_control_is_hidden_from_the_editor() -> None:
     assert user_settings["git.enabled"] is False
     assert user_settings["git.decorations.enabled"] is False
     assert user_settings["scm.diffDecorations"] == "none"
+
+
+def test_explorer_hides_repo_meta_but_keeps_the_lab_folders() -> None:
+    """Lab 4 opens policies/, the documented fallback lane opens solutions/,
+    and the runtime skills live in skills/ - hiding any of them strands a
+    participant step. Repo meta stays on disk for Claude Code and the
+    terminal but out of the Explorer and editor search."""
+    user_settings, _workspace = _settings_blocks()
+    excludes = user_settings["files.exclude"]
+    for hidden in (".claude", ".gitignore", "LICENSE", "NOTICE", "VOICE.md", "data"):
+        assert excludes.get(hidden) is True, f"{hidden} should be hidden from the Explorer"
+    for visible in ("policies", "skills", "solutions", "pellier", "pellier/frontend"):
+        assert visible not in excludes, f"{visible} must stay visible in the Explorer"
 
 
 def test_the_workspace_is_detached_from_git_on_every_path() -> None:

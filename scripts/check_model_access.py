@@ -56,16 +56,15 @@ MODELS = [
         "name": "Claude Sonnet",
         "model_id_variants": [
             "global.anthropic.claude-sonnet-4-6",
-            "global.anthropic.claude-sonnet-4-6",
         ],
         # Hard-required: routing, reporting specialists, structured extraction,
-        # the AgentCore Runtime use the first tested Sonnet generation
-        # available in the workshop account. Claude Code resolves its separate
-        # `sonnet` alias through the latest CLI installed at workshop time.
+        # the AgentCore Runtime, AND the Claude Code CLI lane all pin this
+        # global Sonnet 4.6 profile (Workshop Studio does not expose Sonnet 5,
+        # so the floating `sonnet` CLI alias would resolve to a denied model).
         "required": True,
         "role": "sonnet",
         "access_hint": (
-            "Enable Claude Sonnet 4.6 or Claude Sonnet 4.6 in Bedrock model access."
+            "Enable Claude Sonnet 4.6 in Bedrock model access."
         ),
         "body": {
             "anthropic_version": "bedrock-2023-05-31",

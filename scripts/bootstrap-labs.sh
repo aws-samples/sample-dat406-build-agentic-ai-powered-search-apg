@@ -689,11 +689,12 @@ export AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
 # CLAUDE_CODE_USE_BEDROCK=1 makes the CLI authenticate through THIS box's IAM
 # instance role (the same ambient-credential chain psql/boto3/agentcore already
 # use) — no Anthropic API key, no per-participant login, nothing to paste.
-# Model: the `sonnet` alias lets the latest installed Claude Code release choose
-# its current Sonnet model at workshop time. This lane is intentionally
-# independent of the app's tested Opus/Sonnet model resolution.
+# Model: pin the global Sonnet 4.6 profile. Workshop Studio accounts do not
+# expose the Claude 5 family, so the floating `sonnet` alias (which a current
+# CLI resolves to Sonnet 5 on Bedrock) fails with AccessDenied on the event
+# account. This is the same profile the app's Sonnet tier already requires.
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}
+export ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-global.anthropic.claude-sonnet-4-6}
 export AWS_REGION=${AWS_REGION:-us-east-1}
 # The CLI is installed globally as root (/usr/bin/claude) but runs as the
 # participant user, so its auto-updater can't write the root-owned npm prefix
