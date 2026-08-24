@@ -6,7 +6,7 @@
  * 1:1 onto routes the router actually serves, and this revision keeps that
  * rule while giving the footer the weight a finished storefront has:
  *
- *   - Masthead:     brand lockup left, checkout-trust glyphs right.
+ *   - Masthead:     brand lockup left, disclosed demo payment marks right.
  *   - Brand column: tagline plus what this storefront is, as badges. The
  *                   P mark now sits in the masthead, not here.
  *   - Explore:      The floor (`/#shop`), Stories, About.
@@ -18,12 +18,9 @@
  *                   earlier rewrite eliminated, and inventing them back would
  *                   undo it.
  *
- * The checkout glyphs are generic card shapes, never network marks. Pellier
- * has no checkout, so a Visa or Apple Pay logo would assert a capability that
- * does not exist and would put third-party trademarks in a public sample.
- * The palette is unchanged - sand (#e7e9ed) on espresso (#181a1f). The
- * reference design this borrows its structure from is dark; inverting Pellier
- * here would break the editorial system the rest of the storefront holds.
+ * The footer keeps official marks inside an explicitly disclosed demo checkout:
+ * no payment is processed, and no card is charged. The palette is unchanged -
+ * sand (#e7e9ed) on espresso (#181a1f).
  *
  * Copy from `FOOTER` in copy.ts.
  */
@@ -85,8 +82,8 @@ export default function Footer() {
 }
 
 /**
- * Brand lockup opposite the checkout-trust cluster. This is the row that makes
- * the footer read as a shopfront rather than a sitemap.
+ * Brand lockup opposite the disclosed demo payment strip. This is the row that
+ * makes the footer read as a shopfront rather than a sitemap.
  */
 function Masthead() {
   return (
@@ -110,44 +107,38 @@ function Masthead() {
   )
 }
 
-/**
- * Generic card glyph. Four rounded rectangles read as "payment accepted" at a
- * glance without standing in for any particular network, which is the honest
- * treatment for a storefront that never charges anything.
- *
- * The border carries the shape, not the fill: `cream-50` (#f3f4f6) sits four
- * percent off `sand` (#e7e9ed), so a fill-only card is invisible here.
- */
-function CardGlyph() {
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex h-6 w-9 items-center justify-center rounded-[3px] border border-espresso/35 bg-cream-50"
-    >
-      <span className="block h-[3px] w-4 rounded-full bg-espresso/35" />
-    </span>
-  )
-}
-
 function CheckoutTrust() {
   return (
     <div
       data-testid="footer-checkout-trust"
-      aria-label={FOOTER.CHECKOUT.ARIA_LABEL}
-      role="group"
-      className="flex items-center gap-3"
+      className="flex flex-col gap-2 sm:items-end"
     >
-      <span className="flex items-center gap-1.5">
-        {[0, 1, 2, 3].map((slot) => (
-          <CardGlyph key={slot} />
-        ))}
-      </span>
       <span
         data-testid="footer-checkout-label"
         className="font-sans text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-quiet"
       >
         {FOOTER.CHECKOUT.LABEL}
       </span>
+      <ul
+        aria-label={FOOTER.CHECKOUT.ARIA_LABEL}
+        className="grid w-fit grid-cols-3 gap-1.5 m-0 p-0 list-none sm:flex sm:flex-wrap sm:justify-end"
+      >
+        {FOOTER.CHECKOUT.PAYMENT_METHODS.map((method) => (
+          <li
+            key={method.id}
+            className="flex h-8 items-center justify-center rounded-[3px] border border-espresso/20 bg-cream-50 px-2"
+          >
+            <img
+              alt=""
+              aria-hidden="true"
+              className="h-[18px] w-auto object-contain"
+              height={18}
+              src={`/assets/icons/payment/${method.id}.svg`}
+            />
+            <span className="sr-only">{method.label}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

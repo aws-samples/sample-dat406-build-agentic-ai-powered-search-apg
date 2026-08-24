@@ -111,41 +111,40 @@ describe('Footer — bottom strip', () => {
   })
 })
 
-describe('Footer — masthead and checkout trust', () => {
+describe('Footer — masthead and demo payment strip', () => {
   it('renders the brand lockup in the masthead', () => {
     renderFooter()
     const masthead = screen.getByTestId('footer-masthead')
     expect(within(masthead).getByText('Pellier')).toBeInTheDocument()
   })
 
-  it('labels the checkout trust cluster for assistive tech', () => {
+  it('renders official marks inside the disclosed demo contract', () => {
     renderFooter()
-    const group = screen.getByTestId('footer-checkout-trust')
-    expect(group).toHaveAttribute('aria-label', FOOTER.CHECKOUT.ARIA_LABEL)
-    expect(within(group).getByTestId('footer-checkout-label')).toHaveTextContent(
+    expect(screen.getByTestId('footer-checkout-label')).toHaveTextContent(
       FOOTER.CHECKOUT.LABEL,
     )
-  })
-
-  it('never renders a payment-network wordmark', () => {
-    // Pellier has no checkout, so a network mark would advertise a capability
-    // that does not exist — and would drag a third-party trademark into a
-    // public sample repository. The glyphs must stay generic.
-    renderFooter()
-    const footer = screen.getByTestId('footer')
-    const text = footer.textContent ?? ''
-    for (const brand of [
-      'Visa',
-      'Mastercard',
-      'American Express',
-      'Amex',
-      'PayPal',
-      'Apple Pay',
-      'Google Pay',
-      'Discover Card',
-    ]) {
-      expect(text).not.toContain(brand)
+    const methods = screen.getByRole('list', {
+      name: FOOTER.CHECKOUT.ARIA_LABEL,
+    })
+    expect(
+      within(methods)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(FOOTER.CHECKOUT.PAYMENT_METHODS.map(({ label }) => label))
+    expect(
+      [...methods.querySelectorAll('img')].map((image) =>
+        image.getAttribute('src'),
+      ),
+    ).toEqual(
+      FOOTER.CHECKOUT.PAYMENT_METHODS.map(
+        ({ id }) => `/assets/icons/payment/${id}.svg`,
+      ),
+    )
+    for (const image of methods.querySelectorAll('img')) {
+      expect(image).toHaveAttribute('alt', '')
+      expect(image).toHaveAttribute('aria-hidden', 'true')
     }
+    expect(methods.textContent).not.toMatch(/hsa|fsa|eligible/i)
   })
 
   it('renders the retail assurances as discrete items', () => {

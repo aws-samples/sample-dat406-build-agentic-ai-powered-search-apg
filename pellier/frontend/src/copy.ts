@@ -614,15 +614,19 @@ export const FOOTER = {
     CTA_LABEL: "Open Pellier Observatory",
     CTA_HREF: "/observatory",
   },
-  /** Payment-adjacent trust row, deliberately brand-free.
-   *
-   * Pellier has no checkout, so real network marks (Visa, Amex, Apple Pay)
-   * would advertise a capability that does not exist and would pull
-   * third-party trademarks into a public sample repository. The glyphs are
-   * generic card shapes and DISCLAIMER says plainly that nothing is charged. */
+  /** Official owner artwork in the footer only. The visible label and the
+   * disclaimer keep the strip inside the same non-processing demo contract. */
   CHECKOUT: {
-    LABEL: "Secure checkout",
-    ARIA_LABEL: "Checkout security",
+    LABEL: "Secure demo checkout",
+    ARIA_LABEL: "Secure demo checkout payment methods",
+    PAYMENT_METHODS: [
+      { id: "visa", label: "Visa" },
+      { id: "mastercard", label: "Mastercard" },
+      { id: "amex", label: "American Express" },
+      { id: "paypal", label: "PayPal" },
+      { id: "apple-pay", label: "Apple Pay" },
+      { id: "google-pay", label: "Google Pay" },
+    ],
   },
   /** Stated outright rather than implied, because a storefront that looks
    * this finished invites the assumption that it transacts. */
