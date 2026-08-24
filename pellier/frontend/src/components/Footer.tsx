@@ -1,24 +1,30 @@
 /**
- * Footer — brand + three live columns + bottom strip.
+ * Footer — masthead row, four live columns, disclaimer, legal strip.
  *
- * Earlier footer shipped with five columns and a newsletter form.
- * Every link pointed to a placeholder route. Replaced with three
- * live surfaces that map 1:1 to routes that exist in the router:
+ * An earlier footer shipped five columns and a newsletter form where every
+ * link pointed at a placeholder route. That was replaced with columns that map
+ * 1:1 onto routes the router actually serves, and this revision keeps that
+ * rule while giving the footer the weight a finished storefront has:
  *
- *   - Brand column: circular P mark + "Pellier" + tagline.
- *   - Explore:      The floor (`/#shop`), Discover, Storyboard.
+ *   - Masthead:     brand lockup.
+ *   - Brand column: tagline plus what this storefront is, as badges. The
+ *                   P mark now sits in the masthead, not here.
+ *   - Explore:      The floor (`/#shop`), Stories, About.
  *   - Storyboard:   Italic blurb + a real link to `/storyboard`.
- *   - Pellier Labs:      Italic blurb + a real link to `/pellier-labs`.
- *   - Bottom strip: Copyright + current year. No Privacy/Terms/
- *                   Accessibility stubs — those were the same dead
- *                   links this rewrite is eliminating. Right-hand
- *                   attribution from `FOOTER.BOTTOM_STRIP.ATTRIBUTION`.
+ *   - Pellier Labs: Italic blurb + a real link to `/pellier-labs`.
+ *   - Disclaimer:   States that nothing is charged and the catalog is synthetic.
+ *   - Legal strip:  Copyright, licence, author credit. No Privacy/Terms/
+ *                   Accessibility stubs — those were the same dead links the
+ *                   earlier rewrite eliminated, and inventing them back would
+ *                   undo it.
+ *
+ * This branch shows no payment glyphs at all: its badges state "No live
+ * checkout", so even generic card shapes would contradict the copy beside
+ * them. The palette is unchanged - sand (#e7e9ed) on espresso (#181a1f). The
+ * reference design this borrows its structure from is dark; inverting Pellier
+ * here would break the editorial system the rest of the storefront holds.
  *
  * Copy from `FOOTER` in copy.ts.
- *
- * Phase 2 redesign: replaced all hardcoded hex color constants with
- * Tailwind token classes. Uses fluid container, font-display / font-sans
- * utilities, border-sand/50 for borders, and duration-fade for transitions.
  */
 import { Link } from 'react-router-dom'
 
@@ -34,17 +40,18 @@ export default function Footer() {
       role="contentinfo"
       className="bg-sand text-espresso font-sans border-t border-sand/50"
       style={{
-        padding: '72px 24px 32px',
+        padding: '56px 24px 32px',
       }}
     >
       <div className="max-w-[1440px] mx-auto px-container-x">
+        <Masthead />
         <div
           data-testid="footer-columns"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             gap: 48,
-            paddingBottom: 48,
+            paddingBottom: 40,
           }}
         >
           <BrandColumn />
@@ -64,9 +71,11 @@ export default function Footer() {
             ctaHref={FOOTER.AGENT_TRACE.CTA_HREF}
           />
         </div>
+        <Disclaimer />
         <BottomStrip
           copyrightLine={copyrightLine}
-          service={FOOTER.BOTTOM_STRIP.SERVICE}
+          rights={FOOTER.BOTTOM_STRIP.RIGHTS}
+          license={FOOTER.BOTTOM_STRIP.LICENSE}
           attribution={FOOTER.BOTTOM_STRIP.ATTRIBUTION}
         />
       </div>
@@ -74,12 +83,18 @@ export default function Footer() {
   )
 }
 
-function BrandColumn() {
+/**
+ * Brand lockup. Gives the footer a masthead instead of opening straight into a
+ * sitemap. No payment glyphs here: this branch's own badges say "No live
+ * checkout", and a "Secure checkout" row on the same screen would contradict
+ * them. The flagship workshop, which carries real service assurances, shows
+ * the glyph row instead.
+ */
+function Masthead() {
   return (
-    <section
-      data-testid="footer-column-brand"
-      aria-label="Pellier"
-      className="flex flex-col gap-4"
+    <div
+      data-testid="footer-masthead"
+      className="flex flex-col gap-5 pb-10 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex items-center gap-2.5">
         <span
@@ -92,12 +107,41 @@ function BrandColumn() {
           Pellier
         </span>
       </div>
+    </div>
+  )
+}
+
+function BrandColumn() {
+  return (
+    <section
+      data-testid="footer-column-brand"
+      aria-label="Pellier"
+      className="flex flex-col gap-4"
+    >
       <p
         data-testid="footer-brand-tagline"
         className="text-[13px] leading-relaxed text-ink-soft m-0 max-w-[260px]"
       >
         {FOOTER.BRAND.TAGLINE}
       </p>
+      <ul
+        data-testid="footer-service-items"
+        role="list"
+        className="flex flex-col gap-2 m-0 p-0 list-none"
+      >
+        {FOOTER.BOTTOM_STRIP.SERVICE_ITEMS.map((item) => (
+          <li
+            key={item}
+            className="flex items-start gap-2 text-xs leading-relaxed text-ink-quiet"
+          >
+            <span
+              aria-hidden="true"
+              className="mt-[6px] block h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+            />
+            {item}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -177,17 +221,39 @@ function EditorialColumn({
   )
 }
 
+/**
+ * Said outright, above the legal strip rather than buried in it. A storefront
+ * this finished invites the assumption that it transacts and that its reviews
+ * and stock counts are real; both are false and cheap to state.
+ */
+function Disclaimer() {
+  return (
+    <p
+      data-testid="footer-disclaimer"
+      className="font-sans text-xs leading-relaxed text-ink-quiet m-0 max-w-[720px] pt-8 border-t border-sand/50"
+    >
+      {FOOTER.DISCLAIMER}
+    </p>
+  )
+}
+
 interface BottomStripProps {
   copyrightLine: string
-  service: string
+  rights: string
+  license: string
   attribution: string
 }
 
-function BottomStrip({ copyrightLine, service, attribution }: BottomStripProps) {
+function BottomStrip({
+  copyrightLine,
+  rights,
+  license,
+  attribution,
+}: BottomStripProps) {
   return (
     <div
       data-testid="footer-bottom-strip"
-      className="flex flex-col items-center gap-2 pt-6 border-t border-sand/50 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col items-start gap-2 pt-6 sm:flex-row sm:items-center sm:justify-between"
     >
       <span
         data-testid="footer-copyright"
@@ -196,16 +262,18 @@ function BottomStrip({ copyrightLine, service, attribution }: BottomStripProps) 
         {copyrightLine}
       </span>
       <span
-        data-testid="footer-service"
+        data-testid="footer-legal"
         className="font-sans text-xs text-ink-quiet tracking-tight"
       >
-        {service}
-      </span>
-      <span
-        data-testid="footer-attribution"
-        className="font-sans text-xs text-ink-quiet tracking-tight"
-      >
-        {attribution}
+        {rights}
+        <span aria-hidden className="mx-2 text-ink-quiet/50">
+          &middot;
+        </span>
+        {license}
+        <span aria-hidden className="mx-2 text-ink-quiet/50">
+          &middot;
+        </span>
+        <span data-testid="footer-attribution">{attribution}</span>
       </span>
     </div>
   )

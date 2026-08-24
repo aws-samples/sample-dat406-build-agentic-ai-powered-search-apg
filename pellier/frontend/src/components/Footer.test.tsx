@@ -102,3 +102,68 @@ describe('Footer — bottom strip', () => {
     expect(within(strip).queryByText('Accessibility')).not.toBeInTheDocument()
   })
 })
+
+describe('Footer — masthead and service badges', () => {
+  it('renders the brand lockup in the masthead', () => {
+    renderFooter()
+    const masthead = screen.getByTestId('footer-masthead')
+    expect(within(masthead).getByText('Pellier')).toBeInTheDocument()
+  })
+
+  it('renders what this storefront is, as discrete badges', () => {
+    renderFooter()
+    const list = screen.getByTestId('footer-service-items')
+    FOOTER.BOTTOM_STRIP.SERVICE_ITEMS.forEach((item) => {
+      expect(within(list).getByText(item)).toBeInTheDocument()
+    })
+  })
+
+  it('shows no checkout-trust row, which would contradict "No live checkout"', () => {
+    // This branch ships no service assurances and its own badge says there is
+    // no checkout, so payment glyphs - even generic ones - would argue with
+    // the copy beside them.
+    renderFooter()
+    expect(screen.queryByTestId('footer-checkout-trust')).not.toBeInTheDocument()
+  })
+
+  it('never renders a payment-network wordmark', () => {
+    renderFooter()
+    const text = screen.getByTestId('footer').textContent ?? ''
+    for (const brand of [
+      'Visa',
+      'Mastercard',
+      'American Express',
+      'Amex',
+      'PayPal',
+      'Apple Pay',
+      'Google Pay',
+    ]) {
+      expect(text).not.toContain(brand)
+    }
+  })
+})
+
+describe('Footer — disclaimer and licence', () => {
+  it('states that nothing is charged and the catalog is synthetic', () => {
+    renderFooter()
+    expect(screen.getByTestId('footer-disclaimer')).toHaveTextContent(
+      FOOTER.DISCLAIMER,
+    )
+  })
+
+  it('renders the copyright holder and the real licence', () => {
+    renderFooter()
+    const legal = screen.getByTestId('footer-legal')
+    expect(legal).toHaveTextContent(FOOTER.BOTTOM_STRIP.RIGHTS)
+    expect(legal).toHaveTextContent(FOOTER.BOTTOM_STRIP.LICENSE)
+  })
+
+  it('does not claim MIT-0, which the repository NOTICE rules out', () => {
+    // NOTICE: "released under the MIT License (NOT MIT-0). Attribution is a
+    // condition of reuse, not a courtesy."
+    renderFooter()
+    const text = screen.getByTestId('footer').textContent ?? ''
+    expect(text).not.toContain('MIT-0')
+    expect(text).toContain('MIT License')
+  })
+})

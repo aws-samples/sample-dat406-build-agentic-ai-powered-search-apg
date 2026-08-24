@@ -264,14 +264,28 @@ export const FOOTER = {
     CTA_LABEL: "Open Pellier Labs",
     CTA_HREF: "/pellier-labs",
   },
+  /** Stated outright rather than implied, because a storefront that looks
+   * this finished invites the assumption that it transacts. */
+  DISCLAIMER:
+    "Nothing here charges a card. Products, prices, reviews, and availability are synthetic data built for this workshop.",
   BOTTOM_STRIP: {
     COPYRIGHT: "\u00a9 Pellier",
-    /** Centered service line \u2014 retail boilerplate moved out of the
-     * hero capabilities strip so the strip can stay focused on agent
-     * claims. Lives in the footer where shipping/returns info belongs. */
-    SERVICE: "Workshop demo | Seeded catalog | No live checkout",
-    /** Right-hand credit in the footer strip (replaces workshop banner). */
-    ATTRIBUTION: "\u00a9 Shayon Sanyal",
+    /** What this storefront actually is, as discrete badges.
+     *
+     * Deliberately NOT the shipping/returns assurances the flagship workshop
+     * carries: this branch ships no service strip, so a "free shipping over
+     * $150" line here would invent a retail policy that exists nowhere else
+     * on it. For the same reason the footer shows no payment glyphs - "No
+     * live checkout" and a "Secure checkout" row on one screen contradict
+     * each other. */
+    SERVICE_ITEMS: ["Workshop demo", "Seeded catalog", "No live checkout"],
+    /** Licensing line. The repository is MIT, explicitly NOT MIT-0, and its
+     * NOTICE makes author attribution a condition of reuse rather than a
+     * courtesy - so the footer carries the licence and the credit, not one
+     * or the other. Keep in step with LICENSE and NOTICE. */
+    RIGHTS: "\u00a9 2026 Amazon Web Services",
+    LICENSE: "Sample code under the MIT License",
+    ATTRIBUTION: "Created by Shayon Sanyal",
   },
 } as const;
 
