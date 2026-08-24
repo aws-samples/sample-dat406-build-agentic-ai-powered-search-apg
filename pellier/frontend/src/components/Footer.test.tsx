@@ -1,16 +1,24 @@
 /**
- * Footer tests — brand + three live columns + bottom strip.
+ * Footer tests — masthead, four live columns, disclaimer, legal strip.
  *
- * The previous footer spec (five columns, newsletter form, Privacy/
- * Terms/Accessibility bottom strip) was frozen around placeholder
- * links. This rewrite replaces it with a living spec:
+ * The original footer spec (five columns, newsletter form, Privacy/
+ * Terms/Accessibility bottom strip) was frozen around placeholder links. The
+ * rewrite replaced it with a living spec, and these tests hold that line while
+ * covering the masthead and trust row added later:
  *
  *   - Four sections only: Brand, Explore, Storyboard, Pellier Observatory.
  *   - Every Explore link points at a real router route.
  *   - Storyboard + Pellier Observatory each carry an italic blurb and a single
  *     call-to-action link to `/storyboard` / `/observatory`.
- *   - Bottom strip shows the copyright line and a signature tag.
- *     No placeholder Privacy/Terms/Accessibility links.
+ *   - Checkout trust glyphs are generic: no payment-network wordmark may
+ *     appear, because Pellier never charges anything and the marks are
+ *     third-party trademarks.
+ *   - The disclaimer states plainly that nothing is charged and the catalog is
+ *     synthetic.
+ *   - The legal strip carries the real licence. The repository is MIT and its
+ *     NOTICE says explicitly "NOT MIT-0", so a footer claiming MIT-0 would
+ *     misstate the terms of reuse.
+ *   - No placeholder Privacy/Terms/Accessibility links.
  */
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -100,5 +108,77 @@ describe('Footer — bottom strip', () => {
     expect(within(strip).queryByText('Privacy')).not.toBeInTheDocument()
     expect(within(strip).queryByText('Terms')).not.toBeInTheDocument()
     expect(within(strip).queryByText('Accessibility')).not.toBeInTheDocument()
+  })
+})
+
+describe('Footer — masthead and checkout trust', () => {
+  it('renders the brand lockup in the masthead', () => {
+    renderFooter()
+    const masthead = screen.getByTestId('footer-masthead')
+    expect(within(masthead).getByText('Pellier')).toBeInTheDocument()
+  })
+
+  it('labels the checkout trust cluster for assistive tech', () => {
+    renderFooter()
+    const group = screen.getByTestId('footer-checkout-trust')
+    expect(group).toHaveAttribute('aria-label', FOOTER.CHECKOUT.ARIA_LABEL)
+    expect(within(group).getByTestId('footer-checkout-label')).toHaveTextContent(
+      FOOTER.CHECKOUT.LABEL,
+    )
+  })
+
+  it('never renders a payment-network wordmark', () => {
+    // Pellier has no checkout, so a network mark would advertise a capability
+    // that does not exist — and would drag a third-party trademark into a
+    // public sample repository. The glyphs must stay generic.
+    renderFooter()
+    const footer = screen.getByTestId('footer')
+    const text = footer.textContent ?? ''
+    for (const brand of [
+      'Visa',
+      'Mastercard',
+      'American Express',
+      'Amex',
+      'PayPal',
+      'Apple Pay',
+      'Google Pay',
+      'Discover Card',
+    ]) {
+      expect(text).not.toContain(brand)
+    }
+  })
+
+  it('renders the retail assurances as discrete items', () => {
+    renderFooter()
+    const list = screen.getByTestId('footer-service-items')
+    FOOTER.BOTTOM_STRIP.SERVICE_ITEMS.forEach((item) => {
+      expect(within(list).getByText(item)).toBeInTheDocument()
+    })
+  })
+})
+
+describe('Footer — disclaimer and licence', () => {
+  it('states that nothing is charged and the catalog is synthetic', () => {
+    renderFooter()
+    expect(screen.getByTestId('footer-disclaimer')).toHaveTextContent(
+      FOOTER.DISCLAIMER,
+    )
+  })
+
+  it('renders the copyright holder and the real licence', () => {
+    renderFooter()
+    const legal = screen.getByTestId('footer-legal')
+    expect(legal).toHaveTextContent(FOOTER.BOTTOM_STRIP.RIGHTS)
+    expect(legal).toHaveTextContent(FOOTER.BOTTOM_STRIP.LICENSE)
+  })
+
+  it('does not claim MIT-0, which the repository NOTICE rules out', () => {
+    // NOTICE: "released under the MIT License (NOT MIT-0). Attribution is a
+    // condition of reuse, not a courtesy." A footer claiming MIT-0 would
+    // misstate the licence and drop a required credit.
+    renderFooter()
+    const text = screen.getByTestId('footer').textContent ?? ''
+    expect(text).not.toContain('MIT-0')
+    expect(text).toContain('MIT License')
   })
 })

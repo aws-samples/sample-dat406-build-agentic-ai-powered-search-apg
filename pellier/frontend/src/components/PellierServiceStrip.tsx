@@ -1,7 +1,7 @@
 /**
  * PellierServiceStrip - retail assurances plus the Labs doorway.
  *
- * The shipping and returns figures match `FOOTER.BOTTOM_STRIP.SERVICE`. If
+ * The shipping and returns figures match `FOOTER.BOTTOM_STRIP.SERVICE_ITEMS`. If
  * one changes, change both: two different numbers for the same policy is the
  * kind of quiet contradiction a participant notices.
  */

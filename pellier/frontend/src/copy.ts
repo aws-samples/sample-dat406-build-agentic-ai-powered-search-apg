@@ -247,7 +247,7 @@ export const PELLIER_APPROACH = {
 
 /**
  * Service strip above the footer. The shipping and returns numbers match
- * `FOOTER.BOTTOM_STRIP.SERVICE`; change both together.
+ * `FOOTER.BOTTOM_STRIP.SERVICE_ITEMS`; change both together.
  */
 export const SERVICE_STRIP = {
   ITEMS: [
@@ -614,14 +614,38 @@ export const FOOTER = {
     CTA_LABEL: "Open Pellier Observatory",
     CTA_HREF: "/observatory",
   },
+  /** Payment-adjacent trust row, deliberately brand-free.
+   *
+   * Pellier has no checkout, so real network marks (Visa, Amex, Apple Pay)
+   * would advertise a capability that does not exist and would pull
+   * third-party trademarks into a public sample repository. The glyphs are
+   * generic card shapes and DISCLAIMER says plainly that nothing is charged. */
+  CHECKOUT: {
+    LABEL: "Secure checkout",
+    ARIA_LABEL: "Checkout security",
+  },
+  /** Stated outright rather than implied, because a storefront that looks
+   * this finished invites the assumption that it transacts. */
+  DISCLAIMER:
+    "Nothing here charges a card. Products, prices, reviews, and availability are synthetic data built for this workshop.",
   BOTTOM_STRIP: {
     COPYRIGHT: "\u00a9 Pellier",
-    /** Centered service line \u2014 retail boilerplate moved out of the
-     * hero capabilities strip so the strip can stay focused on agent
-     * claims. Lives in the footer where shipping/returns info belongs. */
-    SERVICE: "Free shipping over $150 | Returns within 30 days | Confirmed totals",
-    /** Right-hand credit in the footer strip (replaces workshop banner). */
-    ATTRIBUTION: "\u00a9 Shayon Sanyal",
+    /** Retail assurances, moved out of the hero capabilities strip so that
+     * strip can stay focused on agent claims. The shipping and returns
+     * figures must match SERVICE_STRIP.ITEMS below; two numbers for one
+     * policy is the kind of quiet contradiction a participant notices. */
+    SERVICE_ITEMS: [
+      "Free shipping over $150",
+      "Returns within 30 days",
+      "Confirmed totals",
+    ],
+    /** Licensing line. The repository is MIT, explicitly NOT MIT-0, and its
+     * NOTICE makes author attribution a condition of reuse rather than a
+     * courtesy - so the footer carries the licence and the credit, not one
+     * or the other. Keep in step with LICENSE and NOTICE. */
+    RIGHTS: "\u00a9 2026 Amazon Web Services",
+    LICENSE: "Sample code under the MIT License",
+    ATTRIBUTION: "Created by Shayon Sanyal",
   },
 } as const;
 
