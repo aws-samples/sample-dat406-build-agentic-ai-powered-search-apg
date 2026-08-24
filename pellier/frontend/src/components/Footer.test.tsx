@@ -140,6 +140,14 @@ describe('Footer — masthead and demo payment strip', () => {
         ({ id }) => `/assets/icons/payment/${id}.svg`,
       ),
     )
+    expect(
+      [...methods.querySelectorAll('img')].map((image) =>
+        image.getAttribute('height'),
+      ),
+    ).toEqual(['20', '20', '20', '20', '20', '20'])
+    for (const item of within(methods).getAllByRole('listitem')) {
+      expect(item).toHaveClass('h-9', 'px-2.5')
+    }
     for (const image of methods.querySelectorAll('img')) {
       expect(image).toHaveAttribute('alt', '')
       expect(image).toHaveAttribute('aria-hidden', 'true')
