@@ -126,13 +126,13 @@ function CheckoutTrust() {
         {FOOTER.CHECKOUT.PAYMENT_METHODS.map((method) => (
           <li
             key={method.id}
-            className="flex h-8 items-center justify-center rounded-[3px] border border-espresso/20 bg-cream-50 px-2"
+            className="flex h-9 shrink-0 items-center justify-center rounded-[3px] border border-espresso/20 bg-cream-50 px-2.5"
           >
             <img
               alt=""
               aria-hidden="true"
-              className="h-[18px] w-auto object-contain"
-              height={18}
+              className="h-5 w-auto object-contain"
+              height={20}
               src={`/assets/icons/payment/${method.id}.svg`}
             />
             <span className="sr-only">{method.label}</span>
