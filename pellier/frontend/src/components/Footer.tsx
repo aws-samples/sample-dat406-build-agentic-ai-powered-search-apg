@@ -6,7 +6,7 @@
  * 1:1 onto routes the router actually serves, and this revision keeps that
  * rule while giving the footer the weight a finished storefront has:
  *
- *   - Masthead:     brand lockup.
+ *   - Masthead:     brand lockup plus a disclosed demo payment strip.
  *   - Brand column: tagline plus what this storefront is, as badges. The
  *                   P mark now sits in the masthead, not here.
  *   - Explore:      The floor (`/#shop`), Stories, About.
@@ -18,11 +18,9 @@
  *                   earlier rewrite eliminated, and inventing them back would
  *                   undo it.
  *
- * This branch shows no payment glyphs at all: its badges state "No live
- * checkout", so even generic card shapes would contradict the copy beside
- * them. The palette is unchanged - sand (#e7e9ed) on espresso (#181a1f). The
- * reference design this borrows its structure from is dark; inverting Pellier
- * here would break the editorial system the rest of the storefront holds.
+ * The footer keeps official marks inside an explicitly disclosed demo checkout:
+ * no payment is processed, and no card is charged. The palette is unchanged -
+ * sand (#e7e9ed) on espresso (#181a1f).
  *
  * Copy from `FOOTER` in copy.ts.
  */
@@ -84,11 +82,8 @@ export default function Footer() {
 }
 
 /**
- * Brand lockup. Gives the footer a masthead instead of opening straight into a
- * sitemap. No payment glyphs here: this branch's own badges say "No live
- * checkout", and a "Secure checkout" row on the same screen would contradict
- * them. The flagship workshop, which carries real service assurances, shows
- * the glyph row instead.
+ * Brand lockup and the disclosed demo payment strip give the footer a storefront
+ * closing row rather than opening straight into a sitemap.
  */
 function Masthead() {
   return (
@@ -107,6 +102,43 @@ function Masthead() {
           Pellier
         </span>
       </div>
+      <CheckoutTrust />
+    </div>
+  )
+}
+
+function CheckoutTrust() {
+  return (
+    <div
+      data-testid="footer-checkout-trust"
+      className="flex flex-col gap-2 sm:items-end"
+    >
+      <span
+        data-testid="footer-checkout-label"
+        className="font-sans text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-quiet"
+      >
+        {FOOTER.CHECKOUT.LABEL}
+      </span>
+      <ul
+        aria-label={FOOTER.CHECKOUT.ARIA_LABEL}
+        className="grid w-fit grid-cols-3 gap-1.5 m-0 p-0 list-none sm:flex sm:flex-wrap sm:justify-end"
+      >
+        {FOOTER.CHECKOUT.PAYMENT_METHODS.map((method) => (
+          <li
+            key={method.id}
+            className="flex h-8 items-center justify-center rounded-[3px] border border-espresso/20 bg-cream-50 px-2"
+          >
+            <img
+              alt=""
+              aria-hidden="true"
+              className="h-[18px] w-auto object-contain"
+              height={18}
+              src={`/assets/icons/payment/${method.id}.svg`}
+            />
+            <span className="sr-only">{method.label}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

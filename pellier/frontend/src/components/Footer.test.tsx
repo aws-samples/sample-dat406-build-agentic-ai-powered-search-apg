@@ -103,7 +103,7 @@ describe('Footer — bottom strip', () => {
   })
 })
 
-describe('Footer — masthead and service badges', () => {
+describe('Footer — masthead, demo payment strip, and service badges', () => {
   it('renders the brand lockup in the masthead', () => {
     renderFooter()
     const masthead = screen.getByTestId('footer-masthead')
@@ -118,28 +118,33 @@ describe('Footer — masthead and service badges', () => {
     })
   })
 
-  it('shows no checkout-trust row, which would contradict "No live checkout"', () => {
-    // This branch ships no service assurances and its own badge says there is
-    // no checkout, so payment glyphs - even generic ones - would argue with
-    // the copy beside them.
+  it('renders official marks inside the disclosed demo contract', () => {
     renderFooter()
-    expect(screen.queryByTestId('footer-checkout-trust')).not.toBeInTheDocument()
-  })
-
-  it('never renders a payment-network wordmark', () => {
-    renderFooter()
-    const text = screen.getByTestId('footer').textContent ?? ''
-    for (const brand of [
-      'Visa',
-      'Mastercard',
-      'American Express',
-      'Amex',
-      'PayPal',
-      'Apple Pay',
-      'Google Pay',
-    ]) {
-      expect(text).not.toContain(brand)
+    expect(screen.getByTestId('footer-checkout-label')).toHaveTextContent(
+      FOOTER.CHECKOUT.LABEL,
+    )
+    const methods = screen.getByRole('list', {
+      name: FOOTER.CHECKOUT.ARIA_LABEL,
+    })
+    expect(
+      within(methods)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(FOOTER.CHECKOUT.PAYMENT_METHODS.map(({ label }) => label))
+    expect(
+      [...methods.querySelectorAll('img')].map((image) =>
+        image.getAttribute('src'),
+      ),
+    ).toEqual(
+      FOOTER.CHECKOUT.PAYMENT_METHODS.map(
+        ({ id }) => `/assets/icons/payment/${id}.svg`,
+      ),
+    )
+    for (const image of methods.querySelectorAll('img')) {
+      expect(image).toHaveAttribute('alt', '')
+      expect(image).toHaveAttribute('aria-hidden', 'true')
     }
+    expect(methods.textContent).not.toMatch(/hsa|fsa|eligible/i)
   })
 })
 

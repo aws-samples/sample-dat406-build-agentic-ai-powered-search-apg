@@ -268,16 +268,27 @@ export const FOOTER = {
    * this finished invites the assumption that it transacts. */
   DISCLAIMER:
     "Nothing here charges a card. Products, prices, reviews, and availability are synthetic data built for this workshop.",
+  /** Official owner artwork in the footer only. The visible label and the
+   * disclaimer keep the strip inside the same non-processing demo contract. */
+  CHECKOUT: {
+    LABEL: "Secure demo checkout",
+    ARIA_LABEL: "Secure demo checkout payment methods",
+    PAYMENT_METHODS: [
+      { id: "visa", label: "Visa" },
+      { id: "mastercard", label: "Mastercard" },
+      { id: "amex", label: "American Express" },
+      { id: "paypal", label: "PayPal" },
+      { id: "apple-pay", label: "Apple Pay" },
+      { id: "google-pay", label: "Google Pay" },
+    ],
+  },
   BOTTOM_STRIP: {
     COPYRIGHT: "\u00a9 Pellier",
     /** What this storefront actually is, as discrete badges.
      *
      * Deliberately NOT the shipping/returns assurances the flagship workshop
      * carries: this branch ships no service strip, so a "free shipping over
-     * $150" line here would invent a retail policy that exists nowhere else
-     * on it. For the same reason the footer shows no payment glyphs - "No
-     * live checkout" and a "Secure checkout" row on one screen contradict
-     * each other. */
+     * $150" line here would invent a retail policy that exists nowhere else. */
     SERVICE_ITEMS: ["Workshop demo", "Seeded catalog", "No live checkout"],
     /** Licensing line. The repository is MIT, explicitly NOT MIT-0, and its
      * NOTICE makes author attribution a condition of reuse rather than a
