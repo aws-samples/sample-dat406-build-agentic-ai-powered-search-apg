@@ -1539,7 +1539,15 @@ async def get_cedar_policies():
 
 
 @router.get("/tool-audit/recent")
-async def get_recent_tool_audit(limit: int = Query(default=10, ge=1, le=50)):
+async def get_recent_tool_audit(
+    limit: int = Query(default=10, ge=1, le=50),
+    tool: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z][a-z0-9_]*$",
+    ),
+):
     """Return the most recent rows from pellier.tool_audit, in reverse
     chronological order. Used by the Write-path surface to demonstrate
     that every ALLOWed tool call (read or write) is reconstructible
@@ -1551,10 +1559,17 @@ async def get_recent_tool_audit(limit: int = Query(default=10, ge=1, le=50)):
     try:
         from app import db_service
         if db_service is None:
-            return {"count": 0, "rows": []}
+            return {
+                "source": "pellier.tool_audit",
+                "filters": {"tool": tool},
+                "count": 0,
+                "rows": [],
+            }
 
+        where = "WHERE tool = %s" if tool else ""
+        params: list[Any] = [tool, limit] if tool else [limit]
         rows = await db_service.fetch_all(
-            """
+            f"""
             SELECT audit_id,
                    session_id,
                    tool,
@@ -1564,10 +1579,11 @@ async def get_recent_tool_audit(limit: int = Query(default=10, ge=1, le=50)):
                    latency_ms,
                    created_at
               FROM pellier.tool_audit
+              {where}
              ORDER BY audit_id DESC
              LIMIT %s
             """,
-            limit,
+            *params,
         )
         normalized = []
         for r in rows:
@@ -1577,7 +1593,12 @@ async def get_recent_tool_audit(limit: int = Query(default=10, ge=1, le=50)):
             if d.get("created_at") is not None:
                 d["created_at"] = d["created_at"].isoformat()
             normalized.append(d)
-        return {"count": len(normalized), "rows": normalized}
+        return {
+            "source": "pellier.tool_audit",
+            "filters": {"tool": tool},
+            "count": len(normalized),
+            "rows": normalized,
+        }
     except Exception as exc:
         logger.error("Failed to load tool_audit: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load tool audit")  # copy-allow: agent-trace-error-detail

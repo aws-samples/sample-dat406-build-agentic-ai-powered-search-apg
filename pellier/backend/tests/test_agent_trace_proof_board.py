@@ -70,6 +70,30 @@ class _ProofDB:
         }
 
 
+class _AuditDB(_ProofDB):
+    def __init__(self) -> None:
+        self.fetch_all_calls: list[tuple[str, tuple[Any, ...]]] = []
+
+    async def fetch_all(
+        self,
+        query: str,
+        *params: Any,
+    ) -> list[dict[str, Any]]:
+        self.fetch_all_calls.append((query, params))
+        return [
+            {
+                "audit_id": 101,
+                "session_id": "marco-proof",
+                "tool": "floor_check",
+                "caller": "agent",
+                "args": {"product_query": "Hadley shirt"},
+                "result": {"status": "success"},
+                "latency_ms": 42,
+                "created_at": None,
+            }
+        ]
+
+
 def _client(stub_db: _ProofDB) -> TestClient:
     import app as app_module
 
@@ -177,6 +201,24 @@ def test_floor_check_runner_executes_participant_tool_before_agent_grant(
 
     assert response.status_code == 200
     assert response.json()["product_query"] == "Hadley shirt"
+
+
+def test_recent_tool_audit_filters_by_tool_and_names_aurora_source() -> None:
+    db = _AuditDB()
+    client = _client(db)
+
+    response = client.get(
+        "/api/agent-trace/tool-audit/recent",
+        params={"tool": "floor_check", "limit": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "pellier.tool_audit"
+    assert response.json()["filters"] == {"tool": "floor_check"}
+    assert response.json()["rows"][0]["audit_id"] == 101
+    query, params = db.fetch_all_calls[-1]
+    assert "WHERE tool = %s" in query
+    assert params == ("floor_check", 1)
 
 
 def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:

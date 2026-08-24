@@ -266,6 +266,72 @@ def compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def receipt(args: argparse.Namespace) -> int:
+    payload = _request_json(
+        args.base_url,
+        "/api/agent-trace/tool-audit/recent",
+        query={"tool": "floor_check", "limit": "1"},
+        timeout=10,
+    )
+    rows = payload.get("rows") or []
+    row = rows[0] if rows and isinstance(rows[0], dict) else {}
+    result = row.get("result")
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            result = {}
+    if not isinstance(result, dict):
+        result = {}
+
+    brooklyn = next(
+        (
+            warehouse
+            for warehouse in result.get("warehouses", [])
+            if isinstance(warehouse, dict)
+            and (
+                warehouse.get("city") == "Brooklyn"
+                or warehouse.get("warehouse_id") == "BK-01"
+            )
+        ),
+        None,
+    )
+    proof = {
+        "source": payload.get("source"),
+        "auditId": row.get("audit_id"),
+        "sessionId": row.get("session_id"),
+        "tool": row.get("tool"),
+        "caller": row.get("caller"),
+        "args": row.get("args"),
+        "result": result,
+        "latencyMs": row.get("latency_ms"),
+        "createdAt": row.get("created_at"),
+    }
+    print(json.dumps(proof, indent=2))
+
+    valid = (
+        proof["source"] == "pellier.tool_audit"
+        and isinstance(proof["auditId"], int)
+        and bool(proof["sessionId"])
+        and proof["tool"] == "floor_check"
+        and proof["caller"] == "agent"
+        and isinstance(proof["latencyMs"], int)
+        and result.get("status") == "success"
+        and isinstance(brooklyn, dict)
+        and isinstance(brooklyn.get("quantity"), int)
+        and isinstance(brooklyn.get("ship_window_min"), int)
+        and isinstance(brooklyn.get("ship_window_max"), int)
+    )
+    if not valid:
+        print(
+            "No complete agent floor_check receipt was found in "
+            "pellier.tool_audit.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
 def ledger(args: argparse.Namespace) -> int:
     session_id = args.session or (
         f"builders-ledger-{int(time.time())}-{secrets.token_hex(4)}"
@@ -353,6 +419,9 @@ def parser() -> argparse.ArgumentParser:
         default=Path("/tmp/retrieval-comparison.json"),
     )
     compare_parser.set_defaults(handler=compare)
+
+    receipt_parser = commands.add_parser("receipt")
+    receipt_parser.set_defaults(handler=receipt)
 
     ledger_parser = commands.add_parser("ledger")
     ledger_parser.add_argument("--session")

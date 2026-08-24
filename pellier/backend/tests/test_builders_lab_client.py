@@ -199,6 +199,73 @@ def test_compare_writes_full_response_and_checks_filters(
     assert '"priceMaxUsd": 100' in output.read_text(encoding="utf-8")
 
 
+def test_receipt_requires_agent_floor_check_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _load_client()
+    seen: dict[str, Any] = {}
+
+    def fake_request(
+        _base_url: str,
+        path: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        seen["path"] = path
+        seen["query"] = kwargs["query"]
+        return {
+            "source": "pellier.tool_audit",
+            "count": 1,
+            "rows": [
+                {
+                    "audit_id": 81,
+                    "session_id": "marco-session",
+                    "tool": "floor_check",
+                    "caller": "agent",
+                    "args": {"product_query": "Hadley shirt"},
+                    "result": {
+                        "status": "success",
+                        "warehouses": [
+                            {
+                                "warehouse_id": "BK-01",
+                                "city": "Brooklyn",
+                                "quantity": 8,
+                                "ship_window_min": 1,
+                                "ship_window_max": 2,
+                            }
+                        ],
+                    },
+                    "latency_ms": 19,
+                    "created_at": "2026-08-24T12:00:00+00:00",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(client, "_request_json", fake_request)
+
+    assert client.receipt(argparse.Namespace(base_url="http://example")) == 0
+    assert seen == {
+        "path": "/api/agent-trace/tool-audit/recent",
+        "query": {"tool": "floor_check", "limit": "1"},
+    }
+
+
+def test_receipt_rejects_missing_audit_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _load_client()
+    monkeypatch.setattr(
+        client,
+        "_request_json",
+        lambda *_args, **_kwargs: {
+            "source": "pellier.tool_audit",
+            "count": 0,
+            "rows": [],
+        },
+    )
+
+    assert client.receipt(argparse.Namespace(base_url="http://example")) == 1
+
+
 def test_ledger_reuses_one_ownership_token_and_writes_session(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

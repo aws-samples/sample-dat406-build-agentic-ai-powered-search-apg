@@ -220,11 +220,17 @@ else
   fail "Exercise 2 comparison failed - see /tmp/dryrun-retrieval.err"
 fi
 
-# --- 5. Optional deeper action receipt -------------------------------------
-echo "[5/6] Optional deeper trace - pellier.tool_audit"
+# --- 5. Required durable action receipt ------------------------------------
+echo "[5/6] Required execution evidence - pellier.tool_audit"
+if uv run "${REPO}/scripts/builders_lab.py" \
+    --base-url "$BASE" receipt >/tmp/dryrun-tool-receipt.json; then
+  pass "Participant receipt command verified the latest agent floor_check row"
+else
+  fail "Participant receipt command did not verify the floor_check row"
+fi
 n="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='floor_check' AND session_id LIKE 'dryrun-%';")"
 if [[ "${n:-0}" =~ ^[0-9]+$ ]] && (( n > 0 )); then
-  pass "tool_audit has $n floor_check row(s) for this dry run"
+  pass "Session-specific SQL found $n floor_check row(s) for this dry run"
 else
   fail "No tool_audit row for floor_check — audit writer not firing"
 fi
