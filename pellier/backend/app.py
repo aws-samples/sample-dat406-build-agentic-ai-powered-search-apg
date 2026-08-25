@@ -627,6 +627,21 @@ async def health_check():
 # been removed — don't re-add it; the router owns that path.
 
 
+_LIKE_METACHARACTERS = re.compile(r"([\\%_])")
+
+
+def _prepare_like_pattern(term: str) -> str:
+    """Neutralize shopper text for use inside an ILIKE pattern.
+
+    Escapes the LIKE metacharacters (``\\``, ``%``, ``_``) so the input
+    matches literally, then adds the surrounding wildcards. The value is
+    still sent to PostgreSQL as a bound parameter — escaping here only
+    stops a stray ``%`` or ``_`` from acting as a wildcard.
+    """
+    escaped = _LIKE_METACHARACTERS.sub(r"\\\1", term)
+    return f"%{escaped}%"
+
+
 @app.get("/api/products/category/{category_query}")
 async def explore_collection(
     category_query: str,
@@ -660,13 +675,8 @@ async def explore_collection(
             LIMIT %s
         """
 
-        results = await db.fetch_all(
-            query,
-            f"%{category_query}%",
-            f"%{category_query}%",
-            f"%{category_query}%",
-            limit,
-        )
+        pattern = _prepare_like_pattern(category_query)
+        results = await db.fetch_all(query, pattern, pattern, pattern, limit)
         logger.info(f"📦 Found {len(results)} products in category")
         
         return {
@@ -1657,7 +1667,7 @@ async def autocomplete(
             ORDER BY reviews DESC
             LIMIT %s
         """
-        results = await db.fetch_all(query, f"%{q}%", limit)
+        results = await db.fetch_all(query, _prepare_like_pattern(q), limit)
         return {"suggestions": [{
             "text": r["name"][:60],
             "category": r["category"]
