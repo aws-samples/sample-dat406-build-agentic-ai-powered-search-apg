@@ -86,16 +86,24 @@ fi
 # The event AMI is pinned and carries the AL2023 Node 20 package. Keeping the
 # distro package avoids introducing a moving third-party repository during
 # bootstrap.
+#
+# Ask for nodejs20-npm by name, never the virtual `npm`: on AL2023 `npm`
+# resolves to nodejs-npm, which drags Node 18 in alongside Node 20. Both
+# packages register /usr/bin/node in the same `alternatives` group at the SAME
+# priority (100), and a tie leaves whichever registered first selected - Node
+# 18, because dnf orders it earlier in the transaction. So `--set` is what
+# actually chooses the version here. `--install` only registers, and
+# re-registering node-20 without repeating its --slave arguments nulls the
+# npm/npx slaves and deletes /usr/bin/npm.
 # ----------------------------------------------------------------------------
 log "Installing Node.js 20 for the frontend and Claude Code..."
 
 _node_major() { node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1; }
 _node20_ok=false
 for attempt in 1 2; do
-    dnf install -y -q --allowerasing nodejs20 npm >/dev/null 2>&1 || true
+    dnf install -y -q --allowerasing nodejs20 nodejs20-npm >/dev/null 2>&1 || true
     if [ -x /usr/bin/node-20 ]; then
-        update-alternatives --install /usr/bin/node node /usr/bin/node-20 100 \
-            >/dev/null 2>&1 || true
+        update-alternatives --set node /usr/bin/node-20 >/dev/null 2>&1 || true
     fi
     _maj="$(_node_major)"
     if echo "$_maj" | grep -qE '^[0-9]+$' && [ "$_maj" -ge 20 ]; then
@@ -107,10 +115,9 @@ for attempt in 1 2; do
 done
 
 if [ "$_node20_ok" = true ]; then
-    # Pin this node ahead of anything else so `node`/`npx` resolve to 20.
-    _node_bin="$(command -v node 2>/dev/null || true)"
-    [ -n "$_node_bin" ] && update-alternatives --install /usr/bin/node node "$_node_bin" 100 >/dev/null 2>&1 || true
-    log "✅ Node.js installed and pinned: $(node --version 2>/dev/null)"
+    # `--set` above already pinned the group in manual mode, so nothing else can
+    # win /usr/bin/node later in the bootstrap.
+    log "✅ Node.js installed and pinned: $(node --version 2>/dev/null) ($(readlink -f /usr/bin/node 2>/dev/null))"
 
     # TypeScript compiler (tsc), global. The required AgentCore Memory path is a
     # TypeScript/Node tool, and its `deploy` build step shells out to `tsc`
@@ -185,6 +192,9 @@ else
     if ! command -v node >/dev/null 2>&1; then
         dnf install --skip-broken -y -q nodejs >/dev/null 2>&1 || true
     fi
+    # This failure is a selection problem far more often than a missing package,
+    # and the alternatives group shows which node won and why.
+    alternatives --display node 2>&1 | head -20 || true
     error "Node 20 install failed after retries - node is $(node --version 2>/dev/null || echo 'none')"
 fi
 
