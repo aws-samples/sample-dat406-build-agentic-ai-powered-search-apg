@@ -51,6 +51,16 @@ upsert_env() {
     fi
 }
 
+# .pgpass is colon-delimited; libpq requires a backslash before any literal
+# ':' or '\' inside a field. Escape backslashes FIRST so the escape character
+# introduced by the second substitution is never itself re-escaped.
+pgpass_escape() {
+  local value=$1
+  value=${value//\\/\\\\}
+  value=${value//:/\\:}
+  printf '%s' "$value"
+}
+
 log "=========================================="
 log "Pellier Stage 2: Labs Bootstrap (Optimized)"
 log "=========================================="
@@ -192,6 +202,16 @@ if [ -n "$DB_HOST" ]; then
     # the quotes, any $ in DB_PASSWORD would expand at source time
     # — a real failure mode where a generated password containing
     # `$Z…` triggered "unbound variable" errors under `set -u`.
+    #
+    # DB_PASSWORD and PGPASSWORD use bash's ${VAR@Q} quoting transform rather
+    # than a hand-written '${DB_PASSWORD}' literal, so this line does not
+    # depend on the master secret ever excluding a literal single quote. The
+    # secret is in fact generated with ExcludeCharacters '"@/\'' (i.e. " @ /
+    # \ ') — see MasterSecret.GenerateSecretString in assets/pellier-database.yml
+    # in both Workshop Studio repos that consume this source — but @Q means
+    # this site no longer relies on that. It also does NOT exclude ':', which
+    # is why the .pgpass write below goes through pgpass_escape instead of
+    # trusting the secret's character set.
     cat > "$REPO_PATH/.env" << EOF
 DB_SECRET_ARN='${DB_SECRET_ARN:-}'
 DB_CLUSTER_ARN='${DB_CLUSTER_ARN}'
@@ -199,12 +219,12 @@ DB_HOST='${DB_HOST}'
 DB_PORT='${DB_PORT}'
 DB_NAME='${DB_NAME}'
 DB_USER='${DB_USER}'
-DB_PASSWORD='${DB_PASSWORD}'
+DB_PASSWORD=${DB_PASSWORD@Q}
 DATABASE_URL='postgresql://${DB_USER}:${DB_PASSWORD_URLENC}@${DB_HOST}:${DB_PORT}/${DB_NAME}'
 PGHOST='${DB_HOST}'
 PGPORT='${DB_PORT}'
 PGUSER='${DB_USER}'
-PGPASSWORD='${DB_PASSWORD}'
+PGPASSWORD=${DB_PASSWORD@Q}
 PGDATABASE='${DB_NAME}'
 AWS_REGION='${AWS_REGION}'
 AWS_DEFAULT_REGION='${AWS_REGION}'
@@ -235,7 +255,20 @@ EOF
         mkdir -p "$PGPASS_DIR"
         chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$PGPASS_DIR"
     fi
-    echo "$DB_HOST:$DB_PORT:$DB_NAME:$DB_USER:$DB_PASSWORD" > "$PGPASS_DIR/.pgpass"
+    # Route every field through pgpass_escape, not just the password. The
+    # master secret's ExcludeCharacters (MasterSecret.GenerateSecretString in
+    # assets/pellier-database.yml, both Workshop Studio repos that consume
+    # this source) excludes " @ / \ ' but NOT ':', so an unescaped colon in a
+    # generated password silently shifts every later field and psql fails
+    # auth against a .pgpass that looks correct. This is a per-deploy coin
+    # flip: the password regenerates on every stack.
+    printf '%s:%s:%s:%s:%s\n' \
+        "$(pgpass_escape "$DB_HOST")" \
+        "$(pgpass_escape "$DB_PORT")" \
+        "$(pgpass_escape "$DB_NAME")" \
+        "$(pgpass_escape "$DB_USER")" \
+        "$(pgpass_escape "$DB_PASSWORD")" \
+        > "$PGPASS_DIR/.pgpass"
     chmod 600 "$PGPASS_DIR/.pgpass"
     chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$PGPASS_DIR/.pgpass"
 
@@ -491,16 +524,22 @@ setup_database() {
         # cannot import it. Without sudo -u the seeder dies with
         # ModuleNotFoundError and the catalog stays empty — cascading silent
         # failures into 003's persona-orders JOIN. ----
-        sudo -u "$CODE_EDITOR_USER" bash -c "
-            export DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME'
-            export DB_USER='$DB_USER' DB_PASSWORD='$DB_PASSWORD'
-            export AWS_REGION='$AWS_REGION'
-            export ASSETS_BUCKET_NAME='${ASSETS_BUCKET_NAME:-}'
-            export ASSETS_BUCKET_PREFIX='${ASSETS_BUCKET_PREFIX:-}'
-            export DATABASE_URL='$DATABASE_URL'
-            cd '$REPO_PATH'
-            python3 scripts/seed_pellier_catalog.py --from-cache
-        " 2>&1 | tee /var/log/database-setup.log
+        # DB_USER/DB_PASSWORD are passed via `env NAME=value`, never
+        # interpolated into the bash -c string, so a literal ' or \ in the
+        # generated password cannot break out of shell quoting here. (The
+        # master secret's ExcludeCharacters excludes " @ / \ ' today — see
+        # MasterSecret.GenerateSecretString in assets/pellier-database.yml,
+        # both Workshop Studio repos — but this site does not depend on it.)
+        sudo -u "$CODE_EDITOR_USER" env \
+            DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+            DB_USER="$DB_USER" DB_PASSWORD="$DB_PASSWORD" \
+            AWS_REGION="$AWS_REGION" \
+            ASSETS_BUCKET_NAME="${ASSETS_BUCKET_NAME:-}" \
+            ASSETS_BUCKET_PREFIX="${ASSETS_BUCKET_PREFIX:-}" \
+            DATABASE_URL="$DATABASE_URL" \
+            REPO_PATH="$REPO_PATH" \
+            bash -c 'cd "$REPO_PATH" && python3 scripts/seed_pellier_catalog.py --from-cache' \
+            2>&1 | tee /var/log/database-setup.log
         local seed_rc=${PIPESTATUS[0]}
         if [ "$seed_rc" -ne 0 ]; then
             warn "Pellier catalog seed failed (rc=$seed_rc) — see /var/log/database-setup.log"
@@ -558,14 +597,16 @@ setup_database() {
         # render zero rows if the seed is skipped. ----
         if [ -f "$REPO_PATH/scripts/seed_tool_registry.py" ]; then
             log "Seeding pellier.tools registry..."
-            sudo -u "$CODE_EDITOR_USER" bash -c "
-                export DB_HOST='$DB_HOST' DB_PORT='$DB_PORT' DB_NAME='$DB_NAME'
-                export DB_USER='$DB_USER' DB_PASSWORD='$DB_PASSWORD'
-                export AWS_REGION='$AWS_REGION'
-                export DATABASE_URL='$DATABASE_URL'
-                cd '$REPO_PATH'
-                python3 scripts/seed_tool_registry.py
-            " 2>&1 | tee -a /var/log/database-setup.log
+            # Same env-passing rationale as the seeder call above — no
+            # credential is interpolated into a string a nested shell parses.
+            sudo -u "$CODE_EDITOR_USER" env \
+                DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+                DB_USER="$DB_USER" DB_PASSWORD="$DB_PASSWORD" \
+                AWS_REGION="$AWS_REGION" \
+                DATABASE_URL="$DATABASE_URL" \
+                REPO_PATH="$REPO_PATH" \
+                bash -c 'cd "$REPO_PATH" && python3 scripts/seed_tool_registry.py' \
+                2>&1 | tee -a /var/log/database-setup.log
             local tool_rc=${PIPESTATUS[0]}
             if [ "$tool_rc" -ne 0 ]; then
                 warn "Tool registry seed failed (rc=$tool_rc) — Observatory tool-registry tab will show zero rows"
@@ -621,7 +662,31 @@ log "✅ Start scripts created"
 # ============================================================================
 log "Configuring bash environment..."
 
-cat >> "/home/$CODE_EDITOR_USER/.bashrc" << 'EOF'
+# Managed block, not a bare `cat >>`. A second bootstrap run (a stack
+# update, or a manual re-run to recover from a failed step) used to
+# duplicate every export and alias below verbatim. Stripping any
+# previously-installed block before re-appending makes this idempotent.
+# Reference pattern: setup_code_editor_bashrc() and its atomic_write helper in
+# self-service-workshop-on-pgvector-for-generative-ai-use-cases/assets/prereq.sh
+# (~line 492 and ~line 876) — adapted here rather than copied verbatim.
+BASHRC="/home/$CODE_EDITOR_USER/.bashrc"
+BASHRC_BEGIN='# BEGIN PELLIER WORKSHOP ENV'
+BASHRC_END='# END PELLIER WORKSHOP ENV'
+BASHRC_TMP="${BASHRC}.tmp.$$"
+
+if [ -f "$BASHRC" ]; then
+    awk -v b="$BASHRC_BEGIN" -v e="$BASHRC_END" '
+        $0 == b { inblock = 1; next }
+        $0 == e { inblock = 0; next }
+        !inblock { print }
+    ' "$BASHRC" > "$BASHRC_TMP"
+else
+    : > "$BASHRC_TMP"
+fi
+
+{
+printf '%s\n' "$BASHRC_BEGIN"
+cat << 'EOF'
 
 # ============================================================================
 # Pellier Workshop Environment
@@ -637,13 +702,18 @@ if [ -f /workshop/sample-pellier-agentic-search-apg/.env ]; then
     set -a
     source /workshop/sample-pellier-agentic-search-apg/.env
     set +a
-    
+
     # Explicitly export PostgreSQL variables for psql
     export PGHOST
     export PGPORT
     export PGUSER
-    export PGPASSWORD
     export PGDATABASE
+    # PGPASSWORD is deliberately NOT exported here. .pgpass (written by
+    # bootstrap-labs.sh, mode 0600, fields escaped via pgpass_escape) is what
+    # psql actually uses; exporting the password too would leak it into every
+    # child process's environment for no benefit, and would mask a broken
+    # .pgpass instead of surfacing it — the whole point of the participant
+    # env -i proof run during bootstrap.
     # Aurora accepts TLS but does not force it unless rds.force_ssl is set, so
     # ask for it here rather than relying on the cluster parameter group.
     export PGSSLMODE=require
@@ -712,13 +782,12 @@ if [ "$PWD" = "$HOME" ] || [ "$PWD" = "/workshop" ]; then
     cd /workshop/sample-pellier-agentic-search-apg 2>/dev/null || true
 fi
 EOF
-
 # Format-specific aliases (builders: no sudo; workshop: systemctl — passwordless via STEP 14 sudoers)
 # Both formats run the backend via the pellier systemd unit (builders gets
 # --reload baked into ExecStart). The backend is ALWAYS running, so
 # `start-backend` is really "restart" and most participants never need it.
 # `rebuild-frontend` is only for the rare .tsx edit (the lab is backend Python).
-cat >> "/home/$CODE_EDITOR_USER/.bashrc" << 'ALS'
+cat << 'ALS'
 # --- Pellier aliases (systemd unit ``pellier``, serves SPA + /api on :8000) ---
 # Backend runs automatically and (builders) reloads on .py save — you normally
 # never run these. Restart only if you want a clean bounce.
@@ -726,6 +795,12 @@ alias start-backend='sudo systemctl restart pellier && journalctl -fu pellier --
 alias rebuild-frontend='bash /workshop/sample-pellier-agentic-search-apg/scripts/rebuild-frontend-builders.sh'
 alias reset-governed='bash /workshop/sample-pellier-agentic-search-apg/scripts/reset-governed-workshop.sh'
 ALS
+printf '%s\n' "$BASHRC_END"
+} >> "$BASHRC_TMP"
+
+mv "$BASHRC_TMP" "$BASHRC"
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$BASHRC"
+chmod 644 "$BASHRC"
 
 log "✅ Bash environment configured (.bashrc updated with psql support)"
 
