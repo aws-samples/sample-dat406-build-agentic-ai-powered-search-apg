@@ -214,10 +214,20 @@ if [ -n "$DB_HOST" ]; then
     # depend on the master secret ever excluding a literal single quote. The
     # secret is in fact generated with ExcludeCharacters '"@/\'' (i.e. " @ /
     # \ ') — see MasterSecret.GenerateSecretString in assets/pellier-database.yml
-    # in both Workshop Studio repos that consume this source — but @Q means
-    # this site no longer relies on that. It also does NOT exclude ':', which
-    # is why the .pgpass write below goes through pgpass_escape instead of
-    # trusting the secret's character set.
+    # in both Workshop Studio repos that consume this source. @Q removes the
+    # dependency for every consumer that is a shell, which is most of them
+    # (`source .env`). It does NOT remove it for systemd: the pellier.service
+    # unit below reads this same file via EnvironmentFile=, and systemd parses
+    # it with its own simple syntax, not a shell. For a value containing a
+    # literal single quote, @Q emits the shell idiom 'a'\'''b', which systemd
+    # does not understand. So the systemd path is still safe only because the
+    # secret excludes '\'''. Measured: @Q emits plain single-quoted output for
+    # $, backtick, ;, backslash and space, so those are genuinely covered.
+    # Widening ExcludeCharacters to permit a quote would break the unit while
+    # leaving every shell site correct — a hard failure to trace.
+    #
+    # The secret also does NOT exclude ':', which is why the .pgpass write
+    # below goes through pgpass_escape instead of trusting the character set.
     cat > "$REPO_PATH/.env" << EOF
 DB_SECRET_ARN='${DB_SECRET_ARN:-}'
 DB_CLUSTER_ARN='${DB_CLUSTER_ARN}'
