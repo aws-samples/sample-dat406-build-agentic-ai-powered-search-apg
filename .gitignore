@@ -99,3 +99,7 @@ reference/
 # Playwright artifacts
 pellier/frontend/playwright-report/
 pellier/frontend/test-results/
+
+# Python tool caches
+.ruff_cache/
+.mypy_cache/
