@@ -35,11 +35,6 @@ EXPERIENCE_TARGET = "pellier-concierge-experience-target"
 INITIATE_RETURN_ACTION = f"{EXPERIENCE_TARGET}___initiate_return"
 RESTOCK_ACTION = "pellier-discovery-search-target___restock_inventory"
 ISSUE_CREDIT_ACTION = "pellier-concierge-experience-target___issue_credit"
-# The Cognito group that authorizes operator-only capability. Must equal
-# `pellier/backend/services/auth.py::OPERATOR_GROUP`; `test_fresh_policy_set.py` asserts
-# the two agree, because a group name that drifts between the FastAPI boundary and the
-# Cedar boundary produces a system where each layer believes the other is enforcing.
-OPERATOR_GROUP = "pellier-operators"
 WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
 RUNTIME_SOURCE_FILES = (
     Path("agentcore_runtime.py"),
@@ -126,37 +121,34 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
     Deferred tools are not published at all, so they need no forbid: `issue_credit` and
     `get_ticket_history` have no action id on a fresh Gateway.
 
-    4. `forbid_restock_without_operator_group`: restocking requires membership in
-       `OPERATOR_GROUP`, enforced HERE and not only in FastAPI.
+    WHY THERE IS NO OPERATOR-AUTHORIZATION POLICY HERE
+    --------------------------------------------------
 
-    That fourth policy exists because the FastAPI boundary is not the only way in. A
-    shopper holding a storefront token can call the Gateway directly, so an authorization
-    rule that lives only in `require_operator` is bypassable by the very rail this
-    workshop teaches participants to trust.
+    Operator authorization is enforced at the API boundary only
+    (`services/auth.py::require_operator`, on every `/api/operator` route). There is no
+    Gateway-side defence-in-depth for it, and that is a structural limit rather than an
+    omission. The desk invokes exactly two capabilities:
 
-    It names ONE action, with `action ==`, and only an action this Gateway publishes. An
-    earlier version named `issue_credit` too, reasoning that gating an unpublished action
-    "costs nothing and closes the publication window in advance". That reasoning is wrong
-    against this engine, and the repository already knew it. Two failures were measured
-    against the live policy engine and recorded in the module docstring of
-    `scripts/migrate_gateway_vocabulary.py`:
+      `initiate_return`  published and permitted, but SHARED with the shopper rail. It is
+                         Lab 4's whole subject, so it cannot carry an operator-only
+                         condition without destroying the exercise.
+      `issue_credit`     the only genuinely operator-only capability, and deferred, so a
+                         fresh Gateway has no action id for it. A policy naming it is
+                         rejected as `unrecognized action`.
 
-      * `unrecognized action AgentCore::Action::"..."` for any id absent from the live
-        Gateway schema. A policy can never be widened ahead of the Gateway, so naming a
-        deferred tool does not pre-gate it: under FAIL_ON_ANY_FINDINGS the whole policy
-        is rejected, and UPDATE_FAILED does not roll the stored definition back.
-      * a CONDITIONAL policy must stay pinned to a single `action ==` id. Widening to
-        `action in [A, B]` widens the scope the validator type-checks the condition
-        against, which is exactly how the original two-action set failed.
+    A previous version of this function gated `restock_inventory` on a Cognito group and
+    called that operator enforcement. It was not. `restock_inventory` is an Inventory
+    Agent tool with no operator route, and it already has no matching permit, so both an
+    operator and a shopper are denied either way. The policy changed the recorded reason
+    and no outcome, while risking the entire provision: an unproven
+    `getTag(...).contains(...)` under FAIL_ON_ANY_FINDINGS fails `agentcore deploy`, and
+    a failed deploy means no Gateway, no Runtime and no Memory.
 
-    So `issue_credit` is governed by `require_operator` alone while it stays deferred.
-    That is a real gap in depth-of-defence, stated rather than implied: when the tool is
-    published, add a SECOND single-action policy of this shape rather than extending
-    this one.
-
-    It is a `forbid`, so it composes with the default-deny above rather than granting
-    anything: `restock_inventory` still has no permit, and this makes the refusal explicit
-    and attributable instead of an absence.
+    WHEN AN OPERATOR-ONLY TOOL IS INTENTIONALLY PUBLISHED, add a separate
+    single-action policy for it, using the group name from
+    `services/auth.py::OPERATOR_GROUP`, and live-validate it before release.
+    `tests/test_fresh_policy_set.py` fails if a baseline policy claims operator
+    enforcement without one, so this cannot be re-added decoratively.
     """
     gateway_type = "resource is AgentCore::Gateway"
 
@@ -194,33 +186,6 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
                 "  ],\n"
                 f"  {gateway_type}\n"
                 ");"
-            ),
-            "validationMode": "FAIL_ON_ANY_FINDINGS",
-            "enforcementMode": "ACTIVE",
-        },
-        {
-            "name": "forbid_restock_without_operator_group",
-            "description": (
-                f"Restocking requires the {OPERATOR_GROUP} Cognito group, "
-                "at the Gateway as well as in the API"
-            ),
-            # `action ==` on ONE id, and only an id this Gateway publishes. Both
-            # constraints were measured against this engine rather than inferred; see the
-            # module docstring of `scripts/migrate_gateway_vocabulary.py`. A conditional
-            # policy over `action in [A, B]` is the shape that failed, and naming the
-            # deferred `issue_credit` would be rejected outright as an unrecognized
-            # action. The condition is principal-only: no `context.input`, which is the
-            # attribute the validator could not find on sibling action types.
-            "statement": (
-                "forbid (\n"
-                "  principal,\n"
-                f'  action == AgentCore::Action::"{RESTOCK_ACTION}",\n'
-                f"  {gateway_type}\n"
-                ")\n"
-                "unless {\n"
-                '  principal.hasTag("cognito:groups") &&\n'
-                f'  principal.getTag("cognito:groups").contains("{OPERATOR_GROUP}")\n'
-                "};"
             ),
             "validationMode": "FAIL_ON_ANY_FINDINGS",
             "enforcementMode": "ACTIVE",

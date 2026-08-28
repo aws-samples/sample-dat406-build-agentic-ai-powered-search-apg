@@ -61,8 +61,15 @@ async def get_current_user(request: Request) -> Optional[Dict[str, Any]]:
     return payload
 
 
-# The Cognito group that authorizes the operator desk. One name, checked here and named
-# in the Cedar baseline, so the FastAPI boundary and the Gateway boundary agree.
+# The Cognito group that authorizes the operator desk.
+#
+# THE ONLY PLACE operator authorization is enforced. There is no Gateway-side
+# defence-in-depth: the one genuinely operator-only capability (`issue_credit`) is
+# deferred, so a fresh Gateway has no action id a Cedar policy could name, and the one
+# published capability the desk uses (`initiate_return`) is shared with the shopper rail
+# and is Lab 4's subject. See `baseline_policies` in
+# `scripts/deploy/render_agentcore_project.py`, which records what to add when an
+# operator-only tool is published.
 OPERATOR_GROUP = "pellier-operators"
 
 
@@ -76,11 +83,10 @@ async def require_operator(request: Request) -> Dict[str, Any]:
     **Authentication is not authorization.** This function used to stop at "the token
     verifies and carries a subject", which made every shopper an operator: `marco` could
     confirm, decline and execute any review, and call ``issue_credit`` directly. The
-    module docstring in ``routes/operator.py`` even explained that Cedar forbids
-    ``issue_credit`` for shopper principals "because a shopper-facing agent must never
-    issue itself store credit" — while this dependency handed the same capability to the
-    same shopper through the desk. A workshop whose subject is governance cannot ship
-    that.
+    module docstring in ``routes/operator.py`` even explained why a shopper-facing agent
+    must never issue itself store credit, while this dependency handed the same capability
+    to the same shopper through the desk. A workshop whose subject is governance cannot
+    ship that.
 
     Membership in ``OPERATOR_GROUP`` is now required, and the two failure modes are
     deliberately different status codes:

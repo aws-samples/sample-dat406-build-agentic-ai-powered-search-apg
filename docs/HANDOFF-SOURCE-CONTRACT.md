@@ -55,41 +55,47 @@ as being signed in.
 | authenticated, not in the group | `403 operator_group_required` |
 | member of `pellier-operators` | access |
 
-Enforced in three places that must agree:
+Enforced in **one** place, and the honesty of that number matters:
 
 1. `services/auth.py::require_operator`, declared once on the `APIRouter` so a new route
    inherits the boundary rather than being forgotten.
-2. The Cedar baseline's `forbid_restock_without_operator_group`, because a shopper holding
-   a storefront token can call the Gateway directly. An authorization rule that lives only
-   in FastAPI is bypassable through the very rail the workshop teaches participants to
-   trust.
+2. `bootstrap-labs.sh` creates the group and its one member, **verifies membership rather
+   than assuming it** (every create call tolerates "already exists", so success of the
+   calls proves nothing), and asserts that no shopper is in it. Health-gate check 11
+   refuses readiness when the operator is not a member, and fails when a shopper is. That
+   second case is the regression to watch: it restores the original defect through a
+   configuration change that looks legitimate.
 
-   **It covers `restock_inventory` only, and that is a real limit.** Two constraints were
-   measured against this policy engine, not inferred, and both are recorded in
-   `scripts/migrate_gateway_vocabulary.py`:
+### There is no Gateway defence-in-depth for operator authorization
 
-   * A policy may name only action ids the live Gateway already publishes. Naming a
-     deferred tool does not pre-gate it; under `FAIL_ON_ANY_FINDINGS` the whole policy is
-     rejected as `unrecognized action`, and `UPDATE_FAILED` does not roll the stored
-     definition back.
-   * A conditional policy must pin a single `action ==` id. Widening to `action in [A, B]`
-     widens the scope the validator type-checks the condition against.
+This is a structural limit, not an omission, and it will not be fixed by writing a better
+policy. The desk invokes exactly two capabilities:
 
-   So `issue_credit` is gated by `require_operator` alone while it stays deferred. When it
-   is published, add a second single-action policy of the same shape rather than extending
-   this one. `test_every_policy_action_exists_in_the_published_schema` and
-   `test_every_conditional_policy_pins_one_action` enforce both constraints.
-3. `bootstrap-labs.sh`, which creates the group and its one member, **verifies membership
-   rather than assuming it** (every create call tolerates "already exists", so success of
-   the calls proves nothing), and asserts that no shopper is in it.
+| capability | on a fresh Gateway | why it cannot carry an operator-only condition |
+|---|---|---|
+| `initiate_return` | published, permitted (damaged-only) | shared with the shopper rail, and it is Lab 4's whole subject |
+| `issue_credit` | **not published** | no action id exists, so a policy naming it is rejected as `unrecognized action` |
 
-The group name has one source per layer and the tests assert they match:
-`auth.OPERATOR_GROUP` and `render_agentcore_project.OPERATOR_GROUP`. A name that drifts
-produces a system where each layer believes the other is enforcing.
+A policy gating `restock_inventory` on the group was added and removed. It enforced
+nothing: `restock_inventory` is an Inventory Agent tool with no operator route, and it has
+no matching permit, so an operator and a shopper are **both denied either way**. It changed
+the recorded reason and no outcome, while risking the whole provision on an unproven
+`getTag(...).contains(...)` under `FAIL_ON_ANY_FINDINGS`, where a rejected policy fails
+`agentcore deploy` and leaves no Gateway, Runtime or Memory.
 
-Health-gate check 11 refuses readiness when the operator is not a member, and fails when a
-shopper is. That second case is the regression to watch: it restores the original defect
-through a configuration change that looks legitimate.
+`test_no_baseline_policy_claims_operator_enforcement` stops that returning as reassurance.
+**When an operator-only tool is intentionally published**, add a separate single-action
+policy for it, live-validate it, and update that test to expect it by name rather than
+deleting the guard.
+
+Note the asymmetry precisely: a shopper cannot reach `issue_credit` through the Gateway
+because the action is **absent**, which is a stronger guarantee than a forbid and a
+different one. An earlier docstring called it a Cedar forbid. Naming the wrong layer as the
+one denying is how each layer ends up believing the other is enforcing.
+
+The group name has exactly one source: `services/auth.py::OPERATOR_GROUP`. The renderer
+no longer carries a copy, because a second constant with no policy behind it is drift
+waiting to happen.
 
 **What this replaced.** `require_operator` stopped at "the token verifies and carries a
 subject", and all eight `GET` routes were open. So `marco` could confirm, decline and

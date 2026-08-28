@@ -42,12 +42,21 @@ asking what was paid out cannot answer it from the returns table. The $500
 ceiling is enforced by a CHECK constraint on ``pellier.store_credits``, not by
 prompt text.
 
-Note the asymmetry with the shopper rail: Cedar *forbids* ``issue_credit`` for
-shopper principals, because a shopper-facing agent must never issue itself store
-credit. The same capability is reachable here only behind ``require_operator``,
-which now means group membership rather than merely a valid token. Until it did,
-that asymmetry was decorative: the shopper Cedar was denied the capability while
-the same shopper could take it from the desk.
+Note the asymmetry with the shopper rail, and note it precisely. A fresh Gateway
+does **not publish** ``issue_credit`` at all, so a shopper cannot reach it there:
+the action id does not exist. That is a stronger guarantee than a Cedar forbid
+and a different one, and an earlier version of this docstring claimed the forbid,
+which the current three-policy baseline does not contain. Naming a capability the
+wrong layer is denying is how each layer ends up believing the other is enforcing.
+
+On the desk, ``issue_credit`` is reachable only behind ``require_operator``, which
+means membership in ``auth.OPERATOR_GROUP`` rather than merely a valid token. That
+API boundary is the ONLY operator authorization: there is no Gateway-side
+defence-in-depth for it, because the one genuinely operator-only capability is
+unpublished and the one published capability the desk uses (``initiate_return``)
+is shared with the shopper rail. See the `baseline_policies` docstring in
+`scripts/deploy/render_agentcore_project.py` for why, and what to add when an
+operator-only tool is published.
 
 **Ownership is enforced in SQL, not here.** ``initiate_return`` joins
 ``orders`` against the customer and product before it writes, so an operator

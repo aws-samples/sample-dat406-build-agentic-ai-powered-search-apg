@@ -140,11 +140,10 @@ def test_the_experience_target_publishes_only_the_two_governed_actions() -> None
 # ---------------------------------------------------------------------------
 
 
-def test_the_fresh_policy_set_is_exactly_four_named_policies() -> None:
+def test_the_fresh_policy_set_is_exactly_three_named_policies() -> None:
     """Exact set, never a count: a count passes while the names are wrong."""
     assert set(_by_name()) == {
         "baseline_permit_workshop_tools",
-        "forbid_restock_without_operator_group",
         "initiate_return_damaged_only",
         "initiate_return_deny_other_reasons",
     }
@@ -158,11 +157,10 @@ def test_every_policy_action_exists_in_the_published_schema() -> None:
     `unrecognized action AgentCore::Action::"..."` for any id absent from the live Gateway
     schema, and `UPDATE_FAILED` does not roll the stored definition back.
 
-    This is the check that was missing. A policy was written naming `issue_credit` on the
-    reasoning that gating a deferred tool "closes the publication window in advance",
-    which sounds prudent and is the opposite of prudent here: it would have failed the
-    whole policy on a fresh provision, taking the operator authorization at the Gateway
-    with it. Nothing in the suite compared policy actions against the published set.
+    Nothing compared policy actions against the published set until a policy was written
+    naming the deferred `issue_credit`, on the reasoning that gating a deferred tool
+    "closes the publication window in advance". It would have failed the whole policy on a
+    fresh provision.
     """
     published = {
         f"{target}___{tool}"
@@ -182,16 +180,14 @@ def test_every_conditional_policy_pins_one_action() -> None:
 
     The second measured failure. Widening the action set widens the scope the validator
     type-checks the condition against, and the condition is not valid for sibling action
-    types such as `Mcp`, `CallTool` and `InvokeLLM`. The original two-action set failed
-    for this reason independently of the unrecognized-action problem.
+    types such as `Mcp`, `CallTool` and `InvokeLLM`.
 
     Unconditional policies may use `action in [...]` freely: there is no condition to
-    type-check. That is why the baseline allow-list is allowed to list thirteen.
+    type-check, which is why the baseline allow-list may list thirteen.
     """
     for policy in _policies():
         statement = policy["statement"]
-        conditional = ("when {" in statement) or ("unless {" in statement)
-        if not conditional:
+        if not (("when {" in statement) or ("unless {" in statement)):
             continue
         assert "action in [" not in statement, (
             f"{policy['name']} is conditional and uses `action in [...]`; pin it to a "
@@ -203,60 +199,75 @@ def test_every_conditional_policy_pins_one_action() -> None:
         )
 
 
-def test_restock_requires_the_operator_group_at_the_gateway() -> None:
-    """The FastAPI boundary is not the only way in.
+def test_no_baseline_policy_claims_operator_enforcement() -> None:
+    """Operator authorization is an API-only boundary, and must not be faked here.
 
-    A shopper holding a storefront token can call the Gateway directly, so an
-    authorization rule living only in `require_operator` is bypassable through the very
-    rail this workshop teaches participants to trust.
+    A policy gating `restock_inventory` on the operator Cognito group was added and then
+    removed, because it enforced nothing: `restock_inventory` is an Inventory Agent tool
+    with no operator route, and it has no matching permit, so an operator and a shopper are
+    both denied either way. It changed the recorded reason and no outcome, while risking
+    the whole provision on an unproven `getTag(...).contains(...)` under
+    FAIL_ON_ANY_FINDINGS.
+
+    This guard exists so that cannot come back as reassurance. Gateway-side operator
+    enforcement is only meaningful once a genuinely operator-only action is published;
+    until then, a policy mentioning the group is decorative at best and a deploy risk at
+    worst. When such a tool IS published, add a single-action policy for it, live-validate
+    it, and update this test to expect it by name rather than deleting the guard.
     """
-    policy = _by_name()["forbid_restock_without_operator_group"]
-    statement = policy["statement"]
+    from services.auth import OPERATOR_GROUP
 
-    assert statement.lstrip().startswith("forbid"), "must not grant anything"
-    assert _actions(statement) == [
-        "pellier-discovery-search-target___restock_inventory"
-    ], _actions(statement)
-    # Fail closed: a token carrying no groups claim must not satisfy the exception.
-    assert 'principal.hasTag("cognito:groups")' in statement
-    assert "unless {" in statement
-    # Principal-only. `context.input` is the attribute the validator could not resolve on
-    # sibling action types, and it has no business in a group check.
-    assert "context.input" not in statement
+    for policy in _policies():
+        statement = policy["statement"]
+        assert OPERATOR_GROUP not in statement, (
+            f"{policy['name']} names the operator group. Which published, operator-only "
+            "action does it gate? If the answer is none, it enforces nothing."
+        )
+        assert "cognito:groups" not in statement, (
+            f"{policy['name']} reads cognito:groups, whose tag representation is not "
+            "validated against this engine. See the renderer docstring."
+        )
 
 
-def test_issue_credit_is_gated_by_the_api_alone_and_that_is_recorded() -> None:
-    """A gap in depth-of-defence, stated rather than implied.
+def test_the_operator_only_limitation_is_recorded_where_it_would_be_changed() -> None:
+    """A gap someone can act on, not one they have to rediscover.
 
-    `issue_credit` is deferred, so a fresh Gateway has no action id for it and no Cedar
-    policy can name one. `require_operator` is therefore its only boundary. That is a real
-    limitation, and the renderer says so where someone changing this would read it, rather
-    than leaving a reader to infer that Cedar covers it.
+    Three places a reader would land: the renderer that would carry such a policy, the
+    dependency that is the actual boundary, and the route module that describes the
+    asymmetry with the shopper rail.
+    """
+    renderer = pathlib.Path(
+        os.path.abspath("../../scripts/deploy/render_agentcore_project.py")
+    ).read_text(encoding="utf-8")
+    assert "WHY THERE IS NO OPERATOR-AUTHORIZATION POLICY HERE" in renderer
+    assert "WHEN AN OPERATOR-ONLY TOOL IS INTENTIONALLY PUBLISHED" in renderer
+
+    auth = pathlib.Path(
+        os.path.abspath("../../pellier/backend/services/auth.py")
+    ).read_text(encoding="utf-8")
+    assert "THE ONLY PLACE operator authorization is enforced" in auth
+
+    routes = pathlib.Path(
+        os.path.abspath("../../pellier/backend/routes/operator.py")
+    ).read_text(encoding="utf-8")
+    assert "there is no Gateway-side" in routes
+
+
+def test_issue_credit_is_absent_from_the_gateway_rather_than_forbidden() -> None:
+    """Absent is a stronger guarantee than forbidden, and a different one.
+
+    A fresh Gateway publishes no `issue_credit` action id, so a shopper cannot reach it
+    there at all. Saying Cedar "forbids" it, as an earlier docstring did, names the wrong
+    layer as the one denying, which is how each layer ends up believing the other is
+    enforcing.
     """
     assert "issue_credit" in WORKSHOP_DEFERRED_TOOLS
+    published = {
+        tool for tools in workshop_target_tools().values() for tool in tools
+    }
+    assert "issue_credit" not in published
     for policy in _policies():
         assert "issue_credit" not in policy["statement"], policy["name"]
-
-    source = (
-        pathlib.Path(os.path.abspath("../../scripts/deploy/render_agentcore_project.py"))
-        .read_text(encoding="utf-8")
-    )
-    assert "governed by `require_operator` alone while it stays deferred" in source
-
-
-def test_the_operator_group_name_agrees_across_both_boundaries() -> None:
-    """One group name, or each layer believes the other is enforcing."""
-    import sys
-
-    backend = os.path.abspath("../../pellier/backend")
-    if backend not in sys.path:
-        sys.path.insert(0, backend)
-    from services.auth import OPERATOR_GROUP as api_group
-
-    from render_agentcore_project import OPERATOR_GROUP as cedar_group
-
-    assert api_group == cedar_group == "pellier-operators"
-    assert api_group in _by_name()["forbid_restock_without_operator_group"]["statement"]
 
 
 def test_every_policy_is_active_and_validated_strictly() -> None:
