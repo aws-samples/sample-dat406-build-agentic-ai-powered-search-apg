@@ -441,6 +441,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("boto3 is required.", file=sys.stderr)
         return 1
 
+    # Before any client call. botocore drops unknown fields silently, and the field this
+    # script exists to set is exactly the one an older bundled model lacks: a 1.43.28
+    # interpreter sends `update_policy` with no `enforcementMode`, the service applies its
+    # own default, the API returns 200, and Cedar enforcement is off with nothing in the
+    # output to say so. Reading only, that cannot happen, so the guard is scoped to the
+    # mutating paths.
+    if args.mode or args.restore_shipped:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "deploy"))
+        from sdk_preflight import require_policy_mode_support
+
+        require_policy_mode_support()
+
     client = boto3.client("bedrock-agentcore-control", region_name=region)
     gateway_id = gateway_id_from_arn(gateway_arn) if gateway_arn else None
     project_dir = pathlib.Path(args.project)

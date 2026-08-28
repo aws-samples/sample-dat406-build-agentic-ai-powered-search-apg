@@ -168,8 +168,11 @@ def test_the_reset_does_not_require_control_plane_authority() -> None:
     deploy would push the project's declarations over them.
     """
     body = _reset_body()
-    assert "PELLIER_RESET_SKIP_AGENTCORE" in body
-    skip = body[body.index("PELLIER_RESET_SKIP_AGENTCORE"):]
+    # The code form, not the first textual match: the header documents this variable in
+    # prose, and anchoring there would read the docstring instead of the branch.
+    guard = '"${PELLIER_RESET_SKIP_AGENTCORE:-0}" == "1"'
+    assert guard in body
+    skip = body[body.index(guard):]
     assert "exit 0" in skip[:900]
 
 
@@ -223,3 +226,131 @@ def test_the_memory_cleanup_covers_long_term_not_only_events() -> None:
     body = MEMORY_RESET.read_text()
     assert "/pellier/preferences/{actor}/" in body
     assert "actor-scoped" in body.lower() or "ACTOR-scoped" in body
+
+
+# ---------------------------------------------------------------------------
+# The service-state contract.
+#
+# Audit finding P2-06: the reset had no defined service state, so it TRUNCATEd the
+# evidence tables while the application was free to serve a turn. Postgres will not
+# corrupt anything, but "not corrupt" is not the property a workshop needs. The
+# dangerous interleavings are specific:
+#
+#   * a `write_operations` claim cleared after its domain write committed, so a replay
+#     applies the effect twice;
+#   * an `approvals` row cleared after the execution it authorized, so a receipt points
+#     at a review that no longer exists;
+#   * a conversation or Memory event written just after the truncate, so the clean
+#     baseline opens with someone else's residue in it.
+#
+# One box, one systemd unit, one database. The fix is to own the service state, not to
+# build a lock.
+# ---------------------------------------------------------------------------
+
+
+def test_the_reset_quiesces_before_it_truncates() -> None:
+    """Order is the whole property. Quiescing after the truncate proves nothing."""
+    body = _reset_body()
+    for call in ("_quiesce_services\n", "_assert_no_active_execution\n"):
+        assert call in body, f"the reset no longer calls {call.strip()}"
+    quiesce = body.index("_quiesce_services\n")
+    assert "_assert_no_active_execution\n" in body[quiesce:], (
+        "_assert_no_active_execution does not run after _quiesce_services"
+    )
+    assert_no_active = body.index("_assert_no_active_execution\n", quiesce)
+    truncate = body.index("TRUNCATE TABLE")
+    assert quiesce < assert_no_active < truncate, (
+        "the reset must stop the application and prove nothing is executing BEFORE it "
+        "truncates"
+    )
+
+
+def test_the_reset_restarts_the_service_even_when_a_step_fails() -> None:
+    """`set -e` plus a stopped service is a workshop box with no application.
+
+    A failing psql must not be the reason a participant's backend is down with no
+    message saying so, which is why resume is on a trap rather than at the end.
+    """
+    body = _reset_body()
+    assert "trap _resume_services EXIT" in body
+    assert "_resume_services() {" in body
+    # The trap has to be armed before anything can fail after the stop.
+    assert body.index("trap _resume_services EXIT") < body.index("_quiesce_services\n")
+
+
+def test_the_reset_refuses_a_live_backend_it_cannot_stop() -> None:
+    """Refusing is the safe default; racing must be an explicit opt-in."""
+    body = _reset_body()
+    assert "PELLIER_RESET_ALLOW_LIVE" in body
+    assert "Reset refuses to race live writes." in body or "refuses" in body
+    # The refusal must exit, not warn and continue.
+    section = body[body.index("_quiesce_services() {"): body.index("_assert_no_active_execution() {")]
+    assert "exit 1" in section, "the quiesce path warns instead of refusing"
+
+
+def test_the_active_execution_check_uses_a_deterministic_marker() -> None:
+    """An unfinished claim is `completed_at IS NULL`, not a timestamp heuristic.
+
+    `write_operations` is the idempotency ledger: one row per key, `completed_at` set
+    when the effect landed. That is an exact in-flight marker, so the check does not
+    have to guess from ages or counts.
+    """
+    body = _reset_body()
+    assert "pg_stat_activity" in body
+    assert "pg_backend_pid()" in body, (
+        "the active-session count must exclude the reset's own session or it always "
+        "finds itself"
+    )
+    assert "FROM pellier.write_operations WHERE completed_at IS NULL" in body
+
+
+def test_the_reset_cleans_agentcore_memory_runtime_state() -> None:
+    """Aurora is not the whole workshop.
+
+    Preference records are actor-scoped, so a new session id does not isolate them. This
+    used to be a separate command an operator had to remember; it is a lifecycle step
+    now, skippable only for a box with no AWS credentials.
+    """
+    body = _reset_body()
+    assert "reset_memory_runtime.py" in body
+    assert "--apply" in body
+    assert "PELLIER_RESET_SKIP_MEMORY" in body
+    # Before the control-plane leg, so the rows-only path gets it too. Compared against
+    # the control-plane BRANCH, not the first mention of its name in the header prose.
+    assert body.index("reset_memory_runtime.py") < body.index(
+        '"${PELLIER_RESET_SKIP_AGENTCORE:-0}" == "1"'
+    )
+
+
+def test_the_reset_verifies_the_baseline_it_claims_to_have_restored() -> None:
+    """Asserting each step is not the same claim as asserting the result."""
+    body = _reset_body()
+    assert "_verify_baseline() {" in body
+    cleared = _truncate_list()
+    verified = set(
+        re.findall(r"SELECT count\(\*\) FROM pellier\.\$\{table\}", body)
+    )
+    assert verified, "the baseline check no longer counts anything"
+    section = body[body.index("_verify_baseline() {"):]
+    for table in ("approvals", "execution_receipts", "operator_episodes",
+                  "write_operations", "conversations", "observatory_spans"):
+        assert table in section, f"{table} is truncated but never verified empty"
+        assert table in cleared, f"{table} is verified empty but never truncated"
+    # The forensic incident is the one intentional row; zero is as wrong as two.
+    for table in ("returns", "tool_audit", "governed_receipts"):
+        assert table in section
+
+
+def test_the_reset_still_truncates_rather_than_deletes() -> None:
+    """The trigger-safe semantics must survive every change above.
+
+    A DELETE here fires `record_inventory_movement` and the receipt-immutability
+    trigger, writing fresh history while trying to clear history.
+    """
+    body = _reset_body()
+    assert "TRUNCATE TABLE" in body
+    assert "RESTART IDENTITY" in body
+    assert not re.search(r"\bDELETE FROM pellier\.", body), (
+        "a DELETE reappeared in the reset; that fires the row-level triggers TRUNCATE "
+        "deliberately bypasses"
+    )

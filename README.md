@@ -340,8 +340,16 @@ names and asserted by discovery tests:
 
 `search_products` · `search_products_hybrid` · `get_related_products` · `get_trending_products` · `get_price_analysis` · `browse_category` · `compare_products` · `check_inventory` · `restock_inventory` · `get_low_stock` · `get_return_policy` · `initiate_return` · `get_customer_preferences` · `get_audit_trail` · `escalate_to_human`
 
-A 16th tool, `query_business_records`, runs **only** on the in-process rail.
-Not because the Gateway path is incapable. The RDS Data API is single-statement
+A 16th tool, `query_business_records`, is **implemented for the in-process rail
+only, and is currently bound to no specialist**, so nothing invokes it today.
+Wiring it is a deliberate product decision, not an oversight: it needs an owning
+specialist, prompt language that makes it the last resort behind the curated
+tools, and a receipt surface. Until then it ships governed and unreachable
+rather than reachable and ungoverned. `tests/test_tool_ownership.py` records
+that decision and fails if a specialist quietly imports it.
+
+It is off the Gateway for separate reasons, and not because the Gateway path is
+incapable. The RDS Data API is single-statement
 per `execute_statement` call ("Multistatements aren't supported", box-verified:
 a prepended `SET` once killed every read tool on the Gateway path), but it does
 support explicit transactions, and session-local state persists across calls
@@ -361,7 +369,7 @@ So the owner identity behind the fixed `--secret_arn` is not the obstacle
 either: `SET LOCAL ROLE` drops into a role that holds neither `BYPASSRLS` nor
 superuser, and RLS then applies to the rest of the transaction.
 
-The tool stays in process for two other reasons. First, cost shape: each
+It stays off the Gateway for two other reasons. First, cost shape: each
 statement is one HTTPS round trip, so a governed query needs seven where the
 existing read tools need one. Second, and decisive, publishing it would mean a
 second copy of the boundary (subquery wrap, plan inspection, schema allowlist,

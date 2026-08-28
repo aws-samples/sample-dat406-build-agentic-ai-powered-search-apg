@@ -157,3 +157,88 @@ def test_agent_wrapper_tools_all_exist() -> None:
         wrappers |= _decorated_tools(path)
     missing = sorted(AGENT_WRAPPER_TOOLS - wrappers - _decorated_tools(AGENT_TOOLS))
     assert not missing, f"AGENT_WRAPPER_TOOLS names non-existent wrappers: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# The classification itself, asserted from every place that states it.
+#
+# `query_business_records` is category INTERNAL / NON-PUBLISHED. That is not a new
+# decision made here: the README says it, `GATEWAY_TOOL_NAMES` omits it,
+# `gateway_tool_schemas` never declares it, no surface Lambda serves it, and
+# `test_managed_gateway_tool_contract` pins in-process == CANONICAL | IN_PROCESS_ONLY.
+# What was missing was agreement between the documentation and the binding: the README
+# said it "runs only on the in-process rail", and on that rail a tool runs because a
+# specialist lists it in `tools=[...]`. It was in no such list, so it ran nowhere.
+# ---------------------------------------------------------------------------
+
+INTERNAL_ONLY_TOOL = "query_business_records"
+README = REPO / "README.md"
+
+
+def test_the_internal_tool_is_absent_from_every_publication_path() -> None:
+    """Four independent gates must all exclude it, not just one."""
+    import sys
+
+    deploy = str(REPO / "scripts" / "deploy")
+    if deploy not in sys.path:
+        sys.path.insert(0, deploy)
+    from gateway_tool_schemas import canonical_tool_names, workshop_published_tools
+
+    assert INTERNAL_ONLY_TOOL not in canonical_tool_names()
+    assert INTERNAL_ONLY_TOOL not in workshop_published_tools()
+
+    backend = str(BACKEND)
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from services.agentcore_gateway import GATEWAY_TOOL_NAMES
+
+    assert INTERNAL_ONLY_TOOL not in set(GATEWAY_TOOL_NAMES)
+
+    served = ""
+    for surface in sorted((REPO / "scripts" / "deploy").glob("pellier_*_server.py")):
+        served += surface.read_text(encoding="utf-8")
+    assert INTERNAL_ONLY_TOOL not in served, (
+        "a Gateway surface Lambda serves the internal-only tool, which would put a "
+        "second copy of the governed-query boundary into a deploy artifact"
+    )
+
+
+def test_fresh_rendering_cannot_publish_the_internal_tool() -> None:
+    """The renderer writes what it is given; assert what it is given.
+
+    Checked against the rendered schema rather than the declaration, because the
+    accident this guards against is a schema helper widening, not someone typing the
+    name into `TOOL_SCHEMAS`.
+    """
+    import sys
+
+    deploy = str(REPO / "scripts" / "deploy")
+    if deploy not in sys.path:
+        sys.path.insert(0, deploy)
+    from gateway_tool_schemas import TOOL_SCHEMAS, schema_for
+
+    for surface in TOOL_SCHEMAS:
+        for workshop in (True, False):
+            names = {tool["name"] for tool in schema_for(surface, workshop=workshop)}
+            assert INTERNAL_ONLY_TOOL not in names, (
+                f"{surface} would publish {INTERNAL_ONLY_TOOL} with workshop={workshop}"
+            )
+
+
+def test_the_readme_does_not_claim_the_internal_tool_runs() -> None:
+    """The documentation must match the binding.
+
+    "runs only on the in-process rail" was false: a tool runs on that rail because a
+    specialist lists it, and it is in no specialist's list. A false claim about a
+    security-sensitive capability is worse than no claim, because the next reader
+    budgets review time for a code path that never executes.
+    """
+    text = README.read_text(encoding="utf-8")
+    assert INTERNAL_ONLY_TOOL in text, "the README no longer classifies the tool at all"
+    window_start = text.index(INTERNAL_ONLY_TOOL)
+    window = text[window_start: window_start + 700]
+    assert "bound to no specialist" in window, (
+        "the README must state that nothing invokes the internal tool, or it implies "
+        "a code path that does not execute"
+    )
+    assert "runs **only** on the in-process rail" not in text

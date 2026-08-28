@@ -72,8 +72,19 @@ def _env() -> Dict[str, str]:
 
 
 def _client(region: str):
+    """The DATA-plane client. Memory actors, sessions, events and records live here.
+
+    Guarded before it is built: this script's whole value is the narrow per-item delete,
+    and an SDK whose model lacks `DeleteMemoryRecord` would let the survey succeed and
+    every deletion fail, reporting a cleaned Memory that still holds the previous
+    participant's preferences.
+    """
     import boto3
 
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "deploy"))
+    from sdk_preflight import require_memory_runtime_support
+
+    require_memory_runtime_support()
     return boto3.client("bedrock-agentcore", region_name=region)
 
 
