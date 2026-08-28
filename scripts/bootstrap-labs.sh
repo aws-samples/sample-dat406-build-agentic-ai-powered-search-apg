@@ -1315,6 +1315,14 @@ EOF
         export COGNITO_CLIENT_SECRET_ARN='${COGNITO_CLIENT_SECRET_ARN:-}'
         export AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN='${AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN:-}'
         export AGENTCORE_RUNTIME_LOG_RETENTION_DAYS='${AGENTCORE_RUNTIME_LOG_RETENTION_DAYS:-30}'
+        # sudo strips the parent environment, so anything the provisioner requires has to
+        # be re-exported HERE. AGENT_MODEL_ID was missing and killed the whole managed
+        # path: check_model_access.py resolves it at bootstrap time and writes it to
+        # pellier/backend/.env, because it is not static (an account without Opus access
+        # gets a documented fallback). Passed explicitly so the dependency is visible at
+        # the call site; the provisioner also reads that .env as a safety net.
+        export AGENT_MODEL_ID='${AGENT_MODEL_ID:-}'
+        export WORKSHOP_ID='${WORKSHOP_ID:-dat416}'
         python3 '$REPO_PATH/scripts/provision_agentcore_end_to_end.py' \
             --repo-path '$REPO_PATH' \
             --output-json '$MANAGED_OUTPUT_JSON'
@@ -1561,7 +1569,16 @@ if [ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ] \
     log "Seeding RLS principal mappings (Cognito subject -> customer scope)..."
     export COGNITO_POOL_ID="${COGNITO_POOL_ID:-$COGNITO_USER_POOL_ID}"
     export COGNITO_REGION="${COGNITO_REGION:-$AWS_REGION}"
-    if python3 "$REPO_PATH/scripts/seed_principal_mappings.py" 2>&1 \
+    # As the PARTICIPANT, not root. Dependencies are installed with `pip install --user`
+    # for that user, so root's python3 has no boto3: measured on a fresh box, this raised
+    # ModuleNotFoundError, the mapping table stayed empty, and Row-Level Security then
+    # denied every signed-in shopper their own orders. That reads as a broken storefront
+    # rather than as governance, and it is the one failure the guide cannot work around.
+    if sudo -u "$CODE_EDITOR_USER" env \
+         PATH="/usr/bin:/usr/local/bin:$PATH" \
+         AWS_REGION="$AWS_REGION" AWS_DEFAULT_REGION="$AWS_REGION" \
+         COGNITO_POOL_ID="$COGNITO_POOL_ID" COGNITO_REGION="$COGNITO_REGION" \
+         python3 "$REPO_PATH/scripts/seed_principal_mappings.py" 2>&1 \
          | tee /var/log/pellier-seed-principal-mappings.log; then
         log "✅ Principal mappings seeded"
     else

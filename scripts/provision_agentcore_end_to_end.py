@@ -166,6 +166,38 @@ def _run(
     return proc
 
 
+def _load_env_fallback(repo: Path) -> None:
+    """Fill missing variables from the backend `.env`, never overriding the real ones.
+
+    This provisioner is invoked through `sudo -u <participant> bash -c "..."`, and sudo
+    strips the parent environment: only the variables that block explicitly re-exports
+    survive. That list was one short. `check_model_access.py` resolves the model ids at
+    bootstrap time and writes them into `pellier/backend/.env` (they are not static: an
+    account without Opus access gets a documented fallback), but nothing carried
+    `AGENT_MODEL_ID` from that file into this process, so `_require_env` raised and the
+    entire managed path died. Runtime, Memory, Gateway and Policy all failed on one
+    missing string, and the nine readiness failures that followed all had the same cause.
+
+    Reading the file here removes the whole class rather than one variable, and matches
+    what `gateway_initiate_return.py` and `reset_memory_runtime.py` already do. The real
+    environment still wins, so an explicit export always overrides the file.
+    """
+    for candidate in (repo / "pellier" / "backend" / ".env", repo / ".env"):
+        if not candidate.is_file():
+            continue
+        for line in candidate.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("'\"")
+            # setdefault, not assignment: a variable the caller exported is the caller's
+            # decision and a stale file must never quietly win over it.
+            if key and value and not os.environ.get(key, "").strip():
+                os.environ[key] = value
+
+
 def _require_env(name: str) -> str:
     value = os.environ.get(name, "").strip()
     if not value:
@@ -1483,6 +1515,8 @@ def main() -> int:
     repo = Path(args.repo_path).resolve()
     deploy_dir = repo / "scripts" / "deploy"
     output_path = Path(args.output_json)
+    # Before the first _require_env, or the fallback cannot help.
+    _load_env_fallback(repo)
     region = _require_env("AWS_REGION")
     required = {
         "db_cluster_arn": _require_env("DB_CLUSTER_ARN"),
