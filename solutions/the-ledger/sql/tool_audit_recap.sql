@@ -4,12 +4,12 @@
 -- In the governed format, an allowed managed write records caller='gateway';
 -- a Cedar DENY stops before Lambda execution and writes no tool_audit row.
 -- The builders format retains caller='agent' for its in-process path. This
--- script pulls the most recent executed process_return for 'theo' and prints:
+-- script pulls the most recent executed initiate_return for 'theo' and prints:
 --
 --   1) raw row              – tool, caller, args, result, latency_ms
 --   2) JSONB extraction     – args->>'reason', result->>'return_id', etc.
 --   3) rail label           – caller identifies managed vs in-process execution
---   4) recent trail         – last few process_return rows for the customer
+--   4) recent trail         – last few initiate_return rows for the customer
 --   5) rail/reason aggregate – compares managed and builders-format evidence
 --   6) Gateway no-row check – only meaningful after an attempted Gateway DENY
 --
@@ -26,12 +26,12 @@
 \endif
 
 \echo ''
-\echo '== Most recent executed process_return (customer-keyed) ========='
+\echo '== Most recent executed initiate_return (customer-keyed) ========='
 \echo ''
 
 SELECT :'customer' AS customer, MAX(created_at) AS last_seen
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND args->>'customer_id' = :'customer';
 
 \echo ''
@@ -45,7 +45,7 @@ SELECT tool,
        latency_ms,
        created_at
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND args->>'customer_id' = :'customer'
  ORDER BY created_at DESC
  LIMIT 1;
@@ -62,7 +62,7 @@ SELECT tool,
        result->>'status'     AS status,
        latency_ms
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND args->>'customer_id' = :'customer'
  ORDER BY created_at DESC
  LIMIT 1;
@@ -80,13 +80,13 @@ SELECT caller,
        END AS rail,
        created_at
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND args->>'customer_id' = :'customer'
  ORDER BY created_at DESC
  LIMIT 1;
 
 \echo ''
-\echo '== Recent process_return trail ================================='
+\echo '== Recent initiate_return trail ================================='
 \echo ''
 
 SELECT created_at,
@@ -96,7 +96,7 @@ SELECT created_at,
        result->>'return_id'  AS return_id,
        latency_ms
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND args->>'customer_id' = :'customer'
  ORDER BY created_at DESC
  LIMIT 5;
@@ -109,7 +109,7 @@ SELECT caller,
        args->>'reason' AS reason,
        count(*)        AS calls
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND args->>'customer_id' = :'customer'
  GROUP BY caller, args->>'reason'
  ORDER BY caller, calls DESC;
@@ -120,7 +120,7 @@ SELECT caller,
 
 SELECT count(*) AS gateway_changed_mind_rows
   FROM pellier.tool_audit
- WHERE tool = 'process_return'
+ WHERE tool = 'initiate_return'
    AND caller = 'gateway'
    AND args->>'customer_id' = :'customer'
    AND args->>'reason' = 'changed_mind';

@@ -48,7 +48,7 @@ def test_customer_scoped_schemas_require_customer_id_and_expose_no_persona(
 ) -> None:
     server = _load_server(monkeypatch)
 
-    for tool_name in ("preference_snapshot", "trace_receipt"):
+    for tool_name in ("get_customer_preferences", "get_audit_trail"):
         schema = server.TOOLS[tool_name]["inputSchema"]
         assert schema["required"] == ["customer_id"]
         assert "customer_id" in schema["properties"]
@@ -59,16 +59,16 @@ def test_customer_scoped_schemas_require_customer_id_and_expose_no_persona(
     handoff_schema = next(
         tool["inputSchema"]
         for tool in TOOL_SCHEMAS["experience"]["tools"]
-        if tool["name"] == "escalate_to_stylist"
+        if tool["name"] == "escalate_to_human"
     )
     assert handoff_schema["required"] == ["customer_id"]
 
-    assert "persona" not in inspect.signature(server.preference_snapshot).parameters
+    assert "persona" not in inspect.signature(server.get_customer_preferences).parameters
     with pytest.raises(TypeError):
-        server.preference_snapshot(persona="marco")
+        server.get_customer_preferences(persona="marco")
 
 
-def test_preference_snapshot_scopes_every_aurora_query_to_bound_customer(
+def test_get_customer_preferences_scopes_every_aurora_query_to_bound_customer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server = _load_server(monkeypatch)
@@ -85,7 +85,7 @@ def test_preference_snapshot_scopes_every_aurora_query_to_bound_customer(
 
     monkeypatch.setattr(server, "_execute_sql", _execute)
 
-    result = server.preference_snapshot(customer_id="cust-marco", limit=20)
+    result = server.get_customer_preferences(customer_id="cust-marco", limit=20)
 
     assert result["status"] == "success"
     assert len(calls) == 3
@@ -98,7 +98,7 @@ def test_preference_snapshot_scopes_every_aurora_query_to_bound_customer(
     assert _parameter_value(calls[2][1], "limit") == 10
 
 
-def test_trace_receipt_filters_audit_rows_by_bound_customer_first(
+def test_get_audit_trail_filters_audit_rows_by_bound_customer_first(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server = _load_server(monkeypatch)
@@ -113,10 +113,10 @@ def test_trace_receipt_filters_audit_rows_by_bound_customer_first(
 
     monkeypatch.setattr(server, "_execute_sql", _execute)
 
-    result = server.trace_receipt(
+    result = server.get_audit_trail(
         customer_id="CUST-THEO",
         session_id="session-123",
-        tool_name="process_return",
+        tool_name="initiate_return",
         caller="Gateway",
     )
 
@@ -129,5 +129,5 @@ def test_trace_receipt_filters_audit_rows_by_bound_customer_first(
     assert "caller = :caller" in sql
     assert _parameter_value(parameters, "customer_id") == "CUST-THEO"
     assert _parameter_value(parameters, "session_id") == "session-123"
-    assert _parameter_value(parameters, "tool") == "process_return"
+    assert _parameter_value(parameters, "tool") == "initiate_return"
     assert _parameter_value(parameters, "caller") == "gateway"

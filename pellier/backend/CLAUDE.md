@@ -11,33 +11,33 @@ mode before editing.
 The participant may name one of two build sites. Work only inside the named
 marker region.
 
-### Stock Keeper definition
+### Inventory Agent definition
 
 File:
 
 ```text
-agents/stock_keeper.py
+agents/inventory_agent.py
 ```
 
 Markers:
 
 ```text
-# === WORKSHOP · Stock Keeper · definition: START ===
-# === WORKSHOP · Stock Keeper · definition: END ===
+# === WORKSHOP · Inventory Agent · definition: START ===
+# === WORKSHOP · Inventory Agent · definition: END ===
 ```
 
 Fill only the marked definition fields:
 
 1. Set the stub flag so the dispatcher uses the real specialist.
-2. Use the Stock Keeper instructions already defined in the module.
+2. Use the Inventory Agent instructions already defined in the module.
 3. Use the reporting model setting.
 4. Use the reporting/Sonnet max-token setting.
-5. Bind the Stock Keeper tools already imported in the module.
+5. Bind the Inventory Agent tools already imported in the module.
 
 Do not add temperature. The active Sonnet profile rejects that deprecated
 argument.
 
-### `floor_check` body
+### `check_inventory` body
 
 File:
 
@@ -48,18 +48,18 @@ services/agent_tools.py
 Markers:
 
 ```text
-# === WORKSHOP · Stock Keeper · floor_check: START ===
-# === WORKSHOP · Stock Keeper · floor_check: END ===
+# === WORKSHOP · Inventory Agent · check_inventory: START ===
+# === WORKSHOP · Inventory Agent · check_inventory: END ===
 ```
 
-Derive the implementation from `whats_trending` or `price_intelligence` in
+Derive the implementation from `get_trending_products` or `get_price_analysis` in
 the same file:
 
 1. Return a JSON error envelope when `_db_service` is unavailable.
 2. Lazily import `BusinessLogic`.
 3. Construct it with `_db_service`.
 4. Normalize `product_query` with `.strip()` and pass `None` when empty.
-5. Call `BusinessLogic.floor_check(...)` through `_run_async(...)`.
+5. Call `BusinessLogic.check_inventory(...)` through `_run_async(...)`.
 6. Return `json.dumps(result, indent=2)`.
 7. Catch `Exception` and return a JSON error envelope.
 

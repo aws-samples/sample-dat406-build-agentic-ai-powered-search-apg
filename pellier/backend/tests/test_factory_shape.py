@@ -29,12 +29,12 @@ import pytest
 
 from strands import Agent
 
-from agents.experience_guide import build_support_agent, support
-from agents import stock_keeper as stock_keeper_module
-from agents.stock_keeper import build_inventory_agent, inventory
-from agents.value_analyst import build_pricing_agent, pricing
-from agents.curator import build_recommendation_agent, recommendation
-from agents.style_advisor import build_search_agent, search
+from agents.customer_service_agent import build_support_agent, support
+from agents import inventory_agent as inventory_agent_module
+from agents.inventory_agent import build_inventory_agent, inventory
+from agents.pricing_agent import build_pricing_agent, pricing
+from agents.personalization_agent import build_recommendation_agent, recommendation
+from agents.search_agent import build_search_agent, search
 from services.persona_context import persona_preamble_var, set_persona_preamble
 
 
@@ -42,15 +42,18 @@ from services.persona_context import persona_preamble_var, set_persona_preamble
 # tool in ``services/agent_tools.py`` you have to update this list.
 SPECIALIST_SPECS = [
     ("search", build_search_agent,
-     {"find_pieces", "explore_collection", "side_by_side", "escalate_to_stylist"}),
+     {"search_products", "browse_category", "compare_products", "get_related_products",
+      "get_trending_products", "escalate_to_human"}),
     ("recommendation", build_recommendation_agent,
-     {"find_pieces_hybrid", "whats_trending", "side_by_side", "explore_collection"}),
+     {"search_products_hybrid", "get_trending_products", "compare_products", "browse_category"}),
     ("pricing", build_pricing_agent,
-     {"price_intelligence", "explore_collection", "find_pieces"}),
+     {"get_price_analysis", "browse_category", "search_products", "compare_products",
+      "get_trending_products"}),
     ("inventory", build_inventory_agent,
-     {"floor_check", "restock_shelf", "running_low"}),
+     {"check_inventory", "restock_inventory", "get_low_stock"}),
     ("support", build_support_agent,
-     {"returns_and_care", "find_pieces", "process_return", "escalate_to_stylist"}),
+     {"get_return_policy", "search_products", "initiate_return", "get_ticket_history",
+      "get_customer_preferences", "escalate_to_human"}),
 ]
 
 SPECIALIST_WRAPPERS = [
@@ -71,9 +74,9 @@ def _tool_names(agent: Agent) -> set[str]:
 
 
 def _is_governed_inventory_scaffold(name: str) -> bool:
-    """The governed workshop ships Stock Keeper as a definition exercise."""
+    """The governed workshop ships Inventory Agent as a definition exercise."""
     return name == "inventory" and bool(
-        getattr(stock_keeper_module, "_INVENTORY_AGENT_STUBBED", False)
+        getattr(inventory_agent_module, "_INVENTORY_AGENT_STUBBED", False)
     )
 
 
@@ -85,7 +88,7 @@ def _is_governed_inventory_scaffold(name: str) -> bool:
 @pytest.mark.parametrize("name,factory,expected_tools", SPECIALIST_SPECS, ids=[s[0] for s in SPECIALIST_SPECS])
 def test_factory_returns_real_agent(name: str, factory, expected_tools: set[str]) -> None:
     if _is_governed_inventory_scaffold(name):
-        with pytest.raises(RuntimeError, match="Stock Keeper definition"):
+        with pytest.raises(RuntimeError, match="Inventory Agent definition"):
             factory()
         return
 
@@ -100,17 +103,17 @@ def test_factory_returns_real_agent(name: str, factory, expected_tools: set[str]
     )
 
 
-def test_inventory_tool_names_render_as_stock_keeper() -> None:
-    """Streaming trace labels SHALL name Stock Keeper for inventory tools.
+def test_inventory_tool_names_render_as_inventory_agent() -> None:
+    """Streaming trace labels SHALL name Inventory Agent for inventory tools.
 
     The SSE proof parser in Lab 1 prints ``agent: ...`` from these labels;
-    missing tool-name entries fall back to Style Advisor and make a correct
-    floor_check run look broken.
+    missing tool-name entries fall back to Search Agent and make a correct
+    check_inventory run look broken.
     """
     from services.chat import EnhancedChatService
 
-    for tool_name in ("inventory", "floor_check", "running_low", "restock_shelf"):
-        assert EnhancedChatService._tool_to_agent_name(tool_name) == "Stock Keeper"
+    for tool_name in ("inventory", "check_inventory", "get_low_stock", "restock_inventory"):
+        assert EnhancedChatService._tool_to_agent_name(tool_name) == "Inventory Agent"
 
 
 @pytest.mark.parametrize("name,factory,_tools", SPECIALIST_SPECS, ids=[s[0] for s in SPECIALIST_SPECS])
@@ -122,7 +125,7 @@ def test_factory_anonymous_has_no_persona_wrapper(name: str, factory, _tools: se
         "persona ContextVar leaked into a later test — earlier test forgot to reset"
     )
     if _is_governed_inventory_scaffold(name):
-        with pytest.raises(RuntimeError, match="Stock Keeper definition"):
+        with pytest.raises(RuntimeError, match="Inventory Agent definition"):
             factory()
         return
 
@@ -140,7 +143,7 @@ def test_factory_honors_persona_contextvar(name: str, factory, _tools: set[str])
     )
     try:
         if _is_governed_inventory_scaffold(name):
-            with pytest.raises(RuntimeError, match="Stock Keeper definition"):
+            with pytest.raises(RuntimeError, match="Inventory Agent definition"):
                 factory()
             return
 
@@ -169,7 +172,7 @@ def test_tool_wrapper_has_strands_metadata(name: str, wrapper) -> None:
 
 
 def test_inventory_wrapper_reports_scaffold_not_error() -> None:
-    """A scaffolded Stock Keeper is unbuilt, not broken — Pattern I included.
+    """A scaffolded Inventory Agent is unbuilt, not broken — Pattern I included.
 
     Pattern II substitutes ``_UnavailableSpecialistNode`` and Pattern III
     short-circuits in ``chat.py``. Before the wrapper grew its own check,
@@ -179,12 +182,12 @@ def test_inventory_wrapper_reports_scaffold_not_error() -> None:
     """
     import json
 
-    if not getattr(stock_keeper_module, "_INVENTORY_AGENT_STUBBED", False):
-        pytest.skip("Stock Keeper definition already completed in this checkout")
+    if not getattr(inventory_agent_module, "_INVENTORY_AGENT_STUBBED", False):
+        pytest.skip("Inventory Agent definition already completed in this checkout")
 
     payload = json.loads(inventory("Is the Brooklyn tote in stock?"))
     assert payload.get("status") == "unavailable"
-    assert "Stock Keeper exercise" in payload.get("message", "")
+    assert "Inventory Agent exercise" in payload.get("message", "")
     assert "error" not in payload
 
 
@@ -241,7 +244,7 @@ def test_support_agent_has_no_exa_references() -> None:
     """
     import ast
 
-    from agents import experience_guide as mod
+    from agents import customer_service_agent as mod
 
     src = inspect.getsource(mod)
     tree = ast.parse(src)
@@ -260,6 +263,6 @@ def test_support_agent_has_no_exa_references() -> None:
     code_only = ast.unparse(tree)
     for forbidden in ("exa_client", "MCPClient", "from mcp", "EXA_API_KEY"):
         assert forbidden not in code_only, (
-            f"experience_guide.py contains forbidden token {forbidden!r} "
+            f"customer_service_agent.py contains forbidden token {forbidden!r} "
             f"in executable code (module docstring is excluded from this check)"
         )

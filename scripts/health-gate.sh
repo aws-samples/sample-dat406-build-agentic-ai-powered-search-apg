@@ -8,7 +8,7 @@
 #
 # Checks:
 #   1. Backend /api/health is green (DB connected)
-#   2. Catalog row count == expected (1,000 by default: 40 curated + 960 archive)
+#   2. Catalog row count == expected (1,000 by default: 60 curated + 940 archive)
 #   3. Warehouse inventory present (~120 rows)
 #   3b. Governed customer, order, and JSONB audit evidence present
 #   4. node --version >= 20                       (required for governed format;

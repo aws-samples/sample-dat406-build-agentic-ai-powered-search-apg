@@ -20,6 +20,7 @@ import {
   type ReactNode,
 } from 'react'
 import { LOCAL_PERSONAS } from '../data/personas'
+import { toMembership, type Membership } from '../data/membership'
 
 export interface PersonaSnapshot {
   id: string
@@ -28,6 +29,8 @@ export interface PersonaSnapshot {
   avatar_color: string
   avatar_initial: string
   customer_id: string
+  /** Loyalty rung. Presentation only; policy reads Aurora, not this. */
+  membership: Membership
   stats: {
     visits: number
     orders: number
@@ -42,6 +45,7 @@ export interface PersonaListItem {
   blurb: string
   avatar_color: string
   avatar_initial: string
+  membership: Membership
   stats: {
     visits: number
     orders: number
@@ -170,6 +174,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
         avatar_color: fallback.avatar_color,
         avatar_initial: fallback.avatar_initial,
         customer_id: fallback.customer_id,
+        membership: toMembership(fallback.membership),
         stats: fallback.stats,
       }
 

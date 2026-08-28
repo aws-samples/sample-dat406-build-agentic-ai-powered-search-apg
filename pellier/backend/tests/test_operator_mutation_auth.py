@@ -231,7 +231,7 @@ def test_operator_mutation_audit_records_the_verified_principal(
     monkeypatch.setattr(writer, "_run_async", asyncio.run)
 
     writer.record_operator_mutation(
-        tool_name="restock_shelf",
+        tool_name="restock_inventory",
         caller="rest",
         principal_sub="sub-operator-1",
         args={"product_id": 3, "quantity": 10, "warehouse_id": "BK-01"},
@@ -242,7 +242,7 @@ def test_operator_mutation_audit_records_the_verified_principal(
     params = captured[0]
     assert "INSERT INTO pellier.tool_audit" in params[0]
     assert params[1] == "operator-sub-operator-1"
-    assert params[2] == "restock_shelf"
+    assert params[2] == "restock_inventory"
     assert params[3] == "rest"
     assert '"principal_sub": "sub-operator-1"' in params[4]
 
@@ -261,7 +261,7 @@ def test_operator_mutation_audit_never_raises(
     monkeypatch.setattr(writer, "_run_async", asyncio.run)
 
     writer.record_operator_mutation(
-        tool_name="restock_shelf",
+        tool_name="restock_inventory",
         caller="rest",
         principal_sub="sub-1",
         args={"product_id": 1, "quantity": 1},
@@ -277,7 +277,7 @@ def test_operator_mutation_audit_is_a_noop_without_a_db(
     monkeypatch.setattr(writer, "_db_service", None)
 
     writer.record_operator_mutation(
-        tool_name="restock_shelf",
+        tool_name="restock_inventory",
         caller="rest",
         principal_sub="sub-1",
         args={},

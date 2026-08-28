@@ -57,7 +57,7 @@ class _ReceiptDB:
             return [
                 {
                     "audit_id": 9,
-                    "tool": "find_pieces_hybrid",
+                    "tool": "search_products_hybrid",
                     "caller": "gateway",
                     "latency_ms": 18,
                     "created_at": datetime(2026, 8, 12, tzinfo=timezone.utc),
@@ -146,7 +146,7 @@ def test_explicit_governed_policy_event_wins_over_absence() -> None:
                 {
                     "receipt_id": 7,
                     "audit_id": None,
-                    "tool": "process_return",
+                    "tool": "initiate_return",
                     "caller": "gateway",
                     "decision": "DENY",
                     "policy_engine_id": "policy-1",
@@ -219,7 +219,7 @@ def test_visible_tool_audit_uses_receipt_principal_scope() -> None:
                 {
                     "audit_id": 11,
                     "session_id": "session-1",
-                    "tool": "process_return",
+                    "tool": "initiate_return",
                     "caller": "gateway",
                     "args": {"turn_id": "turn-persisted"},
                     "result": {"status": "success"},
@@ -252,7 +252,7 @@ def test_recent_policy_decisions_include_explicit_allow_and_deny() -> None:
                     "receipt_id": 1,
                     "audit_id": 2,
                     "session_id": "session-1",
-                    "tool": "process_return",
+                    "tool": "initiate_return",
                     "caller": "gateway",
                     "decision": "ALLOW",
                     "args": {"turn_id": "turn-1"},
@@ -264,7 +264,7 @@ def test_recent_policy_decisions_include_explicit_allow_and_deny() -> None:
                     "receipt_id": 3,
                     "audit_id": None,
                     "session_id": "session-1",
-                    "tool": "process_return",
+                    "tool": "initiate_return",
                     "caller": "gateway",
                     "decision": "DENY",
                     "args": {"turn_id": "turn-2"},

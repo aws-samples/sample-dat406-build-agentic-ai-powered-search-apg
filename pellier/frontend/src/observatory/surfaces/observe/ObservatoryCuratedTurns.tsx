@@ -65,7 +65,7 @@ export default function ObservatoryCuratedTurns({
           const trace = traces[index];
           const isActive = activeIndex === index;
           const dispatcherOnly = Boolean(
-            trace?.tools.includes('process_return'),
+            trace?.tools.includes('initiate_return'),
           );
           const patternBlocked =
             dispatcherOnly && orchestrationPattern !== 'dispatcher';

@@ -1,11 +1,13 @@
 """
 Pellier Experience MCP Server — Lambda-hosted MCP server for the Theo /
-return-flow tools that the Experience Guide owns.
+return-flow tools that the Customer Service Agent owns.
 
 Exposes tools:
-  - process_return:        Atomic ownership-check → INSERT into ``pellier.returns``
+  - initiate_return:        Atomic ownership-check → INSERT into ``pellier.returns``
                            → (if damaged) decrement ``pellier.product_catalog.quantity``.
-  - escalate_to_stylist:   Honest fallback that hands the conversation off
+  - issue_credit:          Idempotent goodwill store credit, capped at $500.
+  - get_ticket_history:    Read-only past support interactions for context.
+  - escalate_to_human:   Honest fallback that hands the conversation off
                            to a human stylist when no catalog tool fits.
 
 Deployed as a Lambda function behind AgentCore Gateway. Mirrors the
@@ -29,12 +31,14 @@ import boto3
 
 from common.types import resolve_invocation
 from common.dataapi import (
+    execute_sql as _execute_sql,
     begin_transaction as _begin_transaction,
     commit_transaction as _commit_transaction,
     rollback_transaction as _rollback_transaction,
     execute_in_transaction as _execute_in_transaction,
     row_to_dict as _row_to_dict,
-    write_tool_audit,
+    bind_runtime_principal as _bind_runtime_principal,
+    write_tool_audit_independently as _write_tool_audit_independently,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,37 +62,6 @@ ALLOWED_RETURN_REASONS = {
 }
 
 
-
-
-
-
-
-
-
-def _write_tool_audit_in_transaction(
-    transaction_id: str,
-    tool: str,
-    args: dict,
-    result: dict,
-    latency_ms: int,
-) -> None:
-    """Audit a return in its own transaction.
-
-    `process_return` is customer-scoped and its arguments carry `customer_id`,
-    so the session handle keys on the real identity and governed queries can
-    filter on `args->>'customer_id'`.
-    """
-    customer_id = str(args.get("customer_id", "")) or "unknown"
-    write_tool_audit(
-        transaction_id,
-        tool=tool,
-        args=args,
-        result=result,
-        latency_ms=latency_ms,
-        session_id=f"gateway-{customer_id}",
-    )
-
-
 def _write_request_hash(operation: str, arguments: dict) -> str:
     payload = json.dumps(
         {"operation": operation, "arguments": arguments},
@@ -98,15 +71,41 @@ def _write_request_hash(operation: str, arguments: dict) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def process_return(
+def _reports_not_ordered(result: dict | None) -> bool:
+    """True when the write function concluded the customer never ordered.
+
+    Matches the function's own phrasing rather than a status code, because
+    `status: error` covers several unrelated outcomes. Same predicate as
+    `BusinessLogic._reports_not_ordered`.
+    """
+    if not isinstance(result, dict) or result.get("status") != "error":
+        return False
+    return "did not order" in str(result.get("message", ""))
+
+
+def initiate_return(
     customer_id: str,
     product_id: int,
     reason: str,
     idempotency_key: str,
     *,
     audit_arguments: dict | None = None,
+    customer_subject: str | None = None,
 ) -> dict:
-    """Execute the shared idempotent return transaction in Aurora."""
+    """Execute the shared idempotent return transaction in Aurora, row-scoped.
+
+    ``customer_subject`` is the Cognito subject of the CUSTOMER whose rows this
+    touches, resolved server-side from the confirmed review. It is bound
+    transaction-locally so Row-Level Security applies to this write.
+
+    It is emphatically NOT the operator. AgentCore Policy authorizes the operator
+    at the Gateway; RLS scopes the customer here. Passing the operator's subject
+    would scope the transaction to the operator's own rows and the write would
+    fail for every client they are not mapped to.
+
+    ``None`` binds an empty principal, which resolves to no customer scope and
+    denies. That is the correct outcome for a client with no identity mapping.
+    """
     if reason not in ALLOWED_RETURN_REASONS:
         return {
             "status": "policy_blocked",
@@ -121,7 +120,7 @@ def process_return(
         return {"status": "error", "message": "idempotency_key is required."}
     product_id_text = str(product_id)
     request_hash = _write_request_hash(
-        "process_return",
+        "initiate_return",
         {
             "customer_id": str(customer_id),
             "product_id": int(product_id),
@@ -133,6 +132,10 @@ def process_return(
     transaction_id = _begin_transaction()
 
     try:
+        # Role and principal first, on this transaction, before the protected
+        # statement. Statements sharing a transactionId share one server-side
+        # transaction, so these settings apply to the write below.
+        _bind_runtime_principal(transaction_id, customer_subject=customer_subject)
         rows = _execute_in_transaction(
             transaction_id,
             f"SELECT {SCHEMA}.process_return_idempotent("
@@ -150,28 +153,191 @@ def process_return(
         result = json.loads(raw_result) if isinstance(raw_result, str) else (
             raw_result or {"status": "error", "message": "Return produced no result."}
         )
-        _write_tool_audit_in_transaction(
-            transaction_id,
-            "process_return",
-            audit_arguments
-            or {
-                "customer_id": customer_id,
-                "product_id": product_id,
-                "reason": reason,
-                "idempotency_key": clean_key,
-            },
-            result,
-            int((time.monotonic() - started) * 1000),
-        )
+        # Distinguish "you may not see this" from "it does not exist".
+        #
+        # `process_return_idempotent` establishes ownership with a SELECT against
+        # `pellier.orders`. Under RLS that select is scoped to the bound principal,
+        # so a customer outside the scope finds nothing and the function reports
+        # "did not order" — which is a false statement about Aurora's contents and
+        # disguises an authorization boundary as a data fact. Box-verified: the
+        # live Gateway said CUST-AMARA "did not order product 46" for an order
+        # that exists.
+        #
+        # So when the function reports not-ordered, ask the database, inside the
+        # same transaction, whether the customer is in scope at all. Mirrors
+        # `BusinessLogic._initiate_return_governed` on the in-process rail so both
+        # rails classify a denial the same way.
+        if _reports_not_ordered(result):
+            scope_rows = _execute_in_transaction(
+                transaction_id,
+                f"SELECT count(*) AS in_scope FROM "
+                f"{SCHEMA}.current_principal_customers() WHERE customer_id = :cid;",
+                [{"name": "cid", "value": {"stringValue": str(customer_id)}}],
+            )
+            in_scope = bool(scope_rows and int(scope_rows[0].get("in_scope") or 0))
+            if not in_scope:
+                result = {
+                    "status": "policy_blocked",
+                    "message": (
+                        f"This session is not authorized to act on {customer_id}'s "
+                        "orders. The database refused the read the return depends "
+                        "on, so nothing was changed."
+                    ),
+                    "denied_by": "database_row_level_security",
+                }
         _commit_transaction(transaction_id)
-        return result
+        committed = True
     except Exception as exc:
         _rollback_transaction(transaction_id)
-        logger.error("process_return failed: %s", exc)
-        return {"status": "error", "message": str(exc)}
+        logger.error("initiate_return failed: %s", exc)
+        result = {"status": "error", "message": str(exc)}
+        committed = False
+
+    # The receipt commits in its own transaction, so it survives a rolled-back
+    # business write. An RLS denial must leave exactly one attempt receipt: with
+    # the receipt inside the mutation, the rollback destroyed the only evidence
+    # that a governed action was ever attempted.
+    _write_tool_audit_independently(
+        tool="initiate_return",
+        args=audit_arguments
+        or {
+            "customer_id": customer_id,
+            "product_id": product_id,
+            "reason": reason,
+            "idempotency_key": clean_key,
+        },
+        result=result,
+        latency_ms=int((time.monotonic() - started) * 1000),
+        session_id=f"gateway-{customer_id}",
+    )
+    return result
 
 
-def escalate_to_stylist(reason: str = "", customer_id: str = "") -> dict:
+def issue_credit(
+    customer_id: str,
+    amount_cents: int,
+    reason: str,
+    idempotency_key: str,
+    *,
+    audit_arguments: dict | None = None,
+) -> dict:
+    """Apply a goodwill store credit exactly once, in Aurora.
+
+    Mirrors ``BusinessLogic.issue_credit`` on the in-process rail: same
+    ``pellier.apply_store_credit`` function, same envelopes, same $500
+    ceiling. The ceiling is enforced by a CHECK constraint on
+    ``pellier.store_credits``; the readable ``policy_blocked`` below exists so
+    the agent sees a sentence rather than a raw SQL error.
+
+    ``issued_by`` is not accepted here. This rail has no verified operator
+    token to read, and an attribution the model supplied would be worse than
+    none. The operator console attributes credits through
+    ``routes/operator.py``, where ``require_operator`` has already produced a
+    verified ``sub``.
+    """
+    clean_key = str(idempotency_key or "").strip()
+    if not clean_key:
+        return {"status": "error", "message": "idempotency_key is required."}
+    try:
+        cents = int(amount_cents)
+    except (TypeError, ValueError):
+        return {
+            "status": "error",
+            "message": f"amount_cents must be an integer, got {amount_cents!r}.",
+        }
+    clean_reason = str(reason or "").strip()
+    if not clean_reason:
+        return {"status": "error", "message": "A reason is required for a credit."}
+
+    request_hash = _write_request_hash(
+        "issue_credit",
+        {
+            "customer_id": str(customer_id),
+            "amount_cents": cents,
+            "reason": clean_reason,
+        },
+    )
+
+    started = time.monotonic()
+    transaction_id = _begin_transaction()
+
+    try:
+        rows = _execute_in_transaction(
+            transaction_id,
+            f"SELECT {SCHEMA}.apply_store_credit("
+            ":idempotency_key, :request_hash, :cid, :amount_cents, :reason, NULL"
+            ") AS result;",
+            [
+                {"name": "idempotency_key", "value": {"stringValue": clean_key}},
+                {"name": "request_hash", "value": {"stringValue": request_hash}},
+                {"name": "cid", "value": {"stringValue": str(customer_id)}},
+                {"name": "amount_cents", "value": {"longValue": cents}},
+                {"name": "reason", "value": {"stringValue": clean_reason}},
+            ],
+        )
+        raw_result = rows[0].get("result") if rows else None
+        result = json.loads(raw_result) if isinstance(raw_result, str) else (
+            raw_result or {"status": "error", "message": "Credit produced no result."}
+        )
+        _commit_transaction(transaction_id)
+        committed = True
+    except Exception as exc:
+        _rollback_transaction(transaction_id)
+        logger.error("issue_credit failed: %s", exc)
+        result = {"status": "error", "message": str(exc)}
+        committed = False
+
+    # Independent receipt, same reason as initiate_return: the $500 CHECK
+    # constraint rolls the transaction back, and the attempt must survive that.
+    _write_tool_audit_independently(
+        tool="issue_credit",
+        args=audit_arguments
+        or {
+            "customer_id": customer_id,
+            "amount_cents": cents,
+            "reason": clean_reason,
+            "idempotency_key": clean_key,
+        },
+        result=result,
+        latency_ms=int((time.monotonic() - started) * 1000),
+        session_id=f"gateway-{customer_id}",
+    )
+    return result
+
+
+def get_ticket_history(customer_id: str, limit: int = 5) -> dict:
+    """Read one customer's past support tickets, newest first.
+
+    Read-only, so no transaction and no audit write: ``tool_audit`` records
+    what ran on the write rails, and every ALLOWed call is already recorded by
+    the handler below.
+    """
+    try:
+        capped = max(1, min(int(limit), 25))
+    except (TypeError, ValueError):
+        capped = 5
+
+    tickets = _execute_sql(
+        f"SELECT ticket_id, subject, status, channel, last_note, "
+        f"opened_at, resolved_at FROM {SCHEMA}.support_tickets "
+        "WHERE customer_id = :cid ORDER BY opened_at DESC LIMIT :lim;",
+        [
+            {"name": "cid", "value": {"stringValue": str(customer_id)}},
+            {"name": "lim", "value": {"longValue": capped}},
+        ],
+    ) or []
+    return {
+        "status": "success",
+        "customer_id": str(customer_id),
+        "count": len(tickets),
+        "open_count": sum(
+            1 for t in tickets if str(t.get("status")) in ("open", "pending")
+        ),
+        "tickets": tickets,
+    }
+
+
+def escalate_to_human(reason: str = "", customer_id: str = "") -> dict:
     """Honest fallback that hands the conversation off to a human stylist.
 
     No DB write, no products — pure UI handoff. The chat surface renders
@@ -205,8 +371,8 @@ def escalate_to_stylist(reason: str = "", customer_id: str = "") -> dict:
 # --- Lambda MCP handler ---
 
 TOOLS = {
-    "process_return": {
-        "fn": process_return,
+    "initiate_return": {
+        "fn": initiate_return,
         "description": (
             "Process a customer return atomically. Verifies ownership "
             "(customer must have ordered the product), inserts a row "
@@ -232,8 +398,56 @@ TOOLS = {
             "required": ["customer_id", "product_id", "reason", "idempotency_key"],
         },
     },
-    "escalate_to_stylist": {
-        "fn": escalate_to_stylist,
+    "issue_credit": {
+        "fn": issue_credit,
+        "description": (
+            "Issue a goodwill store credit to a customer for service "
+            "recovery, up to $500.00. Writes one durable row per "
+            "idempotency key into pellier.store_credits. Use when a client "
+            "was let down and a refund is not the right remedy."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "customer_id": {"type": "string", "description": "Customer receiving the credit"},
+                "amount_cents": {
+                    "type": "integer",
+                    "description": "Credit amount in integer cents; 2500 means $25.00",
+                    "minimum": 1,
+                    "maximum": 50000,
+                },
+                "reason": {"type": "string", "description": "Why the credit is issued; audited"},
+                "idempotency_key": {
+                    "type": "string",
+                    "description": "Stable unique key for this intended credit",
+                },
+            },
+            "required": ["customer_id", "amount_cents", "reason", "idempotency_key"],
+        },
+    },
+    "get_ticket_history": {
+        "fn": get_ticket_history,
+        "description": (
+            "Read a customer's past support tickets, newest first. Use for "
+            "context before answering a service question so the client is "
+            "not asked to repeat what already happened."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "customer_id": {"type": "string", "description": "Customer whose tickets to read"},
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum tickets to return, newest first",
+                    "minimum": 1,
+                    "maximum": 25,
+                },
+            },
+            "required": ["customer_id"],
+        },
+    },
+    "escalate_to_human": {
+        "fn": escalate_to_human,
         "description": (
             "Hand the conversation off to a human stylist. Honest fallback "
             "for asks the catalog cannot answer (cultural dressing norms, "
@@ -250,6 +464,53 @@ TOOLS = {
         },
     },
 }
+
+
+def _resolve_customer_subject(customer_id: str) -> str | None:
+    """The RLS subject for a customer, from the authorization mapping table.
+
+    Trusted server-side resolution, deliberately. The MCP arguments carry
+    ``customer_id`` — which the operator's confirmation fingerprint already binds
+    — and this turns it into an RLS principal by asking the database, so no
+    caller can substitute one.
+
+    ``None`` means the customer has no linked identity. The caller binds an empty
+    principal, RLS resolves no scope, and the write is denied. That is the correct
+    fail-closed answer, not an error.
+    """
+    if not customer_id:
+        return None
+    # Normalise the persona alias before the lookup. The live shopper prompt and
+    # the Gateway proof script both pass the bare `theo`, while the mapping table
+    # is keyed on the canonical `CUST-THEO`. Without this the subject would
+    # resolve to nothing and RLS would deny a legitimate owned-order action —
+    # which looks exactly like a governance finding and is really a key mismatch.
+    #
+    # Server-side normalisation, so it is not caller input: the argument still has
+    # to name a customer, and only the canonical form of that name is used.
+    lookup = customer_id.strip()
+    if not lookup.upper().startswith("CUST-"):
+        lookup = f"CUST-{lookup.upper()}"
+    else:
+        lookup = lookup.upper()
+    try:
+        rows = _execute_sql(
+            f"SELECT principal_sub FROM {SCHEMA}.principal_customers "
+            "WHERE customer_id = :cid ORDER BY principal_sub LIMIT 1;",
+            [{"name": "cid", "value": {"stringValue": lookup}}],
+        )
+    except Exception as exc:  # noqa: BLE001 - fail closed, never widen
+        logger.error("customer-subject resolution failed for %s: %s", customer_id, exc)
+        return None
+    if not rows:
+        logger.info(
+            "customer %s (looked up as %s) has no principal_customers mapping; "
+            "RLS will deny",
+            customer_id, lookup,
+        )
+        return None
+    value = rows[0].get("principal_sub") if isinstance(rows[0], dict) else None
+    return str(value) if value else None
 
 
 def lambda_handler(event: dict, context: Any) -> dict:
@@ -272,13 +533,22 @@ def lambda_handler(event: dict, context: Any) -> dict:
     try:
         started = time.monotonic()
         audit_arguments = dict(arguments)
+        # `customer_subject` is never accepted from the wire. A caller that could
+        # name its own RLS principal could read and write any customer's rows
+        # while passing every other check, so the subject is resolved here from
+        # trusted server-side data instead.
         execution_arguments = {
-            key: value for key, value in arguments.items() if key != "turn_id"
+            key: value
+            for key, value in arguments.items()
+            if key not in ("turn_id", "customer_subject")
         }
-        if tool_name == "process_return":
-            result = process_return(
+        if tool_name == "initiate_return":
+            result = initiate_return(
                 **execution_arguments,
                 audit_arguments=audit_arguments,
+                customer_subject=_resolve_customer_subject(
+                    str(execution_arguments.get("customer_id") or "")
+                ),
             )
         else:
             result = TOOLS[tool_name]["fn"](**execution_arguments)

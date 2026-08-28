@@ -1,7 +1,7 @@
 {
   "id": "theo-ceramics-return",
   "personaId": "theo",
-  "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",
+  "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
   "elapsedMs": 5840,
   "agentCount": 1,
   "routingPattern": "Dispatcher",
@@ -11,7 +11,7 @@
   "chat": [
     {
       "role": "user",
-      "content": "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",
+      "content": "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
       "timestamp": "2026-05-25T18:22:00Z"
     },
     {
@@ -19,26 +19,26 @@
       "content": "I'm sorry - that shouldn't have happened. I've filed the return for the Wabi-Sabi Bowl under reason 'damaged'. Aurora dropped its on-floor count by one and tagged your return as pending; you'll see a refund confirmation once the warehouse logs the package. The bowl has a 30-day return window for this category, so you're well inside it.",
       "timestamp": "2026-05-25T18:22:05Z",
       "plan": {
-        "flowSummary": "Dispatcher \u2192 support intent \u2192 Experience Guide \u2192 find_pieces (resolve productId) \u2192 returns_and_care (window/care) \u2192 process_return (Cedar-gated write + audit)",
+        "flowSummary": "Dispatcher \u2192 support intent \u2192 Customer Service Agent \u2192 search_products (resolve productId) \u2192 get_return_policy (window/care) \u2192 initiate_return (Cedar-gated write + audit)",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
-          "toolName": "find_pieces",
+          "toolName": "search_products",
           "description": "Resolve 'ceramics' \u2192 Wabi-Sabi Bowl, productId 7, category 'Home Decor'",
           "durationMs": 312,
           "sql": "SELECT product_id, name, brand, category, price, quantity\nFROM product_catalog\nWHERE name ILIKE '%Wabi-Sabi Bowl%'\n   OR category ILIKE '%ceramics%'\nORDER BY CASE WHEN name ILIKE '%Wabi-Sabi Bowl%' THEN 0 ELSE 1 END,\n         embedding <=> $1::vector\nLIMIT 5;",
           "resultSummary": "1 product matched: Wabi-Sabi Bowl ($65, Home Decor)"
         },
         {
-          "toolName": "returns_and_care",
+          "toolName": "get_return_policy",
           "description": "Lookup return window + care for Home Decor category",
           "durationMs": 48,
           "sql": "SELECT category, return_window_days, care_instructions\nFROM return_policies\nWHERE category = 'Home Decor'\nLIMIT 1;",
           "resultSummary": "30-day window; ceramics: hand-wash, no dishwasher"
         },
         {
-          "toolName": "process_return",
+          "toolName": "initiate_return",
           "description": "Write the return row (Cedar-gated on reason='damaged') + decrement quantity",
           "durationMs": 184,
           "sql": "BEGIN;\n\nSELECT oi.order_id, oi.product_id\nFROM pellier.order_items oi\nJOIN pellier.orders o ON o.order_id = oi.order_id\nWHERE o.customer_id = $1\n  AND oi.product_id = $2\nLIMIT 1;\n\nINSERT INTO pellier.returns (customer_id, product_id, reason, status)\nVALUES ($1, $2, 'damaged', 'pending')\nRETURNING return_id;\n\nUPDATE pellier.product_catalog\nSET quantity = quantity - 1\nWHERE product_id = $2;\n\nCOMMIT;",
@@ -85,7 +85,7 @@
         },
         {
           "tier": "procedural",
-          "content": "process_return: Cedar-gate reason \u2192 INSERT returns \u2192 decrement quantity \u2192 audit"
+          "content": "initiate_return: Cedar-gate reason \u2192 INSERT returns \u2192 decrement quantity \u2192 audit"
         },
         {
           "tier": "skill",
@@ -93,7 +93,7 @@
         }
       ],
       "meta": {
-        "agent": "Experience Guide",
+        "agent": "Customer Service Agent",
         "model": "Claude Opus 4.6",
         "skill": "the-makers-shelf",
         "latencyMs": 1796
@@ -131,27 +131,27 @@
     {
       "index": 4,
       "category": "both",
-      "title": "find_pieces",
+      "title": "search_products",
       "description": "Resolve 'ceramics' to Wabi-Sabi Bowl + category",
       "status": "complete",
       "durationMs": 312,
       "sql": "SELECT product_id, name, brand, category, price, quantity\nFROM product_catalog\nWHERE name ILIKE '%Wabi-Sabi Bowl%'\n   OR category ILIKE '%ceramics%'\nORDER BY CASE WHEN name ILIKE '%Wabi-Sabi Bowl%' THEN 0 ELSE 1 END,\n         embedding <=> $1::vector\nLIMIT 5;",
-      "agent": "Experience Guide"
+      "agent": "Customer Service Agent"
     },
     {
       "index": 5,
       "category": "both",
-      "title": "returns_and_care",
+      "title": "get_return_policy",
       "description": "30-day return window for Home Decor",
       "status": "complete",
       "durationMs": 48,
       "sql": "SELECT category, return_window_days, care_instructions\nFROM return_policies\nWHERE category = 'Home Decor'\nLIMIT 1;",
-      "agent": "Experience Guide"
+      "agent": "Customer Service Agent"
     },
     {
       "index": 6,
       "category": "managed",
-      "title": "Cedar policy: process_return_damaged_only",
+      "title": "Cedar policy: initiate_return_damaged_only",
       "description": "reason == 'damaged' satisfies the managed Cedar forbid-unless-damaged rule \u2192 Gateway ALLOW",
       "status": "complete",
       "durationMs": 4,
@@ -169,12 +169,12 @@
     {
       "index": 8,
       "category": "both",
-      "title": "process_return",
+      "title": "initiate_return",
       "description": "Atomic transaction: ownership SELECT \u2192 INSERT into returns \u2192 UPDATE product_catalog.quantity",
       "status": "complete",
       "durationMs": 184,
       "sql": "BEGIN;\n\nSELECT oi.order_id, oi.product_id\nFROM pellier.order_items oi\nJOIN pellier.orders o ON o.order_id = oi.order_id\nWHERE o.customer_id = $1\n  AND oi.product_id = $2\nLIMIT 1;\n\nINSERT INTO pellier.returns (customer_id, product_id, reason, status)\nVALUES ($1, $2, 'damaged', 'pending')\nRETURNING return_id;\n\nUPDATE pellier.product_catalog\nSET quantity = quantity - 1\nWHERE product_id = $2;\n\nCOMMIT;",
-      "agent": "Experience Guide"
+      "agent": "Customer Service Agent"
     },
     {
       "index": 9,
@@ -192,7 +192,7 @@
       "description": "Claude Opus 4.6 - empathy + concrete write confirmation",
       "status": "complete",
       "durationMs": 1177,
-      "agent": "Experience Guide"
+      "agent": "Customer Service Agent"
     },
     {
       "index": 11,
@@ -212,7 +212,7 @@
         "numeral": "i.",
         "title": "What happened",
         "paragraphs": [
-          "Theo's bowl arrived chipped and the Experience Guide moved through the call in three concrete steps: find_pieces resolved the catalog id, returns_and_care confirmed the 30-day window, and process_return wrote the return row to Aurora.",
+          "Theo's bowl arrived chipped and the Customer Service Agent moved through the call in three concrete steps: search_products resolved the catalog id, get_return_policy confirmed the 30-day window, and initiate_return wrote the return row to Aurora.",
           "The voice stayed empathetic and specific. The action - 'I've filed the return for the Wabi-Sabi Bowl' - names the table the agent wrote to, in customer-readable terms."
         ]
       },
@@ -246,7 +246,7 @@
       "stats": [
         {
           "label": "Cedar decisions",
-          "value": "1 ALLOW (process_return_damaged_only · Gateway)"
+          "value": "1 ALLOW (initiate_return_damaged_only · Gateway)"
         },
         {
           "label": "Aurora writes",

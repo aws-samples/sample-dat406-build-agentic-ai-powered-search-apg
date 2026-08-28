@@ -1,7 +1,7 @@
 /**
  * Write-path — Theo's third Aurora capability surface.
  *
- * Shows how mutating tools (process_return, restock_shelf) flow through
+ * Shows how mutating tools (initiate_return, restock_inventory) flow through
  * a two-layer enforcement gate (managed AgentCore Policy at the Gateway
  * + SQL ownership) and leave a paper trail in pellier.tool_audit that's
  * reconstructible from a single SELECT.
@@ -75,7 +75,7 @@ const DARK_INLINE_CODE: React.CSSProperties = {
  * Two-layer enforcement diagram
  *
  * Visualizes the chain:
- *   Agent calls process_return
+ *   Agent calls initiate_return
  *     → Cedar (managed Policy at the Gateway) — gates on reason == 'damaged'
  *     → SQL stored function — gates ownership and claims an idempotency key
  *     → return + warehouse/catalog inventory writes in one transaction
@@ -150,7 +150,7 @@ const EnforcementDiagram: React.FC = () => {
       >
         <div style={layerLabel}>Agent</div>
         <div style={stepStyle}>
-          process_return(customer_id, product_id, reason, idempotency_key)
+          initiate_return(customer_id, product_id, reason, idempotency_key)
         </div>
         <div style={arrowStyle}>↓</div>
 
@@ -387,7 +387,7 @@ const ToolAuditCard: React.FC = () => {
 
       {rows && rows.length === 0 && (
         <div style={{ fontFamily: 'var(--obs-mono)', fontSize: '13px', color: 'var(--obs-ink-3)' }}>
-          No tool_audit rows yet – fire a process_return turn or restock_shelf to populate.
+          No tool_audit rows yet – fire a initiate_return turn or restock_inventory to populate.
         </div>
       )}
 

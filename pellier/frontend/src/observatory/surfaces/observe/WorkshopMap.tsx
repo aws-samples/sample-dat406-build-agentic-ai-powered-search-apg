@@ -55,10 +55,10 @@ const LABS: LabItem[] = [
     lab: 'Lab 1',
     title: 'Ground Answers in Live Data',
     summary:
-      "Complete Stock Keeper and floor_check, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
+      "Complete Inventory Agent and check_inventory, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
       to: '/observatory/proof-board#marco-floor-check',
-      label: 'Open floor_check proof',
+      label: 'Open check_inventory proof',
       detail: 'Lab 1 checkpoint',
       testId: 'observatory-cta-proof-board',
     },

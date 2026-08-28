@@ -42,12 +42,12 @@ logger = logging.getLogger(__name__)
 # agent client (or the AgentCore Gateway) can discover and invoke them with
 # the same signatures and JSON envelopes used by the in-process orchestrator.
 #
-# The 15 tools are the application-level Gateway contract and MUST be registered
+# The 17 tools are the application-level Gateway contract and MUST be registered
 # under these exact names (Req 2.2.3):
-#   find_pieces, find_pieces_hybrid, whats_trending, price_intelligence,
-#   explore_collection, floor_check, running_low, restock_shelf,
-#   side_by_side, returns_and_care, style_match, process_return,
-#   preference_snapshot, trace_receipt, escalate_to_stylist
+#   search_products, search_products_hybrid, get_trending_products, get_price_analysis,
+#   browse_category, check_inventory, get_low_stock, restock_inventory,
+#   compare_products, get_return_policy, get_related_products, initiate_return,
+#   get_customer_preferences, get_audit_trail, escalate_to_human
 #
 # ⏩ SHORT ON TIME? Run:
 #    cp solutions/the-ledger/services/agentcore_gateway.py pellier/backend/services/agentcore_gateway.py
@@ -55,57 +55,61 @@ logger = logging.getLogger(__name__)
 # The 15 tool names exposed by the gateway, in stable order. Tests assert
 # discovery returns exactly this set by exact name.
 GATEWAY_TOOL_NAMES: List[str] = [
-    "find_pieces",
-    "find_pieces_hybrid",
-    "whats_trending",
-    "price_intelligence",
-    "explore_collection",
-    "floor_check",
-    "running_low",
-    "restock_shelf",
-    "side_by_side",
-    "returns_and_care",
-    "style_match",
-    "process_return",
-    "preference_snapshot",
-    "trace_receipt",
-    "escalate_to_stylist",
+    "search_products",
+    "search_products_hybrid",
+    "get_trending_products",
+    "get_price_analysis",
+    "browse_category",
+    "check_inventory",
+    "get_low_stock",
+    "restock_inventory",
+    "compare_products",
+    "get_return_policy",
+    "get_related_products",
+    "initiate_return",
+    "get_customer_preferences",
+    "get_audit_trail",
+    "escalate_to_human",
+    "issue_credit",
+    "get_ticket_history",
 ]
 
 MANAGED_SPECIALIST_TOOLS: Dict[str, tuple[str, ...]] = {
     "search": (
-        "find_pieces",
-        "explore_collection",
-        "side_by_side",
-        "style_match",
-        "escalate_to_stylist",
+        "search_products",
+        "browse_category",
+        "compare_products",
+        "get_related_products",
+        "escalate_to_human",
     ),
     "recommendation": (
-        "find_pieces_hybrid",
-        "whats_trending",
-        "preference_snapshot",
-        "trace_receipt",
-        "side_by_side",
-        "explore_collection",
-        "escalate_to_stylist",
+        "search_products_hybrid",
+        "get_trending_products",
+        "get_customer_preferences",
+        "get_audit_trail",
+        "compare_products",
+        "browse_category",
+        "escalate_to_human",
     ),
-    "pricing": ("price_intelligence", "explore_collection", "find_pieces"),
-    "inventory": ("floor_check", "running_low", "restock_shelf"),
+    "pricing": ("get_price_analysis", "browse_category", "search_products"),
+    "inventory": ("check_inventory", "get_low_stock", "restock_inventory"),
     "support": (
-        "returns_and_care",
-        "find_pieces",
-        "process_return",
-        "trace_receipt",
-        "escalate_to_stylist",
+        "get_return_policy",
+        "search_products",
+        "initiate_return",
+        "get_ticket_history",
+        "issue_credit",
+        "get_audit_trail",
+        "escalate_to_human",
     ),
 }
 
 _MANAGED_SPECIALIST_LABELS = {
-    "search": "Style Advisor",
-    "recommendation": "Curator",
-    "pricing": "Value Analyst",
-    "inventory": "Stock Keeper",
-    "support": "Experience Guide",
+    "search": "Search Agent",
+    "recommendation": "Personalization Agent",
+    "pricing": "Pricing Agent",
+    "inventory": "Inventory Agent",
+    "support": "Customer Service Agent",
 }
 
 
@@ -155,7 +159,7 @@ def _managed_specialist_prompt(
     return prompt
 
 
-# Capability tiers over the same 15 tools.
+# Capability tiers over the same 17 tools.
 #
 # One flat catalog publishes read, recommendation, inventory, escalation,
 # restock, and return capabilities through a single discovery surface.
@@ -179,38 +183,79 @@ TIER_ESCALATION = "escalation"
 
 GATEWAY_TOOL_TIERS: Dict[str, str] = {
     # Search and catalog reads. Safe for any authenticated shopper.
-    "find_pieces": TIER_READ,
-    "find_pieces_hybrid": TIER_READ,
-    "whats_trending": TIER_READ,
-    "price_intelligence": TIER_READ,
-    "explore_collection": TIER_READ,
-    "side_by_side": TIER_READ,
-    "style_match": TIER_READ,
-    "returns_and_care": TIER_READ,
-    "preference_snapshot": TIER_READ,
-    "trace_receipt": TIER_READ,
+    "search_products": TIER_READ,
+    "search_products_hybrid": TIER_READ,
+    "get_trending_products": TIER_READ,
+    "get_price_analysis": TIER_READ,
+    "browse_category": TIER_READ,
+    "compare_products": TIER_READ,
+    "get_related_products": TIER_READ,
+    "get_return_policy": TIER_READ,
+    "get_customer_preferences": TIER_READ,
+    "get_audit_trail": TIER_READ,
     # Inventory reads expose only the bounded workshop availability contract;
     # the stock mutation remains a separately denied operator capability.
-    "floor_check": TIER_READ,
-    "running_low": TIER_READ,
+    "check_inventory": TIER_READ,
+    "get_low_stock": TIER_READ,
     # Writes the customer owns: a return against their own order.
-    "process_return": TIER_CUSTOMER_MUTATION,
+    "initiate_return": TIER_CUSTOMER_MUTATION,
     # Writes only an operator may perform.
-    "restock_shelf": TIER_OPERATOR_MUTATION,
+    "restock_inventory": TIER_OPERATOR_MUTATION,
     # Customer-scoped handoff instruction; no external ticket is created in
     # this workshop implementation.
-    "escalate_to_stylist": TIER_ESCALATION,
+    "escalate_to_human": TIER_ESCALATION,
+    # Money movement. Most restrictive write tier.
+    "issue_credit": TIER_OPERATOR_MUTATION,
+    "get_ticket_history": TIER_READ,
 }
 
 # Tiers whose tools mutate state and therefore must travel the managed
 # rail in the governed format. Kept as a derived value so adding a tool to
 # a mutation tier automatically brings the fail-closed rule with it.
-# TIER_ESCALATION is deliberately absent: escalate_to_stylist writes nothing
+# TIER_ESCALATION is deliberately absent: escalate_to_human writes nothing
 # (no products, no audit row, no external ticket — a pure UI handoff), and
 # degraded storefront turns keep it as the honest fallback when a mutation
 # is refused. Gating it would make degraded receipts claim a withheld
 # capability that never mutates state.
 MUTATION_TIERS = frozenset({TIER_CUSTOMER_MUTATION, TIER_OPERATOR_MUTATION})
+
+
+# Which Gateway target publishes each tool.
+#
+# Cedar action ids embed this exact string: a policy naming
+# ``pellier-concierge-experience-target___initiate_return`` matches only that
+# target's tool. The provisioning source is ``scripts/deploy/
+# gateway_tool_schemas.py``, which cannot be imported from the backend at
+# runtime, so the map is stated here and
+# ``tests/test_governed_execution.py`` asserts the two agree exactly. A silent
+# copy would let a policy point at a target that no longer publishes the tool.
+GATEWAY_TARGET_FOR_TOOL: Dict[str, str] = {
+    "search_products": "pellier-discovery-search-target",
+    "search_products_hybrid": "pellier-discovery-search-target",
+    "browse_category": "pellier-discovery-search-target",
+    "check_inventory": "pellier-discovery-search-target",
+    "get_low_stock": "pellier-discovery-search-target",
+    "restock_inventory": "pellier-discovery-search-target",
+    "get_price_analysis": "pellier-value-pricing-target",
+    "compare_products": "pellier-value-pricing-target",
+    "get_customer_preferences": "pellier-curation-recommendation-target",
+    "get_audit_trail": "pellier-curation-recommendation-target",
+    "get_trending_products": "pellier-curation-recommendation-target",
+    "get_return_policy": "pellier-curation-recommendation-target",
+    "get_related_products": "pellier-curation-recommendation-target",
+    "initiate_return": "pellier-concierge-experience-target",
+    "issue_credit": "pellier-concierge-experience-target",
+    "get_ticket_history": "pellier-concierge-experience-target",
+    "escalate_to_human": "pellier-concierge-experience-target",
+}
+
+
+def gateway_action_id(tool_name: str) -> str:
+    """The Gateway-qualified Cedar action id for a published tool."""
+    target = GATEWAY_TARGET_FOR_TOOL.get(tool_name)
+    if not target:
+        raise KeyError(f"{tool_name} is not published through the Gateway")
+    return f"{target}___{tool_name}"
 
 
 def tool_tier(tool_name: str) -> str:
@@ -270,10 +315,10 @@ _SAFE_TOOL_INPUT_FIELDS = frozenset(
 )
 _CUSTOMER_SCOPED_TOOL_NAMES = frozenset(
     {
-        "preference_snapshot",
-        "trace_receipt",
-        "process_return",
-        "escalate_to_stylist",
+        "get_customer_preferences",
+        "get_audit_trail",
+        "initiate_return",
+        "escalate_to_human",
     }
 )
 
@@ -596,7 +641,7 @@ def build_mcp_server(name: str = "pellier-gateway") -> Any:
 
     mcp_server = FastMCP(name=name)
 
-    # Register each of the 15 tools by name. We pass the unwrapped function
+    # Register each of the 17 tools by name. We pass the unwrapped function
     # (not the Strands DecoratedFunctionTool) so FastMCP can introspect the
     # signature and docstring to generate the MCP input schema.
     for tool_name in GATEWAY_TOOL_NAMES:

@@ -470,7 +470,7 @@ async def test_owner_rail_can_process_another_customers_return(db, ordered):
     """
     from services.business_logic import BusinessLogic
 
-    result = await BusinessLogic(db).process_return(
+    result = await BusinessLogic(db).initiate_return(
         "CUST-ANNA", 21, "damaged", f"live-{_RUN}-owner"
     )
 
@@ -485,7 +485,7 @@ async def test_governed_rail_refuses_another_customers_return(db, ordered):
     marco = ordered["subjects"].get("CUST-MARCO")
     assert marco, "Marco has no seeded principal mapping"
 
-    result = await BusinessLogic(db).process_return(
+    result = await BusinessLogic(db).initiate_return(
         "CUST-ANNA", 21, "damaged", f"live-{_RUN}-cross", principal_sub=marco
     )
 
@@ -501,7 +501,7 @@ async def test_governed_rail_allows_a_principal_its_own_return(db, ordered):
     from services.business_logic import BusinessLogic
 
     marco = ordered["subjects"].get("CUST-MARCO")
-    result = await BusinessLogic(db).process_return(
+    result = await BusinessLogic(db).initiate_return(
         "CUST-MARCO", 11, "damaged", f"live-{_RUN}-own", principal_sub=marco
     )
 
@@ -532,7 +532,7 @@ async def test_denied_write_commits_no_business_change_but_leaves_a_receipt(
         await db.fetch_one("SELECT count(*) AS n FROM pellier.inventory_ledger")
     )["n"]
 
-    result = await BusinessLogic(db).process_return(
+    result = await BusinessLogic(db).initiate_return(
         "CUST-ANNA", 21, "damaged", key, principal_sub=marco
     )
     assert result["status"] == "policy_blocked"
@@ -554,7 +554,7 @@ async def test_denied_write_commits_no_business_change_but_leaves_a_receipt(
         key,
     )
     assert len(receipts) == 1, "expected exactly one attempt receipt"
-    assert receipts[0]["operation"] == "process_return"
+    assert receipts[0]["operation"] == "initiate_return"
 
 
 @pytest.mark.asyncio(loop_scope="module")
@@ -566,10 +566,10 @@ async def test_retrying_a_denied_write_does_not_duplicate_evidence(db, ordered):
     key = f"live-{_RUN}-retry"
     logic = BusinessLogic(db)
 
-    first = await logic.process_return(
+    first = await logic.initiate_return(
         "CUST-ANNA", 21, "damaged", key, principal_sub=marco
     )
-    second = await logic.process_return(
+    second = await logic.initiate_return(
         "CUST-ANNA", 21, "damaged", key, principal_sub=marco
     )
 

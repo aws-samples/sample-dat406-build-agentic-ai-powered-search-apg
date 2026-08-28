@@ -114,7 +114,7 @@ seed_audit AS (
         (session_id, tool, caller, args, result, latency_ms, created_at)
     SELECT
         'gateway-marco-for-theo-incident',
-        'process_return',
+        'initiate_return',
         'gateway',
         jsonb_build_object(
             'customer_id', 'theo',
@@ -135,7 +135,7 @@ seed_audit AS (
         SELECT 1
           FROM pellier.tool_audit
          WHERE session_id = 'gateway-marco-for-theo-incident'
-           AND tool = 'process_return'
+           AND tool = 'initiate_return'
            AND caller = 'gateway'
      )
     RETURNING audit_id
@@ -146,7 +146,7 @@ incident_audit AS (
     SELECT audit_id
       FROM pellier.tool_audit
      WHERE session_id = 'gateway-marco-for-theo-incident'
-       AND tool = 'process_return'
+       AND tool = 'initiate_return'
        AND caller = 'gateway'
      ORDER BY audit_id
      LIMIT 1
@@ -160,7 +160,7 @@ SELECT
     'gateway-marco-for-theo-incident',
     'CUST-MARCO',
     'Marco (Cognito JWT)',
-    'process_return',
+    'initiate_return',
     'gateway',
     'ALLOW',
     jsonb_build_object(
@@ -169,7 +169,7 @@ SELECT
         'reason', 'damaged'
     ),
     'seeded-workshop-policy-engine',
-    'process_return_damaged_only',
+    'initiate_return_damaged_only',
     'seeded:CUST-MARCO',
     'seeded:marco',
     'seeded:workshop',
@@ -181,7 +181,7 @@ SELECT
     SELECT 1
       FROM pellier.governed_receipts
      WHERE session_id = 'gateway-marco-for-theo-incident'
-       AND tool = 'process_return'
+       AND tool = 'initiate_return'
        AND principal_id = 'CUST-MARCO'
  );
 

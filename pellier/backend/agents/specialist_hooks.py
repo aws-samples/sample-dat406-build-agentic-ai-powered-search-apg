@@ -1,9 +1,9 @@
 """Shared escalation helpers for inner specialist agents (Pattern I).
 
 Pattern I (agents-as-tools) builds a fresh inner specialist Agent each time
-the orchestrator invokes one of the @tool wrappers in ``agents/style_advisor.py``,
-``agents/curator.py``, etc. Those inner specialists can emit an
-``escalate_to_stylist`` payload that the outer wrapper has to surface back to
+the orchestrator invokes one of the @tool wrappers in ``agents/search_agent.py``,
+``agents/personalization_agent.py``, etc. Those inner specialists can emit an
+``escalate_to_human`` payload that the outer wrapper has to surface back to
 ``services/chat.py`` so the chat UI can render the stylist handoff card.
 
 This module surfaces escalation payloads and product envelopes across that
@@ -86,7 +86,7 @@ def extract_escalation_payload(tool_results: List[str]) -> Optional[dict]:
 
     The chat surface needs the escalation payload to render the stylist
     handoff card. The payload originates inside an inner specialist's
-    ``escalate_to_stylist`` call, so the outer ``support`` / ``search``
+    ``escalate_to_human`` call, so the outer ``support`` / ``search``
     wrapper has to surface it back to chat.py — chat.py only sees the
     wrapper's return value, not the inner Agent's tool results.
 

@@ -65,11 +65,11 @@ describe('PellierHero signature suggestions', () => {
    * canonical string verbatim rather than the shortened pill label.
    */
   it.each([
-    ['marco', 'Is the Hadley shirt at the Brooklyn warehouse?', 'floor_check'],
+    ['marco', 'Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?', 'check_inventory'],
     [
       'theo',
-      "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",
-      'process_return',
+      "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
+      'initiate_return',
     ],
   ])(
     'surfaces %s’s signature %s turn on sign-on',

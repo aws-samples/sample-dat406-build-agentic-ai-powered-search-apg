@@ -1589,11 +1589,11 @@ const MemoryCard: React.FC<{ turns: ChatTurn[] }> = ({ turns }) => {
 
 /** Agents card — 5 specialists with status dots */
 const AGENTS_LIST = [
-  { name: 'Style Advisor', status: 'live' as const },
-  { name: 'Curator', status: 'live' as const },
-  { name: 'Value Analyst', status: 'live' as const },
-  { name: 'Stock Keeper', status: 'idle' as const },
-  { name: 'Experience Guide', status: 'idle' as const },
+  { name: 'Search Agent', status: 'live' as const },
+  { name: 'Personalization Agent', status: 'live' as const },
+  { name: 'Pricing Agent', status: 'live' as const },
+  { name: 'Inventory Agent', status: 'idle' as const },
+  { name: 'Customer Service Agent', status: 'idle' as const },
 ];
 
 const AgentsCard: React.FC = () => (
@@ -1815,7 +1815,7 @@ const ChatTab: React.FC = () => {
         },
         toolCalls: [
           {
-            toolName: 'find_pieces',
+            toolName: 'search_products',
             description: `Semantic search: ${trimmed.length > 140 ? `${trimmed.slice(0, 137)}…` : trimmed}`,
             durationMs: data.searchMs,
             sql: toolSql,

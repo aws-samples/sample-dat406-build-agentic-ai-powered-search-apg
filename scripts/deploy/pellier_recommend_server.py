@@ -3,11 +3,11 @@ Pellier Curation MCP Server - Lambda-hosted read and recommendation tools.
 
 Exposes the five curation and evidence tools from the canonical 15-tool
 Pellier contract:
-  - preference_snapshot
-  - trace_receipt
-  - whats_trending
-  - returns_and_care
-  - style_match
+  - get_customer_preferences
+  - get_audit_trail
+  - get_trending_products
+  - get_return_policy
+  - get_related_products
 
 Deployed as a Lambda function behind AgentCore Gateway.
 """
@@ -50,7 +50,7 @@ def _resolve_customer_id(customer_id: str = "") -> str:
 
 # --- Tool implementations ---
 
-def preference_snapshot(
+def get_customer_preferences(
     customer_id: str = "",
     limit: int = 5,
 ) -> dict:
@@ -122,7 +122,7 @@ def preference_snapshot(
     }
 
 
-def trace_receipt(
+def get_audit_trail(
     customer_id: str = "",
     session_id: str = "",
     tool_name: str = "",
@@ -224,7 +224,7 @@ def trace_receipt(
     }
 
 
-def whats_trending(limit: int = 5, category: str = None) -> dict:
+def get_trending_products(limit: int = 5, category: str = None) -> dict:
     """Return products ranked by rating times review volume."""
     conditions = ["rating >= 4.0", "reviews::int > 50", '"imgUrl" IS NOT NULL']
     parameters = [
@@ -265,7 +265,7 @@ def whats_trending(limit: int = 5, category: str = None) -> dict:
     }
 
 
-def returns_and_care(category: str = "default") -> dict:
+def get_return_policy(category: str = "default") -> dict:
     """Return the exact category policy, falling back to the default row."""
     parameters = [
         {"name": "category", "value": {"stringValue": category or "default"}}
@@ -291,7 +291,7 @@ def returns_and_care(category: str = "default") -> dict:
     return rows[0]
 
 
-def style_match(product_id: int, limit: int = 5) -> dict:
+def get_related_products(product_id: int, limit: int = 5) -> dict:
     """Find products nearest to a source product in the catalog vector space."""
     product_id_text = str(product_id).strip()
     source_rows = _execute_sql(
@@ -335,8 +335,8 @@ def style_match(product_id: int, limit: int = 5) -> dict:
 # --- Lambda MCP handler ---
 
 TOOLS = {
-    "preference_snapshot": {
-        "fn": preference_snapshot,
+    "get_customer_preferences": {
+        "fn": get_customer_preferences,
         "description": "Read a safe customer preference, order, and memory snapshot.",
         "inputSchema": {
             "type": "object",
@@ -347,8 +347,8 @@ TOOLS = {
             "required": ["customer_id"],
         },
     },
-    "trace_receipt": {
-        "fn": trace_receipt,
+    "get_audit_trail": {
+        "fn": get_audit_trail,
         "description": "Read recent ALLOW receipts from pellier.tool_audit.",
         "inputSchema": {
             "type": "object",
@@ -362,8 +362,8 @@ TOOLS = {
             "required": ["customer_id"],
         },
     },
-    "whats_trending": {
-        "fn": whats_trending,
+    "get_trending_products": {
+        "fn": get_trending_products,
         "description": "Get products ranked by rating and review volume.",
         "inputSchema": {
             "type": "object",
@@ -374,8 +374,8 @@ TOOLS = {
             "required": [],
         },
     },
-    "returns_and_care": {
-        "fn": returns_and_care,
+    "get_return_policy": {
+        "fn": get_return_policy,
         "description": "Look up the return and care policy for a category.",
         "inputSchema": {
             "type": "object",
@@ -385,8 +385,8 @@ TOOLS = {
             "required": [],
         },
     },
-    "style_match": {
-        "fn": style_match,
+    "get_related_products": {
+        "fn": get_related_products,
         "description": "Find complementary products by vector similarity.",
         "inputSchema": {
             "type": "object",

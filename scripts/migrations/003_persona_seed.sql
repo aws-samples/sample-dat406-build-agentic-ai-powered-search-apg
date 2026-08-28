@@ -8,7 +8,7 @@
 -- Why this is required:
 --   * Marco / Anna / Theo / Fresh need customer rows for memory and
 --     Observatory overlays.
---   * Theo's process_return tool checks ownership in pellier.orders
+--   * Theo's initiate_return tool checks ownership in pellier.orders
 --     before it writes to pellier.returns.
 --   * The memory surfaces read pellier.customer_episodic_seed directly.
 --
@@ -149,7 +149,7 @@ BEGIN
       FROM pellier.customer_episodic_seed
      WHERE customer_id IN ('CUST-MARCO', 'CUST-ANNA', 'CUST-THEO');
 
-    -- Theo's process_return demo specifically requires the Wabi-Sabi Bowl
+    -- Theo's initiate_return demo specifically requires the Wabi-Sabi Bowl
     -- order to exist for both 'CUST-THEO' and the 'theo' alias. If
     -- pellier.product_catalog is empty (e.g. the seeder failed silently
     -- earlier in bootstrap), the JOIN above produces zero rows and the
@@ -173,7 +173,7 @@ BEGIN
     IF n_theo_orders < 2 THEN
         RAISE EXCEPTION
             'Theo Wabi-Sabi Bowl order missing (got % rows for CUST-THEO + theo). '
-            'process_return demo will fail with "product not found in your orders". '
+            'initiate_return demo will fail with "product not found in your orders". '
             'Verify pellier.product_catalog contains a row named "Wabi-Sabi Bowl".',
             n_theo_orders;
     END IF;

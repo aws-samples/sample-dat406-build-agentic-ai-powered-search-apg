@@ -21,6 +21,7 @@ function persona(id: string, overrides: Partial<PersonaSnapshot> = {}): PersonaS
     avatar_color: '#000',
     avatar_initial: id[0]?.toUpperCase() ?? 'G',
     customer_id: `cust-${id}`,
+    membership: 'registered' as const,
     stats: { visits: 0, orders: 0, last_seen_days: null },
     ...overrides,
   }

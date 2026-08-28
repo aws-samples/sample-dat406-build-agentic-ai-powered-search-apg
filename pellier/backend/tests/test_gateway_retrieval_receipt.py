@@ -114,7 +114,7 @@ def test_gateway_hybrid_search_persists_actual_ranking_evidence(
 
     response = server.lambda_handler(
         {
-            "name": "find_pieces_hybrid",
+            "name": "search_products_hybrid",
             "arguments": {
                 "query": "linen for a resort",
                 "turn_id": "turn-0123456789abcdef0123456789abcdef",
@@ -159,7 +159,7 @@ def test_gateway_hybrid_search_never_persists_an_untrusted_turn_id(
 
     response = server.lambda_handler(
         {
-            "name": "find_pieces_hybrid",
+            "name": "search_products_hybrid",
             "arguments": {
                 "query": "linen",
                 "turn_id": "not-a-server-minted-turn",
@@ -191,7 +191,7 @@ def test_gateway_semantic_search_persists_cosine_order_without_rerank(
 
     server.lambda_handler(
         {
-            "name": "find_pieces",
+            "name": "search_products",
             "arguments": {
                 "query": "resort linen",
                 "turn_id": "turn-abcdefabcdefabcdefabcdefabcdefab",

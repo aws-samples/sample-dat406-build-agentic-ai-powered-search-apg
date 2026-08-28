@@ -9,23 +9,23 @@ import {
 const sampleTools: Tool[] = [
   {
     numeral: 1,
-    functionName: 'find_pieces',
+    functionName: 'search_products',
     description: 'Semantic product search',
     status: 'shipped',
     mutationType: 'read',
-    signature: 'def find_pieces(query: str) -> str',
-    usedBy: ['style_advisor'],
+    signature: 'def search_products(query: str) -> str',
+    usedBy: ['search_agent'],
     invocationCount: 100,
     version: '1.0',
   },
   {
     numeral: 9,
-    functionName: 'process_return',
+    functionName: 'initiate_return',
     description: 'Process a customer return with audit',
     status: 'exercise',
     mutationType: 'write',
-    signature: 'def process_return(order_id: str) -> str',
-    usedBy: ['curator'],
+    signature: 'def initiate_return(order_id: str) -> str',
+    usedBy: ['personalization_agent'],
     invocationCount: 0,
     version: '0.1',
   },
@@ -44,7 +44,7 @@ describe('toolsDiscoveryUtils', () => {
       'find products matching customer preferences',
       sampleTools,
     );
-    expect(results[0]?.name).toBe('find_pieces');
+    expect(results[0]?.name).toBe('search_products');
   });
 
   it('builds preset discovery queries per tool', () => {

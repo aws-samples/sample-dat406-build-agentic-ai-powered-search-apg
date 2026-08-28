@@ -19,12 +19,12 @@
       "content": "A few gift-table mainstays worth considering: the Beeswax Taper Candles ($48) - wrap-ready, burn for eight hours, no fussy preamble. The Ceramic Ring Dish ($35) if she tends to leave things on her bedside table. And if you want something that arrives with more occasion, the Botanical Silk Scarf ($128) reads as a proper gift without being obvious.",
       "timestamp": "2026-05-25T17:48:05Z",
       "plan": {
-        "flowSummary": "Dispatcher \u2192 Curator + the-gift-table \u2192 find_pieces_hybrid (vector + Postgres FTS \u2192 RRF \u2192 cohere.rerank-v3-5:0)",
+        "flowSummary": "Dispatcher \u2192 Personalization Agent + the-gift-table \u2192 search_products_hybrid (vector + Postgres FTS \u2192 RRF \u2192 cohere.rerank-v3-5:0)",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
-          "toolName": "find_pieces_hybrid",
+          "toolName": "search_products_hybrid",
           "description": "Hybrid pgvector + Postgres FTS + cohere.rerank-v3-5:0 over the gift-band catalog",
           "durationMs": 706,
           "sql": "WITH vector_results AS (\n  SELECT product_id, row_number() OVER (ORDER BY embedding <=> $1::vector) AS vector_rank\n  FROM product_catalog\n  WHERE quantity > 0\n  LIMIT 20\n),\nfts_results AS (\n  SELECT product_id, row_number() OVER (ORDER BY ts_rank_cd(description_tsv, $2::tsquery) DESC) AS text_rank\n  FROM product_catalog\n  WHERE quantity > 0\n    AND description_tsv @@ $2::tsquery\n  LIMIT 20\n),\nrrf AS (\n  SELECT COALESCE(v.product_id, f.product_id) AS product_id,\n         COALESCE(1.0 / (60 + v.vector_rank), 0) +\n         COALESCE(1.0 / (60 + f.text_rank), 0) AS rrf_score\n  FROM vector_results v\n  FULL OUTER JOIN fts_results f USING (product_id)\n)\nSELECT product_id, rrf_score\nFROM rrf\nORDER BY rrf_score DESC\nLIMIT 30;",
@@ -88,7 +88,7 @@
         }
       ],
       "meta": {
-        "agent": "Curator",
+        "agent": "Personalization Agent",
         "model": "Claude Opus 4.6",
         "skill": "the-gift-table",
         "searchMethod": "hybrid+rerank",
@@ -100,7 +100,7 @@
     {
       "index": 1,
       "category": "managed",
-      "title": "Intent \u2192 Curator",
+      "title": "Intent \u2192 Personalization Agent",
       "description": "'gift' matched the-gift-table skill path",
       "status": "complete",
       "durationMs": 62,
@@ -140,7 +140,7 @@
       "status": "complete",
       "durationMs": 305,
       "sql": "WITH query_embedding AS (\n  SELECT $1::vector AS embedding\n)\nSELECT\n  p.product_id,\n  p.name,\n  p.brand,\n  p.price,\n  1 - (p.embedding <=> q.embedding) AS similarity\nFROM product_catalog p\nCROSS JOIN query_embedding q\nWHERE p.quantity > 0\nORDER BY p.embedding <=> q.embedding\nLIMIT 20;",
-      "agent": "Curator \u00b7 find_pieces_hybrid"
+      "agent": "Personalization Agent \u00b7 search_products_hybrid"
     },
     {
       "index": 6,
@@ -150,7 +150,7 @@
       "status": "complete",
       "durationMs": 78,
       "sql": "WITH query_terms AS (\n  SELECT to_tsquery('english', 'wrap:* | gift:* | ready:* | effort:*') AS q\n)\nSELECT\n  p.product_id,\n  p.name,\n  p.brand,\n  p.price,\n  ts_rank_cd(p.description_tsv, query_terms.q) AS text_rank\nFROM product_catalog p\nCROSS JOIN query_terms\nWHERE p.quantity > 0\n  AND p.description_tsv @@ query_terms.q\nORDER BY text_rank DESC\nLIMIT 20;",
-      "agent": "Curator \u00b7 find_pieces_hybrid"
+      "agent": "Personalization Agent \u00b7 search_products_hybrid"
     },
     {
       "index": 7,
@@ -160,7 +160,7 @@
       "status": "complete",
       "durationMs": 3,
       "sql": "WITH vector_results AS (\n  SELECT product_id, row_number() OVER (ORDER BY embedding <=> $1::vector) AS vector_rank\n  FROM product_catalog\n  WHERE quantity > 0\n  LIMIT 20\n),\nfts_results AS (\n  SELECT product_id, row_number() OVER (ORDER BY ts_rank_cd(description_tsv, $2::tsquery) DESC) AS text_rank\n  FROM product_catalog\n  WHERE quantity > 0\n    AND description_tsv @@ $2::tsquery\n  LIMIT 20\n),\nrrf AS (\n  SELECT\n    COALESCE(v.product_id, f.product_id) AS product_id,\n    COALESCE(1.0 / (60 + v.vector_rank), 0) +\n    COALESCE(1.0 / (60 + f.text_rank), 0) AS rrf_score\n  FROM vector_results v\n  FULL OUTER JOIN fts_results f USING (product_id)\n)\nSELECT product_id, rrf_score\nFROM rrf\nORDER BY rrf_score DESC\nLIMIT 30;",
-      "agent": "Curator \u00b7 find_pieces_hybrid"
+      "agent": "Personalization Agent \u00b7 search_products_hybrid"
     },
     {
       "index": 8,
@@ -169,7 +169,7 @@
       "description": "Cohere Rerank v3.5 - Bedrock cohere.rerank-v3-5:0 reranks 30 candidates",
       "status": "complete",
       "durationMs": 281,
-      "agent": "Curator \u00b7 find_pieces_hybrid"
+      "agent": "Personalization Agent \u00b7 search_products_hybrid"
     },
     {
       "index": 9,
@@ -178,7 +178,7 @@
       "description": "Claude Opus 4.6 - gift-band framing across three price tiers",
       "status": "complete",
       "durationMs": 1244,
-      "agent": "Curator"
+      "agent": "Personalization Agent"
     },
     {
       "index": 10,
@@ -198,7 +198,7 @@
         "numeral": "i.",
         "title": "The ask",
         "paragraphs": [
-          "Anna arrived with a real gift-shopper's constraint: wrap-ready, no extra effort. The Curator, with the-gift-table skill loaded, pulled three pieces across price bands so she could read her way into a choice rather than be handed one."
+          "Anna arrived with a real gift-shopper's constraint: wrap-ready, no extra effort. The Personalization Agent, with the-gift-table skill loaded, pulled three pieces across price bands so she could read her way into a choice rather than be handed one."
         ]
       },
       {

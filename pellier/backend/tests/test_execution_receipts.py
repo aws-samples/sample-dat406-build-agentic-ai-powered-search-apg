@@ -1,0 +1,539 @@
+"""The policy artifact: a Cedar verdict that survives the response body.
+
+The defect this file exists to prevent
+-------------------------------------
+
+Migration 021 deferred governance state to "its own artifacts: the policy decision, the
+``tool_audit`` receipt, ``write_operations``, and the domain rows". Three of those were
+real. Nothing persisted the policy decision, so:
+
+  * a Cedar DENY left no durable trace of ANY kind — correctly no ``tool_audit`` row,
+    correctly no idempotency claim, and no verdict either;
+  * ``GET /api/operator/reviews/{id}`` derived all four assurance axes from the human
+    state alone, so three live executions with materially different outcomes (a written
+    return, a policy denial, and an RLS refusal) all reported an identical
+    ``policy: PENDING, aurora: NOT_EVALUATED`` on the surface built to show them apart.
+
+So the assertions here are mostly about a row existing and a surface reading it, which
+is unglamorous and is exactly what was missing.
+
+Measured against the live cluster on 2026-08-27, and these are the three shapes:
+
+    review 36  CUST-RACHEL  DENY  / NOT_REACHED / POLICY_PROOF     no subject
+    review 40  CUST-THEO    ALLOW / PERMITTED   / RECEIPTED        subject bound
+    review 41  CUST-AMARA   ALLOW / DENIED      / ATTEMPT_RECEIPT  no subject
+"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+from typing import Any, Dict, List, Optional
+
+import pytest
+
+from routes import operator as OP
+from services import governed_execution as GE
+
+MIGRATION = pathlib.Path("../../scripts/migrations/025_execution_receipts.sql")
+BOOTSTRAP = pathlib.Path("../../scripts/bootstrap-labs.sh")
+
+
+# ---------------------------------------------------------------------------
+# Fakes. Mappings, not tuples: the pool configures `dict_row`.
+# ---------------------------------------------------------------------------
+
+
+class FakeDb:
+    def __init__(
+        self,
+        *,
+        insert_id: Optional[int] = 7,
+        rows: Optional[List[Dict[str, Any]]] = None,
+        fail: bool = False,
+    ) -> None:
+        self.insert_id = insert_id
+        self.rows = rows or []
+        self.fail = fail
+        self.statements: List[str] = []
+        self.params: List[Any] = []
+
+    def get_connection(self):
+        return _Conn(self)
+
+    async def fetch_one(self, sql: str, *params: Any):
+        self.statements.append(" ".join(sql.split()))
+        self.params.append(params)
+        if self.fail:
+            raise RuntimeError('relation "pellier.execution_receipts" does not exist')
+        return self.rows[0] if self.rows else None
+
+    async def fetch_all(self, sql: str, *params: Any):
+        self.statements.append(" ".join(sql.split()))
+        self.params.append(params)
+        if self.fail:
+            raise RuntimeError('relation "pellier.execution_receipts" does not exist')
+        return list(self.rows)
+
+
+class _Cur:
+    def __init__(self, db: FakeDb) -> None:
+        self.db = db
+        self._one: Optional[Dict[str, Any]] = None
+
+    async def execute(self, sql: str, params: Any = ()) -> None:
+        flat = " ".join(sql.split())
+        self.db.statements.append(flat)
+        self.db.params.append(params)
+        if self.db.fail:
+            raise RuntimeError("insert refused")
+        # Mimic psycopg's arity check. The first version of `record_receipt` called
+        # `db.fetch_one(sql, params)`, which forwards `*params` as a one-tuple, and the
+        # driver raised "the query has 15 placeholders but 1 parameters were passed" —
+        # swallowed by the best-effort handler, so no receipt was ever written and
+        # nothing failed. A fake that accepts any params reproduces none of that.
+        if "%(" in flat and not isinstance(params, dict):
+            raise TypeError(
+                f"named placeholders need a mapping, got {type(params).__name__}"
+            )
+        self._one = (
+            {"receipt_id": self.db.insert_id} if self.db.insert_id is not None else None
+        )
+
+    async def fetchone(self):
+        return self._one
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+class _Conn:
+    def __init__(self, db: FakeDb) -> None:
+        self.db = db
+
+    def cursor(self):
+        return _Cur(self.db)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+def _outcome(**over: Any) -> GE.ExecutionOutcome:
+    base: Dict[str, Any] = {
+        "rail": GE.RAIL_GATEWAY,
+        "execution_turn_id": "turn-" + "a" * 32,
+        "idempotency_key": "operator-review:36:" + "b" * 32,
+        "operator_sub": "04184458-d0e1-7066-7498-a60aa5a02bc4",
+        "customer_subject": None,
+        "policy": GE.POLICY_DENY,
+        "aurora": GE.AURORA_NOT_REACHED,
+        "evidence": GE.EVIDENCE_POLICY_PROOF,
+        "tool": "initiate_return",
+        "result": {"status": "policy_denied"},
+        "notes": {"policy": "Cedar denied the action; the tool was never entered."},
+    }
+    base.update(over)
+    return GE.ExecutionOutcome(**base)
+
+
+class _Engine:
+    gateway_mode = "ENFORCE"
+    matching_forbids = ("process_return_damaged_only",)
+
+
+# ---------------------------------------------------------------------------
+# The writer
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_denial_is_recorded() -> None:
+    """The whole point. Before this, a DENY was provable only from a live response."""
+    db = FakeDb()
+    receipt_id = await GE.record_receipt(
+        db, _outcome(), review_id=36, engine_state=_Engine()
+    )
+    assert receipt_id == 7
+    insert = next(s for s in db.statements if s.startswith("INSERT"))
+    assert "pellier.execution_receipts" in insert
+    params = next(p for p in db.params if isinstance(p, dict))
+    assert params["policy_outcome"] == "DENY"
+    assert params["aurora_outcome"] == "NOT_REACHED"
+    assert params["evidence_outcome"] == "POLICY_PROOF"
+    assert params["review_id"] == 36
+    assert params["rail"] == "gateway-mcp"
+
+
+@pytest.mark.asyncio
+async def test_the_insert_is_passed_a_mapping_not_a_tuple() -> None:
+    """The bug that made the first version silently write nothing.
+
+    `db.fetch_one(sql, params)` forwards `*params`, so a dict became a one-tuple and
+    psycopg reported 15 placeholders against 1 parameter — logged at warning and
+    swallowed. This asserts the cursor form, which is the only one that binds named
+    placeholders.
+    """
+    db = FakeDb()
+    assert await GE.record_receipt(db, _outcome(), review_id=36) == 7
+    assert any(isinstance(p, dict) for p in db.params)
+
+
+@pytest.mark.asyncio
+async def test_the_verdict_names_the_engine_and_the_mode() -> None:
+    """An ALLOW without them is unattributable.
+
+    The same word means "permitted" under ENFORCE and "observed, not enforced" under
+    LOG_ONLY, and the two scopes use different enums.
+    """
+    db = FakeDb()
+    await GE.record_receipt(
+        db, _outcome(policy=GE.POLICY_ALLOW), review_id=40, engine_state=_Engine()
+    )
+    params = next(p for p in db.params if isinstance(p, dict))
+    assert params["gateway_mode"] == "ENFORCE"
+    assert params["matching_forbids"] == ["process_return_damaged_only"]
+    assert params["policy_engine_id"] is not None
+
+
+@pytest.mark.asyncio
+async def test_the_in_process_rail_claims_no_policy_engine() -> None:
+    """It consults none, so naming one would attribute a verdict that never happened."""
+    db = FakeDb()
+    await GE.record_receipt(
+        db,
+        _outcome(rail=GE.RAIL_IN_PROCESS, policy=GE.POLICY_NOT_EVALUATED),
+        review_id=40,
+    )
+    params = next(p for p in db.params if isinstance(p, dict))
+    assert params["policy_engine_id"] is None
+    assert params["rail"] == "in-process"
+
+
+@pytest.mark.asyncio
+async def test_a_receipt_failure_never_fails_the_execution() -> None:
+    """Evidence ABOUT a completed write must not turn it into an error.
+
+    The write has already applied by the time this runs. Raising here would report a
+    successful governed mutation as a 500 and invite the operator to retry it.
+    """
+    db = FakeDb(fail=True)
+    assert await GE.record_receipt(db, _outcome(), review_id=36) is None
+
+
+@pytest.mark.asyncio
+async def test_the_notes_are_stored_as_json() -> None:
+    db = FakeDb()
+    await GE.record_receipt(db, _outcome(), review_id=36)
+    params = next(p for p in db.params if isinstance(p, dict))
+    assert json.loads(params["notes"])["policy"].startswith("Cedar denied")
+
+
+# ---------------------------------------------------------------------------
+# The readers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_no_execution_reads_as_none_not_as_a_verdict() -> None:
+    """Most reviews have never executed, and that is not a DENY."""
+    assert await GE.latest_receipt(FakeDb(rows=[]), 36) is None
+    assert await GE.latest_receipts(FakeDb(rows=[]), [36, 40]) == {}
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_receipt_table_keeps_the_review_viewable() -> None:
+    assert await GE.latest_receipt(FakeDb(fail=True), 36) is None
+    assert await GE.latest_receipts(FakeDb(fail=True), [36]) == {}
+
+
+@pytest.mark.asyncio
+async def test_the_batch_read_is_one_round_trip() -> None:
+    """A per-row read would scale the queue's cost with its length."""
+    db = FakeDb(rows=[{"review_id": 36, "policy_outcome": "DENY"}])
+    got = await GE.latest_receipts(db, [36, 40, 41])
+    assert got == {36: {"review_id": 36, "policy_outcome": "DENY"}}
+    assert len([s for s in db.statements if "execution_receipts" in s]) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_batch_read_skips_the_query_for_an_empty_queue() -> None:
+    db = FakeDb()
+    assert await GE.latest_receipts(db, []) == {}
+    assert db.statements == []
+
+
+@pytest.mark.asyncio
+async def test_the_reads_take_the_newest_attempt() -> None:
+    """Append-only, so ordering is the whole selection logic."""
+    for sql in (GE._LATEST_RECEIPT, GE._LATEST_RECEIPTS_BATCH):
+        flat = " ".join(sql.split())
+        assert "receipt_id DESC" in flat, flat
+
+
+# ---------------------------------------------------------------------------
+# The surface
+# ---------------------------------------------------------------------------
+
+
+def _receipt(**over: Any) -> Dict[str, Any]:
+    base: Dict[str, Any] = {
+        "receipt_id": 9,
+        "execution_turn_id": "turn-" + "c" * 32,
+        "review_id": 36,
+        "tool": "initiate_return",
+        "gateway_action_id": "pellier-concierge-experience-target___initiate_return",
+        "rail": "gateway-mcp",
+        "actor_principal": "operator-sub",
+        "customer_subject": None,
+        "policy_outcome": "DENY",
+        "aurora_outcome": "NOT_REACHED",
+        "evidence_outcome": "POLICY_PROOF",
+        "policy_engine_id": "pellier_policy_engine-usqc5dbiek",
+        "gateway_mode": "ENFORCE",
+        "matching_forbids": ["process_return_damaged_only"],
+        "idempotency_key": "operator-review:36:x",
+        "notes": {"policy": "Cedar denied the action; the tool was never entered."},
+        "created_at": None,
+    }
+    base.update(over)
+    return base
+
+
+def test_the_receipt_supersedes_the_pre_execution_reading() -> None:
+    """The defect, stated as an assertion.
+
+    `_assurance("confirmed")` is PENDING / NOT_EVALUATED, which is right before an
+    execution and wrong after one. All three live outcomes read identically until this
+    handoff existed.
+    """
+    before = OP._assurance("confirmed")
+    assert before["policy"] == "PENDING"
+    after = OP._assurance_from_receipt("confirmed", _receipt())
+    assert after == {
+        "human": "CONFIRMED",
+        "policy": "DENY",
+        "aurora": "NOT_REACHED",
+        "evidence": "POLICY_PROOF",
+    }
+
+
+def test_the_human_axis_is_never_revised_by_the_receipt() -> None:
+    """A confirmation is not undone by what the governance layers then decided."""
+    got = OP._assurance_from_receipt(
+        "confirmed", _receipt(policy_outcome="DENY")
+    )
+    assert got["human"] == "CONFIRMED"
+    # And a declined review has no execution to read.
+    assert OP._assurance_from_receipt("declined", None)["human"] == "DECLINED"
+
+
+def test_no_receipt_leaves_the_pre_execution_reading_intact() -> None:
+    for state in ("confirmation_required", "confirmed", "declined"):
+        assert OP._assurance_from_receipt(state, None) == OP._assurance(state)
+
+
+def test_the_three_live_outcomes_round_trip() -> None:
+    """Exactly the rows the live cluster holds for reviews 36, 40 and 41."""
+    cases = [
+        ("DENY", "NOT_REACHED", "POLICY_PROOF"),
+        ("ALLOW", "PERMITTED", "RECEIPTED"),
+        ("ALLOW", "DENIED", "ATTEMPT_RECEIPT"),
+    ]
+    for policy, aurora, evidence in cases:
+        got = OP._assurance_from_receipt(
+            "confirmed",
+            _receipt(
+                policy_outcome=policy,
+                aurora_outcome=aurora,
+                evidence_outcome=evidence,
+            ),
+        )
+        assert (got["policy"], got["aurora"], got["evidence"]) == (
+            policy, aurora, evidence,
+        )
+
+
+def test_an_allow_and_an_aurora_denial_coexist() -> None:
+    """Amara's row, and the reason the axes are separate columns.
+
+    A surface that folded these into one status would have to pick a winner, and
+    either choice states something false: the action WAS authorized and the database
+    DID refuse it.
+    """
+    got = OP._assurance_from_receipt(
+        "confirmed",
+        _receipt(policy_outcome="ALLOW", aurora_outcome="DENIED",
+                 evidence_outcome="ATTEMPT_RECEIPT"),
+    )
+    assert got["policy"] == "ALLOW" and got["aurora"] == "DENIED"
+
+
+def test_the_payload_carries_the_attribution() -> None:
+    payload = OP._receipt_payload(_receipt())
+    assert payload["gatewayMode"] == "ENFORCE"
+    assert payload["policyEngineId"] == "pellier_policy_engine-usqc5dbiek"
+    assert payload["matchingForbids"] == ["process_return_damaged_only"]
+    assert payload["rail"] == "gateway-mcp"
+    assert payload["notes"]["policy"].startswith("Cedar denied")
+
+
+def test_the_payload_parses_notes_that_arrive_as_text() -> None:
+    payload = OP._receipt_payload(_receipt(notes='{"policy": "denied"}'))
+    assert payload["notes"] == {"policy": "denied"}
+    assert OP._receipt_payload(_receipt(notes="not json"))["notes"] == {}
+
+
+def test_no_receipt_is_no_payload() -> None:
+    assert OP._receipt_payload(None) is None
+
+
+def test_the_review_payload_reports_execution_separately_from_the_axes() -> None:
+    """The axes are the verdicts; `execution` is what produced them.
+
+    A surface can render ALLOW without the attribution, but it cannot defend it.
+    """
+    row = {
+        "review_id": 36, "customer_id": "CUST-RACHEL", "action": "initiate_return",
+        "args": {"reason": "not_as_described"}, "status": "approved",
+        "action_hash": "h" * 64, "source_turn_id": "turn-src",
+        "execution_turn_id": "turn-" + "c" * 32,
+    }
+    payload = OP._review_payload(row, _receipt())
+    assert payload["assurance"]["policy"] == "DENY"
+    assert payload["execution"]["gatewayMode"] == "ENFORCE"
+    assert payload["executionTurnId"] == "turn-" + "c" * 32
+
+
+def test_an_execution_turn_without_a_receipt_is_its_own_state() -> None:
+    """An attempt began and produced no verdict. Not the same as never attempting."""
+    row = {
+        "review_id": 36, "customer_id": "CUST-RACHEL", "action": "initiate_return",
+        "args": {}, "status": "approved", "action_hash": "h" * 64,
+        "execution_turn_id": "turn-" + "d" * 32,
+    }
+    payload = OP._review_payload(row, None)
+    assert payload["executionTurnId"] == "turn-" + "d" * 32
+    assert payload["execution"] is None
+    assert payload["assurance"]["policy"] == "PENDING"
+
+
+# ---------------------------------------------------------------------------
+# The migration
+# ---------------------------------------------------------------------------
+
+
+def _migration() -> str:
+    return MIGRATION.read_text()
+
+
+def _migration_sql() -> str:
+    """The migration with `--` comments stripped.
+
+    Scanning the raw text matches this file's own prose: the note explaining why the
+    turn id is NOT unique contains the word UNIQUE, so a naive search found it.
+    """
+    return "\n".join(
+        line.split("--", 1)[0] for line in MIGRATION.read_text().splitlines()
+    )
+
+
+def test_the_migration_is_registered() -> None:
+    assert "025_execution_receipts.sql" in BOOTSTRAP.read_text()
+
+
+def test_the_vocabularies_match_the_service() -> None:
+    """A CHECK constraint that disagrees with the code fails at write time only."""
+    sql = _migration_sql()
+    for value in (GE.POLICY_ALLOW, GE.POLICY_DENY, GE.POLICY_WOULD_DENY,
+                  GE.POLICY_NOT_EVALUATED):
+        assert f"'{value}'" in sql, value
+    for value in (GE.AURORA_PERMITTED, GE.AURORA_DENIED, GE.AURORA_NOT_REACHED,
+                  GE.AURORA_NOT_ENFORCED):
+        assert f"'{value}'" in sql, value
+    for value in (GE.EVIDENCE_RECEIPTED, GE.EVIDENCE_POLICY_PROOF,
+                  GE.EVIDENCE_ATTEMPT_RECEIPT, GE.EVIDENCE_NO_EXECUTION,
+                  GE.EVIDENCE_PENDING):
+        assert f"'{value}'" in sql, value
+    for value in (GE.RAIL_GATEWAY, GE.RAIL_IN_PROCESS):
+        assert f"'{value}'" in sql, value
+
+
+def test_the_execution_turn_is_not_unique() -> None:
+    """One row per ATTEMPT, and a retry reuses the turn.
+
+    Theo's first attempt reported NOT_EVALUATED because the engine was unreadable and
+    his replay reported ALLOW. A unique index would have forced one of those facts to
+    be discarded.
+    """
+    sql = _migration_sql()
+    assert "execution_turn_id   TEXT NOT NULL" in sql
+    assert "UNIQUE" not in sql.upper()
+    assert "receipt_id          BIGSERIAL PRIMARY KEY" in sql
+
+
+def test_the_review_reference_cascades() -> None:
+    """So the deterministic reset stays one delete instead of an ordered pair."""
+    sql = _migration_sql()
+    assert "REFERENCES pellier.approvals(id) ON DELETE CASCADE" in sql
+
+
+def test_the_migration_seeds_nothing() -> None:
+    """A receipt exists only where an execution was attempted."""
+    body = _migration()
+    probe = body.index("Self-probe")
+    assert "INSERT INTO pellier.execution_receipts" not in body[:probe]
+
+
+def test_the_self_probe_proves_both_attempts_survive() -> None:
+    sql = _migration()
+    assert "expected 2 retained attempts on one execution turn" in sql
+    assert "accepted a malformed execution turn id" in sql
+    assert "accepted a policy outcome outside the vocabulary" in sql
+    assert "receipt(s) survived their review" in sql
+
+
+def test_the_migration_does_not_widen_the_human_axis() -> None:
+    """Migration 021's argument still stands: `status` is the human axis alone."""
+    sql = _migration_sql()
+    assert "ALTER TABLE pellier.approvals" not in sql
+    for folded in ("'executed'", "'policy_denied'", "'rls_denied'"):
+        assert folded not in sql, folded
+
+
+# ---------------------------------------------------------------------------
+# The returns query this pass also fixed
+# ---------------------------------------------------------------------------
+
+
+def test_the_client_returns_query_names_real_columns() -> None:
+    """`pellier.returns` has `requested_at`; it has never had `created_at`.
+
+    The query selected `r.created_at`, `_safe_rows` swallowed the UndefinedColumn, and
+    the section degraded to `[]` for every client — so `returnCount` was permanently
+    zero and `unconfirmedReturnAssertion` flagged any ticket mentioning a return as
+    unsupported, including Theo's, whose return 37 exists.
+    """
+    sql = " ".join(OP._RETURNS_SELECT.split())
+    assert "r.created_at" not in sql
+    assert "r.requested_at" in sql
+    assert "ORDER BY r.requested_at DESC" in sql
+    # Status is the authoritative thing about a return; a timestamp cannot say whether
+    # it was approved.
+    assert "r.status" in sql
+
+
+def test_the_return_row_reports_status_and_requested_at() -> None:
+    row = OP._return_row({
+        "id": 37, "product_id": "37", "product_name": "Wabi-Sabi Bowl",
+        "reason": "damaged", "status": "pending", "requested_at": None,
+    })
+    assert row["returnId"] == 37
+    assert row["status"] == "pending"
+    assert "requestedAt" in row
+    assert "createdAt" not in row

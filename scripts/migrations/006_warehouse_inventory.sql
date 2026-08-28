@@ -1,4 +1,4 @@
--- Migration 006: Per-warehouse inventory for Stock Keeper (Marco's Turn 4).
+-- Migration 006: Per-warehouse inventory for Inventory Agent (Marco's Turn 4).
 --
 -- The lab content promises Marco gets a real warehouse breakdown when he
 -- asks "Is the Hadley shirt at the Brooklyn warehouse?" (Pellier Linen Shirt in ecru):
@@ -13,7 +13,7 @@
 -- preserving the catalog total exactly and keeping Brooklyn largest.
 --
 -- 001_schema.sql creates aggregate product_catalog.quantity. This
--- migration adds the per-warehouse structure Stock Keeper needs.
+-- migration adds the per-warehouse structure Inventory Agent needs.
 --
 -- Schema placement: every operational table lives under `pellier.*`
 -- (see memory: pellier_schema_decisions). Older revisions of this

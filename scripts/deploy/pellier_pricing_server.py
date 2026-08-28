@@ -2,8 +2,8 @@
 Bazaar Pricing MCP Server — Lambda-hosted MCP server for price analysis.
 
 Exposes the two pricing tools from the canonical 15-tool Pellier contract:
-  - price_intelligence: Price statistics by category
-  - side_by_side: Side-by-side comparison of two products
+  - get_price_analysis: Price statistics by category
+  - compare_products: Side-by-side comparison of two products
 
 Deployed as a Lambda function behind AgentCore Gateway.
 """
@@ -119,7 +119,7 @@ def compare_products(product_id_1: str, product_id_2: str) -> dict:
 # --- Lambda MCP handler ---
 
 TOOLS = {
-    "price_intelligence": {
+    "get_price_analysis": {
         "fn": get_price_analysis,
         "description": "Get price statistics (min, max, avg, median) across product categories.",
         "inputSchema": {
@@ -130,7 +130,7 @@ TOOLS = {
             "required": [],
         },
     },
-    "side_by_side": {
+    "compare_products": {
         "fn": compare_products,
         "description": "Compare two products side by side on price, rating, reviews, and availability.",
         "inputSchema": {

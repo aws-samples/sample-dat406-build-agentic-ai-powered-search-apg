@@ -140,11 +140,11 @@ def test_managed_dispatcher_keeps_live_mode_and_profile(monkeypatch) -> None:
 @pytest.mark.parametrize(
     ("module_name", "factory_name"),
     [
-        ("agents.style_advisor", "build_search_agent"),
-        ("agents.curator", "build_recommendation_agent"),
-        ("agents.value_analyst", "build_pricing_agent"),
-        ("agents.stock_keeper", "build_inventory_agent"),
-        ("agents.experience_guide", "build_support_agent"),
+        ("agents.search_agent", "build_search_agent"),
+        ("agents.personalization_agent", "build_recommendation_agent"),
+        ("agents.pricing_agent", "build_pricing_agent"),
+        ("agents.inventory_agent", "build_inventory_agent"),
+        ("agents.customer_service_agent", "build_support_agent"),
     ],
 )
 def test_every_specialist_factory_uses_response_mode(

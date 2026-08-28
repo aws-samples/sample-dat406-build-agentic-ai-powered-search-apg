@@ -33,6 +33,7 @@ made the request.
 from __future__ import annotations
 
 import logging
+import uuid
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -81,6 +82,28 @@ USERNAME_TO_CUSTOMER_ID = {
     "anna": "CUST-ANNA",
     "theo": "CUST-THEO",
 }
+
+
+def new_turn_id() -> str:
+    """Mint a stable identifier for one shopper turn.
+
+    Every turn gets one, minted server-side. This is what makes a receipt deep
+    link reproducible: Pellier can hand the id to Observatory, and a reload
+    resolves the same turn rather than whatever happens to be newest.
+
+    Deliberately not derived from message position or display order — a
+    positional id silently points at a different turn after any reordering,
+    which is worse than having no link at all.
+
+    Format is ``turn-<32 hex>``: uuid4 hex, prefixed so the value is
+    self-describing in a URL, a log line, and a JSONB column.
+
+    Lives here rather than in ``app.py`` because two paths now need it: the
+    streamed route mints it before the stream opens, and the non-streaming
+    ``chat()`` mints one when no turn is in scope. A second copy of the format
+    would let the two drift.
+    """
+    return f"turn-{uuid.uuid4().hex}"
 
 
 def customer_id_for_verified_username(username: Optional[str]) -> Optional[str]:

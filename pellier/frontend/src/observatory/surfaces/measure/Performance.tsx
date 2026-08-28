@@ -982,6 +982,29 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
         workshop teaches that the right answer depends on the query class,
         not the database.
       </p>
+      {/* The lesson that carries into the governed labs. Reranking reorders a
+          candidate pool; it has no authority over a price ceiling or a stock
+          flag. Only the agentic row turns those into a WHERE clause, which is
+          why the other three can still surface a $185 candle for a $100
+          request. */}
+      <p
+        style={{
+          fontFamily: 'var(--obs-sans)',
+          fontSize: '15px',
+          lineHeight: 1.5,
+          color: 'var(--obs-ink-2)',
+          marginTop: '12px',
+          maxWidth: '720px',
+        }}
+      >
+        <strong>The model proposes retrieval controls. PostgreSQL enforces the
+        hard constraints.</strong>{' '}
+        Vector, hybrid, and rerank all <em>rank</em>; none of them filter, so a
+        piece over the ceiling or out of stock can still reach the top five.
+        Only the agentic row writes the ceiling and the stock flag into SQL.
+        Hold on to that sentence: the same division of labour returns when the
+        agent stops retrieving and starts acting.
+      </p>
 
       {/* Live-fetch query input — runs all four strategies through the
           backend's /api/observatory/search-strategies/compare endpoint. */}

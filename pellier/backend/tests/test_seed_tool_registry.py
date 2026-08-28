@@ -32,12 +32,12 @@ def seeder_module():
 
 
 def test_tool_specs_match_gateway_name_list(seeder_module) -> None:
-    """Seeder MUST load exactly the 15 Gateway tool names, in the same order."""
+    """Seeder MUST load exactly the published Gateway tool names, in order."""
     from services.agentcore_gateway import GATEWAY_TOOL_NAMES
 
     specs = seeder_module._load_tool_specs()
     assert [s["tool_id"] for s in specs] == list(GATEWAY_TOOL_NAMES)
-    assert len(specs) == 15
+    assert len(specs) == len(GATEWAY_TOOL_NAMES) == 17
 
 
 def test_every_tool_has_nonempty_description(seeder_module) -> None:
@@ -52,13 +52,22 @@ def test_every_tool_has_nonempty_description(seeder_module) -> None:
 
 
 def test_write_path_tools_require_approval(seeder_module) -> None:
-    """The approvals gate is narrow. Both write-path tools require approval:
-    ``restock_shelf`` (inventory write) and ``process_return`` (refund / dollars
-    out). Widening it needs a deliberate code change here + a test update, not
-    accidental drift."""
+    """The approvals gate is narrow. Every write-path tool requires approval:
+    ``restock_inventory`` (inventory write), ``initiate_return`` (refund /
+    dollars out), and ``issue_credit`` (goodwill credit / dollars out).
+    Widening it needs a deliberate code change here + a test update, not
+    accidental drift.
+
+    This set must stay identical to the Gateway's mutation tiers. A write tool
+    that is published but not gated is the exact gap the tier map exists to
+    close, so the two are compared rather than both hand-maintained.
+    """
+    from services.agentcore_gateway import mutation_tool_names
+
     specs = {s["tool_id"]: s for s in seeder_module._load_tool_specs()}
     sensitive = {name for name, spec in specs.items() if spec["requires_approval"]}
-    assert sensitive == {"restock_shelf", "process_return"}
+    assert sensitive == {"restock_inventory", "initiate_return", "issue_credit"}
+    assert sensitive == set(mutation_tool_names())
 
 
 def test_owner_agent_assigned_for_every_tool(seeder_module) -> None:
@@ -70,11 +79,11 @@ def test_owner_agent_assigned_for_every_tool(seeder_module) -> None:
     """
     specs = seeder_module._load_tool_specs()
     valid_owners = {
-        "style_advisor",
-        "curator",
-        "value_analyst",
-        "stock_keeper",
-        "experience_guide",
+        "search_agent",
+        "personalization_agent",
+        "pricing_agent",
+        "inventory_agent",
+        "customer_service_agent",
     }
     for s in specs:
         assert s["owner_agent"] in valid_owners, (

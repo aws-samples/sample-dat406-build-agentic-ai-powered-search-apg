@@ -53,7 +53,7 @@ WHERE gr.session_id = 'gateway-marco-for-theo-incident';
 
 -- Finding:
 -- The Gateway/Cedar rail allowed principal CUST-MARCO to invoke
--- process_return. The tool arguments recorded customer_id='theo',
+-- initiate_return. The tool arguments recorded customer_id='theo',
 -- so the return was for Theo's Wabi-Sabi Bowl even though Marco was
 -- the authenticated caller. Keeping JWT principal and tool customer_id
 -- as separate evidence fields makes the mismatch visible.

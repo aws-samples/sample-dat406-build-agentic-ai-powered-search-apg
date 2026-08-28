@@ -221,7 +221,7 @@ def main():
     account_id = session.client('sts').get_caller_identity()['Account']
     workshop_tags = {
       "Project": "pellier",
-      "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "unknown"),
+      "PellierWorkshopId": os.environ.get("WORKSHOP_ID", "").strip() or "dat416",
     }
 
     # Lambda function execution role
@@ -285,7 +285,7 @@ def main():
     }
 
     # Add RDS Data API permissions only if database ARNs are provided.
-    # Transaction actions matter: process_return (experience server) wraps
+    # Transaction actions matter: initiate_return (experience server) wraps
     # ownership-check + INSERT + decrement in a single Data API transaction,
     # and ExecuteStatement alone 403s on BeginTransaction (box-verified
     # 2026-06-12 — the ONLY transactional tool, so nothing else tripped it).

@@ -72,6 +72,11 @@ export const NAV = {
    *  watching the clock deserves to know which of those is true before they
    *  click rather than after. */
   OBSERVATORY_OPTIONAL: "Optional",
+  /** The clienteling desk. Staff-facing, so it sits beside the Observatory
+   *  rather than among the shopper destinations. Unlike the Observatory it
+   *  carries no "Optional" badge: it is a working surface, not an inspection
+   *  one. */
+  OPERATOR: "Pellier Operator",
 } as const;
 
 // Account button labels (Requirement 1.2.2, 1.2.3)
@@ -289,7 +294,7 @@ export const PRODUCT_DETAIL = {
     "Inventory was not read for this piece, so no stock figure is shown.",
   ON_HAND_LABEL: "units on hand",
   WAREHOUSE_CAPTION:
-    "Per-warehouse counts, the same rows the Stock Keeper reads.",
+    "Per-warehouse counts, the same rows the Inventory Agent reads.",
   WAREHOUSE_EMPTY: "No warehouse holds this piece right now.",
   shipWindow: (min: number, max: number): string =>
     min === max ? `Ships in ${min} days` : `Ships in ${min} to ${max} days`,

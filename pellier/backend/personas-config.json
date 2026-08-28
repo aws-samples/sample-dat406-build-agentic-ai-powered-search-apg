@@ -8,7 +8,13 @@
       "avatar_color": "#5a3528",
       "avatar_initial": "M",
       "customer_id": "CUST-MARCO",
-      "stats": { "visits": 11, "orders": 7, "last_seen_days": 21 }
+      "membership": "maison",
+      "spend_12mo": 9240.0,
+      "stats": {
+        "visits": 11,
+        "orders": 7,
+        "last_seen_days": 21
+      }
     },
     {
       "id": "anna",
@@ -18,7 +24,13 @@
       "avatar_color": "#6b3d2a",
       "avatar_initial": "A",
       "customer_id": "CUST-ANNA",
-      "stats": { "visits": 6, "orders": 5, "last_seen_days": 9 }
+      "membership": "circle",
+      "spend_12mo": 3180.0,
+      "stats": {
+        "visits": 6,
+        "orders": 5,
+        "last_seen_days": 9
+      }
     },
     {
       "id": "theo",
@@ -28,7 +40,13 @@
       "avatar_color": "#5a4535",
       "avatar_initial": "T",
       "customer_id": "CUST-THEO",
-      "stats": { "visits": 8, "orders": 4, "last_seen_days": 14 }
+      "membership": "registered",
+      "spend_12mo": 940.0,
+      "stats": {
+        "visits": 8,
+        "orders": 4,
+        "last_seen_days": 14
+      }
     }
   ]
 }

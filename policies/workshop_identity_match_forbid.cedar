@@ -8,7 +8,7 @@
 // the tool executes.
 forbid(
   principal,
-  action == AgentCore::Action::"pellier-concierge-experience-target___process_return",
+  action == AgentCore::Action::"pellier-concierge-experience-target___initiate_return",
   resource is AgentCore::Gateway
 )
 unless {

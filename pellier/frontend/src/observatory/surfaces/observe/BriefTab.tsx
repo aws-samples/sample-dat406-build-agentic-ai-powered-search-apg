@@ -1,5 +1,5 @@
 /**
- * BriefTab — Curator's Brief: magazine-style editorial deconstruction.
+ * BriefTab — Personalization Agent's Brief: magazine-style editorial deconstruction.
  *
  * Single-column layout (max-width 620px, centered) with editorial typography.
  * Renders the full brief content from session data: title block, metadata grid,
@@ -498,7 +498,7 @@ const BriefTab: React.FC = () => {
             marginTop: '16px',
           }}
         >
-          The curator's brief has not been composed for this session yet.
+          The personalization_agent's brief has not been composed for this session yet.
         </p>
       </div>
     );
@@ -517,7 +517,7 @@ const BriefTab: React.FC = () => {
        * ================================================================ */}
       <header style={{ textAlign: 'center', marginBottom: '40px' }}>
         <Eyebrow
-          label={`Curator's Brief · Folio ${brief.folioNumber}`}
+          label={`Personalization Agent's Brief · Folio ${brief.folioNumber}`}
         />
         <h1
           style={{

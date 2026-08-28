@@ -228,7 +228,7 @@ const CODE_READ: Array<{ step: string; path: string; body: string }> = [
   {
     step: 'A search tool is a thin envelope',
     path: 'services/agent_tools.py',
-    body: 'find_pieces is the same shape you wired for floor_check: guard the db service, lazily build BusinessLogic, call the method, json.dumps the result. The retrieval complexity lives below the tool, not in it.',
+    body: 'search_products is the same shape you wired for check_inventory: guard the db service, lazily build BusinessLogic, call the method, json.dumps the result. The retrieval complexity lives below the tool, not in it.',
   },
   {
     step: 'The baseline: pure pgvector',

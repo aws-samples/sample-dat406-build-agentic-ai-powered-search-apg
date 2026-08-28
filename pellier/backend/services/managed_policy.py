@@ -46,7 +46,40 @@ _ENGINE_ID_ENV = "AGENTCORE_POLICY_ENGINE_ID"
 
 
 def _engine_id() -> str:
+    """The policy engine id, from settings first and the environment second.
+
+    `Settings` loads `.env` into the settings OBJECT, not into `os.environ`. Reading
+    only the environment therefore returned "" on every normally-configured backend,
+    `engine_state_for_action` returned None, and `resolve_permissive_policy_state`
+    downgraded every Gateway ALLOW to NOT_EVALUATED. The workshop's single most
+    important positive claim — AgentCore Policy ALLOW — was unreachable, and it failed
+    in the honest direction, which is why nothing looked broken.
+
+    Same try-settings-then-environment shape as `_region()` below, so this module
+    tolerates being imported from a stripped env without silently losing config in a
+    complete one.
+    """
+    try:
+        from config import settings
+
+        from_settings = str(
+            getattr(settings, _ENGINE_ID_ENV, "") or ""
+        ).strip()
+        if from_settings:
+            return from_settings
+    except Exception:  # pragma: no cover - stripped-env import path
+        pass
     return os.environ.get(_ENGINE_ID_ENV, "").strip()
+
+
+def policy_engine_id() -> str:
+    """The configured policy engine id, or "" when this deployment has none.
+
+    Public because an execution receipt has to name which engine produced its verdict:
+    the same word ALLOW means different things from different engines, and an
+    unattributed verdict is not evidence.
+    """
+    return _engine_id()
 
 
 def _region() -> str:
@@ -214,3 +247,80 @@ async def recent_decisions(
         "decisions": decisions,
         "count": len(decisions),
     }
+
+
+async def engine_state_for_action(action_id: str):
+    """The policy engine's declared state, filtered to one Gateway action.
+
+    Reads the control plane rather than a local table: the enforcement mode and
+    the policy statements are the engine's own facts, and they are what decides
+    whether a Gateway call that returned was an authorization or an unenforced
+    observation.
+
+    Enforcement is the conjunction of two scopes with different vocabularies,
+    verified against the live service: a policy is ``ACTIVE`` or ``LOG_ONLY``; a
+    gateway attachment is ``ENFORCE`` or ``LOG_ONLY``. Both are reported so the
+    caller can classify without assuming one vocabulary covers both.
+
+    Args:
+        action_id: The target-qualified Cedar action, e.g.
+            ``pellier-concierge-experience-target___initiate_return``.
+
+    Returns:
+        A ``services.governed_execution.PolicyEngineState``, or ``None`` when the
+        engine cannot be read. ``None`` is a legitimate answer and the caller
+        must not treat it as permission.
+    """
+    from services.governed_execution import PolicyEngineState
+
+    engine_id = _engine_id()
+    if not engine_id:
+        return None
+
+    import boto3
+
+    client = boto3.client("bedrock-agentcore-control", region_name=_region())
+
+    # `settings` is imported here, not at module scope: this module tolerates being
+    # imported from a stripped env. The reference below was previously bare, which was
+    # a NameError waiting behind the `not engine_id` guard — with the engine id never
+    # resolving, this line was unreachable and the gateway-mode read was dead code.
+    gateway_mode = ""
+    try:
+        from config import settings as _settings
+
+        gateway_arn = str(
+            getattr(_settings, "AGENTCORE_GATEWAY_ARN", "") or ""
+        ).strip()
+    except Exception:  # pragma: no cover - stripped-env import path
+        gateway_arn = os.environ.get("AGENTCORE_GATEWAY_ARN", "").strip()
+    if gateway_arn:
+        gateway_id = gateway_arn.rsplit("/", 1)[-1]
+        gateway = client.get_gateway(gatewayIdentifier=gateway_id)
+        gateway_mode = str(
+            (gateway.get("policyEngineConfiguration") or {}).get("mode") or ""
+        )
+
+    policies: Dict[str, tuple] = {}
+    matching: list[str] = []
+    for summary in client.list_policies(policyEngineId=engine_id).get("policies", []):
+        detail = client.get_policy(
+            policyEngineId=engine_id, policyId=summary["policyId"]
+        )
+        name = str(detail.get("name") or summary.get("policyId"))
+        statement = str(
+            (detail.get("definition") or {}).get("cedar", {}).get("statement") or ""
+        )
+        # The effect is read from the statement rather than a response field: the
+        # control plane does not return `effect` on this shape, and inferring
+        # "forbid" from a name would break the moment a policy is renamed.
+        effect = "forbid" if statement.lstrip().startswith("forbid") else "permit"
+        policies[name] = (effect, str(detail.get("enforcementMode") or ""))
+        if effect == "forbid" and action_id in statement:
+            matching.append(name)
+
+    return PolicyEngineState(
+        gateway_mode=gateway_mode,
+        policies=policies,
+        matching_forbids=tuple(matching),
+    )

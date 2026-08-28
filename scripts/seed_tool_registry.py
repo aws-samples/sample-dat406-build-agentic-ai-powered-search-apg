@@ -64,36 +64,38 @@ EMBEDDING_DIMENSION = 1024
 
 # Tools that require approval before execution. Mirrors the approvals
 # workflow the workshop surfaces via the Cedar policy hook. Kept narrow
-# and deliberate — ``restock_shelf`` writes inventory state and
-# ``process_return`` writes returns + adjusts catalog quantity; the
-# other 13 are read-only.
-SENSITIVE_TOOLS = {"restock_shelf", "process_return"}
+# and deliberate — ``restock_inventory`` writes inventory state and
+# ``initiate_return`` writes returns + adjusts catalog quantity, and
+# ``issue_credit`` moves money; the other 14 are read-only.
+SENSITIVE_TOOLS = {"restock_inventory", "initiate_return", "issue_credit"}
 
 # Which "specialist" owns each tool. Names match the five
-# Pellier-branded specialists (Style Advisor, Curator, Value Analyst,
-# Stock Keeper, Experience Guide). Used by Card 7 to show provenance
+# Pellier-branded specialists (Search Agent, Personalization Agent, Pricing Agent,
+# Inventory Agent, Customer Service Agent). Used by Card 7 to show provenance
 # per tool row in the Observatory.
 TOOL_OWNER: Dict[str, str] = {
-    # Style Advisor — editorial search + discovery
-    "find_pieces":         "style_advisor",
-    "explore_collection":  "style_advisor",
-    "side_by_side":        "style_advisor",
-    "style_match":         "style_advisor",
-    "escalate_to_stylist": "style_advisor",
-    # Curator — recommendations + trending + hybrid retrieval
-    "whats_trending":      "curator",
-    "find_pieces_hybrid":  "curator",
-    "preference_snapshot": "curator",
-    "trace_receipt":       "curator",
-    # Value Analyst — pricing intelligence
-    "price_intelligence":  "value_analyst",
-    # Stock Keeper — inventory reads + writes
-    "floor_check":         "stock_keeper",
-    "running_low":         "stock_keeper",
-    "restock_shelf":       "stock_keeper",
-    # Experience Guide — returns + care
-    "returns_and_care":    "experience_guide",
-    "process_return":      "experience_guide",
+    # Search Agent — editorial search + discovery
+    "search_products":         "search_agent",
+    "browse_category":  "search_agent",
+    "compare_products":        "search_agent",
+    "get_related_products":         "search_agent",
+    "escalate_to_human": "search_agent",
+    # Personalization Agent — recommendations + trending + hybrid retrieval
+    "get_trending_products":      "personalization_agent",
+    "search_products_hybrid":  "personalization_agent",
+    "get_customer_preferences": "personalization_agent",
+    "get_audit_trail":       "personalization_agent",
+    # Pricing Agent — pricing intelligence
+    "get_price_analysis":  "pricing_agent",
+    # Inventory Agent — inventory reads + writes
+    "check_inventory":         "inventory_agent",
+    "get_low_stock":         "inventory_agent",
+    "restock_inventory":       "inventory_agent",
+    # Customer Service Agent — returns, care, service recovery, past interactions
+    "get_return_policy":    "customer_service_agent",
+    "initiate_return":      "customer_service_agent",
+    "get_ticket_history":   "customer_service_agent",
+    "issue_credit":         "customer_service_agent",
 }
 
 

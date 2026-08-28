@@ -122,7 +122,7 @@
       "slug": "tool-publishing",
       "title": "Tool publishing & discovery",
       "role": "How the agent finds the right capability when the catalog grows",
-      "summary": "The governed path uses AgentCore Gateway to publish all 15 tools over MCP, preserve the caller JWT, and give Cedar a managed enforcement boundary. The separate builders format uses in-process Strands tools. Aurora's pgvector tool registry remains the semantic discovery surface when a larger catalog no longer fits comfortably in one prompt.",
+      "summary": "The governed path uses AgentCore Gateway to publish all 17 tools over MCP, preserve the caller JWT, and give Cedar a managed enforcement boundary. The separate builders format uses in-process Strands tools. Aurora's pgvector tool registry remains the semantic discovery surface when a larger catalog no longer fits comfortably in one prompt.",
       "shipped": true,
       "shippedNote": "Required in the governed format. Managed Runtime fails closed unless Gateway exposes the full 15-tool contract.",
       "category": "scaling",

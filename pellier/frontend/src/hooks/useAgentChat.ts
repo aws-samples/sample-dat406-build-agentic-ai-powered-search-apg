@@ -80,7 +80,7 @@ export interface SkillRouting {
 }
 
 /**
- * Stylist handoff payload from the `escalate_to_stylist` tool.
+ * Stylist handoff payload from the `escalate_to_human` tool.
  *
  * Emitted as a dedicated SSE event so the chat surface can render the
  * handoff card alongside the agent's prose. The "stylist" is the
@@ -131,7 +131,7 @@ export interface AgentChatMessage {
    * render the italic burgundy attribution line; Observatory renders the
    * full decision in its live activation log. */
   skillRouting?: SkillRouting
-  /** Stylist handoff payload when this turn fired escalate_to_stylist.
+  /** Stylist handoff payload when this turn fired escalate_to_human.
    * The chat surface renders the StylistHandoffCard in place of the
    * usual product grid. */
   escalation?: StylistHandoff
@@ -145,6 +145,22 @@ export interface AgentChatMessage {
   railDecision?: RailDecision
   /** Present only when the governed rail was requested and unavailable. */
   degradation?: RailDegradation
+  /**
+   * The governed boundary declined a mutation and a person has to confirm it.
+   *
+   * Its own field rather than a sentence in `content`, because the specialist prompt
+   * already asks for that sentence and the model measurably dropped it: the shopper
+   * was told the request was "prepared" and nothing more, which reads as filed. The
+   * backend owns the wording; this renders it where paraphrase cannot reach.
+   */
+  reviewPending?: ReviewPending
+}
+
+/** A prepared mutation awaiting human confirmation, as the backend states it. */
+export interface ReviewPending {
+  /** The tool that was declined. Internal; not shown to the shopper. */
+  tool: string
+  message: string
 }
 
 export interface UseAgentChatOptions {
@@ -440,7 +456,7 @@ export function useAgentChat(
           ? 'AgentCore'
           : workshopMode === 'agentic'
             ? 'Orchestrator'
-            : 'Style Advisor'
+            : 'Search Agent'
       const loadingMessage: AgentChatMessage = {
         role: 'assistant',
         content: '',
@@ -655,6 +671,17 @@ export function useAgentChat(
                 return {
                   ...lastMsg,
                   escalation: data.escalation as StylistHandoff,
+                  agentStatus: lastMsg.agentStatus,
+                }
+              })
+            } else if (data.type === 'review_pending') {
+              // A prepared-not-executed outcome. Rendered as its own notice so the
+              // shopper always learns a person must confirm, whatever the prose said.
+              updateLast(lastMsg => {
+                if (lastMsg.role !== 'assistant') return null
+                return {
+                  ...lastMsg,
+                  reviewPending: data.reviewPending as ReviewPending,
                   agentStatus: lastMsg.agentStatus,
                 }
               })

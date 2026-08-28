@@ -131,6 +131,23 @@ async def _stream_agent_response(
     On failure, ``error`` is emitted instead of ``done`` so the client
     can distinguish a clean close from an interrupted one.
     """
+    # --- 0. Turn identity ------------------------------------------------
+    # Every turn carries the one correlation identifier, on THIS path too.
+    #
+    # `services/chat.py` mints it in both of its entry points and its comment
+    # explains exactly why: without it, "a governed-boundary refusal produced an
+    # operator review with no source turn". That fix never reached this route — the
+    # one the SPA actually calls — so a real shopper return handoff landed in
+    # `pellier.approvals` with `source_turn_id = NULL`, breaking the
+    # shopper -> review -> execution lineage at its first link.
+    #
+    # Minted from the same function rather than a second format, and emitted so a
+    # client can deep-link the turn it just produced.
+    from services.turn_identity import new_turn_id, turn_id_var
+
+    turn_id = turn_id_var.get() or new_turn_id()
+    turn_id_var.set(turn_id)
+
     # --- 1. Session event ------------------------------------------------
     # Emit the session id first so the SPA can persist it before the
     # response body arrives. ``ensure_ascii=False`` is unnecessary here
@@ -141,6 +158,7 @@ async def _stream_agent_response(
             "session_id": context.session_id,
             "namespace": context.namespace,
             "authenticated": context.user_id is not None,
+            "turn_id": turn_id,
         },
     )
 
@@ -251,6 +269,9 @@ async def _stream_agent_response(
         "done",
         {
             "session_id": context.session_id,
+            # The correlation id for everything this turn produced, so a client can
+            # deep-link the evidence without guessing which turn was newest.
+            "turn_id": turn_id,
             "trace": trace,
             "memory": memory_receipt,
             "warnings": (

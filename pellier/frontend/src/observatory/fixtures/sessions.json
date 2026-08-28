@@ -13,7 +13,7 @@
   {
     "id": "marco-midpoint-checkpoint",
     "personaId": "marco",
-    "openingQuery": "Is the Hadley shirt at the Brooklyn warehouse?",
+    "openingQuery": "Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?",
     "elapsedMs": 1840,
     "agentCount": 1,
     "routingPattern": "Dispatcher",
@@ -123,7 +123,7 @@
   {
     "id": "theo-ceramics-return",
     "personaId": "theo",
-    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",
+    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
     "elapsedMs": 2140,
     "agentCount": 1,
     "routingPattern": "Dispatcher",

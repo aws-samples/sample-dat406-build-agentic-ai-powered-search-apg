@@ -52,8 +52,8 @@ class _StubDB:
         if "tool_audit" in query:
             # Operational-history aggregate: tool / calls / avg_ms.
             return [
-                {"tool": "find_pieces", "calls": 7, "avg_ms": 240},
-                {"tool": "floor_check", "calls": 3, "avg_ms": 95},
+                {"tool": "search_products", "calls": 7, "avg_ms": 240},
+                {"tool": "check_inventory", "calls": 3, "avg_ms": 95},
             ]
         return []
 
@@ -122,7 +122,7 @@ def test_resume_emits_memory_and_operational_panels_in_order() -> None:
     )
     assert "tool_audit" in operational["sql"]
     assert operational["columns"] == ["tool", "calls", "avg_latency"]
-    assert any("find_pieces" in row[0] for row in operational["rows"])
+    assert any("search_products" in row[0] for row in operational["rows"])
 
     # Plan present with the three expected steps.
     plans = [e for e in body["events"] if e["type"] == "plan"]

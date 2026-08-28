@@ -43,7 +43,7 @@ This is a **400-level (expert)** workshop application. "Level 400" is the AWS de
 
 **You do *not* need to:** build a search system from scratch, know Strands/AgentCore/MCP in advance, or have prior agentic-AI experience. We teach those during the session.
 
-**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you complete two marked regions — the Stock Keeper definition and its `floor_check` tool — then run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
+**What you'll actually do — this is the important part.** The application is **already built and running** when you arrive. You are *not* assembling it from nothing. Your hands-on path is small and focused: you complete two marked regions — the Inventory Agent definition and its `check_inventory` tool — then run **observe / measure / read** steps that prove how the production system behaves. The other specialists, tool contracts, database, and managed services are pre-wired *on purpose* so your attention goes to the agentic pattern, not setup plumbing.
 
 > **If it feels deep, that's by design — the depth is there to learn from, not to rebuild.** You only need to complete the one guided exercise to succeed. Everything else is there to explore at your own pace.
 
@@ -182,15 +182,16 @@ Sign in as one of the three returning customers and the entire storefront – he
 The **signed-out state** is the editorial baseline – a 10-piece grid anchored by the Nocturne Leather Weekender, no prior context, no profile embedding. It is the hero state, not a fourth persona.
 
 Each persona ships with 10 curated products carrying real Cohere Embed v4
-1024-dim embeddings. Those 40 story products stay stable for persona grids,
-orders, inventory, and policy exercises. The governed retrieval lab expands
-`pellier.product_catalog` to 1,000 rows with generated high-ID archive
+1024-dim embeddings, alongside 10 house pieces the client book owns and 10
+signature investment pieces. Those 60 story products stay stable for persona
+grids, orders, inventory, and policy exercises. The governed retrieval lab
+expands `pellier.product_catalog` to 1,000 rows with generated high-ID archive
 distractors and deterministic derived vectors. The extra rows create enough
-near-miss candidates to compare retrieval strategies without adding 960 images
+near-miss candidates to compare retrieval strategies without adding 940 images
 or concepts for participants to learn. They are excluded from shopper-facing
 tools and included only by the evaluation path.
 
-This split is deliberate, not a scale benchmark: 40 products are the
+This split is deliberate, not a scale benchmark: 60 products are the
 participant-facing domain; 1,000 rows are a compact retrieval test corpus.
 Pellier does not use that corpus to teach HNSW capacity planning. That deeper
 retrieval-engineering work belongs in the separate Mosaic Builder Session.
@@ -295,7 +296,7 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Section | What attendees do |
 |---|---|
 | Introduction | Open the workspace and land in Pellier + Pellier Observatory — both already running, nothing to set up or start. Frame the architecture and the one production path attendees will wire and prove. |
-| Lab 1: Ground Answers in Live Data | Complete Stock Keeper and `floor_check`, then prove Marco's answer against live inventory and `tool_audit`. |
+| Lab 1: Ground Answers in Live Data | Complete Inventory Agent and `check_inventory`, then prove Marco's answer against live inventory and `tool_audit`. |
 | Lab 2: Design the Retrieval Strategy | Compare Anna's query across vector, hybrid, hybrid + rerank, and agentic retrieval, then make a quality, latency, and cost decision. |
 | Lab 3: Run Agents in a Managed Runtime | Invoke Runtime, enumerate Gateway tools, read turn one from Memory in a fresh process, prove turn-two recall, and reconstruct the seeded identity mismatch from Aurora evidence. |
 | Lab 4: Govern and Trace Agent Actions | Author one Cedar rule, prove Gateway DENY prevents execution, confirm the matching identity is allowed, and reset participant policy. |
@@ -324,20 +325,20 @@ live and reports the route actually observed.
 
 | Agent              | Role                                            | Model            |
 | ------------------ | ----------------------------------------------- | ---------------- |
-| **Style Advisor**      | Interprets intent, runs semantic search         | Claude Opus 4.6  |
-| **Curator**            | Pairing, palette, occasion, editorial picks     | Claude Opus 4.6  |
-| **Value Analyst**      | Price intelligence, deals, percentile context   | Claude Sonnet 4.6 |
-| **Stock Keeper**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 4.6 |
-| **Experience Guide**   | Returns, care, post-purchase                    | Claude Opus 4.6  |
+| **Search Agent**      | Interprets intent, runs semantic search         | Claude Opus 4.6  |
+| **Personalization Agent**            | Pairing, palette, occasion, editorial picks     | Claude Opus 4.6  |
+| **Pricing Agent**      | Price intelligence, deals, percentile context   | Claude Sonnet 4.6 |
+| **Inventory Agent**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 4.6 |
+| **Customer Service Agent**   | Returns, care, post-purchase                    | Claude Opus 4.6  |
 
-Per-agent model choice is an architectural decision – Stock Keeper's terse warehouse answers run on Sonnet; the Curator's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-4-6`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 4.6 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. Pellier Observatory surfaces the mix.
+Per-agent model choice is an architectural decision – Inventory Agent's terse warehouse answers run on Sonnet; the Personalization Agent's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-4-6`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 4.6 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. Pellier Observatory surfaces the mix.
 
 ### Tools
 
 15 `@tool` functions form the Gateway catalog, registered under these exact
 names and asserted by discovery tests:
 
-`find_pieces` · `find_pieces_hybrid` · `style_match` · `whats_trending` · `price_intelligence` · `explore_collection` · `side_by_side` · `floor_check` · `restock_shelf` · `running_low` · `returns_and_care` · `process_return` · `preference_snapshot` · `trace_receipt` · `escalate_to_stylist`
+`search_products` · `search_products_hybrid` · `get_related_products` · `get_trending_products` · `get_price_analysis` · `browse_category` · `compare_products` · `check_inventory` · `restock_inventory` · `get_low_stock` · `get_return_policy` · `initiate_return` · `get_customer_preferences` · `get_audit_trail` · `escalate_to_human`
 
 A 16th tool, `query_business_records`, runs **only** on the in-process rail.
 Not because the Gateway path is incapable. The RDS Data API is single-statement
@@ -520,7 +521,7 @@ sample-pellier-agentic-search-apg/
 ├── pellier/
 │   ├── backend/                           FastAPI server, agents, services
 │   │   ├── CLAUDE.md                        Backend and Lab 1 rules
-│   │   ├── agents/                          Style Advisor, Curator, Stock Keeper, ...
+│   │   ├── agents/                          Search Agent, Personalization Agent, Inventory Agent, ...
 │   │   ├── services/                        agent_tools, chat, agentcore_*, db
 │   │   ├── routes/                          FastAPI routers (transcribe, observatory, chat)
 │   │   └── app.py
@@ -535,7 +536,7 @@ sample-pellier-agentic-search-apg/
 ├── skills/                                Strands runtime skills (5) + scoped guidance
 ├── solutions/                             Reference implementations (drop-in escape hatches)
 │   ├── the-quiet-search/                    Semantic retrieval reference
-│   ├── closing-marcos-gap/                  Lab 1 floor_check reference
+│   ├── closing-marcos-gap/                  Lab 1 check_inventory reference
 │   ├── the-ledger/                          Labs 3-4 AgentCore + audit reference
 │   └── the-concierge/                       Lab 4 MCP and Gateway reference
 │

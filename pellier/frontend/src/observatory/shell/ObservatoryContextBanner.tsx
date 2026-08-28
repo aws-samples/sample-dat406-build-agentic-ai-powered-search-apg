@@ -5,7 +5,7 @@ import { lookupVocab } from '../../shared';
 
 const PROOF_ANCHOR_LABELS: Record<string, string> = {
   'runtime-gateway-policy': 'Runtime, Gateway, and policy proof',
-  'marco-floor-check': "Marco's floor_check proof",
+  'marco-floor-check': "Marco's check_inventory proof",
   'retrieval-comparison': 'retrieval comparison proof',
   'audit-ledger': 'audit ledger proof',
 };

@@ -66,7 +66,7 @@ def test_emit_panel_carries_tag_class_and_rows() -> None:
         title="Tool activity",
         sql="SELECT tool, count(*) FROM pellier.tool_audit GROUP BY tool",
         columns=["tool", "count"],
-        rows=[["floor_check", "2"]],
+        rows=[["check_inventory", "2"]],
         meta="live aggregate",
         duration_ms=13,
         tag_class="cyan",
@@ -75,6 +75,41 @@ def test_emit_panel_carries_tag_class_and_rows() -> None:
     assert panel["type"] == "panel"
     assert panel["tag"] == "OPERATIONAL · TOOL HISTORY"
     assert panel["tag_class"] == "cyan"
-    assert panel["rows"] == [["floor_check", "2"]]
+    assert panel["rows"] == [["check_inventory", "2"]]
     assert panel["duration_ms"] == 13
     assert panel["trace_index"] == 1
+
+
+def test_the_agent_route_mints_a_turn_id() -> None:
+    """The lineage's first link, and it was missing on the route the SPA uses.
+
+    `services/chat.py` mints the turn id in both of its entry points, and its own
+    comment says why: without it "a governed-boundary refusal produced an operator
+    review with no source turn". That fix never reached `routes/agent.py`, so a real
+    Theo return handoff landed in `pellier.approvals` with `source_turn_id = NULL`.
+    """
+    import pathlib
+
+    source = pathlib.Path("routes/agent.py").read_text()
+    stream = source[source.index("async def _stream_agent_response("):]
+    stream = stream[: stream.index("\n@router")] if "\n@router" in stream else stream
+
+    assert "from services.turn_identity import new_turn_id, turn_id_var" in stream
+    assert "turn_id_var.set(turn_id)" in stream
+    # Minted BEFORE the orchestrator runs, or a tool cannot read it.
+    assert stream.index("turn_id_var.set(turn_id)") < stream.index("run_agent")
+    # Reuses an id already in context rather than overwriting one.
+    assert "turn_id_var.get() or new_turn_id()" in stream
+    # And it is emitted, so a client can correlate what the turn produced.
+    assert '"turn_id": turn_id' in stream
+
+
+def test_the_boundary_refusal_reads_the_turn_id_from_context() -> None:
+    """The review handoff must not invent or omit lineage."""
+    import pathlib
+
+    tools = pathlib.Path("services/agent_tools.py").read_text()
+    handoff = tools[tools.index("def _open_operator_review("):]
+    handoff = handoff[: handoff.index("\ndef ")]
+    assert "from services.turn_identity import current_turn_id" in handoff
+    assert "source_turn_id=current_turn_id()" in handoff

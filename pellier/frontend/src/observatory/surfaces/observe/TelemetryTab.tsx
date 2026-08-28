@@ -181,13 +181,13 @@ function stepTypeForPanel(panel: TelemetryPanel): StepType {
   if (title.includes('rrf') || description.includes('reciprocal rank fusion')) {
     return 'Query';
   }
-  if (title.includes('process_return') || title.includes('write') || title.includes('restock') || description.includes('tool_audit') || description.includes('cedar')) {
+  if (title.includes('initiate_return') || title.includes('write') || title.includes('restock') || description.includes('tool_audit') || description.includes('cedar')) {
     return 'Write';
   }
-  if (title.includes('style_match') || title.includes('style match') || title.includes('price_intelligence') || title.includes('price intelligence') || title.includes('floor_check') || title.includes('returns_and_care')) {
+  if (title.includes('get_related_products') || title.includes('style match') || title.includes('get_price_analysis') || title.includes('price intelligence') || title.includes('check_inventory') || title.includes('get_return_policy')) {
     return 'Tool';
   }
-  if (title.includes('find_pieces')) {
+  if (title.includes('search_products')) {
     return 'Query';
   }
   if (
@@ -1062,7 +1062,7 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       category: 'managed',
       title: 'Intent → specialist',
       description:
-        'Dispatcher scores the utterance and hands the turn to one owning agent (Curator, Style Advisor, …). One hop per decision – the shape the Pellier storefront runs in production.',
+        'Dispatcher scores the utterance and hands the turn to one owning agent (Personalization Agent, Search Agent, …). One hop per decision – the shape the Pellier storefront runs in production.',
       status: 'complete',
       durationMs: 58,
       agent: 'Dispatcher',
@@ -1082,10 +1082,10 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       category: 'both',
       title: 'Hybrid retrieval',
       description:
-        'Managed agent invokes find_pieces_hybrid: pgvector + Postgres FTS in parallel, then RRF merge.',
+        'Managed agent invokes search_products_hybrid: pgvector + Postgres FTS in parallel, then RRF merge.',
       status: 'complete',
       durationMs: 312,
-      agent: 'Curator · find_pieces_hybrid',
+      agent: 'Personalization Agent · search_products_hybrid',
       sql:
         'SELECT id, embedding <=> $1::vector AS dist FROM pellier.product_catalog ORDER BY dist LIMIT 20;',
     },
@@ -1097,7 +1097,7 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
         'Cohere Rerank v3.5 over the fused pool – Bedrock inference profile matches workshop stack.',
       status: 'complete',
       durationMs: 265,
-      agent: 'Curator · find_pieces_hybrid',
+      agent: 'Personalization Agent · search_products_hybrid',
     },
     {
       index: 5,
@@ -1107,7 +1107,7 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
         'Single visible assistant turn after the specialist returns – easy to narrate in demos and in shopper-facing UX.',
       status: 'complete',
       durationMs: 980,
-      agent: 'Curator',
+      agent: 'Personalization Agent',
     },
   ],
   'Agents-as-Tools': [
@@ -1126,7 +1126,7 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       category: 'owned',
       title: 'Tools registered',
       description:
-        'Specialists are exposed as first-class tools (e.g. curator_agent, value_analyst_agent) with schemas – same contract style as find_pieces, but nested under the parent agent.',
+        'Specialists are exposed as first-class tools (e.g. personalization_agent_agent, pricing_agent_agent) with schemas – same contract style as search_products, but nested under the parent agent.',
       status: 'complete',
       durationMs: 11,
       agent: 'Gateway',
@@ -1134,22 +1134,22 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
     {
       index: 3,
       category: 'both',
-      title: 'Tool: curator_agent',
+      title: 'Tool: personalization_agent_agent',
       description:
-        'Parent invokes Curator as a tool; Curator runs its own retrieval + Opus composition and returns structured JSON to the parent – no second shopper message.',
+        'Parent invokes Personalization Agent as a tool; Personalization Agent runs its own retrieval + Opus composition and returns structured JSON to the parent – no second shopper message.',
       status: 'complete',
       durationMs: 428,
-      agent: 'Orchestrator → Curator',
+      agent: 'Orchestrator → Personalization Agent',
     },
     {
       index: 4,
       category: 'both',
-      title: 'Tool: value_analyst_agent',
+      title: 'Tool: pricing_agent_agent',
       description:
         'Parallel or follow-up tool call in the same orchestrator turn for price/stock narrative – composition without extra microservices per hop.',
       status: 'complete',
       durationMs: 119,
-      agent: 'Orchestrator → Value Analyst',
+      agent: 'Orchestrator → Pricing Agent',
     },
     {
       index: 5,
@@ -1191,7 +1191,7 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
         'Embeddings + lexical branch inside one node; emits scored candidates for downstream nodes.',
       status: 'complete',
       durationMs: 276,
-      agent: 'Style Advisor',
+      agent: 'Search Agent',
       sql:
         'SELECT id, ts_rank_cd(description_tsv, plainto_tsquery($1)) AS r FROM pellier.product_catalog WHERE description_tsv @@ plainto_tsquery($1) LIMIT 20;',
     },

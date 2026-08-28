@@ -33,7 +33,7 @@ current configuration and echoes it back. Prefer `--policy`.
 Usage::
 
     python3 scripts/policy_mode.py                      # show current state
-    python3 scripts/policy_mode.py --policy process_return_damaged_only \\
+    python3 scripts/policy_mode.py --policy initiate_return_damaged_only \\
         --mode LOG_ONLY                                 # one policy
     python3 scripts/policy_mode.py --policy all --mode ACTIVE
     python3 scripts/policy_mode.py --gateway --mode ENFORCE

@@ -46,6 +46,10 @@ SECRET_ARN = os.environ.get("SECRET_ARN", "")
 DATABASE = os.environ.get("DATABASE", "postgres")
 SCHEMA = "pellier"
 
+# Non-owner runtime roles from migration 016. Both are NOBYPASSRLS, which is
+# what makes the policies bind; the owner would silently bypass them.
+_RUNTIME_ROLES = frozenset({"pellier_agent", "pellier_query"})
+
 # Cohere Embed v4. MUST match the catalog seed and the in-process path
 # (`pellier/backend/services/embeddings.py`): the catalog was seeded with
 # Cohere Embed v4 at output_dimension=1024, so the managed Gateway path has to
@@ -207,6 +211,107 @@ def execute_in_transaction(
     return [row_to_dict(record, columns) for record in response.get("records", [])]
 
 
+def bind_runtime_principal(
+    transaction_id: str,
+    *,
+    customer_subject: Optional[str],
+    role: str = "pellier_agent",
+) -> None:
+    """Bind the runtime role and the customer subject inside this transaction.
+
+    This is what makes Row-Level Security real on the Gateway rail. Without it
+    the Data API executes as the secret's user, which owns the tables and
+    therefore bypasses RLS entirely, so a governed write behind the Gateway was
+    never actually row-scoped.
+
+    Two things must be true at once, on the same server-side transaction:
+
+      * the effective role is not the table owner (``SET LOCAL ROLE``);
+      * ``pellier.principal_sub`` is set transaction-locally.
+
+    Statements sharing a ``transactionId`` share one server-side transaction, so
+    a setting established here still applies to the protected statement that
+    follows. Issuing either one outside the transaction would be a no-op with a
+    warning, and a silently unbound principal is the failure this exists to
+    prevent.
+
+    ``customer_subject`` of ``None`` binds the empty string, which the policies
+    resolve to no customer scope. That denies rather than widens, and it is bound
+    explicitly so the intent is legible in the transaction rather than being an
+    absent setting.
+
+    Args:
+        transaction_id: From ``begin_transaction``.
+        customer_subject: The Cognito subject of the CUSTOMER whose rows the
+            statement touches — never the operator's. Cedar authorizes the
+            operator; RLS scopes the customer.
+        role: Runtime role to assume. Whitelisted rather than interpolated
+            because ``SET ROLE`` takes no parameters.
+    """
+    if role not in _RUNTIME_ROLES:
+        raise ValueError(
+            f"Unknown runtime role {role!r}; expected one of "
+            f"{', '.join(sorted(_RUNTIME_ROLES))}"
+        )
+    execute_in_transaction(transaction_id, f"SET LOCAL ROLE {role};")
+    execute_in_transaction(
+        transaction_id,
+        "SELECT set_config('pellier.principal_sub', :subject, true);",
+        [
+            {
+                "name": "subject",
+                "value": {"stringValue": str(customer_subject or "")},
+            }
+        ],
+    )
+
+
+def write_tool_audit_independently(
+    *,
+    tool: str,
+    args: Dict[str, Any],
+    result: Dict[str, Any],
+    latency_ms: float,
+    session_id: str,
+) -> None:
+    """Write the execution receipt in its OWN transaction, so it survives.
+
+    The audit row used to be written inside the mutation's transaction, which
+    meant a rolled-back business write took its receipt with it. That makes the
+    most important governance outcome unprovable: an action that Cedar allowed,
+    that entered the tool, and that Aurora then refused would leave no trace at
+    all, and "nothing happened" would be indistinguishable from "nothing was ever
+    attempted".
+
+    So the receipt commits independently. The ordering guarantee that matters is
+    preserved by the caller: nothing writes a receipt unless the tool was
+    actually entered, and a Cedar denial never reaches this module.
+
+    This writer can only INSERT into ``pellier.tool_audit``. It cannot alter
+    business state, by construction, so an audit failure can never corrupt a
+    mutation and vice versa.
+    """
+    try:
+        execute_write(
+            f"INSERT INTO {SCHEMA}.tool_audit "
+            "(session_id, tool, caller, args, result, latency_ms) "
+            "VALUES (:session_id, :tool, 'gateway', :args::jsonb, :result::jsonb, "
+            ":latency_ms);",
+            [
+                {"name": "session_id", "value": {"stringValue": session_id}},
+                {"name": "tool", "value": {"stringValue": tool}},
+                {"name": "args", "value": {"stringValue": json.dumps(args, default=str)}},
+                {
+                    "name": "result",
+                    "value": {"stringValue": json.dumps(result, default=str)},
+                },
+                {"name": "latency_ms", "value": {"longValue": int(latency_ms)}},
+            ],
+        )
+    except Exception as exc:  # noqa: BLE001 - evidence must not break the write
+        logger.error("independent tool_audit write failed for %s: %s", tool, exc)
+
+
 def write_tool_audit(
     transaction_id: str,
     *,
@@ -236,7 +341,7 @@ def write_tool_audit(
       * A customer-scoped tool passes ``gateway-<customer_id>``, since
         ``customer_id`` is present in its arguments. Governed queries then
         filter on ``args->>'customer_id'``.
-      * An operator tool such as ``restock_shelf`` has no customer in its
+      * An operator tool such as ``restock_inventory`` has no customer in its
         arguments at all, so it passes a role handle like
         ``gateway-stock-keeper``. Deriving ``gateway-<customer_id>`` there would
         write ``gateway-unknown`` on every row.

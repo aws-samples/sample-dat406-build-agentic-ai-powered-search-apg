@@ -40,7 +40,7 @@ MODELS = [
     {
         "name": "Claude Opus 4.6",
         "model_id": "global.anthropic.claude-opus-4-6-v1",
-        # Editorial specialists (Style Advisor, Curator, Experience Guide).
+        # Editorial specialists (Search Agent, Personalization Agent, Customer Service Agent).
         # NOT hard-required: if Opus is denied but a Sonnet fallback
         # below passes, the session still runs (editorial agents fall back to
         # Sonnet via BEDROCK_OPUS_MODEL). main() enforces "Opus OR Sonnet".
@@ -75,7 +75,7 @@ MODELS = [
     {
         "name": "Cohere Rerank v3.5",
         "model_id": "cohere.rerank-v3-5:0",
-        "required": True,  # Anna's rerank proof + find_pieces at runtime
+        "required": True,  # Anna's rerank proof + search_products at runtime
         "api": "bedrock-agent-runtime.rerank",
         "body": {
             "query": "test",

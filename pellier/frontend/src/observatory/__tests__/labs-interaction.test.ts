@@ -47,7 +47,7 @@ describe('governed Labs interaction contract', () => {
   });
 
   it('keeps nested supporting routes optional', () => {
-    expect(interactionForPath('/observatory/tools/find_pieces')).toBe(
+    expect(interactionForPath('/observatory/tools/search_products')).toBe(
       'reference',
     );
     expect(interactionForPath('/observatory/architecture/runtime')).toBe(

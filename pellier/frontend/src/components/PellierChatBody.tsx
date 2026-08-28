@@ -501,6 +501,25 @@ function AgentMessage({
        * suppressed server-side so orderedProducts is empty. */}
       {message.escalation && <StylistHandoffCard handoff={message.escalation} />}
 
+      {/* Prepared, not carried out. The governed boundary declined the mutation and a
+       * person has to confirm it.
+       *
+       * This is deliberately NOT part of the answer prose. The specialist prompt asks
+       * for the sentence and the model dropped it, leaving the shopper told only that
+       * their request was "prepared" — which reads as filed. The backend supplies the
+       * wording and this renders it, so no paraphrase can lose the guarantee.
+       *
+       * Products still render: unlike an escalation, the answer is not the handoff. */}
+      {message.reviewPending && (
+        <p
+          className="ec-review-pending"
+          data-testid="pellier-review-pending"
+          role="status"
+        >
+          {message.reviewPending.message}
+        </p>
+      )}
+
       {/* Product cards — one render path for all products regardless
        * of origin. Past-order references (backend persona-match
        * injection) and forward-looking recs (tool-returned inventory)

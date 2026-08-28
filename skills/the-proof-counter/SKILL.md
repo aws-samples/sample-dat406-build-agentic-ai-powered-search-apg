@@ -22,8 +22,8 @@ version: "1.0"
 
 ## Tool discipline
 
-- Use `preference_snapshot` for memory and preference proof.
-- Use `trace_receipt` for tool/audit/Gateway proof.
+- Use `get_customer_preferences` for memory and preference proof.
+- Use `get_audit_trail` for tool/audit/Gateway proof.
 - Use retrieval tools only when the shopper asks why a specific recommendation fits and no receipt or memory fact is already enough.
 
 ## Guardrails

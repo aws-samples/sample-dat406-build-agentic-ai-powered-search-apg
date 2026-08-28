@@ -74,7 +74,7 @@ def test_the_business_question_is_identical_across_turns():
     """Enforcement varies; the question must not."""
     seeder = _load_seeder()
 
-    assert seeder.seed_sql().count("process_return") >= 3
+    assert seeder.seed_sql().count("initiate_return") >= 3
     # One order, so "was this return allowed?" means the same thing each time.
     assert seeder.seed_sql().count("INSERT INTO pellier.orders") == 1
 

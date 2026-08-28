@@ -6,8 +6,8 @@
 --
 -- The teaching shape:
 --
---   1. An agent (Experience Guide on Opus 4.6 at 0.2) calls a @tool
---      that mutates Aurora — process_return.
+--   1. An agent (Customer Service Agent on Opus 4.6 at 0.2) calls a @tool
+--      that mutates Aurora — initiate_return.
 --   2. On the managed Gateway rail, AgentCore Policy gates the call
 --      before the Lambda executes. Bad reason → DENY → no Gateway
 --      tool_audit row because the tool never ran.
@@ -95,7 +95,7 @@ BEGIN
          WHERE table_schema = 'pellier' AND table_name = 'returns'
     ) INTO has_table;
     IF has_table THEN
-        RAISE NOTICE 'pellier.returns ready for process_return writes';
+        RAISE NOTICE 'pellier.returns ready for initiate_return writes';
     ELSE
         RAISE NOTICE 'pellier.returns creation appears to have failed';
     END IF;

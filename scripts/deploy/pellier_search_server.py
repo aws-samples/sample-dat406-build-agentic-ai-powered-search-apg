@@ -3,12 +3,12 @@ Pellier Search MCP Server — Lambda-hosted MCP server for catalog discovery.
 
 Exposes the six catalog and inventory tools from the canonical 15-tool
 Pellier contract:
-  - find_pieces
-  - find_pieces_hybrid
-  - explore_collection
-  - floor_check
-  - running_low
-  - restock_shelf
+  - search_products
+  - search_products_hybrid
+  - browse_category
+  - check_inventory
+  - get_low_stock
+  - restock_inventory
 
 Deployed as a Lambda function behind AgentCore Gateway. The Lambda
 mirrors the in-process @tool functions in ``pellier/backend/services/``
@@ -103,7 +103,7 @@ def _write_tool_audit_in_transaction(
 ) -> None:
     """Audit a stock mutation in its own transaction.
 
-    `restock_shelf` is an operator action: its arguments carry a product and a
+    `restock_inventory` is an operator action: its arguments carry a product and a
     warehouse, never a customer, so the session handle names the acting role.
     Deriving `gateway-<customer_id>` here would write `gateway-unknown` on
     every row.
@@ -193,7 +193,7 @@ def get_low_stock_products(limit: int = 5) -> dict:
     return {"products": rows, "count": len(rows)}
 
 
-def find_pieces_hybrid(
+def search_products_hybrid(
     query: str,
     max_price: float = None,
     min_rating: float = 0.0,
@@ -202,7 +202,7 @@ def find_pieces_hybrid(
 ) -> dict:
     """Hybrid retrieval: pgvector + Postgres FTS → RRF → Cohere Rerank v3.5.
 
-    Mirrors `services.agent_tools.find_pieces_hybrid` but runs inside the
+    Mirrors `services.agent_tools.search_products_hybrid` but runs inside the
     Lambda microVM instead of the orchestrator's process. Three stages:
 
       1. Vector branch (pgvector cosine, k=20) and FTS branch
@@ -211,7 +211,7 @@ def find_pieces_hybrid(
          carries exactly one statement, so we fold the two ranked lists
          into a CTE plus Reciprocal Rank Fusion (RRF) inside the same
          query. (Multi-call transactions are supported — see the
-         `transactionId` path in `process_return` — but they still send
+         `transactionId` path in `initiate_return` — but they still send
          one statement per call.)
       2. The merged ~30-candidate pool is sent to Cohere Rerank v3.5
          (`cohere.rerank-v3-5:0`) through the Bedrock Agent Runtime
@@ -603,7 +603,7 @@ def restock_product(
     clean_warehouse = str(warehouse_id or "BK-01").strip() or "BK-01"
     request_payload = json.dumps(
         {
-            "operation": "restock_shelf",
+            "operation": "restock_inventory",
             "arguments": {
                 "product_id": int(product_id),
                 "quantity": int(quantity),
@@ -643,7 +643,7 @@ def restock_product(
             }
         _write_tool_audit_in_transaction(
             transaction_id,
-            "restock_shelf",
+            "restock_inventory",
             audit_arguments
             or {
                 "product_id": product_id,
@@ -661,14 +661,14 @@ def restock_product(
         raise
 
 
-def find_pieces(
+def search_products(
     query: str,
     max_price: float = None,
     min_rating: float = 0.0,
     category: str = None,
     limit: int = 5,
 ) -> dict:
-    """Canonical semantic catalog search used by Style Advisor."""
+    """Canonical semantic catalog search used by Search Agent."""
     result = semantic_search(
         query=query,
         limit=limit,
@@ -715,7 +715,7 @@ def find_pieces(
     return result
 
 
-def explore_collection(
+def browse_category(
     category: str,
     min_rating: float = 0.0,
     max_price: float = None,
@@ -759,7 +759,7 @@ def explore_collection(
     }
 
 
-def floor_check(product_query: str = "") -> dict:
+def check_inventory(product_query: str = "") -> dict:
     """Return aggregate stock health or one product's warehouse breakdown."""
     tokens = [token for token in str(product_query).strip().split() if token]
     if not tokens:
@@ -840,8 +840,8 @@ def floor_check(product_query: str = "") -> dict:
     }
 
 
-def running_low(limit: int = 5) -> dict:
-    """Canonical low-stock read used by Stock Keeper."""
+def get_low_stock(limit: int = 5) -> dict:
+    """Canonical low-stock read used by Inventory Agent."""
     result = get_low_stock_products(limit=limit)
     for product in result.get("products", []):
         quantity = int(product.get("quantity") or 0)
@@ -852,7 +852,7 @@ def running_low(limit: int = 5) -> dict:
     return result
 
 
-def restock_shelf(
+def restock_inventory(
     product_id: int,
     quantity: int,
     idempotency_key: str,
@@ -860,7 +860,7 @@ def restock_shelf(
     *,
     audit_arguments: dict | None = None,
 ) -> dict:
-    """Canonical bounded inventory write used by Stock Keeper."""
+    """Canonical bounded inventory write used by Inventory Agent."""
     if int(quantity) <= 0:
         return {"status": "error", "message": "Quantity must be positive."}
     result = restock_product(
@@ -889,8 +889,8 @@ def restock_shelf(
 # --- Lambda MCP handler ---
 
 TOOLS = {
-    "find_pieces": {
-        "fn": find_pieces,
+    "search_products": {
+        "fn": search_products,
         "description": "Search products by natural language query using vector similarity. Returns ranked products with similarity scores.",
         "inputSchema": {
             "type": "object",
@@ -904,8 +904,8 @@ TOOLS = {
             "required": ["query"],
         },
     },
-    "find_pieces_hybrid": {
-        "fn": find_pieces_hybrid,
+    "search_products_hybrid": {
+        "fn": search_products_hybrid,
         "description": "Hybrid retrieval over the catalog: pgvector cosine + Postgres FTS merged via RRF, reranked by Cohere Rerank v3.5. Higher quality than semantic_search at the cost of one extra Bedrock call.",
         "inputSchema": {
             "type": "object",
@@ -919,8 +919,8 @@ TOOLS = {
             "required": ["query"],
         },
     },
-    "explore_collection": {
-        "fn": explore_collection,
+    "browse_category": {
+        "fn": browse_category,
         "description": "Browse products in a category with optional rating and price filters.",
         "inputSchema": {
             "type": "object",
@@ -933,8 +933,8 @@ TOOLS = {
             "required": ["category"],
         },
     },
-    "floor_check": {
-        "fn": floor_check,
+    "check_inventory": {
+        "fn": check_inventory,
         "description": "Check aggregate inventory or a named product across the Brooklyn, Austin, and Portland warehouses.",
         "inputSchema": {
             "type": "object",
@@ -944,8 +944,8 @@ TOOLS = {
             "required": [],
         },
     },
-    "running_low": {
-        "fn": running_low,
+    "get_low_stock": {
+        "fn": get_low_stock,
         "description": "Get products with critically low stock levels (below 10 units).",
         "inputSchema": {
             "type": "object",
@@ -953,8 +953,8 @@ TOOLS = {
             "required": [],
         },
     },
-    "restock_shelf": {
-        "fn": restock_shelf,
+    "restock_inventory": {
+        "fn": restock_inventory,
         "description": "Restock a product by adding inventory. Quantity must be <= 500 per policy.",
         "inputSchema": {
             "type": "object",
@@ -993,15 +993,15 @@ def lambda_handler(event: dict, context: Any) -> dict:
         execution_arguments = {
             key: value for key, value in arguments.items() if key != "turn_id"
         }
-        if tool_name == "restock_shelf":
-            result = restock_shelf(
+        if tool_name == "restock_inventory":
+            result = restock_inventory(
                 **execution_arguments,
                 audit_arguments=audit_arguments,
             )
         else:
             result = TOOLS[tool_name]["fn"](**execution_arguments)
         receipt_evidence = None
-        if tool_name in {"find_pieces", "find_pieces_hybrid"} and isinstance(
+        if tool_name in {"search_products", "search_products_hybrid"} and isinstance(
             result, dict
         ):
             receipt_evidence = result.pop("_receipt_evidence", None)

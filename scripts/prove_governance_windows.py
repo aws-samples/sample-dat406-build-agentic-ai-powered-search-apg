@@ -44,7 +44,7 @@ _PROJECT = _REPO / ".agentcore-project" / "pellier"
 
 # The forbid policy whose mode decides which window we are in. A permit policy
 # in LOG_ONLY looks identical to one in ACTIVE from the caller's side.
-GATING_POLICY = "process_return_damaged_only"
+GATING_POLICY = "initiate_return_damaged_only"
 
 # A reason the gating policy forbids. `damaged` is the only permitted value, so
 # this request is the one Cedar has an opinion about.
@@ -109,10 +109,10 @@ def _policy_tool() -> Any:
     return module
 
 
-async def _call_process_return(
+async def _call_initiate_return(
     gateway_url: str, token: str, *, reason: str, idempotency_key: str
 ) -> Dict[str, Any]:
-    """Invoke process_return through the Gateway's MCP endpoint.
+    """Invoke initiate_return through the Gateway's MCP endpoint.
 
     Returns a dict describing the outcome, including whether the call was
     refused before the target ran.
@@ -130,7 +130,7 @@ async def _call_process_return(
             await session.initialize()
             tools = await session.list_tools()
             name = next(
-                (t.name for t in tools.tools if t.name.endswith("process_return")),
+                (t.name for t in tools.tools if t.name.endswith("initiate_return")),
                 None,
             )
             if name is None:
@@ -195,7 +195,7 @@ def _audit_rows(cfg: Dict[str, str], idempotency_key: str) -> int:
             "-U", cfg["DB_USER"], "-d", cfg["DB_NAME"],
             "-X", "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1",
             "-c",
-            "SELECT count(*) FROM pellier.tool_audit WHERE tool='process_return'"
+            "SELECT count(*) FROM pellier.tool_audit WHERE tool='initiate_return'"
             f" AND args::text LIKE '%{idempotency_key}%'",
         ],
         env=child, capture_output=True, text=True,
@@ -215,7 +215,7 @@ def _run_window(
     key = f"gov-window-{uuid.uuid4().hex[:8]}"
     before = _business_state(cfg)
     call = asyncio.run(
-        _call_process_return(
+        _call_initiate_return(
             gateway_url, token, reason=FORBIDDEN_REASON, idempotency_key=key
         )
     )
@@ -239,7 +239,7 @@ def _report(result: Dict[str, Any]) -> List[str]:
     call = result["call"]
 
     if call["outcome"] == "tool_absent":
-        return [f"{window}: process_return is not published on the Gateway"]
+        return [f"{window}: initiate_return is not published on the Gateway"]
 
     if result["business_change"]["returns"] != 0:
         failures.append(f"{window}: a refused request committed a return row")

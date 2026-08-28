@@ -1,6 +1,14 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+
+/** Read a source file from the project root, for structural assertions. */
+function readSource(relative: string): string {
+  return readFileSync(resolve(process.cwd(), relative), 'utf8')
+}
 
 vi.mock('./pages/PellierPage', () => ({
   default: () => <div>Storefront route</div>,
@@ -102,5 +110,30 @@ describe('canonical application routes', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/observatory/proof-board?turn=live#managed',
     )
+  })
+})
+
+describe('surface boundaries', () => {
+  // The shopper's Ask Pellier drawer was mounted on every route, so its
+  // "Continue chat" pill floated over Pellier Operator whenever the browser held a
+  // storefront thread. Operator is a different product with its own Concierge.
+  it('keeps the shopper chat drawer off the Operator console', () => {
+    const source = readSource('src/App.tsx')
+    expect(source).toContain('function ShopperChatSlot()')
+    expect(source).toContain("if (pathname.startsWith('/operator')) return null")
+    expect(source).toContain('<ShopperChatSlot />')
+    // Mounted through the slot only, never directly.
+    expect(source.match(/<ChatDrawer \/>/g)?.length).toBe(1)
+  })
+
+  it('still mounts it on the storefront and the Observatory', () => {
+    const source = readSource('src/App.tsx')
+    const start = source.indexOf('function ShopperChatSlot()')
+    // To the end of the function, not to the first "}" - which closes the JSX guard.
+    const body = source.slice(start, source.indexOf('\n}', start))
+    // Exactly one route prefix is excluded, and it is not the Observatory.
+    expect(body.match(/startsWith\(/g)?.length).toBe(1)
+    expect(body).toContain("startsWith('/operator')")
+    expect(body).not.toContain("startsWith('/observatory')")
   })
 })

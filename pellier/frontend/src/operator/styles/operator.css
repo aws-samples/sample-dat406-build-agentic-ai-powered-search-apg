@@ -1,0 +1,2620 @@
+/* ========================================================================
+ * Pellier Operator — the clienteling desk.
+ *
+ * Mode: Operate. An advisor is mid-conversation with a client and needs
+ * standing, history, and one governed action without hunting. Scanability and
+ * consistency outrank expression; the brand lives in the figures, the rules,
+ * and the browser surfaces.
+ *
+ * Type: headings use `var(--display)` (Fraunces Variable) at the storefront's
+ * own -0.012em tracking, so the desk and the shop speak in one voice. An
+ * earlier revision used `--obs-serif` (Instrument Serif) and read as a
+ * different house.
+ *
+ * Tokens: `--op-*` semantic aliases onto the Daylight `--dl-*` primitives,
+ * mirroring how `observatory/styles/tokens.css` aliases `--obs-*`. An alias
+ * layer, not a fourth source of truth.
+ *
+ * `.operator-root` is mounted OUTSIDE `.pellier-page-surface` and
+ * `.observatory-root`. Both force headings to sans, one with `!important`, so
+ * a serif heading is only reachable from a scope outside them. All tokens live
+ * on `:root`, so nothing is lost by sitting outside.
+ * ======================================================================== */
+
+/*
+ * Declared on `.operator-root`, NOT `:root`. A custom property's `var()` is
+ * substituted where the property is DECLARED, so `--op-bg: var(--cream)` on
+ * `:root` resolved against the warm `--cream` from daylight-bridge and then
+ * inherited down already-resolved as #f7f3ec — the surface override on
+ * `.operator-root` never got a chance to apply. Declaring them here resolves
+ * them against the overridden palette.
+ */
+.operator-root {
+  /*
+   * Mapped onto the SURFACE palette (--cream / --ink / --rule), not the warm
+   * Daylight --dl-* primitives. `.pellier-page-surface` re-maps that whole
+   * family to a cool near-white set, so a desk built on --dl-* read as warm
+   * cream beside a near-white storefront. `.operator-root` is now in that same
+   * palette block in index.css, so these resolve to identical values.
+   */
+  --op-bg: var(--cream);
+  --op-paper: var(--cream-elev);
+  --op-paper-2: var(--cream);
+  --op-rule: var(--rule-1);
+  --op-rule-strong: var(--rule-2);
+  --op-ink: var(--ink);
+  --op-ink-2: var(--ink-soft);
+  --op-muted: var(--ink-4);
+  /* Not --ink-5 (#8b929d): it measures 3.0:1 on the card and fails the floor
+     for the small labels that use it. This is one step darker, at 4.9:1. */
+  --op-faint: #676e7a;
+  --op-accent: var(--accent);
+  --op-authority: var(--accent);
+  --op-ok: var(--dl-ok);
+  --op-warn: var(--dl-warn);
+  --op-err: var(--dl-err);
+
+  /* Ladder tones. Antique metals, not shiny ones: a bright gold (#9c7b28)
+     measures 3.75:1 on cream and fails the 4.5:1 floor for 10px text. These
+     three are 6.8 / 6.5 / 5.9:1 against --dl-paper. Colour is reinforcement
+     only; the pill always carries its label, because status must never be
+     encoded by colour alone. */
+  /* Rank tones. Espresso / olive / taupe, all above the 4.5:1 floor on cream
+     (17:1, 4.84:1, 5.38:1). The literal taupe #8a7f6d measures 3.71:1 and is
+     not used. */
+  --op-rank-maison: var(--ink);
+  --op-rank-circle: #6b705c;
+  --op-rank-registered: var(--ink-4);
+  /* Gold is reserved for one job: marking the selected filter card. */
+  --op-rank-selected: #7a5c14;
+  /* The surface palette is cool (--ink-4 is #666d78, blue > red). The rung
+     descriptor reads a touch warmer than the rest of the muted copy, which
+     softens the ladder without breaking the palette. 5.16:1 on the card and
+     4.89:1 on the page tone, both above the floor for 12px text. */
+  --op-descriptor: #6e6a62;
+
+  --op-radius: 12px;
+  --op-rail-width: 352px;
+
+  /* One tracking value for display type, taken from the storefront. */
+  --op-display-track: -0.012em;
+  /* One tracking value for the small letterspaced data labels. */
+  --op-label-track: 0.1em;
+}
+
+/* ---------------------------------------------------------------- shell */
+
+.operator-root {
+  min-height: 100dvh;
+  background: var(--op-bg);
+  color: var(--op-ink);
+  font-family: var(--sans);
+  /* Figures across this surface are compared column-to-column, so they are
+     tabular everywhere rather than per-component. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Browser surfaces. These ship with defaults that belong to no design
+   system, and on a surface full of currency they are the parts an operator
+   looks at longest. Scoped to the desk so the storefront is untouched. */
+.operator-root ::selection {
+  background: color-mix(in srgb, var(--op-authority) 18%, transparent);
+  color: var(--op-ink);
+}
+
+.operator-root input,
+.operator-root textarea {
+  caret-color: var(--op-accent);
+}
+
+.operator-root :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--op-accent) 60%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.operator-root {
+  scrollbar-color: var(--op-rule-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.operator-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 28px;
+  background: color-mix(in srgb, var(--op-paper) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-topbar-start {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+
+.operator-wordmark {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: var(--op-display-track);
+  color: var(--op-ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.operator-wordmark:hover {
+  color: var(--op-authority);
+}
+
+.operator-topbar-context {
+  font-size: 12px;
+  color: var(--op-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operator-topbar-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.operator-shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 30px 28px 56px;
+}
+
+/* The two-pane workbench needs more measure than a single-column list. 1240px
+   split 52/48 leaves each pane under 600px, which squeezed the record's own
+   order table. Widen only the surface that needs it; the book and the review
+   queue keep their original measure. */
+.operator-shell:has(.operator-workbench) {
+  max-width: 1560px;
+}
+
+/* --------------------------------------------------------------- header */
+
+.operator-title {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(28px, 3.4vw, 38px);
+  line-height: 1.08;
+  letter-spacing: var(--op-display-track);
+  margin: 0;
+  color: var(--op-ink);
+  text-wrap: balance;
+}
+
+.operator-lede {
+  /* Spans the full content measure. A 68ch cap left this sitting at under half
+     the 1184px content width, which under a 38px display heading read as an
+     unfinished column rather than a deliberate one. `pretty` carries the cost:
+     it balances the last lines so a full-width paragraph does not end on an
+     orphan. */
+  max-width: none;
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  text-wrap: pretty;
+  color: var(--op-muted);
+}
+
+/* A client's own note is one short sentence, not a surface introduction, so it
+   keeps a reading measure rather than stretching across the record header. */
+.operator-record-head .operator-lede {
+  max-width: 74ch;
+}
+
+.operator-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 24px;
+}
+
+/* Breadcrumb: destination, then the record's own identifier in mono. The
+   slug is the value an operator pastes into a query, so it is data. */
+.operator-crumb {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 12px;
+}
+
+.operator-crumb a {
+  color: var(--op-muted);
+  text-decoration: none;
+}
+
+.operator-crumb a:hover {
+  color: var(--op-accent);
+}
+
+.operator-crumb-sep {
+  color: var(--op-faint);
+}
+
+.operator-crumb-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--op-faint);
+  letter-spacing: 0.02em;
+}
+
+/* ----------------------------------------------------------- membership */
+
+.operator-rung {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--op-rule-strong);
+  background: var(--op-paper-2);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/*
+ * One tone per rung, consumed by the pill and by the ladder's selected state so
+ * a filtered column and its pills always agree.
+ *
+ * These pointed at `--op-rung-bronze/pewter/gold`, which were removed when the
+ * ladder moved to espresso / olive / taupe. A `var()` naming a deleted token
+ * makes the whole declaration invalid, so the pills silently fell back to
+ * inherited ink and two rungs rendered in the wrong colour while still looking
+ * plausible in a screenshot.
+ */
+[data-rung='registered'] {
+  --rung-tone: var(--op-rank-registered);
+}
+
+[data-rung='circle'] {
+  --rung-tone: var(--op-rank-circle);
+}
+
+[data-rung='maison'] {
+  --rung-tone: var(--op-rank-maison);
+}
+
+/*
+ * The mark ranks a membership, not a person. So it appears on the index cards
+ * and once per section header — never stamped on every client row, and never
+ * with a rating glyph.
+ *
+ * Maison is solid espresso; the other two are outlines in their own tone. Only
+ * the top rung earns a fill.
+ */
+.operator-rung[data-rung='maison'] {
+  background: var(--op-rank-maison);
+  border-color: var(--op-rank-maison);
+  color: var(--cream-elev);
+}
+
+/*
+ * Registered and Circle are ONE treatment — outline, transparent fill, the same
+ * border strength — differing only in tone. They previously used 45% and 55%
+ * border opacity, which made two rungs of the same kind read as two unrelated
+ * designs. Only Maison, the top rung, earns a different treatment.
+ */
+.operator-rung[data-rung='circle'],
+.operator-rung[data-rung='registered'] {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--rung-tone) 50%, transparent);
+  color: var(--rung-tone);
+}
+
+.operator-rung-count {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* The three ladder pills share one footprint, so each card's descriptor begins
+   at the same x-position on all three cards. */
+.operator-ladder-head .operator-rung {
+  min-width: 104px;
+  flex: 0 0 auto;
+}
+
+/* Section header: the mark once, with the benefit it carries. */
+.operator-section {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 24px 13px;
+  background: var(--op-paper-2);
+}
+
+.operator-section-descriptor {
+  font-size: 12px;
+  color: var(--op-descriptor);
+  white-space: nowrap;
+}
+
+/* A generous gap, not a dot, divides identity from benefit. */
+.operator-section-earns {
+  margin-left: 20px;
+  font-size: 12px;
+  color: var(--op-muted);
+}
+
+.operator-section .operator-rung {
+  min-width: 104px;
+  flex: 0 0 auto;
+}
+
+.operator-section-count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--op-faint);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------- ladder legend */
+/*
+ * The three rungs defined once, on the surface where an advisor has to choose
+ * between them. Without this the pills are jargon: an operator can read
+ * "Maison" and still not know what the house owes that client.
+ */
+.operator-ladder {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 22px 0 26px;
+  background: var(--op-rule);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  overflow: hidden;
+}
+
+/* A real button, not a div with a handler: the cell is keyboard-reachable and
+   announces its pressed state. It stays a definition either way. */
+/* Identical internal geometry per card, so the three first rows share a
+   baseline and the threshold and benefit lines align across cards even when one
+   benefit runs longer. */
+.operator-ladder-cell {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  padding: 15px 18px 16px;
+  background: var(--op-paper);
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 140ms ease-out;
+}
+
+.operator-ladder-cell:hover {
+  background: var(--op-paper-2);
+}
+
+/* Gold marks the selection, and nothing else on this surface uses it. */
+.operator-ladder-cell[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--op-rank-selected) 6%, var(--op-paper));
+  box-shadow: inset 0 -2px 0 var(--op-rank-selected);
+}
+
+/* These are spans inside a button, so block display is explicit. As inline
+   elements the threshold and the earns line ran together on one line and their
+   margins were ignored — the same failure the book rows had. */
+/*
+ * First row grammar: pill → descriptor → flexible space → count.
+ *
+ * Explicit `gap` rather than `justify-content: space-between`. With
+ * space-between the descriptor became a third floating anchor mid-row; the
+ * layout only looked right because `margin-left: auto` on the count happened to
+ * absorb the slack. Tier and descriptor are one unit at the left edge, and the
+ * count is the separate right-aligned datum.
+ */
+.operator-ladder-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.operator-ladder-descriptor {
+  /* 1.5px below body copy (13.5px), in one warm tone on every card. */
+  font-size: 12px;
+  color: var(--op-descriptor);
+  white-space: nowrap;
+}
+
+.operator-ladder-count {
+  /* Flexible space pushes only the count, so it locks to the far-right edge and
+     all three cards share one right margin. */
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--op-ink-2);
+}
+
+.operator-ladder-threshold {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--op-faint);
+}
+
+.operator-ladder-earns {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--op-muted);
+}
+
+/* The filter's own state line. A filtered list that does not say it is
+   filtered reads as a short list. */
+.operator-filter-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 14px;
+  font-size: 12.5px;
+  color: var(--op-muted);
+}
+
+.operator-filter-clear {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--op-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ----------------------------------------------------------- the book */
+
+.operator-book {
+  display: grid;
+  gap: 1px;
+  background: var(--op-rule);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  overflow: hidden;
+}
+
+.operator-book-row {
+  display: grid;
+  /* The standing column is a fixed width so the pills form a tidy vertical
+     band instead of a ragged left edge. */
+  /* 72px portrait, matching `.pellier-profile-portrait` on the storefront so a
+     client reads the same size in both channels. Padding and type grow with it
+     rather than leaving the portrait floating in a thin row. */
+  grid-template-columns: 72px minmax(0, 2.6fr) minmax(0, 1fr) 88px;
+  align-items: center;
+  gap: 24px;
+  padding: 22px 26px;
+  background: var(--op-paper);
+  text-align: left;
+  color: inherit;
+  border: 0;
+  cursor: pointer;
+  transition: background 140ms ease-out;
+  font: inherit;
+}
+
+.operator-book-row:hover {
+  background: var(--op-paper-2);
+}
+
+.operator-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--op-paper-2);
+}
+
+/* A designed monogram, never a grey box. */
+.operator-monogram {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--op-authority) 12%, var(--op-paper-2));
+  color: var(--op-authority);
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Both are spans inside a span, so block display is set explicitly: as
+   inline elements the name and note ran together and margin-top was
+   silently ignored. */
+.operator-client-name {
+  display: block;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--op-ink);
+  letter-spacing: -0.005em;
+}
+
+.operator-client-note {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--op-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The book's note is a single ellipsised line, so it is nowrap. Inside a table
+   cell that same rule forced the whole table wider than its card, which is why
+   cells get their own wrapping variant. */
+.operator-cell-note {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--op-muted);
+  white-space: normal;
+}
+
+.operator-figure {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--op-ink-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.operator-figure-label {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+/* --------------------------------------------------- the standing quad */
+/*
+ * Four figures an advisor needs before speaking: what the client is worth,
+ * what they are owed, how long they have been here, and what is unresolved.
+ * A bordered grid rather than four cards, because cards inside a column of
+ * cards is one container too many.
+ */
+.operator-quad {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 18px;
+  background: var(--op-rule);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  overflow: hidden;
+}
+
+.operator-quad-cell {
+  padding: 16px 18px 15px;
+  background: var(--op-paper);
+}
+
+.operator-quad-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-quad-value {
+  margin-top: 7px;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(24px, 2.6vw, 31px);
+  line-height: 1;
+  letter-spacing: var(--op-display-track);
+  color: var(--op-ink);
+}
+
+.operator-quad-value[data-tone='authority'] {
+  color: var(--op-authority);
+}
+
+.operator-quad-value[data-tone='quiet'] {
+  color: var(--op-muted);
+}
+
+.operator-quad-note {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--op-muted);
+}
+
+/* --------------------------------------------------------- client record */
+
+.operator-record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--op-rail-width);
+  gap: 26px;
+  align-items: start;
+}
+
+/* Inside the two-pane workbench the record owns ~52% of 1240px, which is not
+   enough for its own 1fr + 352px rail: the order-history "PIECE" column
+   collapsed until product names wrapped to three lines. Stack the record's
+   internal grid whenever it is a workbench column, and let the action rail sit
+   below the history rather than beside it. The rail regains its side-by-side
+   layout on very wide viewports where there is genuinely room for both. */
+.operator-workbench-record .operator-record {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1600px) {
+  .operator-workbench-record .operator-record {
+    grid-template-columns: minmax(0, 1fr) var(--op-rail-width);
+  }
+}
+
+.operator-record-head {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--op-rule);
+  margin-bottom: 24px;
+}
+
+.operator-portrait {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--op-paper-2);
+}
+
+.operator-monogram-lg {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: color-mix(in srgb, var(--op-authority) 12%, var(--op-paper-2));
+  color: var(--op-authority);
+  font-family: var(--display);
+  font-size: 31px;
+  line-height: 1;
+}
+
+/* The standing strip sits opposite the name: identity on the left, what the
+   house owes them on the right. */
+.operator-standing {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.operator-standing-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--op-ink-2);
+}
+
+.operator-standing-row span:first-child {
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-card {
+  background: var(--op-paper);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  padding: 18px 20px 20px;
+  margin-bottom: 18px;
+}
+
+/* More space above a heading than below it. */
+.operator-card-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+
+.operator-card-title > span {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--op-faint);
+  text-transform: none;
+}
+
+/* A table inside a fixed-width card must never paint outside it. The wrapper
+   is the containment guarantee; the column rules below are what keep scrolling
+   from being needed in the first place. */
+.operator-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  /* Themed rather than left to the browser's default track. */
+  scrollbar-color: var(--op-rule-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.operator-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* Dates are single tokens; wrapping "Aug 14, 2026" onto three lines makes a
+   row three times as tall for no gain. */
+.operator-table-date {
+  white-space: nowrap;
+  color: var(--op-muted);
+}
+
+.operator-table th {
+  text-align: left;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+  padding: 0 12px 9px 0;
+  border-bottom: 1px solid var(--op-rule);
+}
+
+/* Row rhythm follows the book row's 22px, so scanning from the client list into
+   one client's orders does not change tempo. */
+.operator-table td {
+  padding: 18px 14px 18px 0;
+  border-bottom: 1px solid var(--op-rule);
+  color: var(--op-ink-2);
+  vertical-align: middle;
+}
+
+.operator-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.operator-table-num {
+  font-family: var(--mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.operator-table-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--op-faint);
+  white-space: nowrap;
+}
+
+/* Product thumbs match the book's portrait presence rather than shrinking to a
+   list icon: a client row shows a 72px portrait, so an order row showing the
+   same piece at 36px read as a different, lesser surface. 4:5 because that is
+   the catalog's committed aspect ratio — a square crop cuts the pieces. */
+.operator-thumb {
+  width: 72px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--op-paper-2);
+  display: block;
+}
+
+/* A designed tile rather than a grey box when an image is absent. */
+/* The fallback keeps the thumb's footprint so a missing image does not reflow
+   the row it sits in. */
+.operator-thumb-fallback {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 90px;
+  border-radius: 4px;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--op-authority) 10%, var(--op-paper-2)),
+    var(--op-paper-2)
+  );
+  color: var(--op-authority);
+  font-family: var(--display);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.operator-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border: 1px solid var(--op-rule-strong);
+  color: var(--op-muted);
+  background: var(--op-paper-2);
+  white-space: nowrap;
+}
+
+.operator-status[data-status='open'],
+.operator-status[data-status='pending'] {
+  color: var(--op-warn);
+  border-color: color-mix(in srgb, var(--op-warn) 40%, transparent);
+  background: color-mix(in srgb, var(--op-warn) 8%, var(--op-paper));
+}
+
+.operator-status[data-status='resolved'],
+.operator-status[data-status='closed'] {
+  color: var(--op-ok);
+  border-color: color-mix(in srgb, var(--op-ok) 35%, transparent);
+  background: color-mix(in srgb, var(--op-ok) 8%, var(--op-paper));
+}
+
+/* ------------------------------------------------------------- the rail */
+
+.operator-rail {
+  position: sticky;
+  top: 88px;
+}
+
+.operator-field {
+  display: block;
+  margin-bottom: 13px;
+}
+
+.operator-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-input,
+.operator-textarea,
+.operator-select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--op-rule-strong);
+  border-radius: 8px;
+  background: var(--op-paper);
+  color: var(--op-ink);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
+/* Currency and identifiers are measurements, so they get the mono face. */
+.operator-input {
+  font-family: var(--mono);
+}
+
+.operator-textarea {
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.operator-button {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--op-ink);
+  border-radius: 999px;
+  background: var(--op-ink);
+  color: var(--cream-elev);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 140ms ease-out;
+}
+
+.operator-button:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.operator-button:disabled {
+  /* Kept above the contrast floor rather than faded to unreadable, because a
+     disabled control still has to say what it would do. */
+  opacity: 1;
+  background: var(--op-paper-2);
+  border-color: var(--op-rule-strong);
+  color: var(--op-muted);
+  cursor: not-allowed;
+}
+
+.operator-hint {
+  margin: 11px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--op-muted);
+}
+
+/* ------------------------------------------------------------- receipts */
+
+.operator-receipt {
+  margin-top: 14px;
+  padding: 13px;
+  border-radius: 8px;
+  border: 1px solid var(--op-rule-strong);
+  background: var(--op-paper-2);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--op-ink-2);
+}
+
+.operator-receipt[data-outcome='success'] {
+  border-color: color-mix(in srgb, var(--op-ok) 40%, transparent);
+  background: color-mix(in srgb, var(--op-ok) 7%, var(--op-paper));
+}
+
+.operator-receipt[data-outcome='blocked'] {
+  border-color: color-mix(in srgb, var(--op-warn) 45%, transparent);
+  background: color-mix(in srgb, var(--op-warn) 8%, var(--op-paper));
+}
+
+.operator-receipt[data-outcome='error'] {
+  border-color: color-mix(in srgb, var(--op-err) 40%, transparent);
+  background: color-mix(in srgb, var(--op-err) 7%, var(--op-paper));
+}
+
+.operator-receipt-head {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  margin-bottom: 7px;
+  color: var(--op-ink);
+}
+
+.operator-receipt-key {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--op-muted);
+  word-break: break-all;
+}
+
+/* The stored execution receipt on a ReviewRecord: what produced the four axes.
+   Label-and-value rows rather than a grid, because these are unrelated facts read
+   one at a time, not a set to be compared across. */
+.operator-receipt-rows {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.operator-receipt-rows > div {
+  display: grid;
+  grid-template-columns: minmax(0, 148px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.operator-receipt-rows dt {
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+
+.operator-receipt-rows dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--op-ink-2);
+  min-width: 0;
+}
+
+/* LOG_ONLY is the state an operator must not skim past: a verdict was produced and
+   would not have been enforced. The tint is a SECOND cue - the value text says so in
+   words - because status carried by colour alone is unreadable to some operators and
+   invisible in a greyscale screenshot. */
+.operator-receipt[data-mode='LOG_ONLY'] {
+  border-color: color-mix(in srgb, var(--op-warn) 45%, transparent);
+  background: color-mix(in srgb, var(--op-warn) 8%, var(--op-paper));
+}
+
+@media (max-width: 640px) {
+  .operator-receipt-rows > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+}
+
+/* -------------------------------------------------------------- states */
+
+.operator-state {
+  padding: 46px 22px;
+  text-align: center;
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  background: var(--op-paper);
+  color: var(--op-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.operator-state-title {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: var(--op-display-track);
+  color: var(--op-ink);
+}
+
+.operator-state code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--op-paper-2);
+  color: var(--op-ink-2);
+}
+
+.operator-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--op-muted);
+  text-decoration: none;
+}
+
+.operator-back:hover {
+  color: var(--op-accent);
+}
+
+/* -------------------------------------------------------- responsive */
+
+/* --------------------------------------------------- prepared reviews */
+
+/* The queue link in the top bar. The count only renders when there is work,
+   so the badge never has to express zero. */
+.operator-topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: var(--op-ink-2);
+  text-decoration: none;
+  padding: 5px 2px;
+}
+
+.operator-topbar-link:hover {
+  color: var(--op-accent);
+}
+
+.operator-topbar-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--op-ink);
+  color: var(--cream-elev);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+}
+
+/* A queue row, built on the book row's proportions so the two lists read as
+   one desk rather than two products. */
+.operator-review-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 15px 18px;
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  background: var(--op-paper);
+  margin-bottom: 10px;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 140ms ease-out;
+}
+
+.operator-review-row:hover {
+  border-color: var(--op-rule-strong);
+}
+
+.operator-review-body {
+  display: block;
+  min-width: 0;
+}
+
+/* The origin line. Quiet and small: it is orientation, not the headline, and
+   it is the one place the page says where this work came from. */
+.operator-review-origin {
+  display: block;
+  margin: 0 0 4px;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+/* State is carried by the word. The tone is reinforcement only. */
+.operator-review-state {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--op-ink-2);
+}
+
+.operator-review-state[data-state='confirmation_required'] {
+  color: var(--op-authority);
+}
+
+.operator-review-state[data-state='declined'] {
+  color: var(--op-muted);
+}
+
+.operator-review-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.operator-review-standing {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 6px 0 8px;
+}
+
+.operator-review-issue-text {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--op-ink);
+}
+
+.operator-review-action-name {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--op-ink-2);
+}
+
+.operator-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* `.operator-button` is full-width for the rail form. Side by side in a card,
+   the two decisions size to their labels instead. */
+.operator-button-inline {
+  width: auto;
+  min-width: 148px;
+}
+
+/* Decline is not a lesser action, so it is not faded out - it is outlined
+   rather than filled, which reads as the alternative rather than the discouraged
+   option. */
+.operator-button-quiet {
+  background: transparent;
+  border-color: var(--op-rule-strong);
+  color: var(--op-ink);
+}
+
+.operator-button-quiet:hover:not(:disabled) {
+  border-color: var(--op-ink);
+  opacity: 1;
+}
+
+/* ------------------------------------------------- action assurance */
+
+.operator-assurance {
+  background: var(--op-paper);
+  border: 1px solid var(--op-rule);
+  border-radius: var(--op-radius);
+  padding: 18px 20px 20px;
+  margin-bottom: 18px;
+}
+
+.operator-assurance-caption {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--op-muted);
+}
+
+/* Four columns, because four independent answers should not read as a
+   sequence. A vertical list implies a pipeline, and a pipeline implies that
+   the first state leads to the second - which is the inference this component
+   exists to prevent. */
+.operator-assurance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--op-rule);
+  border: 1px solid var(--op-rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.operator-assurance-axis {
+  background: var(--op-paper-2);
+  padding: 13px 14px 14px;
+  min-width: 0;
+}
+
+.operator-assurance-label {
+  margin: 0 0 6px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-assurance-state {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--op-ink);
+}
+
+/* A confirmed human axis is the only state that earns emphasis here. Nothing
+   else on this component may look resolved, because nothing else is. */
+.operator-assurance-axis[data-state='CONFIRMED'] .operator-assurance-state {
+  color: var(--op-authority);
+}
+
+.operator-assurance-axis[data-state='DECLINED'] .operator-assurance-state,
+.operator-assurance-axis[data-state='NOT_EVALUATED'] .operator-assurance-state,
+.operator-assurance-axis[data-state='NOT_REACHED'] .operator-assurance-state,
+.operator-assurance-axis[data-state='NO_EXECUTION'] .operator-assurance-state {
+  color: var(--op-muted);
+}
+
+/* Block, not inline: an inline span ignores margin-top and the note runs into
+   the state above it. */
+.operator-assurance-note {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--op-muted);
+}
+
+@media (max-width: 1080px) {
+  .operator-record {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .operator-rail {
+    position: static;
+  }
+}
+
+@media (max-width: 860px) {
+  /* Two by two rather than four across. Still a grid, so the axes keep reading
+     as parallel answers instead of a pipeline. */
+  .operator-assurance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operator-review-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .operator-review-state {
+    grid-column: 2;
+  }
+
+  .operator-record-head {
+    flex-wrap: wrap;
+  }
+
+  .operator-standing {
+    margin-left: 0;
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+  }
+
+  .operator-standing-row {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Auto layout is kept on purpose. Fixed layout gave every column an equal
+     share and broke product names into four lines; the wrapping cell note is
+     what actually removed the overflow, so the columns keep their natural
+     proportions. */
+  .operator-shell {
+    padding: 22px 16px 44px;
+  }
+
+  .operator-topbar {
+    padding: 12px 16px;
+  }
+
+  .operator-topbar-context {
+    display: none;
+  }
+
+  .operator-quad {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Five columns cannot stay legible here, so the row keeps identity,
+     standing, and the one figure that drives triage. */
+  .operator-ladder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .operator-avatar,
+  .operator-monogram {
+    width: 56px;
+    height: 56px;
+  }
+
+  .operator-book-row {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    gap: 14px;
+    row-gap: 8px;
+    padding: 16px;
+  }
+
+  .operator-section {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 12px 16px;
+  }
+
+  .operator-section-count {
+    margin-left: 0;
+  }
+
+  .operator-book-row > .operator-figure:last-child {
+    display: none;
+  }
+
+  /* Hidden by intent, not by column index: the tables have different column
+     orders, so an nth-child rule hid a different field in each one. */
+  .operator-col-optional {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operator-book-row,
+  .operator-button {
+    transition: none;
+  }
+}
+
+/* =================================================================
+   OPERATOR CONCIERGE
+   The advisor's workbench beside the client record. Every value here
+   resolves through the existing --op-* tokens; no new theme, no new
+   palette. Whitespace and fine rules carry the structure so a pane
+   full of governance machinery still reads calm.
+   ================================================================= */
+
+/* ---------------------------------------------------------- layout */
+
+.operator-workbench {
+  display: grid;
+  /* 52/48. Both halves are first class; the record is never a sidebar. */
+  grid-template-columns: minmax(0, 52fr) minmax(0, 48fr);
+  gap: 34px;
+  align-items: start;
+}
+
+.operator-workbench-record,
+.operator-workbench-concierge {
+  min-width: 0;
+}
+
+.operator-workbench-concierge {
+  /* Sticky at desktop so the composer stays reachable while the long record
+     scrolls past it. A fixed height, not just a max: without it the flex column
+     collapsed to its content and the composer floated mid-column with dead space
+     beneath, which read as an unfinished pane rather than a resting one. */
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 118px);
+  min-height: 460px;
+}
+
+/* ---------------------------------------------------------- surface */
+
+.operator-concierge {
+  display: flex;
+  flex-direction: column;
+  /* Fill the sticky column rather than sizing to content, so the composer rests
+     at the bottom of the pane instead of floating under the empty state. */
+  flex: 1 1 auto;
+  min-height: 0;
+  border-left: 1px solid var(--op-rule);
+  padding-left: 30px;
+}
+
+.operator-concierge-head {
+  flex: 0 0 auto;
+}
+
+.operator-concierge-title {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(24px, 2.4vw, 29px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--op-ink);
+}
+
+.operator-concierge-sub {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--op-muted);
+  text-wrap: pretty;
+}
+
+.operator-concierge-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-concierge-scope-name {
+  font-family: var(--display);
+  font-size: 16px;
+  color: var(--op-ink);
+}
+
+.operator-concierge-scope-meta {
+  font-size: 12px;
+  color: var(--op-faint);
+}
+
+/* ------------------------------------------------------ eyebrow */
+
+.operator-concierge-eyebrow,
+.operator-concierge-state-eyebrow {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+/* -------------------------------------------------- capability */
+
+.operator-concierge-state {
+  flex: 0 0 auto;
+  margin: 20px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--op-rule);
+}
+
+/* A deliberately closed rail is an operating state, not a fault. Olive for
+   verified-and-working, terracotta only for genuinely in-flight or unverified. */
+.operator-concierge-state[data-state='read-only'] .operator-concierge-state-eyebrow {
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-state[data-state='unverified'] .operator-concierge-state-eyebrow,
+.operator-concierge-state[data-state='conversation'] .operator-concierge-state-eyebrow {
+  color: var(--op-warn);
+}
+
+.operator-concierge-state-copy {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--op-muted);
+  text-wrap: pretty;
+}
+
+.operator-concierge-state-toggle {
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--op-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.operator-concierge-state-toggle:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 3px;
+}
+
+.operator-concierge-capabilities {
+  margin: 12px 0 0;
+  display: grid;
+  gap: 0;
+}
+
+.operator-concierge-capability {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--op-rule);
+  font-size: 12.5px;
+}
+
+.operator-concierge-capability dt {
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-capability dd {
+  margin: 0;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--op-faint);
+}
+
+/* State is carried by text, never by colour alone. */
+.operator-concierge-capability dd[data-capability-state='available'] {
+  color: var(--op-ok);
+}
+
+.operator-concierge-capability dd[data-capability-state='review_required'] {
+  color: var(--op-ink-2);
+}
+
+/* ------------------------------------------------------- body */
+
+.operator-concierge-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 20px;
+  padding-right: 4px;
+  /* The pane is viewport-height, so content longer than it gets cut at the bottom
+     edge — at 1180x920 that landed mid-glyph on a suggestion row and read as a
+     rendering fault rather than as "there is more below". The mask applies to the
+     scroller's visible box, not to its content, so it costs nothing when nothing
+     overflows and softens the edge when something does. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+}
+
+.operator-concierge-empty {
+  padding: 14px 0 0;
+}
+
+.operator-concierge-empty-lede {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--op-muted);
+  text-wrap: pretty;
+}
+
+/* -------------------------------------------------- suggestions */
+
+/* Editorial rows, not cards. A card grid would read as four equal marketing
+   tiles; these are ranked, and rank should be legible in the reading order. */
+.operator-concierge-suggestions {
+  margin-top: 22px;
+}
+
+.operator-concierge-suggestion-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.operator-concierge-suggestion {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'group arrow'
+    'label arrow'
+    'why   arrow';
+  align-items: baseline;
+  gap: 3px 18px;
+  width: 100%;
+  padding: 12px 2px 12px 0;
+  border: 0;
+  border-top: 1px solid var(--op-rule);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    padding-left 180ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    border-color 180ms ease;
+}
+
+.operator-concierge-suggestion-list li:last-child .operator-concierge-suggestion {
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-concierge-suggestion-group {
+  grid-area: group;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-concierge-suggestion-label {
+  grid-area: label;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.3;
+  color: var(--op-ink);
+}
+
+.operator-concierge-suggestion-why {
+  grid-area: why;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--op-muted);
+  text-wrap: pretty;
+}
+
+.operator-concierge-suggestion-arrow {
+  grid-area: arrow;
+  align-self: center;
+  font-size: 13px;
+  color: var(--op-faint);
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.3, 1), color 180ms ease;
+}
+
+.operator-concierge-suggestion:hover:not(:disabled) {
+  padding-left: 8px;
+  border-color: var(--op-rule-strong);
+}
+
+.operator-concierge-suggestion:hover:not(:disabled)
+  .operator-concierge-suggestion-arrow {
+  transform: translateX(3px);
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-suggestion:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 3px;
+}
+
+.operator-concierge-suggestion:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operator-concierge-suggestion,
+  .operator-concierge-suggestion-arrow {
+    transition: none;
+  }
+}
+
+/* ----------------------------------------------------- thread */
+
+.operator-concierge-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 26px;
+}
+
+.operator-concierge-turn {
+  display: grid;
+  gap: 14px;
+}
+
+/* A compact request block, NOT a bubble. */
+.operator-concierge-request {
+  padding-left: 14px;
+  border-left: 2px solid var(--op-rule-strong);
+}
+
+.operator-concierge-request-body {
+  margin: 6px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--op-ink);
+}
+
+.operator-concierge-turnstate {
+  padding-left: 14px;
+}
+
+.operator-concierge-turnstate-copy {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: var(--op-muted);
+}
+
+.operator-concierge-turnstate[data-turn-state='failed'] .operator-concierge-eyebrow {
+  color: var(--op-err);
+}
+
+/* An assistant conclusion is editorial. */
+.operator-concierge-conclusion {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1.45;
+  color: var(--op-ink);
+  text-wrap: pretty;
+}
+
+/* ---------------------------------------------- investigation */
+
+.operator-concierge-investigation-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.operator-concierge-investigation-head:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 3px;
+}
+
+.operator-concierge-investigation-meta {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--op-faint);
+}
+
+.operator-concierge-steps {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.operator-concierge-step {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--op-rule);
+  font-size: 12.5px;
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-step-source {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--op-faint);
+  white-space: nowrap;
+}
+
+.operator-concierge-step[data-step-status='failed'] .operator-concierge-step-source {
+  color: var(--op-err);
+}
+
+/* A step still in progress. The only animated state, and it animates because the
+   work is genuinely outstanding — nothing here ticks on a timer. */
+.operator-concierge-step[data-step-status='running'] {
+  color: var(--op-muted);
+}
+
+.operator-concierge-step[data-step-status='running'] .operator-concierge-step-source {
+  animation: operator-concierge-pending 1.6s ease-in-out infinite;
+}
+
+@keyframes operator-concierge-pending {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operator-concierge-step[data-step-status='running']
+    .operator-concierge-step-source {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------- evidence */
+
+.operator-concierge-evidence-rows {
+  margin: 10px 0 0;
+}
+
+.operator-concierge-evidence-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 26%) 1fr;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-concierge-evidence-row dt {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-concierge-evidence-row dd {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-evidence-note {
+  line-height: 1.55;
+}
+
+.operator-concierge-evidence-meta {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--op-faint);
+}
+
+.operator-concierge-evidence-row[data-evidence-status='unverified'] dd,
+.operator-concierge-evidence-row[data-evidence-status='unavailable'] dd {
+  color: var(--op-muted);
+}
+
+/* Nuance, not alarm. */
+.operator-concierge-evidence-caveat {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--op-faint);
+}
+
+/* --------------------------------------------------- composer */
+
+.operator-concierge-composer {
+  flex: 0 0 auto;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-concierge-composer-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.operator-concierge-input {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--op-rule-strong);
+  border-radius: 3px;
+  background: var(--op-paper);
+  color: var(--op-ink);
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.operator-concierge-input::placeholder {
+  color: var(--op-faint);
+}
+
+.operator-concierge-input:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 1px;
+  border-color: var(--op-accent);
+}
+
+.operator-concierge-composer[data-enabled='false'] .operator-concierge-input {
+  background: var(--op-paper-2);
+  cursor: default;
+}
+
+.operator-concierge-composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 9px;
+}
+
+.operator-concierge-composer-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--op-faint);
+}
+
+.operator-concierge-ask {
+  flex: 0 0 auto;
+  padding: 7px 16px;
+  border: 1px solid var(--op-ink);
+  border-radius: 999px;
+  background: var(--op-ink);
+  color: var(--op-paper);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.operator-concierge-ask:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.operator-concierge-ask:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------ responsive */
+
+/* Below this the two columns would each be ~400px, which serves neither.
+   Stack deliberately: the record first, the Concierge beneath it. */
+@media (max-width: 1120px) {
+  .operator-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+
+  .operator-workbench-concierge {
+    position: static;
+    /* `height`, not `max-height`: the desktop rule sets a fixed height so the
+       composer anchors, and leaving it applied here forced ~780px of dead space
+       under a stacked pane. */
+    height: auto;
+    min-height: 0;
+  }
+
+  .operator-concierge {
+    border-left: 0;
+    border-top: 1px solid var(--op-rule);
+    padding-left: 0;
+    padding-top: 26px;
+  }
+
+  .operator-concierge-body {
+    /* `max-height`, NOT `height`. The desktop rule fixes a height so the composer
+       anchors to the viewport, and carrying that here forced ~780px of dead space
+       under a short stacked pane. A ceiling engages only when the thread exceeds it,
+       so two turns still lay out naturally.
+
+       It has to engage at some point: with the pane unbounded, a thread of eight
+       turns rendered 16,368px inline at 900px wide, putting the newest answer and the
+       composer roughly sixteen thousand pixels below the record. The auto-align effect
+       in OperatorConcierge.tsx scrolls this same element, so bounding it restores the
+       newest-turn-first behaviour the desktop pane already has. */
+    max-height: 72vh;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operator-concierge * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* --------------------------------------- concierge: answer artifacts */
+
+/* ------------------------------------------- primary + sections */
+
+.operator-concierge-primary {
+  display: grid;
+  gap: 6px;
+}
+
+/* A draft is copy that could be pasted into a real message, so it reads as a
+   quoted artifact rather than as the surface's own voice. The rule on the left is
+   the whole signal: this is material, not a conclusion. */
+.operator-concierge-primary[data-workflow='draft_client_note'] {
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--op-rule-strong);
+}
+
+.operator-concierge-primary-note {
+  margin: 2px 0 0;
+  max-width: 52ch;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--op-faint);
+  text-wrap: pretty;
+}
+
+.operator-concierge-section {
+  padding-top: 2px;
+}
+
+.operator-concierge-section-body {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--op-ink-2);
+  text-wrap: pretty;
+}
+
+/* ---- Prior resolutions ----
+ *
+ * Numbered rows with a hairline rule, not cards: these are entries in a record, and a
+ * card each would give three past events the same visual weight as the live
+ * recommendation above them.
+ *
+ * The outcome tone is a SECOND cue only. Each row states all three axes in words, so a
+ * greyscale screenshot and a screen reader carry the same meaning as the tint. */
+.operator-concierge-prior {
+  display: grid;
+  gap: 10px;
+}
+
+.operator-concierge-prior-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--op-muted);
+}
+
+.operator-concierge-prior-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1px;
+  background: var(--op-rule);
+  border: 1px solid var(--op-rule);
+  border-radius: 8px;
+  overflow: hidden;
+  counter-reset: prior;
+}
+
+.operator-concierge-prior-item {
+  position: relative;
+  padding: 12px 14px 12px 34px;
+  background: var(--op-paper);
+  counter-increment: prior;
+}
+
+/* A mono ordinal, matching the numbered rows elsewhere in the console. */
+.operator-concierge-prior-item::before {
+  content: counter(prior);
+  position: absolute;
+  left: 14px;
+  top: 13px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--op-descriptor);
+}
+
+.operator-concierge-prior-item[data-outcome='refused'],
+.operator-concierge-prior-item[data-outcome='not_attempted'] {
+  background: color-mix(in srgb, var(--op-warn) 5%, var(--op-paper));
+}
+
+.operator-concierge-prior-kind {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--op-ink);
+}
+
+.operator-concierge-prior-axes {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-prior-resolution {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--op-ink-2);
+  text-wrap: pretty;
+}
+
+.operator-concierge-prior-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 8px 0 0;
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+
+.operator-concierge-prior-meta a {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+.operator-concierge-prior-retrieval {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--op-muted);
+  max-width: 62ch;
+}
+
+/* Unconfirmed or operator-only material. Quieter than the established block, so
+   the two can never be scanned as equally settled. */
+.operator-concierge-section[data-tone='context'] .operator-concierge-eyebrow {
+  color: var(--op-descriptor);
+}
+
+.operator-concierge-section[data-tone='context'] .operator-concierge-section-body {
+  color: var(--op-muted);
+}
+
+/* -------------------------------------------- proposed action */
+
+/* Restrained on purpose. A prepared action is a request for a decision, not an
+   alarm: no bright warning colour, no filled card, no "Execute now". The rule on
+   the left is the same device the operator request block uses, so a prepared
+   action reads as part of the conversation rather than as a modal. */
+.operator-concierge-proposal {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px;
+  padding: 14px 0 14px 16px;
+  border-left: 2px solid var(--op-authority);
+}
+
+.operator-concierge-proposal-title {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--op-ink);
+}
+
+.operator-concierge-proposal-rows {
+  display: grid;
+  gap: 4px;
+  margin: 5px 0 0;
+}
+
+.operator-concierge-proposal-rows > div {
+  display: grid;
+  grid-template-columns: 158px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.operator-concierge-proposal-rows dt {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-concierge-proposal-rows dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--op-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The two rows that must never be read as one fact. Human confirmation and governed
+   execution move independently, so each gets its own weight and neither borrows the
+   other's tone. */
+.operator-concierge-proposal [data-testid='operator-concierge-proposal-human'] {
+  color: var(--op-ink);
+}
+
+.operator-concierge-proposal[data-execution='temporarily_unavailable']
+  [data-testid='operator-concierge-proposal-execution'],
+.operator-concierge-proposal[data-execution='capability_state_unverified']
+  [data-testid='operator-concierge-proposal-execution'],
+.operator-concierge-proposal[data-execution='not_enabled']
+  [data-testid='operator-concierge-proposal-execution'] {
+  color: var(--op-descriptor);
+}
+
+.operator-concierge-proposal-note {
+  margin: 3px 0 0;
+  max-width: 58ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--op-faint);
+  text-wrap: pretty;
+}
+
+.operator-concierge-proposal-assurance {
+  margin-top: 8px;
+}
+
+/* The assurance component, reused verbatim, laid out for a narrower measure.
+   Its four-across grid was designed for the full-width ReviewRecord; in a ~610px
+   pane each axis got ~130px and its one-line note wrapped to three. A 2x2 inside
+   this pane is a layout adaptation of the same component, not a second
+   implementation of it. */
+.operator-concierge-proposal-assurance .operator-assurance {
+  margin-bottom: 0;
+  padding: 15px 16px 16px;
+}
+
+.operator-concierge-proposal-assurance .operator-assurance-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.operator-concierge-proposal-link {
+  justify-self: start;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--op-authority);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--op-authority) 35%, transparent);
+  padding-bottom: 1px;
+}
+
+.operator-concierge-proposal-link:hover {
+  border-bottom-color: var(--op-authority);
+}
+
+.operator-concierge-proposal-link:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 3px;
+}
+
+/* ------------------------------------- replacement products */
+
+.operator-concierge-replacement {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.operator-concierge-products {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+/* A lookbook row, not a marketplace tile: image left, facts right, one rule
+   between. Three cards in a 610px pane as a grid would drop each 4:5 image to
+   ~180px wide and read as a search results page. */
+.operator-concierge-product {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-concierge-product:last-child {
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-concierge-product-figure {
+  /* 4:5, matching the catalog masters (1122x1402). Fixed so a slow image cannot
+     reflow the card once it lands. */
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--op-paper-2);
+}
+
+.operator-concierge-product-figure picture,
+.operator-concierge-product-figure img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.operator-concierge-product-body {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  min-width: 0;
+}
+
+.operator-concierge-product-name {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 16.5px;
+  line-height: 1.25;
+  color: var(--op-ink);
+}
+
+.operator-concierge-product-meta {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--op-muted);
+}
+
+.operator-concierge-product-price {
+  margin: 3px 0 0;
+  font-size: 14px;
+  color: var(--op-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.operator-concierge-product-availability {
+  margin-top: 8px;
+}
+
+.operator-concierge-product-availability p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--op-ink-2);
+}
+
+/* Availability tone. Reinforcement only — the sentence always states the fact, so
+   nothing here is encoded by colour alone. */
+.operator-concierge-product[data-availability='reconciled']
+  .operator-concierge-product-availability .operator-concierge-eyebrow {
+  color: var(--op-ok);
+}
+
+.operator-concierge-product[data-availability='unverified']
+  .operator-concierge-product-availability .operator-concierge-eyebrow,
+.operator-concierge-product[data-availability='observed']
+  .operator-concierge-product-availability .operator-concierge-eyebrow {
+  color: var(--op-descriptor);
+}
+
+.operator-concierge-product[data-availability='disagreement']
+  .operator-concierge-product-availability .operator-concierge-eyebrow {
+  color: var(--op-warn);
+}
+
+.operator-concierge-product-note {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--op-faint);
+  text-wrap: pretty;
+}
+
+.operator-concierge-product-fit {
+  margin-top: 9px;
+}
+
+.operator-concierge-product-fit ul {
+  list-style: none;
+  margin: 3px 0 0;
+  padding: 0;
+}
+
+.operator-concierge-product-fit li {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--op-muted);
+}
+
+.operator-concierge-product-fit li::before {
+  content: '\2014\00a0';
+  color: var(--op-faint);
+}
+
+.operator-concierge-product-sku {
+  margin-top: 9px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--op-faint);
+}
+
+/* Candidate order lines, when the item to replace could not be resolved. */
+.operator-concierge-candidates {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.operator-concierge-candidates li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--op-rule);
+  font-size: 13px;
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-candidate-order,
+.operator-concierge-candidate-price {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--op-faint);
+}
+
+/* The retrieval receipt. Concise on purpose: the Concierge is not a search-debug
+   console, and FTS/pgvector/RRF score contributions belong in the Observatory. */
+.operator-concierge-retrieval {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-concierge-retrieval > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 12px;
+}
+
+.operator-concierge-retrieval dt {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+  padding-top: 2px;
+}
+
+.operator-concierge-retrieval dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--op-ink-2);
+  text-wrap: pretty;
+}
+
+@media (max-width: 1120px) {
+  /* Stacked, the pane has the full content measure, so the cards can breathe. */
+  .operator-concierge-product {
+    grid-template-columns: 132px 1fr;
+    gap: 20px;
+  }
+}
+
+.operator-concierge-recommendation {
+  padding-top: 4px;
+}
+
+/* Editorial, because a recommendation is the one place the surface takes a
+   position. Facts stay in sans; this is the sentence an operator acts on. */
+.operator-concierge-recommendation-body {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 16.5px;
+  line-height: 1.5;
+  color: var(--op-ink);
+  text-wrap: pretty;
+}
+
+/* The role prefix is the load-bearing bit: "Reported · Not confirmed" must not
+   read like "Fact · Established". Muted so it informs without shouting. */
+.operator-concierge-evidence-row[data-evidence-role='context'] dt,
+.operator-concierge-evidence-row[data-evidence-role='inference'] dt {
+  color: var(--op-descriptor);
+}
+
+.operator-concierge-sources {
+  padding-top: 4px;
+}
+
+.operator-concierge-source-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.operator-concierge-source-list li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.operator-concierge-source-name {
+  color: var(--op-ink-2);
+  white-space: nowrap;
+}
+
+.operator-concierge-source-detail {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--op-faint);
+}

@@ -1,7 +1,7 @@
 /**
  * Pellier Observatory — Brief types
  *
- * Types for the Curator's Brief — a magazine-style editorial deconstruction
+ * Types for the Personalization Agent's Brief — a magazine-style editorial deconstruction
  * of a single session.
  *
  * Requirements: 16.5

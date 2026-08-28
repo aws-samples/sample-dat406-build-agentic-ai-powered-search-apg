@@ -18,21 +18,21 @@ from mcp.client.streamable_http import streamable_http_client
 
 
 EXPECTED_TOOLS = {
-    "preference_snapshot",
-    "trace_receipt",
-    "floor_check",
-    "whats_trending",
-    "price_intelligence",
-    "restock_shelf",
-    "process_return",
-    "escalate_to_stylist",
-    "find_pieces",
-    "find_pieces_hybrid",
-    "explore_collection",
-    "running_low",
-    "side_by_side",
-    "returns_and_care",
-    "style_match",
+    "get_customer_preferences",
+    "get_audit_trail",
+    "check_inventory",
+    "get_trending_products",
+    "get_price_analysis",
+    "restock_inventory",
+    "initiate_return",
+    "escalate_to_human",
+    "search_products",
+    "search_products_hybrid",
+    "browse_category",
+    "get_low_stock",
+    "compare_products",
+    "get_return_policy",
+    "get_related_products",
 }
 
 

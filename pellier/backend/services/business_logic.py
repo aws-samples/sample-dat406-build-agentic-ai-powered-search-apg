@@ -10,7 +10,7 @@ Aligned to the Pellier catalog schema:
 
 The ``quantity`` column is created by ``001_schema.sql`` and seeded by
 ``seed_pellier_catalog.py``. Stock-level
-functions (floor_check, running_low, restock_shelf) now issue
+functions (check_inventory, get_low_stock, restock_inventory) now issue
 real SQL against this column.
 """
 import hashlib
@@ -30,7 +30,21 @@ def convert_decimals(obj):
     return obj
 
 
-def _write_request_hash(operation: str, **arguments: Any) -> str:
+def write_request_hash(operation: str, **arguments: Any) -> str:
+    """Canonical fingerprint of a write request: sorted-key JSON, SHA-256 hex.
+
+    Public because two callers depend on producing the *same* value:
+
+      * every governed mutation stores it as ``write_operations.request_hash``,
+        so replaying a key with different arguments is a conflict rather than a
+        silent second write;
+      * an operator review stores it as ``approvals.action_hash``, so a human
+        confirmation binds to the exact parameters it was shown.
+
+    Because both come from this one function, a confirmed review and the write
+    it authorises can be compared by hash. A second implementation of the same
+    scheme would make that comparison a coincidence rather than a guarantee.
+    """
     payload = json.dumps(
         {"operation": operation, "arguments": arguments},
         sort_keys=True,
@@ -45,7 +59,7 @@ class BusinessLogic:
     def __init__(self, db_service):
         self.db = db_service
 
-    async def whats_trending(self, limit: int = 5, category: str = None) -> Dict[str, Any]:
+    async def get_trending_products(self, limit: int = 5, category: str = None) -> Dict[str, Any]:
         """Trending products by rating × reviews.
 
         The ``reviews::int`` cast is safe for today's catalog (numeric
@@ -102,7 +116,7 @@ class BusinessLogic:
             },
         }
 
-    async def floor_check(self, product_query: Optional[str] = None) -> Dict[str, Any]:
+    async def check_inventory(self, product_query: Optional[str] = None) -> Dict[str, Any]:
         """Inventory check.
 
         Two modes:
@@ -112,13 +126,13 @@ class BusinessLogic:
           * ``product_query="Hadley shirt"`` (or `"Pellier Linen Shirt"`) —
             per-warehouse breakdown for a single product. Resolves the query
             against ``product_catalog.name`` (ILIKE) and joins
-            ``warehouse_inventory`` so Stock Keeper can answer "is the Hadley shirt
+            ``warehouse_inventory`` so Inventory Agent can answer "is the Hadley shirt
             (Pellier Linen Shirt in ecru) at the Brooklyn warehouse?" with concrete
             counts. Returns ambiguity error when more than one product
             matches; not_found when zero match.
         """
         if product_query:
-            return await self._floor_check_by_product(product_query)
+            return await self._check_inventory_by_product(product_query)
 
         stats = await self.db.fetch_one("""
             SELECT
@@ -161,7 +175,7 @@ class BusinessLogic:
             "alerts": alerts,
         }
 
-    async def _floor_check_by_product(self, product_query: str) -> Dict[str, Any]:
+    async def _check_inventory_by_product(self, product_query: str) -> Dict[str, Any]:
         """Per-warehouse breakdown for a named product.
 
         Implementation note: takes up to 5 ILIKE matches; if exactly one,
@@ -206,7 +220,7 @@ class BusinessLogic:
                 "query": product_query,
                 "message": (
                     f"No product matched '{product_query}'. "
-                    "Stock Keeper can only break down inventory for products in the catalog."
+                    "Inventory Agent can only break down inventory for products in the catalog."
                 ),
             }
 
@@ -264,7 +278,7 @@ class BusinessLogic:
             "warehouses": warehouses,
         }
 
-    async def price_intelligence(self, category: str = None) -> Dict[str, Any]:
+    async def get_price_analysis(self, category: str = None) -> Dict[str, Any]:
         """Per-category price statistics."""
         params: List[Any] = []
         if category:
@@ -324,7 +338,7 @@ class BusinessLogic:
             "filter": category if category else "all",
         }
 
-    async def process_return(
+    async def initiate_return(
         self,
         customer_id: str,
         product_id: int,
@@ -390,8 +404,8 @@ class BusinessLogic:
         clean_key = str(idempotency_key or "").strip()
         if not clean_key:
             return {"status": "error", "message": "idempotency_key is required."}
-        request_hash = _write_request_hash(
-            "process_return",
+        request_hash = write_request_hash(
+            "initiate_return",
             customer_id=str(customer_id),
             product_id=int(product_id),
             reason=str(reason),
@@ -414,7 +428,7 @@ class BusinessLogic:
             if isinstance(result, str):
                 result = json.loads(result)
         else:
-            result = await self._process_return_governed(
+            result = await self._initiate_return_governed(
                 sql, params, customer_id=str(customer_id), principal_sub=principal_sub
             )
 
@@ -423,7 +437,7 @@ class BusinessLogic:
             "message": "Return operation produced no result.",
         })
 
-    async def _process_return_governed(
+    async def _initiate_return_governed(
         self,
         sql: str,
         params: tuple,
@@ -494,7 +508,7 @@ class BusinessLogic:
             return False
         return "did not order" in str(result.get("message", ""))
 
-    async def restock_shelf(
+    async def restock_inventory(
         self,
         product_id: int,
         quantity: int,
@@ -517,8 +531,8 @@ class BusinessLogic:
         if not clean_key:
             return {"status": "error", "message": "idempotency_key is required."}
         clean_warehouse = str(warehouse_id or "BK-01").strip() or "BK-01"
-        request_hash = _write_request_hash(
-            "restock_shelf",
+        request_hash = write_request_hash(
+            "restock_inventory",
             product_id=int(product_id),
             quantity=int(quantity),
             warehouse_id=clean_warehouse,
@@ -540,7 +554,7 @@ class BusinessLogic:
             "message": "Restock operation produced no result.",
         })
 
-    async def find_pieces(
+    async def search_products(
         self,
         query: str,
         max_price: float = None,
@@ -687,7 +701,7 @@ class BusinessLogic:
             },
         }
 
-    async def running_low(self, limit: int = 5) -> Dict[str, Any]:
+    async def get_low_stock(self, limit: int = 5) -> Dict[str, Any]:
         """Products running low on stock, sorted by quantity ascending."""
         rows = await self.db.fetch_all(
             """
@@ -714,6 +728,119 @@ class BusinessLogic:
             "products": products,
         }
 
+    async def issue_credit(
+        self,
+        customer_id: str,
+        amount_cents: int,
+        reason: str,
+        idempotency_key: str,
+        issued_by: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Issue a goodwill store credit, applied exactly once.
+
+        Service recovery is a money movement, so it gets its own durable row
+        rather than being recorded as a note on a return. A return is not a
+        credit, and an auditor asking "what did we pay out this quarter?"
+        cannot answer it from the returns table.
+
+        The write is delegated to ``pellier.apply_store_credit``, which claims
+        the idempotency key in ``pellier.write_operations`` before touching
+        ``pellier.store_credits``. So the evidence a credit produces is the
+        same shape every other governed write produces.
+
+        The $500 ceiling is enforced in two places on purpose: this function
+        returns a readable ``policy_blocked`` envelope, and a CHECK constraint
+        on the table refuses the row regardless of who is calling. A limit that
+        lives only in a prompt or a tool schema is a suggestion.
+
+        Args:
+            customer_id: Customer receiving the credit, e.g. ``CUST-JESSICA``.
+            amount_cents: Integer cents. Money in a float is a defect waiting
+                for a rounding report to disagree with the ledger.
+            reason: Why the credit was issued. Required; it lands in the audit.
+            idempotency_key: Stable key for this intended write.
+            issued_by: Verified operator ``sub``, when one is available.
+
+        Returns:
+            ``{"status": "success", ...}`` with the credit id, the new balance,
+            and ``idempotent_replay``; or an ``error`` / ``policy_blocked`` /
+            ``idempotency_conflict`` envelope.
+        """
+        clean_key = str(idempotency_key or "").strip()
+        if not clean_key:
+            return {"status": "error", "message": "idempotency_key is required."}
+        try:
+            cents = int(amount_cents)
+        except (TypeError, ValueError):
+            return {
+                "status": "error",
+                "message": f"amount_cents must be an integer, got {amount_cents!r}.",
+            }
+        clean_reason = str(reason or "").strip()
+        if not clean_reason:
+            return {"status": "error", "message": "A reason is required for a credit."}
+
+        request_hash = write_request_hash(
+            "issue_credit",
+            customer_id=str(customer_id),
+            amount_cents=cents,
+            reason=clean_reason,
+        )
+        row = await self.db.fetch_one(
+            "SELECT pellier.apply_store_credit(%s, %s, %s, %s, %s, %s) AS result",
+            clean_key,
+            request_hash,
+            str(customer_id),
+            cents,
+            clean_reason,
+            str(issued_by or "") or None,
+        )
+        result = row.get("result") if row else None
+        if isinstance(result, str):
+            result = json.loads(result)
+        return convert_decimals(result or {
+            "status": "error",
+            "message": "Credit operation produced no result.",
+        })
+
+    async def get_ticket_history(
+        self,
+        customer_id: str,
+        limit: int = 5,
+    ) -> Dict[str, Any]:
+        """Past support interactions for one customer, newest first.
+
+        Read-only context so the concierge can reason over what already
+        happened instead of asking a client to repeat it.
+        """
+        rows = await self.db.fetch_all(
+            """
+            SELECT ticket_id, subject, status, channel, last_note,
+                   opened_at, resolved_at
+              FROM pellier.support_tickets
+             WHERE customer_id = %s
+             ORDER BY opened_at DESC
+             LIMIT %s
+            """,
+            str(customer_id),
+            int(limit),
+        )
+        tickets = [convert_decimals(dict(r)) for r in (rows or [])]
+        for t in tickets:
+            for field in ("opened_at", "resolved_at"):
+                value = t.get(field)
+                if value is not None and hasattr(value, "isoformat"):
+                    t[field] = value.isoformat()
+        return {
+            "status": "success",
+            "customer_id": str(customer_id),
+            "count": len(tickets),
+            "open_count": sum(
+                1 for t in tickets if t.get("status") in ("open", "pending")
+            ),
+            "tickets": tickets,
+        }
+
     async def personalized_search(
         self,
         query: str,
@@ -721,7 +848,7 @@ class BusinessLogic:
         limit: int = 5,
     ) -> Dict[str, Any]:
         """Semantic search + preference-based boost re-ranking."""
-        base_results = await self.find_pieces(query, limit=limit * 2)
+        base_results = await self.search_products(query, limit=limit * 2)
         products = base_results.get("products", [])
         preferences = preferences or {}
 

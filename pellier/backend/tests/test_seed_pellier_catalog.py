@@ -1,6 +1,6 @@
 """Tests for the workshop catalog seed generator.
 
-The governed workshop uses 40 curated story products plus generated archive
+The governed workshop uses 60 curated story products plus generated archive
 distractors for retrieval evaluation. These tests keep that split explicit so
 inventory, order, and policy exercises keep their stable product IDs.
 """
@@ -39,10 +39,10 @@ def test_default_catalog_keeps_curated_ids_and_adds_archive_distractors():
     curated = [p for p in catalog if not p.is_distractor]
     distractors = [p for p in catalog if p.is_distractor]
 
-    assert len(curated) == seed.CURATED_PRODUCT_COUNT == 40
-    assert len(distractors) == seed.DEFAULT_DISTRACTOR_COUNT == 960
+    assert len(curated) == seed.CURATED_PRODUCT_COUNT == 60
+    assert len(distractors) == seed.DEFAULT_DISTRACTOR_COUNT == 940
     assert len(catalog) == 1000
-    assert [p.productId for p in curated] == list(range(1, 41))
+    assert [p.productId for p in curated] == list(range(1, 61))
     assert distractors[0].productId == seed.DISTRACTOR_ID_START
     assert (
         distractors[-1].productId
@@ -52,19 +52,19 @@ def test_default_catalog_keeps_curated_ids_and_adds_archive_distractors():
         seed.DISTRACTOR_ID_START <= p.productId <= seed.DISTRACTOR_ID_END
         for p in distractors
     )
-    assert all(1 <= int(p.source_product_id or 0) <= 40 for p in distractors)
+    assert all(1 <= int(p.source_product_id or 0) <= 60 for p in distractors)
     assert all("archive" in p.tags for p in distractors)
     assert all("archive" not in p.tags for p in curated)
 
 
-def test_catalog_can_still_seed_only_the_40_curated_story_products():
+def test_catalog_can_still_seed_only_the_curated_story_products():
     seed = _load_seed_module()
 
     catalog = seed.build_catalog(include_distractors=False)
 
-    assert len(catalog) == 40
+    assert len(catalog) == 60
     assert all(not p.is_distractor for p in catalog)
-    assert [p.productId for p in catalog] == list(range(1, 41))
+    assert [p.productId for p in catalog] == list(range(1, 61))
 
 
 def test_distractor_embeddings_are_derived_from_cache_and_deterministic(monkeypatch):
@@ -74,7 +74,7 @@ def test_distractor_embeddings_are_derived_from_cache_and_deterministic(monkeypa
     def _embedded_catalog():
         catalog = seed.build_catalog(distractor_count=5)
         curated = [p for p in catalog if not p.is_distractor]
-        assert seed.load_embeddings_cache(curated, seed.EMBED_CACHE) == 40
+        assert seed.load_embeddings_cache(curated, seed.EMBED_CACHE) == 60
         assert seed.derive_distractor_embeddings(catalog) == 5
         return catalog
 

@@ -7,11 +7,11 @@
       "id": "marco-opening-linen",
       "fixture": "session-marco-opening-demo.json",
       "persona": "marco",
-      "summary": "Opening linen query surfaces the three travel-grade pieces via find_pieces.",
+      "summary": "Opening linen query surfaces the three travel-grade pieces via search_products.",
       "asserts": {
         "routingPattern": "Dispatcher",
         "turn": 1,
-        "expectedTools": ["find_pieces"],
+        "expectedTools": ["search_products"],
         "expectedProductsAny": [
           "Pellier Linen Shirt",
           "Italian Linen Camp Shirt"
@@ -25,10 +25,10 @@
       "id": "marco-midpoint-floor-check",
       "fixture": "session-marco-midpoint-checkpoint.json",
       "persona": "marco",
-      "summary": "Stock claims gate on floor_check — the workshop required-path contract.",
+      "summary": "Stock claims gate on check_inventory — the workshop required-path contract.",
       "asserts": {
         "turn": 1,
-        "expectedToolsInOrder": ["floor_check"],
+        "expectedToolsInOrder": ["check_inventory"],
         "expectedProductsAll": ["Pellier Linen Shirt"]
       }
     },
@@ -39,8 +39,8 @@
       "summary": "Anna's anchor gift query routes through hybrid retrieval, not vector-only.",
       "asserts": {
         "turn": 1,
-        "expectedTools": ["find_pieces_hybrid"],
-        "forbiddenTools": ["find_pieces"],
+        "expectedTools": ["search_products_hybrid"],
+        "forbiddenTools": ["search_products"],
         "expectedProductsAny": [
           "Beeswax Taper Candles",
           "Ceramic Ring Dish"
@@ -51,10 +51,10 @@
       "id": "theo-ceramics-return",
       "fixture": "session-theo-ceramics-return.json",
       "persona": "theo",
-      "summary": "Return flow runs returns_and_care before process_return — read-then-write order.",
+      "summary": "Return flow runs get_return_policy before initiate_return — read-then-write order.",
       "asserts": {
         "turn": 1,
-        "expectedToolsInOrder": ["returns_and_care", "process_return"],
+        "expectedToolsInOrder": ["get_return_policy", "initiate_return"],
         "expectedProductsAll": ["Wabi-Sabi Bowl"]
       }
     }

@@ -20,12 +20,12 @@
       "plan": {
         "routingPattern": "Dispatcher",
         "stepCount": 3,
-        "flowSummary": "Dispatcher \u2192 Style Advisor \u2192 find_pieces",
+        "flowSummary": "Dispatcher \u2192 Search Agent \u2192 search_products",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
-          "toolName": "find_pieces",
+          "toolName": "search_products",
           "description": "Semantic search for linen travel pieces",
           "durationMs": 312,
           "sql": "SELECT name, brand, price, 1 - (embedding <=> $1) AS similarity FROM product_catalog WHERE category ILIKE '%linen%' AND quantity > 0 ORDER BY embedding <=> $1 LIMIT 10;",
@@ -70,7 +70,7 @@
         }
       ],
       "meta": {
-        "agent": "Style Advisor",
+        "agent": "Search Agent",
         "model": "Claude Opus 4.6",
         "latencyMs": 1312
       }
@@ -87,12 +87,12 @@
       "plan": {
         "routingPattern": "Dispatcher",
         "stepCount": 3,
-        "flowSummary": "Dispatcher \u2192 Curator (+ packing-list skill) \u2192 style_match",
+        "flowSummary": "Dispatcher \u2192 Personalization Agent (+ packing-list skill) \u2192 get_related_products",
         "traceLink": "#telemetry-6"
       },
       "toolCalls": [
         {
-          "toolName": "style_match",
+          "toolName": "get_related_products",
           "description": "Product-to-product pgvector similarity from Hadley / Pellier Linen Shirt",
           "durationMs": 218,
           "sql": "SELECT p2.name, p2.price, 1 - (p1.embedding <=> p2.embedding) AS similarity FROM product_catalog p1, product_catalog p2 WHERE p1.product_id = $1 AND p2.product_id != $1 AND p2.quantity > 0 ORDER BY p1.embedding <=> p2.embedding LIMIT 5;",
@@ -124,7 +124,7 @@
       ],
       "confidence": {
         "percentage": 88,
-        "reasoning": "the-packing-list skill loaded; style_match returned companions from Marco's travel-linen cluster with strong cosine similarity."
+        "reasoning": "the-packing-list skill loaded; get_related_products returned companions from Marco's travel-linen cluster with strong cosine similarity."
       },
       "memoryPills": [
         {
@@ -137,7 +137,7 @@
         }
       ],
       "meta": {
-        "agent": "Curator",
+        "agent": "Personalization Agent",
         "model": "Claude Opus 4.6",
         "skill": "the-packing-list",
         "latencyMs": 1428
@@ -155,12 +155,12 @@
       "plan": {
         "routingPattern": "Dispatcher",
         "stepCount": 2,
-        "flowSummary": "Dispatcher \u2192 Value Analyst \u2192 price_intelligence",
+        "flowSummary": "Dispatcher \u2192 Pricing Agent \u2192 get_price_analysis",
         "traceLink": "#telemetry-9"
       },
       "toolCalls": [
         {
-          "toolName": "price_intelligence",
+          "toolName": "get_price_analysis",
           "description": "Price distribution for linen shirts category",
           "durationMs": 94,
           "sql": "SELECT MIN(price), MAX(price), AVG(price), PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) AS median FROM product_catalog WHERE category ILIKE '%linen%' AND name ILIKE '%shirt%';",
@@ -179,14 +179,14 @@
         }
       ],
       "meta": {
-        "agent": "Value Analyst",
+        "agent": "Pricing Agent",
         "model": "Claude Sonnet 4.6",
         "latencyMs": 168
       }
     },
     {
       "role": "user",
-      "content": "Is the Hadley shirt at the Brooklyn warehouse?",
+      "content": "Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?",
       "timestamp": "2026-05-25T17:01:22Z"
     },
     {
@@ -196,14 +196,14 @@
       "plan": {
         "routingPattern": "Dispatcher",
         "stepCount": 1,
-        "flowSummary": "Dispatcher \u2192 stock intent matched \u2192 Stock Keeper stubbed \u2192 voice-matched non-answer",
+        "flowSummary": "Dispatcher \u2192 stock intent matched \u2192 Inventory Agent stubbed \u2192 voice-matched non-answer",
         "traceLink": "#telemetry-13"
       },
       "toolCalls": [],
       "products": [],
       "confidence": {
         "percentage": 0,
-        "reasoning": "Stock intent matched by the Dispatcher (keywords: warehouse, available, at the). Stock Keeper is in stub state - no agent invoked. Fall-through returned the voice-matched non-answer."
+        "reasoning": "Stock intent matched by the Dispatcher (keywords: warehouse, available, at the). Inventory Agent is in stub state - no agent invoked. Fall-through returned the voice-matched non-answer."
       },
       "memoryPills": [
         {
@@ -214,7 +214,7 @@
       "meta": {
         "agent": null,
         "model": null,
-        "note": "Pattern III fall-through - Stock Keeper is the workshop build",
+        "note": "Pattern III fall-through - Inventory Agent is the workshop build",
         "latencyMs": 72
       }
     },
@@ -249,7 +249,7 @@
       "description": "pgvector cosine over product_catalog; query vector from Cohere Embed v4 (us.cohere.embed-v4:0); linen + in-stock filters",
       "status": "complete",
       "durationMs": 312,
-      "agent": "Style Advisor",
+      "agent": "Search Agent",
       "sql": "SELECT name, brand, price, 1 - (embedding <=> $1) AS similarity FROM product_catalog WHERE category ILIKE '%linen%' AND quantity > 0 ORDER BY embedding <=> $1 LIMIT 10;"
     },
     {
@@ -267,7 +267,7 @@
       "description": "Claude Opus 4.6 - editorial voice, 3 pieces",
       "status": "complete",
       "durationMs": 938,
-      "agent": "Style Advisor"
+      "agent": "Search Agent"
     },
     {
       "index": 6,
@@ -294,7 +294,7 @@
       "description": "Product-to-product pgvector similarity from Hadley / Pellier Linen Shirt; embeddings via Cohere Embed v4 (us.cohere.embed-v4:0)",
       "status": "complete",
       "durationMs": 218,
-      "agent": "Curator",
+      "agent": "Personalization Agent",
       "sql": "SELECT p2.name, p2.price, 1 - (p1.embedding <=> p2.embedding) AS similarity FROM product_catalog p1, product_catalog p2 WHERE p1.product_id = $1 AND p2.product_id != $1 AND p2.quantity > 0 ORDER BY p1.embedding <=> p2.embedding LIMIT 5;"
     },
     {
@@ -313,7 +313,7 @@
       "description": "Aggregate distribution query on linen shirts",
       "status": "complete",
       "durationMs": 94,
-      "agent": "Value Analyst",
+      "agent": "Pricing Agent",
       "sql": "SELECT MIN(price), MAX(price), AVG(price), PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) AS median FROM product_catalog WHERE category ILIKE '%linen%' AND name ILIKE '%shirt%';"
     },
     {
@@ -323,7 +323,7 @@
       "description": "Claude Sonnet 4.6 reporting profile - deterministic numerical answer",
       "status": "complete",
       "durationMs": 74,
-      "agent": "Value Analyst"
+      "agent": "Pricing Agent"
     },
     {
       "index": 12,
@@ -337,12 +337,12 @@
     {
       "index": 13,
       "category": "teaching",
-      "title": "Routing fall-through - Stock Keeper stubbed",
-      "description": "Dispatcher detected Stock Keeper in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build - required path \u00b7 complete Stock Keeper and wire floor_check.",
+      "title": "Routing fall-through - Inventory Agent stubbed",
+      "description": "Dispatcher detected Inventory Agent in stub state. No agent invoked. Voice-matched non-answer returned from orchestrator.py fall-through. This is the workshop build - required path \u00b7 complete Inventory Agent and wire check_inventory.",
       "status": "complete",
       "durationMs": 4,
       "agent": null,
-      "note": "Click 'Open the Stock Keeper build' to jump to the challenge."
+      "note": "Click 'Open the Inventory Agent build' to jump to the challenge."
     }
   ],
   "brief": {
@@ -355,22 +355,22 @@
         "title": "The arc",
         "paragraphs": [
           "Marco arrived with a clear plan - ten days in Goa, linen - and walked through the catalog in four turns. Three landed cleanly. The fourth didn't.",
-          "The Dispatcher routed each turn to exactly one specialist: Style Advisor on Claude Opus 4.6 for the opening ask, Curator on Claude Opus 4.6 with the-packing-list skill loaded for pairings, Value Analyst on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
+          "The Dispatcher routed each turn to exactly one specialist: Search Agent on Claude Opus 4.6 for the opening ask, Personalization Agent on Claude Opus 4.6 with the-packing-list skill loaded for pairings, Pricing Agent on Claude Sonnet 4.6 for the price range. All three specialists running on their declared models; no normalization."
         ]
       },
       {
         "numeral": "ii.",
         "title": "The gap",
         "paragraphs": [
-          "Turn 4 - the warehouse-stock question - sits outside the system's current reach. The Dispatcher matched the intent, routed to Stock Keeper, and Stock Keeper answered with a voice-matched non-answer because the agent ships in stub state.",
-          "This is the workshop build. Participants complete the Stock Keeper definition and wire floor_check. Once both are complete, the same Turn 4 pill returns a real warehouse + count + ETA."
+          "Turn 4 - the warehouse-stock question - sits outside the system's current reach. The Dispatcher matched the intent, routed to Inventory Agent, and Inventory Agent answered with a voice-matched non-answer because the agent ships in stub state.",
+          "This is the workshop build. Participants complete the Inventory Agent definition and wire check_inventory. Once both are complete, the same Turn 4 pill returns a real warehouse + count + ETA."
         ]
       },
       {
         "numeral": "iii.",
         "title": "Why this matters",
         "paragraphs": [
-          "The gap isn't broken code. It's a design choice made visible: you only ship the agents you can answer for. Until Stock Keeper has real warehouse data behind it, the honest answer is 'I can't help with that yet.'"
+          "The gap isn't broken code. It's a design choice made visible: you only ship the agents you can answer for. Until Inventory Agent has real warehouse data behind it, the honest answer is 'I can't help with that yet.'"
         ]
       }
     ],

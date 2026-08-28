@@ -112,7 +112,7 @@ class TestIntentPairing:
             "What goes well with the pour-over set?",
         ],
     )
-    def test_pairing_turns_route_to_search_for_style_match(self, query: str) -> None:
+    def test_pairing_turns_route_to_search_for_get_related_products(self, query: str) -> None:
         assert classify_intent(query) == "search"
 
 

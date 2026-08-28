@@ -4,23 +4,23 @@
     "slug": "dispatcher",
     "description": "Production storefront: classify_triage + classify_intent (keyword rules, no router LLM), then one specialist per turn on /api/chat/stream. ~60–120 ms classification; one Bedrock call.",
     "isActive": true,
-    "agents": ["Style Advisor", "Curator", "Value Analyst", "Stock Keeper", "Experience Guide"],
-    "codeSnippet": "intent = classify_intent(message)  # rules, not LLM\nspecialist = build_stock_keeper()  # example\nresponse = specialist(message)     # one LLM call"
+    "agents": ["Search Agent", "Personalization Agent", "Pricing Agent", "Inventory Agent", "Customer Service Agent"],
+    "codeSnippet": "intent = classify_intent(message)  # rules, not LLM\nspecialist = build_inventory_agent()  # example\nresponse = specialist(message)     # one LLM call"
   },
   {
     "name": "Agents-as-Tools",
     "slug": "agents-as-tools",
     "description": "Sonnet orchestrator + specialists as @tool. Two LLM calls per turn. Pellier Observatory teaching path and in-process /api/agent/chat - not the storefront hot path.",
     "isActive": false,
-    "agents": ["Style Advisor", "Curator", "Value Analyst", "Stock Keeper", "Experience Guide"],
-    "codeSnippet": "@tool\ndef stock_keeper(query: str) -> str:\n    return Agent(..., tools=[floor_check])(query)\n\norchestrator = Agent(model=sonnet, tools=[stock_keeper, ...])"
+    "agents": ["Search Agent", "Personalization Agent", "Pricing Agent", "Inventory Agent", "Customer Service Agent"],
+    "codeSnippet": "@tool\ndef inventory_agent(query: str) -> str:\n    return Agent(..., tools=[check_inventory])(query)\n\norchestrator = Agent(model=sonnet, tools=[inventory_agent, ...])"
   },
   {
     "name": "Graph",
     "slug": "graph",
     "description": "Strands GraphBuilder DAG: router node + specialist nodes with conditional edges. Multi-step ops and Pellier Observatory telemetry – not default for Marco pills.",
     "isActive": false,
-    "agents": ["Style Advisor", "Curator", "Value Analyst"],
+    "agents": ["Search Agent", "Personalization Agent", "Pricing Agent"],
     "codeSnippet": "builder.add_router(router_fn)\nbuilder.add_agent(specialist_node)\nbuilder.set_entry_point('router')\ngraph = builder.build()"
   }
 ]

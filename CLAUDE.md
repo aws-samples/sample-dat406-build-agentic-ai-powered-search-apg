@@ -38,14 +38,14 @@ or runtime skills.
 
 ### Participant mode
 
-Use participant mode when the request names Lab 1, Stock Keeper,
-`floor_check`, the workshop markers, or asks Claude Code to complete the
+Use participant mode when the request names Lab 1, Inventory Agent,
+`check_inventory`, the workshop markers, or asks Claude Code to complete the
 guided build.
 
 In participant mode:
 
 - Edit only the named marker region in
-  `pellier/backend/agents/stock_keeper.py` or
+  `pellier/backend/agents/inventory_agent.py` or
   `pellier/backend/services/agent_tools.py`.
 - Read the backend `CLAUDE.md` for the exact exercise contract.
 - Never inspect or copy from `solutions/`.

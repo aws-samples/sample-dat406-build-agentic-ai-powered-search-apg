@@ -116,12 +116,12 @@ def test_facilitator_dry_run_probes_the_pinned_model_not_the_floating_alias() ->
 
 def test_facilitator_dry_run_covers_both_lab1_build_sites() -> None:
     source = FACILITATOR_DRY_RUN.read_text(encoding="utf-8")
-    assert "agents/stock_keeper.py" in source
-    assert "agents/stock_keeper_solution.py" in source
+    assert "agents/inventory_agent.py" in source
+    assert "agents/inventory_agent_solution.py" in source
     assert "services/agent_tools.py" in source
-    assert "agent_tools_floor_check_solution.py" in source
-    assert '"Stock Keeper"[[:space:]]*:[[:space:]]*"shipped"' in source
-    assert '"floor_check"[[:space:]]*:[[:space:]]*"shipped"' in source
+    assert "agent_tools_check_inventory_solution.py" in source
+    assert '"Inventory Agent"[[:space:]]*:[[:space:]]*"shipped"' in source
+    assert '"check_inventory"[[:space:]]*:[[:space:]]*"shipped"' in source
 
 
 def _write_executable(path: Path, body: str) -> None:
@@ -230,7 +230,7 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "span_count": 3,
                 "span_names": [
                     "chat",
-                    "execute_tool find_pieces_hybrid",
+                    "execute_tool search_products_hybrid",
                     "invoke_agent pellier_orchestrator",
                 ],
                 "agent_span": True,
@@ -250,7 +250,7 @@ def _valid_managed_receipt() -> dict[str, object]:
                 "step_latency_observed": True,
                 "step_latency_ms": {"agent": 125, "model": 80, "tool": 30},
                 "model_ids": ["global.anthropic.claude-sonnet-4-6"],
-                "tool_names": ["find_pieces_hybrid"],
+                "tool_names": ["search_products_hybrid"],
                 "provenance": "agentcore-unified-telemetry",
             },
         },
@@ -704,13 +704,13 @@ def test_facilitator_dry_run_requires_managed_rail_and_current_policy_receipts()
     source = FACILITATOR_DRY_RUN.read_text(encoding="utf-8")
     assert '-H "Authorization: Bearer ${POLICY_TOKEN}"' in source
     assert 'runtime_rail" == "gateway-mcp"' in source
-    assert "gateway_process_return.py" in source
+    assert "gateway_initiate_return.py" in source
     assert "--expect allow --record-receipt" in source
     assert "--expect deny --record-receipt" in source
     assert "POLICY_ALLOW_SESSION" in source
     assert "POLICY_DENY_SESSION" in source
     assert "absence_verified" in source
-    assert "Skipping local process_return; governed mutations require gateway-mcp" in source
+    assert "Skipping local initiate_return; governed mutations require gateway-mcp" in source
     assert "JOIN pellier.tool_audit ta ON ta.audit_id = gr.audit_id" in source
     assert "gr.identity_source='cognito'" in source
 

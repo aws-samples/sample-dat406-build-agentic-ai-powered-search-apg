@@ -156,7 +156,7 @@ def requires_managed_rail(tool_name: str) -> bool:
     the ``tool_audit`` row line up. Read tools may serve in-process.
 
     Args:
-        tool_name: The logical tool name, e.g. ``process_return``.
+        tool_name: The logical tool name, e.g. ``initiate_return``.
     """
     if str(getattr(settings, "WORKSHOP_FORMAT", "")).lower() != "governed":
         return False
@@ -185,8 +185,9 @@ def mutation_tools() -> frozenset:
 # ``tests/test_execution_rail.py``.
 _MUTATION_TOOLS_FALLBACK = frozenset(
     {
-        "process_return",
-        "restock_shelf",
+        "initiate_return",
+        "restock_inventory",
+        "issue_credit",
     }
 )
 

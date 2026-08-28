@@ -5,7 +5,7 @@
 // customer_id, or mismatched identity is denied.
 forbid(
   principal,
-  action == AgentCore::Action::"pellier-concierge-experience-target___process_return",
+  action == AgentCore::Action::"pellier-concierge-experience-target___initiate_return",
   resource is AgentCore::Gateway
 )
 unless {

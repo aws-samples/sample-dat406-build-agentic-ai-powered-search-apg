@@ -35,7 +35,7 @@ export const AGENT_IDENTITIES: Record<AgentType, AgentIdentity> = {
     accentHex: '#14b8a6',
   },
   search: {
-    name: 'Style Advisor',
+    name: 'Search Agent',
     icon: 'S',
     gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
     bgColor: 'rgba(59, 130, 246, 0.1)',
@@ -44,7 +44,7 @@ export const AGENT_IDENTITIES: Record<AgentType, AgentIdentity> = {
     accentHex: '#3b82f6',
   },
   inventory: {
-    name: 'Stock Keeper',
+    name: 'Inventory Agent',
     icon: 'I',
     gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     bgColor: 'rgba(16, 185, 129, 0.1)',
@@ -53,7 +53,7 @@ export const AGENT_IDENTITIES: Record<AgentType, AgentIdentity> = {
     accentHex: '#10b981',
   },
   pricing: {
-    name: 'Value Analyst',
+    name: 'Pricing Agent',
     icon: 'P',
     gradient: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
     bgColor: 'rgba(245, 158, 11, 0.1)',
@@ -62,7 +62,7 @@ export const AGENT_IDENTITIES: Record<AgentType, AgentIdentity> = {
     accentHex: '#f59e0b',
   },
   recommendation: {
-    name: 'Curator',
+    name: 'Personalization Agent',
     icon: 'R',
     gradient: 'linear-gradient(135deg, #eab308 0%, #f97316 100%)',
     bgColor: 'rgba(234, 179, 8, 0.1)',
@@ -86,7 +86,7 @@ export function resolveAgentType(agentName: string): AgentType {
   if (lower.includes('pricing') || lower.includes('price') || lower.includes('value analyst')) {
     return 'pricing'
   }
-  if (lower.includes('recommend') || lower.includes('curator')) return 'recommendation'
+  if (lower.includes('recommend') || lower.includes('personalization_agent')) return 'recommendation'
   return 'orchestrator'
 }
 

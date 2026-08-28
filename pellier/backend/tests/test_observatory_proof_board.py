@@ -20,6 +20,28 @@ class _ProofDB:
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
 
+    async def fetch_all(self, query: str, *params: Any) -> list[dict]:
+        """A fully provisioned stack, which is what the ready-status test asserts.
+
+        The evidence-substrate readiness check reads `information_schema` and
+        `pg_indexes`. A fake that answered nothing reported `warn`, and this test's
+        "ready" assertion turned into "attention" — correctly, because the fake stack
+        was missing the tables an evidence reconstruction depends on.
+        """
+        self.calls.append((query, params))
+        if "pg_indexes" in query:
+            return [{"indexname": "operator_episodes_outcome_idx"}]
+        if "information_schema.tables" in query:
+            # The retired span table is deliberately absent, which is what the
+            # substrate check requires. Named only in the migration that removes it
+            # and the test that asserts it, per the repository naming contract.
+            return [
+                {"table_name": "execution_receipts"},
+                {"table_name": "operator_episodes"},
+                {"table_name": "observatory_spans"},
+            ]
+        return []
+
     async def fetch_one(self, query: str, *params: Any) -> dict | None:
         self.calls.append((query, params))
         if "catalog_count" in query:
@@ -35,12 +57,12 @@ class _ProofDB:
                 "session_id": "gateway-marco-for-theo-incident",
                 "principal_id": "CUST-MARCO",
                 "principal_label": "Marco (Cognito JWT)",
-                "tool": "process_return",
+                "tool": "initiate_return",
                 "caller": "gateway",
                 "decision": "ALLOW",
                 "args": {"customer_id": "theo", "product_id": "37", "reason": "damaged"},
                 "policy_engine_id": "policy-1",
-                "policy_name": "process_return_damaged_only",
+                "policy_name": "initiate_return_damaged_only",
                 "created_at": None,
             }
         if "FROM pellier.tool_audit" not in query:
@@ -49,29 +71,29 @@ class _ProofDB:
             return {
                 "audit_id": 303,
                 "session_id": "managed-proof",
-                "tool": "process_return",
+                "tool": "initiate_return",
                 "caller": "gateway",
                 "args": {"customer_id": "theo", "product_id": "37", "reason": "damaged"},
                 "result": {"status": "success"},
                 "latency_ms": 55,
                 "created_at": None,
             }
-        if "floor_check" in params:
+        if "check_inventory" in params:
             return {
                 "audit_id": 101,
                 "session_id": "marco-proof",
-                "tool": "floor_check",
+                "tool": "check_inventory",
                 "caller": "agent",
                 "args": {"query": "Kyoto Linen Overshirt"},
                 "result": {"quantity": 20},
                 "latency_ms": 42,
                 "created_at": None,
             }
-        if "process_return" in params:
+        if "initiate_return" in params:
             return {
                 "audit_id": 202,
                 "session_id": "theo-proof",
-                "tool": "process_return",
+                "tool": "initiate_return",
                 "caller": "agent",
                 "args": {"reason": "damaged"},
                 "result": {"status": "accepted"},
@@ -82,7 +104,7 @@ class _ProofDB:
             return {
                 "audit_id": 303,
                 "session_id": "managed-proof",
-                "tool": "floor_check",
+                "tool": "check_inventory",
                 "caller": "gateway",
                 "args": {},
                 "result": {},
@@ -92,7 +114,7 @@ class _ProofDB:
         return {
             "audit_id": 404,
             "session_id": "latest",
-            "tool": "floor_check",
+            "tool": "check_inventory",
             "caller": "agent",
             "args": {},
             "result": {},
@@ -113,7 +135,7 @@ class _DenyProofDB(_ProofDB):
                 "session_id": "gateway-identity-mismatch-proof",
                 "principal_id": "CUST-MARCO",
                 "principal_label": "Marco (Cognito JWT)",
-                "tool": "process_return",
+                "tool": "initiate_return",
                 "caller": "gateway",
                 "decision": "DENY",
                 "args": {
@@ -215,7 +237,7 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     _configure_managed(monkeypatch)
     monkeypatch.setattr(
         observatory,
-        "_floor_check_is_workshop_stub",
+        "_check_inventory_is_workshop_stub",
         lambda: False,
     )
     monkeypatch.setattr(
@@ -281,7 +303,7 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert all("act" not in card for card in cards.values())
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
     assert "search-strategies/compare" in cards["retrieval-comparison"]["fallback"]["command"]
-    assert "process_return" in cards["audit-ledger"]["fallback"]["command"]
+    assert "initiate_return" in cards["audit-ledger"]["fallback"]["command"]
 
 
 def test_proof_board_requires_a_verified_identity() -> None:
@@ -339,15 +361,15 @@ def test_proof_board_scopes_gateway_deny_absence(monkeypatch) -> None:
     assert "Gateway/Cedar DENY" in receipt["absenceCheckDetail"]
 
 
-def test_build_state_reports_stock_keeper_midpoint(monkeypatch) -> None:
+def test_build_state_reports_inventory_agent_midpoint(monkeypatch) -> None:
     monkeypatch.setattr(
         observatory,
-        "_stock_keeper_definition_is_workshop_stub",
+        "_inventory_agent_definition_is_workshop_stub",
         lambda: False,
     )
     monkeypatch.setattr(
         observatory,
-        "_floor_check_is_workshop_stub",
+        "_check_inventory_is_workshop_stub",
         lambda: True,
     )
     client = _client(_ProofDB())
@@ -356,21 +378,21 @@ def test_build_state_reports_stock_keeper_midpoint(monkeypatch) -> None:
     assert r.status_code == 200
     body = r.json()
 
-    assert body["agents"]["Stock Keeper"] == "shipped"
-    assert body["tools"]["floor_check"] == "exercise"
+    assert body["agents"]["Inventory Agent"] == "shipped"
+    assert body["tools"]["check_inventory"] == "exercise"
 
 
-def test_build_state_does_not_promote_scaffolded_stock_keeper_from_tool(
+def test_build_state_does_not_promote_scaffolded_inventory_agent_from_tool(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
         observatory,
-        "_stock_keeper_definition_is_workshop_stub",
+        "_inventory_agent_definition_is_workshop_stub",
         lambda: True,
     )
     monkeypatch.setattr(
         observatory,
-        "_floor_check_is_workshop_stub",
+        "_check_inventory_is_workshop_stub",
         lambda: False,
     )
     client = _client(_ProofDB())
@@ -379,8 +401,8 @@ def test_build_state_does_not_promote_scaffolded_stock_keeper_from_tool(
     assert r.status_code == 200
     body = r.json()
 
-    assert body["agents"]["Stock Keeper"] == "exercise"
-    assert body["tools"]["floor_check"] == "shipped"
+    assert body["agents"]["Inventory Agent"] == "exercise"
+    assert body["tools"]["check_inventory"] == "shipped"
 
 
 def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
@@ -394,7 +416,7 @@ def test_memory_semantic_empty_is_marked_settling(monkeypatch) -> None:
         return [{"id": "pr-1", "content": "skill", "substrate": "procedural"}]
 
     async def _operational() -> list:
-        return [{"id": "op-1", "content": "floor_check", "substrate": "operational"}]
+        return [{"id": "op-1", "content": "check_inventory", "substrate": "operational"}]
 
     monkeypatch.setattr(
         observatory,

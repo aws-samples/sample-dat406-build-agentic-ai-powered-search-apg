@@ -74,7 +74,7 @@ ISSUER = f"https://cognito-idp.{REGION}.amazonaws.com/{POOL_ID}"
 
 
 def _showcase_rows() -> List[Dict[str, Any]]:
-    """Return the 9 showcase rows in curator-chosen editorial order."""
+    """Return the 9 showcase rows in personalization_agent-chosen editorial order."""
     base: List[Dict[str, Any]] = [
         dict(
             id=1,
@@ -817,7 +817,7 @@ def test_inventory_stale_field_present(client: TestClient) -> None:
 # Schema/data drift — converter boundary
 # ---------------------------------------------------------------------------
 #
-# The Pellier catalog seed still uses the curator-import taxonomy
+# The Pellier catalog seed still uses the personalization_agent-import taxonomy
 # ("Apparel", "Home Decor", "Beauty", "Gifts"; see
 # ``services/structured_extract.KNOWN_CATEGORIES``) while the wire shape
 # uses the editorial Literal in ``models/search.StorefrontCategory``. The

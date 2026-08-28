@@ -11,6 +11,7 @@ import os
 from typing import List, Dict, Any, Optional
 import re
 
+from pellier_copy import GOVERNED_REVIEW_PENDING
 from services import evidence_spans
 from services.intent_router import classify_intent
 from services.product_envelope import ProductExtractor
@@ -43,9 +44,9 @@ GUARDRAILS (ACTIVE):
 SINGLE_AGENT_PROMPT = """You are Pellier AI, the shopping assistant for Pellier.
 
 TOOL SELECTION:
-- whats_trending → When user asks about trending, popular, or best-selling items. Pass category if they mention one (e.g. "trending home decor" → category="Home Decor").
-- find_pieces → Descriptive or intent-based product queries (e.g. "gift for a new homeowner", "linen shirt under $200")
-- price_intelligence → Pricing statistics and category comparisons
+- get_trending_products → When user asks about trending, popular, or best-selling items. Pass category if they mention one (e.g. "trending home decor" → category="Home Decor").
+- search_products → Descriptive or intent-based product queries (e.g. "gift for a new homeowner", "linen shirt under $200")
+- get_price_analysis → Pricing statistics and category comparisons
 
 Call exactly one tool per query. Extract price limits and pass as max_price.
 The search tool handles category mapping automatically — pass the user's words directly.
@@ -209,11 +210,11 @@ async def _append_pellier_stm_turn(
 
 def _build_dispatcher_specialist(intent_hint: str, allow_handoff: bool):
     """Construct the one specialist selected for a dispatcher turn."""
-    from agents.style_advisor import build_search_agent
-    from agents.curator import build_recommendation_agent
-    from agents.value_analyst import build_pricing_agent
-    from agents.stock_keeper import build_inventory_agent
-    from agents.experience_guide import build_support_agent
+    from agents.search_agent import build_search_agent
+    from agents.personalization_agent import build_recommendation_agent
+    from agents.pricing_agent import build_pricing_agent
+    from agents.inventory_agent import build_inventory_agent
+    from agents.customer_service_agent import build_support_agent
 
     if intent_hint == "search":
         return build_search_agent(
@@ -294,16 +295,16 @@ def _mentions_returned_product(response_text: str, products: list) -> bool:
 def _scan_for_escalation(result_str: str) -> Optional[Dict[str, Any]]:
     """Return the first ``{"type": "escalation", ...}`` envelope in ``result_str``.
 
-    Tool results arrive as plain JSON when ``escalate_to_stylist`` was the
+    Tool results arrive as plain JSON when ``escalate_to_human`` was the
     tool itself, but as ``"<prose>\\n\\n```json\\n{...}\\n```"`` when an
-    inner specialist (Experience Guide, Style Advisor) routed through its
+    inner specialist (Customer Service Agent, Search Agent) routed through its
     wrapper and ``append_escalation_marker`` appended the payload. This
     helper handles both shapes so the caller doesn't care which path ran.
     """
     if not result_str:
         return None
 
-    # Direct JSON envelope (escalate_to_stylist as the routed tool).
+    # Direct JSON envelope (escalate_to_human as the routed tool).
     try:
         data = json.loads(result_str)
         if isinstance(data, dict) and data.get("type") == "escalation":
@@ -320,6 +321,50 @@ def _scan_for_escalation(result_str: str) -> Optional[Dict[str, Any]]:
         except (json.JSONDecodeError, TypeError):
             continue
         if isinstance(data, dict) and data.get("type") == "escalation":
+            return data
+    return None
+
+
+def _scan_for_review_pending(result_str: str) -> Optional[Dict[str, Any]]:
+    """Return the governed-boundary refusal envelope in ``result_str``, if present.
+
+    Same two shapes as :func:`_scan_for_escalation`: a bare envelope when the write
+    tool was the routed tool, and an embedded ```json block when a specialist wrapper
+    appended it.
+
+    WHY THIS IS NOT LEFT TO THE MODEL. The Customer Service Agent prompt already
+    instructs the specialist to say two things on a refusal: that the request was
+    prepared, and that a Pellier operator will confirm it before anything changes. It
+    has an explicit worked example. Measured on 2026-08-27 the model said the first and
+    dropped the second, so the shopper was told "I found your order and prepared the
+    damaged-return request for the bowl" and nothing else, which reads as filed.
+
+    A governance guarantee cannot be probabilistic. The refusal now carries a
+    backend-owned sentence and the surface renders it as its own notice, exactly as
+    escalation does, so no paraphrase can lose it.
+    """
+    if not result_str:
+        return None
+
+    def _is_refusal(data: Any) -> bool:
+        return (
+            isinstance(data, dict)
+            and str(data.get("error") or "") == "managed_rail_required"
+        )
+
+    try:
+        data = json.loads(result_str)
+        if _is_refusal(data):
+            return data
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    for match in re.finditer(r"```json\s*(\{[^`]*?\})\s*```", result_str, re.DOTALL):
+        try:
+            data = json.loads(match.group(1))
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if _is_refusal(data):
             return data
     return None
 
@@ -402,7 +447,7 @@ def _extract_tool_result_text(raw: Any) -> str:
 
     Strands wraps tool output in content blocks; the audit ledger and the
     SSE ``_tool_done`` event both want the inner text (JSON for tools like
-    ``process_return``), falling back to ``str()`` for anything unshaped.
+    ``initiate_return``), falling back to ``str()`` for anything unshaped.
     """
     result_str = ""
     if raw is not None:
@@ -523,7 +568,7 @@ def make_tool_audit_hooks(
         latency_ms = int((time.perf_counter() - t0) * 1000) if t0 else 0
         # Aurora system-of-record write: UPDATE the placeholder row with the
         # tool's result + latency. The stored result is the parsed text
-        # (JSON for tools like process_return), so result->>'return_id' is
+        # (JSON for tools like initiate_return), so result->>'return_id' is
         # queryable in the Lab 4 proof.
         audited_result: Any = result_str
         if isinstance(result_str, str) and result_str.strip().startswith("{"):
@@ -548,6 +593,8 @@ def make_tool_audit_hooks(
             logger.debug("in-process tool_audit record_after failed: %s", exc)
 
     return on_before_tool_audit, on_after_tool_audit
+
+
 
 
 class EnhancedChatService:
@@ -614,6 +661,19 @@ class EnhancedChatService:
         - 'agentic'/None: Full multi-agent orchestrator
         - 'production': Full orchestrator + AgentCore services
         """
+        # Every turn carries the one correlation identifier, on this path too.
+        #
+        # This route previously left `turn_id_var` unset, so anything a tool
+        # correlated by turn came out anonymous here: a governed-boundary refusal
+        # produced an operator review with no source turn, which also disabled
+        # the "one open review per turn and action" index and let a replayed
+        # request open a second card. Minted from the same function the streamed
+        # route uses rather than a second format.
+        from services.turn_identity import new_turn_id, turn_id_var
+
+        if not turn_id_var.get():
+            turn_id_var.set(new_turn_id())
+
         try:
             # Workshop mode routing
             if workshop_mode in ("legacy", "search"):
@@ -1183,27 +1243,28 @@ CURRENT REQUEST: {message}"""
     def _tool_to_agent_name(tool_name: str) -> str:
         """Map tool function names to user-facing agent names."""
         return {
-            'recommendation': 'Curator',
-            'pricing': 'Value Analyst',
-            'inventory': 'Stock Keeper',
-            'floor_check': 'Stock Keeper',
-            'running_low': 'Stock Keeper',
-            'restock_shelf': 'Stock Keeper',
-            'support': 'Experience Guide',
-            'returns_and_care': 'Experience Guide',
-            'process_return': 'Experience Guide',
-            'trace_receipt': 'Curator',
-            'search': 'Style Advisor',
-            'find_pieces': 'Style Advisor',
-            'find_pieces_hybrid': 'Curator',
-            'whats_trending': 'Curator',
-            'preference_snapshot': 'Curator',
-            'price_intelligence': 'Value Analyst',
-            'explore_collection': 'Style Advisor',
-            'side_by_side': 'Style Advisor',
-            'style_match': 'Style Advisor',
-            'escalate_to_stylist': 'Experience Guide',
-        }.get(tool_name, 'Style Advisor')
+            'recommendation': 'Personalization Agent',
+            'pricing': 'Pricing Agent',
+            'inventory': 'Inventory Agent',
+            'check_inventory': 'Inventory Agent',
+            'get_low_stock': 'Inventory Agent',
+            'restock_inventory': 'Inventory Agent',
+            'support': 'Customer Service Agent',
+            'get_return_policy': 'Customer Service Agent',
+            'initiate_return': 'Customer Service Agent',
+            'get_ticket_history': 'Customer Service Agent',
+            'get_audit_trail': 'Personalization Agent',
+            'search': 'Search Agent',
+            'search_products': 'Search Agent',
+            'search_products_hybrid': 'Personalization Agent',
+            'get_trending_products': 'Personalization Agent',
+            'get_customer_preferences': 'Personalization Agent',
+            'get_price_analysis': 'Pricing Agent',
+            'browse_category': 'Search Agent',
+            'compare_products': 'Search Agent',
+            'get_related_products': 'Search Agent',
+            'escalate_to_human': 'Customer Service Agent',
+        }.get(tool_name, 'Search Agent')
 
     async def chat_stream(
         self,
@@ -2050,13 +2111,13 @@ CURRENT REQUEST: {message}"""
         # everything after this point treats ``orchestrator`` as a
         # plain Strands Agent regardless of pattern.
         if pattern == "dispatcher":
-            from agents import stock_keeper as inventory_agent_module
-            from agents import experience_guide as support_agent_module
+            from agents import inventory_agent as inventory_agent_module
+            from agents import customer_service_agent as support_agent_module
 
             # --- Workshop stub detection ---
             #
-            # When participants haven't yet wired Stock Keeper (or
-            # Experience Guide, in the Workshop format), the Dispatcher
+            # When participants haven't yet wired Inventory Agent (or
+            # Customer Service Agent, in the Workshop format), the Dispatcher
             # intercepts and returns a voice-matched non-answer INSTEAD
             # of invoking the stub agent. This is the graceful gap
             # Marco's Turn 4 lands in during the opening demo; wiring
@@ -2078,7 +2139,7 @@ CURRENT REQUEST: {message}"""
                 "support": (
                     "I can help with style and recommendations, but return "
                     "handling and post-purchase support sits outside what I "
-                    "can answer right now. When the Experience Guide is wired "
+                    "can answer right now. When the Customer Service Agent is wired "
                     "it will own returns, care instructions, and warranty flow "
                     "end-to-end."
                 ),
@@ -2192,15 +2253,18 @@ CURRENT REQUEST: {message}"""
         # Drop the products buffer when a write tool succeeded — the
         # customer just filed a return / restocked a shelf and any
         # products that came back from upstream resolution tools (e.g.
-        # find_pieces called by Experience Guide to map a product name
+        # search_products called by Customer Service Agent to map a product name
         # to an integer id) are plumbing, not recommendations the user
         # wants rendered as cards.
         write_tool_succeeded = False
-        # Captured handoff payload from escalate_to_stylist. Emitted as
+        # Captured handoff payload from escalate_to_human. Emitted as
         # a dedicated SSE event after streaming completes and used to
         # suppress product cards (the agent's answer is the handoff,
         # not a shelf of options).
         escalation_payload: Optional[Dict[str, Any]] = None
+        # The governed boundary declining a mutation. Emitted as its own event so the
+        # shopper is told a person must confirm even if the prose forgets to say so.
+        review_pending_payload: Optional[Dict[str, Any]] = None
 
         while True:
             try:
@@ -2236,10 +2300,10 @@ CURRENT REQUEST: {message}"""
                 result_str = event.get("_result", "")
                 result_count = 0
                 # Detect successful write tools so we can suppress the
-                # products buffer at emit time. process_return returns
-                # status=success with return_id; restock_shelf returns
+                # products buffer at emit time. initiate_return returns
+                # status=success with return_id; restock_inventory returns
                 # status=success with new_quantity.
-                if result_str and tool_name in {"process_return", "restock_shelf"}:
+                if result_str and tool_name in {"initiate_return", "restock_inventory"}:
                     try:
                         _data = json.loads(result_str)
                         if (
@@ -2250,19 +2314,19 @@ CURRENT REQUEST: {message}"""
                             write_tool_succeeded = True
                     except (json.JSONDecodeError, TypeError):
                         pass
-                # escalate_to_stylist emits a structured handoff payload
+                # escalate_to_human emits a structured handoff payload
                 # that the chat surface renders as a contact card. The
                 # agent's reply IS the handoff — we drop the products
                 # buffer so the customer isn't shown a shelf of options
                 # the agent just said it can't recommend.
                 #
                 # Two paths reach here:
-                #   1. The orchestrator routes directly to escalate_to_stylist
-                #      (tool_name == "escalate_to_stylist"), so result_str
+                #   1. The orchestrator routes directly to escalate_to_human
+                #      (tool_name == "escalate_to_human"), so result_str
                 #      is the raw JSON envelope.
                 #   2. The orchestrator routes to a specialist (support,
                 #      search) and the specialist's inner agent calls
-                #      escalate_to_stylist. The wrapper appends the
+                #      escalate_to_human. The wrapper appends the
                 #      payload as an inline JSON code block (see
                 #      agents/specialist_hooks.append_escalation_marker)
                 #      so we scan every tool result for an embedded
@@ -2271,6 +2335,10 @@ CURRENT REQUEST: {message}"""
                     candidate = _scan_for_escalation(result_str)
                     if candidate is not None:
                         escalation_payload = candidate
+                if result_str and review_pending_payload is None:
+                    refusal = _scan_for_review_pending(result_str)
+                    if refusal is not None:
+                        review_pending_payload = refusal
                 if result_str:
                     if pattern == "agents_as_tools" and tool_name in {
                         "search",
@@ -2385,7 +2453,7 @@ CURRENT REQUEST: {message}"""
         # placed_at" injection often showed cards that didn't match the
         # specialist's prose (the specialist highlights specific orders
         # from the LTM preamble; the injection grabbed the most recent
-        # regardless). The specialist can call find_pieces if it
+        # regardless). The specialist can call search_products if it
         # wants to surface product cards; for retrospective queries
         # answered from the preamble, the prose is the answer.
         #
@@ -2463,8 +2531,8 @@ CURRENT REQUEST: {message}"""
             yield {"type": "content", "content": parsed["text"]}
 
         # Suppress all product cards when the turn included a successful
-        # write tool (process_return, restock_shelf). Any products that
-        # came back from upstream resolution tools (find_pieces called
+        # write tool (initiate_return, restock_inventory). Any products that
+        # came back from upstream resolution tools (search_products called
         # to map "Wabi-Sabi Bowl" → product_id=31) are plumbing, not
         # recommendations the customer wants alongside their return
         # confirmation. Keep parsed["text"] / streaming intact.
@@ -2481,6 +2549,26 @@ CURRENT REQUEST: {message}"""
             parsed["products"] = []
             logger.info("🤝 Products suppressed — escalation handoff in turn")
             yield {"type": "escalation", "escalation": escalation_payload}
+
+        # The governed boundary refused a mutation and a review is waiting. Its own
+        # event, carrying the backend's sentence rather than the model's: a shopper who
+        # is told only that their request was "prepared" reasonably believes it is
+        # filed, and whether the second clause survived was measurably a coin flip.
+        #
+        # Products are NOT suppressed here. Unlike an escalation, the answer is not the
+        # handoff: the shopper asked about a piece they own, and the replacement shelf
+        # beside the notice is useful rather than contradictory.
+        if review_pending_payload is not None:
+            yield {
+                "type": "review_pending",
+                "reviewPending": {
+                    "tool": str(review_pending_payload.get("tool") or ""),
+                    "message": str(
+                        review_pending_payload.get("message")
+                        or GOVERNED_REVIEW_PENDING
+                    ),
+                },
+            }
 
         # Now send buffered products (collected from tool hooks during execution)
         if products_buffered:
@@ -2504,7 +2592,7 @@ CURRENT REQUEST: {message}"""
             products_sent = parsed["products"]
         elif persona_orders_for_cards:
             # Retrospective path: the specialist answered from the LTM
-            # preamble without calling find_pieces, so no tool
+            # preamble without calling search_products, so no tool
             # products were buffered. Surface up to 3 past-order cards
             # whose product names appear literally in the specialist's
             # prose — evidence for "your Italian Linen Camp Shirt"

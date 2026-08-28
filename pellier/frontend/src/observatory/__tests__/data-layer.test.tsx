@@ -118,8 +118,8 @@ describe('useToolDiscovery', () => {
       results: [
         {
           rank: 1,
-          toolId: 'find_pieces',
-          name: 'find_pieces',
+          toolId: 'search_products',
+          name: 'search_products',
           description: 'Search products by query',
           similarity: 0.92,
           status: 'shipped',
@@ -158,7 +158,7 @@ describe('useToolDiscovery', () => {
 
     // Verify results are parsed
     expect(result.current.results).toHaveLength(1);
-    expect(result.current.results[0].name).toBe('find_pieces');
+    expect(result.current.results[0].name).toBe('search_products');
     expect(result.current.durationMs).toBe(42);
     expect(result.current.sql).toContain('SELECT');
     expect(result.current.loading).toBe(false);

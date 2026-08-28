@@ -34,7 +34,7 @@ export const EVALUATION_METHODS: EvaluationMethod[] = [
     ],
     pellierFit: 'strong',
     workshopNote:
-      'Strong fit for Style Advisor and Experience Guide – score whether the agent cited inventory, respected budget, and stayed on-brand without building a full harness first.',
+      'Strong fit for Search Agent and Customer Service Agent – score whether the agent cited inventory, respected budget, and stayed on-brand without building a full harness first.',
   },
   {
     id: 'agentcore-evals',

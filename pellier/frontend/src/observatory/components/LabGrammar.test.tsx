@@ -20,7 +20,7 @@ function renderGrammar(overrides: Partial<React.ComponentProps<typeof LabGrammar
     <LabGrammar
       labLabel="Lab 1 · Ground Answers in Live Data"
       try="Ask Marco's Turn 4 in Pellier."
-      build="Wire floor_check between the markers."
+      build="Wire check_inventory between the markers."
       prove="The registry strip reads 15/15 shipped."
       provenance="live"
       proofState="pass"

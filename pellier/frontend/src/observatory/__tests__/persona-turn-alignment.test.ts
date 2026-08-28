@@ -22,7 +22,7 @@ const EXPECTED_TURNS = {
     'What linen do you have for 10 days in Goa?',
     'What would go with the Hadley shirt?',
     "What's the price range for linen shirts?",
-    'Is the Hadley shirt at the Brooklyn warehouse?',
+    'Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?',
     "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding – not product cards.",
   ],
   anna: [
@@ -36,32 +36,32 @@ const EXPECTED_TURNS = {
     'Hand-thrown ceramics for a slower morning routine',
     'What goes well with the pour-over set?',
     'Linen pieces that soften over seasons',
-    "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",
+    "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
     'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?',
   ],
 } satisfies Record<(typeof CANONICAL_PERSONAS)[number], string[]>
 
 const EXPECTED_TRACES = {
   marco: [
-    { skill: 'the-packing-list', tools: ['find_pieces'] },
-    { skill: 'the-packing-list', tools: ['find_pieces', 'style_match'] },
-    { tools: ['price_intelligence'] },
-    { tools: ['floor_check'] },
-    { skill: 'the-packing-list', tools: ['escalate_to_stylist'] },
+    { skill: 'the-packing-list', tools: ['search_products'] },
+    { skill: 'the-packing-list', tools: ['search_products', 'get_related_products'] },
+    { tools: ['get_price_analysis'] },
+    { tools: ['check_inventory'] },
+    { skill: 'the-packing-list', tools: ['escalate_to_human'] },
   ],
   anna: [
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['escalate_to_stylist'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['escalate_to_human'] },
   ],
   theo: [
-    { skill: 'the-makers-shelf', tools: ['find_pieces'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces', 'style_match'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces', 'returns_and_care', 'process_return'] },
-    { skill: 'the-makers-shelf', tools: ['escalate_to_stylist'] },
+    { skill: 'the-makers-shelf', tools: ['search_products'] },
+    { skill: 'the-makers-shelf', tools: ['search_products', 'get_related_products'] },
+    { skill: 'the-makers-shelf', tools: ['search_products'] },
+    { skill: 'the-makers-shelf', tools: ['search_products', 'get_return_policy', 'initiate_return'] },
+    { skill: 'the-makers-shelf', tools: ['escalate_to_human'] },
   ],
 } satisfies Pick<typeof PERSONA_TURN_TRACES, (typeof CANONICAL_PERSONAS)[number]>
 

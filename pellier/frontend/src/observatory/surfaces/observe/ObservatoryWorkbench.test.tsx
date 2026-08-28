@@ -182,7 +182,7 @@ describe('Pellier Observatory live agent workbench', () => {
         });
         onUpdate({
           type: 'tool_call',
-          tool: 'find_pieces',
+          tool: 'search_products',
           status: 'executing',
         });
         onUpdate({
@@ -270,7 +270,7 @@ describe('Pellier Observatory live agent workbench', () => {
       screen.getByText('I found a light linen option for the trip.'),
     ).toBeInTheDocument();
     expect(
-      within(tracePanel(container)).getByText('find_pieces'),
+      within(tracePanel(container)).getByText('search_products'),
     ).toBeInTheDocument();
     expect(screen.getByText('Recommendation')).toBeInTheDocument();
     expect(screen.getByText('Claude Opus 4.6')).toBeInTheDocument();
@@ -830,7 +830,7 @@ describe('Pellier Observatory live agent workbench', () => {
           type: 'skill_routing',
           routing: { loaded_skills: ['resort-styling'], elapsed_ms: 30 },
         });
-        onUpdate({ type: 'tool_call', tool: 'find_pieces', status: 'executing' });
+        onUpdate({ type: 'tool_call', tool: 'search_products', status: 'executing' });
         onUpdate({
           type: 'product',
           product: {
@@ -992,7 +992,7 @@ describe('Pellier Observatory live agent workbench', () => {
       screen.getByText('Dispatched through the Dispatcher pattern to Recommendation.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Grounded by the tool find_pieces.'),
+      screen.getByText('Grounded by the tool search_products.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Aurora returned 2 query receipts on the In process rail.'),

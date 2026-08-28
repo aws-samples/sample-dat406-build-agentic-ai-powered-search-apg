@@ -62,7 +62,7 @@ class TestRecordAllow:
     def test_insert_when_db_initialized(self, mock_db_with_loop: MagicMock) -> None:
         tool_audit_writer.record_allow(
             tool_use_id="abc-123",
-            tool_name="process_return",
+            tool_name="initiate_return",
             caller="agent",
             args={"customer_id": "c-theo", "product_id": 21, "reason": "damaged"},
             session_id="sess-1",
@@ -76,7 +76,7 @@ class TestRecordAllow:
         # args column is JSONB — verify the JSON is well-formed.
         positional = call_args.args[1:]
         assert positional[0] == "sess-1"
-        assert positional[1] == "process_return"
+        assert positional[1] == "initiate_return"
         assert positional[2] == "agent"
         args_json = json.loads(positional[3])
         assert args_json["product_id"] == 21
@@ -90,21 +90,21 @@ class TestRecordAllow:
         # non-"agent" value straight through to the INSERT binding unchanged.
         tool_audit_writer.record_allow(
             tool_use_id="gw-1",
-            tool_name="process_return",
+            tool_name="initiate_return",
             caller="gateway",
             args={"customer_id": "theo", "product_id": 37, "reason": "damaged"},
             session_id="gateway-theo",
         )
         assert mock_db_with_loop.fetch_one.call_count == 1
         positional = mock_db_with_loop.fetch_one.call_args.args[1:]
-        assert positional[1] == "process_return"
+        assert positional[1] == "initiate_return"
         assert positional[2] == "gateway"  # NOT defaulted to "agent"
 
     def test_no_op_when_db_not_initialized(self) -> None:
         # _db_service stays None (autouse fixture).
         tool_audit_writer.record_allow(
             tool_use_id="abc-123",
-            tool_name="process_return",
+            tool_name="initiate_return",
             caller="agent",
             args={"x": 1},
             session_id="sess-1",
@@ -117,7 +117,7 @@ class TestRecordAllow:
     ) -> None:
         tool_audit_writer.record_allow(
             tool_use_id=None,
-            tool_name="process_return",
+            tool_name="initiate_return",
             caller="agent",
             args={"x": 1},
             session_id="sess-1",

@@ -194,7 +194,7 @@ def test_absent_identity_attributes_are_reported_as_absent():
     """No identity on any span is "not reported", never "anonymous"."""
     cli = _load_cli()
 
-    line = cli._identity_line([{"name": "execute_tool find_pieces"}])
+    line = cli._identity_line([{"name": "execute_tool search_products"}])
 
     assert "not reported" in line
 
@@ -208,7 +208,7 @@ def test_detail_omits_fields_the_span_did_not_carry():
     cli = _load_cli()
 
     assert cli._detail({}) == ""
-    assert cli._detail({"tool": "floor_check"}) == "tool=floor_check"
+    assert cli._detail({"tool": "check_inventory"}) == "tool=check_inventory"
     assert "ENFORCE/DENY" in cli._detail(
         {"policy_mode": "ENFORCE", "policy_verdict": "DENY"}
     )

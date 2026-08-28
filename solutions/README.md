@@ -4,21 +4,21 @@ These files are facilitator recovery paths and readable reference implementation
 
 ## Lab 1: Ground Answers in Live Data
 
-Complete the Stock Keeper definition:
+Complete the Inventory Agent definition:
 
 ```bash
-cp solutions/waking-the-stock-keeper/agents/stock_keeper_solution.py \
-  pellier/backend/agents/stock_keeper.py
+cp solutions/waking-the-stock-keeper/agents/inventory_agent_solution.py \
+  pellier/backend/agents/inventory_agent.py
 ```
 
-Wire the `floor_check` body:
+Wire the `check_inventory` body:
 
 ```bash
-cp solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py \
+cp solutions/closing-marcos-gap/services/agent_tools_check_inventory_solution.py \
   pellier/backend/services/agent_tools.py
 ```
 
-After copying, both `/api/observatory/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `floor_check` row from `pellier.tool_audit`.
+After copying, both `/api/observatory/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `check_inventory` row from `pellier.tool_audit`.
 
 ## Lab 2: Design the Retrieval Strategy
 
@@ -71,6 +71,6 @@ ALLOW, inspect both receipts, and remove the participant policy through the CLI.
 
 ## Bootstrap Reference
 
-The one-hour builders format pre-applies selected reference files. The governed format leaves the Stock Keeper definition and `floor_check` body incomplete for Lab 1. `scripts/bootstrap-labs.sh` is the source of truth for that branch-specific behavior.
+The one-hour builders format pre-applies selected reference files. The governed format leaves the Inventory Agent definition and `check_inventory` body incomplete for Lab 1. `scripts/bootstrap-labs.sh` is the source of truth for that branch-specific behavior.
 
 The remaining files under `solutions/` mirror production services or provide test/recovery fixtures. They are not additional workshop labs.

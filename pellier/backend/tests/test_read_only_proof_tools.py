@@ -46,7 +46,7 @@ def _call(tool_obj, *args: Any, **kwargs: Any) -> dict[str, Any]:
     return json.loads(fn(*args, **kwargs))
 
 
-def test_preference_snapshot_reads_safe_customer_memory() -> None:
+def test_get_customer_preferences_reads_safe_customer_memory() -> None:
     db = FakeDB(
         customer={
             "id": "CUST-MARCO",
@@ -74,7 +74,7 @@ def test_preference_snapshot_reads_safe_customer_memory() -> None:
     )
     agent_tools.set_db_service(db)
 
-    payload = _call(agent_tools.preference_snapshot, customer_id="CUST-MARCO")
+    payload = _call(agent_tools.get_customer_preferences, customer_id="CUST-MARCO")
 
     assert payload["status"] == "success"
     assert payload["read_only"] is True
@@ -88,13 +88,13 @@ def test_preference_snapshot_reads_safe_customer_memory() -> None:
     ]
 
 
-def test_trace_receipt_returns_allow_receipts_with_result_summary() -> None:
+def test_get_audit_trail_returns_allow_receipts_with_result_summary() -> None:
     db = FakeDB(
         receipts=[
             {
                 "audit_id": 158,
                 "session_id": "persona-theo-abc",
-                "tool": "process_return",
+                "tool": "initiate_return",
                 "caller": "gateway",
                 "args": {"customer_id": "CUST-THEO", "reason": "damaged"},
                 "result": {"status": "success", "return_id": 77},
@@ -106,8 +106,8 @@ def test_trace_receipt_returns_allow_receipts_with_result_summary() -> None:
     agent_tools.set_db_service(db)
 
     payload = _call(
-        agent_tools.trace_receipt,
-        tool_name="process_return",
+        agent_tools.get_audit_trail,
+        tool_name="initiate_return",
         caller="gateway",
     )
 
@@ -115,7 +115,7 @@ def test_trace_receipt_returns_allow_receipts_with_result_summary() -> None:
     assert payload["read_only"] is True
     receipt = payload["receipts"][0]
     assert receipt["decision"] == "ALLOW"
-    assert receipt["tool"] == "process_return"
+    assert receipt["tool"] == "initiate_return"
     assert receipt["caller"] == "gateway"
     assert receipt["result_summary"]["status"] == "success"
     assert receipt["created_at"] == "2026-07-01T00:00:00+00:00"
@@ -123,24 +123,24 @@ def test_trace_receipt_returns_allow_receipts_with_result_summary() -> None:
     sql, params = db.calls[-1]
     assert "tool = %s" in sql
     assert "caller = %s" in sql
-    assert params == ("process_return", "gateway", 3)
+    assert params == ("initiate_return", "gateway", 3)
 
 
-def test_trace_receipt_no_rows_reports_no_allow_boundary() -> None:
+def test_get_audit_trail_no_rows_reports_no_allow_boundary() -> None:
     db = FakeDB(receipts=[])
     agent_tools.set_db_service(db)
 
     payload = _call(
-        agent_tools.trace_receipt,
+        agent_tools.get_audit_trail,
         session_id="persona-marco-none",
-        tool_name="floor_check",
+        tool_name="check_inventory",
     )
 
     assert payload["status"] == "no_allow_receipt"
     assert payload["read_only"] is True
     assert payload["filters"] == {
         "session_id": "persona-marco-none",
-        "tool_name": "floor_check",
+        "tool_name": "check_inventory",
         "caller": None,
     }
     assert "no-row" in payload["interpretation"]

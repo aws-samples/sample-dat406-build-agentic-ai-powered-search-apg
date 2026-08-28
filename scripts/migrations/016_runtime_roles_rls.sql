@@ -230,7 +230,7 @@ GRANT EXECUTE ON FUNCTION pellier.restock_shelf_idempotent(text, text, text, int
 -- which is the property that makes a retry safe.
 GRANT SELECT, INSERT, UPDATE ON pellier.write_operations TO pellier_agent;
 
--- `restock_shelf` adjusts warehouse counts; `process_return` reads them.
+-- `restock_inventory` adjusts warehouse counts; `initiate_return` reads them.
 GRANT UPDATE ON pellier.warehouse_inventory TO pellier_agent;
 
 -- Both write functions recompute `product_catalog.quantity` and take

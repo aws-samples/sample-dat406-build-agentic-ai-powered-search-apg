@@ -86,7 +86,7 @@ const ActivePill: React.FC = () => (
 const ROUTING_SCENARIOS: Array<{ label: string; hint: string }> = [
   {
     label: 'Marco · pairing',
-    hint: 'Dispatcher classifies “goes with” → Style Advisor + find_pieces',
+    hint: 'Dispatcher classifies “goes with” → Search Agent + search_products',
   },
   {
     label: 'Anna · gift search',
@@ -440,7 +440,7 @@ interface IntentMapping {
 const INTENT_MAPPINGS: IntentMapping[] = [
   {
     intent: 'pricing',
-    specialist: 'Value Analyst',
+    specialist: 'Pricing Agent',
     fileTokens: [
       'deal', 'cheap', 'price', 'pricing', 'discount', 'affordable',
       'budget', 'value', 'cost', 'save', 'best price', 'on sale',
@@ -450,7 +450,7 @@ const INTENT_MAPPINGS: IntentMapping[] = [
   },
   {
     intent: 'inventory',
-    specialist: 'Stock Keeper',
+    specialist: 'Inventory Agent',
     fileTokens: [
       'restock', 'inventory', 'stock', 'out of stock', 'low stock',
       'available', 'availability', 'in stock', 'running low',
@@ -458,11 +458,11 @@ const INTENT_MAPPINGS: IntentMapping[] = [
       'at the brooklyn', 'at the austin', 'at the portland',
       'on the floor',
     ],
-    examples: ['Is the Hadley shirt at the Brooklyn warehouse?'],
+    examples: ['Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?'],
   },
   {
     intent: 'customer_support',
-    specialist: 'Experience Guide',
+    specialist: 'Customer Service Agent',
     fileTokens: [
       'return', 'refund', 'policy', 'troubleshoot', 'issue', 'problem',
       'warranty', 'broken', 'defective', 'chipped', 'damaged',
@@ -472,7 +472,7 @@ const INTENT_MAPPINGS: IntentMapping[] = [
   },
   {
     intent: 'search',
-    specialist: 'Style Advisor',
+    specialist: 'Search Agent',
     fileTokens: [
       'search for', 'looking for', 'where can I', 'compare', 'browse',
       'what do you have', 'do you have', 'show me', 'find me',
@@ -481,7 +481,7 @@ const INTENT_MAPPINGS: IntentMapping[] = [
   },
   {
     intent: 'recommendation (default)',
-    specialist: 'Curator',
+    specialist: 'Personalization Agent',
     fileTokens: [
       "(any query that doesn't match the above falls through here)",
     ],
@@ -532,7 +532,7 @@ const StorefrontProductionCard: React.FC = () => (
         before any Bedrock call
       </li>
       <li>
-        <Emphasis>Single owning agent</Emphasis> per turn – Style Advisor, Stock
+        <Emphasis>Single owning agent</Emphasis> per turn – Search Agent, Stock
         Keeper, etc.
       </li>
       <li>

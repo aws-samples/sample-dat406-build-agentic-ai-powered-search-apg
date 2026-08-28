@@ -115,7 +115,7 @@ def test_the_request_targets_a_reason_the_policy_forbids():
     windows = _windows()
 
     assert windows.FORBIDDEN_REASON != "damaged"
-    assert windows.GATING_POLICY == "process_return_damaged_only"
+    assert windows.GATING_POLICY == "initiate_return_damaged_only"
 
 
 def test_mode_is_restored_on_every_exit_path():

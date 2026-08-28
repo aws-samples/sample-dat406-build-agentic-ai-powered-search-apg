@@ -3,7 +3,7 @@
 -- Migration 008: Search-performance indexes for ILIKE-heavy tool paths
 --
 -- Why:
---   - floor_check resolves product names with tokenized ILIKE clauses.
+--   - check_inventory resolves product names with tokenized ILIKE clauses.
 --   - price/category lookups use category ILIKE in a few reporting paths.
 --   - At workshop scale this is tiny, but at production catalog scale
 --     trigram indexes prevent sequential scans for fuzzy string lookups.

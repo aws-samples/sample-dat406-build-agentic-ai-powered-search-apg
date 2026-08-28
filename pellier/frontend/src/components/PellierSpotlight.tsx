@@ -1,12 +1,21 @@
 /**
- * PellierSpotlight - the four-screen first-visit orientation for the
- * governed storefront. It explains the shopper path without interrupting the
- * Labs proof surface or making claims that have not happened yet.
+ * PellierSpotlight - the first-visit orientation for the governed storefront.
+ *
+ * It frames Pellier the way the architecture actually works: one agent serving
+ * two channels, every answer resolving to a database query, and every
+ * state-changing action behind a human confirmation.
+ *
+ * Claims here are deliberately limited to what ships. Comparable retail-agent
+ * architectures spread this across four engines (a vector index, a key-value
+ * store, an external cache); Pellier does it in Aurora PostgreSQL alone, so
+ * the copy says Aurora and names no service this app does not use. It also
+ * does not mention promotions or notifications, which are not implemented.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowRight,
+  ConciergeBell,
   FlaskConical,
   MessageCircle,
   Store,
@@ -49,16 +58,25 @@ const STEPS: SpotlightStep[] = [
     label: 'Ask',
     eyebrow: 'Ask Pellier',
     headline: 'Use your own words.',
-    body: 'Search from the hero or open the concierge from the header when you are ready to compare pieces.',
+    body: 'Not a scripted chatbot. It decides which tools to call, reads Aurora, and answers from what it found there.',
     image: asset('/products/hero-anna.png'),
     imageAlt: 'Wrapped gift, beeswax candles, and a ceramic ring dish',
     icon: MessageCircle,
   },
   {
+    label: 'Assist',
+    eyebrow: 'Pellier Operator',
+    headline: 'One agent, two channels.',
+    body: 'Advisors work the same agent from a clienteling desk. A goodwill credit needs a human confirmation, and the ceiling is enforced by the database.',
+    image: asset('/products/landing-approach-atelier.png'),
+    imageAlt: "A leatherworker's hands finishing a bag at a workbench",
+    icon: ConciergeBell,
+  },
+  {
     label: 'Inspect',
-    eyebrow: 'Pellier Observatory',
-    headline: 'See the governed path.',
-    body: 'Open Labs to inspect the tool calls, policy decision, and evidence from a completed turn.',
+    eyebrow: 'Pellier Observatory · Optional',
+    headline: 'See which data answered.',
+    body: 'Optional. Replay a turn to see the tools called, the policy decision, and the Aurora rows behind the answer.',
     image: asset('/products/hero-theo.png'),
     imageAlt: 'Stoneware pour-over set on a sunlit wooden table',
     icon: FlaskConical,

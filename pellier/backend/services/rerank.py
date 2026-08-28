@@ -24,7 +24,7 @@ Why Cohere Rerank v3.5 specifically:
 This module deliberately keeps the rerank step decoupled from the
 retrieval step: a Bedrock outage degrades Anna's path to plain
 hybrid (still a meaningful upgrade over Marco's pure vector), it
-doesn't take the chat down. The find_pieces_hybrid tool catches
+doesn't take the chat down. The search_products_hybrid tool catches
 the Bedrock exception and falls back to RRF order.
 """
 from __future__ import annotations

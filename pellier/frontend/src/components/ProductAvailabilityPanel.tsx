@@ -14,7 +14,7 @@
  * stated in words, never by color alone.
  *
  * The warehouse rows are the same `pellier.warehouse_inventory` join the
- * Stock Keeper's `floor_check` tool reads, so a shopper-visible count and
+ * Inventory Agent's `check_inventory` tool reads, so a shopper-visible count and
  * a tool receipt cannot disagree about where stock sits.
  */
 import type { ProductAvailability } from '../services/types'

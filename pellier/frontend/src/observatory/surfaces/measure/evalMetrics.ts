@@ -41,7 +41,7 @@ export const EVALUATION_METRICS: EvaluationMetric[] = [
     catches:
       'Missed recall – vector-only search that never surfaces literal SKUs (e.g. "Gift Wrapping Kit" under a gift query).',
     pellierExample:
-      'Marco Turn 2: is the Hadley Camp Shirt in the top 5 after find_pieces? Workshop often tracks Recall@5 before and after hybrid+rerank.',
+      'Marco Turn 2: is the Hadley Camp Shirt in the top 5 after search_products? Workshop often tracks Recall@5 before and after hybrid+rerank.',
     measuredVia: ['Golden-set regression', 'RAGAS', 'Custom Aurora benchmark'],
   },
   {
@@ -111,7 +111,7 @@ export const EVALUATION_METRICS: EvaluationMetric[] = [
     catches:
       'Hallucinated price, fabric, or availability – the failure mode that erodes trust even when retrieval was perfect.',
     pellierExample:
-      'Style Advisor must not invent "linen" when the hit was cotton; faithfulness is the guardrail on top of Recall@5.',
+      'Search Agent must not invent "linen" when the hit was cotton; faithfulness is the guardrail on top of Recall@5.',
     measuredVia: ['RAGAS faithfulness', 'Agent-as-judge with citation rubric'],
   },
   {

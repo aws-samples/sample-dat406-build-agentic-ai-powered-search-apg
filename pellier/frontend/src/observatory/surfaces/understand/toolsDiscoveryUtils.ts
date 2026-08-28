@@ -70,18 +70,18 @@ export function discoverToolsLocally(
 
 export function discoveryQueryForTool(tool: Tool): string {
   const presets: Record<string, string> = {
-    find_pieces: 'find products matching customer preferences',
-    find_pieces_hybrid: 'hybrid search with rerank for gift-ready pieces',
-    explore_collection: 'browse the weekend edit collection',
-    side_by_side: 'compare two products side by side',
-    style_match: 'pieces that pair with this product',
-    whats_trending: 'what is trending in the catalog right now',
-    price_intelligence: 'price range for linen shirts',
-    floor_check: 'is this sku on the floor at Brooklyn warehouse',
-    restock_shelf: 'restock low inventory on the shelf',
-    process_return: 'process a customer return with audit',
-    preference_snapshot: 'what do you remember about this shopper',
-    trace_receipt: 'show me the tool audit receipt for this call',
+    search_products: 'find products matching customer preferences',
+    search_products_hybrid: 'hybrid search with rerank for gift-ready pieces',
+    browse_category: 'browse the weekend edit collection',
+    compare_products: 'compare two products side by side',
+    get_related_products: 'pieces that pair with this product',
+    get_trending_products: 'what is trending in the catalog right now',
+    get_price_analysis: 'price range for linen shirts',
+    check_inventory: 'is this sku on the floor at Brooklyn warehouse',
+    restock_inventory: 'restock low inventory on the shelf',
+    initiate_return: 'process a customer return with audit',
+    get_customer_preferences: 'what do you remember about this shopper',
+    get_audit_trail: 'show me the tool audit receipt for this call',
   };
   return presets[tool.functionName] ?? tool.description;
 }

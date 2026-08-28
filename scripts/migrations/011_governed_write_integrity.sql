@@ -7,7 +7,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS pellier.write_operations (
     idempotency_key TEXT PRIMARY KEY,
     operation       TEXT NOT NULL
-                    CHECK (operation IN ('process_return', 'restock_shelf')),
+                    CHECK (operation IN ('initiate_return', 'restock_inventory')),
     request_hash    TEXT NOT NULL,
     result          JSONB,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -55,7 +55,7 @@ BEGIN
     INSERT INTO pellier.write_operations
         (idempotency_key, operation, request_hash)
     VALUES
-        (p_idempotency_key, 'process_return', p_request_hash)
+        (p_idempotency_key, 'initiate_return', p_request_hash)
     ON CONFLICT (idempotency_key) DO NOTHING;
     GET DIAGNOSTICS v_rows = ROW_COUNT;
     v_claimed := v_rows = 1;
@@ -66,7 +66,7 @@ BEGIN
      WHERE idempotency_key = p_idempotency_key
      FOR UPDATE;
 
-    IF v_existing.operation <> 'process_return'
+    IF v_existing.operation <> 'initiate_return'
        OR v_existing.request_hash <> p_request_hash THEN
         RETURN jsonb_build_object(
             'status', 'idempotency_conflict',
@@ -224,7 +224,7 @@ BEGIN
     INSERT INTO pellier.write_operations
         (idempotency_key, operation, request_hash)
     VALUES
-        (p_idempotency_key, 'restock_shelf', p_request_hash)
+        (p_idempotency_key, 'restock_inventory', p_request_hash)
     ON CONFLICT (idempotency_key) DO NOTHING;
     GET DIAGNOSTICS v_rows = ROW_COUNT;
     v_claimed := v_rows = 1;
@@ -235,7 +235,7 @@ BEGIN
      WHERE idempotency_key = p_idempotency_key
      FOR UPDATE;
 
-    IF v_existing.operation <> 'restock_shelf'
+    IF v_existing.operation <> 'restock_inventory'
        OR v_existing.request_hash <> p_request_hash THEN
         RETURN jsonb_build_object(
             'status', 'idempotency_conflict',

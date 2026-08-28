@@ -43,7 +43,7 @@ const ToolRegistryDetail: React.FC = () => {
         },
         {
           numeral: 'iii.',
-          text: 'Fixture labels on the Understand · Tools surface: fourteen shipped baseline; floor_check is the required-path exercise until its stub is replaced - then /api/observatory/build-state reflects shipped.',
+          text: 'Fixture labels on the Understand · Tools surface: fourteen shipped baseline; check_inventory is the required-path exercise until its stub is replaced - then /api/observatory/build-state reflects shipped.',
         },
       ]}
       liveState={{
@@ -103,21 +103,21 @@ LIMIT 5;`}</pre>
               <SectionLabel label="Registered tools" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 {[
-                  { name: 'find_pieces', status: 'shipped' },
-                  { name: 'find_pieces_hybrid', status: 'shipped' },
-                  { name: 'explore_collection', status: 'shipped' },
-                  { name: 'side_by_side', status: 'shipped' },
-                  { name: 'style_match', status: 'shipped' },
-                  { name: 'whats_trending', status: 'shipped' },
-                  { name: 'price_intelligence', status: 'shipped' },
-                  { name: 'floor_check', status: 'exercise' },
-                  { name: 'running_low', status: 'shipped' },
-                  { name: 'returns_and_care', status: 'shipped' },
-                  { name: 'restock_shelf', status: 'shipped' },
-                  { name: 'process_return', status: 'shipped' },
-                  { name: 'preference_snapshot', status: 'shipped' },
-                  { name: 'trace_receipt', status: 'shipped' },
-                  { name: 'escalate_to_stylist', status: 'shipped' },
+                  { name: 'search_products', status: 'shipped' },
+                  { name: 'search_products_hybrid', status: 'shipped' },
+                  { name: 'browse_category', status: 'shipped' },
+                  { name: 'compare_products', status: 'shipped' },
+                  { name: 'get_related_products', status: 'shipped' },
+                  { name: 'get_trending_products', status: 'shipped' },
+                  { name: 'get_price_analysis', status: 'shipped' },
+                  { name: 'check_inventory', status: 'exercise' },
+                  { name: 'get_low_stock', status: 'shipped' },
+                  { name: 'get_return_policy', status: 'shipped' },
+                  { name: 'restock_inventory', status: 'shipped' },
+                  { name: 'initiate_return', status: 'shipped' },
+                  { name: 'get_customer_preferences', status: 'shipped' },
+                  { name: 'get_audit_trail', status: 'shipped' },
+                  { name: 'escalate_to_human', status: 'shipped' },
                 ].map((tool) => (
                   <div
                     key={tool.name}

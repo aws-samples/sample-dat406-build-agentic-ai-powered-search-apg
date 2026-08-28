@@ -42,6 +42,7 @@ let mockPersona: {
   avatar_color: string
   customer_id: string
   role_tag: string
+  membership: 'registered' | 'circle' | 'maison'
   stats: { visits: number; orders: number; last_seen_days: number | null }
 } | null = null
 const mockSwitchPersona = vi.fn()
@@ -57,6 +58,7 @@ vi.mock('../contexts/PersonaContext', () => ({
 
 // Import Header AFTER mocks so the mocked hooks are bound inside the module.
 import Header from './Header'
+import { MEMBERSHIP } from '../data/membership'
 
 // --- Helpers -----------------------------------------------------------
 
@@ -89,6 +91,7 @@ describe('Header — nav items', () => {
       avatar_color: '#1f1410',
       customer_id: 'C-MARCO',
       role_tag: 'shopper',
+      membership: 'registered',
       stats: { visits: 0, orders: 0, last_seen_days: null },
     }
     renderHeader()
@@ -175,6 +178,7 @@ describe('Header — Persona Avatar dropdown', () => {
       avatar_color: '#5a3528',
       customer_id: 'CUST-MARCO',
       role_tag: 'Returning',
+      membership: 'maison',
       stats: { visits: 11, orders: 7, last_seen_days: 21 },
     }
     renderHeader()
@@ -182,6 +186,54 @@ describe('Header — Persona Avatar dropdown', () => {
     expect(pill).toHaveTextContent('Marco')
     // The Avatar primitive renders the initial
     expect(pill.textContent).toContain('M')
+  })
+
+  it('states the membership rung and what it earns, once, when signed in', () => {
+    mockPersona = {
+      id: 'marco',
+      display_name: 'Marco',
+      avatar_initial: 'M',
+      avatar_color: '#5a3528',
+      customer_id: 'CUST-MARCO',
+      role_tag: 'Returning',
+      membership: 'maison',
+      stats: { visits: 11, orders: 7, last_seen_days: 21 },
+    }
+    renderHeader()
+    fireEvent.click(screen.getByTestId('persona-pill'))
+
+    const block = screen.getByTestId('persona-membership')
+    expect(block).toHaveTextContent('Maison')
+    expect(block).toHaveTextContent(MEMBERSHIP.maison.earns)
+    // Stated once: the rung must not also appear in the pill.
+    expect(screen.getByTestId('persona-pill')).not.toHaveTextContent('Maison')
+  })
+
+  it('uses the rung the persona actually carries, not a hardcoded one', () => {
+    mockPersona = {
+      id: 'theo',
+      display_name: 'Theo',
+      avatar_initial: 'T',
+      avatar_color: '#5a4535',
+      customer_id: 'CUST-THEO',
+      role_tag: 'Home + slow craft',
+      membership: 'registered',
+      stats: { visits: 8, orders: 4, last_seen_days: 14 },
+    }
+    renderHeader()
+    fireEvent.click(screen.getByTestId('persona-pill'))
+
+    const block = screen.getByTestId('persona-membership')
+    expect(block).toHaveTextContent('Registered')
+    expect(block).not.toHaveTextContent('Maison')
+  })
+
+  it('shows no membership block when signed out', () => {
+    mockPersona = null
+    renderHeader()
+    fireEvent.click(screen.getByTestId('persona-pill'))
+
+    expect(screen.queryByTestId('persona-membership')).not.toBeInTheDocument()
   })
 
   it('opens dropdown on click (Req 5.1)', () => {

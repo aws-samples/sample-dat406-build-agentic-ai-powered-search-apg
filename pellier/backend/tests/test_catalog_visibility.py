@@ -95,12 +95,12 @@ async def test_catalog_lists_and_business_tools_exclude_archive_products():
 
     await _fetch_editorial_catalog(db)
     await _fetch_editorial_catalog(db, category="Apparel")
-    await logic.whats_trending()
-    await logic.floor_check()
-    await logic.price_intelligence()
-    await logic.price_intelligence("Apparel")
+    await logic.get_trending_products()
+    await logic.check_inventory()
+    await logic.get_price_analysis()
+    await logic.get_price_analysis("Apparel")
     await logic.get_products_by_category("Apparel")
-    await logic.running_low()
+    await logic.get_low_stock()
 
     catalog_sql = [
         sql for sql in db.statements if "pellier.product_catalog" in sql

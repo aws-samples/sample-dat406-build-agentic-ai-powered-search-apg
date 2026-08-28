@@ -94,12 +94,12 @@ def _patched_adapter():
 
     # Stub the five factory imports that __init__ pulls in. Keep them
     # scoped to this call so parallel tests stay isolated.
-    with patch("agents.style_advisor.build_search_agent", return_value=specialists["search"]), \
-         patch("agents.curator.build_recommendation_agent", return_value=specialists["recommendation"]), \
-         patch("agents.value_analyst.build_pricing_agent", return_value=specialists["pricing"]), \
-         patch("agents.stock_keeper._INVENTORY_AGENT_STUBBED", False), \
-         patch("agents.stock_keeper.build_inventory_agent", return_value=specialists["inventory"]), \
-         patch("agents.experience_guide.build_support_agent", return_value=specialists["support"]):
+    with patch("agents.search_agent.build_search_agent", return_value=specialists["search"]), \
+         patch("agents.personalization_agent.build_recommendation_agent", return_value=specialists["recommendation"]), \
+         patch("agents.pricing_agent.build_pricing_agent", return_value=specialists["pricing"]), \
+         patch("agents.inventory_agent._INVENTORY_AGENT_STUBBED", False), \
+         patch("agents.inventory_agent.build_inventory_agent", return_value=specialists["inventory"]), \
+         patch("agents.customer_service_agent.build_support_agent", return_value=specialists["support"]):
         # Also stub GraphBuilder so its internal validation (which
         # rejects MagicMocks) doesn't kick in.
         fake_graph = MagicMock(name="graph")
@@ -164,12 +164,12 @@ def test_add_hook_registers_on_every_specialist():
 def test_graph_has_bounded_execution():
     from agents import graph_pattern
 
-    with patch("agents.style_advisor.build_search_agent", return_value=MagicMock()), \
-         patch("agents.curator.build_recommendation_agent", return_value=MagicMock()), \
-         patch("agents.value_analyst.build_pricing_agent", return_value=MagicMock()), \
-         patch("agents.stock_keeper._INVENTORY_AGENT_STUBBED", False), \
-         patch("agents.stock_keeper.build_inventory_agent", return_value=MagicMock()), \
-         patch("agents.experience_guide.build_support_agent", return_value=MagicMock()):
+    with patch("agents.search_agent.build_search_agent", return_value=MagicMock()), \
+         patch("agents.personalization_agent.build_recommendation_agent", return_value=MagicMock()), \
+         patch("agents.pricing_agent.build_pricing_agent", return_value=MagicMock()), \
+         patch("agents.inventory_agent._INVENTORY_AGENT_STUBBED", False), \
+         patch("agents.inventory_agent.build_inventory_agent", return_value=MagicMock()), \
+         patch("agents.customer_service_agent.build_support_agent", return_value=MagicMock()):
         fake_builder = MagicMock()
         fake_builder.build.return_value = MagicMock()
         with patch("strands.multiagent.GraphBuilder", return_value=fake_builder):

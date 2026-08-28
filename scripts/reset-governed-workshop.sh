@@ -16,13 +16,46 @@ pass() { printf "  ${GREEN}[PASS]${NC} %s\n" "$1"; }
 fail() { printf "  ${RED}[FAIL]${NC} %s\n" "$1"; }
 warn() { printf "  ${YEL}[WARN]${NC} %s\n" "$1"; }
 
+# A workshop box has $REPO/.env, written by bootstrap and shell-safe. A local clone has
+# only pellier/backend/.env, and refusing to run there sends anyone testing the reset to
+# hand-rolled SQL - which is exactly how a trigger-firing manual reset gets written.
+#
+# The fallback is PARSED, not sourced. A dotenv file is not a shell script: a password
+# containing "(" makes `source` fail with a syntax error, and a value containing "$"
+# would be expanded. `declare -x "k=v"` assigns the bytes verbatim.
+_load_dotenv() {
+  local file="$1" line key value
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    # Strip one matched pair of surrounding quotes, as dotenv does.
+    if [[ "$value" == \"*\" && ${#value} -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "$value" == \'*\' && ${#value} -ge 2 ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+    # `export k=v`, not `declare -gx`: macOS ships bash 3.2, where -g does not exist.
+    # Both assign the bytes verbatim without expanding them.
+    export "$key=$value"
+  done < "$file"
+}
+
 if [[ -f "$ENV_FILE" ]]; then
   set -a
   # shellcheck source=/dev/null
   source "$ENV_FILE"
   set +a
+elif [[ -f "${REPO}/pellier/backend/.env" ]]; then
+  ENV_FILE="${REPO}/pellier/backend/.env"
+  _load_dotenv "$ENV_FILE"
 else
-  fail "Missing env file: $ENV_FILE"
+  fail "Missing env file: ${REPO}/.env (or pellier/backend/.env)"
   exit 1
 fi
 
@@ -74,7 +107,17 @@ for migration in \
   014_governed_turn_receipts.sql \
   015_proof_carrying_commerce.sql \
   016_runtime_roles_rls.sql \
-  017_governed_query_receipts.sql
+  017_governed_query_receipts.sql \
+  018_client_book.sql \
+  019_operator_desk.sql \
+  020_operator_review.sql \
+  021_governed_execution.sql \
+  022_write_operation_vocabulary.sql \
+  023_idempotency_claims_release_on_failure.sql \
+  024_operator_episodes.sql \
+  025_execution_receipts.sql \
+  026_episode_outcome_lineage.sql \
+  027_canonical_span_table.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -104,14 +147,49 @@ TRUNCATE TABLE
     pellier.retrieval_receipts,
     pellier.inventory_ledger,
     pellier.write_operations,
-    pellier.returns
+    pellier.returns,
+    pellier.store_credits,
+    pellier.support_tickets,
+    pellier.semantic_cache,
+    -- Evidence and memory tables added after this script was first written. Each was
+    -- absent from the list, so a reset cluster kept rows a fresh one has never had:
+    --   execution_receipts  policy verdicts from engineering runs (migration 025)
+    --   operator_episodes   derived memories of those runs (024/026)
+    --   conversations       shopper AND Operator Concierge threads (007). Nothing
+    --   messages            seeds these, so the fresh baseline is zero and every row
+    --                       here is runtime state.
+    --   observatory_spans   OTEL spans (002)
+    --   session_metadata    per-session scratch (007)
+    --   tool_uses           per-turn tool records (007)
+    pellier.execution_receipts,
+    pellier.operator_episodes,
+    pellier.messages,
+    pellier.conversations,
+    pellier.observatory_spans,
+    pellier.session_metadata,
+    pellier.tool_uses,
+    -- LAST in the list, because execution_receipts and operator_episodes reference it.
+    -- One TRUNCATE covers them together, so no CASCADE is needed and nothing is
+    -- orphaned. TRUNCATE also fires no row-level triggers: a DELETE here would run
+    -- `record_inventory_movement` and `reject_governed_turn_receipt_mutation`, writing
+    -- new ledger history while trying to clear history.
+    pellier.approvals
 RESTART IDENTITY;
 " >/tmp/pellier-governed-reset-evidence.log
-pass "Live returns, stock movements, write keys, audits, and receipts cleared"
+pass "Cleared: returns, stock movements, write keys, audits, receipts, episodes, conversations, spans, and operator reviews"
 
 _psql_file "$REPO/scripts/migrations/013_inventory_ledger.sql" \
   >>/tmp/pellier-governed-reset-db.log
 pass "Inventory ledger reseeded from deterministic warehouse state"
+
+# 019 is re-applied after the TRUNCATE above for the same reason 013 and 015
+# are: the truncate empties the operator desk, and the seeded tickets plus
+# Sarah's credit on file are the starting state the client book describes. The
+# semantic cache is deliberately left empty, so the first paraphrase of the
+# run is a real miss and the second is a real hit.
+_psql_file "$REPO/scripts/migrations/019_operator_desk.sql" \
+  >>/tmp/pellier-governed-reset-db.log
+pass "Operator desk reseeded: support tickets, credit on file, empty semantic cache"
 
 # Row-Level Security authorization mapping.
 #
@@ -147,6 +225,23 @@ CREATE INDEX IF NOT EXISTS product_catalog_embedding_hnsw
 ANALYZE pellier.product_catalog;
 ' >/tmp/pellier-governed-reset-index.log
 pass "HNSW index present: product_catalog_embedding_hnsw"
+
+# The AgentCore leg restores participant-mutated Cedar state through the CLI project,
+# which means `agentcore deploy`. That is right on a workshop box a participant has been
+# editing, and wrong on a deployment whose canonical policies were applied outside the
+# CLI project: a deploy would push the project's declarations over them.
+#
+# So a DATA reset does not require control-plane authority. Set
+# PELLIER_RESET_SKIP_AGENTCORE=1 to reset rows only and leave the control plane exactly
+# as it is. The Aurora reset above has already completed either way.
+if [[ "${PELLIER_RESET_SKIP_AGENTCORE:-0}" == "1" ]]; then
+  pass "AgentCore control plane left untouched (PELLIER_RESET_SKIP_AGENTCORE=1)"
+  if [[ -x "$REPO/scripts/health-gate.sh" ]]; then
+    echo "------------------------------------------------------------"
+    PELLIER_REPO="$REPO" bash "$REPO/scripts/health-gate.sh"
+  fi
+  exit 0
+fi
 
 AGENTCORE_PROJECT="$REPO/.agentcore-project/pellier"
 AGENTCORE_CONFIG="$AGENTCORE_PROJECT/agentcore/agentcore.json"

@@ -56,6 +56,36 @@ MEMORY_WRITE_WARNING = (
     "Do not repeat the action."
 )
 
+# What the shopper is told when a request is prepared but not carried out.
+#
+# The governed boundary declines every mutation on the shopper rail, opens a review,
+# and returns a machine envelope. That envelope carried only `error`, `tool` and
+# `required_rail`, so whether the shopper learned a person must confirm depended on
+# model improvisation - and measured on 2026-08-27 the answer was "I found your order
+# and prepared the damaged-return request for the bowl" and nothing more. A shopper
+# reading that reasonably believes the return is filed.
+#
+# So the backend owns the sentence. It states what happened, what did not happen, and
+# who acts next, which is what the error taxonomy in VOICE.md requires of a refusal.
+GOVERNED_REVIEW_PENDING = (
+    "Your request is prepared and waiting for a Pellier specialist to confirm it. "
+    "Nothing about your order has changed yet."
+)
+
+# The DEFAULT sentence for a managed-rail refusal, used when no review was created.
+#
+# `GOVERNED_REVIEW_PENDING` above is a governance GUARANTEE: it promises a person will
+# confirm. It was attached to every managed-rail refusal, but only `initiate_return` and
+# `issue_credit` are in `REVIEWABLE_ACTIONS`, so a shopper asking to restock stock was
+# told a specialist would confirm a review that was never created.
+#
+# This sentence promises nothing. It states what happened and what did not, which is true
+# of every refusal on this rail, and it leaves the shopper somewhere to go.
+GOVERNED_ACTION_NOT_PERFORMED = (
+    "That is not something I can change from here. Nothing about your order has "
+    "changed. A Pellier specialist can take it further if you need it."
+)
+
 # The 8 rotating intents (Requirement 1.3.1, storefront.md "The 8 rotating intents").
 # Intent 2 carries a productOverride: the Featherweight Trail Runner at $168
 # with a 4.9 rating and an athletic running shoe image.
@@ -389,7 +419,7 @@ ERROR_CODES = {
 # attributes (brand, color, fabric, tags, price). Grounded recommendations
 # should name specific pieces rather than hand-waving about categories.
 RECOMMENDATION_SYSTEM_PROMPT = (
-    "You are Pellier's Curator. Your voice is warm, "
+    "You are Pellier's personalization specialist. Your voice is warm, "
     "editorial, and catalog-style, like a thoughtful shop keeper writing a "
     "short note about what to try. Read like Aesop or Toast, not like a "
     "big-box retailer.\n"
@@ -409,7 +439,7 @@ RECOMMENDATION_SYSTEM_PROMPT = (
     "shopper's known preferences.\n"
     "  - For 'something similar to what I bought' queries, read the "
     "preamble to identify the shopper's past purchases and preferences, "
-    "then call find_pieces_hybrid with terms that match those attributes "
+    "then call search_products_hybrid with terms that match those attributes "
     "(e.g. 'linen shirt' if they bought linen). This produces product "
     "cards grounded in their history through hybrid retrieval + rerank.\n"
     "  - For other forward-looking questions ('recommend', 'find', 'show "
@@ -427,36 +457,36 @@ RECOMMENDATION_SYSTEM_PROMPT = (
     "</persona-context>\n"
     "\n"
     "<tools>\n"
-    "- find_pieces_hybrid: Use for intent-shaped queries such as "
+    "- search_products_hybrid: Use for intent-shaped queries such as "
     "'something for warm evenings out' or 'a cozy layer for cool summer "
     "nights'. This finds pieces with hybrid semantic similarity + Postgres "
     "FTS retrieval, then reranks the candidate pool before returning product "
     "cards.\n"
-    "- whats_trending: Use when the shopper asks for bestsellers, "
+    "- get_trending_products: Use when the shopper asks for bestsellers, "
     "popular picks, or what is in the Edit right now. Pass the category "
     "parameter when they name one (e.g. 'popular dresses').\n"
-    "- side_by_side: Use when the shopper wants a side-by-side look at "
+    "- compare_products: Use when the shopper wants a side-by-side look at "
     "two specific pieces. Requires product IDs; if the shopper names pieces "
-    "instead, call find_pieces_hybrid first to resolve each productId, then "
+    "instead, call search_products_hybrid first to resolve each productId, then "
     "compare.\n"
-    "- explore_collection: Use for browsing a named category (linen, "
+    "- browse_category: Use for browsing a named category (linen, "
     "dresses, outerwear, accessories, footwear, home) when the shopper is "
     "browsing rather than pursuing a specific intent.\n"
-    "- preference_snapshot: Use when the shopper asks what Pellier "
+    "- get_customer_preferences: Use when the shopper asks what Pellier "
     "remembers, why a recommendation reflects their taste, or which prior "
     "orders/preferences informed the turn. This is read-only; do not use it "
     "for ordinary forward-looking product queries when the persona preamble "
     "already gives enough context.\n"
-    "- trace_receipt: Use when the shopper or operator asks how Pellier "
+    "- get_audit_trail: Use when the shopper or operator asks how Pellier "
     "knows, what tool ran, whether a Gateway call produced an ALLOW row, "
     "or how the result can be inspected. This is read-only and should "
     "produce a concise proof answer, not a shopping recommendation.\n"
-    "- escalate_to_stylist: ONLY use when the ask is genuinely outside what "
+    "- escalate_to_human: ONLY use when the ask is genuinely outside what "
     "the catalog tools can answer – sympathy or condolence gifting, "
     "sentimental milestones, deep personal-style coaching beyond the "
     "boutique's pieces, or a shopper in distress who deserves a real "
-    "person. Always try find_pieces_hybrid / whats_trending first; "
-    "calling escalate_to_stylist is the honest fallback, never a way to "
+    "person. Always try search_products_hybrid / get_trending_products first; "
+    "calling escalate_to_human is the honest fallback, never a way to "
     "skip the work. Pass a one-sentence reason explaining what's being "
     "routed and why.\n"
     "</tools>\n"
@@ -554,7 +584,7 @@ ORCHESTRATOR_SYSTEM_PROMPT = (
     "answer (body-image fit, cultural dressing norms, sympathy framing, "
     "personal-style coaching beyond the boutique's pieces) – STILL route "
     "to a specialist. Never refuse with 'that's outside shopping' or 'I "
-    "don't have a stylist' – every specialist has an escalate_to_stylist "
+    "don't have a stylist' – every specialist has an escalate_to_human "
     "tool for exactly this case, and they decide whether to use it. "
     "Route by topic:\n"
     "  - body-image / wardrobe / fit-for-occasion -> search\n"  # copy-allow: search-as-verb

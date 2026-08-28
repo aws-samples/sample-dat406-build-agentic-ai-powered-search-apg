@@ -54,7 +54,7 @@ class _Dispatcher:
         self.last_tool_events = [
             {
                 "id": "tool-1",
-                "tool": "find_pieces_hybrid",
+                "tool": "search_products_hybrid",
                 "status": "success",
             }
         ]
@@ -62,7 +62,7 @@ class _Dispatcher:
         self.last_specialist = "recommendation"
         self.response_mode = "balanced"
         self.last_model_id = "global.anthropic.claude-opus-4-6-v1"
-        self.last_tool_names = ["find_pieces_hybrid"]
+        self.last_tool_names = ["search_products_hybrid"]
 
     def __call__(self, prompt: str) -> _Response:
         self.calls.append(prompt)
@@ -161,7 +161,7 @@ def test_entrypoint_runs_fixed_dispatcher_and_returns_observed_evidence(
         "specialist": "recommendation",
         "response_mode": "balanced",
         "model": "global.anthropic.claude-opus-4-6-v1",
-        "gateway_tools": ["find_pieces_hybrid"],
+        "gateway_tools": ["search_products_hybrid"],
         "tool_calls": dispatcher.last_tool_events,
         "orchestration": "dispatcher",
     }

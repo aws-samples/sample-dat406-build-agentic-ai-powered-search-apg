@@ -40,7 +40,7 @@ def recorded_spans(monkeypatch):
 
 
 def _events(decision: Any, source: str = "governed_receipts") -> List[Dict[str, Any]]:
-    return [{"decision": decision, "source": source, "tool": "process_return"}]
+    return [{"decision": decision, "source": source, "tool": "initiate_return"}]
 
 
 # ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ async def test_policy_leg_survives_a_missing_retrieval_table(recorded_spans):
     reported no policy evidence at all — which reads as "policy was never
     resolved" rather than "an unrelated table is missing". Found live.
     """
-    db = _PartialDb([{"decision": "ALLOW", "tool": "find_pieces"}])
+    db = _PartialDb([{"decision": "ALLOW", "tool": "search_products"}])
 
     result = await _persist(db, turn_id="turn-partial", principal_sub="sub-a")
 
@@ -207,7 +207,7 @@ def test_no_payload_reaches_the_policy_span(recorded_spans):
     events = [
         {
             "decision": "DENY",
-            "tool": "process_return",
+            "tool": "initiate_return",
             "reason": "customer 1 did not order product 1",
             "policy_name": "deny-cross-customer-returns",
         }
@@ -218,4 +218,4 @@ def test_no_payload_reaches_the_policy_span(recorded_spans):
     span = recorded_spans.get_finished_spans()[0]
     serialized = " ".join(f"{k}={v}" for k, v in span.attributes.items())
     assert "did not order" not in serialized
-    assert "process_return" not in serialized
+    assert "initiate_return" not in serialized

@@ -40,7 +40,7 @@ const PERSISTED_RECEIPT: PersistedGovernedTurnReceipt = {
   tool_audit_ids: [
     {
       audit_id: 2,
-      tool: 'find_pieces_hybrid',
+      tool: 'search_products_hybrid',
       caller: 'gateway',
       latency_ms: 18,
       created_at: '2026-08-12T00:00:00+00:00',

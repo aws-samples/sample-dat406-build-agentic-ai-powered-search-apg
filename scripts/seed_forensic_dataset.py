@@ -166,13 +166,13 @@ INSERT INTO pellier.governed_turn_receipts
     (turn_id, session_id, principal_sub, principal_verified, rail,
      policy_events, terminal_status, latency_ms)
 VALUES ('{TURN_ALLOWED}', '{_SESSION}', '{_PRINCIPAL}', true, 'gateway-mcp',
-        '{_policy_events("ALLOW", "governed_receipts", "process_return_allow_damaged")}'::jsonb,
+        '{_policy_events("ALLOW", "governed_receipts", "initiate_return_allow_damaged")}'::jsonb,
         'complete', 1840)
 ON CONFLICT (turn_id) DO NOTHING;
 
 WITH executed AS (
     INSERT INTO pellier.tool_audit (session_id, tool, caller, args, result, latency_ms)
-    VALUES ('{_SESSION}', 'process_return', 'agent',
+    VALUES ('{_SESSION}', 'initiate_return', 'agent',
             jsonb_build_object('turn_id', '{TURN_ALLOWED}',
                                'customer_id', '{_CUSTOMER}',
                                'product_id', '{_PRODUCT}',
@@ -183,10 +183,10 @@ WITH executed AS (
 INSERT INTO pellier.governed_receipts
     (audit_id, session_id, principal_id, principal_label, tool, caller,
      decision, args, policy_name)
-SELECT audit_id, '{_SESSION}', '{_PRINCIPAL}', 'theo', 'process_return',
+SELECT audit_id, '{_SESSION}', '{_PRINCIPAL}', 'theo', 'initiate_return',
        'gateway', 'ALLOW',
        jsonb_build_object('reason', 'damaged'),
-       'process_return_allow_damaged'
+       'initiate_return_allow_damaged'
   FROM executed;
 
 -- The business change turn A caused.
@@ -203,7 +203,7 @@ INSERT INTO pellier.governed_turn_receipts
     (turn_id, session_id, principal_sub, principal_verified, rail,
      policy_events, terminal_status, terminal_outcome, latency_ms)
 VALUES ('{TURN_ENFORCE_DENIED}', '{_SESSION}', '{_PRINCIPAL}', true, 'gateway-mcp',
-        '{_policy_events("DENY", "managed_runtime_error", "process_return_damaged_only")}'::jsonb,
+        '{_policy_events("DENY", "managed_runtime_error", "initiate_return_damaged_only")}'::jsonb,
         'denied-before-execution', '{{"error_code": "policy_denied"}}'::jsonb, 240)
 ON CONFLICT (turn_id) DO NOTHING;
 
@@ -216,7 +216,7 @@ INSERT INTO pellier.governed_turn_receipts
     (turn_id, session_id, principal_sub, principal_verified, rail,
      policy_events, terminal_status, terminal_outcome, latency_ms)
 VALUES ('{TURN_LOG_ONLY}', '{_SESSION}', '{_PRINCIPAL}', true, 'gateway-mcp',
-        '{_policy_events("WOULD_DENY", "monitor_mode", "process_return_damaged_only")}'::jsonb,
+        '{_policy_events("WOULD_DENY", "monitor_mode", "initiate_return_damaged_only")}'::jsonb,
         'complete', '{{"error_code": "database_row_level_security"}}'::jsonb, 1615)
 ON CONFLICT (turn_id) DO NOTHING;
 
@@ -225,7 +225,7 @@ ON CONFLICT (turn_id) DO NOTHING;
 -- verdict is on the turn receipt's policy_events above; this execution row is
 -- what proves the request continued anyway.
 INSERT INTO pellier.tool_audit (session_id, tool, caller, args, result, latency_ms)
-VALUES ('{_SESSION}', 'process_return', 'agent',
+VALUES ('{_SESSION}', 'initiate_return', 'agent',
         jsonb_build_object('turn_id', '{TURN_LOG_ONLY}',
                            'customer_id', 'CUST-ANNA',
                            'product_id', '21',

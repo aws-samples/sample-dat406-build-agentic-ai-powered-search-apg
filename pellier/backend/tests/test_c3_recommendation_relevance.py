@@ -2,8 +2,8 @@
 
   The specialist is a Strands `Agent` wrapping `BedrockModel` with
          the Opus 4.6 support factory and the four tools
-         `[find_pieces, whats_trending, side_by_side,
-         explore_collection]`.
+         `[search_products, get_trending_products, compare_products,
+         browse_category]`.
   The system prompt emphasizes warm, editorial, catalog-style
          reasoning grounded in specific product attributes.
   Calling the agent with `something for warm evenings out` returns
@@ -13,7 +13,7 @@
          or Cashmere-Blend Cardigan pass; Signature Straw Tote fails.
 
 Bedrock is stubbed - no live model call. The test swaps the `Agent` symbol
-imported into `agents.curator` for a stub that returns a
+imported into `agents.personalization_agent` for a stub that returns a
 canned answer mentioning `Sundress in Washed Linen`. The test then parses
 that response, looks up the product's tags from the showcase-product table,
 and asserts the required overlap.
@@ -134,7 +134,7 @@ def _reset_stub_state() -> Iterable[None]:
 def stubbed_specialist(monkeypatch: pytest.MonkeyPatch):
     """Return the `recommendation` agent's underlying callable with
     Strands `Agent` + `BedrockModel` swapped for the stubs above."""
-    import agents.curator as rec
+    import agents.personalization_agent as rec
 
     monkeypatch.setattr(rec, "Agent", _StubAgent)
     monkeypatch.setattr(rec, "BedrockModel", _StubBedrockModel)
@@ -154,23 +154,23 @@ def stubbed_specialist(monkeypatch: pytest.MonkeyPatch):
 # ---------------------------------------------------------------------------
 
 
-def test_curator_is_constructed_with_per_agent_model_mix_and_seven_tools(
+def test_personalization_agent_is_constructed_with_per_agent_model_mix_and_seven_tools(
     stubbed_specialist,
 ) -> None:
-    """Building the Curator SHALL match the per-agent model mix
+    """Building the Personalization Agent SHALL match the per-agent model mix
     documented in the Workshop Studio repo's content/ model-mix sidebar:
 
       - Claude Opus 4.6 (BEDROCK_OPUS_MODEL)
       - no temperature field; Bedrock rejects that deprecated field for
         Opus 4.6
-      - exactly seven tools: find_pieces_hybrid + whats_trending +
-        preference_snapshot + trace_receipt + side_by_side +
-        explore_collection + escalate_to_stylist.
+      - exactly seven tools: search_products_hybrid + get_trending_products +
+        get_customer_preferences + get_audit_trail + compare_products +
+        browse_category + escalate_to_human.
 
-    ``find_pieces_hybrid`` is the Curator's anchor capability (Anna's
+    ``search_products_hybrid`` is the Personalization Agent's anchor capability (Anna's
     pgvector + Postgres FTS + Cohere Rerank pipeline). Other specialists keep
-    plain ``find_pieces``. ``preference_snapshot`` and ``trace_receipt`` are
-    read-only proof tools; ``escalate_to_stylist`` is the honest fallback when
+    plain ``search_products``. ``get_customer_preferences`` and ``get_audit_trail`` are
+    read-only proof tools; ``escalate_to_human`` is the honest fallback when
     the catalog tools can't answer (sympathy gifting, sentimental milestones,
     deep style coaching beyond the catalog).
     """
@@ -194,28 +194,34 @@ def test_curator_is_constructed_with_per_agent_model_mix_and_seven_tools(
         unwrapped.append(getattr(inner, "__name__", repr(inner)))
 
     assert set(unwrapped) == {
-        "find_pieces_hybrid",
-        "whats_trending",
-        "preference_snapshot",
-        "trace_receipt",
-        "side_by_side",
-        "explore_collection",
-        "escalate_to_stylist",
-    }, f"expected the seven Curator tools, got {unwrapped!r} / {tool_names!r}"
+        "search_products_hybrid",
+        "get_trending_products",
+        "get_customer_preferences",
+        "get_audit_trail",
+        "compare_products",
+        "browse_category",
+        "escalate_to_human",
+    }, f"expected the seven Personalization Agent tools, got {unwrapped!r} / {tool_names!r}"
 
 
 def test_agent_system_prompt_references_recommendation_voice(
     stubbed_specialist,
 ) -> None:
     """System prompt SHALL come from copy.RECOMMENDATION_SYSTEM_PROMPT and
-    SHALL include the warm / editorial / catalog-style framing from Req 2.4.4."""
+    SHALL include the warm / editorial / catalog-style framing from Req 2.4.4.
+
+    The self-description is asserted in `specialist` vocabulary on purpose. The
+    architecture name is Personalization Agent, but `pellier_copy.py` is scanned
+    by `test_copy_compliance` and VOICE.md forbids the word `agent` in anything
+    the shopper can hear, so the prompt may not name itself that way.
+    """
     _StubAgent.canned_reply = "stub"
     stubbed_specialist(query="anything")
 
     prompt = _StubAgent.last_kwargs.get("system_prompt", "")
     assert isinstance(prompt, str) and prompt, "system_prompt SHALL be a non-empty str"
     lowered = prompt.lower()
-    assert "curator" in lowered or "recommendation specialist" in lowered
+    assert "personalization specialist" in lowered or "recommendation specialist" in lowered
     assert "warm" in lowered
     assert "editorial" in lowered
     assert "catalog" in lowered

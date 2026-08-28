@@ -67,7 +67,7 @@
     "category": "workshop",
     "title": "MCP Gateway",
     "role": "Required managed tool rail in the governed format",
-    "description": "AgentCore Gateway publishes Pellier's 15 tools over MCP. Governed Runtime requests require this managed rail and fail closed when it is unavailable; the separate builders format retains in-process Strands tools.",
+    "description": "AgentCore Gateway publishes Pellier's 17 tools over MCP. Governed Runtime requests require this managed rail and fail closed when it is unavailable; the separate builders format retains in-process Strands tools.",
     "codeSnippet": "# Governed requests fail closed without Gateway\nif WORKSHOP_FORMAT == \"governed\":\n    require(AGENTCORE_GATEWAY_URL)\n    tools = await mcp_client.list_tools()\n    result = await mcp_client.call_tool(name, args)\nelse:\n    result = await strands_dispatch(name, args)",
     "slug": "mcp"
   }

@@ -6,9 +6,10 @@
  */
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, ReceiptText } from 'lucide-react';
+import { BookOpen, ReceiptText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import PersonaModal from '../../components/PersonaModal';
+import PellierHomeLink from '../../components/PellierHomeLink';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
 import { PresencePill } from '../../shared';
@@ -111,15 +112,7 @@ const TopBar: React.FC = () => {
             </span>
           </button>
 
-          <Link
-            to="/"
-            data-testid="back-to-pellier"
-            aria-label="Back to Pellier"
-            className="observatory-back"
-          >
-            <ArrowLeft size={16} strokeWidth={1.8} aria-hidden="true" />
-            <span>Back to Pellier</span>
-          </Link>
+          <PellierHomeLink testId="back-to-pellier" />
 
           <a
             href={GITHUB_REPOSITORY_URL}

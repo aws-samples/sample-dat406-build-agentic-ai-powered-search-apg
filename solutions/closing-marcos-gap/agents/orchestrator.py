@@ -24,11 +24,11 @@ intent classifier at ``classify_intent``.
 """
 from strands import Agent
 from strands.models import BedrockModel
-from .stock_keeper import inventory
-from .curator import recommendation
-from .value_analyst import pricing
-from .experience_guide import support
-from .style_advisor import search
+from .inventory_agent import inventory
+from .personalization_agent import recommendation
+from .pricing_agent import pricing
+from .customer_service_agent import support
+from .search_agent import search
 from pellier_copy import ORCHESTRATOR_SYSTEM_PROMPT
 from config import settings
 

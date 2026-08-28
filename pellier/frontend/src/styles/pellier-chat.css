@@ -408,6 +408,26 @@
   50% { opacity: 0.96; }
 }
 
+/* ---- Prepared, not carried out ----
+ *
+ * The governed boundary declined a mutation and a person has to confirm it. Quiet and
+ * declarative: this is not an error, and styling it as a warning would tell the shopper
+ * something went wrong when the boundary worked exactly as designed. A left rule and a
+ * calmer ink set it apart from the answer without competing with it.
+ *
+ * No icon and no colour-only signal: the sentence itself carries the whole meaning, so
+ * the treatment survives greyscale and a screen reader alike. */
+.ec-review-pending {
+  margin: 0;
+  padding: 8px 0 8px 12px;
+  border-left: 2px solid var(--rule-1);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  letter-spacing: -0.002em;
+  color: var(--ink-2);
+}
+
 /* Product artifacts stack */
 .ec-artifacts {
   display: flex;

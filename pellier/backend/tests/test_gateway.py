@@ -8,7 +8,7 @@
 No live Gateway, no Bedrock, no network. The MCP server is driven
 in-process through FastMCP's `list_tools` / `call_tool` surface (same
 code path a streamable-HTTP client hits on the server side) and
-`BusinessLogic` is stubbed so `whats_trending` returns a
+`BusinessLogic` is stubbed so `get_trending_products` returns a
 deterministic payload.
 
 Run from the repo root per `pytest.ini`:
@@ -36,21 +36,23 @@ import services.business_logic as business_logic_module
 # ---------------------------------------------------------------------------
 
 EXPECTED_TOOL_NAMES = {
-    "find_pieces",
-    "find_pieces_hybrid",
-    "whats_trending",
-    "price_intelligence",
-    "explore_collection",
-    "floor_check",
-    "running_low",
-    "restock_shelf",
-    "side_by_side",
-    "returns_and_care",
-    "style_match",
-    "process_return",
-    "preference_snapshot",
-    "trace_receipt",
-    "escalate_to_stylist",
+    "search_products",
+    "search_products_hybrid",
+    "get_trending_products",
+    "get_price_analysis",
+    "browse_category",
+    "check_inventory",
+    "get_low_stock",
+    "restock_inventory",
+    "compare_products",
+    "get_return_policy",
+    "get_related_products",
+    "initiate_return",
+    "get_customer_preferences",
+    "get_audit_trail",
+    "escalate_to_human",
+    "issue_credit",
+    "get_ticket_history",
 }
 
 
@@ -71,9 +73,9 @@ def test_managed_specialists_partition_the_gateway_catalog() -> None:
 @pytest.mark.parametrize(
     ("published", "logical"),
     [
-        ("process_return", "process_return"),
-        ("experience-target__process_return", "process_return"),
-        ("experience-target___process_return", "process_return"),
+        ("initiate_return", "initiate_return"),
+        ("experience-target__initiate_return", "initiate_return"),
+        ("experience-target___initiate_return", "initiate_return"),
     ],
 )
 def test_logical_gateway_tool_name_strips_target_prefix(
@@ -85,7 +87,7 @@ def test_logical_gateway_tool_name_strips_target_prefix(
 def test_server_context_overrides_model_identity_and_correlation() -> None:
     bound = gateway._bind_server_tool_context(
         {
-            "name": "recommendation-target___preference_snapshot",
+            "name": "recommendation-target___get_customer_preferences",
             "toolUseId": "call-1",
             "input": {
                 "customer_id": "CUST-THEO",
@@ -109,7 +111,7 @@ def test_customer_scoped_tool_requires_verified_customer_context() -> None:
     with pytest.raises(ValueError, match="verified Aurora customer context"):
         gateway._bind_server_tool_context(
             {
-                "name": "experience-target___process_return",
+                "name": "experience-target___initiate_return",
                 "toolUseId": "call-2",
                 "input": {"product_id": 21, "reason": "damaged"},
             },
@@ -121,7 +123,7 @@ def test_customer_scoped_tool_requires_verified_customer_context() -> None:
 def test_non_customer_tool_still_receives_server_turn_id() -> None:
     bound = gateway._bind_server_tool_context(
         {
-            "name": "search-target___find_pieces_hybrid",
+            "name": "search-target___search_products_hybrid",
             "toolUseId": "call-3",
             "input": {"query": "linen", "turn_id": "untrusted"},
         },
@@ -146,7 +148,7 @@ class _SentinelDB:
 
 @pytest.fixture
 def trending_payload() -> Dict[str, Any]:
-    """Same shape `agent_tools.whats_trending` would emit."""
+    """Same shape `agent_tools.get_trending_products` would emit."""
     return {
         "status": "success",
         "count": 3,
@@ -207,7 +209,7 @@ class _StubBusinessLogic:
         self._db = db_service
         self._payload = payload
 
-    async def whats_trending(
+    async def get_trending_products(
         self, limit: int = 5, category: Optional[str] = None
     ) -> Dict[str, Any]:
         payload = dict(self._payload or {})
@@ -237,7 +239,7 @@ def _run(coro):
 
 
 # ---------------------------------------------------------------------------
-# Req 2.2.3 + 2.5.3 — Discovery returns all 15 tools by exact name
+# Req 2.2.3 + 2.5.3 — Discovery returns all 17 tools by exact name
 # ---------------------------------------------------------------------------
 
 
@@ -256,8 +258,8 @@ def test_build_mcp_server_returns_fastmcp_with_streamable_http_app() -> None:
     assert callable(app)  # Starlette apps are ASGI callables
 
 
-def test_discovery_returns_exactly_the_fifteen_tools_by_exact_name() -> None:
-    """Discovery SHALL return the 15 tools the Observatory Tools surface ships."""
+def test_discovery_returns_exactly_the_published_tools_by_exact_name() -> None:
+    """Discovery SHALL return the 17 tools the Observatory Tools surface ships."""
     server = gateway.build_mcp_server()
 
     tools = _run(server.list_tools())
@@ -270,7 +272,7 @@ def test_discovery_returns_exactly_the_fifteen_tools_by_exact_name() -> None:
     )
     # Exactly 15 — the original shopper/tool surface plus two read-only
     # proof tools.
-    assert len(tools) == 15
+    assert len(tools) == 17
 
 
 def test_each_discovered_tool_exposes_an_input_schema() -> None:
@@ -290,7 +292,7 @@ def test_each_discovered_tool_exposes_an_input_schema() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Req 2.5.3 — MCP invocation of whats_trending returns the same
+# Req 2.5.3 — MCP invocation of get_trending_products returns the same
 # JSON envelope as the in-process @tool call.
 # ---------------------------------------------------------------------------
 
@@ -298,8 +300,8 @@ def test_each_discovered_tool_exposes_an_input_schema() -> None:
 def _invoke_in_process(**kwargs: Any) -> str:
     """Invoke the Strands @tool directly (bypassing the decorator wrapper)."""
     fn = getattr(
-        agent_tools.whats_trending, "__wrapped__",
-        agent_tools.whats_trending,
+        agent_tools.get_trending_products, "__wrapped__",
+        agent_tools.get_trending_products,
     )
     return fn(**kwargs)
 
@@ -307,7 +309,7 @@ def _invoke_in_process(**kwargs: Any) -> str:
 def test_mcp_invocation_matches_in_process_tool_envelope(
     monkeypatch: pytest.MonkeyPatch, trending_payload: Dict[str, Any]
 ) -> None:
-    """Invoking whats_trending via the gateway SHALL produce the
+    """Invoking get_trending_products via the gateway SHALL produce the
     same JSON envelope as calling the in-process @tool directly.
     """
     agent_tools._db_service = _SentinelDB()
@@ -321,8 +323,8 @@ def test_mcp_invocation_matches_in_process_tool_envelope(
     # Gateway build + invoke via FastMCP (the same object served over
     # streamable HTTP; an external client would get the identical result).
     server = gateway.build_mcp_server()
-    tool = server._tool_manager.get_tool("whats_trending")
-    assert tool is not None, "whats_trending was not registered"
+    tool = server._tool_manager.get_tool("get_trending_products")
+    assert tool is not None, "get_trending_products was not registered"
 
     # Call the registered function the way FastMCP would, without MCP
     # content-block conversion, so we can compare JSON envelopes directly.
@@ -372,7 +374,7 @@ def test_mcp_invocation_through_call_tool_returns_valid_json_envelope(
         agent_tools._main_loop = main_loop
         raw = _run(
             server._tool_manager.call_tool(
-                "whats_trending",
+                "get_trending_products",
                 {"limit": 5},
                 context=None,
                 convert_result=False,
@@ -407,4 +409,4 @@ def test_mcp_invocation_through_call_tool_returns_valid_json_envelope(
 
 def test_gateway_tool_names_constant_matches_expected() -> None:
     assert set(gateway.GATEWAY_TOOL_NAMES) == EXPECTED_TOOL_NAMES
-    assert len(gateway.GATEWAY_TOOL_NAMES) == 15
+    assert len(gateway.GATEWAY_TOOL_NAMES) == 17

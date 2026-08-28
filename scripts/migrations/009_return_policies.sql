@@ -1,18 +1,18 @@
--- Migration 009: Return-policy lookup table for the returns_and_care @tool
+-- Migration 009: Return-policy lookup table for the get_return_policy @tool
 --
 -- Why:
---   The Experience Guide's ``returns_and_care`` tool
+--   The Customer Service Agent's ``get_return_policy`` tool
 --   (services/agent_tools.py) answers "what's the return window / refund
 --   method for this category?" by SELECTing from pellier.return_policies.
 --   The tool shipped, but no migration created the table — so any
---   return/refund/care question that routes through returns_and_care hit
+--   return/refund/care question that routes through get_return_policy hit
 --   a "relation does not exist" error. This migration creates and seeds
 --   it, keeping the tool's SQL (category_name, return_window_days,
 --   conditions, refund_method) unchanged.
 --
 -- Teaching shape:
---   This is a read-side reference table — the policy the Experience Guide
---   *cites* before process_return *writes*. The tool falls back to the
+--   This is a read-side reference table — the policy the Customer Service Agent
+--   *cites* before initiate_return *writes*. The tool falls back to the
 --   'default' row when a category has no specific policy, so the 'default'
 --   row is required; the per-category rows make the answer feel curated.
 --

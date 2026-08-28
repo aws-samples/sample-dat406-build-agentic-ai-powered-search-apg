@@ -30,13 +30,13 @@ FKs.
 5. **`005_theo_returns.sql`** — creates `pellier.returns` for Theo's
    write path.
 6. **`006_warehouse_inventory.sql`** — creates `pellier.warehouses` and
-   `pellier.warehouse_inventory` for Marco's `floor_check` exercise.
+   `pellier.warehouse_inventory` for Marco's `check_inventory` exercise.
 7. **`007_chat_session_tables.sql`** — creates chat/session persistence
    tables in the `pellier` schema.
 8. **`008_search_performance_indexes.sql`** — adds `pg_trgm` + GIN trigram
    indexes on `lower(name)` and `lower(category)` for fuzzy ILIKE paths.
 9. **`009_return_policies.sql`** — creates and seeds
-   `pellier.return_policies` for the `returns_and_care` tool.
+   `pellier.return_policies` for the `get_return_policy` tool.
 10. **`010_governed_receipts.sql`** — creates
    `pellier.governed_receipts` and seeds the deterministic governed
    forensic incident used by the two-hour workshop.

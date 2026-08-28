@@ -228,19 +228,19 @@ def test_each_dispatcher_intent_constructs_a_distinct_specialist() -> None:
                 AGENT_MAX_TOKENS_SONNET=1200,
             )
         ),
-        "agents.style_advisor": SimpleNamespace(
+        "agents.search_agent": SimpleNamespace(
             build_search_agent=factories["search"]
         ),
-        "agents.curator": SimpleNamespace(
+        "agents.personalization_agent": SimpleNamespace(
             build_recommendation_agent=factories["recommendation"]
         ),
-        "agents.value_analyst": SimpleNamespace(
+        "agents.pricing_agent": SimpleNamespace(
             build_pricing_agent=factories["pricing"]
         ),
-        "agents.stock_keeper": SimpleNamespace(
+        "agents.inventory_agent": SimpleNamespace(
             build_inventory_agent=factories["inventory"]
         ),
-        "agents.experience_guide": SimpleNamespace(
+        "agents.customer_service_agent": SimpleNamespace(
             build_support_agent=factories["support"]
         ),
     }
@@ -357,7 +357,7 @@ def test_inprocess_hook_writes_tool_audit(chat_module_source: str) -> None:
 def test_dispatcher_path_attaches_audit_hooks(chat_module_source: str) -> None:
     """All three patterns route through _attach_streaming_and_hooks, which is
     where the audit write lives — so the dispatcher (storefront default,
-    where Marco's floor_check runs) audits too, not just agents_as_tools."""
+    where Marco's check_inventory runs) audits too, not just agents_as_tools."""
     # The helper is defined once and attached on each pattern branch.
     assert chat_module_source.count("_attach_streaming_and_hooks(orchestrator)") >= 2, (
         "the audit-bearing hook helper must be attached on the dispatcher and "
@@ -405,7 +405,7 @@ def test_make_tool_audit_hooks_two_phase(monkeypatch) -> None:
     )
     event = SimpleNamespace(
         tool_use={
-            "name": "floor_check",
+            "name": "check_inventory",
             "toolUseId": "tu-1",
             "input": {"product_query": "hadley"},
         },
@@ -417,7 +417,7 @@ def test_make_tool_audit_hooks_two_phase(monkeypatch) -> None:
     assert [phase for phase, _ in calls] == ["allow", "after"]
     allow_kw = calls[0][1]
     assert allow_kw["tool_use_id"] == "tu-1"
-    assert allow_kw["tool_name"] == "floor_check"
+    assert allow_kw["tool_name"] == "check_inventory"
     assert allow_kw["caller"] == "agent"
     assert allow_kw["session_id"] == "sess-1"
     assert allow_kw["args"]["product_query"] == "hadley"

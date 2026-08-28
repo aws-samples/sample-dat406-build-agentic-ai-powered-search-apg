@@ -30,7 +30,7 @@ def test_record_and_aggregate_single_turn():
         layers={"orchestrator": 120.0, "tools": 450.0, "stream": 300.0},
         ttft_ms=250,
         total_ms=900,
-        tool_trace=[{"tool": "find_pieces", "ms": 300, "results": 5}],
+        tool_trace=[{"tool": "search_products", "ms": 300, "results": 5}],
         pattern="dispatcher",
     )
     agg = get_aggregates()
@@ -39,7 +39,7 @@ def test_record_and_aggregate_single_turn():
     assert agg["total_p50"] == 900.0
     assert agg["total_p95"] == 900.0
     assert agg["layers_p50"]["tools"] == 450.0
-    assert agg["tools_p50"]["find_pieces"] == 300.0
+    assert agg["tools_p50"]["search_products"] == 300.0
 
 
 def test_aggregate_multiple_turns():

@@ -25,8 +25,9 @@ import { NAV } from '../copy'
 import { Avatar } from '../design/primitives'
 import { getPersonaPhoto } from '../data/personaPhotos'
 import { LOCAL_PERSONAS } from '../data/personas'
+import { MEMBERSHIP } from '../data/membership'
 import { IconButton } from '../design/primitives'
-import {
+import { ConciergeBell,
   Search,
   ShoppingBag,
   User as UserIcon,
@@ -164,6 +165,37 @@ function ObservatoryLink({
       >
         {NAV.OBSERVATORY_OPTIONAL}
       </span>
+    </Link>
+  )
+}
+
+function OperatorLink({
+  mobile = false,
+  onClick,
+}: {
+  mobile?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <Link
+      to="/operator"
+      data-testid={mobile ? 'operator-link-mobile' : 'operator-link'}
+      onClick={onClick}
+      className={[
+        'items-center gap-2 text-[13px] font-medium text-espresso',
+        'transition-colors duration-fade ease-out hover:text-accent',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
+        mobile
+          ? 'flex w-full px-1 py-2'
+          : 'inline-flex min-h-9 border-l border-sand pl-3',
+      ].join(' ')}
+      style={{ fontFamily: 'var(--sans)' }}
+    >
+      <ConciergeBell className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+      <span>{NAV.OPERATOR}</span>
+      {/* Deliberately no "Optional" badge. The Observatory carries one because
+          it is an inspection surface nothing depends on; the operator desk is
+          a working surface, and labelling it optional would misdescribe it. */}
     </Link>
   )
 }
@@ -328,6 +360,40 @@ function PersonaDropdown() {
             }}
             style={{ transformOrigin: 'top right' }}
           >
+            {/* The active shopper's rung. Stated once, quietly: the
+                authoritative value lives on pellier.customers.membership and
+                is what policy reads. This is only the shopper's view of it. */}
+            {persona && (
+              <div
+                data-testid="persona-membership"
+                className="px-4 pt-2 pb-3 mb-1 border-b border-sand"
+              >
+                <div
+                  style={{
+                    fontFamily: 'var(--sans)',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--pellier-burgundy)',
+                  }}
+                >
+                  {MEMBERSHIP[persona.membership].label}
+                </div>
+                <div
+                  className="text-ink-soft"
+                  style={{
+                    fontFamily: 'var(--sans)',
+                    fontSize: 11,
+                    lineHeight: 1.4,
+                    marginTop: 3,
+                  }}
+                >
+                  {MEMBERSHIP[persona.membership].earns}
+                </div>
+              </div>
+            )}
+
             {!fetched && personas.length === 0 && (
               <div
                 className="px-4 py-2.5 text-ink-soft text-[12px]"
@@ -531,6 +597,10 @@ export default function Header({
             </div>
 
             <div className="hidden lg:block ml-1">
+              <OperatorLink />
+            </div>
+
+            <div className="hidden lg:block ml-1">
               <ObservatoryLink />
             </div>
 
@@ -593,6 +663,10 @@ export default function Header({
                 ))}
               </div>
               <div className="mt-3 border-t border-sand pt-3">
+                <OperatorLink
+                  mobile
+                  onClick={() => setMobileMenuOpen(false)}
+                />
                 <ObservatoryLink
                   mobile
                   onClick={() => setMobileMenuOpen(false)}

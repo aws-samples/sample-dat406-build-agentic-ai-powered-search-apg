@@ -8,7 +8,7 @@
 --    valid-looking requests could return three units of a one-unit order.
 --
 -- 2. Two stock representations could drift. A damaged return decrements
---    the aggregate `product_catalog.quantity`, while `floor_check` reads
+--    the aggregate `product_catalog.quantity`, while `check_inventory` reads
 --    per-warehouse `warehouse_inventory.quantity`. Nothing tied them
 --    together, so the number a shopper is told and the number an operator
 --    sees could disagree with no failing query anywhere.

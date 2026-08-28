@@ -512,7 +512,7 @@ const SessionsList: React.FC = () => {
         summary={
           showingPersonaJourney
             ? 'Sessions opens on the signed-in persona so participants follow one coherent Pellier story. Each turn mirrors the Pellier hero pill text and expected skill/tool trace; instructor view reveals all recorded replays.'
-            : 'Instructor view shows every recorded conversation across personas, captured and ready for inspection. Select a session to explore its chat thread, telemetry timeline, and curator brief.'
+            : 'Instructor view shows every recorded conversation across personas, captured and ready for inspection. Select a session to explore its chat thread, telemetry timeline, and personalization_agent brief.'
         }
       />
 

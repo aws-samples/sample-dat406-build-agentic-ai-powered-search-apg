@@ -75,9 +75,14 @@ log "✅ System packages installed"
 # ----------------------------------------------------------------------------
 # This step is intentionally NON-fatal: a NodeSource hiccup must not abort the
 # whole box (Pellier still works on Node 18; only the managed-Runtime deploy
-# needs 20). We retry NodeSource, and if Node 20 lands we pin it ahead of any
-# distro Node 18 via update-alternatives so downstream `node`/`npx` resolve to
-# 20 deterministically. The hard "is this actually 20?" guard lives at the
+# needs 20). We retry NodeSource and verify by the ACTUAL major version.
+# Removing the distro Node 18 stack first is what makes `node` resolve to 20:
+# erasing `nodejs` unregisters node-18 from the /usr/bin/node `alternatives`
+# group, which leaves Node 20 as the only candidate there. Both distro Node
+# packages register that group at the SAME priority (100), so while node-18 is
+# installed no amount of `update-alternatives --install` can outrank it - only
+# `--set` selects, and removal is what we rely on here.
+# The hard "is this actually 20?" guard lives at the
 # provisioning call site (bootstrap-labs STEP 16), where aborting just the
 # already-best-effort AgentCore step is the right blast radius. The health gate
 # surfaces an empty AGENTCORE_RUNTIME_ENDPOINT if 20 never arrived.
@@ -114,10 +119,7 @@ for attempt in 1 2; do
 done
 
 if [ "$_node20_ok" = true ]; then
-    # Pin this node ahead of anything else so `node`/`npx` resolve to 20.
-    _node_bin="$(command -v node 2>/dev/null || true)"
-    [ -n "$_node_bin" ] && update-alternatives --install /usr/bin/node node "$_node_bin" 100 >/dev/null 2>&1 || true
-    log "✅ Node.js installed and pinned: $(node --version 2>/dev/null)"
+    log "✅ Node.js installed: $(node --version 2>/dev/null) ($(readlink -f /usr/bin/node 2>/dev/null))"
 
     # TypeScript compiler (tsc), global. The @aws/agentcore CLI is itself a
     # TypeScript/Node tool, and its `deploy` build step shells out to `tsc`
@@ -724,7 +726,7 @@ cat << EOF
   START       Keep the lab guide open. Work primarily in this terminal and
               the Pellier storefront.
 
-  BUILD       Required path: wire floor_check in
+  BUILD       Required path: wire check_inventory in
               pellier/backend/services/agent_tools.py.
 
   MEASURE     Compare retrieval strategies for Anna's query.
@@ -734,7 +736,7 @@ cat << EOF
   OBSERVATORY Use Pellier Observatory only when a step names a specific verification
               or comparison view.
 
-  FILE        agent_tools.py is open. Find the floor_check WORKSHOP markers,
+  FILE        agent_tools.py is open. Find the check_inventory WORKSHOP markers,
               implement, save, then test in Pellier.
 
 EOF

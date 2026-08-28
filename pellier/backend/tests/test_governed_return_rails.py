@@ -1,6 +1,6 @@
 """Two rails for one write, and one denial that must not lie.
 
-`BusinessLogic.process_return` chooses its rail from `principal_sub`:
+`BusinessLogic.initiate_return` chooses its rail from `principal_sub`:
 
 * **None** — the ordinary connection, owned by the table owner, which
   bypasses Row-Level Security. This is the anonymous and simulated-persona
@@ -119,7 +119,7 @@ async def test_no_principal_uses_the_owner_rail():
     db = _Db(owner_result=_return_row(_SUCCESS))
     logic = BusinessLogic(db)
 
-    result = await logic.process_return("CUST-MARCO", 11, "damaged", "key-1")
+    result = await logic.initiate_return("CUST-MARCO", 11, "damaged", "key-1")
 
     assert result["status"] == "success"
     assert db.principal_sessions == [], "must not open a governed session"
@@ -131,7 +131,7 @@ async def test_verified_principal_uses_the_governed_rail():
     db = _Db(governed_script=[_return_row(_SUCCESS)])
     logic = BusinessLogic(db)
 
-    result = await logic.process_return(
+    result = await logic.initiate_return(
         "CUST-MARCO", 11, "damaged", "key-2", principal_sub="sub-marco"
     )
 
@@ -146,7 +146,7 @@ async def test_governed_rail_binds_the_subject_not_the_persona():
     db = _Db(governed_script=[_return_row(_SUCCESS)])
     logic = BusinessLogic(db)
 
-    await logic.process_return(
+    await logic.initiate_return(
         "CUST-ANNA", 21, "damaged", "key-3", principal_sub="sub-marco"
     )
 
@@ -171,7 +171,7 @@ async def test_out_of_scope_customer_is_reported_as_an_authorization_denial():
     )
     logic = BusinessLogic(db)
 
-    result = await logic.process_return(
+    result = await logic.initiate_return(
         "CUST-ANNA", 21, "damaged", "key-4", principal_sub="sub-marco"
     )
 
@@ -200,7 +200,7 @@ async def test_in_scope_customer_who_never_ordered_still_gets_the_truth():
     )
     logic = BusinessLogic(db)
 
-    result = await logic.process_return(
+    result = await logic.initiate_return(
         "CUST-MARCO", 39, "damaged", "key-5", principal_sub="sub-marco"
     )
 
@@ -215,7 +215,7 @@ async def test_scope_is_only_consulted_when_ownership_lookup_failed():
     db = _Db(governed_script=[_return_row(_SUCCESS)])
     logic = BusinessLogic(db)
 
-    await logic.process_return(
+    await logic.initiate_return(
         "CUST-MARCO", 11, "damaged", "key-6", principal_sub="sub-marco"
     )
 
@@ -230,7 +230,7 @@ async def test_scope_check_asks_about_the_requested_customer():
     db = _Db(governed_script=[_return_row(_NOT_ORDERED), {"in_scope": 0}])
     logic = BusinessLogic(db)
 
-    await logic.process_return(
+    await logic.initiate_return(
         "CUST-ANNA", 21, "damaged", "key-7", principal_sub="sub-marco"
     )
 
@@ -251,7 +251,7 @@ async def test_unrelated_errors_are_not_reclassified():
     )
     logic = BusinessLogic(db)
 
-    result = await logic.process_return(
+    result = await logic.initiate_return(
         "CUST-MARCO", 11, "damaged", "key-8", principal_sub="sub-marco"
     )
 
@@ -266,7 +266,7 @@ async def test_policy_blocked_reason_is_still_rejected_before_any_rail():
     db = _Db()
     logic = BusinessLogic(db)
 
-    result = await logic.process_return(
+    result = await logic.initiate_return(
         "CUST-MARCO", 11, "because", "key-9", principal_sub="sub-marco"
     )
 
@@ -308,7 +308,7 @@ def test_tool_reads_the_principal_from_the_turn_context(monkeypatch):
         def __init__(self, _db):
             pass
 
-        async def process_return(self, *args, **kwargs):
+        async def initiate_return(self, *args, **kwargs):
             captured["kwargs"] = kwargs
             return {"status": "success"}
 
@@ -321,7 +321,7 @@ def test_tool_reads_the_principal_from_the_turn_context(monkeypatch):
     token = principal_sub_var.set("sub-theo")
     try:
         _call_tool(
-            agent_tools.process_return,
+            agent_tools.initiate_return,
             customer_id="CUST-THEO", product_id=31, reason="damaged",
             idempotency_key="key-10",
         )
@@ -342,7 +342,7 @@ def test_anonymous_turn_passes_no_principal(monkeypatch):
         def __init__(self, _db):
             pass
 
-        async def process_return(self, *args, **kwargs):
+        async def initiate_return(self, *args, **kwargs):
             captured["kwargs"] = kwargs
             return {"status": "success"}
 
@@ -355,7 +355,7 @@ def test_anonymous_turn_passes_no_principal(monkeypatch):
     token = principal_sub_var.set(None)
     try:
         _call_tool(
-            agent_tools.process_return,
+            agent_tools.initiate_return,
             customer_id="CUST-THEO", product_id=31, reason="damaged",
             idempotency_key="key-11",
         )

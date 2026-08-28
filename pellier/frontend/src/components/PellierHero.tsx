@@ -65,22 +65,22 @@ const PERSONA_HEROES: Record<
 /**
  * Tools that make a turn a persona's *signature* turn.
  *
- * Most turns exercise retrieval (`find_pieces`, `style_match`), which every
+ * Most turns exercise retrieval (`search_products`, `get_related_products`), which every
  * persona shares. These tools are the ones that define a particular shopper's
  * journey and that the workshop is built around, so a persona owning one must
  * show it on sign-on:
  *
- *   process_return  the Cedar-gated governed write (Theo)
- *   floor_check     the system-of-record inventory read, and the Lab 1
+ *   initiate_return  the Cedar-gated governed write (Theo)
+ *   check_inventory     the system-of-record inventory read, and the Lab 1
  *                   exercise (Marco, `MARCO_BUILDER_SESSION_QUERY`)
- *   restock_shelf   the operator write
+ *   restock_inventory   the operator write
  *
  * Ordered by precedence, so a persona holding more than one leads with the
- * most consequential. `escalate_to_stylist` is deliberately absent: it is
+ * most consequential. `escalate_to_human` is deliberately absent: it is
  * Turn 5 for every persona, so treating it as a signature would replace a
  * shopping pill with a human handoff on every profile.
  */
-const SIGNATURE_TOOLS = ['process_return', 'floor_check', 'restock_shelf']
+const SIGNATURE_TOOLS = ['initiate_return', 'check_inventory', 'restock_inventory']
 
 /**
  * Which canonical turns appear as hero suggestions on sign-on.

@@ -357,6 +357,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     blurb: 'Brooklyn-based, partial to natural fibers. Last visit, three weeks ago. Bought the oat Maren tunic.',
     avatar_color: '#5a3528',
     avatar_initial: 'M',
+    membership: 'maison',
     stats: { visits: 11, orders: 7, last_seen_days: 21 },
   },
   {
@@ -366,6 +367,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     blurb: 'Buys for others - partner, mother, friends. Never for herself. Recent searches lean milestone.',
     avatar_color: '#6b3d2a',
     avatar_initial: 'A',
+    membership: 'circle',
     stats: { visits: 6, orders: 5, last_seen_days: 9 },
   },
   {
@@ -375,6 +377,7 @@ const FALLBACK_PERSONAS: PersonaListItem[] = [
     blurb: 'Keeps a short list of quiet pieces - ceramics, linen throws, stoneware. Finishes what he buys, slowly.',
     avatar_color: '#5a4535',
     avatar_initial: 'T',
+    membership: 'registered',
     stats: { visits: 8, orders: 4, last_seen_days: 14 },
   },
   // Fresh visitor removed — signed-out state IS the baseline.

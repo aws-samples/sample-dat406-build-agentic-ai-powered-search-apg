@@ -106,7 +106,7 @@ CREATE TRIGGER product_catalog_set_updated_at
 -- the backend SETs per query — see services/vector_search.py.
 --
 -- vector_cosine_ops matches the Cohere Embed v4 normalization we
--- use at query time (the `<=>` operator in find_pieces / hybrid_search).
+-- use at query time (the `<=>` operator in search_products / hybrid_search).
 --
 -- pgvector lets you build HNSW on an empty table — the index grows
 -- incrementally as inserts arrive, so the catalog seed inherits it

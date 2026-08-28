@@ -38,7 +38,7 @@ Design notes
   pool. The tests mock the DB so the suite runs offline and does not
   require the seeded catalog (per the task prompt).
 
-* **Default editorial order.** "Editorial order" is the curator-chosen
+* **Default editorial order.** "Editorial order" is the personalization_agent-chosen
   order the 9 showcase products appear in ``storefront.md``. The
   Pellier catalog encodes this via the ``tier`` column (1=featured,
   2=editorial, 3=extended) and we break ties by ``"productId"``
@@ -171,8 +171,8 @@ _PRODUCT_DETAIL_SELECT = """
     FROM pellier.product_catalog
 """
 
-# Per-warehouse on-hand counts. Same join ``BusinessLogic._floor_check_by_product``
-# uses, so the product page and the Stock Keeper tool read one source.
+# Per-warehouse on-hand counts. Same join ``BusinessLogic._check_inventory_by_product``
+# uses, so the product page and the Inventory Agent tool read one source.
 _WAREHOUSE_SELECT = """
     SELECT w.id           AS warehouse_id,
            w.display_name AS name,
@@ -187,7 +187,7 @@ _WAREHOUSE_SELECT = """
 """
 
 
-# The Pellier catalog still uses the curator-import taxonomy
+# The Pellier catalog still uses the personalization_agent-import taxonomy
 # ("Apparel", "Home Decor", "Beauty", "Gifts" — see
 # ``services/structured_extract.KNOWN_CATEGORIES``). The wire shape
 # uses the editorial Literal in ``models/search.StorefrontCategory``.
@@ -246,7 +246,7 @@ async def _fetch_editorial_catalog(
 ) -> List[StorefrontProduct]:
     """Return the full catalog in default editorial order.
 
-    Editorial order is the curator-chosen ``editorial_rank`` column when
+    Editorial order is the personalization_agent-chosen ``editorial_rank`` column when
     populated by ``catalog-enrichment``; otherwise it falls back to the
     stable ``"productId"`` order. Both paths yield a deterministic list
     so ``sort_personalized`` can preserve ties correctly.

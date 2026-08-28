@@ -4,13 +4,13 @@ Provides @tool decorated functions for agent use with live database access.
 
 Two retrieval entry points:
 
-  - ``find_pieces`` — Marco's foundation. Pure pgvector cosine
+  - ``search_products`` — Marco's foundation. Pure pgvector cosine
     similarity over the product catalog. It is the retrieval teaching surface.
 
-  - ``find_pieces_hybrid`` — Anna's anchor capability. Hybrid
+  - ``search_products_hybrid`` — Anna's anchor capability. Hybrid
     pgvector + Postgres FTS (tsvector + ts_rank_cd) with RRF merge, then Cohere Rerank v3.5
     on the top 30. This is the hybrid retrieval teaching surface; granted only to
-    the Curator agent (curator.py).
+    the Personalization Agent (personalization_agent.py).
 """
 from strands import tool
 import contextvars
@@ -232,17 +232,90 @@ def _managed_rail_required(tool_name: str) -> str | None:
     Returns a JSON error envelope when the tool may not run on this rail,
     or ``None`` when it may.
     """
+    from pellier_copy import GOVERNED_ACTION_NOT_PERFORMED
     from services.execution_rail import RAIL_GATEWAY_MCP, requires_managed_rail
 
     if not requires_managed_rail(tool_name):
         return None
     return json.dumps(
         {
+            # Machine fields unchanged: `is_boundary_refusal` matches on `error`, and
+            # the rail name is what makes the refusal diagnosable.
             "error": "managed_rail_required",
             "tool": tool_name,
             "required_rail": RAIL_GATEWAY_MCP,
+            # The DEFAULT sentence: true of every managed-rail refusal, and it promises
+            # nothing. It says only that the action was not performed here.
+            #
+            # It used to be `GOVERNED_REVIEW_PENDING` — "waiting for a Pellier
+            # specialist to confirm it" — attached to every refusal. Only
+            # `initiate_return` and `issue_credit` are in `REVIEWABLE_ACTIONS`, so a
+            # shopper asking to restock was told a person would confirm a review that
+            # was never created. `_review_pending_envelope` upgrades this message once a
+            # review demonstrably exists, and not before.
+            "message": GOVERNED_ACTION_NOT_PERFORMED,
         }
     )
+
+
+def _review_pending_envelope(refusal_envelope: str, review_id: int) -> str:
+    """Upgrade a refusal to the review-pending guarantee, given a real review id.
+
+    Called ONLY with an id `propose_review` returned, which means a row exists in
+    `pellier.approvals`. The guarantee is that a person will confirm before anything
+    changes; asserting it without a review is the same class of falsehood as narrating a
+    write that did not happen.
+    """
+    from pellier_copy import GOVERNED_REVIEW_PENDING
+
+    try:
+        envelope = json.loads(refusal_envelope)
+    except (ValueError, TypeError):  # pragma: no cover - the envelope is ours
+        return refusal_envelope
+    envelope["message"] = GOVERNED_REVIEW_PENDING
+    envelope["review_id"] = int(review_id)
+    return json.dumps(envelope)
+
+
+def _open_operator_review(
+    action: str, args: dict, refusal_envelope: str
+) -> int | None:
+    """Turn a governed-boundary refusal into a durable operator review.
+
+    Returns the review id when a row was created, and None otherwise. The caller uses
+    that to decide whether the shopper may be told a person will confirm: the sentence
+    is a governance guarantee, so it follows the row rather than the intention.
+
+    Never raises. A failure to open the review must not convert a clean refusal into an
+    error the shopper sees; the review service logs its own failures and the queue simply
+    does not gain a card. What changes is the message, not the outcome.
+
+    The reason code from the tool arguments carries the client's issue in plain
+    language, because an operator triaging a queue should not have to read an
+    enum, and the enum is already in the proposed parameters.
+    """
+    try:
+        from services import operator_review
+        from services.turn_identity import current_turn_id
+
+        reason = str(args.get("reason") or "other")
+        issue = {
+            "damaged": "arrived damaged",
+            "wrong_size": "wrong size",
+            "not_as_described": "not as described",
+            "changed_mind": "changed their mind",
+        }.get(reason, "reported an issue")
+
+        return operator_review.record_boundary_review(
+            action=action,
+            args=args,
+            result=refusal_envelope,
+            source_turn_id=current_turn_id(),
+            issue=issue,
+        )
+    except Exception as exc:  # noqa: BLE001 - never fail a refusal over a review
+        logger.warning("operator review handoff failed for %s: %s", action, exc)
+        return None
 
 
 def _infer_customer_id(customer_id: str = "", persona: str = "") -> str:
@@ -279,7 +352,7 @@ def _infer_customer_id(customer_id: str = "", persona: str = "") -> str:
 
 
 @tool
-def preference_snapshot(customer_id: str = "", persona: str = "", limit: int = 5) -> str:
+def get_customer_preferences(customer_id: str = "", persona: str = "", limit: int = 5) -> str:
     """Read a safe shopper preference snapshot from Aurora memory tables.
 
     Use when the shopper asks what Pellier remembers, why a recommendation
@@ -395,7 +468,7 @@ def preference_snapshot(customer_id: str = "", persona: str = "", limit: int = 5
         }
         return json.dumps(payload, indent=2, default=_json_default)
     except Exception as e:
-        logger.error("preference_snapshot error: %s", e)
+        logger.error("get_customer_preferences error: %s", e)
         return json.dumps({"error": str(e)})
 
 
@@ -417,7 +490,7 @@ def _result_summary(result):
 
 
 @tool
-def trace_receipt(
+def get_audit_trail(
     session_id: str = "",
     tool_name: str = "",
     caller: str = "",
@@ -436,7 +509,7 @@ def trace_receipt(
 
     Args:
         session_id: Optional exact session id to inspect.
-        tool_name: Optional tool name such as floor_check or process_return.
+        tool_name: Optional tool name such as check_inventory or initiate_return.
         caller: Optional caller rail: agent or gateway.
         limit: Maximum receipts to return.
     """
@@ -576,12 +649,12 @@ def trace_receipt(
             "sources": ["pellier.tool_audit", "pellier.governed_receipts"],
         }, indent=2, default=_json_default)
     except Exception as e:
-        logger.error("trace_receipt error: %s", e)
+        logger.error("get_audit_trail error: %s", e)
         return json.dumps({"error": str(e)})
 
 
 @tool
-def floor_check(product_query: str = "") -> str:
+def check_inventory(product_query: str = "") -> str:
     """Inventory check across the catalog and three warehouses (BK-01 Brooklyn, ATX-02 Austin, PDX-01 Portland).
 
     PASS product_query whenever the customer mentions a specific product
@@ -590,7 +663,7 @@ def floor_check(product_query: str = "") -> str:
     The tool fuzzy-matches the name and returns per-warehouse stock
     counts plus ship windows. Examples:
 
-      floor_check(product_query="Hadley shirt")
+      check_inventory(product_query="Hadley shirt")
         → {status: success, product: {...}, warehouses: [{warehouse_id: BK-01, quantity: 8, ship_window_min: 1, ...}, ...]}
 
     Call WITHOUT arguments only when the customer asks for an overall
@@ -601,10 +674,10 @@ def floor_check(product_query: str = "") -> str:
         product_query: Product name (or partial name) to check stock
             for. Empty string falls back to the aggregate summary mode.
     """
-    # === WORKSHOP · Stock Keeper · floor_check: START ===
+    # === WORKSHOP · Inventory Agent · check_inventory: START ===
     # WORKSHOP_EXERCISE_STUB
     #
-    # Wire this tool to BusinessLogic.floor_check() so Stock Keeper
+    # Wire this tool to BusinessLogic.check_inventory() so Inventory Agent
     # can answer Marco's Turn 4: "Is the Hadley shirt at the
     # Brooklyn warehouse?" (Hadley · Pellier Linen Shirt in ecru.)
     #
@@ -612,14 +685,14 @@ def floor_check(product_query: str = "") -> str:
     #   1. Guard on _db_service being initialized (return a JSON error
     #      if not).
     #   2. Import BusinessLogic from services.business_logic.
-    #   3. Normalize product_query and pass it to logic.floor_check()
+    #   3. Normalize product_query and pass it to logic.check_inventory()
     #      via _run_async() — it's an async method.
     #   4. Return the result as a JSON string (use json.dumps with
     #      indent=2).
     #   5. Catch exceptions and return a JSON error envelope.
     #
     # Verify (live, the real check):
-    #   Click Marco's Turn 4 pill in Pellier — Stock Keeper answers
+    #   Click Marco's Turn 4 pill in Pellier — Inventory Agent answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
     #   Observatory Tools strip flip from 14/15 to 15/15 shipped.
     #
@@ -628,14 +701,14 @@ def floor_check(product_query: str = "") -> str:
     # PASSES while stubbed and SKIPS once you wire it. Don't use it to
     # verify your edit.
     return json.dumps({
-        "error": "floor_check is in stub state",
+        "error": "check_inventory is in stub state",
         "hint": "Implement the tool body or run the cp command.",
         "received_product_query": product_query,
     })
-    # === WORKSHOP · Stock Keeper · floor_check: END ===
+    # === WORKSHOP · Inventory Agent · check_inventory: END ===
 
 @tool
-def whats_trending(limit: int = 5, category: str = None) -> str:
+def get_trending_products(limit: int = 5, category: str = None) -> str:
     """Get the most popular and trending products, optionally filtered by category. Use when customers ask about bestsellers, what's hot, or popular items.
 
     Args:
@@ -652,13 +725,13 @@ def whats_trending(limit: int = 5, category: str = None) -> str:
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
-        result = _run_async(logic.whats_trending(limit, category))
+        result = _run_async(logic.get_trending_products(limit, category))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 @tool
-def price_intelligence(category: str = None) -> str:
+def get_price_analysis(category: str = None) -> str:
     """Get pricing statistics and price distribution analysis for a product category. Use for price comparisons, budget analysis, or average price questions."""
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
@@ -666,13 +739,13 @@ def price_intelligence(category: str = None) -> str:
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
-        result = _run_async(logic.price_intelligence(category))
+        result = _run_async(logic.get_price_analysis(category))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 @tool
-def restock_shelf(
+def restock_inventory(
     product_id: int,
     quantity: int,
     idempotency_key: str,
@@ -687,7 +760,7 @@ def restock_shelf(
         warehouse_id: Warehouse receiving stock; defaults to BK-01.
 
     """
-    governed_error = _managed_rail_required("restock_shelf")
+    governed_error = _managed_rail_required("restock_inventory")
     if governed_error:
         return governed_error
     if not _db_service:
@@ -695,7 +768,7 @@ def restock_shelf(
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
-        result = _run_async(logic.restock_shelf(
+        result = _run_async(logic.restock_inventory(
             product_id,
             quantity,
             idempotency_key,
@@ -707,13 +780,13 @@ def restock_shelf(
 
 
 @tool
-def process_return(
+def initiate_return(
     customer_id: str,
     product_id: int,
     reason: str,
     idempotency_key: str,
 ) -> str:
-    """Process a customer return. Theo's Experience Guide uses this.
+    """Process a customer return. Theo's Customer Service Agent uses this.
 
     Two enforcement layers:
       - On the managed Gateway rail, AgentCore Policy can gate the call
@@ -738,8 +811,34 @@ def process_return(
             the managed Gateway policy can narrow which calls execute.
         idempotency_key: Stable unique key for this intended return.
     """
-    governed_error = _managed_rail_required("process_return")
+    governed_error = _managed_rail_required("initiate_return")
     if governed_error:
+        # The boundary held. Hand the prepared request to a human so it survives
+        # the shopper closing the tab.
+        #
+        # This lives here rather than in a tool-lifecycle hook because the hooks
+        # are attached to the outer orchestrator, and on the Agents-as-Tools path
+        # a specialist's inner tool calls never reach them — the review would
+        # simply never open on POST /api/chat. The refusal branch is the one place
+        # that runs on every rail and every path, with the exact arguments.
+        #
+        # It writes workflow state only, through its own pool reference, and only
+        # after the guard has already decided to refuse. No business table is
+        # touched, which is the guarantee `test_shopper_arc_prompt2` protects.
+        review_id = _open_operator_review(
+            "initiate_return",
+            {
+                "customer_id": _infer_customer_id(customer_id),
+                "product_id": product_id,
+                "reason": reason,
+            },
+            governed_error,
+        )
+        # The guarantee follows the row. With a review id the shopper is told a person
+        # will confirm before anything changes; without one they are told only that the
+        # action was not performed here, which is still true.
+        if review_id is not None:
+            return _review_pending_envelope(governed_error, review_id)
         return governed_error
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
@@ -753,7 +852,7 @@ def process_return(
         # decides which customer's rows may change. Anonymous and
         # simulated-persona turns keep the owner rail, where the only gate is
         # the customer_id argument the caller supplied.
-        result = _run_async(logic.process_return(
+        result = _run_async(logic.initiate_return(
             customer_id,
             product_id,
             reason,
@@ -844,13 +943,13 @@ def query_business_records(question: str) -> str:
         return json.dumps(payload, indent=2, default=str)
     except Exception as e:
         return json.dumps({"error": str(e)})
-# === ESCAPE HATCH — escalate_to_stylist =====================================
+# === ESCAPE HATCH — escalate_to_human =====================================
 #
 # Honest "when the agent shouldn't try to answer" tool. The agent calls
 # this when the ask is outside what it can reasonably handle: nuanced
 # personal advice (wedding-guest dressing for an unfamiliar culture,
 # body-image or pregnancy questions), out-of-policy returns the
-# Experience Guide can't process, or catalog misses where the shopper
+# Customer Service Agent can't process, or catalog misses where the shopper
 # deserves a real person rather than another search.
 #
 # The "stylist" is a placeholder for whatever human escalation channel
@@ -860,7 +959,7 @@ def query_business_records(question: str) -> str:
 # other end for the workshop. The workshop teaches this as the
 # escape hatch every agent needs but most demos skip.
 @tool
-def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
+def escalate_to_human(reason: str, customer_id: str = "") -> str:
     """Hand the conversation off to a human stylist when the agent shouldn't try to answer.
 
     Use this tool when:
@@ -869,12 +968,12 @@ def escalate_to_stylist(reason: str, customer_id: str = "") -> str:
         pregnancy fit, personal style coaching beyond the catalog).
       - The shopper escalates a return the policy won't cover
         (damaged-in-transit past the window, special-order pieces,
-        sentimental exceptions Experience Guide can't process).
+        sentimental exceptions Customer Service Agent can't process).
       - The catalog cannot match the ask and the shopper deserves a
         real person rather than another search.
 
     Do NOT use this tool when a different tool can answer (search the
-    catalog first; check policy first). Calling escalate_to_stylist
+    catalog first; check policy first). Calling escalate_to_human
     is an honest fallback, not a way to skip the work.
 
     Args:
@@ -955,7 +1054,7 @@ def _detect_category(query: str) -> str | None:
     return None
 
 @tool
-def find_pieces(
+def search_products(
     query: str,
     max_price: float = None,
     min_rating: float = 0.0,
@@ -1060,14 +1159,14 @@ def find_pieces(
 
 
 @tool
-def find_pieces_hybrid(
+def search_products_hybrid(
     query: str,
     max_price: float = None,
     min_rating: float = 0.0,
     category: str = None,
     limit: int = 5,
 ) -> str:
-    """Hybrid pgvector + Postgres FTS + Cohere Rerank v3.5. Anna's Curator uses this.
+    """Hybrid pgvector + Postgres FTS + Cohere Rerank v3.5. Anna's Personalization Agent uses this.
 
     Three-stage retrieval:
       1. Vector branch (pgvector cosine) and FTS branch (tsvector
@@ -1090,7 +1189,7 @@ def find_pieces_hybrid(
         min_rating: Minimum star rating (default: 0.0, applied post-rerank)
         category: Category filter (optional — only applied as a hard
             filter when the agent passes it explicitly, mirroring
-            find_pieces' behavior)
+            search_products' behavior)
         limit: Number of final results (default: 5)
     """
     if not _db_service:
@@ -1102,7 +1201,7 @@ def find_pieces_hybrid(
         from services.rerank import get_rerank_service
         from services.search_plan import build_plan
 
-        # Same explicit-vs-auto category guard as find_pieces. Anna's
+        # Same explicit-vs-auto category guard as search_products. Anna's
         # auto-detected categories ("linen" → "Linen") still don't match
         # the catalog's higher-level taxonomy ("Apparel"); only filter
         # when the agent supplies an explicit category.
@@ -1184,7 +1283,7 @@ def find_pieces_hybrid(
 
         ordered, merchandising_applied = _apply_merchandising_rules(query, ordered)
 
-        # Normalize field shapes to match find_pieces output.
+        # Normalize field shapes to match search_products output.
         normalized = []
         for p in ordered:
             reviews_raw = p.get("reviews")
@@ -1267,7 +1366,7 @@ def find_pieces_hybrid(
 
 
 @tool
-def explore_collection(
+def browse_category(
     category: str,
     min_rating: float = 0.0,
     max_price: float = None,
@@ -1295,7 +1394,7 @@ def explore_collection(
         return json.dumps({"error": str(e)})
 
 @tool
-def running_low(limit: int = 5) -> str:
+def get_low_stock(limit: int = 5) -> str:
     """Get products that are running low on stock, prioritized by demand. Use to identify items that need restocking soon.
 
     Args:
@@ -1307,14 +1406,14 @@ def running_low(limit: int = 5) -> str:
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(_db_service)
-        result = _run_async(logic.running_low(limit))
+        result = _run_async(logic.get_low_stock(limit))
         return json.dumps(result, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e)})
 
 
 @tool
-def side_by_side(product_id_1: int, product_id_2: int) -> str:
+def compare_products(product_id_1: int, product_id_2: int) -> str:
     """Compare two products side by side by their product IDs. Use when customers want to see differences in price, rating, and features.
 
     Args:
@@ -1385,7 +1484,7 @@ def side_by_side(product_id_1: int, product_id_2: int) -> str:
 # === RETURN POLICY TOOL (backed by pellier.return_policies table) ===
 
 @tool
-def returns_and_care(category: str = "default") -> str:
+def get_return_policy(category: str = "default") -> str:
     """Look up the return and refund policy for a specific product category. Use when customers ask about returns, refunds, warranties, or return windows.
 
     Args:
@@ -1422,7 +1521,7 @@ def returns_and_care(category: str = "default") -> str:
 
 
 @tool
-def style_match(product_id: int, limit: int = 5) -> str:
+def get_related_products(product_id: int, limit: int = 5) -> str:
     """Find complementary pieces that pair well with a given product.
 
     Uses pgvector cosine similarity to find products whose embeddings
@@ -1519,5 +1618,84 @@ def style_match(product_id: int, limit: int = 5) -> str:
         }
         return json.dumps(payload)
     except Exception as e:
-        logger.error(f"style_match error: {e}")
+        logger.error(f"get_related_products error: {e}")
+        return json.dumps({"error": str(e)})
+
+
+@tool
+def issue_credit(
+    customer_id: str,
+    amount_cents: int,
+    reason: str,
+    idempotency_key: str,
+) -> str:
+    """Issue a goodwill store credit to a customer, up to $500.00. Use for service recovery when a client was let down and a refund is not the right remedy.
+
+    Args:
+        customer_id: Customer receiving the credit, e.g. CUST-JESSICA.
+        amount_cents: Credit amount in integer cents. 2500 means $25.00.
+        reason: Why the credit is being issued. Required, and audited.
+        idempotency_key: Stable unique key for this intended write.
+
+    """
+    governed_error = _managed_rail_required("issue_credit")
+    if governed_error:
+        # Same handoff as initiate_return. No shopper-facing specialist holds
+        # this grant today, so in practice this fires only if one ever does -
+        # and if it does, the credit becomes a human decision rather than a
+        # silent refusal the shopper never hears about again.
+        review_id = _open_operator_review(
+            "issue_credit",
+            {
+                "customer_id": _infer_customer_id(customer_id),
+                "amount_cents": amount_cents,
+                "reason": reason,
+            },
+            governed_error,
+        )
+        if review_id is not None:
+            return _review_pending_envelope(governed_error, review_id)
+        return governed_error
+    if not _db_service:
+        return json.dumps({"error": "Database service not initialized"})
+    try:
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(_db_service)
+        # issued_by is deliberately None on this path. A tool invocation has
+        # no verified token to read, and inventing an attribution the agent
+        # supplied would be worse than recording none. The operator console
+        # calls BusinessLogic.issue_credit directly through
+        # routes/operator.py, where require_operator has already produced a
+        # verified `sub` to attribute the credit to.
+        result = _run_async(logic.issue_credit(
+            customer_id,
+            amount_cents,
+            reason,
+            idempotency_key,
+            None,
+        ))
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"issue_credit error: {e}")
+        return json.dumps({"error": str(e)})
+
+
+@tool
+def get_ticket_history(customer_id: str, limit: int = 5) -> str:
+    """Read a customer's past support tickets. Use for context before answering a service question, so the client is not asked to repeat what already happened.
+
+    Args:
+        customer_id: Customer whose tickets to read, e.g. CUST-RACHEL.
+        limit: Maximum tickets to return, newest first.
+
+    """
+    if not _db_service:
+        return json.dumps({"error": "Database service not initialized"})
+    try:
+        from services.business_logic import BusinessLogic
+        logic = BusinessLogic(_db_service)
+        result = _run_async(logic.get_ticket_history(customer_id, limit))
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"get_ticket_history error: {e}")
         return json.dumps({"error": str(e)})

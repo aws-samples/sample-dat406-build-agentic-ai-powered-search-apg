@@ -3,7 +3,7 @@
  *
  * WorkshopProgressStrip: one segment per tool; shipped vs exercise from
  * build state (`/api/observatory/build-state`) with live overlay when
- * `floor_check` is wired — matches the workshop required path.
+ * `check_inventory` is wired — matches the workshop required path.
  *
  * Shipped tools: solid borders, sage status.
  * Exercise tools: dashed borders, burgundy status.
@@ -593,7 +593,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
 
         {/* Status: dot + pill + (optional) WRITE badge.
             The burgundy WRITE pill marks tools that mutate Aurora
-            state — restock_shelf and process_return today. Read tools
+            state — restock_inventory and initiate_return today. Read tools
             render no badge (the absence is the badge). Pattern matches
             the Shipped pill on Performance.tsx exactly: same Eyebrow
             shape, uppercase letterspacing, but var(--obs-red-1) bg. */}
@@ -1293,7 +1293,7 @@ const Tools: React.FC = () => {
         backToReferences
         eyebrow="Understand · Tools · five agents · fifteen functions"
         title="The toolkit, by owner and action."
-        summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; floor_check is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."
+        summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; check_inventory is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."
       />
 
       {/* One interaction grammar on every required lab destination:
@@ -1311,16 +1311,17 @@ const Tools: React.FC = () => {
           }
           try={
             <>
-              Ask Marco&rsquo;s Turn 4 in Pellier: &ldquo;Is the Hadley
-              shirt at the Brooklyn warehouse?&rdquo; A stubbed tool answers
-              with an error envelope instead of a BK-01 quantity.
+              Ask Marco&rsquo;s Turn 4 in Pellier: &ldquo;Is the Hadley shirt
+              at the Brooklyn warehouse, and can it still ship in time?&rdquo; A
+              stubbed tool answers with an error envelope instead of a BK-01
+              quantity and ship window.
             </>
           }
           build={
             <>
-              Wire <code>floor_check</code> in{' '}
+              Wire <code>check_inventory</code> in{' '}
               <code>pellier/backend/services/agent_tools.py</code>, between the{' '}
-              <code>WORKSHOP · Stock Keeper · floor_check</code> START and END
+              <code>WORKSHOP · Inventory Agent · check_inventory</code> START and END
               markers. Nothing outside those markers changes.
             </>
           }

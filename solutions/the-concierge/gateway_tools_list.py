@@ -52,7 +52,7 @@ def _pick_readonly_tool(tool_names: list[str]) -> Optional[tuple[str, dict]]:
     """Choose ONE safe read-only Gateway tool from the live list, by pattern.
 
     Gateway tools are exposed under their target-name prefix (e.g.
-    ``pellier-discovery-search-target__find_pieces``). We prefer a
+    ``pellier-discovery-search-target__search_products``). We prefer a
     read-oriented discovery/search/inventory tool and supply minimal arguments.
     Names drift, so match on substrings, never a hardcoded identifier. Returns
     (tool_name, arguments) or None.
@@ -61,12 +61,12 @@ def _pick_readonly_tool(tool_names: list[str]) -> Optional[tuple[str, dict]]:
 
     # Prefer an obviously read-only search/find with a simple query arg.
     for key, real in lowered.items():
-        if "find_pieces" in key or key.endswith("__search"):
+        if "search_products" in key or key.endswith("__search"):
             return real, {"query": "linen shirt"}
 
     # Next: an inventory/health read that often needs no args.
     for key, real in lowered.items():
-        if "floor_check" in key or "running_low" in key or "trending" in key:
+        if "check_inventory" in key or "get_low_stock" in key or "trending" in key:
             return real, {}
 
     return None

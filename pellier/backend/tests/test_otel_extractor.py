@@ -138,7 +138,7 @@ def stubbed_specialists(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]
     """Replace each specialist @tool's wrapped callable with a closure
     that emits an ``execute_tool {specialist}`` span containing a
     nested ``invoke_agent {specialist}`` span (Strands' real shape)
-    and a child ``execute_tool find_pieces`` span so the extractor
+    and a child ``execute_tool search_products`` span so the extractor
     sees a full orchestrator → specialist → tool trace.
     """
     import agents.orchestrator as orch
@@ -163,18 +163,18 @@ def stubbed_specialists(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]
                 tspan.set_attribute("gen_ai.tool.call.id", f"call-{name}")
                 # Nested invoke_agent span — the specialist internally
                 # constructs its own Strands Agent (see
-                # curator.py).
+                # personalization_agent.py).
                 with tracer.start_as_current_span(
                     f"invoke_agent {name}"
                 ) as aspan:
                     aspan.set_attribute("gen_ai.agent.name", name)
                     # Leaf tool call — the specialist calls one of its
-                    # own tools (e.g. find_pieces, side_by_side).
+                    # own tools (e.g. search_products, compare_products).
                     with tracer.start_as_current_span(
-                        "execute_tool find_pieces"
+                        "execute_tool search_products"
                     ) as leaf:
                         leaf.set_attribute(
-                            "gen_ai.tool.name", "find_pieces"
+                            "gen_ai.tool.name", "search_products"
                         )
                         leaf.set_attribute(
                             "gen_ai.tool.call.id", "call-search-products"
@@ -333,9 +333,9 @@ def test_extract_trace_span_kind_classification(
         ) as specialist:
             specialist.set_attribute("gen_ai.tool.name", "search")
             with tracer.start_as_current_span(
-                "execute_tool whats_trending"
+                "execute_tool get_trending_products"
             ) as tool:
-                tool.set_attribute("gen_ai.tool.name", "whats_trending")
+                tool.set_attribute("gen_ai.tool.name", "get_trending_products")
 
     trace = extract_trace()
 
@@ -345,7 +345,7 @@ def test_extract_trace_span_kind_classification(
 
     assert kinds["orchestrator"] == "orchestrator"
     assert kinds["search"] == "specialist"
-    assert kinds["whats_trending"] == "tool"
+    assert kinds["get_trending_products"] == "tool"
     assert trace["specialistRoute"] == "search"
 
 
@@ -411,8 +411,8 @@ def _emit_session_trace(session_id: str, specialist: str) -> None:
         root.set_attribute("session.id", session_id)
         with tracer.start_as_current_span(f"execute_tool {specialist}") as span:
             span.set_attribute("gen_ai.tool.name", specialist)
-            with tracer.start_as_current_span("execute_tool find_pieces") as leaf:
-                leaf.set_attribute("gen_ai.tool.name", "find_pieces")
+            with tracer.start_as_current_span("execute_tool search_products") as leaf:
+                leaf.set_attribute("gen_ai.tool.name", "search_products")
 
 
 def test_agent_execution_filters_by_session_and_keeps_trace_children(

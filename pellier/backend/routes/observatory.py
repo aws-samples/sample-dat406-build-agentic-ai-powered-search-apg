@@ -40,6 +40,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+# Aliased: `Path` in this module is `pathlib.Path`, used for filesystem
+# reads. Importing FastAPI's under the same name shadowed it and every
+# `Path(__file__)` became a path-parameter declaration.
+from fastapi import Path as PathParam
 from pydantic import BaseModel, Field
 from services.auth import require_operator
 
@@ -161,28 +165,28 @@ def _tool_discovery_status(tool_name: str) -> str:
     return _fixture_tool_status_map().get(tool_name, "shipped")
 
 
-def _floor_check_is_workshop_stub() -> bool:
-    """True when the live ``floor_check`` body still returns the starter stub."""
+def _check_inventory_is_workshop_stub() -> bool:
+    """True when the live ``check_inventory`` body still returns the starter stub."""
     try:
         import inspect
         from services import agent_tools
 
-        src = inspect.getsource(agent_tools.floor_check)
+        src = inspect.getsource(agent_tools.check_inventory)
     except Exception:
         return True
-    if "floor_check is in stub state" in src:
+    if "check_inventory is in stub state" in src:
         return True
     if "received_product_query" in src:
         return True
     return False
 
 
-def _stock_keeper_definition_is_workshop_stub() -> bool:
-    """True when the Stock Keeper definition still carries the starter stub."""
+def _inventory_agent_definition_is_workshop_stub() -> bool:
+    """True when the Inventory Agent definition still carries the starter stub."""
     try:
-        from agents import stock_keeper
+        from agents import inventory_agent
 
-        return bool(getattr(stock_keeper, "_INVENTORY_AGENT_STUBBED", False))
+        return bool(getattr(inventory_agent, "_INVENTORY_AGENT_STUBBED", False))
     except Exception:
         return True
 
@@ -479,6 +483,60 @@ async def _collect_readiness() -> dict[str, Any]:
             return "pass"
         return "fail" if governed_format else "warn"
 
+    # The flag that GRADES every other governed check has to be checked itself.
+    #
+    # Found live on 2026-08-27: `WORKSHOP_FORMAT` absent from a backend `.env` made
+    # `Settings` default to `builders`, `requires_managed_rail()` returned False, and a
+    # real shopper turn executed `initiate_return` in process — no human review, no
+    # Cedar verdict, no `tool_audit` receipt. Readiness reported nothing, because it
+    # trusted the flag and merely downgraded the other checks from `fail` to `warn`.
+    #
+    # The deployment SHAPE is detectable independently of the flag: a governed box has
+    # a Gateway and a policy engine configured. When those are present and the format
+    # is not governed, that is a misconfiguration, not a supported local mode.
+    from services.execution_rail import requires_managed_rail
+
+    managed_required = requires_managed_rail("initiate_return")
+    governed_shaped = bool(
+        str(getattr(settings, "AGENTCORE_GATEWAY_ARN", "") or "").strip()
+        and str(getattr(settings, "AGENTCORE_POLICY_ENGINE_ID", "") or "").strip()
+    )
+    effective_format = str(settings.WORKSHOP_FORMAT or "<unset>")
+    if governed_format and managed_required:
+        rail_state = "pass"
+        rail_detail = (
+            f"WORKSHOP_FORMAT={effective_format}. Governed writes are managed-rail "
+            "only: initiate_return, issue_credit and restock_inventory cannot run in "
+            "process."
+        )
+    elif governed_format and not managed_required:
+        rail_state = "fail"
+        rail_detail = (
+            f"WORKSHOP_FORMAT={effective_format} but requires_managed_rail() is False. "
+            "Configuration and code disagree; governed writes would run unguarded."
+        )
+    elif governed_shaped:
+        rail_state = "fail"
+        rail_detail = (
+            f"WORKSHOP_FORMAT={effective_format}, but this deployment has a Gateway "
+            "and a policy engine configured. Governed writes would execute in process "
+            "with no human review, no AgentCore Policy verdict and no tool_audit "
+            "receipt. Set WORKSHOP_FORMAT=governed."
+        )
+    else:
+        rail_state = "warn"
+        rail_detail = (
+            f"WORKSHOP_FORMAT={effective_format}. In-process writes are the supported "
+            "behaviour for this lineage; the managed rail is not required."
+        )
+    checks.append(_readiness_check(
+        check_id="managed_rail",
+        label="Managed write rail",
+        state=rail_state,
+        detail=rail_detail,
+        required=governed_format or governed_shaped,
+    ))
+
     if counts is None:
         checks.append(_readiness_check(
             check_id="aurora",
@@ -599,6 +657,19 @@ async def _collect_readiness() -> dict[str, Any]:
         href="/observatory/settings",
     ))
 
+    # The evidence substrate. Added after a live run found the Observatory unable to
+    # reconstruct a single operator-rail execution, and the cluster still carrying a
+    # database object under a name the contract retired. Both were invisible to
+    # readiness, so both shipped.
+    substrate = await _evidence_substrate_state()
+    checks.append(_readiness_check(
+        check_id="evidence_substrate",
+        label="Evidence substrate",
+        state=substrate["state"],
+        detail=substrate["detail"],
+        href="/observatory/proof-board",
+    ))
+
     blocking = [c for c in checks if c["required"] and c["state"] == "fail"]
     warnings = [c for c in checks if c["state"] == "warn"]
     status = "ready" if not blocking and not warnings else "attention"
@@ -610,6 +681,75 @@ async def _collect_readiness() -> dict[str, Any]:
         "checks": checks,
         "counts": counts or {},
         "models": model_ids,
+    }
+
+
+async def _evidence_substrate_state() -> dict[str, str]:
+    """Whether the tables an evidence reconstruction depends on are present and canonical.
+
+    Four conditions, and each one shipped broken at least once:
+
+      * `pellier.execution_receipts` — without it a Cedar DENY is provable only from an
+        HTTP response body, and the ReviewRecord reports `policy: PENDING` for an action
+        that was refused.
+      * `pellier.operator_episodes` with its outcome index — without migration 026's
+        index the writer raises a duplicate-key error on 024's index and the best-effort
+        handler swallows it, so executions succeed and remember nothing.
+      * `pellier.observatory_spans` present — the canonical span table.
+      * `pellier.agent_trace_spans` ABSENT — the repository contract retires that name
+        for every database object, and this cluster carried it for weeks.
+
+    An unreadable database is `warn`, not `fail`: a local clone with no cluster is a
+    legitimate state, and reporting it as a release blocker trains people to ignore the
+    panel.
+    """
+    try:
+        from app import db_service
+        if db_service is None:
+            return {"state": "warn",
+                    "detail": "No database connection, so the evidence tables could not be checked."}  # copy-allow: observatory-readiness-detail
+        rows = await db_service.fetch_all(
+            """
+            SELECT table_name FROM information_schema.tables
+             WHERE table_schema = 'pellier'
+               AND table_name IN ('execution_receipts', 'operator_episodes',
+                                  'observatory_spans', 'agent_trace_spans')
+            """
+        )
+        present = {str(r["table_name"]) for r in (rows or [])}
+        index_rows = await db_service.fetch_all(
+            """
+            SELECT indexname FROM pg_indexes
+             WHERE schemaname = 'pellier'
+               AND indexname = 'operator_episodes_outcome_idx'
+            """
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.info("evidence substrate check unavailable: %s", exc)
+        return {"state": "warn",
+                "detail": "The evidence tables could not be read."}  # copy-allow: observatory-readiness-detail
+
+    problems: list[str] = []
+    for table in ("execution_receipts", "operator_episodes", "observatory_spans"):
+        if table not in present:
+            problems.append(f"pellier.{table} is missing")
+    if "agent_trace_spans" in present:
+        problems.append(
+            "pellier.agent_trace_spans still exists; run migration 027"
+        )
+    if "operator_episodes" in present and not index_rows:
+        problems.append(
+            "operator_episodes_outcome_idx is missing; run migration 026, or every "
+            "governed execution will fail to record its episode"
+        )
+    if problems:
+        return {"state": "fail", "detail": ". ".join(problems) + "."}
+    return {
+        "state": "pass",
+        "detail": (
+            "Execution receipts, episodic memory and the canonical span table are "  # copy-allow: observatory-readiness-detail
+            "present, and the retired trace object is gone."
+        ),
     }
 
 
@@ -631,12 +771,12 @@ async def _collect_proof_board(
     readiness = await _collect_readiness()
     counts = readiness.get("counts") or {}
     governed_format = str(settings.WORKSHOP_FORMAT).lower() == "governed"
-    floor_check_wired = not _floor_check_is_workshop_stub()
-    latest_floor_check = await _latest_audit_row(
-        principal_sub=principal_sub, tool="floor_check"
+    check_inventory_wired = not _check_inventory_is_workshop_stub()
+    latest_check_inventory = await _latest_audit_row(
+        principal_sub=principal_sub, tool="check_inventory"
     )
-    latest_process_return = await _latest_audit_row(
-        principal_sub=principal_sub, tool="process_return"
+    latest_initiate_return = await _latest_audit_row(
+        principal_sub=principal_sub, tool="initiate_return"
     )
     latest_audit = await _latest_audit_row(principal_sub=principal_sub)
     latest_gateway = await _latest_audit_row(
@@ -722,19 +862,19 @@ async def _collect_proof_board(
             "id": "marco-floor-check",
             "lab": "Lab 1: Ground Answers in Live Data",
             "group": "Agent and tool evidence",
-            "title": "Wire Marco to floor_check",
-            "status": _card_status(floor_check_wired and bool(latest_floor_check), "needs_run" if floor_check_wired else "needs_build"),
+            "title": "Wire Marco to check_inventory",
+            "status": _card_status(check_inventory_wired and bool(latest_check_inventory), "needs_run" if check_inventory_wired else "needs_build"),
             "required": True,
             "surface": "Code Editor + Pellier",
-            "summary": "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
-            "evidenceSource": "services.agent_tools.floor_check + pellier.tool_audit",
-            "lastUpdated": latest_floor_check.get("created_at") if latest_floor_check else None,
+            "summary": "The Inventory Agent tool is wired and Marco's warehouse turn leaves a check_inventory audit row.",
+            "evidenceSource": "services.agent_tools.check_inventory + pellier.tool_audit",
+            "lastUpdated": latest_check_inventory.get("created_at") if latest_check_inventory else None,
             "evidence": [
-                "floor_check source no longer returns the workshop stub" if floor_check_wired else "floor_check still looks like the workshop stub",
+                "check_inventory source no longer returns the workshop stub" if check_inventory_wired else "check_inventory still looks like the workshop stub",
                 (
-                    f"Latest floor_check row: audit_id {latest_floor_check.get('audit_id')}"
-                    if latest_floor_check
-                    else "No floor_check row found yet"
+                    f"Latest check_inventory row: audit_id {latest_check_inventory.get('audit_id')}"
+                    if latest_check_inventory
+                    else "No check_inventory row found yet"
                 ),
             ],
             "fallback": {
@@ -788,8 +928,8 @@ async def _collect_proof_board(
             "title": "Prove the tool_audit ledger",
             "status": (
                 "complete"
-                if latest_process_return and latest_governed
-                else "needs_run" if not latest_process_return
+                if latest_initiate_return and latest_governed
+                else "needs_run" if not latest_initiate_return
                 else "needs_data"
             ),
             "required": True,
@@ -797,15 +937,15 @@ async def _collect_proof_board(
             "summary": "Theo's executed return and the seeded principal-versus-customer mismatch are reconstructible without depending on a UI panel.",
             "evidenceSource": "pellier.tool_audit + pellier.governed_receipts",
             "lastUpdated": (
-                latest_process_return.get("created_at")
-                if latest_process_return
+                latest_initiate_return.get("created_at")
+                if latest_initiate_return
                 else latest_audit.get("created_at") if latest_audit else None
             ),
             "evidence": [
                 (
-                    f"Latest process_return row: audit_id {latest_process_return.get('audit_id')}"
-                    if latest_process_return
-                    else "No process_return row found yet"
+                    f"Latest initiate_return row: audit_id {latest_initiate_return.get('audit_id')}"
+                    if latest_initiate_return
+                    else "No initiate_return row found yet"
                 ),
                 (
                     f"Latest audit row: {latest_audit.get('tool')} by {latest_audit.get('caller')}"
@@ -822,7 +962,7 @@ async def _collect_proof_board(
                 "label": "SQL fallback",
                 "command": (
                     "psql \"$DATABASE_URL\" -c \"SELECT audit_id, session_id, tool, caller, args, result "
-                    "FROM pellier.tool_audit WHERE tool = 'process_return' ORDER BY audit_id DESC LIMIT 3;\""
+                    "FROM pellier.tool_audit WHERE tool = 'initiate_return' ORDER BY audit_id DESC LIMIT 3;\""
                 ),
             },
             "links": [
@@ -1646,8 +1786,8 @@ async def get_build_state():
     """Shipped vs exercise for agents and tools (fixtures + live lab overlay).
 
     Loads ``agents.json`` / ``tools.json`` then overlays live workshop
-    state from source files. Stock Keeper is shipped once its definition
-    scaffold is completed; ``floor_check`` is shipped once the tool body
+    state from source files. Inventory Agent is shipped once its definition
+    scaffold is completed; ``check_inventory`` is shipped once the tool body
     no longer returns the starter stub.
 
     Shape matches ``BuildStateApiResponse`` in the frontend ``useBuildState`` hook.
@@ -1668,11 +1808,11 @@ async def get_build_state():
             if isinstance(fn, str) and isinstance(status, str):
                 tool_map[fn] = status
 
-        if not _stock_keeper_definition_is_workshop_stub():
-            agent_map["Stock Keeper"] = "shipped"
+        if not _inventory_agent_definition_is_workshop_stub():
+            agent_map["Inventory Agent"] = "shipped"
 
-        if not _floor_check_is_workshop_stub():
-            tool_map["floor_check"] = "shipped"
+        if not _check_inventory_is_workshop_stub():
+            tool_map["check_inventory"] = "shipped"
 
         return {"agents": agent_map, "tools": tool_map}
     except Exception as exc:
@@ -1794,6 +1934,71 @@ async def get_cedar_policies(operator: dict[str, Any] = Depends(require_operator
     except Exception as exc:
         logger.error("Failed to load policies: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load policies")  # copy-allow: observatory-error-detail
+
+
+@router.get("/executions")
+async def list_governed_executions(
+    limit: int = Query(default=20, ge=1, le=50),
+    operator: dict[str, Any] = Depends(require_operator),
+):
+    """Governed operator executions this principal performed, newest first.
+
+    Read-only and principal-scoped. The visibility authority is
+    ``execution_receipts.actor_principal`` — the operator AgentCore Policy authorized —
+    which is the operator-rail counterpart of ``governed_receipts.principal_id``. No
+    existing filter was weakened to make these rows appear.
+    """
+    try:
+        from app import db_service
+        if db_service is None:
+            return {"count": 0, "executions": []}
+
+        from services.governed_execution import list_executions
+
+        rows = await list_executions(
+            db_service, principal_sub=operator["sub"], limit=limit
+        )
+        return {"count": len(rows), "executions": rows}
+    except Exception as exc:
+        logger.error("Failed to list governed executions: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to list executions")  # copy-allow: observatory-error-detail
+
+
+@router.get("/executions/{review_id}")
+async def reconstruct_governed_execution(
+    review_id: int = PathParam(..., ge=1),
+    operator: dict[str, Any] = Depends(require_operator),
+):
+    """One governed execution, reconstructed layer by layer from durable artifacts.
+
+    The spine is the execution receipt, not ``tool_audit``. For a governed system,
+    execution evidence begins at the authorization attempt: a Cedar DENY correctly
+    writes no audit row and claims no idempotency key, and a reconstruction rooted at
+    the tool cannot render it at all. Each layer reports whether it is present and why,
+    so an absent layer reads as the evidence it is rather than as missing data.
+    """
+    try:
+        from app import db_service
+        if db_service is None:
+            raise HTTPException(status_code=503, detail="database_unavailable")
+
+        from services.governed_execution import reconstruct_execution
+
+        story = await reconstruct_execution(
+            db_service, review_id=review_id, principal_sub=operator["sub"]
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Reconstruction failed for review %s: %s", review_id, exc)
+        raise HTTPException(status_code=500, detail="Failed to reconstruct execution")  # copy-allow: observatory-error-detail
+
+    if story is None:
+        # Either nothing was executed, or it was executed by a different principal.
+        # One status for both on purpose: distinguishing them would tell a caller that
+        # an execution they may not read exists.
+        raise HTTPException(status_code=404, detail="no_execution_for_principal")
+    return story
 
 
 @router.get("/tool-audit/recent")

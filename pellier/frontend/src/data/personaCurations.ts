@@ -307,17 +307,17 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
     // See the Workshop Studio repo's content/ for Marco's arc — these pill
     // strings must match the demo-conversation fixtures exactly.
     // Turn 4 clicks twice per session: once during the opening demo
-    // (Stock Keeper stubbed → graceful non-answer), once during the
-    // midpoint checkpoint (Stock Keeper wired → real warehouse data).
-    'What linen do you have for 10 days in Goa?',            // Turn 1 → Style Advisor · find_pieces
-    'What would go with the Hadley shirt?',                  // Turn 2 → Style Advisor + the-packing-list · find_pieces → style_match
-    "What's the price range for linen shirts?",              // Turn 3 → Value Analyst · price_intelligence
-    'Is the Hadley shirt at the Brooklyn warehouse?',        // Turn 4 → Stock Keeper (stub/wired)
-    // Turn 5 (capstone) → Style Advisor · escalate_to_stylist. The
+    // (Inventory Agent stubbed → graceful non-answer), once during the
+    // midpoint checkpoint (Inventory Agent wired → real warehouse data).
+    'What linen do you have for 10 days in Goa?',            // Turn 1 → Search Agent · search_products
+    'What would go with the Hadley shirt?',                  // Turn 2 → Search Agent + the-packing-list · search_products → get_related_products
+    "What's the price range for linen shirts?",              // Turn 3 → Pricing Agent · get_price_analysis
+    'Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?',        // Turn 4 → Inventory Agent (stub/wired)
+    // Turn 5 (capstone) → Search Agent · escalate_to_human. The
     // explicit "real Pellier stylist" + "not product cards" framing is
     // load-bearing: it teaches the orchestrator's stylist-handoff
     // branch to route to search instead of refusing as "outside
-    // shopping," and it teaches the Style Advisor that catalog tools
+    // shopping," and it teaches the Search Agent that catalog tools
     // can't satisfy the ask.
     "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding – not product cards.",
   ],
@@ -326,22 +326,22 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
     'Something beautiful under $100',                            // Turn 2
     'Help me pair a candle with something else',                 // Turn 3
     'Wrap-ready gifts with no extra effort',                     // Turn 4
-    // Turn 5 (capstone) → Style Advisor · escalate_to_stylist. Sympathy
+    // Turn 5 (capstone) → Search Agent · escalate_to_human. Sympathy
     // gifting is the honest fallback seam — catalog tools can
     // surface candles, but they can't read the room. The explicit
     // "real stylist" ask routes through the orchestrator's
     // stylist-handoff branch to search, the specialist that owns
-    // escalate_to_stylist.
+    // escalate_to_human.
     "Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.",
   ],
   theo: [
     'Hand-thrown ceramics for a slower morning routine',  // Turn 1
     'What goes well with the pour-over set?',              // Turn 2
     'Linen pieces that soften over seasons',               // Turn 3
-    "My Wabi-Sabi Bowl arrived chipped. Please file a damaged return – my customer id is 'theo'.",  // Turn 4 (Experience Guide payoff)
-    // Turn 5 (capstone) → Experience Guide · escalate_to_stylist.
+    "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",  // Turn 4 (Customer Service Agent payoff)
+    // Turn 5 (capstone) → Customer Service Agent · escalate_to_human.
     // Durability-expectation framing past the standard return window —
-    // process_return refuses, escalate_to_stylist is the honest
+    // initiate_return refuses, escalate_to_human is the honest
     // fallback for an exception that needs a human.
     'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?',
   ],
@@ -354,7 +354,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
 }
 
-/** Marco Pellier / Observatory Turn 4 — warehouse ask (Stock Keeper · `floor_check`). */
+/** Marco Pellier / Observatory Turn 4 — warehouse ask (Inventory Agent · `check_inventory`). */
 export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
 
 /**
@@ -403,27 +403,27 @@ export interface PersonaTurnTrace {
 
 export const PERSONA_TURN_TRACES: Record<string, PersonaTurnTrace[]> = {
   marco: [
-    { skill: 'the-packing-list', tools: ['find_pieces'] },
-    { skill: 'the-packing-list', tools: ['find_pieces', 'style_match'] },
-    { tools: ['price_intelligence'] },
-    { tools: ['floor_check'] },
-    { skill: 'the-packing-list', tools: ['escalate_to_stylist'] },
+    { skill: 'the-packing-list', tools: ['search_products'] },
+    { skill: 'the-packing-list', tools: ['search_products', 'get_related_products'] },
+    { tools: ['get_price_analysis'] },
+    { tools: ['check_inventory'] },
+    { skill: 'the-packing-list', tools: ['escalate_to_human'] },
   ],
   anna: [
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['find_pieces_hybrid'] },
-    { skill: 'the-gift-table', tools: ['escalate_to_stylist'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['search_products_hybrid'] },
+    { skill: 'the-gift-table', tools: ['escalate_to_human'] },
   ],
   theo: [
-    { skill: 'the-makers-shelf', tools: ['find_pieces'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces', 'style_match'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces'] },
-    { skill: 'the-makers-shelf', tools: ['find_pieces', 'returns_and_care', 'process_return'] },
-    { skill: 'the-makers-shelf', tools: ['escalate_to_stylist'] },
+    { skill: 'the-makers-shelf', tools: ['search_products'] },
+    { skill: 'the-makers-shelf', tools: ['search_products', 'get_related_products'] },
+    { skill: 'the-makers-shelf', tools: ['search_products'] },
+    { skill: 'the-makers-shelf', tools: ['search_products', 'get_return_policy', 'initiate_return'] },
+    { skill: 'the-makers-shelf', tools: ['escalate_to_human'] },
   ],
-  fresh: PERSONA_HERO_PILLS.fresh.map(() => ({ tools: ['find_pieces'] })),
+  fresh: PERSONA_HERO_PILLS.fresh.map(() => ({ tools: ['search_products'] })),
 }
 
 export interface OperatorTurn {
@@ -444,14 +444,14 @@ export const OPERATOR_TURNS: OperatorTurn[] = [
     id: 'running-low',
     label: 'Review low stock',
     query: 'Which pieces are running low?',
-    tools: ['running_low'],
+    tools: ['get_low_stock'],
     access: 'read',
   },
   {
     id: 'restock-product-37',
     label: 'Restock product 37',
     query: 'Restock product 37 by 12 units.',
-    tools: ['restock_shelf'],
+    tools: ['restock_inventory'],
     access: 'write',
   },
 ]

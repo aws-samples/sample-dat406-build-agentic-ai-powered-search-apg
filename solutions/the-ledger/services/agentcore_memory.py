@@ -49,7 +49,7 @@ import them directly for older memory demo endpoints.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from config import settings
 from models import Preferences
@@ -79,9 +79,29 @@ logger = logging.getLogger(__name__)
 # ⏩ SHORT ON TIME? Run:
 #    cp solutions/the-ledger/services/agentcore_memory.py pellier/backend/services/agentcore_memory.py
 
+def _store_key(actor_id: str, session_id: str) -> str:
+    """The fallback-store key for an identity pair.
+
+    When actor and session are the same string this is the historical shopper key,
+    so existing shopper entries keep working unchanged. When they differ — the
+    operator mapping — the pair is composed. Both the writer and the reader call
+    this, because a writer and reader that compose keys independently is exactly how
+    the operator read came back empty while its write reported success.
+    """
+    return actor_id if actor_id == session_id else f"{actor_id}|{session_id}"
+
+
 # Process-local fallback store. Keyed by the raw namespace string so
 # ``anon-{sid}`` and ``user-{uid}-session-{sid}`` are physically
 # disjoint entries — Req 4.3.3 holds by construction.
+# Which store served a call. A process-local dict is NOT persistence — it dies with
+# the worker — so a caller that reports "remembered" without distinguishing the two is
+# claiming durability it does not have. Found live: uvicorn launched outside the venv
+# has no `bedrock-agentcore`, every operator turn silently used the dict, and the turn
+# payload still said `memoryPersisted: true`.
+BACKEND_AGENTCORE = "agentcore"
+BACKEND_PROCESS_LOCAL = "process_local"
+
 _SESSION_STORE: Dict[str, List[Dict[str, Any]]] = {}
 _PREFS_STORE: Dict[str, Dict[str, Any]] = {}
 
@@ -312,12 +332,73 @@ class AgentCoreMemory:
         """
         await self.append_session_turns(session_ns, [turn])
 
+    async def append_memory_event(
+        self,
+        *,
+        actor_id: str,
+        session_id: str,
+        turns: List[Dict[str, Any]],
+    ) -> str:
+        """The generic AgentCore Memory write: an explicit actor AND session.
+
+        Returns which store served the write — ``BACKEND_AGENTCORE`` or
+        ``BACKEND_PROCESS_LOCAL``. The caller needs that to avoid reporting a
+        fallback dict as durable memory.
+
+        AgentCore scopes short-term events by actor plus session, and the two answer
+        different questions — the actor is the entity interacting with the agent, the
+        session is one conversation. Pellier has two surfaces that map them
+        differently, so the mapping belongs at the call site rather than being baked
+        in here:
+
+            shopper    actor_id = session_id = session_ns   (frozen, see below)
+            operator   actor_id = operator subject
+                       session_id = Concierge session id
+
+        `append_session_turns` remains the shopper wrapper and its semantics are
+        unchanged. Do not "simplify" the two into one: the shopper form deliberately
+        collapses actor and session so `anon-{sid}` and `user-{uid}-session-{sid}`
+        land in separate AgentCore actors, and the operator form deliberately does
+        not, so operator preference memory accrues to the operator rather than to
+        whichever client's record happened to be open.
+        """
+        if not turns:
+            return BACKEND_PROCESS_LOCAL
+        mgr = self._get_sdk_manager()
+        if mgr is not None:
+            try:
+                session = mgr.create_memory_session(
+                    actor_id=actor_id,
+                    session_id=session_id,
+                )
+                session.add_turns(
+                    messages=[self._to_conversational(turn) for turn in turns]
+                )
+                return BACKEND_AGENTCORE
+            except Exception as exc:  # pragma: no cover - SDK error path
+                if self._strict:
+                    raise ManagedMemoryError(
+                        "AgentCore session append failed"
+                    ) from exc
+                logger.warning(
+                    "AgentCore append_memory_event failed for %s/%s: %s — "
+                    "falling back to the process-local store",
+                    actor_id, session_id, exc,
+                )
+        # Fallback keyed by the pair, so the two surfaces never share a bucket.
+        _SESSION_STORE.setdefault(_store_key(actor_id, session_id), []).extend(turns)
+        return BACKEND_PROCESS_LOCAL
+
     async def append_session_turns(
         self,
         session_ns: str,
         turns: List[Dict[str, Any]],
     ) -> None:
-        """Append one logical turn as a single AgentCore Memory event."""
+        """Append one logical turn as a single AgentCore Memory event.
+
+        SHOPPER WRAPPER — semantics frozen. `actor_id == session_id == session_ns`
+        is intentional and load-bearing for shopper isolation.
+        """
         if not turns:
             return
         mgr = self._get_sdk_manager()
@@ -351,20 +432,56 @@ class AgentCoreMemory:
             dict(turn) for turn in turns
         )
 
+    async def get_memory_events(
+        self, *, actor_id: str, session_id: str
+    ) -> Tuple[List[Dict[str, Any]], str]:
+        """The generic read: an explicit actor AND session, mirroring the writer.
+
+        Returns ``(turns, backend)``. The backend matters even when the turns are
+        empty: "AgentCore Memory holds nothing for this conversation" and "AgentCore
+        Memory was never reached" are different facts, and an evidence surface may not
+        render them identically.
+
+        This exists because `get_session_history` is the SHOPPER reader and treats its
+        single argument as both actor and session. Reading an OPERATOR conversation
+        through it looked up actor=session_id when the write had used
+        actor=operator_subject, so every operator turn read back empty while its write
+        reported success — found live on the second Concierge turn, which should have
+        seen the first.
+
+        A generic writer needs a generic reader; a mismatched pair is worse than
+        either alone because it fails silently.
+        """
+        return await self._read_turns_with_backend(
+            actor_id=actor_id, session_id=session_id
+        )
+
     async def get_session_history(self, session_ns: str) -> List[Dict[str, Any]]:
         """Return all turns stored under ``session_ns`` in insertion order.
+
+        SHOPPER READER — semantics frozen: actor and session are both ``session_ns``.
 
         A namespace with no writes returns ``[]``. Crucially, a
         ``user-{uid}-session-{sid}`` namespace never reads from the
         corresponding ``anon-{sid}`` namespace and vice versa — they
         are different strings keying different entries (Req 4.3.3).
         """
+        turns, _backend = await self._read_turns_with_backend(
+            actor_id=session_ns, session_id=session_ns
+        )
+        return turns
+
+    async def _read_turns_with_backend(
+        self, *, actor_id: str, session_id: str
+    ) -> Tuple[List[Dict[str, Any]], str]:
+        """Shared read for both surfaces. The caller decides the identity pair."""
+        session_ns = session_id
         mgr = self._get_sdk_manager()
         if mgr is not None:
             try:
                 session = mgr.create_memory_session(
-                    actor_id=session_ns,
-                    session_id=session_ns,
+                    actor_id=actor_id,
+                    session_id=session_id,
                 )
                 # get_last_k_turns with a generous k stands in for "all
                 # turns" — the workshop sessions are short (<20 turns).
@@ -383,7 +500,7 @@ class AgentCoreMemory:
                 # already stores in insertion (chronological) order.
                 flat = self._normalize_sdk_turns(session.get_last_k_turns(k=100))
                 flat.reverse()
-                return flat
+                return flat, BACKEND_AGENTCORE
             except Exception as exc:  # pragma: no cover - SDK error path
                 if self._strict:
                     raise ManagedMemoryError(
@@ -395,7 +512,10 @@ class AgentCoreMemory:
                     session_ns,
                     exc,
                 )
-        return list(_SESSION_STORE.get(session_ns, []))
+        return (
+            list(_SESSION_STORE.get(_store_key(actor_id, session_id), [])),
+            BACKEND_PROCESS_LOCAL,
+        )
 
     @staticmethod
     def _normalize_sdk_turns(raw: Any) -> List[Dict[str, Any]]:

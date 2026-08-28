@@ -29,7 +29,7 @@ helpers seed Memory, authenticate test users, and verify the deployed path.
 4. **AgentCore Policy** — A managed Cedar engine attached to Gateway in
    `ENFORCE` mode:
    - Baseline permit for this Gateway's tool catalog
-   - `process_return` allowed only for `reason == "damaged"`
+   - `initiate_return` allowed only for `reason == "damaged"`
    - Provisioning executes a real ALLOW and DENY before reporting ready
 
 5. **AgentCore Runtime** — The orchestrator deployed as a managed HTTP runtime:
@@ -105,7 +105,7 @@ value, `30` in the workshop template).
 | `gateway_tool_schemas.py`         | Canonical four-target, 15-tool schema          |
 | `render_agentcore_project.py`     | Writes the declarative AgentCore CLI project   |
 | `seed_agentcore_memory.py`        | Seeds managed preference records after deploy  |
-| `gateway_process_return.py`       | Live ALLOW/DENY and JWT-bound receipt proof    |
+| `gateway_initiate_return.py`       | Live ALLOW/DENY and JWT-bound receipt proof    |
 | `../../pellier/backend/agentcore_runtime.py` | **Deployed** BYO Runtime entrypoint; JWT + Gateway required |
 | `../../pellier/backend/pyproject.toml` | CodeZip dependencies for the BYO agent         |
 | `deploy_all.sh`                   | Thin recovery wrapper around the provisioner   |

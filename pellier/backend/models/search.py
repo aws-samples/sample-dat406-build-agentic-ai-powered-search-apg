@@ -216,7 +216,7 @@ class RestockRequest(BaseModel):
     before any database work begins.
 
     ``quantity`` is bounded at 500 to match the policy limit enforced in
-    ``BusinessLogic.restock_shelf``; the two are intentionally redundant so
+    ``BusinessLogic.restock_inventory``; the two are intentionally redundant so
     a direct business-logic caller is still bounded.
     """
 
@@ -326,8 +326,8 @@ class WarehouseStock(BaseModel):
     """One warehouse's on-hand count for a product.
 
     Projected straight from ``pellier.warehouse_inventory`` joined to
-    ``pellier.warehouses`` — the same rows ``floor_check`` reports when
-    Stock Keeper is asked about a single product. Ship windows are the
+    ``pellier.warehouses`` — the same rows ``check_inventory`` reports when
+    Inventory Agent is asked about a single product. Ship windows are the
     warehouse's configured range in days, not a delivery promise.
     """
 
@@ -348,7 +348,7 @@ class ProductAvailability(BaseModel):
     """Live Aurora inventory for one product.
 
     ``on_hand`` is ``product_catalog.quantity`` — the catalog column
-    ``floor_check``'s overall mode aggregates. ``warehouses`` is the
+    ``check_inventory``'s overall mode aggregates. ``warehouses`` is the
     per-location breakdown. Both are reported as read rather than
     reconciled, so a divergence between them stays visible instead of
     being silently resolved in the API layer.

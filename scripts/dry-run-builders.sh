@@ -7,10 +7,10 @@
 #
 #   1. Preconditions  — health gate must be READY
 #   1b. Claude Code   — CLI present + pinned Bedrock model reachable
-#   2. Apply solutions — complete Stock Keeper and wire floor_check
+#   2. Apply solutions — complete Inventory Agent and wire check_inventory
 #   3. Build + trace  — POST /api/chat/stream; assert Brooklyn, count, ship window
 #   4. Retrieval      — run the exact four-strategy Lab 2 request
-#   5. Audit ledger   — run process_return and query its exact session receipt
+#   5. Audit ledger   — run initiate_return and query its exact session receipt
 #   6. SQL claims     — Beeswax 40/30/30 split (pin run-of-show number) +
 #                       pg_trgm index presence/plan (migration 008 claim)
 #
@@ -29,9 +29,9 @@ REPO="${PELLIER_REPO:-/workshop/sample-pellier-agentic-search-apg}"
 ENV_FILE="${REPO}/.env"
 BASE="${PELLIER_BASE_URL:-http://localhost:8000}"
 TOOLS="${REPO}/pellier/backend/services/agent_tools.py"
-TOOLS_REFERENCE="${REPO}/solutions/closing-marcos-gap/services/agent_tools_floor_check_solution.py"
-AGENT="${REPO}/pellier/backend/agents/stock_keeper.py"
-AGENT_REFERENCE="${REPO}/solutions/waking-the-stock-keeper/agents/stock_keeper_solution.py"
+TOOLS_REFERENCE="${REPO}/solutions/closing-marcos-gap/services/agent_tools_check_inventory_solution.py"
+AGENT="${REPO}/pellier/backend/agents/inventory_agent.py"
+AGENT_REFERENCE="${REPO}/solutions/waking-the-stock-keeper/agents/inventory_agent_solution.py"
 BACKUP_SUFFIX=".dryrun.$$.bak"
 # Participants edit only the two START/END blocks. The rehearsal mirrors that
 # contract by copying each reference block into the live file; it never swaps a
@@ -188,46 +188,46 @@ else
 fi
 
 # --- 2. Apply the solutions (simulate both participant edits) ----------------
-echo "[2/6] Complete Stock Keeper and wire floor_check"
+echo "[2/6] Complete Inventory Agent and wire check_inventory"
 if grep -q '^_INVENTORY_AGENT_STUBBED = True$' "$AGENT"; then
   patch_marker_block \
     "$AGENT" "$AGENT_REFERENCE" \
-    "# === WORKSHOP · Stock Keeper · definition: START ===" \
-    "# === WORKSHOP · Stock Keeper · definition: END ===" \
-    "Stock Keeper definition" || exit 1
+    "# === WORKSHOP · Inventory Agent · definition: START ===" \
+    "# === WORKSHOP · Inventory Agent · definition: END ===" \
+    "Inventory Agent definition" || exit 1
 else
-  info "Stock Keeper definition already complete — leaving stock_keeper.py as-is"
+  info "Inventory Agent definition already complete — leaving inventory_agent.py as-is"
 fi
 
-if grep -q "floor_check is in stub state" "$TOOLS"; then
+if grep -q "check_inventory is in stub state" "$TOOLS"; then
   patch_marker_block \
     "$TOOLS" "$TOOLS_REFERENCE" \
-    "# === WORKSHOP · Stock Keeper · floor_check: START ===" \
-    "# === WORKSHOP · Stock Keeper · floor_check: END ===" \
-    "floor_check body" || exit 1
+    "# === WORKSHOP · Inventory Agent · check_inventory: START ===" \
+    "# === WORKSHOP · Inventory Agent · check_inventory: END ===" \
+    "check_inventory body" || exit 1
 else
-  info "floor_check already wired — leaving agent_tools.py as-is"
+  info "check_inventory already wired — leaving agent_tools.py as-is"
 fi
 info "Waiting 4s for uvicorn --reload to pick up the change…"
 sleep 4
 
 # Confirm both independent build markers flipped to shipped.
 bs="$(curl -fs --max-time 5 "${BASE}/api/observatory/build-state" 2>/dev/null || true)"
-if echo "$bs" | grep -q '"Stock Keeper"[[:space:]]*:[[:space:]]*"shipped"'; then
-  pass "build-state reports Stock Keeper = shipped"
+if echo "$bs" | grep -q '"Inventory Agent"[[:space:]]*:[[:space:]]*"shipped"'; then
+  pass "build-state reports Inventory Agent = shipped"
 else
-  fail "build-state did not flip Stock Keeper to shipped (got: ${bs:0:200})"
+  fail "build-state did not flip Inventory Agent to shipped (got: ${bs:0:200})"
 fi
-if echo "$bs" | grep -q '"floor_check"[[:space:]]*:[[:space:]]*"shipped"'; then
-  pass "build-state reports floor_check = shipped"
+if echo "$bs" | grep -q '"check_inventory"[[:space:]]*:[[:space:]]*"shipped"'; then
+  pass "build-state reports check_inventory = shipped"
 else
-  fail "build-state did not flip floor_check to shipped (got: ${bs:0:200})"
+  fail "build-state did not flip check_inventory to shipped (got: ${bs:0:200})"
 fi
 
 # --- 3. Marco Turn 4 via the dispatcher path --------------------------------
 echo "[3/6] Marco Turn 4 — POST /api/chat/stream"
 SESSION="dryrun-$(date +%s)"
-turn4='{"message":"Is the Hadley shirt at the Brooklyn warehouse?","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
+turn4='{"message":"Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?","session_id":"'"$SESSION"'","customer_id":"CUST-MARCO"}'
 reply="$(curl -fsN --max-time 60 -X POST "${BASE}/api/chat/stream" \
   -H 'Content-Type: application/json' -d "$turn4" 2>/dev/null || true)"
 if echo "$reply" | grep -qiE 'brooklyn|BK-01' \
@@ -238,7 +238,7 @@ else
   fail "Reply did not prove Brooklyn + quantity + ship window"
   info "First 300 chars: ${reply:0:300}"
 fi
-if echo "$reply" | grep -qi 'floor_check is in stub state'; then
+if echo "$reply" | grep -qi 'check_inventory is in stub state'; then
   fail "Stub envelope still present — solution did not take effect"
 fi
 
@@ -272,18 +272,18 @@ fi
 LEDGER_SESSION=""
 if $GOVERNED; then
   echo "[4b/6] Audit Agent Actions with SQL — governed write runs through Gateway in step 4d"
-  info "Skipping local process_return; governed mutations require gateway-mcp"
+  info "Skipping local initiate_return; governed mutations require gateway-mcp"
 else
-  echo "[4b/6] Audit Agent Actions with SQL — process_return on the builders dispatcher rail"
+  echo "[4b/6] Audit Agent Actions with SQL — initiate_return on the builders dispatcher rail"
   LEDGER_SESSION="dryrun-ledger-$(date +%s)-$$"
   ledger_body='{"message":"My Wabi-Sabi Bowl arrived chipped. Please file a damaged return (my customer id is '"'"'theo'"'"').","session_id":"'"$LEDGER_SESSION"'","pattern":"dispatcher"}'
   if curl --fail --silent --show-error --no-buffer --max-time 75 \
       -X POST "${BASE}/api/chat/stream" \
       -H 'Content-Type: application/json' \
       -d "$ledger_body" > /tmp/pellier-ledger-turn.sse; then
-    pass "Builders process_return stream completed for session ${LEDGER_SESSION}"
+    pass "Builders initiate_return stream completed for session ${LEDGER_SESSION}"
   else
-    fail "Builders process_return request failed"
+    fail "Builders initiate_return request failed"
   fi
 fi
 
@@ -324,13 +324,13 @@ fi
 # Call the Gateway MCP tool directly. The helper classifies only an actual
 # authorization failure as DENY and verifies ALLOW creates a tool_audit row
 # while DENY creates none.
-echo "[4d/6] Managed Policy (Gateway rail) — process_return ALLOW vs DENY"
+echo "[4d/6] Managed Policy (Gateway rail) — initiate_return ALLOW vs DENY"
 POLICY_ALLOW_SESSION="dryrun-policy-allow-$(date +%s)-$$"
 POLICY_DENY_SESSION="dryrun-policy-deny-$(date +%s)-$$"
 if [[ -n "$POLICY_TOKEN" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" \
       && -n "${AGENTCORE_GATEWAY_URL:-}" ]]; then
   export PELLIER_TOKEN
-  if python3 "$REPO/scripts/deploy/gateway_process_return.py" \
+  if python3 "$REPO/scripts/deploy/gateway_initiate_return.py" \
       --product-id 31 --reason damaged --expect allow --record-receipt \
       --session-id "$POLICY_ALLOW_SESSION" \
       >/tmp/dryrun-policy-allow.json 2>/tmp/dryrun-policy-allow.err; then
@@ -338,7 +338,7 @@ if [[ -n "$POLICY_TOKEN" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" \
   else
     fail "Managed Policy ALLOW proof failed — see /tmp/dryrun-policy-allow.err"
   fi
-  if python3 "$REPO/scripts/deploy/gateway_process_return.py" \
+  if python3 "$REPO/scripts/deploy/gateway_initiate_return.py" \
       --product-id 31 --reason changed_mind --expect deny --record-receipt \
       --session-id "$POLICY_DENY_SESSION" \
       >/tmp/dryrun-policy-deny.json 2>/tmp/dryrun-policy-deny.err; then
@@ -371,27 +371,27 @@ fi
 
 # --- 5. Audit ledger --------------------------------------------------------
 echo "[5/6] Audit ledger — pellier.tool_audit"
-n="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='floor_check' AND session_id LIKE 'dryrun-%';")"
+n="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='check_inventory' AND session_id LIKE 'dryrun-%';")"
 if [[ "${n:-0}" =~ ^[0-9]+$ ]] && (( n > 0 )); then
-  pass "tool_audit has $n floor_check row(s) for this dry run"
+  pass "tool_audit has $n check_inventory row(s) for this dry run"
 else
-  fail "No tool_audit row for floor_check — audit writer not firing"
+  fail "No tool_audit row for check_inventory — audit writer not firing"
 fi
 
 if $GOVERNED; then
-  info "Governed process_return ledger row is verified with its receipt below"
+  info "Governed initiate_return ledger row is verified with its receipt below"
 else
-  ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='process_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"
+  ledger_rows="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE session_id='${LEDGER_SESSION}' AND tool='initiate_return' AND caller='agent' AND args->>'customer_id'='theo' AND args->>'reason'='damaged' AND result->>'return_id' IS NOT NULL;")"
   if [[ "${ledger_rows:-0}" =~ ^[0-9]+$ ]] && (( ledger_rows > 0 )); then
-    pass "Session-specific process_return receipt is complete for ${LEDGER_SESSION}"
+    pass "Session-specific initiate_return receipt is complete for ${LEDGER_SESSION}"
   else
-    fail "No complete process_return receipt for session ${LEDGER_SESSION}"
+    fail "No complete initiate_return receipt for session ${LEDGER_SESSION}"
   fi
 fi
 
 # 5b. Managed-Policy evidence, keyed to this dry run's unique receipt sessions.
 if [[ -n "$POLICY_TOKEN" && -n "${AGENTCORE_POLICY_ENGINE_ID:-}" ]]; then
-  pr_allowed="$(_psql "SELECT count(*) FROM pellier.governed_receipts gr JOIN pellier.tool_audit ta ON ta.audit_id = gr.audit_id WHERE gr.session_id='${POLICY_ALLOW_SESSION}' AND gr.decision='ALLOW' AND gr.identity_source='cognito' AND gr.verified_subject IS NOT NULL AND gr.token_fingerprint_sha256 IS NOT NULL AND ta.tool='process_return' AND ta.caller='gateway' AND ta.args->>'reason'='damaged' AND ta.result->>'return_id' IS NOT NULL;")"
+  pr_allowed="$(_psql "SELECT count(*) FROM pellier.governed_receipts gr JOIN pellier.tool_audit ta ON ta.audit_id = gr.audit_id WHERE gr.session_id='${POLICY_ALLOW_SESSION}' AND gr.decision='ALLOW' AND gr.identity_source='cognito' AND gr.verified_subject IS NOT NULL AND gr.token_fingerprint_sha256 IS NOT NULL AND ta.tool='initiate_return' AND ta.caller='gateway' AND ta.args->>'reason'='damaged' AND ta.result->>'return_id' IS NOT NULL;")"
   pr_denied="$(_psql "SELECT count(*) FROM pellier.governed_receipts WHERE session_id='${POLICY_DENY_SESSION}' AND decision='DENY' AND audit_id IS NULL AND identity_source='cognito' AND verified_subject IS NOT NULL AND token_fingerprint_sha256 IS NOT NULL AND args->>'absence_verified'='true';")"
   if [[ "${pr_allowed:-0}" == "1" ]]; then
     pass "Managed Policy ALLOW receipt is Cognito-bound and joins its Gateway audit row"

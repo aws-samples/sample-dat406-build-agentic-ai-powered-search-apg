@@ -51,7 +51,7 @@ const proofBoardPayload = {
     governedIdentitySource: 'cognito_access_token',
     governedTokenFingerprint: 'abc123def456abc123def456abc123def456abc123def456abc123def456abcd',
     governedDecision: 'ALLOW',
-    governedTool: 'process_return',
+    governedTool: 'initiate_return',
     governedArgs: { customer_id: 'theo', product_id: '37', reason: 'damaged' },
     gatewayAuditPresent: true,
     latestGatewayAuditId: 303,
@@ -61,12 +61,12 @@ const proofBoardPayload = {
       id: 'marco-floor-check',
       lab: 'Lab 1: Ground Answers in Live Data',
       group: 'Agent and tool evidence',
-      title: 'Wire Marco to floor_check',
+      title: 'Wire Marco to check_inventory',
       status: 'complete',
       required: true,
       surface: 'Code Editor + Pellier',
-      summary: "The Stock Keeper tool is wired and Marco's warehouse turn leaves a floor_check audit row.",
-      evidence: ['Latest floor_check row: audit_id 101'],
+      summary: "The Inventory Agent tool is wired and Marco's warehouse turn leaves a check_inventory audit row.",
+      evidence: ['Latest check_inventory row: audit_id 101'],
       fallback: {
         label: 'Terminal fallback',
         command: 'curl -s http://localhost:8000/api/agent/chat',
@@ -263,7 +263,7 @@ describe('ProofBoard', () => {
       'What reached the system of record?',
     );
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
-      'Wire Marco to floor_check',
+      'Wire Marco to check_inventory',
     );
     expect(screen.getAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
     expect(screen.getAllByText('Lab 3: Run Agents in a Managed Runtime').length).toBeGreaterThan(0);

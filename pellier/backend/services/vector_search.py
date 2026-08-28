@@ -8,7 +8,7 @@ deliberately excludes them so the semantic branch stays readable on its
 own.
 
 ``VectorSearch.vector_search`` is the canonical pgvector reference
-called by ``agent_tools.find_pieces`` and covered by
+called by ``agent_tools.search_products`` and covered by
 ``tests/test_vector_search.py``.
 """
 import logging
@@ -152,7 +152,7 @@ class VectorSearch:
         decides *which* predicates are legal and compiles them, and this
         method only executes them. Keeping compilation out of the
         retrieval layer is what lets one planner serve both the shipped
-        Curator path and the Observatory comparison without a second
+        Personalization Agent path and the Observatory comparison without a second
         implementation drifting away from the first.
 
         Args:

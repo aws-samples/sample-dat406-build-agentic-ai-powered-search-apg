@@ -18,13 +18,13 @@
       "content": "You're right – slow-craft linen shouldn't fail at the seam after four months. The standard return path can't accept an exception this far past the window, so I've routed your note to a Pellier stylist with the full context. They'll reach out within one business day to take it from here. Keep the throw; we'll tell you what to do with it.",
       "timestamp": "2026-05-25T18:28:04Z",
       "plan": {
-        "flowSummary": "Dispatcher → Experience Guide → escalate_to_stylist (exception beyond Cedar policy)",
+        "flowSummary": "Dispatcher → Customer Service Agent → escalate_to_human (exception beyond Cedar policy)",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
-          "toolName": "escalate_to_stylist",
-          "description": "Hand off to a human after process_return cannot accommodate an out-of-window exception",
+          "toolName": "escalate_to_human",
+          "description": "Hand off to a human after initiate_return cannot accommodate an out-of-window exception",
           "durationMs": 224,
           "resultSummary": "Stylist handoff queued · response window 1 business day"
         }
@@ -41,7 +41,7 @@
         },
         {
           "tier": "procedural",
-          "content": "Cedar refuses process_return beyond return window → escalate_to_stylist"
+          "content": "Cedar refuses initiate_return beyond return window → escalate_to_human"
         },
         {
           "tier": "skill",
@@ -49,11 +49,11 @@
         }
       ],
       "meta": {
-        "agent": "Experience Guide",
+        "agent": "Customer Service Agent",
         "model": "Claude Opus 4.6",
         "skill": "the-makers-shelf",
         "latencyMs": 1462,
-        "note": "Cedar policy enforces the return window. process_return refuses beyond it. escalate_to_stylist is the honest exit for durability-expectation exceptions a human should weigh."
+        "note": "Cedar policy enforces the return window. initiate_return refuses beyond it. escalate_to_human is the honest exit for durability-expectation exceptions a human should weigh."
       }
     }
   ],
@@ -61,7 +61,7 @@
     {
       "index": 1,
       "category": "managed",
-      "title": "Intent → Experience Guide",
+      "title": "Intent → Customer Service Agent",
       "description": "'tear at the seam' + 'past the window' + 'exception' → orchestrator stylist-handoff branch routes to support",
       "status": "complete",
       "durationMs": 66,
@@ -88,11 +88,11 @@
     {
       "index": 4,
       "category": "owned",
-      "title": "escalate_to_stylist",
-      "description": "Experience Guide recognizes Cedar policy will refuse process_return beyond the window; emits {type: escalation, channel: stylist, reason}",
+      "title": "escalate_to_human",
+      "description": "Customer Service Agent recognizes Cedar policy will refuse initiate_return beyond the window; emits {type: escalation, channel: stylist, reason}",
       "status": "complete",
       "durationMs": 224,
-      "agent": "Experience Guide · escalate_to_stylist"
+      "agent": "Customer Service Agent · escalate_to_human"
     },
     {
       "index": 5,
@@ -106,7 +106,7 @@
       "index": 6,
       "category": "managed",
       "title": "Inner specialist → wrapper marker",
-      "description": "Inner Experience Guide emits the escalation envelope; support @tool wrapper appends it as a JSON code block",
+      "description": "Inner Customer Service Agent emits the escalation envelope; support @tool wrapper appends it as a JSON code block",
       "status": "complete",
       "durationMs": 5,
       "agent": "support wrapper · append_escalation_marker"
@@ -127,7 +127,7 @@
       "description": "Claude Opus 4.6 – empathy for the durability claim; concrete next step",
       "status": "complete",
       "durationMs": 1238,
-      "agent": "Experience Guide"
+      "agent": "Customer Service Agent"
     }
   ],
   "brief": {
@@ -137,9 +137,9 @@
     "sections": [
       {
         "numeral": "i.",
-        "title": "Why process_return refuses",
+        "title": "Why initiate_return refuses",
         "paragraphs": [
-          "Theo's prior turn (the chipped Wabi-Sabi Bowl) ran cleanly through process_return because Cedar's policy allows the 'damaged' reason inside the standard window. Here, four months have passed – the same Cedar policy refuses the write, and SQL would refuse it too. The automated path is closed.",
+          "Theo's prior turn (the chipped Wabi-Sabi Bowl) ran cleanly through initiate_return because Cedar's policy allows the 'damaged' reason inside the standard window. Here, four months have passed – the same Cedar policy refuses the write, and SQL would refuse it too. The automated path is closed.",
           "But the case isn't closed. A linen throw with a seam failure at four months is a durability claim, not a buyer's remorse. That's a judgment call, and judgment calls belong with a person."
         ]
       },
@@ -147,8 +147,8 @@
         "numeral": "ii.",
         "title": "Honest fallback over silent failure",
         "paragraphs": [
-          "The Experience Guide's system prompt names this exact case: 'Use ONLY when process_return cannot handle the case – Cedar rejected the reason, the customer doesn't own the product, the window has closed, or the shopper is in distress and deserves a real person.'",
-          "escalate_to_stylist emits an envelope with the customer's framing intact. The stylist sees the full context – purchase date, durability expectation, shopper's tone – and decides. The customer is not stranded with a refusal; they are routed to a person who can say yes or no."
+          "The Customer Service Agent's system prompt names this exact case: 'Use ONLY when initiate_return cannot handle the case – Cedar rejected the reason, the customer doesn't own the product, the window has closed, or the shopper is in distress and deserves a real person.'",
+          "escalate_to_human emits an envelope with the customer's framing intact. The stylist sees the full context – purchase date, durability expectation, shopper's tone – and decides. The customer is not stranded with a refusal; they are routed to a person who can say yes or no."
         ]
       }
     ],
@@ -158,11 +158,11 @@
       "stats": [
         {
           "label": "Specialist",
-          "value": "Experience Guide"
+          "value": "Customer Service Agent"
         },
         {
           "label": "Tool",
-          "value": "escalate_to_stylist"
+          "value": "escalate_to_human"
         },
         {
           "label": "Cedar verdict",

@@ -29,7 +29,7 @@ export type AgentToolName =
   | 'experience.return'
   | 'weather.lookup'
   | 'tag.match'
-  | 'curator.signal'
+  | 'personalization_agent.signal'
   | 'tool.transparency'
 
 interface AgentToolEntry {
@@ -128,10 +128,10 @@ export const AGENT_VOCABULARY: Record<AgentToolName, AgentToolEntry> = {
     description: 'A direct match against the product taxonomy (linen, travel, ceramic, etc).',
     observatoryPath: '/observatory/proof-board#retrieval-comparison',
   },
-  'curator.signal': {
-    name: 'curator.signal',
+  'personalization_agent.signal': {
+    name: 'personalization_agent.signal',
     label: "Editor's pick",
-    description: 'An editorial pick our curators are reaching for this week.',
+    description: 'An editorial pick our personalization_agents are reaching for this week.',
     observatoryPath: '/observatory/proof-board#retrieval-comparison',
   },
   'tool.transparency': {

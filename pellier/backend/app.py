@@ -55,6 +55,7 @@ from routes import (
     commerce_router,
     user_router,
     workshop_router,
+    operator_router,
 )
 from routes.transcribe import (
     TRANSCRIBE_REGION,
@@ -160,11 +161,11 @@ def _log_agent_and_tool_inventory() -> None:
     # Specialists. Each file exports a build_<role>_agent() factory; the
     # public role is the @tool wrapper name the orchestrator sees.
     specialists = [
-        ("style_advisor", "search"),
-        ("curator", "recommendation"),
-        ("value_analyst", "pricing"),
-        ("stock_keeper", "inventory"),
-        ("experience_guide", "support"),
+        ("search_agent", "search"),
+        ("personalization_agent", "recommendation"),
+        ("pricing_agent", "pricing"),
+        ("inventory_agent", "inventory"),
+        ("customer_service_agent", "support"),
     ]
     specialist_summary = ", ".join(f"{role}→{name}" for name, role in specialists)
     logger.info(
@@ -200,6 +201,28 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting Pellier API...")
+
+    # The governed lineage's write boundary is a CONFIG switch, and it fails open.
+    # `services.execution_rail.requires_managed_rail` returns False for any format
+    # other than `governed`, so with the flag unset every mutation-capable tool
+    # becomes servable in process: no review, no Cedar verdict, no `tool_audit` row.
+    #
+    # `bootstrap-labs.sh` writes this into `.env` from the environment and defaults to
+    # `builders`, which is right for the shorter lineage and silently wrong here. A
+    # local `.env` created without the export left this box serving governed writes
+    # straight from the shopper rail, and nothing said so until a return appeared in
+    # Aurora. Say it loudly at startup instead.
+    _format = str(getattr(settings, "WORKSHOP_FORMAT", "") or "").lower()
+    if _format == "governed":
+        logger.info("✅ WORKSHOP_FORMAT=governed — governed writes are managed-rail only")
+    else:
+        logger.warning(
+            "⚠️ WORKSHOP_FORMAT=%r, not 'governed'. The managed-rail boundary is OFF: "
+            "initiate_return, issue_credit and restock_inventory will execute "
+            "in process with no human review, no AgentCore Policy verdict and no "
+            "tool_audit receipt. Set WORKSHOP_FORMAT=governed for this lineage.",
+            _format or "<unset>",
+        )
     
     global db_service, embedding_service, chat_service, query_logger, index_performance_service
 
@@ -356,6 +379,15 @@ async def lifespan(app: FastAPI):
         tool_audit_writer.set_main_loop(asyncio.get_running_loop())
         logger.info("✅ tool_audit writer initialized for ALLOW-path mutation logging")
 
+        # The operator review writer needs the same bridge. When a governed
+        # mutation declines to run on the shopper rail, the after-tool hook turns
+        # that refusal into a durable review row, and it fires on a Strands
+        # worker thread rather than the request loop.
+        from services import operator_review
+        operator_review.set_db_service(db_service)
+        operator_review.set_main_loop(asyncio.get_running_loop())
+        logger.info("✅ operator review writer initialized for the action boundary")
+
         # Load the skill registry once at boot. Per-request cost is zero —
         # skills are served from memory. See backend/skills/ for the
         # registry, models, and one-call router.
@@ -455,6 +487,7 @@ app.include_router(observatory_router)
 # via Pydantic and degrade gracefully; they are never allowed to 5xx
 # the homepage.
 app.include_router(storefront_router)
+app.include_router(operator_router)
 app.include_router(commerce_router)
 app.include_router(transcribe_router)
 
@@ -643,7 +676,7 @@ def _prepare_like_pattern(term: str) -> str:
 
 
 @app.get("/api/products/category/{category_query}")
-async def explore_collection(
+async def browse_category(
     category_query: str,
     limit: int = Query(default=5, ge=1, le=50),
     db: DatabaseService = Depends(get_db_service),
@@ -723,14 +756,14 @@ async def general_exception_handler(request, exc):
 async def list_custom_tools():
     """List all custom business logic tools available"""
     return [
-        {"name": "find_pieces", "description": "Search for products by natural language query with optional filters"},
-        {"name": "whats_trending", "description": "Get trending products by reviews and ratings"},
-        {"name": "explore_collection", "description": "Browse products filtered by category, rating, and price"},
-        {"name": "floor_check", "description": "Check stock levels and inventory alerts"},
-        {"name": "price_intelligence", "description": "Price analytics by category"},
-        {"name": "restock_shelf", "description": "Update product stock quantities"},
-        {"name": "side_by_side", "description": "Side-by-side product comparison"},
-        {"name": "running_low", "description": "Find products running low on inventory"},
+        {"name": "search_products", "description": "Search for products by natural language query with optional filters"},
+        {"name": "get_trending_products", "description": "Get trending products by reviews and ratings"},
+        {"name": "browse_category", "description": "Browse products filtered by category, rating, and price"},
+        {"name": "check_inventory", "description": "Check stock levels and inventory alerts"},
+        {"name": "get_price_analysis", "description": "Price analytics by category"},
+        {"name": "restock_inventory", "description": "Update product stock quantities"},
+        {"name": "compare_products", "description": "Side-by-side product comparison"},
+        {"name": "get_low_stock", "description": "Find products running low on inventory"},
     ]
 
 
@@ -744,21 +777,21 @@ async def get_trending(
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(db)
-        return await logic.whats_trending(limit, category)
+        return await logic.get_trending_products(limit, category)
     except Exception as e:
         logger.error(f"Failed to get trending products: {e}")
         raise HTTPException(status_code=500, detail="internal_error")
 
 
 @app.get("/api/tools/inventory-health")
-async def floor_check_endpoint(
+async def check_inventory_endpoint(
     db: DatabaseService = Depends(get_db_service)
 ):
     """Get inventory health using business logic"""
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(db)
-        return await logic.floor_check()
+        return await logic.check_inventory()
     except Exception as e:
         logger.error(f"Failed to get inventory health: {e}")
         raise HTTPException(status_code=500, detail="internal_error")
@@ -773,14 +806,14 @@ async def get_price_stats(
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(db)
-        return await logic.price_intelligence(category)
+        return await logic.get_price_analysis(category)
     except Exception as e:
         logger.error(f"Failed to get price statistics: {e}")
         raise HTTPException(status_code=500, detail="internal_error")
 
 
 @app.post("/api/tools/restock")
-async def restock_shelf_endpoint(
+async def restock_inventory_endpoint(
     request: RestockRequest,
     operator: Dict[str, Any] = Depends(require_operator),
     db: DatabaseService = Depends(get_db_service),
@@ -802,7 +835,7 @@ async def restock_shelf_endpoint(
     try:
         from services.business_logic import BusinessLogic
         logic = BusinessLogic(db)
-        result = await logic.restock_shelf(
+        result = await logic.restock_inventory(
             product_id=request.product_id,
             quantity=request.quantity,
             idempotency_key=request.idempotency_key,
@@ -818,7 +851,7 @@ async def restock_shelf_endpoint(
         from services.tool_audit_writer import record_operator_mutation
 
         record_operator_mutation(
-            tool_name="restock_shelf",
+            tool_name="restock_inventory",
             caller="rest",
             principal_sub=operator["sub"],
             args={
@@ -866,22 +899,9 @@ async def chat(request: ChatRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="chat_failed")
 
 
-def new_turn_id() -> str:
-    """Mint a stable identifier for one shopper turn.
-
-    Every turn gets one, minted server-side before the stream opens. This
-    is what makes a receipt deep link reproducible: Pellier can hand
-    the id to Observatory, and a reload resolves the same turn rather than
-    whatever happens to be newest.
-
-    Deliberately not derived from message position or display order — a
-    positional id silently points at a different turn after any
-    reordering, which is worse than having no link at all.
-
-    Format is ``turn-<32 hex>``: uuid4 hex, prefixed so the value is
-    self-describing in a URL, a log line, and a JSONB column.
-    """
-    return f"turn-{uuid.uuid4().hex}"
+# Re-exported from services.turn_identity so `app.new_turn_id` keeps working for
+# the routes and the turn-id contract test, while the format has one home.
+from services.turn_identity import new_turn_id  # noqa: E402
 
 
 def _annotate_rail(
@@ -2500,56 +2520,56 @@ async def observatory_catalog():
     # actual per-call latencies via the existing tool-call SSE.
     tools = [
         {
-            "name": "find_pieces",
+            "name": "search_products",
             "version": "v2.1",
             "headline": "Semantic search across the catalog.",
             "description": "Natural-language query against pgvector; returns top-k matched products.",
             "p50_ms": 280,
         },
         {
-            "name": "whats_trending",
+            "name": "get_trending_products",
             "version": "v1.3",
             "headline": "Current bestsellers and just-ins.",
             "description": "Returns products tagged BESTSELLER / JUST_IN / EDITORS_PICK from the catalog.",
             "p50_ms": 120,
         },
         {
-            "name": "explore_collection",
+            "name": "browse_category",
             "version": "v1.2",
             "headline": "Browse by named category.",
             "description": "Filter-by-category read for shoppers who know what shelf they want.",
             "p50_ms": 80,
         },
         {
-            "name": "side_by_side",
+            "name": "compare_products",
             "version": "v1.0",
             "headline": "Side-by-side product comparison.",
             "description": "Takes two product IDs, returns attributes arranged for comparison.",
             "p50_ms": 180,
         },
         {
-            "name": "price_intelligence",
+            "name": "get_price_analysis",
             "version": "v1.1",
             "headline": "Price trends, deals, and budget fit.",
             "description": "Analyzes pricing across a category or a specific product family.",
             "p50_ms": 220,
         },
         {
-            "name": "floor_check",
+            "name": "check_inventory",
             "version": "v1.0",
             "headline": "Stock levels at a glance.",
             "description": "Inventory summary by category with low-stock flags.",
             "p50_ms": 95,
         },
         {
-            "name": "running_low",
+            "name": "get_low_stock",
             "version": "v1.0",
             "headline": "What's running low right now.",
             "description": "Reads products below the restock threshold, ordered by urgency.",
             "p50_ms": 110,
         },
         {
-            "name": "restock_shelf",
+            "name": "restock_inventory",
             "version": "v1.0",
             "headline": "Place a restock signal.",
             "description": "Writes a restock request. Gated — requires explicit user confirmation.",
@@ -2557,7 +2577,7 @@ async def observatory_catalog():
             "gated": True,
         },
         {
-            "name": "returns_and_care",
+            "name": "get_return_policy",
             "version": "v1.0",
             "headline": "Return windows by category.",
             "description": "Policy lookup used by customer support for returns / refunds questions.",
@@ -2570,25 +2590,25 @@ async def observatory_catalog():
     # 'gated' = requires user confirmation (espresso-dashed in the UI).
     grants = [
         # search agent imports
-        {"agent": "search", "tool": "find_pieces", "style": "solid"},
-        {"agent": "search", "tool": "explore_collection", "style": "solid"},
-        {"agent": "search", "tool": "side_by_side", "style": "solid"},
+        {"agent": "search", "tool": "search_products", "style": "solid"},
+        {"agent": "search", "tool": "browse_category", "style": "solid"},
+        {"agent": "search", "tool": "compare_products", "style": "solid"},
         # recommendation agent imports
-        {"agent": "recommendation", "tool": "find_pieces", "style": "solid"},
-        {"agent": "recommendation", "tool": "whats_trending", "style": "solid"},
-        {"agent": "recommendation", "tool": "side_by_side", "style": "solid"},
-        {"agent": "recommendation", "tool": "explore_collection", "style": "solid"},
+        {"agent": "recommendation", "tool": "search_products", "style": "solid"},
+        {"agent": "recommendation", "tool": "get_trending_products", "style": "solid"},
+        {"agent": "recommendation", "tool": "compare_products", "style": "solid"},
+        {"agent": "recommendation", "tool": "browse_category", "style": "solid"},
         # pricing agent imports
-        {"agent": "pricing", "tool": "price_intelligence", "style": "solid"},
-        {"agent": "pricing", "tool": "explore_collection", "style": "solid"},
-        {"agent": "pricing", "tool": "find_pieces", "style": "dashed"},
+        {"agent": "pricing", "tool": "get_price_analysis", "style": "solid"},
+        {"agent": "pricing", "tool": "browse_category", "style": "solid"},
+        {"agent": "pricing", "tool": "search_products", "style": "dashed"},
         # inventory agent imports
-        {"agent": "inventory", "tool": "floor_check", "style": "solid"},
-        {"agent": "inventory", "tool": "running_low", "style": "solid"},
-        {"agent": "inventory", "tool": "restock_shelf", "style": "gated"},
+        {"agent": "inventory", "tool": "check_inventory", "style": "solid"},
+        {"agent": "inventory", "tool": "get_low_stock", "style": "solid"},
+        {"agent": "inventory", "tool": "restock_inventory", "style": "gated"},
         # support agent imports
-        {"agent": "support", "tool": "returns_and_care", "style": "solid"},
-        {"agent": "support", "tool": "find_pieces", "style": "dashed"},
+        {"agent": "support", "tool": "get_return_policy", "style": "solid"},
+        {"agent": "support", "tool": "search_products", "style": "dashed"},
     ]
 
     return {
@@ -2648,6 +2668,7 @@ async def list_personas():
             "blurb": p["blurb"],
             "avatar_color": p["avatar_color"],
             "avatar_initial": p["avatar_initial"],
+            "membership": p.get("membership", "registered"),
             "stats": p["stats"],
         }
         for p in personas
@@ -2687,6 +2708,7 @@ async def switch_persona(req: PersonaSwitchRequest):
             "avatar_color": persona["avatar_color"],
             "avatar_initial": persona["avatar_initial"],
             "customer_id": persona["customer_id"],
+            "membership": persona.get("membership", "registered"),
             "stats": persona["stats"],
         },
     }
@@ -2710,6 +2732,7 @@ async def get_current_persona(session_id: Optional[str] = Query(default=None)):
             "avatar_color": persona["avatar_color"],
             "avatar_initial": persona["avatar_initial"],
             "customer_id": persona["customer_id"],
+            "membership": persona.get("membership", "registered"),
             "stats": persona["stats"],
         },
     }
@@ -2718,7 +2741,7 @@ async def get_current_persona(session_id: Optional[str] = Query(default=None)):
 # NOTE: the legacy /api/observatory/status endpoint (multi-module stub detection
 # for an older workshop draft) was removed from the current required path.
 # The Observatory progress strip reads GET /api/observatory/build-state instead,
-# which tracks the Stock Keeper definition and floor_check body independently.
+# which tracks the Inventory Agent definition and check_inventory body independently.
 # See routes/observatory.py::get_build_state.
 
 

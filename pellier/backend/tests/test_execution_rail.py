@@ -141,12 +141,12 @@ def test_mutation_tools_require_the_managed_rail_when_governed(
 ) -> None:
     monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "governed", raising=False)
 
-    assert requires_managed_rail("process_return") is True
-    assert requires_managed_rail("restock_shelf") is True
-    # escalate_to_stylist mutates nothing (pure UI handoff), so it stays
+    assert requires_managed_rail("initiate_return") is True
+    assert requires_managed_rail("restock_inventory") is True
+    # escalate_to_human mutates nothing (pure UI handoff), so it stays
     # available on degraded turns as the honest fallback when a mutation
     # is refused.
-    assert requires_managed_rail("escalate_to_stylist") is False
+    assert requires_managed_rail("escalate_to_human") is False
 
 
 def test_read_tools_never_require_the_managed_rail(
@@ -154,9 +154,9 @@ def test_read_tools_never_require_the_managed_rail(
 ) -> None:
     monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "governed", raising=False)
 
-    assert requires_managed_rail("find_pieces") is False
-    assert requires_managed_rail("find_pieces_hybrid") is False
-    assert requires_managed_rail("floor_check") is False
+    assert requires_managed_rail("search_products") is False
+    assert requires_managed_rail("search_products_hybrid") is False
+    assert requires_managed_rail("check_inventory") is False
 
 
 def test_builders_format_allows_local_mutations(
@@ -165,7 +165,7 @@ def test_builders_format_allows_local_mutations(
     """The shorter builders session runs writes in-process by design."""
     monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "builders", raising=False)
 
-    assert requires_managed_rail("process_return") is False
+    assert requires_managed_rail("initiate_return") is False
 
 
 def test_agent_tools_guard_uses_the_shared_rail_list(
@@ -176,8 +176,8 @@ def test_agent_tools_guard_uses_the_shared_rail_list(
 
     monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "governed", raising=False)
 
-    blocked = agent_tools._managed_rail_required("process_return")
-    allowed = agent_tools._managed_rail_required("find_pieces")
+    blocked = agent_tools._managed_rail_required("initiate_return")
+    allowed = agent_tools._managed_rail_required("search_products")
 
     assert allowed is None
     assert blocked is not None
@@ -201,8 +201,8 @@ def test_degraded_notice_names_the_withheld_capabilities(
 
     assert notice["degraded"] is True
     assert notice["reason"] == REASON_NO_TOKEN
-    assert "process_return" in notice["capabilitiesRemoved"]
-    assert "restock_shelf" in notice["capabilitiesRemoved"]
+    assert "initiate_return" in notice["capabilitiesRemoved"]
+    assert "restock_inventory" in notice["capabilitiesRemoved"]
 
 
 def test_degraded_notice_is_not_described_as_a_policy_denial(
@@ -272,7 +272,7 @@ def test_annotation_leaves_a_malformed_event_alone(
 # Gateway capability tiers (audit finding B3)
 # ---------------------------------------------------------------------------
 def test_every_published_tool_has_a_tier() -> None:
-    """A flat catalog makes least-privilege unverifiable; classify all 15."""
+    """A flat catalog makes least-privilege unverifiable; classify all 17."""
     from services.agentcore_gateway import (
         GATEWAY_TOOL_NAMES,
         GATEWAY_TOOL_TIERS,
@@ -281,7 +281,7 @@ def test_every_published_tool_has_a_tier() -> None:
     unclassified = [n for n in GATEWAY_TOOL_NAMES if n not in GATEWAY_TOOL_TIERS]
 
     assert unclassified == []
-    assert len(GATEWAY_TOOL_NAMES) == 15
+    assert len(GATEWAY_TOOL_NAMES) == 17
 
 
 def test_an_unknown_tool_defaults_to_the_most_restrictive_tier() -> None:
@@ -295,8 +295,9 @@ def test_mutation_tiers_capture_exactly_the_write_tools() -> None:
     from services.agentcore_gateway import mutation_tool_names
 
     assert sorted(mutation_tool_names()) == [
-        "process_return",
-        "restock_shelf",
+        "initiate_return",
+        "issue_credit",
+        "restock_inventory",
     ]
 
 
@@ -305,9 +306,9 @@ def test_search_tools_are_in_the_read_tier() -> None:
 
     read_tools = tools_in_tier(TIER_READ)
 
-    assert "find_pieces_hybrid" in read_tools
-    assert "floor_check" in read_tools
-    assert "process_return" not in read_tools
+    assert "search_products_hybrid" in read_tools
+    assert "check_inventory" in read_tools
+    assert "initiate_return" not in read_tools
 
 
 def test_fail_closed_rule_derives_from_the_tier_map() -> None:
@@ -328,3 +329,43 @@ def test_fallback_list_matches_the_tier_map() -> None:
     from services.execution_rail import _MUTATION_TOOLS_FALLBACK
 
     assert _MUTATION_TOOLS_FALLBACK == frozenset(mutation_tool_names())
+
+
+def test_the_governed_boundary_fails_open_when_the_format_is_unset() -> None:
+    """The switch that silently disabled the flagship write boundary.
+
+    `requires_managed_rail` returns False for any format other than `governed`, and
+    `bootstrap-labs.sh` defaults the flag to `builders`. A local `.env` created without
+    the export left the shopper rail executing `initiate_return` directly — no review,
+    no Cedar verdict, no `tool_audit` row — and nothing announced it.
+    """
+    import importlib
+
+    from config import settings
+    from services import execution_rail
+
+    original = settings.WORKSHOP_FORMAT
+    try:
+        settings.WORKSHOP_FORMAT = "builders"
+        importlib.reload(execution_rail)
+        assert execution_rail.requires_managed_rail("initiate_return") is False, (
+            "the fail-open behaviour changed; update this test and the startup warning"
+        )
+        settings.WORKSHOP_FORMAT = "governed"
+        importlib.reload(execution_rail)
+        for tool in ("initiate_return", "issue_credit", "restock_inventory"):
+            assert execution_rail.requires_managed_rail(tool) is True, tool
+    finally:
+        settings.WORKSHOP_FORMAT = original
+        importlib.reload(execution_rail)
+
+
+def test_startup_warns_loudly_when_the_boundary_is_off() -> None:
+    """A silent fail-open is the thing that cost a live business mutation."""
+    import pathlib
+
+    app_source = pathlib.Path("app.py").read_text()
+    assert "The managed-rail boundary is OFF" in app_source
+    assert "logger.warning" in app_source.split("WORKSHOP_FORMAT=governed —")[0][-2000:]
+    # And the positive case is stated too, so a correct box confirms itself.
+    assert "governed writes are managed-rail only" in app_source

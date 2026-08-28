@@ -30,6 +30,11 @@ import './styles/premium-heading-styles.css'
 const PellierPage = lazy(() => import('./pages/PellierPage'))
 const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
 const ObservatoryFrame = lazy(() => import('./observatory/shell/ObservatoryFrame'))
+const OperatorFrame = lazy(() => import('./operator/shell/OperatorFrame'))
+const ClientBook = lazy(() => import('./operator/surfaces/ClientBook'))
+const ClientRecord = lazy(() => import('./operator/surfaces/ClientRecord'))
+const ReviewQueue = lazy(() => import('./operator/surfaces/ReviewQueue'))
+const ReviewRecord = lazy(() => import('./operator/surfaces/ReviewRecord'))
 const SessionsList = lazy(() => import('./observatory/surfaces/observe/SessionsList'))
 const SessionView = lazy(() => import('./observatory/surfaces/observe/SessionView'))
 const ChatTab = lazy(() => import('./observatory/surfaces/observe/ChatTab'))
@@ -147,6 +152,25 @@ function ModalRouteGuard() {
   return null
 }
 
+/**
+ * The shopper's Ask Pellier drawer, and the surfaces it does not belong on.
+ *
+ * `ChatDrawer` was mounted for every route, so its "Continue chat" pill floated over
+ * Pellier Operator whenever the browser held a storefront thread — the shopper
+ * conversation following an operator around their own console. It is a surface-boundary
+ * leak rather than a bug in the drawer: Operator is a different product with its own
+ * Concierge, and offering a shopper thread there invites clicking into the wrong one.
+ *
+ * Gated on the route rather than removed, because the drawer is correct everywhere
+ * else, including the Observatory, where a participant legitimately wants to keep a
+ * shopper turn open while reading its evidence.
+ */
+function ShopperChatSlot() {
+  const { pathname } = useLocation()
+  if (pathname.startsWith('/operator')) return null
+  return <ChatDrawer />
+}
+
 function ObservatoryConciergeSlot() {
   const { pathname } = useLocation()
   if (!pathname.startsWith('/observatory')) return null
@@ -214,6 +238,18 @@ export function AppRoutes() {
         <Route path="/agent-trace/*" element={<LegacyPathRedirect />} />
         <Route path="/pellier-labs/*" element={<LegacyPathRedirect />} />
         <Route path="/labs/*" element={<LegacyPathRedirect />} />
+        {/* Pellier Operator — the clienteling desk. Reads are open so the
+            surface is never a blank 401 on a box with no Cognito wired; the
+            write actions are gated by require_operator server-side. */}
+        <Route path="/operator" element={<OperatorFrame />}>
+          <Route index element={<ClientBook />} />
+          <Route path="clients/:customerId" element={<ClientRecord />} />
+          {/* Prepared requests handed off from Pellier. The queue is the desk's
+              entry point for storefront work, so an operator finds a waiting
+              client without already knowing to search for them. */}
+          <Route path="reviews" element={<ReviewQueue />} />
+          <Route path="reviews/:reviewId" element={<ReviewRecord />} />
+        </Route>
         <Route path="/observatory" element={<ObservatoryFrame />}>
           <Route index element={<ObservatoryWorkbench />} />
           <Route path="references" element={<ReferencesIndex />} />
@@ -292,7 +328,7 @@ function App() {
             <BrowserRouter basename={routerBasename()}>
               <ModalRouteGuard />
               <ObservatoryConciergeSlot />
-              <ChatDrawer />
+              <ShopperChatSlot />
               <ComparisonHost />
               <AppRoutes />
             </BrowserRouter>

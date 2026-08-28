@@ -80,7 +80,7 @@ const StateDetail: React.FC = () => {
             <StateKeyCard
               keyName="active_agents"
               description="The owning specialist path for this turn. Pellier chooses one path by default, not a committee."
-              example='owner = "Curator"'
+              example='owner = "Personalization Agent"'
             />
             <StateKeyCard
               keyName="memory_context"

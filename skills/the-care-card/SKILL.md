@@ -22,13 +22,13 @@ version: "1.0"
 
 ## Tool discipline
 
-- Run `returns_and_care` before policy claims.
-- Run `process_return` only when the customer, product id, canonical reason, and a stable idempotency key are available.
-- Use `trace_receipt` when the shopper or operator asks whether a return/write was recorded.
-- Use `escalate_to_stylist` when the automated path is closed or a human judgment call is required.
+- Run `get_return_policy` before policy claims.
+- Run `initiate_return` only when the customer, product id, canonical reason, and a stable idempotency key are available.
+- Use `get_audit_trail` when the shopper or operator asks whether a return/write was recorded.
+- Use `escalate_to_human` when the automated path is closed or a human judgment call is required.
 
 ## Guardrails
 
 - Do not promise refunds, exchanges, repairs, or pickup methods that a tool did not return.
-- Do not imply `process_return` ran unless its tool result confirms success.
-- Do not call this a human handoff unless `escalate_to_stylist` produced the handoff payload.
+- Do not imply `initiate_return` ran unless its tool result confirms success.
+- Do not call this a human handoff unless `escalate_to_human` produced the handoff payload.

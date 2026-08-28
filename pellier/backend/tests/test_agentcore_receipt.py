@@ -116,7 +116,7 @@ def _valid_receipt() -> dict[str, Any]:
                 "span_count": 3,
                 "span_names": [
                     "chat",
-                    "execute_tool find_pieces_hybrid",
+                    "execute_tool search_products_hybrid",
                     "invoke_agent pellier_orchestrator",
                 ],
                 "agent_span": True,
@@ -136,7 +136,7 @@ def _valid_receipt() -> dict[str, Any]:
                 "step_latency_observed": True,
                 "step_latency_ms": {"agent": 125, "model": 80, "tool": 30},
                 "model_ids": ["global.anthropic.claude-sonnet-4-6"],
-                "tool_names": ["find_pieces_hybrid"],
+                "tool_names": ["search_products_hybrid"],
                 "provenance": "agentcore-unified-telemetry",
             },
         },

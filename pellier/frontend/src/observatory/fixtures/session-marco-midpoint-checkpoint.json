@@ -1,7 +1,7 @@
 {
   "id": "marco-midpoint-checkpoint",
   "personaId": "marco",
-  "openingQuery": "Is the Hadley shirt at the Brooklyn warehouse?",
+  "openingQuery": "Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?",
   "elapsedMs": 1840,
   "agentCount": 1,
   "routingPattern": "Dispatcher",
@@ -10,7 +10,7 @@
   "chat": [
     {
       "role": "user",
-      "content": "Is the Hadley shirt at the Brooklyn warehouse?",
+      "content": "Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?",
       "timestamp": "2026-05-25T17:24:00Z"
     },
     {
@@ -20,12 +20,12 @@
       "plan": {
         "routingPattern": "Dispatcher",
         "stepCount": 2,
-        "flowSummary": "Dispatcher \u2192 Stock Keeper \u2192 floor_check",
+        "flowSummary": "Dispatcher \u2192 Inventory Agent \u2192 check_inventory",
         "traceLink": "#telemetry-1"
       },
       "toolCalls": [
         {
-          "toolName": "floor_check",
+          "toolName": "check_inventory",
           "description": "Warehouse-level stock lookup for Hadley / Pellier Linen Shirt",
           "durationMs": 142,
           "sql": "SELECT warehouse_id, warehouse_name, quantity, restock_eta FROM inventory_by_warehouse WHERE product_id = $1 AND quantity > 0 ORDER BY warehouse_id;",
@@ -52,10 +52,10 @@
         }
       ],
       "meta": {
-        "agent": "Stock Keeper",
+        "agent": "Inventory Agent",
         "model": "Claude Sonnet 4.6",
         "latencyMs": 184,
-        "note": "This is the checkpoint turn - floor_check is participant-authored code"
+        "note": "This is the checkpoint turn - check_inventory is participant-authored code"
       }
     }
   ],
@@ -73,10 +73,10 @@
       "index": 2,
       "category": "both",
       "title": "Warehouse stock lookup",
-      "description": "floor_check - participant-authored tool, running on Claude Sonnet 4.6",
+      "description": "check_inventory - participant-authored tool, running on Claude Sonnet 4.6",
       "status": "complete",
       "durationMs": 142,
-      "agent": "Stock Keeper",
+      "agent": "Inventory Agent",
       "sql": "SELECT warehouse_id, warehouse_name, quantity, restock_eta FROM inventory_by_warehouse WHERE product_id = $1 AND quantity > 0 ORDER BY warehouse_id;"
     },
     {
@@ -94,7 +94,7 @@
       "description": "Claude Sonnet 4.6 reporting profile - 3 warehouses summarized",
       "status": "complete",
       "durationMs": 42,
-      "agent": "Stock Keeper"
+      "agent": "Inventory Agent"
     }
   ],
   "brief": {
@@ -106,7 +106,7 @@
         "numeral": "i.",
         "title": "The checkpoint",
         "paragraphs": [
-          "Same question, different answer. Participants completed Stock Keeper and wired floor_check; the Dispatcher routed Turn 4 straight to Stock Keeper; Claude Sonnet 4.6 returned the warehouse breakdown.",
+          "Same question, different answer. Participants completed Inventory Agent and wired check_inventory; the Dispatcher routed Turn 4 straight to Inventory Agent; Claude Sonnet 4.6 returned the warehouse breakdown.",
           "The code behind this response is yours. The tool you wrote just shipped a real answer to a real question - and nothing about the storefront changed. That's the whole lesson: capability is composable."
         ]
       }

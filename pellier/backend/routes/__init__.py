@@ -11,6 +11,7 @@ rather than declaring every endpoint inline.
   * ``commerce`` — authenticated quote, consent, order, and receipt APIs.
   * ``workshop`` — Observatory query and resume telemetry APIs.
   * ``storefront`` — storefront briefing and pulse APIs.
+  * ``operator`` — Pellier Operator client book and governed operator actions.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from .commerce import router as commerce_router
 from .user import router as user_router
 from .workshop import router as workshop_router
 from .observatory import router as observatory_router
+from .operator import router as operator_router
 
 __all__ = [
     "agent_router",
@@ -35,4 +37,5 @@ __all__ = [
     "commerce_router",
     "user_router",
     "workshop_router",
+    "operator_router",
 ]

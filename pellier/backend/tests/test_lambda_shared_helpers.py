@@ -208,7 +208,7 @@ def test_the_audit_writer_demands_an_explicit_session_handle() -> None:
     """The two callers key differently, so a default would silently mislabel.
 
     A customer-scoped tool keys on `gateway-<customer_id>`; an operator tool
-    like `restock_shelf` has no customer in its arguments and keys on a role
+    like `restock_inventory` has no customer in its arguments and keys on a role
     handle. A default here would write one of those onto the other's rows.
     """
     import inspect
@@ -222,13 +222,19 @@ def test_the_audit_writer_demands_an_explicit_session_handle() -> None:
 
 def test_each_surface_keys_its_audit_rows_deliberately() -> None:
     """Both wrappers must state their session handle at the call site."""
+    # Two writers, deliberately. `restock_inventory` keeps the in-transaction
+    # receipt; the reviewable actions write independently so an Aurora denial
+    # still leaves an attempt receipt behind.
     handles = {
-        "pellier_search_server.py": "gateway-stock-keeper",
-        "pellier_experience_server.py": 'gateway-{customer_id}',
+        "pellier_search_server.py": ("gateway-stock-keeper", "write_tool_audit("),
+        "pellier_experience_server.py": (
+            "gateway-{customer_id}",
+            "_write_tool_audit_independently(",
+        ),
     }
-    for filename, expected in handles.items():
+    for filename, (expected, writer) in handles.items():
         body = (DEPLOY / filename).read_text()
-        assert "write_tool_audit(" in body, f"{filename} no longer audits"
+        assert writer in body, f"{filename} no longer audits via {writer}"
         assert expected in body, f"{filename} lost its session handle {expected!r}"
 
 

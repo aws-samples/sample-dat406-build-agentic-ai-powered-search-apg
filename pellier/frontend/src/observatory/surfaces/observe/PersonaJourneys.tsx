@@ -5,7 +5,7 @@
  * hero pills from `PERSONA_HERO_PILLS` — the same strings as the
  * storefront "Try asking" row. For each turn we list agent / tool /
  * model / outcome and link into captured session fixtures when they
- * exist (Marco Turn 4 links twice: opening demo = floor_check stub,
+ * exist (Marco Turn 4 links twice: opening demo = check_inventory stub,
  * midpoint = wired warehouse answer).
  *
  * Lives under OBSERVE — adjacent to Sessions (replay) and Observatory.
@@ -26,7 +26,7 @@ interface JourneyTurn {
   outcome: string;
   /** Primary Observatory fixture for this turn (stub path, or only path). */
   sessionId?: string;
-  /** When set, second fixture shows the post-build / wired path (e.g. floor_check). */
+  /** When set, second fixture shows the post-build / wired path (e.g. check_inventory). */
   wiredSessionId?: string;
 }
 
@@ -42,79 +42,79 @@ interface PersonaJourney {
 
 const MARCO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   {
-    agent: 'Style Advisor',
+    agent: 'Search Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces',
+    tool: 'search_products',
     outcome: '3 linen pieces with editorial voice',
     sessionId: 'marco-opening-demo',
   },
   {
-    agent: 'Curator (the-packing-list)',
+    agent: 'Personalization Agent (the-packing-list)',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces → style_match',
+    tool: 'search_products → get_related_products',
     outcome: 'Complementary pieces; voice mentions packability',
     sessionId: 'marco-opening-demo',
   },
   {
-    agent: 'Value Analyst',
+    agent: 'Pricing Agent',
     model: 'Claude Sonnet 4.6',
-    tool: 'price_intelligence',
+    tool: 'get_price_analysis',
     outcome: '"$88 to $285, median $148"',
     sessionId: 'marco-opening-demo',
   },
   {
-    agent: 'Stock Keeper',
+    agent: 'Inventory Agent',
     model: 'Claude Sonnet 4.6',
-    tool: 'floor_check',
+    tool: 'check_inventory',
     outcome:
-      'Opening demo: Dispatcher matches stock intent; floor_check still stubbed → fall-through telemetry (no tool). Midpoint: same Pellier pill - real warehouse breakdown after the build.',
+      'Opening demo: Dispatcher matches stock intent; check_inventory still stubbed → fall-through telemetry (no tool). Midpoint: same Pellier pill - real warehouse breakdown after the build.',
     sessionId: 'marco-opening-demo',
     wiredSessionId: 'marco-midpoint-checkpoint',
   },
   {
-    agent: 'Style Advisor (the-packing-list)',
+    agent: 'Search Agent (the-packing-list)',
     model: 'Claude Opus 4.6',
-    tool: 'escalate_to_stylist',
+    tool: 'escalate_to_human',
     outcome:
-      'Capstone - human-stylist handoff. Catalog tools cannot dress a body for an occasion; escalate_to_stylist is the honest fallback.',
+      'Capstone - human-stylist handoff. Catalog tools cannot dress a body for an occasion; escalate_to_human is the honest fallback.',
     sessionId: 'marco-capstone',
   },
 ];
 
 const ANNA_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   {
-    agent: 'Curator (the-gift-table)',
+    agent: 'Personalization Agent (the-gift-table)',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces_hybrid',
+    tool: 'search_products_hybrid',
     outcome:
       'Vector → Postgres FTS → RRF → Rerank v3.5. Four SSE telemetry spans visible.',
     sessionId: 'anna-morning-ritual',
   },
   {
-    agent: 'Curator',
+    agent: 'Personalization Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces_hybrid',
+    tool: 'search_products_hybrid',
     outcome: 'Soft "beautiful" + literal "$100" - hybrid handles both.',
     sessionId: 'anna-under-100',
   },
   {
-    agent: 'Curator',
+    agent: 'Personalization Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces_hybrid',
+    tool: 'search_products_hybrid',
     outcome: 'Candle as anchor + "with something else" reranks the band.',
     sessionId: 'anna-candle-pairing',
   },
   {
-    agent: 'Curator',
+    agent: 'Personalization Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces_hybrid',
+    tool: 'search_products_hybrid',
     outcome: 'Beeswax Taper Candles at rank 1 - Cohere reads "wrap-ready" intent.',
     sessionId: 'anna-birthday-gift',
   },
   {
-    agent: 'Curator (the-gift-table)',
+    agent: 'Personalization Agent (the-gift-table)',
     model: 'Claude Opus 4.6',
-    tool: 'escalate_to_stylist',
+    tool: 'escalate_to_human',
     outcome:
       'Capstone - human-stylist handoff for sympathy gifting. Hybrid retrieval can find candles; it cannot read the room.',
     sessionId: 'anna-housewarming',
@@ -123,40 +123,40 @@ const ANNA_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
 
 const THEO_TURNS_META: Omit<JourneyTurn, 'pill' | 'n'>[] = [
   {
-    agent: 'Curator (the-makers-shelf)',
+    agent: 'Personalization Agent (the-makers-shelf)',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces',
+    tool: 'search_products',
     outcome: 'Stoneware Pour-Over Set at rank 1 - patina vibe matches.',
     sessionId: 'theo-pour-over',
   },
   {
-    agent: 'Curator',
+    agent: 'Personalization Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces → style_match',
+    tool: 'search_products → get_related_products',
     outcome: 'Ceramic Tumblers + Woven Mat Set - same kiln register.',
     sessionId: 'theo-pour-over-pairing',
   },
   {
-    agent: 'Style Advisor',
+    agent: 'Search Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces',
+    tool: 'search_products',
     outcome: 'Washed-linen pieces with patina-leaning prose.',
     sessionId: 'theo-linen-seasons',
   },
   {
-    agent: 'Experience Guide',
+    agent: 'Customer Service Agent',
     model: 'Claude Opus 4.6',
-    tool: 'find_pieces → returns_and_care → process_return',
+    tool: 'search_products → get_return_policy → initiate_return',
     outcome:
       'Three writes in one transaction · returns row + product_catalog decrement + tool_audit · Cedar + SQL gated',
     sessionId: 'theo-ceramics-return',
   },
   {
-    agent: 'Experience Guide (the-makers-shelf)',
+    agent: 'Customer Service Agent (the-makers-shelf)',
     model: 'Claude Opus 4.6',
-    tool: 'escalate_to_stylist',
+    tool: 'escalate_to_human',
     outcome:
-      'Capstone - exception-return handoff. Outside the standard window; process_return refuses, escalate_to_stylist is the honest fallback.',
+      'Capstone - exception-return handoff. Outside the standard window; initiate_return refuses, escalate_to_human is the honest fallback.',
     sessionId: 'theo-home-not-wardrobe',
   },
 ];
@@ -182,7 +182,7 @@ const JOURNEYS: PersonaJourney[] = [
     capability: 'pgvector semantic search',
     capabilityRole: 'Foundation · Capability 1',
     blurb:
-      "Returning customer. Natural fabrics, linen, travel-ready, warm tones. Marco's arc anchors pgvector cosine over Cohere Embed v4. Turn 4 is the workshop build: same hero pill ships stub telemetry in opening demo, then a real floor_check replay after the required path lands.",
+      "Returning customer. Natural fabrics, linen, travel-ready, warm tones. Marco's arc anchors pgvector cosine over Cohere Embed v4. Turn 4 is the workshop build: same hero pill ships stub telemetry in opening demo, then a real check_inventory replay after the required path lands.",
     turns: attachPills(MARCO_TURNS_META, PERSONA_HERO_PILLS.marco, PERSONA_TURN_TRACES.marco),
     capstoneNote:
       "Claude Opus 4.6 handles editorial turns; Claude Sonnet 4.6 handles routing and reporting turns. That architectural split is visible here - and Turn 4 is where the wiring exercise lands.",
@@ -420,7 +420,7 @@ const PersonaJourneys: React.FC = () => (
       backToReferences
       eyebrow="Observe · Persona Journeys · 15 Pellier hero turns"
       title="Three personas, fifteen hero queries."
-      summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Observatory tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed floor_check, then the wired warehouse answer after the build."
+      summary="Each row mirrors one Pellier “Try asking” pill, so the storefront and Pellier Observatory tell the same story turn by turn. The right rail shows what happened under the hood: which persona skill loaded, which tools ran, and which replay proves it. Marco Turn 4 appears twice because the workshop first shows the stubbed check_inventory, then the wired warehouse answer after the build."
     />
 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

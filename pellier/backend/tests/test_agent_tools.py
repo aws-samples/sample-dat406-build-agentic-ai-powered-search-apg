@@ -1,4 +1,4 @@
-"""Tests for `services.agent_tools.whats_trending`.
+"""Tests for `services.agent_tools.get_trending_products`.
 
 Covers the service tool pattern (`_db_service` availability check, `_run_async` bridging,
 `json.dumps` return, `{"error": str(e)}` envelope on exception).
@@ -95,7 +95,7 @@ class _StubBusinessLogic:
         self._payload = payload
         self._raise_exc = raise_exc
 
-    async def whats_trending(
+    async def get_trending_products(
         self, limit: int = 5, category: Optional[str] = None
     ) -> Dict[str, Any]:
         if self._raise_exc is not None:
@@ -129,8 +129,8 @@ def _invoke_tool(**kwargs: Any) -> str:
     Fall back to calling the decorated object itself when the attribute is
     missing so the test survives SDK upgrades that inline the decorator.
     """
-    fn = getattr(agent_tools.whats_trending, "__wrapped__",
-                 agent_tools.whats_trending)
+    fn = getattr(agent_tools.get_trending_products, "__wrapped__",
+                 agent_tools.get_trending_products)
     return fn(**kwargs)
 
 

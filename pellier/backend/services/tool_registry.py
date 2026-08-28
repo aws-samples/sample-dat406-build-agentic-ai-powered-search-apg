@@ -7,7 +7,7 @@ attendees can see what a managed primitive does for them.
 
 Production recommendation stays "use Gateway". This module runs in
 **shadow mode** alongside Gateway during workshop turns: both rank
-the 15 tools on every query and Observatory shows the two rankings
+the 17 tools on every query and Observatory shows the two rankings
 side-by-side. When Gateway isn't configured, the panel explicitly
 identifies the pgvector ranking as the only available source.
 

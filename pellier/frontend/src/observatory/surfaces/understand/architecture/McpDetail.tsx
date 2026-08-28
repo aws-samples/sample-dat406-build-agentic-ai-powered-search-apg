@@ -46,7 +46,7 @@ const McpDetail: React.FC = () => {
         label: 'Current MCP Gateway state. Shows the required governed rail and its separate builders fallback.',
         values: [
           { label: 'Governed path', value: 'Required' },
-          { label: 'Tool contract', value: '15 tools' },
+          { label: 'Tool contract', value: '17 tools' },
           { label: 'Protocol', value: 'MCP' },
         ],
       }}
@@ -82,7 +82,7 @@ const McpDetail: React.FC = () => {
               nodeKey="B"
               name="The Gateway"
               tag="Required infra"
-              description="AgentCore Gateway publishes all 15 tools as MCP and applies the managed identity and Cedar boundary."
+              description="AgentCore Gateway publishes all 17 tools as MCP and applies the managed identity and Cedar boundary."
             />
             <NodeCard
               nodeKey="C"
