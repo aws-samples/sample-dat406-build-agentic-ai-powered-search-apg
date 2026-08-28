@@ -418,8 +418,31 @@ fi
 # Remove any cached token from installer
 rm -rf "/home/$CODE_EDITOR_USER/.code-editor-server" 2>/dev/null || true
 
-# Get AWS region from environment or EC2 metadata
-AWS_REGION="${AWS_REGION:-$(curl -s http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo 'us-east-1')}"
+# Get AWS region from the environment, else from EC2 metadata.
+#
+# IMDSv2, token first. The unauthenticated v1 GET this replaced returns 401 on an
+# instance configured with HttpTokens=required, and the `|| echo 'us-east-1'` fallback
+# then hides that behind a plausible-looking default. A workshop in any other region
+# would have been configured for the wrong one with nothing in the log to say so.
+# `register_oauth_callback.sh` already does it this way; this is the same shape.
+imds_region() {
+    local token
+    token="$(curl -sS --max-time 5 -X PUT \
+        'http://169.254.169.254/latest/api/token' \
+        -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' 2>/dev/null)" || return 1
+    [ -n "$token" ] || return 1
+    curl -sS --max-time 5 \
+        -H "X-aws-ec2-metadata-token: $token" \
+        'http://169.254.169.254/latest/meta-data/placement/region' 2>/dev/null
+}
+
+if [ -z "${AWS_REGION:-}" ]; then
+    AWS_REGION="$(imds_region || true)"
+    if [ -z "$AWS_REGION" ]; then
+        warn "Could not read the region from IMDSv2; defaulting to us-east-1"
+        AWS_REGION="us-east-1"
+    fi
+fi
 log "AWS Region: $AWS_REGION"
 
 # ----------------------------------------------------------------------------

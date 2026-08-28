@@ -1469,7 +1469,7 @@ async def stream_turn(
     # nothing for a model to add and inventing an option would be the whole risk.
     if workflow_context is not None and workflow_context.blocked:
         artifact = _artifact(
-            spec, steps, evidence, {spec.primary_key: workflow_context.blocked}, 
+            spec, steps, evidence, {spec.primary_key: workflow_context.blocked},
             _sources(steps),
         )
         artifact.update(workflow_context.artifact)

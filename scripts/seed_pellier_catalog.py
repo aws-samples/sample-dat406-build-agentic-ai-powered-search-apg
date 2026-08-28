@@ -790,7 +790,11 @@ def write_csv(products: List[Product], path: str) -> None:
     """Write the catalog to a CSV matching seed-database.sh's schema."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+        # lineterminator is explicit: csv writers default to "\r\n" on every platform,
+        # and `git diff --check` reports that bare carriage return as trailing
+        # whitespace on every row the diff adds. The release gate fails on a file
+        # nobody hand-edited.
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS, lineterminator="\n")
         writer.writeheader()
         for p in products:
             writer.writerow(p.to_csv_row())
