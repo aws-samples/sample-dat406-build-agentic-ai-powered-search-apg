@@ -951,12 +951,19 @@ else
         log "✅ Transaction Search active (destination=CloudWatchLogs)"
     else
         log "Enabling Transaction Search (destination=CloudWatchLogs)..."
-        if aws xray update-trace-segment-destination \
-            --region "$AWS_REGION" --destination CloudWatchLogs >/dev/null 2>&1; then
+        # Capture the API error rather than discarding it. On a fresh account this
+        # warned "needs xray:UpdateTraceSegmentDestination" while the instance role
+        # already granted that action, so the guessed cause sent the next reader to the
+        # wrong place and the real error was gone. A degraded optional proof is
+        # acceptable; an undiagnosable one is not.
+        ts_err="$(aws xray update-trace-segment-destination \
+            --region "$AWS_REGION" --destination CloudWatchLogs 2>&1 >/dev/null)" \
+            && ts_rc=0 || ts_rc=$?
+        if [ "${ts_rc:-1}" -eq 0 ]; then
             log "✅ Transaction Search enabled"
         else
-            warn "⚠️  Could not enable Transaction Search (needs xray:UpdateTraceSegmentDestination)"
-            warn "    Observability proof will read: unavailable (Transaction Search)"
+            warn "⚠️  Could not enable Transaction Search; observability proof will read: unavailable"
+            warn "    aws xray update-trace-segment-destination said: ${ts_err:-<no output>}"
         fi
     fi
 
@@ -971,12 +978,16 @@ else
         log "✅ Span indexing at ${TS_DESIRED_SAMPLING}% (deterministic capture)"
     else
         log "Setting span indexing to ${TS_DESIRED_SAMPLING}% (was: ${ts_sampling:-unset})..."
-        if aws xray update-indexing-rule --region "$AWS_REGION" --name "Default" \
+        idx_err="$(aws xray update-indexing-rule --region "$AWS_REGION" --name "Default" \
             --rule "{\"Probabilistic\":{\"DesiredSamplingPercentage\":${TS_DESIRED_SAMPLING}}}" \
-            >/dev/null 2>&1; then
+            2>&1 >/dev/null)" && idx_rc=0 || idx_rc=$?
+        if [ "${idx_rc:-1}" -eq 0 ]; then
             log "✅ Span indexing set to ${TS_DESIRED_SAMPLING}%"
         else
             warn "⚠️  Could not set span indexing to ${TS_DESIRED_SAMPLING}% — workshop turns may not all be indexed"
+            warn "    aws xray update-indexing-rule said: ${idx_err:-<no output>}"
+            warn "    NOTE: the instance role grants xray:Get/UpdateTraceSegmentDestination but"
+            warn "          NOT xray:GetIndexingRules or xray:UpdateIndexingRule."
         fi
     fi
 fi
