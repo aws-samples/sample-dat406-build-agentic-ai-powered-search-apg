@@ -248,7 +248,7 @@ def test_restock_inventory_is_published_without_a_baseline_permit(tmp_path: Path
     policies = project["policyEngines"][0]["policies"]
 
     # The property is "no PERMIT reaches it", not "the name appears nowhere". It now
-    # appears in `forbid_operator_actions_without_group`, which makes the refusal explicit
+    # appears in `forbid_restock_without_operator_group`, which makes the refusal explicit
     # and attributable instead of an absence, and a forbid cannot grant anything.
     permits = [
         policy["statement"]

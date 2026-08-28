@@ -59,10 +59,26 @@ Enforced in three places that must agree:
 
 1. `services/auth.py::require_operator`, declared once on the `APIRouter` so a new route
    inherits the boundary rather than being forgotten.
-2. The Cedar baseline's `forbid_operator_actions_without_group`, because a shopper holding
+2. The Cedar baseline's `forbid_restock_without_operator_group`, because a shopper holding
    a storefront token can call the Gateway directly. An authorization rule that lives only
    in FastAPI is bypassable through the very rail the workshop teaches participants to
    trust.
+
+   **It covers `restock_inventory` only, and that is a real limit.** Two constraints were
+   measured against this policy engine, not inferred, and both are recorded in
+   `scripts/migrate_gateway_vocabulary.py`:
+
+   * A policy may name only action ids the live Gateway already publishes. Naming a
+     deferred tool does not pre-gate it; under `FAIL_ON_ANY_FINDINGS` the whole policy is
+     rejected as `unrecognized action`, and `UPDATE_FAILED` does not roll the stored
+     definition back.
+   * A conditional policy must pin a single `action ==` id. Widening to `action in [A, B]`
+     widens the scope the validator type-checks the condition against.
+
+   So `issue_credit` is gated by `require_operator` alone while it stays deferred. When it
+   is published, add a second single-action policy of the same shape rather than extending
+   this one. `test_every_policy_action_exists_in_the_published_schema` and
+   `test_every_conditional_policy_pins_one_action` enforce both constraints.
 3. `bootstrap-labs.sh`, which creates the group and its one member, **verifies membership
    rather than assuming it** (every create call tolerates "already exists", so success of
    the calls proves nothing), and asserts that no shopper is in it.

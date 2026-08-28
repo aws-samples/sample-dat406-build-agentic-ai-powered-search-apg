@@ -144,46 +144,108 @@ def test_the_fresh_policy_set_is_exactly_four_named_policies() -> None:
     """Exact set, never a count: a count passes while the names are wrong."""
     assert set(_by_name()) == {
         "baseline_permit_workshop_tools",
-        "forbid_operator_actions_without_group",
+        "forbid_restock_without_operator_group",
         "initiate_return_damaged_only",
         "initiate_return_deny_other_reasons",
     }
 
 
-def test_operator_only_actions_require_the_group_at_the_gateway() -> None:
+def test_every_policy_action_exists_in_the_published_schema() -> None:
+    """A policy naming an unpublished action does not deploy at all.
+
+    Measured against the live engine and recorded in
+    `scripts/migrate_gateway_vocabulary.py`: `FAIL_ON_ANY_FINDINGS` rejects
+    `unrecognized action AgentCore::Action::"..."` for any id absent from the live Gateway
+    schema, and `UPDATE_FAILED` does not roll the stored definition back.
+
+    This is the check that was missing. A policy was written naming `issue_credit` on the
+    reasoning that gating a deferred tool "closes the publication window in advance",
+    which sounds prudent and is the opposite of prudent here: it would have failed the
+    whole policy on a fresh provision, taking the operator authorization at the Gateway
+    with it. Nothing in the suite compared policy actions against the published set.
+    """
+    published = {
+        f"{target}___{tool}"
+        for target, tools in workshop_target_tools().items()
+        for tool in tools
+    }
+    for policy in _policies():
+        for action in _actions(policy["statement"]):
+            assert action in published, (
+                f"{policy['name']} names {action}, which a fresh Gateway does not "
+                f"publish. Deferred tools: {sorted(WORKSHOP_DEFERRED_TOOLS)}"
+            )
+
+
+def test_every_conditional_policy_pins_one_action() -> None:
+    """A conditional policy must use `action ==`, never `action in [...]`.
+
+    The second measured failure. Widening the action set widens the scope the validator
+    type-checks the condition against, and the condition is not valid for sibling action
+    types such as `Mcp`, `CallTool` and `InvokeLLM`. The original two-action set failed
+    for this reason independently of the unrecognized-action problem.
+
+    Unconditional policies may use `action in [...]` freely: there is no condition to
+    type-check. That is why the baseline allow-list is allowed to list thirteen.
+    """
+    for policy in _policies():
+        statement = policy["statement"]
+        conditional = ("when {" in statement) or ("unless {" in statement)
+        if not conditional:
+            continue
+        assert "action in [" not in statement, (
+            f"{policy['name']} is conditional and uses `action in [...]`; pin it to a "
+            "single `action ==` id or split it into one policy per action"
+        )
+        assert len(_actions(statement)) == 1, (
+            f"{policy['name']} is conditional and names "
+            f"{len(_actions(statement))} actions"
+        )
+
+
+def test_restock_requires_the_operator_group_at_the_gateway() -> None:
     """The FastAPI boundary is not the only way in.
 
     A shopper holding a storefront token can call the Gateway directly, so an
-    authorization rule that lives only in `require_operator` is bypassable through the
-    very rail this workshop teaches participants to trust. This policy is the Gateway half
-    of the same decision.
-
-    It covers `issue_credit` even though a fresh Gateway does not publish it. Naming an
-    unpublished action costs nothing and closes the publication window in advance, which
-    is precisely the window the historical wildcard permit left open.
+    authorization rule living only in `require_operator` is bypassable through the very
+    rail this workshop teaches participants to trust.
     """
-    policy = _by_name()["forbid_operator_actions_without_group"]
+    policy = _by_name()["forbid_restock_without_operator_group"]
     statement = policy["statement"]
 
     assert statement.lstrip().startswith("forbid"), "must not grant anything"
-    # A set: order inside a Cedar `action in [...]` list is not semantic.
-    assert set(_actions(statement)) == {
-        "pellier-concierge-experience-target___issue_credit",
-        "pellier-discovery-search-target___restock_inventory",
-    }, _actions(statement)
-
-    # Fail closed: a token with no groups claim at all must not satisfy the exception.
+    assert _actions(statement) == [
+        "pellier-discovery-search-target___restock_inventory"
+    ], _actions(statement)
+    # Fail closed: a token carrying no groups claim must not satisfy the exception.
     assert 'principal.hasTag("cognito:groups")' in statement
     assert "unless {" in statement
+    # Principal-only. `context.input` is the attribute the validator could not resolve on
+    # sibling action types, and it has no business in a group check.
+    assert "context.input" not in statement
+
+
+def test_issue_credit_is_gated_by_the_api_alone_and_that_is_recorded() -> None:
+    """A gap in depth-of-defence, stated rather than implied.
+
+    `issue_credit` is deferred, so a fresh Gateway has no action id for it and no Cedar
+    policy can name one. `require_operator` is therefore its only boundary. That is a real
+    limitation, and the renderer says so where someone changing this would read it, rather
+    than leaving a reader to infer that Cedar covers it.
+    """
+    assert "issue_credit" in WORKSHOP_DEFERRED_TOOLS
+    for policy in _policies():
+        assert "issue_credit" not in policy["statement"], policy["name"]
+
+    source = (
+        pathlib.Path(os.path.abspath("../../scripts/deploy/render_agentcore_project.py"))
+        .read_text(encoding="utf-8")
+    )
+    assert "governed by `require_operator` alone while it stays deferred" in source
 
 
 def test_the_operator_group_name_agrees_across_both_boundaries() -> None:
-    """One group name, or each layer believes the other is enforcing.
-
-    A name that drifts between `require_operator` and the Cedar baseline produces a
-    system where FastAPI refuses a group the Gateway has never heard of, and the mismatch
-    reads as "authorization works" from either side alone.
-    """
+    """One group name, or each layer believes the other is enforcing."""
     import sys
 
     backend = os.path.abspath("../../pellier/backend")
@@ -194,7 +256,7 @@ def test_the_operator_group_name_agrees_across_both_boundaries() -> None:
     from render_agentcore_project import OPERATOR_GROUP as cedar_group
 
     assert api_group == cedar_group == "pellier-operators"
-    assert api_group in _by_name()["forbid_operator_actions_without_group"]["statement"]
+    assert api_group in _by_name()["forbid_restock_without_operator_group"]["statement"]
 
 
 def test_every_policy_is_active_and_validated_strictly() -> None:

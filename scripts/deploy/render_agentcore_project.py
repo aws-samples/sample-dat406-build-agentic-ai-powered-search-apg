@@ -126,16 +126,33 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
     Deferred tools are not published at all, so they need no forbid: `issue_credit` and
     `get_ticket_history` have no action id on a fresh Gateway.
 
-    4. `forbid_operator_actions_without_group` — operator-only capability requires
-       membership in `OPERATOR_GROUP`, enforced HERE and not only in FastAPI.
+    4. `forbid_restock_without_operator_group`: restocking requires membership in
+       `OPERATOR_GROUP`, enforced HERE and not only in FastAPI.
 
     That fourth policy exists because the FastAPI boundary is not the only way in. A
     shopper holding a storefront token can call the Gateway directly, so an authorization
     rule that lives only in `require_operator` is bypassable by the very rail this
-    workshop teaches participants to trust. It covers `restock_inventory`, which IS
-    published, and `issue_credit`, which is not: naming an unpublished action costs
-    nothing and means the day someone publishes it, it is already gated rather than
-    briefly open. That publication window is the exact mistake the wildcard permit made.
+    workshop teaches participants to trust.
+
+    It names ONE action, with `action ==`, and only an action this Gateway publishes. An
+    earlier version named `issue_credit` too, reasoning that gating an unpublished action
+    "costs nothing and closes the publication window in advance". That reasoning is wrong
+    against this engine, and the repository already knew it. Two failures were measured
+    against the live policy engine and recorded in the module docstring of
+    `scripts/migrate_gateway_vocabulary.py`:
+
+      * `unrecognized action AgentCore::Action::"..."` for any id absent from the live
+        Gateway schema. A policy can never be widened ahead of the Gateway, so naming a
+        deferred tool does not pre-gate it: under FAIL_ON_ANY_FINDINGS the whole policy
+        is rejected, and UPDATE_FAILED does not roll the stored definition back.
+      * a CONDITIONAL policy must stay pinned to a single `action ==` id. Widening to
+        `action in [A, B]` widens the scope the validator type-checks the condition
+        against, which is exactly how the original two-action set failed.
+
+    So `issue_credit` is governed by `require_operator` alone while it stays deferred.
+    That is a real gap in depth-of-defence, stated rather than implied: when the tool is
+    published, add a SECOND single-action policy of this shape rather than extending
+    this one.
 
     It is a `forbid`, so it composes with the default-deny above rather than granting
     anything: `restock_inventory` still has no permit, and this makes the refusal explicit
@@ -182,25 +199,25 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
             "enforcementMode": "ACTIVE",
         },
         {
-            "name": "forbid_operator_actions_without_group",
+            "name": "forbid_restock_without_operator_group",
             "description": (
-                "Operator-only capability requires the "
-                f"{OPERATOR_GROUP} Cognito group, at the Gateway as well as in the API"
+                f"Restocking requires the {OPERATOR_GROUP} Cognito group, "
+                "at the Gateway as well as in the API"
             ),
+            # `action ==` on ONE id, and only an id this Gateway publishes. Both
+            # constraints were measured against this engine rather than inferred; see the
+            # module docstring of `scripts/migrate_gateway_vocabulary.py`. A conditional
+            # policy over `action in [A, B]` is the shape that failed, and naming the
+            # deferred `issue_credit` would be rejected outright as an unrecognized
+            # action. The condition is principal-only: no `context.input`, which is the
+            # attribute the validator could not find on sibling action types.
             "statement": (
                 "forbid (\n"
                 "  principal,\n"
-                "  action in [\n"
-                f'    AgentCore::Action::"{RESTOCK_ACTION}",\n'
-                f'    AgentCore::Action::"{ISSUE_CREDIT_ACTION}"\n'
-                "  ],\n"
+                f'  action == AgentCore::Action::"{RESTOCK_ACTION}",\n'
                 f"  {gateway_type}\n"
                 ")\n"
                 "unless {\n"
-                # `cognito:groups` is the claim name; AgentCore Policy exposes JWT claims
-                # as principal tags under their claim name, which is why Lab 4's rule uses
-                # getTag("username") for the `username` claim. Fail closed: a token with
-                # no groups claim at all does not satisfy this.
                 '  principal.hasTag("cognito:groups") &&\n'
                 f'  principal.getTag("cognito:groups").contains("{OPERATOR_GROUP}")\n'
                 "};"
