@@ -85,8 +85,22 @@ else
 fi
 
 cd "$REPO"
+# A WORKSHOP BOX HAS NO VENV. `bootstrap-environment.sh` installs
+# `pellier/backend/requirements.lock` into the participant's `~/.local` with
+# `pip install --user`, and the systemd unit runs the ambient interpreter. So `python3`
+# there IS the validated interpreter, carrying the same pinned botocore 1.43.51 as a
+# developer venv. Do not "fix" this fallback away: `deploy_all.sh` resolves it the same
+# way for the same reason.
 if [[ ! -x "$PYTHON" ]]; then
   PYTHON="python3"
+fi
+# Whether it resolves at all is a separate question from which path it is. `[[ -x name ]]`
+# is a file test relative to the working directory and performs no PATH lookup, so
+# testing the bare string "python3" is always false and would silently skip every step
+# guarded by it.
+if ! command -v "$PYTHON" >/dev/null 2>&1; then
+  fail "No usable Python interpreter (tried the backend venv, then python3)."
+  exit 1
 fi
 AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 
@@ -96,12 +110,16 @@ AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 : "${DB_NAME:?DB_NAME is not set in $ENV_FILE — refusing to run a destructive reset against a guessed database}"
 : "${DB_USER:?DB_USER is not set in $ENV_FILE — refusing to run a destructive reset against a guessed role}"
 
+# -X on every invocation. A developer's ~/.psqlrc printed "Null display is (null). Timing
+# is on." into the scalar reads below, so an in-flight count of 0 parsed as noise and the
+# reset refused a database with nothing running at all. A workshop box has no .psqlrc,
+# which is precisely why a defect like this only ever appears off-box.
 _psql_file() {
   local file="$1"
   PGPASSWORD="${DB_PASSWORD:-}" psql \
     -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" \
     -U "$DB_USER" -d "$DB_NAME" \
-    -v ON_ERROR_STOP=1 \
+    -X -v ON_ERROR_STOP=1 \
     -f "$file"
 }
 
@@ -110,7 +128,7 @@ _psql_exec() {
   PGPASSWORD="${DB_PASSWORD:-}" psql \
     -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" \
     -U "$DB_USER" -d "$DB_NAME" \
-    -v ON_ERROR_STOP=1 \
+    -X -v ON_ERROR_STOP=1 \
     -c "$sql"
 }
 
@@ -121,7 +139,7 @@ _psql_scalar() {
   PGPASSWORD="${DB_PASSWORD:-}" psql \
     -h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" \
     -U "$DB_USER" -d "$DB_NAME" \
-    -v ON_ERROR_STOP=1 -t -A \
+    -X -v ON_ERROR_STOP=1 -t -A \
     -c "$sql"
 }
 
@@ -402,8 +420,6 @@ pass "HNSW index present: product_catalog_embedding_hnsw"
 # them must still complete.
 if [[ "${PELLIER_RESET_SKIP_MEMORY:-0}" == "1" ]]; then
   pass "AgentCore Memory runtime left untouched (PELLIER_RESET_SKIP_MEMORY=1)"
-elif [[ ! -x "$PYTHON" ]]; then
-  warn "Backend venv interpreter missing at $PYTHON; skipped Memory runtime cleanup"
 elif "$PYTHON" "$REPO/scripts/reset_memory_runtime.py" --apply \
        >/tmp/pellier-governed-reset-memory.log 2>&1; then
   pass "AgentCore Memory runtime cleaned; seeded persona actors preserved"

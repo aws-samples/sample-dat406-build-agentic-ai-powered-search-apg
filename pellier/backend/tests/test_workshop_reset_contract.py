@@ -354,3 +354,80 @@ def test_the_reset_still_truncates_rather_than_deletes() -> None:
         "a DELETE reappeared in the reset; that fires the row-level triggers TRUNCATE "
         "deliberately bypasses"
     )
+
+
+# ---------------------------------------------------------------------------
+# Which interpreter, and how the shell decides.
+#
+# A workshop box has NO `pellier/backend/.venv`. `bootstrap-environment.sh` installs
+# `requirements.lock` into the participant's `~/.local` with `pip install --user`, and the
+# systemd unit runs the ambient interpreter. So `python3` there IS the validated
+# interpreter, carrying the same pinned botocore. On a developer box the opposite holds:
+# the venv is validated and ambient `python3` is whatever the machine has (measured:
+# botocore 1.43.28, which cannot see `UpdatePolicy.enforcementMode`).
+#
+# Both entry points must therefore RESOLVE rather than assume, and the resolution has one
+# trap worth a test of its own: `[[ -x name ]]` is a file test relative to the working
+# directory and performs no PATH lookup, so testing the bare string "python3" is always
+# false. A step guarded that way is silently skipped on exactly the boxes that need it.
+# ---------------------------------------------------------------------------
+
+DEPLOY_ALL = pathlib.Path("../../scripts/deploy/deploy_all.sh")
+
+
+def test_the_reset_falls_back_to_python3_when_there_is_no_venv() -> None:
+    body = _reset_body()
+    assert 'PYTHON="python3"' in body, (
+        "the reset assumes a venv. A workshop box has none, so its first step would fail "
+        "with 'No such file or directory' before touching the database."
+    )
+    # Resolution must happen before the first use, or the fallback is decoration.
+    assert body.index('PYTHON="python3"') < body.index('"$PYTHON" "$REPO/scripts/')
+
+
+def test_both_entry_points_resolve_the_interpreter_the_same_way() -> None:
+    """`deploy_all.sh` already had this right; the reset must not disagree with it."""
+    for path in (RESET, DEPLOY_ALL):
+        body = path.read_text()
+        # Quoted or not: `deploy_all.sh` writes `PYTHON=python3`, the reset quotes it.
+        # The property is the fallback, not the quoting style.
+        assert re.search(r'PYTHON="?python3"?', body), (
+            f"{path.name} does not fall back to python3, so it assumes a venv a "
+            "workshop box does not have"
+        )
+
+
+def test_no_step_is_guarded_by_a_dash_x_test_on_a_bare_command_name() -> None:
+    """The trap that silently disabled the Memory leg.
+
+    After the fallback, `$PYTHON` may be the bare string "python3". `[[ ! -x "$PYTHON" ]]`
+    is then always true, so anything guarded by it never runs. `command -v` is the test
+    that answers the question actually being asked.
+    """
+    body = _reset_body()
+    assert "command -v \"$PYTHON\"" in body, (
+        "the reset must check the interpreter with `command -v`, which honours PATH"
+    )
+    guarded = re.findall(r"^\s*(?:el)?if \[\[ ! -x \"\$PYTHON\" \]\]", body, re.MULTILINE)
+    # One occurrence is legitimate: the venv-path probe that CHOOSES the fallback. Any
+    # further one is a step that will be skipped whenever the fallback is in effect.
+    assert len(guarded) <= 1, (
+        f"{len(guarded)} steps are gated on `[[ ! -x $PYTHON ]]`; after the fallback that "
+        "test is always true and the step never runs"
+    )
+
+
+def test_every_psql_invocation_ignores_a_developer_psqlrc() -> None:
+    """`-X`, because a ~/.psqlrc broke the in-flight check in a way no box would show.
+
+    A developer's psqlrc printed "Null display is (null). Timing is on." into the scalar
+    reads, so a count of 0 parsed as noise and the reset refused a database with nothing
+    running. A workshop box has no psqlrc, which is exactly why this only appears
+    off-box, and off-box is where the reset gets tested.
+    """
+    body = _reset_body()
+    invocations = len(re.findall(r"^\s*PGPASSWORD=.* psql \\\\?$", body, re.MULTILINE))
+    hardened = body.count("-X -v ON_ERROR_STOP=1")
+    assert hardened >= 3, f"only {hardened} psql invocations pass -X"
+    assert "-v ON_ERROR_STOP=1" in body
+    assert not re.search(r"psql \\\n(?!.*-X)", body) or hardened >= 3

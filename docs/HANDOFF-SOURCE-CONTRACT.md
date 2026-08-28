@@ -44,6 +44,36 @@ The Lab 4 identity condition (`principal.getTag("username")` bound to
 that shipped it would make Lab 4 step 3's DENY fire before the participant wrote
 anything. `pellier/backend/tests/test_fresh_policy_set.py` owns this contract.
 
+## Resource ownership
+
+Who may change each deployed resource, and how you would know it drifted. Ownership is
+determined by **what created it plus CloudFormation membership**, never by tags:
+`PellierWorkshopId` carries three different values in the audited account from separate
+provisioning runs, so it is forensic provenance and not authority.
+
+| resource | created by | updated by | destroyed by | declared in | drift check |
+|---|---|---|---|---|---|
+| AgentCore Runtime | `agentcore deploy`, lands in CFN stack `AgentCore-pellier-default` | the same CLI | the CLI / stack delete | `render_agentcore_project.py` `runtimes[]` | `/api/observatory/readiness`, `agentcore` state |
+| AgentCore Memory | same stack, same CLI | the same CLI | the CLI / stack delete | `memories[]`, `USER_PREFERENCE` only | readiness; runtime DATA cleaned by `reset_memory_runtime.py`, which never touches the resource |
+| Gateway | fresh: the CLI project. Audited account: direct control-plane API, in **no** stack | fresh: CLI. Audited: `update_gateway`, and only for policy mode | never deleted by any script here | `agentCoreGateways[]` | `describe_workshop_publication.py` vs live discovery |
+| Gateway targets | as Gateway | `update_gateway_target`, in place | never deleted and recreated | inline `toolSchema` from `gateway_tool_schemas.py` | `provision_agentcore_end_to_end.py` asserts live discovery == expected |
+| Policy engine | as Gateway | never replaced: `add policy-engine` creates rather than adopts, so a project-declared engine would be a *second* engine | never | `policyEngines[]` | `policy_mode.py` (read-only with no flags) |
+| Policies | fresh: `baseline_policies()` through the CLI. Participant rule: `agentcore add policy` in Lab 4 | `update_policy` keeps the policy id, so history and attachments survive | reset removes only the participant rule | `render_agentcore_project.py` | `policy_mode.py`; reset restores mode at both scopes |
+| Target Lambdas (4) | `deploy_lambda.py`, invoked by `provision_agentcore_end_to_end.py` | the same script | not by any script here | `scripts/deploy/pellier_*_server.py` | `provision_agentcore_end_to_end.py` code-SHA assertion |
+| IAM (3 resources) | the CFN stack | the stack | the stack | CDK output of `agentcore deploy` | stack status `UPDATE_COMPLETE` |
+
+Two rules follow from that table and both have already been learned the hard way:
+
+1. **A resource in the stack is changed by the tool that owns the stack.** A direct
+   control-plane update to Runtime or Memory drifts the stack from reality, and the next
+   CLI deploy reverts it.
+2. **The audited engineering account is not shaped like a fresh one.** Its Gateway,
+   targets and policy engine were created by direct API and are in no stack, which is why
+   `agentcore import gateway` mapped it with zero targets (the CLI cannot represent an
+   inline tool schema) and `agentcore import memory` refused outright. A fresh account
+   does not have that split. `scripts/migrate_gateway_vocabulary.py` exists only for the
+   historical environment and its `ownership.py` pins make it refuse to run anywhere else.
+
 ## Participant agent names, exact
 
     Search Agent · Personalization Agent · Pricing Agent · Inventory Agent
@@ -117,15 +147,36 @@ separate.
 ## Reset
 
 ```bash
-PELLIER_REPO=<repo> PELLIER_RESET_SKIP_AGENTCORE=1 bash scripts/reset-governed-workshop.sh
-./pellier/backend/.venv/bin/python scripts/reset_memory_runtime.py --apply
+PELLIER_REPO=<repo> bash scripts/reset-governed-workshop.sh
 ```
 
-Aurora alone is not enough. AgentCore Memory holds actor-scoped `USER_PREFERENCE`
-records, and a new session id does not isolate an actor-scoped namespace, so an operator
-who ran engineering turns leaves preferences that the next first turn recalls.
-`reset_memory_runtime.py` is dry-run by default and preserves the three seeded persona
-actors.
+One command. The Memory leg is part of the lifecycle now, not a second step someone has
+to remember: Aurora alone is not enough, because AgentCore Memory holds actor-scoped
+`USER_PREFERENCE` records and a new session id does not isolate an actor-scoped
+namespace. `reset_memory_runtime.py` is dry-run by default, preserves the three seeded
+persona actors, and never touches the Memory resource.
+
+**Reset stops the application.** It quiesces `pellier.service`, proves no session is
+mid-execution, resets, cleans Memory, restores participant Cedar, restarts on a trap, and
+verifies the baseline. A truncate underneath a live turn can clear an idempotency claim
+after its write committed. Four explicit escape hatches, documented in the script header:
+`PELLIER_RESET_ALLOW_LIVE`, `PELLIER_BACKEND_PORT`, `PELLIER_RESET_SKIP_MEMORY`,
+`PELLIER_RESET_SKIP_AGENTCORE`.
+
+### Which interpreter
+
+`pellier/backend/requirements.lock` is the validated set (botocore pinned at 1.43.51).
+Where it lives differs by host, and assuming either answer is a real failure mode:
+
+| host | validated interpreter | note |
+|---|---|---|
+| workshop box | `python3` | the lock is installed into `~/.local`; **there is no venv** |
+| developer box | `./pellier/backend/.venv/bin/python` | ambient `python3` may be older |
+
+Governance mutations refuse to run under an SDK whose service model lacks the fields they
+set. Measured: ambient botocore 1.43.28 has no `UpdatePolicy.enforcementMode`, so
+`policy_mode.py` would have switched Cedar enforcement off while returning success.
+`scripts/deploy/sdk_preflight.py` reports what an interpreter can do.
 
 ### Expected baseline after reset
 

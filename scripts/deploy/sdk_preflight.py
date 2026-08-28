@@ -22,10 +22,20 @@ model answers the only question that matters, which is whether the field exists.
 Why an interpreter can be wrong at all
 --------------------------------------
 
-The validated dependency set lives in `pellier/backend/.venv`. Shell entry points use
-`$PYTHON` for exactly this reason, but any of these scripts can also be run by hand as
-`python3 scripts/...`, and on an Amazon Linux box the ambient interpreter carries its own
-older botocore. So the guard belongs in the script, not only in the caller.
+The validated dependency set is `pellier/backend/requirements.lock`, which pins
+botocore 1.43.51. WHERE that set lives differs by host, and assuming either answer is how
+this goes wrong:
+
+    workshop box    installed into the participant's ~/.local by
+                    bootstrap-environment.sh. `python3` IS the validated interpreter and
+                    there is no venv at all.
+    developer box   a `pellier/backend/.venv`, and the ambient `python3` is whatever the
+                    machine happens to have. Measured here: 1.43.28.
+
+So the guard checks the SDK the running interpreter actually has, rather than checking
+which path it was launched from. Shell entry points resolve `$PYTHON` (venv if present,
+else `python3`) for the same reason, but any of these scripts can also be run by hand,
+which is why the check belongs in the script and not only in the caller.
 """
 
 from __future__ import annotations
@@ -97,8 +107,11 @@ def require(
         f"  missing     : {', '.join(gaps)}\n\n"
         "botocore drops unknown fields silently in both directions, so proceeding would "
         "send an incomplete request, receive a success, and leave the governance state "
-        "different from the one reported. Re-run with the validated interpreter:\n\n"
-        "  ./pellier/backend/.venv/bin/python <this script>\n"
+        "different from the one reported.\n\n"
+        "Re-run with the interpreter that carries pellier/backend/requirements.lock:\n"
+        "  workshop box : python3          (the lock is installed into ~/.local; there\n"
+        "                                   is no venv on a workshop box)\n"
+        "  developer box: ./pellier/backend/.venv/bin/python\n"
     )
 
 
