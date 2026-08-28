@@ -16,7 +16,13 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from gateway_tool_schemas import TOOL_SCHEMAS, schema_for
+from gateway_tool_schemas import (
+    TOOL_SCHEMAS,
+    WORKSHOP_DEFERRED_TOOLS,
+    schema_for,
+    workshop_published_tools,
+    workshop_target_tools,
+)
 
 
 AGENTCORE_CLI = "@aws/agentcore@0.26.0"
@@ -26,8 +32,9 @@ MEMORY_NAME = "PellierMemory"
 GATEWAY_NAME = "pellier-gateway"
 POLICY_ENGINE_NAME = "pellier_policy_engine"
 EXPERIENCE_TARGET = "pellier-concierge-experience-target"
-PROCESS_RETURN_ACTION = f"{EXPERIENCE_TARGET}___process_return"
-RESTOCK_ACTION = "pellier-discovery-search-target___restock_shelf"
+INITIATE_RETURN_ACTION = f"{EXPERIENCE_TARGET}___initiate_return"
+RESTOCK_ACTION = "pellier-discovery-search-target___restock_inventory"
+ISSUE_CREDIT_ACTION = "pellier-concierge-experience-target___issue_credit"
 WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
 RUNTIME_SOURCE_FILES = (
     Path("agentcore_runtime.py"),
@@ -65,118 +72,124 @@ def _render_runtime_source(root: Path, backend_dir: Path) -> Path:
     return runtime_dir
 
 
-def baseline_policies(action_token: str = PROCESS_RETURN_ACTION) -> list[dict[str, Any]]:
-    """Return the fail-closed Cedar baseline added after initial deployment."""
-    gateway_type = "resource is AgentCore::Gateway"
-    policies: list[dict[str, Any]] = []
-    customer_scoped_actions: dict[str, str] = {}
-    for schema in TOOL_SCHEMAS.values():
-        target = schema["target_name"]
-        for tool in schema["tools"]:
-            tool_name = tool["name"]
-            token = f"{target}___{tool_name}"
-            if tool_name in {
-                "preference_snapshot",
-                "trace_receipt",
-                "escalate_to_stylist",
-            }:
-                customer_scoped_actions[tool_name] = token
-                continue
-            if tool_name in {"process_return", "restock_shelf"}:
-                continue
-            policies.append(
-                {
-                    "name": f"permit_{tool_name}",
-                    "description": f"Permit the authenticated {tool_name} action",
-                    "statement": (
-                        "permit (\n"
-                        "  principal,\n"
-                        f'  action == AgentCore::Action::"{token}",\n'
-                        f"  {gateway_type}\n"
-                        ");"
-                    ),
-                    "validationMode": "FAIL_ON_ANY_FINDINGS",
-                    "enforcementMode": "ACTIVE",
-                }
-            )
+def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[str, Any]]:
+    """The fail-closed Cedar baseline a fresh workshop provision installs.
 
-    ownership = (
-        'principal.hasTag("username") &&\n'
-        "  context.input has customer_id &&\n"
-        "  (\n"
-        '    (principal.getTag("username") == "marco" && '
-        'context.input.customer_id == "CUST-MARCO") ||\n'
-        '    (principal.getTag("username") == "anna" && '
-        'context.input.customer_id == "CUST-ANNA") ||\n'
-        '    (principal.getTag("username") == "theo" && '
-        'context.input.customer_id == "CUST-THEO")\n'
-        "  )"
-    )
-    process_action = f'action == AgentCore::Action::"{action_token}"'
-    for tool_name, token in customer_scoped_actions.items():
-        policies.append(
-            {
-                "name": f"permit_{tool_name}_owned",
-                "description": (
-                    f"Permit {tool_name} only for the verified Aurora customer"
-                ),
-                "statement": (
-                    "permit (\n"
-                    "  principal,\n"
-                    f'  action == AgentCore::Action::"{token}",\n'
-                    f"  {gateway_type}\n"
-                    ")\n"
-                    "when {\n"
-                    f"  {ownership}\n"
-                    "};"
-                ),
-                "validationMode": "FAIL_ON_ANY_FINDINGS",
-                "enforcementMode": "ACTIVE",
-            }
+    THREE POLICIES, and each one exists for a reason the migration proved the hard way.
+
+    1. `baseline_permit_workshop_tools` — an EXACT allow-list of action ids, never
+       `permit(principal, action, resource == gw)`. A wildcard hands every future
+       published tool a matching permit the moment it appears, which is exactly what made
+       the `initiate_return` publication window unsafe. With an explicit list,
+       publication and authorization stay separate decisions.
+
+    2. `initiate_return_damaged_only` — a dedicated permit conditioned on
+       `reason == damaged`.
+
+    3. `initiate_return_deny_other_reasons` — the matching forbid.
+
+    WHAT THIS BASELINE DELIBERATELY OMITS
+    -------------------------------------
+
+    The actor/customer OWNERSHIP condition — binding `principal.getTag("username")` to
+    `context.input.customer_id` — is **absent on purpose**. It is the Lab 4 challenge: a
+    participant observes that Marco's token can act on Theo's return, writes the rule,
+    and proves the behaviour changed because of their Policy work.
+
+    An earlier version of this renderer installed `initiate_return_owned_damaged` and
+    `initiate_return_deny_unowned_or_unsupported`, both carrying that ownership
+    condition, plus four ownership-gated read permits. On a freshly provisioned stack the
+    participant's exercise would already be solved: step 3's DENY would fire before they
+    wrote anything, and the lab would teach that Cedar does something it was already
+    doing. That is why this is a teaching baseline and not a claim about the complete
+    recommended production posture — the Lab 4 solution adds the ownership dimension, and
+    a production deployment would keep it.
+
+    Nothing downstream may re-add the challenge condition. `tests/test_fresh_policy_set.py`
+    evaluates the generated Cedar and fails if it reappears.
+
+    EXCLUDED FROM THE ALLOW-LIST
+    ----------------------------
+
+        initiate_return     governed by its own permit/forbid pair above
+        restock_inventory   mutates warehouse stock. Published as part of the workshop
+                            tool contract, and DEFAULT DENY: no matching permit. Cedar is
+                            default-deny, so omission is the control. A redundant
+                            permit-plus-forbid pair would only add a second thing to keep
+                            in sync.
+
+    Deferred tools are not published at all, so they need no forbid: `issue_credit` and
+    `get_ticket_history` have no action id on a fresh Gateway.
+    """
+    gateway_type = "resource is AgentCore::Gateway"
+
+    # Derived from the one publication contract, so a tool added to the catalogue cannot
+    # silently acquire a permit and a deferred tool cannot acquire one at all.
+    published = workshop_target_tools()
+    NO_BASELINE_PERMIT = {"initiate_return", "restock_inventory"}
+    allowed: list[str] = [
+        f"{target}___{tool}"
+        for target, tools in published.items()
+        for tool in tools
+        if tool not in NO_BASELINE_PERMIT
+    ]
+    if not allowed:
+        raise SystemExit(
+            "refusing to render a baseline permit that permits nothing; "
+            "check WORKSHOP_DEFERRED_TOOLS"
         )
-    policies.extend(
-        [
+
+    action_list = ",\n".join(
+        f'    AgentCore::Action::"{action}"' for action in sorted(allowed)
+    )
+    policies: list[dict[str, Any]] = [
         {
-            "name": "process_return_owned_damaged",
-            "description": "Permit damaged-item returns only for the verified owner",
-            "statement": (
-                f"permit (principal, {process_action}, {gateway_type})\n"
-                "when {\n"
-                f"  {ownership} &&\n"
-                '  context.input has reason && context.input.reason == "damaged"\n'
-                "};"
+            "name": "baseline_permit_workshop_tools",
+            "description": (
+                f"Permit exactly the {len(allowed)} safe workshop actions. "
+                "No wildcard, so a newly published tool is denied by default."
             ),
-            "validationMode": "FAIL_ON_ANY_FINDINGS",
-            "enforcementMode": "ACTIVE",
-        },
-        {
-            "name": "process_return_deny_unowned_or_unsupported",
-            "description": "Explicitly deny unowned or unsupported returns",
             "statement": (
-                f"forbid (principal, {process_action}, {gateway_type})\n"
-                "unless {\n"
-                f"  {ownership} &&\n"
-                '  context.input has reason && context.input.reason == "damaged"\n'
-                "};"
-            ),
-            "validationMode": "FAIL_ON_ANY_FINDINGS",
-            "enforcementMode": "ACTIVE",
-        },
-        {
-            "name": "deny_restock_shelf",
-            "description": "Shopper principals may never mutate warehouse stock",
-            "statement": (
-                "forbid (\n"
+                "permit (\n"
                 "  principal,\n"
-                f'  action == AgentCore::Action::"{RESTOCK_ACTION}",\n'
+                "  action in [\n"
+                f"{action_list}\n"
+                "  ],\n"
                 f"  {gateway_type}\n"
                 ");"
             ),
             "validationMode": "FAIL_ON_ANY_FINDINGS",
             "enforcementMode": "ACTIVE",
         },
-        ]
-    )
+        {
+            "name": "initiate_return_damaged_only",
+            "description": "Permit returns only when the stated reason is damaged",
+            "statement": (
+                f"permit (principal, action == AgentCore::Action::\"{action_token}\", "
+                f"{gateway_type})\n"
+                "when {\n"
+                '  context.input has reason && context.input.reason == "damaged"\n'
+                "};"
+            ),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+        {
+            "name": "initiate_return_deny_other_reasons",
+            "description": (
+                "Forbid returns with a missing reason or any reason other than damaged"
+            ),
+            "statement": (
+                f"forbid (principal, action == AgentCore::Action::\"{action_token}\", "
+                f"{gateway_type})\n"
+                "when {\n"
+                '  !(context.input has reason) || context.input.reason != "damaged"\n'
+                "};"
+            ),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+    ]
     return policies
 
 
@@ -193,7 +206,7 @@ def render_project(
     include_policies: bool,
     opus_model_id: str | None = None,
     sonnet_model_id: str | None = None,
-    action_token: str = PROCESS_RETURN_ACTION,
+    action_token: str = INITIATE_RETURN_ACTION,
 ) -> Path:
     """Write agentcore.json, aws-targets.json, and four tool-schema files."""
     root = project_root(repo)
@@ -217,7 +230,7 @@ def render_project(
     targets: list[dict[str, Any]] = []
     for surface, schema in TOOL_SCHEMAS.items():
         schema_path = schemas_dir / f"{surface}.json"
-        _write_json(schema_path, schema_for(surface))
+        _write_json(schema_path, schema_for(surface, workshop=True))
         targets.append(
             {
                 "name": schema["target_name"],
@@ -352,7 +365,7 @@ def main() -> int:
     parser.add_argument("--workshop-id", required=True)
     parser.add_argument("--lambda-arns", type=Path, required=True)
     parser.add_argument("--include-policies", action="store_true")
-    parser.add_argument("--action-token", default=PROCESS_RETURN_ACTION)
+    parser.add_argument("--action-token", default=INITIATE_RETURN_ACTION)
     args = parser.parse_args()
 
     lambda_arns = json.loads(args.lambda_arns.read_text())

@@ -1,8 +1,21 @@
-"""Guard the canonical 15-tool contract across every managed deployment copy."""
+"""Guard the canonical tool vocabulary across every managed deployment copy.
+
+Two different numbers live in this repository and confusing them is a documented
+mistake, so they are named here once:
+
+  * **17** tools in the canonical vocabulary. Every Gateway surface Lambda and every
+    schema in ``gateway_tool_schemas.TOOL_SCHEMAS`` covers all of them.
+  * **15** tools this workshop iteration PUBLISHES, because ``issue_credit`` and
+    ``get_ticket_history`` are deferred. That subset is asserted in
+    ``test_fresh_policy_set.py``, which owns the publication contract.
+
+This file asserts the vocabulary, not the publication subset.
+"""
 
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 
@@ -10,21 +23,23 @@ REPO = Path(__file__).resolve().parents[3]
 DEPLOY = REPO / "scripts" / "deploy"
 
 CANONICAL_TOOLS = {
-    "preference_snapshot",
-    "trace_receipt",
-    "floor_check",
-    "whats_trending",
-    "price_intelligence",
-    "restock_shelf",
-    "process_return",
-    "escalate_to_stylist",
-    "find_pieces",
-    "find_pieces_hybrid",
-    "explore_collection",
-    "running_low",
-    "side_by_side",
-    "returns_and_care",
-    "style_match",
+    "get_customer_preferences",
+    "get_audit_trail",
+    "check_inventory",
+    "get_trending_products",
+    "get_price_analysis",
+    "restock_inventory",
+    "initiate_return",
+    "escalate_to_human",
+    "search_products",
+    "search_products_hybrid",
+    "browse_category",
+    "get_low_stock",
+    "compare_products",
+    "get_return_policy",
+    "get_related_products",
+    "issue_credit",
+    "get_ticket_history",
 }
 
 # Tools that exist on the in-process rail and are deliberately NOT published
@@ -102,21 +117,42 @@ def _lambda_names() -> dict[str, set[str]]:
     }
 
 
-def test_managed_surfaces_publish_exactly_the_canonical_15_tools() -> None:
+def _imports_from_schemas(source: str) -> set[str]:
+    """Names a module imports from `gateway_tool_schemas`, in either import form.
+
+    Asserted by name rather than as a literal import line: the renderer grew a
+    parenthesised multi-line import when the publication helpers were added, and a
+    string match on the single-line form failed while the derivation it was protecting
+    was still intact. The property that matters is that both deployment paths take
+    their schemas from the one module instead of re-declaring them.
+    """
+    tree = ast.parse(source)
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "gateway_tool_schemas":
+            names.update(alias.name for alias in node.names)
+    return names
+
+
+def test_every_managed_surface_covers_the_canonical_vocabulary() -> None:
     lambda_names = _lambda_names()
     gateway_names = _gateway_schema_names()
 
     assert lambda_names == gateway_names
     published = set().union(*lambda_names.values())
-    assert len(published) == 15
+    assert len(published) == 17
     assert published == CANONICAL_TOOLS
 
+
+def test_both_deployment_paths_derive_schemas_from_one_module() -> None:
     provisioner = (
         REPO / "scripts" / "provision_agentcore_end_to_end.py"
     ).read_text(encoding="utf-8")
     renderer = (DEPLOY / "render_agentcore_project.py").read_text(encoding="utf-8")
-    assert "from gateway_tool_schemas import TOOL_SCHEMAS, schema_for" in provisioner
-    assert "from gateway_tool_schemas import TOOL_SCHEMAS, schema_for" in renderer
+    for label, source in (("provisioner", provisioner), ("renderer", renderer)):
+        imported = _imports_from_schemas(source)
+        assert "TOOL_SCHEMAS" in imported, f"{label} no longer imports TOOL_SCHEMAS"
+        assert "schema_for" in imported, f"{label} no longer imports schema_for"
 
 
 def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
@@ -125,7 +161,7 @@ def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
         REPO / "solutions" / "closing-marcos-gap" / "services"
         / "agent_tools_builders_preapply.py",
         REPO / "solutions" / "closing-marcos-gap" / "services"
-        / "agent_tools_floor_check_solution.py",
+        / "agent_tools_check_inventory_solution.py",
     ]
     for path in paths:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

@@ -68,13 +68,13 @@ class Settings(BaseSettings):
     # See the Workshop Studio repo's content/90-appendix/01-reference/
     # (the cast table) for the rationale:
     #
-    #   Claude Opus 4.6   — editorial specialists (Style Advisor, Curator,
-    #                  Experience Guide). Needs voice + personality.
+    #   Claude Opus 4.6   — editorial specialists (Search Agent, Personalization Agent,
+    #                  Customer Service Agent). Needs voice + personality.
     #   Claude Sonnet 4.6 — routing, structured extraction, and reporting
-    #                  specialists (Value Analyst, Stock Keeper).
+    #                  specialists (Pricing Agent, Inventory Agent).
     #
     # Model IDs follow Bedrock cross-region inference profile naming.
-    # Editorial agents (Style Advisor, Curator, Experience Guide) read
+    # Editorial agents (Search Agent, Personalization Agent, Customer Service Agent) read
     # BEDROCK_OPUS_MODEL. It is intentionally env-OVERRIDABLE: the model-access
     # preflight (scripts/check_model_access.py, run in bootstrap) detects
     # whether Opus 4.6 is reachable on the account, and if it is NOT, writes
@@ -117,8 +117,9 @@ class Settings(BaseSettings):
     # truly runs that long. Replies stay short because the system prompts ask
     # for 2-4 sentences; these values just guard against a runaway response and
     # must clear the longest expected reply so it never truncates mid-sentence.
-    AGENT_MAX_TOKENS_OPUS: int = 1200       # editorial agents (Style, Experience, Curator)
-    AGENT_MAX_TOKENS_SONNET: int = 2048     # Stock Keeper + Value Analyst (richer reveals)
+    # Editorial: Search, Personalization, Customer Service. Reporting: Inventory, Pricing.
+    AGENT_MAX_TOKENS_OPUS: int = 1200
+    AGENT_MAX_TOKENS_SONNET: int = 2048      # richer reveals from the reporting pair
     SKILL_ROUTER_MAX_TOKENS_SONNET: int = 640  # five-skill audit JSON
     ROUTER_MAX_TOKENS_SONNET: int = 1200    # tool route plus concise final handoff
     
@@ -129,7 +130,15 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     API_TITLE: str = "Pellier Workshop API"
     API_DESCRIPTION: str = "Semantic Search API powered by Amazon Aurora PostgreSQL and Bedrock"
-    WORKSHOP_FORMAT: str = "builders"
+    # FAIL CLOSED on this branch. `governed` is the flagship lineage here, and a
+    # deployment that forgets to set this must not quietly serve governed writes on the
+    # in-process rail: that happened, and a shopper executed a return directly with no
+    # human review, no Cedar verdict and no tool_audit receipt.
+    #
+    # `builders` remains the default on the `main` lineage, where the in-process rail is
+    # the intended path. Changing it there would be wrong for the same reason it is
+    # right here: the default should be whatever the branch actually ships.
+    WORKSHOP_FORMAT: str = "governed"
     
     # CORS settings
     CORS_ORIGINS: list[str] = [
@@ -173,9 +182,9 @@ class Settings(BaseSettings):
     HYBRID_TOP_N: int = 30
     HYBRID_RRF_K: int = 60
 
-    # Typed query planning on the shipped Curator path.
+    # Typed query planning on the shipped Personalization Agent path.
     #
-    # `find_pieces_hybrid` always builds a `SearchPlan` and always pushes
+    # `search_products_hybrid` always builds a `SearchPlan` and always pushes
     # its hard predicates into both retrieval branches before RRF. This
     # flag controls only whether the *model* also proposes constraints via
     # `services.structured_extract` — a second Sonnet call that adds ~1-3 s
@@ -299,6 +308,20 @@ class Settings(BaseSettings):
     # CloudWatch Logs — the real API has no dataset ARN and no job role
     # parameter. Both list settings below are comma-separated.
     AGENTCORE_EVALS_ENABLED: bool = False
+
+    # Operator Concierge composer. OFF by default, and it must stay off in the
+    # shipped workshop configuration until Phase 4 read orchestration exists.
+    #
+    # When True the composer submits a real turn: the request is durably persisted
+    # and rendered as an honest `incomplete` turn. Nothing is fabricated — no
+    # assistant reply, no investigation rows, no Aurora/Bedrock attribution. When
+    # False the composer renders read-only, because a submit box that visibly
+    # accepts a question and can never answer it is worse than no box.
+    #
+    # This flag gates ONLY whether an unanswered development turn may be submitted.
+    # It does not touch capability truth, session authorization, AgentCore state,
+    # review behaviour, or business capabilities.
+    OPERATOR_CONCIERGE_COMPOSER_ENABLED: bool = False
     AGENTCORE_EVALS_LOG_GROUPS: Optional[str] = None
     AGENTCORE_EVALS_SERVICE_NAMES: Optional[str] = None
     AGENTCORE_EVALS_EVALUATOR_IDS: Optional[str] = None

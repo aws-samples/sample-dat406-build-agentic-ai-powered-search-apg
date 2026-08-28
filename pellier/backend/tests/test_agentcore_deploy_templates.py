@@ -31,6 +31,7 @@ PYPROJECT = BACKEND_DIR / "pyproject.toml"
 if str(DEPLOY_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOY_DIR))
 
+import gateway_tool_schemas as schemas_module  # noqa: E402
 import render_agentcore_project as renderer  # noqa: E402
 
 
@@ -194,49 +195,69 @@ def test_memory_gateway_targets_and_policy_engine_share_one_project(
 
     schemas = sorted((root / "tool-schemas").glob("*.json"))
     assert len(schemas) == 4
-    assert sum(len(json.loads(path.read_text())) for path in schemas) == 15
+    # 15, not the canonical 17: `issue_credit` and `get_ticket_history` are deferred for
+    # this workshop iteration, so they are not published. Derived rather than written as
+    # a literal, because the literal is what went stale.
+    assert sum(len(json.loads(path.read_text())) for path in schemas) == len(
+        schemas_module.workshop_published_tools()
+    )
 
     engine = project["policyEngines"][0]
     assert engine["name"] == renderer.POLICY_ENGINE_NAME
     assert engine["policies"] == []
 
 
-def test_second_phase_adds_only_the_baseline_cedar_set(tmp_path: Path) -> None:
+def test_second_phase_attaches_the_baseline_cedar_set(tmp_path: Path) -> None:
+    """The rendered project carries the baseline policies, whatever they are.
+
+    This test used to enumerate all eighteen policy names, which duplicated
+    ``baseline_policies`` in a second place and is how the set drifted to a shape nobody
+    had validated: an eighteen-policy model with username/customer ownership baked into
+    the baseline, so a fresh stack shipped the Lab 4 answer. The policy-by-policy
+    contract now lives in ``test_fresh_policy_set.py``. What belongs HERE is the
+    project-level property: every policy the renderer produces reaches the project's
+    single engine, enforced and validated, with no wildcard among them.
+    """
     _, project = _render(tmp_path, include_policies=True)
     policies = project["policyEngines"][0]["policies"]
-    read_tool_names = {
-        tool["name"]
-        for schema in renderer.TOOL_SCHEMAS.values()
-        for tool in schema["tools"]
-        if tool["name"]
-        not in {
-            "preference_snapshot",
-                "trace_receipt",
-                "process_return",
-                "restock_shelf",
-                "escalate_to_stylist",
-            }
-    }
+    expected = renderer.baseline_policies()
 
-    assert len(policies) == 16
-    assert {policy["name"] for policy in policies} == {
-        *(f"permit_{name}" for name in read_tool_names),
-        "permit_preference_snapshot_owned",
-        "permit_trace_receipt_owned",
-            "process_return_owned_damaged",
-            "process_return_deny_unowned_or_unsupported",
-            "deny_restock_shelf",
-            "permit_escalate_to_stylist_owned",
-        }
+    assert [policy["name"] for policy in policies] == [p["name"] for p in expected]
     assert all(policy["enforcementMode"] == "ACTIVE" for policy in policies)
     assert all(
         policy["validationMode"] == "FAIL_ON_ANY_FINDINGS" for policy in policies
     )
     statements = "\n".join(policy["statement"] for policy in policies)
-    assert renderer.PROCESS_RETURN_ACTION in statements
-    assert renderer.RESTOCK_ACTION in statements
+    assert renderer.INITIATE_RETURN_ACTION in statements
     assert "resource is AgentCore::Gateway" in statements
+    # A wildcard permit authorizes any action published later, including one added after
+    # this project was reviewed. Default-deny is the whole reason the allow-list is
+    # written out action by action.
     assert "permit (principal, action, resource is AgentCore::Gateway)" not in statements
+    assert "permit (\n  principal,\n  action,\n" not in statements
+
+
+def test_restock_inventory_is_published_without_a_baseline_permit(tmp_path: Path) -> None:
+    """Published and unauthorized is a DENY, and that is the intended shape.
+
+    ``restock_inventory`` must exist on the Gateway so the operator desk can attempt it
+    and the refusal is a real Cedar decision rather than a missing tool. Naming it in a
+    baseline permit would authorize it for every principal.
+    """
+    _, project = _render(tmp_path, include_policies=True)
+    statements = "\n".join(
+        policy["statement"] for policy in project["policyEngines"][0]["policies"]
+    )
+    assert renderer.RESTOCK_ACTION not in statements
+
+    schemas = sorted((Path(tmp_path) / "pellier" / "tool-schemas").glob("*.json")) or \
+        sorted(Path(tmp_path).rglob("tool-schemas/*.json"))
+    published = {
+        tool["name"]
+        for path in schemas
+        for tool in json.loads(path.read_text())
+    }
+    assert "restock_inventory" in published
 
 
 def test_deployed_state_reads_mcp_gateway_shape() -> None:
@@ -891,10 +912,10 @@ def _unified_trace_records(
         {
             "@message": {
                 "traceId": trace_id,
-                "name": "execute_tool find_pieces_hybrid",
+                "name": "execute_tool search_products_hybrid",
                 "durationMs": 45,
                 "attributes": {
-                    "gen_ai.tool.name": "find_pieces_hybrid",
+                    "gen_ai.tool.name": "search_products_hybrid",
                     "gen_ai.tool.call.arguments": {"query": "linen"},
                     "gen_ai.tool.call.result": {"product_ids": ["P-101"]},
                 },
@@ -949,7 +970,7 @@ def test_unified_trace_summary_requires_correlated_agent_model_and_tool_spans() 
     }
     assert proof["step_latency_ms"] == {"agent": 900, "model": 320, "tool": 45}
     assert proof["model_ids"] == ["global.anthropic.claude-sonnet-4-6"]
-    assert proof["tool_names"] == ["find_pieces_hybrid"]
+    assert proof["tool_names"] == ["search_products_hybrid"]
     assert proof["provenance"] == "agentcore-unified-telemetry"
 
 
@@ -1289,54 +1310,120 @@ def test_obsolete_flat_templates_and_runtime_provisioner_are_removed() -> None:
         assert not stale.exists()
 
 
-def test_no_direct_agentcore_control_plane_mutation_helpers() -> None:
-    """AgentCore CLI/CDK owns resource mutations; SDK helpers may only inspect."""
-    forbidden_sdk_calls = (
-        ".create_agent_runtime(",
-        ".update_agent_runtime(",
-        ".delete_agent_runtime(",
-        ".create_gateway(",
-        ".update_gateway(",
-        ".delete_gateway(",
-        ".create_gateway_target(",
-        ".update_gateway_target(",
-        ".delete_gateway_target(",
-        ".create_memory(",
-        ".update_memory(",
-        ".delete_memory(",
-        ".create_policy_engine(",
-        ".update_policy_engine(",
-        ".delete_policy_engine(",
-        ".create_policy(",
-        ".update_policy(",
-        ".delete_policy(",
-    )
-    excluded_parts = {
-        ".agentcore-project",
-        ".git",
-        ".venv",
-        "__pycache__",
-        "node_modules",
-        "tests",
-    }
-    source_paths = (
-        *REPO_ROOT.rglob("*.py"),
-        *REPO_ROOT.rglob("*.sh"),
-    )
+def _ownership():
+    """Load the checked-in ownership manifest."""
+    import sys
 
-    for path in source_paths:
+    deploy = REPO_ROOT / "scripts" / "deploy"
+    if str(deploy) not in sys.path:
+        sys.path.insert(0, str(deploy))
+    import ownership
+
+    return ownership
+
+
+def _scannable_sources():
+    excluded_parts = {
+        ".agentcore-project", ".git", ".venv", "__pycache__", "node_modules", "tests",
+    }
+    # The manifest defines the forbidden and allowed operation names, so it has to
+    # spell them. Scanning it would make the guard fail on its own vocabulary.
+    excluded_files = {"scripts/deploy/ownership.py"}
+    for path in (*REPO_ROOT.rglob("*.py"), *REPO_ROOT.rglob("*.sh")):
         relative = path.relative_to(REPO_ROOT)
         if excluded_parts.intersection(relative.parts):
             continue
-        source = path.read_text()
-        for operation in forbidden_sdk_calls:
+        if relative.as_posix() in excluded_files:
+            continue
+        try:
+            yield relative, path.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+
+
+def test_cfn_owned_resources_are_never_mutated_directly() -> None:
+    """Runtime, Memory and their IAM live in a CloudFormation stack.
+
+    A direct control-plane update would drift the stack from reality, and the next
+    CLI deploy would silently revert it. These operations are forbidden everywhere
+    in the repository, with no exception module.
+    """
+    ownership = _ownership()
+    for relative, source in _scannable_sources():
+        for operation in ownership.FORBIDDEN_CONTROL_PLANE_WRITES:
             assert operation not in source, (
-                f"{relative} mutates AgentCore with {operation}; render the "
-                "resource in the CLI project instead"
+                f"{relative} mutates a CloudFormation-owned AgentCore resource with "
+                f"{operation}. Runtime, Memory and their IAM belong to stack "
+                f"{ownership.CFN_STACK}; change them through the CLI project."
             )
-        assert "bedrock-agentcore-control create-" not in source
-        assert "bedrock-agentcore-control update-" not in source
-        assert "bedrock-agentcore-control delete-" not in source
+
+
+def test_control_plane_updates_live_only_in_the_migration_module() -> None:
+    """The Gateway, its targets and the policies are NOT stack-owned.
+
+    They were created by direct API and the CLI cannot represent them: `import
+    gateway` maps zero targets because their tool schemas are inline. So updating
+    them in place is the supported path, but it is confined to one module rather
+    than available to application code.
+    """
+    ownership = _ownership()
+    allowed = ownership.MIGRATION_MODULE
+    for relative, source in _scannable_sources():
+        rel = relative.as_posix()
+        for operation in ownership.ALLOWED_IN_MIGRATION_MODULE:
+            if operation in source:
+                assert rel == allowed, (
+                    f"{rel} calls {operation}. In-place control-plane updates are "
+                    f"permitted only in {allowed}, which asserts the account, "
+                    "region and resource ids before it writes."
+                )
+
+
+def test_the_migration_module_pins_the_environment_before_writing() -> None:
+    """An allow-list of ids is what makes the exception safe rather than a hole."""
+    ownership = _ownership()
+    source = (REPO_ROOT / ownership.MIGRATION_MODULE).read_text()
+    for token in (
+        "EXPECTED_ACCOUNT",
+        "EXPECTED_REGION",
+        "EXPECTED_GATEWAY_ID",
+        "EXPECTED_POLICY_ENGINE_ID",
+        "EXPECTED_TARGET_NAMES",
+        "EXPECTED_POLICY_NAMES",
+    ):
+        assert token in source, (
+            f"{ownership.MIGRATION_MODULE} does not assert {token} before mutating"
+        )
+
+
+def test_the_ownership_manifest_matches_the_audited_deployment() -> None:
+    """Ownership is ARN plus CloudFormation membership, never a workshop tag."""
+    ownership = _ownership()
+    assert ownership.may_update_directly("runtime") is False
+    assert ownership.may_update_directly("memory") is False
+    assert ownership.may_update_directly("iam") is False
+    assert ownership.may_update_directly("gateway") is True
+    assert ownership.may_update_directly("gateway_targets") is True
+    assert ownership.may_update_directly("policy_engine") is True
+    assert ownership.may_update_directly("policies") is True
+    for key in ("runtime", "memory", "iam"):
+        assert ownership.MANIFEST[key].stack == ownership.CFN_STACK
+    for key in ("gateway", "gateway_targets", "policy_engine", "policies"):
+        assert ownership.MANIFEST[key].stack == "", (
+            f"{key} is recorded as stack-owned; the audit found it in no stack"
+        )
+    # PellierWorkshopId carries three different values in this account and is
+    # forensic provenance only. It must not appear as ownership evidence.
+    source = (REPO_ROOT / "scripts" / "deploy" / "ownership.py").read_text()
+    assert "PellierWorkshopId" in source, "the manifest should explain why not to use it"
+    assert "forensic provenance only" in source
+
+
+def test_the_cli_project_path_is_still_the_only_creator() -> None:
+    """Nothing may create AgentCore resources outside the CLI project."""
+    for relative, source in _scannable_sources():
+        assert "bedrock-agentcore-control create-" not in source, relative
+        assert "bedrock-agentcore-control delete-" not in source, relative
 
 
 def test_deploy_all_is_only_a_canonical_provisioner_wrapper() -> None:

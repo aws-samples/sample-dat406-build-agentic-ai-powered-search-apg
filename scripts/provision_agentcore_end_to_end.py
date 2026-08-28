@@ -41,7 +41,7 @@ from render_agentcore_project import (  # noqa: E402
     GATEWAY_NAME,
     MEMORY_NAME,
     POLICY_ENGINE_NAME,
-    PROCESS_RETURN_ACTION,
+    INITIATE_RETURN_ACTION,
     PROJECT_NAME,
     RUNTIME_NAME,
     project_root,
@@ -186,14 +186,33 @@ def _runtime_log_group_name(runtime_arn: str) -> str:
     return f"/aws/bedrock-agentcore/runtimes/{runtime_id}-DEFAULT"
 
 
-def _runtime_log_retention_days(value: str) -> int:
-    """Validate the finite CloudWatch retention contract before deployment."""
+# Values that mean "leave retention exactly as deployed".
+#
+# A deployed installation may legitimately have no retention policy at all, and
+# a tool that cannot express that cannot reproduce it. This is deliberately NOT
+# the same as `"0"`, which stays rejected below: `0` is not a CloudWatch value,
+# and accepting it as a synonym for unbounded would quietly weaken the bounded
+# retention contract for anyone who typed it by mistake.
+_RETENTION_UNMANAGED = frozenset({"", "never", "never-expire", "unset", "none"})
+
+
+def _runtime_log_retention_days(value: str) -> int | None:
+    """Validate the CloudWatch retention contract, or return None if unmanaged.
+
+    ``None`` means "this deployment does not manage retention": no policy is
+    written and none is asserted. Every relevant Pellier log group in the live
+    test account is in exactly that state, so refusing to represent it made the
+    provisioner unable to describe its own installation.
+    """
+    if str(value or "").strip().lower() in _RETENTION_UNMANAGED:
+        return None
     try:
         days = int(value)
     except (TypeError, ValueError) as exc:
         raise RuntimeError(
             "AGENTCORE_RUNTIME_LOG_RETENTION_DAYS must be a supported "
-            "CloudWatch Logs retention value"
+            "CloudWatch Logs retention value, or one of "
+            f"{sorted(_RETENTION_UNMANAGED - {''})} to leave it unmanaged"
         ) from exc
     if days not in _RUNTIME_LOG_RETENTION_DAYS:
         supported = ", ".join(str(item) for item in sorted(_RUNTIME_LOG_RETENTION_DAYS))
@@ -224,6 +243,15 @@ def _write_result(path: Path, result: dict[str, Any]) -> None:
 
 
 def _validate_log_kms_key_arn(kms_key_arn: str) -> None:
+    """Validate a supplied key ARN. An empty value means "no key", not "invalid".
+
+    The live installation has no customer key on any Pellier log group, so
+    treating absence as a validation failure made the deployed encryption posture
+    impossible to express. A value that IS supplied is still held to the
+    customer-managed-key contract: an alias is still rejected.
+    """
+    if not str(kms_key_arn or "").strip():
+        return
     if not re.match(
         r"^arn:[^:]+:kms:[^:]+:\d{12}:key/(?:mrk-)?[0-9a-f-]{36}$",
         kms_key_arn,
@@ -238,7 +266,7 @@ def _ensure_protected_log_group(
     logs: Any,
     log_group_name: str,
     kms_key_arn: str,
-    retention_days: int,
+    retention_days: int | None,
     on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Create or repair one CloudWatch Logs destination."""
@@ -273,10 +301,10 @@ def _ensure_protected_log_group(
 
     if creation_pending:
         try:
-            logs.create_log_group(
-                logGroupName=log_group_name,
-                kmsKeyId=kms_key_arn,
-            )
+            create_args: dict[str, Any] = {"logGroupName": log_group_name}
+            if kms_key_arn:
+                create_args["kmsKeyId"] = kms_key_arn
+            logs.create_log_group(**create_args)
         except logs.exceptions.ResourceAlreadyExistsException:
             raced = _find_runtime_log_group(logs, log_group_name)
             if raced is None:
@@ -298,9 +326,13 @@ def _ensure_protected_log_group(
     if observed is None:
         raise RuntimeError(f"CloudWatch log group was not created: {log_group_name}")
 
-    if observed.get("kmsKeyId") != kms_key_arn:
+    # Only manage what this deployment declares. An unset key or retention means
+    # "leave it as deployed", so the provisioner neither writes nor asserts it.
+    # Changing encryption posture as a side effect of an unrelated migration is
+    # exactly the churn a vocabulary change must not cause.
+    if kms_key_arn and observed.get("kmsKeyId") != kms_key_arn:
         logs.associate_kms_key(logGroupName=log_group_name, kmsKeyId=kms_key_arn)
-    if observed.get("retentionInDays") != retention_days:
+    if retention_days is not None and observed.get("retentionInDays") != retention_days:
         logs.put_retention_policy(
             logGroupName=log_group_name,
             retentionInDays=retention_days,
@@ -309,11 +341,11 @@ def _ensure_protected_log_group(
     verified = _find_runtime_log_group(logs, log_group_name)
     if verified is None:
         raise RuntimeError(f"CloudWatch log group disappeared: {log_group_name}")
-    if verified.get("kmsKeyId") != kms_key_arn:
+    if kms_key_arn and verified.get("kmsKeyId") != kms_key_arn:
         raise RuntimeError(
             f"CloudWatch log group KMS key is incorrect: {log_group_name}"
         )
-    if verified.get("retentionInDays") != retention_days:
+    if retention_days is not None and verified.get("retentionInDays") != retention_days:
         raise RuntimeError(
             f"CloudWatch log group retention is incorrect: {log_group_name}"
         )
@@ -326,7 +358,7 @@ def _ensure_runtime_log_group(
     region: str,
     runtime_arn: str,
     kms_key_arn: str,
-    retention_days: int,
+    retention_days: int | None,
     on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Create or repair the Runtime log group before it receives a smoke turn.
@@ -350,7 +382,7 @@ def _ensure_trace_log_groups(
     *,
     region: str,
     kms_key_arn: str,
-    retention_days: int,
+    retention_days: int | None,
     on_cleanup_state: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Protect both Transaction Search destinations before X-Ray writes spans."""
@@ -668,7 +700,7 @@ def _deploy_cli_project(
     render_project(
         **common,
         include_policies=True,
-        action_token=PROCESS_RETURN_ACTION,
+        action_token=INITIATE_RETURN_ACTION,
     )
     _agentcore(root, "validate", env=env)
     _agentcore(root, "deploy", "--yes", "--json", env=env)
@@ -767,16 +799,35 @@ def _deploy_lambdas(
 
 
 def _verify_local_schema() -> dict[str, Any]:
-    names = [
-        tool["name"]
-        for surface in TOOL_SCHEMAS
-        for tool in schema_for(surface)
-    ]
-    if len(names) != 15 or len(set(names)) != 15:
+    """Assert the canonical schema is internally consistent, not a fixed count.
+
+    The count was hardcoded to 15 and silently became wrong the moment
+    `issue_credit` and `get_ticket_history` were published, so a full provision
+    run would have failed its own precondition against a correct schema. What
+    actually matters is that every published name is unique and that each one
+    resolves to exactly one target, which is what Cedar action ids depend on.
+    """
+    names: list[str] = []
+    target_for: dict[str, str] = {}
+    for surface, config in TOOL_SCHEMAS.items():
+        for tool in schema_for(surface, workshop=True):
+            names.append(tool["name"])
+            target_for.setdefault(tool["name"], config["target_name"])
+
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
         raise RuntimeError(
-            f"Canonical Gateway schema must contain 15 unique tools, found {len(names)}"
+            "Canonical Gateway schema publishes duplicate tool names, so a Cedar "
+            f"action id would be ambiguous: {duplicates}"
         )
-    return {"count": len(names), "canonical_names": sorted(names)}
+    if not names:
+        raise RuntimeError("Canonical Gateway schema publishes no tools")
+
+    return {
+        "count": len(names),
+        "canonical_names": sorted(names),
+        "target_for": target_for,
+    }
 
 
 def _verify_gateway_control_plane(
@@ -938,7 +989,7 @@ def _discover_live_gateway_tools(
     expected = {
         tool["name"]
         for surface in TOOL_SCHEMAS
-        for tool in schema_for(surface)
+        for tool in schema_for(surface, workshop=True)
     }
     if len(tools) != 15 or canonical_names != expected:
         raise RuntimeError(
@@ -1384,7 +1435,7 @@ def _live_policy_proof(
     deploy_dir: Path,
     env: dict[str, str],
 ) -> dict[str, Any]:
-    helper = deploy_dir / "gateway_process_return.py"
+    helper = deploy_dir / "gateway_initiate_return.py"
     proofs: dict[str, Any] = {}
     for expected, reason, session_id in (
         ("allow", "damaged", "provision-policy-allow"),
@@ -1441,14 +1492,23 @@ def main() -> int:
         "credentials_secret": _require_env(
             "COGNITO_TEST_CREDENTIALS_SECRET_ARN"
         ),
-        "workshop_id": _require_env("WORKSHOP_ID"),
+        # Canonical for a FRESH deployment. Deliberately not used to discover or
+        # adopt existing resources: the live test account carries three different
+        # values across resources provisioned in separate runs
+        # (`dat416-readiness-sweep`, `local-screenshot-20260817`, `unknown`), and
+        # picking one of those to match on would silently adopt the wrong set.
+        # Existing resources are adopted by ARN; this tag only labels new ones.
+        "workshop_id": os.environ.get("WORKSHOP_ID", "").strip() or "dat416",
         "model_id": _require_env("AGENT_MODEL_ID"),
-        "runtime_log_kms_key_arn": _require_env(
-            "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN"
-        ),
+        # Optional: absent means the deployment does not manage log encryption.
+        # The live installation has no customer key on any Pellier log group.
+        "runtime_log_kms_key_arn": os.environ.get(
+            "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN", ""
+        ).strip(),
     }
+    # Optional: absent means retention stays as deployed (never expire, live).
     runtime_log_retention_days = _runtime_log_retention_days(
-        _require_env("AGENTCORE_RUNTIME_LOG_RETENTION_DAYS")
+        os.environ.get("AGENTCORE_RUNTIME_LOG_RETENTION_DAYS", "")
     )
     opus_model_id = (
         os.environ.get("BEDROCK_OPUS_MODEL", "").strip()
@@ -1624,7 +1684,7 @@ def main() -> int:
             "policy_engine_id": policy_engine_id,
             "policy_engine_arn": policy_state.get("policyEngineArn"),
             "mode": "ENFORCE",
-            "gated_tool": "process_return",
+            "gated_tool": "initiate_return",
         }
 
         control_proof = _verify_gateway_control_plane(

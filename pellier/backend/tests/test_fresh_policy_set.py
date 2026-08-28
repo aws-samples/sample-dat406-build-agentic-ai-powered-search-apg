@@ -1,0 +1,421 @@
+"""What a FRESH workshop provision would publish and authorize.
+
+The audit gap this closes
+-------------------------
+
+Nothing asserted the fresh renderer's output, so it drifted a long way from the
+validated live contract without a single test going red:
+
+  * 18 policies instead of 3;
+  * a `permit_<tool>` per read tool instead of one exact allow-list;
+  * the actor/customer OWNERSHIP condition pre-installed on `initiate_return` — which is
+    the Lab 4 challenge, so a fresh stack shipped the participant's answer and step 3's
+    DENY fired before they wrote anything;
+  * `issue_credit` and `get_ticket_history` published while both are deferred.
+
+These tests parse the GENERATED Cedar. They do not re-implement a second policy model,
+and they never assert a count alone: a count passes while the names are wrong.
+"""
+
+from __future__ import annotations
+
+import os
+import pathlib
+import re
+import sys
+from typing import Dict, List, Set
+
+import pytest
+
+sys.path.insert(0, os.path.abspath("../../scripts/deploy"))
+
+from gateway_tool_schemas import (  # noqa: E402
+    TOOL_SCHEMAS,
+    WORKSHOP_DEFERRED_TOOLS,
+    canonical_tool_names,
+    schema_for,
+    workshop_published_tools,
+    workshop_target_tools,
+)
+from render_agentcore_project import baseline_policies  # noqa: E402
+
+EXPERIENCE = "pellier-concierge-experience-target"
+RETURN_ACTION = f"{EXPERIENCE}___initiate_return"
+
+# The exact 15 this workshop iteration publishes. Written out ONCE, here, so a change to
+# the derived contract has to be acknowledged in a test rather than absorbed silently.
+EXPECTED_PUBLISHED: Set[str] = {
+    "search_products", "search_products_hybrid", "browse_category", "check_inventory",
+    "get_low_stock", "restock_inventory",
+    "get_price_analysis", "compare_products",
+    "get_customer_preferences", "get_audit_trail", "get_trending_products",
+    "get_return_policy", "get_related_products",
+    "initiate_return", "escalate_to_human",
+}
+
+EXPECTED_TARGETS: Dict[str, Set[str]] = {
+    "pellier-discovery-search-target": {
+        "search_products", "search_products_hybrid", "browse_category",
+        "check_inventory", "get_low_stock", "restock_inventory",
+    },
+    "pellier-value-pricing-target": {"get_price_analysis", "compare_products"},
+    "pellier-curation-recommendation-target": {
+        "get_customer_preferences", "get_audit_trail", "get_trending_products",
+        "get_return_policy", "get_related_products",
+    },
+    "pellier-concierge-experience-target": {"initiate_return", "escalate_to_human"},
+}
+
+RETIRED = {
+    "floor_check", "running_low", "restock_shelf", "process_return", "find_pieces",
+    "find_pieces_hybrid", "whats_trending", "price_intelligence", "explore_collection",
+    "side_by_side", "returns_and_care", "style_match", "preference_snapshot",
+    "trace_receipt", "escalate_to_stylist",
+}
+
+
+def _policies() -> List[dict]:
+    return baseline_policies()
+
+
+def _by_name() -> Dict[str, dict]:
+    return {p["name"]: p for p in _policies()}
+
+
+def _actions(statement: str) -> List[str]:
+    return re.findall(r'AgentCore::Action::"([^"]+)"', statement)
+
+
+def _norm(statement: str) -> str:
+    return " ".join(statement.split())
+
+
+# ---------------------------------------------------------------------------
+# Publication: the exact set, not the count
+# ---------------------------------------------------------------------------
+
+
+def test_the_workshop_publishes_exactly_the_expected_fifteen() -> None:
+    assert workshop_published_tools() == EXPECTED_PUBLISHED
+
+
+def test_the_deferred_pair_is_exactly_issue_credit_and_ticket_history() -> None:
+    assert WORKSHOP_DEFERRED_TOOLS == {"issue_credit", "get_ticket_history"}
+
+
+def test_the_published_set_is_derived_not_hand_copied() -> None:
+    """Catalogue minus deferred. A second literal list would drift on the next tool."""
+    assert workshop_published_tools() == canonical_tool_names() - WORKSHOP_DEFERRED_TOOLS
+    assert len(canonical_tool_names()) == 17
+    assert len(workshop_published_tools()) == 15
+
+
+def test_every_published_name_is_unique() -> None:
+    names = [t["name"] for c in TOOL_SCHEMAS.values() for t in c["tools"]]
+    assert len(names) == len(set(names)), "a tool name is declared twice"
+
+
+def test_target_assignment_is_exact() -> None:
+    assert {k: set(v) for k, v in workshop_target_tools().items()} == EXPECTED_TARGETS
+
+
+def test_no_retired_name_is_published() -> None:
+    assert workshop_published_tools() & RETIRED == set()
+
+
+def test_no_deferred_name_is_published() -> None:
+    assert workshop_published_tools() & WORKSHOP_DEFERRED_TOOLS == set()
+
+
+def test_the_experience_target_publishes_only_the_two_governed_actions() -> None:
+    """`issue_credit` and `get_ticket_history` live on this target and must not ship."""
+    served = [t["name"] for t in schema_for("experience", workshop=True)]
+    assert served == ["initiate_return", "escalate_to_human"]
+    full = [t["name"] for t in schema_for("experience", workshop=False)]
+    assert set(full) - set(served) == {"issue_credit", "get_ticket_history"}
+
+
+# ---------------------------------------------------------------------------
+# The policy set: exact names, effects, actions, conditions
+# ---------------------------------------------------------------------------
+
+
+def test_the_fresh_policy_set_is_exactly_three_named_policies() -> None:
+    assert set(_by_name()) == {
+        "baseline_permit_workshop_tools",
+        "initiate_return_damaged_only",
+        "initiate_return_deny_other_reasons",
+    }
+
+
+def test_every_policy_is_active_and_validated_strictly() -> None:
+    for policy in _policies():
+        assert policy["enforcementMode"] == "ACTIVE", policy["name"]
+        assert policy["validationMode"] == "FAIL_ON_ANY_FINDINGS", policy["name"]
+
+
+def test_the_baseline_is_an_exact_allow_list_not_a_wildcard() -> None:
+    """A wildcard hands every future published tool a permit the moment it appears."""
+    statement = _by_name()["baseline_permit_workshop_tools"]["statement"]
+    assert "action in [" in statement
+    assert not re.search(r"permit\s*\(\s*principal,\s*action\s*,", _norm(statement))
+    # And no target Action Group, whose membership compiles at policy-save time.
+    assert 'action in AgentCore::Action::"pellier-' not in statement
+
+
+def test_the_baseline_permits_exactly_the_thirteen_safe_actions() -> None:
+    expected = {
+        f"{target}___{tool}"
+        for target, tools in EXPECTED_TARGETS.items()
+        for tool in tools
+        if tool not in {"initiate_return", "restock_inventory"}
+    }
+    actual = set(_actions(_by_name()["baseline_permit_workshop_tools"]["statement"]))
+    assert actual == expected
+    assert len(actual) == 13
+
+
+def test_the_baseline_is_unconditional() -> None:
+    statement = _by_name()["baseline_permit_workshop_tools"]["statement"]
+    assert "when {" not in statement
+    assert "unless {" not in statement
+
+
+def test_the_return_pair_names_the_canonical_action_only() -> None:
+    for name in ("initiate_return_damaged_only", "initiate_return_deny_other_reasons"):
+        actions = _actions(_by_name()[name]["statement"])
+        assert actions == [RETURN_ACTION], name
+        assert "process_return" not in _by_name()[name]["statement"], name
+
+
+def test_the_return_permit_is_damaged_only_and_the_forbid_is_its_complement() -> None:
+    permit = _norm(_by_name()["initiate_return_damaged_only"]["statement"])
+    forbid = _norm(_by_name()["initiate_return_deny_other_reasons"]["statement"])
+    assert permit.startswith("permit (")
+    assert 'context.input has reason && context.input.reason == "damaged"' in permit
+    assert forbid.startswith("forbid (")
+    assert '!(context.input has reason) || context.input.reason != "damaged"' in forbid
+
+
+# ---------------------------------------------------------------------------
+# The Lab 4 challenge must NOT be pre-installed
+# ---------------------------------------------------------------------------
+
+
+def test_no_fresh_policy_contains_the_lab_four_ownership_condition() -> None:
+    """The load-bearing assertion of this file.
+
+    Binding `principal.getTag("username")` to `context.input.customer_id` is the Lab 4
+    exercise. A baseline that already contains it makes the exercise semantically false:
+    the cross-customer DENY the participant is meant to create already happens.
+    """
+    for policy in _policies():
+        statement = policy["statement"]
+        assert "getTag" not in statement, policy["name"]
+        assert "hasTag" not in statement, policy["name"]
+        assert "customer_id" not in statement, policy["name"]
+
+
+def test_no_fresh_policy_names_a_persona_customer() -> None:
+    for policy in _policies():
+        for persona in ("CUST-MARCO", "CUST-ANNA", "CUST-THEO", '"marco"', '"anna"', '"theo"'):
+            assert persona not in policy["statement"], f"{policy['name']} / {persona}"
+
+
+def test_the_renderer_documents_the_omission_as_deliberate() -> None:
+    """So a later 'hardening' pass cannot re-add the challenge as an oversight."""
+    doc = baseline_policies.__doc__ or ""
+    assert "absent on purpose" in doc
+    assert "Lab 4" in doc
+    assert "teaching baseline" in doc
+
+
+# ---------------------------------------------------------------------------
+# Evaluated authorization outcomes
+# ---------------------------------------------------------------------------
+
+
+def _decide(action: str, reason: str | None) -> str:
+    """Evaluate the generated statements. Cedar is default-deny and forbid wins."""
+    permits, forbids = [], []
+    for policy in _policies():
+        statement = policy["statement"]
+        actions = _actions(statement)
+        scoped_in_list = "action in [" in statement
+        matches = action in actions if (actions and not scoped_in_list) else action in actions
+        if not matches:
+            continue
+        if "reason" in statement:
+            damaged = reason == "damaged"
+            wants_damaged = 'reason == "damaged"' in statement
+            applies = damaged if wants_damaged else not damaged
+        else:
+            applies = True
+        if not applies:
+            continue
+        (forbids if statement.lstrip().startswith("forbid") else permits).append(policy["name"])
+    if forbids:
+        return "DENY"
+    return "ALLOW" if permits else "DENY"
+
+
+@pytest.mark.parametrize(("action", "reason", "expected"), [
+    (RETURN_ACTION, "damaged", "ALLOW"),
+    (RETURN_ACTION, "not_as_described", "DENY"),
+    (RETURN_ACTION, "changed_mind", "DENY"),
+    (RETURN_ACTION, None, "DENY"),
+    ("pellier-discovery-search-target___restock_inventory", None, "DENY"),
+    ("pellier-discovery-search-target___check_inventory", None, "ALLOW"),
+    (f"{EXPERIENCE}___escalate_to_human", None, "ALLOW"),
+    (f"{EXPERIENCE}___issue_credit", None, "DENY"),
+    (f"{EXPERIENCE}___get_ticket_history", None, "DENY"),
+    (f"{EXPERIENCE}___some_future_tool", None, "DENY"),
+])
+def test_the_fresh_authorization_matrix(action: str, reason, expected: str) -> None:
+    assert _decide(action, reason) == expected
+
+
+def test_restock_inventory_has_zero_matching_permits() -> None:
+    """P1-04. Publishing the schema must not make a mutation callable.
+
+    Cedar is default-deny, so omission from the allow-list IS the control. No redundant
+    permit-plus-forbid pair: that would be a second thing to keep in sync.
+    """
+    action = "pellier-discovery-search-target___restock_inventory"
+    matching = [
+        p["name"] for p in _policies()
+        if action in _actions(p["statement"])
+        and not p["statement"].lstrip().startswith("forbid")
+    ]
+    assert matching == []
+    # It IS published — the tool exists; it simply cannot be authorized.
+    assert "restock_inventory" in workshop_published_tools()
+
+
+def test_a_future_published_tool_is_denied_by_default() -> None:
+    for future in ("get_ticket_history", "issue_credit", "anything_at_all"):
+        action = f"{EXPERIENCE}___{future}"
+        assert _decide(action, None) == "DENY", future
+        assert _decide(action, "damaged") == "DENY", future
+
+
+# ---------------------------------------------------------------------------
+# Lab 4: before and after the participant's own Policy work
+# ---------------------------------------------------------------------------
+
+CHALLENGE = pathlib.Path("../../policies/workshop_identity_match_forbid.cedar")
+SOLUTION = pathlib.Path(
+    "../../solutions/the-concierge/policies/identity_match_forbid.cedar")
+
+
+def _ownership_holds(username: str, customer_id: str) -> bool:
+    """The solution rule's `unless` clause, read from the shipped Cedar.
+
+    Parsed from the file rather than reimplemented, so the test cannot pass against a
+    solution that no longer says this.
+    """
+    body = SOLUTION.read_text()
+    pairs = re.findall(
+        r'getTag\("username"\)\s*==\s*"([a-z]+)"\s*&&\s*'
+        r'context\.input\.customer_id\s*==\s*"([A-Z\-]+)"',
+        body,
+    )
+    assert pairs, "the solution no longer binds usernames to customer ids"
+    return (username, customer_id) in pairs
+
+
+def test_the_challenge_file_ships_unsolved() -> None:
+    """`unless { false }` denies everything, which is the honest starting state.
+
+    A challenge file containing the answer is the other half of the P1-01 defect.
+    """
+    body = CHALLENGE.read_text()
+    assert re.search(r"unless\s*\{\s*false\s*\}", body)
+    assert "getTag" not in body
+    assert "CUST-MARCO" not in body
+
+
+def test_the_solution_file_contains_the_ownership_binding() -> None:
+    body = SOLUTION.read_text()
+    assert 'principal.hasTag("username")' in body
+    assert "context.input has customer_id" in body
+    for username, customer in (("marco", "CUST-MARCO"), ("anna", "CUST-ANNA"),
+                               ("theo", "CUST-THEO")):
+        assert _ownership_holds(username, customer), f"{username}/{customer}"
+
+
+def test_before_the_solution_a_cross_customer_return_is_permitted() -> None:
+    """Case F. Marco's token, Theo's damaged return.
+
+    This must ALLOW on the fresh baseline, or the participant has nothing to discover.
+    """
+    assert _decide(RETURN_ACTION, "damaged") == "ALLOW"
+    for policy in _policies():
+        assert "getTag" not in policy["statement"]
+
+
+def test_after_the_solution_the_cross_customer_return_is_denied() -> None:
+    """Case G. The same call, with the participant's rule added.
+
+    The forbid's `unless` fails for marco/CUST-THEO, so the forbid applies and Cedar
+    denies — while the owner's own damaged return still passes.
+    """
+    assert _ownership_holds("marco", "CUST-THEO") is False   # forbid applies -> DENY
+    assert _ownership_holds("theo", "CUST-THEO") is True     # unless holds  -> permitted
+    # And the baseline the solution lands on still permits the damaged case, so the
+    # DENY is attributable to the participant's rule and nothing else.
+    assert _decide(RETURN_ACTION, "damaged") == "ALLOW"
+
+
+def test_the_solution_names_the_canonical_action() -> None:
+    for path in (CHALLENGE, SOLUTION):
+        body = path.read_text()
+        assert "___initiate_return" in body, path.name
+        assert "___process_return" not in body, path.name
+
+
+# ---------------------------------------------------------------------------
+# One contract, three declarations: they must reconcile
+# ---------------------------------------------------------------------------
+
+
+def test_the_application_catalogue_reconciles_with_the_workshop_contract() -> None:
+    """`GATEWAY_TOOL_NAMES` is the application-level catalogue; this is its relationship.
+
+    Three places name the tool set and each has a different job:
+
+        agent_tools.py @tool          what the process can execute (18, incl. in-process only)
+        GATEWAY_TOOL_NAMES            what the application expects to reach through a
+                                      Gateway (17: the full catalogue)
+        workshop_published_tools()    what a fresh workshop provision publishes (15)
+
+    Asserted as a DERIVED relationship rather than a fourth literal list, so adding a
+    tool has to be classified once and cannot drift here.
+    """
+    import os as _os
+    import sys as _sys
+
+    backend = _os.path.abspath(".")
+    if backend not in _sys.path:
+        _sys.path.insert(0, backend)
+    from services.agentcore_gateway import GATEWAY_TOOL_NAMES
+
+    catalogue = set(GATEWAY_TOOL_NAMES)
+    assert catalogue == canonical_tool_names(), (
+        "the application catalogue and the Gateway schemas disagree: "
+        f"{sorted(catalogue ^ canonical_tool_names())}"
+    )
+    assert catalogue - WORKSHOP_DEFERRED_TOOLS == workshop_published_tools()
+    assert len(GATEWAY_TOOL_NAMES) == len(catalogue), "a name is listed twice"
+
+
+def test_the_in_process_only_tool_is_not_published_anywhere() -> None:
+    """`query_business_records` runs model-generated SQL behind a security boundary.
+
+    Classified `IN_PROCESS_ONLY` in `test_managed_gateway_tool_contract.py`: publishing it
+    would mean copying that boundary (read-only role, READ ONLY transaction, statement
+    timeout, schema allowlist, RLS) into a separate deploy artifact where it would drift.
+    It must appear in neither the canonical catalogue nor the workshop set.
+    """
+    assert "query_business_records" not in canonical_tool_names()
+    assert "query_business_records" not in workshop_published_tools()

@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND = REPO_ROOT / "pellier" / "backend"
 DEPLOY = REPO_ROOT / "scripts" / "deploy"
 RENDERER_PATH = DEPLOY / "render_agentcore_project.py"
-GATEWAY_PROCESS_RETURN = DEPLOY / "gateway_process_return.py"
+GATEWAY_PROCESS_RETURN = DEPLOY / "gateway_initiate_return.py"
 EXPERIENCE_LAMBDA = DEPLOY / "pellier_experience_server.py"
 PROVISIONER = REPO_ROOT / "scripts" / "provision_agentcore_end_to_end.py"
 DEPLOY_ALL = DEPLOY / "deploy_all.sh"
@@ -73,45 +73,35 @@ def test_no_dangling_local_policy_imports() -> None:
 
 
 def test_renderer_owns_baseline_cedar_and_enforce_attachment() -> None:
-    policies = renderer.baseline_policies()
-    names = {policy["name"] for policy in policies}
-    read_tool_names = {
-        tool["name"]
-        for schema in renderer.TOOL_SCHEMAS.values()
-        for tool in schema["tools"]
-        if tool["name"]
-        not in {
-            "preference_snapshot",
-            "trace_receipt",
-            "escalate_to_stylist",
-            "process_return",
-            "restock_shelf",
-        }
-    }
+    """The renderer's baseline, and the ENFORCE attachment that makes it consequential.
 
-    assert len(policies) == 16
-    assert names == {
-        *(f"permit_{name}" for name in read_tool_names),
-        "permit_preference_snapshot_owned",
-        "permit_trace_receipt_owned",
-        "permit_escalate_to_stylist_owned",
-        "process_return_owned_damaged",
-        "process_return_deny_unowned_or_unsupported",
-        "deny_restock_shelf",
-    }
+    The name-by-name contract belongs to ``test_fresh_policy_set.py``. This test asserts
+    the two things that are the renderer's own responsibility: every policy it emits is
+    enforced and validated, and the engine is attached in ENFORCE rather than LOG_ONLY.
+    A LOG_ONLY attachment turns every DENY in the workshop into a note in a log.
+
+    Enumerating names here as well is what allowed the baseline to drift: two copies
+    agreed with each other and both disagreed with the live environment.
+    """
+    policies = renderer.baseline_policies()
+
+    assert policies, "the renderer must emit a baseline"
     assert all(policy["enforcementMode"] == "ACTIVE" for policy in policies)
     assert all(
         policy["validationMode"] == "FAIL_ON_ANY_FINDINGS"
         for policy in policies
     )
     statements = "\n".join(policy["statement"] for policy in policies)
-    assert renderer.PROCESS_RETURN_ACTION in statements
-    assert renderer.RESTOCK_ACTION in statements
+    assert renderer.INITIATE_RETURN_ACTION in statements
     assert 'context.input.reason == "damaged"' in statements
-    assert 'principal.getTag("username") == "marco"' in statements
-    assert 'context.input.customer_id == "CUST-MARCO"' in statements
     assert "resource is AgentCore::Gateway" in statements
     assert "permit (principal, action, resource is AgentCore::Gateway)" not in statements
+
+    # The Lab 4 ownership condition is the participant's work. A baseline that already
+    # bound username to customer_id would make step 3's DENY fire before they wrote
+    # anything, and the exercise would silently become a copy-paste.
+    assert 'principal.getTag("username")' not in statements
+    assert "CUST-MARCO" not in statements
 
     source = RENDERER_PATH.read_text()
     assert '"mode": "ENFORCE"' in source
@@ -121,7 +111,7 @@ def test_renderer_owns_baseline_cedar_and_enforce_attachment() -> None:
 def test_participant_cedar_files_are_direct_cli_sources() -> None:
     expected_action = (
         'AgentCore::Action::"'
-        "pellier-concierge-experience-target___process_return"
+        "pellier-concierge-experience-target___initiate_return"
         '"'
     )
     starter = STARTER_CEDAR.read_text()
@@ -155,7 +145,7 @@ def test_advanced_dogwood_example_teaches_sequence_without_false_enforcement() -
     assert "formerly within 10m" in source
     assert (
         'AgentCore::Action::"'
-        'pellier-curation-recommendation-target___preference_snapshot"::response'
+        'pellier-curation-recommendation-target___get_customer_preferences"::response'
     ) in source
     assert 'input.customer_id: context.input.customer_id' in source
     assert "eventResource: resource" in source
@@ -201,7 +191,7 @@ def test_deploy_paths_do_not_mutate_agentcore_control_plane_directly() -> None:
     assert "deploy_gateway.py" not in combined
 
 
-def _load_gateway_process_return(name: str):
+def _load_gateway_initiate_return(name: str):
     spec = importlib.util.spec_from_file_location(name, GATEWAY_PROCESS_RETURN)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -209,8 +199,8 @@ def _load_gateway_process_return(name: str):
     return module
 
 
-def test_gateway_process_return_only_counts_policy_errors_as_deny() -> None:
-    module = _load_gateway_process_return("gateway_process_return_denial")
+def test_gateway_initiate_return_only_counts_policy_errors_as_deny() -> None:
+    module = _load_gateway_initiate_return("gateway_initiate_return_denial")
 
     assert module._is_authorization_denial(
         RuntimeError("AuthorizeActionException: explicit deny")
@@ -232,7 +222,7 @@ def test_gateway_process_return_only_counts_policy_errors_as_deny() -> None:
 def test_gateway_receipt_identity_is_bound_to_exact_cognito_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = _load_gateway_process_return("gateway_process_return_identity")
+    module = _load_gateway_initiate_return("gateway_initiate_return_identity")
     claims = {
         "sub": "subject-123",
         "username": "marco",
@@ -270,7 +260,7 @@ def test_gateway_receipt_identity_is_bound_to_exact_cognito_token(
 def test_gateway_receipt_identity_rejects_claim_mismatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = _load_gateway_process_return("gateway_process_return_mismatch")
+    module = _load_gateway_initiate_return("gateway_initiate_return_mismatch")
     claims = {
         "sub": "subject-123",
         "username": "not-marco",
@@ -336,8 +326,14 @@ def test_experience_lambda_writes_gateway_tool_audit() -> None:
     the surface file would now pass only by accident of duplication returning.
     """
     source = EXPERIENCE_LAMBDA.read_text()
-    assert "_write_tool_audit_in_transaction" in source
-    assert 'tool_name == "process_return"' in source
+    # The reviewable actions now write their receipt OUTSIDE the business
+    # transaction, so an Aurora denial still leaves exactly one attempt receipt.
+    assert "_write_tool_audit_independently" in source
+    assert "_write_tool_audit_in_transaction" not in source, (
+        "the experience surface went back to auditing inside the mutation; a "
+        "rolled-back write would take its receipt with it"
+    )
+    assert 'tool_name == "initiate_return"' in source
     # Keyed on the real identity, which this tool's arguments carry.
     assert 'f"gateway-{customer_id}"' in source
 
@@ -345,6 +341,64 @@ def test_experience_lambda_writes_gateway_tool_audit() -> None:
         EXPERIENCE_LAMBDA.parent / "common" / "dataapi.py"
     ).read_text()
     assert "INSERT INTO" in transport and "tool_audit" in transport
-    assert "transactionId=transaction_id" in transport
     assert "::jsonb" in transport
     assert '"gateway"' in transport or "'gateway'" in transport
+    # Both writers still exist: the in-transaction one serves restock_inventory,
+    # whose boundary is deliberately unchanged.
+    assert "def write_tool_audit_independently(" in transport
+    assert "transactionId=transaction_id" in transport
+
+
+# ---------------------------------------------------------------------------
+# The live-alignment planner. Audit finding P1-04: the live baseline permits the
+# restock action; the fresh baseline leaves it unpermitted so a call is a Cedar DENY.
+# The planner exists so that difference can be reviewed before a shared Gateway is
+# touched, which means the one property worth testing is that it cannot touch one.
+# ---------------------------------------------------------------------------
+
+RESTOCK_PLANNER = DEPLOY / "plan_restock_alignment.py"
+
+# Control-plane writes on the policy engine. A planner that calls any of these is no
+# longer a planner.
+_POLICY_WRITE_CALLS = (
+    "create_policy", "update_policy", "delete_policy",
+    "update_gateway", "update_gateway_target", "create_gateway_target",
+    "apply_policy_update", "apply_one_target", "apply_target_schemas",
+)
+
+
+def _planner_module():
+    spec = importlib.util.spec_from_file_location(
+        "pellier_restock_alignment_planner", RESTOCK_PLANNER
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_alignment_planner_cannot_write() -> None:
+    source = RESTOCK_PLANNER.read_text()
+    called = sorted(name for name in _POLICY_WRITE_CALLS if f"{name}(" in source)
+    assert not called, f"the alignment planner calls control-plane writes: {called}"
+    assert "PLAN ONLY" in source
+
+
+def test_the_alignment_planner_reports_restock_as_unpermitted_when_fresh() -> None:
+    """The fresh side of the comparison, computable with no AWS.
+
+    Asserted through the planner rather than by re-reading the renderer, because the
+    planner is what a reviewer will run and its answer is the one that has to be right.
+    """
+    planner = _planner_module()
+    result = planner.offline_plan()
+
+    assert result["applied"] is False
+    fresh = result["freshComparison"]
+    assert fresh["freshPermitsRestock"] is False
+    assert fresh["freshRestockActionId"] == (
+        "pellier-discovery-search-target___restock_inventory"
+    )
+    assert fresh["freshBaselineActionCount"] == 13
+    assert fresh["freshRestockActionId"] not in fresh["freshBaselineActions"]

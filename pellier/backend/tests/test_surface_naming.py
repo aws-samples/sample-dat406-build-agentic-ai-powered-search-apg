@@ -55,6 +55,15 @@ SKIP_PARTS = {
     "node_modules", ".git", "dist", "build", "__pycache__",
     ".venv", "venv", ".pytest_cache", "coverage", "playwright-report",
     "test-results", ".kiro",
+    # Generated build output, all of it gitignored. `.agentcore-project` holds
+    # the CDK build cache, which stages vendored third-party source: Strands'
+    # own `agent_trace` identifier collides with a retired Pellier surface name
+    # and cannot be fixed by anyone here. A guard that fails on a dependency's
+    # internals inside an ignored directory reports noise, not drift.
+    ".agentcore-project", ".cache", ".cli",
+    # Gitignored audit output. A retired-name census names retired names because
+    # that is its subject, so scanning it turns the report into the finding.
+    "audit",
 }
 
 # Files permitted to name a retired path, each for a reason that would break if
@@ -79,6 +88,17 @@ ALLOWED: Dict[str, str] = {
     # This file names what it forbids.
     "pellier/backend/tests/test_surface_naming.py":
         "the guard itself",
+    # The three files that RETIRE the database object.
+    #
+    # This guard scans repository FILES, so it could never have seen that the live
+    # cluster still carried `pellier.agent_trace_spans` — it did, for weeks, while every
+    # test here passed. Detecting and removing it necessarily names it.
+    "scripts/migrations/027_canonical_span_table.sql":
+        "converges a stale cluster onto observatory_spans and asserts the result",
+    "pellier/backend/routes/observatory.py":
+        "the readiness check that fails when the retired table still exists",
+    "pellier/backend/tests/test_evidence_substrate_readiness.py":
+        "asserts that migration and that readiness check",
 }
 
 

@@ -13,6 +13,10 @@ HOME_FOLDER="${HOME_FOLDER:-/workshop}"
 REPO_NAME="sample-pellier-agentic-search-apg"
 REPO_PATH="$HOME_FOLDER/$REPO_NAME"
 AWS_REGION="${AWS_REGION:-us-east-1}"
+# This branch is the governed flagship. Every in-script branch below reads this one
+# value, so an operator who runs bootstrap without exporting it gets the governed
+# path rather than silently taking the builders path on a governed checkout.
+WORKSHOP_FORMAT="${WORKSHOP_FORMAT:-governed}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
@@ -109,7 +113,7 @@ fi
 # Studio box shipped with a live detached checkout at the pinned SHA and the
 # workspace stayed on live git. `"git.enabled": false` hides the Source Control
 # panel, but the terminal is untouched: `git checkout -- .` silently reverts the
-# floor_check exercise a participant is midway through, and `git stash` loses it
+# check_inventory exercise a participant is midway through, and `git stash` loses it
 # with no visible trace. Neither is a thing anyone does on purpose; both are
 # things people type out of habit.
 #
@@ -241,8 +245,8 @@ AWS_DEFAULT_REGION='${AWS_REGION}'
 BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}'
 BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}'
 BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-6-v1}'
-WORKSHOP_ID='${WORKSHOP_ID:-}'
-WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-builders}'
+WORKSHOP_ID='${WORKSHOP_ID:-dat416}'
+WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-governed}'
 AUTH_MODE='${AUTH_MODE:-cognito}'
 COGNITO_USER_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_POOL_ID='${COGNITO_USER_POOL_ID:-}'
@@ -334,7 +338,7 @@ cat >> "$GLOBAL_CLAUDE_TMP" << 'CLAUDEEOF'
 # Pellier workshop guidance
 
 - Read the repository `CLAUDE.md` and the nearest nested `CLAUDE.md` before editing.
-- Treat Lab 1, Stock Keeper, `floor_check`, or workshop-marker requests as participant mode. Edit only the named marker block and never inspect `solutions/`.
+- Treat Lab 1, Inventory Agent, `check_inventory`, or workshop-marker requests as participant mode. Edit only the named marker block and never inspect `solutions/`.
 - In participant mode, do not run git, install packages, change configuration, or restart services. Stop after one failed attempt and use the guide's escape hatch.
 - `.claude/skills/*/SKILL.md` contains coding workflows. `skills/*/SKILL.md` contains Pellier runtime prompt overlays; do not treat runtime skills as coding instructions.
 - Read `VOICE.md` before changing shopper-facing copy or model prompts.
@@ -561,7 +565,7 @@ setup_database() {
         # tables FK into pellier.product_catalog. Ordering matters:
         # telemetry creates customers/orders, persona seed populates them,
         # Theo returns references them, and warehouse inventory powers
-        # floor_check. ----
+        # check_inventory. ----
         local migration
         for migration in \
             002_workshop_telemetry.sql \
@@ -579,7 +583,17 @@ setup_database() {
             014_governed_turn_receipts.sql \
             015_proof_carrying_commerce.sql \
             016_runtime_roles_rls.sql \
-            017_governed_query_receipts.sql
+            017_governed_query_receipts.sql \
+            018_client_book.sql \
+            019_operator_desk.sql \
+            020_operator_review.sql \
+            021_governed_execution.sql \
+            022_write_operation_vocabulary.sql \
+            023_idempotency_claims_release_on_failure.sql \
+            024_operator_episodes.sql \
+            025_execution_receipts.sql \
+            026_episode_outcome_lineage.sql \
+            027_canonical_span_table.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -748,9 +762,49 @@ alias health='bash /workshop/sample-pellier-agentic-search-apg/scripts/health-ga
 # pinned npx form if the global install is missing. Runtime invocation still
 # goes through the app because the CLI invoke command cannot supply the
 # workshop's Cognito bearer-token contract.
+# The pinned release contract. A fresh deployment must be reproducible no matter
+# what happens to be installed on the box, so the pin is ENFORCED rather than
+# merely preferred.
+AGENTCORE_CLI_PINNED_VERSION="0.26.0"
+
+# Resolve the AgentCore CLI, honouring the pin.
+#
+# The previous version used a global binary whenever one existed, which made the
+# pin decorative: a box with 0.27.0 installed silently deployed with 0.27.0 while
+# the release contract said 0.26.0. The two differ in ways that matter here — for
+# example 0.27.0 adds `import gateway`, whose behaviour on inline tool schemas is
+# not what this workshop's provisioning assumes.
+#
+# Order: use a global binary ONLY if its version matches exactly; otherwise fall
+# back to the pinned npx invocation. The effective version is printed into
+# bootstrap evidence either way, so a deploy can always be attributed.
+_agentcore_resolve() {
+    local bin observed
+    if bin="$(type -P agentcore)"; then
+        observed="$("$bin" --version 2>/dev/null | tr -d '[:space:]')"
+        if [ "$observed" = "$AGENTCORE_CLI_PINNED_VERSION" ]; then
+            printf 'binary\t%s\t%s\n' "$bin" "$observed"
+            return 0
+        fi
+        printf 'pinned\tnpx\t%s (ignoring global %s at %s)\n' \
+            "$AGENTCORE_CLI_PINNED_VERSION" "${observed:-unreadable}" "$bin"
+        return 0
+    fi
+    printf 'pinned\tnpx\t%s (no global binary)\n' "$AGENTCORE_CLI_PINNED_VERSION"
+}
+
 agentcore() {
+    local resolution source effective
+    resolution="$(_agentcore_resolve)"
+    source="$(printf '%s' "$resolution" | cut -f1)"
+    effective="$(printf '%s' "$resolution" | cut -f3-)"
+    log "AgentCore CLI: ${source} — ${effective}"
     ( cd /workshop/sample-pellier-agentic-search-apg/.agentcore-project/pellier 2>/dev/null \
-        && if _ac_bin="$(type -P agentcore)"; then "$_ac_bin" "$@"; else npx -y @aws/agentcore@0.26.0 "$@"; fi )
+        && if [ "$source" = "binary" ]; then
+               "$(printf '%s' "$resolution" | cut -f2)" "$@"
+           else
+               npx -y "@aws/agentcore@${AGENTCORE_CLI_PINNED_VERSION}" "$@"
+           fi )
         # type -P, NOT command -v: command -v matches THIS function (always
         # true), then `command agentcore` finds no binary when the global npm
         # install was skipped -> "command not found" instead of the npx
@@ -832,7 +886,7 @@ if [ -n "$DB_HOST" ]; then
     if [ "$WAREHOUSE_ROWS" -gt 0 ]; then
         log "✅ Warehouse inventory verified ($WAREHOUSE_ROWS rows)"
     else
-        warn "⚠️  Warehouse inventory missing — floor_check exercise will not land"
+        warn "⚠️  Warehouse inventory missing — check_inventory exercise will not land"
     fi
 fi
 
@@ -960,7 +1014,7 @@ rm -f /etc/systemd/system/pellier-backend.service \
 # RELOAD_ARGS is computed here so there is a single heredoc, not two.
 # --reload-dir pins the watch to the backend dir (avoids watching
 # frontend/node_modules and re-triggering on dist/ writes).
-if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-builders}" = "governed" ]; then
+if [ "${WORKSHOP_FORMAT}" = "builders" ] || [ "${WORKSHOP_FORMAT}" = "governed" ]; then
     UVICORN_RELOAD_ARGS="--reload --reload-dir $REPO_PATH/pellier/backend"
 else
     UVICORN_RELOAD_ARGS=""
@@ -1089,10 +1143,10 @@ log "✅ Status marker created"
 # STEP 16: WORKSHOP FORMAT — Pre-apply everything participants don't build
 # ============================================================================
 #
-# The required path wires the floor_check tool body in
+# The required path wires the check_inventory tool body in
 # services/agent_tools.py and then proves the same production path
 # through retrieval, memory, Runtime, Gateway, Policy, and the Aurora
-# audit ledger. Stock Keeper's system prompt and orchestrator are
+# audit ledger. Inventory Agent's system prompt and orchestrator are
 # already in place before participants arrive.
 #
 # This block copies finished reference files from solutions/ into
@@ -1106,10 +1160,10 @@ log "✅ Status marker created"
 #   solutions/the-ledger/    — governance reference (observe-only)
 #
 # Files we explicitly do NOT copy (participants build these):
-#   inside agent_tools.py — the floor_check tool body only
-if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-builders}" = "governed" ]; then
+#   inside agent_tools.py — the check_inventory tool body only
+if [ "${WORKSHOP_FORMAT}" = "builders" ] || [ "${WORKSHOP_FORMAT}" = "governed" ]; then
     log "=========================================="
-    log "Workshop: processing ${WORKSHOP_FORMAT:-builders} managed path"
+    log "Workshop: processing ${WORKSHOP_FORMAT} managed path"
     log "=========================================="
 
     copy_solution() {
@@ -1122,23 +1176,23 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-buil
         fi
     }
 
-    if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
+    if [ "${WORKSHOP_FORMAT}" = "builders" ]; then
 
-    # ---- Specialist agents that aren't Stock Keeper ----
-    # Curator handles recommendation turns (find_pieces_hybrid, style_match).
-    # Experience Guide handles returns/care (returns_and_care, process_return,
-    # escalate_to_stylist). Orchestrator is the dispatcher that routes between them.
-    copy_solution "solutions/closing-marcos-gap/agents/curator.py" \
-                  "pellier/backend/agents/curator.py" "Curator agent"
-    copy_solution "solutions/closing-marcos-gap/agents/experience_guide.py" \
-                  "pellier/backend/agents/experience_guide.py" "Experience Guide agent"
+    # ---- Specialist agents that aren't Inventory Agent ----
+    # Personalization Agent handles recommendation turns (search_products_hybrid, get_related_products).
+    # Customer Service Agent handles returns/care (get_return_policy, initiate_return,
+    # escalate_to_human). Orchestrator is the dispatcher that routes between them.
+    copy_solution "solutions/closing-marcos-gap/agents/personalization_agent.py" \
+                  "pellier/backend/agents/personalization_agent.py" "Personalization Agent"
+    copy_solution "solutions/closing-marcos-gap/agents/customer_service_agent.py" \
+                  "pellier/backend/agents/customer_service_agent.py" "Customer Service Agent"
     copy_solution "solutions/closing-marcos-gap/agents/orchestrator.py" \
                   "pellier/backend/agents/orchestrator.py" "Orchestrator"
 
     # ---- agent_tools.py builders variant ----
-    # Wires restock_shelf + running_low (everything Stock Keeper-adjacent
-    # except floor_check itself). Participants will edit this file in
-    # the required-path to add the floor_check body — and only that body.
+    # Wires restock_inventory + get_low_stock (everything Inventory Agent-adjacent
+    # except check_inventory itself). Participants will edit this file in
+    # the required-path to add the check_inventory body — and only that body.
     copy_solution "solutions/closing-marcos-gap/services/agent_tools_builders_preapply.py" \
                   "pellier/backend/services/agent_tools.py" "Agent tools (builders variant)"
 
@@ -1173,7 +1227,7 @@ if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ] || [ "${WORKSHOP_FORMAT:-buil
     copy_solution "solutions/the-ledger/frontend/agentIdentity.ts" \
                   "pellier/frontend/src/utils/agentIdentity.ts" "Frontend agent identity"
     else
-        log "Governed format: preserving Stock Keeper and floor_check scaffolds for participant build"
+        log "Governed format: preserving Inventory Agent and check_inventory scaffolds for participant build"
     fi
 
     # ---- AgentCore full managed path ----
@@ -1370,17 +1424,17 @@ EOF
     # once so it picks them up. systemd owns the process — no nohup, no PID
     # file, no second backend fighting for :8000. A restart failure is
     # non-fatal (the health gate reports it); --reload keeps the live-edit DX.
-    log "Restarting pellier service to pick up ${WORKSHOP_FORMAT:-builders} env..."
+    log "Restarting pellier service to pick up ${WORKSHOP_FORMAT} env..."
     systemctl restart pellier || warn "pellier restart failed — check: journalctl -u pellier"
 
     sleep 8
     if systemctl is-active --quiet pellier; then
-        log "✅ ${WORKSHOP_FORMAT:-builders}: pellier service running (systemd)"
+        log "✅ ${WORKSHOP_FORMAT}: pellier service running (systemd)"
     else
         warn "pellier service not active after restart — check: journalctl -u pellier"
     fi
 
-    if [ "${WORKSHOP_FORMAT:-builders}" = "governed" ] && [ "$AGENTCORE_OK" = true ]; then
+    if [ "${WORKSHOP_FORMAT}" = "governed" ] && [ "$AGENTCORE_OK" = true ]; then
         log "Restoring canonical governed state after live Runtime and Policy proof..."
         if sudo -u "$CODE_EDITOR_USER" bash -c "
             export PELLIER_REPO='$REPO_PATH'
@@ -1392,10 +1446,10 @@ EOF
         fi
     fi
 
-    log "✅ ${WORKSHOP_FORMAT:-builders} managed path processed, pellier service restarted"
+    log "✅ ${WORKSHOP_FORMAT} managed path processed, pellier service restarted"
 fi
 
-if [ "${WORKSHOP_FORMAT:-builders}" != "builders" ] && [ "${WORKSHOP_FORMAT:-builders}" != "governed" ]; then
+if [ "${WORKSHOP_FORMAT}" != "builders" ] && [ "${WORKSHOP_FORMAT}" != "governed" ]; then
     write_status_json "complete" "not_applicable" ""
 fi
 
@@ -1527,7 +1581,7 @@ echo "✅ Pellier Frontend (React) dependencies installed"
 echo "✅ Database setup complete (expanded product corpus + warehouse inventory)"
 echo "✅ MCP server config written to pellier/config/mcp-server-config.json"
 echo "✅ Bash environment configured (psql ready)"
-if [ "${WORKSHOP_FORMAT:-builders}" = "builders" ]; then
+if [ "${WORKSHOP_FORMAT}" = "builders" ]; then
     echo "✅ pellier systemd service enabled — python3 -m uvicorn --reload on :8000 (live .py edits)"
 else
     echo "✅ pellier systemd service enabled (single process on :8000)"
@@ -1567,7 +1621,7 @@ fi
 
 log "=========================================="
 
-if [ "$HEALTH_GATE_OK" != true ] && [ "${WORKSHOP_FORMAT:-builders}" = "governed" ]; then
+if [ "$HEALTH_GATE_OK" != true ] && [ "${WORKSHOP_FORMAT}" = "governed" ]; then
     fail "Governed workshop readiness failed; CloudFormation must not report this environment ready"
 fi
 

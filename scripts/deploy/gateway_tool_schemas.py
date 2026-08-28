@@ -38,7 +38,7 @@ TOOL_SCHEMAS = {
         "description": "Pellier search and inventory MCP server",
         "tools": [
             {
-                "name": "find_pieces",
+                "name": "search_products",
                 "description": "Search products by natural language query using vector similarity.",
                 "inputSchema": {
                     "type": "object",
@@ -53,11 +53,11 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "find_pieces_hybrid",
+                "name": "search_products_hybrid",
                 "description": (
                     "Hybrid retrieval: pgvector cosine + Postgres FTS merged via "
                     "RRF, then reranked by Cohere Rerank v3.5. Higher quality "
-                    "than find_pieces at the cost of one extra Bedrock call."
+                    "than search_products at the cost of one extra Bedrock call."
                 ),
                 "inputSchema": {
                     "type": "object",
@@ -72,7 +72,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "explore_collection",
+                "name": "browse_category",
                 "description": "Browse a category with rating and price filters.",
                 "inputSchema": {
                     "type": "object",
@@ -86,7 +86,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "floor_check",
+                "name": "check_inventory",
                 "description": "Check aggregate inventory or one product across warehouses.",
                 "inputSchema": {
                     "type": "object",
@@ -95,7 +95,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "running_low",
+                "name": "get_low_stock",
                 "description": "Get products with critically low stock.",
                 "inputSchema": {
                     "type": "object",
@@ -104,7 +104,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "restock_shelf",
+                "name": "restock_inventory",
                 "description": "Restock a product (max 500 per policy).",
                 "inputSchema": {
                     "type": "object",
@@ -124,7 +124,7 @@ TOOL_SCHEMAS = {
         "description": "Pellier pricing analysis MCP server",
         "tools": [
             {
-                "name": "price_intelligence",
+                "name": "get_price_analysis",
                 "description": "Price statistics by category.",
                 "inputSchema": {
                     "type": "object",
@@ -133,7 +133,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "side_by_side",
+                "name": "compare_products",
                 "description": "Compare two products side by side.",
                 "inputSchema": {
                     "type": "object",
@@ -151,7 +151,7 @@ TOOL_SCHEMAS = {
         "description": "Pellier curation, memory, policy, and evidence MCP server",
         "tools": [
             {
-                "name": "preference_snapshot",
+                "name": "get_customer_preferences",
                 "description": "Read a safe customer preference, order, and memory snapshot.",
                 "inputSchema": {
                     "type": "object",
@@ -163,7 +163,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "trace_receipt",
+                "name": "get_audit_trail",
                 "description": "Read recent ALLOW receipts from pellier.tool_audit.",
                 "inputSchema": {
                     "type": "object",
@@ -178,7 +178,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "whats_trending",
+                "name": "get_trending_products",
                 "description": "Most popular products by rating and review volume.",
                 "inputSchema": {
                     "type": "object",
@@ -190,7 +190,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "returns_and_care",
+                "name": "get_return_policy",
                 "description": "Look up the return and care policy for a category.",
                 "inputSchema": {
                     "type": "object",
@@ -201,7 +201,7 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "style_match",
+                "name": "get_related_products",
                 "description": "Find complementary products by vector similarity.",
                 "inputSchema": {
                     "type": "object",
@@ -216,10 +216,10 @@ TOOL_SCHEMAS = {
     },
     "experience": {
         "target_name": "pellier-concierge-experience-target",
-        "description": "Pellier experience-guide MCP server (returns + stylist handoff)",
+        "description": "Pellier experience-guide MCP server (returns, credits, tickets, stylist handoff)",
         "tools": [
             {
-                "name": "process_return",
+                "name": "initiate_return",
                 "description": (
                     "Process a return atomically: ownership check + INSERT into "
                     "pellier.returns + (if damaged) decrement product_catalog "
@@ -252,7 +252,49 @@ TOOL_SCHEMAS = {
                 },
             },
             {
-                "name": "escalate_to_stylist",
+                "name": "issue_credit",
+                "description": (
+                    "Issue a goodwill store credit for service recovery, up "
+                    "to $500.00. Writes one durable row per idempotency key "
+                    "into pellier.store_credits."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string"},
+                        "amount_cents": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 50000,
+                        },
+                        "reason": {"type": "string"},
+                        "idempotency_key": {"type": "string"},
+                    },
+                    "required": [
+                        "customer_id",
+                        "amount_cents",
+                        "reason",
+                        "idempotency_key",
+                    ],
+                },
+            },
+            {
+                "name": "get_ticket_history",
+                "description": (
+                    "Read a customer's past support tickets, newest first, "
+                    "for context before answering a service question."
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "customer_id": {"type": "string"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 25},
+                    },
+                    "required": ["customer_id"],
+                },
+            },
+            {
+                "name": "escalate_to_human",
                 "description": (
                     "Hand the conversation off to a human stylist. Honest "
                     "fallback when no catalog tool can answer (cultural "
@@ -289,10 +331,84 @@ for _target in TOOL_SCHEMAS.values():
         )
 
 
-def schema_for(surface: str) -> list[dict]:
-    """Return the CLI-compatible tool schema for one Gateway target."""
+# ---------------------------------------------------------------------------
+# What the CURRENT WORKSHOP ITERATION publishes
+# ---------------------------------------------------------------------------
+#
+# `TOOL_SCHEMAS` above is the canonical catalogue of everything Pellier can serve
+# through a Gateway target: 17 tools. It is deliberately the superset, because a schema
+# is a description of a capability and publication is a separate decision.
+#
+# Two of those capabilities are DEFERRED for this workshop iteration. Publishing a tool
+# gives it an MCP action id, a Cedar action, a capability-endpoint state and a place in
+# participant-visible discovery, and neither of these has the governance design that
+# earns those things yet:
+#
+#   issue_credit        moves money. Operator-only today, reachable through
+#                       `/api/operator/actions/issue-credit` behind `require_operator`,
+#                       and no shopper-facing agent holds the grant. Its Policy posture
+#                       is an open decision, so it is not published.
+#
+#   get_ticket_history  reads another person's support history. The read is only safe
+#                       under an ownership condition, and that condition is the subject
+#                       of the Lab 4 exercise — so publishing it now would either ship an
+#                       unguarded read or pre-install the participant's answer.
+#
+# Derived, never hand-copied. A second literal 15-tool list would drift from this one the
+# first time a tool is added, and the drift would be invisible until a fresh provision.
+WORKSHOP_DEFERRED_TOOLS: frozenset[str] = frozenset({
+    "issue_credit",
+    "get_ticket_history",
+})
+
+
+def canonical_tool_names() -> frozenset[str]:
+    """Every tool name in the canonical catalogue, published or not."""
+    return frozenset(
+        tool["name"] for config in TOOL_SCHEMAS.values() for tool in config["tools"]
+    )
+
+
+def workshop_published_tools() -> frozenset[str]:
+    """The exact tool names this workshop iteration publishes on the Gateway."""
+    return canonical_tool_names() - WORKSHOP_DEFERRED_TOOLS
+
+
+def workshop_target_tools() -> dict[str, tuple[str, ...]]:
+    """Published tool names per Gateway target, in declaration order.
+
+    The single source both the renderer and the tests consume. A target whose every tool
+    is deferred would appear here as an empty tuple rather than vanish, so a caller can
+    tell "nothing published" from "no such target".
+    """
+    return {
+        config["target_name"]: tuple(
+            tool["name"] for tool in config["tools"]
+            if tool["name"] not in WORKSHOP_DEFERRED_TOOLS
+        )
+        for config in TOOL_SCHEMAS.values()
+    }
+
+
+def schema_for(surface: str, *, workshop: bool) -> list[dict]:
+    """Return the CLI-compatible tool schema for one Gateway target.
+
+    `workshop` is REQUIRED, not defaulted, because the two answers differ and both are
+    legitimate:
+
+      * ``workshop=True`` drops the deferred tools, so a fresh provision cannot publish
+        a capability whose governance is undecided. Every publication path wants this.
+      * ``workshop=False`` is the full canonical vocabulary, which the Gateway vocabulary
+        migration needs in order to compute what it is deliberately NOT publishing.
+
+    It was briefly defaulted to ``True``, and that silently narrowed
+    ``migrate_gateway_vocabulary.canonical_targets()`` from seventeen tools to fifteen,
+    which emptied the migration's own deferred-tool list. A caller that has to name the
+    answer cannot inherit the wrong one.
+    """
     config = TOOL_SCHEMAS[surface]
     return [
         {**tool, "inputSchema": _sanitize_tool_schema(tool["inputSchema"])}
         for tool in config["tools"]
+        if workshop is False or tool["name"] not in WORKSHOP_DEFERRED_TOOLS
     ]

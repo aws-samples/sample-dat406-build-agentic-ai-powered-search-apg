@@ -39,7 +39,14 @@ pellier/config/mcp-server-config.json
 !.claude/skills/**
 
 # Internal design docs — working notes, not shipping content.
-docs/
+# Written as `docs/*` rather than `docs/`: git cannot re-include a file whose parent
+# directory is itself excluded, so excluding the CONTENTS is what makes the negation
+# below work at all.
+docs/*
+# One exception: the handoff source contract is what the next team authors the lab
+# guide against, so it ships with the repository rather than living in an ignored
+# directory a clone never receives.
+!docs/HANDOFF-SOURCE-CONTRACT.md
 
 # IDE
 .vscode/
@@ -111,3 +118,18 @@ reference/
 # Playwright artifacts
 pellier/frontend/playwright-report/
 pellier/frontend/test-results/
+
+# Local AI-tooling state. Previously carried only in .git/info/exclude, which is
+# per-clone: on a fresh clone these appeared untracked and the release gate fails on
+# untracked files in the source checkout. The hook cache also stores absolute developer
+# paths, so it must never be committed.
+.impeccable/
+.agents/
+.codex/
+# Git worktrees created inside the repository path.
+.worktrees/
+
+# Generated audit bundles. Produced by a pre-handoff source audit, useful locally, and
+# not a runtime or release dependency: no code may require anything under audit/.
+# Promote stable handoff material into docs/ instead of committing the raw census.
+audit/
