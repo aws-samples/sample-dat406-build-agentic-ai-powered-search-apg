@@ -72,7 +72,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 2',
-    title: 'Design the Retrieval Strategy',
+    title: 'Measure Hybrid Retrieval Trade-offs',
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
@@ -95,7 +95,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 3',
-    title: 'Run Agents in a Managed Runtime',
+    title: 'Operate the Managed Agent Path',
     summary:
       "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {
@@ -118,7 +118,7 @@ const LABS: LabItem[] = [
   },
   {
     lab: 'Lab 4',
-    title: 'Govern and Trace Agent Actions',
+    title: 'Govern Actions and Prove Outcomes',
     summary:
       'Bind JWT identity to the requested customer, prove DENY leaves no execution row, confirm the matching identity executes, and reset the participant policy.',
     primary: {

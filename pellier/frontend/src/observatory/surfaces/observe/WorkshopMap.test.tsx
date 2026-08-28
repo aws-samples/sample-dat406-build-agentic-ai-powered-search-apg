@@ -19,11 +19,11 @@ describe('Observatory workshop map', () => {
     ]);
     expect(screen.getByRole('heading', { name: 'Ground Answers in Live Data' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Design the Retrieval Strategy' }),
+      screen.getByRole('heading', { name: 'Measure Hybrid Retrieval Trade-offs' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Run Agents in a Managed Runtime' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Operate the Managed Agent Path' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Govern and Trace Agent Actions' }),
+      screen.getByRole('heading', { name: 'Govern Actions and Prove Outcomes' }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 

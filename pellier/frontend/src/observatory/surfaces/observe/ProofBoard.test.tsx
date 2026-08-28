@@ -75,7 +75,7 @@ const proofBoardPayload = {
     },
     {
       id: 'retrieval-comparison',
-      lab: 'Lab 2: Design the Retrieval Strategy',
+      lab: 'Lab 2: Measure Hybrid Retrieval Trade-offs',
       group: 'Retrieval evidence',
       title: 'Compare retrieval strategies',
       status: 'available',
@@ -92,7 +92,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Lab 3: Run Agents in a Managed Runtime',
+      lab: 'Lab 3: Operate the Managed Agent Path',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -107,7 +107,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Lab 3: Run Agents in a Managed Runtime',
+      lab: 'Lab 3: Operate the Managed Agent Path',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -126,7 +126,7 @@ const proofBoardPayload = {
     },
     {
       id: 'runtime-gateway-policy',
-      lab: 'Lab 4: Govern and Trace Agent Actions',
+      lab: 'Lab 4: Govern Actions and Prove Outcomes',
       group: 'Governance evidence',
       title: 'Verify Gateway, Cedar, and the governed receipt',
       status: 'complete',
@@ -266,7 +266,7 @@ describe('ProofBoard', () => {
       'Wire Marco to check_inventory',
     );
     expect(screen.getAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Run Agents in a Managed Runtime').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lab 3: Operate the Managed Agent Path').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
@@ -404,7 +404,7 @@ describe('ProofBoard', () => {
 
     // Four-lab spine: managed execution and audit share Lab 3.
     expect(await screen.findAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Run Agents in a Managed Runtime').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lab 3: Operate the Managed Agent Path').length).toBeGreaterThan(0);
   });
 
   it('renders an authenticated persisted turn record instead of session fixtures', async () => {

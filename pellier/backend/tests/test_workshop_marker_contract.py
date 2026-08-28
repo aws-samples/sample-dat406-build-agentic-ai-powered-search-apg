@@ -22,7 +22,7 @@ files to copy. A missing marker breaks the primary lane; a missing fallback brea
 recovery lane, which is worse, because it only fails for the participant who is already
 behind.
 
-**Lab 4 - Govern and trace agent actions.** A starter Cedar file that must NOT contain
+**Lab 4 - Govern actions and prove outcomes.** A starter Cedar file that must NOT contain
 the answer, a reference rule that must, and one proof script whose flags the guide passes
 verbatim.
 """
@@ -59,7 +59,7 @@ LAB1_FALLBACK_COPIES: Tuple[Tuple[str, str], ...] = (
 )
 
 # ---------------------------------------------------------------------------
-# Lab 4, "40-govern-and-trace-agent-actions", steps 1 through 4.
+# Lab 4, "40-govern-actions-and-prove-outcomes", steps 1 through 4.
 # ---------------------------------------------------------------------------
 
 LAB4_STARTER = "policies/workshop_identity_match_forbid.cedar"
@@ -243,3 +243,77 @@ def test_no_lab_anchor_is_a_broken_path() -> None:
     anchors += [LAB4_STARTER, LAB4_REFERENCE, LAB4_PROOF_SCRIPT]
     absent = sorted({rel for rel in anchors if not (REPO / rel).is_file()})
     assert not absent, f"lab anchors missing from the repository: {absent}"
+
+
+# ---------------------------------------------------------------------------
+# Lab titles, as the participant reads them in TWO products.
+#
+# The guide was renamed to a GROUND / RETRIEVE / OPERATE / GOVERN & PROVE spine and the
+# shipped application was not, so the Observatory's Workshop Map and Proof Board went on
+# naming "Design the Retrieval Strategy" while the guide beside them said "Measure Hybrid
+# Retrieval Trade-offs". Nothing failed: the naming guards in this repository scan for
+# retired SURFACE and TOOL names, and a lab title is neither.
+#
+# The same constraint as the rest of this file applies. CI does not clone the guide, so the
+# canonical titles are written out once here and the source side is asserted against them.
+# Changing a title means changing both repositories, which is the point.
+# ---------------------------------------------------------------------------
+
+CANONICAL_LAB_TITLES: Tuple[str, ...] = (
+    "Ground Answers in Live Data",
+    "Measure Hybrid Retrieval Trade-offs",
+    "Operate the Managed Agent Path",
+    "Govern Actions and Prove Outcomes",
+)
+
+# Titles the rename replaced. Present anywhere in the shipped product, they are drift.
+RETIRED_LAB_TITLES: Tuple[str, ...] = (
+    "Design the Retrieval Strategy",
+    "Run Agents in a Managed Runtime",
+    "Govern and Trace Agent Actions",
+)
+
+# Surfaces a participant actually reads a lab title on, plus the API that supplies one.
+LAB_TITLE_SURFACES: Tuple[str, ...] = (
+    "pellier/backend/routes/observatory.py",
+    "pellier/frontend/src/observatory/surfaces/observe/WorkshopMap.tsx",
+    "pellier/frontend/src/observatory/surfaces/observe/ProofBoard.tsx",
+)
+
+
+def test_no_shipped_surface_names_a_retired_lab_title() -> None:
+    """The finding this closes, asserted where a participant would see it."""
+    findings = []
+    for rel in LAB_TITLE_SURFACES:
+        text = _read(rel)
+        for retired in RETIRED_LAB_TITLES:
+            if retired in text:
+                line = text[: text.index(retired)].count("\n") + 1
+                findings.append(f"  {rel}:{line}  {retired}")
+    assert not findings, (
+        "shipped surfaces still name retired lab titles, so the application and the guide "
+        "disagree in the same viewport:\n" + "\n".join(findings)
+    )
+
+
+def test_the_workshop_map_and_proof_board_use_the_canonical_titles() -> None:
+    """Absence of the old name is not presence of the new one.
+
+    A surface that dropped its lab labels entirely would satisfy the check above while
+    telling a participant less than before.
+    """
+    workshop_map = _read(
+        "pellier/frontend/src/observatory/surfaces/observe/WorkshopMap.tsx"
+    )
+    for title in CANONICAL_LAB_TITLES:
+        assert title in workshop_map, f"the Workshop Map no longer names {title!r}"
+
+    api = _read("pellier/backend/routes/observatory.py")
+    for title in CANONICAL_LAB_TITLES[1:]:
+        assert title in api, f"the Proof Board API no longer names {title!r}"
+
+
+def test_the_retired_and_canonical_title_lists_do_not_overlap() -> None:
+    """Guards the two lists above from being edited into agreement."""
+    assert not set(CANONICAL_LAB_TITLES) & set(RETIRED_LAB_TITLES)
+    assert len(CANONICAL_LAB_TITLES) == 4

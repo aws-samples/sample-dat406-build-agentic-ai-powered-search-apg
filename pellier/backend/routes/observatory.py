@@ -892,7 +892,7 @@ async def _collect_proof_board(
         },
         {
             "id": "retrieval-comparison",
-            "lab": "Lab 2: Design the Retrieval Strategy",
+            "lab": "Lab 2: Measure Hybrid Retrieval Trade-offs",
             "group": "Retrieval evidence",
             "title": "Compare Anna's four retrieval strategies",
             "status": (
@@ -923,7 +923,7 @@ async def _collect_proof_board(
         },
         {
             "id": "audit-ledger",
-            "lab": "Lab 3: Run Agents in a Managed Runtime",
+            "lab": "Lab 3: Operate the Managed Agent Path",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -971,7 +971,7 @@ async def _collect_proof_board(
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "Lab 4: Govern and Trace Agent Actions",
+            "lab": "Lab 4: Govern Actions and Prove Outcomes",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (
@@ -1004,7 +1004,7 @@ async def _collect_proof_board(
         },
         {
             "id": "managed-rail",
-            "lab": "Lab 3: Run Agents in a Managed Runtime",
+            "lab": "Lab 3: Operate the Managed Agent Path",
             "group": "Managed boundaries",
             "title": "Prove the managed Runtime and Gateway rail",
             "status": _card_status(

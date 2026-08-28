@@ -20,7 +20,7 @@ cp solutions/closing-marcos-gap/services/agent_tools_check_inventory_solution.py
 
 After copying, both `/api/observatory/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `check_inventory` row from `pellier.tool_audit`.
 
-## Lab 2: Design the Retrieval Strategy
+## Lab 2: Measure Hybrid Retrieval Trade-offs
 
 If the live comparison endpoint stalls, use:
 
@@ -30,7 +30,7 @@ sed -n '1,120p' solutions/retrieval-eval/reference-output.txt
 
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
-## Lab 3: Run Agents in a Managed Runtime
+## Lab 3: Operate the Managed Agent Path
 
 The managed Memory, Runtime, Gateway, and JWT path has no local substitute. Move a participant to a ready environment when that proof fails.
 
@@ -43,7 +43,7 @@ psql -v ON_ERROR_STOP=1 \
 
 It joins `governed_receipts` to `tool_audit` and resolves the authenticated Marco principal against the Theo customer named in tool input.
 
-## Lab 4: Govern and Trace Agent Actions
+## Lab 4: Govern Actions and Prove Outcomes
 
 Copy the identity-aware Cedar rule after one failed validation, then add it
 through the same pinned AgentCore CLI used by the workshop:
