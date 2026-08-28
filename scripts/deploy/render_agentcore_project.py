@@ -35,6 +35,11 @@ EXPERIENCE_TARGET = "pellier-concierge-experience-target"
 INITIATE_RETURN_ACTION = f"{EXPERIENCE_TARGET}___initiate_return"
 RESTOCK_ACTION = "pellier-discovery-search-target___restock_inventory"
 ISSUE_CREDIT_ACTION = "pellier-concierge-experience-target___issue_credit"
+# The Cognito group that authorizes operator-only capability. Must equal
+# `pellier/backend/services/auth.py::OPERATOR_GROUP`; `test_fresh_policy_set.py` asserts
+# the two agree, because a group name that drifts between the FastAPI boundary and the
+# Cedar boundary produces a system where each layer believes the other is enforcing.
+OPERATOR_GROUP = "pellier-operators"
 WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
 RUNTIME_SOURCE_FILES = (
     Path("agentcore_runtime.py"),
@@ -120,6 +125,21 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
 
     Deferred tools are not published at all, so they need no forbid: `issue_credit` and
     `get_ticket_history` have no action id on a fresh Gateway.
+
+    4. `forbid_operator_actions_without_group` — operator-only capability requires
+       membership in `OPERATOR_GROUP`, enforced HERE and not only in FastAPI.
+
+    That fourth policy exists because the FastAPI boundary is not the only way in. A
+    shopper holding a storefront token can call the Gateway directly, so an authorization
+    rule that lives only in `require_operator` is bypassable by the very rail this
+    workshop teaches participants to trust. It covers `restock_inventory`, which IS
+    published, and `issue_credit`, which is not: naming an unpublished action costs
+    nothing and means the day someone publishes it, it is already gated rather than
+    briefly open. That publication window is the exact mistake the wildcard permit made.
+
+    It is a `forbid`, so it composes with the default-deny above rather than granting
+    anything: `restock_inventory` still has no permit, and this makes the refusal explicit
+    and attributable instead of an absence.
     """
     gateway_type = "resource is AgentCore::Gateway"
 
@@ -157,6 +177,33 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
                 "  ],\n"
                 f"  {gateway_type}\n"
                 ");"
+            ),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+        {
+            "name": "forbid_operator_actions_without_group",
+            "description": (
+                "Operator-only capability requires the "
+                f"{OPERATOR_GROUP} Cognito group, at the Gateway as well as in the API"
+            ),
+            "statement": (
+                "forbid (\n"
+                "  principal,\n"
+                "  action in [\n"
+                f'    AgentCore::Action::"{RESTOCK_ACTION}",\n'
+                f'    AgentCore::Action::"{ISSUE_CREDIT_ACTION}"\n'
+                "  ],\n"
+                f"  {gateway_type}\n"
+                ")\n"
+                "unless {\n"
+                # `cognito:groups` is the claim name; AgentCore Policy exposes JWT claims
+                # as principal tags under their claim name, which is why Lab 4's rule uses
+                # getTag("username") for the `username` claim. Fail closed: a token with
+                # no groups claim at all does not satisfy this.
+                '  principal.hasTag("cognito:groups") &&\n'
+                f'  principal.getTag("cognito:groups").contains("{OPERATOR_GROUP}")\n'
+                "};"
             ),
             "validationMode": "FAIL_ON_ANY_FINDINGS",
             "enforcementMode": "ACTIVE",

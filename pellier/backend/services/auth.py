@@ -61,12 +61,36 @@ async def get_current_user(request: Request) -> Optional[Dict[str, Any]]:
     return payload
 
 
+# The Cognito group that authorizes the operator desk. One name, checked here and named
+# in the Cedar baseline, so the FastAPI boundary and the Gateway boundary agree.
+OPERATOR_GROUP = "pellier-operators"
+
+
 async def require_operator(request: Request) -> Dict[str, Any]:
     """FastAPI dependency: require a verified operator identity.
 
-    Use this on every mutation and operator route. Unlike
+    Use this on every ``/api/operator`` route, read and write alike. Unlike
     :func:`get_current_user`, it never returns ``None`` — the handler is
     guaranteed a principal it can write into the audit record.
+
+    **Authentication is not authorization.** This function used to stop at "the token
+    verifies and carries a subject", which made every shopper an operator: `marco` could
+    confirm, decline and execute any review, and call ``issue_credit`` directly. The
+    module docstring in ``routes/operator.py`` even explained that Cedar forbids
+    ``issue_credit`` for shopper principals "because a shopper-facing agent must never
+    issue itself store credit" — while this dependency handed the same capability to the
+    same shopper through the desk. A workshop whose subject is governance cannot ship
+    that.
+
+    Membership in ``OPERATOR_GROUP`` is now required, and the two failure modes are
+    deliberately different status codes:
+
+      * **401** ``authentication_required`` / ``invalid_credentials`` — who are you?
+      * **403** ``operator_group_required`` — you are known, and not permitted.
+
+    Collapsing 403 into 401 would tell an authenticated shopper to log in again, which is
+    both useless and misleading. Neither is a Cedar DENY; that distinction is
+    load-bearing in this workshop.
 
     Args:
         request: The inbound request, carrying either an
@@ -79,11 +103,8 @@ async def require_operator(request: Request) -> Dict[str, Any]:
     Raises:
         HTTPException: ``401 authentication_required`` when no credentials
             were supplied at all; ``401 invalid_credentials`` when a token
-            was presented but did not verify. The two are deliberately
-            distinct: the first is an unauthenticated client, the second is
-            a rejected one, and collapsing them hides token expiry and
-            misconfiguration behind "please log in". Neither is a Cedar
-            DENY — that distinction is load-bearing in this workshop.
+            was presented but did not verify; ``403 operator_group_required``
+            when the caller verified but is not in ``OPERATOR_GROUP``.
     """
     from services.cognito_auth import get_cognito_auth_service
 
@@ -106,11 +127,23 @@ async def require_operator(request: Request) -> Dict[str, Any]:
         # A token that verifies but carries no subject cannot be audited.
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
+    groups = tuple(getattr(user, "groups", ()) or ())
+    if OPERATOR_GROUP not in groups:
+        # Authenticated and not permitted. Log the username, never the token, so an
+        # operator debugging a locked-out desk can see whose membership is missing.
+        logger.warning(
+            "Operator route refused: %s is not in %s",
+            getattr(user, "username", None) or subject,
+            OPERATOR_GROUP,
+        )
+        raise HTTPException(status_code=403, detail="operator_group_required")
+
     payload = {
         "sub": subject,
         "email": user.email or "anonymous",
         "given_name": user.given_name,
         "access_token": user.access_token,
+        "groups": groups,
     }
     username = getattr(user, "username", None)
     if username:

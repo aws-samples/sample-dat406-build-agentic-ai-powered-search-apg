@@ -258,13 +258,20 @@ def test_operator_read_and_write_apis_are_registered() -> None:
     )
 
 
-def test_operator_reads_are_open_and_writes_are_gated() -> None:
-    """The desk must not be a blank 401, and the writes must not be optional.
+def test_every_operator_route_is_one_authorization_boundary() -> None:
+    """Reads included. This test asserted the opposite, which is how it survived.
 
-    Asserted against the router's real dependency graph rather than the source
-    text. An earlier version split the file on a comment marker and tripped over
-    the word `require_operator` in the module docstring — which proves nothing
-    either way about what the handlers actually depend on.
+    "The desk must not be a blank 401" was the stated reason `GET` needed no token, and it
+    is a real workshop-reliability concern. It is outweighed by what the reads return:
+    `GET /clients` enumerates every client's standing, preferences and order history, and
+    `GET /reviews/{id}` returns the governance verdicts and their lineage. Reliability
+    comes from seeding the operator group deterministically, not from anonymous access to
+    customer data.
+
+    Asserted against the router's real dependency graph rather than the source text. An
+    earlier version split the file on a comment marker and tripped over the word
+    `require_operator` in the module docstring, which proves nothing either way about
+    what the handlers actually depend on.
     """
     if str(BACKEND) not in sys.path:
         sys.path.insert(0, str(BACKEND))
@@ -272,23 +279,25 @@ def test_operator_reads_are_open_and_writes_are_gated() -> None:
     from services.auth import require_operator
 
     def gated(route) -> bool:
+        """True when `require_operator` is in the route's resolved dependency graph.
+
+        The dependency is declared once on the `APIRouter`, and FastAPI flattens router
+        dependencies into every route's `dependant`, so this sees router-level and
+        handler-level declarations alike. That is the point: a new route inherits the
+        boundary instead of being forgotten.
+        """
         return any(
             dep.call is require_operator
             for dep in route.dependant.dependencies
         )
 
+    assert router.routes, "the operator router has no routes"
     for route in router.routes:
-        methods = set(route.methods)
-        if methods == {"GET"}:
-            assert not gated(route), (
-                f"{route.path} is a read but requires an operator token; the "
-                "desk would be a blank 401 on a box with no Cognito wired"
-            )
-        else:
-            assert gated(route), (
-                f"{route.path} mutates state without require_operator — an "
-                "optional-auth write path wearing an authenticated signature"
-            )
+        assert gated(route), (
+            f"{route.path} is reachable without require_operator. Every route on this "
+            "prefix is one boundary: anonymous is 401, an authenticated shopper is 403, "
+            "and only the operator group gets through."
+        )
 
 
 def test_the_operator_surface_does_not_fork_business_truth() -> None:

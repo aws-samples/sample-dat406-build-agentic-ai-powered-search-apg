@@ -328,6 +328,7 @@ def _run_health_gate(
     governed_turn_receipts_exists: bool = True,
     commerce_schema_exists: bool = True,
     managed_receipt: dict[str, object] | None = None,
+    shopper_in_operator_group: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
     fake_bin = tmp_path / "bin"
@@ -346,6 +347,9 @@ def _run_health_gate(
                 "AGENTCORE_GATEWAY_URL=https://gateway.example.test/mcp",
                 "AGENTCORE_GATEWAY_ARN=arn:aws:bedrock-agentcore:us-east-1:123:gateway/test",
                 "AGENTCORE_POLICY_ENGINE_ID=policy-123",
+                # A provisioned governed box has a pool, and the operator group check
+                # needs one. Without it the gate correctly reports the desk unverified.
+                "COGNITO_USER_POOL_ID=us-east-1_example",
             ]
         )
         (tmp_path / "managed.json").write_text(
@@ -382,7 +386,29 @@ esac
 """,
     )
     _write_executable(fake_bin / "node", "#!/bin/bash\nprintf 'v20.20.2\\n'\n")
-    _write_executable(fake_bin / "aws", "#!/bin/bash\nprintf 'ENFORCE\\n'\n")
+    # The fake `aws` used to print ENFORCE for every invocation. The operator-group check
+    # asks a different question per username, and answering it uniformly would make the
+    # shopper-in-group case unrepresentable — which is the case the check exists for.
+    _write_executable(
+        fake_bin / "aws",
+        f"""#!/bin/bash
+case "$*" in
+  *admin-list-groups-for-user*)
+    for arg in "$@"; do
+      case "$arg" in
+        operator) printf 'pellier-operators\n'; exit 0 ;;
+        marco|anna|theo)
+          if [ "{'true' if shopper_in_operator_group else 'false'}" = "true" ]; then
+            printf 'pellier-operators\n'
+          fi
+          exit 0 ;;
+      esac
+    done
+    exit 0 ;;
+  *) printf 'ENFORCE\n' ;;
+esac
+""",
+    )
     env = os.environ.copy()
     for managed_key in (
         "AGENTCORE_MEMORY_ID",
@@ -1044,3 +1070,33 @@ def test_the_pgpass_file_is_not_world_readable() -> None:
     # And the shell profile belongs in the user's own .bashrc, never in
     # /etc/profile.d, which every account on the box can read.
     assert "/etc/profile.d" not in source
+
+
+def test_the_health_gate_refuses_a_shopper_in_the_operator_group(tmp_path) -> None:
+    """The specific regression the operator-group check exists to catch.
+
+    `require_operator` used to accept any valid token, so `marco` could confirm, decline
+    and execute any review. Adding a shopper to `pellier-operators` restores exactly that
+    behaviour through a legitimate-looking configuration change, and no other check would
+    notice: the group exists, the operator is in it, the API and Cedar both enforce
+    membership, and the shopper simply has it.
+    """
+    proc = _run_health_gate(
+        tmp_path,
+        model_ready=True,
+        workshop_format="governed",
+        managed_ready=True,
+        shopper_in_operator_group=True,
+    )
+    assert proc.returncode == 1, proc.stdout
+    assert "shopper(s) in pellier-operators" in proc.stdout
+    assert "marco" in proc.stdout
+
+
+def test_the_health_gate_passes_when_only_the_operator_is_in_the_group(tmp_path) -> None:
+    proc = _run_health_gate(
+        tmp_path, model_ready=True, workshop_format="governed", managed_ready=True
+    )
+    assert proc.returncode == 0, proc.stdout
+    assert "Operator group pellier-operators authorizes operator" in proc.stdout
+    assert "No shopper is in pellier-operators" in proc.stdout

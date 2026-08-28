@@ -7,12 +7,21 @@
 Design notes
 ------------
 
-**Reads are open, writes are gated.** ``GET`` needs no token so the desk is
-never a blank 401 on a fresh box or a clone with no Cognito wired. The write
-depends on ``require_operator``, which guarantees a verified non-empty ``sub``
-to attribute the mutation to. An optional-auth write handler is an
-unauthenticated write path wearing an authenticated signature, so this module
-does not have one.
+**Every route is gated, reads included.** Anonymous callers get ``401``,
+authenticated shoppers get ``403``, and members of ``auth.OPERATOR_GROUP`` get
+access. `require_operator` still guarantees a verified non-empty ``sub`` to
+attribute a mutation to; an optional-auth write handler is an unauthenticated
+write path wearing an authenticated signature, so this module does not have one.
+
+Reads used to be open, and the stated reason was real: a ``GET`` that needs no
+token means the desk is never a blank ``401`` on a fresh box or a clone with no
+Cognito wired. That reliability argument does not survive what the reads
+return. ``GET /clients`` enumerates every client's standing, preferences and
+order history; ``GET /reviews/{id}`` returns the governance verdicts and their
+lineage. Workshop reliability has to come from deterministic group and user
+seeding plus a bootstrap smoke test, not from anonymous access to customer
+data. A workshop about governance cannot teach an internally inconsistent
+security model, and the sign-in prompt is the honest failure.
 
 **Aurora is the source of truth.** Every field here is selected from
 ``pellier.customers``, ``pellier.orders``, and ``pellier.product_catalog``.
@@ -34,9 +43,11 @@ ceiling is enforced by a CHECK constraint on ``pellier.store_credits``, not by
 prompt text.
 
 Note the asymmetry with the shopper rail: Cedar *forbids* ``issue_credit`` for
-shopper principals (``deny_issue_credit``), because a shopper-facing agent must
-never issue itself store credit. The same capability is reachable here only
-behind ``require_operator``.
+shopper principals, because a shopper-facing agent must never issue itself store
+credit. The same capability is reachable here only behind ``require_operator``,
+which now means group membership rather than merely a valid token. Until it did,
+that asymmetry was decorative: the shopper Cedar was denied the capability while
+the same shopper could take it from the desk.
 
 **Ownership is enforced in SQL, not here.** ``initiate_return`` joins
 ``orders`` against the customer and product before it writes, so an operator
@@ -59,7 +70,16 @@ from services.auth import require_operator
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/operator", tags=["operator"])
+# ONE authorization boundary for the whole prefix. Declared on the router rather than
+# annotated per handler for two reasons: a new route inherits it instead of being
+# forgotten, and there is no per-route judgement call about whether a read is "sensitive
+# enough". A client record carries standing, preferences, order history, tickets and
+# credits; a review record carries the governance verdicts. Neither is public.
+router = APIRouter(
+    prefix="/api/operator",
+    tags=["operator"],
+    dependencies=[Depends(require_operator)],
+)
 
 # The three rungs, mirroring the CHECK constraint in migration 018.
 MEMBERSHIP_RUNGS = ("registered", "circle", "maison")

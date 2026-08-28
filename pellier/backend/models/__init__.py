@@ -73,6 +73,10 @@ class VerifiedUser(BaseModel):
     email: str
     given_name: str
     username: str = Field(default="", exclude=True)
+    # `cognito:groups` from the ACCESS token. Server-side only: group membership is an
+    # authorization input, and shipping it to the browser invites the frontend to make
+    # the decision. Excluded from every response for the same reason as the token.
+    groups: tuple[str, ...] = Field(default=(), exclude=True)
     # Raw Cognito access token (the original bearer string), kept server-side
     # only so it can be passed through to the AgentCore Gateway for
     # identity-preserving MCP tool calls. ``exclude=True`` keeps it out of all

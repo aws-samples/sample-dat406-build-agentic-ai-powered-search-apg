@@ -140,12 +140,61 @@ def test_the_experience_target_publishes_only_the_two_governed_actions() -> None
 # ---------------------------------------------------------------------------
 
 
-def test_the_fresh_policy_set_is_exactly_three_named_policies() -> None:
+def test_the_fresh_policy_set_is_exactly_four_named_policies() -> None:
+    """Exact set, never a count: a count passes while the names are wrong."""
     assert set(_by_name()) == {
         "baseline_permit_workshop_tools",
+        "forbid_operator_actions_without_group",
         "initiate_return_damaged_only",
         "initiate_return_deny_other_reasons",
     }
+
+
+def test_operator_only_actions_require_the_group_at_the_gateway() -> None:
+    """The FastAPI boundary is not the only way in.
+
+    A shopper holding a storefront token can call the Gateway directly, so an
+    authorization rule that lives only in `require_operator` is bypassable through the
+    very rail this workshop teaches participants to trust. This policy is the Gateway half
+    of the same decision.
+
+    It covers `issue_credit` even though a fresh Gateway does not publish it. Naming an
+    unpublished action costs nothing and closes the publication window in advance, which
+    is precisely the window the historical wildcard permit left open.
+    """
+    policy = _by_name()["forbid_operator_actions_without_group"]
+    statement = policy["statement"]
+
+    assert statement.lstrip().startswith("forbid"), "must not grant anything"
+    # A set: order inside a Cedar `action in [...]` list is not semantic.
+    assert set(_actions(statement)) == {
+        "pellier-concierge-experience-target___issue_credit",
+        "pellier-discovery-search-target___restock_inventory",
+    }, _actions(statement)
+
+    # Fail closed: a token with no groups claim at all must not satisfy the exception.
+    assert 'principal.hasTag("cognito:groups")' in statement
+    assert "unless {" in statement
+
+
+def test_the_operator_group_name_agrees_across_both_boundaries() -> None:
+    """One group name, or each layer believes the other is enforcing.
+
+    A name that drifts between `require_operator` and the Cedar baseline produces a
+    system where FastAPI refuses a group the Gateway has never heard of, and the mismatch
+    reads as "authorization works" from either side alone.
+    """
+    import sys
+
+    backend = os.path.abspath("../../pellier/backend")
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from services.auth import OPERATOR_GROUP as api_group
+
+    from render_agentcore_project import OPERATOR_GROUP as cedar_group
+
+    assert api_group == cedar_group == "pellier-operators"
+    assert api_group in _by_name()["forbid_operator_actions_without_group"]["statement"]
 
 
 def test_every_policy_is_active_and_validated_strictly() -> None:
@@ -208,12 +257,20 @@ def test_no_fresh_policy_contains_the_lab_four_ownership_condition() -> None:
     Binding `principal.getTag("username")` to `context.input.customer_id` is the Lab 4
     exercise. A baseline that already contains it makes the exercise semantically false:
     the cross-customer DENY the participant is meant to create already happens.
+
+    The assertion is the BINDING, not the mere presence of a tag read. It used to be
+    "`getTag` appears nowhere", which was a proxy that broke the moment the baseline needed
+    a legitimate, unrelated tag check: the operator-group forbid reads
+    `cognito:groups`, which has nothing to do with the participant's exercise. A proxy that
+    forbids a whole Cedar feature blocks correct policies as readily as incorrect ones.
     """
     for policy in _policies():
         statement = policy["statement"]
-        assert "getTag" not in statement, policy["name"]
-        assert "hasTag" not in statement, policy["name"]
-        assert "customer_id" not in statement, policy["name"]
+        name = policy["name"]
+        assert 'getTag("username")' not in statement, name
+        assert 'hasTag("username")' not in statement, name
+        assert "context.input.customer_id" not in statement, name
+        assert "context.input has customer_id" not in statement, name
 
 
 def test_no_fresh_policy_names_a_persona_customer() -> None:
@@ -331,7 +388,7 @@ def test_the_challenge_file_ships_unsolved() -> None:
     """
     body = CHALLENGE.read_text()
     assert re.search(r"unless\s*\{\s*false\s*\}", body)
-    assert "getTag" not in body
+    assert 'getTag("username")' not in body
     assert "CUST-MARCO" not in body
 
 
@@ -351,7 +408,7 @@ def test_before_the_solution_a_cross_customer_return_is_permitted() -> None:
     """
     assert _decide(RETURN_ACTION, "damaged") == "ALLOW"
     for policy in _policies():
-        assert "getTag" not in policy["statement"]
+        assert 'getTag("username")' not in policy["statement"]
 
 
 def test_after_the_solution_the_cross_customer_return_is_denied() -> None:

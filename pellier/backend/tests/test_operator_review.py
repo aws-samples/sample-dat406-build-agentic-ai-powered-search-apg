@@ -210,12 +210,34 @@ class FakeReviewDb:
         return False
 
 
-def build_client(db: FakeReviewDb, operator: Optional[Dict[str, Any]] = None) -> TestClient:
+
+# Every route on the operator router is gated now, so a test that exercises route
+# BEHAVIOUR has to be authenticated. Defaulting the override here keeps those tests about
+# what they were about; `build_anonymous_client` is the deliberate opposite, and the
+# boundary tests use it.
+DEFAULT_OPERATOR: Dict[str, Any] = {
+    "sub": "operator-sub-1",
+    "username": "operator",
+    "groups": ("pellier-operators",),
+}
+
+def build_client(
+    db: FakeReviewDb, operator: Optional[Dict[str, Any]] = None
+) -> TestClient:
     app = FastAPI()
     app.include_router(operator_module.router)
     app.dependency_overrides[operator_module.get_db_service] = lambda: db
-    if operator is not None:
-        app.dependency_overrides[operator_module.require_operator] = lambda: operator
+    app.dependency_overrides[operator_module.require_operator] = (
+        lambda: operator if operator is not None else DEFAULT_OPERATOR
+    )
+    return TestClient(app)
+
+
+def build_anonymous_client(db: FakeReviewDb) -> TestClient:
+    """No auth override: the real dependency runs and must refuse."""
+    app = FastAPI()
+    app.include_router(operator_module.router)
+    app.dependency_overrides[operator_module.get_db_service] = lambda: db
     return TestClient(app)
 
 
@@ -409,11 +431,18 @@ def test_theo_is_discoverable_without_knowing_to_open_his_client_record() -> Non
     assert body["reviews"][0]["slug"] == "theo"
 
 
-def test_the_queue_reads_without_a_token() -> None:
-    """A blank 401 on the queue would hide the one thing needing attention."""
+def test_the_queue_refuses_an_anonymous_read() -> None:
+    """This test asserted the opposite, and the opposite was the vulnerability.
+
+    "A blank 401 on the queue would hide the one thing needing attention" was the stated
+    reason reads were open. It is a real concern and it is outweighed: the queue exposes
+    the governance verdicts and their lineage, and the client book behind it exposes
+    standing, preferences and order history. Reliability comes from seeding the operator
+    group deterministically, not from letting anyone read customer data.
+    """
     db = FakeReviewDb()
     db.add_pending()
-    assert build_client(db).get("/api/operator/reviews").status_code == 200
+    assert build_anonymous_client(db).get("/api/operator/reviews").status_code == 401
 
 
 def test_decided_reviews_sort_below_pending_ones() -> None:
@@ -656,20 +685,88 @@ def test_a_declined_action_never_reaches_policy_or_aurora() -> None:
 # G. Security
 # ---------------------------------------------------------------------------
 
-def test_a_shopper_cannot_confirm_a_review() -> None:
+def test_an_anonymous_caller_cannot_confirm_a_review() -> None:
     """No operator dependency override, so the real gate runs."""
     db = FakeReviewDb()
     row = db.add_pending()
-    client = build_client(db)  # unauthenticated
+    client = build_anonymous_client(db)
 
     confirm = client.post(
         f"/api/operator/reviews/{row['review_id']}/confirm",
         json={"actionHash": THEO_HASH},
     )
     decline = client.post(f"/api/operator/reviews/{row['review_id']}/decline")
-    assert confirm.status_code in (401, 403)
-    assert decline.status_code in (401, 403)
+    assert confirm.status_code == 401
+    assert decline.status_code == 401
     assert db.rows[0]["status"] == "pending"
+
+
+def test_an_authenticated_shopper_cannot_confirm_a_review() -> None:
+    """The finding this closes: a verified token was the whole check.
+
+    This test did not exist. Its predecessor sent NO credentials, so it proved only that
+    an anonymous caller is refused, and the far more likely attacker was a shopper who
+    already has a valid token from the storefront. `marco` could confirm, decline and
+    execute any review, and call `issue_credit`, because `require_operator` stopped at
+    "the token verifies and carries a subject".
+
+    Asserted through the real dependency with a real token shape rather than through an
+    override, because an override of `require_operator` is precisely the thing under test.
+    """
+    import asyncio
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException, Request
+
+    from services import auth as auth_module
+
+    shopper = SimpleNamespace(
+        user_id="cognito-sub-marco",
+        email="marco@pellier.example.com",
+        given_name="Marco",
+        username="marco",
+        access_token="header.payload.signature",
+        groups=(),  # a storefront shopper is in no group
+    )
+
+    class _FakeService:
+        async def extract_user(self, request):  # noqa: ANN001, D102
+            return shopper
+
+    import services.cognito_auth as cognito_module
+
+    saved = cognito_module.get_cognito_auth_service
+    cognito_module.get_cognito_auth_service = lambda: _FakeService()
+    try:
+        request = Request(
+            {
+                "type": "http",
+                "headers": [(b"authorization", b"Bearer header.payload.signature")],
+                "method": "POST",
+                "path": "/api/operator/reviews/1/confirm",
+                "query_string": b"",
+            }
+        )
+        try:
+            asyncio.run(auth_module.require_operator(request))
+        except HTTPException as exc:
+            assert exc.status_code == 403, (
+                f"an authenticated shopper got {exc.status_code}, not 403"
+            )
+            assert exc.detail == "operator_group_required"
+        else:
+            raise AssertionError(
+                "require_operator accepted a shopper with no group membership"
+            )
+
+        # The same identity WITH the group is accepted, so the check is membership and
+        # not an accidental blanket refusal.
+        shopper.groups = (auth_module.OPERATOR_GROUP,)
+        payload = asyncio.run(auth_module.require_operator(request))
+        assert payload["sub"] == "cognito-sub-marco"
+        assert auth_module.OPERATOR_GROUP in payload["groups"]
+    finally:
+        cognito_module.get_cognito_auth_service = saved
 
 
 def test_the_decision_endpoints_are_gated_by_the_routers_dependency_graph() -> None:
@@ -688,10 +785,10 @@ def test_the_decision_endpoints_are_gated_by_the_routers_dependency_graph() -> N
         gated = any(
             dep.call is require_operator for dep in route.dependant.dependencies
         )
-        if set(route.methods) == {"GET"}:
-            assert not gated, f"{route.path} is a read but demands a token"
-        else:
-            assert gated, f"{route.path} decides a review without require_operator"
+        # Reads are gated too now. This branch used to assert the opposite, which is
+        # how "reads are open" survived as a policy nobody re-examined: the test
+        # enforced it.
+        assert gated, f"{route.path} is reachable without require_operator"
 
 
 def test_an_empty_operator_subject_cannot_decide() -> None:

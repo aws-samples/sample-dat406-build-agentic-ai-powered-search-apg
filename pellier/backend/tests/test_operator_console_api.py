@@ -177,17 +177,37 @@ class FakeDb:
         return None
 
 
+
+# Every route on the operator router is gated now, so a test that exercises route
+# BEHAVIOUR has to be authenticated. Defaulting the override here keeps those tests about
+# what they were about; `build_anonymous_client` is the deliberate opposite, and the
+# boundary tests use it.
+DEFAULT_OPERATOR: Dict[str, Any] = {
+    "sub": "operator-sub-1",
+    "username": "operator",
+    "groups": ("pellier-operators",),
+}
+
 def build_client(db: FakeDb, *, operator: Dict[str, Any] | None = None) -> TestClient:
     app = FastAPI()
     app.include_router(operator_module.router)
     app.dependency_overrides[operator_module.get_db_service] = lambda: db
-    if operator is not None:
-        app.dependency_overrides[operator_module.require_operator] = lambda: operator
+    app.dependency_overrides[operator_module.require_operator] = (
+        lambda: operator if operator is not None else DEFAULT_OPERATOR
+    )
+    return TestClient(app)
+
+
+def build_anonymous_client(db: FakeDb) -> TestClient:
+    """No auth override: the real dependency runs and must refuse."""
+    app = FastAPI()
+    app.include_router(operator_module.router)
+    app.dependency_overrides[operator_module.get_db_service] = lambda: db
     return TestClient(app)
 
 
 # ---------------------------------------------------------------------------
-# Reads are open
+# Reads, behind the operator boundary
 # ---------------------------------------------------------------------------
 
 def test_the_book_lists_clients_without_a_token() -> None:
@@ -288,9 +308,14 @@ def test_an_unreadable_book_is_503_naming_the_missing_migration() -> None:
     ],
 )
 def test_writes_reject_an_unauthenticated_caller(path: str, payload: dict) -> None:
-    """No operator override installed, so the real require_operator runs."""
-    response = build_client(FakeDb()).post(path, json=payload)
-    assert response.status_code in (401, 403), response.status_code
+    """No operator override installed, so the real require_operator runs.
+
+    `build_client` now authenticates by default, because every route on the router is
+    gated and the behaviour tests would otherwise all be testing the gate. This one wants
+    the gate, so it takes the anonymous client explicitly.
+    """
+    response = build_anonymous_client(FakeDb()).post(path, json=payload)
+    assert response.status_code == 401, response.status_code
 
 
 def test_credit_above_the_ceiling_is_rejected_before_any_database_work() -> None:

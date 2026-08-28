@@ -44,6 +44,46 @@ The Lab 4 identity condition (`principal.getTag("username")` bound to
 that shipped it would make Lab 4 step 3's DENY fire before the participant wrote
 anything. `pellier/backend/tests/test_fresh_policy_set.py` owns this contract.
 
+## Operator authorization
+
+The Pellier Operator desk is one authorization boundary, and it is **not** the same thing
+as being signed in.
+
+| caller | result |
+|---|---|
+| anonymous | `401 authentication_required` |
+| authenticated, not in the group | `403 operator_group_required` |
+| member of `pellier-operators` | access |
+
+Enforced in three places that must agree:
+
+1. `services/auth.py::require_operator`, declared once on the `APIRouter` so a new route
+   inherits the boundary rather than being forgotten.
+2. The Cedar baseline's `forbid_operator_actions_without_group`, because a shopper holding
+   a storefront token can call the Gateway directly. An authorization rule that lives only
+   in FastAPI is bypassable through the very rail the workshop teaches participants to
+   trust.
+3. `bootstrap-labs.sh`, which creates the group and its one member, **verifies membership
+   rather than assuming it** (every create call tolerates "already exists", so success of
+   the calls proves nothing), and asserts that no shopper is in it.
+
+The group name has one source per layer and the tests assert they match:
+`auth.OPERATOR_GROUP` and `render_agentcore_project.OPERATOR_GROUP`. A name that drifts
+produces a system where each layer believes the other is enforcing.
+
+Health-gate check 11 refuses readiness when the operator is not a member, and fails when a
+shopper is. That second case is the regression to watch: it restores the original defect
+through a configuration change that looks legitimate.
+
+**What this replaced.** `require_operator` stopped at "the token verifies and carries a
+subject", and all eight `GET` routes were open. So `marco` could confirm, decline and
+execute any review and call `issue_credit`, while the module docstring explained that
+Cedar forbids `issue_credit` for shopper principals because a shopper-facing agent must
+never issue itself store credit. The reads were open for a real reason (a `GET` needing no
+token means the desk is never a blank `401` on a fresh box), and that reason lost to what
+the reads return: client standing, preferences, order history, credits, and the governance
+verdicts.
+
 ## Resource ownership
 
 Who may change each deployed resource, and how you would know it drifted. Ownership is

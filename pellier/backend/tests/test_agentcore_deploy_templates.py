@@ -245,10 +245,21 @@ def test_restock_inventory_is_published_without_a_baseline_permit(tmp_path: Path
     baseline permit would authorize it for every principal.
     """
     _, project = _render(tmp_path, include_policies=True)
-    statements = "\n".join(
-        policy["statement"] for policy in project["policyEngines"][0]["policies"]
-    )
-    assert renderer.RESTOCK_ACTION not in statements
+    policies = project["policyEngines"][0]["policies"]
+
+    # The property is "no PERMIT reaches it", not "the name appears nowhere". It now
+    # appears in `forbid_operator_actions_without_group`, which makes the refusal explicit
+    # and attributable instead of an absence, and a forbid cannot grant anything.
+    permits = [
+        policy["statement"]
+        for policy in policies
+        if policy["statement"].lstrip().startswith("permit")
+    ]
+    assert permits, "the baseline emitted no permit at all"
+    for statement in permits:
+        assert renderer.RESTOCK_ACTION not in statement, (
+            "a permit reaches restock_inventory; it must stay default-deny"
+        )
 
     schemas = sorted((Path(tmp_path) / "pellier" / "tool-schemas").glob("*.json")) or \
         sorted(Path(tmp_path).rglob("tool-schemas/*.json"))

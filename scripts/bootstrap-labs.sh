@@ -1575,6 +1575,83 @@ fi
 # the live pool. Non-fatal: the app connects as the table owner today, so an
 # unseeded mapping degrades the governed exercise rather than the storefront.
 # ============================================================================
+# OPERATOR AUTHORIZATION GROUP
+#
+# The Pellier Operator desk is authorized by membership in one Cognito group, not by
+# holding any valid token. Before this existed, `require_operator` stopped at "the token
+# verifies and carries a subject", so `marco` could confirm, decline and execute any
+# review and call `issue_credit` directly. The application forbade a shopper-facing agent
+# from issuing itself store credit while handing the same shopper the capability through
+# the desk.
+#
+# Seeded here rather than in the CloudFormation template so the group and its member
+# travel with the source revision the box checks out, and so a fix does not require an
+# asset re-sync. The pool and its three persona users are created by the template; this
+# adds the group and the one account that belongs to it.
+#
+# NOT best-effort. A failed seeding leaves a console nobody can open, which is the correct
+# failure but must be loud: the health gate refuses readiness below.
+# ============================================================================
+OPERATOR_GROUP="pellier-operators"
+OPERATOR_USERNAME="${PELLIER_OPERATOR_USERNAME:-operator}"
+OPERATOR_GROUP_OK=false
+
+_pool_id() { echo "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}"; }
+
+if [ -n "$(_pool_id)" ]; then
+    log "Seeding the $OPERATOR_GROUP Cognito group and its member..."
+    POOL="$(_pool_id)"
+    OPERATOR_PASSWORD="Pellier-${WORKSHOP_ID:-dat416}-Operator1"
+
+    aws cognito-idp create-group --user-pool-id "$POOL" \
+        --group-name "$OPERATOR_GROUP" --region "$AWS_REGION" \
+        --description "Authorizes the Pellier Operator desk" >/dev/null 2>&1 || true
+    aws cognito-idp admin-create-user --user-pool-id "$POOL" \
+        --username "$OPERATOR_USERNAME" --message-action SUPPRESS \
+        --region "$AWS_REGION" \
+        --user-attributes Name=email,Value="operator@pellier.example.com" \
+                          Name=email_verified,Value=true >/dev/null 2>&1 || true
+    aws cognito-idp admin-set-user-password --user-pool-id "$POOL" \
+        --username "$OPERATOR_USERNAME" --password "$OPERATOR_PASSWORD" \
+        --permanent --region "$AWS_REGION" >/dev/null 2>&1 || true
+    aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" \
+        --username "$OPERATOR_USERNAME" --group-name "$OPERATOR_GROUP" \
+        --region "$AWS_REGION" >/dev/null 2>&1 || true
+
+    # VERIFY, do not assume. Every call above tolerates "already exists", so success of
+    # the calls says nothing; membership is the only fact that matters.
+    if aws cognito-idp admin-list-groups-for-user --user-pool-id "$POOL" \
+         --username "$OPERATOR_USERNAME" --region "$AWS_REGION" \
+         --query "Groups[?GroupName=='${OPERATOR_GROUP}'].GroupName" --output text 2>/dev/null \
+         | grep -q "$OPERATOR_GROUP"; then
+        OPERATOR_GROUP_OK=true
+        log "✅ $OPERATOR_USERNAME is in $OPERATOR_GROUP"
+        printf 'Operator console (Pellier Operator)\n  Username: %s\n  Password: %s\n  Group:    %s\n\n' \
+            "$OPERATOR_USERNAME" "$OPERATOR_PASSWORD" "$OPERATOR_GROUP" \
+            >> /workshop/test-credentials.txt 2>/dev/null || true
+        chmod 600 /workshop/test-credentials.txt 2>/dev/null || true
+        chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" /workshop/test-credentials.txt 2>/dev/null || true
+    else
+        warn "Could not verify $OPERATOR_USERNAME in $OPERATOR_GROUP — the Operator desk will refuse every caller with 403"
+    fi
+
+    # A shopper must NOT be in the group. Asserted rather than assumed, because the whole
+    # point is that a valid token is not authorization.
+    for SHOPPER in marco anna theo; do
+        if aws cognito-idp admin-list-groups-for-user --user-pool-id "$POOL" \
+             --username "$SHOPPER" --region "$AWS_REGION" \
+             --query "Groups[?GroupName=='${OPERATOR_GROUP}'].GroupName" --output text 2>/dev/null \
+             | grep -q "$OPERATOR_GROUP"; then
+            fail "$SHOPPER is in $OPERATOR_GROUP — a shopper must never authorize the desk"
+            OPERATOR_GROUP_OK=false
+        fi
+    done
+else
+    warn "No Cognito pool id — skipped the $OPERATOR_GROUP seeding; the Operator desk will refuse every caller"
+fi
+export OPERATOR_GROUP_SEEDED="$OPERATOR_GROUP_OK"
+
+# ============================================================================
 if [ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ] \
    && [ -f "$REPO_PATH/scripts/seed_principal_mappings.py" ]; then
     log "Seeding RLS principal mappings (Cognito subject -> customer scope)..."

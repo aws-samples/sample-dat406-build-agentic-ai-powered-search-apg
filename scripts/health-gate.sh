@@ -23,6 +23,7 @@
 #   8. AGENTCORE_GATEWAY_URL + ARN set
 #   9. AGENTCORE_POLICY_ENGINE_ID set
 #  10. Provisioning receipt proves managed resources, Runtime smoke, and traces
+#  11. Operator group authorizes the desk, and no shopper is in it
 #
 # In WORKSHOP_FORMAT=governed, all managed AgentCore checks are required because
 # Labs 3 and 4 and the session abstract depend on them. The separate one-hour
@@ -302,6 +303,49 @@ else
 fi
 
 echo "------------------------------------------------------------"
+# 11. The operator authorization group.
+#
+# The Pellier Operator desk is authorized by membership in one Cognito group. Two failure
+# modes, and both must be loud rather than latent:
+#
+#   group missing / operator not a member  -> the desk refuses every caller with 403
+#   a SHOPPER is in the group              -> authentication is authorization again
+#
+# The second is the finding this check exists for. `require_operator` used to accept any
+# valid token, so `marco` could confirm, decline and execute any review. A shopper
+# accidentally added to the group restores exactly that, and nothing else would notice.
+if [[ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ]]; then
+  operator_pool="${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}"
+  operator_group="pellier-operators"
+  operator_user="${PELLIER_OPERATOR_USERNAME:-operator}"
+  in_group() {
+    aws cognito-idp admin-list-groups-for-user \
+      --user-pool-id "$operator_pool" --username "$1" \
+      --region "${AWS_REGION:-us-east-1}" \
+      --query "Groups[?GroupName=='${operator_group}'].GroupName" \
+      --output text 2>/dev/null | grep -q "$operator_group"
+  }
+  if in_group "$operator_user"; then
+    pass "Operator group ${operator_group} authorizes ${operator_user}"
+  else
+    managed_missing "${operator_user} is not in ${operator_group} — the Operator desk refuses every caller with 403"
+  fi
+  shopper_in_group=""
+  for shopper in marco anna theo; do
+    if in_group "$shopper"; then
+      shopper_in_group="$shopper_in_group $shopper"
+    fi
+  done
+  if [[ -n "$shopper_in_group" ]]; then
+    fail "shopper(s) in ${operator_group}:${shopper_in_group} — a valid shopper token would authorize the desk"
+    ok=false
+  else
+    pass "No shopper is in ${operator_group}"
+  fi
+else
+  managed_missing "No Cognito pool id — operator group authorization is unverified"
+fi
+
 if $ok; then
   printf "${GREEN}● READY${NC} — all required checks passed.\n"
   exit 0

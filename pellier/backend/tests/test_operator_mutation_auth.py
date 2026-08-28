@@ -30,11 +30,25 @@ import services.cognito_auth as cognito_module
 
 
 class _VerifiedUser:
-    def __init__(self, user_id: str = "sub-operator-1") -> None:
+    """A verified caller. `groups` defaults to membership, so the existing tests keep
+    testing what they were about; the shopper case passes `groups=()` explicitly.
+
+    Group membership is now part of the identity, not a separate lookup: an authenticated
+    caller outside `auth.OPERATOR_GROUP` is a 403, and this class is how a test says which
+    kind of caller it means.
+    """
+
+    def __init__(
+        self,
+        user_id: str = "sub-operator-1",
+        groups: tuple[str, ...] = (auth_module.OPERATOR_GROUP,),
+    ) -> None:
         self.user_id = user_id
         self.email = "operator@example.com"
         self.given_name = "Operator"
         self.access_token = "token-abc"
+        self.username = "operator"
+        self.groups = groups
 
 
 class _Service:
@@ -283,3 +297,31 @@ def test_operator_mutation_audit_is_a_noop_without_a_db(
         args={},
         result={},
     )  # must not raise
+
+
+def test_an_authenticated_caller_outside_the_group_is_403(
+    app_with_operator_route: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """401 says "who are you", 403 says "you are known and not permitted".
+
+    Collapsing them would tell an authenticated shopper to log in again, which is both
+    useless and misleading. Before the group check existed this case returned 200.
+    """
+    _set_mode(monkeypatch, "valid")
+    client = TestClient(app_with_operator_route)
+
+    # Rebind the fake service to produce a caller in no group.
+    original = cognito_module.get_cognito_auth_service
+
+    class _ShopperService:
+        async def extract_user(self, request):  # noqa: ANN001
+            return _VerifiedUser(user_id="sub-marco", groups=())
+
+    cognito_module.get_cognito_auth_service = lambda: _ShopperService()
+    try:
+        response = client.post("/protected", headers={"Authorization": "Bearer good"})
+    finally:
+        cognito_module.get_cognito_auth_service = original
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "operator_group_required"

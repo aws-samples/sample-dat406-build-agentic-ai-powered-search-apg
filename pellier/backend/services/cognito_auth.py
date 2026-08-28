@@ -223,11 +223,22 @@ class CognitoAuthService:
         if not subject:
             raise HTTPException(status_code=401, detail="auth_failed")
 
+        # `cognito:groups` is a JSON array in an access token, but a single-group pool
+        # can serialize it as a bare string. Normalize both, casefolded, so an
+        # authorization check never depends on which shape Cognito produced.
+        raw_groups = claims.get("cognito:groups") or []
+        if isinstance(raw_groups, str):
+            raw_groups = [raw_groups]
+        groups = tuple(
+            str(group).strip().casefold() for group in raw_groups if str(group).strip()
+        )
+
         return VerifiedUser(
             user_id=subject,
             email=claims.get("email", ""),
             given_name=claims.get("given_name") or claims.get("username", ""),
             username=str(claims.get("username") or "").strip().casefold(),
+            groups=groups,
             # Preserve the raw bearer token so the request path can pass the
             # caller's identity through to the AgentCore Gateway (JWT
             # passthrough). Excluded from serialization in the model.
