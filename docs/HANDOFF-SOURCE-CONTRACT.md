@@ -298,6 +298,62 @@ a client without a portrait fails rather than resolving to an initial circle.
     _MIGRATION_TOOL_ALIASES              Lambda dispatch compatibility, marked TEMPORARY
     migration 002 ALTER TABLE, 027       one-time convergence of an existing cluster
 
+## What remains
+
+**No known source defect.** The outstanding gap is a fresh-account deployment rehearsal of
+the exact Studio pin. Everything below has passed on the pushed SHA: the backend and
+frontend suites, type-check, lint, build, the Studio validator, and `git diff --check` over
+the whole commit range. None of that exercises a clean AWS account.
+
+### How to close it
+
+1. Deploy a new Workshop Studio environment from the current pin.
+2. Require CloudFormation success **and** the health gate reporting READY. Either alone is
+   insufficient: CloudFormation has reported success over a box whose managed path failed.
+3. Read the three logs, in this order:
+   * `/var/log/bootstrap-environment.log`
+   * `/var/log/pellier-agentcore.log`
+   * `/var/log/pellier-health-gate.log`
+4. Verify Runtime, Memory, Gateway, **15** published tools, **3** Cedar policies, Aurora
+   Row-Level Security, and the `pellier-operators` membership boundary.
+5. Run all four labs with the participant commands, including operator access and the
+   shopper `403`.
+6. Fix any failure **in the owning bootstrap, template or source file**, re-pin Studio, and
+   repeat from another clean account. A repair applied by hand on the box is not a fix; it
+   is a fix the next account will not receive.
+
+### Likely remediation owners
+
+| symptom | owner |
+|---|---|
+| `Missing required environment variable: AGENT_MODEL_ID` | model-access detection, and the bootstrap export in the `sudo -u` block |
+| RLS denies every signed-in shopper | principal seeding, or the migration policy |
+| Wrong or empty region | IMDSv2 token-first discovery in `bootstrap-environment.sh` |
+| Operator desk refuses a legitimate operator, or admits a shopper | Cognito group creation, membership, or `cognito:groups` claim parsing |
+| Runtime, Memory or Gateway absent | `provision_agentcore_end_to_end.py`, or the generated deployment configuration |
+
+Each of those five was fixed from a log or from source inspection, not from a green fresh
+run, so the rehearsal is their first real exercise. Expect them here before anything else.
+
+**Do not reintroduce the ineffective operator Cedar policy, and do not publish
+`issue_credit` merely to manufacture Cedar coverage.** Both are recorded decisions with
+tests behind them: `test_no_baseline_policy_claims_operator_enforcement` and
+`test_every_policy_action_exists_in_the_published_schema`.
+
+### Known open, and not defects
+
+These are decisions or deferrals, listed so nobody rediscovers them as surprises.
+
+| item | state |
+|---|---|
+| Two Lab 1 screenshots | `static/act1/floor-check-after.webp` and `marco-turn4-stub-trace.webp` still carry the retired tool name in the filename, and `act1/` is the retired Act taxonomy. They need a real end-to-end run to regenerate; fabricating them is worse than leaving them. |
+| `query_business_records` | Governed and reachable by no specialist, by decision. `test_tool_ownership.py` holds the reason and what wiring it would require. |
+| Live Gateway vocabulary | Three targets still publish the retired names. Source is aligned; convergence is `migrate_gateway_vocabulary.py`, which is pinned to one audited account. |
+| Live baseline permits restock | The live baseline permits the retired restock action where fresh does not. `scripts/deploy/plan_restock_alignment.py` prepares the alignment and cannot apply it. |
+| RLS reclassification | Scoped to `initiate_return` only. |
+| Weak tests, swallowed exceptions, alias removal trigger | Explicitly deferred. |
+| Trailing-whitespace debt | 527 lines predate this work. `test_no_whitespace_damage.py` holds the ceiling and explains why a repo-wide strip is unsafe. |
+
 ## Validation gates
 
 ```bash

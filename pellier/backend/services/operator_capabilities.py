@@ -6,7 +6,14 @@ Why this cannot be a constant
 The obvious implementation reads `GATEWAY_TOOL_NAMES` and reports everything as
 available. That list describes the vocabulary a *fresh provision* publishes. It has
 been wrong about this account three times in one day, because the live Gateway is
-mid-migration:
+mid-migration.
+
+**The three cases below describe the MIGRATED LIVE Gateway, not a fresh provision.**
+That distinction is the whole point of this module and it is easy to lose: on a fresh
+stack `initiate_return` DOES have a matching permit, `initiate_return_damaged_only`, so
+the first case reads the opposite way there. `issue_credit` is unpublished in both, which
+is why only one of the two needs re-reading per environment. Do not treat this list as the
+fresh contract; `scripts/describe_workshop_publication.py` prints that.
 
     initiate_return     published on the Gateway, but the baseline permit was
                         narrowed to 13 unaffected actions, so it has ZERO matching
