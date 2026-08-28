@@ -14,6 +14,8 @@ const PRODUCT_IMAGE_ALIASES: Record<string, string> = {
   '/products/anna-botanical-silk-scarf.png': '/products/anna-botanical-scarf.png',
   '/products/anna-fig-candle.png': '/products/fresh-santal-fig-candle.png',
   '/products/theo-woven-mat-set.png': '/products/fresh-solstice-woven-mat-set.png',
+  '/products/theo-washed-linen-throw.png': '/products/theo-raw-linen-throw.png',
+  '/products/theo-linen-napkin-set.png': '/products/anna-monogrammed-napkins.png',
 }
 
 /**

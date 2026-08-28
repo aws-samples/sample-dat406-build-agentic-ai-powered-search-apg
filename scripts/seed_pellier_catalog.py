@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Seed the Pellier catalog — 40 curated products plus generated archive
+Seed the Pellier catalog — 60 curated products plus generated archive
 distractors for retrieval evaluation.
 
 The curated set stays stable: 10 products per persona (Marco / Anna / Theo /
-Fresh), zero overlap, IDs 1-40. Workshop story, inventory, orders, returns, and
+Fresh), plus 10 house pieces the client book owns and 10 signature investment
+pieces, zero overlap, IDs 1-60. Workshop story, inventory, orders, returns, and
 final-sale policy all refer to those IDs.
 
 The governed retrieval lab adds high-ID archive distractors by default. Their
-embeddings are derived deterministically from the 40 committed Cohere Embed v4
+embeddings are derived deterministically from the 60 committed Cohere Embed v4
 vectors, so fresh-account bootstrap still makes zero catalog-embedding Bedrock
 calls while the HNSW index and eval harness see a larger corpus.
 
@@ -23,7 +24,7 @@ Usage:
     # no Bedrock embedding calls (deterministic, fast, no throttle/AccessDenied):
     python scripts/seed_pellier_catalog.py --from-cache
 
-    # Old 40-row shape for quick local debugging:
+    # Curated-only shape for quick local debugging:
     python scripts/seed_pellier_catalog.py --from-cache --no-distractors
 
     # Skip embedding generation (use zero vectors, for local dev):
@@ -67,7 +68,7 @@ logger = logging.getLogger(__name__)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-CSV_OUT_40 = os.path.join(DATA_DIR, "pellier_catalog_40.csv")
+CSV_OUT_CURATED = os.path.join(DATA_DIR, "pellier_catalog_curated.csv")
 CSV_OUT_EXPANDED = os.path.join(DATA_DIR, "pellier_catalog_expanded.csv")
 # Committed cache of precomputed 1024-dim embeddings, keyed by productId.
 # Generated once via --csv-only; loaded by --from-cache so the workshop
@@ -75,12 +76,14 @@ CSV_OUT_EXPANDED = os.path.join(DATA_DIR, "pellier_catalog_expanded.csv")
 EMBED_CACHE = os.path.join(DATA_DIR, "embeddings_cache.json")
 EMBED_DIM = 1024
 
-# Curated products use IDs 1-40. Generated distractors live in a high numeric
-# range so persona/order/policy exercises can keep treating 1-40 as stable.
-CURATED_PRODUCT_COUNT = 40
+# Curated products use IDs 1-60. Generated distractors live in a high numeric
+# range so persona/order/policy exercises can keep treating 1-60 as stable.
+CURATED_PRODUCT_COUNT = 60
 DISTRACTOR_ID_START = 1000
 DISTRACTOR_ID_END = 9999
-DEFAULT_DISTRACTOR_COUNT = 960
+# 60 curated + 940 archive = the 1,000-row corpus that README.md,
+# scripts/health-gate.sh, and scripts/migrations/README.md all assert.
+DEFAULT_DISTRACTOR_COUNT = 940
 
 # CSV column order matches the seed-database.sh temp_products schema
 CSV_FIELDS = [
@@ -150,6 +153,8 @@ class Product:
             "anna": "For a gift-giver who values thoughtful, wrap-ready pieces across price bands. Milestone occasions, considered objects.",
             "theo": "For a slow-living enthusiast who values ceramics, artisanal craft, patina, and home ritual objects.",
             "fresh": "For a new visitor exploring a curated boutique. Editorial bestsellers, versatile everyday pieces.",
+            "house": "A house staple owned across the client book. Bath, bedding, tailoring, leather, and desk objects in warm neutrals.",
+            "signature": "A signature investment piece for a long-standing client. Outerwear, tailoring, fine fragrance, gold, and hand-made objects at the top of the range.",
         }
         context = persona_context.get(self.persona, "")
         return (
@@ -182,7 +187,7 @@ class Product:
 
 
 # =========================================================================
-# THE 40 PRODUCTS — 10 per persona, zero overlap
+# THE PERSONA PRODUCTS — 10 per persona, zero overlap, IDs 1-40
 # =========================================================================
 
 FRESH_PRODUCTS: List[Product] = [
@@ -357,7 +362,119 @@ THEO_PRODUCTS: List[Product] = [
             4.5, 412, "theo-charcoal-soap-bar.png", persona="theo"),
 ]
 
-ALL_PRODUCTS = FRESH_PRODUCTS + MARCO_PRODUCTS + ANNA_PRODUCTS + THEO_PRODUCTS
+
+# =========================================================================
+# HOUSE PIECES — the SKUs the client book actually owns, IDs 41-50
+#
+# Client order history has to reference real product_catalog rows: the
+# pellier.orders FK enforces it, and an order that cannot be joined is not
+# evidence. These are the pieces named in operator queue copy and in
+# Jessica Nakamura's return dispute.
+# =========================================================================
+
+HOUSE_PRODUCTS: List[Product] = [
+    Product(41, "Coral Lacquer Catchall", "Pellier Maison", "Coral", 325.36,
+            "Hand-shaped lacquered ceramic catchall with an organic wavy rim and a high-gloss coral glaze. For keys, rings, and the small things that otherwise go missing.",
+            CAT_HOME, ["ceramic", "lacquer", "sculptural", "home", "entryway", "gift"],
+            4.7, 156, "house-coral-lacquer-catchall.png", persona="house"),
+    Product(42, "Luxury Bath Robe, Sage", "NestWell", "Sage", 107.30,
+            "Waffle-weave cotton bath robe in muted sage. Long-staple cotton that softens with every wash, with patch pockets and a self-tie belt.",
+            CAT_HOME, ["cotton", "bath", "home", "loungewear", "wellness", "gift"],
+            4.6, 289, "house-sage-bath-robe.png", persona="house"),
+    Product(43, "Quilted Silk Vest", "Pellier Atelier", "Ivory", 193.13,
+            "Collarless vest in diamond-quilted washed silk. Light as a layer, warm as a coat lining, cut to wear open over knitwear.",
+            CAT_APPAREL, ["silk", "quilted", "layering", "minimal", "neutral", "everyday"],
+            4.5, 98, "house-quilted-silk-vest.png", persona="house"),
+    Product(44, "Travertine Wall Clock", "Pellier Maison", "Stone", 248.00,
+            "Wall clock cut from a single piece of honed travertine. No numerals, two slim brushed-brass hands, a silent movement.",
+            CAT_HOME, ["stone", "travertine", "minimal", "home", "sculptural", "timeless"],
+            4.8, 74, "house-travertine-wall-clock.png", persona="house"),
+    Product(45, "Tailored Wool Blazer", "Pellier Atelier", "Charcoal", 346.38,
+            "Single-breasted blazer in charcoal wool flannel. Half-canvassed, notch lapel, working cuffs. Tailored in a wool that holds its line.",
+            CAT_APPAREL, ["wool", "tailoring", "blazer", "classic", "workwear", "timeless"],
+            4.8, 142, "house-tailored-wool-blazer.png", persona="house"),
+    Product(46, "Ivory Cashmere Throw", "Pellier Atelier", "Ivory", 420.00,
+            "Grade-A Mongolian cashmere throw with hand-knotted fringe. Substantial loft, brushed twice for a surface that stays soft.",
+            CAT_HOME, ["cashmere", "throw", "home", "neutral", "slow", "gift"],
+            4.9, 118, "house-ivory-cashmere-throw.png", persona="house"),
+    Product(47, "Vetiver Quietude", "Pellier Parfum", "Amber", 186.00,
+            "Eau de parfum built on Haitian vetiver, dry cedar, and a trace of smoked vanilla. Quiet on the skin, long on the shirt collar.",
+            CAT_BEAUTY, ["fragrance", "vetiver", "beauty", "warm", "earth", "gift"],
+            4.7, 231, "house-vetiver-quietude.png", persona="house"),
+    Product(48, "Cognac Market Tote", "Pellier Atelier", "Cognac", 540.00,
+            "Full-grain vegetable-tanned leather market tote with rolled handles and saddle stitching. Unlined, so it takes on a patina rather than wearing out.",
+            CAT_ACCESSORIES, ["leather", "tote", "accessories", "classic", "warm", "everyday"],
+            4.9, 87, "house-cognac-market-tote.png", persona="house"),
+    Product(49, "Stonewashed Linen Set", "EcoThread", "Flax", 310.00,
+            "Stonewashed European flax bedding set. Breathable, deliberately relaxed, and finished without softening chemicals.",
+            CAT_HOME, ["linen", "bedding", "home", "neutral", "slow", "wellness"],
+            4.6, 204, "house-stonewashed-linen-set.png", persona="house"),
+    Product(50, "Oat Merino Crew", "ZenMove", "Oat", 168.00,
+            "Fine-gauge extra-fine merino crewneck in oat. Temperature-regulating, odour-resistant, and light enough to layer under a blazer.",
+            CAT_APPAREL, ["merino", "knitwear", "everyday", "neutral", "minimal", "travel"],
+            4.7, 276, "house-oat-merino-crew.png", persona="house"),
+]
+
+
+# =========================================================================
+# SIGNATURE PIECES — premium depth, IDs 51-60
+#
+# Raises the catalog ceiling from $425 to $1,250. A top membership rung and a
+# private appointment need pieces behind them that justify both.
+# =========================================================================
+
+SIGNATURE_PRODUCTS: List[Product] = [
+    Product(51, "Camel Wool Overcoat", "Pellier Atelier", "Camel", 895.00,
+            "Full-length overcoat in double-faced Italian wool, bonded rather than lined so it drapes without weight. Notch lapel, patch pockets, hand-finished hem.",
+            CAT_APPAREL, ["wool", "outerwear", "tailoring", "camel", "timeless", "investment"],
+            4.9, 63, "signature-camel-wool-overcoat.png", persona="signature", badge="JUST_IN"),
+    Product(52, "Silk Charmeuse Slip Dress", "Pellier Atelier", "Bone", 485.00,
+            "Bias-cut slip dress in heavyweight silk charmeuse. The bias does the shaping; the weight keeps it from clinging.",
+            CAT_APPAREL, ["silk", "eveningwear", "bias", "minimal", "neutral", "investment"],
+            4.8, 71, "signature-silk-charmeuse-slip-dress.png", persona="signature"),
+    Product(53, "Double-Pleat Wool Trouser", "Pellier Atelier", "Chalk", 285.00,
+            "High-waisted trouser in chalk wool with a double forward pleat and a turned cuff. Cut wide through the leg, tapered at the hem.",
+            CAT_APPAREL, ["wool", "tailoring", "trouser", "neutral", "workwear", "classic"],
+            4.7, 109, "signature-double-pleat-wool-trouser.png", persona="signature"),
+    Product(54, "Suede Chelsea Boot", "Pellier Editions", "Tobacco", 395.00,
+            "Chelsea boot in tobacco calf suede on a stacked leather heel. Goodyear-welted, so it can be resoled rather than replaced.",
+            CAT_FOOTWEAR, ["suede", "footwear", "boot", "classic", "warm", "investment"],
+            4.8, 134, "signature-suede-chelsea-boot.png", persona="signature"),
+    Product(55, "Fig and Cedar Eau de Parfum", "Pellier Parfum", "Amber", 245.00,
+            "Eau de parfum of green fig, cedar, and warm milk. Opens sharp and settles into something closer to skin.",
+            CAT_BEAUTY, ["fragrance", "fig", "cedar", "beauty", "warm", "gift"],
+            4.8, 96, "signature-fig-cedar-eau-de-parfum.png", persona="signature"),
+    Product(56, "Rose Absolute Body Oil", "Pellier Parfum", "Blush", 118.00,
+            "Body oil of rose absolute, squalane, and apricot kernel. Absorbs without residue; the scent fades to a clean sweetness.",
+            CAT_BEAUTY, ["beauty", "body oil", "rose", "apothecary", "wellness", "gift"],
+            4.6, 187, "signature-rose-absolute-body-oil.png", persona="signature"),
+    Product(57, "Cashmere Travel Wrap", "Pellier Travel", "Oat", 340.00,
+            "Oversized cashmere wrap that doubles as an aeroplane blanket. Rolls to the size of a paperback and ties with a flat linen ribbon.",
+            CAT_ACCESSORIES, ["cashmere", "travel", "wrap", "neutral", "accessories", "gift"],
+            4.9, 112, "signature-cashmere-travel-wrap.png", persona="signature"),
+    Product(58, "Signet Ring, Brushed Gold", "Pellier Editions", "Gold", 480.00,
+            "Solid brushed 14k gold signet with a blank oval face, left unengraved so it can be made personal later.",
+            CAT_ACCESSORIES, ["gold", "jewellery", "signet", "accessories", "timeless", "investment"],
+            4.9, 58, "signature-signet-ring-brushed-gold.png", persona="signature"),
+    Product(59, "Hand-Knotted Wool Rug", "Pellier Maison", "Sand", 1250.00,
+            "Hand-knotted wool rug in undyed sand with a barely-there tonal border. Roughly two hundred knots per square inch, woven over four months.",
+            CAT_HOME, ["wool", "rug", "home", "artisanal", "neutral", "investment"],
+            4.9, 41, "signature-hand-knotted-wool-rug.png", persona="signature"),
+    Product(60, "Blown Glass Decanter", "Pellier Maison", "Clear", 210.00,
+            "Mouth-blown glass decanter with a faintly irregular neck and a scatter of seed bubbles. Each one carries the breath that made it.",
+            CAT_HOME, ["glass", "decanter", "home", "artisanal", "sculptural", "gift"],
+            4.7, 88, "signature-blown-glass-decanter.png", persona="signature"),
+]
+
+
+ALL_PRODUCTS = (
+    FRESH_PRODUCTS
+    + MARCO_PRODUCTS
+    + ANNA_PRODUCTS
+    + THEO_PRODUCTS
+    + HOUSE_PRODUCTS
+    + SIGNATURE_PRODUCTS
+)
 
 
 # =========================================================================
@@ -489,7 +606,7 @@ def build_catalog(include_distractors: bool = True, distractor_count: int = DEFA
 def derive_distractor_embeddings(products: List[Product]) -> int:
     """Attach deterministic derived embeddings to generated distractors.
 
-    The 40 curated vectors are real Cohere Embed v4 outputs from the committed
+    The 60 curated vectors are real Cohere Embed v4 outputs from the committed
     cache. Distractors live near those vectors with a small deterministic blend
     and noise term. That keeps bootstrap offline while giving pgvector a corpus
     large enough for recall, rerank, and HNSW tuning to become visible.
@@ -838,7 +955,7 @@ def main():
         type=int,
         default=_distractor_count_from_env(),
         help=(
-            "Generated archive distractor rows to add above the 40 curated "
+            "Generated archive distractor rows to add above the 60 curated "
             f"products (default: {DEFAULT_DISTRACTOR_COUNT}, env: "
             "PELLIER_DISTRACTOR_COUNT)"
         ),
@@ -846,7 +963,7 @@ def main():
     parser.add_argument(
         "--no-distractors",
         action="store_true",
-        help="Seed only the original 40 curated products.",
+        help="Seed only the 60 curated products.",
     )
     parser.add_argument("--region", default=os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION", "us-east-1"), help="AWS region")
     args = parser.parse_args()
@@ -860,7 +977,7 @@ def main():
 
     if args.from_cache:
         # Workshop fast path: deterministic SQL load from precomputed vectors.
-        # The cache stores the real 40 Cohere vectors; archive distractors are
+        # The cache stores the real 60 Cohere vectors; archive distractors are
         # derived from those vectors below.
         applied = load_embeddings_cache(curated_products, EMBED_CACHE)
         if applied < len(curated_products):
@@ -885,7 +1002,7 @@ def main():
     if not args.csv_only:
         seed_database(products)
     else:
-        csv_out = CSV_OUT_EXPANDED if include_distractors else CSV_OUT_40
+        csv_out = CSV_OUT_EXPANDED if include_distractors else CSV_OUT_CURATED
         write_csv(products, csv_out)
         logger.info("CSV-only mode — wrote CSV, skipped DB seeding")
         logger.info("To seed Aurora from the cache, run: --from-cache")
