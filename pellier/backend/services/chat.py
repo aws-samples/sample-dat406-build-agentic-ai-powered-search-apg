@@ -197,6 +197,126 @@ _TRIAGE_REPLIES = {
 }
 
 
+_DISPATCHER_STUB_FALLBACKS = {
+    "inventory": (
+        "I can help with style and recommendations, but I don't have "
+        "real-time stock visibility for individual warehouses yet. "
+        "I can tell you the product is in the catalog and marked "
+        "in-stock system-wide — but which warehouse holds it, and "
+        "how many are on the floor, sits outside what I can answer "
+        "right now."
+    ),
+    "support": (
+        "I can help with style and recommendations, but return "
+        "handling and post-purchase support sits outside what I "
+        "can answer right now. When the Customer Service Agent is wired "
+        "it will own returns, care instructions, and warranty flow "
+        "end-to-end."
+    ),
+}
+
+
+def _dispatcher_stub_fallback(intent_hint: str) -> Optional[str]:
+    """Return the exercise-state fallback without invoking a model."""
+    if intent_hint == "inventory":
+        from agents import inventory_agent
+
+        stubbed = getattr(inventory_agent, "_INVENTORY_AGENT_STUBBED", False)
+    elif intent_hint == "support":
+        from agents import customer_service_agent
+
+        stubbed = getattr(customer_service_agent, "_SUPPORT_AGENT_STUBBED", False)
+    else:
+        stubbed = False
+    return _DISPATCHER_STUB_FALLBACKS.get(intent_hint) if stubbed else None
+
+
+def _dispatcher_stub_events(
+    intent_hint: str,
+    fallback_text: str,
+) -> List[Dict[str, Any]]:
+    """Build the canonical SSE tail for an unbuilt dispatcher specialist."""
+    note = f"{intent_hint}-intent matched; agent is the workshop build"
+    return [
+        {"type": "content", "content": fallback_text},
+        {
+            "type": "meta",
+            "meta": {
+                "agent": None,
+                "model": None,
+                "note": note,
+                "fallthrough": True,
+            },
+        },
+        {
+            "type": "complete",
+            "response": {
+                "response": fallback_text,
+                "products": [],
+                "suggestions": [],
+                "agent_execution": {
+                    "agent": None,
+                    "model": None,
+                    "fallthrough": True,
+                    "intent": intent_hint,
+                    "note": note,
+                },
+                "success": True,
+            },
+        },
+    ]
+
+
+async def _dispatcher_stub_profile(
+    db_service: Any,
+    customer_id: Optional[str],
+) -> Dict[str, Any]:
+    """Read the bounded profile receipt needed by an unbuilt specialist."""
+    profile = {
+        "source": database_source_label(),
+        "customer_id": customer_id,
+        "facts_available": 0,
+        "orders_available": 0,
+        "available": False,
+    }
+    if not customer_id or db_service is None:
+        return profile
+    try:
+        row = await db_service.fetch_one(
+            """
+            SELECT
+              EXISTS (
+                SELECT 1 FROM pellier.customers WHERE id = %s
+              ) AS customer_exists,
+              (
+                SELECT count(*) FROM pellier.customer_episodic_seed
+                 WHERE customer_id = %s
+              ) AS facts_available,
+              (
+                SELECT count(*) FROM pellier.orders WHERE customer_id = %s
+              ) AS orders_available
+            """,
+            customer_id,
+            customer_id,
+            customer_id,
+        )
+        profile.update(
+            {
+                "facts_available": int((row or {}).get("facts_available") or 0),
+                "orders_available": int((row or {}).get("orders_available") or 0),
+                "available": bool((row or {}).get("customer_exists")),
+            }
+        )
+    except Exception as exc:
+        profile["source"] = "error"
+        logger.warning(
+            "Stub profile receipt unavailable for %s: %s",
+            customer_id,
+            exc.__class__.__name__,
+        )
+    return profile
+
+
 async def _append_pellier_stm_turn(
     session_id: Optional[str],
     user_message: str,
@@ -1545,6 +1665,60 @@ CURRENT REQUEST: {message}"""
             }
             return
 
+        # Classify before constructing session state. An unbuilt dispatcher
+        # specialist needs one bounded Aurora profile receipt, but no Strands
+        # agent, skill router, or AgentCore Memory session.
+        intent_t0 = time.perf_counter()
+        with evidence_spans.routing_span(
+            turn_id=turn_id,
+            principal_sub=turn_identity.principal_sub,
+            authenticated=turn_identity.authenticated,
+            persona_is_simulated=turn_identity.persona_is_simulated,
+        ):
+            intent = classify_intent(message)
+        intent_hint = {
+            "pricing": "pricing",
+            "inventory": "inventory",
+            "customer_support": "support",
+            "search": "search",
+            "recommendation": "recommendation",
+        }[intent]
+        timing["intent"] = (time.perf_counter() - intent_t0) * 1000
+
+        if pattern == "dispatcher":
+            fallback_text = _dispatcher_stub_fallback(intent_hint)
+            if fallback_text is not None:
+                if customer_id:
+                    yield {
+                        "type": "aurora_profile_context",
+                        "profile": await _dispatcher_stub_profile(
+                            self.db_service,
+                            customer_id,
+                        ),
+                    }
+                logger.info("🎯 Intent: %s → %s", intent, intent_hint)
+                from services.response_mode import build_intent_signal
+
+                yield build_intent_signal(intent, response_mode)
+                stub_name = self._tool_to_agent_name(intent_hint)
+                logger.info(
+                    "🎯 Dispatcher | specialist=%s (intent=%s) is STUBBED — "
+                    "returning before Memory, SkillRouter, or specialist invocation",
+                    stub_name,
+                    intent_hint,
+                )
+                yield {"type": "start", "content": "Checking workshop build state..."}
+                yield {
+                    "type": "agent_step",
+                    "agent": stub_name,
+                    "action": "Workshop build pending",
+                    "status": "completed",
+                    "source": "Pellier build state",
+                }
+                for event in _dispatcher_stub_events(intent_hint, fallback_text):
+                    yield event
+                return
+
         if not self.strands_available:
             yield {"type": "error", "error": "Strands SDK not available"}
             return
@@ -1556,33 +1730,10 @@ CURRENT REQUEST: {message}"""
 
         from agents.orchestrator import create_orchestrator, create_guarded_orchestrator
 
+        # Session setup can read or create remote AgentCore Memory records.
+        # Defer it until after deterministic exercise-state detection below:
+        # an unbuilt specialist has no agent turn whose context needs loading.
         session_manager = None
-        if session_id:
-            from config import settings
-            if user and settings.AGENTCORE_MEMORY_ID:
-                try:
-                    from services.agentcore_memory import create_agentcore_session_manager
-
-                    # Memory namespaces durable records by actor, so the
-                    # actor must be the *verified* identity when one
-                    # exists. Preferring the persona here would let a UI
-                    # dropdown read another attendee's durable records —
-                    # the persona is simulation context, not an identity
-                    # claim. It is used only when no token was presented.
-                    # `turn_identity` is resolved once at the top of the
-                    # stream so this branch and the evidence spans agree.
-                    memory_user_id = turn_identity.memory_actor()
-                    session_manager = create_agentcore_session_manager(
-                        session_id=session_id,
-                        user_id=memory_user_id,
-                    )
-                    if session_manager:
-                        logger.info(f"🧠 AgentCore Memory (stream) for user={memory_user_id}")
-                except Exception as e:
-                    logger.warning(f"AgentCore Memory setup failed: {e}")
-
-            if not session_manager:
-                logger.info("ℹ️ No session manager for streaming — agent runs stateless")
 
         # Agent construction — Pattern I (Agents-as-Tools) builds the
         # orchestrator here. Pattern III (Dispatcher) defers construction
@@ -1783,50 +1934,54 @@ CURRENT REQUEST: {message}"""
                 },
             }
 
-        # Deterministic intent classification.
-        #
-        # Its output has two consumers:
-        #   1. Pattern III (Dispatcher) uses ``intent_hint`` to pick
-        #      which specialist factory to build.
-        #   2. Telemetry (``📨 chat_stream`` log, Observatory panels) uses
-        #      the classification for the routing annotation.
-        #
-        # The previous ``[ROUTING DIRECTIVE: call the X tool]`` prefix
-        # injection was deleted in the three-pattern refactor. It
-        # existed to override Pattern I routing when the
-        # orchestrator drifted from the classifier's verdict —
-        # a workaround for the "Agents-as-Tools paraphrases" failure
-        # mode. Pattern I now runs with the unmodified user message;
-        # Pattern III skips the router LLM entirely and dispatches by the
-        # classifier directly.
-        intent_t0 = time.perf_counter()
-        # Evidence spine, routing boundary. Unlike the tool boundary there is
-        # no framework-emitted span here: intent classification is Pellier's
-        # own logic, so this is one of the three spans we author (spec 8.3).
-        #
-        # `principal_sub` is the verified identity or absent — never the
-        # persona. A span that named the persona as principal would teach the
-        # exact inversion `turn_identity` exists to prevent, so the persona
-        # travels as `persona_is_simulated` instead: it says "this turn's
-        # scope came from a UI selection, not a token".
-        with evidence_spans.routing_span(
-            turn_id=turn_id,
-            principal_sub=turn_identity.principal_sub,
-            authenticated=turn_identity.authenticated,
-            persona_is_simulated=turn_identity.persona_is_simulated,
-        ):
-            intent = classify_intent(message)
-        intent_hint = {
-            "pricing": "pricing",
-            "inventory": "inventory",
-            "customer_support": "support",
-            "search": "search",
-            "recommendation": "recommendation",
-        }[intent]
-        timing["intent"] = (time.perf_counter() - intent_t0) * 1000
+        # Emit the already-resolved classification after profile context so
+        # normal agent turns retain their existing participant-visible order.
         logger.info(f"🎯 Intent: {intent} → {intent_hint}")
         from services.response_mode import build_intent_signal
         yield build_intent_signal(intent, response_mode)
+
+        if session_id:
+            from config import settings
+
+            if user and settings.AGENTCORE_MEMORY_ID:
+                try:
+                    from services.agentcore_memory import (
+                        create_agentcore_session_manager,
+                    )
+
+                    # Memory namespaces durable records by actor, so the
+                    # actor must be the *verified* identity when one
+                    # exists. Preferring the persona here would let a UI
+                    # dropdown read another attendee's durable records —
+                    # the persona is simulation context, not an identity
+                    # claim. It is used only when no token was presented.
+                    # `turn_identity` is resolved once at the top of the
+                    # stream so this branch and the evidence spans agree.
+                    memory_user_id = turn_identity.memory_actor()
+                    session_manager = create_agentcore_session_manager(
+                        session_id=session_id,
+                        user_id=memory_user_id,
+                    )
+                    if session_manager:
+                        logger.info(
+                            "🧠 AgentCore Memory (stream) for user=%s",
+                            memory_user_id,
+                        )
+                except Exception as e:
+                    logger.warning("AgentCore Memory setup failed: %s", e)
+
+            if not session_manager:
+                logger.info(
+                    "ℹ️ No session manager for streaming — agent runs stateless"
+                )
+
+        # Agents-as-Tools constructs its orchestrator before persona and intent
+        # context are loaded. Attach the deferred session manager here; graph
+        # and dispatcher specialists are constructed later and keep their
+        # existing attachment points.
+        if orchestrator is not None and session_manager:
+            orchestrator.session_manager = session_manager
+            _safe_register_hooks(session_manager, orchestrator)
 
         # --- Skill router ---------------------------------------------------
         # One LLM call to Sonnet 4.6 decides which skills to inject into the
@@ -2134,52 +2289,13 @@ CURRENT REQUEST: {message}"""
         # everything after this point treats ``orchestrator`` as a
         # plain Strands Agent regardless of pattern.
         if pattern == "dispatcher":
-            from agents import inventory_agent as inventory_agent_module
-            from agents import customer_service_agent as support_agent_module
-
             # --- Workshop stub detection ---
             #
-            # When participants haven't yet wired Inventory Agent (or
-            # Customer Service Agent, in the Workshop format), the Dispatcher
-            # intercepts and returns a voice-matched non-answer INSTEAD
-            # of invoking the stub agent. This is the graceful gap
-            # Marco's Turn 4 lands in during the opening demo; wiring
-            # the agent flips the flag and the same turn returns real
-            # warehouse data.
-            #
-            # We yield the non-answer as streaming SSE events so the
-            # frontend renders it identically to a normal assistant
-            # response (no error UI, no exception).
-            _STUB_FALLBACK_MESSAGES = {
-                "inventory": (
-                    "I can help with style and recommendations, but I don't have "
-                    "real-time stock visibility for individual warehouses yet. "
-                    "I can tell you the product is in the catalog and marked "
-                    "in-stock system-wide — but which warehouse holds it, and "
-                    "how many are on the floor, sits outside what I can answer "
-                    "right now."
-                ),
-                "support": (
-                    "I can help with style and recommendations, but return "
-                    "handling and post-purchase support sits outside what I "
-                    "can answer right now. When the Customer Service Agent is wired "
-                    "it will own returns, care instructions, and warranty flow "
-                    "end-to-end."
-                ),
-            }
-
-            _stub_flag = None
-            if intent_hint == "inventory":
-                _stub_flag = getattr(
-                    inventory_agent_module, "_INVENTORY_AGENT_STUBBED", False
-                )
-            elif intent_hint == "support":
-                _stub_flag = getattr(
-                    support_agent_module, "_SUPPORT_AGENT_STUBBED", False
-                )
-
-            if _stub_flag:
-                fallback_text = _STUB_FALLBACK_MESSAGES[intent_hint]
+            # The normal dispatcher path returns above. Keep this guard for a
+            # graph build that fails and deliberately falls back to dispatcher
+            # after SkillRouter has already run.
+            fallback_text = _dispatcher_stub_fallback(intent_hint)
+            if fallback_text is not None:
                 stub_name = self._tool_to_agent_name(intent_hint)
                 logger.info(
                     "🎯 Dispatcher | specialist=%s (intent=%s) is STUBBED — "
@@ -2187,46 +2303,8 @@ CURRENT REQUEST: {message}"""
                     stub_name,
                     intent_hint,
                 )
-                # Stream the non-answer as if a normal agent produced it.
-                # The frontend's streaming handler (services/chat.ts) treats
-                # `content` as the canonical text-update event — using
-                # `text` here silently drops the message and the user sees
-                # the hardcoded "Response completed" default.
-                yield {"type": "content", "content": fallback_text}
-                yield {
-                    "type": "meta",
-                    "meta": {
-                        "agent": None,
-                        "model": None,
-                        "note": f"{intent_hint}-intent matched; agent is the workshop build",
-                        "fallthrough": True,
-                    },
-                }
-                # Emit a `complete` event so the frontend populates
-                # `finalResponse.response` and `agent_execution` instead
-                # of falling back to the hardcoded default. `agent_execution`
-                # mirrors the shape live agents produce so the Observatory
-                # Sessions Brief tab and the inline pill in the chat
-                # surface the fall-through honestly (no agent, no model).
-                yield {
-                    "type": "complete",
-                    "response": {
-                        "response": fallback_text,
-                        "products": [],
-                        "suggestions": [],
-                        "agent_execution": {
-                            "agent": None,
-                            "model": None,
-                            "fallthrough": True,
-                            "intent": intent_hint,
-                            "note": (
-                                f"{intent_hint}-intent matched; "
-                                "agent is the workshop build"
-                            ),
-                        },
-                        "success": True,
-                    },
-                }
+                for event in _dispatcher_stub_events(intent_hint, fallback_text):
+                    yield event
                 _reset_skill_token()
                 _reset_persona_token()
                 _reset_response_mode_token()

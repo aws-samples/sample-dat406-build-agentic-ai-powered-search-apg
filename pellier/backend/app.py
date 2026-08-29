@@ -956,6 +956,7 @@ async def _persist_terminal_turn_receipt(
     assistant_response: str = "",
     specialist_route: str = "",
     tool_calls: Optional[List[Any]] = None,
+    skip_handoff_lookup: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Write one immutable receipt after a shopper turn has terminated.
 
@@ -967,17 +968,19 @@ async def _persist_terminal_turn_receipt(
         from services.governed_turn_receipt import persist_turn_receipt
         from services.shopper_handoff import build_handoff_context
 
-        handoff_context = await build_handoff_context(
-            db_service,
-            turn_id=turn_id,
-            session_id=session_id,
-            customer_id=customer_id,
-            shopper_request=shopper_request,
-            conversation_history=conversation_history or [],
-            assistant_response=assistant_response,
-            specialist_route=specialist_route,
-            tool_calls=tool_calls or [],
-        )
+        handoff_context = {}
+        if not skip_handoff_lookup:
+            handoff_context = await build_handoff_context(
+                db_service,
+                turn_id=turn_id,
+                session_id=session_id,
+                customer_id=customer_id,
+                shopper_request=shopper_request,
+                conversation_history=conversation_history or [],
+                assistant_response=assistant_response,
+                specialist_route=specialist_route,
+                tool_calls=tool_calls or [],
+            )
 
         return await persist_turn_receipt(
             db_service,
@@ -1178,6 +1181,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             assistant_response: str = "",
             specialist_route: str = "",
             tool_calls: Optional[List[Any]] = None,
+            skip_handoff_lookup: bool = False,
         ) -> Optional[Dict[str, Any]]:
             """Persist exactly once, even if a stream then raises."""
             nonlocal receipt_attempted
@@ -1199,6 +1203,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 assistant_response=assistant_response,
                 specialist_route=specialist_route,
                 tool_calls=tool_calls,
+                skip_handoff_lookup=skip_handoff_lookup,
             )
 
         try:
@@ -1685,6 +1690,10 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                                 list(execution.get("tool_calls") or [])
                                 if isinstance(execution, dict)
                                 else []
+                            ),
+                            skip_handoff_lookup=bool(
+                                isinstance(execution, dict)
+                                and execution.get("fallthrough")
                             ),
                         )
                         if receipt and isinstance(response, dict):

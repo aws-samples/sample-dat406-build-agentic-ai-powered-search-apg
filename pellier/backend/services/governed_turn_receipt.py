@@ -15,6 +15,7 @@ produces no citations.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import date, datetime
@@ -392,14 +393,23 @@ async def persist_turn_receipt(
     if db is None:
         return None
     try:
-        # Policy first, and the evidence span with it.
+        # Start the independent reads together, then process policy first and
+        # emit its evidence span before propagating a retrieval/audit failure.
         #
-        # Ordering is deliberate: the policy read and the span used to sit
+        # Processing order is deliberate: the policy read and span used to sit
         # after the retrieval and citation reads, so a cluster missing
         # `pellier.retrieval_receipts` lost the policy evidence entirely —
         # the whole block aborted before the span was emitted. The policy
         # leg does not depend on retrieval, so it no longer waits on it.
-        policy_rows = _as_rows(await db.fetch_all(_POLICY_SQL, turn_id))
+        policy_result, retrieval_result, audit_result = await asyncio.gather(
+            db.fetch_all(_POLICY_SQL, turn_id),
+            db.fetch_one(_RETRIEVAL_SQL, turn_id),
+            db.fetch_all(_AUDIT_SQL, turn_id),
+            return_exceptions=True,
+        )
+        if isinstance(policy_result, BaseException):
+            raise policy_result
+        policy_rows = _as_rows(policy_result)
         policy_events = _policy_events(
             policy_rows, terminal_error_code=terminal_error_code
         )
@@ -409,9 +419,13 @@ async def persist_turn_receipt(
             principal_sub=principal_sub,
         )
 
-        retrieval = await db.fetch_one(_RETRIEVAL_SQL, turn_id)
+        if isinstance(retrieval_result, BaseException):
+            raise retrieval_result
+        if isinstance(audit_result, BaseException):
+            raise audit_result
+        retrieval = retrieval_result
         retrieval_row = dict(retrieval) if retrieval else None
-        audit_rows = _as_rows(await db.fetch_all(_AUDIT_SQL, turn_id))
+        audit_rows = _as_rows(audit_result)
         receipt_id = (
             int(retrieval_row["receipt_id"])
             if retrieval_row and retrieval_row.get("receipt_id") is not None
