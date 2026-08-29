@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider, useAuth } from './AuthContext'
 
@@ -34,6 +34,22 @@ function mockAuthFetch() {
   })
 }
 
+const originalLocation = window.location
+
+function installLocation(pathname: string, search = '') {
+  const assign = vi.fn()
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: {
+      ...originalLocation,
+      assign,
+      pathname,
+      search,
+    },
+  })
+  return assign
+}
+
 describe('AuthContext hydration', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -44,6 +60,10 @@ describe('AuthContext hydration', () => {
     vi.unstubAllGlobals()
     localStorage.clear()
     clearCookie('just_signed_in')
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    })
   })
 
   it('does not call /api/auth/me on a clean anonymous page load', async () => {
@@ -88,6 +108,26 @@ describe('AuthContext hydration', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/me',
       expect.objectContaining({ credentials: 'include' }),
+    )
+  })
+
+  it('returns browser sign-in to the current SPA route', async () => {
+    const assign = installLocation(
+      '/operator/clients/CUST-JESSICA',
+      '?view=request',
+    )
+    vi.stubGlobal('fetch', vi.fn())
+    const { result } = renderHook(() => useAuth(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+    act(() => result.current.login())
+
+    expect(assign).toHaveBeenCalledWith(
+      `/api/auth/signin?provider=email&returnTo=${encodeURIComponent(
+        '/operator/clients/CUST-JESSICA?view=request',
+      )}`,
     )
   })
 })

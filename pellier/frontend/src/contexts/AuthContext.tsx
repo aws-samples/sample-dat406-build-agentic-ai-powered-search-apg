@@ -221,7 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(() => {
-    window.location.assign('/api/auth/signin')
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    window.location.assign(
+      `/api/auth/signin?provider=email&returnTo=${encodeURIComponent(returnTo)}`,
+    )
   }, [])
 
   const logout = useCallback(() => {

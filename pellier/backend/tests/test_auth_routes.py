@@ -36,7 +36,7 @@ import json
 import time
 import uuid
 from typing import Any, Dict, List, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 import jwt
 import pytest
@@ -56,6 +56,7 @@ from routes import auth as auth_module
 from routes.auth import (
     ID_TOKEN_COOKIE,
     JUST_SIGNED_IN_COOKIE,
+    OAUTH_RETURN_TO_COOKIE,
     OAUTH_STATE_COOKIE,
     PKCE_VERIFIER_COOKIE,
     REFRESH_TOKEN_COOKIE,
@@ -226,8 +227,11 @@ def token_post_recorder(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _begin_oauth(client: TestClient) -> tuple[str, str]:
-    response = client.get("/api/auth/signin")
+def _begin_oauth(
+    client: TestClient, *, return_to: Optional[str] = None
+) -> tuple[str, str]:
+    params = {"returnTo": return_to} if return_to else None
+    response = client.get("/api/auth/signin", params=params)
     params = {
         key: values[0]
         for key, values in parse_qs(urlparse(response.headers["location"]).query).items()
@@ -271,6 +275,42 @@ def test_signin_email_omits_identity_provider(client: TestClient) -> None:
     assert resp.status_code == 302
     query = parse_qs(urlparse(resp.headers["location"]).query)
     assert "identity_provider" not in query
+
+
+def test_signin_binds_a_safe_return_path_to_the_oauth_transaction(
+    client: TestClient,
+) -> None:
+    resp = client.get(
+        "/api/auth/signin",
+        params={"returnTo": "/operator/clients/CUST-JESSICA?view=request"},
+    )
+    assert resp.status_code == 302
+    assert (
+        unquote(client.cookies[OAUTH_RETURN_TO_COOKIE])
+        == "/operator/clients/CUST-JESSICA?view=request"
+    )
+
+
+@pytest.mark.parametrize(
+    "return_to",
+    [
+        "https://evil.example/operator",
+        "//evil.example/operator",
+        r"/\\evil.example/operator",
+    ],
+)
+def test_signin_rejects_cross_origin_return_paths(
+    client: TestClient, return_to: str
+) -> None:
+    client.cookies.set(
+        OAUTH_RETURN_TO_COOKIE,
+        quote("/operator", safe=""),
+        domain="api.test",
+        path="/api/auth",
+    )
+    resp = client.get("/api/auth/signin", params={"returnTo": return_to})
+    assert resp.status_code == 302
+    assert OAUTH_RETURN_TO_COOKIE not in client.cookies
 
 
 def test_signin_rejects_unknown_provider(client: TestClient) -> None:
@@ -426,6 +466,38 @@ def test_callback_happy_path_sets_four_cookies_and_redirects_home(
     assert f"{ACCESS_TOKEN_COOKIE}={access_token}" in set_cookies[0] or any(
         access_token in sc for sc in set_cookies
     )
+
+
+def test_callback_returns_to_the_originating_spa_route(
+    client: TestClient,
+    signer: _Signer,
+    token_post_recorder: Dict[str, Any],
+) -> None:
+    state, _verifier = _begin_oauth(
+        client,
+        return_to="/operator/clients/CUST-JESSICA?view=request",
+    )
+    token_post_recorder["responses"].append(
+        _FakeTokenResponse(
+            {
+                "access_token": signer.sign(_access_claims()),
+                "id_token": "synthetic-id-token",
+                "refresh_token": "synthetic-refresh-token",
+            }
+        )
+    )
+
+    resp = client.get(
+        "/api/auth/callback",
+        params={"code": "auth-code-from-cognito", "state": state},
+    )
+
+    assert resp.status_code == 302
+    assert (
+        resp.headers["location"]
+        == f"{APP_BASE_URL}/operator/clients/CUST-JESSICA?view=request"
+    )
+    assert OAUTH_RETURN_TO_COOKIE not in client.cookies
 
 
 def test_callback_invalid_access_token_returns_502(

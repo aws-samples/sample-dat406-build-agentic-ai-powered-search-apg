@@ -50,7 +50,7 @@ import re
 import secrets
 import time
 from typing import Any, Dict, Optional
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import quote, unquote, urlencode, urlsplit, urlunsplit
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -77,6 +77,7 @@ REFRESH_TOKEN_COOKIE = "refresh_token"
 JUST_SIGNED_IN_COOKIE = "just_signed_in"
 OAUTH_STATE_COOKIE = "oauth_state"
 PKCE_VERIFIER_COOKIE = "oauth_pkce"
+OAUTH_RETURN_TO_COOKIE = "oauth_return_to"
 
 # Refresh tokens are long-lived (30 days by default in Cognito). Access/id
 # tokens expire in an hour; we let the browser hold them for their full
@@ -139,13 +140,40 @@ def _redirect_uri(request: Request) -> str:
     return f"{_request_origin(request)}/api/auth/callback"
 
 
-def _post_signin_redirect(request: Request) -> str:
+def _safe_return_to(value: Optional[str]) -> Optional[str]:
+    """Accept only an origin-relative SPA path.
+
+    The browser supplies this value before leaving for Cognito. It must never
+    become an open redirect, even if a caller forges the flow cookie.
+    """
+    if not value or "\\" in value or any(ord(char) < 32 for char in value):
+        return None
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or not parsed.path.startswith("/")
+        or parsed.path.startswith("//")
+    ):
+        return None
+    return urlunsplit(("", "", parsed.path, parsed.query, ""))
+
+
+def _post_signin_redirect(
+    request: Request, return_to: Optional[str] = None
+) -> str:
     """Return the SPA URL to redirect to after a successful sign-in."""
     origin = (
         settings.APP_BASE_URL.rstrip("/")
         if settings.APP_BASE_URL
         else _request_origin(request)
     )
+    safe_return_to = _safe_return_to(return_to)
+    if safe_return_to:
+        return f"{origin}{safe_return_to}"
     path = "/" + settings.APP_BASE_PATH.strip("/") if settings.APP_BASE_PATH else ""
     return f"{origin}{path}/"
 
@@ -324,7 +352,13 @@ def _set_just_signed_in_cookie(response: Response) -> None:
     )
 
 
-def _set_oauth_cookies(response: Response, *, state: str, verifier: str) -> None:
+def _set_oauth_cookies(
+    response: Response,
+    *,
+    state: str,
+    verifier: str,
+    return_to: Optional[str] = None,
+) -> None:
     """Bind the OAuth transaction to the initiating browser."""
     for key, value in (
         (OAUTH_STATE_COOKIE, state),
@@ -339,10 +373,32 @@ def _set_oauth_cookies(response: Response, *, state: str, verifier: str) -> None
             samesite="lax",
             path="/api/auth",
         )
+    safe_return_to = _safe_return_to(return_to)
+    if safe_return_to:
+        response.set_cookie(
+            key=OAUTH_RETURN_TO_COOKIE,
+            value=quote(safe_return_to, safe=""),
+            max_age=OAUTH_COOKIE_MAX_AGE,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/api/auth",
+        )
+    else:
+        response.delete_cookie(
+            OAUTH_RETURN_TO_COOKIE,
+            path="/api/auth",
+            secure=True,
+            samesite="lax",
+        )
 
 
 def _clear_oauth_cookies(response: Response) -> None:
-    for cookie in (OAUTH_STATE_COOKIE, PKCE_VERIFIER_COOKIE):
+    for cookie in (
+        OAUTH_STATE_COOKIE,
+        PKCE_VERIFIER_COOKIE,
+        OAUTH_RETURN_TO_COOKIE,
+    ):
         response.delete_cookie(
             cookie,
             path="/api/auth",
@@ -432,6 +488,7 @@ def _token_exchange(body: Dict[str, str]) -> Dict[str, Any]:
 async def signin(
     request: Request,
     provider: str = Query("email", pattern="^(google|apple|email)$"),
+    return_to: Optional[str] = Query(None, alias="returnTo"),
 ) -> RedirectResponse:
     """Redirect the browser to Cognito's Hosted UI (Req 3.1.1).
 
@@ -459,7 +516,12 @@ async def signin(
 
     url = f"{_authorize_url()}?{urlencode(params)}"
     response = RedirectResponse(url=url, status_code=302)
-    _set_oauth_cookies(response, state=state, verifier=verifier)
+    _set_oauth_cookies(
+        response,
+        state=state,
+        verifier=verifier,
+        return_to=return_to,
+    )
     return response
 
 
@@ -490,6 +552,7 @@ async def callback(
 
     cookie_state = request.cookies.get(OAUTH_STATE_COOKIE, "")
     verifier = request.cookies.get(PKCE_VERIFIER_COOKIE, "")
+    return_to = unquote(request.cookies.get(OAUTH_RETURN_TO_COOKIE, ""))
     state_matches = bool(
         state
         and cookie_state
@@ -543,7 +606,10 @@ async def callback(
         logger.error("Token validation after exchange failed: %s", exc.detail)
         return _oauth_failure_response()
 
-    response = RedirectResponse(url=_post_signin_redirect(request), status_code=302)
+    response = RedirectResponse(
+        url=_post_signin_redirect(request, return_to),
+        status_code=302,
+    )
     _clear_oauth_cookies(response)
     _set_session_cookies(
         response,
