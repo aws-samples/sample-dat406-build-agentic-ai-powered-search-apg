@@ -1,5 +1,5 @@
 /**
- * Reviews waiting on a person.
+ * Prepared actions waiting on a person.
  *
  * The desk's entry point for work that arrived from the storefront. An operator
  * must be able to find Theo without already knowing to look for him, so this
@@ -8,10 +8,11 @@
  * Each card reads as continuity from Pellier, not as a support ticket that
  * appeared from nowhere: the origin line names where it began and when. Raw
  * session and turn identifiers are deliberately absent from the default view —
- * they belong behind the proof link on the review itself.
+ * they belong behind the proof link on the action itself.
  */
 
 import React, { useEffect, useState } from 'react'
+import { ArrowUpRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   fetchReviewQueue,
@@ -88,6 +89,13 @@ export function outcomeLine(review: OperatorReview): string {
 
 const ReviewCard: React.FC<{ review: OperatorReview }> = ({ review }) => {
   const when = relativeTime(review.requestedAt)
+  const humanState =
+    review.humanState === 'confirmation_required'
+      ? 'Confirmation required'
+      : review.humanState === 'confirmed'
+        ? 'Confirmed'
+        : 'Declined'
+
   return (
     <Link
       to={`/operator/reviews/${review.reviewId}`}
@@ -101,25 +109,31 @@ const ReviewCard: React.FC<{ review: OperatorReview }> = ({ review }) => {
         personaId={review.personaId}
       />
       <span className="operator-review-body">
-        {/* Origin first. The operator should understand in one line that this
-            began as a shopper conversation. */}
         <span className="operator-review-origin">
           Prepared from Pellier{when ? ` · ${when}` : ''}
         </span>
-        <span className="operator-client-name">
-          {review.customerName} · {review.issue || 'awaiting review'}
+        <span className="operator-client-name">{review.customerName}</span>
+        <span className="operator-cell-note">
+          {review.issue || 'Action details awaiting inspection'}
         </span>
-        <span className="operator-cell-note" data-testid="operator-review-outcome">
+      </span>
+      <span className="operator-review-action-cell">
+        <span className="operator-review-cell-label">Prepared action</span>
+        <span className="operator-review-cell-value">
+          {actionLabel(review.action)}
+        </span>
+        <span
+          className="operator-cell-note"
+          data-testid="operator-review-outcome"
+        >
           {outcomeLine(review)}
         </span>
       </span>
       <span className="operator-review-state" data-state={review.humanState}>
-        {review.humanState === 'confirmation_required'
-          ? 'Confirmation required'
-          : review.humanState === 'confirmed'
-            ? 'Confirmed'
-            : 'Declined'}
+        <span className="operator-review-cell-label">Human decision</span>
+        <span>{humanState}</span>
       </span>
+      <ArrowUpRight className="operator-review-open" aria-hidden />
     </Link>
   )
 }
@@ -146,13 +160,35 @@ const ReviewQueue: React.FC = () => {
   }, [])
 
   if (error) {
+    const authenticationRequired =
+      error === 'authentication_required' || error === 'invalid_credentials'
+    const operatorRequired = error === 'operator_group_required'
     return (
       <div className="operator-state" data-testid="operator-reviews-error">
         <span className="operator-state-title">
-          The review queue is unavailable
+          {authenticationRequired
+            ? 'Operator sign-in required'
+            : operatorRequired
+              ? 'Operator access required'
+              : 'The action queue is unavailable'}
         </span>
-        Aurora did not return pending reviews. If this is a fresh deployment,
-        confirm migration <code>020_operator_review.sql</code> has been applied.
+        {authenticationRequired ? (
+          <>
+            Sign in with the workshop operator account to read the action queue.
+            No database request was attempted.
+          </>
+        ) : operatorRequired ? (
+          <>
+            This signed-in account is not a member of the operator group. No
+            database request was attempted.
+          </>
+        ) : (
+          <>
+            The live database did not return prepared actions. If this is a
+            fresh deployment, confirm migration{' '}
+            <code>020_operator_review.sql</code> has been applied.
+          </>
+        )}
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>
@@ -163,7 +199,7 @@ const ReviewQueue: React.FC = () => {
   if (!queue) {
     return (
       <div className="operator-state" data-testid="operator-reviews-loading">
-        Reading pending reviews from Aurora…
+        Reading the action queue from Aurora…
       </div>
     )
   }
@@ -177,14 +213,28 @@ const ReviewQueue: React.FC = () => {
 
   return (
     <div data-testid="operator-reviews">
-      <h1 className="operator-title">Waiting on a person</h1>
+      <h1 className="operator-title">Actions awaiting decision</h1>
       <p className="operator-lede">
-        When Pellier reaches an action it may not take on its own — a return, a
-        goodwill credit — it identifies the client and the order, prepares the
-        request, and stops. Those prepared requests land here. Confirming one
-        records that a person agreed to those exact terms; it does not yet carry
-        the action out.
+        Pellier stops consequential work here. Decide the exact terms;
+        authorization and execution remain separate.
       </p>
+
+      <dl className="operator-queue-summary" aria-label="Action queue summary">
+        <div>
+          <dt>Needs decision</dt>
+          <dd data-tone={pending.length > 0 ? 'authority' : 'quiet'}>
+            {pending.length}
+          </dd>
+        </div>
+        <div>
+          <dt>Decided</dt>
+          <dd>{decided.length}</dd>
+        </div>
+        <div>
+          <dt>Current boundary</dt>
+          <dd className="operator-queue-boundary">Human confirmation</dd>
+        </div>
+      </dl>
 
       {pending.length === 0 ? (
         <div className="operator-state" data-testid="operator-reviews-empty">
@@ -193,13 +243,13 @@ const ReviewQueue: React.FC = () => {
               Copy states the mechanism instead of instructing the reader, and stays
               clear of the "all caught up" register - there is nothing to be caught up
               on, and a celebration over an empty queue reads as filler. */}
-          <span className="operator-state-title">No reviews waiting</span>
+          <span className="operator-state-title">No actions waiting</span>
           Consequential actions that Pellier prepares but may not take on its own
           appear here for an operator to confirm. A shopper asking to return a
           damaged piece is the usual source.
         </div>
       ) : (
-        <div className="operator-book" data-testid="operator-review-pending">
+        <div className="operator-action-list" data-testid="operator-review-pending">
           {pending.map((review) => (
             <ReviewCard review={review} key={review.reviewId} />
           ))}
@@ -209,10 +259,10 @@ const ReviewQueue: React.FC = () => {
       {decided.length > 0 ? (
         <>
           <div className="operator-section" data-testid="operator-review-decided-head">
-            <span className="operator-section-descriptor">Already decided</span>
+            <span className="operator-section-descriptor">Decision history</span>
             <span className="operator-section-count">{decided.length}</span>
           </div>
-          <div className="operator-book" data-testid="operator-review-decided">
+          <div className="operator-action-list" data-testid="operator-review-decided">
             {decided.map((review) => (
               <ReviewCard review={review} key={review.reviewId} />
             ))}

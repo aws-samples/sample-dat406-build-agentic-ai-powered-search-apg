@@ -13,8 +13,28 @@ import re
 
 from pellier_copy import GOVERNED_REVIEW_PENDING
 from services import evidence_spans
+from services.data_source import database_source_label
 from services.intent_router import classify_intent
 from services.product_envelope import ProductExtractor
+
+
+def _completed_tool_event(tool_name: str, duration_ms: int) -> Dict[str, Any]:
+    """Return the participant-visible completion contract for one real tool call."""
+    return {
+        "type": "tool_call",
+        "tool": tool_name,
+        "status": "completed",
+        "duration_ms": max(0, int(duration_ms)),
+    }
+
+
+def _database_activity_event(queries: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Return database activity with the configured runtime source named honestly."""
+    return {
+        "type": "db_queries",
+        "queries": list(queries),
+        "source": database_source_label(),
+    }
 
 
 def _safe_float(val, default=0.0):
@@ -1742,7 +1762,9 @@ CURRENT REQUEST: {message}"""
                 )
                 persona_fact_count = len(facts_rows)
                 persona_order_count = len(orders_rows)
-                persona_memory_source = "aurora"
+                from services.data_source import database_source_label
+
+                persona_memory_source = database_source_label()
             except Exception as e:
                 persona_memory_source = "error"
                 logger.warning(f"Persona LTM read failed for {customer_id}: {e}")
@@ -1934,7 +1956,8 @@ CURRENT REQUEST: {message}"""
             "type": "agent_step",
             "agent": "Orchestrator",
             "action": "Analyzing query",
-            "status": "in_progress"
+            "status": "in_progress",
+            "source": "Amazon Bedrock",
         }
 
         # --- Per-turn telemetry bookkeeping ---
@@ -2290,7 +2313,8 @@ CURRENT REQUEST: {message}"""
                         "type": "agent_step",
                         "agent": agent_name,
                         "action": "Searching",
-                        "status": "in_progress"
+                        "status": "in_progress",
+                        "source": "Amazon Bedrock",
                     }
                     yield {"type": "tool_call", "tool": tool_name, "status": "executing"}
 
@@ -2378,8 +2402,10 @@ CURRENT REQUEST: {message}"""
                     "type": "agent_step",
                     "agent": agent_name,
                     "action": "Done",
-                    "status": "completed"
+                    "status": "completed",
+                    "source": "Amazon Bedrock",
                 }
+                yield _completed_tool_event(tool_name, tool_ms)
                 # Reset streamed content — tells the frontend to clear
                 # the bubble so the agent's final text response starts
                 # fresh. Emitted for BOTH patterns.
@@ -2723,10 +2749,7 @@ CURRENT REQUEST: {message}"""
                 "timestamp": int(time.time() * 1000),
             },
         }
-        yield {
-            "type": "db_queries",
-            "queries": list(db_queries_for_turn),
-        }
+        yield _database_activity_event(db_queries_for_turn)
         # Reset the ContextVar so a subsequent request on the same Task
         # doesn't inherit this buffer. The token is set above with
         # db_query_log_var.set(...).

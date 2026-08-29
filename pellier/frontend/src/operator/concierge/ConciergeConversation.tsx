@@ -13,6 +13,7 @@ import ConciergeEvidence from './ConciergeEvidence'
 import ConciergeRecommendations from './ConciergeRecommendations'
 import ConciergePriorResolutions from './ConciergePriorResolutions'
 import ConciergeProposedActions from './ConciergeProposedAction'
+import ShopperHandoffView from '../components/ShopperHandoffView'
 import type { ConciergeMessage } from '../../services/operatorConcierge'
 
 const TURN_STATE_COPY: Record<string, { label: string; detail: string }> = {
@@ -114,8 +115,14 @@ const ConciergeConversation: React.FC<Props> = ({ messages }) => {
           {artifact.priorResolutions ? (
             <ConciergePriorResolutions prior={artifact.priorResolutions} />
           ) : null}
+          {artifact.shopperHandoff ? (
+            <ShopperHandoffView handoff={artifact.shopperHandoff} compact />
+          ) : null}
           {artifact.investigation?.length ? (
-            <ConciergeInvestigation steps={artifact.investigation} />
+            <ConciergeInvestigation
+              steps={artifact.investigation}
+              orchestration={artifact.orchestration}
+            />
           ) : null}
           {artifact.evidence?.length ? (
             <ConciergeEvidence items={artifact.evidence} />

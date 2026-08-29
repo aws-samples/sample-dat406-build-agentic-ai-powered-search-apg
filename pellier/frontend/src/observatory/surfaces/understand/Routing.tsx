@@ -3,10 +3,10 @@
  *
  * Displays Dispatcher, Agents-as-Tools, and Graph patterns as ExpCards.
  * Each card: pattern name (Fraunces), description, code snippet (monospace,
- * cream-2 bg), agent list as chips, active indicator (StatusDot + "Active"
- * pill for Dispatcher).
+ * cream-2 bg), agent list as chips, and path-specific active indicator.
  *
- * Dispatcher is shown as active for pellier sessions.
+ * Dispatcher is active for Storefront turns; Graph is active for Operator
+ * Concierge turns.
  * Falls back to fixture data when unavailable.
  * Includes loading, error, and empty states.
  *
@@ -57,7 +57,7 @@ const Emphasis: React.FC<{ children: React.ReactNode }> = ({ children }) => (
  * matching the design system (sage green, like "Shipped" but labeled "Active").
  * ----------------------------------------------------------------------- */
 
-const ActivePill: React.FC = () => (
+const ActivePill: React.FC<{ activeIn?: string }> = ({ activeIn }) => (
   <span
     style={{
       display: 'inline-flex',
@@ -75,7 +75,7 @@ const ActivePill: React.FC = () => (
       whiteSpace: 'nowrap' as const,
     }}
   >
-    Active
+    Active{activeIn ? ` · ${activeIn}` : ''}
   </span>
 );
 
@@ -94,7 +94,7 @@ const ROUTING_SCENARIOS: Array<{ label: string; hint: string }> = [
   },
   {
     label: 'Theo · return',
-    hint: 'Write-path tools – Graph or Agents-as-Tools for multi-step audit',
+    hint: 'Storefront handoff + pending review → Case Investigator → Resolution Planner',
   },
 ];
 
@@ -198,7 +198,7 @@ const RoutingCard: React.FC<RoutingCardProps> = ({
             }}
           >
             <StatusDot status="live" />
-            <ActivePill />
+            <ActivePill activeIn={pattern.activeIn} />
           </div>
         )}
       </div>
@@ -734,7 +734,7 @@ const LANGGRAPH_MAPPINGS: LangGraphMapping[] = [
     pellier: 'Graph (Strands GraphBuilder)',
     langgraph: 'StateGraph with add_node / add_edge',
     difference:
-      'Closest analogue. Strands GraphBuilder is opt-in for multi-step ops; in LangGraph the graph is the default authoring surface from turn one.',
+      'Closest analogue. Pellier ships a two-agent graph for Operator Concierge while keeping the Storefront on Dispatcher. PostgreSQL, not Runtime, holds the human checkpoint.',
   },
 ];
 
@@ -767,9 +767,9 @@ const LangGraphComparisonCard: React.FC = () => (
       <Emphasis>Dispatcher</Emphasis> (a Python function), graduate to{' '}
       <Emphasis>Agents-as-Tools</Emphasis> when one orchestrator needs to call
       specialists, and reach for <Emphasis>Graph</Emphasis> only when you
-      genuinely need conditional multi-step topology. The patterns are
-      progressive – you don&apos;t pay for a graph runtime until you actually
-      need one.
+      genuinely need ordered multi-agent work. Pellier demonstrates both
+      production choices: Dispatcher for the Storefront and a two-agent Graph
+      for Operator Concierge.
     </p>
 
     <table
@@ -865,12 +865,12 @@ const LangGraphComparisonCard: React.FC = () => (
         borderTop: '1px solid var(--obs-card-border)',
       }}
     >
-      <Emphasis>When to reach for LangGraph instead:</Emphasis> long-running
+      <Emphasis>When a durable workflow runtime is the better fit:</Emphasis> long-running
       stateful workflows that need durable checkpointing, human-in-the-loop
       pause/resume, or cycle-heavy graphs (planner ↔ critic ↔ executor) where
-      the topology itself is the design. Pellier&apos;s e-commerce concierge
-      hot path is none of those – a keyword classifier plus one specialist
-      call wins on latency every time.
+      the topology itself is the design. Pellier does not pause an agent
+      invocation for a person: the pending review survives in PostgreSQL,
+      and a later authenticated request records the human decision.
     </p>
   </ExpCard>
 );
@@ -885,9 +885,9 @@ const Routing: React.FC = () => {
   });
 
   const patterns = data ?? [];
-  const activePattern = patterns.find((p) => p.isActive);
+  const storefrontPattern = patterns.find((p) => p.slug === 'dispatcher');
   const [focusedSlug, setFocusedSlug] = useState<string | null>(
-    () => activePattern?.slug ?? patterns[0]?.slug ?? null,
+    () => storefrontPattern?.slug ?? patterns[0]?.slug ?? null,
   );
   const [scenarioIdx, setScenarioIdx] = useState(0);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -908,8 +908,8 @@ const Routing: React.FC = () => {
         eyebrow="Optional pattern read"
         title="How requests find their specialist."
         summary={
-          activePattern
-            ? `${activePattern.name} is the storefront path: classify the turn, load any skill context, and hand off to one specialist. The other patterns are optional contrast points for turns that need collaboration or ordered state.`
+          storefrontPattern
+            ? 'Dispatcher owns Storefront turns; the Operator Concierge uses a bounded two-agent Strands graph. Agents-as-Tools remains a comparison pattern.'
             : 'The required storefront path classifies each turn and gives it one specialist owner.'
         }
       />
@@ -939,9 +939,10 @@ const Routing: React.FC = () => {
                 margin: '8px 0 14px',
               }}
             >
-              Pellier sessions use <Emphasis>Dispatcher</Emphasis> today. Use the
-              buttons to compare where the other patterns would fit. The required
-              Lab 4 proof is the Gateway/Cedar rail, not this comparison.
+              Pellier ships <Emphasis>Dispatcher</Emphasis> for Storefront turns
+              and <Emphasis>Graph</Emphasis> for Operator Concierge turns. Use the
+              selector to inspect each path; Agents-as-Tools stays a teaching
+              comparison rather than a hidden third production rail.
             </p>
             <ModeStrip
               patterns={patterns.map((p) => p.name)}

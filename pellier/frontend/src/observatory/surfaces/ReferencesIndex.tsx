@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Signpost,
   Wrench,
+  GitBranch,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useBuildState } from '../hooks/useBuildState';
@@ -58,6 +59,12 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
         description: 'Persisted tool, policy, and transaction receipts.',
         path: '/observatory/audit-proof',
         icon: ScrollText,
+      },
+      {
+        label: 'Operator Lineage',
+        description: 'Live shopper handoff, Strands graph, checkpoint, and outcome.',
+        path: '/observatory/operator-lineage',
+        icon: GitBranch,
       },
     ],
   },

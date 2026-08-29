@@ -56,6 +56,9 @@ FKs.
     reservations, sandbox payment state, a transactional outbox, and immutable
     purchase receipts. The seeded `pellier.orders` persona history remains
     separate.
+28. **`028_shopper_operator_handoff.sql`** — adds the bounded, explicitly
+    untrusted shopper context captured with an immutable turn receipt when a
+    proposed action reaches the operator checkpoint.
 
 ## Run
 
@@ -82,7 +85,20 @@ for migration in \
     012_retrieval_receipts.sql \
     013_inventory_ledger.sql \
     014_governed_turn_receipts.sql \
-    015_proof_carrying_commerce.sql
+    015_proof_carrying_commerce.sql \
+    016_runtime_roles_rls.sql \
+    017_governed_query_receipts.sql \
+    018_client_book.sql \
+    019_operator_desk.sql \
+    020_operator_review.sql \
+    021_governed_execution.sql \
+    022_write_operation_vocabulary.sql \
+    023_idempotency_claims_release_on_failure.sql \
+    024_operator_episodes.sql \
+    025_execution_receipts.sql \
+    026_episode_outcome_lineage.sql \
+    027_canonical_span_table.sql \
+    028_shopper_operator_handoff.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

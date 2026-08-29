@@ -21,6 +21,8 @@ Endpoints:
     GET  /performance          — metrics and benchmarks
     GET  /evaluations          — agent scorecards
     GET  /architecture         - system architecture diagram payload
+    GET  /operator-lineage/{customer_id}
+                              - live shopper-to-operator graph and outcome
     GET  /build-state          - shipped vs exercise maps for agents and tools
     GET  /readiness            - workshop readiness checks for live pillars
     GET  /proof-board          - required-path evidence cards and fallbacks
@@ -1962,6 +1964,119 @@ async def list_governed_executions(
     except Exception as exc:
         logger.error("Failed to list governed executions: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to list executions")  # copy-allow: observatory-error-detail
+
+
+@router.get("/operator-lineage/{customer_id}")
+async def get_operator_lineage(
+    customer_id: str = PathParam(..., min_length=1, max_length=64),
+    operator: dict[str, Any] = Depends(require_operator),
+):
+    """Reconstruct the live storefront-to-operator loop for one client.
+
+    No fixture fallback. The handoff is untrusted context from the append-only
+    shopper receipt; the review is the durable human checkpoint; graph metadata
+    comes from an actually persisted Operator Concierge artifact; execution
+    evidence is principal-scoped to the operator who performed it.
+    """
+    from app import db_service
+
+    if db_service is None:
+        raise HTTPException(status_code=503, detail="database_unavailable")
+
+    from services import governed_execution
+    from services import operator_concierge_sessions as sessions
+    from services import operator_review
+    from services import shopper_handoff
+    from services.data_source import database_source_label
+
+    try:
+        handoff = await shopper_handoff.resolve_latest_for_customer(
+            db_service, customer_id=customer_id
+        )
+    except shopper_handoff.HandoffIntegrityError as exc:
+        logger.error("Operator lineage mismatch for %s", customer_id)
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Operator lineage handoff read failed for %s: %s", customer_id, exc)
+        raise HTTPException(status_code=503, detail="operator_lineage_unavailable") from exc
+
+    if not handoff:
+        return {
+            "customerId": customer_id,
+            "dataSource": database_source_label(),
+            "handoff": None,
+            "review": None,
+            "orchestration": None,
+            "execution": None,
+        }
+
+    review_id = int((handoff.get("proposal") or {}).get("reviewId") or 0)
+    review_row = await operator_review.get_review(db_service, review_id)
+    if not review_row or str(review_row.get("customer_id") or "") != customer_id:
+        raise HTTPException(status_code=409, detail="shopper_handoff_lineage_mismatch")
+
+    receipt = await governed_execution.latest_receipt(db_service, review_id)
+    review = {
+        "reviewId": review_id,
+        "customerId": customer_id,
+        "customerName": review_row.get("customer_name") or customer_id,
+        "action": review_row.get("action"),
+        "status": review_row.get("status"),
+        "sourceTurnId": review_row.get("source_turn_id"),
+        "executionTurnId": review_row.get("execution_turn_id"),
+        "actionHash": review_row.get("action_hash"),
+        "requestedAt": (
+            review_row["requested_at"].isoformat()
+            if hasattr(review_row.get("requested_at"), "isoformat")
+            else review_row.get("requested_at")
+        ),
+        "decidedAt": (
+            review_row["decided_at"].isoformat()
+            if hasattr(review_row.get("decided_at"), "isoformat")
+            else review_row.get("decided_at")
+        ),
+    }
+
+    orchestration = None
+    session_id = await sessions.latest_session(db_service, customer_id=customer_id)
+    if session_id:
+        try:
+            history = await sessions.load_history(
+                db_service,
+                session_id=session_id,
+                customer_id=customer_id,
+                limit=100,
+            )
+            for message in reversed(history.get("messages") or []):
+                artifact = message.get("artifact") or {}
+                graph = artifact.get("orchestration")
+                if message.get("role") == sessions.ROLE_ASSISTANT and graph:
+                    orchestration = {
+                        **graph,
+                        "sessionId": session_id,
+                        "turnId": message.get("turnId"),
+                    }
+                    break
+        except Exception as exc:  # noqa: BLE001 - review lineage remains useful
+            logger.warning("Operator graph history unavailable for %s: %s", customer_id, exc)
+
+    execution = None
+    if receipt:
+        execution = await governed_execution.reconstruct_execution(
+            db_service,
+            review_id=review_id,
+            principal_sub=str(operator["sub"]),
+        )
+
+    return {
+        "customerId": customer_id,
+        "customerName": review["customerName"],
+        "dataSource": database_source_label(),
+        "handoff": handoff,
+        "review": review,
+        "orchestration": orchestration,
+        "execution": execution,
+    }
 
 
 @router.get("/executions/{review_id}")

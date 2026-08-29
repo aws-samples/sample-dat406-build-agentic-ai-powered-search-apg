@@ -1,10 +1,10 @@
 /**
  * Pellier Operator API client.
  *
- * Reads are open; writes require a verified operator token, so a 401 here is a
- * real state the console renders rather than an error to swallow. Every field
- * comes from Aurora: there is no committed frontend copy of the client book,
- * because UI state is not evidence.
+ * Every route requires a verified operator-group token, so 401 and 403 are
+ * real states the console renders rather than errors to swallow. Every field
+ * comes from PostgreSQL/Aurora: there is no committed frontend copy of the
+ * client book, because UI state is not evidence.
  */
 
 import type { Membership } from '../data/membership'
@@ -14,6 +14,8 @@ import type {
   ConciergeConfig,
   ConciergeInvestigationStep,
   ConciergeSession,
+  ShopperHandoff,
+  ConciergeStreamAnswer,
   ConciergeTurn,
 } from './operatorConcierge'
 
@@ -24,7 +26,10 @@ export type {
   ConciergeMessage,
   ConciergeArtifact,
   ConciergeInvestigationStep,
+  ConciergeOrchestration,
+  ConciergeStreamAnswer,
   ConciergeEvidenceItem,
+  ShopperHandoff,
   ConciergeTurn,
   TurnState,
 } from './operatorConcierge'
@@ -46,6 +51,12 @@ export interface OperatorClient {
   openTicketCount?: number
   creditBalanceCents?: number
   creditBalance?: string
+  returnCount?: number
+  returnEvidence?: {
+    authoritativeReturnCount: number
+    supportAssertsReturn: boolean
+    unconfirmedReturnAssertion: boolean
+  }
 }
 
 export interface OperatorOrder {
@@ -80,6 +91,15 @@ export interface OperatorCredit {
   createdAt: string | null
 }
 
+export interface OperatorReturn {
+  returnId: number
+  productId: string
+  productName: string
+  reason: string
+  status: string
+  requestedAt: string | null
+}
+
 export interface OperatorBook {
   clients: OperatorClient[]
   total: number
@@ -91,6 +111,7 @@ export interface OperatorClientRecord {
   orders: OperatorOrder[]
   tickets: OperatorTicket[]
   credits: OperatorCredit[]
+  returns: OperatorReturn[]
 }
 
 /** A governed write envelope, as the tool returned it. */
@@ -255,6 +276,8 @@ export interface OperatorReviewQueue {
 
 export interface OperatorReviewDetail {
   review: OperatorReview
+  /** Original reported context. Current business truth is resolved below on read. */
+  shopperHandoff: ShopperHandoff | null
   /** Resolved from pellier.customers on read, never cached on the review. */
   client: {
     customerId: string
@@ -431,6 +454,7 @@ export async function streamConciergeTurn(
   message: string,
   transportKey: string,
   onStep: (step: ConciergeInvestigationStep) => void,
+  onAnswer: (answer: ConciergeStreamAnswer) => void,
 ): Promise<ConciergeTurn & Record<string, unknown>> {
   const response = await fetch(
     `/api/operator/clients/${encodeURIComponent(clientId)}` +
@@ -468,6 +492,7 @@ export async function streamConciergeTurn(
       if (!data) continue
       const parsed = JSON.parse(data)
       if (event === 'step') onStep(parsed as ConciergeInvestigationStep)
+      else if (event === 'answer') onAnswer(parsed as ConciergeStreamAnswer)
       else if (event === 'complete') final = parsed
       else if (event === 'error') {
         throw new OperatorApiError(parsed.detail ?? 'operator_unavailable', 500)

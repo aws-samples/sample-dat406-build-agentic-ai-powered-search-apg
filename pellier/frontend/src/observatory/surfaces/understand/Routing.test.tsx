@@ -89,6 +89,17 @@ describe('Routing surface · LangGraph comparison card', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the shipped dispatcher and operator graph as separate active paths', () => {
+    renderRouting();
+
+    expect(screen.getByText(/active · storefront/i)).toBeInTheDocument();
+    expect(screen.getByText(/active · operator concierge/i)).toBeInTheDocument();
+    const graph = screen.getByRole('button', { name: 'Graph' });
+    expect(graph.textContent).toContain('Case Investigator Agent');
+    expect(graph.textContent).toContain('Resolution Planner Agent');
+    expect(graph.textContent).toContain('Runtime is never left waiting');
+  });
+
   it('lists the three workflow shapes that justify a graph runtime', () => {
     renderRouting();
     // The "when to reach for LangGraph instead" footer is the operator
@@ -98,5 +109,6 @@ describe('Routing surface · LangGraph comparison card', () => {
     expect(copy).toContain('checkpoint');
     expect(copy).toContain('human-in-the-loop');
     expect(copy).toMatch(/cycle|planner.*critic|topology/);
+    expect(copy).toContain('pending review survives in postgresql');
   });
 });

@@ -44,6 +44,23 @@ def test_the_three_state_classes_have_distinct_source_labels() -> None:
     assert ORCH.SOURCE_BEDROCK == "Amazon Bedrock"
 
 
+def test_local_postgres_is_not_presented_as_aurora(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from config import settings
+
+    monkeypatch.setattr(settings, "DB_HOST", "127.0.0.1")
+    assert ORCH.database_source_label() == "Local PostgreSQL"
+    monkeypatch.setattr(
+        settings,
+        "DB_HOST",
+        "dat4xx.cluster-abc123.us-east-1.rds.amazonaws.com",
+    )
+    assert ORCH.database_source_label() == "Aurora PostgreSQL"
+    monkeypatch.setattr(settings, "DB_HOST", "postgres.example.com")
+    assert ORCH.database_source_label() == "PostgreSQL"
+
+
 # ---------------------------------------------------------------------------
 # The model may not contribute structured facts
 # ---------------------------------------------------------------------------
@@ -365,23 +382,39 @@ def test_unauthorized_commitments_are_detected() -> None:
     ) == []
 
 
-class _FakeBedrock:
-    """Returns whatever JSON the test wants, in the Converse response shape."""
+class _FakeOperatorGraph:
+    """Returns the planner JSON without constructing a Strands graph or calling AWS."""
 
     def __init__(self, raw: str) -> None:
         self.raw = raw
         self.calls = 0
 
-    def converse(self, **_kwargs: Any) -> Dict[str, Any]:
+    def run(self, **_kwargs: Any) -> Any:
+        from services.operator_graph import OperatorGraphResult
+
         self.calls += 1
-        return {"output": {"message": {"content": [{"text": self.raw}]}}}
+        return OperatorGraphResult(
+            raw=self.raw,
+            model_id="model-test",
+            metadata={
+                "graphId": "operator-concierge-v1",
+                "pattern": "strands-graph",
+                "executedNodes": [
+                    {"nodeId": "case-investigator", "durationMs": 2},
+                    {"nodeId": "resolution-planner", "durationMs": 3},
+                ],
+                "durationMs": 5,
+                "status": "complete",
+                "checkpoint": {"state": "READ_ONLY_COMPLETE"},
+            },
+        )
 
 
-def _stub_bedrock(monkeypatch: pytest.MonkeyPatch, raw: str) -> _FakeBedrock:
-    import boto3
+def _stub_bedrock(monkeypatch: pytest.MonkeyPatch, raw: str) -> _FakeOperatorGraph:
+    from services import operator_graph
 
-    fake = _FakeBedrock(raw)
-    monkeypatch.setattr(boto3, "client", lambda *a, **k: fake)
+    fake = _FakeOperatorGraph(raw)
+    monkeypatch.setattr(operator_graph, "run_operator_graph", fake.run)
     return fake
 
 
@@ -539,6 +572,36 @@ async def test_a_draft_turn_is_labelled_as_not_sent(
     assistant = [m for m in db.messages if m["role"] == "assistant"]
     assert assistant[-1]["content"].startswith("Thank you")
     assert assistant[-1]["metadata"]["artifact"]["workflow"] == ORCH.WORKFLOW_DRAFT_NOTE
+
+
+@pytest.mark.asyncio
+async def test_the_live_answer_is_emitted_only_after_it_is_durable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _wire(monkeypatch, spec=SUMMARY, fields={
+        "summary": "The client has one open service issue.",
+        "recommendation": "Review the ticket before responding.",
+    })
+    db = FakeDb()
+    session = await SESSIONS.create_session(
+        db, customer_id="CUST-JESSICA", operator_sub="op-1"
+    )
+    stream = ORCH.stream_turn(
+        db,
+        customer_id="CUST-JESSICA",
+        session_id=session["sessionId"],
+        operator_sub="op-1",
+        request="Summarize this client",
+    )
+
+    kinds: List[str] = []
+    async for kind, data in stream:
+        kinds.append(kind)
+        if kind == "answer":
+            assistant = [m for m in db.messages if m["role"] == "assistant"]
+            assert assistant[-1]["content"] == data["summary"]
+
+    assert kinds[-2:] == ["answer", "complete"]
 
 
 @pytest.mark.asyncio

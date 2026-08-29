@@ -563,7 +563,7 @@
   margin-top: 8px;
   margin-bottom: 4px;
   border: 1px solid var(--rule-1);
-  border-radius: 10px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--cream-2) 72%, transparent);
   overflow: hidden;
 }
@@ -582,13 +582,20 @@
 .ec-worked-header:hover {
   background: rgba(31, 20, 16, 0.035);
 }
-.ec-worked-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red-1);
+.ec-worked-live {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--rule-1));
+  background: color-mix(in srgb, var(--accent) 4%, var(--cream-2));
+}
+.ec-worked-status {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--red-1);
   flex-shrink: 0;
-  opacity: 0.8;
+}
+.ec-worked-live .ec-worked-status svg {
+  animation: ec-source-spin 900ms linear infinite;
 }
 .ec-worked-title {
   font-family: var(--sans);
@@ -607,7 +614,7 @@
 }
 .ec-worked-chevron {
   color: var(--ink-4);
-  font-size: 12px;
+  flex: 0 0 auto;
   transition: transform 160ms ease;
 }
 .ec-worked-chevron-open {
@@ -634,6 +641,93 @@
 }
 .ec-worked .ec-msg-attribution {
   margin: 0;
+}
+
+/* Participating systems, carried by the stream. Names and details are visible, so
+ * color is only reinforcement. */
+.ec-source-list {
+  display: grid;
+}
+.ec-source-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--rule-1);
+}
+.ec-source-row:last-child {
+  border-bottom: 0;
+}
+.ec-source-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: var(--ink-3);
+  background: color-mix(in srgb, var(--ink-3) 8%, transparent);
+}
+.ec-source-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ec-source-name {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ink-1);
+}
+.ec-source-detail {
+  overflow-wrap: anywhere;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+.ec-source-status {
+  padding-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green-1);
+}
+.ec-source-row[data-status='in_progress'] .ec-source-status {
+  color: var(--red-1);
+}
+.ec-source-row[data-status='in_progress'] .ec-source-status svg {
+  animation: ec-source-spin 900ms linear infinite;
+}
+.ec-source-row[data-status='unavailable'] .ec-source-status {
+  color: var(--red-1);
+}
+.ec-source-row[data-source-tone='database'] .ec-source-icon {
+  color: #0b7168;
+  background: color-mix(in srgb, #0b7168 10%, transparent);
+}
+.ec-source-row[data-source-tone='memory'] .ec-source-icon {
+  color: #315f9f;
+  background: color-mix(in srgb, #315f9f 10%, transparent);
+}
+.ec-source-row[data-source-tone='model'] .ec-source-icon {
+  color: #8a4b68;
+  background: color-mix(in srgb, #8a4b68 10%, transparent);
+}
+.ec-source-row[data-source-tone='control'] .ec-source-icon {
+  color: #8a5d13;
+  background: color-mix(in srgb, #8a5d13 10%, transparent);
+}
+
+@keyframes ec-source-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .ec-worked-link {
   align-self: flex-start;
@@ -678,19 +772,24 @@
   border-bottom: none;
 }
 .ec-toolcall-indicator {
-  font-family: var(--mono);
-  font-size: 12px;
+  display: grid;
+  place-items: center;
   width: 14px;
   flex-shrink: 0;
-  text-align: center;
 }
 .ec-toolcall-complete .ec-toolcall-indicator {
   color: var(--green-1);
   font-weight: 600;
 }
+.ec-toolcall-failed .ec-toolcall-indicator,
+.ec-toolcall-failed .ec-toolcall-label {
+  color: var(--red-1);
+}
 .ec-toolcall-active .ec-toolcall-indicator {
   color: var(--red-1);
-  animation: toolcall-pulse 1.4s ease-in-out infinite;
+}
+.ec-toolcall-active .ec-toolcall-indicator svg {
+  animation: ec-source-spin 900ms linear infinite;
 }
 .ec-toolcall-label {
   font-family: var(--sans);
@@ -793,7 +892,9 @@
   .ec-thinking-label,
   .ec-msg-streaming,
   .ec-toolcall,
-  .ec-toolcall-active .ec-toolcall-indicator {
+  .ec-toolcall-active .ec-toolcall-indicator svg,
+  .ec-source-row[data-status='in_progress'] .ec-source-status svg,
+  .ec-worked-live .ec-worked-status svg {
     animation: none;
   }
 

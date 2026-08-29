@@ -181,13 +181,37 @@ const ClientRecord: React.FC = () => {
   }
 
   if (error) {
+    const authenticationRequired =
+      error === 'authentication_required' || error === 'invalid_credentials'
+    const operatorRequired = error === 'operator_group_required'
     return (
       <div className="operator-state" data-testid="operator-record-error">
         <Link to="/operator" className="operator-back">
           ← Clients
         </Link>
-        <span className="operator-state-title">Record unavailable</span>
-        Aurora did not return a record for <code>{customerId}</code>.
+        <span className="operator-state-title">
+          {authenticationRequired
+            ? 'Operator sign-in required'
+            : operatorRequired
+              ? 'Operator access required'
+              : 'Record unavailable'}
+        </span>
+        {authenticationRequired ? (
+          <>
+            Sign in with the workshop operator account to read this client
+            record. No database request was attempted.
+          </>
+        ) : operatorRequired ? (
+          <>
+            This signed-in account is not a member of the operator group. No
+            database request was attempted.
+          </>
+        ) : (
+          <>
+            The live database did not return a record for{' '}
+            <code>{customerId}</code>.
+          </>
+        )}
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>
@@ -257,14 +281,22 @@ const ClientRecord: React.FC = () => {
         {/* Identity on the left, what the house owes them on the right. */}
         <div className="operator-standing">
           <MembershipRung membership={client.membership} describe />
-          {client.personaId ? (
-            <div className="operator-standing-row">
-              <span>Storefront</span>
-              <Link to="/" className="operator-back">
-                What {client.name.split(' ')[0]} sees
-              </Link>
-            </div>
-          ) : null}
+          <div className="operator-standing-row">
+            <span>Storefront</span>
+            <Link
+              to={
+                client.personaId
+                  ? `/?persona=${encodeURIComponent(client.personaId)}`
+                  : `/?clientPreview=${encodeURIComponent(client.customerId)}`
+              }
+              className="operator-back"
+              data-testid="operator-storefront-handoff"
+            >
+              {client.personaId
+                ? `Open ${client.name.split(' ')[0]}'s storefront`
+                : 'Preview client context'}
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -566,9 +598,8 @@ const ClientRecord: React.FC = () => {
               <div className="operator-receipt-head">
                 Operator sign-in required
               </div>
-              Reading this desk is open. Writing to it is not: the credit and
-              return actions need a verified operator token so the mutation can
-              be attributed to a person.
+              This desk and its actions require a verified operator-group
+              identity so every read, decision, and mutation is attributable.
             </div>
           ) : null}
 

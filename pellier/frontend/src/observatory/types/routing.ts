@@ -11,6 +11,7 @@ export interface RoutingPattern {
   slug: string;
   description: string;
   isActive: boolean;
+  activeIn?: string;
   agents: string[];
   codeSnippet: string;
   diagram?: string;

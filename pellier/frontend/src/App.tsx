@@ -42,6 +42,9 @@ const TelemetryTab = lazy(() => import('./observatory/surfaces/observe/Telemetry
 const BriefTab = lazy(() => import('./observatory/surfaces/observe/BriefTab'))
 const WorkshopMap = lazy(() => import('./observatory/surfaces/observe/WorkshopMap'))
 const ProofBoard = lazy(() => import('./observatory/surfaces/observe/ProofBoard'))
+const OperatorLineage = lazy(
+  () => import('./observatory/surfaces/observe/OperatorLineage'),
+)
 const ObservatoryWorkbench = lazy(
   () => import('./observatory/surfaces/observe/ObservatoryWorkbench'),
 )
@@ -238,9 +241,9 @@ export function AppRoutes() {
         <Route path="/agent-trace/*" element={<LegacyPathRedirect />} />
         <Route path="/pellier-labs/*" element={<LegacyPathRedirect />} />
         <Route path="/labs/*" element={<LegacyPathRedirect />} />
-        {/* Pellier Operator — the clienteling desk. Reads are open so the
-            surface is never a blank 401 on a box with no Cognito wired; the
-            write actions are gated by require_operator server-side. */}
+        {/* Pellier Operator — one authorization boundary. Every route,
+            including client and review reads, inherits require_operator from
+            the backend router. */}
         <Route path="/operator" element={<OperatorFrame />}>
           <Route index element={<ClientBook />} />
           <Route path="clients/:customerId" element={<ClientRecord />} />
@@ -254,6 +257,7 @@ export function AppRoutes() {
           <Route index element={<ObservatoryWorkbench />} />
           <Route path="references" element={<ReferencesIndex />} />
           <Route path="proof-board" element={<ProofBoard />} />
+          <Route path="operator-lineage" element={<OperatorLineage />} />
           <Route
             path="audit-proof"
             element={<ProofBoard focusCardId="audit-ledger" />}

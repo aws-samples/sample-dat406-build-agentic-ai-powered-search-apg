@@ -1,22 +1,20 @@
-"""Golden-set journey regressions — Batch 4 evals spike (Day 1 CI gate).
+"""Golden retail journeys: deterministic fixture and teaching-contract gates.
 
-Loads `tests/golden/journeys.json` and asserts each pinned Observatory session
-fixture still matches the workshop's non-negotiable agent behavior:
-which tools fire (and in what order), which products surface, and which
-routing pattern owns the turn. Deterministic, no AWS calls, no model
-invocations — purely structural assertions over the published fixtures.
+Version 2 keeps the original fixture regressions, then adds the stage contract
+participants are meant to learn:
 
-Sister artifact: `services/agentcore_evals.py` (graduation path — env-flag-
-gated `StartBatchEvaluation` call against AgentCore Evaluations). The Measure
-surface copy distinguishes the two: golden-set runs every PR; AgentCore
-Evals runs at prod cutover.
+    intent -> identity -> grounding -> proposal -> human decision
+      -> authorization -> data enforcement -> durable evidence -> outcome
+
+The file does not claim a local fixture proves AgentCore. Managed verdicts stay
+``deferred_live`` until a fresh AWS environment produces them.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Tuple
 
 import pytest
 
@@ -24,12 +22,25 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_FILE = Path(__file__).resolve().parent / "golden" / "journeys.json"
 
 
-def _load_journeys() -> Dict[str, Any]:
+def _load_golden() -> Dict[str, Any]:
     return json.loads(GOLDEN_FILE.read_text(encoding="utf-8"))
 
 
-def _load_fixture(fixture_root: str, fixture_name: str) -> Dict[str, Any]:
-    path = REPO_ROOT / fixture_root / fixture_name
+GOLDEN = _load_golden()
+JOURNEYS = GOLDEN["journeys"]
+
+
+def _fixture_checks() -> Iterable[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    for journey in JOURNEYS:
+        for check in journey.get("fixtureChecks", []):
+            yield journey, check
+
+
+FIXTURE_CHECKS = list(_fixture_checks())
+
+
+def _load_fixture(fixture_name: str) -> Dict[str, Any]:
+    path = REPO_ROOT / GOLDEN["fixtureRoot"] / fixture_name
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -43,19 +54,22 @@ def _assistant_turn(fixture: Dict[str, Any], turn_index: int) -> Dict[str, Any]:
     return assistants[turn_index - 1]
 
 
-_JOURNEYS = _load_journeys()["journeys"]
-
-
-@pytest.mark.parametrize("journey", _JOURNEYS, ids=[j["id"] for j in _JOURNEYS])
-def test_golden_journey(journey: Dict[str, Any]) -> None:
-    fixture_root = _load_journeys()["fixtureRoot"]
-    fixture = _load_fixture(fixture_root, journey["fixture"])
-    asserts = journey["asserts"]
+@pytest.mark.parametrize(
+    ("journey", "check"),
+    FIXTURE_CHECKS,
+    ids=[f"{j['id']}:{c['id']}" for j, c in FIXTURE_CHECKS],
+)
+def test_golden_fixture_check(
+    journey: Dict[str, Any], check: Dict[str, Any]
+) -> None:
+    fixture = _load_fixture(check["fixture"])
+    asserts = check["asserts"]
+    check_id = f"{journey['id']}:{check['id']}"
 
     expected_pattern = asserts.get("routingPattern")
     if expected_pattern is not None:
         assert fixture.get("routingPattern") == expected_pattern, (
-            f"{journey['id']}: routingPattern drift "
+            f"{check_id}: routingPattern drift "
             f"(expected {expected_pattern!r}, got {fixture.get('routingPattern')!r})"
         )
 
@@ -64,55 +78,115 @@ def test_golden_journey(journey: Dict[str, Any]) -> None:
     tools_in_order = [tc["toolName"] for tc in tool_calls]
     tools_set = set(tools_in_order)
 
-    if "expectedTools" in asserts:
-        for tool in asserts["expectedTools"]:
-            assert tool in tools_set, (
-                f"{journey['id']}: expected tool {tool!r} missing "
-                f"(saw {tools_in_order})"
-            )
+    for tool in asserts.get("expectedTools", []):
+        assert tool in tools_set, (
+            f"{check_id}: expected tool {tool!r} missing (saw {tools_in_order})"
+        )
 
-    if "expectedToolsInOrder" in asserts:
-        expected = asserts["expectedToolsInOrder"]
-        idx = -1
-        for tool in expected:
-            try:
-                next_idx = tools_in_order.index(tool, idx + 1)
-            except ValueError as exc:
-                raise AssertionError(
-                    f"{journey['id']}: tool ordering broken — expected "
-                    f"{expected} as a subsequence; saw {tools_in_order}"
-                ) from exc
-            idx = next_idx
+    expected_order = asserts.get("expectedToolsInOrder", [])
+    index = -1
+    for tool in expected_order:
+        try:
+            index = tools_in_order.index(tool, index + 1)
+        except ValueError as exc:
+            raise AssertionError(
+                f"{check_id}: expected {expected_order} as a subsequence; "
+                f"saw {tools_in_order}"
+            ) from exc
 
-    if "forbiddenTools" in asserts:
-        for tool in asserts["forbiddenTools"]:
-            assert tool not in tools_set, (
-                f"{journey['id']}: forbidden tool {tool!r} fired "
-                f"(saw {tools_in_order})"
-            )
+    for tool in asserts.get("forbiddenTools", []):
+        assert tool not in tools_set, (
+            f"{check_id}: forbidden tool {tool!r} fired (saw {tools_in_order})"
+        )
 
     products = [p["name"] for p in turn.get("products", [])]
     products_set = set(products)
+    for name in asserts.get("expectedProductsAll", []):
+        assert name in products_set, (
+            f"{check_id}: required product {name!r} missing (surfaced {products})"
+        )
 
-    if "expectedProductsAll" in asserts:
-        for name in asserts["expectedProductsAll"]:
-            assert name in products_set, (
-                f"{journey['id']}: required product {name!r} missing "
-                f"(surfaced {products})"
-            )
-
-    if "expectedProductsAny" in asserts:
-        any_match = any(n in products_set for n in asserts["expectedProductsAny"])
-        assert any_match, (
-            f"{journey['id']}: none of {asserts['expectedProductsAny']} "
-            f"surfaced (surfaced {products})"
+    expected_any = asserts.get("expectedProductsAny", [])
+    if expected_any:
+        assert any(name in products_set for name in expected_any), (
+            f"{check_id}: none of {expected_any} surfaced (surfaced {products})"
         )
 
 
-def test_golden_set_covers_all_three_personas() -> None:
-    """The fixture set must keep teaching coverage across the three personas;
-    if a future edit drops a persona, this test fails so we notice."""
-    personas = {j["persona"] for j in _JOURNEYS}
-    assert personas == {"marco", "anna", "theo"}, (
-        f"Persona coverage drift — expected marco/anna/theo, got {personas}"
+def test_golden_set_names_the_complete_retail_cast() -> None:
+    """The hero remains three people; guest and Jessica add boundary coverage."""
+    personas = {journey["persona"] for journey in JOURNEYS}
+    assert personas == {"guest", "marco", "anna", "theo", "jessica"}
+
+
+@pytest.mark.parametrize("journey", JOURNEYS, ids=[j["id"] for j in JOURNEYS])
+def test_every_journey_uses_the_same_teaching_order(journey: Dict[str, Any]) -> None:
+    expected = GOLDEN["stageContract"]["order"]
+    stages = journey["stages"]
+    assert [stage["id"] for stage in stages] == expected
+
+    allowed = set(GOLDEN["stageContract"]["proofStates"])
+    assert all(stage["proof"] in allowed for stage in stages)
+    assert all(stage["teaches"].strip() for stage in stages)
+
+
+def test_closed_loop_keeps_actor_subject_and_confirmation_distinct() -> None:
+    """The operator is authorized; the customer is the RLS subject."""
+    journey = next(
+        item for item in JOURNEYS if item["id"] == "theo-damaged-return-closed-loop"
     )
+    actors = journey["actors"]
+    contract = journey["closedLoop"]
+
+    assert actors["executor"]["principal"] != actors["customerSubject"]
+    assert actors["executor"]["requiredGroup"] == "pellier-operators"
+    assert contract["humanConfirmationRequired"] is True
+    assert contract["executionParametersSource"] == "persisted_review_only"
+    assert contract["serverResolvedCustomerSubject"] is True
+
+
+def test_closed_loop_requires_fingerprint_idempotency_rls_and_receipt() -> None:
+    journey = next(
+        item for item in JOURNEYS if item["id"] == "theo-damaged-return-closed-loop"
+    )
+    contract = journey["closedLoop"]
+
+    assert contract["materialParameters"] == [
+        "customer_id",
+        "product_id",
+        "reason",
+    ]
+    assert contract["actionFingerprint"] == "sha256_canonical_operation_arguments"
+    assert contract["idempotencyRequired"] is True
+    assert contract["rowLevelSecurityRequired"] is True
+    assert contract["receiptRequired"] is True
+    assert contract["correlationKey"] == "turn_id"
+
+
+def test_local_golden_set_never_fabricates_a_managed_verdict() -> None:
+    """Local PostgreSQL may prove workflow state, never Cedar ALLOW/DENY."""
+    for journey in JOURNEYS:
+        if journey["kind"] != "governed_write":
+            continue
+        by_id = {stage["id"]: stage for stage in journey["stages"]}
+        assert by_id["authorization"]["proof"] == "deferred_live"
+        assert by_id["customer_outcome"]["proof"] == "deferred_live"
+        assert (
+            journey["closedLoop"]["localExecutionBoundary"]
+            == "managed_execution_deferred_live"
+        )
+
+
+def test_jessica_preserves_fact_context_and_inference() -> None:
+    journey = next(
+        item
+        for item in JOURNEYS
+        if item["id"] == "jessica-return-evidence-reconciliation"
+    )
+    contract = journey["epistemicContract"]
+
+    assert set(contract) == {"fact", "context", "inference", "forbiddenClaim"}
+    assert "returns" in contract["fact"].lower()
+    assert "TKT-2026-3015" in contract["context"]
+    assert journey["safeStop"]["consequentialActionPrepared"] is False
+    assert contract["forbiddenClaim"] == "Jessica completed a return"

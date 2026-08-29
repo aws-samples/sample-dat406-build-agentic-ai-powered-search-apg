@@ -73,6 +73,12 @@ interface PersonaContextType {
   persona: PersonaSnapshot | null
   /** Switch to a new persona. Generates a new session, clears chat. */
   switchPersona: (personaId: string) => Promise<void>
+  /**
+   * Clear the active shopper identity without rendering a sign-out
+   * celebration. Operator client previews use this so client context can never
+   * appear inside another shopper's personalized storefront.
+   */
+  clearPersona: () => void
   /** Sign out — clear the active persona. */
   signOut: () => void
   /** Whether a switch is in flight. */
@@ -91,6 +97,20 @@ const PersonaContext = createContext<PersonaContextType | undefined>(undefined)
 
 const PERSONA_STORAGE_KEY = 'pellier-persona'
 const SESSION_KEY = 'pellier-session-id'
+
+function clearPersonaStorage(): void {
+  try {
+    sessionStorage.removeItem(PERSONA_STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+  localStorage.removeItem(SESSION_KEY)
+  localStorage.removeItem('pellier-storefront-chat')
+  localStorage.removeItem('pellier-observatory-chat')
+  localStorage.removeItem('pellier-concierge-storefront')
+  localStorage.removeItem('pellier-concierge-observatory')
+  localStorage.removeItem('pellier-drawer-storefront')
+}
 
 function loadStoredPersona(): PersonaSnapshot | null {
   try {
@@ -196,22 +216,17 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const clearPersona = useCallback(() => {
+    setPersona(null)
+    clearPersonaStorage()
+    setLastTransition(null)
+  }, [])
+
   const signOut = useCallback(() => {
     // Snapshot the current persona BEFORE clearing so the sign-out
     // overlay can greet the right name ("See you soon, Marco").
     const outgoing = persona
-    setPersona(null)
-    try {
-      sessionStorage.removeItem(PERSONA_STORAGE_KEY)
-    } catch {
-      // ignore
-    }
-    localStorage.removeItem(SESSION_KEY)
-    localStorage.removeItem('pellier-storefront-chat')
-    localStorage.removeItem('pellier-observatory-chat')
-    localStorage.removeItem('pellier-concierge-storefront')
-    localStorage.removeItem('pellier-concierge-observatory')
-    localStorage.removeItem('pellier-drawer-storefront')
+    clearPersona()
     if (outgoing) {
       setLastTransition({
         id: Date.now(),
@@ -219,7 +234,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
         persona: outgoing,
       })
     }
-  }, [persona])
+  }, [clearPersona, persona])
 
   const clearTransition = useCallback(() => setLastTransition(null), [])
 
@@ -228,6 +243,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
       value={{
         persona,
         switchPersona,
+        clearPersona,
         signOut,
         switching,
         lastTransition,

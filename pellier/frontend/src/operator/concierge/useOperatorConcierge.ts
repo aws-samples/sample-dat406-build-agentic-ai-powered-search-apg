@@ -33,6 +33,7 @@ import type {
   ConciergeConfig,
   ConciergeInvestigationStep,
   ConciergeMessage,
+  ConciergeStreamAnswer,
 } from '../../services/operator'
 
 export type ConciergeStatus =
@@ -57,6 +58,8 @@ export interface ConciergeController {
   liveSteps: ConciergeInvestigationStep[]
   /** The request currently in flight, so it renders before the answer exists. */
   pendingRequest: string | null
+  /** Durable server answer, visible while post-answer work and history reload finish. */
+  liveAnswer: ConciergeStreamAnswer | null
   submit: (message: string) => Promise<void>
 }
 
@@ -75,6 +78,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
   const [error, setError] = useState<string | null>(null)
   const [liveSteps, setLiveSteps] = useState<ConciergeInvestigationStep[]>([])
   const [pendingRequest, setPendingRequest] = useState<string | null>(null)
+  const [liveAnswer, setLiveAnswer] = useState<ConciergeStreamAnswer | null>(null)
   const active = useRef(true)
 
   useEffect(() => {
@@ -90,6 +94,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
     setError(null)
     setMessages([])
     setSessionId(null)
+    setLiveAnswer(null)
 
     // Independent reads, so concurrently. `allSettled` because a capability
     // read failing must not hide the conversation, and vice versa.
@@ -149,6 +154,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       setStatus('submitting')
       setError(null)
       setLiveSteps([])
+      setLiveAnswer(null)
       // Show the request immediately. Seven seconds of stillness after pressing
       // Enter is the single worst part of the experience, and the request is a fact
       // as soon as it is sent.
@@ -159,15 +165,25 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
         if (!active.current) return
         setSessionId(id)
 
-        await streamConciergeTurn(clientId, id, text, transportKey(), (step) => {
-          if (!active.current) return
-          setLiveSteps((prev) => {
-            // A `running` step is replaced by its completed form rather than
-            // duplicated, so the list reflects state instead of history.
-            const next = prev.filter((s) => s.kind !== step.kind)
-            return [...next, step]
-          })
-        })
+        await streamConciergeTurn(
+          clientId,
+          id,
+          text,
+          transportKey(),
+          (step) => {
+            if (!active.current) return
+            setLiveSteps((prev) => {
+              // A `running` step is replaced by its completed form rather than
+              // duplicated, so the list reflects state instead of history.
+              const next = prev.filter((s) => s.kind !== step.kind)
+              return [...next, step]
+            })
+          },
+          (answer) => {
+            if (!active.current) return
+            setLiveAnswer(answer)
+          },
+        )
         if (!active.current) return
 
         // Reload rather than optimistically appending: the server owns turn state,
@@ -177,12 +193,14 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
         setMessages(session.customerId === clientId ? session.messages : [])
         setPendingRequest(null)
         setLiveSteps([])
+        setLiveAnswer(null)
         setStatus(governedActionsAvailable ? 'ready' : 'read_only')
       } catch (err) {
         if (!active.current) return
         setError(err instanceof Error ? err.message : 'operator_unavailable')
         setPendingRequest(null)
         setLiveSteps([])
+        setLiveAnswer(null)
         setStatus(governedActionsAvailable ? 'ready' : 'read_only')
       }
     },
@@ -201,6 +219,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       error,
       liveSteps,
       pendingRequest,
+      liveAnswer,
       submit,
     }),
     [
@@ -214,6 +233,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       error,
       liveSteps,
       pendingRequest,
+      liveAnswer,
       submit,
     ],
   )

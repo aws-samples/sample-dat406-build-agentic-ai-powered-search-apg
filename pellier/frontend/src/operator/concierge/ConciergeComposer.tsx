@@ -10,6 +10,7 @@
  */
 
 import React, { useCallback, useState } from 'react'
+import { ArrowUp, LoaderCircle } from 'lucide-react'
 
 interface Props {
   /** Server truth has not arrived yet. Distinct from `enabled: false`. */
@@ -94,12 +95,16 @@ const ConciergeComposer: React.FC<Props> = ({
             className="operator-concierge-ask"
             onClick={() => void send()}
             disabled={submitting || !value.trim()}
+            aria-label={submitting ? 'Concierge is working' : 'Ask the Concierge'}
+            title={submitting ? 'Concierge is working' : 'Ask the Concierge'}
+            data-submitting={submitting}
             data-testid="operator-concierge-ask"
           >
-            {/* "Ask", not "Send". Nothing on this surface sends anything to a
-                client, and a Send button under a draft labelled "not sent" is an
-                invitation to misread it. */}
-            {submitting ? 'Working' : 'Ask'}
+            {submitting ? (
+              <LoaderCircle size={15} strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
+            )}
           </button>
         ) : null}
       </div>

@@ -32,6 +32,7 @@ import {
 import ActionAssurance from '../components/ActionAssurance'
 import ClientAvatar from '../components/ClientAvatar'
 import MembershipRung from '../components/MembershipRung'
+import ShopperHandoffView from '../components/ShopperHandoffView'
 
 function money(value: number): string {
   return value.toLocaleString('en-US', {
@@ -175,15 +176,33 @@ const ReviewRecord: React.FC = () => {
   }
 
   if (error) {
+    const authenticationRequired =
+      error === 'authentication_required' || error === 'invalid_credentials'
+    const operatorRequired = error === 'operator_group_required'
     return (
       <div className="operator-state" data-testid="operator-review-error">
         <span className="operator-state-title">
-          {error === 'review_not_found'
-            ? 'No such review'
-            : 'This review is unavailable'}
+          {authenticationRequired
+            ? 'Operator sign-in required'
+            : operatorRequired
+              ? 'Operator access required'
+              : error === 'review_not_found'
+                ? 'No such action'
+                : 'This prepared action is unavailable'}
         </span>
+        {authenticationRequired ? (
+          <span>
+            Sign in with the workshop operator account to read this prepared
+            action. No database request was attempted.
+          </span>
+        ) : operatorRequired ? (
+          <span>
+            This signed-in account is not a member of the operator group. No
+            database request was attempted.
+          </span>
+        ) : null}
         <Link to="/operator/reviews" className="operator-filter-clear">
-          Back to reviews
+          Back to Action Queue
         </Link>
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
@@ -195,12 +214,20 @@ const ReviewRecord: React.FC = () => {
   if (!detail) {
     return (
       <div className="operator-state" data-testid="operator-review-loading">
-        Reading this review from Aurora…
+        Reading action details from Aurora…
       </div>
     )
   }
 
-  const { review, client, order, product, fulfilment, returns } = detail
+  const {
+    review,
+    shopperHandoff,
+    client,
+    order,
+    product,
+    fulfilment,
+    returns,
+  } = detail
   const rung = MEMBERSHIP[client.membership]
   const pending = review.humanState === 'confirmation_required'
   // The return this review produced is not part of the client's prior history. It is
@@ -221,9 +248,12 @@ const ReviewRecord: React.FC = () => {
   const axes = execution ? execution.assurance : review.assurance
 
   return (
-    <div data-testid="operator-review-record">
+    <div
+      className="operator-review-record-layout"
+      data-testid="operator-review-record"
+    >
       <nav className="operator-back">
-        <Link to="/operator/reviews">Reviews</Link>
+        <Link to="/operator/reviews">Action Queue</Link>
         <span aria-hidden="true">/</span>
         <span>{client.name}</span>
       </nav>
@@ -262,10 +292,32 @@ const ReviewRecord: React.FC = () => {
             Open the full client record
           </Link>
         </div>
+        <div
+          className="operator-review-head-state"
+          data-state={review.humanState}
+        >
+          <span className="operator-review-cell-label">Action state</span>
+          <span>
+            {pending
+              ? 'Decision required'
+              : review.humanState === 'confirmed'
+                ? 'Confirmed'
+                : 'Declined'}
+          </span>
+        </div>
       </header>
 
+      {shopperHandoff ? (
+        <div className="operator-card operator-review-handoff-card">
+          <ShopperHandoffView handoff={shopperHandoff} clientName={client.name} />
+        </div>
+      ) : null}
+
       {/* ISSUE */}
-      <section className="operator-card" data-testid="operator-review-issue">
+      <section
+        className="operator-card operator-review-context-card"
+        data-testid="operator-review-issue"
+      >
         <h2 className="operator-card-title">Issue</h2>
         <p className="operator-review-issue-text">
           {/* The issue describes the PROBLEM ("arrived damaged"), and the product name
@@ -290,7 +342,10 @@ const ReviewRecord: React.FC = () => {
       </section>
 
       {/* ORDER */}
-      <section className="operator-card" data-testid="operator-review-order">
+      <section
+        className="operator-card operator-review-order-card"
+        data-testid="operator-review-order"
+      >
         <h2 className="operator-card-title">Order</h2>
         {order ? (
           <div className="operator-table-wrap"><table className="operator-table">
@@ -344,7 +399,10 @@ const ReviewRecord: React.FC = () => {
       </section>
 
       {/* AGENT RECOMMENDATION */}
-      <section className="operator-card" data-testid="operator-review-recommendation">
+      <section
+        className="operator-card operator-review-recommendation-card"
+        data-testid="operator-review-recommendation"
+      >
         <h2 className="operator-card-title">Pellier recommends</h2>
         <p className="operator-review-issue-text">
           {actionTitle(review.action, review.parameters)}
@@ -377,7 +435,10 @@ const ReviewRecord: React.FC = () => {
       </section>
 
       {/* PROPOSED ACTION */}
-      <section className="operator-card" data-testid="operator-review-action">
+      <section
+        className="operator-card operator-review-action-card"
+        data-testid="operator-review-action"
+      >
         <h2 className="operator-card-title">Proposed action</h2>
         <p className="operator-table-id operator-review-action-name">
           {review.action}
@@ -405,7 +466,10 @@ const ReviewRecord: React.FC = () => {
       </section>
 
       {/* HUMAN DECISION */}
-      <section className="operator-card" data-testid="operator-review-decision">
+      <section
+        className="operator-card operator-review-decision-card"
+        data-testid="operator-review-decision"
+      >
         <h2 className="operator-card-title">Your decision</h2>
         {pending ? (
           <>
@@ -508,7 +572,7 @@ const ReviewRecord: React.FC = () => {
             {decisionError === 'parameters_changed'
               ? 'The proposed values changed since this page loaded. Reload and read the new terms before confirming.'
               : decisionError === 'operator_sign_in_required'
-                ? 'A verified operator sign-in is required to decide a review.'
+                ? 'A verified operator sign-in is required to decide this action.'
                 : decisionError}
           </p>
         ) : null}

@@ -21,7 +21,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, Mic, MicOff, Send, Trash2, X } from 'lucide-react'
+import {
+  ArrowUp,
+  LoaderCircle,
+  MessageCircle,
+  Mic,
+  MicOff,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useUI } from '../contexts/UIContext'
 import { useLayout } from '../contexts/LayoutContext'
 import { useCart } from '../contexts/CartContext'
@@ -80,7 +88,7 @@ export default function ChatDrawer() {
   const isOpen = activeModal === 'drawer'
   const [isMac, setIsMac] = useState(false)
   const [voiceError, setVoiceError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -280,6 +288,13 @@ export default function ChatDrawer() {
   const hasUserMessages = messages.some(m => m.role === 'user')
   const keycap = isMac ? '⌘K' : 'Ctrl+K'
 
+  useLayoutEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${Math.min(input.scrollHeight, 104)}px`
+  }, [inputValue])
+
   if (!persona) return null
 
   return createPortal(
@@ -392,10 +407,10 @@ export default function ChatDrawer() {
             {/* Footer */}
             <div className="cd-foot">
               <div className="cd-input-row">
-                <input
+                <textarea
                   ref={inputRef}
-                  type="text"
                   className="cd-input"
+                  rows={1}
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   onKeyDown={handleKeyPress}
@@ -423,11 +438,16 @@ export default function ChatDrawer() {
                   type="button"
                   className="cd-send"
                   disabled={!inputValue.trim() || isLoading || isListening}
-                  aria-label="Send"
-                  title="Send"
+                  aria-label={isLoading ? 'Pellier is responding' : 'Ask Pellier'}
+                  title={isLoading ? 'Pellier is responding' : 'Ask Pellier'}
+                  data-loading={isLoading}
                   onClick={() => sendMessage()}
                 >
-                  <Send size={16} />
+                  {isLoading ? (
+                    <LoaderCircle size={16} aria-hidden="true" />
+                  ) : (
+                    <ArrowUp size={16} aria-hidden="true" />
+                  )}
                 </button>
               </div>
               <div className="cd-foot-meta">

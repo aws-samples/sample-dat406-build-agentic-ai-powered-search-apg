@@ -26,11 +26,12 @@ _INSERT_SQL = """
     INSERT INTO pellier.governed_turn_receipts (
         turn_id, session_id, principal_sub, principal_verified, rail,
         model_config, retrieval_receipt_id, citations, tool_audit_ids,
-        policy_events, trace, terminal_outcome, terminal_status, latency_ms
+        policy_events, trace, handoff_context, terminal_outcome,
+        terminal_status, latency_ms
     ) VALUES (
         %s, %s, %s, %s, %s,
         %s::jsonb, %s, %s::jsonb, %s::jsonb,
-        %s::jsonb, %s::jsonb, %s::jsonb, %s, %s
+        %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s
     )
 """
 
@@ -92,6 +93,7 @@ _RECEIPT_BY_TURN_SQL = """
            tool_audit_ids,
            policy_events,
            trace,
+           handoff_context,
            terminal_outcome,
            terminal_status,
            latency_ms,
@@ -379,6 +381,7 @@ async def persist_turn_receipt(
     latency_ms: Optional[int],
     trace: Optional[Dict[str, Any]] = None,
     terminal_error_code: Optional[str] = None,
+    handoff_context: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Persist one immutable turn record and return its truthful summary.
 
@@ -422,6 +425,13 @@ async def persist_turn_receipt(
         outcome = {
             "error_code": terminal_error_code,
         } if terminal_error_code else {}
+        from services.shopper_handoff import attach_evidence_refs
+
+        durable_handoff = attach_evidence_refs(
+            handoff_context or {},
+            retrieval_receipt_id=receipt_id,
+            audit_rows=audit_rows,
+        )
         await db.execute_query(
             _INSERT_SQL,
             turn_id,
@@ -446,6 +456,7 @@ async def persist_turn_receipt(
             ),
             _json(policy_events),
             _json(_trace_metadata(trace)),
+            _json(durable_handoff),
             _json(outcome),
             terminal_status,
             latency_ms,
@@ -484,9 +495,20 @@ async def get_turn_receipt(
         "tool_audit_ids",
         "policy_events",
         "trace",
+        "handoff_context",
         "terminal_outcome",
     ):
-        receipt[key] = _decode_json(receipt.get(key), {} if key in {"model_config", "trace", "terminal_outcome"} else [])
+        receipt[key] = _decode_json(
+            receipt.get(key),
+            {}
+            if key in {
+                "model_config",
+                "trace",
+                "handoff_context",
+                "terminal_outcome",
+            }
+            else [],
+        )
     receipt["created_at"] = _iso(receipt.get("created_at"))
     return receipt
 

@@ -15,8 +15,8 @@
  * The hero occupies the entire viewport so the first impression is
  * the search bar. Scrolling reveals the editorial product showcase.
  */
-import { useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
 import PellierHero from '../components/PellierHero'
@@ -30,6 +30,7 @@ import ProductCard from '../components/ProductCard'
 import ResponsiveImage from '../components/ResponsiveImage'
 import Footer from '../components/Footer'
 import PellierSpotlight from '../components/PellierSpotlight'
+import OperatorClientPreview from '../components/OperatorClientPreview'
 // CommandPill removed — hero search bar is the primary entry point
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
@@ -74,8 +75,35 @@ export default function PellierPage() {
   const { prefsVersion } = useAuth()
   const { openModal, setChatSurface } = useUI()
   const { addToCart } = useCart()
-  const { persona } = usePersona()
+  const { persona, switchPersona, clearPersona } = usePersona()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const handledPersona = useRef<string | null>(null)
+
+  const requestedPersona = searchParams.get('persona')?.trim().toLowerCase() ?? ''
+  const clientPreviewId = searchParams.get('clientPreview')?.trim() ?? ''
+
+  // A hero handoff is a real persona switch, not a decorative link. Consume
+  // the query once so refresh does not mint a second shopper session.
+  useEffect(() => {
+    if (!requestedPersona || handledPersona.current === requestedPersona) return
+    handledPersona.current = requestedPersona
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('persona')
+    setSearchParams(next, { replace: true })
+
+    if (requestedPersona in PERSONA_PRODUCTS) {
+      void switchPersona(requestedPersona)
+    }
+  }, [requestedPersona, searchParams, setSearchParams, switchPersona])
+
+  // A nonhero client preview must never inherit Marco, Anna, or Theo's
+  // storefront state. This clears only the workshop persona/session state;
+  // the httpOnly operator authorization cookie is untouched.
+  useLayoutEffect(() => {
+    if (clientPreviewId && persona) clearPersona()
+  }, [clearPersona, clientPreviewId, persona])
 
   // Persona-aware featured product + grid ordering + weekend edit.
   const personaId = persona?.id ?? null
@@ -157,6 +185,12 @@ export default function PellierPage() {
     document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  const closeClientPreview = () => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('clientPreview')
+    setSearchParams(next, { replace: true })
+  }
+
   return (
     <div className="pellier-page-surface min-h-dvh bg-cream-50">
       {/* Announcement bar — full-width above the header */}
@@ -165,6 +199,13 @@ export default function PellierPage() {
       <Header current="home" onNavigate={handleNavigate} />
 
       <main className="bg-cream">
+        {clientPreviewId ? (
+          <OperatorClientPreview
+            customerId={clientPreviewId}
+            onClose={closeClientPreview}
+          />
+        ) : null}
+
         {/* ── ACT 1: editorial statement, product photograph, concierge ── */}
         <PellierHero onBrowseCollection={handleOpenCatalog} />
 

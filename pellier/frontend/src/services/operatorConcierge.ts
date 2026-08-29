@@ -17,6 +17,58 @@ export interface ConciergeInvestigationStep {
   status: string
   durationMs?: number | null
   result?: string
+  metadata?: ConciergeOrchestration
+}
+
+export interface ShopperHandoff {
+  schemaVersion: string
+  trust: 'UNTRUSTED_SHOPPER_CONTEXT' | string
+  checkpoint: 'WAITING_FOR_HUMAN' | string
+  customerId: string
+  source: {
+    sessionId?: string | null
+    turnId: string
+  }
+  shopperRequest: string
+  transcriptExcerpt?: {
+    role: 'user' | 'assistant'
+    content: string
+    truncated?: string
+  }[]
+  assistantResponseExcerpt?: string
+  routing: {
+    specialist?: string
+    tools?: string[]
+  }
+  proposal: {
+    reviewId: number
+    action: string
+    actionHash: string
+  }
+  evidenceRefs?: { kind: string; id: string | number }[]
+}
+
+export interface ConciergeGraphNode {
+  nodeId: string
+  kind?: string
+  status: string
+  durationMs?: number | null
+}
+
+export interface ConciergeOrchestration {
+  graphId?: string
+  pattern?: string
+  execution?: string
+  deploymentTarget?: string
+  agents?: string[]
+  executedNodes?: ConciergeGraphNode[]
+  durationMs?: number | null
+  status?: string
+  checkpoint?: {
+    state?: string
+    reviewId?: number | null
+    actionHash?: string
+  }
 }
 
 export interface ConciergeEvidenceItem {
@@ -234,6 +286,10 @@ export interface ConciergeArtifact {
   sources?: { source: string; detail: string }[]
   modelId?: string
   capabilityObservation?: { capability: string; state: string; observedAt?: string }[]
+  /** Immutable shopper context, kept separate from current PostgreSQL facts. */
+  shopperHandoff?: ShopperHandoff | null
+  /** Actual graph metadata, never a reconstructed reasoning trace. */
+  orchestration?: ConciergeOrchestration
 }
 
 export interface ConciergeMessage {
@@ -259,6 +315,8 @@ export interface ConciergeSession {
 
 export interface ConciergeConfig {
   composerEnabled: boolean
+  /** Runtime truth: Local PostgreSQL here, Aurora PostgreSQL on the workshop box. */
+  dataSource?: string
   /**
    * The workflow kinds the orchestrator actually implements, published by the server.
    *
@@ -281,4 +339,13 @@ export interface ConciergeTurn {
   content: string
   turnState: TurnState
   replayed: boolean
+}
+
+/** A server-owned answer emitted only after the durable transcript write succeeds. */
+export interface ConciergeStreamAnswer extends ConciergeArtifact {
+  sessionId: string
+  turnId: string
+  status: TurnState
+  replayed: boolean
+  summary: string
 }

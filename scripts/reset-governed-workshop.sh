@@ -286,7 +286,8 @@ for migration in \
   024_operator_episodes.sql \
   025_execution_receipts.sql \
   026_episode_outcome_lineage.sql \
-  027_canonical_span_table.sql
+  027_canonical_span_table.sql \
+  028_shopper_operator_handoff.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"

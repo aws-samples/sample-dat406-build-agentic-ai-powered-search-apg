@@ -73,6 +73,7 @@ const RECORD = {
       reason: 'Goodwill: shipping', issuedBy: 'operator-sub', createdAt: null,
     },
   ],
+  returns: [],
 }
 
 function mockFetch(handler: (url: string, init?: RequestInit) => unknown) {
@@ -245,6 +246,19 @@ describe('ClientBook', () => {
     expect(state).toHaveTextContent('018_client_book.sql')
   })
 
+  it('does not blame the database when the operator is signed out', async () => {
+    mockFetch(() => ({ status: 401, body: { detail: 'authentication_required' } }))
+    render(
+      <MemoryRouter>
+        <ClientBook />
+      </MemoryRouter>,
+    )
+    const state = await screen.findByTestId('operator-book-error')
+    expect(state).toHaveTextContent('Operator sign-in required')
+    expect(state).toHaveTextContent('No database request was attempted')
+    expect(state).not.toHaveTextContent('018_client_book.sql')
+  })
+
   it('distinguishes an empty book from a broken one', async () => {
     mockFetch(() => ({
       body: { total: 0, clients: [], byMembership: { registered: 0, circle: 0, maison: 0 } },
@@ -292,6 +306,16 @@ describe('ClientRecord', () => {
     })
   })
 
+  it('does not blame Aurora when the operator is signed out', async () => {
+    mockFetch(() => ({ status: 401, body: { detail: 'authentication_required' } }))
+    renderRecord()
+
+    const state = await screen.findByTestId('operator-record-error')
+    expect(state).toHaveTextContent('Operator sign-in required')
+    expect(state).toHaveTextContent('No database request was attempted')
+    expect(state).not.toHaveTextContent('Aurora did not return')
+  })
+
   it('states that standing is context, not authorization', async () => {
     renderRecord()
     await screen.findByTestId('operator-record')
@@ -322,6 +346,49 @@ describe('ClientRecord', () => {
       'Refund disputed',
     )
     expect(screen.getByTestId('operator-credits')).toHaveTextContent('40.00')
+  })
+
+  it('offers every nonhero client a read-only storefront preview', async () => {
+    renderRecord()
+    await screen.findByTestId('operator-record')
+
+    expect(screen.getByTestId('operator-storefront-handoff')).toHaveAttribute(
+      'href',
+      '/?clientPreview=CUST-JESSICA',
+    )
+    expect(screen.getByTestId('operator-storefront-handoff')).toHaveTextContent(
+      'Preview client context',
+    )
+  })
+
+  it('uses a real persona-switch handoff for a canonical hero', async () => {
+    mockFetch((url) => {
+      if (url.includes('/api/operator/clients/')) {
+        return {
+          body: {
+            ...RECORD,
+            client: {
+              ...RECORD.client,
+              customerId: 'CUST-MARCO',
+              slug: 'marco',
+              name: 'Marco',
+              personaId: 'marco',
+            },
+          },
+        }
+      }
+      return { body: {} }
+    })
+    renderRecord()
+    await screen.findByTestId('operator-record')
+
+    expect(screen.getByTestId('operator-storefront-handoff')).toHaveAttribute(
+      'href',
+      '/?persona=marco',
+    )
+    expect(screen.getByTestId('operator-storefront-handoff')).toHaveTextContent(
+      "Open Marco's storefront",
+    )
   })
 
   it('disables the credit button until an amount and a reason are present', async () => {

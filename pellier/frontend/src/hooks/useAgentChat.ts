@@ -63,6 +63,13 @@ export interface AgentExecution {
   traceIds?: string[]
 }
 
+/** One participating runtime system, reported by the stream rather than inferred. */
+export interface ChatSourceActivity {
+  source: string
+  details: string[]
+  status: 'in_progress' | 'complete' | 'unavailable'
+}
+
 /**
  * Skill routing decision for one turn.
  *
@@ -131,6 +138,8 @@ export interface AgentChatMessage {
    * render the italic burgundy attribution line; Observatory renders the
    * full decision in its live activation log. */
   skillRouting?: SkillRouting
+  /** Systems that actually participated in this turn, with observable work only. */
+  sourceActivity?: ChatSourceActivity[]
   /** Stylist handoff payload when this turn fired escalate_to_human.
    * The chat surface renders the StylistHandoffCard in place of the
    * usual product grid. */
@@ -411,6 +420,47 @@ export function useAgentChat(
         })
       }
 
+      const sourceStatus = (
+        status: unknown,
+      ): ChatSourceActivity['status'] => {
+        if (status === 'unavailable' || status === 'failed' || status === 'error') {
+          return 'unavailable'
+        }
+        if (
+          status === 'in_progress' ||
+          status === 'executing' ||
+          status === 'running' ||
+          status === 'pending'
+        ) {
+          return 'in_progress'
+        }
+        return 'complete'
+      }
+
+      const updateSourceActivity = (activity: ChatSourceActivity) => {
+        updateLast(lastMsg => {
+          if (lastMsg.role !== 'assistant') return null
+          const current = lastMsg.sourceActivity ?? []
+          const existing = current.findIndex(
+            item => item.source === activity.source,
+          )
+          const sourceActivity =
+            existing >= 0
+              ? current.map((item, index) =>
+                  index === existing
+                    ? {
+                        ...activity,
+                        details: Array.from(
+                          new Set([...item.details, ...activity.details]),
+                        ),
+                      }
+                    : item,
+                )
+              : [...current, activity]
+          return { ...lastMsg, sourceActivity }
+        })
+      }
+
       const appendDelta = (delta: string) => {
         updateLast(lastMsg => {
           if (lastMsg.role !== 'assistant') return null
@@ -518,6 +568,15 @@ export function useAgentChat(
                 // quota or private mode — silent
               }
             } else if (data.type === 'agent_step') {
+              if (typeof data.source === 'string' && data.source) {
+                updateSourceActivity({
+                  source: data.source,
+                  details: [
+                    data.action || `${data.agent || 'Agent'} participated`,
+                  ],
+                  status: sourceStatus(data.status),
+                })
+              }
               if (!showInstrumentation) return
               updateLast(lastMsg => {
                 if (
@@ -582,7 +641,7 @@ export function useAgentChat(
               if (!trackToolCalls) return
               updateLast(lastMsg => {
                 if (
-                  lastMsg.agentStatus !== 'thinking' ||
+                  lastMsg.role !== 'assistant' ||
                   !lastMsg.agentExecution
                 ) {
                   return null
@@ -661,6 +720,36 @@ export function useAgentChat(
               } catch {
                 // quota / private mode — non-fatal
               }
+            } else if (data.type === 'aurora_profile_context') {
+              const profile = data.profile ?? {}
+              if (
+                profile.available &&
+                typeof profile.source === 'string' &&
+                !['unavailable', 'error'].includes(profile.source)
+              ) {
+                const facts = Number(profile.facts_available || 0)
+                const orders = Number(profile.orders_available || 0)
+                updateSourceActivity({
+                  source: profile.source,
+                  details: [`${facts} profile facts, ${orders} recent orders`],
+                  status: 'complete',
+                })
+              }
+            } else if (data.type === 'agentcore_memory') {
+              const memory = data.memory ?? {}
+              if (memory.source === 'agentcore-memory') {
+                const loaded = Number(memory.turns_loaded || 0)
+                const persisted = Number(memory.turns_persisted || 0)
+                updateSourceActivity({
+                  source: 'AgentCore Memory',
+                  details: [
+                    `${loaded} prior turns loaded · ` +
+                      (persisted > 0 ? 'continuity saved' : 'write unavailable'),
+                  ],
+                  status:
+                    memory.write_status === 'failed' ? 'unavailable' : 'complete',
+                })
+              }
             } else if (data.type === 'escalation') {
               // Honest "this is outside what I can answer" handoff.
               // Render the StylistHandoffCard in place of product
@@ -689,14 +778,40 @@ export function useAgentChat(
               // Per-turn database operations (reads and writes) with
               // SQL snippets. Written to localStorage for the Observatory
               // State Management page to consume via useDbQueries().
+              const list = Array.isArray(data.queries) ? data.queries : []
               try {
-                const list = Array.isArray(data.queries) ? data.queries : []
                 localStorage.setItem(
                   'pellier-last-db-queries',
                   JSON.stringify(list),
                 )
               } catch {
                 // quota / private mode — non-fatal
+              }
+              if (
+                list.length > 0 &&
+                typeof data.source === 'string' &&
+                data.source
+              ) {
+                const tables = Array.from(
+                  new Set(
+                    list
+                      .map((query: { table?: unknown }) => query.table)
+                      .filter(
+                        (table: unknown): table is string =>
+                          typeof table === 'string' && table.length > 0,
+                      ),
+                  ),
+                )
+                updateSourceActivity({
+                  source: data.source,
+                  details: [
+                    `${list.length} live ${list.length === 1 ? 'query' : 'queries'}` +
+                      (tables.length > 0
+                        ? ` · ${tables.slice(0, 3).join(', ')}`
+                        : ''),
+                  ],
+                  status: 'complete',
+                })
               }
             }
           },

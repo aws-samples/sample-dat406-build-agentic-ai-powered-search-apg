@@ -1,8 +1,8 @@
 /**
  * The book — every client, richest standing first.
  *
- * Reads `GET /api/operator/clients`, which is open. Membership counts come
- * from the API rather than being recomputed here, so the summary cannot
+ * Reads the operator-gated `GET /api/operator/clients`. Membership counts
+ * come from the API rather than being recomputed here, so the summary cannot
  * disagree with the rows.
  */
 
@@ -57,11 +57,35 @@ const ClientBook: React.FC = () => {
   }, [])
 
   if (error) {
+    const authenticationRequired =
+      error === 'authentication_required' || error === 'invalid_credentials'
+    const operatorRequired = error === 'operator_group_required'
     return (
       <div className="operator-state" data-testid="operator-book-error">
-        <span className="operator-state-title">The book is unavailable</span>
-        Aurora did not return the client list. If this is a fresh deployment,
-        confirm migration <code>018_client_book.sql</code> has been applied.
+        <span className="operator-state-title">
+          {authenticationRequired
+            ? 'Operator sign-in required'
+            : operatorRequired
+              ? 'Operator access required'
+              : 'The book is unavailable'}
+        </span>
+        {authenticationRequired ? (
+          <>
+            Sign in with the workshop operator account to read the client book.
+            No database request was attempted.
+          </>
+        ) : operatorRequired ? (
+          <>
+            This signed-in account is not a member of the operator group. No
+            database request was attempted.
+          </>
+        ) : (
+          <>
+            The live database did not return the client list. If this is a fresh
+            deployment, confirm migration <code>018_client_book.sql</code> has
+            been applied.
+          </>
+        )}
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>
@@ -72,7 +96,7 @@ const ClientBook: React.FC = () => {
   if (!book) {
     return (
       <div className="operator-state" data-testid="operator-book-loading">
-        Reading the client book from Aurora…
+        Reading the live client book…
       </div>
     )
   }

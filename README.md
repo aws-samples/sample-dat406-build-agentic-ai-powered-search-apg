@@ -22,13 +22,17 @@ _Agentic search on Aurora PostgreSQL · Bedrock AgentCore · Strands Agents · M
 > Educational reference implementation for a governed agentic AI search workshop.
 > Not intended for production deployment without security hardening.
 
-**Contents:** [Workshop abstract](#workshop-abstract) · [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Governance model](#governance-model) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Quality gates](#quality-gates) · [Repository layout](#repository-layout) · [Resources](#resources)
+**Contents:** [Workshop abstract](#workshop-abstract) · [Who this is for](#who-this-is-for) · [What this is](#what-this-is) · [Closed loop](#shopper-to-operator-closed-loop) · [Governance model](#governance-model) · [Personas](#personas-reshape-everything) · [Quick start](#quick-start-local-dev) · [Workshop path](#workshop-path) · [Architecture](#architecture) · [Quality gates](#quality-gates) · [Repository layout](#repository-layout) · [Resources](#resources)
+
+**Team teaching map:** [WORKSHOP.md](WORKSHOP.md) connects the four participant labs
+to the guest, Marco, Anna, Theo, and Jessica golden journeys and their proof
+boundaries.
 
 ---
 
 ## Workshop abstract
 
-Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, and a queryable JSONB audit ledger. AgentCore Runtime hosts the dispatcher, Memory preserves context, Gateway exposes tools, Policy applies Cedar authorization before sensitive actions, Aurora Row-Level Security scopes what each shopper's agent can read, and OpenTelemetry traces connect the managed path. Leave with reusable patterns for auditable, policy-aware agentic search applications.
+Build a governed agentic AI search application with Amazon Aurora PostgreSQL and Amazon Bedrock AgentCore. Explore a retail shopping scenario where a Strands SDK dispatcher routes shoppers to specialist agents and a bounded Strands graph coordinates operator investigation and resolution planning. Aurora powers hybrid search with PostgreSQL full-text search for lexical retrieval, pgvector for semantic retrieval, and Cohere Rerank for relevance ranking, while managing inventory, orders, customer records, durable human checkpoints, and queryable JSONB evidence. AgentCore Runtime hosts the managed dispatcher and is the deployment target for the operator graph; Memory preserves context, Gateway exposes tools, Policy applies Cedar authorization before sensitive actions, Aurora Row-Level Security scopes what each shopper's agent can read, and OpenTelemetry traces connect the managed path. Leave with reusable patterns for auditable, policy-aware agentic search applications.
 
 ---
 
@@ -57,12 +61,14 @@ Behind the storefront, specialist agents ground answers in retrieved catalog
 data, read live inventory through deterministic tools, preserve useful context,
 cite sources, and hand off to a human stylist when they should.
 
-The application has two surfaces:
+The application has three connected surfaces:
 
 - **Pellier** (`/`) – the customer-facing storefront. Editorial photography, AI search, persona-aware recommendations, and a conversational drawer.
-- **Pellier Observatory** (`/observatory`) – the live inspection surface. It runs the same Dispatcher path and exposes emitted routing, tool, Aurora, memory, and safety evidence from the current turn.
+- **Pellier Operator** (`/operator`) – the authenticated client desk. A two-agent Strands graph separates case investigation from resolution planning; durable reviews, human decisions, and governed execution stay outside the graph invocation.
+- **Pellier Observatory** (`/observatory`) – the live inspection surface. It exposes both production orchestration paths and reconstructs the shopper handoff, pending review, graph artifact, human decision, and execution evidence from their owning records.
 
-The two surfaces share design tokens, presence pill, trace chips, and a typed agent vocabulary, so an attendee crossing between them sees the same atoms in both places.
+The surfaces share design tokens and a typed agent vocabulary, so an attendee
+crossing between them sees the same system rather than three unrelated demos.
 
 The storefront also includes a dismissible, once-per-session four-step
 orientation covering browse, profile, concierge, and evidence inspection. It
@@ -76,11 +82,45 @@ Every claim in the workshop abstract maps to something runnable in this repo:
 | Claim | Where it lives |
 |---|---|
 | **Grounded retrieval** on **Aurora PostgreSQL** | `pellier.product_catalog.embedding vector(1024)` · pgvector 0.8.1 · HNSW index · `<=>` cosine operator · hybrid (FTS + RRF) merge · Cohere Rerank v3.5 |
-| **Agentic AI – reasoning + tool use** | Strands Agents SDK · 5 specialists · 16 `@tool` functions in process, 15 of them published as the Gateway catalog · deterministic dispatcher routes intent to one specialist · each specialist receives an explicit tool allowlist |
+| **Agentic AI – reasoning + tool use** | Strands Agents SDK · deterministic Storefront Dispatcher routes intent to one of 5 specialists · each specialist receives an explicit tool allowlist · Operator Concierge uses `GraphBuilder` for an ordered Case Investigator -> Resolution Planner graph |
 | **Model Context Protocol (MCP)** | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) installed via `uvx`, read-only against the Aurora cluster ARN · `pellier/config/mcp-server-config.json` is the literal contract · any MCP host (VS Code chat extension, Claude Code, Strands `MCPClient`, AgentCore Gateway) consumes the same JSON |
 | **Managed tool catalog (AgentCore Gateway)** | `services/agentcore_gateway.py` lists the Gateway catalog via `MCPClient.list_tools_sync()`, then selects the routed specialist's explicit allowlist · governed Runtime requests pass the shopper's access token through (`Authorization: Bearer`) and fail closed if Gateway is unavailable |
 | **Memory and personalization** | AgentCore Memory stores session events and durable preferences extracted by a `USER_PREFERENCE` strategy · Aurora customer events provide episodic history · runtime skills and MCP schemas provide procedural know-how · `tool_audit` remains operational evidence, not memory |
 | **Managed AgentCore path** | One `@aws/agentcore@0.26.0` project owns Runtime, Memory, Gateway, four Lambda target registrations, AgentCore-managed service roles, the Policy engine, and Cedar policies · `deploy_lambda.py` separately creates the external Lambda functions and their Lambda execution roles · `@app.entrypoint` in `pellier/backend/agentcore_runtime.py` · CUSTOM_JWT invocation must return `rail=gateway-mcp` · encrypted, retention-bounded Runtime and trace log groups carry correlated agent, model, and structured tool spans |
+| **Durable human handoff** | The shopper turn stores an immutable, explicitly untrusted `handoff_context` beside its terminal receipt · `pellier.approvals` owns the pending review and exact action hash · the graph persists only operator-safe artifacts · confirmation and execution are later authenticated requests |
+
+### Shopper-to-operator closed loop
+
+The customer and operator experiences share durable business state, not model
+memory or an in-process callback. A storefront specialist can prepare a bounded
+proposal, but it cannot approve or execute it:
+
+```text
+shopper request
+  -> Storefront Dispatcher selects one specialist
+  -> PostgreSQL stores an immutable, untrusted handoff
+  -> PostgreSQL stores a pending review and exact action hash
+
+authorized operator opens the review
+  -> Case Investigator Agent reads current evidence
+  -> Resolution Planner Agent proposes a bounded resolution
+  -> PostgreSQL stores the operator-safe graph artifact
+
+separate authenticated requests
+  -> human confirms or declines the exact action hash
+  -> a confirmed, published action enters AgentCore Gateway and Policy
+  -> PostgreSQL enforces the write and stores the outcome evidence
+  -> Observatory reconstructs the complete lineage
+```
+
+This is intentionally not one long-running agent invocation. The Strands graph
+ends after investigation and planning; human decision, policy authorization,
+database enforcement, and outcome evidence remain separate, replayable
+boundaries. `initiate_return` follows that complete managed path.
+`issue_credit` remains deliberately unpublished and therefore has no Cedar
+verdict; its operator-group API boundary and PostgreSQL controls must not be
+misreported as policy enforcement. See [WORKSHOP.md](WORKSHOP.md) for the Marco,
+Anna, Theo, Jessica, and guest journeys that teach this pattern.
 
 ## Governance model
 
@@ -228,7 +268,20 @@ for migration in \
   012_retrieval_receipts.sql \
   013_inventory_ledger.sql \
   014_governed_turn_receipts.sql \
-  015_proof_carrying_commerce.sql
+  015_proof_carrying_commerce.sql \
+  016_runtime_roles_rls.sql \
+  017_governed_query_receipts.sql \
+  018_client_book.sql \
+  019_operator_desk.sql \
+  020_operator_review.sql \
+  021_governed_execution.sql \
+  022_write_operation_vocabulary.sql \
+  023_idempotency_claims_release_on_failure.sql \
+  024_operator_episodes.sql \
+  025_execution_receipts.sql \
+  026_episode_outcome_lineage.sql \
+  027_canonical_span_table.sql \
+  028_shopper_operator_handoff.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \
@@ -248,7 +301,32 @@ npm run build      # production build → served by FastAPI on :8000
 # or: npm run dev   for HMR on :5173 (still hits backend on :8000)
 ```
 
-Open <http://localhost:8000> for Pellier, or <http://localhost:8000/observatory> for Pellier Observatory.
+With the production build, open <http://localhost:8000>,
+<http://localhost:8000/operator>, or <http://localhost:8000/observatory>.
+With `npm run dev`, use the same paths on <http://localhost:5173>.
+
+### Local PostgreSQL journey rehearsal
+
+After migrations `001-028` and the catalog seed have been applied to a local
+`pellier_dev` database, prepare the Theo shopper-to-operator checkpoint and
+survey Jessica's deliberately contradictory evidence:
+
+```bash
+# Read-only survey of the current local state.
+python3 scripts/seed_local_golden_journeys.py
+
+# Add only Theo's pending review and immutable shopper handoff.
+python3 scripts/seed_local_golden_journeys.py --apply
+
+# Verify the resulting local state.
+python3 scripts/seed_local_golden_journeys.py
+```
+
+The helper refuses non-loopback hosts and database names that do not end in
+`_dev`. It never confirms or executes the review and never writes an AgentCore
+or Cedar verdict. Local PostgreSQL proves the application workflow and durable
+lineage; the managed Runtime, Gateway, Memory, and Policy proofs still require
+the workshop AWS environment.
 
 ### AgentCore CLI (pinned)
 
@@ -330,6 +408,17 @@ live and reports the route actually observed.
 | **Pricing Agent**      | Price intelligence, deals, percentile context   | Claude Sonnet 4.6 |
 | **Inventory Agent**       | Warehouse stock, restocks, low-inventory alerts | Claude Sonnet 4.6 |
 | **Customer Service Agent**   | Returns, care, post-purchase                    | Claude Opus 4.6  |
+
+The Operator Concierge adds two bounded graph nodes:
+
+| Graph node | Responsibility |
+|---|---|
+| **Case Investigator Agent** | Reconstruct current customer, order, ticket, review, and handoff evidence without treating shopper text as authoritative |
+| **Resolution Planner Agent** | Turn the investigation artifact into a constrained recommendation tied to the pending review |
+
+`GraphBuilder` orders those nodes and persists the graph result. Neither node
+decides the review, invokes the governed write, or substitutes for AgentCore
+Policy where it applies or PostgreSQL enforcement.
 
 Per-agent model choice is an architectural decision – Inventory Agent's terse warehouse answers run on Sonnet; the Personalization Agent's editorial prose earns Opus. Factories load **`BEDROCK_OPUS_MODEL`** for editorial agents, **`BEDROCK_REPORTING_MODEL`** for reporting specialists, and **`BEDROCK_ROUTER_MODEL`** for routing – see `pellier/backend/config.py`. **`BEDROCK_SONNET_MODEL`** is the canonical Sonnet profile (`global.anthropic.claude-sonnet-4-6`); the model-access preflight may also write it into `BEDROCK_OPUS_MODEL` when Opus 4.6 is not reachable on the account. **`BEDROCK_CHAT_MODEL`** is the legacy alias kept only for older scripts. Pellier Observatory surfaces the mix.
 
@@ -480,8 +569,8 @@ Claude Code resolves `CLAUDE.md` guidance by scope. The backend separately loads
 | Lexical retrieval | Postgres FTS – `tsvector` + GIN + `ts_rank_cd` (no native BM25; `pg_trgm` for fuzzy match) |
 | Hybrid merge     | Reciprocal Rank Fusion (RRF) – fuses pgvector + FTS rank lists without normalizing raw scores |
 | Models           | Claude Opus 4.6 (`global.anthropic.claude-opus-4-6-v1`, editorial) · Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`, routing/reporting, no temperature override) · Cohere Embed v4 (`us.cohere.embed-v4:0`, 1024-dim via output_dimension, inference profile) · Cohere Rerank v3.5 (`cohere.rerank-v3-5:0`) |
-| Agent framework  | Strands Agents SDK – `Agent`, `@tool`, deterministic Dispatcher, and before/after tool-call hooks |
-| Agent infra      | Bedrock AgentCore – Runtime (CUSTOM_JWT, fail-closed Gateway MCP rail) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (15-tool MCP catalog, Cognito access-token passthrough) · Policy (Cedar ENFORCE with live ALLOW/DENY proof) · Identity |
+| Agent framework  | Strands Agents SDK – `Agent`, `@tool`, deterministic Storefront Dispatcher, bounded Operator Concierge `GraphBuilder`, and before/after tool-call hooks |
+| Agent infra      | Bedrock AgentCore – Runtime (CUSTOM_JWT, fail-closed Gateway MCP rail; managed Storefront proof and Operator graph deployment target) · Memory (STM, 30-day event expiry + `USER_PREFERENCE` semantic extraction strategy for durable taste) · Gateway (15-tool MCP catalog, Cognito access-token passthrough) · Policy (Cedar ENFORCE with live ALLOW/DENY proof) · Identity |
 | MCP              | [`awslabs.postgres-mcp-server`](https://github.com/awslabs/mcp/tree/main/src/postgres-mcp-server) pinned to `==1.1.6` and installed via `uvx`, registered against the Aurora cluster ARN over `--connection_method RDS_API --db_type APG` (enum-name flag, not the lowercase value; read-only by default — writes require opting in via `--allow_write_query`); `pellier/config/mcp-server-config.json` is the literal contract; AgentCore Gateway is the managed-host counterpart |
 | Backend          | FastAPI · Python 3.14 · psycopg3 · boto3 · SSE streaming                                                  |
 | Frontend         | React 18 · TypeScript 5 · Vite 6 · Tailwind CSS 3 · Framer Motion 12                                                      |
@@ -512,9 +601,10 @@ find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 ```
 
 The `e2e` workflow builds the production SPA, serves it through FastAPI in
-smoke mode, and walks the storefront, Pellier Observatory, personas, streaming, and
-reset path in Chromium. The optional Cognito suite runs only when its isolated
-development-pool secrets are configured.
+smoke mode, and walks the storefront, operator client preview, Pellier
+Observatory, personas, streaming, and reset path in Chromium. The optional
+Cognito suite runs only when its isolated development-pool secrets are
+configured.
 
 ---
 
@@ -525,21 +615,23 @@ sample-pellier-agentic-search-apg/
 ├── .claude/
 │   └── skills/                             Claude Code project workflows
 ├── CLAUDE.md                               Project and branch contract
+├── WORKSHOP.md                             Teaching map and golden journeys
 ├── VOICE.md                                Pellier editorial voice contract
 ├── pellier/
 │   ├── backend/                           FastAPI server, agents, services
 │   │   ├── CLAUDE.md                        Backend and Lab 1 rules
 │   │   ├── agents/                          Search Agent, Personalization Agent, Inventory Agent, ...
-│   │   ├── services/                        agent_tools, chat, agentcore_*, db
-│   │   ├── routes/                          FastAPI routers (transcribe, observatory, chat)
+│   │   ├── services/                        Dispatcher, Operator graph, handoff, tools, AgentCore, database
+│   │   ├── routes/                          FastAPI routers (chat, operator, observatory, transcribe)
 │   │   └── app.py
 │   └── frontend/                          React 18 + TS + Vite SPA
 │       ├── CLAUDE.md                        Storefront and Pellier Observatory rules
 │       └── src/
 │           ├── components/                  PellierHero, ChatDrawer, ProductCard, ...
+│           ├── operator/                    Client desk, concierge graph, reviews, actions
 │           ├── shared/                      Cross-surface atoms – TraceChip, PresencePill
-│           ├── observatory/                    Operator evidence surface
-│           └── data/                        showcaseProducts.ts (40), personaCurations.ts
+│           ├── observatory/                 Shopper and operator orchestration evidence
+│           └── data/                        40 displayed product records + persona curation
 │
 ├── skills/                                Strands runtime skills (5) + scoped guidance
 ├── solutions/                             Reference implementations (drop-in escape hatches)
@@ -549,8 +641,9 @@ sample-pellier-agentic-search-apg/
 │   └── the-concierge/                       Lab 4 MCP and Gateway reference
 │
 └── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-015)
-    ├── seed_pellier_catalog.py             40 curated products + generated retrieval distractors
+    ├── migrations/                         Ordered fresh-cluster SQL (001-028)
+    ├── seed_pellier_catalog.py             60 story products + 940 retrieval distractors
+    ├── seed_local_golden_journeys.py       Local Theo handoff + Jessica evidence rehearsal
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd
     └── bootstrap-labs.sh                    DB seed + frontend build + service start
 ```

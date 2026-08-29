@@ -30,18 +30,18 @@
     "numeral": "IV",
     "category": "live",
     "title": "Routing & State",
-    "role": "Dispatcher-first request flow",
-    "description": "The production Pellier path uses deterministic routing in services/chat.py: triage, intent classification, optional skill routing, then one owning specialist/tool path. The Agents-as-Tools orchestrator is a separate teaching pattern, not the default storefront runtime.",
-    "codeSnippet": "# Pellier default path\nintent = classify_intent(query)\nskills = route_skills(query, persona)\nreturn await run_dispatcher_pattern(intent, skills, query)",
+    "role": "Dispatcher storefront plus bounded operator graph",
+    "description": "Pellier uses two explicit production paths. The Storefront deterministically routes one turn to one specialist. Operator Concierge runs Case Investigator then Resolution Planner in a Strands graph. Agents-as-Tools remains a comparison pattern. PostgreSQL persists the review checkpoint outside both invocations.",
+    "codeSnippet": "# Storefront\nintent = classify_intent(query)\nreturn await run_dispatcher_pattern(intent, skills, query)\n\n# Operator Concierge\nbuilder.add_node(investigator, 'case-investigator')\nbuilder.add_node(planner, 'resolution-planner')\nbuilder.add_edge('case-investigator', 'resolution-planner')",
     "slug": "state-management"
   },
   {
     "numeral": "V",
     "category": "workshop",
     "title": "Runtime Envelope",
-    "role": "Execution environment and workshop runtime pattern",
-    "description": "Runtime is the managed envelope around execution: model calls, Memory, Gateway, Policy, and observability. Pellier uses the same Dispatcher contract in-process for local development and inside AgentCore Runtime for the governed workshop path; a managed turn fails closed instead of falling back locally.",
-    "codeSnippet": "# App-layer runtime shape\nrequest → triage → dispatcher → specialist/tool → SSE telemetry\n\n# Managed runtime is introduced as the deployment envelope\n# around the same agent/tool contracts.",
+    "role": "Bounded invocations; durable state between them",
+    "description": "AgentCore Runtime is the deployment target for both the Storefront Dispatcher and Operator Concierge graph. Each invocation finishes and persists its result. PostgreSQL holds the pending review, exact action hash, human decision, and execution receipts between requests; Runtime never waits for a person.",
+    "codeSnippet": "# Storefront invocation\nrequest -> dispatcher -> specialist/tool -> response\n\n# Operator invocation\nrequest -> investigator -> planner -> persisted artifact\n\n# Between invocations\nPostgreSQL review -> human decision -> governed execution request",
     "slug": "runtime"
   },
   {

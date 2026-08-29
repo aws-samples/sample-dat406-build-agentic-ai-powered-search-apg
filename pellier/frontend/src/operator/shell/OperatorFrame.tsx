@@ -13,7 +13,8 @@
  */
 
 import React, { useEffect, useState } from 'react'
-import { Link, Outlet } from 'react-router-dom'
+import { ClipboardCheck, UsersRound } from 'lucide-react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import PellierHomeLink from '../../components/PellierHomeLink'
 import { fetchReviewQueue } from '../../services/operator'
 import '../styles/operator.css'
@@ -21,11 +22,9 @@ import '../styles/operator.css'
 /**
  * The count of prepared requests waiting on a person.
  *
- * Always shows a real value once the queue has been read, including zero: an
- * unlabelled "Reviews" reads as an empty placeholder rather than as "nothing is
- * waiting", which is a fact an operator wants stated. A failed read shows an em
- * dash instead of a number, because "0" there would claim there is no work when
- * the truth is that nobody could ask.
+ * Always shows a real value once the queue has been read, including zero. A
+ * failed read shows an em dash instead of a number, because "0" there would
+ * claim there is no work when the truth is that nobody could ask.
  */
 const PendingReviewLink: React.FC = () => {
   const [pending, setPending] = useState<number | null>(null)
@@ -50,18 +49,22 @@ const PendingReviewLink: React.FC = () => {
   }, [])
 
   return (
-    <Link
+    <NavLink
       to="/operator/reviews"
-      className="operator-topbar-link"
+      className={({ isActive }) =>
+        `operator-topbar-link${isActive ? ' operator-topbar-link-active' : ''}`
+      }
       data-testid="operator-reviews-link"
+      title="Action Queue"
     >
-      Reviews
+      <ClipboardCheck className="operator-topbar-icon" aria-hidden />
+      <span className="operator-topbar-label">Action Queue</span>
       {unreachable ? (
         <span
           className="operator-topbar-count"
           data-count="unavailable"
           data-testid="operator-reviews-count"
-          title="The review queue could not be read"
+          title="The action queue could not be read"
         >
           &mdash;
         </span>
@@ -79,24 +82,39 @@ const PendingReviewLink: React.FC = () => {
           {pending}
         </span>
       )}
-    </Link>
+    </NavLink>
   )
 }
 
 const OperatorFrame: React.FC = () => (
   <div className="operator-root" data-testid="operator-root">
     <header className="operator-topbar" data-testid="operator-topbar">
-      <div className="operator-topbar-start">
-        <Link to="/operator" className="operator-wordmark">
-          Pellier Operator
-        </Link>
-        <span className="operator-topbar-context">
-          Clienteling and service recovery
-        </span>
-      </div>
-      <div className="operator-topbar-end">
-        <PendingReviewLink />
-        <PellierHomeLink testId="operator-exit" />
+      <div className="operator-topbar-inner">
+        <div className="operator-topbar-start">
+          <Link to="/operator" className="operator-wordmark">
+            Pellier Operator
+          </Link>
+          <span className="operator-topbar-context">
+            Clienteling and service recovery
+          </span>
+        </div>
+        <div className="operator-topbar-end">
+          <nav className="operator-topbar-nav" aria-label="Operator sections">
+            <NavLink
+              to="/operator"
+              end
+              className={({ isActive }) =>
+                `operator-topbar-link${isActive ? ' operator-topbar-link-active' : ''}`
+              }
+              title="Clients"
+            >
+              <UsersRound className="operator-topbar-icon" aria-hidden />
+              <span className="operator-topbar-label">Clients</span>
+            </NavLink>
+            <PendingReviewLink />
+          </nav>
+          <PellierHomeLink testId="operator-exit" />
+        </div>
       </div>
     </header>
     <main className="operator-shell">

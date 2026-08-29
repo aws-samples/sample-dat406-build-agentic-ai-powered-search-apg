@@ -84,7 +84,7 @@ const OperatorConcierge: React.FC<Props> = ({
         </h2>
         <p className="operator-concierge-sub">
           Grounded in this client&rsquo;s orders, preferences, inventory, returns, and
-          governed actions.
+          governed actions from {concierge.config?.dataSource ?? 'the live database'}.
         </p>
         {/* Scope, not a second profile: enough to make the conversation's subject
             unambiguous without repeating the record on the left. */}
@@ -115,6 +115,7 @@ const OperatorConcierge: React.FC<Props> = ({
                 <ConciergePendingTurn
                   request={concierge.pendingRequest ?? ''}
                   steps={concierge.liveSteps}
+                  answer={concierge.liveAnswer}
                 />
               </ol>
             ) : null}

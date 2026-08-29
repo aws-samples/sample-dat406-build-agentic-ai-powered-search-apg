@@ -948,6 +948,12 @@ async def _persist_terminal_turn_receipt(
     started_at: float,
     trace: Optional[Dict[str, Any]] = None,
     terminal_error_code: Optional[str] = None,
+    shopper_request: str = "",
+    customer_id: Optional[str] = None,
+    conversation_history: Optional[List[Dict[str, Any]]] = None,
+    assistant_response: str = "",
+    specialist_route: str = "",
+    tool_calls: Optional[List[Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Write one immutable receipt after a shopper turn has terminated.
 
@@ -957,6 +963,19 @@ async def _persist_terminal_turn_receipt(
     """
     try:
         from services.governed_turn_receipt import persist_turn_receipt
+        from services.shopper_handoff import build_handoff_context
+
+        handoff_context = await build_handoff_context(
+            db_service,
+            turn_id=turn_id,
+            session_id=session_id,
+            customer_id=customer_id,
+            shopper_request=shopper_request,
+            conversation_history=conversation_history or [],
+            assistant_response=assistant_response,
+            specialist_route=specialist_route,
+            tool_calls=tool_calls or [],
+        )
 
         return await persist_turn_receipt(
             db_service,
@@ -968,6 +987,7 @@ async def _persist_terminal_turn_receipt(
             latency_ms=int((time.perf_counter() - started_at) * 1000),
             trace=trace,
             terminal_error_code=terminal_error_code,
+            handoff_context=handoff_context,
         )
     except Exception as exc:  # pragma: no cover - persistence service is defensive
         logger.warning("governed turn receipt write skipped: %s", exc)
@@ -976,9 +996,11 @@ async def _persist_terminal_turn_receipt(
 
 async def _aurora_profile_receipt(customer_id: Optional[str]) -> Dict[str, Any]:
     """Return bounded evidence that the verified profile exists in Aurora."""
+    from services.data_source import database_source_label
+
     if not customer_id:
         return {
-            "source": "aurora",
+            "source": database_source_label(),
             "customer_id": None,
             "facts_available": 0,
             "orders_available": 0,
@@ -1012,7 +1034,7 @@ async def _aurora_profile_receipt(customer_id: Optional[str]) -> Dict[str, Any]:
             customer_id,
         )
         return {
-            "source": "aurora",
+            "source": database_source_label(),
             "customer_id": customer_id,
             "facts_available": int((row or {}).get("facts_available") or 0),
             "orders_available": int((row or {}).get("orders_available") or 0),
@@ -1141,6 +1163,8 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
         turn_id: Optional[str] = None
         receipt_attempted = False
         effective_user: Dict[str, Any] = {}
+        history: List[Dict[str, Any]] = []
+        shopper_customer_id: Optional[str] = None
         turn_started = time.perf_counter()
 
         async def persist_terminal(
@@ -1149,6 +1173,9 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             terminal_status: str,
             trace: Optional[Dict[str, Any]] = None,
             terminal_error_code: Optional[str] = None,
+            assistant_response: str = "",
+            specialist_route: str = "",
+            tool_calls: Optional[List[Any]] = None,
         ) -> Optional[Dict[str, Any]]:
             """Persist exactly once, even if a stream then raises."""
             nonlocal receipt_attempted
@@ -1164,6 +1191,12 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 started_at=turn_started,
                 trace=trace,
                 terminal_error_code=terminal_error_code,
+                shopper_request=request.message,
+                customer_id=shopper_customer_id,
+                conversation_history=history,
+                assistant_response=assistant_response,
+                specialist_route=specialist_route,
+                tool_calls=tool_calls,
             )
 
         try:
@@ -1175,6 +1208,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 user=effective_user,
                 requested_customer_id=request.customer_id,
             )
+            shopper_customer_id = turn_identity.shopper_customer_id
 
             # Per-turn guardrail INPUT check — records a decision in
             # services/guardrails_log so the Observatory Grounding page's
@@ -1454,6 +1488,7 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                                     f"Dispatcher routed {managed_result.intent or 'request'}"
                                 ),
                                 "status": "completed",
+                                "source": "Amazon Bedrock",
                             },
                             ensure_ascii=False,
                         )
@@ -1540,6 +1575,9 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                     rail=actual_rail or rail_decision.rail,
                     terminal_status="complete",
                     trace=managed_trace,
+                    assistant_response=managed_result.response,
+                    specialist_route=managed_result.specialist,
+                    tool_calls=managed_result.tool_calls,
                 )
                 if receipt:
                     event["response"]["governed_receipt"] = receipt
@@ -1626,6 +1664,26 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                             rail=rail_decision.rail,
                             terminal_status="complete",
                             trace=trace,
+                            assistant_response=(
+                                str(response.get("response") or "")
+                                if isinstance(response, dict)
+                                else ""
+                            ),
+                            specialist_route=(
+                                str(
+                                    ((response.get("orchestration") or {}).get("route"))
+                                    or execution.get("specialistRoute")
+                                    or ""
+                                )
+                                if isinstance(response, dict)
+                                and isinstance(execution, dict)
+                                else ""
+                            ),
+                            tool_calls=(
+                                list(execution.get("tool_calls") or [])
+                                if isinstance(execution, dict)
+                                else []
+                            ),
                         )
                         if receipt and isinstance(response, dict):
                             response["governed_receipt"] = receipt

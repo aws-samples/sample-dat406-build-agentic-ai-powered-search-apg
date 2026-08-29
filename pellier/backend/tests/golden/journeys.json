@@ -1,62 +1,441 @@
 {
-  "schemaVersion": 1,
-  "description": "Golden-set journey assertions — deterministic, fixture-driven CI gates. Each entry pins a published Observatory session fixture to the agent behavior the workshop teaches as non-negotiable. No AWS calls. Assertions check tool ordering, product surfacing, and routing pattern only — not free-form prose.",
+  "schemaVersion": 2,
+  "description": "Golden retail journeys. Fixture checks are deterministic PR gates; stage contracts define what a participant must be able to prove from customer intent through business outcome. No local fixture may manufacture an AgentCore Policy verdict.",
   "fixtureRoot": "pellier/frontend/src/observatory/fixtures",
+  "stageContract": {
+    "order": [
+      "intent",
+      "identity",
+      "grounding",
+      "proposal",
+      "human_decision",
+      "authorization",
+      "data_enforcement",
+      "durable_evidence",
+      "customer_outcome"
+    ],
+    "proofStates": [
+      "fixture_proven",
+      "source_contract",
+      "deferred_live",
+      "not_applicable"
+    ]
+  },
   "journeys": [
     {
-      "id": "marco-opening-linen",
-      "fixture": "session-marco-opening-demo.json",
-      "persona": "marco",
-      "summary": "Opening linen query surfaces the three travel-grade pieces via search_products.",
-      "asserts": {
-        "routingPattern": "Dispatcher",
-        "turn": 1,
-        "expectedTools": ["search_products"],
-        "expectedProductsAny": [
-          "Pellier Linen Shirt",
-          "Italian Linen Camp Shirt"
-        ],
-        "expectedProductsAll": [
-          "Linen Drawstring Trousers"
-        ]
-      }
+      "id": "guest-thoughtful-discovery",
+      "persona": "guest",
+      "kind": "read",
+      "summary": "A signed-out visitor can discover a useful shortlist without being assigned a customer identity or inheriting another participant's session.",
+      "entryPrompt": "A thoughtful gift for someone who runs.",
+      "actors": {
+        "requester": {
+          "channel": "storefront",
+          "principal": null
+        },
+        "executor": null,
+        "customerSubject": null
+      },
+      "fixtureChecks": [],
+      "stages": [
+        {
+          "id": "intent",
+          "proof": "source_contract",
+          "teaches": "Anonymous intent is classified without inventing a profile."
+        },
+        {
+          "id": "identity",
+          "proof": "source_contract",
+          "teaches": "No customer id is inferred for a signed-out visitor."
+        },
+        {
+          "id": "grounding",
+          "proof": "source_contract",
+          "teaches": "Recommendations still come from the curated PostgreSQL catalog."
+        },
+        {
+          "id": "proposal",
+          "proof": "not_applicable",
+          "teaches": "Discovery produces no consequential action."
+        },
+        {
+          "id": "human_decision",
+          "proof": "not_applicable",
+          "teaches": "No review is needed for a read."
+        },
+        {
+          "id": "authorization",
+          "proof": "not_applicable",
+          "teaches": "No sensitive action is attempted."
+        },
+        {
+          "id": "data_enforcement",
+          "proof": "source_contract",
+          "teaches": "The read path excludes archive distractors from the storefront."
+        },
+        {
+          "id": "durable_evidence",
+          "proof": "source_contract",
+          "teaches": "A turn id remains the one correlation key even for anonymous work."
+        },
+        {
+          "id": "customer_outcome",
+          "proof": "source_contract",
+          "teaches": "The visitor receives a grounded shortlist and remains anonymous."
+        }
+      ]
     },
     {
-      "id": "marco-midpoint-floor-check",
-      "fixture": "session-marco-midpoint-checkpoint.json",
+      "id": "marco-grounded-availability",
       "persona": "marco",
-      "summary": "Stock claims gate on check_inventory — the workshop required-path contract.",
-      "asserts": {
-        "turn": 1,
-        "expectedToolsInOrder": ["check_inventory"],
-        "expectedProductsAll": ["Pellier Linen Shirt"]
-      }
+      "kind": "read",
+      "summary": "Marco moves from a linen shortlist to a Brooklyn stock and shipping-window claim backed by warehouse rows.",
+      "entryPrompt": "Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?",
+      "actors": {
+        "requester": {
+          "channel": "storefront",
+          "principal": "CUST-MARCO"
+        },
+        "executor": null,
+        "customerSubject": "CUST-MARCO"
+      },
+      "fixtureChecks": [
+        {
+          "id": "opening-linen",
+          "fixture": "session-marco-opening-demo.json",
+          "asserts": {
+            "routingPattern": "Dispatcher",
+            "turn": 1,
+            "expectedTools": [
+              "search_products"
+            ],
+            "expectedProductsAny": [
+              "Pellier Linen Shirt",
+              "Italian Linen Camp Shirt"
+            ],
+            "expectedProductsAll": [
+              "Linen Drawstring Trousers"
+            ]
+          }
+        },
+        {
+          "id": "brooklyn-floor-check",
+          "fixture": "session-marco-midpoint-checkpoint.json",
+          "asserts": {
+            "turn": 1,
+            "expectedToolsInOrder": [
+              "check_inventory"
+            ],
+            "expectedProductsAll": [
+              "Pellier Linen Shirt"
+            ]
+          }
+        }
+      ],
+      "stages": [
+        {
+          "id": "intent",
+          "proof": "fixture_proven",
+          "teaches": "A location and delivery question is not answered as generic product search."
+        },
+        {
+          "id": "identity",
+          "proof": "source_contract",
+          "teaches": "Marco's customer id is server-mapped from the canonical persona."
+        },
+        {
+          "id": "grounding",
+          "proof": "fixture_proven",
+          "teaches": "The answer requires check_inventory after product discovery."
+        },
+        {
+          "id": "proposal",
+          "proof": "not_applicable",
+          "teaches": "Availability is a read, not a prepared action."
+        },
+        {
+          "id": "human_decision",
+          "proof": "not_applicable",
+          "teaches": "No human approval is implied by a stock check."
+        },
+        {
+          "id": "authorization",
+          "proof": "not_applicable",
+          "teaches": "No sensitive action is attempted."
+        },
+        {
+          "id": "data_enforcement",
+          "proof": "source_contract",
+          "teaches": "Quantity and ship-window fields are read from BK-01 warehouse inventory."
+        },
+        {
+          "id": "durable_evidence",
+          "proof": "source_contract",
+          "teaches": "The turn id joins the shopper answer to its tool evidence."
+        },
+        {
+          "id": "customer_outcome",
+          "proof": "fixture_proven",
+          "teaches": "Marco receives a location-specific answer with a shipping window."
+        }
+      ]
     },
     {
-      "id": "anna-gift-hybrid",
-      "fixture": "session-anna-birthday-gift.json",
+      "id": "anna-constrained-gift-retrieval",
       "persona": "anna",
-      "summary": "Anna's anchor gift query routes through hybrid retrieval, not vector-only.",
-      "asserts": {
-        "turn": 1,
-        "expectedTools": ["search_products_hybrid"],
-        "forbiddenTools": ["search_products"],
-        "expectedProductsAny": [
-          "Beeswax Taper Candles",
-          "Ceramic Ring Dish"
-        ]
-      }
+      "kind": "read",
+      "summary": "Anna's gift query applies price and stock as hard predicates, then compares lexical, vector, hybrid, and reranked retrieval.",
+      "entryPrompt": "A housewarming gift under $100 that is in stock.",
+      "actors": {
+        "requester": {
+          "channel": "storefront",
+          "principal": "CUST-ANNA"
+        },
+        "executor": null,
+        "customerSubject": "CUST-ANNA"
+      },
+      "fixtureChecks": [
+        {
+          "id": "hybrid-gift",
+          "fixture": "session-anna-birthday-gift.json",
+          "asserts": {
+            "turn": 1,
+            "expectedTools": [
+              "search_products_hybrid"
+            ],
+            "forbiddenTools": [
+              "search_products"
+            ],
+            "expectedProductsAny": [
+              "Beeswax Taper Candles",
+              "Ceramic Ring Dish"
+            ]
+          }
+        }
+      ],
+      "stages": [
+        {
+          "id": "intent",
+          "proof": "fixture_proven",
+          "teaches": "Recipient, occasion, budget, and availability stay distinct."
+        },
+        {
+          "id": "identity",
+          "proof": "source_contract",
+          "teaches": "Anna's preferences may rank eligible rows but cannot relax hard constraints."
+        },
+        {
+          "id": "grounding",
+          "proof": "fixture_proven",
+          "teaches": "Hybrid retrieval owns the query; vector-only is an explicit negative control."
+        },
+        {
+          "id": "proposal",
+          "proof": "not_applicable",
+          "teaches": "A recommendation is not a business mutation."
+        },
+        {
+          "id": "human_decision",
+          "proof": "not_applicable",
+          "teaches": "No approval state is fabricated for a read."
+        },
+        {
+          "id": "authorization",
+          "proof": "not_applicable",
+          "teaches": "No sensitive action is attempted."
+        },
+        {
+          "id": "data_enforcement",
+          "proof": "source_contract",
+          "teaches": "PostgreSQL applies price <= 100 and quantity > 0 before ranking."
+        },
+        {
+          "id": "durable_evidence",
+          "proof": "source_contract",
+          "teaches": "Observed latency, extracted filters, and result sets stay queryable."
+        },
+        {
+          "id": "customer_outcome",
+          "proof": "fixture_proven",
+          "teaches": "Anna receives an eligible shortlist with retrieval rationale."
+        }
+      ]
     },
     {
-      "id": "theo-ceramics-return",
-      "fixture": "session-theo-ceramics-return.json",
+      "id": "theo-damaged-return-closed-loop",
       "persona": "theo",
-      "summary": "Return flow runs get_return_policy before initiate_return — read-then-write order.",
-      "asserts": {
-        "turn": 1,
-        "expectedToolsInOrder": ["get_return_policy", "initiate_return"],
-        "expectedProductsAll": ["Wabi-Sabi Bowl"]
-      }
+      "kind": "governed_write",
+      "summary": "Theo's damaged bowl request becomes an exact review; the operator, AgentCore Policy, Aurora, and the receipt each answer a different question.",
+      "entryPrompt": "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
+      "actors": {
+        "requester": {
+          "channel": "storefront",
+          "principal": "CUST-THEO"
+        },
+        "executor": {
+          "channel": "operator",
+          "principal": "operator",
+          "requiredGroup": "pellier-operators"
+        },
+        "customerSubject": "CUST-THEO"
+      },
+      "fixtureChecks": [
+        {
+          "id": "read-then-write",
+          "fixture": "session-theo-ceramics-return.json",
+          "asserts": {
+            "turn": 1,
+            "expectedToolsInOrder": [
+              "get_return_policy",
+              "initiate_return"
+            ],
+            "expectedProductsAll": [
+              "Wabi-Sabi Bowl"
+            ]
+          }
+        }
+      ],
+      "closedLoop": {
+        "action": "initiate_return",
+        "materialParameters": [
+          "customer_id",
+          "product_id",
+          "reason"
+        ],
+        "actionFingerprint": "sha256_canonical_operation_arguments",
+        "humanConfirmationRequired": true,
+        "executionParametersSource": "persisted_review_only",
+        "serverResolvedCustomerSubject": true,
+        "idempotencyRequired": true,
+        "rowLevelSecurityRequired": true,
+        "receiptRequired": true,
+        "correlationKey": "turn_id",
+        "localExecutionBoundary": "managed_execution_deferred_live"
+      },
+      "stages": [
+        {
+          "id": "intent",
+          "proof": "fixture_proven",
+          "teaches": "Damage reason and owned product are explicit, not inferred."
+        },
+        {
+          "id": "identity",
+          "proof": "source_contract",
+          "teaches": "The operator actor and Theo customer subject remain distinct."
+        },
+        {
+          "id": "grounding",
+          "proof": "fixture_proven",
+          "teaches": "Policy is read before a write is proposed, and Aurora proves ownership."
+        },
+        {
+          "id": "proposal",
+          "proof": "source_contract",
+          "teaches": "A pending review binds the exact material parameters by fingerprint."
+        },
+        {
+          "id": "human_decision",
+          "proof": "source_contract",
+          "teaches": "Confirmation records human intent and still reports policy PENDING."
+        },
+        {
+          "id": "authorization",
+          "proof": "deferred_live",
+          "teaches": "Only a live AgentCore Policy evaluation may produce ALLOW or DENY."
+        },
+        {
+          "id": "data_enforcement",
+          "proof": "source_contract",
+          "teaches": "Aurora RLS, ownership, and constraints decide whether the statement lands."
+        },
+        {
+          "id": "durable_evidence",
+          "proof": "source_contract",
+          "teaches": "Execution receipt, audit row, idempotency claim, and turn id reconstruct the attempt."
+        },
+        {
+          "id": "customer_outcome",
+          "proof": "deferred_live",
+          "teaches": "The final answer follows the real managed verdict and database effect."
+        }
+      ]
+    },
+    {
+      "id": "jessica-return-evidence-reconciliation",
+      "persona": "jessica",
+      "kind": "operator_investigation",
+      "summary": "Jessica's support ticket asserts a received return while the returns ledger has no row; the operator sees both and Pellier refuses to collapse context into fact.",
+      "entryPrompt": "Investigate Jessica's disputed refund. Separate what the ticket says from what the returns ledger proves.",
+      "actors": {
+        "requester": {
+          "channel": "operator",
+          "principal": "operator"
+        },
+        "executor": {
+          "channel": "operator",
+          "principal": "operator",
+          "requiredGroup": "pellier-operators"
+        },
+        "customerSubject": "CUST-JESSICA"
+      },
+      "fixtureChecks": [],
+      "epistemicContract": {
+        "fact": "Aurora orders and returns rows",
+        "context": "TKT-2026-3015 says a return was received",
+        "inference": "The discrepancy requires reconciliation before a customer promise",
+        "forbiddenClaim": "Jessica completed a return"
+      },
+      "safeStop": {
+        "consequentialActionPrepared": false,
+        "reason": "The authoritative return state and support assertion disagree."
+      },
+      "stages": [
+        {
+          "id": "intent",
+          "proof": "source_contract",
+          "teaches": "The operator asks to investigate, not to mutate."
+        },
+        {
+          "id": "identity",
+          "proof": "source_contract",
+          "teaches": "Jessica is the business subject; the operator remains the actor."
+        },
+        {
+          "id": "grounding",
+          "proof": "source_contract",
+          "teaches": "Orders, tickets, and returns are read as separate evidence kinds."
+        },
+        {
+          "id": "proposal",
+          "proof": "not_applicable",
+          "teaches": "Conflicting evidence does not silently become an action proposal."
+        },
+        {
+          "id": "human_decision",
+          "proof": "source_contract",
+          "teaches": "The operator chooses reconciliation before making a customer promise."
+        },
+        {
+          "id": "authorization",
+          "proof": "not_applicable",
+          "teaches": "No sensitive action reaches a policy engine."
+        },
+        {
+          "id": "data_enforcement",
+          "proof": "source_contract",
+          "teaches": "The absence of a return row is reported as absence, not as a zero-value return."
+        },
+        {
+          "id": "durable_evidence",
+          "proof": "source_contract",
+          "teaches": "The operator turn retains FACT, CONTEXT, and INFERENCE labels."
+        },
+        {
+          "id": "customer_outcome",
+          "proof": "source_contract",
+          "teaches": "The next response states the uncertainty instead of inventing resolution."
+        }
+      ]
     }
   ]
 }

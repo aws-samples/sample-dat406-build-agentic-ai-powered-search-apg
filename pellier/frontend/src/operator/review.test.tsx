@@ -17,6 +17,32 @@ import ActionAssurance from './components/ActionAssurance'
 import OperatorFrame from './shell/OperatorFrame'
 
 const THEO_HASH = 'a'.repeat(64)
+const THEO_HANDOFF = {
+  schemaVersion: '1',
+  trust: 'UNTRUSTED_SHOPPER_CONTEXT',
+  checkpoint: 'WAITING_FOR_HUMAN',
+  customerId: 'CUST-THEO',
+  source: {
+    sessionId: 'persona-theo-session',
+    turnId: 'turn-theo-abc',
+  },
+  shopperRequest: 'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
+  transcriptExcerpt: [
+    {
+      role: 'user' as const,
+      content: 'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
+    },
+  ],
+  routing: {
+    specialist: 'customer_service',
+    tools: ['get_return_policy', 'initiate_return'],
+  },
+  proposal: {
+    reviewId: 12,
+    action: 'initiate_return',
+    actionHash: THEO_HASH,
+  },
+}
 
 const PENDING_REVIEW = {
   reviewId: 12,
@@ -57,6 +83,7 @@ const PENDING_REVIEW = {
 
 const REVIEW_DETAIL = {
   review: PENDING_REVIEW,
+  shopperHandoff: THEO_HANDOFF,
   client: {
     customerId: 'CUST-THEO',
     name: 'Theo',
@@ -206,6 +233,16 @@ describe('ReviewQueue', () => {
     expect(state.textContent).toContain('020_operator_review.sql')
   })
 
+  it('does not blame Aurora when the operator is signed out', async () => {
+    mockFetch(() => ({ status: 401, body: { detail: 'authentication_required' } }))
+    renderQueue()
+
+    const state = await screen.findByTestId('operator-reviews-error')
+    expect(state).toHaveTextContent('Operator sign-in required')
+    expect(state).toHaveTextContent('No database request was attempted')
+    expect(state).not.toHaveTextContent('Aurora did not return')
+  })
+
   it('separates decided reviews from ones still waiting', async () => {
     const decided = {
       ...PENDING_REVIEW,
@@ -247,8 +284,8 @@ describe('OperatorFrame review link', () => {
   })
 
   it('states zero rather than leaving the label looking like a placeholder', async () => {
-    // Changed deliberately: an unlabelled "Reviews" reads as an empty
-    // placeholder, while "0" is a fact an operator wants stated.
+    // Zero is a fact an operator wants stated; omitting it would make an
+    // empty Action Queue indistinguishable from an unread one.
     mockFetch(() => ({ body: { reviews: [], total: 0, pendingCount: 0 } }))
     render(
       <MemoryRouter initialEntries={['/operator']}>
@@ -287,6 +324,18 @@ describe('OperatorFrame review link', () => {
 // ---------------------------------------------------------------------------
 
 describe('ReviewRecord', () => {
+  it('shows the original storefront ask as reported context', async () => {
+    mockFetch(() => ({ body: REVIEW_DETAIL }))
+    renderRecord()
+
+    const handoff = await screen.findByTestId('operator-shopper-handoff')
+    expect(handoff).toHaveTextContent('What Theo asked Pellier')
+    expect(handoff).toHaveTextContent('My Wabi-Sabi Bowl arrived chipped')
+    expect(handoff).toHaveTextContent('Reported context')
+    expect(handoff).toHaveTextContent('Customer Service')
+    expect(handoff).toHaveTextContent('get_return_policy, initiate_return')
+  })
+
   beforeEach(() => {
     mockFetch((_url, init) => {
       if (init?.method === 'POST') {
@@ -566,6 +615,16 @@ describe('ReviewRecord', () => {
     mockFetch(() => ({ status: 404, body: { detail: 'Unknown review: 12' } }))
     renderRecord()
     expect(await screen.findByTestId('operator-review-error')).toBeInTheDocument()
+  })
+
+  it('does not blame the prepared action when the operator is signed out', async () => {
+    mockFetch(() => ({ status: 401, body: { detail: 'authentication_required' } }))
+    renderRecord()
+
+    const state = await screen.findByTestId('operator-review-error')
+    expect(state).toHaveTextContent('Operator sign-in required')
+    expect(state).toHaveTextContent('No database request was attempted')
+    expect(state).not.toHaveTextContent('This prepared action is unavailable')
   })
 
   it('renders a loading state', () => {
@@ -1252,7 +1311,7 @@ describe('the empty review queue', () => {
     mockFetch(() => ({ body: { reviews: [], total: 0, pendingCount: 0 } }))
     renderQueue()
     const empty = await screen.findByTestId('operator-reviews-empty')
-    expect(empty.textContent).toContain('No reviews waiting')
+    expect(empty.textContent).toContain('No actions waiting')
     expect(empty.textContent).toContain('appear here for an operator to confirm')
   })
 

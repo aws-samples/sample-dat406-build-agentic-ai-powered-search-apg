@@ -53,6 +53,14 @@
   --op-ok: var(--dl-ok);
   --op-warn: var(--dl-warn);
   --op-err: var(--dl-err);
+  /* Provenance tones. These identify systems, not generic decoration, and are
+     always paired with an icon plus the system name. */
+  --op-source-database: #0b7168;
+  --op-source-memory: #315f9f;
+  --op-source-model: #8a4b68;
+  --op-source-control: #8a5d13;
+  --op-source-graph: #7a3e57;
+  --op-source-handoff: #596576;
 
   /* Ladder tones. Antique metals, not shiny ones: a bright gold (#9c7b28)
      measures 3.75:1 on cream and fails the 4.5:1 floor for 10px text. These
@@ -122,14 +130,21 @@
   position: sticky;
   top: 0;
   z-index: 40;
+  padding: 0 28px;
+  background: color-mix(in srgb, var(--op-paper) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-topbar-inner {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 16px;
-  padding: 15px 28px;
-  background: color-mix(in srgb, var(--op-paper) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--op-rule);
+  width: 100%;
+  max-width: 1184px;
+  min-height: 64px;
+  margin: 0 auto;
 }
 
 .operator-topbar-start {
@@ -164,7 +179,13 @@
 .operator-topbar-end {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 18px;
+}
+
+.operator-topbar-nav {
+  display: flex;
+  align-self: stretch;
+  gap: 22px;
 }
 
 .operator-shell {
@@ -1110,11 +1131,10 @@
 
 /* -------------------------------------------------------- responsive */
 
-/* --------------------------------------------------- prepared reviews */
+/* --------------------------------------------------- prepared actions */
 
-/* The queue link in the top bar. The count only renders when there is work,
-   so the badge never has to express zero. */
 .operator-topbar-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1123,11 +1143,35 @@
   letter-spacing: 0.01em;
   color: var(--op-ink-2);
   text-decoration: none;
-  padding: 5px 2px;
+  padding: 5px 0;
 }
 
 .operator-topbar-link:hover {
   color: var(--op-accent);
+}
+
+.operator-topbar-link::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: transparent;
+}
+
+.operator-topbar-link-active {
+  color: var(--op-ink);
+}
+
+.operator-topbar-link-active::after {
+  background: var(--op-authority);
+}
+
+.operator-topbar-icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.7;
 }
 
 .operator-topbar-count {
@@ -1145,31 +1189,102 @@
   line-height: 1;
 }
 
-/* A queue row, built on the book row's proportions so the two lists read as
-   one desk rather than two products. */
+.operator-queue-summary {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.65fr) minmax(140px, 0.65fr) minmax(220px, 1.7fr);
+  margin: 24px 0 28px;
+  border-top: 1px solid var(--op-rule);
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-queue-summary > div {
+  min-width: 0;
+  padding: 15px 20px 16px;
+  border-right: 1px solid var(--op-rule);
+}
+
+.operator-queue-summary > div:first-child {
+  padding-left: 0;
+}
+
+.operator-queue-summary > div:last-child {
+  border-right: 0;
+}
+
+.operator-queue-summary dt,
+.operator-review-cell-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-queue-summary dd {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 25px;
+  line-height: 1;
+  color: var(--op-ink);
+}
+
+.operator-queue-summary dd[data-tone='authority'] {
+  color: var(--op-authority);
+}
+
+.operator-queue-summary dd[data-tone='quiet'] {
+  color: var(--op-muted);
+}
+
+.operator-queue-summary .operator-queue-boundary {
+  padding-top: 4px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.operator-action-list {
+  border-top: 1px solid var(--op-rule-strong);
+  border-bottom: 1px solid var(--op-rule-strong);
+}
+
+/* One operational row, not a card inside another framed list. */
 .operator-review-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns:
+    56px minmax(240px, 1.35fr) minmax(170px, 0.85fr)
+    minmax(150px, 0.65fr) 18px;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
-  padding: 15px 18px;
-  border: 1px solid var(--op-rule);
-  border-radius: var(--op-radius);
+  padding: 20px 4px;
+  border-bottom: 1px solid var(--op-rule);
   background: var(--op-paper);
-  margin-bottom: 10px;
   text-align: left;
   text-decoration: none;
   color: inherit;
-  transition: border-color 140ms ease-out;
+  transition: background 140ms ease-out;
+}
+
+.operator-review-row:last-child {
+  border-bottom: 0;
 }
 
 .operator-review-row:hover {
-  border-color: var(--op-rule-strong);
+  background: var(--op-paper-2);
+}
+
+.operator-review-row .operator-avatar,
+.operator-review-row .operator-monogram {
+  width: 56px;
+  height: 56px;
 }
 
 .operator-review-body {
-  display: block;
+  display: grid;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -1177,13 +1292,26 @@
    it is the one place the page says where this work came from. */
 .operator-review-origin {
   display: block;
-  margin: 0 0 4px;
+  margin: 0;
   font-family: var(--sans);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: var(--op-label-track);
   text-transform: uppercase;
   color: var(--op-faint);
+}
+
+.operator-review-action-cell,
+.operator-review-state {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+}
+
+.operator-review-cell-value {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--op-ink);
 }
 
 /* State is carried by the word. The tone is reinforcement only. */
@@ -1204,11 +1332,110 @@
   color: var(--op-muted);
 }
 
+.operator-review-open {
+  width: 17px;
+  height: 17px;
+  color: var(--op-faint);
+  stroke-width: 1.6;
+  transition: transform 140ms ease-out, color 140ms ease-out;
+}
+
+.operator-review-row:hover .operator-review-open {
+  color: var(--op-ink);
+  transform: translate(2px, -2px);
+}
+
+.operator-review-record-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.operator-review-record-layout > .operator-back,
+.operator-review-record-layout > .operator-review-origin,
+.operator-review-record-layout > .operator-review-head,
+.operator-review-record-layout > .operator-assurance,
+.operator-review-record-layout > .operator-receipt {
+  grid-column: 1 / -1;
+}
+
+.operator-review-record-layout > .operator-review-context-card {
+  grid-column: 1;
+  grid-row: 4;
+}
+
+.operator-review-record-layout > .operator-review-handoff-card {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+
+.operator-review-record-layout:has(.operator-review-handoff-card)
+  > .operator-review-context-card,
+.operator-review-record-layout:has(.operator-review-handoff-card)
+  > .operator-review-recommendation-card {
+  grid-row: 5;
+}
+
+.operator-review-record-layout:has(.operator-review-handoff-card)
+  > .operator-review-order-card {
+  grid-row: 6;
+}
+
+.operator-review-record-layout:has(.operator-review-handoff-card)
+  > .operator-review-action-card,
+.operator-review-record-layout:has(.operator-review-handoff-card)
+  > .operator-review-decision-card {
+  grid-row: 7;
+}
+
+.operator-review-record-layout > .operator-review-recommendation-card {
+  grid-column: 2;
+  grid-row: 4;
+}
+
+.operator-review-record-layout > .operator-review-order-card {
+  grid-column: 1 / -1;
+  grid-row: 5;
+}
+
+.operator-review-record-layout > .operator-review-action-card {
+  grid-column: 1;
+  grid-row: 6;
+}
+
+.operator-review-record-layout > .operator-review-decision-card {
+  grid-column: 2;
+  grid-row: 6;
+}
+
+.operator-review-record-layout > .operator-card,
+.operator-review-record-layout > .operator-assurance {
+  margin-bottom: 0;
+}
+
 .operator-review-head {
   display: flex;
   align-items: flex-start;
   gap: 18px;
-  margin-bottom: 22px;
+  margin-bottom: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-review-head-state {
+  display: grid;
+  gap: 2px;
+  margin-left: auto;
+  padding: 8px 0 8px 20px;
+  border-left: 1px solid var(--op-rule);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--op-ink);
+  white-space: nowrap;
+}
+
+.operator-review-head-state[data-state='confirmation_required'] {
+  color: var(--op-authority);
 }
 
 .operator-review-standing {
@@ -1239,6 +1466,171 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+/* The storefront account arrives as reported context, never as authority. The
+   component is unframed inside a review card and unframed in Concierge, so it
+   cannot become a card nested in another card. */
+.operator-handoff {
+  display: grid;
+  gap: 18px;
+}
+
+.operator-handoff-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.operator-handoff-heading h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: var(--op-display-track);
+  color: var(--op-ink);
+}
+
+.operator-handoff-heading p {
+  max-width: 64ch;
+  margin: 7px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--op-muted);
+}
+
+.operator-handoff-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: var(--op-source-handoff);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.operator-handoff-request {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--op-source-handoff) 25%, var(--op-rule));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--op-source-handoff) 5%, var(--op-paper));
+  color: var(--op-source-handoff);
+}
+
+.operator-handoff-request p {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--op-ink);
+  text-wrap: pretty;
+}
+
+.operator-handoff-route {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--op-rule);
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-handoff-route > div {
+  padding: 12px 16px 12px 0;
+}
+
+.operator-handoff-route > div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--op-rule);
+}
+
+.operator-handoff-route dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--op-faint);
+  text-transform: uppercase;
+}
+
+.operator-handoff-route dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--op-ink-2);
+}
+
+.operator-handoff-transcript {
+  color: var(--op-muted);
+}
+
+.operator-handoff-transcript summary {
+  width: fit-content;
+  color: var(--op-accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.operator-handoff-transcript ol {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.operator-handoff-transcript li {
+  display: grid;
+  grid-template-columns: minmax(72px, 20%) 1fr;
+  gap: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-handoff-transcript li > span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--op-faint);
+  text-transform: uppercase;
+}
+
+.operator-handoff-transcript li p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--op-ink-2);
+}
+
+.operator-handoff[data-compact='true'] {
+  gap: 12px;
+  padding: 14px 0 2px;
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-handoff[data-compact='true'] .operator-handoff-heading h2 {
+  font-size: 17px;
+}
+
+.operator-handoff[data-compact='true'] .operator-handoff-request {
+  padding: 13px 14px;
+}
+
+.operator-handoff[data-compact='true'] .operator-handoff-request p {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* `.operator-button` is full-width for the rail form. Side by side in a card,
@@ -1361,11 +1753,38 @@
   }
 
   .operator-review-row {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 56px minmax(0, 1fr) 18px;
+    align-items: start;
+    gap: 12px 16px;
   }
 
+  .operator-review-row .operator-avatar,
+  .operator-review-row .operator-monogram {
+    grid-row: 1 / span 3;
+  }
+
+  .operator-review-action-cell,
   .operator-review-state {
     grid-column: 2;
+  }
+
+  .operator-review-open {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .operator-review-record-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .operator-review-record-layout > .operator-review-context-card,
+  .operator-review-record-layout > .operator-review-handoff-card,
+  .operator-review-record-layout > .operator-review-recommendation-card,
+  .operator-review-record-layout > .operator-review-order-card,
+  .operator-review-record-layout > .operator-review-action-card,
+  .operator-review-record-layout > .operator-review-decision-card {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .operator-record-head {
@@ -1395,11 +1814,74 @@
   }
 
   .operator-topbar {
-    padding: 12px 16px;
+    padding: 0 16px;
+  }
+
+  .operator-topbar-inner {
+    min-height: 58px;
+  }
+
+  .operator-topbar-start {
+    gap: 0;
   }
 
   .operator-topbar-context {
     display: none;
+  }
+
+  .operator-topbar-end {
+    gap: 12px;
+  }
+
+  .operator-topbar-nav {
+    gap: 14px;
+  }
+
+  .operator-topbar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .operator-topbar-link {
+    gap: 4px;
+  }
+
+  .operator-queue-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operator-queue-summary > div {
+    padding: 14px 16px;
+  }
+
+  .operator-queue-summary > div:first-child {
+    padding-left: 0;
+  }
+
+  .operator-queue-summary > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .operator-queue-summary > div:last-child {
+    grid-column: 1 / -1;
+    padding-left: 0;
+    border-top: 1px solid var(--op-rule);
+  }
+
+  .operator-review-head {
+    flex-wrap: wrap;
+  }
+
+  .operator-review-head-state {
+    width: 100%;
+    margin-left: 0;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--op-rule);
+    border-left: 0;
   }
 
   .operator-quad {
@@ -1814,10 +2296,12 @@
 /* An assistant conclusion is editorial. */
 .operator-concierge-conclusion {
   margin: 0;
-  font-family: var(--display);
+  /* Match the storefront's editorial body copy. Generated prose is content to
+     read, not another display heading. */
+  font-family: var(--sans);
   font-weight: 400;
-  font-size: 19px;
-  line-height: 1.45;
+  font-size: 15px;
+  line-height: 1.68;
   color: var(--op-ink);
   text-wrap: pretty;
 }
@@ -1825,11 +2309,12 @@
 /* ---------------------------------------------- investigation */
 
 .operator-concierge-investigation-head {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 0;
+  padding: 2px 0;
   border: 0;
   background: none;
   font: inherit;
@@ -1846,32 +2331,228 @@
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 11px;
   color: var(--op-faint);
+  white-space: nowrap;
+}
+
+.operator-concierge-disclosure-icon {
+  color: var(--op-faint);
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.operator-concierge-investigation-head[aria-expanded='true']
+  .operator-concierge-disclosure-icon {
+  transform: rotate(180deg);
+}
+
+.operator-concierge-investigation--live {
+  padding: 12px 14px 13px;
+  border: 1px solid color-mix(in srgb, var(--op-source-memory) 22%, var(--op-rule));
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      110deg,
+      color-mix(in srgb, var(--op-source-memory) 5%, var(--op-paper)),
+      color-mix(in srgb, var(--op-source-database) 4%, var(--op-paper))
+    );
+}
+
+.operator-concierge-investigation--live .operator-concierge-investigation-head {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.operator-concierge-activity-status {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--op-source-memory);
+  background: color-mix(in srgb, var(--op-source-memory) 10%, var(--op-paper));
+}
+
+.operator-concierge-investigation--live:not(:has(+ .operator-concierge-primary--live))
+  .operator-concierge-activity-status svg {
+  animation: operator-concierge-spin 900ms linear infinite;
+}
+
+.operator-concierge-activity-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.operator-concierge-activity-label {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--op-ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .operator-concierge-steps {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   padding: 0;
 }
 
 .operator-concierge-step {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 6px 0;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: start;
+  padding: 8px 0;
   border-bottom: 1px solid var(--op-rule);
   font-size: 12.5px;
   color: var(--op-ink-2);
 }
 
+.operator-concierge-step:first-child {
+  border-top: 1px solid var(--op-rule);
+}
+
+.operator-concierge-step-status {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--op-ok);
+}
+
+.operator-concierge-step-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.operator-concierge-step-label {
+  line-height: 1.4;
+}
+
+.operator-concierge-step-result {
+  overflow-wrap: anywhere;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--op-muted);
+}
+
+.operator-concierge-step-provenance {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  padding-top: 1px;
+}
+
 .operator-concierge-step-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--op-faint);
   white-space: nowrap;
 }
 
-.operator-concierge-step[data-step-status='failed'] .operator-concierge-step-source {
+.operator-concierge-step-duration {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  color: var(--op-faint);
+}
+
+.operator-concierge-step[data-source-tone='database']
+  .operator-concierge-step-source {
+  color: var(--op-source-database);
+}
+
+.operator-concierge-step[data-source-tone='memory']
+  .operator-concierge-step-source {
+  color: var(--op-source-memory);
+}
+
+.operator-concierge-step[data-source-tone='model']
+  .operator-concierge-step-source {
+  color: var(--op-source-model);
+}
+
+.operator-concierge-step[data-source-tone='control']
+  .operator-concierge-step-source {
+  color: var(--op-source-control);
+}
+
+.operator-concierge-step[data-source-tone='graph']
+  .operator-concierge-step-source {
+  color: var(--op-source-graph);
+}
+
+.operator-concierge-step[data-source-tone='handoff']
+  .operator-concierge-step-source {
+  color: var(--op-source-handoff);
+}
+
+.operator-concierge-graph {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--op-source-graph) 24%, var(--op-rule));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--op-source-graph) 4%, var(--op-paper));
+}
+
+.operator-concierge-graph-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--op-source-graph);
+}
+
+.operator-concierge-graph-nodes {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.operator-concierge-graph-nodes li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--op-rule);
+  border-bottom: 1px solid var(--op-rule);
+  font-size: 11.5px;
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-graph-nodes li + li::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 6px);
+  width: 6px;
+  border-top: 1px solid var(--op-source-graph);
+}
+
+.operator-concierge-graph-nodes small {
+  font-family: var(--mono);
+  color: var(--op-faint);
+}
+
+.operator-concierge-checkpoint {
+  margin: 10px 0 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--op-faint);
+  text-transform: lowercase;
+}
+.operator-concierge-step[data-step-status='failed'] .operator-concierge-step-source,
+.operator-concierge-step[data-step-status='failed'] .operator-concierge-step-status,
+.operator-concierge-step[data-step-status='unavailable']
+  .operator-concierge-step-status {
   color: var(--op-err);
 }
 
@@ -1881,23 +2562,24 @@
   color: var(--op-muted);
 }
 
-.operator-concierge-step[data-step-status='running'] .operator-concierge-step-source {
-  animation: operator-concierge-pending 1.6s ease-in-out infinite;
+.operator-concierge-step[data-step-status='running'] .operator-concierge-step-status {
+  color: var(--op-source-model);
 }
 
-@keyframes operator-concierge-pending {
-  0%,
-  100% {
-    opacity: 0.4;
-  }
-  50% {
-    opacity: 1;
+.operator-concierge-step[data-step-status='running']
+  .operator-concierge-step-status svg {
+  animation: operator-concierge-spin 900ms linear infinite;
+}
+
+@keyframes operator-concierge-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .operator-concierge-step[data-step-status='running']
-    .operator-concierge-step-source {
+  .operator-concierge-step[data-step-status='running'] .operator-concierge-step-status svg,
+  .operator-concierge-activity-status svg {
     animation: none;
   }
 }
@@ -1975,7 +2657,7 @@
   width: 100%;
   padding: 11px 13px;
   border: 1px solid var(--op-rule-strong);
-  border-radius: 3px;
+  border-radius: 8px;
   background: var(--op-paper);
   color: var(--op-ink);
   font: inherit;
@@ -2016,14 +2698,22 @@
 
 .operator-concierge-ask {
   flex: 0 0 auto;
-  padding: 7px 16px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border: 1px solid var(--op-ink);
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--op-ink);
   color: var(--op-paper);
   font: inherit;
   font-size: 12.5px;
   cursor: pointer;
+}
+
+.operator-concierge-ask[data-submitting='true'] svg {
+  animation: operator-concierge-spin 900ms linear infinite;
 }
 
 .operator-concierge-ask:disabled {
@@ -2092,6 +2782,24 @@
 .operator-concierge-primary {
   display: grid;
   gap: 6px;
+}
+
+.operator-concierge-primary--live {
+  padding-left: 14px;
+  border-left: 2px solid var(--op-source-database);
+  animation: operator-concierge-answer-in 220ms cubic-bezier(0.2, 0.7, 0.3, 1)
+    both;
+}
+
+@keyframes operator-concierge-answer-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* A draft is copy that could be pasted into a real message, so it reads as a

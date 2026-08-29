@@ -1,7 +1,7 @@
 /**
  * RuntimeDetail — Architecture detail page for Runtime Envelope.
  *
- * Managed/deployment envelope around the app-layer dispatcher and tools.
+ * Managed deployment envelope around bounded Storefront and Operator invocations.
  *
  * Requirements: 7.1, 7.6, 7.7
  */
@@ -27,27 +27,27 @@ const RuntimeDetail: React.FC = () => {
       conceptName="Runtime Envelope"
       category="workshop"
       title="Runtime, bounded."
-      prose="Runtime is the managed envelope around governed execution: model calls, AgentCore Memory, Gateway, identity, and observability. Governed requests fail closed unless that complete rail is available; the separate builders format keeps its app-layer dispatcher."
+      prose="AgentCore Runtime is the deployment target for the Storefront Dispatcher and the Operator Concierge Strands graph. Each invocation finishes and persists its result. PostgreSQL, not a suspended Runtime process, holds the human checkpoint between requests."
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'The app-layer runtime is explicit: triage, dispatcher, specialist/tool call, SSE telemetry, reply. That is the path participants see in Sessions.',
+          text: 'A Storefront invocation runs triage, Dispatcher, one specialist/tool path, telemetry, and response streaming.',
         },
         {
           numeral: 'ii.',
-          text: 'Managed Runtime is required in the governed format: identity, Memory, Gateway connectivity, and trace receipts must all remain intact.',
+          text: 'An Operator Concierge invocation runs Case Investigator, then Resolution Planner, and persists graph metadata and node timings with the answer.',
         },
         {
           numeral: 'iii.',
-          text: 'The workshop separates what the code owns from what the platform can operate, so the architecture page does not imply every request uses a hidden graph runtime.',
+          text: 'The pending review exists before the graph. Human confirmation and governed execution are separate authenticated requests after the graph.',
         },
       ]}
       liveState={{
-        label: 'Current runtime envelope. Shows the required governed services and the separate builders execution path.',
+        label: 'Managed deployment target and the durable state boundary between invocations.',
         values: [
-          { label: 'Governed path', value: 'Managed Runtime' },
-          { label: 'Memory', value: 'Required' },
-          { label: 'Gateway', value: 'Required' },
+          { label: 'Deployment target', value: 'AgentCore Runtime' },
+          { label: 'Operator topology', value: '2-agent graph' },
+          { label: 'Human wait state', value: 'PostgreSQL' },
         ],
       }}
     >
@@ -60,12 +60,11 @@ const RuntimeDetail: React.FC = () => {
           <ExpCard>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <SectionLabel label="The layers" />
-              <h3 style={titleStyle}>Seven visible steps, one request.</h3>
+              <h3 style={titleStyle}>Short invocations; durable continuity.</h3>
               <p style={proseStyle}>
-                A Pellier request flows through visible steps: fast-path check, intent
-                classification, skill routing, dispatcher handoff, specialist execution,
-                tool invocation, and response streaming. Sessions and Telemetry render these
-                steps directly.
+                Runtime executes agent work. PostgreSQL carries the review, action hash,
+                decision, and receipts across requests. No worker, graph node, or model
+                call stays open while a person decides.
               </p>
               <RuntimeLayersDiagram />
             </div>
@@ -74,24 +73,24 @@ const RuntimeDetail: React.FC = () => {
           {/* Layer cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <LayerCard
-              name="Fast-path"
-              timing="~5ms"
-              description="Deterministic greeting, thanks, and meta handling before any specialist work."
+              name="Storefront invocation"
+              timing="bounded"
+              description="Dispatcher chooses one specialist and returns a grounded shopper response."
             />
             <LayerCard
-              name="Intent classification"
-              timing="~120ms"
-              description="Keyword and pattern routing in services/chat.py picks pricing, inventory, support, search, or recommendation."
+              name="Operator graph invocation"
+              timing="2 nodes"
+              description="Case Investigator feeds Resolution Planner; the artifact and node timings persist with the conversation."
             />
             <LayerCard
-              name="Skill routing"
-              timing="~120ms"
-              description="SkillRouter may load one of five overlays: three persona skills plus shared care/proof handling."
+              name="Human checkpoint"
+              timing="between requests"
+              description="PostgreSQL stores the pending review and exact action hash until an authenticated operator decides."
             />
             <LayerCard
-              name="Specialist execution"
-              timing="~800ms"
-              description="The owning specialist composes the response using persona context, memory, and tool results."
+              name="Governed execution"
+              timing="new request"
+              description="A separate deterministic path invokes Gateway and Policy, then records database and evidence outcomes."
             />
           </div>
 
@@ -133,27 +132,47 @@ const LayerCard: React.FC<{
 );
 
 const RuntimeLayersDiagram: React.FC = () => (
-  <svg viewBox="0 0 700 280" width="100%" style={{ maxWidth: '800px', display: 'block', margin: '0 auto' }}>
-    {/* Layer bars stacked */}
+  <svg
+    viewBox="0 0 900 240"
+    width="100%"
+    role="img"
+    aria-label="Bounded AgentCore Runtime invocations separated by durable PostgreSQL checkpoints"
+    style={{ maxWidth: '900px', display: 'block', margin: '0 auto' }}
+  >
+    <defs>
+      <marker id="runtime-arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="rgba(168,66,58,0.5)" />
+      </marker>
+    </defs>
+    {[164, 342, 520, 698].map((x) => (
+      <line key={x} x1={x} y1="105" x2={x + 42} y2="105" stroke="rgba(168,66,58,0.5)" strokeWidth="1.5" markerEnd="url(#runtime-arrowhead)" />
+    ))}
     {[
-      { label: 'fast-path', width: 40, color: 'rgba(107,140,94,0.45)' },
-      { label: 'intent', width: 110, color: 'rgba(168,66,58,0.35)' },
-      { label: 'skill-router', width: 110, color: 'rgba(168,66,58,0.25)' },
-      { label: 'orchestrator', width: 210, color: 'rgba(31,20,16,0.20)' },
-      { label: 'specialist', width: 390, color: 'rgba(31,20,16,0.14)' },
-      { label: 'tools', width: 280, color: 'rgba(168,66,58,0.18)' },
-      { label: 'stream', width: 560, color: 'rgba(107,140,94,0.25)' },
-    ].map((layer, i) => (
-      <g key={layer.label}>
-        <rect x="120" y={16 + i * 34} width={layer.width} height="26" rx="5" fill={layer.color} />
-        <text x="110" y={34 + i * 34} textAnchor="end" fontFamily="JetBrains Mono, monospace" fontSize="13" fill="rgba(31,20,16,0.75)" letterSpacing="0.5">
-          {layer.label}
-        </text>
+      { x: 10, title: 'Storefront', detail: 'Dispatcher Runtime', platform: true },
+      { x: 188, title: 'Handoff + review', detail: 'PostgreSQL', platform: false },
+      { x: 366, title: 'Operator graph', detail: 'Runtime target', platform: true },
+      { x: 544, title: 'Human decision', detail: 'PostgreSQL', platform: false },
+      { x: 722, title: 'Execution', detail: 'Gateway + Policy', platform: true },
+    ].map((node) => (
+      <g key={node.title}>
+        <rect
+          x={node.x}
+          y="70"
+          width="154"
+          height="70"
+          rx="8"
+          fill={node.platform ? '#1f1410' : 'var(--cream-warm)'}
+          stroke={node.platform ? '#1f1410' : 'rgba(168,66,58,0.55)'}
+        />
+        <text x={node.x + 77} y="100" textAnchor="middle" fontFamily="Instrument Sans, sans-serif" fontSize="13" fill={node.platform ? 'var(--cream-warm)' : '#1f1410'}>{node.title}</text>
+        <text x={node.x + 77} y="121" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="9" fill={node.platform ? 'rgba(255,248,238,0.7)' : 'rgba(31,20,16,0.55)'}>{node.detail}</text>
       </g>
     ))}
-    {/* Time axis */}
-    <line x1="120" y1="262" x2="680" y2="262" stroke="rgba(31,20,16,0.2)" strokeWidth="1" />
-    <text x="400" y="276" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="11" fill="rgba(31,20,16,0.55)" letterSpacing="2">TIME →</text>
+    <text x="450" y="188" textAnchor="middle" fontFamily="Instrument Sans, sans-serif" fontSize="12" fill="rgba(31,20,16,0.62)">
+      Every Runtime invocation terminates; PostgreSQL carries continuity between requests.
+    </text>
+    <line x1="10" y1="211" x2="876" y2="211" stroke="rgba(31,20,16,0.2)" strokeWidth="1" />
+    <text x="443" y="230" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="rgba(31,20,16,0.55)" letterSpacing="2">TIME</text>
   </svg>
 );
 

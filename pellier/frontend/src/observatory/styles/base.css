@@ -1166,6 +1166,11 @@
     font-size: 19px;
   }
 
+  .observatory-optional,
+  .observatory-topbar .pellier-home-wordmark {
+    display: none;
+  }
+
   .observatory-root .observatory-view-trigger {
     width: 40px;
     min-width: 40px;

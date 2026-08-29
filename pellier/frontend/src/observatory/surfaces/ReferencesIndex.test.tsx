@@ -106,7 +106,7 @@ describe('Observatory navigation index', () => {
       document.querySelectorAll('.observatory-reference-link-copy strong'),
     ).map((node) => node.textContent ?? '');
 
-    expect(labels).toHaveLength(14);
+    expect(labels).toHaveLength(15);
     for (const label of labels) {
       // Strip the appended live count before checking the label itself.
       const name = label.replace(/\d+\/\d+$|—$/, '').trim();
@@ -144,7 +144,7 @@ describe('Observatory navigation index', () => {
 
     expect(
       container.querySelectorAll('.observatory-reference-link-icon svg'),
-    ).toHaveLength(14);
+    ).toHaveLength(15);
   });
 
   it.each([

@@ -3,10 +3,10 @@
 Two behaviours matter most here, and both are about failing in the right
 direction:
 
-* **Reads are open, writes are gated.** A blank 401 on the whole console makes
-  the desk useless on a box with no Cognito wired, so the GETs must work
-  unauthenticated. The writes must NOT: an optional-auth write handler is an
-  unauthenticated write path wearing an authenticated signature.
+* **The desk is one operator boundary.** Reads expose customer standing,
+  orders, support history, and review evidence, so all routes require the
+  operator group. Route-behaviour tests use an explicit verified-operator
+  dependency override; boundary tests exercise anonymous and shopper refusal.
 * **A policy decision is an answer, not an error.** ``policy_blocked`` comes
   back as 200 with the envelope intact. Only an unexpected failure is a 5xx.
 """
@@ -210,7 +210,7 @@ def build_anonymous_client(db: FakeDb) -> TestClient:
 # Reads, behind the operator boundary
 # ---------------------------------------------------------------------------
 
-def test_the_book_lists_clients_without_a_token() -> None:
+def test_the_book_lists_clients_for_an_operator() -> None:
     client = build_client(FakeDb())
     response = client.get("/api/operator/clients")
 

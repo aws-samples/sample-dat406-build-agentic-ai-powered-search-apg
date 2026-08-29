@@ -68,6 +68,7 @@ const CAPS = {
 const CONFIG = {
   composerEnabled: true,
   orchestrationAvailable: true,
+  dataSource: 'Local PostgreSQL',
   // Matches `SUPPORTED_WORKFLOWS` from services/operator_concierge.py.
   supportedWorkflowKinds: ['client_summary', 'investigate_resolution',
                            'replacement_search', 'draft_client_note'],
@@ -388,7 +389,13 @@ describe('submitting a turn', () => {
     const investigation = await screen.findByTestId(
       'operator-concierge-investigation',
     )
+    expect(investigation.textContent).toContain('How this answer was built')
+    expect(investigation.textContent).not.toContain('Conversation context checked')
+    fireEvent.click(
+      screen.getByRole('button', { name: /How this answer was built/i }),
+    )
     expect(investigation.textContent).toContain('Conversation context checked')
+    expect(investigation.textContent).toContain('AgentCore Memory')
     expect(investigation.textContent).not.toContain('0 prior turns')
   })
 

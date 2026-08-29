@@ -1,7 +1,7 @@
 /**
  * StateDetail — Architecture detail page for Routing & State.
  *
- * Dispatcher-first routing plus the small state bundle carried through a turn.
+ * Storefront Dispatcher plus the bounded Operator Concierge graph.
  *
  * Requirements: 7.1, 7.6, 7.7
  */
@@ -27,27 +27,27 @@ const StateDetail: React.FC = () => {
       conceptName="Routing & State"
       category="live"
       title="Routing, explicit."
-      prose="Pellier's default path is dispatcher-first: services/chat.py triages small talk, classifies intent, optionally loads one persona skill, then hands the turn to one owning specialist/tool path. Agents-as-Tools and graph routing stay visible as teaching patterns, not the default storefront runtime."
+      prose="Pellier ships two explicit orchestration paths. The Storefront uses deterministic Dispatcher routing to one owning specialist. Operator Concierge uses a bounded Strands graph: Case Investigator, then Resolution Planner. Agents-as-Tools remains a comparison pattern."
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'State flows in one direction: triage and intent classification determine the specialist path, then tool results and memory context shape the reply.',
+          text: 'Storefront state flows in one direction: triage and intent classification select one specialist, then grounded tool results shape the reply.',
         },
         {
           numeral: 'ii.',
-          text: 'The dispatcher path keeps state small and auditable: query, persona, session id, loaded skill, intent, tool calls, and telemetry events.',
+          text: 'Operator graph state is also bounded: current evidence, untrusted handoff context, review id, action hash, node outcomes, and timings.',
         },
         {
           numeral: 'iii.',
-          text: 'Routing pages compare Dispatcher, Agents-as-Tools, and Graph patterns, but Pellier uses Dispatcher because it is cheaper and easier to reason about.',
+          text: 'PostgreSQL creates the pending review before the graph runs and records the later human decision after it. The graph invocation never waits for a person.',
         },
       ]}
       liveState={{
-        label: 'Current routing context for the active session. Shows the intent, selected specialist path, and routing strategy.',
+        label: 'The two shipped orchestration paths and the durable checkpoint between requests.',
         values: [
-          { label: 'Owning path', value: '1' },
-          { label: 'Routing', value: 'Dispatcher' },
-          { label: 'State keys', value: '6' },
+          { label: 'Storefront', value: 'Dispatcher' },
+          { label: 'Operator', value: 'Strands Graph' },
+          { label: 'Human checkpoint', value: 'PostgreSQL' },
         ],
       }}
     >
@@ -59,12 +59,12 @@ const StateDetail: React.FC = () => {
           {/* State flow diagram */}
           <ExpCard>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <SectionLabel label="The dispatcher path" />
-              <h3 style={titleStyle}>Intent to response, one owner.</h3>
+              <SectionLabel label="The shipped paths" />
+              <h3 style={titleStyle}>One fast route; one ordered graph.</h3>
               <p style={proseStyle}>
-                A request arrives with a persona and session id. The dispatcher classifies the
-                intent, loads the relevant skill when needed, and chooses one specialist/tool
-                path for the turn. The telemetry tab records each step so the route is auditable.
+                Storefront turns favor one deterministic owner. Operator turns earn a
+                graph because investigation and planning have separate responsibilities.
+                The pending review and later human decision remain durable outside the graph.
               </p>
               <StateFlowDiagram />
             </div>
@@ -78,9 +78,9 @@ const StateDetail: React.FC = () => {
               example='classified_intent = "search"'
             />
             <StateKeyCard
-              keyName="active_agents"
-              description="The owning specialist path for this turn. Pellier chooses one path by default, not a committee."
-              example='owner = "Personalization Agent"'
+              keyName="operator_graph"
+              description="Two ordered agents: Case Investigator establishes a bounded brief; Resolution Planner produces the deliverable."
+              example='edge = "case-investigator -> resolution-planner"'
             />
             <StateKeyCard
               keyName="memory_context"
@@ -88,9 +88,9 @@ const StateDetail: React.FC = () => {
               example="memory_context = { stm, ltm }"
             />
             <StateKeyCard
-              keyName="routing"
-              description="Active routing strategy – Dispatcher (default), Agents-as-Tools, or Graph."
-              example='routing = "dispatcher"'
+              keyName="checkpoint"
+              description="The review and action hash persist in PostgreSQL. A later authenticated request records the human decision."
+              example='checkpoint = "WAITING_FOR_HUMAN"'
             />
           </div>
 
@@ -142,35 +142,69 @@ const StateKeyCard: React.FC<{
 );
 
 const StateFlowDiagram: React.FC = () => (
-  <svg viewBox="0 0 500 200" width="100%" style={{ maxWidth: '500px', display: 'block', margin: '0 auto' }}>
-    {/* Flow arrows */}
-    <line x1="95" y1="100" x2="155" y2="100" stroke="rgba(168,66,58,0.5)" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
-    <line x1="245" y1="100" x2="305" y2="100" stroke="rgba(168,66,58,0.5)" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
-    <line x1="395" y1="100" x2="455" y2="100" stroke="rgba(168,66,58,0.5)" strokeWidth="1.5" markerEnd="url(#arrowhead)" />
+  <svg
+    viewBox="0 0 700 270"
+    width="100%"
+    role="img"
+    aria-label="Storefront Dispatcher and Operator Concierge Graph execution paths"
+    style={{ maxWidth: '760px', display: 'block', margin: '0 auto' }}
+  >
     <defs>
-      <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <marker id="state-arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
         <polygon points="0 0, 8 3, 0 6" fill="rgba(168,66,58,0.5)" />
       </marker>
     </defs>
 
-    {/* Nodes */}
-    <rect x="10" y="75" width="85" height="50" rx="8" fill="#1f1410" />
-    <text x="52" y="103" textAnchor="middle" fontFamily="Fraunces, serif" fontStyle="italic" fontSize="13" fill="var(--cream-warm)">intent</text>
+    <text x="20" y="24" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="rgba(31,20,16,0.5)" letterSpacing="1.6">STOREFRONT DISPATCHER</text>
+    {[153, 323, 493].map((x) => (
+      <line key={`store-${x}`} x1={x} y1="73" x2={x + 42} y2="73" stroke="rgba(168,66,58,0.5)" strokeWidth="1.5" markerEnd="url(#state-arrowhead)" />
+    ))}
+    {[
+      { x: 20, label: 'shopper request', dark: true },
+      { x: 190, label: 'Dispatcher' },
+      { x: 360, label: 'one specialist' },
+      { x: 530, label: 'grounded reply' },
+    ].map((node) => (
+      <g key={node.label}>
+        <rect
+          x={node.x}
+          y="48"
+          width="133"
+          height="50"
+          rx="8"
+          fill={node.dark ? '#1f1410' : 'var(--cream-warm)'}
+          stroke={node.dark ? '#1f1410' : 'rgba(31,29,26,0.3)'}
+        />
+        <text x={node.x + 66.5} y="78" textAnchor="middle" fontFamily="Instrument Sans, sans-serif" fontSize="12" fill={node.dark ? 'var(--cream-warm)' : '#1f1410'}>{node.label}</text>
+      </g>
+    ))}
 
-    <rect x="160" y="75" width="85" height="50" rx="8" fill="var(--cream-warm)" stroke="var(--accent)" strokeWidth="1" />
-    <text x="202" y="103" textAnchor="middle" fontFamily="Fraunces, serif" fontStyle="italic" fontSize="13" fill="#a8423a">skill</text>
-
-    <rect x="310" y="75" width="85" height="50" rx="8" fill="var(--cream-warm)" stroke="rgba(31,29,26,0.3)" strokeWidth="1" />
-    <text x="352" y="103" textAnchor="middle" fontFamily="Fraunces, serif" fontStyle="italic" fontSize="13" fill="#1f1410">tools</text>
-
-    <rect x="460" y="75" width="30" height="50" rx="8" fill="var(--obs-green-1, #6b8c5e)" opacity="0.15" stroke="var(--obs-green-1, #6b8c5e)" strokeWidth="1" />
-    <text x="475" y="103" textAnchor="middle" fontFamily="Fraunces, serif" fontStyle="italic" fontSize="11" fill="var(--obs-green-1, #6b8c5e)">✓</text>
-
-    {/* Labels */}
-    <text x="52" y="145" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="8" fill="rgba(31,20,16,0.42)" letterSpacing="1">CLASSIFY</text>
-    <text x="202" y="145" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="8" fill="rgba(31,20,16,0.42)" letterSpacing="1">LOAD</text>
-    <text x="352" y="145" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="8" fill="rgba(31,20,16,0.42)" letterSpacing="1">INVOKE</text>
-    <text x="475" y="145" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="8" fill="rgba(31,20,16,0.42)" letterSpacing="1">DONE</text>
+    <text x="20" y="142" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="rgba(31,20,16,0.5)" letterSpacing="1.6">OPERATOR CONCIERGE GRAPH</text>
+    {[153, 323, 493].map((x) => (
+      <line key={`operator-${x}`} x1={x} y1="191" x2={x + 42} y2="191" stroke="rgba(168,66,58,0.5)" strokeWidth="1.5" markerEnd="url(#state-arrowhead)" />
+    ))}
+    {[
+      { x: 20, label: 'handoff + review', dark: true },
+      { x: 190, label: 'Case Investigator' },
+      { x: 360, label: 'Resolution Planner' },
+      { x: 530, label: 'persisted artifact' },
+    ].map((node) => (
+      <g key={node.label}>
+        <rect
+          x={node.x}
+          y="166"
+          width="133"
+          height="50"
+          rx="8"
+          fill={node.dark ? '#1f1410' : 'var(--cream-warm)'}
+          stroke={node.dark ? '#1f1410' : 'rgba(31,29,26,0.3)'}
+        />
+        <text x={node.x + 66.5} y="196" textAnchor="middle" fontFamily="Instrument Sans, sans-serif" fontSize="11.5" fill={node.dark ? 'var(--cream-warm)' : '#1f1410'}>{node.label}</text>
+      </g>
+    ))}
+    <text x="350" y="250" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="9" fill="rgba(31,20,16,0.5)" letterSpacing="1">
+      HUMAN DECISION FOLLOWS IN A SEPARATE REQUEST
+    </text>
   </svg>
 );
 

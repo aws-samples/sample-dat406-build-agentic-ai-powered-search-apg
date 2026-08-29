@@ -2,8 +2,9 @@
   {
     "name": "Dispatcher",
     "slug": "dispatcher",
-    "description": "Production storefront: classify_triage + classify_intent (keyword rules, no router LLM), then one specialist per turn on /api/chat/stream. ~60–120 ms classification; one Bedrock call.",
+    "description": "Production storefront: classify_triage + classify_intent (keyword rules, no router LLM), then one specialist per turn on /api/chat/stream. The route stays fast, explicit, and independently observable.",
     "isActive": true,
+    "activeIn": "Storefront",
     "agents": ["Search Agent", "Personalization Agent", "Pricing Agent", "Inventory Agent", "Customer Service Agent"],
     "codeSnippet": "intent = classify_intent(message)  # rules, not LLM\nspecialist = build_inventory_agent()  # example\nresponse = specialist(message)     # one LLM call"
   },
@@ -18,9 +19,10 @@
   {
     "name": "Graph",
     "slug": "graph",
-    "description": "Strands GraphBuilder DAG: router node + specialist nodes with conditional edges. Multi-step ops and Pellier Observatory telemetry – not default for Marco pills.",
-    "isActive": false,
-    "agents": ["Search Agent", "Personalization Agent", "Pricing Agent"],
-    "codeSnippet": "builder.add_router(router_fn)\nbuilder.add_agent(specialist_node)\nbuilder.set_entry_point('router')\ngraph = builder.build()"
+    "description": "Production Operator Concierge: a bounded Strands GraphBuilder DAG runs Case Investigator, then Resolution Planner. PostgreSQL holds the pending review and later human decision outside the graph invocation; Runtime is never left waiting.",
+    "isActive": true,
+    "activeIn": "Operator Concierge",
+    "agents": ["Case Investigator Agent", "Resolution Planner Agent"],
+    "codeSnippet": "builder.add_node(investigator, 'case-investigator')\nbuilder.add_node(planner, 'resolution-planner')\nbuilder.add_edge('case-investigator', 'resolution-planner')\ngraph = builder.build()"
   }
 ]

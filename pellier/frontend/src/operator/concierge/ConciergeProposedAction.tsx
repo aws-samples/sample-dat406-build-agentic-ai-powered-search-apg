@@ -157,7 +157,7 @@ const ConciergeProposedActionCard: React.FC<Props> = ({ action }) => {
           to={`/operator/reviews/${reviewId}`}
           data-testid="operator-concierge-proposal-review-link"
         >
-          Review action <span aria-hidden="true">&rarr;</span>
+          Open action <span aria-hidden="true">&rarr;</span>
         </Link>
       ) : null}
     </section>

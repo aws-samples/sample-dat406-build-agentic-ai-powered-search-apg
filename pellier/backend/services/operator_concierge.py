@@ -24,8 +24,9 @@ Three state classes, kept apart
 -------------------------------
 
     AgentCore Memory    what the agent should remember about this conversation
-    Aurora              what is true now
+    PostgreSQL          what is true now (Aurora PostgreSQL when deployed)
     Amazon Bedrock      synthesis over the other two
+    Strands Graph       investigator -> resolution planner orchestration
 
 The load-bearing rule is that the model never becomes a source of facts. It receives
 structured evidence and returns prose; every identifier, count, amount, membership
@@ -59,6 +60,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from services.data_source import database_source_label
+
 logger = logging.getLogger(__name__)
 
 # Epistemic roles. Flattening these into "facts" is how an assertion becomes a claim.
@@ -67,13 +70,19 @@ ROLE_CONTEXT = "context"
 ROLE_INFERENCE = "inference"
 
 # Source labels shown in the UI. Professional names, not tracing identifiers.
-SOURCE_AURORA = "Aurora"
 SOURCE_MEMORY = "AgentCore Memory"
 SOURCE_BEDROCK = "Amazon Bedrock"
+SOURCE_STRANDS_GRAPH = "Strands Graph"
+SOURCE_HANDOFF = "Storefront handoff"
 # The control plane that publishes capability. NOT "AgentCore Policy": no policy has
 # been evaluated when a capability is merely read, and listing Policy as a
 # participating source would imply an authorization decision that has not happened.
 SOURCE_POLICY_PLANE = "AgentCore control plane"
+
+
+# Kept under the established name because it marks the authoritative database role
+# throughout this module. The value is runtime truth, not a hard-coded product claim.
+SOURCE_AURORA = database_source_label()
 
 # Workflow kinds this orchestrator can actually run. The config route publishes this
 # so the UI offers only what exists.
@@ -99,6 +108,7 @@ class Step:
     status: str = "complete"
     duration_ms: Optional[int] = None
     result: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_payload(self) -> Dict[str, Any]:
         return {
@@ -108,6 +118,7 @@ class Step:
             "status": self.status,
             "durationMs": self.duration_ms,
             "result": self.result,
+            "metadata": self.metadata,
         }
 
 
@@ -381,7 +392,63 @@ async def record_memory_event(
 
 
 # ---------------------------------------------------------------------------
-# Bedrock synthesis
+# Storefront handoff
+# ---------------------------------------------------------------------------
+
+
+async def load_shopper_handoff(
+    db: Any, *, customer_id: str
+) -> Tuple[Optional[Dict[str, Any]], Optional[Step], List[Evidence]]:
+    """Read the latest immutable shopper handoff without treating it as truth."""
+    from services import shopper_handoff
+
+    try:
+        handoff = await shopper_handoff.resolve_latest_for_customer(
+            db, customer_id=customer_id
+        )
+    except shopper_handoff.HandoffIntegrityError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - no handoff is safer than guessed context
+        logger.info("shopper handoff unavailable for %s: %s", customer_id, exc)
+        return None, Step(
+            "handoff",
+            "Storefront handoff unavailable",
+            SOURCE_HANDOFF,
+            status="unavailable",
+        ), []
+    if not handoff:
+        return None, None, []
+
+    source = handoff.get("source") or {}
+    proposal = handoff.get("proposal") or {}
+    route = handoff.get("routing") or {}
+    step = Step(
+        "handoff",
+        "Storefront handoff loaded",
+        SOURCE_HANDOFF,
+        result=(
+            f"turn {source.get('turnId', '')} · "
+            f"{route.get('specialist') or 'specialist not recorded'} · "
+            f"review {proposal.get('reviewId', '')}"
+        ),
+    )
+    evidence = [
+        Evidence(
+            kind="shopper_handoff",
+            role=ROLE_CONTEXT,
+            status="unverified",
+            source=SOURCE_HANDOFF,
+            label="What the shopper asked Pellier",
+            record_id=str(source.get("turnId") or ""),
+            detail=str(handoff.get("shopperRequest") or ""),
+            data=handoff,
+        )
+    ]
+    return handoff, step, evidence
+
+
+# ---------------------------------------------------------------------------
+# Strands graph synthesis
 # ---------------------------------------------------------------------------
 
 # Shared preamble. Every workflow inherits the same evidence discipline; only the
@@ -701,21 +768,18 @@ def synthesize(
     memory_turns: List[Dict[str, Any]],
     spec: WorkflowSpec,
     context_block: str = "",
+    shopper_handoff: Optional[Dict[str, Any]] = None,
+    checkpoint_state: str = "READ_ONLY_COMPLETE",
+    review_id: Optional[int] = None,
+    action_hash: str = "",
 ) -> Tuple[Optional[Dict[str, str]], Optional[Step], str]:
-    """Bedrock synthesis for one workflow. Returns (fields, step, model_id).
+    """Run the operator Strands graph. Returns (fields, step, model_id).
 
     The model may fail, return unusable output, or — for a draft — produce copy that
     commits Pellier to something it has not authorised. Each of those yields no fields
     and a failed step, and the caller renders a failed turn rather than substituting
     invented prose.
     """
-    import boto3
-
-    from config import settings
-    from services.response_mode import resolve_specialist_model
-
-    model_id, _max_tokens, _tier = resolve_specialist_model("sonnet")
-
     memory_block = ""
     if memory_turns:
         rendered = "\n".join(
@@ -729,40 +793,34 @@ def synthesize(
             + rendered
         )
 
-    prompt = (
-        f"{spec.contract}\n"
-        f"OPERATOR REQUEST:\n{request}\n"
-        f"{memory_block}\n"
-        f"\nCURRENT EVIDENCE:\n{_evidence_for_prompt(evidence)}\n"
-        + (f"\nESTABLISHED FACTS FOR THIS WORKFLOW:\n{context_block}\n"
-           if context_block else "")
+    # The graph task keeps ESTABLISHED FACTS FOR THIS WORKFLOW separate from the
+    # conversation block above. That label is assembled in operator_graph._task.
+    from services.operator_graph import run_operator_graph
+
+    result = run_operator_graph(
+        request=request,
+        evidence_text=_evidence_for_prompt(evidence),
+        memory_text=memory_block,
+        contract=spec.contract,
+        context_block=context_block,
+        shopper_handoff=shopper_handoff,
+        checkpoint_state=checkpoint_state,
+        review_id=review_id,
+        action_hash=action_hash,
     )
 
     def failed(duration: Optional[int] = None, note: str = "") -> Step:
         return Step(
-            "synthesis", spec.running_label, SOURCE_BEDROCK, status="failed",
-            duration_ms=duration, result=note,
+            "graph", spec.running_label, SOURCE_STRANDS_GRAPH, status="failed",
+            duration_ms=duration, result=note, metadata=result.metadata,
         )
 
-    with _Timer() as timer:
-        try:
-            client = boto3.client(
-                "bedrock-runtime", region_name=settings.aws_region_resolved
-            )
-            response = client.converse(
-                modelId=model_id,
-                messages=[{"role": "user", "content": [{"text": prompt}]}],
-                inferenceConfig={"maxTokens": _MAX_SYNTHESIS_TOKENS, "temperature": 0},
-            )
-            blocks = response["output"]["message"]["content"]
-            raw = "".join(block.get("text", "") for block in blocks).strip()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Concierge synthesis failed: %s", exc)
-            return None, failed(), model_id
-
-    fields = _parse_synthesis(raw, spec)
+    fields = _parse_synthesis(result.raw, spec)
     if fields is None:
-        return None, failed(timer.ms), model_id
+        return None, failed(
+            result.metadata.get("durationMs"),
+            result.error or "The graph returned no usable structured result.",
+        ), result.model_id
 
     # A draft that offers compensation is discarded, not shown with a warning: an
     # operator scanning a well-formed note is exactly who would paste it.
@@ -773,14 +831,18 @@ def synthesize(
                 "draft discarded, unauthorised commitment: %s", ", ".join(offending)
             )
             return None, failed(
-                timer.ms,
+                result.metadata.get("durationMs"),
                 "Draft discarded: it committed Pellier to something this surface "
                 "cannot authorise.",
-            ), model_id
+            ), result.model_id
 
     return fields, Step(
-        "synthesis", spec.done_label, SOURCE_BEDROCK, duration_ms=timer.ms
-    ), model_id
+        "graph",
+        spec.done_label,
+        SOURCE_STRANDS_GRAPH,
+        duration_ms=result.metadata.get("durationMs"),
+        metadata=result.metadata,
+    ), result.model_id
 
 
 def _parse_synthesis(raw: str, spec: WorkflowSpec) -> Optional[Dict[str, str]]:
@@ -1358,7 +1420,7 @@ async def stream_turn(
             None,
         )
         if existing is not None:
-            yield "complete", {
+            replay = {
                 "turnId": turn_id,
                 "sessionId": session_id,
                 "status": existing["turnState"] or "complete",
@@ -1366,20 +1428,22 @@ async def stream_turn(
                 "summary": existing["content"],
                 **(existing.get("artifact") or {}),
             }
+            yield "answer", replay
+            yield "complete", replay
             return
 
     steps: List[Step] = []
     timings: Dict[str, int] = {"requestPersistMs": t_request.ms}
 
-    # 2 + 3. Conversation context and current business truth are independent, so
-    # they run concurrently. Sequentially they cost two ~1s round trips to a remote
-    # cluster for no reason; the memory read does not inform which evidence to load.
+    # 2 + 3. Conversation context, current business truth, and the latest durable
+    # storefront handoff are independent, so they run concurrently.
     import asyncio
 
     with _Timer() as t_gather:
-        memory_result, evidence_result = await asyncio.gather(
+        memory_result, evidence_result, handoff_result = await asyncio.gather(
             load_memory_context(operator_sub=operator_sub, session_id=session_id),
             load_client_evidence(db, customer_id),
+            load_shopper_handoff(db, customer_id=customer_id),
             return_exceptions=True,
         )
     timings["contextAndEvidenceMs"] = t_gather.ms
@@ -1408,6 +1472,23 @@ async def stream_turn(
     for step in evidence_steps:
         yield "step", step.to_payload()
 
+    shopper_handoff: Optional[Dict[str, Any]] = None
+    if isinstance(handoff_result, BaseException):
+        logger.warning("shopper handoff failed: %s", handoff_result)
+        handoff_step = Step(
+            "handoff",
+            "Storefront handoff rejected",
+            SOURCE_HANDOFF,
+            status="failed",
+        )
+        handoff_evidence: List[Evidence] = []
+    else:
+        shopper_handoff, handoff_step, handoff_evidence = handoff_result
+    if handoff_step is not None:
+        steps.append(handoff_step)
+        yield "step", handoff_step.to_payload()
+    evidence.extend(handoff_evidence)
+
     if not record:
         artifact = _artifact(spec, steps, evidence, {}, [])
         await sessions.append_assistant_artifact(
@@ -1415,7 +1496,7 @@ async def stream_turn(
             summary="Client evidence could not be loaded.", artifact=artifact,
             state=sessions.TURN_FAILED,
         )
-        yield "complete", {
+        failed_answer = {
             **artifact,
             "turnId": turn_id, "sessionId": session_id, "status": "failed",
             # After the spread, not before: the artifact's `summary` is empty when
@@ -1424,6 +1505,8 @@ async def stream_turn(
             "summary": "Client evidence could not be loaded.",
             "timings": timings,
         }
+        yield "answer", failed_answer
+        yield "complete", failed_answer
         return
 
     # 3b. The workflow's own context stage, when it declares one. Its steps are
@@ -1480,21 +1563,41 @@ async def stream_turn(
                 state=sessions.TURN_COMPLETE,
             )
         timings["answerPersistMs"] = t_blocked.ms
-        yield "complete", {
+        blocked_answer = {
             **artifact,
             "turnId": turn_id, "sessionId": session_id, "status": "complete",
             "replayed": False, "summary": workflow_context.blocked,
             "workflow": spec.kind, "memoryContextUsed": bool(memory_turns),
             "memoryPersisted": False, "memoryStore": "", "timings": timings,
         }
+        yield "answer", blocked_answer
+        yield "complete", blocked_answer
         return
 
     # Announce that synthesis has begun. The only in-flight event, and it is a real
     # state: the request is with Bedrock. Marked `running`, never `complete`.
-    yield "step", {"kind": "synthesis", "label": spec.running_label,
-                   "source": SOURCE_BEDROCK, "status": "running"}
+    yield "step", {"kind": "graph", "label": spec.running_label,
+                   "source": SOURCE_STRANDS_GRAPH, "status": "running"}
 
-    # 4. Synthesis. Prose only; the model contributes no structured fact.
+    proposed = (
+        (workflow_context.artifact.get("proposedActions") or [None])[0]
+        if workflow_context is not None
+        else None
+    )
+    handoff_proposal = (
+        (shopper_handoff or {}).get("proposal") or {}
+        if shopper_handoff
+        else {}
+    )
+    active_proposal = proposed or handoff_proposal
+    checkpoint_state = (
+        "WAITING_FOR_HUMAN"
+        if active_proposal and active_proposal.get("reviewId")
+        else "READ_ONLY_COMPLETE"
+    )
+
+    # 4. Two-agent graph. The model contributes prose and a bounded case brief,
+    # never structured business truth.
     fields, synth_step, model_id = synthesize(
         request=request, evidence=evidence, memory_turns=memory_turns, spec=spec,
         context_block="\n\n".join(
@@ -1503,6 +1606,10 @@ async def stream_turn(
                 recall_block,
             ) if b
         ),
+        shopper_handoff=shopper_handoff,
+        checkpoint_state=checkpoint_state,
+        review_id=active_proposal.get("reviewId") if active_proposal else None,
+        action_hash=active_proposal.get("actionHash", "") if active_proposal else "",
     )
     if synth_step is not None:
         steps.append(synth_step)
@@ -1513,6 +1620,10 @@ async def stream_turn(
     sources = _sources(steps)
     artifact = _artifact(spec, steps, evidence, fields or {}, sources)
     artifact["modelId"] = model_id
+    artifact["shopperHandoff"] = shopper_handoff
+    artifact["orchestration"] = (
+        synth_step.metadata if synth_step is not None else {}
+    )
     if workflow_context is not None:
         # Structured material from the stage. Backend-owned: product identity, price
         # and availability live here, and the model's prose sits beside them rather
@@ -1536,6 +1647,19 @@ async def stream_turn(
             summary=answer, artifact=artifact, state=state,
         )
     timings["answerPersistMs"] = t_answer.ms
+
+    # The browser may reveal this immediately because the answer and its structured
+    # artifact are already durable in PostgreSQL. This is not a synthetic typewriter
+    # event or an uncommitted model token.
+    yield "answer", {
+        **artifact,
+        "turnId": turn_id,
+        "sessionId": session_id,
+        "status": "failed" if failed else "complete",
+        "replayed": False,
+        "summary": answer,
+        "workflow": spec.kind,
+    }
 
     # 6. Memory mirror. Never gates the response.
     from services.agentcore_memory import BACKEND_AGENTCORE

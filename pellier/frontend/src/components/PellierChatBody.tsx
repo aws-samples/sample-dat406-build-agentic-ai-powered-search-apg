@@ -12,7 +12,21 @@
  */
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { AgentChatMessage } from '../hooks/useAgentChat'
+import {
+  Brain,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  Database,
+  LoaderCircle,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import type {
+  AgentChatMessage,
+  ChatSourceActivity,
+} from '../hooks/useAgentChat'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
 import type { CartItemOrigin } from '../contexts/CartContext'
 import MarkdownMessage from './MarkdownMessage'
@@ -79,6 +93,46 @@ function skillTraceTool(canonical: string): string {
 
 function toolTraceTool(toolName: string): string {
   return toolName.includes('.') ? toolName : `tool.${toolName}`
+}
+
+function sourceIdentity(source: string): {
+  Icon: LucideIcon
+  tone: 'database' | 'memory' | 'model' | 'control' | 'neutral'
+} {
+  const value = source.toLowerCase()
+  if (value.includes('postgres') || value.includes('aurora')) {
+    return { Icon: Database, tone: 'database' }
+  }
+  if (value.includes('memory')) return { Icon: Brain, tone: 'memory' }
+  if (value.includes('bedrock')) return { Icon: Sparkles, tone: 'model' }
+  if (value.includes('control') || value.includes('policy')) {
+    return { Icon: ShieldCheck, tone: 'control' }
+  }
+  return { Icon: Database, tone: 'neutral' }
+}
+
+function SourceActivityRow({ activity }: { activity: ChatSourceActivity }) {
+  const { Icon, tone } = sourceIdentity(activity.source)
+  const working = activity.status === 'in_progress'
+  const unavailable = activity.status === 'unavailable'
+  const details = Array.isArray(activity.details) ? activity.details : []
+  return (
+    <div className="ec-source-row" data-source-tone={tone} data-status={activity.status}>
+      <span className="ec-source-icon" aria-hidden="true">
+        <Icon size={14} strokeWidth={1.8} />
+      </span>
+      <span className="ec-source-copy">
+        <span className="ec-source-name">{activity.source}</span>
+        {details.map((detail) => (
+          <span className="ec-source-detail" key={detail}>{detail}</span>
+        ))}
+      </span>
+      <span className="ec-source-status">
+        {working && <LoaderCircle size={11} strokeWidth={2} aria-hidden="true" />}
+        {working ? 'Working' : unavailable ? 'Unavailable' : 'Used'}
+      </span>
+    </div>
+  )
 }
 
 function escapeRegExp(value: string): string {
@@ -302,7 +356,7 @@ function AgentMessage({
   const isStreaming = message.agentStatus === 'streaming'
   const isComplete = message.agentStatus === 'complete'
   const [thinkingOpen, setThinkingOpen] = useState(!isComplete)
-  const [attributionOpen, setAttributionOpen] = useState(false)
+  const [attributionOpen, setAttributionOpen] = useState(!isComplete)
 
   useEffect(() => {
     if (message.content && message.content.length > 0 && thinkingOpen) {
@@ -325,10 +379,17 @@ function AgentMessage({
       .values(),
   )
   const loadedSkills = message.skillRouting?.loaded_skills ?? []
+  const sourceActivity = message.sourceActivity ?? []
   const traceReference = message.agentExecution?.trace_id ?? undefined
   const hasAttribution =
-    loadedSkills.length > 0 || dedupedToolCalls.length > 0 || !!traceReference
+    sourceActivity.length > 0 ||
+    loadedSkills.length > 0 ||
+    dedupedToolCalls.length > 0 ||
+    !!traceReference
   const attributionSummary = [
+    sourceActivity.length > 0
+      ? `${sourceActivity.length} ${sourceActivity.length === 1 ? 'source' : 'sources'}`
+      : null,
     loadedSkills.length > 0
       ? `${loadedSkills.length} specialty edit${loadedSkills.length === 1 ? '' : 's'}`
       : null,
@@ -337,6 +398,15 @@ function AgentMessage({
       : null,
     traceReference ? 'recorded' : null,
   ].filter(Boolean).join(' · ')
+
+  useEffect(() => {
+    if (isComplete) {
+      setAttributionOpen(false)
+    } else if (hasAttribution) {
+      setAttributionOpen(true)
+    }
+  }, [hasAttribution, isComplete])
+
   const durationSec = message.agentExecution?.total_duration_ms
     ? (message.agentExecution.total_duration_ms / 1000).toFixed(1)
     : null
@@ -358,23 +428,55 @@ function AgentMessage({
       {/* Skills + tool calls — collapsed by default so Pellier stays calm,
           with a Claude-style disclosure for curious shoppers. */}
       {hasAttribution && (
-        <div className={`ec-worked ${attributionOpen ? 'ec-worked-open' : ''}`}>
+        <div
+          className={[
+            'ec-worked',
+            attributionOpen ? 'ec-worked-open' : '',
+            !isComplete ? 'ec-worked-live' : '',
+          ].filter(Boolean).join(' ')}
+          data-testid="storefront-source-disclosure"
+        >
           <button
             type="button"
             className="ec-worked-header"
             aria-expanded={attributionOpen}
             onClick={() => setAttributionOpen((open) => !open)}
           >
-            <span className="ec-worked-dot" aria-hidden="true" />
-            <span className="ec-worked-title">{CHAT_TRUST.MATCH_DETAILS}</span>
-            <span className="ec-worked-summary">{attributionSummary}</span>
-            <span className={`ec-worked-chevron ${attributionOpen ? 'ec-worked-chevron-open' : ''}`}>
-              &#x25BE;
+            <span className="ec-worked-status" aria-hidden="true">
+              {!isComplete ? (
+                <LoaderCircle size={14} strokeWidth={1.9} />
+              ) : (
+                <Check size={14} strokeWidth={1.9} />
+              )}
             </span>
+            <span className="ec-worked-title">
+              {!isComplete ? 'Working with live sources' : CHAT_TRUST.MATCH_DETAILS}
+            </span>
+            <span className="ec-worked-summary">{attributionSummary}</span>
+            <ChevronDown
+              className={`ec-worked-chevron ${attributionOpen ? 'ec-worked-chevron-open' : ''}`}
+              size={14}
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
           </button>
 
           {attributionOpen && (
             <div className="ec-worked-body">
+              {sourceActivity.length > 0 && (
+                <div className="ec-worked-section">
+                  <div className="ec-worked-section-label">Sources used</div>
+                  <div className="ec-source-list">
+                    {sourceActivity.map((activity) => (
+                      <SourceActivityRow
+                        key={activity.source}
+                        activity={activity}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {loadedSkills.length > 0 && (
                 <div className="ec-worked-section">
                   <div className="ec-worked-section-label">Specialty edit</div>
@@ -391,14 +493,33 @@ function AgentMessage({
                   <div className="ec-worked-section-label">Catalog checks</div>
                   <div className="ec-toolcalls">
                     {dedupedToolCalls.map((tc, i) => {
-                      const isActive = tc.status !== 'success' && tc.status !== 'error'
+                      const isActive = [
+                        'executing',
+                        'in_progress',
+                        'pending',
+                        'running',
+                      ].includes(tc.status)
+                      const failed = tc.status === 'error' || tc.status === 'failed'
                       return (
                         <div
                           key={`${tc.tool}-${i}`}
-                          className={`ec-toolcall ${isActive ? 'ec-toolcall-active' : 'ec-toolcall-complete'}`}
+                          className={[
+                            'ec-toolcall',
+                            isActive
+                              ? 'ec-toolcall-active'
+                              : failed
+                                ? 'ec-toolcall-failed'
+                                : 'ec-toolcall-complete',
+                          ].join(' ')}
                         >
                           <span className="ec-toolcall-indicator">
-                            {isActive ? '\u25CF' : '\u2713'}
+                            {isActive ? (
+                              <LoaderCircle size={13} strokeWidth={1.9} aria-hidden="true" />
+                            ) : failed ? (
+                              <CircleAlert size={13} strokeWidth={1.9} aria-hidden="true" />
+                            ) : (
+                              <Check size={13} strokeWidth={1.9} aria-hidden="true" />
+                            )}
                           </span>
                           <TraceChip tool={toolTraceTool(tc.tool)} compact labelMode="label" />
                           {tc.duration_ms > 0 && (

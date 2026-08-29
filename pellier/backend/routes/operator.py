@@ -395,10 +395,7 @@ async def latest_concierge_session(
     client_id: str = Path(..., min_length=1, max_length=64),
     db: Any = Depends(get_db_service),
 ) -> Dict[str, Any]:
-    """The most recent Concierge session for this client, for resume.
-
-    A read, so no token: consistent with the rest of the Operator read surface.
-    """
+    """The most recent operator-gated Concierge session for this client."""
     from services import operator_concierge_sessions as sessions
 
     session_id = await sessions.latest_session(db, customer_id=client_id)
@@ -480,6 +477,7 @@ async def concierge_config() -> Dict[str, Any]:
         "orchestrationAvailable": orchestration_available,
         "supportedWorkflowKinds": workflows,
         "orchestration": "available" if orchestration_available else "pending",
+        "dataSource": operator_concierge.database_source_label(),
         "note": (
             "Ask about this client's recent activity, orders, or service history."
             if enabled
@@ -803,8 +801,9 @@ async def resolve_return(
 # Reviews - the durable handoff from Pellier
 # ---------------------------------------------------------------------------
 #
-# Reads are open like the rest of the desk. The two decision endpoints depend on
-# ``require_operator``, because a decision is attributed to a person.
+# The router-level dependency gates reads and writes alike. Decision handlers
+# still request the verified operator payload directly because attribution is
+# part of the row they write.
 #
 # Note what confirming does NOT do: it does not call ``BusinessLogic``. The
 # ``/actions/*`` endpoints above combine confirmation and execution in one call,
@@ -961,8 +960,20 @@ async def get_review(
     warehouses = hydrated.get("warehouses") or []
 
     total_units = sum(int(w.get("quantity") or 0) for w in warehouses)
+    from services import shopper_handoff
+
+    try:
+        handoff = await shopper_handoff.resolve_for_review(
+            db,
+            review_id=review_id,
+            expected_customer_id=str(row.get("customer_id") or ""),
+        )
+    except shopper_handoff.HandoffIntegrityError as exc:
+        logger.error("Shopper handoff integrity failed for review %s", review_id)
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
         "review": _review_payload(row, receipt),
+        "shopperHandoff": handoff,
         # Authoritative, current, and labelled as such.
         "client": {
             "customerId": customer.get("id") or row.get("customer_id"),
