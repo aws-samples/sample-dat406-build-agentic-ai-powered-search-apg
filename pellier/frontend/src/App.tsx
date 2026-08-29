@@ -2,8 +2,8 @@
  * App — root component.
  *
  * Composition is intentionally minimal: provider chain, BrowserRouter,
- * root-level modal hosts (AuthModal, PreferencesModal, ConciergeModal,
- * ComparisonHost), and the final route table. The two surfaces are
+ * root-level modal hosts (AuthModal, PreferencesModal, ComparisonHost), and
+ * the final route table. The three product surfaces are
  * PellierPage (`/`) and the Pellier Observatory frame (`/observatory/*`).
  *
  * AuthGate is exported so the Pellier Observatory surface can be gated when Cognito
@@ -28,7 +28,6 @@ import { routerBasename } from './utils/assetPath'
 import './styles/premium-heading-styles.css'
 
 const PellierPage = lazy(() => import('./pages/PellierPage'))
-const ConciergeModal = lazy(() => import('./components/ConciergeModal'))
 const ObservatoryFrame = lazy(() => import('./observatory/shell/ObservatoryFrame'))
 const OperatorFrame = lazy(() => import('./operator/shell/OperatorFrame'))
 const ClientBook = lazy(() => import('./operator/surfaces/ClientBook'))
@@ -116,12 +115,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 //
 // UIProvider sits above BrowserRouter so it can't call useLocation()
 // directly. This tiny watcher mounts inside the router, subscribes
-// to pathname changes, and closes anything non-persistent. Chat
-// surfaces (drawer / concierge) and the comparison modal are
-// intentional leave-open cases — a user who opens the chat on `/`
-// and navigates to `/observatory` should keep talking to Pellier. The
-// auth, preferences, and cart modals close because they're
-// context-bound to a specific page.
+// to pathname changes, and keeps surface-specific interaction from leaking
+// across product boundaries. The shopper drawer stays on storefront routes;
+// Operator and Observatory own their scoped work areas without an overlay
+// chat from a different surface. Auth, preferences, and cart also close
+// because they are context-bound to a specific page.
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // CartPanelSlot — bridges CartContext's open/close to CartPanel props.
@@ -144,10 +142,18 @@ const TRANSIENT_MODALS = new Set(['auth', 'preferences', 'cart', 'checkout'])
 
 function ModalRouteGuard() {
   const { pathname } = useLocation()
-  const { activeModal, closeModal } = useUI()
+  const { activeModal, closeModal, setChatSurface } = useUI()
   useEffect(() => {
-    if (activeModal && TRANSIENT_MODALS.has(activeModal)) {
-      closeModal()
+    const isDedicatedSurface =
+      pathname.startsWith('/operator') || pathname.startsWith('/observatory')
+
+    setChatSurface(isDedicatedSurface ? 'none' : 'drawer')
+
+    if (
+      activeModal &&
+      (TRANSIENT_MODALS.has(activeModal) || isDedicatedSurface)
+    ) {
+      closeModal({ restoreDrawer: false })
     }
     // intentionally only run on pathname changes — activeModal in the
     // dep array would close the modal the instant it opened.
@@ -164,24 +170,14 @@ function ModalRouteGuard() {
  * leak rather than a bug in the drawer: Operator is a different product with its own
  * Concierge, and offering a shopper thread there invites clicking into the wrong one.
  *
- * Gated on the route rather than removed, because the drawer is correct everywhere
- * else, including the Observatory, where a participant legitimately wants to keep a
- * shopper turn open while reading its evidence.
+ * Gated on the route rather than removed: it belongs to the storefront and
+ * its supporting editorial pages, but not to the Observatory evidence view
+ * or the Operator console.
  */
 function ShopperChatSlot() {
   const { pathname } = useLocation()
-  if (pathname.startsWith('/operator')) return null
+  if (pathname.startsWith('/operator') || pathname.startsWith('/observatory')) return null
   return <ChatDrawer />
-}
-
-function ObservatoryConciergeSlot() {
-  const { pathname } = useLocation()
-  if (!pathname.startsWith('/observatory')) return null
-  return (
-    <Suspense fallback={null}>
-      <ConciergeModal />
-    </Suspense>
-  )
 }
 
 /**
@@ -319,20 +315,18 @@ function App() {
             {/*
              * Modal singleton slots. Mounting here puts them above every
              * route; they read `UIContext.activeModal` to decide whether
-             * to render, so a route change never interrupts an open modal.
-             * AuthModal + PreferencesModal are route-independent; Concierge
-             * and Comparison live inside BrowserRouter because the
-             * concierge reads useLocation() for route-mode selection.
+             * to render. AuthModal + PreferencesModal are route-independent;
+             * the surface-scoped drawer and comparison host live inside
+             * BrowserRouter so route boundaries can close them safely.
              */}
             <AuthModal />
             <PreferencesModal />
             <PersonaTransitionOverlay />
             <CartPanelSlot />
             <ToastSlot />
-            <BrowserRouter basename={routerBasename()}>
-              <ModalRouteGuard />
-              <ObservatoryConciergeSlot />
-              <ShopperChatSlot />
+              <BrowserRouter basename={routerBasename()}>
+                <ModalRouteGuard />
+                <ShopperChatSlot />
               <ComparisonHost />
               <AppRoutes />
             </BrowserRouter>

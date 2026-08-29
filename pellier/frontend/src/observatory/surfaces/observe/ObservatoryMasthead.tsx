@@ -111,7 +111,7 @@ export interface ObservatoryMastheadProps {
 export function ObservatoryMasthead({
   eyebrow = 'Inspection surface',
   title = 'Proof Board',
-  deck = 'Run a live agent turn and inspect the evidence it emits.',
+  deck = 'Inspect readiness checks and the runtime, policy, execution, and Aurora evidence already recorded by the system.',
   status,
 }: ObservatoryMastheadProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

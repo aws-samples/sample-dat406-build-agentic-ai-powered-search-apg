@@ -92,8 +92,11 @@ def test_lineage_joins_handoff_review_graph_and_operator_scoped_execution(
         },
     }
 
-    async def latest_handoff(_db: Any, *, customer_id: str) -> dict[str, Any]:
-        assert customer_id == "CUST-THEO"
+    async def review_handoff(
+        _db: Any, *, review_id: int, expected_customer_id: str
+    ) -> dict[str, Any]:
+        assert review_id == 8
+        assert expected_customer_id == "CUST-THEO"
         return handoff
 
     async def review(_db: Any, review_id: int) -> dict[str, Any]:
@@ -128,65 +131,56 @@ def test_lineage_joins_handoff_review_graph_and_operator_scoped_execution(
             }
         }
 
-    async def latest_session(_db: Any, *, customer_id: str) -> str:
-        assert customer_id == "CUST-THEO"
-        return "opc-theo"
-
-    async def history(
-        _db: Any, *, session_id: str, customer_id: str, limit: int
+    async def graph_artifact(
+        _db: Any, *, customer_id: str, review_id: int, action_hash: str
     ) -> dict[str, Any]:
-        assert (session_id, customer_id, limit) == (
-            "opc-theo",
+        assert (customer_id, review_id, action_hash) == (
             "CUST-THEO",
-            100,
+            8,
+            "a" * 64,
         )
         return {
-            "messages": [
-                {
-                    "role": sessions.ROLE_ASSISTANT,
-                    "turnId": "turn-operator",
-                    "artifact": {
-                        "orchestration": {
-                            "pattern": "strands-graph",
-                            "deploymentTarget": "AgentCore Runtime",
-                            "executedNodes": [
-                                {
-                                    "nodeId": "case-investigator",
-                                    "status": "completed",
-                                    "durationMs": 8,
-                                },
-                                {
-                                    "nodeId": "resolution-planner",
-                                    "status": "completed",
-                                    "durationMs": 13,
-                                },
-                            ],
-                            "checkpoint": {
-                                "state": "WAITING_FOR_HUMAN",
-                                "reviewId": 8,
-                                "actionHash": "a" * 64,
-                            },
-                        }
+            "sessionId": "opc-theo",
+            "turnId": "turn-operator",
+            "orchestration": {
+                "pattern": "strands-graph",
+                "deploymentTarget": "AgentCore Runtime",
+                "executedNodes": [
+                    {
+                        "nodeId": "case-investigator",
+                        "status": "completed",
+                        "durationMs": 8,
                     },
-                }
-            ]
+                    {
+                        "nodeId": "resolution-planner",
+                        "status": "completed",
+                        "durationMs": 13,
+                    },
+                ],
+                "checkpoint": {
+                    "state": "WAITING_FOR_HUMAN",
+                    "reviewId": 8,
+                    "actionHash": "a" * 64,
+                },
+            },
         }
 
     monkeypatch.setattr(
-        shopper_handoff, "resolve_latest_for_customer", latest_handoff
+        shopper_handoff, "resolve_for_review", review_handoff
     )
     monkeypatch.setattr(operator_review, "get_review", review)
     monkeypatch.setattr(governed_execution, "latest_receipt", latest_receipt)
     monkeypatch.setattr(governed_execution, "reconstruct_execution", reconstruct)
-    monkeypatch.setattr(sessions, "latest_session", latest_session)
-    monkeypatch.setattr(sessions, "load_history", history)
+    monkeypatch.setattr(
+        sessions, "load_graph_artifact_for_review", graph_artifact
+    )
     monkeypatch.setattr(
         "services.data_source.database_source_label",
         lambda: "Local PostgreSQL",
     )
 
     response = _client(monkeypatch).get(
-        "/api/observatory/operator-lineage/CUST-THEO"
+        "/api/observatory/operator-lineage/CUST-THEO?review_id=8"
     )
 
     assert response.status_code == 200

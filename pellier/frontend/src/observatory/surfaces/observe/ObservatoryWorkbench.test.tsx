@@ -67,7 +67,7 @@ describe('Pellier Observatory live agent workbench', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Run a governed shopper request and inspect identity, policy decisions, transaction state, and durable evidence.',
+        'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Live governed surface')).toBeInTheDocument();
@@ -98,21 +98,22 @@ describe('Pellier Observatory live agent workbench', () => {
       ).toBeEnabled();
     }
 
-    // The controls read out while collapsed and only the editing is behind
-    // the disclosure, so the turns above stay the loudest thing in the rail.
-    expect(
-      screen.getByText('Edit controls').closest('details'),
-    ).not.toHaveAttribute('open');
-    expect(screen.getByText('Response mode')).not.toBeVisible();
-    const readout = screen.getByText('Orchestration').closest('dl');
-    expect(readout).not.toBeNull();
-    expect(within(readout!).getByText('Dispatcher')).toBeInTheDocument();
-    expect(within(readout!).getByText('Balanced')).toBeInTheDocument();
-    // No persona is selected in this case, so the profile row says so rather
-    // than reading "Off" as though it were a choice.
-    expect(within(readout!).getByText('Select a persona')).toBeInTheDocument();
-    // Readout dd + collapsed toggle label + collapsed session facts.
-    expect(screen.getAllByText('Dispatcher')).toHaveLength(3);
+    // The workbench exposes only the production shopper path at rest. The one
+    // participant-facing model trade-off stays available but does not compete
+    // with the canonical shopper turns until someone explicitly asks to tune it.
+    expect(screen.queryByText('Edit controls')).not.toBeInTheDocument();
+    expect(screen.getByText('Storefront Dispatcher')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show run setup' }))
+      .toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Response mode')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Balanced' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Agents-as-Tools')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Operator runs/i }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /Input safety inspection/i }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /Live trace visibility/i }))
+      .not.toBeInTheDocument();
     expect(screen.getByTestId('shopper-answer-sparkle')).toHaveClass(
       'observatory-agent-sparkle',
     );
@@ -322,6 +323,39 @@ describe('Pellier Observatory live agent workbench', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders Markdown emphasis in the grounded recommendation', async () => {
+    mocks.sendChatMessageStreaming.mockResolvedValue({
+      response:
+        'The **Merino Travel Socks** are practical, while the **Leather Journal** adds ceremony.',
+      products: [
+        {
+          productId: 18,
+          name: 'Merino Travel Socks',
+          price: 38,
+          category: 'Accessories',
+        },
+      ],
+      suggestions: [],
+    });
+
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+    await screen.findByText('Best match');
+
+    const answer = container.querySelector('.observatory-agent-response');
+    expect(answer).not.toBeNull();
+    expect(answer?.querySelectorAll('strong')).toHaveLength(2);
+    expect(answer).toHaveTextContent('Merino Travel Socks');
+    expect(answer).toHaveTextContent('Leather Journal');
+    expect(answer).not.toHaveTextContent('**');
+  });
+
   it('lights and follows only the latest evidence row while a run is active', async () => {
     let finishRun = () => {};
     mocks.sendChatMessageStreaming.mockImplementation(
@@ -447,7 +481,7 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(await screen.findByText('Recovered response')).toBeInTheDocument();
   });
 
-  it('applies the selected live configuration to the request', async () => {
+  it('applies the compact response-mode tuning to the fixed Dispatcher request', async () => {
     mocks.sendChatMessageStreaming.mockResolvedValue({
       response: 'Configured response',
       products: [],
@@ -461,12 +495,8 @@ describe('Pellier Observatory live agent workbench', () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByText('Edit controls'));
-    await user.click(screen.getByRole('radio', { name: 'Graph' }));
+    await user.click(screen.getByRole('button', { name: 'Show run setup' }));
     await user.click(screen.getByRole('radio', { name: 'Editorial' }));
-    await user.click(
-      screen.getByRole('switch', { name: /Input safety inspection/i }),
-    );
     await inspectTurn(user, FRESH_TURNS[0]);
 
     await waitFor(() => {
@@ -475,94 +505,26 @@ describe('Pellier Observatory live agent workbench', () => {
         [],
         expect.any(Function),
         undefined,
-        true,
+        false,
         null,
-        'graph',
+        'dispatcher',
         'editorial',
       );
     });
   });
 
-  it('keeps shopper and operator writes on Dispatcher', async () => {
-    mocks.persona = {
-      id: 'theo',
-      display_name: 'Theo',
-      customer_id: 'CUST-THEO',
-    };
-    mocks.sendChatMessageStreaming.mockResolvedValue({
-      response: 'Operator response',
-      products: [],
-      suggestions: [],
-    });
-
-    const user = userEvent.setup();
-    render(
+  it('keeps operator actions out of the shopper workbench', () => {
+    const { container } = render(
       <MemoryRouter>
         <ObservatoryWorkbench />
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByText('Edit controls'));
-    await user.click(
-      screen.getByRole('radio', { name: 'Agents-as-Tools' }),
-    );
-
-    expect(
-      screen.getByRole('button', {
-        name: `Inspect: ${PERSONA_HERO_PILLS.theo[3]}`,
-      }),
-    ).toBeDisabled();
-    // A write op off Dispatcher is marked unavailable with `aria-disabled`
-    // rather than `disabled`, so it stays focusable and the reason below it is
-    // reachable. `disabled` plus a `title` was unreachable to a keyboard or
-    // screen-reader user, who got a dead control and no explanation.
-    const blockedWrite = screen.getByRole('button', {
-      name: /Restock product 37/i,
-    });
-    expect(blockedWrite).toHaveAttribute('aria-disabled', 'true');
-    const reasonId = blockedWrite.getAttribute('aria-describedby');
-    expect(reasonId).toBeTruthy();
-    expect(document.getElementById(reasonId as string)).toHaveTextContent(
-      /Writes run only through Dispatcher/i,
-    );
-
-    // Marked unavailable must also mean it does nothing when clicked.
-    const callsBefore = mocks.sendChatMessageStreaming.mock.calls.length;
-    await user.click(blockedWrite);
-    expect(mocks.sendChatMessageStreaming.mock.calls).toHaveLength(callsBefore);
-
-    await user.click(
-      screen.getByRole('button', { name: /Review low stock/i }),
-    );
-    await waitFor(() => {
-      expect(mocks.sendChatMessageStreaming).toHaveBeenLastCalledWith(
-        'Which pieces are running low?',
-        [],
-        expect.any(Function),
-        undefined,
-        false,
-        null,
-        'agents_as_tools',
-        'balanced',
-      );
-    });
-
-    await user.click(screen.getByRole('radio', { name: 'Dispatcher' }));
-    await user.click(
-      screen.getByRole('button', { name: /Restock product 37/i }),
-    );
-    await waitFor(() => {
-      expect(mocks.sendChatMessageStreaming).toHaveBeenLastCalledWith(
-        'Restock product 37 by 12 units.',
-        [],
-        expect.any(Function),
-        undefined,
-        false,
-        null,
-        'dispatcher',
-        'balanced',
-      );
-    });
+    expect(screen.queryByRole('button', { name: /Review low stock/i }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Restock product 37/i }))
+      .not.toBeInTheDocument();
+    expect(container).not.toHaveTextContent(/Operator Concierge/i);
   });
 
   it('renders live memory and guardrail receipts in the journey', async () => {
@@ -635,10 +597,6 @@ describe('Pellier Observatory live agent workbench', () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByText('Edit controls'));
-    await user.click(
-      screen.getByRole('switch', { name: /Input safety inspection/i }),
-    );
     // Marco is the active persona here, so the card offers Marco's turns.
     await inspectTurn(user, PERSONA_HERO_PILLS.marco[0]);
 
@@ -1071,26 +1029,24 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(screen.queryByText('Live run complete')).not.toBeInTheDocument();
   });
 
-  it('stops restating the controls once you open the editor', async () => {
-    const user = userEvent.setup();
-    render(
+  it('presents the production shopper path as fixed rather than editable', () => {
+    const { container } = render(
       <MemoryRouter>
         <ObservatoryWorkbench />
       </MemoryRouter>,
     );
 
-    // Collapsed, the readout IS the summary of what a run will use.
-    expect(screen.getByText('Orchestration')).toBeInTheDocument();
-
-    await user.click(screen.getByText('Edit controls'));
-
-    // Open, it was five facts repeated directly above the five controls that
-    // set them. The controls are the readout now.
-    expect(screen.queryByText('Orchestration')).toBeNull();
-    expect(screen.getByText('Orchestration pattern')).toBeVisible();
+    const controls = container.querySelector('.observatory-run-controls');
+    expect(controls).not.toBeNull();
+    expect(within(controls as HTMLElement).getByText('Storefront Dispatcher'))
+      .toBeInTheDocument();
+    expect(
+      within(controls as HTMLElement).queryByText('Orchestration pattern'),
+    ).not.toBeInTheDocument();
+    expect(controls?.querySelector('details')).toBeNull();
   });
 
-  it('states one setting once per section', async () => {
+  it('states the one model trade-off once per section', async () => {
     const user = userEvent.setup();
     const { container } = render(
       <MemoryRouter>
@@ -1101,52 +1057,38 @@ describe('Pellier Observatory live agent workbench', () => {
     const controls = container.querySelector('.observatory-run-controls');
     expect(controls).not.toBeNull();
 
-    // Visible occurrences, not DOM occurrences: a closed `details` keeps its
-    // controls in the document. Response mode used to be stated three times in
-    // this one section — a header badge, a readout row, and the control — and
-    // two of those were visible at once.
-    // jsdom's checkVisibility does not model `details`, so ask directly.
-    const visibleBalanced = () =>
-      within(controls as HTMLElement)
-        .getAllByText(/^Balanced$/)
-        .filter((node) => node.closest('details:not([open])') === null);
+    await user.click(
+      within(controls as HTMLElement).getByRole('button', {
+        name: 'Show run setup',
+      }),
+    );
 
-    expect(visibleBalanced()).toHaveLength(1);
-
-    await user.click(screen.getByText('Edit controls'));
-    expect(visibleBalanced()).toHaveLength(1);
+    expect(within(controls as HTMLElement).getAllByText(/^Balanced$/))
+      .toHaveLength(1);
+    expect(
+      within(controls as HTMLElement).getAllByText('Response mode'),
+    ).toHaveLength(1);
   });
 
-  it('keeps operator runs out of the edit disclosure', () => {
+  it('keeps the generic workbench free of an operator route', () => {
     const { container } = render(
       <MemoryRouter>
         <ObservatoryWorkbench />
       </MemoryRouter>,
     );
 
-    const operators = container.querySelector('.observatory-operator-runs');
-    expect(operators).not.toBeNull();
-
-    // Operator runs has its own disclosure, named for what it does. What must
-    // never come back is it being nested inside "Edit controls", where running
-    // a turn hid behind a word that promises settings.
-    expect(operators?.tagName).toBe('DETAILS');
-    expect(operators?.closest('.observatory-edit-controls')).toBeNull();
-    expect(operators?.closest('[hidden]')).toBeNull();
+    expect(container.querySelector('.observatory-operator-runs')).toBeNull();
+    const controls = container.querySelector('.observatory-run-controls');
+    expect(controls).not.toBeNull();
     expect(
-      within(operators as HTMLElement).getByText('Operator runs'),
-    ).toBeInTheDocument();
-    // Not `toBeVisible`: the enclosing panel is a framer-motion element with
-    // `initial={{ opacity: 0 }}`, which jsdom reports as invisible regardless
-    // of the animation. Reachable and operable is the real claim.
-    expect(
-      within(operators as HTMLElement).getByRole('button', {
-        name: /Review low stock/i,
+      within(controls as HTMLElement).queryByRole('link', {
+        name: /operator/i,
       }),
-    ).toBeEnabled();
+    ).not.toBeInTheDocument();
   });
 
-  it('rests as five facts and two closed pills, nothing more', () => {
+  it('keeps tunable setup collapsed until the participant explicitly expands it', async () => {
+    const user = userEvent.setup();
     const { container } = render(
       <MemoryRouter>
         <ObservatoryWorkbench />
@@ -1157,32 +1099,19 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(controls).not.toBeNull();
     const panel = controls as HTMLElement;
 
-    // The readout is the resting state: the five settings a run will use.
-    const readout = panel.querySelector('.observatory-run-readout');
-    expect(readout).not.toBeNull();
-    const facts = Array.from(readout!.querySelectorAll('dt')).map(
-      (node) => node.textContent,
-    );
-    expect(facts).toEqual([
-      'Response',
-      'Orchestration',
-      'Aurora profile',
-      'Input safety inspection',
-      'Live trace',
-    ]);
+    const toggle = within(panel).getByRole('button', {
+      name: 'Show run setup',
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(panel.querySelectorAll('fieldset')).toHaveLength(0);
+    expect(within(panel).queryAllByRole('radio')).toHaveLength(0);
+    expect(panel).toHaveTextContent('Evidence remains visible for every run');
 
-    // Everything else is behind a closed disclosure. Both start closed, so the
-    // panel opens as a readout and two pills rather than a wall of controls.
-    const disclosures = Array.from(panel.querySelectorAll('details'));
-    expect(disclosures).toHaveLength(2);
-    for (const disclosure of disclosures) {
-      expect(disclosure.open).toBe(false);
-    }
-    expect(
-      disclosures.map((d) => d.querySelector('summary strong')?.textContent),
-    ).toEqual(['Edit controls', 'Operator runs']);
+    await user.click(toggle);
 
-    // No third heading or paragraph competing with the readout.
-    expect(panel.querySelectorAll('h3')).toHaveLength(0);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAccessibleName('Hide run setup');
+    expect(panel.querySelectorAll('fieldset')).toHaveLength(1);
+    expect(within(panel).getAllByRole('radio')).toHaveLength(3);
   });
 });

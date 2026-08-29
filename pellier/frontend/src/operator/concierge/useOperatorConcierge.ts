@@ -79,7 +79,9 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
   const [liveSteps, setLiveSteps] = useState<ConciergeInvestigationStep[]>([])
   const [pendingRequest, setPendingRequest] = useState<string | null>(null)
   const [liveAnswer, setLiveAnswer] = useState<ConciergeStreamAnswer | null>(null)
+  const [loadedClientId, setLoadedClientId] = useState<string | null>(null)
   const active = useRef(true)
+  const clientGeneration = useRef(0)
 
   useEffect(() => {
     active.current = true
@@ -89,11 +91,19 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
   }, [])
 
   useEffect(() => {
+    const generation = ++clientGeneration.current
+    const isCurrentClient = () =>
+      active.current && clientGeneration.current === generation
     if (!clientId) return
     setStatus('loading')
     setError(null)
+    setCapabilities(null)
+    setConfig(null)
+    setLoadedClientId(null)
     setMessages([])
     setSessionId(null)
+    setLiveSteps([])
+    setPendingRequest(null)
     setLiveAnswer(null)
 
     // Independent reads, so concurrently. `allSettled` because a capability
@@ -103,7 +113,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       fetchConciergeConfig(),
       fetchLatestConciergeSession(clientId),
     ]).then(async ([caps, cfg, latest]) => {
-      if (!active.current) return
+      if (!isCurrentClient()) return
 
       if (caps.status === 'fulfilled') {
         setCapabilities(caps.value)
@@ -121,7 +131,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       if (resumed) {
         try {
           const session = await fetchConciergeSession(clientId, resumed)
-          if (!active.current) return
+          if (!isCurrentClient()) return
           // Never render another client's conversation. The server binds the
           // session, and a stale id that does not match resets to empty.
           if (session.customerId === clientId) {
@@ -129,28 +139,34 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
             setMessages(session.messages)
           }
         } catch {
-          if (!active.current) return
+          if (!isCurrentClient()) return
           setStatus('conversation_unavailable')
           return
         }
       }
 
-      if (!active.current) return
+      if (!isCurrentClient()) return
       if (caps.status !== 'fulfilled') {
         setStatus('capability_unverified')
       } else {
         setStatus(caps.value.governedActionsAvailable ? 'ready' : 'read_only')
       }
+      setLoadedClientId(clientId)
     })
   }, [clientId])
 
   const governedActionsAvailable = Boolean(capabilities?.governedActionsAvailable)
-  const composerEnabled = Boolean(config?.composerEnabled)
+  const composerEnabled = Boolean(
+    config?.composerEnabled && loadedClientId === clientId,
+  )
 
   const submit = useCallback(
     async (message: string) => {
       const text = message.trim()
       if (!text || !composerEnabled) return
+      const generation = clientGeneration.current
+      const isCurrentClient = () =>
+        active.current && clientGeneration.current === generation
       setStatus('submitting')
       setError(null)
       setLiveSteps([])
@@ -162,7 +178,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       try {
         // Lazy creation: the first submission is what makes a thread exist.
         const id = sessionId ?? (await createConciergeSession(clientId)).sessionId
-        if (!active.current) return
+        if (!isCurrentClient()) return
         setSessionId(id)
 
         await streamConciergeTurn(
@@ -171,7 +187,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
           text,
           transportKey(),
           (step) => {
-            if (!active.current) return
+            if (!isCurrentClient()) return
             setLiveSteps((prev) => {
               // A `running` step is replaced by its completed form rather than
               // duplicated, so the list reflects state instead of history.
@@ -180,23 +196,23 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
             })
           },
           (answer) => {
-            if (!active.current) return
+            if (!isCurrentClient()) return
             setLiveAnswer(answer)
           },
         )
-        if (!active.current) return
+        if (!isCurrentClient()) return
 
         // Reload rather than optimistically appending: the server owns turn state,
         // and a replayed submission must not show twice.
         const session = await fetchConciergeSession(clientId, id)
-        if (!active.current) return
+        if (!isCurrentClient()) return
         setMessages(session.customerId === clientId ? session.messages : [])
         setPendingRequest(null)
         setLiveSteps([])
         setLiveAnswer(null)
         setStatus(governedActionsAvailable ? 'ready' : 'read_only')
       } catch (err) {
-        if (!active.current) return
+        if (!isCurrentClient()) return
         setError(err instanceof Error ? err.message : 'operator_unavailable')
         setPendingRequest(null)
         setLiveSteps([])

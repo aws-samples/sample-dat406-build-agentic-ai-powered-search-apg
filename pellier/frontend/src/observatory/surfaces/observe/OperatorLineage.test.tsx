@@ -77,9 +77,9 @@ function mockResponse(body: unknown, status = 200) {
   )
 }
 
-function renderPage() {
+function renderPage(initialEntry = '/observatory/operator-lineage') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <OperatorLineage />
     </MemoryRouter>,
   )
@@ -117,6 +117,19 @@ describe('OperatorLineage', () => {
     )
   })
 
+  it('loads the exact review handed off from Operator', async () => {
+    mockResponse(PENDING)
+    renderPage(
+      '/observatory/operator-lineage?customer=CUST-THEO&review=8',
+    )
+
+    await screen.findByText('My Wabi-Sabi Bowl arrived chipped.')
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/observatory/operator-lineage/CUST-THEO?review_id=8',
+      expect.objectContaining({ credentials: 'include' }),
+    )
+  })
+
   it('shows a live-data empty state rather than fixture lineage', async () => {
     mockResponse({
       customerId: 'CUST-THEO',
@@ -128,8 +141,9 @@ describe('OperatorLineage', () => {
     })
     renderPage()
 
-    expect(await screen.findByText(/No durable Theo handoff is present yet/i))
-      .toBeInTheDocument()
+    expect(
+      await screen.findByText(/No durable handoff is present for CUST-THEO yet/i),
+    ).toBeInTheDocument()
     expect(screen.getByText(/does not substitute fixture data/i))
       .toBeInTheDocument()
     expect(screen.queryByTestId('operator-lineage-case-investigator'))
@@ -143,7 +157,8 @@ describe('OperatorLineage', () => {
     expect(await screen.findByText('Operator sign-in required'))
       .toBeInTheDocument()
     expect(screen.getByText(/principal-scoped lineage/i)).toBeInTheDocument()
-    expect(screen.queryByText(/No durable Theo handoff/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No durable handoff is present/i))
+      .not.toBeInTheDocument()
   })
 
   it('keeps human, policy, database, and evidence outcomes distinct', async () => {
@@ -170,5 +185,85 @@ describe('OperatorLineage', () => {
     expect(execution).toHaveTextContent('Policy ALLOW')
     expect(execution).toHaveTextContent('PostgreSQL APPLIED')
     expect(execution).toHaveTextContent('evidence COMPLETE')
+  })
+
+  it('does not present a failed graph node as complete', async () => {
+    mockResponse({
+      ...PENDING,
+      orchestration: {
+        ...PENDING.orchestration,
+        executedNodes: [
+          {
+            nodeId: 'case-investigator',
+            status: 'failed',
+            durationMs: 8,
+          },
+        ],
+      },
+    })
+    renderPage()
+
+    const investigator = await screen.findByTestId(
+      'operator-lineage-case-investigator',
+    )
+    expect(investigator).toHaveAttribute('data-stage-state', 'stopped')
+    expect(investigator).toHaveTextContent('failed in 8ms')
+  })
+
+  it('marks every unexecuted node stopped when the graph itself failed', async () => {
+    mockResponse({
+      ...PENDING,
+      orchestration: {
+        ...PENDING.orchestration,
+        status: 'failed',
+        executedNodes: [],
+      },
+    })
+    renderPage()
+
+    expect(await screen.findByTestId('operator-lineage-case-investigator'))
+      .toHaveAttribute('data-stage-state', 'stopped')
+    expect(screen.getByTestId('operator-lineage-resolution-planner'))
+      .toHaveAttribute('data-stage-state', 'stopped')
+  })
+
+  it('renders a denied execution receipt as a stopped attempt', async () => {
+    mockResponse({
+      ...PENDING,
+      review: { ...PENDING.review, status: 'approved' },
+      execution: {
+        latestReceipt: {
+          policy_outcome: 'DENY',
+          aurora_outcome: 'NOT_ATTEMPTED',
+          evidence_outcome: 'COMPLETE',
+          rail: 'gateway-mcp',
+        },
+      },
+    })
+    renderPage()
+
+    const execution = await screen.findByTestId('operator-lineage-execution')
+    expect(execution).toHaveAttribute('data-stage-state', 'stopped')
+    expect(execution).toHaveTextContent('Governed execution attempt')
+    expect(execution).toHaveTextContent('Policy DENY')
+  })
+
+  it('renders a completed log-only receipt as terminal rather than waiting', async () => {
+    mockResponse({
+      ...PENDING,
+      review: { ...PENDING.review, status: 'approved' },
+      execution: {
+        latestReceipt: {
+          policy_outcome: 'WOULD_DENY',
+          aurora_outcome: 'PERMITTED',
+          evidence_outcome: 'RECEIPTED',
+          rail: 'log-only',
+        },
+      },
+    })
+    renderPage()
+
+    expect(await screen.findByTestId('operator-lineage-execution'))
+      .toHaveAttribute('data-stage-state', 'complete')
   })
 })

@@ -277,17 +277,20 @@ function PersonaDropdown() {
         onClick={() => setOpen((prev) => !prev)}
         data-testid="persona-pill"
         className={[
+          'pellier-account-pill',
           'flex items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
           'cursor-pointer rounded-full',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         ].join(' ')}
         style={{
-          padding: persona ? '4px 12px 4px 4px' : '7px 14px',
-          background: persona ? 'var(--ink)' : 'transparent',
-          color: persona ? 'var(--cream)' : 'var(--ink)',
-          border: persona
-            ? '1px solid var(--ink)'
-            : '1px solid var(--input-border)',
+          ...(persona
+            ? {
+                padding: '4px 12px 4px 4px',
+                background: 'var(--ink)',
+                color: 'var(--cream)',
+                border: '1px solid var(--ink)',
+              }
+            : { padding: '7px 14px' }),
         }}
         aria-expanded={open}
         aria-haspopup="true"

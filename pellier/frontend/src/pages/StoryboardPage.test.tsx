@@ -68,14 +68,15 @@ vi.mock('../contexts/PersonaContext', () => ({
   }),
 }))
 
-// useUI - CommandPill reads toggleConcierge + activeModal.
-const toggleConcierge = vi.fn()
+// useUI - CommandPill reads toggleDrawer + activeModal.
+const toggleDrawer = vi.fn()
 vi.mock('../contexts/UIContext', () => ({
   useUI: () => ({
     activeModal: null,
     openModal: vi.fn(),
     closeModal: vi.fn(),
-    toggleConcierge,
+    chatSurface: 'drawer',
+    toggleDrawer,
     openChat: vi.fn(),
     announcementDismissed: {
       legacy: false,
@@ -100,7 +101,7 @@ function renderStoryboard(ui: ReactElement = <StoryboardPage />) {
 }
 
 beforeEach(() => {
-  toggleConcierge.mockClear()
+  toggleDrawer.mockClear()
 })
 
 // --- Tests --------------------------------------------------------------

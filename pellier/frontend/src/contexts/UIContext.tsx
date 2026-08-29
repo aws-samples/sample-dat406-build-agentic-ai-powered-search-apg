@@ -4,11 +4,11 @@
  * Two concerns live here:
  *
  *  1. Modal singleton (Req 1.11.2 through 1.11.5): every overlay surface in
- *     the storefront (concierge, auth, preferences, cart, checkout) is
+ *     the storefront (drawer, auth, preferences, cart, checkout) is
  *     coordinated through `activeModal`. Opening any modal closes the
  *     previous one first so only one is ever visible. A single global
  *     keydown handler lives in `UIProvider` so every route inherits the
- *     same shortcuts: Cmd+K / Ctrl+K toggles the concierge, Escape closes
+ *     same shortcuts: Cmd+K / Ctrl+K toggles the storefront drawer, Escape closes
  *     whichever modal is active.
  *
  *  2. Legacy helpers kept for the existing Lab UI (AIAssistant + App):
@@ -29,7 +29,6 @@ import {
 import type { WorkshopMode } from './LayoutContext'
 
 export type ModalName =
-  | 'concierge'
   | 'drawer'
   | 'auth'
   | 'preferences'
@@ -38,10 +37,11 @@ export type ModalName =
   | 'comparison'
 
 export type ActiveModal = ModalName | null
+export type ChatSurface = 'drawer' | 'none'
 
 /**
  * Minimal product shape understood by ProductComparison. We keep the fields
- * loose so the concierge can hand off to the comparison modal without
+ * loose so the shopper drawer can hand off to the comparison modal without
  * importing chat types into this context. ComparisonHost casts this back to
  * ChatProduct at the render boundary.
  */
@@ -59,29 +59,26 @@ interface UIContextValue {
   // Modal singleton
   activeModal: ActiveModal
   openModal: (name: ModalName) => void
-  closeModal: () => void
-  toggleConcierge: () => void
+  closeModal: (options?: { restoreDrawer?: boolean }) => void
 
-  // Chat drawer (storefront-only surface). Route-aware components call
-  // ``setChatSurface('drawer')`` on mount so the global ⌘K handler
-  // opens the right surface without needing useLocation() in UIProvider.
-  chatSurface: 'concierge' | 'drawer'
-  setChatSurface: (s: 'concierge' | 'drawer') => void
+  // Chat is a storefront-only surface. Dedicated operational and evidence
+  // routes set this to `none`, leaving their keyboard conventions untouched.
+  chatSurface: ChatSurface
+  setChatSurface: (s: ChatSurface) => void
   toggleDrawer: () => void
   openDrawerWithQuery: (text: string) => void
 
-  // Pending concierge query — the hero search pill seeds this when the
-  // user submits, then ConciergeModal/ChatDrawer consumes it on open
+  // Pending shopper query — the hero search pill seeds this when the
+  // user submits, then ChatDrawer consumes it on open
   // (and clears it via `consumePendingQuery`). Keeps the handoff
   // one-way so the hero form doesn't also need to hold onto the value.
   pendingConciergeQuery: string | null
-  openConciergeWithQuery: (text: string) => void
   consumePendingQuery: () => string | null
 
   // Comparison payload — set when opening the comparison modal so the
-  // receiver can render the product list without prop-drilling. The concierge
+  // receiver can render the product list without prop-drilling. The drawer
   // closes, comparison opens with this payload, and when the user dismisses
-  // comparison we restore the concierge (useAgentChat preserves chat state).
+  // comparison we restore the drawer (useAgentChat preserves chat state).
   comparisonProducts: ComparisonProduct[]
   openComparison: (products: ComparisonProduct[]) => void
 
@@ -117,27 +114,23 @@ export function UIProvider({ children }: { children: ReactNode }) {
   // Chat surface preference — route-aware components set this on mount
   // so the global ⌘K handler opens the right surface without needing
   // useLocation() (UIProvider sits above BrowserRouter).
-  // PellierPage sets 'drawer' on mount.
-  const [chatSurface, setChatSurface] = useState<'concierge' | 'drawer'>('drawer')
+  const [chatSurface, setChatSurface] = useState<ChatSurface>('drawer')
 
   const openModal = useCallback((name: ModalName) => {
     // Opening any modal closes the previous one first (Req 1.11.4).
     setActiveModal(name)
   }, [])
 
-  const closeModal = useCallback(() => {
+  const closeModal = useCallback((options?: { restoreDrawer?: boolean }) => {
+    const restoreDrawer = options?.restoreDrawer ?? true
     setActiveModal(prev => {
-      // Closing the comparison modal restores the concierge so the user
+      // Closing the comparison modal restores the drawer so the user
       // can continue the conversation they triggered Compare from.
       // `useAgentChat` preserves the chat state across this transition
       // because its state lives in the hook, not the modal DOM.
-      if (prev === 'comparison') return 'concierge'
+      if (prev === 'comparison' && restoreDrawer) return 'drawer'
       return null
     })
-  }, [])
-
-  const toggleConcierge = useCallback(() => {
-    setActiveModal(prev => (prev === 'concierge' ? null : 'concierge'))
   }, [])
 
   const toggleDrawer = useCallback(() => {
@@ -147,14 +140,6 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const openComparison = useCallback((products: ComparisonProduct[]) => {
     setComparisonProducts(products)
     setActiveModal('comparison')
-  }, [])
-
-  const openConciergeWithQuery = useCallback((text: string) => {
-    const trimmed = text.trim()
-    if (!trimmed) return
-    pendingQueryRef.current = trimmed
-    setPendingConciergeQuery(trimmed)
-    setActiveModal('concierge')
   }, [])
 
   const openDrawerWithQuery = useCallback((text: string) => {
@@ -178,20 +163,22 @@ export function UIProvider({ children }: { children: ReactNode }) {
   // Global keyboard shortcuts (Req 1.11.2, 1.11.3, 1.11.5).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Cmd+K on macOS, Ctrl+K elsewhere: toggle the active chat surface.
+      // Cmd+K on macOS, Ctrl+K elsewhere: toggle the storefront chat surface.
       // ``chatSurface`` is set by route-aware components (PellierPage
       // sets 'drawer' on mount) so this handler doesn't need useLocation().
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        // Operational and evidence routes own their own keyboard model. Do
+        // not swallow the browser shortcut for a chat surface that is absent.
+        if (chatSurface === 'none') return
         e.preventDefault()
-        const target = chatSurface
-        setActiveModal(prev => (prev === target ? null : target))
+        setActiveModal(prev => (prev === 'drawer' ? null : 'drawer'))
         return
       }
-      // Escape: close comparison back to concierge, or close whichever other
+      // Escape: close comparison back to the drawer, or close whichever other
       // modal is active (no-op when none is open).
       if (e.key === 'Escape') {
         setActiveModal(prev => {
-          if (prev === 'comparison') return 'concierge'
+          if (prev === 'comparison' && chatSurface === 'drawer') return 'drawer'
           return null
         })
       }
@@ -228,13 +215,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
       activeModal,
       openModal,
       closeModal,
-      toggleConcierge,
       chatSurface,
       setChatSurface,
       toggleDrawer,
       openDrawerWithQuery,
       pendingConciergeQuery,
-      openConciergeWithQuery,
       consumePendingQuery,
       comparisonProducts,
       openComparison,
@@ -246,13 +231,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
       activeModal,
       openModal,
       closeModal,
-      toggleConcierge,
       chatSurface,
       setChatSurface,
       toggleDrawer,
       openDrawerWithQuery,
       pendingConciergeQuery,
-      openConciergeWithQuery,
       consumePendingQuery,
       comparisonProducts,
       openComparison,

@@ -1,5 +1,5 @@
 /**
- * CommandPill - floating concierge shortcut pill.
+ * CommandPill - floating shopper-chat shortcut pill.
  *
  * Validates Requirements 1.11.1 and 1.11.5.
  *
@@ -7,8 +7,8 @@
  *   - Fixed in the bottom-right corner on every page (Req 1.11.1).
  *   - Compact dusk pill with a small brand mark, the `Ask Pellier` label,
  *     and a styled `Cmd K` keycap.
- *   - Clicking the pill toggles the concierge modal via
- *     `useUI().toggleConcierge()` (Req 1.11.5) - the same behavior as
+ *   - Clicking the pill toggles the shopper drawer via
+ *     `useUI().toggleDrawer()` (Req 1.11.5) - the same behavior as
  *     the global Cmd+K / Ctrl+K shortcut (Req 1.11.2).
  *
  * Copy comes from the COMMAND_PILL block in copy.ts so the scanner
@@ -32,7 +32,7 @@ function detectMac(): boolean {
 }
 
 export default function CommandPill() {
-  const { toggleDrawer, toggleConcierge, activeModal, chatSurface } = useUI()
+  const { toggleDrawer, activeModal, chatSurface } = useUI()
   const { persona } = usePersona()
   const [isMac, setIsMac] = useState(false)
 
@@ -43,22 +43,18 @@ export default function CommandPill() {
   // Hide the pill while the drawer is open — no reason for two entry
   // points to the same surface to be visible simultaneously.
   if (!persona) return null
+  if (chatSurface === 'none') return null
   if (activeModal === 'drawer') return null
 
-  const pressed = activeModal === 'concierge'
   const keycap = isMac ? COMMAND_PILL.KEY_CAP_MAC : COMMAND_PILL.KEY_CAP_WIN
-
-  // On storefront routes chatSurface is 'drawer'; on observatory it's
-  // 'concierge'. The pill always opens whichever is active.
-  const handleClick = chatSurface === 'drawer' ? toggleDrawer : toggleConcierge
 
   return (
     <button
       type="button"
       data-testid="command-pill"
       aria-label={`${COMMAND_PILL.LABEL} (${keycap})`}
-      aria-pressed={pressed}
-      onClick={handleClick}
+      aria-pressed={false}
+      onClick={toggleDrawer}
       className="concierge-glow fixed bottom-6 right-6 z-40 inline-flex items-center gap-2.5 rounded-full bg-espresso/95 backdrop-blur-md text-cream-50 border-none font-sans text-[13px] font-medium tracking-[0.01em] cursor-pointer transition-transform duration-fade"
       style={{
         padding: '10px 14px 10px 10px',

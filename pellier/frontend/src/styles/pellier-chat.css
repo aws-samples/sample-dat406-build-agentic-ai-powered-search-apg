@@ -428,6 +428,20 @@
   color: var(--ink-2);
 }
 
+.ec-review-pending p {
+  margin: 0;
+}
+
+.ec-review-pending a {
+  display: inline-block;
+  margin-top: 7px;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* Product artifacts stack */
 .ec-artifacts {
   display: flex;

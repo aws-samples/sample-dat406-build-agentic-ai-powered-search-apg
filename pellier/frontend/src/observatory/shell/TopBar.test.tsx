@@ -23,33 +23,20 @@ function LocationProbe() {
 }
 
 describe('Pellier Observatory TopBar', () => {
-  it('provides one explicit route back to Pellier', () => {
+  it('makes the Storefront the only top-bar exit', () => {
     render(
       <MemoryRouter initialEntries={['/observatory/proof-board']}>
         <TopBar />
       </MemoryRouter>,
     )
 
-    const backLink = screen.getByRole('link', { name: 'Back to Pellier' })
-    expect(backLink).toHaveAttribute('href', '/')
-  })
-
-  it('links to the public Pellier repository in a new tab', () => {
-    render(
-      <MemoryRouter initialEntries={['/observatory']}>
-        <TopBar />
-      </MemoryRouter>,
-    )
-
-    const repositoryLink = screen.getByRole('link', {
-      name: 'View Pellier repository on GitHub',
+    const backLink = screen.getByRole('link', {
+      name: 'Back to Pellier',
     })
-    expect(repositoryLink).toHaveAttribute(
-      'href',
-      'https://github.com/aws-samples/sample-pellier-agentic-search-apg',
-    )
-    expect(repositoryLink).toHaveAttribute('target', '_blank')
-    expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(backLink).toHaveAttribute('href', '/')
+    expect(backLink).toHaveTextContent('Pellier')
+    expect(backLink).not.toHaveTextContent('Storefront')
+    expect(screen.queryByRole('link', { name: /github/i })).not.toBeInTheDocument()
   })
 
   it('keeps supporting routes under Proof & References', () => {

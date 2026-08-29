@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   Check,
+  CircleAlert,
   CircleDashed,
   Database,
   GitBranch,
@@ -9,7 +10,7 @@ import {
   ShieldCheck,
   UserCheck,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import type {
   ConciergeGraphNode,
@@ -72,7 +73,64 @@ function stageIcon(stage: Stage): React.ReactNode {
   if (stage.state === 'complete') {
     return <Check size={16} strokeWidth={2} aria-hidden="true" />
   }
+  if (stage.state === 'stopped') {
+    return <CircleAlert size={16} strokeWidth={1.8} aria-hidden="true" />
+  }
   return <CircleDashed size={16} strokeWidth={1.8} aria-hidden="true" />
+}
+
+function graphNodeState(
+  node: ConciergeGraphNode | undefined,
+  orchestrationStatus?: string,
+): StageState {
+  if (!node) {
+    return ['failed', 'error', 'stopped', 'unavailable'].includes(
+      String(orchestrationStatus ?? '').toLowerCase(),
+    )
+      ? 'stopped'
+      : 'waiting'
+  }
+  const status = String(node.status ?? '').toLowerCase()
+  if (['complete', 'completed', 'success', 'succeeded'].includes(status)) {
+    return 'complete'
+  }
+  if (['failed', 'error', 'stopped', 'unavailable'].includes(status)) {
+    return 'stopped'
+  }
+  return 'waiting'
+}
+
+function executionState(
+  execution: LineageExecution['latestReceipt'] | undefined,
+): StageState {
+  if (!execution) return 'waiting'
+
+  const policy = String(execution.policy_outcome ?? '').toUpperCase()
+  const database = String(execution.aurora_outcome ?? '').toUpperCase()
+  const evidence = String(execution.evidence_outcome ?? '').toUpperCase()
+
+  if (
+    policy === 'DENY' ||
+    ['DENIED', 'NOT_ATTEMPTED', 'NOT_REACHED', 'FAILED', 'ERROR', 'REFUSED'].includes(
+      database,
+    ) ||
+    ['FAILED', 'ERROR', 'INCOMPLETE'].includes(evidence)
+  ) {
+    return 'stopped'
+  }
+
+  const databaseComplete = [
+    'APPLIED',
+    'PERMITTED',
+    'SUCCESS',
+    'SUCCEEDED',
+    'COMPLETED',
+  ].includes(database)
+  const evidenceComplete = ['COMPLETE', 'RECEIPTED', 'SUCCEEDED'].includes(evidence)
+  const policyComplete = ['ALLOW', 'WOULD_DENY', 'LOG_ONLY'].includes(policy)
+  return policyComplete && databaseComplete && evidenceComplete
+    ? 'complete'
+    : 'waiting'
 }
 
 function reviewCheckpoint(review: LineageReview | null): Stage {
@@ -128,7 +186,7 @@ function graphStage(
     id: nodeId,
     title,
     owner: 'Strands Graph',
-    state: node ? 'complete' : 'waiting',
+    state: graphNodeState(node, orchestration?.status),
     detail: node
       ? `${node.status}${node.durationMs != null ? ` in ${node.durationMs}ms` : ''}.`
       : 'No persisted execution for this graph node yet.',
@@ -137,6 +195,13 @@ function graphStage(
 }
 
 const OperatorLineage: React.FC = () => {
+  const [searchParams] = useSearchParams()
+  const requestedCustomerId =
+    searchParams.get('customer')?.trim() || 'CUST-THEO'
+  const requestedReviewValue = searchParams.get('review')?.trim() || ''
+  const requestedReviewId = /^[1-9]\d*$/.test(requestedReviewValue)
+    ? Number(requestedReviewValue)
+    : null
   const [data, setData] = useState<OperatorLineageResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -146,10 +211,18 @@ const OperatorLineage: React.FC = () => {
     let active = true
     setLoading(true)
     setError(null)
-    fetch('/api/observatory/operator-lineage/CUST-THEO', {
+    setData(null)
+    const reviewQuery =
+      requestedReviewId == null ? '' : `?review_id=${requestedReviewId}`
+    fetch(
+      `/api/observatory/operator-lineage/${encodeURIComponent(
+        requestedCustomerId,
+      )}${reviewQuery}`,
+      {
       credentials: 'include',
       signal: controller.signal,
-    })
+      },
+    )
       .then(async (response) => {
         if (!response.ok) {
           const body = (await response.json().catch(() => ({}))) as {
@@ -177,7 +250,7 @@ const OperatorLineage: React.FC = () => {
       active = false
       controller.abort()
     }
-  }, [])
+  }, [requestedCustomerId, requestedReviewId])
 
   const stages = useMemo<Stage[]>(() => {
     if (!data?.handoff) return []
@@ -205,10 +278,10 @@ const OperatorLineage: React.FC = () => {
       humanDecision(data.review),
       {
         id: 'execution',
-        title: 'Deterministic governed execution',
+        title: 'Governed execution attempt',
         owner: execution?.rail || 'Gateway, Policy, and PostgreSQL',
         state: execution
-          ? 'complete'
+          ? executionState(execution)
           : data.review?.status === 'rejected'
             ? 'stopped'
             : 'waiting',
@@ -227,9 +300,9 @@ const OperatorLineage: React.FC = () => {
         <div>
           <h1>From shopper ask to governed outcome.</h1>
           <p>
-            Theo&rsquo;s live closed loop, reconstructed from PostgreSQL and persisted
-            graph artifacts. Conversation explains the case; current rows decide what
-            is true.
+            {data?.customerName ?? 'This client'}&rsquo;s live closed loop,
+            reconstructed from PostgreSQL and persisted graph artifacts.
+            Conversation explains the case; current rows decide what is true.
           </p>
         </div>
         {data?.dataSource ? (
@@ -261,9 +334,11 @@ const OperatorLineage: React.FC = () => {
         </div>
       ) : !data?.handoff ? (
         <div className="observatory-lineage-state">
-          <strong>No durable Theo handoff is present yet.</strong>
+          <strong>
+            No durable handoff is present for {requestedCustomerId} yet.
+          </strong>
           <span>
-            Apply migration 028, then run Theo&rsquo;s damaged-return storefront
+            Apply migration 028, then run the client&rsquo;s governed storefront
             journey. This view does not substitute fixture data.
           </span>
         </div>
@@ -272,7 +347,7 @@ const OperatorLineage: React.FC = () => {
           <section className="observatory-lineage-context">
             <div>
               <MessageSquareQuote size={18} strokeWidth={1.8} aria-hidden="true" />
-              <h2>Reported by Theo</h2>
+              <h2>Reported by {data.customerName ?? data.customerId}</h2>
               <blockquote>{data.handoff.shopperRequest}</blockquote>
               <p>Untrusted shopper context from the original append-only receipt.</p>
             </div>

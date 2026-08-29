@@ -1,7 +1,7 @@
 /**
- * Routing — Three routing pattern cards surface.
+ * Routing — the two production routing paths.
  *
- * Displays Dispatcher, Agents-as-Tools, and Graph patterns as ExpCards.
+ * Displays Dispatcher and Graph patterns as ExpCards.
  * Each card: pattern name (Fraunces), description, code snippet (monospace,
  * cream-2 bg), agent list as chips, and path-specific active indicator.
  *
@@ -536,8 +536,8 @@ const StorefrontProductionCard: React.FC = () => (
         Keeper, etc.
       </li>
       <li>
-        <Emphasis>LLM router elsewhere</Emphasis> – Agents-as-Tools and Graph in
-        Pellier Observatory; AgentCore Runtime on{' '}
+        <Emphasis>Ordered multi-agent work elsewhere</Emphasis> – the Operator
+        Concierge uses a bounded Strands Graph on{' '}
         <code
           style={{
             fontFamily: 'var(--obs-mono)',
@@ -548,7 +548,7 @@ const StorefrontProductionCard: React.FC = () => (
             background: 'var(--obs-cream-2)',
           }}
         >
-          /api/agent/chat
+          /api/operator/clients/:clientId/concierge/sessions/:sessionId/turns/stream
         </code>
       </li>
       <li>
@@ -725,12 +725,6 @@ const LANGGRAPH_MAPPINGS: LangGraphMapping[] = [
       'No graph object. The router is a Python function in services/chat.py – keyword rules, no LLM, ~60–120 ms.',
   },
   {
-    pellier: 'Agents-as-Tools (orchestrator + @tool)',
-    langgraph: 'Supervisor pattern with create_react_agent',
-    difference:
-      'Strands keeps specialists as @tool callables; the orchestrator is just an Agent. No StateGraph, no compile() step, no checkpointer wiring.',
-  },
-  {
     pellier: 'Graph (Strands GraphBuilder)',
     langgraph: 'StateGraph with add_node / add_edge',
     difference:
@@ -764,12 +758,11 @@ const LangGraphComparisonCard: React.FC = () => (
       LangGraph asks you to{' '}
       <Emphasis>commit to a StateGraph from turn one</Emphasis> – every flow is
       nodes, edges, and a compiled state machine. Strands lets you start with{' '}
-      <Emphasis>Dispatcher</Emphasis> (a Python function), graduate to{' '}
-      <Emphasis>Agents-as-Tools</Emphasis> when one orchestrator needs to call
-      specialists, and reach for <Emphasis>Graph</Emphasis> only when you
-      genuinely need ordered multi-agent work. Pellier demonstrates both
-      production choices: Dispatcher for the Storefront and a two-agent Graph
-      for Operator Concierge.
+      <Emphasis>Dispatcher</Emphasis> (a Python function) and reach for{' '}
+      <Emphasis>Graph</Emphasis> only when you genuinely need ordered
+      multi-agent work. Pellier demonstrates those two production choices:
+      Dispatcher for the Storefront and a two-agent Graph for Operator
+      Concierge.
     </p>
 
     <table
@@ -909,7 +902,7 @@ const Routing: React.FC = () => {
         title="How requests find their specialist."
         summary={
           storefrontPattern
-            ? 'Dispatcher owns Storefront turns; the Operator Concierge uses a bounded two-agent Strands graph. Agents-as-Tools remains a comparison pattern.'
+            ? 'Dispatcher owns Storefront turns; the Operator Concierge uses a bounded two-agent Strands graph.'
             : 'The required storefront path classifies each turn and gives it one specialist owner.'
         }
       />
@@ -941,8 +934,8 @@ const Routing: React.FC = () => {
             >
               Pellier ships <Emphasis>Dispatcher</Emphasis> for Storefront turns
               and <Emphasis>Graph</Emphasis> for Operator Concierge turns. Use the
-              selector to inspect each path; Agents-as-Tools stays a teaching
-              comparison rather than a hidden third production rail.
+              selector to inspect the two paths the product actually runs and
+              persists.
             </p>
             <ModeStrip
               patterns={patterns.map((p) => p.name)}
@@ -1003,9 +996,7 @@ const Routing: React.FC = () => {
           {/* Dispatcher (Pattern I) is the active path; the intent
               table makes the keyword-to-specialist mapping concrete. */}
           <DispatcherIntentCard />
-          {/* LangGraph comparison — for operators arriving from LangChain.
-              Pins the editorial difference: three progressive patterns vs
-              one StateGraph from turn one. */}
+          {/* LangGraph comparison — for operators arriving from LangChain. */}
           <LangGraphComparisonCard />
         </div>
       )}

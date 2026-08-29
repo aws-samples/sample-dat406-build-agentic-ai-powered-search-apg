@@ -51,6 +51,22 @@ const appendStreamingCaret = (elements: JSX.Element[]) => {
   return next
 }
 
+function stabilizeStreamingMarkdown(raw: string): string {
+  return raw
+    .split(/(```(?:\w+)?\s*\n?[\s\S]*?```)/g)
+    .map((segment) => {
+      if (segment.startsWith('```')) return segment
+      const delimiterCount = segment.match(/\*\*/g)?.length ?? 0
+      if (delimiterCount % 2 === 0) return segment
+      const unmatchedIndex = segment.lastIndexOf('**')
+      return (
+        segment.slice(0, unmatchedIndex) +
+        segment.slice(unmatchedIndex + 2)
+      )
+    })
+    .join('')
+}
+
 const MarkdownMessage = ({ content, streaming = false }: Props) => {
 
   const formatText = (text: string) => {
@@ -73,7 +89,7 @@ const MarkdownMessage = ({ content, streaming = false }: Props) => {
 
   const renderContent = (raw: string) => {
     // Pre-clean: strip artifacts the backend should have removed
-    const text = raw
+    const text = (streaming ? stabilizeStreamingMarkdown(raw) : raw)
       // Remove markdown table rows (| col | col |)
       .replace(/^\|.*$/gm, '')
       // Remove horizontal rules (---, ***, ___)
@@ -128,16 +144,15 @@ const MarkdownMessage = ({ content, streaming = false }: Props) => {
           // Bold text with emoji
           if (line.match(/^\*\*.*\*\*/)) {
             flushList()
-            const text = line.replace(/\*\*/g, '')
             elements.push(
               <p key={`${segKey}-${idx}`} className="font-semibold text-text-primary my-2">
-                {formatText(text)}
+                {formatText(line)}
               </p>
             )
           }
           // List items (- or •)
           else if (line.match(/^[-•]\s/)) {
-            const text = line.replace(/^[-•]\s*/, '').replace(/\*\*/g, '')
+            const text = line.replace(/^[-•]\s*/, '')
             currentList.push(text)
           }
           // Regular paragraphs (skip empty/whitespace-only)

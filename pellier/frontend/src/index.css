@@ -21,6 +21,28 @@
 @tailwind components;
 @tailwind utilities;
 
+.pellier-account-pill {
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.pellier-account-pill:hover {
+  border-color: var(--link-hover);
+  background: var(--link-hover);
+  color: var(--cream-elev);
+}
+
+.pellier-account-pill:hover svg {
+  color: currentColor;
+}
+
 @layer components {
   /**
    * Return-to-storefront mark for the working surfaces (Operator,
@@ -177,37 +199,38 @@
     .pellier-page-surface,
     .operator-root
   ) {
-    --cream: #f3f4f6;
-    --cream-warm: #fafafa;
-    --cream-1: #f3f4f6;
-    --cream-2: #e7e9ed;
-    --cream-3: #d9dde3;
-    --cream-elev: #fafafa;
-    --ink: #181a1f;
-    --ink-1: #181a1f;
-    --ink-3: #3d424b;
-    --ink-4: #666d78;
-    --ink-5: #8b929d;
-    --ink-soft: #3d424b;
-    --ink-quiet: #666d78;
-    --rule-1: #d9dde3;
-    --rule-2: #c9ced6;
-    --rule-3: #aeb5c0;
+    --cream: var(--dl-bg);
+    --cream-warm: var(--dl-paper);
+    --cream-1: var(--dl-bg);
+    --cream-2: var(--dl-paper-2);
+    --cream-3: var(--dl-paper-2);
+    --cream-elev: var(--dl-paper);
+    --ink: var(--dl-ink);
+    --ink-1: var(--dl-ink);
+    --ink-3: var(--dl-ink-2);
+    --ink-4: var(--dl-muted);
+    --ink-5: var(--dl-faint);
+    --ink-soft: var(--dl-ink-2);
+    --ink-quiet: var(--dl-muted);
+    --rule-1: var(--dl-line);
+    --rule-2: var(--dl-line);
+    --rule-3: var(--dl-line-strong);
     --accent: #7a263a;
     --accent-ink: #651f31;
     --red-1: #7a263a;
     --red-soft: #f1e1e5;
-    --dusk: #262a32;
-    --bg-primary: #f3f4f6;
-    --bg-secondary: #e7e9ed;
-    --text-primary: #181a1f;
-    --text-secondary: #525965;
-    --border-color: rgba(24, 26, 31, 0.12);
-    --header-bg: rgba(243, 244, 246, 0.92);
-    --input-bg: rgba(255, 255, 255, 0.76);
-    --input-border: rgba(24, 26, 31, 0.16);
+    --dusk: var(--dl-ink);
+    --bg-primary: var(--dl-bg);
+    --bg-secondary: var(--dl-paper-2);
+    --text-primary: var(--dl-ink);
+    --text-secondary: var(--dl-ink-2);
+    --border-color: color-mix(in srgb, var(--dl-ink) 12%, transparent);
+    --header-bg: color-mix(in srgb, var(--dl-bg) 92%, transparent);
+    --input-bg: color-mix(in srgb, var(--dl-paper) 82%, transparent);
+    --input-border: color-mix(in srgb, var(--dl-ink) 16%, transparent);
     --link-color: #7a263a;
     --link-hover: #651f31;
+    --pellier-atmosphere-image: url('/products/hero-fresh-2-1600.webp');
     background: var(--cream);
     color: var(--ink);
     color-scheme: light;

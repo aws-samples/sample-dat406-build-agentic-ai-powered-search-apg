@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -247,6 +248,16 @@ def _describe_sampler(provider: Any) -> Optional[str]:
     return type(sampler).__name__
 
 
+def _is_always_on_sampler(description: Optional[str]) -> bool:
+    """Recognize the root AlwaysOn sampler without trusting child delegates."""
+    if not description:
+        return False
+    root = re.search(r"root\s*[:=]\s*([^,}]+)", description, re.IGNORECASE)
+    candidate = root.group(1) if root else description
+    normalized = "".join(char for char in candidate.lower() if char.isalnum())
+    return "alwayson" in normalized
+
+
 def init_cloudwatch_span_export(
     *,
     enabled: bool,
@@ -371,7 +382,7 @@ def init_cloudwatch_span_export(
             _AGENT_OBSERVABILITY_ENV,
         )
 
-    if sampler and "always_on" not in sampler.lower():
+    if sampler and not _is_always_on_sampler(sampler):
         logger.warning(
             "Trace sampler is %r, not 100%%. Turn-by-turn reconstruction "
             "needs every turn present; a sampled turn cannot be found by "

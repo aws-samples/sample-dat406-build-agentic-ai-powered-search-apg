@@ -845,6 +845,33 @@ def synthesize(
     ), result.model_id
 
 
+async def synthesize_async(
+    *,
+    request: str,
+    evidence: List[Evidence],
+    memory_turns: List[Dict[str, Any]],
+    spec: WorkflowSpec,
+    context_block: str = "",
+    shopper_handoff: Optional[Dict[str, Any]] = None,
+    checkpoint_state: str = "READ_ONLY_COMPLETE",
+    review_id: Optional[int] = None,
+    action_hash: str = "",
+) -> Tuple[Optional[Dict[str, str]], Optional[Step], str]:
+    """Run blocking Strands/Bedrock synthesis without blocking the API event loop."""
+    return await asyncio.to_thread(
+        synthesize,
+        request=request,
+        evidence=evidence,
+        memory_turns=memory_turns,
+        spec=spec,
+        context_block=context_block,
+        shopper_handoff=shopper_handoff,
+        checkpoint_state=checkpoint_state,
+        review_id=review_id,
+        action_hash=action_hash,
+    )
+
+
 def _parse_synthesis(raw: str, spec: WorkflowSpec) -> Optional[Dict[str, str]]:
     """Extract this workflow's prose fields, and nothing else.
 
@@ -1598,7 +1625,7 @@ async def stream_turn(
 
     # 4. Two-agent graph. The model contributes prose and a bounded case brief,
     # never structured business truth.
-    fields, synth_step, model_id = synthesize(
+    fields, synth_step, model_id = await synthesize_async(
         request=request, evidence=evidence, memory_turns=memory_turns, spec=spec,
         context_block="\n\n".join(
             b for b in (

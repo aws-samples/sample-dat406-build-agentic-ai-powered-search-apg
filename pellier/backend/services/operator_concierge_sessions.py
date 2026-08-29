@@ -12,7 +12,7 @@ The live schema supplies everything needed, so this module adds no migration:
 
     conversations.session_id  VARCHAR PRIMARY KEY   thread identity
     conversations.agent_name  VARCHAR               surface discriminator
-    conversations.metadata    JSONB                 client + operator binding
+    conversations.metadata    JSONB                 client + creation attribution
     messages.id               SERIAL PRIMARY KEY    deterministic replay order
     messages.role             VARCHAR               'user' | 'assistant'
     messages.metadata         JSONB                 turn_id + structured artifact
@@ -111,10 +111,12 @@ def _session_id(customer_id: str, token: str) -> str:
 async def create_session(
     db: Any, *, customer_id: str, operator_sub: str
 ) -> Dict[str, Any]:
-    """Open a Concierge thread bound to one canonical client and one operator.
+    """Open a team-visible Concierge thread bound to one canonical client.
 
     Not a consequential action: no Bedrock call, no AgentCore call, no review. It
-    records who is looking at whose record.
+    records who opened the thread for audit attribution. Authorized operators share
+    the client thread; each appended turn records the operator who actually authored
+    it, so ``created_by`` is not an ownership or read-authorization boundary.
     """
     import uuid
 
@@ -213,6 +215,73 @@ async def latest_session(db: Any, *, customer_id: str) -> Optional[str]:
             )
             row = await cur.fetchone()
     return dict(row).get("session_id") if row else None
+
+
+_GRAPH_ARTIFACT_FOR_REVIEW_SQL = """
+SELECT c.session_id, m.id, m.metadata
+  FROM pellier.conversations c
+  JOIN pellier.messages m ON m.session_id = c.session_id
+ WHERE c.agent_name = %(surface)s
+   AND c.metadata->>'surface' = %(surface)s
+   AND c.metadata->>'customer_id' = %(customer_id)s
+   AND m.role = %(role)s
+   AND m.metadata->>'surface' = %(surface)s
+   AND m.metadata->'artifact'->'orchestration'->'checkpoint'->>'reviewId'
+       = %(review_id)s
+   AND m.metadata->'artifact'->'orchestration'->'checkpoint'->>'actionHash'
+       = %(action_hash)s
+ ORDER BY m.id DESC
+ LIMIT 1
+"""
+
+
+async def load_graph_artifact_for_review(
+    db: Any,
+    *,
+    customer_id: str,
+    review_id: int,
+    action_hash: str,
+) -> Optional[Dict[str, Any]]:
+    """Load the graph artifact that proves the exact durable review lineage.
+
+    A client's latest Concierge answer is not necessarily the turn that produced the
+    review currently being inspected. Joining on both the server-created review id
+    and its action hash prevents a later summary, or an older proposal for the same
+    client, from being presented as that review's orchestration evidence.
+    """
+    if not customer_id or review_id <= 0 or not action_hash:
+        return None
+
+    async with db.get_connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                _GRAPH_ARTIFACT_FOR_REVIEW_SQL,
+                {
+                    "surface": SURFACE,
+                    "customer_id": customer_id,
+                    "role": ROLE_ASSISTANT,
+                    "review_id": str(review_id),
+                    "action_hash": action_hash,
+                },
+            )
+            row = await cur.fetchone()
+
+    if not row:
+        return None
+
+    result = dict(row)
+    raw = result.get("metadata")
+    metadata = raw if isinstance(raw, dict) else json.loads(raw or "{}")
+    artifact = metadata.get("artifact") or {}
+    orchestration = artifact.get("orchestration")
+    if not isinstance(orchestration, dict):
+        return None
+
+    return {
+        "sessionId": result.get("session_id"),
+        "turnId": metadata.get("turn_id", ""),
+        "orchestration": orchestration,
+    }
 
 
 # One statement that validates the session, honours transport idempotency, inserts

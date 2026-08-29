@@ -247,7 +247,7 @@ def test_recall_is_not_a_fifth_workflow() -> None:
 def test_recall_composes_with_a_workflow_context_stage() -> None:
     """Both blocks reach the model; neither replaces the other."""
     source = inspect.getsource(OC)
-    start = source.index("fields, synth_step, model_id = synthesize(")
+    start = source.index("fields, synth_step, model_id = await synthesize_async(")
     # To the end of the call, not to the first ")" - which lands inside it.
     joined = source[start: source.index("if synth_step is not None:", start)]
     assert "workflow_context.prompt_block" in joined

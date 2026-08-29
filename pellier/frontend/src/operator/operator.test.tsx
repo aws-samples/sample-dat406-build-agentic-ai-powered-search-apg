@@ -275,6 +275,48 @@ describe('ClientBook', () => {
     )
     expect(await screen.findByTestId('operator-book-empty')).toBeInTheDocument()
   })
+
+  it('promotes Jessica service recovery as a live case entry point', async () => {
+    mockFetch(() => ({
+      body: {
+        total: 4,
+        byMembership: { registered: 1, circle: 2, maison: 1 },
+        clients: [
+          ...BOOK.clients,
+          {
+            customerId: 'CUST-JESSICA',
+            slug: 'jessica',
+            name: 'Jessica Nakamura',
+            membership: 'circle',
+            spend12mo: 3940,
+            orderCount: 2,
+            orderValue: 540,
+            lastOrderAt: null,
+            note: 'Open return dispute.',
+            personaId: null,
+          },
+        ],
+      },
+    }))
+    render(
+      <MemoryRouter>
+        <ClientBook />
+      </MemoryRouter>,
+    )
+
+    const entry = await screen.findByTestId('operator-jessica-case-entry')
+    expect(screen.getByTestId('operator-book')).toHaveTextContent(
+      'Operator Concierge runs a separate investigation and resolution graph',
+    )
+    expect(screen.getByTestId('operator-book')).not.toHaveTextContent(
+      'the same agent that serves the storefront',
+    )
+    expect(entry).toHaveTextContent('Jessica Nakamura')
+    expect(entry).toHaveTextContent('Open return dispute')
+    expect(
+      screen.getByRole('button', { name: /Open Jessica's case/i }),
+    ).toBeInTheDocument()
+  })
 })
 
 describe('ClientAvatar', () => {
@@ -344,9 +386,17 @@ describe('ClientRecord', () => {
       screen.getByRole('heading', { name: 'Jessica Nakamura' }),
     ).toBeInTheDocument()
     expect(screen.getByTestId('operator-rung-circle')).toBeInTheDocument()
+    expect(screen.getByTestId('operator-orders')).toHaveClass('operator-orders')
     expect(screen.getByTestId('operator-orders')).toHaveTextContent(
       'Coral Lacquer Catchall',
     )
+    expect(
+      screen.getByText('Coral Lacquer Catchall').closest('td'),
+    ).toHaveClass('operator-order-piece')
+    expect(screen.getByRole('columnheader', { name: 'ID' })).not.toHaveClass(
+      'operator-col-optional',
+    )
+    expect(screen.getByText('Pellier Maison')).toHaveClass('operator-cell-note')
     expect(screen.getByTestId('operator-tickets')).toHaveTextContent(
       'Refund disputed',
     )

@@ -260,11 +260,22 @@ function copyForPersona(persona?: PersonaSnapshot | null): PersonaCopy {
   }
 }
 
+export function composeWelcomeGreeting(
+  timeGreeting: string,
+  greetingSuffix: string,
+): string {
+  const suffix = greetingSuffix.trim()
+  return `${timeGreeting}${suffix}${suffix.endsWith('.') ? '' : '.'}`
+}
+
 export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps) {
   const copy = copyForPersona(persona)
   const tod = timeOfDay()
   const firstName = persona ? persona.display_name.split(' ')[0] : ''
-  const greeting = `${TOD_GREETING[tod]}${copy.greetingSuffix(firstName)}.`
+  const greeting = composeWelcomeGreeting(
+    TOD_GREETING[tod],
+    copy.greetingSuffix(firstName),
+  )
   const stats = useCatalogStats()
 
   // Resolve cover product + eyebrow per persona. Anna's gift branch

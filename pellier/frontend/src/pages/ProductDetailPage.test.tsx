@@ -66,13 +66,11 @@ vi.mock('../contexts/UIContext', () => ({
     activeModal: null,
     openModal,
     closeModal: vi.fn(),
-    toggleConcierge: vi.fn(),
     chatSurface: 'drawer',
     setChatSurface: vi.fn(),
     toggleDrawer: vi.fn(),
     openDrawerWithQuery,
     pendingConciergeQuery: null,
-    openConciergeWithQuery: vi.fn(),
     consumePendingQuery: vi.fn(),
     comparisonProducts: [],
     openComparison: vi.fn(),
@@ -427,7 +425,7 @@ describe('ProductDetailPage — actions', () => {
     })
   })
 
-  it('seeds the concierge with questions that name the piece', async () => {
+  it('seeds the shopper drawer with questions that name the piece', async () => {
     const user = userEvent.setup()
     stubFetch(() => jsonResponse(detailPayload()))
 

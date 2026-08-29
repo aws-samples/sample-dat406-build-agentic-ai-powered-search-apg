@@ -346,7 +346,7 @@ export default function PreferencesModal() {
     <div
       data-testid="prefs-modal-backdrop"
       role="presentation"
-      onClick={closeModal}
+      onClick={() => closeModal()}
       style={{
         position: 'fixed',
         inset: 0,

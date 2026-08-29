@@ -119,7 +119,7 @@ export default function AuthModal() {
     <div
       data-testid="auth-modal-backdrop"
       role="presentation"
-      onClick={closeModal}
+      onClick={() => closeModal()}
       style={{
         position: 'fixed',
         inset: 0,

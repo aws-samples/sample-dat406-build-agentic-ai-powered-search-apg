@@ -5,7 +5,7 @@
  * The storefront benefits from a short welcome. Pellier Observatory is a workshop
  * surface, where an interstitial hides the proof a participant came to see.
  */
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -67,6 +67,45 @@ describe('first-visit orientation', () => {
       'aria-current',
       'step',
     );
+  });
+
+  it('teaches separate storefront and operator agent workflows over shared customer truth', async () => {
+    render(<PellierSpotlight />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Assist' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          name: 'Different agents. Shared customer truth.',
+        }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'The Storefront Dispatcher routes each shopper request to a specialist.',
+    );
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'A separate Case Investigator → Resolution Planner graph assists advisors',
+    );
+    expect(screen.getByRole('dialog')).not.toHaveTextContent(
+      'Advisors work the same agent',
+    );
+  });
+
+  it('describes Observatory using the evidence stages the live workbench exposes', async () => {
+    render(<PellierSpotlight />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show Inspect' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Follow the evidence.' }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'routing, memory, guardrails, agent activity, tool calls, SQL',
+    );
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('policy decision');
   });
 
   it('contains keyboard focus and restores it after dismissal', () => {

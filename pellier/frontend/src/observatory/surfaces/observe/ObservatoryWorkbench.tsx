@@ -1,9 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
-  Activity,
   Bot,
-  Boxes,
   Brain,
   Check,
   CheckCircle2,
@@ -12,12 +10,10 @@ import {
   ChevronsUpDown,
   Copy,
   Database,
-  Eye,
+  GitBranch,
   Link2,
-  PackagePlus,
   RotateCcw,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Wrench,
 } from 'lucide-react';
@@ -29,17 +25,14 @@ import {
   ToggleGroupItem,
 } from '../../../components/ui';
 import ResponsiveImage from '../../../components/ResponsiveImage';
+import MarkdownMessage from '../../../components/MarkdownMessage';
 import {
   sendChatMessageStreaming,
   type ChatProduct,
   type ChatResponse,
-  type OrchestrationPattern,
   type ResponseMode,
 } from '../../../services/chat';
 import ObservatoryCuratedTurns from './ObservatoryCuratedTurns';
-import {
-  OPERATOR_TURNS,
-} from '../../../data/personaCurations';
 import './ObservatoryIndex.css';
 import './ObservatoryWorkbench.css';
 
@@ -378,7 +371,6 @@ function iconForStep(kind: StepKind) {
 
 function patternLabel(pattern: string): string {
   if (pattern === 'dispatcher') return 'Dispatcher';
-  if (pattern === 'agents_as_tools') return 'Agents-as-Tools';
   if (pattern === 'graph') return 'Graph';
   return pattern ? 'Unexpected pattern' : 'Server selected';
 }
@@ -426,10 +418,6 @@ function formatSqlForDisplay(sql: string): string {
 
 function sqlBindingCount(sql: string): number {
   return sql.match(/%s|\$\d+/g)?.length ?? 0;
-}
-
-function toggleLabel(on: boolean): string {
-  return on ? 'On' : 'Off';
 }
 
 /**
@@ -494,9 +482,6 @@ export default function ObservatoryWorkbench() {
   const reduceMotion = useReducedMotion();
   const personaId = persona?.id ?? 'fresh';
   const [activeTurn, setActiveTurn] = useState<number | null>(null);
-  const [activeOperatorTurn, setActiveOperatorTurn] = useState<number | null>(
-    null,
-  );
   const [activeQuery, setActiveQuery] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunStatus>('idle');
   const [steps, setSteps] = useState<JourneyStep[]>([]);
@@ -506,16 +491,8 @@ export default function ObservatoryWorkbench() {
   const [runError, setRunError] = useState<string | null>(null);
   const [responseMode, setResponseMode] =
     useState<ResponseMode>('balanced');
-  const [orchestrationPattern, setOrchestrationPattern] =
-    useState<OrchestrationPattern>('dispatcher');
   const [profileEnabled, setProfileEnabled] = useState(Boolean(persona));
-  const [guardrailsEnabled, setGuardrailsEnabled] = useState(false);
-  // Whether the edit disclosure is open. The readout below restates every one
-  // of these controls, which is the point when collapsed and pure duplication
-  // when open: five facts, twice, adjacent. Tracking the disclosure lets the
-  // readout stand down rather than argue with the controls it summarises.
-  const [editingControls, setEditingControls] = useState(false);
-  const [traceVisible, setTraceVisible] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [intentSignal, setIntentSignal] = useState<IntentSignal | null>(null);
   const [executionRail, setExecutionRail] = useState('Server selected');
   const [executionPattern, setExecutionPattern] = useState<string | null>(null);
@@ -540,7 +517,6 @@ export default function ObservatoryWorkbench() {
 
   useEffect(() => {
     setActiveTurn(null);
-    setActiveOperatorTurn(null);
     setActiveQuery(null);
     setRunStatus('idle');
     setSteps([]);
@@ -817,13 +793,11 @@ export default function ObservatoryWorkbench() {
   const runAgent = async (
     curatedQuery: string,
     turnIndex: number | null,
-    operatorTurnIndex: number | null = null,
   ) => {
     const request = curatedQuery.trim();
     if (!request || runStatus === 'running') return;
 
     setActiveTurn(turnIndex);
-    setActiveOperatorTurn(operatorTurnIndex);
     setActiveQuery(request);
     eventSequenceRef.current = 0;
     startedAtRef.current = Date.now();
@@ -847,11 +821,9 @@ export default function ObservatoryWorkbench() {
         [],
         handleStreamEvent,
         undefined,
-        guardrailsEnabled,
-        operatorTurnIndex === null && profileEnabled
-          ? persona?.customer_id ?? null
-          : null,
-        orchestrationPattern,
+        false,
+        profileEnabled ? persona?.customer_id ?? null : null,
+        'dispatcher',
         responseMode,
       );
       if (response.response) {
@@ -1082,8 +1054,9 @@ export default function ObservatoryWorkbench() {
           <div className="observatory-workbench-intro-copy">
             <h1 className="observatory-page-title">Live Workbench</h1>
             <p className="observatory-workbench-purpose">
-              Run a governed shopper request and inspect identity, policy
-              decisions, transaction state, and durable evidence.
+              Run a live Storefront Dispatcher request and inspect routing,
+              memory, guardrails, agent activity, tool calls, SQL, and the
+              grounded answer.
             </p>
           </div>
           <span className="observatory-workbench-presence">
@@ -1115,122 +1088,45 @@ export default function ObservatoryWorkbench() {
               personaLabel={personaLabel}
               running={runStatus === 'running'}
               activeIndex={activeTurn}
-              orchestrationPattern={orchestrationPattern}
               onInspect={(curatedQuery, index) => {
-                void runAgent(curatedQuery, index, null);
+                void runAgent(curatedQuery, index);
               }}
             />
 
-            {/* Operator controls, subordinate to the turns above by design:
-                the readout is always legible, the editing is behind one
-                disclosure. Every row restates a control that exists. */}
             <section
               className="observatory-run-controls"
-              aria-label="Run controls"
+              aria-label="Run setup"
             >
-              {/* No response-mode badge here. It restated the readout row
-                  directly beneath it, so the same setting appeared three times
-                  in one section: badge, readout, and the control itself. */}
               <header className="observatory-run-controls-heading">
-                <span>
-                  <SlidersHorizontal size={14} aria-hidden="true" />
-                  Run controls
-                </span>
+                <button
+                  type="button"
+                  className="observatory-run-setup-toggle"
+                  aria-expanded={setupOpen}
+                  aria-controls="observatory-run-setup-options"
+                  aria-label={setupOpen ? 'Hide run setup' : 'Show run setup'}
+                  onClick={() => setSetupOpen((open) => !open)}
+                >
+                  <span>
+                    <GitBranch size={14} aria-hidden="true" />
+                    Run setup
+                  </span>
+                  <span className="observatory-run-setup-toggle-action">
+                    {setupOpen ? 'Hide' : 'Tune'}
+                    <ChevronDown
+                      size={15}
+                      aria-hidden="true"
+                      data-open={setupOpen ? 'true' : 'false'}
+                    />
+                  </span>
+                </button>
+                <Badge variant="neutral">Storefront Dispatcher</Badge>
               </header>
 
-              {!editingControls && (
-              <dl className="observatory-run-readout">
-                <div>
-                  <dt>Response</dt>
-                  <dd>{labelIntent(responseMode)}</dd>
-                </div>
-                <div>
-                  <dt>Orchestration</dt>
-                  <dd>{patternLabel(orchestrationPattern)}</dd>
-                </div>
-                <div>
-                  <dt>Aurora profile</dt>
-                  <dd>
-                    {persona
-                      ? toggleLabel(profileEnabled)
-                      : 'Select a persona'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Input safety inspection</dt>
-                  <dd>{toggleLabel(guardrailsEnabled)}</dd>
-                </div>
-                <div>
-                  <dt>Live trace</dt>
-                  <dd>{toggleLabel(traceVisible)}</dd>
-                </div>
-              </dl>
-              )}
-
-              <details
-                className="observatory-advanced observatory-edit-controls"
-                onToggle={(event) =>
-                  setEditingControls(event.currentTarget.open)
-                }
-              >
-                <summary>
-                  <span className="observatory-advanced-summary">
-                    <strong>{editingControls ? 'Done editing' : 'Edit controls'}</strong>
-                  </span>
-                  <ChevronDown
-                    className="observatory-advanced-chevron"
-                    size={15}
-                    aria-hidden="true"
-                  />
-                </summary>
-
-                <div className="observatory-advanced-content">
-                <section
-                  className="observatory-agent-config"
-                  aria-label="Agent configuration"
+              {setupOpen ? (
+                <div
+                  id="observatory-run-setup-options"
+                  className="observatory-compact-controls"
                 >
-                  <fieldset>
-                    <legend>Orchestration pattern</legend>
-                    <ToggleGroup
-                      type="single"
-                      value={orchestrationPattern}
-                      aria-label="Orchestration pattern"
-                      className="observatory-segmented"
-                      data-columns="3"
-                      onValueChange={(value) => {
-                        if (value) {
-                          setOrchestrationPattern(
-                            value as OrchestrationPattern,
-                          );
-                        }
-                      }}
-                    >
-                      {(
-                        [
-                          'dispatcher',
-                          'graph',
-                          'agents_as_tools',
-                        ] as OrchestrationPattern[]
-                      ).map((pattern) => (
-                        <ToggleGroupItem
-                          key={pattern}
-                          value={pattern}
-                          aria-label={patternLabel(pattern)}
-                          disabled={runStatus === 'running'}
-                        >
-                          {patternLabel(pattern)}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                    <p className="observatory-mode-note">
-                      {orchestrationPattern === 'dispatcher'
-                        ? 'Deterministic intent routing to one specialist.'
-                        : orchestrationPattern === 'graph'
-                          ? 'GraphBuilder routes through a conditional specialist edge.'
-                          : 'A Sonnet supervisor invokes specialists as tools.'}
-                    </p>
-                  </fieldset>
-
                   <fieldset>
                     <legend>Response mode</legend>
                     <ToggleGroup
@@ -1267,170 +1163,38 @@ export default function ObservatoryWorkbench() {
                     </p>
                   </fieldset>
 
-                  <div className="observatory-switches">
-                    <div>
-                      <Switch
-                        id="labs-profile-context"
-                        checked={profileEnabled}
-                        disabled={!persona || runStatus === 'running'}
-                        onCheckedChange={setProfileEnabled}
-                        aria-label="Aurora profile context"
-                      />
-                      <label htmlFor="labs-profile-context">
-                        <strong>Aurora profile context</strong>
-                        <small>
-                          {persona
-                            ? `Add ${persona.display_name}'s Aurora facts and order history`
-                            : 'Select a persona to enable'}
-                        </small>
-                      </label>
-                    </div>
-                    <div>
-                      <Switch
-                        id="labs-safety-inspection"
-                        checked={guardrailsEnabled}
-                        disabled={runStatus === 'running'}
-                        onCheckedChange={setGuardrailsEnabled}
-                        aria-label="Input safety inspection"
-                      />
-                      <label htmlFor="labs-safety-inspection">
-                        <strong>Input safety inspection</strong>
-                        <small>
-                          Run the pre-run evaluation and emit its receipt
-                        </small>
-                      </label>
-                    </div>
-                    <div>
-                      <Switch
-                        id="labs-trace-visibility"
-                        checked={traceVisible}
-                        onCheckedChange={setTraceVisible}
-                        aria-label="Live trace visibility"
-                      />
-                      <label htmlFor="labs-trace-visibility">
-                        <strong>Live trace visibility</strong>
-                        <small>
-                          View only: show or hide agent, tool, and SQL events
-                        </small>
-                      </label>
-                    </div>
-                  </div>
-
-                </section>
-
-
-                <dl className="observatory-session-facts">
-                  <div>
-                    <dt>Persona</dt>
-                    <dd>{personaLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Rail</dt>
-                    <dd>{executionRail}</dd>
-                  </div>
-                  <div>
-                    <dt>Pattern</dt>
-                    <dd>
-                      {patternLabel(
-                        executionPattern ?? orchestrationPattern,
-                      )}
-                      {executionRoute ? ` / ${labelIntent(executionRoute)}` : ''}
-                    </dd>
-                  </div>
-                </dl>
-
-                  <p className="observatory-provenance">
-                    <Activity size={13} aria-hidden="true" />
-                    <span>
-                      Live SSE from <code>/api/chat/stream</code>. Every event
-                      below comes from this turn.
-                    </span>
-                  </p>
-                </div>
-              </details>
-
-              <details className="observatory-advanced observatory-operator-runs">
-                <summary>
-                  <span className="observatory-advanced-summary">
-                    <strong>Operator runs</strong>
-                  </span>
-                  <ChevronDown
-                    className="observatory-advanced-chevron"
-                    size={15}
-                    aria-hidden="true"
-                  />
-                </summary>
-                <div className="observatory-advanced-content">
-                  <p>
-                    Inventory operations stay separate from shopper
-                    personas. Writes run only through Dispatcher.
-                  </p>
-                  <div>
-                    {OPERATOR_TURNS.map((turn, index) => {
-                      const blocked =
-                        turn.access === 'write' &&
-                        orchestrationPattern !== 'dispatcher';
-                      const active = activeOperatorTurn === index;
-                      return (
-                        <div key={turn.id} className="observatory-operator-cell">
-                        <button
-                          type="button"
-                          className="observatory-operator-run"
-                          data-access={turn.access}
-                          data-active={active ? 'true' : undefined}
+                  {persona ? (
+                    <div className="observatory-profile-control">
+                        <Switch
+                          id="labs-profile-context"
+                          checked={profileEnabled}
                           disabled={runStatus === 'running'}
-                          aria-disabled={blocked || undefined}
-                          aria-describedby={
-                            blocked ? `operator-blocked-${turn.id}` : undefined
-                          }
-                          onClick={() => {
-                            // aria-disabled keeps the control focusable so the
-                            // reason below is reachable; the guard is here.
-                            if (blocked || runStatus === 'running') return;
-                            void runAgent(turn.query, null, index);
-                          }}
-                        >
-                          <span aria-hidden="true">
-                            {turn.access === 'write' ? (
-                              <PackagePlus size={15} />
-                            ) : (
-                              <Boxes size={15} />
-                            )}
-                          </span>
-                          <span>
-                            <strong>{turn.label}</strong>
-                            <small>{turn.query}</small>
-                          </span>
-                          <Badge
-                            variant={
-                              turn.access === 'write'
-                                ? 'warning'
-                                : 'neutral'
-                            }
-                          >
-                            {turn.access}
-                          </Badge>
-                        </button>
-                        {/* A reason in text, not a `title`. A disabled button
-                            is not focusable, so its tooltip never reaches a
-                            keyboard or screen-reader user; `aria-disabled`
-                            plus this paragraph does. */}
-                        {blocked && (
-                          <p
-                            id={`operator-blocked-${turn.id}`}
-                            className="observatory-operator-blocked"
-                          >
-                            Writes run only through Dispatcher. Switch the
-                            orchestration pattern in Edit controls to enable
-                            this.
-                          </p>
-                        )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                          onCheckedChange={setProfileEnabled}
+                          aria-label="Aurora profile context"
+                        />
+                        <label htmlFor="labs-profile-context">
+                          <strong>Aurora profile context</strong>
+                          <small>
+                            Add {persona.display_name}&rsquo;s current facts and
+                            order history
+                          </small>
+                        </label>
+                    </div>
+                  ) : (
+                    <p className="observatory-profile-unavailable">
+                      Choose a storefront persona to add live Aurora profile
+                      context to these runs.
+                    </p>
+                  )}
                 </div>
-              </details>
+              ) : null}
+
+              <div className="observatory-run-foot">
+                <p className="observatory-provenance">
+                  Live SSE from <code>/api/chat/stream</code>. Evidence remains
+                  visible for every run.
+                </p>
+              </div>
             </section>
 
           </motion.aside>
@@ -1507,7 +1271,7 @@ export default function ObservatoryWorkbench() {
             </div>
 
             <div className="observatory-panel-scroll observatory-ledger-scroll">
-              {traceVisible && intentSignal ? (
+              {intentSignal ? (
                 <section
                   className="observatory-run-contract"
                   role="status"
@@ -1548,6 +1312,47 @@ export default function ObservatoryWorkbench() {
                         {intentSignal.modelId || 'Server default'}
                       </code>
                     </div>
+                    {executionPattern ? (
+                      <div>
+                        <dt>Path</dt>
+                        <dd>
+                          {patternLabel(executionPattern)}
+                          {executionRoute
+                            ? ` / ${labelIntent(executionRoute)}`
+                            : ''}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {executionRail !== 'Server selected' ? (
+                      <div>
+                        <dt>Rail</dt>
+                        <dd>{executionRail}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </section>
+              ) : null}
+
+              {!intentSignal && executionPattern ? (
+                <section
+                  className="observatory-run-contract observatory-run-contract--compact"
+                  role="status"
+                  aria-label="Execution context"
+                >
+                  <dl>
+                    <div>
+                      <dt>Path</dt>
+                      <dd>
+                        {patternLabel(executionPattern)}
+                        {executionRoute
+                          ? ` / ${labelIntent(executionRoute)}`
+                          : ''}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Rail</dt>
+                      <dd>{executionRail}</dd>
+                    </div>
                   </dl>
                 </section>
               ) : null}
@@ -1560,11 +1365,7 @@ export default function ObservatoryWorkbench() {
                     <button
                       type="button"
                       onClick={() => {
-                        void runAgent(
-                          activeQuery,
-                          activeTurn,
-                          activeOperatorTurn,
-                        );
+                        void runAgent(activeQuery, activeTurn);
                       }}
                     >
                       <RotateCcw size={13} aria-hidden="true" />
@@ -1574,13 +1375,7 @@ export default function ObservatoryWorkbench() {
                 </div>
               ) : null}
 
-              {!traceVisible ? (
-                <div className="observatory-idle-state">
-                  <Eye size={24} aria-hidden="true" />
-                  <strong>Live trace hidden</strong>
-                  <p>Turn on live trace visibility to inspect emitted events.</p>
-                </div>
-              ) : steps.length ? (
+              {steps.length ? (
                 <ol
                   ref={traceListRef}
                   className="observatory-trace-list"
@@ -1884,12 +1679,20 @@ export default function ObservatoryWorkbench() {
                   )}
                   {products.length ? 'Recommended result' : 'Shopper answer'}
                 </div>
-                <p>
-                  {agentResponse ||
-                    (runStatus === 'running'
+                {agentResponse ? (
+                  <div className="observatory-agent-prose">
+                    <MarkdownMessage
+                      content={agentResponse}
+                      streaming={runStatus === 'running'}
+                    />
+                  </div>
+                ) : (
+                  <p>
+                    {runStatus === 'running'
                       ? 'The answer will appear here as the agent streams.'
-                      : 'Choose a shopper turn to receive the live answer.')}
-                </p>
+                      : 'Choose a shopper turn to receive the live answer.'}
+                  </p>
+                )}
               </section>
 
               {bestMatch ? (

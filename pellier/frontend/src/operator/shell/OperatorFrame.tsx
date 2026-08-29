@@ -19,7 +19,7 @@ import React, {
   useEffect,
   useState,
 } from 'react'
-import { ClipboardCheck, LogIn, LogOut, UsersRound } from 'lucide-react'
+import { ClipboardCheck, LogOut, User, UsersRound } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import PellierHomeLink from '../../components/PellierHomeLink'
 import { useAuth } from '../../contexts/AuthContext'
@@ -139,11 +139,11 @@ const OperatorAuthControl: React.FC = () => {
   return (
     <button
       type="button"
-      className="operator-auth-control operator-auth-signin"
+      className="operator-auth-control operator-auth-signin pellier-account-pill"
       onClick={login}
       data-testid="operator-sign-in"
     >
-      <LogIn className="operator-topbar-icon" aria-hidden />
+      <User className="operator-topbar-icon" aria-hidden />
       <span>Sign in</span>
     </button>
   )

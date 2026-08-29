@@ -3,7 +3,7 @@
  *
  * Validates: Requirements 1.11.2, 1.11.3, 1.11.4, 1.11.5.
  */
-import { act, render, renderHook, screen } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { UIProvider, useUI } from './UIContext'
@@ -19,15 +19,15 @@ function wrapper({ children }: { children: React.ReactNode }) {
  * global keydown listener installed by UIProvider reacts to window events.
  */
 function Probe() {
-  const { activeModal, openModal, closeModal, toggleConcierge } = useUI()
+  const { activeModal, openModal, closeModal, toggleDrawer } = useUI()
   return (
     <div>
       <span data-testid="active">{activeModal ?? 'none'}</span>
-      <button onClick={() => openModal('concierge')}>open-concierge</button>
+      <button onClick={() => openModal('drawer')}>open-drawer</button>
       <button onClick={() => openModal('auth')}>open-auth</button>
       <button onClick={() => openModal('preferences')}>open-preferences</button>
-      <button onClick={closeModal}>close</button>
-      <button onClick={toggleConcierge}>toggle-concierge</button>
+      <button onClick={() => closeModal()}>close</button>
+      <button onClick={toggleDrawer}>toggle-drawer</button>
     </div>
   )
 }
@@ -38,15 +38,15 @@ describe('UIContext modal singleton', () => {
     expect(screen.getByTestId('active')).toHaveTextContent('none')
   })
 
-  it('opening auth while concierge is open closes concierge (singleton)', async () => {
+  it('opening auth while the shopper drawer is open closes the drawer (singleton)', async () => {
     const user = userEvent.setup()
     render(<Probe />, { wrapper })
 
-    await user.click(screen.getByText('open-concierge'))
-    expect(screen.getByTestId('active')).toHaveTextContent('concierge')
+    await user.click(screen.getByText('open-drawer'))
+    expect(screen.getByTestId('active')).toHaveTextContent('drawer')
 
     await user.click(screen.getByText('open-auth'))
-    // Only one modal is ever visible — auth replaced concierge.
+    // Only one modal is ever visible — auth replaced the drawer.
     expect(screen.getByTestId('active')).toHaveTextContent('auth')
   })
 
@@ -65,8 +65,8 @@ describe('UIContext modal singleton', () => {
     const user = userEvent.setup()
     render(<Probe />, { wrapper })
 
-    await user.click(screen.getByText('open-concierge'))
-    expect(screen.getByTestId('active')).toHaveTextContent('concierge')
+    await user.click(screen.getByText('open-drawer'))
+    expect(screen.getByTestId('active')).toHaveTextContent('drawer')
 
     await user.click(screen.getByText('close'))
     expect(screen.getByTestId('active')).toHaveTextContent('none')
@@ -98,13 +98,24 @@ describe('UIContext global keyboard shortcuts', () => {
     expect(screen.getByTestId('active')).toHaveTextContent('none')
   })
 
+  it('leaves Cmd+K to the browser when the active route has no chat surface', () => {
+    const { result } = renderHook(() => useUI(), { wrapper })
+
+    act(() => {
+      ;(result.current.setChatSurface as (surface: 'none') => void)('none')
+    })
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+
+    expect(result.current.activeModal).toBeNull()
+  })
+
   it('Escape closes whichever modal is active', async () => {
     const user = userEvent.setup()
     render(<Probe />, { wrapper })
 
-    // Close concierge via Escape.
-    await user.click(screen.getByText('open-concierge'))
-    expect(screen.getByTestId('active')).toHaveTextContent('concierge')
+    // Close the shopper drawer via Escape.
+    await user.click(screen.getByText('open-drawer'))
+    expect(screen.getByTestId('active')).toHaveTextContent('drawer')
     await user.keyboard('{Escape}')
     expect(screen.getByTestId('active')).toHaveTextContent('none')
 
@@ -146,13 +157,13 @@ describe('UIContext hook ergonomics', () => {
     }
   })
 
-  it('toggleConcierge() respects current state', () => {
+  it('toggleDrawer() respects current state', () => {
     const { result } = renderHook(() => useUI(), { wrapper })
 
-    act(() => result.current.toggleConcierge())
-    expect(result.current.activeModal).toBe('concierge')
+    act(() => result.current.toggleDrawer())
+    expect(result.current.activeModal).toBe('drawer')
 
-    act(() => result.current.toggleConcierge())
+    act(() => result.current.toggleDrawer())
     expect(result.current.activeModal).toBe(null)
   })
 })

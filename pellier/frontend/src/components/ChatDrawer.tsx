@@ -1,8 +1,8 @@
 /**
  * ChatDrawer — right-side chat drawer for the storefront.
  *
- * Replaces the centered ConciergeModal on storefront routes. Slides in
- * from the right at 240ms ease-out; backdrop dims the storefront to 35%
+ * The storefront's only conversational surface. Slides in from the right at
+ * 240ms ease-out; backdrop dims the storefront to 35%
  * espresso. Matches docs/storefront-hero-drawer.html State 3.
  *
  * Three entry points (all external — the drawer itself is passive):
@@ -16,7 +16,8 @@
  * bug we hit with PersonaModal).
  *
  * Reuses ``useAgentChat`` for state, streaming, and persistence.
- * The Observatory's ConciergeModal is unaffected by this component.
+ * Observatory and Operator do not mount this component: their evidence and
+ * operational workflows remain scoped to their own surfaces.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -135,7 +136,6 @@ export default function ChatDrawer() {
     sendMessage,
     retryMessage,
     clearChat,
-    sessionCost,
   } = useAgentChat({
     mode: 'storefront',
     guardrailsEnabled,
@@ -310,7 +310,7 @@ export default function ChatDrawer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24 }}
-            onClick={closeModal}
+            onClick={() => closeModal()}
           />
 
           {/* Drawer */}
@@ -359,21 +359,13 @@ export default function ChatDrawer() {
                   <span>
                     turn {String(turnCount).padStart(2, '0')}
                   </span>
-                  {sessionCost > 0 && (
-                    <>
-                      <span className="cd-meta-sep">·</span>
-                      <span>
-                        est. cost ${sessionCost.toFixed(6)}
-                      </span>
-                    </>
-                  )}
                 </div>
               </div>
               <button
                 type="button"
                 className="cd-close"
                 aria-label="Close drawer"
-                onClick={closeModal}
+                onClick={() => closeModal()}
               >
                 <X size={14} />
               </button>

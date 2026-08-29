@@ -2,7 +2,7 @@
  * ModeStrip — Routing pattern pill toggles.
  *
  * Displays a row of pill-shaped toggles for switching between routing
- * patterns (Dispatcher, Agents-as-Tools, Graph). The active pattern
+ * production patterns (Dispatcher and Graph). The active pattern
  * gets a filled style.
  *
  * Requirements: 15.3

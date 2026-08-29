@@ -11,6 +11,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 import PellierChatBody from './PellierChatBody'
 import type { AgentChatMessage } from '../hooks/useAgentChat'
@@ -32,15 +33,17 @@ function message(over: Partial<AgentChatMessage> = {}): AgentChatMessage {
 
 function renderBody(messages: AgentChatMessage[]) {
   return render(
-    <PellierChatBody
-      messages={messages}
-      sendMessage={vi.fn()}
-      retryMessage={vi.fn()}
-      onEditRequest={vi.fn()}
-      onAuthenticate={vi.fn()}
-      addToCart={vi.fn()}
-      persona={null}
-    />,
+    <MemoryRouter>
+      <PellierChatBody
+        messages={messages}
+        sendMessage={vi.fn()}
+        retryMessage={vi.fn()}
+        onEditRequest={vi.fn()}
+        onAuthenticate={vi.fn()}
+        addToCart={vi.fn()}
+        persona={null}
+      />
+    </MemoryRouter>,
   )
 }
 
@@ -103,5 +106,21 @@ describe('the review-pending notice', () => {
 
     expect(screen.queryByText('Pulled for you')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Add to bag' })).toBeNull()
+  })
+
+  it('hands the prepared return to its exact Operator review', () => {
+    renderBody([
+      message({
+        reviewPending: {
+          tool: 'initiate_return',
+          message: NOTICE,
+          reviewId: 44,
+        },
+      }),
+    ])
+
+    expect(
+      screen.getByRole('link', { name: /Open prepared request in Operator/i }),
+    ).toHaveAttribute('href', '/operator/reviews/44')
   })
 })

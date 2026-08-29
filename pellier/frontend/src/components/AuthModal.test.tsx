@@ -44,8 +44,8 @@ function Probe() {
     <div>
       <span data-testid="active">{activeModal ?? 'none'}</span>
       <button onClick={() => openModal('auth')}>open-auth</button>
-      <button onClick={() => openModal('concierge')}>open-concierge</button>
-      <button onClick={closeModal}>close</button>
+      <button onClick={() => openModal('drawer')}>open-drawer</button>
+      <button onClick={() => closeModal()}>close</button>
     </div>
   )
 }
@@ -112,7 +112,7 @@ describe('AuthModal visibility (UIContext singleton)', () => {
     await user.click(screen.getByText('open-auth'))
     expect(screen.getByTestId('auth-modal')).toBeInTheDocument()
 
-    await user.click(screen.getByText('open-concierge'))
+    await user.click(screen.getByText('open-drawer'))
     expect(screen.queryByTestId('auth-modal')).toBeNull()
   })
 

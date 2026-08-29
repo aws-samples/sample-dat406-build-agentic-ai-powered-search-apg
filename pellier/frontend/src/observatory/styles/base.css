@@ -143,7 +143,40 @@
 }
 
 .observatory-root a:hover {
-  text-decoration: underline;
+  text-decoration: none;
+}
+
+/* Match the Operator's return lockup exactly. Observatory's generic link
+   palette must not turn the Pellier mark into a bare burgundy letter. */
+.observatory-operator-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #211a17 !important;
+  text-decoration: none !important;
+}
+
+.observatory-operator-mark {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #211a17;
+  color: #f7f3ee;
+  font-family: 'Fraunces Variable', 'Fraunces', Georgia, serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.observatory-operator-wordmark {
+  color: #211a17;
+  font-family: 'Fraunces Variable', 'Fraunces', Georgia, serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.012em;
 }
 
 .observatory-root button {
@@ -1569,7 +1602,7 @@
 }
 
 .pellier-governed-proof-evidence > a:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .pellier-governed-proof-unavailable {
@@ -1763,6 +1796,29 @@
   font-family: var(--obs-sans);
   font-size: 15px;
   line-height: 1.65;
+}
+
+.observatory-reference-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  color: var(--obs-red-1) !important;
+  font-family: var(--obs-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none !important;
+}
+
+.observatory-reference-source:hover {
+  color: var(--obs-burgundy) !important;
+  text-decoration: none !important;
+}
+
+.observatory-reference-source:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid color-mix(in srgb, var(--obs-red-1) 28%, transparent);
+  outline-offset: 3px;
 }
 
 .observatory-reference-groups {

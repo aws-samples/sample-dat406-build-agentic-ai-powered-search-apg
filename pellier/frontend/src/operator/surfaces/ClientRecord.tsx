@@ -422,7 +422,10 @@ const ClientRecord: React.FC = () => {
 
       <div className="operator-record">
         <div>
-          <section className="operator-card" data-testid="operator-orders">
+          <section
+            className="operator-card operator-orders"
+            data-testid="operator-orders"
+          >
             <h2 className="operator-card-title">
               Order history <span>{orders.length}</span>
             </h2>
@@ -434,7 +437,7 @@ const ClientRecord: React.FC = () => {
                 <thead>
                   <tr>
                     <th />
-                    <th>Piece</th>
+                    <th className="operator-order-piece">Piece</th>
                     <th className="operator-col-optional">Placed</th>
                     <th className="operator-table-num">Qty</th>
                     <th className="operator-table-num">Price</th>
@@ -450,7 +453,7 @@ const ClientRecord: React.FC = () => {
                           name={order.productName}
                         />
                       </td>
-                      <td>
+                      <td className="operator-order-piece">
                         {order.productName}
                         <div className="operator-cell-note">{order.brand}</div>
                       </td>

@@ -31,11 +31,10 @@
  */
 .operator-root {
   /*
-   * Mapped onto the SURFACE palette (--cream / --ink / --rule), not the warm
-   * Daylight --dl-* primitives. `.pellier-page-surface` re-maps that whole
-   * family to a cool near-white set, so a desk built on --dl-* read as warm
-   * cream beside a near-white storefront. `.operator-root` is now in that same
-   * palette block in index.css, so these resolve to identical values.
+   * Mapped onto the shared surface palette (--cream / --ink / --rule). The
+   * Storefront, Observatory, and desk all resolve that family to Daylight's
+   * warm paper values in index.css, so a handoff never looks like a jump into
+   * a different application.
    */
   --op-bg: var(--cream);
   --op-paper: var(--cream-elev);
@@ -45,9 +44,8 @@
   --op-ink: var(--ink);
   --op-ink-2: var(--ink-soft);
   --op-muted: var(--ink-4);
-  /* Not --ink-5 (#8b929d): it measures 3.0:1 on the card and fails the floor
-     for the small labels that use it. This is one step darker, at 4.9:1. */
-  --op-faint: #676e7a;
+  /* The Daylight muted ink remains legible for the small labels that use it. */
+  --op-faint: var(--dl-muted);
   --op-accent: var(--accent);
   --op-authority: var(--accent);
   --op-ok: var(--dl-ok);
@@ -75,10 +73,8 @@
   --op-rank-registered: var(--ink-4);
   /* Gold is reserved for one job: marking the selected filter card. */
   --op-rank-selected: #7a5c14;
-  /* The surface palette is cool (--ink-4 is #666d78, blue > red). The rung
-     descriptor reads a touch warmer than the rest of the muted copy, which
-     softens the ladder without breaking the palette. 5.16:1 on the card and
-     4.89:1 on the page tone, both above the floor for 12px text. */
+  /* The rung descriptor is a touch warmer than the shared muted copy, so it
+     softens the ladder without weakening the warm-paper family. */
   --op-descriptor: #6e6a62;
 
   --op-radius: 12px;
@@ -93,13 +89,44 @@
 /* ---------------------------------------------------------------- shell */
 
 .operator-root {
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
+  overflow: clip;
   background: var(--op-bg);
   color: var(--op-ink);
   font-family: var(--sans);
   /* Figures across this surface are compared column-to-column, so they are
      tabular everywhere rather than per-component. */
   font-variant-numeric: tabular-nums;
+}
+
+.operator-root::before {
+  position: absolute;
+  z-index: 0;
+  top: 64px;
+  right: 0;
+  left: 0;
+  height: clamp(250px, 30vw, 430px);
+  content: '';
+  background: var(--pellier-atmosphere-image) center 42% / cover no-repeat;
+  filter: saturate(0.86) contrast(1.02);
+  opacity: 0.16;
+  pointer-events: none;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgb(0 0 0 / 0.84) 42%,
+    rgb(0 0 0 / 0.28) 78%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgb(0 0 0 / 0.84) 42%,
+    rgb(0 0 0 / 0.28) 78%,
+    transparent 100%
+  );
 }
 
 /* Browser surfaces. These ship with defaults that belong to no design
@@ -204,21 +231,25 @@
   cursor: pointer;
 }
 
-.operator-auth-control:hover {
+.operator-auth-control:not(.operator-auth-signin):hover {
   border-color: var(--op-accent);
   color: var(--op-accent);
 }
 
-.operator-auth-signin {
-  border-color: var(--op-ink);
-  background: var(--op-ink);
-  color: var(--cream-elev);
+.operator-auth-control.operator-auth-signin {
+  min-height: 34px;
+  padding: 7px 14px;
+  border-color: var(--input-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--op-ink);
+  font-size: 13.5px;
+  font-weight: 400;
 }
 
-.operator-auth-signin:hover {
-  border-color: var(--op-accent);
-  background: var(--op-accent);
-  color: var(--cream-elev);
+.operator-auth-control.operator-auth-signin:focus-visible {
+  outline: 2px solid var(--espresso);
+  outline-offset: 2px;
 }
 
 .operator-auth-identity {
@@ -242,6 +273,8 @@
 }
 
 .operator-shell {
+  position: relative;
+  z-index: 1;
   max-width: 1240px;
   margin: 0 auto;
   padding: 30px 28px 56px;
@@ -280,6 +313,73 @@
   line-height: 1.7;
   text-wrap: pretty;
   color: var(--op-muted);
+}
+
+.operator-case-entry {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-top: 22px;
+  padding: 16px 18px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--op-authority) 28%, var(--op-rule));
+  border-radius: var(--op-radius);
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--op-authority) 15%, var(--op-paper)) 0%,
+      color-mix(in srgb, var(--op-authority) 7%, var(--op-paper)) 38%,
+      color-mix(in srgb, var(--op-source-database) 6%, var(--op-paper)) 66%,
+      color-mix(in srgb, var(--op-source-database) 14%, var(--op-paper)) 100%
+    );
+  box-shadow: 0 16px 38px rgba(34, 29, 35, 0.08);
+}
+
+.operator-case-entry-copy {
+  min-width: 0;
+}
+
+.operator-case-entry-kicker {
+  display: block;
+  color: var(--op-authority);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+}
+
+.operator-case-entry h2 {
+  margin: 4px 0 0;
+  color: var(--op-ink);
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: var(--op-display-track);
+}
+
+.operator-case-entry p {
+  margin: 3px 0 0;
+  color: var(--op-muted);
+  font-size: 12.5px;
+}
+
+.operator-case-entry-action {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid var(--op-ink);
+  border-radius: 7px;
+  background: var(--op-ink);
+  color: var(--op-paper);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.operator-case-entry-action:hover {
+  border-color: var(--op-authority);
+  background: var(--op-authority);
 }
 
 /* A client's own note is one short sentence, not a surface introduction, so it
@@ -842,20 +942,11 @@
   align-items: start;
 }
 
-/* Inside the two-pane workbench the record owns ~52% of 1240px, which is not
-   enough for its own 1fr + 352px rail: the order-history "PIECE" column
-   collapsed until product names wrapped to three lines. Stack the record's
-   internal grid whenever it is a workbench column, and let the action rail sit
-   below the history rather than beside it. The rail regains its side-by-side
-   layout on very wide viewports where there is genuinely room for both. */
+/* Inside the two-pane workbench, order history is the visual inventory of the
+   relationship. It needs the full record column for its 4:5 product imagery
+   and complete operational detail, so action controls follow beneath it. */
 .operator-workbench-record .operator-record {
   grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 1600px) {
-  .operator-workbench-record .operator-record {
-    grid-template-columns: minmax(0, 1fr) var(--op-rail-width);
-  }
 }
 
 .operator-record-head {
@@ -2144,6 +2235,23 @@
     padding: 22px 16px 44px;
   }
 
+  .operator-case-entry {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .operator-case-entry .operator-avatar,
+  .operator-case-entry .operator-monogram {
+    width: 56px;
+    height: 56px;
+  }
+
+  .operator-case-entry-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
   .operator-service-request-evidence {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2313,17 +2421,44 @@
 /* ---------------------------------------------------------- surface */
 
 .operator-concierge {
+  position: relative;
   display: flex;
   flex-direction: column;
   /* Fill the sticky column rather than sizing to content, so the composer rests
      at the bottom of the pane instead of floating under the empty state. */
   flex: 1 1 auto;
   min-height: 0;
-  border-left: 1px solid var(--op-rule);
-  padding-left: 30px;
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid color-mix(in srgb, var(--op-authority) 14%, var(--op-rule));
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--op-paper) 95%, transparent),
+      color-mix(in srgb, var(--op-paper) 86%, transparent)
+    );
+  box-shadow:
+    0 24px 60px rgba(34, 29, 35, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.operator-concierge::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 118px;
+  content: '';
+  background: var(--pellier-atmosphere-image) center 40% / cover no-repeat;
+  opacity: 0.08;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
 }
 
 .operator-concierge-head {
+  position: relative;
   flex: 0 0 auto;
 }
 
@@ -2343,6 +2478,33 @@
   line-height: 1.6;
   color: var(--op-muted);
   text-wrap: pretty;
+}
+
+.operator-concierge-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  color: var(--op-faint);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+}
+
+.operator-concierge-path > span:not(.operator-concierge-path-label) {
+  padding: 4px 7px;
+  border: 1px solid var(--op-rule);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--op-paper) 80%, transparent);
+  color: var(--op-ink-2);
+}
+
+.operator-concierge-path-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--op-source-graph);
+  font-weight: 650;
 }
 
 .operator-concierge-scope {
@@ -2381,6 +2543,7 @@
 /* -------------------------------------------------- capability */
 
 .operator-concierge-state {
+  position: relative;
   flex: 0 0 auto;
   margin: 20px 0 0;
   padding: 14px 0 0;
@@ -2462,6 +2625,7 @@
 /* ------------------------------------------------------- body */
 
 .operator-concierge-body {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -2476,7 +2640,16 @@
 }
 
 .operator-concierge-empty {
-  padding: 14px 0 0;
+  min-height: 118px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--op-authority) 10%, var(--op-rule));
+  border-radius: 11px;
+  background:
+    linear-gradient(
+      125deg,
+      color-mix(in srgb, var(--op-authority) 5%, var(--op-paper)),
+      color-mix(in srgb, var(--op-source-database) 4%, var(--op-paper))
+    );
 }
 
 .operator-concierge-empty-lede {
@@ -2831,10 +3004,15 @@
 
 .operator-concierge-graph {
   margin: 12px 0 0;
-  padding: 12px 14px;
+  padding: 14px;
   border: 1px solid color-mix(in srgb, var(--op-source-graph) 24%, var(--op-rule));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--op-source-graph) 4%, var(--op-paper));
+  border-radius: 11px;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--op-source-graph) 6%, var(--op-paper)),
+      color-mix(in srgb, var(--op-source-database) 4%, var(--op-paper))
+    );
 }
 
 .operator-concierge-graph-meta {
@@ -2860,9 +3038,10 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 0;
-  border-top: 1px solid var(--op-rule);
-  border-bottom: 1px solid var(--op-rule);
+  padding: 10px 11px;
+  border: 1px solid var(--op-rule);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--op-paper) 84%, transparent);
   font-size: 11.5px;
   color: var(--op-ink-2);
 }
@@ -2871,9 +3050,19 @@
   content: '';
   position: absolute;
   top: 50%;
-  right: calc(100% + 6px);
-  width: 6px;
+  right: calc(100% + 5px);
+  width: 8px;
   border-top: 1px solid var(--op-source-graph);
+}
+
+.operator-concierge-graph-nodes li[data-node-status='completed'] {
+  border-color: color-mix(in srgb, var(--op-ok) 28%, var(--op-rule));
+}
+
+.operator-concierge-graph-nodes li[data-node-status='failed'],
+.operator-concierge-graph-nodes li[data-node-status='unavailable'] {
+  border-color: color-mix(in srgb, var(--op-err) 34%, var(--op-rule));
+  color: var(--op-err);
 }
 
 .operator-concierge-graph-nodes small {
@@ -3085,10 +3274,7 @@
   }
 
   .operator-concierge {
-    border-left: 0;
-    border-top: 1px solid var(--op-rule);
-    padding-left: 0;
-    padding-top: 26px;
+    padding: 22px;
   }
 
   .operator-concierge-body {
@@ -3664,4 +3850,12 @@
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 10.5px;
   color: var(--op-faint);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .operator-concierge {
+    background: var(--op-paper);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }

@@ -168,9 +168,8 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
       // Clear any existing chat persistence
       localStorage.removeItem('pellier-storefront-chat')
       localStorage.removeItem('pellier-observatory-chat')
-      // ConciergeModal uses its own persist keys — clear those too so the
-      // personalized welcome ("Good evening, Marco") actually renders on
-      // the next open instead of being shadowed by a stale cached reply.
+      // Clear retired-modal keys too so a participant moving between source
+      // revisions cannot inherit a stale workshop-only thread.
       localStorage.removeItem('pellier-concierge-storefront')
       localStorage.removeItem('pellier-concierge-observatory')
       // ChatDrawer uses its own persist key.

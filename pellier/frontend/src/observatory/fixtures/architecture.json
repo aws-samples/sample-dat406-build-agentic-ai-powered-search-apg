@@ -31,7 +31,7 @@
     "category": "live",
     "title": "Routing & State",
     "role": "Dispatcher storefront plus bounded operator graph",
-    "description": "Pellier uses two explicit production paths. The Storefront deterministically routes one turn to one specialist. Operator Concierge runs Case Investigator then Resolution Planner in a Strands graph. Agents-as-Tools remains a comparison pattern. PostgreSQL persists the review checkpoint outside both invocations.",
+    "description": "Pellier uses two explicit production paths. The Storefront deterministically routes one turn to one specialist. Operator Concierge runs Case Investigator then Resolution Planner in a Strands graph. PostgreSQL persists the review checkpoint outside both invocations.",
     "codeSnippet": "# Storefront\nintent = classify_intent(query)\nreturn await run_dispatcher_pattern(intent, skills, query)\n\n# Operator Concierge\nbuilder.add_node(investigator, 'case-investigator')\nbuilder.add_node(planner, 'resolution-planner')\nbuilder.add_edge('case-investigator', 'resolution-planner')",
     "slug": "state-management"
   },

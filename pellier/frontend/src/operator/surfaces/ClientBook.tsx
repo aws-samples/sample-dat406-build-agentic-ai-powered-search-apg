@@ -104,6 +104,11 @@ const ClientBook: React.FC = () => {
   const visible = rungFilter
     ? book.clients.filter((c) => c.membership === rungFilter)
     : book.clients
+  const jessicaCase = book.clients.find(
+    (client) =>
+      client.slug === 'jessica' &&
+      /return|dispute|service/i.test(client.note),
+  )
 
   // Richest rung first, and a rung with nobody in it is not a section.
   const sections = [...MEMBERSHIP_RUNGS]
@@ -131,13 +136,40 @@ const ClientBook: React.FC = () => {
           called. No kicker above the heading. */}
       <h1 className="operator-title">Every client the house knows</h1>
       <p className="operator-lede">
-        This is the advisor&rsquo;s side of the same agent that serves the
-        storefront. Open a client to read their standing, order history, and
-        support record, then act on it — a goodwill credit or a return
-        resolution, each one confirmed by a person and written to Aurora. Every
-        figure below is read from the database on load, so this desk and the
-        storefront can never disagree about the same client.
+        Operator Concierge runs a separate investigation and resolution graph
+        over the same Aurora customer record the storefront reads. Open a client
+        to review standing, orders, and support history, then prepare a goodwill
+        credit or return resolution. Each action waits for human confirmation
+        and governance before the database changes.
       </p>
+
+      {jessicaCase ? (
+        <section
+          className="operator-case-entry"
+          data-testid="operator-jessica-case-entry"
+          aria-labelledby="operator-jessica-case-title"
+        >
+          <ClientAvatar
+            customerId={jessicaCase.customerId}
+            name={jessicaCase.name}
+            personaId={jessicaCase.personaId}
+          />
+          <div className="operator-case-entry-copy">
+            <span className="operator-case-entry-kicker">Service recovery case</span>
+            <h2 id="operator-jessica-case-title">{jessicaCase.name}</h2>
+            <p>{jessicaCase.note}</p>
+          </div>
+          <button
+            type="button"
+            className="operator-case-entry-action"
+            onClick={() =>
+              navigate(`/operator/clients/${jessicaCase.customerId}`)
+            }
+          >
+            Open Jessica&apos;s case
+          </button>
+        </section>
+      ) : null}
 
       {/* The ladder, defined where the choice is made. */}
       <div className="operator-ladder" data-testid="operator-book-summary">

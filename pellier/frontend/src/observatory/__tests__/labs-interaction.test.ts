@@ -18,6 +18,9 @@ describe('governed Labs interaction contract', () => {
   it('normalizes a trailing slash on the workbench', () => {
     expect(interactionForPath('/observatory/')).toBe('interactive');
     expect(modeCopyForPath('/observatory/').label).toBe('Live Workbench');
+    expect(modeCopyForPath('/observatory/').detail).toBe(
+      'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
+    );
   });
 
   it('keeps governed supporting surfaces optional', () => {
@@ -39,6 +42,9 @@ describe('governed Labs interaction contract', () => {
       // and the page intro said it a third time, the screen argued with itself.
       expect(modeCopyForPath(path).detail, path).not.toMatch(/optional/i);
     }
+    expect(modeCopyForPath('/observatory/references').detail).toBe(
+      'Inspect system evidence and implementation detail without starting a new shopper turn.',
+    );
   });
 
   it('does not let an interactive path match a similarly named sibling', () => {

@@ -43,7 +43,7 @@ const elapsedMsArb = fc.integer({ min: 1, max: 60_000 });
 const agentCountArb = fc.integer({ min: 1, max: 5 });
 
 /** Routing pattern name. */
-const routingPatternArb = fc.constantFrom('Dispatcher', 'Agents-as-Tools', 'Graph');
+const routingPatternArb = fc.constantFrom('Dispatcher', 'Graph');
 
 /** Session status. */
 const statusArb = fc.constantFrom('complete' as const, 'active' as const);

@@ -77,7 +77,8 @@ vi.mock('../contexts/UIContext', () => ({
     activeModal: null,
     openModal: vi.fn(),
     closeModal: vi.fn(),
-    toggleConcierge: vi.fn(),
+    chatSurface: 'drawer',
+    toggleDrawer: vi.fn(),
     openChat: vi.fn(),
     announcementDismissed: {
       legacy: false,

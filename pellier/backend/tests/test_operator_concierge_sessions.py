@@ -112,6 +112,38 @@ class _Cur:
                 if c["agent_name"] == agent and c["metadata"].get("customer_id") == customer
             ]
             self._result = {"session_id": hits[-1]} if hits else None
+        elif s.startswith("SELECT c.session_id, m.id, m.metadata"):
+            hits: List[Dict[str, Any]] = []
+            for message in self.db.messages:
+                conversation = self.db.conversations.get(message["session_id"])
+                metadata = message["metadata"]
+                checkpoint = (
+                    (metadata.get("artifact") or {})
+                    .get("orchestration", {})
+                    .get("checkpoint", {})
+                )
+                if (
+                    conversation
+                    and conversation["agent_name"] == params["surface"]
+                    and conversation["metadata"].get("surface") == params["surface"]
+                    and conversation["metadata"].get("customer_id")
+                    == params["customer_id"]
+                    and message["role"] == params["role"]
+                    and metadata.get("surface") == params["surface"]
+                    and str(checkpoint.get("reviewId") or "") == params["review_id"]
+                    and checkpoint.get("actionHash") == params["action_hash"]
+                ):
+                    hits.append(message)
+            hits.sort(key=lambda row: row["id"], reverse=True)
+            self._result = (
+                {
+                    "session_id": hits[0]["session_id"],
+                    "id": hits[0]["id"],
+                    "metadata": hits[0]["metadata"],
+                }
+                if hits
+                else None
+            )
         elif "existing AS (" in s and "inserted AS (" in s:
             # _APPEND_TURN_SQL
             gate = self._gate(params)
@@ -473,6 +505,73 @@ async def test_a_structured_artifact_round_trips_with_its_version(db: FakeDb) ->
     assert reply["artifactVersion"] == SESSIONS.ARTIFACT_VERSION
     assert reply["turnId"] == turn["turnId"]
     assert reply["turnState"] == SESSIONS.TURN_COMPLETE
+
+
+@pytest.mark.asyncio
+async def test_graph_lineage_loads_the_exact_review_not_the_latest_answer(
+    db: FakeDb,
+) -> None:
+    session = await SESSIONS.create_session(
+        db,
+        customer_id="CUST-JESSICA",
+        operator_sub="op-1",
+    )
+    matching = await SESSIONS.append_operator_turn(
+        db,
+        session_id=session["sessionId"],
+        customer_id="CUST-JESSICA",
+        operator_sub="op-1",
+        message="Prepare the disputed return.",
+    )
+    await SESSIONS.append_assistant_artifact(
+        db,
+        session_id=session["sessionId"],
+        customer_id="CUST-JESSICA",
+        turn_id=matching["turnId"],
+        summary="Prepared for review.",
+        artifact={
+            "orchestration": {
+                "pattern": "strands-graph",
+                "checkpoint": {
+                    "state": "WAITING_FOR_HUMAN",
+                    "reviewId": 44,
+                    "actionHash": "exact-hash",
+                },
+            },
+        },
+    )
+    later = await SESSIONS.append_operator_turn(
+        db,
+        session_id=session["sessionId"],
+        customer_id="CUST-JESSICA",
+        operator_sub="op-2",
+        message="Summarize the account.",
+    )
+    await SESSIONS.append_assistant_artifact(
+        db,
+        session_id=session["sessionId"],
+        customer_id="CUST-JESSICA",
+        turn_id=later["turnId"],
+        summary="Account summary.",
+        artifact={
+            "orchestration": {
+                "pattern": "strands-graph",
+                "checkpoint": {"state": "READ_ONLY_COMPLETE"},
+            },
+        },
+    )
+
+    artifact = await SESSIONS.load_graph_artifact_for_review(
+        db,
+        customer_id="CUST-JESSICA",
+        review_id=44,
+        action_hash="exact-hash",
+    )
+
+    assert artifact is not None
+    assert artifact["sessionId"] == session["sessionId"]
+    assert artifact["turnId"] == matching["turnId"]
+    assert artifact["orchestration"]["checkpoint"]["reviewId"] == 44
 
 
 @pytest.mark.asyncio

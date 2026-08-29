@@ -7,7 +7,7 @@
  * outlined heart button. Mounts with artifact-mount keyframe (380ms).
  *
  * Used exclusively in PellierChat. The observatory branch continues
- * to use ProductCardConcierge.
+ * to use the dedicated storefront artifact treatment.
  */
 import { useState } from 'react'
 import { Heart } from 'lucide-react'

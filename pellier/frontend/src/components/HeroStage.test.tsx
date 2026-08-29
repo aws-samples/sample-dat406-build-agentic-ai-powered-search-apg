@@ -13,13 +13,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import HeroStage, { matchIntent } from './HeroStage'
 import { INTENTS } from '../copy'
 
-// HeroStage no longer reads `useUI()` — the SearchPill was removed in
-// the storefront hero-drawer redesign. The mock below is kept for any
-// remaining consumers in the test tree that render inside UIProvider.
-// rotation / ticker behavior, not concierge wiring.
-const mockOpenConciergeWithQuery = vi.fn()
+// HeroStage hands a chosen prompt to the storefront drawer. The rotation
+// checks below do not exercise that handoff, so keep the UI mock minimal.
+const mockOpenDrawerWithQuery = vi.fn()
 vi.mock('../contexts/UIContext', () => ({
-  useUI: () => ({ openConciergeWithQuery: mockOpenConciergeWithQuery }),
+  useUI: () => ({ openDrawerWithQuery: mockOpenDrawerWithQuery }),
 }))
 
 const CYCLE_MS = 7500

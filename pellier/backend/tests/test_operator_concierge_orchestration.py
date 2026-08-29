@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
@@ -253,7 +254,33 @@ def test_the_request_is_persisted_before_synthesis() -> None:
     import inspect
 
     source = inspect.getsource(ORCH.stream_turn)
-    assert source.index("append_operator_turn") < source.index("synthesize(")
+    assert source.index("append_operator_turn") < source.index("synthesize_async(")
+
+
+@pytest.mark.asyncio
+async def test_blocking_graph_synthesis_runs_off_the_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    event_loop_thread = threading.get_ident()
+    synthesis_thread: list[int] = []
+    expected = ({"summary": "done"}, None, "model")
+
+    def fake_synthesize(**_kwargs: Any) -> tuple[Any, Any, str]:
+        synthesis_thread.append(threading.get_ident())
+        return expected
+
+    monkeypatch.setattr(ORCH, "synthesize", fake_synthesize)
+
+    result = await ORCH.synthesize_async(
+        request="Summarize",
+        evidence=[],
+        memory_turns=[],
+        spec=SUMMARY,
+    )
+
+    assert result == expected
+    assert synthesis_thread
+    assert synthesis_thread[0] != event_loop_thread
 
 
 def test_the_answer_is_persisted_before_the_memory_mirror() -> None:
@@ -293,7 +320,7 @@ def test_no_step_is_reported_complete_before_the_work_happens() -> None:
     assert emitted.count("running") == 1, "more than one in-flight event"
     # Every literal `complete` emitted inline follows a completed operation.
     running_at = source.index('"status": "running"')
-    assert source.index("synthesize(") > running_at, (
+    assert source.index("synthesize_async(") > running_at, (
         "synthesis is announced after it already ran"
     )
 

@@ -20,6 +20,7 @@ import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { UIProvider } from '../contexts/UIContext'
 
 // --- Mocks -------------------------------------------------------------
@@ -163,11 +164,26 @@ describe('Header — nav items', () => {
 })
 
 describe('Header — Persona Avatar dropdown', () => {
+  it('uses the shared deep-maroon hover treatment for signed-out account pills', () => {
+    const stylesheet = readFileSync(
+      'src/index.css',
+      'utf8',
+    )
+
+    expect(stylesheet).toMatch(
+      /\.pellier-account-pill:hover\s*\{[\s\S]*background:\s*var\(--link-hover\)/,
+    )
+    expect(stylesheet).toMatch(
+      /\.pellier-account-pill:hover\s*\{[\s\S]*color:\s*var\(--cream-elev\)/,
+    )
+  })
+
   it('shows "Sign in" when no persona is active (Req 5.3)', () => {
     mockPersona = null
     renderHeader()
     const pill = screen.getByTestId('persona-pill')
     expect(pill).toHaveTextContent('Sign in')
+    expect(pill).toHaveClass('pellier-account-pill')
   })
 
   it('shows persona monogram and display name when signed in (Req 5.2)', () => {

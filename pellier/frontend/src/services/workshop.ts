@@ -2,7 +2,7 @@
  * Workshop telemetry API client.
  *
  * Thin fetch wrapper around `POST /api/observatory/query`. Intentionally
- * separate from `services/chat.ts` (ConciergeModal's SSE path) because
+ * separate from `services/chat.ts` (the storefront drawer's SSE path) because
  * the shapes don't overlap — workshop returns a flat
  * `{session_id, events: WorkshopEvent[]}` payload, chat streams SSE
  * frames carrying products and cart ops.

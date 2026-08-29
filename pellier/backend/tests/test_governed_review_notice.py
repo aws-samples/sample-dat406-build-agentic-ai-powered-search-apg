@@ -181,6 +181,7 @@ def test_the_emission_falls_back_to_the_canonical_sentence() -> None:
     stream = inspect.getsource(CHAT)
     assert '"type": "review_pending"' in stream
     assert "or GOVERNED_REVIEW_PENDING" in stream
+    assert '"reviewId": int(review_pending_payload.get("review_id") or 0)' in stream
 
 
 def test_products_are_suppressed_for_a_pending_review() -> None:

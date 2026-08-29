@@ -1,15 +1,7 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import ObservatoryFrame from './ObservatoryFrame';
-
-const mocks = vi.hoisted(() => ({
-  setChatSurface: vi.fn(),
-}));
-
-vi.mock('../../contexts/UIContext', () => ({
-  useUI: () => ({ setChatSurface: mocks.setChatSurface }),
-}));
 
 vi.mock('./TopBar', () => ({
   default: () => <header>Top bar</header>,
@@ -20,7 +12,7 @@ vi.mock('./ObservatoryContextBanner', () => ({
 }));
 
 describe('ObservatoryFrame', () => {
-  it('owns the global chat shortcut while an Observatory route is active', async () => {
+  it('renders its evidence route without taking over a storefront chat surface', () => {
     render(
       <MemoryRouter initialEntries={['/observatory/proof-board']}>
         <Routes>
@@ -31,8 +23,6 @@ describe('ObservatoryFrame', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => {
-      expect(mocks.setChatSurface).toHaveBeenCalledWith('concierge');
-    });
+    expect(screen.getByText('Proof board')).toBeInTheDocument();
   });
 });

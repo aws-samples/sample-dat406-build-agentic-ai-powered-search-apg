@@ -117,23 +117,20 @@ describe('surface boundaries', () => {
   // The shopper's Ask Pellier drawer was mounted on every route, so its
   // "Continue chat" pill floated over Pellier Operator whenever the browser held a
   // storefront thread. Operator is a different product with its own Concierge.
-  it('keeps the shopper chat drawer off the Operator console', () => {
+  it('keeps the shopper chat drawer off operational and evidence surfaces', () => {
     const source = readSource('src/App.tsx')
     expect(source).toContain('function ShopperChatSlot()')
-    expect(source).toContain("if (pathname.startsWith('/operator')) return null")
+    expect(source).toContain(
+      "if (pathname.startsWith('/operator') || pathname.startsWith('/observatory')) return null",
+    )
     expect(source).toContain('<ShopperChatSlot />')
     // Mounted through the slot only, never directly.
     expect(source.match(/<ChatDrawer \/>/g)?.length).toBe(1)
   })
 
-  it('still mounts it on the storefront and the Observatory', () => {
+  it('does not mount a competing concierge modal on the Observatory', () => {
     const source = readSource('src/App.tsx')
-    const start = source.indexOf('function ShopperChatSlot()')
-    // To the end of the function, not to the first "}" - which closes the JSX guard.
-    const body = source.slice(start, source.indexOf('\n}', start))
-    // Exactly one route prefix is excluded, and it is not the Observatory.
-    expect(body.match(/startsWith\(/g)?.length).toBe(1)
-    expect(body).toContain("startsWith('/operator')")
-    expect(body).not.toContain("startsWith('/observatory')")
+    expect(source).not.toContain('ObservatoryConciergeSlot')
+    expect(source).not.toContain("import('./components/ConciergeModal')")
   })
 })

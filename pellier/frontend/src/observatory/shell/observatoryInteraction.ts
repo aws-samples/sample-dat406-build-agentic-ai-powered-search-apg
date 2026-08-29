@@ -21,7 +21,7 @@ const INTERACTIVE_COPY: Record<string, ObservatoryModeCopy> = {
   '/observatory': {
     label: 'Live Workbench',
     detail:
-      'Run a governed shopper request and inspect identity, policy decisions, transaction state, and durable evidence.',
+      'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
   },
 };
 
@@ -40,7 +40,7 @@ const INTERACTIVE_COPY: Record<string, ObservatoryModeCopy> = {
 const REFERENCE_COPY: ObservatoryModeCopy = {
   label: 'Reference view',
   detail:
-    'A focused read of evidence the system already recorded. The canonical proof stays in your Code Editor.',
+    'Inspect system evidence and implementation detail without starting a new shopper turn.',
 };
 
 function normalize(pathname: string): string {

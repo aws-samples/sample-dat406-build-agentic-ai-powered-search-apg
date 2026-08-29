@@ -24,24 +24,29 @@ interface PellierHomeLinkProps {
   /** Preserved per surface so existing tests keep their handle. */
   testId?: string
   className?: string
+  /** Name the destination when Pellier is not the current surface. */
+  label?: string
+  ariaLabel?: string
 }
 
 const PellierHomeLink: React.FC<PellierHomeLinkProps> = ({
   testId = 'pellier-home-link',
   className,
+  label = NAV.WORDMARK,
+  ariaLabel = `Back to ${NAV.WORDMARK}`,
 }) => (
   <Link
     to="/"
     data-testid={testId}
-    aria-label={`Back to ${NAV.WORDMARK}`}
-    title={`Back to ${NAV.WORDMARK}`}
+    aria-label={ariaLabel}
+    title={ariaLabel}
     className={['pellier-home-link', className].filter(Boolean).join(' ')}
   >
     <span aria-hidden="true" className="pellier-home-chip">
       P
     </span>
     <span aria-hidden="true" className="pellier-home-wordmark">
-      {NAV.WORDMARK}
+      {label}
     </span>
   </Link>
 )

@@ -123,7 +123,9 @@ def test_exporter_construction_failure_is_reported(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_attaches_one_processor_and_reports_the_destination(monkeypatch):
+def test_attaches_one_processor_and_reports_the_destination(
+    monkeypatch, caplog
+):
     """Success attaches exactly one processor and names where spans go."""
     processors: list = []
 
@@ -144,9 +146,12 @@ def test_attaches_one_processor_and_reports_the_destination(monkeypatch):
     monkeypatch.setattr(export_module, "_sdk_provider", lambda: _Provider())
     monkeypatch.setattr("botocore.session.Session", _Session)
 
-    state = init_cloudwatch_span_export(
-        enabled=True, region="eu-central-1", endpoint="https://example.invalid/v1/traces"
-    )
+    with caplog.at_level("WARNING"):
+        state = init_cloudwatch_span_export(
+            enabled=True,
+            region="eu-central-1",
+            endpoint="https://example.invalid/v1/traces",
+        )
 
     assert state.attached is True
     assert state.reason == ""
@@ -158,6 +163,7 @@ def test_attaches_one_processor_and_reports_the_destination(monkeypatch):
     payload = state.as_dict()
     assert payload["spans_log_group"] == "aws/spans"
     assert payload["attached"] is True
+    assert not any("not 100%" in record.message for record in caplog.records)
 
 
 def test_export_state_is_readable_after_init(monkeypatch):
@@ -178,7 +184,11 @@ def test_ratio_sampler_is_warned_about_but_still_attaches(monkeypatch, caplog):
     """
     class _Sampler:
         def get_description(self):
-            return "ParentBased{root=TraceIdRatioBased{0.050000}}"
+            return (
+                "ParentBased{root=TraceIdRatioBased{0.050000},"
+                "remoteParentSampled=AlwaysOnSampler,"
+                "remoteParentNotSampled=AlwaysOffSampler}"
+            )
 
     class _Provider:
         sampler = _Sampler()

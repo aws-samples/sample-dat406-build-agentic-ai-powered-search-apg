@@ -27,7 +27,7 @@ const StateDetail: React.FC = () => {
       conceptName="Routing & State"
       category="live"
       title="Routing, explicit."
-      prose="Pellier ships two explicit orchestration paths. The Storefront uses deterministic Dispatcher routing to one owning specialist. Operator Concierge uses a bounded Strands graph: Case Investigator, then Resolution Planner. Agents-as-Tools remains a comparison pattern."
+      prose="Pellier ships two explicit orchestration paths. The Storefront uses deterministic Dispatcher routing to one owning specialist. Operator Concierge uses a bounded Strands graph: Case Investigator, then Resolution Planner."
       cheatSheet={[
         {
           numeral: 'i.',

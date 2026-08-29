@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRight,
+  ArrowUpRight,
   BookOpen,
   ClipboardCheck,
   FileCheck,
@@ -165,6 +166,9 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
   },
 ];
 
+const GITHUB_REPOSITORY_URL =
+  'https://github.com/aws-samples/sample-pellier-agentic-search-apg';
+
 export default function ReferencesIndex() {
   const buildState = useBuildState();
   // No hardcoded fallback. A stale literal reads as a confident "not wired
@@ -180,10 +184,20 @@ export default function ReferencesIndex() {
       <header className="observatory-references-header">
         <h1>Proof &amp; References</h1>
         <p>
-          Every view the Observatory offers, in one place. The canonical proof
-          is the curl and SQL in your Code Editor; these read the same rows for
-          you. Open one when a lab step or your own curiosity points here.
+          A focused index of the Observatory&rsquo;s proof, replay,
+          architecture, and production views. For workshop verification, curl
+          and SQL in the Code Editor remain canonical; these pages organize the
+          same API and Aurora evidence.
         </p>
+        <a
+          className="observatory-reference-source"
+          href={GITHUB_REPOSITORY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View workshop source on GitHub
+          <ArrowUpRight size={15} strokeWidth={1.8} aria-hidden="true" />
+        </a>
       </header>
 
       <div className="observatory-reference-groups">

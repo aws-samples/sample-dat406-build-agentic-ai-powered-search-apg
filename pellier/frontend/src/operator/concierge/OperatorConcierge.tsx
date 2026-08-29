@@ -12,6 +12,7 @@
  */
 
 import React, { useEffect, useMemo, useRef } from 'react'
+import { ArrowRight, GitBranch } from 'lucide-react'
 
 import type { OperatorClientRecord } from '../../services/operator'
 
@@ -86,6 +87,18 @@ const OperatorConcierge: React.FC<Props> = ({
           Grounded in this client&rsquo;s orders, preferences, inventory, returns, and
           governed actions from {concierge.config?.dataSource ?? 'the live database'}.
         </p>
+        <div
+          className="operator-concierge-path"
+          aria-label="Strands Graph path: Case Investigator, then Resolution Planner"
+        >
+          <span className="operator-concierge-path-label">
+            <GitBranch size={13} strokeWidth={1.8} aria-hidden="true" />
+            Strands Graph
+          </span>
+          <span>Case Investigator</span>
+          <ArrowRight size={13} strokeWidth={1.8} aria-hidden="true" />
+          <span>Resolution Planner</span>
+        </div>
         {/* Scope, not a second profile: enough to make the conversation's subject
             unambiguous without repeating the record on the left. */}
         <p className="operator-concierge-scope" data-testid="operator-concierge-scope">

@@ -36,12 +36,15 @@ refuse it. Receipts must show which of those events occurred.
 
 ## The retail world
 
-Pellier has two connected work surfaces:
+Pellier has two connected operating surfaces and one shared proof surface:
 
 - **Pellier storefront** is where shoppers discover products, ask questions,
   and request service.
 - **Pellier Operator** is where an authorized employee inspects client context,
   reviews consequential proposals, and reconstructs outcomes.
+- **Pellier Observatory** is where builders run the production shopper path,
+  inspect emitted evidence, and reconstruct the Storefront-to-Operator lineage.
+  It does not introduce a third orchestration rail.
 
 Three returning shoppers remain the storefront heroes:
 
@@ -386,6 +389,8 @@ Local review checkpoints:
 
 ```text
 http://localhost:5173/
+http://localhost:5173/observatory
+http://localhost:5173/observatory/operator-lineage
 http://localhost:5173/operator/reviews
 http://localhost:5173/?clientPreview=CUST-JESSICA
 ```
@@ -458,6 +463,8 @@ A repair made only on the workshop box is not a product fix.
 | Operator authorization | `pellier/backend/services/auth.py` |
 | Operator routes and review workflow | `pellier/backend/routes/operator.py` |
 | Cross-surface reconstruction | `pellier/backend/routes/observatory.py` and `OperatorLineage.tsx` |
+| Storefront-to-review handoff | `pellier/backend/services/chat.py` and `PellierChatBody.tsx` |
+| Operator service-recovery entry | `pellier/frontend/src/operator/surfaces/ClientBook.tsx` |
 | Storefront client preview | `pellier/frontend/src/components/OperatorClientPreview.tsx` |
 | Client-to-storefront handoff | `pellier/frontend/src/operator/surfaces/ClientRecord.tsx` |
 | Deployment and lab contract | `docs/HANDOFF-SOURCE-CONTRACT.md` |

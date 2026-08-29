@@ -57,6 +57,13 @@ function durationLabel(durationMs?: number | null): string {
   return `${(durationMs / 1000).toFixed(1)}s`
 }
 
+function statusLabel(status: ConciergeInvestigationStep['status']): string {
+  if (status === 'running') return 'Running'
+  if (status === 'failed') return 'Failed'
+  if (status === 'unavailable') return 'Unavailable'
+  return 'Completed'
+}
+
 const ConciergeStepList: React.FC<Props> = ({ steps }) => (
   <ol className="operator-concierge-steps">
     {steps.map((step, index) => {
@@ -73,6 +80,7 @@ const ConciergeStepList: React.FC<Props> = ({ steps }) => (
           <span className="operator-concierge-step-status" aria-hidden="true">
             <StatusIcon size={14} strokeWidth={1.8} />
           </span>
+          <span className="sr-only">Status: {statusLabel(step.status)}</span>
           <span className="operator-concierge-step-copy">
             <span className="operator-concierge-step-label">{step.label}</span>
             {step.result ? (

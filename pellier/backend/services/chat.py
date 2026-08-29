@@ -2667,6 +2667,7 @@ CURRENT REQUEST: {message}"""
                 "type": "review_pending",
                 "reviewPending": {
                     "tool": str(review_pending_payload.get("tool") or ""),
+                    "reviewId": int(review_pending_payload.get("review_id") or 0),
                     "message": str(
                         review_pending_payload.get("message")
                         or GOVERNED_REVIEW_PENDING

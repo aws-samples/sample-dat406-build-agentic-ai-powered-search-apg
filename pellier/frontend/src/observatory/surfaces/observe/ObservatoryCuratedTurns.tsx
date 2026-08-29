@@ -12,14 +12,11 @@ import {
 } from '../../../data/personaCurations';
 import { SHOWCASE_PRODUCTS } from '../../../data/showcaseProducts';
 
-type OrchestrationPattern = 'dispatcher' | 'agents_as_tools' | 'graph';
-
 export interface ObservatoryCuratedTurnsProps {
   personaId: string;
   personaLabel: string;
   running: boolean;
   activeIndex: number | null;
-  orchestrationPattern: OrchestrationPattern;
   onInspect: (query: string, index: number) => void;
   id?: string;
 }
@@ -40,7 +37,6 @@ export default function ObservatoryCuratedTurns({
   personaLabel,
   running,
   activeIndex,
-  orchestrationPattern,
   onInspect,
   id = 'curated-turns',
 }: ObservatoryCuratedTurnsProps) {
@@ -67,8 +63,6 @@ export default function ObservatoryCuratedTurns({
           const dispatcherOnly = Boolean(
             trace?.tools.includes('initiate_return'),
           );
-          const patternBlocked =
-            dispatcherOnly && orchestrationPattern !== 'dispatcher';
           const traceLabel = trace
             ? [
                 trace.tools.join(' -> '),
@@ -85,13 +79,8 @@ export default function ObservatoryCuratedTurns({
                 type="button"
                 className="labs-turn"
                 data-active={isActive ? 'true' : undefined}
-                disabled={running || patternBlocked}
+                disabled={running}
                 aria-label={`Inspect: ${query}`}
-                title={
-                  patternBlocked
-                    ? 'Write turns run only through Dispatcher.'
-                    : undefined
-                }
                 onClick={() => onInspect(query, index)}
               >
                 <span className="labs-turn-media" aria-hidden="true">

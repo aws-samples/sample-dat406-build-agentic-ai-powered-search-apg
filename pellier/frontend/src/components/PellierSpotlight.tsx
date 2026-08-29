@@ -1,8 +1,9 @@
 /**
  * PellierSpotlight - the first-visit orientation for the governed storefront.
  *
- * It frames Pellier the way the architecture actually works: one agent serving
- * two channels, every answer resolving to a database query, and every
+ * It frames Pellier the way the architecture actually works: a Storefront
+ * Dispatcher routing shopper turns to specialists, a separate two-agent
+ * Operator Concierge graph, shared Aurora customer truth, and every
  * state-changing action behind a human confirmation.
  *
  * Claims here are deliberately limited to what ships. Comparable retail-agent
@@ -66,8 +67,8 @@ const STEPS: SpotlightStep[] = [
   {
     label: 'Assist',
     eyebrow: 'Pellier Operator',
-    headline: 'One agent, two channels.',
-    body: 'Advisors work the same agent from a clienteling desk. A goodwill credit needs a human confirmation, and the ceiling is enforced by the database.',
+    headline: 'Different agents. Shared customer truth.',
+    body: 'The Storefront Dispatcher routes each shopper request to a specialist. A separate Case Investigator → Resolution Planner graph assists advisors over the same Aurora customer record. Credits and returns wait for human confirmation, then policy and database controls decide whether the write may proceed.',
     image: asset('/products/landing-approach-atelier.png'),
     imageAlt: "A leatherworker's hands finishing a bag at a workbench",
     icon: ConciergeBell,
@@ -75,8 +76,8 @@ const STEPS: SpotlightStep[] = [
   {
     label: 'Inspect',
     eyebrow: 'Pellier Observatory · Optional',
-    headline: 'See which data answered.',
-    body: 'Optional. Replay a turn to see the tools called, the policy decision, and the Aurora rows behind the answer.',
+    headline: 'Follow the evidence.',
+    body: 'Optional. Replay a storefront turn to inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the evidence behind the grounded answer.',
     image: asset('/products/hero-theo.png'),
     imageAlt: 'Stoneware pour-over set on a sunlit wooden table',
     icon: FlaskConical,

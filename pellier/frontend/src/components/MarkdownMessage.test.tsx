@@ -32,4 +32,23 @@ describe('MarkdownMessage editorial streaming', () => {
     expect(items).toHaveLength(2)
     expect(items[1].querySelector('.editorial-streaming-caret')).toBeInTheDocument()
   })
+
+  it('does not expose an unmatched bold delimiter while prose is streaming', () => {
+    const { container } = render(
+      <MarkdownMessage content="Just the **" streaming />,
+    )
+
+    expect(container).toHaveTextContent('Just the')
+    expect(container).not.toHaveTextContent('**')
+  })
+
+  it('preserves bold product names inside recommendation lists', () => {
+    const { container } = render(
+      <MarkdownMessage content="- **Merino Travel Socks** by Pellier Active" />,
+    )
+
+    expect(container.querySelector('strong')).toHaveTextContent(
+      'Merino Travel Socks',
+    )
+  })
 })

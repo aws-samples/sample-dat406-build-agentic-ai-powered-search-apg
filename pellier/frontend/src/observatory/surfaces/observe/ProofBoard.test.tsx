@@ -223,6 +223,14 @@ describe('ProofBoard', () => {
     );
 
     expect(await screen.findByText('Proof Board')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Inspect readiness checks and the runtime, policy, execution, and Aurora evidence already recorded by the system.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Run a live agent turn and inspect the evidence it emits.'),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('governed-proof-rail')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/api/observatory/proof-board', {
       credentials: 'include',

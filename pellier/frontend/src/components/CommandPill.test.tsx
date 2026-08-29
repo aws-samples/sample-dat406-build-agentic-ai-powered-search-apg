@@ -1,16 +1,16 @@
 /**
- * CommandPill tests - floating concierge shortcut pill.
+ * CommandPill tests - floating shopper-chat shortcut pill.
  *
  * Validates Requirements 1.11.1 and 1.11.5.
  *
  * Coverage:
  *   - Pill renders fixed at the bottom-right with the B mark,
  *     `Ask Pellier` label, and a styled keycap (Req 1.11.1).
- *   - Click toggles the concierge: first click sets
- *     `activeModal === 'concierge'`, second click closes it back to
+ *   - Click toggles the drawer: first click sets
+ *     `activeModal === 'drawer'`, second click closes it back to
  *     null (Req 1.11.5).
- *   - Click from a non-concierge modal state (e.g., auth) switches to
- *     concierge via the same toggle - the singleton behavior from
+ *   - Click from another modal state (e.g., auth) switches to
+ *     the drawer via the same toggle - the singleton behavior from
  *     UIContext is inherited.
  */
 import { render, screen } from '@testing-library/react'
@@ -123,7 +123,7 @@ describe('CommandPill - click toggles chat drawer (Req 1.11.5)', () => {
     expect(screen.getByTestId('command-pill')).toBeInTheDocument()
   })
 
-  it('reflects aria-pressed when the concierge is open', async () => {
+  it('starts unpressed before the hidden-open drawer state', async () => {
     const user = userEvent.setup()
     renderPill()
 

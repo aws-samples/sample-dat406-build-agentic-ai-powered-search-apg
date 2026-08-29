@@ -234,8 +234,7 @@
 }
 
 .observatory-lineage-links a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
 
 .observatory-lineage-links code {

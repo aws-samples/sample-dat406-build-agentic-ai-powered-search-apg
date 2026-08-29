@@ -84,7 +84,7 @@ const ConciergeComposer: React.FC<Props> = ({
       <div className="operator-concierge-composer-foot">
         <p className="operator-concierge-composer-note" id="concierge-composer-note">
           {error
-            ? 'That request could not be saved.'
+            ? 'The investigation did not complete. The request may already be saved; reopen this client before retrying.'
             : submitting
               ? 'Working on the request…'
               : note}

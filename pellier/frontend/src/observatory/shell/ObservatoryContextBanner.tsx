@@ -52,7 +52,7 @@ const ObservatoryContextBanner: React.FC = () => {
       <div className="observatory-context-actions">
         <Link to="/" className="observatory-context-link">
           <ArrowLeft size={13} aria-hidden="true" />
-          Pellier
+          Return to Storefront
         </Link>
         <Link to={cleanPath} className="observatory-context-link">
           <ArrowDown size={13} aria-hidden="true" />

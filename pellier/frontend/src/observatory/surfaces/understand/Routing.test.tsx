@@ -2,8 +2,8 @@
  * Routing surface — LangGraph comparison card tests.
  *
  * Pins the editorial contract for the "Coming from LangGraph" card:
- *   - The card renders alongside the three pattern cards.
- *   - Three mapping rows are present, one per Pellier pattern, each with
+ *   - The card renders alongside the two shipped pattern cards.
+ *   - Two mapping rows are present, one per Pellier path, each with
  *     a non-empty LangGraph analogue and a key-difference cell.
  *   - The "when to reach for LangGraph" copy lists the three workflow
  *     shapes that justify a graph runtime — durable checkpointing,
@@ -39,7 +39,7 @@ const renderRouting = () =>
   );
 
 describe('Routing surface · LangGraph comparison card', () => {
-  it('renders the comparison card with all three Pellier-pattern rows', () => {
+  it('renders the comparison card with the two shipped Pellier paths', () => {
     renderRouting();
 
     const table = screen.getByTestId('langgraph-comparison-table');
@@ -48,10 +48,9 @@ describe('Routing surface · LangGraph comparison card', () => {
     // One row per Pellier pattern. The data-testid stems use the first
     // word of the pattern name lowercased.
     const dispatcherRow = screen.getByTestId('langgraph-row-dispatcher');
-    const aatRow = screen.getByTestId('langgraph-row-agents-as-tools');
     const graphRow = screen.getByTestId('langgraph-row-graph');
 
-    for (const row of [dispatcherRow, aatRow, graphRow]) {
+    for (const row of [dispatcherRow, graphRow]) {
       // Each row has three populated cells (Pellier / LangGraph / diff).
       const cells = within(row).getAllByRole('cell');
       expect(cells).toHaveLength(3);
@@ -68,11 +67,6 @@ describe('Routing surface · LangGraph comparison card', () => {
     expect(
       screen.getByTestId('langgraph-row-dispatcher').textContent?.toLowerCase(),
     ).toContain('conditional edge');
-
-    // Agents-as-Tools → supervisor pattern
-    expect(
-      screen.getByTestId('langgraph-row-agents-as-tools').textContent?.toLowerCase(),
-    ).toContain('supervisor');
 
     // Graph → StateGraph
     expect(
@@ -98,6 +92,13 @@ describe('Routing surface · LangGraph comparison card', () => {
     expect(graph.textContent).toContain('Case Investigator Agent');
     expect(graph.textContent).toContain('Resolution Planner Agent');
     expect(graph.textContent).toContain('Runtime is never left waiting');
+    expect(screen.queryByText(/Agents-as-Tools/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /\/api\/operator\/clients\/:clientId\/concierge\/sessions\/:sessionId\/turns\/stream/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('/api/agent/chat')).not.toBeInTheDocument();
   });
 
   it('lists the three workflow shapes that justify a graph runtime', () => {

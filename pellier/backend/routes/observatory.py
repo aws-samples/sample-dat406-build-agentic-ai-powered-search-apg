@@ -1969,6 +1969,7 @@ async def list_governed_executions(
 @router.get("/operator-lineage/{customer_id}")
 async def get_operator_lineage(
     customer_id: str = PathParam(..., min_length=1, max_length=64),
+    review_id: int | None = Query(default=None, ge=1),
     operator: dict[str, Any] = Depends(require_operator),
 ):
     """Reconstruct the live storefront-to-operator loop for one client.
@@ -1990,9 +1991,16 @@ async def get_operator_lineage(
     from services.data_source import database_source_label
 
     try:
-        handoff = await shopper_handoff.resolve_latest_for_customer(
-            db_service, customer_id=customer_id
-        )
+        if review_id is None:
+            handoff = await shopper_handoff.resolve_latest_for_customer(
+                db_service, customer_id=customer_id
+            )
+        else:
+            handoff = await shopper_handoff.resolve_for_review(
+                db_service,
+                review_id=review_id,
+                expected_customer_id=customer_id,
+            )
     except shopper_handoff.HandoffIntegrityError as exc:
         logger.error("Operator lineage mismatch for %s", customer_id)
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -2038,27 +2046,25 @@ async def get_operator_lineage(
     }
 
     orchestration = None
-    session_id = await sessions.latest_session(db_service, customer_id=customer_id)
-    if session_id:
-        try:
-            history = await sessions.load_history(
-                db_service,
-                session_id=session_id,
-                customer_id=customer_id,
-                limit=100,
-            )
-            for message in reversed(history.get("messages") or []):
-                artifact = message.get("artifact") or {}
-                graph = artifact.get("orchestration")
-                if message.get("role") == sessions.ROLE_ASSISTANT and graph:
-                    orchestration = {
-                        **graph,
-                        "sessionId": session_id,
-                        "turnId": message.get("turnId"),
-                    }
-                    break
-        except Exception as exc:  # noqa: BLE001 - review lineage remains useful
-            logger.warning("Operator graph history unavailable for %s: %s", customer_id, exc)
+    try:
+        graph_artifact = await sessions.load_graph_artifact_for_review(
+            db_service,
+            customer_id=customer_id,
+            review_id=review_id,
+            action_hash=str(review.get("actionHash") or ""),
+        )
+        if graph_artifact:
+            orchestration = {
+                **graph_artifact["orchestration"],
+                "sessionId": graph_artifact.get("sessionId"),
+                "turnId": graph_artifact.get("turnId"),
+            }
+    except Exception as exc:  # noqa: BLE001 - review lineage remains useful
+        logger.warning(
+            "Operator graph artifact unavailable for review %s: %s",
+            review_id,
+            exc,
+        )
 
     execution = None
     if receipt:

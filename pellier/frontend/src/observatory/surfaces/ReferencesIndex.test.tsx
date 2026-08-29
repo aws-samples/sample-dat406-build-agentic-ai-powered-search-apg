@@ -79,7 +79,27 @@ describe('Observatory navigation index', () => {
 
     // Architecture invariant: Code Editor plus SQL/curl remain canonical proof,
     // and the Observatory is an assisted read of the same rows.
-    expect(screen.getByText(/curl and SQL in your Code Editor/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/For workshop verification, curl and SQL in the Code Editor remain canonical/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/organize the same API and Aurora evidence/i))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/Every view the Observatory offers/i))
+      .not.toBeInTheDocument();
+  });
+
+  it('keeps the workshop source with references instead of the primary navigation', () => {
+    renderPage();
+
+    const source = screen.getByRole('link', {
+      name: 'View workshop source on GitHub',
+    });
+    expect(source).toHaveAttribute(
+      'href',
+      'https://github.com/aws-samples/sample-pellier-agentic-search-apg',
+    );
+    expect(source).toHaveAttribute('target', '_blank');
+    expect(source).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it.each(GROUPS)('groups %s with its destinations', (heading, links) => {

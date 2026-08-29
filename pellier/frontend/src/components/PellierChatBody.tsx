@@ -3,15 +3,15 @@
  *
  * Body-only component: renders user bubbles, agent blocks, product
  * cards, and follow-up chips. No header, no footer, no input — those
- * live in the parent surface (ChatDrawer for storefront, ConciergeModal
- * for observatory).
+ * live in the parent surface (ChatDrawer for the storefront).
  *
- * Extracted from PellierChat.tsx so both the drawer and the legacy
- * modal can consume the same editorial rendering without duplication.
+ * Extracted from PellierChat.tsx so storefront entry points share the same
+ * editorial rendering without duplication.
  * All styling comes from storefront-chat.css (the ``ec-*`` classes).
  */
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import {
   Brain,
   Check,
@@ -633,13 +633,18 @@ function AgentMessage({
        * Product lookups used to resolve the order are action plumbing, not a
        * recommendation shelf, so pending-review turns do not merchandise them. */}
       {message.reviewPending && (
-        <p
+        <div
           className="ec-review-pending"
           data-testid="pellier-review-pending"
           role="status"
         >
-          {message.reviewPending.message}
-        </p>
+          <p>{message.reviewPending.message}</p>
+          {message.reviewPending.reviewId ? (
+            <Link to={`/operator/reviews/${message.reviewPending.reviewId}`}>
+              Open prepared request in Operator
+            </Link>
+          ) : null}
+        </div>
       )}
 
       {/* Product cards — one render path for all products regardless

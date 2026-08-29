@@ -1,6 +1,6 @@
 /**
- * useAgentChat — streaming chat state machine shared by ConciergeModal and
- * (transitionally) AIAssistant. Owns the SSE event loop, message array,
+ * useAgentChat — streaming chat state machine shared by the storefront
+ * ChatDrawer and the transitional AIAssistant. Owns the SSE event loop, message array,
  * input value, loading/backend/session-cost state, and persistence.
  *
  * Rendering concerns (scroll, animations, badge layout, Under the Hood
@@ -169,6 +169,8 @@ export interface AgentChatMessage {
 export interface ReviewPending {
   /** The tool that was declined. Internal; not shown to the shopper. */
   tool: string
+  /** Durable review created for this exact prepared request. */
+  reviewId?: number
   message: string
 }
 

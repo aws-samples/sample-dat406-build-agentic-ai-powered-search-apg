@@ -308,7 +308,10 @@ describe('OperatorFrame review link', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByTestId('operator-sign-in'))
+    await screen.findByTestId('operator-reviews-count')
+    const signIn = screen.getByTestId('operator-sign-in')
+    expect(signIn).toHaveClass('pellier-account-pill')
+    fireEvent.click(signIn)
     expect(authMock.login).toHaveBeenCalledOnce()
   })
 
@@ -720,7 +723,10 @@ describe('ReviewRecord', () => {
     )
     expect(
       screen.getByTestId('operator-review-observatory-link'),
-    ).toHaveAttribute('href', '/observatory?turn=turn-theo-abc')
+    ).toHaveAttribute(
+      'href',
+      '/observatory/operator-lineage?customer=CUST-THEO&review=12',
+    )
   })
 
   it('renders a labelled state for an unknown review', async () => {

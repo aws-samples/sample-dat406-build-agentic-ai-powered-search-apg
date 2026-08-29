@@ -9,14 +9,6 @@
     "codeSnippet": "intent = classify_intent(message)  # rules, not LLM\nspecialist = build_inventory_agent()  # example\nresponse = specialist(message)     # one LLM call"
   },
   {
-    "name": "Agents-as-Tools",
-    "slug": "agents-as-tools",
-    "description": "Sonnet orchestrator + specialists as @tool. Two LLM calls per turn. Pellier Observatory teaching path and in-process /api/agent/chat - not the storefront hot path.",
-    "isActive": false,
-    "agents": ["Search Agent", "Personalization Agent", "Pricing Agent", "Inventory Agent", "Customer Service Agent"],
-    "codeSnippet": "@tool\ndef inventory_agent(query: str) -> str:\n    return Agent(..., tools=[check_inventory])(query)\n\norchestrator = Agent(model=sonnet, tools=[inventory_agent, ...])"
-  },
-  {
     "name": "Graph",
     "slug": "graph",
     "description": "Production Operator Concierge: a bounded Strands GraphBuilder DAG runs Case Investigator, then Resolution Planner. PostgreSQL holds the pending review and later human decision outside the graph invocation; Runtime is never left waiting.",

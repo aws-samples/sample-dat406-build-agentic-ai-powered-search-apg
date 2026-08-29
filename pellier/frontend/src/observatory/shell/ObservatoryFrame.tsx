@@ -2,23 +2,16 @@
  * Full-width Pellier Observatory shell for live agent inspection.
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import ObservatoryContextBanner from './ObservatoryContextBanner';
 import ObservatoryModeBanner from './ObservatoryModeBanner';
 import ObservatoryErrorBoundary from './ObservatoryErrorBoundary';
 import { interactionForPath } from './observatoryInteraction';
-import { useUI } from '../../contexts/UIContext';
 import '../styles/base.css';
 
 const ObservatoryFrame: React.FC = () => {
-  const { setChatSurface } = useUI();
-
-  useEffect(() => {
-    setChatSurface('concierge');
-  }, [setChatSurface]);
-
   // Key the error boundary on the pathname so a crash on one surface doesn't
   // strand the operator on every other surface — navigating remounts it,
   // clearing stale error state.

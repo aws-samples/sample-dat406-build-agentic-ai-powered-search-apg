@@ -775,10 +775,12 @@ const ReviewRecord: React.FC = () => {
       {review.sourceTurnId ? (
         <p className="operator-cell-note">
           <Link
-            to={`/observatory?turn=${encodeURIComponent(review.sourceTurnId)}`}
+            to={`/observatory/operator-lineage?customer=${encodeURIComponent(
+              review.customerId,
+            )}&review=${encodeURIComponent(String(review.reviewId))}`}
             data-testid="operator-review-observatory-link"
           >
-            Inspect the originating turn in Pellier Observatory
+            Inspect this governed handoff in Pellier Observatory
           </Link>{' '}
           <span className="operator-receipt-key">{review.sourceTurnId}</span>
         </p>

@@ -1041,14 +1041,16 @@ const FooterStrip: React.FC<{ panels: TelemetryPanel[] }> = ({ panels }) => {
  * Main TelemetryTab component
  * ======================================================================= */
 
-const ROUTING_PATTERNS = ['Dispatcher', 'Agents-as-Tools', 'Graph'] as const;
+const ROUTING_PATTERNS = ['Dispatcher', 'Graph'] as const;
 type RoutingPattern = (typeof ROUTING_PATTERNS)[number];
 
-function canonicalRoutingPattern(raw: string | undefined): RoutingPattern {
+export function canonicalRoutingPattern(
+  raw: string | undefined,
+): RoutingPattern | null {
   const s = (raw ?? '').trim().toLowerCase();
   if (s.includes('graph')) return 'Graph';
-  if (s.includes('agents') && s.includes('tools')) return 'Agents-as-Tools';
-  return 'Dispatcher';
+  if (s.includes('dispatcher')) return 'Dispatcher';
+  return null;
 }
 
 /**
@@ -1110,110 +1112,60 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       agent: 'Personalization Agent',
     },
   ],
-  'Agents-as-Tools': [
-    {
-      index: 1,
-      category: 'managed',
-      title: 'Orchestrator turn',
-      description:
-        'One long-lived model frame plans the turn: which specialist-shaped tools to call and in what order.',
-      status: 'complete',
-      durationMs: 44,
-      agent: 'Orchestrator',
-    },
-    {
-      index: 2,
-      category: 'owned',
-      title: 'Tools registered',
-      description:
-        'Specialists are exposed as first-class tools (e.g. personalization_agent_agent, pricing_agent_agent) with schemas – same contract style as search_products, but nested under the parent agent.',
-      status: 'complete',
-      durationMs: 11,
-      agent: 'Gateway',
-    },
-    {
-      index: 3,
-      category: 'both',
-      title: 'Tool: personalization_agent_agent',
-      description:
-        'Parent invokes Personalization Agent as a tool; Personalization Agent runs its own retrieval + Opus composition and returns structured JSON to the parent – no second shopper message.',
-      status: 'complete',
-      durationMs: 428,
-      agent: 'Orchestrator → Personalization Agent',
-    },
-    {
-      index: 4,
-      category: 'both',
-      title: 'Tool: pricing_agent_agent',
-      description:
-        'Parallel or follow-up tool call in the same orchestrator turn for price/stock narrative – composition without extra microservices per hop.',
-      status: 'complete',
-      durationMs: 119,
-      agent: 'Orchestrator → Pricing Agent',
-    },
-    {
-      index: 5,
-      category: 'managed',
-      title: 'Merge & voice',
-      description:
-        'Orchestrator stitches tool payloads into one conversational reply. More flexibility in one turn; prompts carry more coupling across tools.',
-      status: 'complete',
-      durationMs: 240,
-      agent: 'Orchestrator',
-    },
-  ],
   Graph: [
     {
       index: 1,
-      category: 'managed',
-      title: 'Graph entry',
+      category: 'owned',
+      title: 'Review checkpoint already persisted',
       description:
-        'Request enters a declared DAG: nodes are steps or agents, edges encode gating and fan-out/fan-in.',
+        'The storefront refusal has already created a durable pending row in pellier.approvals and an immutable shopper handoff. The later Operator graph reads that checkpoint; it does not create it.',
       status: 'complete',
-      durationMs: 18,
-      agent: 'Graph runtime',
+      durationMs: 14,
+      agent: 'Pellier application · PostgreSQL',
+      sql:
+        "INSERT INTO pellier.approvals (customer_id, tool, args, status, source_turn_id, action_hash) VALUES ($1, $2, $3::jsonb, 'pending', $4, $5);",
     },
     {
       index: 2,
-      category: 'managed',
-      title: 'Node: classify',
+      category: 'both',
+      title: 'Case Investigator',
       description:
-        'Router node branches on intent features (gift vs replenishment vs fit) before expensive retrieval.',
+        'The first agent reads current orders, returns, support records, and the durable shopper handoff from PostgreSQL, preserving fact versus reported context.',
       status: 'complete',
-      durationMs: 41,
-      agent: 'Router',
+      durationMs: 82,
+      agent: 'Case Investigator Agent',
     },
     {
       index: 3,
-      category: 'both',
-      title: 'Node: search_cluster',
+      category: 'managed',
+      title: 'Resolution Planner',
       description:
-        'Embeddings + lexical branch inside one node; emits scored candidates for downstream nodes.',
+        'The second agent turns verified evidence into a bounded resolution brief. It may prepare a proposal, but it cannot record the human decision or execute a write.',
       status: 'complete',
-      durationMs: 276,
-      agent: 'Search Agent',
-      sql:
-        'SELECT id, ts_rank_cd(description_tsv, plainto_tsquery($1)) AS r FROM pellier.product_catalog WHERE description_tsv @@ plainto_tsquery($1) LIMIT 20;',
+      durationMs: 241,
+      agent: 'Resolution Planner Agent',
     },
     {
       index: 4,
-      category: 'managed',
-      title: 'Edge: IF high_confidence',
+      category: 'owned',
+      title: 'Graph artifact persisted',
       description:
-        'Conditional edge skips rerank when cosine ceiling clears threshold; otherwise routes to rerank node – auditable control flow.',
+        'Pellier appends the assistant turn and its structured Strands Graph artifact to pellier.messages, including the existing review id and action hash.',
       status: 'complete',
-      durationMs: 6,
-      agent: 'Graph runtime',
+      durationMs: 14,
+      agent: 'Pellier application · PostgreSQL',
+      sql:
+        "INSERT INTO pellier.messages (session_id, role, content, metadata) VALUES ($1, 'assistant', $2, $3::jsonb);",
     },
     {
       index: 5,
-      category: 'both',
-      title: 'Node: compose',
+      category: 'managed',
+      title: 'Runtime returns to the operator',
       description:
-        'Terminal node merges parallel paths and emits the assistant payload. Best when policy must look like an explicit state machine.',
+        'The graph invocation completes. A later authenticated request records the human decision and, only after policy allows it, attempts governed execution.',
       status: 'complete',
-      durationMs: 502,
-      agent: 'Composer',
+      durationMs: 33,
+      agent: 'Operator Concierge',
     },
   ],
 };
@@ -1238,15 +1190,12 @@ const RoutingPatternIntro: React.FC = () => (
       sessions on this tab are captured from that same path, so the default timeline matches what ships.
     </p>
     <p style={{ ...introParagraphStyle, marginTop: '12px' }}>
-      <strong style={{ color: 'var(--obs-ink-1)' }}>Agents-as-Tools</strong> fits when a{' '}
-      single orchestrator turn should call several specialist-shaped tools (serial or parallel)
-      without standing up a new service for every hop – specialists return structured payloads into the
-      parent frame.
-    </p>
-    <p style={{ ...introParagraphStyle, marginTop: '12px' }}>
-      <strong style={{ color: 'var(--obs-ink-1)' }}>Graph</strong> fits when the workflow should read as
-      an explicit DAG: named nodes, conditional edges, skippable steps, and parallel merge points – more
-      authoring ceremony, highest clarity when policy must look like an auditable state machine.
+      <strong style={{ color: 'var(--obs-ink-1)' }}>Graph</strong> is what the{' '}
+      <strong style={{ color: 'var(--obs-ink-1)' }}>Operator Concierge</strong> uses
+      for ordered case work: Case Investigator, then Resolution Planner. The graph
+      reads a review checkpoint already persisted by the storefront boundary and
+      appends its artifact before returning, so a person never waits inside a
+      running model process.
     </p>
   </ExpCard>
   </div>
@@ -1317,13 +1266,16 @@ const TelemetryTab: React.FC = () => {
   const location = useLocation();
   const sessionPanels = session.telemetry ?? [];
   const sessionCanonical = canonicalRoutingPattern(session.routingPattern);
+  const initialPattern = sessionCanonical ?? 'Dispatcher';
   const timelineRef = useRef<HTMLDivElement>(null);
   const pendingTracePanel = useRef<number | null>(null);
 
-  const [activePattern, setActivePattern] = useState<RoutingPattern>(sessionCanonical);
+  const [activePattern, setActivePattern] = useState<RoutingPattern>(initialPattern);
 
   const displayPanels: TelemetryPanel[] =
-    activePattern === sessionCanonical ? sessionPanels : ILLUSTRATIVE_TELEMETRY[activePattern];
+    sessionCanonical && activePattern === sessionCanonical
+      ? sessionPanels
+      : ILLUSTRATIVE_TELEMETRY[activePattern];
 
   const [activeIndex, setActiveIndex] = useState(
     () => (sessionPanels.length > 0 ? sessionPanels[0].index : -1),
@@ -1360,6 +1312,7 @@ const TelemetryTab: React.FC = () => {
   const handlePatternSelect = useCallback(
     (p: string) => {
       const canonical = canonicalRoutingPattern(p);
+      if (!canonical) return;
       setActivePattern(canonical);
       const list =
         canonical === sessionCanonical ? sessionPanels : ILLUSTRATIVE_TELEMETRY[canonical];
@@ -1369,14 +1322,15 @@ const TelemetryTab: React.FC = () => {
   );
 
   useEffect(() => {
-    setActivePattern(sessionCanonical);
+    setActivePattern(initialPattern);
     setActiveIndex(sessionPanels.length > 0 ? sessionPanels[0].index : -1);
     pendingTracePanel.current = null;
-  }, [session.id, sessionCanonical, sessionPanels.length]);
+  }, [session.id, initialPattern, sessionPanels.length]);
 
   useEffect(() => {
     const panelIndex = parseTelemetryPanelIndex(location.hash);
     if (panelIndex == null) return;
+    if (!sessionCanonical) return;
     pendingTracePanel.current = panelIndex;
     if (activePattern !== sessionCanonical) {
       setActivePattern(sessionCanonical);
@@ -1397,7 +1351,7 @@ const TelemetryTab: React.FC = () => {
   }, [activePattern, sessionCanonical, scrollToTelemetryPanel]);
 
   const handleTracePick = useCallback(() => {
-    if (!pickContext) return;
+    if (!pickContext || !sessionCanonical) return;
     const { tracePanelIndex: panelIndex } = pickContext;
     pendingTracePanel.current = panelIndex;
     if (activePattern !== sessionCanonical) {
