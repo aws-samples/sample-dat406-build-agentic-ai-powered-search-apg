@@ -17,8 +17,10 @@
  * come from the API and are printed as given.
  */
 
+import { CheckCircle2, CircleX, LoaderCircle } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import { MEMBERSHIP } from '../../data/membership'
 import {
   confirmReview,
@@ -33,6 +35,7 @@ import ActionAssurance from '../components/ActionAssurance'
 import ClientAvatar from '../components/ClientAvatar'
 import MembershipRung from '../components/MembershipRung'
 import ShopperHandoffView from '../components/ShopperHandoffView'
+import { useOperatorQueueRefresh } from '../shell/OperatorFrame'
 
 function money(value: number): string {
   return value.toLocaleString('en-US', {
@@ -100,6 +103,8 @@ export function issueLine(productName: string | undefined, issue: string): strin
 
 const ReviewRecord: React.FC = () => {
   const { reviewId } = useParams<{ reviewId: string }>()
+  const { user } = useAuth()
+  const refreshQueue = useOperatorQueueRefresh()
   const [detail, setDetail] = useState<OperatorReviewDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [deciding, setDeciding] = useState(false)
@@ -140,6 +145,11 @@ const ReviewRecord: React.FC = () => {
         detail.review.actionHash,
       )
       setExecution(outcome)
+      // Re-read both projections from their owners. The detail fetch hydrates
+      // the durable receipt; the shell fetch owns the queue count.
+      refreshQueue()
+      const fresh = await fetchReview(detail.review.reviewId)
+      setDetail(fresh)
     } catch (err: unknown) {
       setDecisionError(
         err instanceof OperatorApiError ? err.code : 'operator_unavailable',
@@ -162,6 +172,9 @@ const ReviewRecord: React.FC = () => {
       } else {
         await declineReview(detail.review.reviewId)
       }
+      // The decision endpoint has committed at this point. Invalidate the
+      // queue even if the following detail read is temporarily unavailable.
+      refreshQueue()
       // Re-read rather than patching local state: the decision's authoritative
       // shape, including the assurance axes, comes from the server.
       const fresh = await fetchReview(detail.review.reviewId)
@@ -246,6 +259,48 @@ const ReviewRecord: React.FC = () => {
   // One resolved set of axes for the whole page. This session's response if there is
   // one, otherwise the server's, which it resolves from the stored receipt.
   const axes = execution ? execution.assurance : review.assurance
+  const phase = deciding
+    ? ('recording_decision' as const)
+    : executing
+      ? ('executing' as const)
+      : undefined
+  const completed = Boolean(attempted) && axes.evidence === 'RECEIPTED'
+  const blocked = Boolean(attempted) && !completed
+  const actionState = deciding
+    ? 'recording'
+    : executing
+      ? 'executing'
+      : completed
+        ? 'completed'
+        : blocked
+          ? 'blocked'
+          : review.humanState
+  const actionStateLabel = deciding
+    ? 'Recording decision'
+    : executing
+      ? 'Evaluating'
+      : completed
+        ? 'Completed'
+        : blocked
+          ? 'Not applied'
+          : pending
+            ? 'Decision required'
+            : review.humanState === 'confirmed'
+              ? 'Ready to execute'
+              : 'Declined'
+  const decisionActor =
+    review.decidedBy && user?.sub === review.decidedBy
+      ? 'you'
+      : 'an authorized operator'
+  const decisionTime = review.decidedAt
+    ? new Date(review.decidedAt).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : null
 
   return (
     <div
@@ -294,16 +349,10 @@ const ReviewRecord: React.FC = () => {
         </div>
         <div
           className="operator-review-head-state"
-          data-state={review.humanState}
+          data-state={actionState}
         >
           <span className="operator-review-cell-label">Action state</span>
-          <span>
-            {pending
-              ? 'Decision required'
-              : review.humanState === 'confirmed'
-                ? 'Confirmed'
-                : 'Declined'}
-          </span>
+          <span>{actionStateLabel}</span>
         </div>
       </header>
 
@@ -471,6 +520,36 @@ const ReviewRecord: React.FC = () => {
         data-testid="operator-review-decision"
       >
         <h2 className="operator-card-title">Your decision</h2>
+        {deciding ? (
+          <p
+            className="operator-review-live-status"
+            data-state="active"
+            data-testid="operator-review-live-status"
+            role="status"
+          >
+            <LoaderCircle className="operator-review-live-icon" aria-hidden />
+            <span>
+              <strong>Recording your decision</strong>
+              PostgreSQL is persisting the decision before this page changes
+              state.
+            </span>
+          </p>
+        ) : executing ? (
+          <p
+            className="operator-review-live-status"
+            data-state="active"
+            data-testid="operator-review-live-status"
+            role="status"
+          >
+            <LoaderCircle className="operator-review-live-icon" aria-hidden />
+            <span>
+              <strong>Evaluating the governed action</strong>
+              The persisted action is entering its configured execution rail.
+              The returned receipt will show whether AgentCore Policy evaluated
+              it and whether Aurora was reached.
+            </span>
+          </p>
+        ) : null}
         {pending ? (
           <>
             <div className="operator-review-actions">
@@ -501,16 +580,51 @@ const ReviewRecord: React.FC = () => {
         ) : (
           <>
             <p
-              className="operator-review-issue-text"
+              className="operator-review-decision-summary"
               data-testid="operator-review-decided"
             >
-              {review.humanState === 'confirmed' ? 'Confirmed' : 'Declined'}
-              {review.decidedBy ? ` by ${review.decidedBy}` : ''}
-              {review.decidedAt
-                ? ` on ${new Date(review.decidedAt).toLocaleString('en-US')}`
-                : ''}
-              .
+              {review.humanState === 'confirmed' ? (
+                <CheckCircle2
+                  className="operator-review-decision-icon"
+                  aria-hidden
+                />
+              ) : (
+                <CircleX
+                  className="operator-review-decision-icon"
+                  aria-hidden
+                />
+              )}
+              <span>
+                <strong>
+                  {review.humanState === 'confirmed' ? 'Confirmed' : 'Declined'}{' '}
+                  by {decisionActor}
+                </strong>
+                {decisionTime ? <span>{decisionTime}</span> : null}
+              </span>
             </p>
+            {review.decidedBy || review.decidedAt ? (
+              <details className="operator-review-audit-identity">
+                <summary>Audit identity</summary>
+                <dl>
+                  {review.decidedBy ? (
+                    <div>
+                      <dt>Principal</dt>
+                      <dd className="operator-receipt-key">
+                        {review.decidedBy}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {review.decidedAt ? (
+                    <div>
+                      <dt>Recorded</dt>
+                      <dd className="operator-receipt-key">
+                        {review.decidedAt}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </details>
+            ) : null}
             {review.humanState === 'confirmed' && !attempted ? (
               <>
                 <div className="operator-review-actions">
@@ -543,6 +657,7 @@ const ReviewRecord: React.FC = () => {
                     for the calls that entered the tool. */}
                 {axes.policy === 'DENY' ? (
                   <>
+                    <strong>Action blocked.</strong>{' '}
                     Submitted on the{' '}
                     {attempted.rail === 'gateway-mcp'
                       ? 'managed Gateway rail'
@@ -551,6 +666,11 @@ const ReviewRecord: React.FC = () => {
                   </>
                 ) : (
                   <>
+                    <strong>
+                      {axes.evidence === 'RECEIPTED'
+                        ? 'Action completed.'
+                        : 'Action not applied.'}
+                    </strong>{' '}
                     Executed on the{' '}
                     {attempted.rail === 'gateway-mcp'
                       ? 'managed Gateway rail'
@@ -580,6 +700,7 @@ const ReviewRecord: React.FC = () => {
 
       <ActionAssurance
         assurance={axes}
+        phase={phase}
         /* The server's specific sentences — which policy matched, which client had
            no mapping — outrank the static ones, and they must survive a reload. The
            stored receipt carries the same two it returned. */

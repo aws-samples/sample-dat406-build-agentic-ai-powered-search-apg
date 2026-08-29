@@ -630,7 +630,8 @@ function AgentMessage({
        * their request was "prepared" — which reads as filed. The backend supplies the
        * wording and this renders it, so no paraphrase can lose the guarantee.
        *
-       * Products still render: unlike an escalation, the answer is not the handoff. */}
+       * Product lookups used to resolve the order are action plumbing, not a
+       * recommendation shelf, so pending-review turns do not merchandise them. */}
       {message.reviewPending && (
         <p
           className="ec-review-pending"
@@ -647,7 +648,7 @@ function AgentMessage({
        * both surface as full ProductArtifactCards. Keeps the chat's
        * visual register consistent across retrospective and
        * forward-looking turns. */}
-      {orderedProducts.length > 0 && (
+      {orderedProducts.length > 0 && !message.reviewPending && (
         <div className="ec-artifacts">
           {orderedProducts.map((product, pIdx) => (
             <motion.div

@@ -2659,10 +2659,10 @@ CURRENT REQUEST: {message}"""
         # is told only that their request was "prepared" reasonably believes it is
         # filed, and whether the second clause survived was measurably a coin flip.
         #
-        # Products are NOT suppressed here. Unlike an escalation, the answer is not the
-        # handoff: the shopper asked about a piece they own, and the replacement shelf
-        # beside the notice is useful rather than contradictory.
         if review_pending_payload is not None:
+            products_buffered = []
+            parsed["products"] = []
+            logger.info("Products suppressed - pending human review in turn")
             yield {
                 "type": "review_pending",
                 "reviewPending": {

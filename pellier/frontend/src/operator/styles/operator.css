@@ -188,6 +188,59 @@
   gap: 22px;
 }
 
+.operator-auth-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--op-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--op-muted);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.operator-auth-control:hover {
+  border-color: var(--op-accent);
+  color: var(--op-accent);
+}
+
+.operator-auth-signin {
+  border-color: var(--op-ink);
+  background: var(--op-ink);
+  color: var(--cream-elev);
+}
+
+.operator-auth-signin:hover {
+  border-color: var(--op-accent);
+  background: var(--op-accent);
+  color: var(--cream-elev);
+}
+
+.operator-auth-identity {
+  max-width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operator-auth-loading {
+  width: 76px;
+  cursor: default;
+  background: var(--op-paper-2);
+  animation: operator-auth-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes operator-auth-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
 .operator-shell {
   max-width: 1240px;
   margin: 0 auto;
@@ -668,6 +721,116 @@
   font-size: 11.5px;
   line-height: 1.4;
   color: var(--op-muted);
+}
+
+/* A live service request is the reason an advisor opened the record, so it
+   precedes the summary figures instead of hiding in the history table. This is
+   one full-width evidence band, not another card in the record grid. */
+.operator-service-request {
+  margin: 0 0 18px;
+  padding: 17px 18px 18px;
+  border-top: 1px solid var(--op-rule-strong);
+  border-bottom: 1px solid var(--op-rule-strong);
+  background: color-mix(in srgb, var(--op-warn) 5%, var(--op-paper));
+}
+
+.operator-service-request[data-conflict='true'] {
+  box-shadow: inset 3px 0 0 var(--op-warn);
+}
+
+.operator-service-request-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.operator-service-request-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-warn);
+}
+
+.operator-service-request-eyebrow svg,
+.operator-service-request-evidence dt svg,
+.operator-service-request-link svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+}
+
+.operator-service-request h2 {
+  max-width: 34ch;
+  margin: 11px 0 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--op-ink);
+  text-wrap: balance;
+}
+
+.operator-service-request-note {
+  max-width: 76ch;
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--op-ink-2);
+}
+
+.operator-service-request-evidence {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.75fr) minmax(0, 1.45fr);
+  gap: 1px;
+  margin: 16px 0 0;
+  border: 1px solid var(--op-rule);
+  background: var(--op-rule);
+}
+
+.operator-service-request-evidence > div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: var(--op-paper);
+}
+
+.operator-service-request-evidence dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-service-request-evidence dd {
+  margin: 5px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--op-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.operator-service-request-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  color: var(--op-accent);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.operator-service-request-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* --------------------------------------------------------- client record */
@@ -1438,6 +1601,19 @@
   color: var(--op-authority);
 }
 
+.operator-review-head-state[data-state='recording'],
+.operator-review-head-state[data-state='executing'] {
+  color: var(--op-warn);
+}
+
+.operator-review-head-state[data-state='completed'] {
+  color: var(--op-ok);
+}
+
+.operator-review-head-state[data-state='blocked'] {
+  color: var(--op-err);
+}
+
 .operator-review-standing {
   display: flex;
   align-items: center;
@@ -1466,6 +1642,135 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.operator-review-decision-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  color: var(--op-ink);
+}
+
+.operator-review-decision-summary > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.operator-review-decision-summary strong {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.operator-review-decision-summary span span {
+  font-size: 11.5px;
+  color: var(--op-muted);
+}
+
+.operator-review-decision-icon,
+.operator-review-live-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--op-authority);
+  stroke-width: 1.8;
+}
+
+.operator-review-audit-identity {
+  margin-top: 12px;
+  color: var(--op-muted);
+}
+
+.operator-review-audit-identity summary {
+  width: fit-content;
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--op-rule-strong);
+  text-underline-offset: 3px;
+}
+
+.operator-review-audit-identity dl {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--op-rule);
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-review-audit-identity dl > div {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.operator-review-audit-identity dt {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+  color: var(--op-faint);
+}
+
+.operator-review-audit-identity dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.operator-review-live-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 11px 12px;
+  background: color-mix(in srgb, var(--op-warn) 9%, var(--op-paper-2));
+  color: var(--op-ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.operator-review-live-status > span {
+  display: grid;
+  gap: 2px;
+}
+
+.operator-review-live-status strong {
+  color: var(--op-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.operator-review-live-status[data-state='active'] .operator-review-live-icon {
+  color: var(--op-warn);
+  animation: operator-status-spin 900ms linear infinite;
+}
+
+.operator-review-live-status[data-state='complete'] {
+  background: color-mix(in srgb, var(--op-ok) 9%, var(--op-paper-2));
+}
+
+.operator-review-live-status[data-state='complete'] .operator-review-live-icon {
+  color: var(--op-ok);
+}
+
+.operator-review-live-status[data-state='blocked'] {
+  background: color-mix(in srgb, var(--op-err) 8%, var(--op-paper-2));
+}
+
+.operator-review-live-status[data-state='blocked'] .operator-review-live-icon {
+  color: var(--op-err);
+}
+
+@keyframes operator-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* The storefront account arrives as reported context, never as authority. The
@@ -1690,6 +1995,7 @@
   background: var(--op-paper-2);
   padding: 13px 14px 14px;
   min-width: 0;
+  transition: background 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .operator-assurance-label {
@@ -1709,6 +2015,24 @@
   font-weight: 500;
   line-height: 1.35;
   color: var(--op-ink);
+}
+
+.operator-assurance-axis[data-live-state='active'] {
+  background: color-mix(in srgb, var(--op-warn) 9%, var(--op-paper-2));
+}
+
+.operator-assurance-live-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.operator-assurance-spinner {
+  width: 14px;
+  height: 14px;
+  color: var(--op-warn);
+  stroke-width: 1.8;
+  animation: operator-status-spin 900ms linear infinite;
 }
 
 /* A confirmed human axis is the only state that earns emphasis here. Nothing
@@ -1804,6 +2128,13 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .operator-review-live-status[data-state='active'] .operator-review-live-icon,
+  .operator-assurance-spinner {
+    animation: none;
+  }
+}
+
 @media (max-width: 720px) {
   /* Auto layout is kept on purpose. Fixed layout gave every column an equal
      share and broke product names into four lines; the wrapping cell note is
@@ -1811,6 +2142,10 @@
      proportions. */
   .operator-shell {
     padding: 22px 16px 44px;
+  }
+
+  .operator-service-request-evidence {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .operator-topbar {
@@ -1830,11 +2165,15 @@
   }
 
   .operator-topbar-end {
-    gap: 12px;
+    gap: 8px;
   }
 
   .operator-topbar-nav {
-    gap: 14px;
+    gap: 10px;
+  }
+
+  .operator-topbar .pellier-home-wordmark {
+    display: none;
   }
 
   .operator-topbar-label {

@@ -21,6 +21,7 @@ import importlib.util
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -190,6 +191,19 @@ def test_client_book_has_fifteen_customers():
     seeded = _seeded_memberships()
     book = {c for c in seeded if c.startswith("CUST-") and c != "CUST-FRESH"}
     assert len(book) == 15, f"expected 15 named customers, found {len(book)}: {sorted(book)}"
+
+
+def test_client_book_balances_five_customers_per_rung():
+    """The static seed must satisfy the same 5/5/5 contract as the live guard."""
+    seeded = _seeded_memberships()
+    counts = Counter(
+        rung
+        for customer_id, (rung, _spend) in seeded.items()
+        if customer_id.startswith("CUST-") and customer_id != "CUST-FRESH"
+    )
+    assert counts == Counter({rung: 5 for rung in RUNGS}), (
+        f"expected a 5/5/5 client book, found {dict(counts)}"
+    )
 
 
 # ---------------------------------------------------------------------------

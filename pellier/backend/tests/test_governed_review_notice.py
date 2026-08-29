@@ -183,18 +183,15 @@ def test_the_emission_falls_back_to_the_canonical_sentence() -> None:
     assert "or GOVERNED_REVIEW_PENDING" in stream
 
 
-def test_products_are_not_suppressed_for_a_pending_review() -> None:
-    """Unlike an escalation, the answer is not the handoff.
-
-    The shopper asked about a piece they own; a replacement shelf beside the notice is
-    useful. Suppressing it would be borrowing the escalation rule for a different case.
-    """
+def test_products_are_suppressed_for_a_pending_review() -> None:
+    """Order-resolution products are action plumbing, not recommendations."""
     import inspect
 
     stream = inspect.getsource(CHAT)
-    emission = stream[stream.index('"type": "review_pending"'):]
+    emission = stream[stream.index("if review_pending_payload is not None:"):]
     emission = emission[: emission.index("# Now send buffered products")]
-    assert "products_buffered = []" not in emission
+    assert "products_buffered = []" in emission
+    assert 'parsed["products"] = []' in emission
 
 
 def test_the_specialist_prompt_still_asks_for_the_sentence() -> None:

@@ -52,6 +52,11 @@ const RECORD = {
     orderValue: 540, lastOrderAt: null, note: 'Open return dispute.',
     personaId: null, openTicketCount: 1, creditBalanceCents: 4000,
     creditBalance: '40.00',
+    returnEvidence: {
+      authoritativeReturnCount: 0,
+      supportAssertsReturn: true,
+      unconfirmedReturnAssertion: true,
+    },
   },
   orders: [
     {
@@ -346,6 +351,22 @@ describe('ClientRecord', () => {
       'Refund disputed',
     )
     expect(screen.getByTestId('operator-credits')).toHaveTextContent('40.00')
+  })
+
+  it('promotes the live service request and keeps conflicting evidence separate', async () => {
+    renderRecord()
+
+    const request = await screen.findByTestId('operator-service-request')
+    expect(request).toHaveTextContent('Refund disputed')
+    expect(request).toHaveTextContent('Awaiting decision.')
+    expect(request).toHaveTextContent('0 authoritative rows')
+    expect(request).toHaveTextContent(
+      'Reconcile the assertion before promising an outcome.',
+    )
+    expect(request).toHaveAttribute('data-conflict', 'true')
+    expect(
+      screen.getByRole('link', { name: /Investigate with Operator Concierge/i }),
+    ).toHaveAttribute('href', '#operator-concierge-title')
   })
 
   it('offers every nonhero client a read-only storefront preview', async () => {

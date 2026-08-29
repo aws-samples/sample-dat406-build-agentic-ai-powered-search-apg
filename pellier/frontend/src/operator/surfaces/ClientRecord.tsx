@@ -8,6 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowDown, Database, MessageSquareText } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { MEMBERSHIP } from '../../data/membership'
 import {
@@ -227,7 +228,11 @@ const ClientRecord: React.FC = () => {
     )
   }
 
-  const { client, orders, tickets, credits } = record
+  const { client, orders, tickets, credits, returns } = record
+  const currentRequest = tickets.find(
+    (ticket) => ticket.status === 'open' || ticket.status === 'pending',
+  )
+  const returnEvidence = client.returnEvidence
 
   const membershipLabel = `${MEMBERSHIP[client.membership].label} \u00b7 ${
     MEMBERSHIP[client.membership].descriptor
@@ -299,6 +304,73 @@ const ClientRecord: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {currentRequest ? (
+        <section
+          className="operator-service-request"
+          data-conflict={
+            returnEvidence?.unconfirmedReturnAssertion ? 'true' : 'false'
+          }
+          data-testid="operator-service-request"
+          aria-labelledby="operator-service-request-title"
+        >
+          <div className="operator-service-request-head">
+            <span className="operator-service-request-eyebrow">
+              <MessageSquareText aria-hidden />
+              Current service request
+            </span>
+            <span
+              className="operator-status"
+              data-status={currentRequest.status}
+            >
+              {currentRequest.status}
+            </span>
+          </div>
+          <h2 id="operator-service-request-title">
+            {currentRequest.subject}
+          </h2>
+          <p className="operator-service-request-note">
+            {currentRequest.lastNote}
+          </p>
+          <dl className="operator-service-request-evidence">
+            <div>
+              <dt>Service context</dt>
+              <dd>
+                {currentRequest.channel} · {currentRequest.ticketId}
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <Database aria-hidden />
+                Returns ledger
+              </dt>
+              <dd>
+                {returnEvidence?.authoritativeReturnCount ?? returns.length}{' '}
+                authoritative{' '}
+                {(returnEvidence?.authoritativeReturnCount ??
+                  returns.length) === 1
+                  ? 'row'
+                  : 'rows'}
+              </dd>
+            </div>
+            <div>
+              <dt>Next step</dt>
+              <dd>
+                {returnEvidence?.unconfirmedReturnAssertion
+                  ? 'Reconcile the assertion before promising an outcome.'
+                  : 'Investigate the request against current records.'}
+              </dd>
+            </div>
+          </dl>
+          <a
+            href="#operator-concierge-title"
+            className="operator-service-request-link"
+          >
+            Investigate with Operator Concierge
+            <ArrowDown aria-hidden />
+          </a>
+        </section>
+      ) : null}
 
       {/* Four figures an advisor needs before speaking. */}
       <div className="operator-quad" data-testid="operator-quad">

@@ -21,6 +21,21 @@ test.describe('Operator client storefront handoff', () => {
     })
   })
 
+  test('the live client book stays balanced across all three membership rungs', async ({
+    page,
+  }) => {
+    await page.goto(`${BASE_URL}/operator`, { waitUntil: 'networkidle' })
+    await expect(page.getByTestId('operator-book')).toBeVisible()
+
+    for (const rung of ['registered', 'circle', 'maison']) {
+      await expect(
+        page
+          .getByTestId(`operator-ladder-${rung}`)
+          .locator('.operator-ladder-count'),
+      ).toHaveText('5')
+    }
+  })
+
   test('Jessica stays a read-only client preview and exposes the evidence conflict', async ({
     page,
   }) => {
@@ -29,6 +44,14 @@ test.describe('Operator client storefront handoff', () => {
       { waitUntil: 'networkidle' },
     )
     await expect(page.getByTestId('operator-record')).toBeVisible()
+    const request = page.getByTestId('operator-service-request')
+    await expect(request).toContainText(
+      'Return received, refund amount disputed',
+    )
+    await expect(request).toContainText('0 authoritative rows')
+    await expect(request).toContainText(
+      'Reconcile the assertion before promising an outcome.',
+    )
 
     await page.getByTestId('operator-storefront-handoff').click()
     await expect(page).toHaveURL(/\/\?clientPreview=CUST-JESSICA$/)

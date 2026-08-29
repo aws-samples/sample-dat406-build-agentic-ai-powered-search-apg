@@ -82,4 +82,26 @@ describe('the review-pending notice', () => {
       screen.getByText(/prepared the damaged-return request/),
     ).toBeTruthy()
   })
+
+  it('does not merchandise the product used to resolve the return', () => {
+    renderBody([
+      message({
+        reviewPending: { tool: 'initiate_return', message: NOTICE },
+        products: [
+          {
+            id: 37,
+            name: 'Wabi-Sabi Bowl',
+            category: 'Home Decor',
+            price: 65,
+            image: '',
+            rating: 4.9,
+            reviews: 167,
+          },
+        ],
+      }),
+    ])
+
+    expect(screen.queryByText('Pulled for you')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add to bag' })).toBeNull()
+  })
 })

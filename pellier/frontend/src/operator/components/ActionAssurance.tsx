@@ -20,6 +20,7 @@
  * States are carried by a label and a data attribute, never by colour alone.
  */
 
+import { LoaderCircle } from 'lucide-react'
 import React from 'react'
 import type { ActionAssurance as Assurance } from '../../services/operator'
 
@@ -91,28 +92,73 @@ interface Props {
    * generic sentence here would be less true than the specific one it sends.
    */
   notes?: Partial<Record<keyof Assurance, string>>
+  /** A real in-flight request boundary, never a simulated progression. */
+  phase?: 'recording_decision' | 'executing'
 }
 
-const ActionAssurance: React.FC<Props> = ({ assurance, caption, notes }) => (
+const LIVE_STATES: Record<
+  NonNullable<Props['phase']>,
+  Partial<Record<keyof Assurance, { label: string; note: string }>>
+> = {
+  recording_decision: {
+    human: {
+      label: 'Recording decision',
+      note: 'PostgreSQL is persisting the operator decision.',
+    },
+  },
+  executing: {
+    policy: {
+      label: 'Resolving rail',
+      note: 'The response will state whether AgentCore Policy evaluated the action.',
+    },
+    aurora: {
+      label: 'Waiting on rail',
+      note: 'Aurora is reached only if the configured execution rail enters the tool.',
+    },
+    evidence: {
+      label: 'Awaiting result',
+      note: 'The attempt is incomplete until its durable receipt can be read.',
+    },
+  },
+}
+
+const ActionAssurance: React.FC<Props> = ({
+  assurance,
+  caption,
+  notes,
+  phase,
+}) => (
   <section className="operator-assurance" data-testid="operator-assurance">
     <h2 className="operator-card-title">Action assurance</h2>
     {caption ? <p className="operator-assurance-caption">{caption}</p> : null}
     <dl className="operator-assurance-grid">
       {AXES.map(({ key, label }) => {
         const state = assurance[key]
+        const live = phase ? LIVE_STATES[phase][key] : undefined
         return (
           <div
             className="operator-assurance-axis"
             key={key}
             data-axis={key}
             data-state={state}
+            data-live-state={live ? 'active' : undefined}
             data-testid={`operator-assurance-${key}`}
           >
             <dt className="operator-assurance-label">{label}</dt>
             <dd className="operator-assurance-state">
-              {STATE_LABELS[state] ?? state}
+              {live ? (
+                <span className="operator-assurance-live-label">
+                  <LoaderCircle
+                    className="operator-assurance-spinner"
+                    aria-hidden
+                  />
+                  {live.label}
+                </span>
+              ) : (
+                STATE_LABELS[state] ?? state
+              )}
               <span className="operator-assurance-note">
-                {notes?.[key] ?? AXIS_NOTES[key][state] ?? ''}
+                {live?.note ?? notes?.[key] ?? AXIS_NOTES[key][state] ?? ''}
               </span>
             </dd>
           </div>

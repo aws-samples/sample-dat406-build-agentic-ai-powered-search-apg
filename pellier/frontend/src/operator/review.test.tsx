@@ -16,6 +16,28 @@ import ReviewRecord, { issueLine } from './surfaces/ReviewRecord'
 import ActionAssurance from './components/ActionAssurance'
 import OperatorFrame from './shell/OperatorFrame'
 
+const authMock = vi.hoisted(() => ({
+  login: vi.fn(),
+  logout: vi.fn(),
+  user: null as null | { sub: string; email: string; givenName?: string },
+  isAuthenticated: false,
+}))
+
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: authMock.user,
+    isAuthenticated: authMock.isAuthenticated,
+    loading: false,
+    login: authMock.login,
+    logout: authMock.logout,
+  }),
+}))
+
+beforeEach(() => {
+  authMock.user = null
+  authMock.isAuthenticated = false
+})
+
 const THEO_HASH = 'a'.repeat(64)
 const THEO_HANDOFF = {
   schemaVersion: '1',
@@ -132,20 +154,25 @@ const REVIEW_DETAIL = {
   ],
 }
 
-function mockFetch(handler: (url: string, init?: RequestInit) => unknown) {
+type MockFetchResult = { status?: number; body?: unknown } | undefined
+
+function mockFetch(
+  handler: (
+    url: string,
+    init?: RequestInit,
+  ) => MockFetchResult | Promise<MockFetchResult>,
+) {
   vi.stubGlobal(
     'fetch',
-    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      const result = handler(url, init) as
-        | { status?: number; body?: unknown }
-        | undefined
+      const result = await handler(url, init)
       const status = result?.status ?? 200
-      return Promise.resolve({
+      return {
         ok: status >= 200 && status < 300,
         status,
         json: () => Promise.resolve(result?.body ?? {}),
-      } as Response)
+      } as Response
     }),
   )
 }
@@ -271,6 +298,20 @@ describe('ReviewQueue', () => {
 })
 
 describe('OperatorFrame review link', () => {
+  it('offers sign-in from the operator shell', async () => {
+    mockFetch(() => ({ body: { reviews: [], total: 0, pendingCount: 0 } }))
+    render(
+      <MemoryRouter initialEntries={['/operator']}>
+        <Routes>
+          <Route path="/operator" element={<OperatorFrame />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByTestId('operator-sign-in'))
+    expect(authMock.login).toHaveBeenCalledOnce()
+  })
+
   it('shows a pending count only when there is work waiting', async () => {
     mockFetch(() => ({ body: { reviews: [], total: 1, pendingCount: 3 } }))
     render(
@@ -316,6 +357,70 @@ describe('OperatorFrame review link', () => {
     expect(badge).toHaveAccessibleDescription(
       /could not be read/i,
     )
+  })
+
+  it('refreshes the waiting count after a nested review is confirmed', async () => {
+    let confirmed = false
+    const confirmedDetail = {
+      ...REVIEW_DETAIL,
+      review: {
+        ...PENDING_REVIEW,
+        status: 'approved' as const,
+        humanState: 'confirmed' as const,
+        decidedBy: 'operator-1',
+        decidedAt: '2026-08-26T12:00:00Z',
+        assurance: {
+          human: 'CONFIRMED' as const,
+          policy: 'PENDING' as const,
+          aurora: 'NOT_EVALUATED' as const,
+          evidence: 'PENDING' as const,
+        },
+      },
+    }
+    mockFetch((url, init) => {
+      if (init?.method === 'POST' && String(url).endsWith('/confirm')) {
+        confirmed = true
+        return {
+          body: {
+            reviewId: 12,
+            status: 'approved',
+            humanState: 'confirmed',
+            decidedBy: 'operator-1',
+            decidedAt: '2026-08-26T12:00:00Z',
+            assurance: confirmedDetail.review.assurance,
+          },
+        }
+      }
+      if (String(url) === '/api/operator/reviews') {
+        return {
+          body: {
+            reviews: confirmed ? [confirmedDetail.review] : [PENDING_REVIEW],
+            total: 1,
+            pendingCount: confirmed ? 0 : 1,
+          },
+        }
+      }
+      return { body: confirmed ? confirmedDetail : REVIEW_DETAIL }
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/operator/reviews/12']}>
+        <Routes>
+          <Route path="/operator" element={<OperatorFrame />}>
+            <Route path="reviews/:reviewId" element={<ReviewRecord />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByTestId('operator-reviews-count'),
+    ).toHaveTextContent('1')
+    fireEvent.click(await screen.findByTestId('operator-review-confirm'))
+    await waitFor(() =>
+      expect(screen.getByTestId('operator-reviews-count')).toHaveTextContent('0'),
+    )
+    expect(screen.getByTestId('operator-reviews-count')).toHaveAttribute('data-count', 'clear')
   })
 })
 
@@ -489,6 +594,11 @@ describe('ReviewRecord', () => {
       }
       return { body: posted ? confirmed : REVIEW_DETAIL }
     })
+    authMock.user = {
+      sub: 'operator-1',
+      email: 'operator@pellier.example.com',
+    }
+    authMock.isAuthenticated = true
     renderRecord()
     await screen.findByTestId('operator-review-record')
     fireEvent.click(screen.getByTestId('operator-review-confirm'))
@@ -512,9 +622,11 @@ describe('ReviewRecord', () => {
       'PENDING',
     )
     // And the decision is reported as recorded, not as executed.
-    expect(screen.getByTestId('operator-review-decided').textContent).toContain(
-      'Confirmed by operator-1',
-    )
+    const decision = screen.getByTestId('operator-review-decided')
+    expect(decision).toHaveTextContent('Confirmed by you')
+    expect(decision).not.toHaveTextContent('operator-1')
+    expect(screen.getByText('Audit identity')).toBeInTheDocument()
+    expect(screen.getByText('operator-1')).toBeInTheDocument()
   })
 
   it('returns the decision to a person when the parameters changed', async () => {
@@ -793,6 +905,108 @@ describe('ReviewRecord execution', () => {
     }
   })
 
+  it('shows real in-flight policy and database states while execution is pending', async () => {
+    let finishExecution: (() => void) | undefined
+    const executionResult = {
+      reviewId: 12,
+      rail: 'gateway-mcp',
+      executionTurnId: 'turn-' + 'b'.repeat(32),
+      idempotencyKey: 'k',
+      actorPrincipal: 'op-1',
+      customerSubject: 'sub-theo',
+      tool: 'initiate_return',
+      result: { status: 'success' },
+      notes: {},
+      assurance: {
+        human: 'CONFIRMED',
+        policy: 'ALLOW',
+        aurora: 'PERMITTED',
+        evidence: 'RECEIPTED',
+      },
+    }
+    mockFetch((url, init) => {
+      if (init?.method === 'POST' && String(url).endsWith('/execute')) {
+        return new Promise((resolve) => {
+          finishExecution = () => resolve({ body: executionResult })
+        })
+      }
+      return { body: CONFIRMED_DETAIL }
+    })
+    renderRecord()
+    fireEvent.click(await screen.findByTestId('operator-review-execute'))
+
+    expect(screen.getByTestId('operator-review-live-status')).toHaveTextContent(
+      'Evaluating the governed action',
+    )
+    expect(screen.getByTestId('operator-assurance-policy')).toHaveTextContent('Resolving rail')
+    expect(screen.getByTestId('operator-assurance-aurora')).toHaveTextContent('Waiting on rail')
+    expect(screen.getByTestId('operator-assurance-evidence')).toHaveTextContent('Awaiting result')
+
+    finishExecution?.()
+    await waitFor(() =>
+      expect(screen.getByTestId('operator-review-execution')).toHaveTextContent('Action completed'),
+    )
+  })
+
+  it('hydrates the durable execution receipt without a page reload', async () => {
+    let executed = false
+    const receipt = {
+      receiptId: 9,
+      producedReturnId: 44,
+      executionTurnId: 'turn-' + 'c'.repeat(32),
+      tool: 'initiate_return',
+      gatewayActionId: 'pellier-target___initiate_return',
+      rail: 'gateway-mcp' as const,
+      actorPrincipal: 'operator-1',
+      customerSubject: 'sub-theo',
+      policyEngineId: 'pellier-policy',
+      gatewayMode: 'ENFORCE',
+      matchingForbids: [],
+      idempotencyKey: 'operator-review:12:abc',
+      notes: {},
+      recordedAt: '2026-08-27T13:59:08Z',
+    }
+    const executedDetail = {
+      ...CONFIRMED_DETAIL,
+      review: {
+        ...CONFIRMED_DETAIL.review,
+        executionTurnId: receipt.executionTurnId,
+        execution: receipt,
+        assurance: {
+          human: 'CONFIRMED' as const,
+          policy: 'ALLOW' as const,
+          aurora: 'PERMITTED' as const,
+          evidence: 'RECEIPTED' as const,
+        },
+      },
+    }
+    mockFetch((url, init) => {
+      if (init?.method === 'POST' && String(url).endsWith('/execute')) {
+        executed = true
+        return {
+          body: {
+            reviewId: 12,
+            rail: receipt.rail,
+            executionTurnId: receipt.executionTurnId,
+            idempotencyKey: receipt.idempotencyKey,
+            actorPrincipal: receipt.actorPrincipal,
+            customerSubject: receipt.customerSubject,
+            tool: receipt.tool,
+            result: { status: 'success', return_id: 44 },
+            notes: {},
+            assurance: executedDetail.review.assurance,
+          },
+        }
+      }
+      return { body: executed ? executedDetail : CONFIRMED_DETAIL }
+    })
+    renderRecord()
+    fireEvent.click(await screen.findByTestId('operator-review-execute'))
+
+    expect(await screen.findByTestId('operator-review-receipt')).toHaveTextContent('pellier-policy')
+    expect(screen.getByTestId('operator-review-client')).toHaveTextContent('Completed')
+  })
+
   it('renders the allowed outcome from the execution, not from the confirmation', async () => {
     mockFetch((url, init) => {
       if (init?.method === 'POST' && String(url).endsWith('/execute')) {
@@ -902,8 +1116,7 @@ describe('ReviewRecord execution', () => {
       ),
     )
     expect(screen.getByTestId('operator-assurance-aurora')).toHaveAttribute(
-      'data-state',
-      'DENIED',
+      'data-state', 'DENIED',
     )
     const text = container.textContent ?? ''
     expect(text).toContain('observed, not enforced')
@@ -1188,7 +1401,8 @@ describe('a stored execution receipt', () => {
       'data-state', 'ALLOW',
     )
     expect(screen.getByTestId('operator-assurance-aurora')).toHaveAttribute(
-      'data-state', 'DENIED',
+      'data-state',
+      'DENIED',
     )
     expect(screen.getByTestId('operator-assurance-evidence')).toHaveAttribute(
       'data-state', 'ATTEMPT_RECEIPT',
