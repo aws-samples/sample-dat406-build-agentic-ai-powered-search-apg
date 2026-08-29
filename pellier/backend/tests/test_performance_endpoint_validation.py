@@ -21,6 +21,7 @@ Runnable from the repo root per ``pytest.ini``:
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Dict, List
 
 import pytest
@@ -44,6 +45,14 @@ from services.index_performance import (
 # The exact payload from the audit write-up. If any gate regresses, this string
 # reaches a `SET` statement and the trailing DROP executes.
 INJECTION_PAYLOAD = "40; DROP TABLE pellier.tool_audit"
+
+
+def test_performance_service_reuses_the_canonical_database_url() -> None:
+    """Benchmark queries must not discard TLS or tunnel options from the DSN."""
+    source = inspect.getsource(app_module.lifespan)
+    assert "get_index_performance_service(" in source
+    assert "settings.database_url" in source
+    assert 'conn_string = f"host=' not in source
 
 
 # ---------------------------------------------------------------------------

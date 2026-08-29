@@ -353,9 +353,11 @@ async def lifespan(app: FastAPI):
         query_logger = init_query_logger(max_logs=100)
         logger.info("✅ SQL query logger initialized")
 
-        # Initialize index performance service
-        conn_string = f"host={settings.DB_HOST} port={settings.DB_PORT} dbname={settings.DB_NAME} user={settings.DB_USER} password={settings.DB_PASSWORD}"
-        index_performance_service = get_index_performance_service(conn_string)
+        # Reuse the canonical DSN so TLS, tunnels, and other libpq options apply
+        # to benchmark queries exactly as they do to the application pool.
+        index_performance_service = get_index_performance_service(
+            settings.database_url
+        )
         logger.info("✅ Index performance service initialized")
 
         # Set chat service logger to INFO
