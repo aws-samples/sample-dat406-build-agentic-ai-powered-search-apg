@@ -624,6 +624,69 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(screen.getByText('Dispatcher / Recommendation')).toBeInTheDocument();
   });
 
+  it('does not present a failed memory read as an empty history', async () => {
+    mocks.sendChatMessageStreaming.mockImplementation(
+      async (
+        _query: string,
+        _history: unknown[],
+        onUpdate: (event: unknown) => void,
+      ) => {
+        onUpdate({
+          type: 'agentcore_memory',
+          memory: {
+            source: 'agentcore-memory',
+            turns_loaded: 0,
+            turns_persisted: 2,
+            read_status: 'failed',
+            write_status: 'succeeded',
+            retry_recommended: true,
+            error_code: 'memory_read_failed',
+          },
+        });
+        onUpdate({
+          type: 'complete',
+          response: {
+            response: 'The action completed without prior memory context.',
+            products: [],
+            rail: 'in-process',
+          },
+        });
+        return {
+          response: 'The action completed without prior memory context.',
+          products: [],
+          suggestions: [],
+        };
+      },
+    );
+
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    const trace = () => within(tracePanel(container));
+    await waitFor(() =>
+      expect(
+        trace().getByText(
+          'Prior managed-memory context was unavailable; this action ran without it',
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(trace().getByText(/prior context unavailable/)).toBeInTheDocument();
+    expect(
+      tracePanel(container).querySelector(
+        '[data-kind="memory"][data-status="unavailable"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      trace().queryByText('0 prior turns read; 2 new turns persisted'),
+    ).not.toBeInTheDocument();
+  });
+
   it('promotes the first named product above its curated pairings', async () => {
     mocks.sendChatMessageStreaming.mockImplementation(
       async (

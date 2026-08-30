@@ -73,7 +73,7 @@ const proofBoardPayload = {
       evidence: ['Latest check_inventory row: audit_id 101'],
       fallback: {
         label: 'Terminal fallback',
-        command: 'curl -s http://localhost:8000/api/agent/chat',
+        command: 'curl -sN http://localhost:8000/api/chat/stream',
       },
       links: [{ label: 'Tools', to: '/observatory/tools' }],
     },
@@ -124,7 +124,7 @@ const proofBoardPayload = {
       ],
       fallback: {
         label: 'Terminal fallback',
-        command: 'curl -N http://localhost:8000/api/agent/chat',
+        command: 'curl -sN http://localhost:8000/api/chat/stream',
       },
       links: [{ label: 'Sessions', to: '/observatory/sessions' }],
     },
@@ -286,7 +286,7 @@ describe('ProofBoard', () => {
     expect(screen.getAllByText('01 GROUND THE ANSWER — Live Data and Evidence')).toHaveLength(2);
     expect(screen.getAllByText('03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
-    expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
+    expect(screen.getAllByText('curl -sN http://localhost:8000/api/chat/stream')).toHaveLength(2);
   });
 
   it('keeps the governed path compact until a participant selects a stage', async () => {

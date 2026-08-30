@@ -646,23 +646,28 @@ export default function ObservatoryWorkbench() {
     const memory = event.memory ?? {};
     const loaded = memory.turns_loaded ?? 0;
     const persisted = memory.turns_persisted ?? 0;
+    const readFailed = memory.read_status === 'failed';
     const writeFailed = memory.write_status === 'failed';
+    const memoryFailed = readFailed || writeFailed;
     setSteps((current) => [
       ...current,
       {
         id: `agentcore-memory-${eventSequenceRef.current++}`,
         kind: 'memory',
         title: 'AgentCore Memory',
-        detail: writeFailed
+        detail: readFailed
+          ? 'Prior managed-memory context was unavailable; this action ran without it'
+          : writeFailed
           ? `${loaded} prior ${loaded === 1 ? 'turn' : 'turns'} read; the completed action was not appended`
           : `${loaded} prior ${loaded === 1 ? 'turn' : 'turns'} read; ${persisted} new turns persisted`,
         status:
-          memory.source === 'agentcore-memory' && !writeFailed
+          memory.source === 'agentcore-memory' && !memoryFailed
             ? 'completed'
             : 'unavailable',
         meta: [
           memory.source,
           memory.namespace_scope,
+          readFailed ? 'prior context unavailable' : '',
           writeFailed ? 'do not repeat the action' : '',
         ]
           .filter(Boolean)

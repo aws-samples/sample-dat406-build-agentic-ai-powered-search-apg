@@ -55,6 +55,10 @@ MEMORY_WRITE_WARNING = (
     "The action completed, but this turn was not added to managed memory. "
     "Do not repeat the action."
 )
+MEMORY_READ_WARNING = (
+    "The action completed, but prior managed-memory context could not be read. "
+    "Review the result before relying on earlier turns."
+)
 
 # What the shopper is told when a request is prepared but not carried out.
 #

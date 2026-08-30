@@ -334,6 +334,37 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert "initiate_return" in cards["audit-ledger"]["fallback"]["command"]
 
 
+def test_proof_board_fallbacks_use_the_authenticated_storefront_stream(
+    monkeypatch,
+) -> None:
+    """A fallback must write the principal-scoped receipt that its card reads.
+
+    ``/api/agent/chat`` returns a valid answer, but its in-process branch does
+    not feed the storefront's audit/turn-receipt lifecycle. The Proof Board
+    joins audit rows through that authenticated receipt, so documenting that
+    endpoint leaves a participant with a correct answer and a permanent
+    ``needs_run`` card.
+    """
+    _configure_managed(monkeypatch)
+    monkeypatch.setattr(
+        observatory,
+        "_check_inventory_is_workshop_stub",
+        lambda: False,
+    )
+    client = _client(_ProofDB())
+
+    response = client.get("/api/observatory/proof-board?session_id=managed-proof")
+    assert response.status_code == 200
+    cards = {card["id"]: card for card in response.json()["cards"]}
+
+    for card_id in ("marco-floor-check", "managed-rail"):
+        command = cards[card_id]["fallback"]["command"]
+        assert "/api/chat/stream" in command
+        assert "/api/agent/chat" not in command
+        assert "Authorization: Bearer $ACCESS_TOKEN" in command
+        assert '"conversation_history":[]' in command
+
+
 def test_proof_board_requires_a_verified_identity() -> None:
     import app as app_module
 

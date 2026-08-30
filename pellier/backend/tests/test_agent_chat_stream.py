@@ -649,6 +649,67 @@ def test_managed_memory_read_failure_stops_before_runtime(
     assert events[-1]["data"]["code"] == "managed_memory_unavailable"
 
 
+def test_unexpected_memory_read_failure_is_receipted_as_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A recoverable read outage is not an empty memory history.
+
+    The route may still complete the action, but Lab 3 needs the receipt to
+    say that prior turns were unavailable rather than presenting zero loaded
+    turns as a successful read.
+    """
+    class _Memory:
+        async def get_session_history(self, _namespace):
+            raise RuntimeError("transport interrupted")
+
+        async def append_session_turns(self, _namespace, _turns):
+            return None
+
+    async def _runtime(**_kwargs):
+        return "Response completed without prior memory context"
+
+    import routes.agent as agent_module
+
+    monkeypatch.setattr(agent_module, "run_agent", _runtime)
+    context = UserContext(
+        user_id="marco",
+        session_id="proof",
+        namespace="user-marco-session-proof",
+        access_token="token",
+    )
+
+    async def _collect():
+        return [
+            event
+            async for event in _stream_agent_response(
+                message="Remember Goa.",
+                context=context,
+                memory=_Memory(),
+            )
+        ]
+
+    events = _parse_sse("".join(asyncio.run(_collect())))
+    assert [event["event"] for event in events] == [
+        "session",
+        "memory",
+        "chunk",
+        "done",
+    ]
+    assert events[1]["data"] == {
+        "source": "agentcore-memory",
+        "turns_loaded": 0,
+        "turns_persisted": 2,
+        "read_status": "failed",
+        "write_status": "succeeded",
+        "action_status": "completed",
+        "retry_recommended": True,
+        "error_code": "memory_read_failed",
+    }
+    assert events[2]["data"]["content"] == (
+        "Response completed without prior memory context"
+    )
+
+
 def test_managed_memory_write_failure_preserves_completed_action(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

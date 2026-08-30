@@ -240,11 +240,7 @@ jobs:
         if: steps.e2e_config.outputs.configured == 'true'
         working-directory: pellier/frontend
         run: |
-          npx playwright test \
-            ../../tests/e2e/auth-happy-path.spec.ts \
-            ../../tests/e2e/auth-refresh.spec.ts \
-            ../../tests/e2e/auth-refresh-fail.spec.ts \
-            ../../tests/e2e/anon-to-auth.spec.ts
+          npx playwright test e2e/cognito
 
       # Teardown runs even on failure so the dev pool stays tidy. A missing
       # user is treated as success by the script.

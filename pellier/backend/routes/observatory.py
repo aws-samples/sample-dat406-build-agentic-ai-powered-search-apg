@@ -959,9 +959,10 @@ async def _collect_proof_board(
             "fallback": {
                 "label": "Terminal fallback",
                 "command": (
-                    "curl -s http://localhost:8000/api/agent/chat "
+                    "curl -sN http://localhost:8000/api/chat/stream "
                     "-H 'Content-Type: application/json' "
-                    "-d '{\"message\":\"Marco needs the floor count for the Kyoto Linen Overshirt in cedar, size M\",\"session_id\":\"marco-proof\"}'"
+                    "-H \"Authorization: Bearer $ACCESS_TOKEN\" "
+                    "-d '{\"message\":\"Marco needs the floor count for the Kyoto Linen Overshirt in cedar, size M\",\"conversation_history\":[],\"session_id\":\"marco-proof\"}'"
                 ),
             },
             "links": [
@@ -1131,10 +1132,10 @@ async def _collect_proof_board(
             "fallback": {
                 "label": "Terminal fallback",
                 "command": (
-                    "curl -N http://localhost:8000/api/agent/chat "
+                    "curl -sN http://localhost:8000/api/chat/stream "
                     "-H 'Content-Type: application/json' "
                     "-H \"Authorization: Bearer $ACCESS_TOKEN\" "
-                    "-d '{\"message\":\"Check floor inventory for BK-01\",\"session_id\":\"managed-proof\"}'"
+                    "-d '{\"message\":\"Check floor inventory for BK-01\",\"conversation_history\":[],\"session_id\":\"managed-proof\"}'"
                 ),
             },
             "links": [

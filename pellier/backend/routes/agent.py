@@ -66,7 +66,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from pellier_copy import MEMORY_WRITE_WARNING
+from pellier_copy import MEMORY_READ_WARNING, MEMORY_WRITE_WARNING
 from services.agentcore_identity import (
     AgentCoreIdentityService,
     UserContext,
@@ -167,6 +167,7 @@ async def _stream_agent_response(
     # handler stays single-path. Any exception raised by the
     # orchestrator is caught and surfaced as an ``error`` event — we
     # never leak a stack trace to the client (Req 3.1.5 style envelope).
+    memory_read_failed = False
     try:
         history = await memory.get_session_history(context.namespace)
     except ManagedMemoryError as exc:
@@ -183,6 +184,7 @@ async def _stream_agent_response(
             exc.__class__.__name__,
         )
         history = []
+        memory_read_failed = True
 
     try:
         response_text = await run_agent(
@@ -215,11 +217,13 @@ async def _stream_agent_response(
         "source": "agentcore-memory",
         "turns_loaded": len(history),
         "turns_persisted": 0,
-        "read_status": "succeeded",
+        "read_status": "failed" if memory_read_failed else "succeeded",
         "write_status": "pending",
         "action_status": "completed",
-        "retry_recommended": False,
+        "retry_recommended": memory_read_failed,
     }
+    if memory_read_failed:
+        memory_receipt["error_code"] = "memory_read_failed"
     try:
         await memory.append_session_turns(
             context.namespace,
@@ -274,17 +278,30 @@ async def _stream_agent_response(
             "turn_id": turn_id,
             "trace": trace,
             "memory": memory_receipt,
-            "warnings": (
-                [
-                    {
-                        "code": memory_receipt.get("error_code"),
-                        "message": MEMORY_WRITE_WARNING,
-                        "retry_recommended": False,
-                    }
-                ]
-                if memory_receipt["write_status"] == "failed"
-                else []
-            ),
+            "warnings": [
+                *(
+                    [
+                        {
+                            "code": "memory_read_failed",
+                            "message": MEMORY_READ_WARNING,
+                            "retry_recommended": True,
+                        }
+                    ]
+                    if memory_receipt["read_status"] == "failed"
+                    else []
+                ),
+                *(
+                    [
+                        {
+                            "code": memory_receipt.get("error_code"),
+                            "message": MEMORY_WRITE_WARNING,
+                            "retry_recommended": False,
+                        }
+                    ]
+                    if memory_receipt["write_status"] == "failed"
+                    else []
+                ),
+            ],
         },
     )
 

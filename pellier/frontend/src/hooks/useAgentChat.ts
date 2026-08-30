@@ -742,14 +742,18 @@ export function useAgentChat(
               if (memory.source === 'agentcore-memory') {
                 const loaded = Number(memory.turns_loaded || 0)
                 const persisted = Number(memory.turns_persisted || 0)
+                const readFailed = memory.read_status === 'failed'
+                const writeFailed = memory.write_status === 'failed'
                 updateSourceActivity({
                   source: 'AgentCore Memory',
                   details: [
-                    `${loaded} prior turns loaded · ` +
-                      (persisted > 0 ? 'continuity saved' : 'write unavailable'),
+                    readFailed
+                      ? 'prior context unavailable · response completed without it'
+                      : `${loaded} prior turns loaded · ` +
+                        (persisted > 0 ? 'continuity saved' : 'write unavailable'),
                   ],
                   status:
-                    memory.write_status === 'failed' ? 'unavailable' : 'complete',
+                    readFailed || writeFailed ? 'unavailable' : 'complete',
                 })
               }
             } else if (data.type === 'escalation') {
