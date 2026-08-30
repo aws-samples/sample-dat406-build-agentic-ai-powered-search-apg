@@ -1665,7 +1665,7 @@ export default function ObservatoryWorkbench() {
                 }
                 data-empty={agentResponse ? undefined : 'true'}
               >
-                <div>
+                <div className="observatory-agent-response-label">
                   {products.length ? (
                     <Sparkles size={14} aria-hidden="true" />
                   ) : (

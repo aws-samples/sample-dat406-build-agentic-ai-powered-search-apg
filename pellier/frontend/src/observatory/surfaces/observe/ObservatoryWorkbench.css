@@ -1208,7 +1208,7 @@
   content: '';
 }
 
-.observatory-agent-response > div {
+.observatory-agent-response-label {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1239,6 +1239,7 @@
   font-weight: 400;
   letter-spacing: -0.008em;
   line-height: 1.52;
+  text-transform: none;
   white-space: pre-wrap;
 }
 

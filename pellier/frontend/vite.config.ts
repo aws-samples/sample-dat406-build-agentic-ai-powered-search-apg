@@ -56,7 +56,11 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: backendTarget,
-        changeOrigin: true,
+        // Preserve the browser host for OAuth. The backend converges
+        // 127.0.0.1 → localhost before it creates PKCE cookies; changing the
+        // proxied Host to :8002 made the canonical redirect point back at
+        // Vite forever instead of continuing to Cognito.
+        changeOrigin: false,
       },
       [transcribeWsProxyPrefix]: {
         target: backendTarget,

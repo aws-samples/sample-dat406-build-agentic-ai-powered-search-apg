@@ -350,6 +350,12 @@ describe('Pellier Observatory live agent workbench', () => {
 
     const answer = container.querySelector('.observatory-agent-response');
     expect(answer).not.toBeNull();
+    expect(
+      answer?.querySelector('.observatory-agent-response-label'),
+    ).toHaveTextContent('Recommended result');
+    expect(
+      answer?.querySelector('.observatory-agent-prose'),
+    ).not.toHaveClass('observatory-agent-response-label');
     expect(answer?.querySelectorAll('strong')).toHaveLength(2);
     expect(answer).toHaveTextContent('Merino Travel Socks');
     expect(answer).toHaveTextContent('Leather Journal');
