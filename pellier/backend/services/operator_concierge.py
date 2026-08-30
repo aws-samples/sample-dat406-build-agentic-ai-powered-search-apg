@@ -18,7 +18,10 @@ places for the FACT/CONTEXT discipline to rot. Which one runs is derived from th
 request text by `classify_workflow`, so a suggestion chip and an equivalent typed
 question reach the same code.
 
-Every workflow here is a READ. Nothing proposes or performs a business action.
+Every model workflow here is a READ. A separate deterministic context stage may
+prepare one exact action when the operator explicitly asks for it; the graph
+never authors material parameters, confirms a review, or performs a business
+mutation.
 
 Three state classes, kept apart
 -------------------------------
@@ -1738,7 +1741,7 @@ def _artifact(
     fields: Dict[str, str],
     sources: List[Dict[str, str]],
 ) -> Dict[str, Any]:
-    """The persisted structure. All three workflows are reads, so no proposed actions.
+    """The persisted model artifact starts with no proposed action.
 
     `summary` keeps its name across workflows because it is the durable primary prose
     and every existing reader looks for it. What changes is how it is LABELLED: a draft
@@ -1765,7 +1768,8 @@ def _artifact(
         ],
         "recommendation": {"body": recommendation} if recommendation else None,
         "products": [],
-        # Every Phase 4B workflow is a read. Phase 5 owns consequential actions.
+        # Consequential proposals are attached only by the deterministic action
+        # context after it establishes exact material parameters and review state.
         "proposedActions": [],
         "sources": sources,
     }

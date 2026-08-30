@@ -55,6 +55,10 @@ const proofBoardPayload = {
     governedArgs: { customer_id: 'theo', product_id: '37', reason: 'damaged' },
     gatewayAuditPresent: true,
     latestGatewayAuditId: 303,
+    writeOperationPresent: true,
+    writeOperationKey: 'operator-review:8:aaaaaaaa',
+    writeOperationName: 'initiate_return',
+    writeOperationCompletedAt: '2026-08-29T12:00:00Z',
   },
   cards: [
     {
@@ -270,6 +274,12 @@ describe('ProofBoard', () => {
     expect(screen.getByTestId('governance-receipt-data')).toHaveTextContent(
       'What reached the system of record?',
     );
+    expect(screen.getByTestId('governance-receipt-data')).toHaveTextContent(
+      'write_operations',
+    );
+    expect(screen.getByTestId('governance-receipt-data')).toHaveTextContent(
+      'operator-review:8:aaaaaaaa',
+    );
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to check_inventory',
     );
@@ -362,6 +372,10 @@ describe('ProofBoard', () => {
             gatewayAuditPresent: false,
             gatewayAuditAbsenceVerified: true,
             latestGatewayAuditId: null,
+            writeOperationPresent: false,
+            writeOperationKey: '',
+            writeOperationName: '',
+            writeOperationCompletedAt: null,
             absenceCheckDetail: 'Gateway/Cedar DENY: governed receipt has no audit_id and no tool_audit row was written.',
           },
         }), {
@@ -385,7 +399,7 @@ describe('ProofBoard', () => {
       'stopped before target execution',
     );
     expect(screen.getByTestId('governance-receipt-data')).toHaveTextContent(
-      'no linked tool_audit row',
+      'No system-of-record write was attempted',
     );
     expect(screen.getByText('Cedar DENY: tool target did not execute')).toBeInTheDocument();
     expect(screen.getByText('Gateway/Cedar DENY left no tool_audit row')).toBeInTheDocument();

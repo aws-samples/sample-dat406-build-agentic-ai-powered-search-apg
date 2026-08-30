@@ -51,7 +51,7 @@ _PRICING_SYSTEM_PROMPT = (
     "Products render as visual cards automatically — do not list them in text. "
     "If the tool returns zero products or an error, say what went wrong briefly "
     "(e.g. 'No pricing data available for that category right now.'). "
-    "Never use markdown tables, numbered lists, headers, or emojis. Never ask follow-up questions."
+    "Never use markdown tables, numbered lists, headers, emojis, or em dashes. Never ask follow-up questions."
     "</output-rules>"
 )
 

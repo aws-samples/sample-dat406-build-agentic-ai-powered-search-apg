@@ -24,18 +24,14 @@
  * ----------------------------------------------------------------------- */
 
 .observatory-root {
-  /* Labs consumes the shared `.pellier-page-surface` palette from index.css.
-     Map the legacy Daylight and observatory names back to those shared tokens
-     without redefining the storefront surface at the global level. */
-  --dl-bg: var(--cream);
-  --dl-paper: var(--cream-warm);
-  --dl-paper-2: var(--cream-2);
-  --dl-line: var(--rule-1);
-  --dl-line-strong: var(--rule-3);
-  --dl-ink: var(--ink);
-  --dl-ink-2: var(--ink-soft);
-  --dl-muted: var(--ink-quiet);
-  --dl-faint: var(--ink-5);
+  /* The Observatory consumes the shared `.pellier-page-surface` palette from
+     index.css, which maps the shared names onto the Daylight :root literals
+     (--ink: var(--dl-ink), etc). Never re-alias a Daylight surface/ink/rule
+     token back onto its shared name here: this element carries both classes,
+     so `--dl-ink: var(--ink)` forms a same-element var() cycle and CSS
+     resolves BOTH tokens to guaranteed-invalid — dark code canvases render
+     transparent. Only tokens whose shared counterparts are literals in
+     index.css (the accent family) may be re-aliased. */
   --dl-accent: var(--accent);
   --dl-accent-soft: var(--red-soft);
   --dl-accent-ink: var(--accent-ink);
@@ -144,39 +140,6 @@
 
 .observatory-root a:hover {
   text-decoration: none;
-}
-
-/* Match the Operator's return lockup exactly. Observatory's generic link
-   palette must not turn the Pellier mark into a bare burgundy letter. */
-.observatory-operator-lockup {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #211a17 !important;
-  text-decoration: none !important;
-}
-
-.observatory-operator-mark {
-  display: inline-flex;
-  width: 26px;
-  height: 26px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  background: #211a17;
-  color: #f7f3ee;
-  font-family: 'Fraunces Variable', 'Fraunces', Georgia, serif;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.observatory-operator-wordmark {
-  color: #211a17;
-  font-family: 'Fraunces Variable', 'Fraunces', Georgia, serif;
-  font-size: 17px;
-  font-weight: 500;
-  letter-spacing: -0.012em;
 }
 
 .observatory-root button {
@@ -301,10 +264,11 @@
 
 .observatory-context-link {
   display: inline-flex;
+  min-height: 40px;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--obs-rule-2);
-  border-radius: 999px;
+  border-radius: var(--dl-r-md);
   background: var(--obs-cream-elev);
   color: var(--obs-ink-2) !important;
   font-family: var(--obs-sans);
@@ -316,8 +280,9 @@
 }
 
 .observatory-context-link:hover {
-  border-color: var(--obs-rule-3);
-  color: var(--obs-ink-1) !important;
+  border-color: var(--obs-red-1);
+  background: var(--obs-red-1);
+  color: var(--obs-cream-1) !important;
 }
 
 /* -----------------------------------------------------------------------
@@ -562,26 +527,30 @@
   position: absolute;
   z-index: 0;
   inset: 0 0 auto;
+  /* Stay inside the family range shared with the operator desk (0.16 /
+     430px max) and the workbench (0.2 / 340px max): reference views are
+     reading surfaces, so the atmosphere must sit behind the prose, not
+     compete with it. */
   width: 100%;
-  height: clamp(380px, 44vw, 640px);
+  height: clamp(300px, 32vw, 460px);
   content: '';
   background: url('/products/hero-fresh-2-1600.webp') center 42% / cover
     no-repeat;
   filter: saturate(0.92) contrast(1.02);
-  opacity: 0.29;
+  opacity: 0.18;
   pointer-events: none;
   mask-image: linear-gradient(
     to bottom,
     #000 0%,
-    #000 52%,
-    rgb(0 0 0 / 0.68) 76%,
+    #000 36%,
+    rgb(0 0 0 / 0.55) 68%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
     to bottom,
     #000 0%,
-    #000 52%,
-    rgb(0 0 0 / 0.68) 76%,
+    #000 36%,
+    rgb(0 0 0 / 0.55) 68%,
     transparent 100%
   );
 }
@@ -652,9 +621,9 @@
 
 .observatory-icon-button {
   display: inline-flex;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--obs-rule-1) !important;
@@ -672,8 +641,9 @@
 }
 
 .observatory-icon-button:hover {
-  border-color: var(--obs-rule-3) !important;
-  background: var(--obs-cream-2) !important;
+  border-color: var(--obs-red-1) !important;
+  background: var(--obs-red-1) !important;
+  color: var(--obs-cream-1) !important;
 }
 
 .observatory-wordmark {
@@ -1011,17 +981,10 @@
   align-items: center;
 }
 
-.observatory-presence [role='status'] {
-  border-color: rgba(63, 98, 18, 0.2) !important;
-  background: rgba(63, 98, 18, 0.08) !important;
-  color: #334f13 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-.observatory-presence [role='status'] > span:first-child {
-  background: #3f6212 !important;
-}
+/* The pill's olive Observatory theme lives in PresencePill.tsx as inline
+   styles. Re-skinning it from here cannot work: the session fragment is
+   inline-styled, so a parent !important never reaches it and the pill
+   renders half-themed (cream session text on the light bar). */
 
 .observatory-persona {
   display: inline-flex;

@@ -36,6 +36,11 @@ describe('Pellier Observatory TopBar', () => {
     expect(backLink).toHaveAttribute('href', '/')
     expect(backLink).toHaveTextContent('Pellier')
     expect(backLink).not.toHaveTextContent('Storefront')
+    expect(backLink).toHaveClass('pellier-home-link')
+    expect(backLink.querySelector('.pellier-home-chip')).toHaveTextContent('P')
+    expect(backLink.querySelector('.pellier-home-wordmark')).toHaveTextContent(
+      'Pellier',
+    )
     expect(screen.queryByRole('link', { name: /github/i })).not.toBeInTheDocument()
   })
 

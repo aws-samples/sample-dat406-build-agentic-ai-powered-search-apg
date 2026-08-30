@@ -64,6 +64,13 @@ export interface PerformanceData {
     modeledCostPerThousandUsd: number;
     isShipped: boolean;       // true for Anna's path (agentic)
     products?: { name: string; productId: number }[]; // top-5 when live
+    rerank?: {
+      status: 'applied' | 'fallback';
+      model: string;
+      candidates: number;
+      returned: number;
+      fallbackOrder: 'rrf' | 'planned-vector' | null;
+    };
     /**
      * Only populated for the agentic strategy when live. Surfaces what
      * Sonnet extracted and whether the planner widened anything, so

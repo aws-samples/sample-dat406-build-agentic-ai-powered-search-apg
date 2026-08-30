@@ -28,49 +28,29 @@ interface CommerceSignal {
   value: string
 }
 
-function materialSignal(product: ChatProduct): string {
-  const text = `${product.name ?? ''} ${product.category ?? ''}`.toLowerCase()
-  if (/linen/.test(text)) return 'Linen'
-  if (/cotton/.test(text)) return 'Cotton'
-  if (/leather|suede/.test(text)) return 'Leather'
-  if (/ceramic|stoneware|clay/.test(text)) return 'Ceramic'
-  if (/wool|cashmere/.test(text)) return 'Wool'
-  if (/silk/.test(text)) return 'Silk'
-  if (/brass|metal/.test(text)) return 'Metal'
-  if (/candle|scent/.test(text)) return 'Scent'
-  return product.category ?? 'Pellier'
-}
-
-function serviceSignal(product: ChatProduct): string {
-  const text = `${product.name ?? ''} ${product.category ?? ''}`.toLowerCase()
-  if (/shirt|tee|dress|trouser|pants|pant|jacket|coat|overshirt|sweater|knit|wardrobe|wear/.test(text)) {
-    return 'Size guidance'
-  }
-  if (/gift|candle|vase|ceramic|stoneware|bowl|plate|home/.test(text)) {
-    return 'Gift wrap'
-  }
-  if (/linen|leather|wool|silk|ceramic|stoneware/.test(text)) {
-    return 'Care notes'
-  }
-  return 'Stylist help'
-}
-
+/**
+ * Value shown beside the "Stock" pill label, so the word "stock" must not
+ * appear again here ("Stock · Stock checked" reads as a stutter).
+ */
 function availabilitySignal(product: ChatProduct): string {
-  if (product.inStock === false || product.quantity === 0) return 'Out of stock'
+  if (product.inStock === false || product.quantity === 0) return 'Sold out'
   if (typeof product.quantity === 'number') {
     if (product.quantity <= 3) return `Only ${product.quantity} left`
     if (product.quantity <= 10) return `${product.quantity} available`
-    return 'In stock'
+    return 'Available'
   }
-  return 'Stock checked'
+  if (product.inStock === true) return 'Available'
+  return 'Not verified'
 }
 
 function commerceSignals(product: ChatProduct): CommerceSignal[] {
-  return [
+  const signals: CommerceSignal[] = [
     { label: 'Stock', value: availabilitySignal(product) },
-    { label: 'Material', value: materialSignal(product) },
-    { label: 'Service', value: serviceSignal(product) },
   ]
+  if (product.category) {
+    signals.push({ label: 'Category', value: product.category })
+  }
+  return signals
 }
 
 export default function ProductArtifactCard({
@@ -95,12 +75,6 @@ export default function ProductArtifactCard({
 
   const brand = product.category || 'Pellier Editions'
   const rating = product.rating ?? product.reviews
-  const stockLabel =
-    product.quantity != null && product.quantity > 0
-      ? `${product.quantity} left`
-      : product.inStock === false
-        ? 'Out of stock'
-        : null
 
   const matchLabel = (() => {
     const score = product.similarityScore
@@ -161,10 +135,9 @@ export default function ProductArtifactCard({
               )}
             </span>
           )}
-          {stockLabel && (
-            <span className="pa-stock">{stockLabel}</span>
-          )}
         </div>
+        {/* Stock lives here, in the labelled pill row, and only here: a second
+            bare "8 left" in the meta line above read as a repeated claim. */}
         <div className="pa-commerce" aria-label="Shopping details">
           {signals.map((signal) => (
             <span key={signal.label} className="pa-commerce-pill">

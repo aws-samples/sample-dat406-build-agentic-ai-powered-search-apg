@@ -143,11 +143,35 @@
 .pa-reviews {
   color: var(--ink-4);
 }
-.pa-stock {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 10px;
+/* Commerce signals — quiet label/value pills between meta and actions */
+.pa-commerce {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.pa-commerce-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  border: 1px solid var(--rule-2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(31, 20, 16, 0.03);
+  white-space: nowrap;
+}
+.pa-commerce-pill > span {
+  font-family: var(--sans);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--ink-4);
+}
+.pa-commerce-pill > strong {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 /* Actions */
@@ -156,8 +180,31 @@
   gap: 6px;
   align-items: center;
 }
+.pa-heart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--rule-2);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.pa-heart:hover {
+  border-color: rgba(168, 66, 58, 0.45);
+  color: var(--red-1);
+}
+.pa-heart.is-saved {
+  border-color: rgba(168, 66, 58, 0.45);
+  color: var(--red-1);
+}
 .pa-add {
   flex: 1;
+  min-height: 44px;
   background: var(--ink-1);
   color: var(--cream-1);
   border: none;
@@ -181,6 +228,7 @@
 }
 
 .pa-quick {
+  min-height: 44px;
   border: 1px solid var(--rule-2);
   background: rgba(31, 20, 16, 0.03);
   color: var(--ink-2);
@@ -197,4 +245,23 @@
   border-color: rgba(31, 20, 16, 0.28);
   color: var(--ink-1);
   background: rgba(31, 20, 16, 0.06);
+}
+
+.pa-add:focus-visible,
+.pa-heart:focus-visible,
+.pa-quick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa-card {
+    animation: none;
+  }
+
+  .pa-add,
+  .pa-heart,
+  .pa-quick {
+    transition: none;
+  }
 }

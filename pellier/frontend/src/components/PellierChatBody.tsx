@@ -325,7 +325,17 @@ function UserMessage({ message }: { message: AgentChatMessage }) {
   return (
     <div className="ec-msg-user">
       <div className="ec-msg-user-eyebrow">
-        <span style={{ color: 'var(--red-1)' }}>&middot;</span>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 4,
+            height: 4,
+            borderRadius: 999,
+            background: 'var(--red-1)',
+            display: 'inline-block',
+            flexShrink: 0,
+          }}
+        />
         You &middot; {relativeTime(message.timestamp)}
       </div>
       <div className="ec-msg-user-text">{message.content}</div>

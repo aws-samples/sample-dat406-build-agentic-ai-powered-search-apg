@@ -985,7 +985,7 @@ def escalate_to_human(reason: str, customer_id: str = "") -> str:
         "next_steps": [
             "A Pellier stylist receives your note with full context.",
             "They reply within one business day.",
-            "You can keep browsing — we'll pick up where you left off.",
+            "You can keep browsing. We'll pick up where you left off.",
         ],
     })
 

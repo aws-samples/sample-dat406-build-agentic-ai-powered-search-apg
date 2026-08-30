@@ -66,8 +66,14 @@ describe('AuthContext hydration', () => {
     })
   })
 
-  it('does not call /api/auth/me on a clean anonymous page load', async () => {
-    const fetchMock = vi.fn()
+  it('checks the server cookie even when no readable auth marker exists', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ detail: 'authentication_required' }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    ))
     vi.stubGlobal('fetch', fetchMock)
 
     const { result } = renderHook(() => useAuth(), { wrapper })
@@ -75,7 +81,11 @@ describe('AuthContext hydration', () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
     })
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(result.current.user).toBeNull()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/me',
+      expect.objectContaining({ credentials: 'include' }),
+    )
   })
 
   it('hydrates the code-flow callback path when just_signed_in is present', async () => {

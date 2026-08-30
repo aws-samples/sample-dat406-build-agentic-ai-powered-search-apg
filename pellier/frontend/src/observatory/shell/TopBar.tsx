@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { BookOpen, ReceiptText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import PellierHomeLink from '../../components/PellierHomeLink';
 import PersonaModal from '../../components/PersonaModal';
 import { usePersona } from '../../contexts/PersonaContext';
 import { getPersonaPhoto } from '../../data/personaPhotos';
@@ -108,38 +109,7 @@ const TopBar: React.FC = () => {
             </span>
           </button>
 
-          <Link
-            to="/"
-            data-testid="back-to-pellier"
-            aria-label="Back to Pellier"
-            title="Back to Pellier"
-            className="observatory-operator-lockup"
-            style={{ color: '#211a17', textDecoration: 'none' }}
-          >
-            <span
-              aria-hidden="true"
-              className="observatory-operator-mark"
-              style={{
-                display: 'inline-flex',
-                width: 26,
-                height: 26,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '9999px',
-                background: '#211a17',
-                color: '#f7f3ee',
-              }}
-            >
-              P
-            </span>
-            <span
-              aria-hidden="true"
-              className="observatory-operator-wordmark"
-              style={{ color: '#211a17' }}
-            >
-              Pellier
-            </span>
-          </Link>
+          <PellierHomeLink testId="back-to-pellier" />
         </div>
       </header>
       <PersonaModal open={personaModalOpen} onClose={() => setPersonaModalOpen(false)} />

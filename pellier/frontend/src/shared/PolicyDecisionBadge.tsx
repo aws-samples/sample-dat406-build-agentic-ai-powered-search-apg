@@ -9,7 +9,7 @@
  *
  * The three states carry different claims:
  *
- *   ALLOW         the policy permitted the action, and the tool ran
+ *   ALLOW         the policy permitted the action; execution is a separate fact
  *   DENY          the policy blocked it *before* execution — no tool ran
  *   NOT_EVALUATED no policy decision exists for this turn
  *
@@ -46,7 +46,8 @@ const PRESENTATION: Record<PolicyDecision, DecisionPresentation> = {
   ALLOW: {
     label: 'ALLOW',
     Icon: Check,
-    accessibleName: 'Policy decision: ALLOW — the tool was permitted and ran',
+    accessibleName:
+      'Policy decision: ALLOW — the policy permitted the action; execution is reported separately',
     fg: 'var(--gov-allow-fg)',
     bg: 'var(--gov-allow-bg)',
     border: 'var(--gov-allow-border)',

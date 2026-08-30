@@ -277,6 +277,43 @@ def test_signin_email_omits_identity_provider(client: TestClient) -> None:
     assert "identity_provider" not in query
 
 
+def test_signin_converges_loopback_aliases_before_setting_oauth_cookies(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "APP_BASE_URL", None, raising=False)
+    monkeypatch.setattr(
+        settings,
+        "OAUTH_REDIRECT_URI",
+        "http://localhost:5173/api/auth/callback",
+        raising=False,
+    )
+
+    resp = client.get(
+        "/api/auth/signin",
+        params={
+            "provider": "email",
+            "returnTo": "/operator/clients/CUST-JESSICA?view=request",
+        },
+        headers={
+            "host": "127.0.0.1:5173",
+            "x-forwarded-proto": "http",
+        },
+    )
+
+    assert resp.status_code == 302
+    parsed = urlparse(resp.headers["location"])
+    assert parsed.scheme == "http"
+    assert parsed.netloc == "localhost:5173"
+    assert parsed.path == "/api/auth/signin"
+    assert parse_qs(parsed.query) == {
+        "provider": ["email"],
+        "returnTo": ["/operator/clients/CUST-JESSICA?view=request"],
+    }
+    assert OAUTH_STATE_COOKIE not in client.cookies
+    assert PKCE_VERIFIER_COOKIE not in client.cookies
+
+
 def test_signin_binds_a_safe_return_path_to_the_oauth_transaction(
     client: TestClient,
 ) -> None:

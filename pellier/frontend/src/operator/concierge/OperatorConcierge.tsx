@@ -17,9 +17,10 @@ import { ArrowRight, GitBranch } from 'lucide-react'
 import type { OperatorClientRecord } from '../../services/operator'
 
 import ConciergeCapabilityState from './ConciergeCapabilityState'
+import ConciergeHumanCheckpoint from './ConciergeHumanCheckpoint'
 import ConciergePendingTurn from './ConciergePendingTurn'
 import ConciergeSuggestions from './ConciergeSuggestions'
-import { buildTemplateContext } from './templates'
+import { TEMPLATES, buildTemplateContext } from './templates'
 import ConciergeComposer from './ConciergeComposer'
 import ConciergeConversation from './ConciergeConversation'
 import ConciergeEmptyState from './ConciergeEmptyState'
@@ -32,6 +33,8 @@ interface Props {
   spendLabel: string
   /** Loaded record state, so suggestions derive from real context. */
   record: OperatorClientRecord | null
+  /** Starts the canonical Jessica case as a fresh, observable run. */
+  guidedServiceRecovery?: boolean
 }
 
 const OperatorConcierge: React.FC<Props> = ({
@@ -40,12 +43,53 @@ const OperatorConcierge: React.FC<Props> = ({
   membershipLabel,
   spendLabel,
   record,
+  guidedServiceRecovery = false,
 }) => {
-  const concierge = useOperatorConcierge(clientId)
+  const concierge = useOperatorConcierge(clientId, {
+    resumeLatest: !guidedServiceRecovery,
+  })
   const hasConversation = concierge.messages.length > 0
   const inFlight = concierge.pendingRequest !== null
   // Deterministic, from loaded state. No model decides what to suggest.
   const templateContext = useMemo(() => buildTemplateContext(record), [record])
+  const guidedStarted = useRef(false)
+  const hasAnsweredTurn = concierge.messages.some(
+    (message) => message.role === 'assistant',
+  )
+  const hasPreparedAction = concierge.messages.some(
+    (message) => Boolean(message.artifact?.proposedActions?.length),
+  )
+
+  useEffect(() => {
+    if (
+      !guidedServiceRecovery ||
+      guidedStarted.current ||
+      !concierge.composerEnabled ||
+      concierge.status === 'loading' ||
+      concierge.status === 'submitting' ||
+      !templateContext
+    ) {
+      return
+    }
+    const template = TEMPLATES.find(
+      (candidate) => candidate.id === 'investigate_resolution',
+    )
+    if (
+      !template ||
+      !concierge.config?.supportedWorkflowKinds?.includes(template.workflow)
+    ) {
+      return
+    }
+    guidedStarted.current = true
+    void concierge.submit(template.buildRequest(templateContext))
+  }, [
+    concierge.composerEnabled,
+    concierge.config?.supportedWorkflowKinds,
+    concierge.status,
+    concierge.submit,
+    guidedServiceRecovery,
+    templateContext,
+  ])
 
   // The pane is a viewport-height scroller, so a thread with history opened at its
   // OLDEST turn and the answer an operator just waited for sat below the fold.
@@ -131,6 +175,16 @@ const OperatorConcierge: React.FC<Props> = ({
                   answer={concierge.liveAnswer}
                 />
               </ol>
+            ) : null}
+            {!inFlight &&
+            hasAnsweredTurn &&
+            !hasPreparedAction &&
+            record?.client.returnEvidence?.unconfirmedReturnAssertion ? (
+              <ConciergeHumanCheckpoint
+                record={record}
+                disabled={!concierge.composerEnabled}
+                onPrepare={(request) => void concierge.submit(request)}
+              />
             ) : null}
           </>
         ) : (

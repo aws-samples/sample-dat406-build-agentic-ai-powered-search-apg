@@ -360,6 +360,69 @@ async def _audit_row_by_id(
         return None
 
 
+def _json_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+async def _write_operation_for_execution(
+    audit_row: dict[str, Any] | None,
+    governed_args: Any,
+) -> dict[str, Any] | None:
+    """Resolve the idempotency ledger from principal-scoped execution data.
+
+    ``write_operations`` has no principal column of its own. The lookup key is
+    therefore accepted only from the already principal-scoped governed receipt
+    or its linked audit row; this helper never searches the ledger broadly.
+    """
+    audit_args = _json_object((audit_row or {}).get("args"))
+    receipt_args = _json_object(governed_args)
+    idempotency_key = (
+        audit_args.get("idempotency_key")
+        or audit_args.get("idempotencyKey")
+        or receipt_args.get("idempotency_key")
+        or receipt_args.get("idempotencyKey")
+    )
+    if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+        return None
+    try:
+        from app import db_service
+        if db_service is None:
+            return None
+        row = await db_service.fetch_one(
+            """
+            SELECT idempotency_key,
+                   operation,
+                   request_hash,
+                   created_at,
+                   completed_at,
+                   result
+              FROM pellier.write_operations
+             WHERE idempotency_key = %s
+             LIMIT 1
+            """,
+            idempotency_key.strip(),
+        )
+        if not row:
+            return None
+        result = dict(row)
+        for field in ("created_at", "completed_at"):
+            value = result.get(field)
+            if value is not None and hasattr(value, "isoformat"):
+                result[field] = value.isoformat()
+        return result
+    except Exception as exc:
+        logger.debug("Observatory write-operation lookup unavailable: %s", exc)
+        return None
+
+
 async def _latest_governed_receipt(
     *,
     principal_sub: str,
@@ -801,6 +864,10 @@ async def _collect_proof_board(
         latest_governed.get("audit_id") if latest_governed else None,
         principal_sub=principal_sub,
     )
+    write_operation = await _write_operation_for_execution(
+        governed_audit,
+        latest_governed.get("args") if latest_governed else {},
+    )
     managed_receipt = _latest_managed_receipt(
         session_id, principal_sub=principal_sub
     )
@@ -852,6 +919,16 @@ async def _collect_proof_board(
         "governedTool": latest_governed.get("tool") if latest_governed else "",
         "governedPolicyName": latest_governed.get("policy_name") if latest_governed else "",
         "governedArgs": latest_governed.get("args") if latest_governed else {},
+        "writeOperationPresent": bool(write_operation),
+        "writeOperationKey": (
+            write_operation.get("idempotency_key") if write_operation else ""
+        ),
+        "writeOperationName": (
+            write_operation.get("operation") if write_operation else ""
+        ),
+        "writeOperationCompletedAt": (
+            write_operation.get("completed_at") if write_operation else None
+        ),
         "absenceCheckDetail": (
             "Gateway/Cedar DENY: governed receipt has no audit_id and no tool_audit row was written."
             if governed_absence_verified

@@ -138,9 +138,9 @@ const ClientBook: React.FC = () => {
       <p className="operator-lede">
         Operator Concierge runs a separate investigation and resolution graph
         over the same Aurora customer record the storefront reads. Open a client
-        to review standing, orders, and support history, then prepare a goodwill
-        credit or return resolution. Each action waits for human confirmation
-        and governance before the database changes.
+        to review standing, orders, and support history. The Concierge can then
+        prepare one exact resolution for Action Queue; a person confirms it
+        before policy and Aurora independently decide what may execute.
       </p>
 
       {jessicaCase ? (
@@ -163,7 +163,10 @@ const ClientBook: React.FC = () => {
             type="button"
             className="operator-case-entry-action"
             onClick={() =>
-              navigate(`/operator/clients/${jessicaCase.customerId}`)
+              navigate(
+                `/operator/clients/${jessicaCase.customerId}` +
+                  '?guided=service-recovery#operator-concierge-title',
+              )
             }
           >
             Open Jessica&apos;s case

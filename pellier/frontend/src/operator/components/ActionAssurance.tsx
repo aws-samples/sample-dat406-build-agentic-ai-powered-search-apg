@@ -63,11 +63,11 @@ const AXIS_NOTES: Record<keyof Assurance, Record<string, string>> = {
     NOT_EVALUATED: 'No statement has reached the database.',
     NOT_REACHED: 'The database was never asked to change anything.',
     PERMITTED: 'Row-Level Security was in scope and the transaction committed.',
-    DENIED: 'Row-Level Security refused. Nothing changed.',
+    DENIED: 'The database refused the statement. Nothing changed.',
     NOT_ENFORCED: 'This rail did not bind a row-scoped role, so RLS did not apply.',
   },
   evidence: {
-    PENDING: 'There is nothing to prove yet.',
+    PENDING: 'No durable execution receipt is available yet.',
     NO_EXECUTION: 'Nothing ran, so there is no receipt. That is the proof.',
     RECEIPTED: 'A durable write event and an execution receipt exist.',
     POLICY_PROOF: 'The policy decision is the artifact; there is no tool receipt.',

@@ -925,6 +925,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           modeledCostPerThousandUsd:
             live.modeledCostPerThousandUsd ?? s.modeledCostPerThousandUsd,
           products: live.products,
+          rerank: live.rerank,
           extractedFilters: live.extractedFilters,
         };
       });
@@ -1136,6 +1137,28 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                       }}
                     >
                       {s.strategy}
+                      {s.rerank && (
+                        <span
+                          style={{
+                            display: 'block',
+                            marginTop: '5px',
+                            fontFamily: 'var(--obs-mono)',
+                            fontSize: '10.5px',
+                            fontWeight: 500,
+                            letterSpacing: '0.04em',
+                            color:
+                              s.rerank.status === 'applied'
+                                ? 'var(--obs-green-1)'
+                                : '#7c5b18',
+                          }}
+                        >
+                          {s.rerank.status === 'applied'
+                            ? 'Cohere applied'
+                            : `Fallback · ${s.rerank.fallbackOrder}`}
+                          {' · '}
+                          {s.rerank.model}
+                        </span>
+                      )}
                       {isShipped && (
                         <span
                           style={{

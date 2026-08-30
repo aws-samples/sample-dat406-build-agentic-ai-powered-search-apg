@@ -46,19 +46,19 @@ const PERSONA_HEROES: Record<
     image: '/products/hero-marco.png',
     alt: 'Leather weekender and folded linen shirts in warm daylight',
     subheadline:
-      "Marco's seeded profile favors natural fibers, travel-ready layers, and enduring pieces.",
+      "Marco's profile favors natural fibers, travel-ready layers, and enduring pieces.",
   },
   anna: {
     image: '/products/hero-anna.png',
     alt: 'Wrapped gift, beeswax candles, and ceramic ring dish',
     subheadline:
-      "Anna's seeded profile favors considered gifts, home objects, and clear budget constraints.",
+      "Anna's profile favors considered gifts, home objects, and clear budget constraints.",
   },
   theo: {
     image: '/products/hero-theo.png',
     alt: 'Stoneware pour-over set on a sunlit wooden table',
     subheadline:
-      "Theo's seeded profile favors slow craft, ceramics, and durable post-purchase care.",
+      "Theo's profile favors slow craft, ceramics, and durable post-purchase care.",
   },
 }
 

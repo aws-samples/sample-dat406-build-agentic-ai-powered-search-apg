@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -742,6 +743,22 @@ def is_policy_denial(error: BaseException | str) -> bool:
 # Aurora outcome classification
 # ---------------------------------------------------------------------------
 
+# The RDS Data API stringifies a database error as one sentence ending in
+# "; SQLState: 23514", and the Gateway Lambda forwards that string verbatim in a
+# status:error envelope (scripts/deploy/pellier_experience_server.py). The
+# in-process rail attaches the code as an explicit ``sqlstate`` field instead.
+# Both spellings resolve here.
+_SQLSTATE_IN_MESSAGE = re.compile(r"SQLState:\s*([0-9A-Z]{5})", re.IGNORECASE)
+
+
+def extract_sqlstate(result: Mapping[str, Any]) -> str:
+    """The five-character SQLSTATE a database error carried, or ``''``."""
+    explicit = str(result.get("sqlstate") or "").strip().upper()
+    if len(explicit) == 5:
+        return explicit
+    match = _SQLSTATE_IN_MESSAGE.search(str(result.get("message") or ""))
+    return match.group(1).upper() if match else ""
+
 
 def classify_aurora(result: Mapping[str, Any]) -> tuple[str, str]:
     """Map a tool envelope onto the Aurora axis, with a reason.
@@ -751,6 +768,17 @@ def classify_aurora(result: Mapping[str, Any]) -> tuple[str, str]:
     transaction, whether the customer was in scope at all — so it distinguishes
     "not authorized" from "no such order", which are different facts that the
     write function reports with the same message.
+
+    A database error in SQLSTATE class 23 is also a denial: an
+    integrity-constraint violation means the statement executed INSIDE Aurora
+    and a database guard (CHECK, trigger, foreign key, unique) refused the
+    mutation. This function once dropped those onto the NOT_REACHED
+    fallthrough, and the receipt then stated a falsehood — Theo's second return
+    of product 37 tripped ``returns_quantity_guard`` (migration 013) inside the
+    database, and the axis said no statement had arrived. Every other SQLSTATE
+    class stays on the fallthrough: a syntax error or a cancelled query is a
+    failure, not a governance verdict, and promoting it to DENIED would fake a
+    database-enforcement proof.
     """
     status = str(result.get("status") or "")
     denied_by = str(result.get("denied_by") or "")
@@ -768,9 +796,11 @@ def classify_aurora(result: Mapping[str, Any]) -> tuple[str, str]:
             else "The runtime role was in scope and the transaction committed."
         )
     if status == "idempotency_conflict":
-        return AURORA_PERMITTED, (
-            "The key was already claimed with different parameters, so the "
-            "database refused a second, different write."
+        detail = str(result.get("message") or "").strip()
+        return AURORA_DENIED, (
+            "The call reached Aurora, but the idempotency guard refused this "
+            "different write because the key already belongs to another request. "
+            "Nothing changed." + (f" Database: {detail}" if detail else "")
         )
     if status == "policy_blocked":
         # A business-rule refusal from the tool itself (for example a reason
@@ -778,6 +808,14 @@ def classify_aurora(result: Mapping[str, Any]) -> tuple[str, str]:
         return AURORA_NOT_REACHED, (
             "The tool refused on a business rule before reaching the "
             "protected statement."
+        )
+    sqlstate = extract_sqlstate(result)
+    if sqlstate.startswith("23"):
+        detail = str(result.get("message") or "").strip()
+        return AURORA_DENIED, (
+            "The statement reached Aurora and a database integrity guard "
+            f"refused it (SQLSTATE {sqlstate}); the transaction rolled back, "
+            "so nothing changed." + (f" Database: {detail}" if detail else "")
         )
     return AURORA_NOT_REACHED, str(result.get("message") or "The write did not run.")
 
@@ -873,26 +911,46 @@ async def _execute_in_process(
 
     Cedar is not consulted on this rail. The caller reports the policy axis as
     NOT_EVALUATED; this function never claims a verdict.
+
+    An integrity-constraint violation (a trigger guard, a CHECK, a foreign key)
+    raises out of psycopg here rather than returning an envelope, because
+    ``process_return_idempotent`` deliberately lets those propagate — the
+    database is the enforcer. Letting it keep propagating would 500 the request
+    and record no execution receipt, destroying the only proof that Aurora
+    enforced the guard. So it is converted into the same status:error envelope
+    the Gateway Lambda produces, with the SQLSTATE attached explicitly, and
+    ``classify_aurora`` reads one vocabulary on both rails. Every other
+    database error still raises: a connection failure is an infrastructure
+    problem, not an Aurora verdict, and enveloping it would fake one.
     """
+    import psycopg
+
     from services.business_logic import BusinessLogic
 
     logic = BusinessLogic(db)
-    if tool == "initiate_return":
-        return await logic.initiate_return(
-            customer_id=str(args["customer_id"]),
-            product_id=int(args["product_id"]),
-            reason=str(args["reason"]),
-            idempotency_key=idempotency_key,
-            principal_sub=customer_subject,
-        )
-    if tool == "issue_credit":
-        return await logic.issue_credit(
-            customer_id=str(args["customer_id"]),
-            amount_cents=int(args["amount_cents"]),
-            reason=str(args["reason"]),
-            idempotency_key=idempotency_key,
-            issued_by=operator_sub or None,
-        )
+    try:
+        if tool == "initiate_return":
+            return await logic.initiate_return(
+                customer_id=str(args["customer_id"]),
+                product_id=int(args["product_id"]),
+                reason=str(args["reason"]),
+                idempotency_key=idempotency_key,
+                principal_sub=customer_subject,
+            )
+        if tool == "issue_credit":
+            return await logic.issue_credit(
+                customer_id=str(args["customer_id"]),
+                amount_cents=int(args["amount_cents"]),
+                reason=str(args["reason"]),
+                idempotency_key=idempotency_key,
+                issued_by=operator_sub or None,
+            )
+    except psycopg.IntegrityError as exc:
+        return {
+            "status": "error",
+            "message": str(exc),
+            "sqlstate": getattr(exc, "sqlstate", None) or "23000",
+        }
     raise ExecutionError(f"action_not_executable:{tool}", 422)
 
 
@@ -1162,6 +1220,18 @@ async def execute_confirmed_review(
     receipt_id = await record_receipt(
         db, outcome, review_id=review_id, engine_state=engine_state
     )
+    if receipt_id is None:
+        # The governed call already returned, but the artifact that would make
+        # its policy/database classification durable does not exist. Keep the
+        # business result intact and report the evidence gap explicitly instead
+        # of returning RECEIPTED or deriving a memory from an in-flight object.
+        outcome.evidence = EVIDENCE_PENDING
+        outcome.notes["evidence"] = (
+            "The governed call returned, but its execution receipt could not be "
+            "recorded. Inspect the tool audit and domain ledger before relying on "
+            "this attempt as durable proof."
+        )
+        return outcome
 
     # Step 8: remember the outcome, if it is one.
     #
@@ -1179,30 +1249,25 @@ async def _remember_outcome(
     review: Mapping[str, Any],
     outcome: "ExecutionOutcome",
     *,
-    receipt_id: Optional[int],
+    receipt_id: int,
 ) -> None:
     """Record the episodic memory of a reviewed execution. Never raises.
 
-    Reads the receipt back when one was written, so the episode is derived from the
-    durable row. Falls back to the in-flight outcome when the receipt could not be
-    recorded: the execution still happened, and losing the memory as well as the receipt
-    would be two gaps for one failure.
+    Reads the durable receipt back so the episode is derived from evidence rather
+    than from the in-flight response object. Callers do not invoke this function
+    when receipt persistence failed.
     """
     from services import operator_episodes as ep
 
     try:
-        receipt: Optional[Dict[str, Any]] = None
-        if receipt_id is not None:
-            receipt = await latest_receipt(db, int(review["review_id"]))
+        receipt = await latest_receipt(db, int(review["review_id"]))
         if receipt is None:
-            receipt = {
-                "policy_outcome": outcome.policy,
-                "aurora_outcome": outcome.aurora,
-                "tool": outcome.tool,
-                "execution_turn_id": outcome.execution_turn_id,
-                "idempotency_key": outcome.idempotency_key,
-                "rail": outcome.rail,
-            }
+            logger.warning(
+                "episode not recorded for review %s: receipt %s could not be read back",
+                review.get("review_id"),
+                receipt_id,
+            )
+            return
         await ep.record_outcome_episode(
             db, review=review, receipt=receipt, result=outcome.result
         )

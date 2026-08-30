@@ -18,6 +18,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -96,16 +97,21 @@ class FakeLogic:
 
     calls: List[Dict[str, Any]] = []
     envelope: Dict[str, Any] = {"status": "success", "return_id": 9}
+    raises: Optional[BaseException] = None
 
     def __init__(self, db: Any) -> None:
         pass
 
     async def initiate_return(self, **kwargs: Any) -> Dict[str, Any]:
         type(self).calls.append({"tool": "initiate_return", **kwargs})
+        if type(self).raises is not None:
+            raise type(self).raises
         return dict(type(self).envelope)
 
     async def issue_credit(self, **kwargs: Any) -> Dict[str, Any]:
         type(self).calls.append({"tool": "issue_credit", **kwargs})
+        if type(self).raises is not None:
+            raise type(self).raises
         return dict(type(self).envelope)
 
 
@@ -113,6 +119,7 @@ class FakeLogic:
 def _reset_logic(monkeypatch: pytest.MonkeyPatch):
     FakeLogic.calls = []
     FakeLogic.envelope = {"status": "success", "return_id": 9}
+    FakeLogic.raises = None
     import services.business_logic as bl
 
     monkeypatch.setattr(bl, "BusinessLogic", FakeLogic)
@@ -120,6 +127,15 @@ def _reset_logic(monkeypatch: pytest.MonkeyPatch):
     from config import settings
 
     monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_URL", "", raising=False)
+
+    async def receipt_written(*_args: Any, **_kwargs: Any) -> int:
+        return 1
+
+    async def episode_written(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr(ge, "record_receipt", receipt_written)
+    monkeypatch.setattr(ge, "_remember_outcome", episode_written)
     yield
     FakeLogic.calls = []
 
@@ -511,6 +527,21 @@ def test_a_replay_is_permitted_but_says_so() -> None:
     assert "replayed" in note
 
 
+def test_an_idempotency_conflict_is_a_database_refusal_not_a_permitted_write() -> None:
+    state, note = ge.classify_aurora(
+        {
+            "status": "idempotency_conflict",
+            "message": "Idempotency key was already used with different arguments.",
+        }
+    )
+    assert state == ge.AURORA_DENIED
+    assert "different" in note
+    assert (
+        ge.classify_evidence_for(ge.POLICY_ALLOW, state, {})
+        == ge.EVIDENCE_ATTEMPT_RECEIPT
+    )
+
+
 def test_the_evidence_axis_names_the_artifact_that_exists() -> None:
     assert ge.classify_evidence_for(
         ge.POLICY_DENY, ge.AURORA_NOT_REACHED, {}
@@ -543,6 +574,102 @@ def test_no_axis_is_derived_from_another() -> None:
         for policy, aurora in combinations
     }
     assert len(seen) >= 3, f"the evidence axis collapsed too far: {seen}"
+
+
+def test_a_database_raised_integrity_violation_is_an_aurora_denial() -> None:
+    """SQLSTATE class 23 executed INSIDE Aurora; "not reached" would be false.
+
+    This is the verbatim envelope the Gateway rail produced when
+    ``returns_quantity_guard`` refused Theo's second return of product 37: the
+    Lambda stringifies the RDS Data API error, which carries the SQLSTATE in
+    prose, and the axis reported NOT_REACHED / NO_EXECUTION for a statement the
+    database had executed and refused.
+    """
+    state, note = ge.classify_aurora(
+        {
+            "status": "error",
+            "message": (
+                "An error occurred (DatabaseErrorException) when calling the "
+                "ExecuteStatement operation: ERROR: return quantity 1 exceeds "
+                "unreturned ordered quantity 0 for customer CUST-THEO product "
+                "37; SQLState: 23514"
+            ),
+        }
+    )
+    assert state == ge.AURORA_DENIED
+    assert "23514" in note
+    assert "return quantity 1 exceeds" in note, "the guard's own words must survive"
+    assert (
+        ge.classify_evidence_for(ge.POLICY_ALLOW, state, {"status": "error"})
+        == ge.EVIDENCE_ATTEMPT_RECEIPT
+    )
+
+
+def test_an_explicit_sqlstate_field_needs_no_message_parsing() -> None:
+    state, _ = ge.classify_aurora(
+        {"status": "error", "sqlstate": "23514", "message": "guard refused"}
+    )
+    assert state == ge.AURORA_DENIED
+
+
+def test_a_non_integrity_sqlstate_is_not_a_database_denial() -> None:
+    """A syntax error or a cancelled query is a failure, not a governance proof."""
+    for message in (
+        "ERROR: syntax error at or near SELECT; SQLState: 42601",
+        "ERROR: canceling statement due to user request; SQLState: 57014",
+    ):
+        state, _ = ge.classify_aurora({"status": "error", "message": message})
+        assert state == ge.AURORA_NOT_REACHED, message
+
+
+@pytest.mark.asyncio
+async def test_an_in_process_integrity_violation_becomes_an_attempt_receipt() -> None:
+    """The psycopg CheckViolation must not escape as a 500 that records nothing."""
+    import psycopg
+
+    FakeLogic.raises = psycopg.errors.CheckViolation(
+        "return quantity 1 exceeds unreturned ordered quantity 0 "
+        "for customer CUST-THEO product 37"
+    )
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT
+    )
+    assert outcome.aurora == ge.AURORA_DENIED
+    assert outcome.evidence == ge.EVIDENCE_ATTEMPT_RECEIPT
+    assert outcome.result.get("sqlstate") == "23514"
+    # And the policy axis is still honest about this rail.
+    assert outcome.policy == ge.POLICY_NOT_EVALUATED
+
+
+@pytest.mark.asyncio
+async def test_a_receipt_write_failure_is_reported_and_not_remembered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A response must not claim durable proof when the proof row was not written."""
+    monkeypatch.setattr(ge, "record_receipt", AsyncMock(return_value=None))
+    remember = AsyncMock()
+    monkeypatch.setattr(ge, "_remember_outcome", remember)
+
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT
+    )
+
+    assert outcome.aurora == ge.AURORA_PERMITTED
+    assert outcome.evidence == ge.EVIDENCE_PENDING
+    assert "could not be recorded" in outcome.notes["evidence"]
+    remember.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_non_integrity_database_error_still_raises_in_process() -> None:
+    """A connection failure is an infrastructure problem, not an Aurora verdict."""
+    import psycopg
+
+    FakeLogic.raises = psycopg.OperationalError("server closed the connection")
+    with pytest.raises(psycopg.OperationalError):
+        await ge.execute_confirmed_review(
+            FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT
+        )
 
 
 @pytest.mark.asyncio

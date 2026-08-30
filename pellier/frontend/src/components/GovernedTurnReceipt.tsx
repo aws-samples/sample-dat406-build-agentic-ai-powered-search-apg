@@ -25,6 +25,7 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Database, Wrench } from 'lucide-react'
+import { useOptionalAuth } from '../contexts/AuthContext'
 import {
   GovernedSeal,
   PolicyDecisionBadge,
@@ -123,6 +124,7 @@ export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
   railDecision,
   receipt: suppliedReceipt,
 }) => {
+  const isAuthenticated = useOptionalAuth()?.isAuthenticated ?? false
   const [loadedReceipt, setLoadedReceipt] =
     useState<PersistedGovernedTurnReceipt | null>(suppliedReceipt ?? null)
 
@@ -131,7 +133,9 @@ export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
       setLoadedReceipt(suppliedReceipt)
       return
     }
-    if (!turnId) {
+    // The receipts API is authenticated; an anonymous shopper cannot have a
+    // persisted receipt, so fetching would only manufacture a 401.
+    if (!turnId || !isAuthenticated) {
       setLoadedReceipt(null)
       return
     }
@@ -152,7 +156,7 @@ export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
       active = false
       controller.abort()
     }
-  }, [suppliedReceipt, turnId])
+  }, [suppliedReceipt, turnId, isAuthenticated])
 
   // No record means no claim. In particular, do not substitute product cards,
   // local tool chips, or a fixture when receipt persistence or authorization

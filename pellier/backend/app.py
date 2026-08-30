@@ -2307,12 +2307,28 @@ async def compare_search_strategies(query: str):
                 "observedMs": rerank_ms,
                 "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["rerank"],
                 "products": rerank_products,
+                "rerank": {
+                    "status": "applied" if rerank_results else "fallback",
+                    "model": settings.BEDROCK_RERANK_MODEL,
+                    "candidates": len(rerank_pool),
+                    "returned": len(rerank_results),
+                    "fallbackOrder": None if rerank_results else "rrf",
+                },
             },
             {
                 "strategy": "agentic (Sonnet → filter → vector → rerank)",
                 "observedMs": agentic_ms,
                 "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
                 "products": agentic_products,
+                "rerank": {
+                    "status": "applied" if agentic_rerank else "fallback",
+                    "model": settings.BEDROCK_RERANK_MODEL,
+                    "candidates": len(agentic_pool),
+                    "returned": len(agentic_rerank),
+                    "fallbackOrder": (
+                        None if agentic_rerank else "planned-vector"
+                    ),
+                },
                 "extractedFilters": {
                     "categories": extracted.get("categories", []),
                     "tags": extracted.get("tags", []),

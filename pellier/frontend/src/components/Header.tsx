@@ -573,7 +573,7 @@ export default function Header({
               <div className="hidden xl:block">
                 <IconButton
                   icon={<Search className="w-5 h-5" />}
-                  ariaLabel="Search — ask Pellier"
+                  ariaLabel="Search: ask Pellier"
                   onClick={handleSearchClick}
                   size="md"
                 />

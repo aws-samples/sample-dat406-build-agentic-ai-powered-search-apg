@@ -1,36 +1,25 @@
 /**
  * One client record: standing, order history, tickets, credits, and the
- * governed actions an operator can take.
+ * governed review path an operator can enter through Concierge.
  *
- * The action rail is the only place in Pellier where a credit carries an
- * `issued_by`. It requires an operator token; without one the buttons render
- * in a labelled signed-out state rather than failing on click.
+ * Consequential actions are deliberately absent from the record itself. The
+ * Concierge prepares one exact proposal, Action Queue records the human
+ * decision, and only the confirmed review can reach execution.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { ArrowDown, Database, MessageSquareText } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MEMBERSHIP } from '../../data/membership'
 import {
   fetchClientRecord,
-  issueCredit,
   OperatorApiError,
-  resolveReturn,
-  type OperatorActionResult,
   type OperatorClientRecord,
 } from '../../services/operator'
 import { imageSrc } from '../../utils/assetPath'
 import ClientAvatar from '../components/ClientAvatar'
 import OperatorConcierge from '../concierge/OperatorConcierge'
 import MembershipRung from '../components/MembershipRung'
-
-const RETURN_REASONS = [
-  'damaged',
-  'wrong_size',
-  'not_as_described',
-  'changed_mind',
-  'other',
-] as const
 
 function money(value: number): string {
   return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -48,77 +37,17 @@ function shortDate(iso: string | null): string {
       })
 }
 
-/** Map a tool envelope onto the three visual outcomes the rail renders.
- *
- * Tolerates a missing or malformed envelope. A receipt that throws takes the
- * whole record down with it, which is strictly worse than reporting that the
- * result could not be read. */
-function outcomeOf(result: OperatorActionResult['result'] | undefined): string {
-  if (result?.status === 'success') return 'success'
-  if (result?.status === 'policy_blocked') return 'blocked'
-  return 'error'
-}
-
-const ActionReceipt: React.FC<{ action: OperatorActionResult }> = ({
-  action,
-}) => {
-  const result = action.result ?? {
-    status: 'error' as const,
-    message: 'The write returned no result envelope.',
-  }
-  const outcome = outcomeOf(result)
-  const replayed = result.idempotent_replay === true
-  return (
-    <div
-      className="operator-receipt"
-      data-outcome={outcome}
-      data-testid="operator-action-receipt"
-      role="status"
-    >
-      <div className="operator-receipt-head">
-        {outcome === 'success'
-          ? replayed
-            ? 'Already applied'
-            : 'Applied'
-          : outcome === 'blocked'
-            ? 'Blocked by policy'
-            : 'Not applied'}
-      </div>
-      {result.message ? <div>{result.message}</div> : null}
-      {result.status === 'success' && result.amount ? (
-        <div>
-          Credit of ${result.amount} recorded
-          {result.balance_cents !== undefined
-            ? `. Balance now ${money(result.balance_cents / 100)}.`
-            : '.'}
-        </div>
-      ) : null}
-      {replayed ? (
-        <div>
-          The idempotency key had already been used, so the original result was
-          returned instead of writing a second time.
-        </div>
-      ) : null}
-      <div className="operator-receipt-key" style={{ marginTop: 6 }}>
-        key {action.idempotencyKey}
-        {action.actedBy ? ` · by ${action.actedBy}` : ''}
-      </div>
-    </div>
-  )
-}
-
 const ClientRecord: React.FC = () => {
   const { customerId = '' } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [guidedServiceRecovery] = useState(
+    () =>
+      new URLSearchParams(location.search).get('guided') ===
+      'service-recovery',
+  )
   const [record, setRecord] = useState<OperatorClientRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  const [amount, setAmount] = useState('40.00')
-  const [reason, setReason] = useState('')
-  const [returnProductId, setReturnProductId] = useState('')
-  const [returnReason, setReturnReason] = useState<string>(RETURN_REASONS[0])
-  const [busy, setBusy] = useState(false)
-  const [action, setAction] = useState<OperatorActionResult | null>(null)
-  const [needsSignIn, setNeedsSignIn] = useState(false)
 
   const load = useCallback(() => {
     let active = true
@@ -142,44 +71,16 @@ const ClientRecord: React.FC = () => {
 
   useEffect(load, [load])
 
-  // Cents, parsed once here. The API takes integer cents so no float ever
-  // reaches the ledger.
-  const amountCents = useMemo(() => {
-    const parsed = Number.parseFloat(amount)
-    if (!Number.isFinite(parsed)) return 0
-    return Math.round(parsed * 100)
-  }, [amount])
-
-  const creditValid =
-    amountCents >= 1 && amountCents <= 50_000 && reason.trim().length > 0
-
-  async function run(fn: () => Promise<OperatorActionResult>) {
-    setBusy(true)
-    setNeedsSignIn(false)
-    try {
-      const result = await fn()
-      setAction(result)
-      load()
-    } catch (err: unknown) {
-      if (err instanceof OperatorApiError && err.needsOperatorSignIn) {
-        setNeedsSignIn(true)
-      } else {
-        setAction({
-          result: {
-            status: 'error',
-            message:
-              err instanceof OperatorApiError
-                ? err.code
-                : 'The write did not complete.',
-          },
-          idempotencyKey: '—',
-          actedBy: null,
-        })
-      }
-    } finally {
-      setBusy(false)
-    }
-  }
+  useEffect(() => {
+    if (!guidedServiceRecovery || !location.search) return
+    navigate(`${location.pathname}${location.hash}`, { replace: true })
+  }, [
+    guidedServiceRecovery,
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+  ])
 
   if (error) {
     const authenticationRequired =
@@ -565,121 +466,6 @@ const ClientRecord: React.FC = () => {
           </section>
         </div>
 
-        <aside className="operator-rail" data-testid="operator-actions">
-          <section className="operator-card">
-            <h2 className="operator-card-title">Issue a goodwill credit</h2>
-            <label className="operator-field">
-              <span className="operator-field-label">Amount (USD)</span>
-              <input
-                className="operator-input"
-                inputMode="decimal"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                data-testid="operator-credit-amount"
-              />
-            </label>
-            <label className="operator-field">
-              <span className="operator-field-label">Reason (audited)</span>
-              <textarea
-                className="operator-textarea"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Why this credit is warranted"
-                data-testid="operator-credit-reason"
-              />
-            </label>
-            <button
-              type="button"
-              className="operator-button"
-              disabled={busy || !creditValid}
-              data-testid="operator-credit-submit"
-              onClick={() =>
-                run(() =>
-                  issueCredit({
-                    customerId: client.customerId,
-                    amountCents,
-                    reason: reason.trim(),
-                  }),
-                )
-              }
-            >
-              {busy ? 'Applying…' : 'Issue credit'}
-            </button>
-            <p className="operator-hint">
-              Capped at $500.00 by a database constraint, not by this form. The
-              write claims an idempotency key first, so a double-click applies
-              once.
-            </p>
-          </section>
-
-          <section className="operator-card">
-            <h2 className="operator-card-title">Resolve a return</h2>
-            <label className="operator-field">
-              <span className="operator-field-label">Product ID</span>
-              <input
-                className="operator-input"
-                inputMode="numeric"
-                value={returnProductId}
-                onChange={(event) => setReturnProductId(event.target.value)}
-                placeholder="e.g. 41"
-                data-testid="operator-return-product"
-              />
-            </label>
-            <label className="operator-field">
-              <span className="operator-field-label">Reason</span>
-              <select
-                className="operator-select"
-                value={returnReason}
-                onChange={(event) => setReturnReason(event.target.value)}
-                data-testid="operator-return-reason"
-              >
-                {RETURN_REASONS.map((value) => (
-                  <option key={value} value={value}>
-                    {value.replace(/_/g, ' ')}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="operator-button"
-              disabled={busy || !/^\d+$/.test(returnProductId)}
-              data-testid="operator-return-submit"
-              onClick={() =>
-                run(() =>
-                  resolveReturn({
-                    customerId: client.customerId,
-                    productId: Number.parseInt(returnProductId, 10),
-                    reason: returnReason,
-                  }),
-                )
-              }
-            >
-              {busy ? 'Applying…' : 'Resolve return'}
-            </button>
-            <p className="operator-hint">
-              Ownership is checked in SQL: a return for a piece this client never
-              ordered is refused by the database, not by this form.
-            </p>
-          </section>
-
-          {needsSignIn ? (
-            <div
-              className="operator-receipt"
-              data-outcome="blocked"
-              data-testid="operator-needs-signin"
-              role="status"
-            >
-              <div className="operator-receipt-head">
-                Operator sign-in required
-              </div>
-              This desk and its actions require a verified operator-group
-              identity so every read, decision, and mutation is attributable.
-            </div>
-          ) : null}
-
-          {action ? <ActionReceipt action={action} /> : null}
-        </aside>
       </div>
       </div>
 
@@ -690,6 +476,7 @@ const ClientRecord: React.FC = () => {
           membershipLabel={membershipLabel}
           spendLabel={`${money(client.spend12mo)} \u00b7 12mo spend`}
           record={record}
+          guidedServiceRecovery={guidedServiceRecovery}
         />
       </div>
     </div>

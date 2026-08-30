@@ -617,7 +617,10 @@
   color: var(--dl-ink-2, var(--ink-2));
   font-size: 13px;
   font-weight: 500;
+  flex-shrink: 0;
 }
+/* Secondary meta: in a narrow drawer it truncates rather than pushing the
+   chevron out of the header row. */
 .ec-worked-summary {
   font-family: var(--mono);
   font-size: 10px;
@@ -625,6 +628,9 @@
   color: var(--ink-4);
   margin-left: auto;
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ec-worked-chevron {
   color: var(--ink-4);
@@ -873,15 +879,21 @@
   padding: 6px 13px;
   cursor: pointer;
   transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
-  white-space: nowrap;
+  /* Labels are full questions the shopper is about to send; wrapping keeps
+     them readable where an ellipsis would hide what the pill actually asks. */
+  white-space: normal;
+  text-align: left;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .ec-followup:hover {
   background: color-mix(in srgb, var(--red-1) 8%, transparent);
   border-color: color-mix(in srgb, var(--red-1) 40%, transparent);
   color: var(--red-1);
+}
+
+.stylist-handoff-cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 .ec-followup:focus-visible {
   outline: 2px solid var(--red-1);
@@ -892,7 +904,6 @@
   border-style: dashed;
   border-color: color-mix(in srgb, var(--red-1) 52%, transparent);
   background: rgba(255, 252, 247, 0.95);
-  white-space: normal;
 }
 .ec-followup-workshop:hover {
   border-color: color-mix(in srgb, var(--red-1) 75%, transparent);

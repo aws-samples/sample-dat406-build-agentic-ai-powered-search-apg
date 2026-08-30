@@ -1061,7 +1061,7 @@ export default function ObservatoryWorkbench() {
           </div>
           <span className="observatory-workbench-presence">
             <span aria-hidden="true" />
-            Live governed surface
+            Live trace surface
           </span>
         </header>
         <div className="observatory-workbench-grid" aria-label="Live agent run">
@@ -1223,7 +1223,7 @@ export default function ObservatoryWorkbench() {
                 <h2 id="live-journey-title">Evidence ledger</h2>
                 <p>
                   {activeQuery ??
-                    'An append-only trail of decisions and proofs.'}
+                    'A live timeline of emitted decisions and evidence.'}
                 </p>
               </div>
               {/* Only offered when there is more than one receipt to act on;
@@ -1602,7 +1602,7 @@ export default function ObservatoryWorkbench() {
                   is absent before a run rather than reading a hopeful zero. */}
               {steps.length ? (
                 <p className="observatory-append-only">
-                  Append only. {steps.length}{' '}
+                  Run timeline. {steps.length} emitted{' '}
                   {steps.length === 1 ? 'event' : 'events'}, {receiptStepCount}{' '}
                   SQL {receiptStepCount === 1 ? 'receipt' : 'receipts'}.
                 </p>
@@ -1774,7 +1774,7 @@ export default function ObservatoryWorkbench() {
                 aria-labelledby="verified-claims-title"
               >
                 <div className="observatory-results-subheading">
-                  <h3 id="verified-claims-title">Verified claims</h3>
+                  <h3 id="verified-claims-title">Evidence-linked claims</h3>
                   <span>{verifiedClaims.length || '-'}</span>
                 </div>
                 {verifiedClaims.length ? (
@@ -1803,7 +1803,7 @@ export default function ObservatoryWorkbench() {
                   </ul>
                 ) : (
                   <p className="observatory-results-placeholder">
-                    Claims appear only after supporting evidence is emitted.
+                    Claims appear only after supporting run evidence is emitted.
                   </p>
                 )}
                 {linkedClaimCount ? (

@@ -102,7 +102,7 @@ export default function PersonaConcierge({
         <p className="pellier-concierge-seed" data-testid="concierge-seed">
           {profileSignal ? (
             <>
-              <strong>Profile seed:</strong> {profileSignal}
+              <strong>Because</strong> {profileSignal}.
             </>
           ) : (
             <>

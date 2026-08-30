@@ -50,6 +50,17 @@ function liveComparePayload() {
       observedMs: 120 + index,
       modeledCostPerThousandUsd: s.modeledCostPerThousandUsd,
       products: [{ name: `Live product ${index}`, productId: index + 1 }],
+      ...(s.strategy.includes('rerank')
+        ? {
+            rerank: {
+              status: 'applied' as const,
+              model: 'cohere.rerank-v3-5:0',
+              candidates: 30,
+              returned: 5,
+              fallbackOrder: null,
+            },
+          }
+        : {}),
       ...(s.isShipped
         ? {
             extractedFilters: {
@@ -136,5 +147,18 @@ describe('Performance · recall provenance', () => {
         screen.getByText(/recall is\s+not measured live/i),
       ).toBeInTheDocument();
     });
+  });
+
+  it('shows whether Cohere actually reranked instead of trusting the strategy label', async () => {
+    renderSurface();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /run on aurora/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Cohere applied/i)).toHaveLength(2);
+    });
+    expect(screen.getAllByText(/cohere\.rerank-v3-5:0/i)).toHaveLength(2);
   });
 });

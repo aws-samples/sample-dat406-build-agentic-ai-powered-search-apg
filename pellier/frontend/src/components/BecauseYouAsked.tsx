@@ -99,15 +99,15 @@ const STORY_IMAGES: Record<
 
 const PERSONA_HEADLINES: Record<string, { eyebrow: string; headline: string }> = {
   marco: {
-    eyebrow: "From Marco's seeded profile",
+    eyebrow: "From Marco's profile",
     headline: 'Stories for the road.',
   },
   anna: {
-    eyebrow: "From Anna's seeded profile",
+    eyebrow: "From Anna's profile",
     headline: 'Stories worth wrapping.',
   },
   theo: {
-    eyebrow: "From Theo's seeded profile",
+    eyebrow: "From Theo's profile",
     headline: 'Stories for quieter days.',
   },
 }

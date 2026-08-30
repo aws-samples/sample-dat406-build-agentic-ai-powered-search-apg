@@ -29,10 +29,10 @@ const SIGN_OUT_DURATION_MS = 1600
 // context paragraph they'll see on the storefront welcome card.
 // Falls through to a generic line for unknown personas.
 const WELCOME_TAGLINES: Record<string, string> = {
-  marco: 'Your thread is still warm — linen and oat tones await.',
+  marco: 'Your thread is still warm. Linen and oat tones await.',
   anna: 'Gifts, wrapped and waiting where you left them.',
-  theo: 'Quiet pieces, kept ready — ceramics and stoneware wait.',
-  fresh: 'The floor is yours — tell Pellier what catches your eye.',
+  theo: 'Quiet pieces, kept ready: ceramics and stoneware wait.',
+  fresh: 'The floor is yours. Tell Pellier what catches your eye.',
 }
 
 function welcomeTagFor(personaId: string): string {

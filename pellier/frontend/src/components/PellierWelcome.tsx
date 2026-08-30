@@ -164,7 +164,7 @@ const FRESH_COPY: PersonaCopy = {
     }
     return (
       <>
-        I've been watching the floor —{' '}
+        I've been watching the floor:{' '}
         <span className="sf-context-num">{stats.product_count}</span>{' '}
         curated pieces across {stats.category_count} categories. The{' '}
         <span className="sf-context-product">Nocturne Leather Weekender</span>{' '}

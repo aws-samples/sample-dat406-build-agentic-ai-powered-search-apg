@@ -73,6 +73,10 @@ interface ManagedReceipt {
   governedTool?: string;
   governedPolicyName?: string;
   governedArgs?: Record<string, unknown>;
+  writeOperationPresent?: boolean;
+  writeOperationKey?: string;
+  writeOperationName?: string;
+  writeOperationCompletedAt?: string | null;
   absenceCheckDetail?: string;
 }
 
@@ -815,6 +819,9 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
     : '';
   const isDeny = receipt.governedDecision === 'DENY';
   const absenceVerified = Boolean(receipt.gatewayAuditAbsenceVerified);
+  const writeOperationCompleted = Boolean(
+    receipt.writeOperationPresent && receipt.writeOperationCompletedAt,
+  );
   const receiptSeen = Boolean(receipt.present || receipt.governedReceiptPresent);
   const tokenFingerprint = receipt.governedTokenFingerprint
     ? `${receipt.governedTokenFingerprint.slice(0, 12)}...`
@@ -921,17 +928,21 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
       id: 'data',
       label: 'Data receipt',
       question: 'What reached the system of record?',
-      detail: receipt.gatewayAuditPresent
-        ? `Aurora recorded tool_audit row ${receipt.latestGatewayAuditId}${gatewayAuditAt ? ` at ${gatewayAuditAt}` : ''}.`
+      detail: writeOperationCompleted
+        ? `Aurora recorded ${receipt.writeOperationName || 'the governed write'} as complete in pellier.write_operations.`
+        : receipt.writeOperationPresent
+          ? 'Aurora contains the idempotency claim, but completion is not proven.'
         : absenceVerified
-          ? 'Aurora has no linked tool_audit row because Cedar denied the action before execution.'
-          : 'No linked Aurora execution row or verified DENY absence is available yet.',
-      evidence: receipt.gatewayAuditPresent
-        ? `tool_audit.audit_id=${receipt.latestGatewayAuditId}${customerId ? ` · customer_id=${customerId}` : ''}`
+          ? 'No system-of-record write was attempted because Cedar denied the action before target execution.'
+          : receipt.gatewayAuditPresent
+            ? 'Tool execution is visible, but no idempotent write ledger row is linked.'
+            : 'No linked system-of-record write or verified DENY absence is available yet.',
+      evidence: receipt.writeOperationPresent
+        ? `write_operations.idempotency_key=${receipt.writeOperationKey || 'unknown'}`
         : absenceVerified
-          ? 'governed receipt present · linked tool_audit row absent'
-          : 'Database evidence pending',
-      state: receipt.gatewayAuditPresent || absenceVerified
+          ? 'governed receipt present · target execution absent'
+          : 'System-of-record evidence pending',
+      state: writeOperationCompleted || absenceVerified
         ? 'pass'
         : receiptSeen ? 'warn' : 'pending',
     },

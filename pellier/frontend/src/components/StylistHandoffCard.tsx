@@ -14,7 +14,7 @@
  * human on the other end. The workshop teaches this as the
  * escape hatch every agent needs but most demos skip.
  */
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowUpRight, User } from 'lucide-react'
 
 import type { StylistHandoff } from '../hooks/useAgentChat'
@@ -24,13 +24,14 @@ interface StylistHandoffCardProps {
 }
 
 export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps) {
+  const reduceMotion = useReducedMotion()
   const subject = encodeURIComponent('Stylist handoff from Pellier concierge')
   const body = encodeURIComponent(
     `Reason routed to a stylist:\n${handoff.reason}\n\n` +
       (handoff.customer_id
         ? `Customer reference: ${handoff.customer_id}\n\n`
         : '') +
-      'Stylist team — please pick this up from the concierge thread.\n',
+      'Stylist team, please pick this up from the concierge thread.\n',
   )
   const href = `mailto:${handoff.contact.mailto}?subject=${subject}&body=${body}`
 
@@ -39,18 +40,22 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
       data-testid="stylist-handoff-card"
       role="group"
       aria-label="Stylist handoff"
-      initial={{ opacity: 0, y: 8 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.2, 0.9, 0.3, 1.05] }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { duration: 0.32, ease: [0.2, 0.9, 0.3, 1.05] }
+      }
       style={{
         marginTop: 12,
         padding: '14px 16px',
-        background: 'rgba(255, 252, 247, 0.96)',
-        border: '1px dashed rgba(196, 69, 54, 0.42)',
+        background: 'var(--cream-warm)',
+        border: '1px dashed color-mix(in srgb, var(--accent) 42%, transparent)',
         borderRadius: 12,
         fontFamily: 'var(--sans)',
-        color: '#1f1410',
-        boxShadow: '0 1px 3px rgba(31, 20, 16, 0.06)',
+        color: 'var(--ink)',
+        boxShadow: '0 1px 3px color-mix(in srgb, var(--ink) 6%, transparent)',
       }}
     >
       <header
@@ -70,8 +75,8 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
             width: 24,
             height: 24,
             borderRadius: '50%',
-            background: 'rgba(196, 69, 54, 0.12)',
-            color: 'rgba(196, 69, 54, 0.98)',
+            background: 'var(--red-soft)',
+            color: 'var(--accent)',
           }}
         >
           <User size={13} strokeWidth={1.75} />
@@ -82,7 +87,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
             fontWeight: 600,
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
-            color: 'rgba(196, 69, 54, 0.98)',
+            color: 'var(--accent)',
           }}
         >
           Handed off to a stylist
@@ -94,7 +99,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
           margin: 0,
           fontSize: 14,
           lineHeight: 1.55,
-          color: 'rgba(31, 20, 16, 0.85)',
+          color: 'var(--ink-soft)',
         }}
       >
         {handoff.reason}
@@ -112,7 +117,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
             gap: 4,
             fontSize: 13,
             lineHeight: 1.5,
-            color: 'rgba(31, 20, 16, 0.72)',
+            color: 'var(--ink-quiet)',
           }}
         >
           {handoff.next_steps.map((step, idx) => (
@@ -125,7 +130,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
                 style={{
                   fontFamily: 'var(--mono)',
                   fontSize: 11,
-                  color: 'rgba(196, 69, 54, 0.7)',
+                  color: 'color-mix(in srgb, var(--accent) 70%, transparent)',
                   minWidth: 14,
                 }}
               >
@@ -141,7 +146,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
         style={{
           marginTop: 14,
           paddingTop: 10,
-          borderTop: '1px solid rgba(31, 20, 16, 0.08)',
+          borderTop: '1px solid color-mix(in srgb, var(--ink) 8%, transparent)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -152,7 +157,7 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
         <span
           style={{
             fontSize: 11,
-            color: 'rgba(31, 20, 16, 0.55)',
+            color: 'var(--ink-quiet)',
           }}
         >
           {handoff.contact.response_window}
@@ -160,14 +165,16 @@ export default function StylistHandoffCard({ handoff }: StylistHandoffCardProps)
         <a
           data-testid="stylist-handoff-cta"
           href={href}
+          className="stylist-handoff-cta"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
             padding: '7px 14px',
+            minHeight: 44,
             borderRadius: 999,
-            background: '#1f1410',
-            color: '#F7F3EE',
+            background: 'var(--ink)',
+            color: 'var(--cream)',
             fontSize: 12,
             fontWeight: 500,
             letterSpacing: '0.02em',

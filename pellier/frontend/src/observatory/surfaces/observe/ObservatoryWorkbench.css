@@ -711,21 +711,22 @@
 
 .observatory-root .observatory-error button {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  padding: 5px 9px;
-  border: 1px solid rgba(143, 29, 22, 0.32);
-  border-radius: 6px;
-  background: transparent;
-  color: #8f1d16;
-  font-size: 10.5px;
+  padding: 9px 16px;
+  border: 1px solid var(--pl-ink);
+  border-radius: var(--dl-r-md);
+  background: var(--pl-ink);
+  color: #fffdfa;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .observatory-root .observatory-error button:hover {
-  background: rgba(143, 29, 22, 0.06);
+  border-color: var(--pl-accent-deep);
+  background: var(--pl-accent-deep);
 }
 
 /* ------------------------------------------------------------------------
@@ -1705,9 +1706,10 @@
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  padding: 6px 11px;
+  min-height: 40px;
+  padding: 8px 13px;
   border: 1px solid var(--pl-line);
-  border-radius: 999px;
+  border-radius: var(--dl-r-md);
   background: var(--pl-paper-solid);
   color: var(--pl-ink-soft);
   font-family: var(--pl-sans);
@@ -1720,8 +1722,9 @@
 }
 
 .observatory-ledger-action:hover {
-  border-color: rgba(var(--pl-accent-rgb), 0.34);
-  color: var(--pl-accent-deep);
+  border-color: var(--pl-accent-deep);
+  background: var(--pl-accent-deep);
+  color: #fffdfa;
 }
 
 .observatory-ledger-action:focus-visible {

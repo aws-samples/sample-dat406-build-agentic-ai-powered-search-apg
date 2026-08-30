@@ -70,7 +70,7 @@ describe('Pellier Observatory live agent workbench', () => {
         'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Live governed surface')).toBeInTheDocument();
+    expect(screen.getByText('Live trace surface')).toBeInTheDocument();
     expect(
       tracePanel(document.body).querySelector('canvas.labs-hero-field'),
     ).not.toBeInTheDocument();
@@ -886,7 +886,7 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(
       tracePanel(container).querySelector('.observatory-append-only')
         ?.textContent,
-    ).toBe('Append only. 4 events, 2 SQL receipts.');
+    ).toBe('Run timeline. 4 emitted events, 2 SQL receipts.');
   });
 
   it('opens the ledger event a verified claim rests on', async () => {

@@ -153,6 +153,45 @@ describe('chat service auth transport', () => {
     })
   })
 
+  it('does not turn an infrastructure AccessDeniedException into a policy verdict', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          detail: 'AccessDeniedException while invoking the configured model',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+
+    await expect(
+      sendChatMessageStreaming('hello', [], vi.fn()),
+    ).rejects.toMatchObject({
+      code: 'service_unavailable',
+      status: 503,
+    })
+  })
+
+  it('treats an unstructured HTTP 403 as an authentication boundary', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: 'not authorized' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+
+    await expect(
+      sendChatMessageStreaming('hello', [], vi.fn()),
+    ).rejects.toMatchObject({
+      code: 'authentication_required',
+      status: 403,
+      retryable: false,
+    })
+  })
+
   it('rejects structured error events instead of returning fallback content', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(

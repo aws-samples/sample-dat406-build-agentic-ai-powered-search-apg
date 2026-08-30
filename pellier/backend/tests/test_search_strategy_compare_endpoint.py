@@ -85,6 +85,13 @@ class _Reranker:
         return [{"index": index} for index in reversed(range(min(top_n, len(documents))))]
 
 
+class _UnavailableReranker:
+    def rerank(
+        self, *, query: str, documents: list[str], top_n: int
+    ) -> list[dict[str, int]]:
+        return []
+
+
 class _Extractor:
     """Stands in for Sonnet. Facets must be real catalog values — the
     planner drops anything outside ``KNOWN_CATEGORIES`` / ``KNOWN_TAGS``,
@@ -157,6 +164,38 @@ def test_comparison_labels_single_run_latency_and_modeled_cost_honestly() -> Non
     assert plan["hard_constraints"]["in_stock_only"] is True
     assert plan["exclusions"] == ["candle"]
     assert agentic["relaxations"] == []
+    for strategy in (body["strategies"][2], body["strategies"][3]):
+        assert strategy["rerank"]["status"] == "applied"
+        assert strategy["rerank"]["model"] == "cohere.rerank-v3-5:0"
+        assert strategy["rerank"]["candidates"] >= strategy["rerank"]["returned"] > 0
+
+
+def test_comparison_discloses_rerank_fallback_instead_of_reusing_the_label(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        rerank_module,
+        "get_rerank_service",
+        lambda: _UnavailableReranker(),
+    )
+
+    body = asyncio.run(
+        app_module.compare_search_strategies(
+            query="A milestone gift for a new homeowner"
+        )
+    )
+
+    hybrid_rerank = body["strategies"][2]["rerank"]
+    assert hybrid_rerank == {
+        "status": "fallback",
+        "model": "cohere.rerank-v3-5:0",
+        "candidates": 6,
+        "returned": 0,
+        "fallbackOrder": "rrf",
+    }
+    agentic_rerank = body["strategies"][3]["rerank"]
+    assert agentic_rerank["status"] == "fallback"
+    assert agentic_rerank["fallbackOrder"] == "planned-vector"
 
 
 def test_exhausted_ladder_never_drops_a_hard_constraint(

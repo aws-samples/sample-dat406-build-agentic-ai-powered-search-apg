@@ -48,6 +48,10 @@
   --op-faint: var(--dl-muted);
   --op-accent: var(--accent);
   --op-authority: var(--accent);
+  /* Decorative case-story color. Kept separate from provenance greens so the
+     Jessica banner can echo her coral-and-sage brief without implying that
+     the background itself is database evidence. */
+  --op-case-sage: #6b705c;
   --op-ok: var(--dl-ok);
   --op-warn: var(--dl-warn);
   --op-err: var(--dl-err);
@@ -78,7 +82,6 @@
   --op-descriptor: #6e6a62;
 
   --op-radius: 12px;
-  --op-rail-width: 352px;
 
   /* One tracking value for display type, taken from the storefront. */
   --op-display-track: -0.012em;
@@ -237,18 +240,28 @@
 }
 
 .operator-auth-control.operator-auth-signin {
-  min-height: 34px;
-  padding: 7px 14px;
+  min-height: 42px;
+  padding: 9px 16px;
   border-color: var(--input-border);
   border-radius: 999px;
   background: transparent;
   color: var(--op-ink);
   font-size: 13.5px;
   font-weight: 400;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.operator-auth-control.operator-auth-signin:hover {
+  border-color: var(--op-accent);
+  background: var(--op-accent);
+  color: var(--op-paper);
 }
 
 .operator-auth-control.operator-auth-signin:focus-visible {
-  outline: 2px solid var(--espresso);
+  outline: 2px solid var(--op-accent);
   outline-offset: 2px;
 }
 
@@ -325,13 +338,15 @@
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--op-authority) 28%, var(--op-rule));
   border-radius: var(--op-radius);
+  /* Jessica's warm coral-and-sage brief is the visual hook for this entry.
+     The sage is a decorative story token, not the database provenance tone. */
   background:
     linear-gradient(
       105deg,
       color-mix(in srgb, var(--op-authority) 15%, var(--op-paper)) 0%,
       color-mix(in srgb, var(--op-authority) 7%, var(--op-paper)) 38%,
-      color-mix(in srgb, var(--op-source-database) 6%, var(--op-paper)) 66%,
-      color-mix(in srgb, var(--op-source-database) 14%, var(--op-paper)) 100%
+      color-mix(in srgb, var(--op-case-sage) 7%, var(--op-paper)) 67%,
+      color-mix(in srgb, var(--op-case-sage) 13%, var(--op-paper)) 100%
     );
   box-shadow: 0 16px 38px rgba(34, 29, 35, 0.08);
 }
@@ -365,21 +380,30 @@
 }
 
 .operator-case-entry-action {
-  min-height: 38px;
-  padding: 8px 13px;
+  min-height: 44px;
+  padding: 10px 18px;
   border: 1px solid var(--op-ink);
-  border-radius: 7px;
+  border-radius: var(--dl-r-md);
   background: var(--op-ink);
   color: var(--op-paper);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
   cursor: pointer;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
 }
 
 .operator-case-entry-action:hover {
   border-color: var(--op-authority);
   background: var(--op-authority);
+}
+
+.operator-case-entry-action:focus-visible {
+  outline: 2px solid var(--op-authority);
+  outline-offset: 3px;
 }
 
 /* A client's own note is one short sentence, not a surface introduction, so it
@@ -937,16 +961,8 @@
 
 .operator-record {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--op-rail-width);
-  gap: 26px;
-  align-items: start;
-}
-
-/* Inside the two-pane workbench, order history is the visual inventory of the
-   relationship. It needs the full record column for its 4:5 product imagery
-   and complete operational detail, so action controls follow beneath it. */
-.operator-workbench-record .operator-record {
   grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
 
 .operator-record-head {
@@ -1164,68 +1180,32 @@
   background: color-mix(in srgb, var(--op-ok) 8%, var(--op-paper));
 }
 
-/* ------------------------------------------------------------- the rail */
-
-.operator-rail {
-  position: sticky;
-  top: 88px;
-}
-
-.operator-field {
-  display: block;
-  margin-bottom: 13px;
-}
-
-.operator-field-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--op-faint);
-}
-
-.operator-input,
-.operator-textarea,
-.operator-select {
-  width: 100%;
-  padding: 9px 11px;
-  border: 1px solid var(--op-rule-strong);
-  border-radius: 8px;
-  background: var(--op-paper);
-  color: var(--op-ink);
-  font-family: var(--sans);
-  font-size: 13px;
-}
-
-/* Currency and identifiers are measurements, so they get the mono face. */
-.operator-input {
-  font-family: var(--mono);
-}
-
-.operator-textarea {
-  min-height: 64px;
-  resize: vertical;
-  line-height: 1.5;
-}
-
 .operator-button {
   width: 100%;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 10px 18px;
   border: 1px solid var(--op-ink);
-  border-radius: 999px;
+  border-radius: var(--dl-r-md);
   background: var(--op-ink);
   color: var(--cream-elev);
   font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 140ms ease-out;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
 }
 
 .operator-button:hover:not(:disabled) {
-  opacity: 0.88;
+  border-color: var(--op-accent);
+  background: var(--op-accent);
+}
+
+.operator-button:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 3px;
 }
 
 .operator-button:disabled {
@@ -2046,8 +2026,9 @@
 }
 
 .operator-button-quiet:hover:not(:disabled) {
-  border-color: var(--op-ink);
-  opacity: 1;
+  border-color: var(--op-accent);
+  background: color-mix(in srgb, var(--op-accent) 6%, var(--op-paper));
+  color: var(--op-accent);
 }
 
 /* ------------------------------------------------- action assurance */
@@ -2153,10 +2134,6 @@
 @media (max-width: 1080px) {
   .operator-record {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .operator-rail {
-    position: static;
   }
 }
 
@@ -2737,13 +2714,13 @@
 
 .operator-concierge-suggestion:hover:not(:disabled) {
   padding-left: 8px;
-  border-color: var(--op-rule-strong);
+  border-color: color-mix(in srgb, var(--op-accent) 38%, var(--op-rule));
 }
 
 .operator-concierge-suggestion:hover:not(:disabled)
   .operator-concierge-suggestion-arrow {
   transform: translateX(3px);
-  color: var(--op-ink-2);
+  color: var(--op-accent);
 }
 
 .operator-concierge-suggestion:focus-visible {
@@ -3077,6 +3054,229 @@
   color: var(--op-faint);
   text-transform: lowercase;
 }
+
+/* ------------------------------------------------ human checkpoint */
+
+.operator-concierge-human-checkpoint {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--op-accent) 24%, var(--op-rule));
+  border-radius: var(--op-radius);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--op-accent) 5%, var(--op-paper)) 0%,
+      color-mix(in srgb, var(--op-case-sage) 5%, var(--op-paper)) 100%
+    );
+}
+
+.operator-concierge-human-checkpoint-head h3 {
+  margin: 0;
+  color: var(--op-ink);
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: var(--op-display-track);
+}
+
+.operator-concierge-human-checkpoint-head p {
+  max-width: 58ch;
+  margin: 6px 0 0;
+  color: var(--op-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.operator-concierge-boundary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 18px 0 20px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--op-rule);
+  border-bottom: 1px solid var(--op-rule);
+}
+
+.operator-concierge-boundary li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 74px;
+  padding: 14px 12px;
+  color: var(--op-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.operator-concierge-boundary li + li {
+  border-left: 1px solid var(--op-rule);
+}
+
+.operator-concierge-boundary li[data-state='current'] {
+  color: var(--op-ink);
+  background: color-mix(in srgb, var(--op-accent) 5%, transparent);
+}
+
+.operator-concierge-boundary svg {
+  margin-top: 1px;
+  color: var(--op-accent);
+}
+
+.operator-concierge-boundary strong {
+  display: block;
+  color: var(--op-ink);
+  font-weight: 650;
+}
+
+.operator-concierge-human-checkpoint-items {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.operator-concierge-human-checkpoint-items legend,
+.operator-concierge-human-checkpoint-reason > span {
+  margin-bottom: 8px;
+  color: var(--op-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--op-label-track);
+  text-transform: uppercase;
+}
+
+.operator-concierge-human-checkpoint-items label {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 1px solid var(--op-rule);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--op-paper) 88%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease-out,
+    background-color 150ms ease-out;
+}
+
+.operator-concierge-human-checkpoint-items label:hover {
+  border-color: color-mix(in srgb, var(--op-accent) 38%, var(--op-rule));
+}
+
+.operator-concierge-human-checkpoint-items label:has(input:checked) {
+  border-color: var(--op-accent);
+  background: color-mix(in srgb, var(--op-accent) 6%, var(--op-paper));
+}
+
+.operator-concierge-human-checkpoint-items input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--op-accent);
+}
+
+.operator-concierge-human-checkpoint-items label > span {
+  display: grid;
+  gap: 3px;
+}
+
+.operator-concierge-human-checkpoint-items strong {
+  color: var(--op-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.operator-concierge-human-checkpoint-items small {
+  color: var(--op-faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.operator-concierge-human-checkpoint-reason {
+  display: grid;
+  margin-top: 16px;
+}
+
+.operator-concierge-human-checkpoint-reason select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--op-rule-strong);
+  border-radius: var(--dl-r-md);
+  background: var(--op-paper);
+  color: var(--op-ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.operator-concierge-human-checkpoint-reason select:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 2px;
+}
+
+.operator-concierge-human-checkpoint-action {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 16px;
+  padding: 10px 18px;
+  border: 1px solid var(--op-ink);
+  border-radius: var(--dl-r-md);
+  background: var(--op-ink);
+  color: var(--op-paper);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.operator-concierge-human-checkpoint-action:hover:not(:disabled) {
+  border-color: var(--op-accent);
+  background: var(--op-accent);
+}
+
+.operator-concierge-human-checkpoint-action:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 3px;
+}
+
+.operator-concierge-human-checkpoint-action:disabled {
+  border-color: var(--op-rule-strong);
+  background: var(--op-paper-2);
+  color: var(--op-muted);
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .operator-concierge-human-checkpoint {
+    padding: 17px;
+  }
+
+  .operator-concierge-boundary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .operator-concierge-boundary li {
+    min-height: 0;
+  }
+
+  .operator-concierge-boundary li + li {
+    border-top: 1px solid var(--op-rule);
+    border-left: 0;
+  }
+}
 .operator-concierge-step[data-step-status='failed'] .operator-concierge-step-source,
 .operator-concierge-step[data-step-status='failed'] .operator-concierge-step-status,
 .operator-concierge-step[data-step-status='unavailable']
@@ -3228,8 +3428,8 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid var(--op-ink);
   border-radius: 50%;
@@ -3238,6 +3438,14 @@
   font: inherit;
   font-size: 12.5px;
   cursor: pointer;
+  transition:
+    border-color 160ms ease-out,
+    background-color 160ms ease-out;
+}
+
+.operator-concierge-ask:hover:not(:disabled) {
+  border-color: var(--op-accent);
+  background: var(--op-accent);
 }
 
 .operator-concierge-ask[data-submitting='true'] svg {

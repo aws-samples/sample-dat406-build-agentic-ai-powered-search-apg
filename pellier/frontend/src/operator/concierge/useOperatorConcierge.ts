@@ -63,13 +63,22 @@ export interface ConciergeController {
   submit: (message: string) => Promise<void>
 }
 
+interface ConciergeOptions {
+  /** A guided workshop run starts clean instead of replaying the prior case file. */
+  resumeLatest?: boolean
+}
+
 /** A stable key per submission so a network retry cannot duplicate the turn. */
 function transportKey(): string {
   const random = globalThis.crypto?.randomUUID?.()
   return random ?? `tk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function useOperatorConcierge(clientId: string): ConciergeController {
+export function useOperatorConcierge(
+  clientId: string,
+  options: ConciergeOptions = {},
+): ConciergeController {
+  const resumeLatest = options.resumeLatest ?? true
   const [capabilities, setCapabilities] = useState<CapabilitySnapshot | null>(null)
   const [config, setConfig] = useState<ConciergeConfig | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -111,7 +120,9 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
     void Promise.allSettled([
       fetchCapabilities(),
       fetchConciergeConfig(),
-      fetchLatestConciergeSession(clientId),
+      resumeLatest
+        ? fetchLatestConciergeSession(clientId)
+        : Promise.resolve(null),
     ]).then(async ([caps, cfg, latest]) => {
       if (!isCurrentClient()) return
 
@@ -153,7 +164,7 @@ export function useOperatorConcierge(clientId: string): ConciergeController {
       }
       setLoadedClientId(clientId)
     })
-  }, [clientId])
+  }, [clientId, resumeLatest])
 
   const governedActionsAvailable = Boolean(capabilities?.governedActionsAvailable)
   const composerEnabled = Boolean(

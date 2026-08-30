@@ -53,40 +53,12 @@ export default function AnnouncementBar() {
         fontWeight: 400,
       }}
     >
-      {/* Pulse dot — agent presence cue, anchored left of the rotating copy */}
-      <span
-        aria-hidden="true"
-        data-testid="announcement-pulse"
-        style={{
-          position: 'absolute',
-          left: 24,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: 8,
-          height: 8,
-          borderRadius: 999,
-          background: c.accent,
-          zIndex: 1,
-        }}
-      >
-        <style>{`
-          @keyframes pelliers-floor-pulse {
-            0% { transform: scale(0.6); opacity: 0.9; }
-            100% { transform: scale(1.8); opacity: 0; }
-          }
-        `}</style>
-        <span
-          style={{
-            position: 'absolute',
-            inset: -6,
-            borderRadius: 999,
-            background: 'color-mix(in srgb, var(--accent) 35%, transparent)',
-            animation: reduceMotion
-              ? 'none'
-              : 'pelliers-floor-pulse 1.8s ease-out infinite',
-          }}
-        />
-      </span>
+      <style>{`
+        @keyframes pelliers-floor-pulse {
+          0% { transform: scale(0.6); opacity: 0.9; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+      `}</style>
 
       <AnimatePresence mode="wait">
         <motion.span
@@ -106,6 +78,32 @@ export default function AnnouncementBar() {
               maxWidth: '100%',
             }}
           >
+            {/* Pulse dot — agent presence cue, anchored to the copy so it
+                never floats orphaned at the bar's edge on wide viewports. */}
+            <span
+              aria-hidden="true"
+              data-testid="announcement-pulse"
+              style={{
+                position: 'relative',
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: c.accent,
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  inset: -6,
+                  borderRadius: 999,
+                  background: 'color-mix(in srgb, var(--accent) 35%, transparent)',
+                  animation: reduceMotion
+                    ? 'none'
+                    : 'pelliers-floor-pulse 1.8s ease-out infinite',
+                }}
+              />
+            </span>
             {finding.verb ? (
               <span
                 style={{

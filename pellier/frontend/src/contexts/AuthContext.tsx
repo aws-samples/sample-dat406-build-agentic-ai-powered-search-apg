@@ -77,15 +77,16 @@ export function useAuth() {
   return ctx
 }
 
-const AUTH_SESSION_MARKER_KEY = 'pellier-auth-session'
-const JUST_SIGNED_IN_COOKIE = 'just_signed_in'
-
-function hasCookie(name: string): boolean {
-  if (typeof document === 'undefined') return false
-  return document.cookie
-    .split(';')
-    .some(cookie => cookie.trim().startsWith(`${name}=`))
+/**
+ * Auth state for components that also mount without the provider (unit
+ * tests, isolated portals). Returns null instead of throwing so callers can
+ * treat "no provider" as "not authenticated".
+ */
+export function useOptionalAuth(): AuthContextType | null {
+  return useContext(AuthContext) ?? null
 }
+
+const AUTH_SESSION_MARKER_KEY = 'pellier-auth-session'
 
 // Shape returned by GET /api/auth/me (see Req 3.1.3). The server returns
 // camelCase fields matching the `User` wire type in services/types.ts.
@@ -194,22 +195,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPrefsVersion(v => v + 1)
   }, [])
 
-  // On mount, hydrate only when the callback marker or an existing authenticated
-  // session says cookie-backed state may exist. This avoids a noisy 401 on every
-  // clean anonymous page load.
+  // The session cookies are httpOnly by design, so JavaScript cannot reliably
+  // predict whether they exist. Always ask the server once on mount. A clean
+  // anonymous load produces one expected 401; skipping the check can strand a
+  // valid operator session in a signed-out SPA state.
   useEffect(() => {
     let cancelled = false
 
     const hydrate = async () => {
-      const shouldRefresh =
-        hasCookie(JUST_SIGNED_IN_COOKIE) ||
-        (typeof window !== 'undefined' &&
-          localStorage.getItem(AUTH_SESSION_MARKER_KEY) === '1')
-
-      if (shouldRefresh) {
-        await refresh()
-      }
-
+      await refresh()
       if (!cancelled) setLoading(false)
     }
 
@@ -217,8 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-    // Intentional: refresh is stable (useCallback with empty deps).
-  }, [])
+  }, [refresh])
 
   const login = useCallback(() => {
     const returnTo = `${window.location.pathname}${window.location.search}`

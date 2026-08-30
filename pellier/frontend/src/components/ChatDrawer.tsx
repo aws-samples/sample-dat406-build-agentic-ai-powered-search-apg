@@ -53,11 +53,11 @@ import '../styles/chat-drawer.css'
 // Fresh visitors get a clean, inviting intro.
 const PERSONA_GREETINGS: Record<string, string> = {
   marco:
-    "I remember you love natural fabrics and pieces that travel well. Last time you were eyeing linen — shall we pick up where you left off, or explore something new?",
+    "I remember you love natural fabrics and pieces that travel well. Last time you were eyeing linen. Shall we pick up where you left off, or explore something new?",
   anna:
     "Always great to see you. I know you have an eye for thoughtful gifts and milestone pieces. Tell me who you're shopping for and I'll find something that lands.",
   theo:
-    "Welcome back. I see you gravitate toward slow-craft pieces — ceramics, washed linen, things with patina. What are you looking for today?",
+    "Welcome back. I see you gravitate toward slow-craft pieces: ceramics, washed linen, things with patina. What are you looking for today?",
 }
 
 const FRESH_GREETING =

@@ -217,9 +217,12 @@
 /* The suggestion row scrolls rather than wrapping, because the labels are full
    questions and wrapping them stacks three tall rows under the search field.
    The right edge fades so a cut-off pill reads as "scroll for more" instead of
-   as a clipped element. */
+   as a clipped element. The end padding matches the fade width so that when
+   the pills fit (or the row is scrolled to its end) the fade covers empty
+   space, not the last pill. */
 .pellier-hero-pills {
   scrollbar-width: none;
+  padding-inline-end: 32px;
   -webkit-mask-image: linear-gradient(
     to right,
     #000 0,

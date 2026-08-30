@@ -59,19 +59,11 @@ function isChatErrorCode(value: unknown): value is ChatErrorCode {
 
 function inferErrorCode(detail: string, status?: number): ChatErrorCode {
   const normalized = detail.toLowerCase()
-  const policyMarkers = [
-    'authorizeactionexception',
-    'accessdeniedexception',
-    'explicit deny',
-    'not authorized',
-    'authorization failed',
-    'not allowed due to policy',
-    'policy enforcement',
-    'access denied by policy',
-  ]
-  if (policyMarkers.some(marker => normalized.includes(marker))) {
-    return 'policy_denied'
-  }
+  // Transport truth wins over prose matching. A reverse proxy, model runtime,
+  // or expired session can all use words such as "AccessDenied" or "not
+  // authorized"; none of those phrases alone proves that Pellier's active
+  // AgentCore Policy produced a DENY decision. Structured stream errors already
+  // carry an explicit `policy_denied` code and bypass this inference.
   if (
     status === 401 ||
     status === 403 ||
@@ -105,6 +97,19 @@ function inferErrorCode(detail: string, status?: number): ChatErrorCode {
     normalized.includes('connection refused')
   ) {
     return 'service_unavailable'
+  }
+  const policyMarkers = [
+    'authorizeactionexception',
+    'accessdeniedexception',
+    'explicit deny',
+    'not authorized',
+    'authorization failed',
+    'not allowed due to policy',
+    'policy enforcement',
+    'access denied by policy',
+  ]
+  if (policyMarkers.some(marker => normalized.includes(marker))) {
+    return 'policy_denied'
   }
   // 404 is NOT a wording problem. It means the route is not there — a wrong
   // backend target, a dev proxy pointed at the other branch's port, or a

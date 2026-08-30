@@ -60,10 +60,24 @@ class _ProofDB:
                 "tool": "initiate_return",
                 "caller": "gateway",
                 "decision": "ALLOW",
-                "args": {"customer_id": "theo", "product_id": "37", "reason": "damaged"},
+                "args": {
+                    "customer_id": "theo",
+                    "product_id": "37",
+                    "reason": "damaged",
+                    "idempotency_key": "operator-review:8:aaaaaaaa",
+                },
                 "policy_engine_id": "policy-1",
                 "policy_name": "initiate_return_damaged_only",
                 "created_at": None,
+            }
+        if "FROM pellier.write_operations" in query:
+            return {
+                "idempotency_key": "operator-review:8:aaaaaaaa",
+                "operation": "initiate_return",
+                "request_hash": "b" * 64,
+                "created_at": None,
+                "completed_at": "2026-08-29T12:00:00+00:00",
+                "result": {"return_id": 77},
             }
         if "FROM pellier.tool_audit" not in query:
             return None
@@ -73,7 +87,12 @@ class _ProofDB:
                 "session_id": "managed-proof",
                 "tool": "initiate_return",
                 "caller": "gateway",
-                "args": {"customer_id": "theo", "product_id": "37", "reason": "damaged"},
+                "args": {
+                    "customer_id": "theo",
+                    "product_id": "37",
+                    "reason": "damaged",
+                    "idempotency_key": "operator-review:8:aaaaaaaa",
+                },
                 "result": {"status": "success"},
                 "latency_ms": 55,
                 "created_at": None,
@@ -286,6 +305,15 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     )
     assert body["managedReceipt"]["governedPrincipalId"] == "CUST-MARCO"
     assert body["managedReceipt"]["governedDecision"] == "ALLOW"
+    assert body["managedReceipt"]["writeOperationPresent"] is True
+    assert (
+        body["managedReceipt"]["writeOperationKey"]
+        == "operator-review:8:aaaaaaaa"
+    )
+    assert (
+        body["managedReceipt"]["writeOperationName"]
+        == "initiate_return"
+    )
     cards = {c["id"]: c for c in body["cards"]}
     assert cards["marco-floor-check"]["status"] == "complete"
     assert cards["marco-floor-check"]["group"] == "Agent and tool evidence"

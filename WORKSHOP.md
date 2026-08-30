@@ -34,6 +34,26 @@ No one layer answers every question. A model may propose an action. A person may
 confirm its exact terms. AgentCore Policy may authorize it. Aurora may still
 refuse it. Receipts must show which of those events occurred.
 
+## Delivery contract
+
+This governed repository is delivered to Workshop Studio as an immutable source
+revision, not as a mutable working copy:
+
+1. commit and push the application changes on `governed`;
+2. update the Workshop Studio launch template's pinned Pellier repository
+   revision (`RepoRevision`, or the equivalent source pin owned by that repo);
+3. deploy a fresh environment from that pin; and
+4. verify `.workshop-ref.json`, `WORKSHOP_SOURCE_REVISION`, and the health gate
+   before treating the environment as current.
+
+Workshop Studio owns its lab guide, CloudFormation launch wiring, screenshots,
+and static workshop assets. Git operations and S3 asset synchronization in that
+repository publish those materials; they do not update the Pellier application
+unless the pinned source revision also changes. On the event path, UserData
+clones this repository at the pinned SHA and the bootstrap removes `.git`, so a
+manual edit or pull on one workshop box is neither the delivery mechanism nor a
+product fix.
+
 ## The retail world
 
 Pellier has two connected operating surfaces and one shared proof surface:
@@ -64,7 +84,10 @@ storefront into an identity switcher:
 
 Jessica is the evidence-integrity journey. Her support ticket says a return was
 received, while the authoritative returns ledger has no row. The correct
-outcome is reconciliation, not an invented completed return.
+first outcome is reconciliation, not an invented completed return. Only after
+that investigation may the participant choose an exact order item and reason to
+prepare a separate review; the graph never infers those material terms from the
+ticket.
 
 ## The closed-loop architecture
 
@@ -343,15 +366,27 @@ same condition.
 ### Jessica: reconcile conflicting evidence
 
 1. Open Jessica's operator client record.
-2. Hand off to the storefront client preview.
-3. Keep the operator identity and Jessica customer subject distinct.
-4. Read the support assertion and authoritative returns ledger separately.
+2. Start a fresh guided Concierge investigation rather than replaying a prior
+   completed session.
+3. Watch the observable operations arrive progressively: client record, order
+   history, service context, return records, and the bounded Strands graph.
+4. Keep the operator identity and Jessica customer subject distinct.
 5. Label the ticket as context, zero return rows as fact, and reconciliation as
    the next inference.
-6. Prepare no consequential action and make no completed-return claim.
+6. Complete the investigation without preparing an action or making a
+   completed-return claim.
+7. At the explicit human checkpoint, choose the disputed order item and reason.
+   Those material terms come from the participant, not from model inference.
+8. Prepare one exact `initiate_return` proposal for Action Queue. Preparation
+   does not authorize or execute it.
+9. A signed-in operator confirms or declines the exact action in a later
+   request. If confirmed, a separate execution request lets AgentCore Policy
+   and Aurora independently decide the outcome.
 
 Safe boundary: context may explain why someone is investigating; it does not
-become system-of-record fact.
+become system-of-record fact. The Concierge may prepare a bounded proposal only
+after a person supplies the missing material terms, and no database change
+occurs at that checkpoint.
 
 ### Other operator clients
 

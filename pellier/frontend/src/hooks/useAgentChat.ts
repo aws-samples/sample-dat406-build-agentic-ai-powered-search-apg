@@ -866,7 +866,7 @@ export function useAgentChat(
             }
           } else if (!lastMsg.content) {
             nextContent =
-              "I couldn't land on a clear answer — try rephrasing or narrowing the ask."
+              "I couldn't land on a clear answer. Try rephrasing or narrowing the ask."
           }
           return {
             ...lastMsg,

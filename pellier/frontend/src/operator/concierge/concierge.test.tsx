@@ -151,9 +151,9 @@ function wire(w: Wiring = {}): ReturnType<typeof vi.fn> {
   return fetchMock
 }
 
-function renderRecord() {
+function renderRecord(entry = '/operator/clients/CUST-JESSICA') {
   return render(
-    <MemoryRouter initialEntries={['/operator/clients/CUST-JESSICA']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/operator/clients/:customerId" element={<ClientRecord />} />
       </Routes>
@@ -350,6 +350,25 @@ describe('submitting a turn', () => {
     })
   })
 
+  it('starts the guided Jessica case as a fresh streamed investigation', async () => {
+    const fetchMock = wire({ stream: STREAM, messages: ANSWERED })
+    renderRecord(
+      '/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title',
+    )
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/turns/stream'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes('/concierge/sessions/latest'),
+      ),
+    ).toBe(false)
+  })
+
   it('labels a draft as unsent and keeps operator context separate', async () => {
     wire({ stream: STREAM, messages: ANSWERED })
     renderRecord()
@@ -414,6 +433,41 @@ describe('submitting a turn', () => {
     }
     // And no emoji anywhere on an operator surface.
     expect(text).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+
+  it('makes the human checkpoint explicit before preparing a review', async () => {
+    const fetchMock = wire({ latestSessionId: 'sess-1', messages: ANSWERED })
+    renderRecord()
+
+    const checkpoint = await screen.findByTestId(
+      'operator-concierge-human-checkpoint',
+    )
+    expect(checkpoint).toHaveTextContent(
+      'This prepares a review. It does not authorize or execute the return.',
+    )
+    expect(checkpoint).toHaveTextContent('Human confirms in Action Queue')
+
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Coral Lacquer Catchall/i }),
+    )
+    fireEvent.change(screen.getByLabelText('Return reason'), {
+      target: { value: 'not_as_described' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Prepare for human review' }),
+    )
+
+    await waitFor(() => {
+      const streamCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).endsWith('/turns/stream'),
+      )
+      expect(streamCall).toBeDefined()
+      const body = JSON.parse(String(streamCall?.[1]?.body))
+      expect(body.message).toContain('Prepare the return')
+      expect(body.message).toContain('Coral Lacquer Catchall')
+      expect(body.message).toContain('not as described')
+      expect(body.message).toContain('for review')
+    })
   })
 })
 

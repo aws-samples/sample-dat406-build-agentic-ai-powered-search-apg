@@ -92,7 +92,8 @@ describe('PolicyDecisionBadge', () => {
   it('states that an ALLOW ran', () => {
     render(<PolicyDecisionBadge decision="ALLOW" />)
 
-    expect(screen.getByText(/permitted and ran/i)).toBeInTheDocument()
+    expect(screen.getByText(/permitted the action/i)).toBeInTheDocument()
+    expect(screen.queryByText(/and ran/i)).not.toBeInTheDocument()
   })
 
   it('renders NOT_EVALUATED as neither success nor failure', () => {

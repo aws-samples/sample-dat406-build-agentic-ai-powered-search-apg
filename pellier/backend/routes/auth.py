@@ -102,6 +102,8 @@ PROVIDER_MAP: Dict[str, Optional[str]] = {
     "email": None,
 }
 
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -176,6 +178,55 @@ def _post_signin_redirect(
         return f"{origin}{safe_return_to}"
     path = "/" + settings.APP_BASE_PATH.strip("/") if settings.APP_BASE_PATH else ""
     return f"{origin}{path}/"
+
+
+def _canonical_loopback_signin_url(
+    request: Request,
+    *,
+    provider: str,
+    return_to: Optional[str],
+) -> Optional[str]:
+    """Converge local host aliases before creating browser-bound OAuth state.
+
+    Cognito exact-matches the configured callback URI. If a participant opens
+    the Vite app at ``127.0.0.1`` while ``APP_BASE_URL`` is ``localhost``,
+    starting OAuth immediately would bind the state/PKCE cookies to
+    ``127.0.0.1`` and send the callback to ``localhost``. The callback could
+    never read those cookies. Redirect the browser to the configured loopback
+    origin first so the entire transaction stays on one cookie host.
+    """
+    configured_base = settings.APP_BASE_URL
+    if not configured_base and settings.OAUTH_REDIRECT_URI:
+        callback = urlsplit(settings.OAUTH_REDIRECT_URI)
+        configured_base = urlunsplit(
+            (callback.scheme, callback.netloc, "", "", "")
+        )
+    if not configured_base:
+        return None
+
+    request_origin = urlsplit(_request_origin(request))
+    configured_origin = urlsplit(configured_base)
+    if (
+        request_origin.hostname not in _LOOPBACK_HOSTS
+        or configured_origin.hostname not in _LOOPBACK_HOSTS
+        or request_origin.netloc == configured_origin.netloc
+    ):
+        return None
+
+    params = {"provider": provider}
+    safe_return_to = _safe_return_to(return_to)
+    if safe_return_to:
+        params["returnTo"] = safe_return_to
+    canonical_base = urlunsplit(
+        (
+            configured_origin.scheme,
+            configured_origin.netloc,
+            configured_origin.path.rstrip("/"),
+            "",
+            "",
+        )
+    )
+    return f"{canonical_base}/api/auth/signin?{urlencode(params)}"
 
 
 def _cognito_domain() -> str:
@@ -498,6 +549,14 @@ async def signin(
     its only job is CSRF protection and replay window enforcement.
     """
     provider_key = provider.lower()
+    canonical_signin_url = _canonical_loopback_signin_url(
+        request,
+        provider=provider_key,
+        return_to=return_to,
+    )
+    if canonical_signin_url:
+        return RedirectResponse(url=canonical_signin_url, status_code=302)
+
     identity_provider = PROVIDER_MAP.get(provider_key)
 
     state = _build_state()

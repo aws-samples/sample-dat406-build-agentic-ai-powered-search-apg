@@ -3,14 +3,13 @@
  *
  * The behaviours worth pinning are the ones a screenshot cannot show: that a
  * missing portrait becomes a designed monogram rather than a grey box, that
- * the credit form refuses to submit above the ceiling, that a signed-out
- * operator gets a labelled state instead of a dead button, and that a replayed
- * write is reported as a replay rather than as a second credit.
+ * the client record keeps evidence roles separate, and that consequential
+ * actions enter through Concierge and Action Queue rather than a bypass form.
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ClientBook from './surfaces/ClientBook'
 import ClientRecord from './surfaces/ClientRecord'
 import ClientAvatar from './components/ClientAvatar'
@@ -317,6 +316,54 @@ describe('ClientBook', () => {
       screen.getByRole('button', { name: /Open Jessica's case/i }),
     ).toBeInTheDocument()
   })
+
+  it('opens Jessica on a fresh guided service-recovery run', async () => {
+    mockFetch(() => ({
+      body: {
+        total: 1,
+        byMembership: { registered: 0, circle: 1, maison: 0 },
+        clients: [{
+          customerId: 'CUST-JESSICA',
+          slug: 'jessica',
+          name: 'Jessica Nakamura',
+          membership: 'circle',
+          spend12mo: 3940,
+          orderCount: 2,
+          orderValue: 540,
+          lastOrderAt: null,
+          note: 'Open return dispute.',
+          personaId: null,
+        }],
+      },
+    }))
+    const LocationProbe = () => {
+      const location = useLocation()
+      return (
+        <div data-testid="operator-location">
+          {location.pathname}{location.search}{location.hash}
+        </div>
+      )
+    }
+    render(
+      <MemoryRouter initialEntries={['/operator']}>
+        <Routes>
+          <Route path="/operator" element={<ClientBook />} />
+          <Route
+            path="/operator/clients/:customerId"
+            element={<LocationProbe />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Open Jessica's case/i }),
+    )
+
+    expect(await screen.findByTestId('operator-location')).toHaveTextContent(
+      '/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title',
+    )
+  })
 })
 
 describe('ClientAvatar', () => {
@@ -462,163 +509,15 @@ describe('ClientRecord', () => {
     )
   })
 
-  it('disables the credit button until an amount and a reason are present', async () => {
+  it('offers no direct mutation form outside the review workflow', async () => {
     renderRecord()
     await screen.findByTestId('operator-record')
 
-    const submit = screen.getByTestId('operator-credit-submit')
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(screen.getByTestId('operator-credit-reason'), {
-      target: { value: 'Goodwill for the delay' },
-    })
-    expect(submit).toBeEnabled()
-  })
-
-  it('refuses an amount above the $500 ceiling client-side too', async () => {
-    renderRecord()
-    await screen.findByTestId('operator-record')
-
-    fireEvent.change(screen.getByTestId('operator-credit-reason'), {
-      target: { value: 'Goodwill' },
-    })
-    fireEvent.change(screen.getByTestId('operator-credit-amount'), {
-      target: { value: '500.01' },
-    })
-    expect(screen.getByTestId('operator-credit-submit')).toBeDisabled()
-
-    fireEvent.change(screen.getByTestId('operator-credit-amount'), {
-      target: { value: '500.00' },
-    })
-    expect(screen.getByTestId('operator-credit-submit')).toBeEnabled()
-  })
-
-  it('sends integer cents so no float reaches the ledger', async () => {
-    mockFetch((_url, init) => {
-      if (init?.method === 'POST') {
-        return {
-          body: {
-            result: { status: 'success', amount: '12.34' },
-            idempotencyKey: 'k', actedBy: 'operator-1',
-          },
-        }
-      }
-      return { body: RECORD }
-    })
-    renderRecord()
-    await screen.findByTestId('operator-record')
-
-    fireEvent.change(screen.getByTestId('operator-credit-reason'), {
-      target: { value: 'Goodwill' },
-    })
-    fireEvent.change(screen.getByTestId('operator-credit-amount'), {
-      target: { value: '12.34' },
-    })
-    fireEvent.click(screen.getByTestId('operator-credit-submit'))
-
-    await waitFor(() => {
-      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
-      const post = calls.find(
-        (call) => String(call[0]).includes('issue-credit'),
-      )
-      expect(post).toBeDefined()
-      expect(JSON.parse(String((post?.[1] as RequestInit).body))).toMatchObject({
-        amountCents: 1234,
-      })
-    })
-  })
-
-  it('labels a signed-out operator instead of leaving a dead button', async () => {
-    mockFetch((_url, init) => {
-      if (init?.method === 'POST') {
-        return { status: 401, body: { detail: 'operator_sign_in_required' } }
-      }
-      return { body: RECORD }
-    })
-    renderRecord()
-    await screen.findByTestId('operator-record')
-
-    fireEvent.change(screen.getByTestId('operator-credit-reason'), {
-      target: { value: 'Goodwill' },
-    })
-    fireEvent.click(screen.getByTestId('operator-credit-submit'))
-
-    expect(await screen.findByTestId('operator-needs-signin')).toHaveTextContent(
-      'Operator sign-in required',
-    )
-  })
-
-  it('reports a replay as a replay, not as a second credit', async () => {
-    mockFetch((_url, init) => {
-      if (init?.method === 'POST') {
-        return {
-          body: {
-            result: {
-              status: 'success', amount: '40.00', idempotent_replay: true,
-            },
-            idempotencyKey: 'stable-key',
-            actedBy: 'operator-1',
-          },
-        }
-      }
-      return { body: RECORD }
-    })
-    renderRecord()
-    await screen.findByTestId('operator-record')
-
-    fireEvent.change(screen.getByTestId('operator-credit-reason'), {
-      target: { value: 'Goodwill' },
-    })
-    fireEvent.click(screen.getByTestId('operator-credit-submit'))
-
-    const receipt = await screen.findByTestId('operator-action-receipt')
-    expect(receipt).toHaveAttribute('data-outcome', 'success')
-    expect(receipt).toHaveTextContent('Already applied')
-    expect(receipt).toHaveTextContent('stable-key')
-  })
-
-  it('renders a policy block as blocked, not as a failure', async () => {
-    mockFetch((_url, init) => {
-      if (init?.method === 'POST') {
-        return {
-          body: {
-            result: { status: 'policy_blocked', message: 'exceeds the ceiling' },
-            idempotencyKey: 'k',
-            actedBy: 'operator-1',
-          },
-        }
-      }
-      return { body: RECORD }
-    })
-    renderRecord()
-    await screen.findByTestId('operator-record')
-
-    fireEvent.change(screen.getByTestId('operator-credit-reason'), {
-      target: { value: 'Goodwill' },
-    })
-    fireEvent.click(screen.getByTestId('operator-credit-submit'))
-
-    const receipt = await screen.findByTestId('operator-action-receipt')
-    expect(receipt).toHaveAttribute('data-outcome', 'blocked')
-    expect(receipt).toHaveTextContent('exceeds the ceiling')
-  })
-
-  it('keeps the return button inert until a numeric product id is entered', async () => {
-    renderRecord()
-    await screen.findByTestId('operator-record')
-
-    const submit = screen.getByTestId('operator-return-submit')
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(screen.getByTestId('operator-return-product'), {
-      target: { value: 'forty-one' },
-    })
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(screen.getByTestId('operator-return-product'), {
-      target: { value: '41' },
-    })
-    expect(submit).toBeEnabled()
+    expect(screen.queryByTestId('operator-credit-submit')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('operator-return-submit')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: /Investigate with Operator Concierge/i }),
+    ).toHaveAttribute('href', '#operator-concierge-title')
   })
 })
 

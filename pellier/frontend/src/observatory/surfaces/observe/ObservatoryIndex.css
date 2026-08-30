@@ -79,7 +79,7 @@
   position: relative;
   display: grid;
   width: 100%;
-  grid-template-columns: 74px minmax(0, 1fr) 38px;
+  grid-template-columns: 74px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 14px;
   padding: 12px;
@@ -192,8 +192,8 @@
 
 .labs-turn-action {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--pl-terracotta-line);
@@ -206,6 +206,8 @@
 
 .labs-turn:hover:not(:disabled) .labs-turn-action {
   border-color: var(--pl-accent);
+  background: var(--pl-accent);
+  color: #fffdfa;
 }
 
 .labs-turn[data-active='true'] .labs-turn-action {

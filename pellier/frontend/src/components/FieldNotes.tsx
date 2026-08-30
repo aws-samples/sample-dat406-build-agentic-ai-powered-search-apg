@@ -31,36 +31,36 @@ const NOTES: readonly Note[] = [
     title: 'On asking for the piece, not the product.',
     body: [
       'A storefront that really knows its floor should answer "a linen piece that travels well" the same way it answers "medium oatmeal camp shirt, size M." Both are the same question dressed differently. The first is softer; the second assumes too much.',
-      'Pellier is built on that smaller, quieter assumption — that you know what you want, not what it\'s called.',
+      'Pellier is built on that smaller, quieter assumption: that you know what you want, not what it\'s called.',
     ],
-    signature: '— The editors',
+    signature: '– The editors',
   },
   {
     kicker: 'Field note · No. 02',
     title: 'Marco, on being remembered.',
     body: [
       "Three weeks between visits is long enough to forget someone in most shops. A natural-fiber wardrobe is narrow enough that you shouldn't have to explain it twice.",
-      "When Marco signs back in, the storefront leads with the piece he'd reach for next — the Italian Linen Camp Shirt in sage — not because it's trending, but because the thread of his purchases points there.",
+      "When Marco signs back in, the storefront leads with the piece he'd reach for next, the Italian Linen Camp Shirt in sage. Not because it's trending, but because the thread of his purchases points there.",
     ],
-    signature: '— Marco, a regular',
+    signature: '– Marco, a regular',
   },
   {
     kicker: 'Field note · No. 03',
     title: 'Anna, on gifting as a practiced art.',
     body: [
       "Gifts are the hardest search queries a storefront will take. They're indirect by design: the shopper isn't the recipient, the recipient isn't in the room, and the moment the piece is chosen for matters more than the piece itself.",
-      "Anna walks in with recipients, not products. A milestone gift under two hundred is a meaningful constraint. The storefront should know — and does.",
+      "Anna walks in with recipients, not products. A milestone gift under two hundred is a meaningful constraint. The storefront should know, and does.",
     ],
-    signature: '— Anna, a gift-giver',
+    signature: '– Anna, a gift-giver',
   },
   {
     kicker: 'Field note · No. 04',
     title: 'Theo, on pieces that wear in.',
     body: [
       "A ceramic tumbler set kept for six months before the second order is the opposite of a cart abandonment. It's a purchase that earned its keep first.",
-      "Slow craft is what happens when a shopper doesn't want to be told what's new. Theo returns for ceramics, linen throws, stoneware — pieces that do more of their work later than sooner.",
+      "Slow craft is what happens when a shopper doesn't want to be told what's new. Theo returns for ceramics, linen throws, stoneware: pieces that do more of their work later than sooner.",
     ],
-    signature: '— Theo, a slow shopper',
+    signature: '– Theo, a slow shopper',
   },
 ]
 

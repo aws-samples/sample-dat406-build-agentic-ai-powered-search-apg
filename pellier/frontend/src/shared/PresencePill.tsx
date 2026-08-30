@@ -5,7 +5,10 @@
  * session jargon.
  *
  * Used on the Pellier capability strip (cream-tinted, glass background)
- * and on the Observatory TopBar (same Pellier styling on the light cream bar).
+ * and on the Observatory TopBar. Both bars are light, so both variants
+ * use dark text: Pellier keeps the editorial ink family, Observatory uses
+ * the green "live surface" family. Every Observatory fragment is styled
+ * here so the label and session tail cannot drift into different themes.
  *
  * Pass `sessionLabel=""` explicitly to force-hide the fragment, or rely
  * on defaults: fresh / anonymous → no fragment; returning shoppers →
@@ -58,6 +61,13 @@ function ensureKeyframes() {
       0%, 100% { opacity: 0.55; transform: scale(0.85); }
       50% { opacity: 1; transform: scale(1.25); }
     }
+    @media (prefers-reduced-motion: reduce) {
+      [data-pellier-presence-dot] {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
   `
   document.head.appendChild(style)
   w[KEYFRAMES_INJECTED_FLAG] = true
@@ -97,29 +107,28 @@ export const PresencePill: React.FC<PresencePillProps> = ({
         padding: '6px 12px',
         borderRadius: 999,
         border: isObservatory
-          ? '1px solid color-mix(in srgb, var(--cream-warm) 18%, transparent)'
+          ? '1px solid rgba(63, 98, 18, 0.2)'
           : '1px solid color-mix(in srgb, var(--dl-ink) 16%, transparent)',
         background: isObservatory
-          ? 'color-mix(in srgb, var(--cream-warm) 6%, transparent)'
+          ? 'rgba(63, 98, 18, 0.08)'
           : 'color-mix(in srgb, var(--cream-warm) 72%, transparent)',
-        backdropFilter: 'blur(6px)',
+        backdropFilter: isObservatory ? 'none' : 'blur(6px)',
         fontFamily: 'var(--sans), system-ui, sans-serif',
         fontSize: '11px',
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        color: isObservatory
-          ? 'color-mix(in srgb, var(--cream-warm) 92%, transparent)'
-          : 'var(--ink)',
+        color: isObservatory ? '#334f13' : 'var(--ink)',
         fontWeight: 500,
       }}
     >
       <span
         aria-hidden="true"
+        data-pellier-presence-dot
         style={{
           width: 7,
           height: 7,
           borderRadius: 999,
-          background: ACCENT,
+          background: isObservatory ? 'var(--obs-green-1)' : ACCENT,
           animation,
           flexShrink: 0,
         }}
@@ -131,14 +140,12 @@ export const PresencePill: React.FC<PresencePillProps> = ({
             fontFamily: 'var(--mono)',
             fontSize: 10,
             letterSpacing: '0.06em',
-            color: isObservatory
-              ? 'color-mix(in srgb, var(--cream-warm) 55%, transparent)'
-              : 'var(--ink-soft)',
+            color: isObservatory ? 'rgba(51, 79, 19, 0.72)' : 'var(--ink-soft)',
             textTransform: 'none',
             marginLeft: 4,
             paddingLeft: 10,
             borderLeft: isObservatory
-              ? '1px solid color-mix(in srgb, var(--cream-warm) 18%, transparent)'
+              ? '1px solid rgba(63, 98, 18, 0.25)'
               : '1px solid color-mix(in srgb, var(--dl-ink) 18%, transparent)',
           }}
         >
