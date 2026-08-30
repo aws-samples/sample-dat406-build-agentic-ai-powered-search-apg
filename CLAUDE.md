@@ -90,10 +90,10 @@ The application must continue to demonstrate:
 
 The required participant path is:
 
-1. Lab 1 - Ground Answers in Live Data
-2. Lab 2 - Measure Hybrid Retrieval Trade-offs
-3. Lab 3 - Operate the Managed Agent Path
-4. Lab 4 - Govern Actions and Prove Outcomes
+1. 01 GROUND THE ANSWER — Live Data and Evidence
+2. 02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs
+3. 03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace
+4. 04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts
 
 Do not reintroduce the old Act I/II/III taxonomy into flagship navigation or
 documentation.

@@ -320,13 +320,13 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert "act" not in cards["marco-floor-check"]
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
-    assert cards["marco-floor-check"]["lab"] == "Lab 1: Ground Answers in Live Data"
-    assert cards["retrieval-comparison"]["lab"] == "Lab 2: Measure Hybrid Retrieval Trade-offs"
+    assert cards["marco-floor-check"]["lab"] == "01 GROUND THE ANSWER — Live Data and Evidence"
+    assert cards["retrieval-comparison"]["lab"] == "02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs"
     assert cards["retrieval-comparison"]["status"] == "available"
-    assert cards["managed-rail"]["lab"] == "Lab 3: Operate the Managed Agent Path"
+    assert cards["managed-rail"]["lab"] == "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace"
     assert cards["managed-rail"]["required"] is True
-    assert cards["audit-ledger"]["lab"] == "Lab 3: Operate the Managed Agent Path"
-    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4: Govern Actions and Prove Outcomes"
+    assert cards["audit-ledger"]["lab"] == "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace"
+    assert cards["runtime-gateway-policy"]["lab"] == "04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts"
     assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
     assert "curl" in cards["managed-rail"]["fallback"]["command"]

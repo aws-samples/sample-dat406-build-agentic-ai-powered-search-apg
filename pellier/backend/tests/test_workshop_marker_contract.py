@@ -17,12 +17,12 @@ anchor means changing both repositories, which is the point.
 What each lab needs from the source tree
 ----------------------------------------
 
-**Lab 1 - Ground answers in live data.** Two marker regions to fill and two fallback
+**Lab 1 - Ground the Answer.** Two marker regions to fill and two fallback
 files to copy. A missing marker breaks the primary lane; a missing fallback breaks the
 recovery lane, which is worse, because it only fails for the participant who is already
 behind.
 
-**Lab 4 - Govern actions and prove outcomes.** A starter Cedar file that must NOT contain
+**Lab 4 - Govern and Prove Actions.** A starter Cedar file that must NOT contain
 the answer, a reference rule that must, and one proof script whose flags the guide passes
 verbatim.
 """
@@ -259,11 +259,14 @@ def test_no_lab_anchor_is_a_broken_path() -> None:
 # Changing a title means changing both repositories, which is the point.
 # ---------------------------------------------------------------------------
 
-CANONICAL_LAB_TITLES: Tuple[str, ...] = (
-    "Ground Answers in Live Data",
-    "Measure Hybrid Retrieval Trade-offs",
-    "Operate the Managed Agent Path",
-    "Govern Actions and Prove Outcomes",
+CANONICAL_LAB_TITLE_PARTS: Tuple[Tuple[str, str], ...] = (
+    ("01 GROUND THE ANSWER", "Live Data and Evidence"),
+    ("02 MEASURE HYBRID RETRIEVAL", "Search, Filters, and Trade-offs"),
+    ("03 OPERATE THE MANAGED AGENT PATH", "Runtime, Gateway, Memory, and Trace"),
+    (
+        "04 GOVERN AND PROVE ACTIONS",
+        "Human Decision, Policy, Database, and Receipts",
+    ),
 )
 
 # Titles the rename replaced. Present anywhere in the shipped product, they are drift.
@@ -305,15 +308,22 @@ def test_the_workshop_map_and_proof_board_use_the_canonical_titles() -> None:
     workshop_map = _read(
         "pellier/frontend/src/observatory/surfaces/observe/WorkshopMap.tsx"
     )
-    for title in CANONICAL_LAB_TITLES:
-        assert title in workshop_map, f"the Workshop Map no longer names {title!r}"
+    for primary, subtitle in CANONICAL_LAB_TITLE_PARTS:
+        assert primary in workshop_map, (
+            f"the Workshop Map no longer names {primary!r}"
+        )
+        assert subtitle in workshop_map, (
+            f"the Workshop Map no longer names {subtitle!r}"
+        )
 
     api = _read("pellier/backend/routes/observatory.py")
-    for title in CANONICAL_LAB_TITLES[1:]:
-        assert title in api, f"the Proof Board API no longer names {title!r}"
+    for primary, subtitle in CANONICAL_LAB_TITLE_PARTS[1:]:
+        assert primary in api, f"the Proof Board API no longer names {primary!r}"
+        assert subtitle in api, f"the Proof Board API no longer names {subtitle!r}"
 
 
 def test_the_retired_and_canonical_title_lists_do_not_overlap() -> None:
     """Guards the two lists above from being edited into agreement."""
-    assert not set(CANONICAL_LAB_TITLES) & set(RETIRED_LAB_TITLES)
-    assert len(CANONICAL_LAB_TITLES) == 4
+    title_parts = {part for title in CANONICAL_LAB_TITLE_PARTS for part in title}
+    assert not title_parts & set(RETIRED_LAB_TITLES)
+    assert len(CANONICAL_LAB_TITLE_PARTS) == 4

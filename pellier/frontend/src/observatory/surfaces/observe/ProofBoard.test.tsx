@@ -63,7 +63,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      lab: 'Lab 1: Ground Answers in Live Data',
+      lab: '01 GROUND THE ANSWER — Live Data and Evidence',
       group: 'Agent and tool evidence',
       title: 'Wire Marco to check_inventory',
       status: 'complete',
@@ -79,7 +79,7 @@ const proofBoardPayload = {
     },
     {
       id: 'retrieval-comparison',
-      lab: 'Lab 2: Measure Hybrid Retrieval Trade-offs',
+      lab: '02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs',
       group: 'Retrieval evidence',
       title: 'Compare retrieval strategies',
       status: 'available',
@@ -96,7 +96,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Lab 3: Operate the Managed Agent Path',
+      lab: '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -111,7 +111,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Lab 3: Operate the Managed Agent Path',
+      lab: '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -130,7 +130,7 @@ const proofBoardPayload = {
     },
     {
       id: 'runtime-gateway-policy',
-      lab: 'Lab 4: Govern Actions and Prove Outcomes',
+      lab: '04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts',
       group: 'Governance evidence',
       title: 'Verify Gateway, Cedar, and the governed receipt',
       status: 'complete',
@@ -283,8 +283,8 @@ describe('ProofBoard', () => {
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to check_inventory',
     );
-    expect(screen.getAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Operate the Managed Agent Path').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('01 GROUND THE ANSWER — Live Data and Evidence')).toHaveLength(2);
+    expect(screen.getAllByText('03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
     expect(screen.getByText('curl -s http://localhost:8000/api/agent/chat')).toBeInTheDocument();
   });
@@ -425,8 +425,8 @@ describe('ProofBoard', () => {
     );
 
     // Four-lab spine: managed execution and audit share Lab 3.
-    expect(await screen.findAllByText('Lab 1: Ground Answers in Live Data')).toHaveLength(2);
-    expect(screen.getAllByText('Lab 3: Operate the Managed Agent Path').length).toBeGreaterThan(0);
+    expect(await screen.findAllByText('01 GROUND THE ANSWER — Live Data and Evidence')).toHaveLength(2);
+    expect(screen.getAllByText('03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace').length).toBeGreaterThan(0);
   });
 
   it('renders an authenticated persisted turn record instead of session fixtures', async () => {

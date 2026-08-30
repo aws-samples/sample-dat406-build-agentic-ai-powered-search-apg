@@ -169,10 +169,10 @@ the second column state the participant outcome in plain language.
 
 | Lab | Participant outcome | Anchor journey |
 |---|---|---|
-| **01 GROUND: Ground Answers in Live Data** | Connect an agent to live data | Marco checks Brooklyn inventory |
-| **02 RETRIEVE: Measure Hybrid Retrieval Trade-offs** | Evaluate hybrid search | Anna finds an eligible gift |
-| **03 OPERATE: Operate the Managed Agent Path** | Run agents on AgentCore | Marco uses Runtime, Gateway, and Memory; Theo exposes an identity gap |
-| **04 GOVERN & PROVE: Govern Actions and Prove Outcomes** | Authorize agent actions and prove outcomes | Marco-for-Theo is denied; Theo-for-Theo is allowed |
+| **01 GROUND THE ANSWER — Live Data and Evidence** | Connect an agent to live data | Marco checks Brooklyn inventory |
+| **02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs** | Evaluate hybrid search | Anna finds an eligible gift |
+| **03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace** | Run agents on AgentCore | Marco uses Runtime, Gateway, and Memory; Theo exposes an identity gap |
+| **04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts** | Authorize agent actions and prove outcomes | Marco-for-Theo is denied; Theo-for-Theo is allowed |
 
 ### Lab 1: Marco connects an agent to live data
 

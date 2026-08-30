@@ -939,7 +939,7 @@ async def _collect_proof_board(
     cards = [
         {
             "id": "marco-floor-check",
-            "lab": "Lab 1: Ground Answers in Live Data",
+            "lab": "01 GROUND THE ANSWER — Live Data and Evidence",
             "group": "Agent and tool evidence",
             "title": "Wire Marco to check_inventory",
             "status": _card_status(check_inventory_wired and bool(latest_check_inventory), "needs_run" if check_inventory_wired else "needs_build"),
@@ -971,7 +971,7 @@ async def _collect_proof_board(
         },
         {
             "id": "retrieval-comparison",
-            "lab": "Lab 2: Measure Hybrid Retrieval Trade-offs",
+            "lab": "02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs",
             "group": "Retrieval evidence",
             "title": "Compare Anna's four retrieval strategies",
             "status": (
@@ -1002,7 +1002,7 @@ async def _collect_proof_board(
         },
         {
             "id": "audit-ledger",
-            "lab": "Lab 3: Operate the Managed Agent Path",
+            "lab": "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -1050,7 +1050,7 @@ async def _collect_proof_board(
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "Lab 4: Govern Actions and Prove Outcomes",
+            "lab": "04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (
@@ -1083,7 +1083,7 @@ async def _collect_proof_board(
         },
         {
             "id": "managed-rail",
-            "lab": "Lab 3: Operate the Managed Agent Path",
+            "lab": "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace",
             "group": "Managed boundaries",
             "title": "Prove the managed Runtime and Gateway rail",
             "status": _card_status(

@@ -2,7 +2,7 @@
 
 These files are facilitator recovery paths and readable reference implementations. A participant who uses a reference still runs the same live proof.
 
-## Lab 1: Ground Answers in Live Data
+## 01 GROUND THE ANSWER — Live Data and Evidence
 
 Complete the Inventory Agent definition:
 
@@ -20,7 +20,7 @@ cp solutions/closing-marcos-gap/services/agent_tools_check_inventory_solution.py
 
 After copying, both `/api/observatory/build-state` markers must read `shipped`. Replay Marco and query the uniquely keyed `check_inventory` row from `pellier.tool_audit`.
 
-## Lab 2: Measure Hybrid Retrieval Trade-offs
+## 02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs
 
 If the live comparison endpoint stalls, use:
 
@@ -30,7 +30,7 @@ sed -n '1,120p' solutions/retrieval-eval/reference-output.txt
 
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
-## Lab 3: Operate the Managed Agent Path
+## 03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace
 
 The managed Memory, Runtime, Gateway, and JWT path has no local substitute. Move a participant to a ready environment when that proof fails.
 
@@ -43,7 +43,7 @@ psql -v ON_ERROR_STOP=1 \
 
 It joins `governed_receipts` to `tool_audit` and resolves the authenticated Marco principal against the Theo customer named in tool input.
 
-## Lab 4: Govern Actions and Prove Outcomes
+## 04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts
 
 Copy the identity-aware Cedar rule after one failed validation, then add it
 through the same pinned AgentCore CLI used by the workshop:

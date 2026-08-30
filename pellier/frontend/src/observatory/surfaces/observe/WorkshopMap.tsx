@@ -52,8 +52,8 @@ const PILLARS: PillarItem[] = [
 
 const LABS: LabItem[] = [
   {
-    lab: 'Lab 1',
-    title: 'Ground Answers in Live Data',
+    lab: '01 GROUND THE ANSWER',
+    title: 'Live Data and Evidence',
     summary:
       "Complete Inventory Agent and check_inventory, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
@@ -71,8 +71,8 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: 'Lab 2',
-    title: 'Measure Hybrid Retrieval Trade-offs',
+    lab: '02 MEASURE HYBRID RETRIEVAL',
+    title: 'Search, Filters, and Trade-offs',
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
@@ -94,8 +94,8 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: 'Lab 3',
-    title: 'Operate the Managed Agent Path',
+    lab: '03 OPERATE THE MANAGED AGENT PATH',
+    title: 'Runtime, Gateway, Memory, and Trace',
     summary:
       "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {
@@ -117,8 +117,8 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: 'Lab 4',
-    title: 'Govern Actions and Prove Outcomes',
+    lab: '04 GOVERN AND PROVE ACTIONS',
+    title: 'Human Decision, Policy, Database, and Receipts',
     summary:
       'Bind JWT identity to the requested customer, prove DENY leaves no execution row, confirm the matching identity executes, and reset the participant policy.',
     primary: {

@@ -204,11 +204,11 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
 
 // Four-lab workshop spine.
 const LAB_BY_CARD_ID: Record<string, string> = {
-  'marco-floor-check': 'Lab 1: Ground Answers in Live Data',
-  'retrieval-comparison': 'Lab 2: Measure Hybrid Retrieval Trade-offs',
-  'managed-rail': 'Lab 3: Operate the Managed Agent Path',
-  'audit-ledger': 'Lab 3: Operate the Managed Agent Path',
-  'runtime-gateway-policy': 'Lab 4: Govern Actions and Prove Outcomes',
+  'marco-floor-check': '01 GROUND THE ANSWER — Live Data and Evidence',
+  'retrieval-comparison': '02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs',
+  'managed-rail': '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
+  'audit-ledger': '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
+  'runtime-gateway-policy': '04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts',
 };
 
 interface GovernedProofStage {
@@ -1611,7 +1611,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
       {isAuditFocus ? (
         <EditorialTitle
           backToReferences
-          eyebrow="Lab 3 · Operate the Managed Agent Path"
+          eyebrow="03 OPERATE THE MANAGED AGENT PATH · Runtime, Gateway, Memory, and Trace"
           title="Audit proof, row by row."
           summary="A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present."
         />

@@ -1302,7 +1302,7 @@ const Tools: React.FC = () => {
           endpoint, so the PASS/FAIL state describes the actual repo. */}
       <div style={{ marginBottom: '20px' }}>
         <LabGrammar
-          labLabel="Lab 1 · Ground Answers in Live Data"
+          labLabel="01 GROUND THE ANSWER · Live Data and Evidence"
           provenance="live"
           proofState={
             buildState.toolTotal > 0 && buildState.toolShipped >= buildState.toolTotal

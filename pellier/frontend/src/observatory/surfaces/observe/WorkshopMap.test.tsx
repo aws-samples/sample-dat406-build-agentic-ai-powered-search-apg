@@ -11,19 +11,19 @@ describe('Observatory workshop map', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText(/^Lab [1-4]$/).map((node) => node.textContent)).toEqual([
-      'Lab 1',
-      'Lab 2',
-      'Lab 3',
-      'Lab 4',
+    expect(screen.getAllByText(/^0[1-4] /).map((node) => node.textContent)).toEqual([
+      '01 GROUND THE ANSWER',
+      '02 MEASURE HYBRID RETRIEVAL',
+      '03 OPERATE THE MANAGED AGENT PATH',
+      '04 GOVERN AND PROVE ACTIONS',
     ]);
-    expect(screen.getByRole('heading', { name: 'Ground Answers in Live Data' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Live Data and Evidence' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Measure Hybrid Retrieval Trade-offs' }),
+      screen.getByRole('heading', { name: 'Search, Filters, and Trade-offs' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Operate the Managed Agent Path' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Runtime, Gateway, Memory, and Trace' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Govern Actions and Prove Outcomes' }),
+      screen.getByRole('heading', { name: 'Human Decision, Policy, Database, and Receipts' }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 
