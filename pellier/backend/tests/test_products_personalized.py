@@ -484,7 +484,7 @@ def test_personalized_true_without_auth_returns_editorial_order(
 def test_persona_edit_reads_the_durable_storefront_rank(
     client: TestClient, fake_db: FakeDatabaseService
 ) -> None:
-    """A persona floor is a nine-piece Aurora edit, never a browser fixture."""
+    """A persona floor is an Aurora-ranked edit, never a browser fixture."""
     resp = client.get("/api/products?persona=marco")
     assert resp.status_code == 200
 

@@ -32,6 +32,14 @@ vi.mock('./observatory/surfaces/observe/ObservatoryWorkbench', () => ({
   default: () => <div>Pellier Observatory workbench</div>,
 }))
 
+vi.mock('./observatory/surfaces/labs/LabsCatalog', () => ({
+  default: () => <div>Governed Lab Collection</div>,
+}))
+
+vi.mock('./observatory/surfaces/labs/LabDetail', () => ({
+  default: () => <div>Governed lab detail</div>,
+}))
+
 vi.mock('./observatory/surfaces/ReferencesIndex', () => ({
   default: () => <div>Optional deep dives index</div>,
 }))
@@ -61,14 +69,34 @@ function renderRoute(path: string) {
 }
 
 describe('canonical application routes', () => {
-  it('renders Pellier Observatory only at the canonical route', async () => {
+  it('renders the governed lab collection at the canonical route', async () => {
     renderRoute('/observatory?turn=live#journey')
+
+    expect(
+      await screen.findByText('Governed Lab Collection'),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/observatory?turn=live#journey',
+    )
+  })
+
+  it('keeps the live request surface at its own workbench route', async () => {
+    renderRoute('/observatory/workbench')
 
     expect(
       await screen.findByText('Pellier Observatory workbench'),
     ).toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent(
-      '/observatory?turn=live#journey',
+      '/observatory/workbench',
+    )
+  })
+
+  it('serves each governed exercise at a stable detail route', async () => {
+    renderRoute('/observatory/labs/grounded-inventory')
+
+    expect(await screen.findByText('Governed lab detail')).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/observatory/labs/grounded-inventory',
     )
   })
 

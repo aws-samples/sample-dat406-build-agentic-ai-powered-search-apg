@@ -569,16 +569,16 @@ async def _collect_readiness() -> dict[str, Any]:
         warehouse_count = counts["warehouse_count"]
         audit_count = counts["audit_count"]
         warehouse_ready = (
-            warehouse_count == 120 if governed_format else warehouse_count > 0
+            warehouse_count == 180 if governed_format else warehouse_count > 0
         )
         checks.append(_readiness_check(
             check_id="aurora",
             label="Aurora PostgreSQL",
-            state="pass" if catalog_count >= 40 and warehouse_ready else "fail",
+            state="pass" if catalog_count >= 60 and warehouse_ready else "fail",
             detail=(
                 f"Catalog {catalog_count} products, warehouse "
                 f"{warehouse_count} rows"
-                f"{' (expected exactly 120)' if governed_format else ''}, "
+                f"{' (expected exactly 180)' if governed_format else ''}, "
                 f"audit ledger {audit_count} rows."
             ),
             href="/observatory/search",
@@ -931,7 +931,7 @@ async def _collect_proof_board(
             "title": "Compare Anna's four retrieval strategies",
             "status": (
                 "available"
-                if int(counts.get("catalog_count") or 0) >= 40
+                if int(counts.get("catalog_count") or 0) >= 60
                 else "needs_data"
             ),
             "required": True,

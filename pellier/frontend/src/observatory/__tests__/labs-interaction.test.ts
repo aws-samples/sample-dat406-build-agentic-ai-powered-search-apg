@@ -15,11 +15,11 @@ describe('governed Labs interaction contract', () => {
     }
   });
 
-  it('normalizes a trailing slash on the workbench', () => {
+  it('normalizes a trailing slash on the Lab Collection', () => {
     expect(interactionForPath('/observatory/')).toBe('interactive');
-    expect(modeCopyForPath('/observatory/').label).toBe('Live Workbench');
+    expect(modeCopyForPath('/observatory/').label).toBe('Lab Collection');
     expect(modeCopyForPath('/observatory/').detail).toBe(
-      'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
+      'Choose one evidence-first exercise, then build, measure, prove, and govern the exact system behavior.',
     );
   });
 

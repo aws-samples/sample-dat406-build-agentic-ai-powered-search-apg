@@ -69,29 +69,34 @@ describe('PersonaTransitionOverlay', () => {
     mockTransition = { id: 1, kind: 'sign-in', persona: marco() }
     render(<PersonaTransitionOverlay />)
     expect(screen.getByText(/Welcome, Marco\./)).toBeInTheDocument()
-    expect(screen.getByText(/Your thread is still warm/)).toBeInTheDocument()
+    expect(
+      screen.getByText('Travel and utility, grounded in leather and linen.'),
+    ).toBeInTheDocument()
     expect(screen.getByAltText('Marco Silva profile')).toBeInTheDocument()
     expect(screen.getByText(/SIGNED IN/i)).toBeInTheDocument()
   })
 
-  it('shows Theo-specific tagline on sign-in', () => {
-    const theo: PersonaTransition['persona'] = {
-      id: 'theo',
-      display_name: 'Theo',
+  it.each([
+    ['anna', 'Anna', 'Gifting and ceremony, expressed in silk and glass.'],
+    ['theo', 'Theo', 'Slow living through craft, stoneware, and natural materials.'],
+  ])('shows the %s-specific tagline on sign-in', (id, displayName, tagline) => {
+    const persona: PersonaTransition['persona'] = {
+      id,
+      display_name: displayName,
       role_tag: '',
-  membership: 'registered' as const,
+      membership: 'registered' as const,
       avatar_color: '#5a4535',
-      avatar_initial: 'T',
-      customer_id: 'cust-theo',
-      hero_image: '/products/hero-theo.webp',
-      hero_alt: 'Theo profile',
+      avatar_initial: displayName.charAt(0),
+      customer_id: `cust-${id}`,
+      hero_image: `/products/hero-${id}.webp`,
+      hero_alt: `${displayName} profile`,
       hero_subheadline: 'Live Aurora profile.',
       stats: { visits: 8, orders: 4, last_seen_days: 14 },
     }
-    mockTransition = { id: 10, kind: 'sign-in', persona: theo }
+    mockTransition = { id: 10, kind: 'sign-in', persona }
     render(<PersonaTransitionOverlay />)
-    expect(screen.getByText(/Welcome, Theo\./)).toBeInTheDocument()
-    expect(screen.getByText(/Quiet pieces, kept ready/)).toBeInTheDocument()
+    expect(screen.getByText(`Welcome, ${displayName}.`)).toBeInTheDocument()
+    expect(screen.getByText(tagline)).toBeInTheDocument()
   })
 
   it('shows the sign-out card without a tagline', () => {
@@ -99,7 +104,9 @@ describe('PersonaTransitionOverlay', () => {
     render(<PersonaTransitionOverlay />)
     expect(screen.getByText(/See you soon, Marco\./)).toBeInTheDocument()
     // Sign-out deliberately skips the persona tag line.
-    expect(screen.queryByText(/Your thread is still warm/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Travel and utility, grounded in leather and linen.'),
+    ).not.toBeInTheDocument()
     expect(screen.getByText(/SIGNED OUT/i)).toBeInTheDocument()
   })
 

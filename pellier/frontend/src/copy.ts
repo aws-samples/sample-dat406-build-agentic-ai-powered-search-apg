@@ -107,17 +107,16 @@ export const PELLIER_HERO_SIGNED_OUT = {
  * Concierge panel that sits beside the hero image.
  *
  * `PROFILES` descriptors are one line each, in the same voice as the
- * `blurb` field on `data/personas.ts`. Guest is a real state: the
- * storefront renders the canonical unranked floor when no profile is
- * active, so the guest action browses that floor rather than pretending
- * to personalize it.
+ * `blurb` field on `data/personas.ts`. The concierge action requires one of
+ * these profiles because every guided request is ranked for that shopper.
  */
 export const HERO_CONCIERGE = {
   EYEBROW: "Welcome to Pellier",
   TITLE: "Who are you shopping for?",
   HELPER:
     "Get a more personal experience with recommendations tailored to their style.",
-  GUEST_ACTION: "Continue as guest",
+  ASK_ACTION: "Ask Pellier",
+  CHOOSE_HELPER: "Choose Marco, Anna, or Theo to begin.",
   /**
    * One line per profile, and each must match that persona's actual
    * curation. The mockup carried generic luxury copy which contradicted the
@@ -125,14 +124,14 @@ export const HERO_CONCIERGE = {
    * mentions giving teaches the wrong expectation before the floor reranks.
    *
    * Aligned with the existing authoritative sources:
-   *   role_tag           (data/personas.ts)      Returning / Gift-giver / Home + slow craft
+   *   role_tag           (Aurora)                Travel / gifting / slow-living materials
    *   curatedHeadline    (personaCurations.ts)   Pieces that travel. / Gifts, thoughtfully matched. / Quiet pieces, lived-in.
    *   weekend edit brow  (personaCurations.ts)   The Travel Edit / The Gift Edit / The Slow Edit
    */
   PROFILES: {
-    marco: "Natural fibers and travel-ready layers.",
-    anna: "Considered gifts, ready to give.",
-    theo: "Slow craft for daily rituals.",
+    marco: "Travel, utility, leather, linen.",
+    anna: "Gifting, ceremony, silk, glass.",
+    theo: "Slow living, craft, stoneware, natural materials.",
   },
 } as const;
 

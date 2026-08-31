@@ -39,7 +39,10 @@
 
   /* Editorial rhythm for the landing bands. */
   --pellier-band-y: clamp(48px, 5.5vw, 88px);
-  --pellier-hero-min: clamp(430px, calc(100dvh - 340px), 580px);
+  /* Announcement (44px) + navigation (61px) + the hero's lower breathing
+     room (48px). With the announcement visible, the full hero now lands on
+     the first viewport instead of inheriting the photograph's 16:9 height. */
+  --pellier-hero-min: clamp(520px, calc(100dvh - 153px), 780px);
   /* Matches the `container-x` spacing token in tailwind.config.js. */
   --pellier-gutter: clamp(16px, 4vw, 48px);
 }
@@ -162,15 +165,17 @@
 .pellier-hero {
   position: relative;
   width: 100%;
-  padding: clamp(20px, 2.4vw, 40px) 0 clamp(28px, 3vw, 48px);
+  padding: 0 0 clamp(28px, 3vw, 48px);
   overflow: clip;
   background: var(--cream);
 }
 
 .pellier-hero-inner {
+  position: relative;
+  isolation: isolate;
   display: grid;
   width: 100%;
-  max-width: 1600px;
+  max-width: none;
   min-height: var(--pellier-hero-min);
   margin: 0 auto;
   padding-inline: var(--pellier-gutter);
@@ -263,7 +268,7 @@
     grid-template-columns:
       minmax(0, 0.86fr)
       minmax(0, 1.62fr)
-      minmax(330px, 0.84fr);
+      minmax(370px, 0.9fr);
     gap: clamp(14px, 1.4vw, 26px);
   }
 
@@ -279,16 +284,68 @@
      matters more than the extra 150px, so the width comes from a wider
      container instead.
 
-     Explicit placement on all three children: the media spans 1/3, so leaving
-     the concierge to auto-placement would drop it into a second row. */
+     The photograph is removed from grid sizing so its intrinsic 16:9 ratio
+     cannot make the first viewport taller than the viewport-aware row. */
   .pellier-hero-media {
-    grid-row: 1;
-    grid-column: 1 / 3;
+    position: absolute;
+    inset: 0;
     aspect-ratio: auto;
-    align-self: stretch;
-    height: 100%;
-    margin-inline-start: 0;
-    border-radius: 8px;
+    height: auto;
+    margin-inline: 0;
+    border-radius: 0;
+  }
+
+  /* The source composition places the weekender on the stone ledge. Keep that
+     lower edge present while leaving enough of the upper frame for the olive
+     tree. A slight right-edge scale nudges the bag left without opening a gap
+     at the edge of the full-bleed image. */
+  .pellier-hero[data-persona='fresh'] .pellier-hero-media img {
+    object-position: center 74%;
+    transform: scale(1.02);
+    transform-origin: right bottom;
+  }
+
+  /* Named persona masters reserve expendable wall above the composition.
+     Anchor the approved PNGs to the lower edge so a wide viewport crops that
+     wall instead of cutting through the plinth and product arrangement. */
+  .pellier-hero:not([data-persona='fresh']) .pellier-hero-media img {
+    object-position: center bottom;
+  }
+
+  /* Named profiles carry distinct editorial registers. Marco keeps the
+     default oxblood accent; Anna shifts toward the rose-garnet in her ribbon
+     and silk palette while retaining dark text on the brighter copy zone. */
+  .pellier-hero[data-persona='anna'] .pellier-hero-copy .pellier-eyebrow,
+  .pellier-hero[data-persona='anna'] .pellier-statement em,
+  .pellier-hero[data-persona='anna'] .pellier-action-quiet:hover {
+    color: #84344d;
+  }
+
+  .pellier-hero[data-persona='anna'] .pellier-statement,
+  .pellier-hero[data-persona='anna'] .pellier-hero-lede,
+  .pellier-hero[data-persona='anna'] .pellier-action-quiet {
+    color: #2f2025;
+  }
+
+  /* Theo's approved master intentionally uses a dark earthen copy zone, so
+     its register moves to cream and beeswax for contrast and material warmth. */
+  .pellier-hero[data-persona='theo'] .pellier-hero-copy .pellier-eyebrow {
+    color: #e6bd79;
+  }
+
+  .pellier-hero[data-persona='theo'] .pellier-statement,
+  .pellier-hero[data-persona='theo'] .pellier-hero-lede,
+  .pellier-hero[data-persona='theo'] .pellier-action-quiet {
+    color: var(--cream);
+    text-shadow: 0 1px 2px rgb(20 12 8 / 0.2);
+  }
+
+  .pellier-hero[data-persona='theo'] .pellier-statement em {
+    color: #edc47e;
+  }
+
+  .pellier-hero[data-persona='theo'] .pellier-action-quiet:hover {
+    color: #edc47e;
   }
 
   .pellier-hero-copy {
@@ -302,11 +359,130 @@
     margin-inline-start: 18px;
   }
 
-  .pellier-concierge {
-    grid-row: 1;
-    grid-column: 3;
+  .pellier-hero:not([data-persona='fresh']) .pellier-hero-inner {
+    grid-template-columns: minmax(420px, 560px) minmax(0, 1fr);
   }
 
+  .pellier-concierge {
+    position: relative;
+    z-index: 1;
+    grid-row: 1;
+    grid-column: 3;
+    align-self: center;
+  }
+
+}
+
+/* -----------------------------------------------------------------------
+ * Product edit. A full-width editorial band with three large images at
+ * desktop replaces the auto-fill grid that could shrink the photography to
+ * four small cards. Product detail remains the destination behind each image.
+ * ----------------------------------------------------------------------- */
+.pellier-edit-shell {
+  width: 100%;
+  max-width: 1560px;
+  margin-inline: auto;
+  padding-inline: var(--pellier-gutter);
+}
+
+.pellier-product-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(44px, 5vw, 86px) clamp(18px, 2vw, 34px);
+}
+
+.product-card--editorial {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.product-card--editorial .product-card-media {
+  width: 100%;
+  background: var(--sand);
+}
+
+.product-card--editorial .product-card-image {
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.product-card--editorial:hover .product-card-image,
+.product-card--editorial:focus-within .product-card-image {
+  transform: scale(1.025);
+}
+
+.product-card-view {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 18px;
+  padding: 0 16px;
+  background: rgb(250 248 241 / 0.95);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 650;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.product-card-media:hover .product-card-view,
+.product-card-media:focus-visible .product-card-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.product-card--editorial .product-card-copy {
+  padding-top: 16px;
+}
+
+.product-card--editorial .product-card-copy > div:first-child {
+  color: var(--ink-quiet);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.product-card--editorial .product-name {
+  font-size: clamp(22px, 1.75vw, 30px);
+  line-height: 1.12;
+}
+
+.product-card--editorial [data-testid^='product-card-add-'] {
+  width: fit-content;
+  min-height: 42px;
+  padding-inline: 22px;
+}
+
+@media (max-width: 1179px) {
+  .pellier-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 699px) {
+  .pellier-product-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+
+  .product-card-view {
+    opacity: 1;
+    transform: none;
+  }
+
+  .product-card--editorial .product-name {
+    font-size: clamp(24px, 7vw, 31px);
+  }
 }
 
 /* -----------------------------------------------------------------------
@@ -337,9 +513,7 @@
   margin: 0;
   color: var(--ink);
   font-family: var(--display);
-  /* Capped so the question holds one line inside the panel; Fraunces sets
-     wider than the mock's face and wrapped "for?" onto its own line. */
-  font-size: clamp(19px, 1.42vw, 23px);
+  font-size: clamp(24px, 1.65vw, 28px);
   font-weight: 400;
   letter-spacing: -0.012em;
   line-height: 1.16;
@@ -351,7 +525,7 @@
   margin: 0;
   color: var(--ink-soft);
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.55;
 }
 
@@ -359,7 +533,7 @@
   display: grid;
   margin: 0;
   padding: 0;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   list-style: none;
 }
@@ -369,8 +543,8 @@
   width: 100%;
   align-items: center;
   flex-direction: column;
-  gap: 9px;
-  padding: 10px 6px 12px;
+  gap: 10px;
+  padding: 12px 8px 14px;
   border: 1px solid transparent;
   border-radius: 12px;
   background: none;
@@ -408,8 +582,8 @@
 .pellier-profile-portrait {
   position: relative;
   display: block;
-  width: clamp(58px, 5vw, 76px);
-  height: clamp(58px, 5vw, 76px);
+  width: clamp(64px, 5.2vw, 82px);
+  height: clamp(64px, 5.2vw, 82px);
   overflow: hidden;
   border-radius: 50%;
   background: var(--cream-2);
@@ -430,7 +604,7 @@
   display: block;
   color: var(--ink);
   font-family: var(--display);
-  font-size: 16.5px;
+  font-size: 18.5px;
   font-weight: 500;
   letter-spacing: -0.005em;
   line-height: 1.1;
@@ -440,8 +614,8 @@
   display: block;
   color: var(--ink-soft);
   font-family: var(--sans);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.45;
   text-wrap: balance;
 }
 
@@ -449,14 +623,14 @@
   display: block;
   color: var(--pellier-burgundy);
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
   line-height: 1;
   text-transform: uppercase;
 }
 
-.pellier-concierge-guest {
+.pellier-concierge-ask {
   display: inline-flex;
   width: 100%;
   min-height: 44px;
@@ -468,22 +642,41 @@
   background: var(--cream);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   transition:
     border-color var(--gov-motion-base, 200ms) ease,
-    color var(--gov-motion-base, 200ms) ease;
+    color var(--gov-motion-base, 200ms) ease,
+    opacity var(--gov-motion-base, 200ms) ease;
 }
 
-.pellier-concierge-guest:hover {
+.pellier-concierge-ask:hover:not(:disabled) {
   border-color: var(--pellier-burgundy);
   color: var(--pellier-burgundy);
 }
 
-.pellier-concierge-guest:focus-visible {
+.pellier-concierge-ask:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.pellier-concierge-ask:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.pellier-concierge-sparkle {
+  color: #a36b16;
+}
+
+.pellier-concierge-requirement {
+  margin: -8px 0 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .pellier-concierge-seed {

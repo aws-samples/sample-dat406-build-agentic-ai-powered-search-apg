@@ -213,9 +213,9 @@ CREATE INDEX IF NOT EXISTS warehouse_inventory_product_idx
     ON pellier.warehouse_inventory (product_id);
 
 -- ---------------------------------------------------------------------
--- Seed: rebuild the exact 40 x 3 governed inventory matrix. Clearing the
+-- Seed: rebuild the exact 60 x 3 governed inventory matrix. Clearing the
 -- existing rows prevents legacy warehouses or stale products from surviving
--- a reset and invalidating the 120-row workshop contract.
+-- a reset and invalidating the 180-row workshop contract.
 -- ---------------------------------------------------------------------
 DELETE FROM pellier.warehouse_inventory;
 DELETE FROM pellier.warehouses
@@ -243,7 +243,7 @@ FROM pellier.warehouses wh
 CROSS JOIN pellier.product_catalog pc
 WHERE wh.id IN ('BK-01', 'ATX-02', 'PDX-01')
   AND pc."productId" ~ '^[0-9]+$'
-  AND pc."productId"::int BETWEEN 1 AND 40
+  AND pc."productId"::int BETWEEN 1 AND 60
 ON CONFLICT (warehouse_id, product_id) DO UPDATE SET
     quantity   = EXCLUDED.quantity,
     updated_at = now();
@@ -268,9 +268,9 @@ BEGIN
           HAVING count(*) <> 3
       ) AS invalid;
 
-    IF nrows <> 120 OR invalid_products <> 0 THEN
+    IF nrows <> 180 OR invalid_products <> 0 THEN
         RAISE EXCEPTION
-            'Governed inventory expected 120 rows and 3 warehouses per product; got % rows and % invalid products.',
+            'Governed inventory expected 180 rows and 3 warehouses per product; got % rows and % invalid products.',
             nrows,
             invalid_products;
     END IF;

@@ -124,5 +124,5 @@ value, `30` in the workshop template).
 - **Runtime traces** — run `npx -y @aws/agentcore@0.26.0 traces list --runtime pellier_orchestrator --limit 10 --since 1h --json`, then correlate on the session ID. The provisioner only reports ready after it observes Agent input/output, sanitized tool input/output, and per-step Agent/Model/Tool latency.
 
 Run `bash scripts/health-gate.sh` for the governed readiness verdict. It also
-requires active Memory, exactly 120 warehouse rows, Policy `ENFORCE`, and the
+requires active Memory, exactly 180 warehouse rows, Policy `ENFORCE`, and the
 structured provisioning receipt.

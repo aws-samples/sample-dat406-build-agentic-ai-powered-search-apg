@@ -40,7 +40,7 @@ enforcement.
 
 **"In stock" means reconciled against the ledger.** The shopper planner compiles
 ``in_stock_only`` to ``quantity > 0`` on the aggregate cache, which holds a seed
-constant for 960 of 1000 catalog rows. This module refuses that predicate and uses
+constant for 940 of 1000 catalog rows. This module refuses that predicate and uses
 ``inventory_evidence.RECONCILED_AVAILABLE_SQL`` instead, so the phrase means
 something. Where no reconciled candidate exists, the answer says so rather than
 quietly widening to a cache reading.

@@ -62,11 +62,26 @@ FKs.
 29. **`029_live_surface_data.sql`** — persists storefront persona profiles,
     guided shopper scenarios, and editorial catalog grouping in Aurora; it also
     upgrades catalog image URLs to the shipped WebP contract.
-30. **`030_storefront_editorial_order.sql`** — stores the featured item and
-    exact nine-piece order for each persona’s storefront edit in Aurora.
+30. **`030_storefront_editorial_order.sql`** — stores each featured item and
+    exact storefront edit order in Aurora.
 31. **`031_refine_fresh_storefront_edit.sql`** — keeps the unsigned edit
     material-led by promoting the Washed Canvas Tote and aligns its guided
     Observatory request with that Aurora-owned edit.
+32. **`032_restore_fresh_runner_edit.sql`** — restores Cloudform Studio Runner
+    as the ninth promoted guest piece while keeping the full ten-product Fresh
+    cohort searchable.
+33. **`033_extend_curated_inventory.sql`** — converges existing clusters on
+    three warehouse rows for all 60 curated products without rewriting prior
+    inventory movements.
+34. **`034_refine_persona_personalities.sql`** — replaces lifecycle-oriented
+    persona labels with concise editorial taste and material descriptors.
+35. **`035_expand_persona_discovery_grids.sql`** — promotes the tenth product
+    in each named persona cohort so one feature is followed by nine distinct
+    discovery cards.
+36. **`036_refresh_persona_hero_alt_text.sql`** — aligns Aurora-owned hero
+    descriptions with the approved Marco, Anna, and Theo full-bleed masters.
+37. **`037_serve_persona_hero_masters.sql`** — serves the approved persona
+    hero PNG masters directly while retaining derivatives for secondary use.
 
 ## Run
 
@@ -109,7 +124,13 @@ for migration in \
     028_shopper_operator_handoff.sql \
     029_live_surface_data.sql \
     030_storefront_editorial_order.sql \
-    031_refine_fresh_storefront_edit.sql
+    031_refine_fresh_storefront_edit.sql \
+    032_restore_fresh_runner_edit.sql \
+    033_extend_curated_inventory.sql \
+    034_refine_persona_personalities.sql \
+    035_expand_persona_discovery_grids.sql \
+    036_refresh_persona_hero_alt_text.sql \
+    037_serve_persona_hero_masters.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -166,7 +187,7 @@ SELECT COUNT(*) FROM pellier.product_catalog;          -- 1000 by default
 SELECT COUNT(*) FROM pellier.customers;                -- at least 5
 SELECT COUNT(*) FROM pellier.orders;                   -- at least 20
 SELECT COUNT(*) FROM pellier.customer_episodic_seed;   -- 9
-SELECT COUNT(*) FROM pellier.warehouse_inventory;      -- 120
+SELECT COUNT(*) FROM pellier.warehouse_inventory;      -- 180
 SELECT COUNT(*) FROM pellier.governed_receipts
  WHERE session_id = 'gateway-marco-for-theo-incident'; -- 1
 SELECT COUNT(*) FROM pellier.reconcile_inventory();     -- 0

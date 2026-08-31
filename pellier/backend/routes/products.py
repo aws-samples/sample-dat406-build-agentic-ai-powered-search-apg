@@ -39,7 +39,7 @@ Design notes
   require the seeded catalog (per the task prompt).
 
 * **Default editorial order.** "Editorial order" is the personalization_agent-chosen
-  order the 9 showcase products appear in ``storefront.md``. The
+  order the promoted showcase products appear in ``storefront.md``. The
   Pellier catalog encodes this via the ``tier`` column (1=featured,
   2=editorial, 3=extended) and we break ties by ``"productId"``
   ascending so the list stays stable for ``sort_personalized``.

@@ -1,7 +1,8 @@
 -- Migration 030: durable storefront edit ordering.
 --
--- The storefront has four intentionally composed nine-piece edits. Each edit
--- has one featured item followed by eight cards in a persona-specific order.
+-- The storefront has four intentionally composed edits. Fresh promotes nine
+-- pieces in one unsigned discovery grid. Each named persona promotes all ten
+-- cohort pieces: one featured item followed by a symmetric 3x3 grid.
 -- This is merchandising state, not a browser fixture: the product data and
 -- order must survive a fresh account, a restart, and a different browser.
 
@@ -30,16 +31,19 @@ WITH storefront_edit (persona_id, product_id, storefront_rank) AS (
         ('marco', '11', 1), ('marco', '14', 2), ('marco', '17', 3),
         ('marco', '16', 4), ('marco', '13', 5), ('marco', '19', 6),
         ('marco', '18', 7), ('marco', '12', 8), ('marco', '15', 9),
+        ('marco', '20', 10),
 
         -- Anna: giftable objects first, then the supporting considerations.
         ('anna', '21', 1), ('anna', '23', 2), ('anna', '27', 3),
         ('anna', '26', 4), ('anna', '29', 5), ('anna', '22', 6),
         ('anna', '25', 7), ('anna', '24', 8), ('anna', '28', 9),
+        ('anna', '30', 10),
 
         -- Theo: the slow-living edit, led by the pour-over ritual.
         ('theo', '31', 1), ('theo', '37', 2), ('theo', '36', 3),
         ('theo', '39', 4), ('theo', '35', 5), ('theo', '32', 6),
-        ('theo', '34', 7), ('theo', '38', 8), ('theo', '33', 9)
+        ('theo', '34', 7), ('theo', '38', 8), ('theo', '33', 9),
+        ('theo', '40', 10)
 )
 UPDATE pellier.product_catalog AS product
    SET storefront_rank = storefront_edit.storefront_rank
@@ -62,15 +66,16 @@ BEGIN
            WHERE persona_id IN ('fresh', 'marco', 'anna', 'theo')
              AND storefront_rank IS NOT NULL
            GROUP BY persona_id
-          HAVING count(*) <> 9
+          HAVING count(*) <> CASE WHEN persona_id = 'fresh' THEN 9 ELSE 10 END
               OR min(storefront_rank) <> 1
-              OR max(storefront_rank) <> 9
-              OR count(DISTINCT storefront_rank) <> 9
+              OR max(storefront_rank) <> CASE WHEN persona_id = 'fresh' THEN 9 ELSE 10 END
+              OR count(DISTINCT storefront_rank)
+                    <> CASE WHEN persona_id = 'fresh' THEN 9 ELSE 10 END
       ) invalid;
 
     IF bad_edit_count <> 0 THEN
         RAISE EXCEPTION
-            'Storefront edits must contain ranks 1 through 9 exactly once';
+            'Fresh must contain ranks 1-9; named persona edits must contain ranks 1-10';
     END IF;
 END $$;
 

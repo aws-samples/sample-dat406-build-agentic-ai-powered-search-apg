@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowRight, Send, Sparkles } from 'lucide-react'
 import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
+import { asset } from '../utils/assetPath'
 import { splitHeadlineAtAccent } from '../utils/headlineAccent'
 import { HERO_STATEMENT } from '../copy'
 import PersonaConcierge from './PersonaConcierge'
@@ -146,6 +147,7 @@ export default function PellierHero({
   return (
     <section
       data-testid="pellier-hero"
+      data-persona={personaId}
       aria-label="Pellier collection"
       className="pellier-hero"
     >
@@ -270,14 +272,26 @@ export default function PellierHero({
 
         <div className="pellier-hero-media">
           {heroProfile?.hero_image && heroProfile.hero_alt ? (
-            <ResponsiveImage
-              src={heroProfile.hero_image}
-              alt={heroProfile.hero_alt}
-              widths={[480, 960, 1600]}
-              sizes="(min-width: 1024px) 52vw, 100vw"
-              loading="eager"
-              pictureClassName="block h-full w-full"
-            />
+            persona ? (
+              <img
+                data-testid="persona-hero-image"
+                src={asset(heroProfile.hero_image)}
+                alt={heroProfile.hero_alt}
+                width={1672}
+                height={941}
+                loading="eager"
+                decoding="async"
+              />
+            ) : (
+              <ResponsiveImage
+                src={heroProfile.hero_image}
+                alt={heroProfile.hero_alt}
+                widths={[480, 960, 1600]}
+                sizes="100vw"
+                loading="eager"
+                pictureClassName="block h-full w-full"
+              />
+            )
           ) : (
             <div
               aria-label="Loading live profile image"
@@ -287,7 +301,7 @@ export default function PellierHero({
           )}
         </div>
 
-        <PersonaConcierge onContinueAsGuest={browseCollection} />
+        <PersonaConcierge />
       </div>
     </section>
   )

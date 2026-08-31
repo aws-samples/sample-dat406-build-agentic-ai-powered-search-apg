@@ -24,21 +24,20 @@ import { getPersonaPhoto } from '../data/personaPhotos'
 const SIGN_IN_DURATION_MS = 2400
 const SIGN_OUT_DURATION_MS = 1600
 
-// Persona-specific "your thread" line shown under the greeting on
-// sign-in. Short and grounded in the persona's signal — echoes the
-// context paragraph they'll see on the storefront welcome card.
-// Falls through to a generic line for unknown personas.
+// Persona-specific editorial line shown under the greeting on sign-in.
+// This overlay also appears during ordinary persona switching, so the copy
+// describes each taste profile without implying that a prior thread exists.
 const WELCOME_TAGLINES: Record<string, string> = {
-  marco: 'Your thread is still warm. Linen and oat tones await.',
-  anna: 'Gifts, wrapped and waiting where you left them.',
-  theo: 'Quiet pieces, kept ready: ceramics and stoneware wait.',
+  marco: 'Travel and utility, grounded in leather and linen.',
+  anna: 'Gifting and ceremony, expressed in silk and glass.',
+  theo: 'Slow living through craft, stoneware, and natural materials.',
   fresh: 'The floor is yours. Tell Pellier what catches your eye.',
 }
 
 function welcomeTagFor(personaId: string): string {
   return (
     WELCOME_TAGLINES[personaId] ??
-    'Pellier remembers. Pick up where you left off.'
+    'Your Pellier edit is ready.'
   )
 }
 

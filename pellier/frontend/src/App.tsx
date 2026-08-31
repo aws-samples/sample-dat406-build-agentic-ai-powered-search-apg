@@ -47,6 +47,12 @@ const OperatorLineage = lazy(
 const ObservatoryWorkbench = lazy(
   () => import('./observatory/surfaces/observe/ObservatoryWorkbench'),
 )
+const LabsCatalog = lazy(
+  () => import('./observatory/surfaces/labs/LabsCatalog'),
+)
+const LabDetail = lazy(
+  () => import('./observatory/surfaces/labs/LabDetail'),
+)
 const ReferencesIndex = lazy(
   () => import('./observatory/surfaces/ReferencesIndex'),
 )
@@ -243,7 +249,9 @@ export function AppRoutes() {
           <Route path="reviews/:reviewId" element={<ReviewRecord />} />
         </Route>
         <Route path="/observatory" element={<ObservatoryFrame />}>
-          <Route index element={<ObservatoryWorkbench />} />
+          <Route index element={<LabsCatalog />} />
+          <Route path="labs/:exerciseId" element={<LabDetail />} />
+          <Route path="workbench" element={<ObservatoryWorkbench />} />
           <Route path="references" element={<ReferencesIndex />} />
           <Route path="proof-board" element={<ProofBoard />} />
           <Route path="operator-lineage" element={<OperatorLineage />} />

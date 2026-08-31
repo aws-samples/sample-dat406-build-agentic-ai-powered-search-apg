@@ -9,7 +9,7 @@ scripts/migrations/001_schema.sql. Running it against the current schema
 will fail with "column does not exist".
 
 The authoritative seeder is scripts/seed_pellier_catalog.py — it loads
-the 40 curated Cohere Embed v4 vectors from the committed cache, derives
+the 60 curated Cohere Embed v4 vectors from the committed cache, derives
 archive distractor vectors, and INSERTs the expanded corpus into
 pellier.product_catalog with the matching column names. bootstrap-labs.sh
 calls that one.

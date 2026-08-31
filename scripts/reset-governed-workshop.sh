@@ -290,7 +290,13 @@ for migration in \
   028_shopper_operator_handoff.sql \
   029_live_surface_data.sql \
   030_storefront_editorial_order.sql \
-  031_refine_fresh_storefront_edit.sql
+  031_refine_fresh_storefront_edit.sql \
+  032_restore_fresh_runner_edit.sql \
+  033_extend_curated_inventory.sql \
+  034_refine_persona_personalities.sql \
+  035_expand_persona_discovery_grids.sql \
+  036_refresh_persona_hero_alt_text.sql \
+  037_serve_persona_hero_masters.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"

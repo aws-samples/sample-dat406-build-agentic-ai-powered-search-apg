@@ -373,7 +373,7 @@ esac
 case "$*" in
   *inventory_consistency_check*) printf '0\n' ;;
   *product_catalog*) printf '1000\n' ;;
-  *warehouse_inventory*) printf '120\n' ;;
+  *warehouse_inventory*) printf '180\n' ;;
   *governed_receipts*) printf '1\n' ;;
   *customers*) printf '{customer_count}\n' ;;
   *orders*) printf '{order_count}\n' ;;
@@ -723,7 +723,7 @@ def test_governed_reset_restores_catalog_before_exact_warehouse_matrix() -> None
     assert reset.index(catalog_reset) < reset.index(warehouse_reset)
     assert "quantity = EXCLUDED.quantity" in seeder
     assert "DELETE FROM pellier.warehouse_inventory;" in warehouse
-    assert "IF nrows <> 120 OR invalid_products <> 0 THEN" in warehouse
+    assert "IF nrows <> 180 OR invalid_products <> 0 THEN" in warehouse
 
 
 def test_facilitator_dry_run_requires_managed_rail_and_current_policy_receipts() -> None:

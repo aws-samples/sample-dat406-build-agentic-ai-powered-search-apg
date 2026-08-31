@@ -4,6 +4,7 @@ import PellierHero from './PellierHero'
 
 const switchPersona = vi.fn()
 const openDrawerWithQuery = vi.fn()
+const openModal = vi.fn()
 
 const PROFILES = [
   {
@@ -22,12 +23,12 @@ const PROFILES = [
   {
     id: 'anna',
     display_name: 'Anna',
-    role_tag: 'Gift-giver',
+    role_tag: 'Gifting, ceremony, silk, glass',
     blurb: 'Live Anna profile.',
     avatar_color: '#000',
     avatar_initial: 'A',
     membership: 'circle',
-    hero_image: '/products/hero-anna.webp',
+    hero_image: '/products/hero-anna.png',
     hero_alt: 'Anna profile',
     hero_subheadline: 'Live Anna profile.',
     stats: { visits: 1, orders: 1, last_seen_days: 1 },
@@ -35,12 +36,12 @@ const PROFILES = [
   {
     id: 'marco',
     display_name: 'Marco',
-    role_tag: 'Returning',
+    role_tag: 'Travel, utility, leather, linen',
     blurb: 'Live Marco profile.',
     avatar_color: '#000',
     avatar_initial: 'M',
     membership: 'maison',
-    hero_image: '/products/hero-marco.webp',
+    hero_image: '/products/hero-marco.png',
     hero_alt: 'Marco profile',
     hero_subheadline: 'Live Marco profile.',
     stats: { visits: 1, orders: 1, last_seen_days: 1 },
@@ -48,12 +49,12 @@ const PROFILES = [
   {
     id: 'theo',
     display_name: 'Theo',
-    role_tag: 'Home + slow craft',
+    role_tag: 'Slow living, craft, stoneware, natural materials',
     blurb: 'Live Theo profile.',
     avatar_color: '#000',
     avatar_initial: 'T',
     membership: 'registered',
-    hero_image: '/products/hero-theo.webp',
+    hero_image: '/products/hero-theo.png',
     hero_alt: 'Theo profile',
     hero_subheadline: 'Live Theo profile.',
     stats: { visits: 1, orders: 1, last_seen_days: 1 },
@@ -72,7 +73,7 @@ vi.mock('../contexts/PersonaContext', () => ({
 }))
 
 vi.mock('../contexts/UIContext', () => ({
-  useUI: () => ({ openDrawerWithQuery }),
+  useUI: () => ({ openDrawerWithQuery, openModal }),
 }))
 
 function liveFetch(input: RequestInfo | URL): Promise<Response> {
@@ -101,6 +102,7 @@ describe('PellierHero', () => {
     persona = null
     switchPersona.mockReset()
     openDrawerWithQuery.mockReset()
+    openModal.mockReset()
     vi.stubGlobal('fetch', vi.fn(liveFetch))
   })
 
@@ -110,6 +112,11 @@ describe('PellierHero', () => {
     expect(await screen.findByTestId('hero-profile-marco')).toBeInTheDocument()
     expect(screen.getByTestId('hero-profile-anna')).toBeInTheDocument()
     expect(screen.getByTestId('hero-profile-theo')).toBeInTheDocument()
+    expect(screen.getByText('Travel, utility, leather, linen')).toBeInTheDocument()
+    expect(screen.getByText('Gifting, ceremony, silk, glass')).toBeInTheDocument()
+    expect(
+      screen.getByText('Slow living, craft, stoneware, natural materials'),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId('pellier-edit-selector')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pellier-hero-trust')).not.toBeInTheDocument()
   })
@@ -119,6 +126,25 @@ describe('PellierHero', () => {
 
     fireEvent.click(await screen.findByTestId('hero-profile-anna'))
     expect(switchPersona).toHaveBeenCalledWith('anna')
+  })
+
+  it('requires one of the three profiles before Ask Pellier opens', async () => {
+    render(<PellierHero />)
+
+    const askButton = await screen.findByRole('button', { name: 'Ask Pellier' })
+    expect(askButton).toBeDisabled()
+    expect(screen.queryByText('Continue as guest')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Choose Marco, Anna, or Theo to begin.'),
+    ).toBeInTheDocument()
+  })
+
+  it('removes the profile chooser after a profile is active', () => {
+    persona = PROFILES[1]
+    render(<PellierHero />)
+
+    expect(screen.queryByTestId('persona-concierge')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('hero-profile-marco')).not.toBeInTheDocument()
   })
 
   it('submits an Aurora-backed guided request for a selected persona', async () => {
@@ -142,6 +168,7 @@ describe('PellierHero', () => {
       await screen.findByAltText(
         'Marco profile',
       ),
-    ).toHaveAttribute('src', '/products/hero-marco-960.webp')
+    ).toHaveAttribute('src', '/products/hero-marco.png')
+    expect(screen.getByTestId('persona-hero-image')).not.toHaveAttribute('srcset')
   })
 })

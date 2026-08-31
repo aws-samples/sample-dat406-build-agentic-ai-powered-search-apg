@@ -92,27 +92,27 @@ INSERT INTO pellier.persona_profiles (
         'Explore the current collection, then ask the concierge about a piece or occasion.'
     ),
     (
-        'marco', 'CUST-MARCO', 'Marco', 'Returning',
+        'marco', 'CUST-MARCO', 'Marco', 'Travel, utility, leather, linen',
         'Brooklyn-based, partial to natural fibers. Last visit, three weeks ago. Bought the oat Maren tunic.',
         '#5a3528', 'M', 'maison', 11, now() - interval '21 days',
-        '/products/hero-marco.webp',
-        'Leather weekender and folded linen shirts in warm daylight',
+        '/products/hero-marco.png',
+        'Leather weekender with folded linen and brass travel details in warm daylight',
         'Marco’s profile is grounded in Aurora orders, preferences, and current inventory.'
     ),
     (
-        'anna', 'CUST-ANNA', 'Anna', 'Gift-giver',
+        'anna', 'CUST-ANNA', 'Anna', 'Gifting, ceremony, silk, glass',
         'Buys for others — partner, mother, friends. Recent searches lean milestone.',
         '#6b3d2a', 'A', 'circle', 6, now() - interval '9 days',
-        '/products/hero-anna.webp',
-        'Wrapped gift, beeswax candles, and ceramic ring dish',
+        '/products/hero-anna.png',
+        'Ribbon-wrapped gift beside an amber candle, ceramic bud vase, and blank card',
         'Anna’s profile is grounded in Aurora orders, preferences, and current catalog signals.'
     ),
     (
-        'theo', 'CUST-THEO', 'Theo', 'Home + slow craft',
+        'theo', 'CUST-THEO', 'Theo', 'Slow living, craft, stoneware, natural materials',
         'Keeps a short list of quiet pieces — ceramics, linen throws, stoneware. Finishes what he buys, slowly.',
         '#5a4535', 'T', 'registered', 8, now() - interval '14 days',
-        '/products/hero-theo.webp',
-        'Stoneware pour-over set on a sunlit wooden table',
+        '/products/hero-theo.png',
+        'Charcoal stoneware bowl beside natural linen, a beeswax candle, and olive branches',
         'Theo’s profile is grounded in Aurora orders, support history, and return policy.'
     )
 ON CONFLICT (persona_id) DO UPDATE SET

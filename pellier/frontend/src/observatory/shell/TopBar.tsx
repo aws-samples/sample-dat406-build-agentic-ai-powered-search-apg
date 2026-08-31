@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { BookOpen, ReceiptText } from 'lucide-react';
+import { BookOpen, LibraryBig, ReceiptText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import PellierHomeLink from '../../components/PellierHomeLink';
 import PersonaModal from '../../components/PersonaModal';
@@ -17,8 +17,13 @@ import { NAV } from '../../copy';
 
 const OBSERVATORY_TABS = [
   {
-    label: 'Live Workbench',
+    label: 'Lab Collection',
     path: '/observatory',
+    icon: LibraryBig,
+  },
+  {
+    label: 'Live Workbench',
+    path: '/observatory/workbench',
     icon: ReceiptText,
   },
   {
@@ -37,8 +42,13 @@ const TopBar: React.FC = () => {
   const avatarColor = persona?.avatar_color ?? '#665f58';
   const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Choose profile';
   const photoUrl = persona ? getPersonaPhoto(persona.id) : undefined;
+  const isLabCollection =
+    pathname === '/observatory' ||
+    pathname === '/observatory/' ||
+    pathname.startsWith('/observatory/labs/');
   const isWorkbench =
-    pathname === '/observatory' || pathname === '/observatory/';
+    pathname === '/observatory/workbench' ||
+    pathname.startsWith('/observatory/workbench/');
 
   return (
     <>
@@ -61,8 +71,13 @@ const TopBar: React.FC = () => {
         </div>
 
         <nav className="observatory-tabs" aria-label="Pellier Observatory views">
-          {OBSERVATORY_TABS.map((tab, index) => {
-            const isActive = index === 0 ? isWorkbench : !isWorkbench;
+          {OBSERVATORY_TABS.map((tab) => {
+            const isActive =
+              tab.path === '/observatory'
+                ? isLabCollection
+                : tab.path === '/observatory/workbench'
+                  ? isWorkbench
+                  : !isLabCollection && !isWorkbench;
             const TabIcon = tab.icon;
             return (
               <Link

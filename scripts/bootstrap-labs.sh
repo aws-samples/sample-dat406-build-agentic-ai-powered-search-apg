@@ -553,7 +553,7 @@ setup_database() {
             warn "001_schema.sql not found — seeder will fail without the table"
         fi
 
-        # ---- 2. Pellier catalog seeder — 40 hand-curated products
+        # ---- 2. Pellier catalog seeder - 60 hand-curated products
         # across the four personas (Marco / Anna / Theo / Fresh), plus
         # generated high-ID archive distractors for retrieval measurement.
         # Authoritative source for pellier.product_catalog.
@@ -631,7 +631,13 @@ setup_database() {
             028_shopper_operator_handoff.sql \
             029_live_surface_data.sql \
             030_storefront_editorial_order.sql \
-            031_refine_fresh_storefront_edit.sql
+            031_refine_fresh_storefront_edit.sql \
+            032_restore_fresh_runner_edit.sql \
+            033_extend_curated_inventory.sql \
+            034_refine_persona_personalities.sql \
+            035_expand_persona_discovery_grids.sql \
+            036_refresh_persona_hero_alt_text.sql \
+            037_serve_persona_hero_masters.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."

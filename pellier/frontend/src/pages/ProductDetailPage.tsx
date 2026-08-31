@@ -18,7 +18,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MessageCircle, Star } from 'lucide-react'
+import { ArrowLeft, Sparkles, Star } from 'lucide-react'
 
 import AnnouncementBar from '../components/AnnouncementBar'
 import Footer from '../components/Footer'
@@ -278,7 +278,7 @@ export default function ProductDetailPage() {
       <main className="bg-cream">
         <nav
           aria-label="Breadcrumb"
-          className="mx-auto max-w-[1280px] px-container-x pt-6 font-sans text-[12px] text-ink-quiet"
+          className="mx-auto max-w-[1200px] px-container-x pt-6 font-sans text-[12px] text-ink-quiet"
         >
           <ol className="flex flex-wrap items-center gap-2">
             <li>
@@ -299,16 +299,16 @@ export default function ProductDetailPage() {
           </ol>
         </nav>
 
-        <div className="mx-auto max-w-[1280px] px-container-x pb-16 pt-8 md:pb-24">
-          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+        <div className="mx-auto max-w-[1200px] px-container-x pb-16 pt-8 md:pb-24">
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:gap-16 xl:gap-20">
             {/* --- Piece ------------------------------------------------ */}
-            <div className="overflow-hidden rounded-[8px] bg-sand shadow-warm-md">
+            <div className="overflow-hidden rounded-[8px] border border-sand bg-sand">
               <div className="relative aspect-[4/5]">
                 <ResponsiveImage
                   src={view.imageUrl}
                   alt={view.name}
-                  widths={[480, 960, 1440]}
-                  sizes="(min-width: 1280px) 640px, (min-width: 1024px) 50vw, 100vw"
+                  widths={[480, 960]}
+                  sizes="(min-width: 1200px) 520px, (min-width: 1024px) 44vw, 100vw"
                   loading="eager"
                   decoding="async"
                   pictureClassName="block h-full w-full"
@@ -319,7 +319,10 @@ export default function ProductDetailPage() {
             </div>
 
             {/* --- Detail ---------------------------------------------- */}
-            <div data-testid="product-detail-summary" className="flex flex-col gap-6">
+            <div
+              data-testid="product-detail-summary"
+              className="flex flex-col gap-6 lg:pt-2"
+            >
               <div>
                 <p className="font-sans text-[12px] uppercase tracking-[0.14em] text-ink-quiet">
                   {view.brand}
@@ -398,19 +401,12 @@ export default function ProductDetailPage() {
                 }
               />
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
                   data-testid="product-detail-add"
                   onClick={() => handleAddToBag(view)}
-                  className="
-                    flex-1 min-w-[200px] rounded-full border border-espresso bg-espresso
-                    px-7 py-3 font-sans text-[13px] font-medium tracking-[0.06em]
-                    text-cream-50 cursor-pointer transition-colors duration-fade
-                    hover:border-dusk hover:bg-dusk
-                    focus-visible:outline-2 focus-visible:outline-offset-2
-                    focus-visible:outline-accent
-                  "
+                  className="pellier-action min-w-[200px] flex-1"
                 >
                   {PRODUCT_DETAIL.ADD_TO_BAG}
                 </button>
@@ -419,15 +415,20 @@ export default function ProductDetailPage() {
                   data-testid="product-detail-ask"
                   onClick={() => openDrawerWithQuery(PRODUCT_DETAIL.askQuestion(view.name))}
                   className="
-                    inline-flex items-center gap-2 rounded-full border border-espresso
-                    px-6 py-3 font-sans text-[13px] font-medium tracking-[0.06em]
-                    text-espresso cursor-pointer transition-colors duration-fade
-                    hover:bg-cream-warm
+                    inline-flex min-h-[46px] items-center justify-center gap-2
+                    rounded-full border border-sand bg-cream-warm px-5
+                    font-sans text-[13px] font-medium text-ink-soft
+                    transition-colors duration-fade hover:border-ink-quiet/40
+                    hover:bg-sand/60 hover:text-espresso
                     focus-visible:outline-2 focus-visible:outline-offset-2
                     focus-visible:outline-accent
                   "
                 >
-                  <MessageCircle size={15} aria-hidden="true" />
+                  <Sparkles
+                    className="pellier-concierge-sparkle"
+                    size={15}
+                    aria-hidden="true"
+                  />
                   {PRODUCT_DETAIL.ASK_LABEL}
                 </button>
               </div>

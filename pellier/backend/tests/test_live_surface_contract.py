@@ -61,21 +61,35 @@ def test_storefront_persona_edits_are_durable_aurora_merchandising() -> None:
     migration = (
         ROOT / "scripts" / "migrations" / "030_storefront_editorial_order.sql"
     ).read_text()
+    expansion = (
+        ROOT / "scripts" / "migrations" / "035_expand_persona_discovery_grids.sql"
+    ).read_text()
     products_route = (BACKEND / "routes" / "products.py").read_text()
 
     assert "storefront_rank" in migration
-    assert "count(*) <> 9" in migration
+    for ranked_product in (
+        "('marco', '20', 10)",
+        "('anna', '30', 10)",
+        "('theo', '40', 10)",
+    ):
+        assert ranked_product in migration
+        assert ranked_product in expansion
+    assert "count(*) <> 10" in expansion
+    assert "fresh_count <> 9" in expansion
     assert "storefront_rank IS NOT NULL" in products_route
     assert "ORDER BY {order}" in products_route
 
 
-def test_unsigned_edit_and_default_guided_turn_keep_the_house_merchandising() -> None:
-    """The runner stays searchable but cannot set the guest-facing house edit."""
+def test_unsigned_edit_restores_the_reference_runner_merchandising() -> None:
+    """The forward migration restores Cloudform without hiding the tote."""
     initial_edit = (
         ROOT / "scripts" / "migrations" / "030_storefront_editorial_order.sql"
     ).read_text()
     refinement = (
         ROOT / "scripts" / "migrations" / "031_refine_fresh_storefront_edit.sql"
+    ).read_text()
+    restoration = (
+        ROOT / "scripts" / "migrations" / "032_restore_fresh_runner_edit.sql"
     ).read_text()
     scenarios = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
     curations = (FRONTEND / "data" / "personaCurations.ts").read_text()
@@ -83,8 +97,72 @@ def test_unsigned_edit_and_default_guided_turn_keep_the_house_merchandising() ->
     assert "('fresh', '10', 9)" in initial_edit
     assert "('fresh', '9', 9)" not in initial_edit
     assert 'WHEN "productId" = \'10\' THEN 9' in refinement
+    assert 'WHEN "productId" = \'9\' THEN 9' in restoration
+    assert 'WHEN "productId" = \'10\' THEN NULL' in restoration
     assert "'A considered carry-all for a long weekend.', '10'" in scenarios
     assert "A considered carry-all for a long weekend." in curations
+
+
+def test_inventory_contract_covers_all_sixty_curated_products() -> None:
+    warehouse = (
+        ROOT / "scripts" / "migrations" / "006_warehouse_inventory.sql"
+    ).read_text()
+    convergence = (
+        ROOT / "scripts" / "migrations" / "033_extend_curated_inventory.sql"
+    ).read_text()
+
+    assert 'pc."productId"::int BETWEEN 1 AND 60' in warehouse
+    assert "IF nrows <> 180 OR invalid_products <> 0 THEN" in warehouse
+    assert 'pc."productId"::int BETWEEN 1 AND 60' in convergence
+    assert "inventory_rows <> 180" in convergence
+
+
+def test_persona_selector_uses_editorial_personalities() -> None:
+    seed = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
+    refinement = (
+        ROOT / "scripts" / "migrations" / "034_refine_persona_personalities.sql"
+    ).read_text()
+
+    for personality in (
+        "Travel, utility, leather, linen",
+        "Gifting, ceremony, silk, glass",
+        "Slow living, craft, stoneware, natural materials",
+    ):
+        assert personality in seed
+        assert personality in refinement
+
+
+def test_persona_hero_descriptions_match_the_approved_scenes() -> None:
+    seed = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
+    refinement = (
+        ROOT / "scripts" / "migrations" / "036_refresh_persona_hero_alt_text.sql"
+    ).read_text()
+
+    for description in (
+        "Leather weekender with folded linen and brass travel details in warm daylight",
+        "Ribbon-wrapped gift beside an amber candle, ceramic bud vase, and blank card",
+        "Charcoal stoneware bowl beside natural linen, a beeswax candle, and olive branches",
+    ):
+        assert description in seed
+        assert description in refinement
+
+
+def test_persona_heroes_serve_the_approved_png_masters() -> None:
+    seed = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
+    refinement = (
+        ROOT / "scripts" / "migrations" / "037_serve_persona_hero_masters.sql"
+    ).read_text()
+    hero = (FRONTEND / "components" / "PellierHero.tsx").read_text()
+
+    for image in (
+        "/products/hero-marco.png",
+        "/products/hero-anna.png",
+        "/products/hero-theo.png",
+    ):
+        assert image in seed
+        assert image in refinement
+    assert 'data-testid="persona-hero-image"' in hero
+    assert "src={asset(heroProfile.hero_image)}" in hero
 
 
 def test_voice_transcription_is_not_shipped_when_no_voice_control_exists() -> None:

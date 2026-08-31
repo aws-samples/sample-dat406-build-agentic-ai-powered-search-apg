@@ -296,6 +296,25 @@ describe('ProductDetailPage — live catalog read', () => {
 // --- Aurora layer -------------------------------------------------------
 
 describe('ProductDetailPage — Aurora layer', () => {
+  it('only advertises responsive derivatives that are shipped', async () => {
+    stubFetch(() => jsonResponse(detailPayload()))
+
+    renderAt(`/product/${SUBJECT.id}`)
+
+    const image = await screen.findByRole('img', { name: SUBJECT.name })
+    const picture = image.closest('picture')
+    const sourceSets = [
+      image.getAttribute('srcset'),
+      ...Array.from(picture?.querySelectorAll('source') ?? []).map(source =>
+        source.getAttribute('srcset'),
+      ),
+    ].filter((value): value is string => Boolean(value))
+
+    expect(sourceSets).not.toHaveLength(0)
+    expect(sourceSets.every(sourceSet => sourceSet.includes('-960.'))).toBe(true)
+    expect(sourceSets.every(sourceSet => !sourceSet.includes('-1440.'))).toBe(true)
+  })
+
   it('renders catalog copy and per-warehouse stock once the read lands', async () => {
     stubFetch(() => jsonResponse(detailPayload()))
 

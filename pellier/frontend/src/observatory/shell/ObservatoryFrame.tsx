@@ -27,7 +27,8 @@ const ObservatoryFrame: React.FC = () => {
             className="observatory-surface"
             data-mode={interactionForPath(pathname)}
             data-workbench={
-              pathname === '/observatory' || pathname === '/observatory/'
+              pathname === '/observatory/workbench' ||
+              pathname.startsWith('/observatory/workbench/')
                 ? 'true'
                 : 'false'
             }

@@ -8,14 +8,14 @@
  *
  *   ACT 2 (below the fold — scroll to discover):
  *     Featured product image (weekender bag) + "Weekend, re:defined."
- *     → 8 remaining products in a staggered grid
+ *     → full nine-piece guest edit, or 9 remaining persona products
  *     → "Because you asked..." editorial cards
  *     → Footer
  *
  * The hero occupies the entire viewport so the first impression is
  * the search bar. Scrolling reveals the editorial product showcase.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
@@ -49,6 +49,13 @@ const NAV_ROUTES: Record<NavItem, string> = {
   about: '/#shop',
   account: '/',
   'ask-pellier': '/',
+}
+
+export function selectStorefrontGridProducts(
+  products: readonly PellierProduct[],
+  personaId: string | null,
+): readonly PellierProduct[] {
+  return personaId ? products.slice(1) : products
 }
 
 // Featured product + grid are now persona-aware (computed inside component)
@@ -135,9 +142,9 @@ export default function PellierPage() {
   }, [personaId])
 
   const featuredProduct = products[0] ?? null
-  const gridProducts = useMemo(() => products.slice(1), [products])
+  const gridProducts = selectStorefrontGridProducts(products, personaId)
   // Product rows and their order come from Aurora. This source-controlled
-  // layer is only the editorial frame around each durable nine-piece edit.
+  // layer is only the editorial frame around each durable storefront edit.
   const edit = weekendEditForPersona(personaId)
   const editHeadline = splitHeadlineAtRe(edit.headline)
   const curatedHeadline =
@@ -266,7 +273,7 @@ export default function PellierPage() {
 
           {!catalogLoading && !catalogError && featuredProduct ? (
             <>
-              <div className="mx-auto max-w-[1440px] px-container-x pb-12 pt-16 md:pt-24">
+              <div className="mx-auto w-full max-w-[1560px] px-container-x pb-12 pt-16 md:pt-24">
                 <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
                   <Link
                     to={`/product/${featuredProduct.id}`}
@@ -278,7 +285,7 @@ export default function PellierPage() {
                       src={featuredProduct.imageUrl}
                       alt={featuredProduct.name}
                       widths={[480, 960]}
-                      sizes="(min-width: 1440px) 696px, (min-width: 1024px) 48vw, 100vw"
+                      sizes="(min-width: 1560px) 708px, (min-width: 1024px) 46vw, 100vw"
                       className="h-full w-full object-cover"
                       loading="lazy"
                       decoding="async"
@@ -340,7 +347,7 @@ export default function PellierPage() {
                 </div>
               </div>
 
-              <div className="mx-auto max-w-[1440px] px-container-x pb-16 md:pb-24">
+              <div className="pellier-edit-shell pb-16 md:pb-24">
                 <div className="mb-8">
                   <h2
                     data-testid="curated-headline"
@@ -354,11 +361,7 @@ export default function PellierPage() {
 
                 <div
                   key={`${prefsVersion}-${personaId ?? 'fresh'}`}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: '1.5rem',
-                  }}
+                  className="pellier-product-grid"
                 >
                   {gridProducts.map((product, index) => (
                     <ProductCard
@@ -366,6 +369,7 @@ export default function PellierPage() {
                       product={product}
                       index={index % 3}
                       onAddToBag={handleAddToBag}
+                      variant="editorial"
                     />
                   ))}
                 </div>

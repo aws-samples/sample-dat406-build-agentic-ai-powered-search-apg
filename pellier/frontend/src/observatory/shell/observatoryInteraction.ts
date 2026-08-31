@@ -1,15 +1,16 @@
 /**
  * Which governed Labs surfaces are primary and which are optional depth.
  *
- * The Live Workbench is the one participant-facing primary surface. Deeper
- * pages may expose controls, but they remain optional deep dives so the
- * workshop path stays clear.
+ * The Lab Collection and Live Workbench are participant-facing work surfaces.
+ * Deeper system pages remain reference views.
  */
 
 export type LabsInteraction = 'interactive' | 'reference';
 
 export const INTERACTIVE_PATHS: readonly string[] = [
   '/observatory',
+  '/observatory/labs',
+  '/observatory/workbench',
 ];
 
 export interface ObservatoryModeCopy {
@@ -19,6 +20,16 @@ export interface ObservatoryModeCopy {
 
 const INTERACTIVE_COPY: Record<string, ObservatoryModeCopy> = {
   '/observatory': {
+    label: 'Lab Collection',
+    detail:
+      'Choose one evidence-first exercise, then build, measure, prove, and govern the exact system behavior.',
+  },
+  '/observatory/labs': {
+    label: 'Exercise workbench',
+    detail:
+      'Follow the bounded participant TODO, measurement target, evidence assertion, and architecture decision for this exercise.',
+  },
+  '/observatory/workbench': {
     label: 'Live Workbench',
     detail:
       'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
@@ -68,11 +79,12 @@ export function modeCopyForPath(pathname: string): ObservatoryModeCopy {
   const exact = INTERACTIVE_COPY[path];
   if (exact) return exact;
 
-  const parent = INTERACTIVE_PATHS.find(
+  const parent = [...INTERACTIVE_PATHS]
+    .sort((left, right) => right.length - left.length)
+    .find(
     (interactivePath) =>
-      interactivePath !== '/observatory' &&
       path.startsWith(`${interactivePath}/`),
-  );
+    );
   return (
     (parent && INTERACTIVE_COPY[parent]) || INTERACTIVE_COPY['/observatory']
   );

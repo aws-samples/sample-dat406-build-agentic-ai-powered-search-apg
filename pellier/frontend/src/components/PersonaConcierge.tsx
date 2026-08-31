@@ -6,29 +6,25 @@
  * mints a new session and reranks the floor. Nothing here invents
  * personalization the application does not already perform.
  *
- * Guest is a real state, not a dismissal. With no active profile the
- * storefront renders the canonical unranked ordering, so the guest action
- * takes a shopper to that floor rather than pretending to tailor it.
+ * The concierge requires one of the three workshop profiles. The action only
+ * opens once a profile is active, so the UI cannot bypass the personalization
+ * contract with a contradictory guest path.
  */
 import { useEffect, useState } from 'react'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
+import { useUI } from '../contexts/UIContext'
 import { getPersonaPortrait } from '../data/personaPhotos'
 import { HERO_CONCIERGE } from '../copy'
 
-interface PersonaConciergeProps {
-  /** Browse the floor without selecting a profile. */
-  onContinueAsGuest: () => void
-}
-
-export default function PersonaConcierge({
-  onContinueAsGuest,
-}: PersonaConciergeProps) {
+export default function PersonaConcierge() {
   const { persona, switchPersona, switching, switchError } = usePersona()
+  const { openModal } = useUI()
   const [profiles, setProfiles] = useState<PersonaListItem[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (persona) return
     void fetch('/api/observatory/personas')
       .then(async (response) => {
         if (!response.ok) throw new Error(`Live personas unavailable: ${response.status}`)
@@ -38,7 +34,13 @@ export default function PersonaConcierge({
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : 'Live personas unavailable.'),
       )
-  }, [])
+  }, [persona])
+
+  const selectProfile = async (profileId: string) => {
+    await switchPersona(profileId)
+  }
+
+  if (persona) return null
 
   return (
     <aside
@@ -54,7 +56,6 @@ export default function PersonaConcierge({
 
       <ul className="pellier-concierge-profiles">
         {profiles.map((profile) => {
-          const isActive = persona?.id === profile.id
           const portrait = getPersonaPortrait(profile.id)
           return (
             <li key={profile.id}>
@@ -62,10 +63,9 @@ export default function PersonaConcierge({
                 type="button"
                 className="pellier-profile"
                 data-testid={`hero-profile-${profile.id}`}
-                data-active={isActive ? 'true' : undefined}
-                aria-pressed={isActive}
+                aria-pressed={false}
                 disabled={switching}
-                onClick={() => void switchPersona(profile.id)}
+                onClick={() => void selectProfile(profile.id)}
               >
                 <span
                   className="pellier-profile-portrait"
@@ -89,12 +89,8 @@ export default function PersonaConcierge({
                   {profile.display_name}
                 </span>
                 <span className="pellier-profile-note">
-                  {profile.blurb}
+                  {profile.role_tag}
                 </span>
-                {/* Active profile is stated, not only tinted. */}
-                {isActive ? (
-                  <span className="pellier-profile-state">Shopping</span>
-                ) : null}
               </button>
             </li>
           )
@@ -106,23 +102,29 @@ export default function PersonaConcierge({
         </p>
       ) : null}
 
-      {persona ? (
-        <p className="pellier-concierge-seed" data-testid="concierge-seed">
-          <strong>{persona.display_name}</strong> is shopping from an
-          Aurora-backed client profile.
-        </p>
-      ) : (
-        <button
-          type="button"
-          className="pellier-concierge-guest"
-          data-testid="concierge-guest"
-          onClick={onContinueAsGuest}
-        >
-          <Sparkles size={14} aria-hidden="true" />
-          {HERO_CONCIERGE.GUEST_ACTION}
-          <ArrowRight size={14} aria-hidden="true" />
-        </button>
-      )}
+      <button
+        type="button"
+        className="pellier-concierge-ask"
+        data-testid="concierge-ask"
+        disabled
+        aria-describedby="concierge-profile-required"
+        onClick={() => openModal('drawer')}
+      >
+        <Sparkles
+          className="pellier-concierge-sparkle"
+          size={15}
+          aria-hidden="true"
+        />
+        {HERO_CONCIERGE.ASK_ACTION}
+        <ArrowRight size={14} aria-hidden="true" />
+      </button>
+
+      <p
+        id="concierge-profile-required"
+        className="pellier-concierge-requirement"
+      >
+        {HERO_CONCIERGE.CHOOSE_HELPER}
+      </p>
     </aside>
   )
 }

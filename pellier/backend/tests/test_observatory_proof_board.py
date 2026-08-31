@@ -46,8 +46,8 @@ class _ProofDB:
         self.calls.append((query, params))
         if "catalog_count" in query:
             return {
-                "catalog_count": 40,
-                "warehouse_count": 120,
+                "catalog_count": 60,
+                "warehouse_count": 180,
                 "audit_count": 7,
             }
         if "FROM pellier.governed_receipts" in query:
@@ -217,7 +217,7 @@ def test_readiness_reports_live_pillars(monkeypatch) -> None:
     assert checks["runtime"]["state"] == "pass"
     assert checks["gateway"]["state"] == "pass"
     assert checks["policy"]["state"] == "pass"
-    assert body["counts"]["catalog_count"] == 40
+    assert body["counts"]["catalog_count"] == 60
 
 
 def test_governed_readiness_fails_without_managed_policy(monkeypatch) -> None:
@@ -240,8 +240,8 @@ def test_governed_readiness_requires_exact_warehouse_seed(monkeypatch) -> None:
         async def fetch_one(self, query: str, *params: Any) -> dict | None:
             if "catalog_count" in query:
                 return {
-                    "catalog_count": 40,
-                    "warehouse_count": 119,
+                    "catalog_count": 60,
+                    "warehouse_count": 179,
                     "audit_count": 7,
                 }
             return await super().fetch_one(query, *params)
@@ -254,7 +254,7 @@ def test_governed_readiness_requires_exact_warehouse_seed(monkeypatch) -> None:
     assert body["status"] == "not_ready"
     checks = {c["id"]: c for c in body["checks"]}
     assert checks["aurora"]["state"] == "fail"
-    assert "expected exactly 120" in checks["aurora"]["detail"]
+    assert "expected exactly 180" in checks["aurora"]["detail"]
 
 
 def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:

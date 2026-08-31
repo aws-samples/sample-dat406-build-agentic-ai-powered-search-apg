@@ -10,8 +10,8 @@ Established from the migrations rather than assumed:
                                     the source of truth; the two quantity columns
                                     become caches that a check query can reconcile
                                     against." One signed ``delta`` row per movement.
-                                    Measured 2026-08-27: 141 rows over 40 products
-                                    (120 ``seed``, 21 ``return_damaged``).
+                                    Baseline coverage: all 60 curated products
+                                    (180 ``seed``, 21 ``return_damaged``).
 
     pellier.warehouse_inventory     migration 006, per-warehouse counts. The
                                     fulfillment-grade cache, and the one a shopper's
@@ -20,8 +20,7 @@ Established from the migrations rather than assumed:
     product_catalog.quantity        migration 001 creates it as the AGGREGATE
                                     cache. Outside the curated range it is a seed
                                     constant, not inventory: measured 2026-08-26,
-                                    960 products carry exactly two distinct values
-                                    (940 at 35, 20 at 50).
+                                    940 archive products carry the constant 35.
 
 How the ledger is reconciled
 ----------------------------
@@ -57,7 +56,7 @@ The five states
     reading and nothing to reconcile it against. ``authority="cache"``.
 
 ``availability_not_verified``
-    No per-location evidence at all — the case for 960 of 1000 catalog rows — or the
+    No per-location evidence at all - the case for 940 of 1000 catalog rows - or the
     read failed. ``available_quantity`` is None, so a caller cannot render a number
     that was never established.
 
@@ -162,7 +161,7 @@ SELECT t.product_id,
 #
 # Two predicates, both required. `product_catalog.quantity > 0` — what the shopper
 # planner compiles for `in_stock_only` — is deliberately NOT used: it is the
-# aggregate cache, it carries a seed constant for 960 of 1000 rows, and letting it
+# aggregate cache, it carries a seed constant for 940 of 1000 rows, and letting it
 # satisfy an explicit "in stock" request would make the phrase mean nothing.
 #
 # Correlates on `product_catalog."productId"`, so it composes with any query whose
@@ -367,7 +366,7 @@ def _evidence_from_row(pid: str, row: Dict[str, Any]) -> InventoryEvidence:
 
     if not locations:
         # No per-location rows means this product sits outside the curated set that
-        # has ledger and warehouse coverage — 960 of 1000 catalog rows. The
+        # has ledger and warehouse coverage - 940 of 1000 catalog rows. The
         # aggregate column is reported but cannot support a claim: outside the
         # curated range it holds one of two seeded constants across the catalog.
         return InventoryEvidence(

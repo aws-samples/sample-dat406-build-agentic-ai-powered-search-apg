@@ -57,9 +57,12 @@ describe('Pellier Observatory TopBar', () => {
     expect(
       screen.getByRole('link', { name: 'Live Workbench' }),
     ).not.toHaveAttribute('aria-current')
+    expect(
+      screen.getByRole('link', { name: 'Lab Collection' }),
+    ).not.toHaveAttribute('aria-current')
   })
 
-  it('offers only the workbench and reference index as first-level views', async () => {
+  it('offers the collection, workbench, and reference index as first-level views', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter initialEntries={['/observatory']}>
@@ -75,13 +78,29 @@ describe('Pellier Observatory TopBar', () => {
     expect(screen.queryByRole('button', { name: /Pellier Observatory view/i })).not.toBeInTheDocument()
     expect(
       screen.getAllByRole('link', {
-        name: /Live Workbench|Proof & References/,
+        name: /Lab Collection|Live Workbench|Proof & References/,
       }),
-    ).toHaveLength(2)
+    ).toHaveLength(3)
 
-    await user.click(screen.getByRole('link', { name: 'Proof & References' }))
+    expect(
+      screen.getByRole('link', { name: 'Lab Collection' }),
+    ).toHaveAttribute('aria-current', 'page')
+
+    await user.click(screen.getByRole('link', { name: 'Live Workbench' }))
     expect(screen.getByTestId('location')).toHaveTextContent(
-      '/observatory/references',
+      '/observatory/workbench',
     )
+  })
+
+  it('keeps exercise details within the Lab Collection tab', () => {
+    render(
+      <MemoryRouter initialEntries={['/observatory/labs/fail-closed-policy']}>
+        <TopBar />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByRole('link', { name: 'Lab Collection' }),
+    ).toHaveAttribute('aria-current', 'page')
   })
 })

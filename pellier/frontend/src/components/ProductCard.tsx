@@ -37,7 +37,7 @@
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, Star } from 'lucide-react'
+import { ArrowRight, ChevronDown, Star } from 'lucide-react'
 
 import type { PellierBadge, PellierProduct } from '../services/types'
 import ReasoningChip from './ReasoningChip'
@@ -63,6 +63,8 @@ interface ProductCardProps {
   traces?: string[]
   /** Optional persona or surface accent used for provenance details. */
   accentColor?: string
+  /** Larger, unframed storefront treatment. Detail-page siblings stay compact. */
+  variant?: 'default' | 'editorial'
 }
 
 /**
@@ -113,9 +115,11 @@ export default function ProductCard({
   onAddToBag,
   traces,
   accentColor,
+  variant = 'default',
 }: ProductCardProps) {
   const traceChips = traces ?? deriveTraces(product)
   const personaAccent = accentColor ?? 'var(--accent)'
+  const editorial = variant === 'editorial'
   // Router `basename` prefixes this for the Workshop Studio /ports/8000/
   // proxy, so the path stays base-relative here.
   const detailPath = `/product/${product.id}`
@@ -187,10 +191,12 @@ export default function ProductCard({
       data-index={index}
       data-revealed={isVisible}
       className={`
-        group bg-cream-warm rounded-[8px] overflow-hidden flex flex-col
-        border border-[rgba(24,26,31,0.10)]
-        transition duration-fade ease-out hover:border-[rgba(24,26,31,0.20)]
-        hover:shadow-warm-sm
+        product-card group flex flex-col
+        ${editorial
+          ? 'product-card--editorial min-w-0'
+          : `overflow-hidden rounded-[8px] border border-[rgba(24,26,31,0.10)]
+             bg-cream-warm transition duration-fade ease-out
+             hover:border-[rgba(24,26,31,0.20)] hover:shadow-warm-sm`}
       `}
       style={{
         '--trace-accent': personaAccent,
@@ -212,13 +218,20 @@ export default function ProductCard({
         to={detailPath}
         aria-hidden="true"
         tabIndex={-1}
-        className="relative block aspect-[4/5] bg-sand overflow-hidden"
+        className={`
+          product-card-media relative block aspect-[4/5] overflow-hidden bg-sand
+          ${editorial ? 'rounded-[4px]' : ''}
+        `}
       >
         <ResponsiveImage
           src={product.imageUrl}
           alt={product.name}
           widths={[480, 960]}
-          sizes="(min-width: 1280px) 320px, (min-width: 768px) 40vw, 100vw"
+          sizes={
+            editorial
+              ? '(min-width: 1180px) 33vw, (min-width: 700px) 50vw, 100vw'
+              : '(min-width: 1280px) 320px, (min-width: 768px) 40vw, 100vw'
+          }
           loading="lazy"
           decoding="async"
           pictureClassName="block h-full w-full"
@@ -227,13 +240,19 @@ export default function ProductCard({
             objectPosition: product.imagePosition ?? 'center center',
           }}
         />
+        {editorial ? (
+          <span className="product-card-view">
+            View piece
+            <ArrowRight size={16} strokeWidth={1.7} aria-hidden="true" />
+          </span>
+        ) : null}
       </Link>
 
       {/* --- Text block ---------------------------------------------- */}
-      <div className="flex flex-col gap-3 p-5">
+      <div className={`product-card-copy flex flex-col gap-3 ${editorial ? '' : 'p-5'}`}>
         <div className="flex justify-between gap-3 font-sans text-[12px] text-ink-quiet">
           <span>{product.brand}</span>
-          <span>{product.color}</span>
+          <span>{editorial ? String(product.id).padStart(2, '0') : product.color}</span>
         </div>
 
         <div>
@@ -251,7 +270,7 @@ export default function ProductCard({
             </Link>
           </h3>
           <div className="mt-1.5 flex items-center gap-2 font-sans text-[12px] text-ink-quiet">
-            <span>{product.category}</span>
+            <span>{editorial ? product.color : product.category}</span>
             {product.badge ? (
               <>
                 <span aria-hidden="true">/</span>

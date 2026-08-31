@@ -736,7 +736,7 @@ def restock_inventory(
     """Restock a specific product by adding inventory quantity. Use when an inventory manager needs to replenish stock for a product ID.
 
     Args:
-        product_id: Integer productId. Workshop inventory exercises use curated IDs 1-40.
+        product_id: Integer productId. Workshop inventory exercises use curated IDs 1-60.
         quantity: Units to add to current stock.
         idempotency_key: Stable unique key for this intended write.
         warehouse_id: Warehouse receiving stock; defaults to BK-01.
@@ -1511,7 +1511,7 @@ def get_related_products(product_id: int, limit: int = 5) -> str:
     matching, not keyword overlap. Great for "what goes with this?"
 
     Args:
-        product_id: The product to match against. Curated catalog IDs are 1-40; archive distractors use high IDs.
+        product_id: The product to match against. Curated catalog IDs are 1-60; archive distractors use high IDs.
         limit: Number of matches to return (default: 5)
 
     Returns:
