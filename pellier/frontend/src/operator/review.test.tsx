@@ -315,7 +315,7 @@ describe('OperatorFrame review link', () => {
     expect(authMock.login).toHaveBeenCalledOnce()
   })
 
-  it('shows a pending count only when there is work waiting', async () => {
+  it('labels a pending queue state rather than rendering an unexplained count', async () => {
     mockFetch(() => ({ body: { reviews: [], total: 1, pendingCount: 3 } }))
     render(
       <MemoryRouter initialEntries={['/operator']}>
@@ -324,10 +324,12 @@ describe('OperatorFrame review link', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(await screen.findByTestId('operator-reviews-count')).toHaveTextContent('3')
+    const status = await screen.findByTestId('operator-reviews-count')
+    expect(status).toHaveTextContent('3 pending')
+    expect(status).toHaveAttribute('data-count', 'waiting')
   })
 
-  it('states zero rather than leaving the label looking like a placeholder', async () => {
+  it('states a clear queue as zero pending rather than leaving it ambiguous', async () => {
     // Zero is a fact an operator wants stated; omitting it would make an
     // empty Action Queue indistinguishable from an unread one.
     mockFetch(() => ({ body: { reviews: [], total: 0, pendingCount: 0 } }))
@@ -339,11 +341,11 @@ describe('OperatorFrame review link', () => {
       </MemoryRouter>,
     )
     const badge = await screen.findByTestId('operator-reviews-count')
-    expect(badge).toHaveTextContent('0')
+    expect(badge).toHaveTextContent('0 pending')
     expect(badge).toHaveAttribute('data-count', 'clear')
   })
 
-  it('shows an em dash, never a zero, when the queue could not be read', async () => {
+  it('names an unavailable queue rather than rendering a control-like symbol', async () => {
     // The distinction that matters: "no work" and "nobody could ask" are
     // different facts, and reporting the second as the first is a lie.
     mockFetch(() => ({ status: 503, body: { detail: 'review_queue_unavailable' } }))
@@ -356,6 +358,7 @@ describe('OperatorFrame review link', () => {
     )
     const badge = await screen.findByTestId('operator-reviews-count')
     expect(badge).toHaveAttribute('data-count', 'unavailable')
+    expect(badge).toHaveTextContent('Queue unavailable')
     expect(badge.textContent).not.toContain('0')
     expect(badge).toHaveAccessibleDescription(
       /could not be read/i,

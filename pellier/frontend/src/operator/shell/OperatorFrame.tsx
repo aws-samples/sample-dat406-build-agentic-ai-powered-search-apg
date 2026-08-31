@@ -41,9 +41,9 @@ export function useOperatorQueueRefresh(): () => void {
 /**
  * The count of prepared requests waiting on a person.
  *
- * Always shows a real value once the queue has been read, including zero. A
- * failed read shows an em dash instead of a number, because "0" there would
- * claim there is no work when the truth is that nobody could ask.
+ * Always shows a real state once the queue has been read, including zero. A
+ * failed read stays visibly distinct from an empty queue: the status names
+ * the problem rather than using a symbol that could be mistaken for a control.
  */
 const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
   refreshRevision,
@@ -87,7 +87,7 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
           data-testid="operator-reviews-count"
           title="The action queue could not be read"
         >
-          &mdash;
+          Queue unavailable
         </span>
       ) : pending === null ? null : (
         <span
@@ -100,7 +100,7 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
               : 'No prepared request is waiting'
           }
         >
-          {pending}
+          {pending} pending
         </span>
       )}
     </NavLink>
