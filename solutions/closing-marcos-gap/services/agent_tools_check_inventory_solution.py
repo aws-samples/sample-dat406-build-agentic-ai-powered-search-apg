@@ -1645,10 +1645,9 @@ def issue_credit(
         logic = BusinessLogic(_db_service)
         # issued_by is deliberately None on this path. A tool invocation has
         # no verified token to read, and inventing an attribution the agent
-        # supplied would be worse than recording none. The operator console
-        # calls BusinessLogic.issue_credit directly through
-        # routes/operator.py, where require_operator has already produced a
-        # verified `sub` to attribute the credit to.
+        # supplied would be worse than recording none. The Operator console
+        # reaches this business capability only from a confirmed review, where
+        # governed_execution receives the verified operator subject.
         result = _run_async(logic.issue_credit(
             customer_id,
             amount_cents,

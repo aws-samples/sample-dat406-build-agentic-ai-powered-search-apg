@@ -10,12 +10,11 @@ discovered dynamically over the wire.
 
 This module has two sides:
 
-1. **Server side (Gateway adapter)** — exposes the 15 `agent_tools.py`
-   tools via the MCP streamable HTTP transport so external agent
-   clients (or AgentCore Gateway itself) can discover and invoke them.
-   Signatures and JSON envelopes are identical to the in-process
-   `@tool` functions, so the orchestrator can switch between the two
-   transports without changing how it calls them.
+1. **Server side (local MCP adapter)** — exposes the complete 17-tool
+   application catalog via MCP streamable HTTP for local development and
+   contract tests. The managed AgentCore Gateway deliberately publishes the
+   15-tool workshop subset from ``gateway_tool_schemas.workshop_published_tools``;
+   it is not derived from this local catalog.
 
 2. **Client side** — creates a Strands `Agent` that connects *back* to
    a Gateway URL and pulls its tool list at agent-construction time
@@ -38,23 +37,21 @@ logger = logging.getLogger(__name__)
 
 
 # === REFERENCE: START ===
-# Expose the 15 Strands @tool functions via MCP streamable HTTP so an external
-# agent client (or the AgentCore Gateway) can discover and invoke them with
-# the same signatures and JSON envelopes used by the in-process orchestrator.
+# Expose the local 17-tool application catalog via MCP streamable HTTP so an
+# external agent client can discover and invoke the same signatures and JSON
+# envelopes used by the in-process orchestrator.
 #
-# The 17 tools are the application-level Gateway contract and MUST be registered
-# under these exact names (Req 2.2.3):
-#   search_products, search_products_hybrid, get_trending_products, get_price_analysis,
-#   browse_category, check_inventory, get_low_stock, restock_inventory,
-#   compare_products, get_return_policy, get_related_products, initiate_return,
-#   get_customer_preferences, get_audit_trail, escalate_to_human
+# The managed Gateway publishes a separate 15-tool workshop subset. This local
+# catalog also contains ``issue_credit`` and ``get_ticket_history`` so the
+# in-process application can model deferred operator capabilities without
+# claiming that the managed Gateway serves them.
 #
 # ⏩ SHORT ON TIME? Run:
 #    cp solutions/the-ledger/services/agentcore_gateway.py pellier/backend/services/agentcore_gateway.py
 
-# The 15 tool names exposed by the gateway, in stable order. Tests assert
-# discovery returns exactly this set by exact name.
-GATEWAY_TOOL_NAMES: List[str] = [
+# Local MCP server catalog, in stable order. Tests assert discovery returns
+# exactly this 17-tool set by exact name.
+LOCAL_MCP_TOOL_NAMES: List[str] = [
     "search_products",
     "search_products_hybrid",
     "get_trending_products",
@@ -274,13 +271,13 @@ def tool_tier(tool_name: str) -> str:
 
 def tools_in_tier(tier: str) -> List[str]:
     """Return the published tools in ``tier``, in catalog order."""
-    return [name for name in GATEWAY_TOOL_NAMES if tool_tier(name) == tier]
+    return [name for name in LOCAL_MCP_TOOL_NAMES if tool_tier(name) == tier]
 
 
 def mutation_tool_names() -> List[str]:
     """Return every published tool that mutates state, in catalog order."""
     return [
-        name for name in GATEWAY_TOOL_NAMES if tool_tier(name) in MUTATION_TIERS
+        name for name in LOCAL_MCP_TOOL_NAMES if tool_tier(name) in MUTATION_TIERS
     ]
 
 
@@ -626,7 +623,7 @@ def _unwrap_strands_tool(strands_tool: Any) -> Any:
 
 
 def build_mcp_server(name: str = "pellier-gateway") -> Any:
-    """Build a FastMCP server registering the 15 agent tools.
+    """Build a FastMCP server registering the local 17-tool catalog.
 
     Each registered MCP tool is a thin wrapper that delegates to the
     corresponding `@tool` function in `services.agent_tools`. Wrappers
@@ -644,7 +641,7 @@ def build_mcp_server(name: str = "pellier-gateway") -> Any:
     # Register each of the 17 tools by name. We pass the unwrapped function
     # (not the Strands DecoratedFunctionTool) so FastMCP can introspect the
     # signature and docstring to generate the MCP input schema.
-    for tool_name in GATEWAY_TOOL_NAMES:
+    for tool_name in LOCAL_MCP_TOOL_NAMES:
         strands_tool = getattr(agent_tools, tool_name)
         fn = _unwrap_strands_tool(strands_tool)
         # Preserve the exact public tool name — FastMCP defaults to the

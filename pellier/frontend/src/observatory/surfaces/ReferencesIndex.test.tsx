@@ -23,7 +23,7 @@ vi.mock('../hooks/useBuildState', () => ({
 describe('Observatory navigation index', () => {
   const GROUPS = [
     ['Proof views', ['Proof Board', 'Audit Proof']],
-    ['Replay a turn', ['Persona Journeys', 'Sessions']],
+    ['Replay live evidence', ['Sessions']],
     [
       'Inspect the build',
       [
@@ -126,7 +126,7 @@ describe('Observatory navigation index', () => {
       document.querySelectorAll('.observatory-reference-link-copy strong'),
     ).map((node) => node.textContent ?? '');
 
-    expect(labels).toHaveLength(15);
+    expect(labels).toHaveLength(14);
     for (const label of labels) {
       // Strip the appended live count before checking the label itself.
       const name = label.replace(/\d+\/\d+$|—$/, '').trim();
@@ -164,11 +164,10 @@ describe('Observatory navigation index', () => {
 
     expect(
       container.querySelectorAll('.observatory-reference-link-icon svg'),
-    ).toHaveLength(15);
+    ).toHaveLength(14);
   });
 
   it.each([
-    ['Persona Journeys', 'lucide-footprints'],
     ['Sessions', 'lucide-rotate-ccw-clock'],
     ['Architecture', 'lucide-network'],
     ['Tool Registry', 'lucide-wrench'],

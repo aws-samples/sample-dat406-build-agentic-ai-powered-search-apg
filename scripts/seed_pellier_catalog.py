@@ -168,11 +168,17 @@ class Product:
     def is_distractor(self) -> bool:
         return self.source_product_id is not None
 
+    @property
+    def public_image_path(self) -> str:
+        """Return the browser-served WebP path, never the PNG source master."""
+        stem, _separator, _extension = self.imgPath.rpartition(".")
+        return f"/products/{stem or self.imgPath}.webp"
+
     def to_csv_row(self) -> dict:
         return {
             "productId": str(self.productId).ljust(10),
             "product_description": self.description,
-            "imgurl": f"/products/{self.imgPath}",
+            "imgurl": self.public_image_path,
             "producturl": f"/p/{self.productId}",
             "stars": self.rating,
             "reviews": self.reviews,
@@ -857,8 +863,8 @@ def seed_database(products: List[Product]) -> None:
                     INSERT INTO pellier.product_catalog
                         ("productId", name, brand, color, price, description,
                          category, tags, rating, reviews, "imgUrl",
-                         badge, tier, quantity, embedding)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, %s, %s::vector)
+                         badge, tier, quantity, embedding, persona_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, %s, %s::vector, %s)
                     ON CONFLICT ("productId") DO UPDATE SET
                         name = EXCLUDED.name,
                         brand = EXCLUDED.brand,
@@ -873,7 +879,8 @@ def seed_database(products: List[Product]) -> None:
                         badge = EXCLUDED.badge,
                         tier = EXCLUDED.tier,
                         quantity = EXCLUDED.quantity,
-                        embedding = EXCLUDED.embedding
+                        embedding = EXCLUDED.embedding,
+                        persona_id = EXCLUDED.persona_id
                     """,
                     (
                         str(p.productId),
@@ -886,10 +893,11 @@ def seed_database(products: List[Product]) -> None:
                         tags_json,
                         p.rating,
                         p.reviews,
-                        f"/products/{p.imgPath}",
+                        p.public_image_path,
                         p.badge or '',
                         p.quantity,
                         embedding_str,
+                        p.persona,
                     ),
                 )
 

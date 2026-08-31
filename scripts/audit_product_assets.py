@@ -59,9 +59,6 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 PRODUCTS_DIR = REPO / "pellier" / "frontend" / "public" / "products"
 PRODUCTS_PREFIX = "pellier/frontend/public/products/"
 PERSONA_PHOTOS_TS = REPO / "pellier" / "frontend" / "src" / "data" / "personaPhotos.ts"
-IMAGE_ALIASES_TS = (
-    REPO / "pellier" / "frontend" / "src" / "utils" / "resolveProductImageUrl.ts"
-)
 
 # Extensions worth scanning for a reference. Source, fixtures, seeds and docs.
 SOURCE_SUFFIXES = (
@@ -94,10 +91,16 @@ COMMENT_PREFIXES: Dict[str, Tuple[str, ...]] = {
     ".sh": ("#",),
 }
 
-# Path fragments that mark a file as a test. A test may name an image that has never
-# existed - that is often the point of the assertion - so its references are recorded
-# but never treated as a shipping requirement.
-TEST_PATH_MARKERS = ("/tests/", "test_", ".test.", "__tests__", "/fixtures/conftest")
+# Path fragments that mark a non-shipping test input. A fixture may name a
+# malformed image specifically to test error rendering; it must never expand
+# the release asset contract for the browser bundle.
+TEST_PATH_MARKERS = (
+    "/tests/",
+    "test_",
+    ".test.",
+    "__tests__",
+    "/fixtures/",
+)
 
 
 def _run(args: Sequence[str]) -> str:
@@ -177,25 +180,43 @@ def client_portrait_names() -> List[str]:
     return [f"client-{slug}-portrait-{size}.webp" for slug in slugs for size in sizes]
 
 
-def alias_keys() -> Dict[str, str]:
-    """The fixture-path aliases, mapping a stale name to a shipped file."""
-    text = IMAGE_ALIASES_TS.read_text(encoding="utf-8")
-    return {
-        pathlib.PurePosixPath(key).name: pathlib.PurePosixPath(value).name
-        for key, value in re.findall(
-            r"'(/products/[^']+)':\s*'(/products/[^']+)'", text
-        )
-    }
+_CONCRETE_DERIVATIVE_RE = re.compile(
+    r"-(?:160|480|960|1600)\.(?:avif|webp)$", re.I
+)
 
 
-def published_widths(master: str) -> Tuple[int, ...]:
-    """Widths this master already publishes, else the srcset default.
+def image_stem(name: str) -> str:
+    """The responsive stem that runtime image resolution uses."""
+    return _CONCRETE_DERIVATIVE_RE.sub(
+        "", re.sub(r"\.(?:png|jpe?g|webp|avif)$", "", name, flags=re.I)
+    )
+
+
+def resolved_public_name(name: str) -> str:
+    """Mirror `imageSrc()` for local product paths.
+
+    Catalog rows deliberately keep a human-readable source-style filename
+    (historically PNG, now generally unsuffixed WebP). The browser never
+    requests either master: it requests the committed 960px WebP fallback,
+    while `<picture>` may select a matching AVIF/WebP derivative. Auditing the
+    pre-resolution filename would make every fresh clone look broken even
+    though the actual request is correct.
+    """
+    if _CONCRETE_DERIVATIVE_RE.search(name):
+        return name
+    if re.search(r"\.(?:png|jpe?g|webp)$", name, flags=re.I):
+        return f"{image_stem(name)}-960.webp"
+    return name
+
+
+def published_widths(name: str) -> Tuple[int, ...]:
+    """Widths this image stem publishes, else the srcset default.
 
     Same rule as ``derive_product_variants.widths_for``: the existing set is the
     contract, so a hero that publishes 1600 keeps it and an ordinary SKU is not
     forced to grow one.
     """
-    stem = re.sub(r"\.(png|jpe?g)$", "", master, flags=re.I)
+    stem = image_stem(name)
     widths: Set[int] = set()
     for fmt in DERIVATIVE_FORMATS:
         for candidate in PRODUCTS_DIR.glob(f"{stem}-*.{fmt}"):
@@ -205,11 +226,16 @@ def published_widths(master: str) -> Tuple[int, ...]:
     return tuple(sorted(widths)) or DEFAULT_WIDTHS
 
 
-def derivatives_for(master: str) -> List[str]:
-    stem = re.sub(r"\.(png|jpe?g)$", "", master, flags=re.I)
+def derivatives_for(name: str) -> List[str]:
+    """The `ResponsiveImage` candidates emitted for a non-concrete path."""
+    if _CONCRETE_DERIVATIVE_RE.search(name):
+        return []
+    stem = image_stem(name)
+    if not any(PRODUCTS_DIR.glob(f"{stem}-*.webp")):
+        return []
     return [
         f"{stem}-{width}.{fmt}"
-        for width in published_widths(master)
+        for width in published_widths(name)
         for fmt in DERIVATIVE_FORMATS
     ]
 
@@ -237,7 +263,6 @@ def audit(*, with_dimensions: bool = False) -> Dict[str, object]:
     tracked = tracked_paths()
     on_disk = {path.name for path in PRODUCTS_DIR.iterdir() if path.is_file()}
     literals = literal_references()
-    aliases = alias_keys()
     templated = client_portrait_names()
 
     entries: List[Dict[str, object]] = []
@@ -245,14 +270,16 @@ def audit(*, with_dimensions: bool = False) -> Dict[str, object]:
     dangling: List[Dict[str, object]] = []
 
     def record(name: str, kind: str, sources: Iterable[str]) -> None:
-        rel = PRODUCTS_PREFIX + name
-        derived = derivatives_for(name) if name.endswith(MASTER_SUFFIXES) else []
+        resolved = resolved_public_name(name)
+        rel = PRODUCTS_PREFIX + resolved
+        derived = derivatives_for(name)
         required.add(rel)
         required.update(PRODUCTS_PREFIX + child for child in derived)
         entry: Dict[str, object] = {
             "referenced": f"/products/{name}",
+            "resolved": f"/products/{resolved}",
             "kind": kind,
-            "onDisk": name in on_disk,
+            "onDisk": resolved in on_disk,
             "tracked": rel in tracked,
             "derivatives": [
                 {
@@ -264,18 +291,17 @@ def audit(*, with_dimensions: bool = False) -> Dict[str, object]:
             ],
             "sources": sorted(sources)[:4],
         }
-        if with_dimensions and name in on_disk:
-            entry["dimensions"] = _dimensions(PRODUCTS_DIR / name)
+        if with_dimensions and resolved in on_disk:
+            entry["dimensions"] = _dimensions(PRODUCTS_DIR / resolved)
         entries.append(entry)
 
     for name, sources in sorted(literals.items()):
-        if name in on_disk:
+        if name in on_disk or resolved_public_name(name) in on_disk:
             record(name, "literal", sources)
             continue
         dangling.append({
             "referenced": f"/products/{name}",
             "sources": sources,
-            "alias": aliases.get(name),
             "testOnly": all(is_test_path(source) for source in sources),
         })
     for name in templated:
@@ -294,21 +320,19 @@ def audit(*, with_dimensions: bool = False) -> Dict[str, object]:
             {PRODUCTS_PREFIX + n for n in on_disk} - required - tracked
         ),
         "dangling": dangling,
-        "aliases": aliases,
     }
 
 
 def unresolved_references(result: Dict[str, object]) -> List[Dict[str, object]]:
     """References that would 404 for a participant.
 
-    A reference survives this filter only when it names no file, has no alias, and
-    is made from something that actually ships. That is the case the alias map
-    exists to absorb, and leaving one unabsorbed is how two Observatory fixture
-    tiles silently fell back to a placeholder.
+    A reference survives this filter only when neither its literal asset nor
+    the runtime-resolved derivative exists and it is made from something that
+    actually ships.
     """
     return [
         item for item in result["dangling"]  # type: ignore[union-attr]
-        if not item["alias"] and not item["testOnly"]
+        if not item["testOnly"]
     ]
 
 

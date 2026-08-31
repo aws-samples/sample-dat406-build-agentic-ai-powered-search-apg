@@ -81,8 +81,7 @@ OPERATOR_READ_APIS = (
     "/api/operator/clients/{client_id}",
 )
 OPERATOR_WRITE_APIS = (
-    "/api/operator/actions/resolve-return",
-    "/api/operator/actions/issue-credit",
+    "/api/operator/reviews/{review_id}/execute",
 )
 
 # `turn_id` stays the only correlation identifier. No second one may appear.

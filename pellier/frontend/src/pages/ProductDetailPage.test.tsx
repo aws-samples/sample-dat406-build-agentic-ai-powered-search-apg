@@ -1,20 +1,18 @@
 /**
  * ProductDetailPage tests — `/product/:productId`.
  *
- * The contract under test is the two-layer read and, above all, its
- * honesty rules:
+ * The contract under test is the live Aurora read and, above all, its honesty
+ * rules:
  *
- *   - The committed showcase row paints immediately, so the page is useful
- *     with no backend and never flashes empty.
- *   - Aurora contributes exactly `description` and `availability`.
- *   - A failed or null availability read renders as an explicit "not read"
- *     and NEVER as zero stock. This is the assertion that matters most:
- *     a fabricated out-of-stock claim about the authoritative system is
- *     the specific failure this surface must not have.
- *   - Siblings come from the piece's own edit, not the active profile's,
- *     so "More from this edit" stays true on a deep link.
+ *   - The page holds a loading frame until Aurora supplies the piece. It does
+ *     not paint a browser fixture whose price or stock could be stale.
+ *   - Aurora supplies copy, availability, and the related live catalog rows.
+ *   - A null availability read renders as an explicit "not read" and NEVER
+ *     as zero stock. A failed product read is an explicit not-found state.
+ *   - Siblings come from the live catalog response, not the active profile's
+ *     browser fixture.
  */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -87,7 +85,6 @@ vi.mock('../contexts/UIContext', () => ({
 
 import ProductDetailPage from './ProductDetailPage'
 import { PRODUCT_DETAIL } from '../copy'
-import { MARCO_PRODUCTS, SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
 
 // ProductCard's reveal observer needs the global in jsdom.
 class NoopIntersectionObserver {
@@ -102,8 +99,63 @@ class NoopIntersectionObserver {
   }
 }
 
-/** The Italian Linen Camp Shirt — Marco's edit, id 11. */
-const SUBJECT = MARCO_PRODUCTS[0]
+/** A representative live catalog row. Test data remains inside the API stub. */
+const SUBJECT = {
+  id: 11,
+  brand: 'Pellier Editions',
+  name: 'Italian Linen Camp Shirt',
+  color: 'Indigo',
+  price: 148,
+  rating: 4.8,
+  reviewCount: 91,
+  category: 'Tops',
+  imageUrl: '/products/marco-linen-camp-shirt-indigo.webp',
+  badge: 'EDITOR’S PICK',
+  tags: ['linen', 'travel', 'summer'],
+}
+
+const CATALOG = [
+  SUBJECT,
+  {
+    id: 12,
+    brand: 'Pellier Editions',
+    name: 'Relaxed Drawstring Trousers',
+    color: 'Oat',
+    price: 138,
+    rating: 4.7,
+    reviewCount: 73,
+    category: 'Trousers',
+    imageUrl: '/products/marco-linen-drawstring-trousers-oat.webp',
+    badge: null,
+    tags: ['linen', 'travel', 'summer'],
+  },
+  {
+    id: 13,
+    brand: 'Pellier Editions',
+    name: 'Canvas Dopp Kit',
+    color: 'Olive',
+    price: 74,
+    rating: 4.6,
+    reviewCount: 45,
+    category: 'Accessories',
+    imageUrl: '/products/marco-canvas-dopp-kit-olive.webp',
+    badge: null,
+    tags: ['travel', 'utility'],
+  },
+  {
+    id: 14,
+    brand: 'Pellier Editions',
+    name: 'Merino Travel Socks',
+    color: 'Charcoal',
+    price: 38,
+    rating: 4.9,
+    reviewCount: 120,
+    category: 'Accessories',
+    imageUrl: '/products/marco-merino-travel-socks-charcoal.webp',
+    badge: null,
+    tags: ['travel', 'merino'],
+  },
+]
 
 interface DetailPayload {
   description?: string | null
@@ -125,18 +177,22 @@ interface DetailPayload {
  * Route `/api/products/:id` to a supplied payload and answer every other
  * request benignly, so unrelated chrome fetches cannot fail a test.
  */
-function stubFetch(handler: (id: string) => Response | Promise<Response>) {
+function stubFetch(
+  handler: (id: string) => Response | Promise<Response>,
+  catalog = CATALOG,
+) {
   const impl = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : String(input)
     const match = /\/api\/products\/(\w+)/.exec(url)
     if (match) return handler(match[1])
+    if (url.endsWith('/api/products')) return jsonResponse(catalog)
     return new Response('[]', { status: 200 })
   })
   vi.stubGlobal('fetch', impl)
   return impl
 }
 
-function jsonResponse(body: DetailPayload): Response {
+function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
@@ -203,36 +259,25 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-// --- Committed layer ----------------------------------------------------
+// --- Live read ----------------------------------------------------------
 
-describe('ProductDetailPage — committed showcase layer', () => {
-  it('paints the piece before the Aurora read resolves', () => {
-    // A promise that never settles: nothing below can come from the fetch.
+describe('ProductDetailPage — live catalog read', () => {
+  it('holds a loading frame until the Aurora read resolves', () => {
     stubFetch(() => new Promise<Response>(() => {}))
 
     renderAt(`/product/${SUBJECT.id}`)
 
-    expect(screen.getByTestId('product-detail-name')).toHaveTextContent(
-      SUBJECT.name,
-    )
-    // Scoped to the detail column — sibling cards print brands and prices too.
-    const summary = within(screen.getByTestId('product-detail-summary'))
-    expect(summary.getByText(SUBJECT.brand)).toBeInTheDocument()
-    expect(summary.getByText(`$${SUBJECT.price}`)).toBeInTheDocument()
-    expect(screen.getByTestId('product-availability')).toHaveAttribute(
-      'data-state',
-      'reading',
-    )
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
+    expect(screen.queryByTestId('product-detail-name')).toBeNull()
   })
 
-  it('lists siblings from the piece own edit, not the active profile edit', async () => {
+  it('lists siblings from the live catalog response, not the active profile', async () => {
     stubFetch(() => jsonResponse(detailPayload()))
 
     renderAt(`/product/${SUBJECT.id}`)
 
     const siblings = await screen.findByTestId('product-detail-siblings')
-    // Anna is the active profile; every sibling must still be Marco's.
-    const marcoIds = new Set(MARCO_PRODUCTS.map(p => p.id))
+    const liveIds = new Set(CATALOG.map(p => p.id))
     const rendered = Array.from(
       siblings.querySelectorAll('[data-testid^="product-card-"]'),
     )
@@ -242,7 +287,7 @@ describe('ProductDetailPage — committed showcase layer', () => {
 
     expect(rendered.length).toBeGreaterThan(0)
     for (const id of rendered) {
-      expect(marcoIds.has(id)).toBe(true)
+      expect(liveIds.has(id)).toBe(true)
       expect(id).not.toBe(SUBJECT.id)
     }
   })
@@ -300,29 +345,18 @@ describe('ProductDetailPage — Aurora layer', () => {
   })
 })
 
-// --- Degraded reads -----------------------------------------------------
+// --- Explicit degraded states ------------------------------------------
 
-describe('ProductDetailPage — a failed read is never zero stock', () => {
-  it('declares inventory unread when the request fails', async () => {
+describe('ProductDetailPage — a failed read never fabricates stock', () => {
+  it('renders an explicit unavailable state when the product read fails', async () => {
     stubFetch(() => Promise.reject(new Error('network down')))
 
     renderAt(`/product/${SUBJECT.id}`)
 
-    const panel = await screen.findByTestId('product-availability-degraded')
-    expect(panel).toHaveTextContent(PRODUCT_DETAIL.AVAILABILITY_UNAVAILABLE)
-    expect(screen.getByTestId('product-availability')).toHaveAttribute(
-      'data-state',
-      'not-read',
-    )
-    // The specific fabrication this guards against.
-    expect(screen.queryByTestId('product-on-hand')).toBeNull()
     expect(
-      screen.queryByTestId('product-availability-source'),
-    ).toBeNull()
-    // The committed piece is still fully rendered.
-    expect(screen.getByTestId('product-detail-name')).toHaveTextContent(
-      SUBJECT.name,
-    )
+      await screen.findByTestId('product-detail-not-found'),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('product-on-hand')).toBeNull()
   })
 
   it('declares inventory unread when availability comes back null', async () => {
@@ -347,12 +381,10 @@ describe('ProductDetailPage — a failed read is never zero stock', () => {
   })
 })
 
-// --- Ids outside the committed set --------------------------------------
+// --- Arbitrary catalog identifiers --------------------------------------
 
-describe('ProductDetailPage — ids the showcase set does not carry', () => {
+describe('ProductDetailPage — arbitrary live catalog ids', () => {
   it('renders wholly from the live row', async () => {
-    // 10 is one of the four ids Aurora carries and the showcase set omits.
-    expect(SHOWCASE_PRODUCTS.some(p => p.id === 10)).toBe(false)
     stubFetch(() =>
       jsonResponse({
         id: 10,
@@ -414,7 +446,7 @@ describe('ProductDetailPage — actions', () => {
     stubFetch(() => jsonResponse(detailPayload()))
 
     renderAt(`/product/${SUBJECT.id}`)
-    await user.click(screen.getByTestId('product-detail-add'))
+    await user.click(await screen.findByTestId('product-detail-add'))
 
     expect(addToCart).toHaveBeenCalledWith({
       productId: SUBJECT.id,
@@ -431,12 +463,12 @@ describe('ProductDetailPage — actions', () => {
 
     renderAt(`/product/${SUBJECT.id}`)
 
-    await user.click(screen.getByTestId('product-detail-ask'))
+    await user.click(await screen.findByTestId('product-detail-ask'))
     expect(openDrawerWithQuery).toHaveBeenCalledWith(
       PRODUCT_DETAIL.askQuestion(SUBJECT.name),
     )
 
-    await user.click(screen.getByTestId('product-check-stock'))
+    await user.click(await screen.findByTestId('product-check-stock'))
     expect(openDrawerWithQuery).toHaveBeenCalledWith(
       PRODUCT_DETAIL.stockQuestion(SUBJECT.name),
     )

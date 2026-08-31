@@ -11,13 +11,11 @@ Four rules, all enforced below.
 1. **Retired labels must not reappear** outside the documented migration
    history.
 
-2. **The build-state overlay key must exist in the fixture.**
-   ``GET /api/observatory/build-state`` builds its map from ``agents.json``'s
-   ``name`` field, then overlays ``agent_map["Inventory Agent"] = "shipped"``
-   once the definition scaffold is complete. If either side is renamed alone the
-   overlay writes a *new* key instead of promoting the existing one, so Lab 1
-   reports both ``exercise`` and ``shipped`` for the same agent and the UI shows
-   the stale one. Nothing raises.
+2. **The build-state agent key must exist in the fixture.**
+   ``GET /api/observatory/build-state`` exposes the Inventory Agent's
+   source-controlled exercise state. If that literal drifts from the fixture,
+   Lab 1 shows an unrecognised status row instead of updating the intended
+   agent. Nothing raises.
 
 3. **No agent label may appear in a specialist's own system prompt.**
    ``VOICE.md`` forbids the word "agent" in anything the shopper can hear, and
@@ -149,14 +147,8 @@ def test_every_canonical_agent_has_a_module_and_a_factory() -> None:
         )
 
 
-def test_build_state_overlay_key_exists_in_the_agents_fixture() -> None:
-    """The overlay must promote an existing key, never invent a second one.
-
-    This is the coupling the rename could break without raising: `agents.json`
-    supplies the keys, `routes/observatory.py` overwrites one of them by literal
-    string. If they disagree, build-state reports the agent twice under two
-    labels and the participant sees whichever the UI reads first.
-    """
+def test_build_state_agent_key_exists_in_the_agents_fixture() -> None:
+    """The source-owned build-state key must name a rendered agent."""
     import json
 
     fixture = json.loads(
@@ -173,14 +165,12 @@ def test_build_state_overlay_key_exists_in_the_agents_fixture() -> None:
     }, f"agents.json names drifted from the frozen vocabulary: {sorted(fixture_names)}"
 
     route = (BACKEND / "routes" / "observatory.py").read_text()
-    overlays = re.findall(r'agent_map\[\s*"([^"]+)"\s*\]', route)
-    assert overlays, "the build-state overlay no longer writes a literal key"
-    for key in overlays:
+    match = re.search(r'agent_map\s*=\s*\{\s*"([^"]+)"\s*:', route)
+    assert match, "the build-state response no longer defines its agent key"
+    for key in (match.group(1),):
         assert key in fixture_names, (
-            f"build-state overlays agent_map[{key!r}], which is not a name in "
-            "agents.json. The overlay would add a second entry instead of "
-            "promoting the existing one, so Lab 1 would report the agent as "
-            "both exercise and shipped."
+            f"build-state exposes agent_map[{key!r}], which is not a name in "
+            "agents.json. Lab 1 would no longer update the intended agent."
         )
 
 

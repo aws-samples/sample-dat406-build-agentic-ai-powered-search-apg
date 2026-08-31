@@ -15,16 +15,13 @@
  * The hero occupies the entire viewport so the first impression is
  * the search bar. Scrolling reveals the editorial product showcase.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AnnouncementBar from '../components/AnnouncementBar'
 import Header, { type NavItem } from '../components/Header'
 import PellierHero from '../components/PellierHero'
-import PellierCollections from '../components/PellierCollections'
 import PellierApproach from '../components/PellierApproach'
 import PellierServiceStrip from '../components/PellierServiceStrip'
-import BecauseYouAsked from '../components/BecauseYouAsked'
-import MemoryHandoffCard from '../components/MemoryHandoffCard'
 import RationaleBand from '../components/RationaleBand'
 import ProductCard from '../components/ProductCard'
 import ResponsiveImage from '../components/ResponsiveImage'
@@ -37,34 +34,19 @@ import { useCart } from '../contexts/CartContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
 import {
-  SHOWCASE_PRODUCTS,
-  FRESH_PRODUCTS,
-  MARCO_PRODUCTS,
-  ANNA_PRODUCTS,
-  THEO_PRODUCTS,
-} from '../data/showcaseProducts'
-
-const PERSONA_PRODUCTS: Record<string, typeof SHOWCASE_PRODUCTS> = {
-  fresh: FRESH_PRODUCTS,
-  marco: MARCO_PRODUCTS,
-  anna: ANNA_PRODUCTS,
-  theo: THEO_PRODUCTS,
-}
-import {
   PERSONA_INTERESTS,
-  rankProductsForPersona,
-  featuredProductIdForPersona,
   weekendEditForPersona,
 } from '../data/personaCurations'
+import type { PellierProduct } from '../services/types'
 import { splitHeadlineAtRe } from '../utils/headlineAccent'
 
 const NAV_ROUTES: Record<NavItem, string> = {
   home: '/',
   shop: '/#shop',
-  storyboard: '/storyboard',
-  stories: '/storyboard',
-  discover: '/discover',
-  about: '/about',
+  storyboard: '/#shop',
+  stories: '/#shop',
+  discover: '/#shop',
+  about: '/#shop',
   account: '/',
   'ask-pellier': '/',
 }
@@ -93,9 +75,7 @@ export default function PellierPage() {
     next.delete('persona')
     setSearchParams(next, { replace: true })
 
-    if (requestedPersona in PERSONA_PRODUCTS) {
-      void switchPersona(requestedPersona)
-    }
+    void switchPersona(requestedPersona)
   }, [requestedPersona, searchParams, setSearchParams, switchPersona])
 
   // A nonhero client preview must never inherit Marco, Anna, or Theo's
@@ -105,32 +85,64 @@ export default function PellierPage() {
     if (clientPreviewId && persona) clearPersona()
   }, [clearPersona, clientPreviewId, persona])
 
-  // Persona-aware featured product + grid ordering + weekend edit.
   const personaId = persona?.id ?? null
+  const [products, setProducts] = useState<PellierProduct[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(true)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
 
-  // Each persona sees ONLY their 9 products — zero overlap
-  const personaProducts = PERSONA_PRODUCTS[personaId ?? 'fresh'] ?? FRESH_PRODUCTS
+  // The home edit is an Aurora grouping created by migration 029. Do not
+  // retain a browser catalog when the active profile changes: a stale row is
+  // worse than a visible unavailable state in a workshop about grounding.
+  useEffect(() => {
+    let active = true
+    const controller = new AbortController()
+    const profile = personaId ?? 'fresh'
+    setCatalogLoading(true)
+    setCatalogError(null)
+    setProducts([])
 
-  const featuredProduct = useMemo(() => {
-    const fid = featuredProductIdForPersona(personaId)
-    return personaProducts.find(p => p.id === fid) ?? personaProducts[0]
-  }, [personaId, personaProducts])
+    void fetch(`/api/products?persona=${encodeURIComponent(profile)}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+      .then(async response => {
+        if (!response.ok) {
+          throw new Error(`Live catalog request failed: ${response.status}`)
+        }
+        return response.json() as Promise<PellierProduct[]>
+      })
+      .then(catalog => {
+        if (!active) return
+        if (!Array.isArray(catalog)) {
+          throw new Error('Live catalog returned an invalid payload.')
+        }
+        setProducts(catalog)
+      })
+      .catch((error: unknown) => {
+        if (!active || (error as { name?: string })?.name === 'AbortError') return
+        setCatalogError(
+          error instanceof Error ? error.message : 'The live catalog is unavailable.',
+        )
+      })
+      .finally(() => {
+        if (active) setCatalogLoading(false)
+      })
 
-  const gridProducts = useMemo(
-    () => personaProducts.filter(p => p.id !== featuredProduct.id),
-    [personaProducts, featuredProduct],
-  )
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [personaId])
 
-  const weekendEdit = weekendEditForPersona(personaId)
-  const weekendHeadlineParts = splitHeadlineAtRe(weekendEdit.headline)
-
-  const rankedGridProducts = useMemo(
-    () => rankProductsForPersona(gridProducts, personaId),
-    [gridProducts, personaId],
-  )
-  const personaInterests = personaId ? PERSONA_INTERESTS[personaId] : undefined
+  const featuredProduct = products[0] ?? null
+  const gridProducts = useMemo(() => products.slice(1), [products])
+  // Product rows and their order come from Aurora. This source-controlled
+  // layer is only the editorial frame around each durable nine-piece edit.
+  const edit = weekendEditForPersona(personaId)
+  const editHeadline = splitHeadlineAtRe(edit.headline)
   const curatedHeadline =
-    personaInterests?.curatedHeadline ?? 'Things worth discovering.'
+    PERSONA_INTERESTS[personaId ?? 'fresh']?.curatedHeadline
+    ?? 'Things worth discovering.'
 
   useEffect(() => {
     setChatSurface('drawer')
@@ -172,7 +184,7 @@ export default function PellierPage() {
     if (target) navigate(target)
   }
 
-  const handleAddToBag = (product: typeof SHOWCASE_PRODUCTS[0]) =>
+  const handleAddToBag = (product: PellierProduct) =>
     addToCart({
       productId: product.id,
       name: product.name,
@@ -209,16 +221,6 @@ export default function PellierPage() {
         {/* ── ACT 1: editorial statement, product photograph, concierge ── */}
         <PellierHero onBrowseCollection={handleOpenCatalog} />
 
-        {/* Four local-image edits bring the catalog into the first scroll,
-            matching the landing shell without adding another route. */}
-        <PellierCollections onOpenCatalog={handleOpenCatalog} />
-
-        {/* ── Profile handoff card — names the deterministic seed and
-             session boundary before the participant generates memory or
-             action evidence. ── */}
-        <MemoryHandoffCard />
-
-        {/* ── ACT 2: Below the fold ── */}
         <section
           id="shop"
           className="w-full"
@@ -229,140 +231,148 @@ export default function PellierPage() {
             borderTop: '1px solid var(--rule-1)',
           }}
         >
-          {/* Featured product: large image + editorial title */}
-          <div className="max-w-[1440px] mx-auto px-container-x pt-16 md:pt-24 pb-12">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-              {/* Left: featured image. Decorative duplicate of the name
-                  link below — kept out of the tab order and the
-                  accessibility tree so the block exposes one link. */}
-              <Link
-                to={`/product/${featuredProduct.id}`}
-                aria-hidden="true"
-                tabIndex={-1}
-                className="relative block aspect-[4/5] rounded-[8px] overflow-hidden shadow-warm-md"
-              >
-                <ResponsiveImage
-                  src={featuredProduct.imageUrl}
-                  alt={featuredProduct.name}
-                  widths={[480, 960]}
-                  sizes="(min-width: 1440px) 696px, (min-width: 1024px) 48vw, 100vw"
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  pictureClassName="block h-full w-full"
-                />
-              </Link>
+          {catalogLoading ? (
+            <div
+              className="mx-auto max-w-[1440px] px-container-x py-24"
+              role="status"
+              aria-label="Loading live catalog"
+            >
+              <div className="h-[420px] animate-pulse rounded-[8px] border border-sand bg-cream" />
+            </div>
+          ) : null}
 
-              {/* Right: editorial title + product info */}
-              <div className="flex flex-col justify-center py-8 lg:py-0">
-                <h2
-                  className="font-display"
-                  style={{
-                    fontSize: 'clamp(36px, 5vw, 64px)',
-                    lineHeight: 1.08,
-                    letterSpacing: 0,
-                    fontWeight: 400,
-                    whiteSpace: 'pre-line',
-                  }}
-                >
-                  {weekendHeadlineParts.tail ? (
-                    <>
-                      <span className="text-espresso">{weekendHeadlineParts.lead}</span>
-                      <span className="text-accent-ink">{weekendHeadlineParts.tail}</span>
-                    </>
-                  ) : (
-                    <span className="text-espresso">{weekendHeadlineParts.lead}</span>
-                  )}
-                </h2>
-                <p
-                  className="mt-5 max-w-[440px] font-sans text-ink-soft"
-                  style={{
-                    fontSize: 'clamp(14px, 1.1vw, 16px)',
-                    lineHeight: 1.65,
-                  }}
-                >
-                  {weekendEdit.subheadline}
-                </p>
+          {!catalogLoading && catalogError ? (
+            <div className="mx-auto max-w-[760px] px-container-x py-24 text-center">
+              <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-ink">
+                Live catalog unavailable
+              </p>
+              <h2 className="mt-3 font-display text-espresso" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
+                The edit will return when Aurora does.
+              </h2>
+              <p className="mt-4 font-sans text-[14px] text-ink-soft">{catalogError}</p>
+            </div>
+          ) : null}
 
-                {/* Featured product details */}
-                <div className="mt-8 pt-6 border-t border-sand/50">
-                  <p className="mb-1 font-sans text-[12px] text-ink-quiet">
-                    {featuredProduct.brand}
-                  </p>
-                  <p className="font-display text-xl text-espresso">
-                    <Link
-                      to={`/product/${featuredProduct.id}`}
-                      data-testid="featured-product-link"
-                      className="transition-colors duration-fade hover:text-accent-ink"
-                    >
-                      {featuredProduct.name}
-                    </Link>
-                  </p>
-                  <div className="flex items-center gap-3 mt-2 text-sm text-ink-soft font-sans">
-                    <span className="text-espresso font-medium">${featuredProduct.price}</span>
-                    <span>★ {featuredProduct.rating.toFixed(1)}</span>
-                    <span className="text-ink-quiet">({featuredProduct.reviewCount})</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddToBag(featuredProduct)}
-                    className="mt-5 rounded-full bg-espresso text-cream-50 px-8 py-3 text-sm font-sans font-medium transition-colors duration-fade hover:bg-dusk cursor-pointer"
+          {!catalogLoading && !catalogError && !featuredProduct ? (
+            <div className="mx-auto max-w-[760px] px-container-x py-24 text-center">
+              <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-ink">
+                Live catalog empty
+              </p>
+              <p className="mt-4 font-sans text-[14px] text-ink-soft">
+                Aurora has no current edit for this profile.
+              </p>
+            </div>
+          ) : null}
+
+          {!catalogLoading && !catalogError && featuredProduct ? (
+            <>
+              <div className="mx-auto max-w-[1440px] px-container-x pb-12 pt-16 md:pt-24">
+                <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
+                  <Link
+                    to={`/product/${featuredProduct.id}`}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    className="relative block aspect-[4/5] overflow-hidden rounded-[8px] shadow-warm-md"
                   >
-                    Add to bag
-                  </button>
+                    <ResponsiveImage
+                      src={featuredProduct.imageUrl}
+                      alt={featuredProduct.name}
+                      widths={[480, 960]}
+                      sizes="(min-width: 1440px) 696px, (min-width: 1024px) 48vw, 100vw"
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      pictureClassName="block h-full w-full"
+                    />
+                  </Link>
+
+                  <div className="flex flex-col justify-center py-8 lg:py-0">
+                    <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-ink">
+                      {edit.eyebrow}
+                    </p>
+                    <h2
+                      className="font-display text-espresso"
+                      style={{
+                        fontSize: 'clamp(36px, 5vw, 64px)',
+                        lineHeight: 1.08,
+                        fontWeight: 400,
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {editHeadline.tail ? (
+                        <>
+                          <span>{editHeadline.lead}</span>
+                          <span className="text-accent-ink">{editHeadline.tail}</span>
+                        </>
+                      ) : (
+                        editHeadline.lead
+                      )}
+                    </h2>
+                    <p className="mt-5 max-w-[440px] font-sans text-ink-soft" style={{ fontSize: 'clamp(14px, 1.1vw, 16px)', lineHeight: 1.65 }}>
+                      {edit.subheadline}
+                    </p>
+
+                    <div className="mt-8 border-t border-sand/50 pt-6">
+                      <p className="mb-1 font-sans text-[12px] text-ink-quiet">{featuredProduct.brand}</p>
+                      <p className="font-display text-xl text-espresso">
+                        <Link
+                          to={`/product/${featuredProduct.id}`}
+                          data-testid="featured-product-link"
+                          className="transition-colors duration-fade hover:text-accent-ink"
+                        >
+                          {featuredProduct.name}
+                        </Link>
+                      </p>
+                      <div className="mt-2 flex items-center gap-3 font-sans text-sm text-ink-soft">
+                        <span className="font-medium text-espresso">${featuredProduct.price}</span>
+                        <span>★ {featuredProduct.rating.toFixed(1)}</span>
+                        <span className="text-ink-quiet">({featuredProduct.reviewCount})</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAddToBag(featuredProduct)}
+                        className="mt-5 cursor-pointer rounded-full bg-espresso px-8 py-3 font-sans text-sm font-medium text-cream-50 transition-colors duration-fade hover:bg-dusk"
+                      >
+                        Add to bag
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Curated grid: 8 products, reordered by active persona.
-              Fresh visitors get the canonical showcase sequence; Marco,
-              Anna, and Theo see a tag-ranked ordering with a matching
-              eyebrow + headline + "for <name>" chip so the
-              personalization is visible rather than silent. */}
-          <div className="max-w-[1440px] mx-auto px-container-x pb-16 md:pb-24">
-            <div className="mb-8">
-              <div>
-                <h2
-                  data-testid="curated-headline"
-                  className="font-display text-espresso"
+              <div className="mx-auto max-w-[1440px] px-container-x pb-16 md:pb-24">
+                <div className="mb-8">
+                  <h2
+                    data-testid="curated-headline"
+                    className="font-display text-espresso"
+                    style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', lineHeight: 1.15, fontWeight: 400 }}
+                  >
+                    {curatedHeadline}
+                  </h2>
+                  <RationaleBand />
+                </div>
+
+                <div
+                  key={`${prefsVersion}-${personaId ?? 'fresh'}`}
                   style={{
-                    fontSize: 'clamp(28px, 3.5vw, 44px)',
-                    lineHeight: 1.15,
-                    letterSpacing: 0,
-                    fontWeight: 400,
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '1.5rem',
                   }}
                 >
-                  {curatedHeadline}
-                </h2>
-                <RationaleBand />
+                  {gridProducts.map((product, index) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      index={index % 3}
+                      onAddToBag={handleAddToBag}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-
-            <div
-              // Re-mount on prefsVersion OR persona change so the grid's
-              // per-card reveal animation re-fires for the new ordering.
-              key={`${prefsVersion}-${personaId ?? 'fresh'}`}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '1.5rem',
-              }}
-            >
-              {rankedGridProducts.map((product, index) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  index={index % 3}
-                  onAddToBag={handleAddToBag}
-                />
-              ))}
-            </div>
-          </div>
+            </>
+          ) : null}
         </section>
-
-        {/* "Because you asked..." editorial cards */}
-        <BecauseYouAsked />
 
         {/* The bridge into Labs. Sits after the shopping surfaces so the
             pellier makes its case before it offers the proof. */}

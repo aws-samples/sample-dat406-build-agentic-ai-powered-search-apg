@@ -20,9 +20,9 @@
  *     attaches a new observer, so parallax fires again for the
  *     now-re-ordered list.
  *
- * Data (Req 1.6.3):
- *   - `products` prop defaults to the 9 showcase products from
- *     `storefront.md` so the grid renders without a running backend.
+ * Data:
+ *   - Callers supply product rows read from Aurora. This presentational
+ *     component never substitutes a browser fixture for a live catalog.
  *
  * Stagger:
  *   - Each card receives its column position within its row (`index % 3`)
@@ -34,22 +34,17 @@
  * shared design tokens for its container and background.
  */
 import type { PellierProduct } from '../services/types'
-import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
 import ProductCard from './ProductCard'
 
 interface ProductGridProps {
-  /**
-   * Products to render. Defaults to the 9 showcase products from
-   * `storefront.md`. When the personalized endpoint lands, the parent
-   * passes in the server-sorted list instead.
-   */
-  products?: PellierProduct[]
+  /** Products returned by the live catalog endpoint. */
+  products: PellierProduct[]
   /** Called when a card's `Add to bag` button is clicked. */
   onAddToBag?: (product: PellierProduct) => void
 }
 
 export default function ProductGrid({
-  products = SHOWCASE_PRODUCTS,
+  products,
   onAddToBag,
 }: ProductGridProps) {
   return (

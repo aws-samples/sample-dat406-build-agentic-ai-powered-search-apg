@@ -18,7 +18,7 @@ import { Link } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow, SurfaceFilterBar } from '../../components';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
 import type { Skill } from '../../types';
-import { routeSkillsOffline, routerQueryForSkill } from './skillsRouterUtils';
+import { routerQueryForSkill } from './skillsRouterUtils';
 
 type PersonaFilter = 'all' | 'marco' | 'anna' | 'theo' | 'shared';
 
@@ -70,7 +70,6 @@ const EXAMPLES: { label: string; query: string }[] = [
 ];
 
 interface SkillRouterDemoCardProps {
-  skills: Skill[];
   highlightedSkillName: string | null;
   onSelectSkill: (name: string) => void;
   runRequest?: { query: string; nonce: number } | null;
@@ -78,7 +77,6 @@ interface SkillRouterDemoCardProps {
 }
 
 const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
-  skills,
   highlightedSkillName,
   onSelectSkill,
   runRequest,
@@ -87,15 +85,12 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
   const [query, setQuery] = useState('');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RouterResult | null>(null);
-  const [usedOffline, setUsedOffline] = useState(false);
 
   const run = useCallback(
     async (q: string) => {
       if (!q.trim()) return;
       setRunning(true);
       setResult(null);
-      setUsedOffline(false);
-      const start = performance.now();
       try {
         const r = await fetch('/api/observatory/skills/route', {
           method: 'POST',
@@ -105,10 +100,6 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
         if (r.ok) {
           const data = (await r.json()) as RouterResult;
           setResult(data);
-        } else if (skills.length > 0) {
-          const offline = routeSkillsOffline(q, skills);
-          setResult({ ...offline, elapsed_ms: Math.round(performance.now() - start) });
-          setUsedOffline(true);
         } else {
           setResult({
             loaded_skills: [],
@@ -119,24 +110,18 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
           });
         }
       } catch {
-        if (skills.length > 0) {
-          const offline = routeSkillsOffline(q, skills);
-          setResult({ ...offline, elapsed_ms: Math.round(performance.now() - start) });
-          setUsedOffline(true);
-        } else {
-          setResult({
-            loaded_skills: [],
-            considered: [],
-            elapsed_ms: 0,
-            user_message: q,
-            error: 'Router unreachable',
-          });
-        }
+        setResult({
+          loaded_skills: [],
+          considered: [],
+          elapsed_ms: 0,
+          user_message: q,
+          error: 'Router unreachable',
+        });
       } finally {
         setRunning(false);
       }
     },
-    [skills],
+    [],
   );
 
   React.useEffect(() => {
@@ -350,18 +335,6 @@ const SkillRouterDemoCard: React.FC<SkillRouterDemoCardProps> = ({
         </div>
       )}
 
-      {usedOffline && result && !result.error && (
-        <p
-          style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: '12px',
-            color: 'var(--obs-ink-4)',
-            marginTop: '10px',
-          }}
-        >
-          Offline workshop routing – live endpoint unavailable; decisions are illustrative.
-        </p>
-      )}
     </ExpCard>
   );
 };
@@ -783,7 +756,6 @@ const Skills: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div ref={routerSectionRef}>
             <SkillRouterDemoCard
-              skills={skills}
               highlightedSkillName={selectedSkill ?? routerMatchSkill}
               onSelectSkill={focusSkill}
               runRequest={routerRun}

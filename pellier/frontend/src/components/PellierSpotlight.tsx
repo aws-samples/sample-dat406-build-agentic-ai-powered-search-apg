@@ -24,7 +24,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { asset } from '../utils/assetPath'
+import { imageSrc } from '../utils/assetPath'
 
 interface SpotlightStep {
   label: string
@@ -42,7 +42,7 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Welcome to Pellier',
     headline: 'Begin with the edit.',
     body: 'Browse the current collection or start with a specific piece you have in mind.',
-    image: asset('/products/hero-fresh-2.png'),
+    image: '/products/hero-fresh-2.png',
     imageAlt: 'Pellier leather tote, linen, and olive branches in warm daylight',
     icon: Store,
   },
@@ -51,7 +51,7 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Choose a profile',
     headline: 'Make the floor personal.',
     body: 'Choose Marco, Anna, or Theo in the hero. Each profile applies its own explicit catalog signals.',
-    image: asset('/products/hero-marco.png'),
+    image: '/products/hero-marco.png',
     imageAlt: 'Leather weekender and folded linen shirts in warm daylight',
     icon: User,
   },
@@ -60,7 +60,7 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Ask Pellier',
     headline: 'Use your own words.',
     body: 'Not a scripted chatbot. It decides which tools to call, reads Aurora, and answers from what it found there.',
-    image: asset('/products/hero-anna.png'),
+    image: '/products/hero-anna.png',
     imageAlt: 'Wrapped gift, beeswax candles, and a ceramic ring dish',
     icon: MessageCircle,
   },
@@ -69,7 +69,7 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Pellier Operator',
     headline: 'Different agents. Shared customer truth.',
     body: 'The Storefront Dispatcher routes each shopper request to a specialist. A separate Case Investigator → Resolution Planner graph assists advisors over the same Aurora customer record. Credits and returns wait for human confirmation, then policy and database controls decide whether the write may proceed.',
-    image: asset('/products/landing-approach-atelier.png'),
+    image: '/products/landing-approach-atelier.png',
     imageAlt: "A leatherworker's hands finishing a bag at a workbench",
     icon: ConciergeBell,
   },
@@ -78,7 +78,7 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Pellier Observatory · Optional',
     headline: 'Follow the evidence.',
     body: 'Optional. Replay a storefront turn to inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the evidence behind the grounded answer.',
-    image: asset('/products/hero-theo.png'),
+    image: '/products/hero-theo.png',
     imageAlt: 'Stoneware pour-over set on a sunlit wooden table',
     icon: FlaskConical,
   },
@@ -250,7 +250,7 @@ export default function PellierSpotlight() {
             <AnimatePresence initial={false} mode="wait">
               <motion.img
                 key={current.image}
-                src={current.image}
+                src={imageSrc(current.image)}
                 alt={current.imageAlt}
                 className="h-full w-full object-cover"
                 initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.035 }}

@@ -10,6 +10,7 @@ Runnable from the repo root:
 """
 from __future__ import annotations
 
+import logging
 import json
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
@@ -125,6 +126,33 @@ class TestRecordAllow:
         # No INSERT because we couldn't correlate the After event.
         assert mock_db_with_loop.fetch_one.call_count == 0
 
+    def test_insert_failure_is_visible_at_warning(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        # `_run_async` fails before it awaits, so use a synchronous stub and
+        # avoid manufacturing an un-awaited AsyncMock coroutine in this test.
+        monkeypatch.setattr(
+            tool_audit_writer, "_db_service", MagicMock(fetch_one=MagicMock())
+        )
+
+        def _raise(_: Any) -> None:
+            raise RuntimeError("insert unavailable")
+
+        monkeypatch.setattr(tool_audit_writer, "_run_async", _raise)
+
+        with caplog.at_level(logging.WARNING, logger=tool_audit_writer.__name__):
+            tool_audit_writer.record_allow(
+                tool_use_id="abc-123",
+                tool_name="initiate_return",
+                caller="agent",
+                args={"x": 1},
+                session_id="sess-1",
+            )
+
+        assert "tool_audit INSERT failed: insert unavailable" in caplog.text
+
 
 # ---------------------------------------------------------------------------
 # record_after — UPDATE with result + latency
@@ -193,3 +221,77 @@ class TestRecordAfter:
         positional = mock_db_with_loop.execute_query.call_args.args[1:]
         payload = json.loads(positional[0])
         assert "_unserializable_repr" in payload
+
+    def test_update_failure_is_visible_at_warning(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            tool_audit_writer,
+            "_db_service",
+            MagicMock(execute_query=MagicMock()),
+        )
+        tool_audit_writer._pending_audits["abc-123"] = 99
+
+        def _raise(_: Any) -> None:
+            raise RuntimeError("update unavailable")
+
+        monkeypatch.setattr(tool_audit_writer, "_run_async", _raise)
+
+        with caplog.at_level(logging.WARNING, logger=tool_audit_writer.__name__):
+            tool_audit_writer.record_after(
+                tool_use_id="abc-123",
+                result={"status": "success"},
+                latency_ms=10,
+            )
+
+        assert "tool_audit UPDATE failed: update unavailable" in caplog.text
+
+
+def test_async_bridge_failure_is_visible_at_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _Future:
+        def result(self, timeout: float) -> None:
+            raise RuntimeError("loop unavailable")
+
+    monkeypatch.setattr(tool_audit_writer, "_main_loop", object())
+    monkeypatch.setattr(
+        tool_audit_writer.asyncio,
+        "run_coroutine_threadsafe",
+        lambda _coro, _loop: _Future(),
+    )
+
+    with caplog.at_level(logging.WARNING, logger=tool_audit_writer.__name__):
+        assert tool_audit_writer._run_async(object()) is None
+
+    assert "tool_audit _run_async: loop unavailable" in caplog.text
+
+
+def test_operator_audit_failure_is_visible_at_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(
+        tool_audit_writer,
+        "_db_service",
+        MagicMock(execute_query=MagicMock()),
+    )
+
+    def _raise(_: Any) -> None:
+        raise RuntimeError("operator audit unavailable")
+
+    monkeypatch.setattr(tool_audit_writer, "_run_async", _raise)
+
+    with caplog.at_level(logging.WARNING, logger=tool_audit_writer.__name__):
+        tool_audit_writer.record_operator_mutation(
+            tool_name="restock_inventory",
+            caller="rest",
+            principal_sub="operator-1",
+            args={"product_id": 7},
+            result={"status": "success"},
+        )
+
+    assert "operator tool_audit INSERT failed: operator audit unavailable" in caplog.text

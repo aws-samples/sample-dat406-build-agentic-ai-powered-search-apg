@@ -12,101 +12,26 @@
  * still needs a profile because the floor is ranked per persona, so the
  * search affordance appears with the profile rather than before it.
  */
-import { useCallback, useState } from 'react'
-import { ArrowRight, Mic, MicOff, Send, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { ArrowRight, Send, Sparkles } from 'lucide-react'
 import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
-import {
-  heroPillLabel,
-  heroPillsForPersona,
-  PERSONA_TURN_TRACES,
-} from '../data/personaCurations'
-import { useVoiceSearch } from '../hooks/useVoiceSearch'
 import { splitHeadlineAtAccent } from '../utils/headlineAccent'
 import { HERO_STATEMENT } from '../copy'
 import PersonaConcierge from './PersonaConcierge'
 import ResponsiveImage from './ResponsiveImage'
 
-/**
- * Per-persona hero imagery and lede. Each persona keeps its own photograph
- * so the selected profile visibly changes the room, which is the storefront's
- * existing behaviour.
- */
-const PERSONA_HEROES: Record<
-  string,
-  { image: string; alt: string; subheadline: string }
-> = {
-  fresh: {
-    image: '/products/landing-hero-weekender.png',
-    alt: 'Leather weekender on a travertine bench beside linen and an olive branch',
-    subheadline:
-      'Choose a workshop profile, then explore a floor shaped by explicit catalog signals.',
-  },
-  marco: {
-    image: '/products/hero-marco.png',
-    alt: 'Leather weekender and folded linen shirts in warm daylight',
-    subheadline:
-      "Marco's profile favors natural fibers, travel-ready layers, and enduring pieces.",
-  },
-  anna: {
-    image: '/products/hero-anna.png',
-    alt: 'Wrapped gift, beeswax candles, and ceramic ring dish',
-    subheadline:
-      "Anna's profile favors considered gifts, home objects, and clear budget constraints.",
-  },
-  theo: {
-    image: '/products/hero-theo.png',
-    alt: 'Stoneware pour-over set on a sunlit wooden table',
-    subheadline:
-      "Theo's profile favors slow craft, ceramics, and durable post-purchase care.",
-  },
+interface LiveHeroProfile {
+  id: string
+  hero_image: string
+  hero_alt: string
+  hero_subheadline: string
 }
 
-/**
- * Tools that make a turn a persona's *signature* turn.
- *
- * Most turns exercise retrieval (`search_products`, `get_related_products`), which every
- * persona shares. These tools are the ones that define a particular shopper's
- * journey and that the workshop is built around, so a persona owning one must
- * show it on sign-on:
- *
- *   initiate_return  the Cedar-gated governed write (Theo)
- *   check_inventory     the system-of-record inventory read, and the Lab 1
- *                   exercise (Marco, `MARCO_BUILDER_SESSION_QUERY`)
- *   restock_inventory   the operator write
- *
- * Ordered by precedence, so a persona holding more than one leads with the
- * most consequential. `escalate_to_human` is deliberately absent: it is
- * Turn 5 for every persona, so treating it as a signature would replace a
- * shopping pill with a human handoff on every profile.
- */
-const SIGNATURE_TOOLS = ['initiate_return', 'check_inventory', 'restock_inventory']
-
-/**
- * Which canonical turns appear as hero suggestions on sign-on.
- *
- * The first three by default. When a persona's signature turn sits outside
- * that window it leads instead, because the pill row scrolls inside a narrow
- * column and any slot but the first can be scrolled out of sight. The
- * original turn index travels with the query so each pill still resolves its
- * own short label.
- */
-function suggestionTurns(
-  personaId: string,
-): Array<{ query: string; index: number }> {
-  const queries = heroPillsForPersona(personaId)
-  const traces = PERSONA_TURN_TRACES[personaId] ?? []
-
-  let signatureIndex = -1
-  for (const tool of SIGNATURE_TOOLS) {
-    signatureIndex = traces.findIndex((trace) => trace?.tools?.includes(tool))
-    if (signatureIndex >= 0) break
-  }
-
-  const indexes = signatureIndex > 2 ? [signatureIndex, 0, 1] : [0, 1, 2]
-  return indexes
-    .filter((index) => index < queries.length)
-    .map((index) => ({ query: queries[index], index }))
+interface LiveScenario {
+  id: number
+  ordinal: number
+  prompt: string
 }
 
 type StatementId = 'fresh' | 'marco' | 'anna' | 'theo'
@@ -130,12 +55,66 @@ export default function PellierHero({
   const { openDrawerWithQuery } = useUI()
   const { persona } = usePersona()
   const [searchValue, setSearchValue] = useState('')
+  const [heroProfile, setHeroProfile] = useState<LiveHeroProfile | null>(null)
+  const [suggestions, setSuggestions] = useState<LiveScenario[]>([])
 
   const personaId = persona?.id ?? 'fresh'
-  const hero = PERSONA_HEROES[personaId] ?? PERSONA_HEROES.fresh
   const statement = statementFor(personaId)
   const headline = splitHeadlineAtAccent(statement.HEADLINE, statement.ACCENT)
-  const suggestions = suggestionTurns(personaId)
+
+  useEffect(() => {
+    let active = true
+    const controller = new AbortController()
+    const targetPersonaId = persona?.id ?? 'fresh'
+    setHeroProfile(null)
+
+    void fetch('/api/observatory/personas', { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Live persona request failed: ${response.status}`)
+        return response.json() as Promise<LiveHeroProfile[]>
+      })
+      .then(profiles => {
+        if (!active) return
+        setHeroProfile(
+          profiles.find(profile => profile.id === targetPersonaId) ?? null,
+        )
+      })
+      .catch(() => {
+        if (active) setHeroProfile(null)
+      })
+
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [persona?.id])
+
+  useEffect(() => {
+    if (!persona) {
+      setSuggestions([])
+      return
+    }
+    let active = true
+    const controller = new AbortController()
+    setSuggestions([])
+    void fetch(`/api/observatory/scenarios?persona=${encodeURIComponent(persona.id)}`, {
+      signal: controller.signal,
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Live scenario request failed: ${response.status}`)
+        return response.json() as Promise<{ scenarios?: LiveScenario[] }>
+      })
+      .then(payload => {
+        if (active) setSuggestions((payload.scenarios ?? []).slice(0, 3))
+      })
+      .catch(() => {
+        if (active) setSuggestions([])
+      })
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [persona])
 
   const browseCollection = useCallback(() => {
     if (onBrowseCollection) {
@@ -155,11 +134,6 @@ export default function PellierHero({
     },
     [openDrawerWithQuery, persona],
   )
-
-  const { isListening, startListening, stopListening } = useVoiceSearch({
-    onInterimTranscript: setSearchValue,
-    onFinalTranscript: submitQuery,
-  })
 
   const handleSubmit = useCallback(
     (event: React.FormEvent) => {
@@ -192,7 +166,8 @@ export default function PellierHero({
             data-testid="pellier-hero-subheadline"
             className="pellier-hero-lede"
           >
-            {hero.subheadline}
+            {heroProfile?.hero_subheadline
+              ?? 'Loading the current Aurora profile…'}
           </p>
 
           {persona ? (
@@ -216,7 +191,7 @@ export default function PellierHero({
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                   placeholder={
-                    isListening ? 'Listening...' : 'Ask Pellier anything...'
+                    'Ask Pellier anything...'
                   }
                   aria-label="Ask Pellier anything"
                   className="
@@ -229,38 +204,21 @@ export default function PellierHero({
                     focus:ring-[rgba(154,52,18,0.18)]
                   "
                 />
-                <button
-                  type={searchValue.trim() ? 'submit' : 'button'}
-                  onClick={
-                    searchValue.trim()
-                      ? undefined
-                      : isListening
-                        ? stopListening
-                        : startListening
-                  }
-                  aria-label={
-                    searchValue.trim()
-                      ? 'Send'
-                      : isListening
-                        ? 'Stop listening'
-                        : 'Voice search'
-                  }
-                  className="
-                    absolute right-[5px] top-1/2 flex h-[46px] w-[46px]
-                    -translate-y-1/2 items-center justify-center rounded-full
-                    bg-espresso text-cream transition hover:bg-accent
-                    focus-visible:outline-none focus-visible:ring-2
-                    focus-visible:ring-espresso focus-visible:ring-offset-2
-                  "
-                >
-                  {searchValue.trim() ? (
+                {searchValue.trim() ? (
+                  <button
+                    type="submit"
+                    aria-label="Send"
+                    className="
+                      absolute right-[5px] top-1/2 flex h-[46px] w-[46px]
+                      -translate-y-1/2 items-center justify-center rounded-full
+                      bg-espresso text-cream transition hover:bg-accent
+                      focus-visible:outline-none focus-visible:ring-2
+                      focus-visible:ring-espresso focus-visible:ring-offset-2
+                    "
+                  >
                     <Send size={18} />
-                  ) : isListening ? (
-                    <MicOff size={18} />
-                  ) : (
-                    <Mic size={18} />
-                  )}
-                </button>
+                  </button>
+                ) : null}
               </form>
 
               <div
@@ -268,11 +226,11 @@ export default function PellierHero({
                 className="pellier-hero-pills mt-3 flex w-full gap-2 overflow-x-auto pb-1"
                 aria-label="Suggested queries"
               >
-                {suggestions.map(({ query, index }) => (
+                {suggestions.map((scenario) => (
                   <button
-                    key={query}
+                    key={scenario.id}
                     type="button"
-                    onClick={() => submitQuery(query)}
+                    onClick={() => submitQuery(scenario.prompt)}
                     className="
                       min-h-10 shrink-0 rounded-full border
                       border-[rgba(24,26,31,0.16)] bg-[rgba(255,255,255,0.84)]
@@ -282,7 +240,7 @@ export default function PellierHero({
                       focus-visible:ring-espresso
                     "
                   >
-                    {heroPillLabel(persona.id, index, query)}
+                    {scenario.prompt}
                   </button>
                 ))}
               </div>
@@ -311,14 +269,22 @@ export default function PellierHero({
         </div>
 
         <div className="pellier-hero-media">
-          <ResponsiveImage
-            src={hero.image}
-            alt={hero.alt}
-            widths={[480, 960, 1600]}
-            sizes="(min-width: 1024px) 52vw, 100vw"
-            loading="eager"
-            pictureClassName="block h-full w-full"
-          />
+          {heroProfile?.hero_image && heroProfile.hero_alt ? (
+            <ResponsiveImage
+              src={heroProfile.hero_image}
+              alt={heroProfile.hero_alt}
+              widths={[480, 960, 1600]}
+              sizes="(min-width: 1024px) 52vw, 100vw"
+              loading="eager"
+              pictureClassName="block h-full w-full"
+            />
+          ) : (
+            <div
+              aria-label="Loading live profile image"
+              className="h-full w-full bg-[linear-gradient(135deg,#ebe4d8,#f6f2eb)]"
+              role="status"
+            />
+          )}
         </div>
 
         <PersonaConcierge onContinueAsGuest={browseCollection} />

@@ -35,4 +35,62 @@ describe('assetPath helpers', () => {
     const { routePath } = await import('./assetPath')
     expect(routePath('/observatory/memory')).toBe('/ports/8000/observatory/memory')
   })
+
+  it('uses the 960px WebP derivative when a legacy product source names PNG', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { imageSrc } = await import('./assetPath')
+    expect(imageSrc('/products/hero-fresh-2.png')).toBe(
+      '/products/hero-fresh-2-960.webp',
+    )
+  })
+
+  it('uses the same derivative when Aurora already names WebP', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { imageSrc } = await import('./assetPath')
+    expect(imageSrc('/products/hero-fresh-2.webp')).toBe(
+      '/products/hero-fresh-2-960.webp',
+    )
+  })
+
+  it('preserves an Aurora image that already names a responsive derivative', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { imageSrc } = await import('./assetPath')
+    expect(imageSrc('/products/persona-marco-portrait-160.webp')).toBe(
+      '/products/persona-marco-portrait-160.webp',
+    )
+  })
+
+  it('normalizes an already-sized Aurora image before building srcset variants', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { responsiveImageSrcSet } = await import('./assetPath')
+    expect(
+      responsiveImageSrcSet(
+        '/products/hero-marco-960.webp',
+        [480, 960, 1600],
+        'avif',
+      ),
+    ).toBe(
+      '/products/hero-marco-480.avif 480w, /products/hero-marco-960.avif 960w, /products/hero-marco-1600.avif 1600w',
+    )
+  })
+
+  it('removes an unsized WebP extension before building AVIF candidates', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { responsiveImageSrcSet } = await import('./assetPath')
+    expect(
+      responsiveImageSrcSet(
+        '/products/marco-linen-camp-shirt-indigo.webp',
+        [480, 960],
+        'avif',
+      ),
+    ).toBe(
+      '/products/marco-linen-camp-shirt-indigo-480.avif 480w, /products/marco-linen-camp-shirt-indigo-960.avif 960w',
+    )
+  })
+
+  it('does not invent a derivative for a non-product asset', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { imageSrc } = await import('./assetPath')
+    expect(imageSrc('/assets/wordmark.png')).toBe('/assets/wordmark.png')
+  })
 })

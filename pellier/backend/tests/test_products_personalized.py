@@ -481,6 +481,20 @@ def test_personalized_true_without_auth_returns_editorial_order(
     assert ids[-1] == 9
 
 
+def test_persona_edit_reads_the_durable_storefront_rank(
+    client: TestClient, fake_db: FakeDatabaseService
+) -> None:
+    """A persona floor is a nine-piece Aurora edit, never a browser fixture."""
+    resp = client.get("/api/products?persona=marco")
+    assert resp.status_code == 200
+
+    query = fake_db.calls[-1]["query"]
+    assert "persona_id = %s" in query
+    assert "storefront_rank IS NOT NULL" in query
+    assert 'ORDER BY storefront_rank ASC' in query
+    assert fake_db.calls[-1]["params"] == ("marco",)
+
+
 # ---------------------------------------------------------------------------
 # GET /api/products — personalized (headline Task 3.6 acceptance)
 # ---------------------------------------------------------------------------
@@ -780,7 +794,7 @@ def test_inventory_returns_counts_and_timestamp(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
 
-    assert set(body.keys()) == {"last_refreshed", "counts", "stale"}
+    assert set(body.keys()) == {"last_refreshed", "counts", "stale", "freshness"}
     # All 6 storefront categories have at least one in-stock row in
     # the seeded showcase.
     assert set(body["counts"].keys()) == {
@@ -796,21 +810,22 @@ def test_inventory_returns_counts_and_timestamp(client: TestClient) -> None:
     assert parsed.tzinfo is not None
     # Fresh seed data -> not stale.
     assert body["stale"] is False
+    assert body["freshness"] == "current"
 
 
-def test_inventory_stale_field_present(client: TestClient) -> None:
-    """Req 3.5.2: the ``stale`` key is always emitted so the UI can rely
-    on its presence.
+def test_inventory_stale_field_is_evidence_not_server_clock(
+    client: TestClient, fake_db: FakeDatabaseService
+) -> None:
+    """No catalog timestamp means unavailable freshness, never ``now``."""
+    for row in fake_db._rows:  # noqa: SLF001 - fixture surgery, not API use
+        row["updated_at"] = None
 
-    The live ``product_catalog`` schema has no ``updated_at`` column, so
-    the handler pins ``stale`` to ``False`` and ``last_refreshed`` to
-    the current time. A future schema migration can turn the real 24h
-    check back on without changing the wire shape.
-    """
     resp = client.get("/api/inventory")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["stale"] is False
+    assert body["last_refreshed"] is None
+    assert body["stale"] is None
+    assert body["freshness"] == "unavailable"
 
 
 # ---------------------------------------------------------------------------

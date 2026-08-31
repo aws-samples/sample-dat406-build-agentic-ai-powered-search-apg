@@ -125,20 +125,20 @@ class ProofBoardApiError extends Error {
 interface PersistedTurnReceipt {
   turn_id: string;
   rail: string;
-  citations: Array<{
+  citations?: Array<{
     evidence_id: string;
     source_uri: string;
     revision: string | null;
     quote: string;
     entity_id: string;
   }>;
-  tool_audit_ids: Array<{
+  tool_audit_ids?: Array<{
     audit_id: number;
     tool: string;
     caller: string;
     latency_ms: number | null;
   }>;
-  policy_events: Array<{
+  policy_events?: Array<{
     decision: PolicyDecision;
     reason?: string | null;
   }>;
@@ -1376,7 +1376,12 @@ const ProofRail: React.FC<{
 const PersistedTurnReceiptPanel: React.FC<{ receipt: PersistedTurnReceipt }> = ({
   receipt,
 }) => {
-  const policy = receipt.policy_events[0];
+  // A receipt may represent a failed turn before policy or retrieval emitted
+  // their respective arrays. Show absent evidence honestly rather than
+  // crashing the proof surface while a participant inspects that failure.
+  const citations = receipt.citations ?? [];
+  const toolAuditIds = receipt.tool_audit_ids ?? [];
+  const policy = receipt.policy_events?.[0];
   return (
     <section
       aria-label="Persisted turn receipt"
@@ -1442,13 +1447,13 @@ const PersistedTurnReceiptPanel: React.FC<{ receipt: PersistedTurnReceipt }> = (
           color: 'var(--obs-ink-2)',
         }}
       >
-        <span>{receipt.citations.length} catalog citations</span>
-        <span>{receipt.tool_audit_ids.length} executed tools</span>
+        <span>{citations.length} catalog citations</span>
+        <span>{toolAuditIds.length} executed tools</span>
         {typeof receipt.latency_ms === 'number' && (
           <span>{Math.round(receipt.latency_ms)}ms</span>
         )}
       </div>
-      {receipt.citations.length > 0 && (
+      {citations.length > 0 && (
         <ul
           style={{
             listStyle: 'none',
@@ -1458,7 +1463,7 @@ const PersistedTurnReceiptPanel: React.FC<{ receipt: PersistedTurnReceipt }> = (
             gap: '7px',
           }}
         >
-          {receipt.citations.map((citation) => (
+          {citations.map((citation) => (
             <li
               key={citation.evidence_id}
               style={{
@@ -1543,7 +1548,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
       return;
     }
     let active = true;
-    fetch(`/api/observatory/receipts/${encodeURIComponent(selectedTurnId)}`, {
+    fetch(`/api/governed-receipts/${encodeURIComponent(selectedTurnId)}`, {
       credentials: 'include',
     })
       .then((response) => (response.ok ? response.json() : null))

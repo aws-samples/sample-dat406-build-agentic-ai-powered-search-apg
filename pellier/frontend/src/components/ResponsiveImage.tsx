@@ -1,8 +1,4 @@
-import {
-  useEffect,
-  useState,
-  type ImgHTMLAttributes,
-} from 'react';
+import { type ImgHTMLAttributes } from 'react';
 import {
   imageSrc,
   responsiveImageSrcSet,
@@ -16,45 +12,31 @@ interface ResponsiveImageProps
 }
 
 /**
- * Prefer local AVIF and WebP derivatives while retaining the source image as
- * the universally supported fallback.
+ * Prefer local AVIF and WebP derivatives. The shipped fallback is WebP rather
+ * than a duplicate PNG source master.
  */
 export default function ResponsiveImage({
   src,
   widths = [480, 960],
   sizes,
   pictureClassName,
-  onError,
   ...imageProps
 }: ResponsiveImageProps) {
   const avifSrcSet = responsiveImageSrcSet(src, widths, 'avif');
   const webpSrcSet = responsiveImageSrcSet(src, widths, 'webp');
-  const hasResponsiveVariants = Boolean(avifSrcSet || webpSrcSet);
-  const [variantsEnabled, setVariantsEnabled] = useState(hasResponsiveVariants);
-
-  useEffect(() => {
-    setVariantsEnabled(hasResponsiveVariants);
-  }, [hasResponsiveVariants, src]);
 
   return (
     <picture className={pictureClassName}>
-      {variantsEnabled && avifSrcSet ? (
+      {avifSrcSet ? (
         <source type="image/avif" srcSet={avifSrcSet} sizes={sizes} />
       ) : null}
-      {variantsEnabled && webpSrcSet ? (
+      {webpSrcSet ? (
         <source type="image/webp" srcSet={webpSrcSet} sizes={sizes} />
       ) : null}
       <img
-        key={variantsEnabled ? 'responsive' : 'original'}
         src={imageSrc(src)}
+        srcSet={webpSrcSet}
         sizes={sizes}
-        onError={(event) => {
-          if (variantsEnabled) {
-            setVariantsEnabled(false);
-            return;
-          }
-          onError?.(event);
-        }}
         {...imageProps}
       />
     </picture>

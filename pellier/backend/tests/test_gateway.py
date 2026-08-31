@@ -407,6 +407,6 @@ def test_mcp_invocation_through_call_tool_returns_valid_json_envelope(
 # ---------------------------------------------------------------------------
 
 
-def test_gateway_tool_names_constant_matches_expected() -> None:
-    assert set(gateway.GATEWAY_TOOL_NAMES) == EXPECTED_TOOL_NAMES
-    assert len(gateway.GATEWAY_TOOL_NAMES) == 17
+def test_local_mcp_tool_names_constant_matches_expected() -> None:
+    assert set(gateway.LOCAL_MCP_TOOL_NAMES) == EXPECTED_TOOL_NAMES
+    assert len(gateway.LOCAL_MCP_TOOL_NAMES) == 17

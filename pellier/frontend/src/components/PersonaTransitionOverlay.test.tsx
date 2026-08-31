@@ -41,6 +41,9 @@ function marco(): PersonaTransition['persona'] {
     avatar_color: '#000',
     avatar_initial: 'M',
     customer_id: 'cust-marco',
+    hero_image: '/products/hero-marco.webp',
+    hero_alt: 'Marco profile',
+    hero_subheadline: 'Live Aurora profile.',
     stats: { visits: 5, orders: 7, last_seen_days: 21 },
   }
 }
@@ -80,6 +83,9 @@ describe('PersonaTransitionOverlay', () => {
       avatar_color: '#5a4535',
       avatar_initial: 'T',
       customer_id: 'cust-theo',
+      hero_image: '/products/hero-theo.webp',
+      hero_alt: 'Theo profile',
+      hero_subheadline: 'Live Aurora profile.',
       stats: { visits: 8, orders: 4, last_seen_days: 14 },
     }
     mockTransition = { id: 10, kind: 'sign-in', persona: theo }

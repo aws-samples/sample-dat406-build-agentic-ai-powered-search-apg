@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   Bot,
@@ -350,7 +357,7 @@ function runProofSummary(
   }
   return {
     label: 'Ready to inspect',
-    summary: 'Choose one of five canonical shopper turns.',
+    summary: 'Choose an Aurora-backed guided shopper request.',
   };
 }
 
@@ -414,6 +421,21 @@ function formatSqlForDisplay(sql: string): string {
       '\n$1 ',
     )
     .replace(/\s+(AND|OR)\s+/gi, '\n  $1 ');
+}
+
+/**
+ * Evidence names are deliberately literal: participants should see the actual
+ * tool, table, or capability that ran. Offer wrap points at machine-readable
+ * delimiters so a narrow ledger never tears a token such as `hybrid` or `seed`
+ * in half.
+ */
+function renderLedgerTitle(title: string): ReactNode {
+  return title.split(/([_/])/).map((part, index) => (
+    <Fragment key={`${part}-${index}`}>
+      {part}
+      {part === '_' || part === '/' ? <wbr /> : null}
+    </Fragment>
+  ));
 }
 
 function sqlBindingCount(sql: string): number {
@@ -791,10 +813,7 @@ export default function ObservatoryWorkbench() {
     }
   };
 
-  /**
-   * Run one curated turn. `request` always comes from personaCurations, so the
-   * string the agent receives is the same one the storefront would send.
-   */
+  /** Run one Aurora-backed guided shopper request through the live stream. */
   const runAgent = async (
     curatedQuery: string,
     turnIndex: number | null,
@@ -1446,7 +1465,9 @@ export default function ObservatoryWorkbench() {
                           <span>{step.kind}</span>
                           <em>{step.status.replace('_', ' ')}</em>
                         </div>
-                        <h3>{step.title}</h3>
+                        <h3 aria-label={step.title}>
+                          {renderLedgerTitle(step.title)}
+                        </h3>
                         <p>{step.detail}</p>
                         {step.meta ? <small>{step.meta}</small> : null}
                         {/* A disclosure appears only on events that carry a

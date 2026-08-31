@@ -5,7 +5,6 @@ import {
   BookOpen,
   ClipboardCheck,
   FileCheck,
-  Footprints,
   Gauge,
   History,
   IdCard,
@@ -70,19 +69,13 @@ const REFERENCE_GROUPS: ReferenceGroup[] = [
     ],
   },
   {
-    title: 'Replay a turn',
+    title: 'Replay live evidence',
     description:
-      'Compare canonical shopper paths and replay captured sessions.',
+      'Inspect durable shopper sessions and their recorded evidence.',
     links: [
       {
-        label: 'Persona Journeys',
-        description: 'Compare canonical shopper paths and specialist handoffs.',
-        path: '/observatory/persona-journeys',
-        icon: Footprints,
-      },
-      {
         label: 'Sessions',
-        description: 'Replay captured governed turns and their emitted evidence.',
+        description: 'Inspect recorded shopper turns and their durable evidence.',
         path: '/observatory/sessions',
         icon: History,
       },

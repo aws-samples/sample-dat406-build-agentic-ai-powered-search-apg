@@ -141,7 +141,7 @@ export const GovernedTurnReceipt: React.FC<GovernedTurnReceiptProps> = ({
     }
     let active = true
     const controller = new AbortController()
-    fetch(`/api/observatory/receipts/${encodeURIComponent(turnId)}`, {
+    fetch(`/api/governed-receipts/${encodeURIComponent(turnId)}`, {
       credentials: 'include',
       signal: controller.signal,
     })

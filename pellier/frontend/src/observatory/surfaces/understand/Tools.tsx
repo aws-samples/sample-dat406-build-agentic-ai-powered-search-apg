@@ -76,7 +76,6 @@ const FILTER_OPTIONS: Array<{ id: ToolFilter; label: string }> = [
 ];
 
 interface DiscoveryDemoCardProps {
-  tools: Tool[];
   highlightedToolName: string | null;
   onSelectTool: (functionName: string) => void;
   runRequest?: { query: string; nonce: number } | null;
@@ -84,15 +83,14 @@ interface DiscoveryDemoCardProps {
 }
 
 const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
-  tools,
   highlightedToolName,
   onSelectTool,
   runRequest,
   onResultsChange,
 }) => {
   const [query, setQuery] = useState(DEFAULT_QUERY);
-  const { results, loading, error, durationMs, sql, discover, usedOfflineFallback } =
-    useToolDiscovery(tools);
+  const { results, loading, error, durationMs, sql, discover } =
+    useToolDiscovery();
 
   React.useEffect(() => {
     if (!runRequest?.query) return;
@@ -398,19 +396,6 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
           );
           })}
         </div>
-      )}
-
-      {usedOfflineFallback && results.length > 0 && (
-        <p
-          style={{
-            fontFamily: 'var(--obs-sans)',
-            fontSize: '12.5px',
-            color: 'var(--obs-ink-4)',
-            margin: '0 0 8px',
-          }}
-        >
-          Offline workshop ranking – live endpoint unavailable; scores are illustrative.
-        </p>
       )}
 
       {/* Empty state after search */}
@@ -1381,7 +1366,6 @@ const Tools: React.FC = () => {
           {/* Discovery Demo Card */}
           <div ref={discoverySectionRef} style={{ marginBottom: '32px' }}>
             <DiscoveryDemoCard
-              tools={tools}
               highlightedToolName={selectedTool ?? discoveryMatchTool}
               onSelectTool={focusTool}
               runRequest={discoveryRun}

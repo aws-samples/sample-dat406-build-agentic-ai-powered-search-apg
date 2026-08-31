@@ -20,6 +20,7 @@ import {
 } from '../../services/operator'
 import ClientAvatar from '../components/ClientAvatar'
 import MembershipRung from '../components/MembershipRung'
+import OperatorSignInAction from '../components/OperatorSignInAction'
 
 function money(value: number): string {
   return value.toLocaleString('en-US', {
@@ -86,6 +87,7 @@ const ClientBook: React.FC = () => {
             been applied.
           </>
         )}
+        {authenticationRequired ? <OperatorSignInAction /> : null}
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>

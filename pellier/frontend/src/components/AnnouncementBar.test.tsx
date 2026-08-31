@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { LIVE_FLOOR_FINDINGS } from '../copy'
+import { EDITORIAL_FLOOR_NOTES } from '../copy'
 import AnnouncementBar from './AnnouncementBar'
 
 afterEach(() => {
@@ -28,9 +28,9 @@ describe('AnnouncementBar', () => {
     }))
 
     render(<AnnouncementBar />)
-    expect(screen.getByText(LIVE_FLOOR_FINDINGS[0].text)).toBeInTheDocument()
+    expect(screen.getByText(EDITORIAL_FLOOR_NOTES[0].text)).toBeInTheDocument()
 
     vi.advanceTimersByTime(10_000)
-    expect(screen.getByText(LIVE_FLOOR_FINDINGS[0].text)).toBeInTheDocument()
+    expect(screen.getByText(EDITORIAL_FLOOR_NOTES[0].text)).toBeInTheDocument()
   })
 })

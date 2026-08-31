@@ -274,14 +274,14 @@ def test_annotation_leaves_a_malformed_event_alone(
 def test_every_published_tool_has_a_tier() -> None:
     """A flat catalog makes least-privilege unverifiable; classify all 17."""
     from services.agentcore_gateway import (
-        GATEWAY_TOOL_NAMES,
+        LOCAL_MCP_TOOL_NAMES,
         GATEWAY_TOOL_TIERS,
     )
 
-    unclassified = [n for n in GATEWAY_TOOL_NAMES if n not in GATEWAY_TOOL_TIERS]
+    unclassified = [n for n in LOCAL_MCP_TOOL_NAMES if n not in GATEWAY_TOOL_TIERS]
 
     assert unclassified == []
-    assert len(GATEWAY_TOOL_NAMES) == 17
+    assert len(LOCAL_MCP_TOOL_NAMES) == 17
 
 
 def test_an_unknown_tool_defaults_to_the_most_restrictive_tier() -> None:

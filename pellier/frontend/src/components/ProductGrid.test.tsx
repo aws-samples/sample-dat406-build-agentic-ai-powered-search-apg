@@ -1,7 +1,7 @@
 /**
  * ProductGrid tests — render contract.
  *
- * The grid renders every showcase product synchronously. The earlier parallax
+ * The grid renders the supplied live catalog rows synchronously. The earlier parallax
  * reveal was dropped (see ProductCard.tsx header comment) because the
  * pre-reveal `opacity: 0` left the grid invisible in real browsers whenever
  * IntersectionObserver didn't fire — the landmark can't hide itself.
@@ -22,7 +22,7 @@ function renderGrid(ui: ReactElement) {
 
 describe('ProductGrid — render contract', () => {
   it('renders all 9 showcase cards in declaration order', () => {
-    renderGrid(<ProductGrid />)
+    renderGrid(<ProductGrid products={SHOWCASE_PRODUCTS} />)
 
     for (const [index, product] of SHOWCASE_PRODUCTS.entries()) {
       const card = screen.getByTestId(`product-card-${product.id}`)
@@ -32,7 +32,7 @@ describe('ProductGrid — render contract', () => {
   })
 
   it('hides Add to bag when no action handler is provided', () => {
-    renderGrid(<ProductGrid />)
+    renderGrid(<ProductGrid products={SHOWCASE_PRODUCTS} />)
 
     for (const product of SHOWCASE_PRODUCTS) {
       expect(

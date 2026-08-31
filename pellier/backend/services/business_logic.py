@@ -15,8 +15,24 @@ real SQL against this column.
 """
 import hashlib
 import json
+import re
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
+
+
+_LIKE_METACHARACTERS = re.compile(r"([\\%_])")
+
+
+def prepare_like_pattern(term: str) -> str:
+    """Wrap literal shopper text in a PostgreSQL LIKE pattern.
+
+    Bound parameters prevent SQL injection, but PostgreSQL still interprets
+    ``%``, ``_``, and ``\\`` inside a LIKE value. Escape those metacharacters
+    so a shopper's query remains literal, then let the surrounding wildcards
+    implement the intended contains-match.
+    """
+    escaped = _LIKE_METACHARACTERS.sub(r"\\\1", str(term).lower())
+    return f"%{escaped}%"
 
 
 def convert_decimals(obj):
@@ -75,8 +91,8 @@ class BusinessLogic:
         params: List[Any] = []
 
         if category:
-            conditions.append("lower(category) LIKE %s")
-            params.append(f"%{category.lower()}%")
+            conditions.append("lower(category) LIKE %s ESCAPE '\\'")
+            params.append(prepare_like_pattern(category))
 
         where_clause = " AND ".join(conditions)
 
@@ -195,11 +211,11 @@ class BusinessLogic:
                 "message": "Empty product query.",
             }
 
-        # Build "lower(name) LIKE %s AND lower(name) LIKE %s ..." with one
+        # Build "lower(name) LIKE %s ESCAPE '\' AND ..." with one
         # param per token so the trigram index on lower(name) can accelerate
         # fuzzy lookups at larger catalog sizes.
-        clause = " AND ".join(["lower(name) LIKE %s"] * len(tokens))
-        params = tuple(f"%{t.lower()}%" for t in tokens)
+        clause = " AND ".join(["lower(name) LIKE %s ESCAPE '\\'"] * len(tokens))
+        params = tuple(prepare_like_pattern(t) for t in tokens)
 
         rows = await self.db.fetch_all(
             f"""
@@ -282,8 +298,8 @@ class BusinessLogic:
         """Per-category price statistics."""
         params: List[Any] = []
         if category:
-            cat_condition = "lower(category) LIKE %s"
-            params.append(f"%{category.lower()}%")
+            cat_condition = "lower(category) LIKE %s ESCAPE '\\'"
+            params.append(prepare_like_pattern(category))
             query = f"""
                 SELECT
                     category,
@@ -585,8 +601,8 @@ class BusinessLogic:
             params.append(min_rating)
 
         if category:
-            conditions.append("lower(category) LIKE %s")
-            params.append(f"%{category.lower()}%")
+            conditions.append("lower(category) LIKE %s ESCAPE '\\'")
+            params.append(prepare_like_pattern(category))
 
         params.append(limit)
         where_clause = " AND ".join(conditions)
@@ -651,11 +667,11 @@ class BusinessLogic:
     ) -> Dict[str, Any]:
         """Browse products by category with rating and price filters."""
         conditions = [
-            "lower(category) LIKE %s",
+            "lower(category) LIKE %s ESCAPE '\\'",
             '"imgUrl" IS NOT NULL',
             "NOT (tags ? 'archive')",
         ]
-        params: List[Any] = [f"%{category.lower()}%"]
+        params: List[Any] = [prepare_like_pattern(category)]
 
         if min_rating:
             conditions.append("rating >= %s")

@@ -50,7 +50,6 @@ const ObservatoryWorkbench = lazy(
 const ReferencesIndex = lazy(
   () => import('./observatory/surfaces/ReferencesIndex'),
 )
-const PersonaJourneys = lazy(() => import('./observatory/surfaces/observe/PersonaJourneys'))
 const ArchitectureIndex = lazy(
   () => import('./observatory/surfaces/understand/ArchitectureIndex'),
 )
@@ -72,10 +71,6 @@ const ProductionPatterns = lazy(
 )
 const ObservatorySettings = lazy(() => import('./observatory/surfaces/Settings'))
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
-const InspectorPage = lazy(() => import('./pages/InspectorPage'))
-const StoryboardPage = lazy(() => import('./pages/StoryboardPage'))
-const DiscoverPage = lazy(() => import('./pages/DiscoverPage'))
-const AboutPage = lazy(() => import('./pages/AboutPage'))
 
 // ---------------------------------------------------------------------------
 // AuthGate — Cognito-aware auth wrapper. Gates the Pellier Observatory surface when
@@ -225,9 +220,7 @@ export function AppRoutes() {
          *   /           -> PellierPage (storefront shell)
          *   /product/:id -> ProductDetailPage (one piece, deep-linkable)
          *   /observatory/* -> Pellier Observatory
-         *   /inspector  -> InspectorPage (frozen session-scoped trace view)
-         *   /storyboard -> StoryboardPage
-         *   /discover   -> DiscoverPage
+         *   retired editorial and browser-local inspection paths -> storefront
          *   *           -> redirect to /
         */}
         <Route path="/" element={<PellierPage />} />
@@ -289,13 +282,19 @@ export function AppRoutes() {
             path="observatory"
             element={<Navigate to="/observatory/workshop-map" replace />}
           />
-          <Route path="persona-journeys" element={<PersonaJourneys />} />
+          <Route
+            path="persona-journeys"
+            element={<Navigate to="/observatory/sessions" replace />}
+          />
           <Route path="settings" element={<ObservatorySettings />} />
         </Route>
-        <Route path="/inspector" element={<InspectorPage />} />
-        <Route path="/storyboard" element={<StoryboardPage />} />
-        <Route path="/discover" element={<DiscoverPage />} />
-        <Route path="/about" element={<AboutPage />} />
+        {/* These were browser-local demonstration pages. Keep old bookmarks
+            safe, but do not ship a second storefront with static catalog or
+            localStorage evidence alongside the Aurora-backed experience. */}
+        <Route path="/inspector" element={<Navigate to="/" replace />} />
+        <Route path="/storyboard" element={<Navigate to="/" replace />} />
+        <Route path="/discover" element={<Navigate to="/" replace />} />
+        <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

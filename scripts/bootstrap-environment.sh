@@ -850,19 +850,14 @@ log "Installing locked workshop dependencies..."
 REQUIREMENTS="$HOME_FOLDER/$REPO_NAME/pellier/backend/requirements.lock"
 if [ -f "$REQUIREMENTS" ]; then
     log "Installing backend dependencies from requirements.lock..."
-    sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user -r "$REQUIREMENTS" 2>&1 \
+    sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user --require-hashes -r "$REQUIREMENTS" 2>&1 \
         | tee /var/log/pellier-pip-install.log
     PIP_EXIT=${PIPESTATUS[0]}
     if [ "$PIP_EXIT" -ne 0 ]; then
         error "Locked dependency install failed (exit $PIP_EXIT); see /var/log/pellier-pip-install.log"
     else
         log "✅ Backend dependencies installed"
-        if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe" 2>/dev/null; then
-            log "✅ Amazon Transcribe SDK available to backend Python"
-        else
-            warn "amazon-transcribe is missing from backend Python — voice search will fail"
-            warn "  see /var/log/pellier-pip-install.log"
-        fi
+        log "✅ Locked backend dependency set is available to Python"
     fi
 else
     error "requirements.lock missing at $REQUIREMENTS"

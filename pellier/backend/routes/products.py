@@ -243,31 +243,37 @@ async def _fetch_editorial_catalog(
     db: Any,
     *,
     category: Optional[str] = None,
+    persona_id: Optional[str] = None,
 ) -> List[StorefrontProduct]:
-    """Return the full catalog in default editorial order.
+    """Return Aurora catalog rows in the stored editorial order.
 
-    Editorial order is the personalization_agent-chosen ``editorial_rank`` column when
-    populated by ``catalog-enrichment``; otherwise it falls back to the
-    stable ``"productId"`` order. Both paths yield a deterministic list
-    so ``sort_personalized`` can preserve ties correctly.
+    ``persona_id`` is an Aurora-owned editorial grouping installed by
+    migration 029. The storefront never substitutes a browser-owned edit:
+    if the migration or catalog is unavailable, this read fails and the
+    caller renders an explicit unavailable state.
     """
+    clauses = ["NOT (tags ? 'archive')"]
+    params: list[Any] = []
     if category:
-        # ``database.md`` steering mandates ``ILIKE`` with ``%`` wildcards
-        # for category matching so ``Linen`` matches ``Linen Shirts``,
-        # ``Home`` matches ``Home & Kitchen``, etc.
-        query = (
-            _PRODUCT_SELECT
-            + " WHERE NOT (tags ? 'archive') AND category ILIKE %s"
-            + " ORDER BY tier NULLS LAST, \"productId\" ASC"
-        )
-        rows = await db.fetch_all(query, f"%{category}%")
-    else:
-        query = (
-            _PRODUCT_SELECT
-            + " WHERE NOT (tags ? 'archive')"
-            + " ORDER BY tier NULLS LAST, \"productId\" ASC"
-        )
-        rows = await db.fetch_all(query)
+        clauses.append("category ILIKE %s ESCAPE '\\\\'")
+        params.append(f"%{category.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')}%")
+    if persona_id:
+        clauses.append("persona_id = %s")
+        clauses.append("storefront_rank IS NOT NULL")
+        params.append(persona_id)
+
+    order = (
+        'storefront_rank ASC, tier NULLS LAST, "productId" ASC'
+        if persona_id
+        else 'tier NULLS LAST, "productId" ASC'
+    )
+    query = (
+        _PRODUCT_SELECT
+        + " WHERE "
+        + " AND ".join(clauses)
+        + f" ORDER BY {order}"
+    )
+    rows = await db.fetch_all(query, *params)
     return [_row_to_storefront_product(dict(r)) for r in rows]
 
 
@@ -293,6 +299,7 @@ async def list_storefront_products(
     request: Request,
     personalized: bool = Query(default=False),
     category: Optional[str] = Query(default=None),
+    persona: Optional[str] = Query(default=None, min_length=1, max_length=64),
     db: Any = Depends(get_db_service),
     identity: AgentCoreIdentityService = Depends(get_agentcore_identity_service),
     memory: AgentCoreMemory = Depends(get_agentcore_memory),
@@ -302,7 +309,11 @@ async def list_storefront_products(
     Branches on ``personalized`` AND the presence of a verified user
     AND saved preferences. See Req 3.3.1–3.3.4.
     """
-    products = await _fetch_editorial_catalog(db, category=category)
+    products = await _fetch_editorial_catalog(
+        db,
+        category=category,
+        persona_id=persona.lower().strip() if persona else None,
+    )
 
     # Short-circuit: no opt-in -> editorial order. This is the anon home
     # page path, and also the path for authenticated shoppers who
@@ -469,8 +480,22 @@ async def get_inventory_signal(
             if max_refreshed is None or row_refreshed > max_refreshed:
                 max_refreshed = row_refreshed
 
+    if max_refreshed is None:
+        # Server time is never evidence that the catalog itself was refreshed.
+        # A consumer can distinguish "no freshness evidence" from an explicitly
+        # stale catalog without being handed a fabricated timestamp.
+        return JSONResponse(
+            status_code=200,
+            content={
+                "last_refreshed": None,
+                "counts": counts,
+                "stale": None,
+                "freshness": "unavailable",
+            },
+        )
+
     now = datetime.now(timezone.utc)
-    last_refreshed = max_refreshed or now
+    last_refreshed = max_refreshed
     # Stale if the last catalog sync is >24h old (Req 3.5.2).
     stale = (now - last_refreshed).total_seconds() > 86400
 
@@ -480,5 +505,6 @@ async def get_inventory_signal(
             "last_refreshed": last_refreshed.isoformat(),
             "counts": counts,
             "stale": stale,
+            "freshness": "stale" if stale else "current",
         },
     )

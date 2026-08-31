@@ -334,8 +334,6 @@ const MemoryDashboard: React.FC = () => {
   // Memory is live-only. Disable the static fallback so an API failure is visible.
   const { data, loading, error, refetch } = useObservatoryData<MemoryState>({
     key: `memory-${persona}`,
-    source: 'api',
-    allowFixtureFallback: false,
   });
 
   const personaCounts = { marco: 1, anna: 1, theo: 1 } as Record<MemoryPersona, number>;

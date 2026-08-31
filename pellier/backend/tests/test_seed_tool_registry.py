@@ -32,12 +32,12 @@ def seeder_module():
 
 
 def test_tool_specs_match_gateway_name_list(seeder_module) -> None:
-    """Seeder MUST load exactly the published Gateway tool names, in order."""
-    from services.agentcore_gateway import GATEWAY_TOOL_NAMES
+    """Seeder MUST load exactly the local MCP tool catalog, in order."""
+    from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES
 
     specs = seeder_module._load_tool_specs()
-    assert [s["tool_id"] for s in specs] == list(GATEWAY_TOOL_NAMES)
-    assert len(specs) == len(GATEWAY_TOOL_NAMES) == 17
+    assert [s["tool_id"] for s in specs] == list(LOCAL_MCP_TOOL_NAMES)
+    assert len(specs) == len(LOCAL_MCP_TOOL_NAMES) == 17
 
 
 def test_every_tool_has_nonempty_description(seeder_module) -> None:

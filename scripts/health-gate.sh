@@ -44,10 +44,23 @@ warn() { printf "  ${YEL}• WARN${NC}  %s\n" "$1"; }
 
 ok=true
 
-# Load env (safe: set -a + source, no word-splitting)
+# Load configuration as dotenv data, never as executable shell. A fresh
+# Workshop Studio root `.env` is shell-safe today, but local and recovery
+# paths also read backend dotenv files where generated passwords may not be.
+# Keeping this entrypoint parser-based makes the health result about service
+# readiness, not punctuation in a secret.
+DOTENV_HELPER="${SCRIPT_DIR}/lib/dotenv.sh"
+if [[ ! -r "$DOTENV_HELPER" ]]; then
+  fail "Missing dotenv parser: $DOTENV_HELPER"
+  exit 1
+fi
+# shellcheck source=lib/dotenv.sh
+source "$DOTENV_HELPER"
 if [[ -f "$ENV_FILE" ]]; then
-  set -a; # shellcheck source=/dev/null
-  source "$ENV_FILE"; set +a
+  pellier_load_dotenv "$ENV_FILE"
+elif [[ -f "${REPO}/pellier/backend/.env" ]]; then
+  ENV_FILE="${REPO}/pellier/backend/.env"
+  pellier_load_dotenv "$ENV_FILE"
 fi
 
 managed_required=false

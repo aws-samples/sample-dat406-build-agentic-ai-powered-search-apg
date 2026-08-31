@@ -840,6 +840,10 @@ _RESET_EXEMPT_TABLES = {
     "warehouses",
     # Idempotency-key registry recreated by 011 with its own constraints.
     "write_keys",
+    # Source-controlled persona metadata and deterministic guided requests.
+    # These are reseeded/presentation reference rows, not a participant turn.
+    "persona_profiles",
+    "workshop_scenarios",
 }
 
 

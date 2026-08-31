@@ -114,23 +114,6 @@ export interface OperatorClientRecord {
   returns: OperatorReturn[]
 }
 
-/** A governed write envelope, as the tool returned it. */
-export interface OperatorActionResult {
-  result: {
-    status: 'success' | 'error' | 'policy_blocked' | 'idempotency_conflict'
-    message?: string
-    idempotent_replay?: boolean
-    credit_id?: number
-    amount?: string
-    balance_cents?: number
-    return_id?: number
-    name?: string
-    [key: string]: unknown
-  }
-  idempotencyKey: string
-  actedBy: string | null
-}
-
 /**
  * The four assurance axes, exactly as the API resolved them.
  *
@@ -564,30 +547,5 @@ export function executeReview(
         expectedActionHash ? { expectedActionHash } : {},
       ),
     },
-  )
-}
-
-export function issueCredit(input: {
-  customerId: string
-  amountCents: number
-  reason: string
-  /** Supply a stable key so a double-click applies once. */
-  idempotencyKey?: string
-}): Promise<OperatorActionResult> {
-  return request<OperatorActionResult>('/api/operator/actions/issue-credit', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
-
-export function resolveReturn(input: {
-  customerId: string
-  productId: number
-  reason: string
-  idempotencyKey?: string
-}): Promise<OperatorActionResult> {
-  return request<OperatorActionResult>(
-    '/api/operator/actions/resolve-return',
-    { method: 'POST', body: JSON.stringify(input) },
   )
 }

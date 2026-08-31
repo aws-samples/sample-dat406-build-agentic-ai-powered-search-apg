@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -34,6 +34,10 @@ vi.mock('./observatory/surfaces/observe/ObservatoryWorkbench', () => ({
 
 vi.mock('./observatory/surfaces/ReferencesIndex', () => ({
   default: () => <div>Optional deep dives index</div>,
+}))
+
+vi.mock('./observatory/surfaces/observe/SessionsList', () => ({
+  default: () => <div>Live Aurora sessions</div>,
 }))
 
 vi.mock('./pages/ProductDetailPage', () => ({
@@ -109,6 +113,17 @@ describe('canonical application routes', () => {
     expect(await screen.findByText('Observatory frame')).toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/observatory/proof-board?turn=live#managed',
+    )
+  })
+
+  it('replaces the retired persona-journey fixture page with live sessions', async () => {
+    renderRoute('/observatory/persona-journeys')
+
+    expect(await screen.findByText('Observatory frame')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/observatory/sessions',
+      ),
     )
   })
 })

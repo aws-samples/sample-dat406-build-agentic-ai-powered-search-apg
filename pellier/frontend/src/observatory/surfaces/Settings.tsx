@@ -3,7 +3,7 @@
  *
  * Displays available personas as editorial cards. Selecting a persona
  * updates the PersonaContext, which scopes all Observatory surfaces to that
- * persona's data. Defaults to Marco as the active persona.
+ * persona's live Aurora data.
  *
  * The Sidebar footer automatically reflects the active persona's name,
  * avatar initial (colored circle), and role label (JetBrains Mono uppercase)
@@ -342,57 +342,15 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
  * Main component
  * ----------------------------------------------------------------------- */
 
-/** Default persona ID when none is selected */
-const DEFAULT_PERSONA_ID = 'marco';
-
-/**
- * Fallback persona list — used when the API is unavailable.
- * Matches the structure returned by GET /api/observatory/personas.
- */
-const FALLBACK_PERSONAS: PersonaListItem[] = [
-  {
-    id: 'marco',
-    display_name: 'Marco',
-    role_tag: 'Returning',
-    blurb: 'Brooklyn-based, partial to natural fibers. Last visit, three weeks ago. Bought the oat Maren tunic.',
-    avatar_color: '#5a3528',
-    avatar_initial: 'M',
-    membership: 'maison',
-    stats: { visits: 11, orders: 7, last_seen_days: 21 },
-  },
-  {
-    id: 'anna',
-    display_name: 'Anna',
-    role_tag: 'Gift-giver',
-    blurb: 'Buys for others - partner, mother, friends. Never for herself. Recent searches lean milestone.',
-    avatar_color: '#6b3d2a',
-    avatar_initial: 'A',
-    membership: 'circle',
-    stats: { visits: 6, orders: 5, last_seen_days: 9 },
-  },
-  {
-    id: 'theo',
-    display_name: 'Theo',
-    role_tag: 'Home + slow craft',
-    blurb: 'Keeps a short list of quiet pieces - ceramics, linen throws, stoneware. Finishes what he buys, slowly.',
-    avatar_color: '#5a4535',
-    avatar_initial: 'T',
-    membership: 'registered',
-    stats: { visits: 8, orders: 4, last_seen_days: 14 },
-  },
-  // Fresh visitor removed — signed-out state IS the baseline.
-  // The storefront renders editorial defaults when no persona is active.
-];
-
 const Settings: React.FC = () => {
   const { persona, switchPersona, switching } = usePersona();
   const [personas, setPersonas] = useState<PersonaListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const activeId = persona?.id ?? DEFAULT_PERSONA_ID;
+  const activeId = persona?.id ?? '';
 
-  /** Fetch available personas from the API, fall back to hardcoded list. */
+  /** Fetch only the durable Aurora profiles available to this workshop. */
   const fetchPersonas = async () => {
     setLoading(true);
     setError(null);
@@ -400,10 +358,12 @@ const Settings: React.FC = () => {
       const res = await fetch('/api/observatory/personas');
       if (!res.ok) throw new Error(`Failed to load personas: ${res.status}`);
       const data: PersonaListItem[] = await res.json();
-      setPersonas(data.length > 0 ? data : FALLBACK_PERSONAS);
-    } catch {
-      // API unavailable — use fallback personas
-      setPersonas(FALLBACK_PERSONAS);
+      setPersonas(data.filter((profile) => profile.id !== 'fresh'));
+    } catch (reason) {
+      setPersonas([]);
+      setError(
+        reason instanceof Error ? reason.message : 'Live personas are unavailable.',
+      );
     } finally {
       setLoading(false);
     }
@@ -412,13 +372,6 @@ const Settings: React.FC = () => {
   useEffect(() => {
     fetchPersonas();
   }, []);
-
-  // Auto-select Marco if no persona is active yet (Requirement 18.2)
-  useEffect(() => {
-    if (!persona && !switching && personas.length > 0) {
-      switchPersona(DEFAULT_PERSONA_ID);
-    }
-  }, [persona, switching, personas, switchPersona]);
 
   const handleSelect = (personaId: string) => {
     if (personaId !== activeId && !switching) {

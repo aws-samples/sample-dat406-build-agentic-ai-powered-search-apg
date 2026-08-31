@@ -2,7 +2,7 @@
 
   * ``GET  /api/operator/clients``            the book: every client, one row each
   * ``GET  /api/operator/clients/{id}``       one client record with order history
-  * ``POST /api/operator/actions/resolve-return``  a governed write
+  * ``POST /api/operator/reviews/{id}/execute``    the only governed write path
 
 Design notes
 ------------
@@ -28,13 +28,14 @@ security model, and the sign-in prompt is the honest failure.
 There is no committed frontend copy of the client book, because UI state is
 not evidence.
 
-**Two governed writes, both idempotency-keyed.** Resolving a return calls
+**Two governed actions, one execution path.** Resolving a return calls
 ``BusinessLogic.initiate_return``; issuing a goodwill credit calls
-``BusinessLogic.issue_credit``. Both claim their key in
-``pellier.write_operations`` before touching domain state, so a replayed
-request applies exactly once and the operator gets the same evidence shape
-either way: a durable write event, the resulting Aurora rows, and a
-``pellier.tool_audit`` record.
+``BusinessLogic.issue_credit``. Neither has a direct action endpoint.
+The Operator Concierge prepares one proposal, a person confirms the exact
+review, and ``POST /reviews/{id}/execute`` claims the idempotency key in
+``pellier.write_operations`` before touching domain state. A replay therefore
+applies exactly once and produces the same durable evidence shape: write event,
+Aurora rows, and a ``pellier.tool_audit`` record.
 
 A credit is a money movement, so it has its own table rather than being
 recorded as a note on a return. A return is not a credit, and an auditor
@@ -92,17 +93,6 @@ router = APIRouter(
 
 # The three rungs, mirroring the CHECK constraint in migration 018.
 MEMBERSHIP_RUNGS = ("registered", "circle", "maison")
-
-# Reasons BusinessLogic.initiate_return accepts. Mirrored so a bad request
-# fails as a 422 at the edge instead of a policy_blocked envelope deeper in.
-ALLOWED_RETURN_REASONS = (
-    "damaged",
-    "wrong_size",
-    "not_as_described",
-    "changed_mind",
-    "other",
-)
-
 
 async def get_db_service() -> Any:
     """FastAPI dependency returning the shared ``DatabaseService``.
@@ -216,10 +206,10 @@ def _return_row(row: Dict[str, Any]) -> Dict[str, Any]:
     """One authoritative return record.
 
     `pellier.returns` has `requested_at` and `status`; it has never had `created_at`.
-    This query selected `r.created_at`, `_safe_rows` swallowed the UndefinedColumn, and
-    the section degraded to an empty list for EVERY client — so the authoritative
-    return count was permanently zero and `unconfirmedReturnAssertion` flagged any
-    ticket mentioning a return as unsupported, including ones whose row exists.
+    A prior query selected `r.created_at` and converted the resulting
+    ``UndefinedColumn`` into an empty list. That made the authoritative return
+    count zero for every client. Client evidence reads now fail the whole record
+    explicitly instead: an unavailable ledger must never look like an empty one.
     """
     requested = row.get("requested_at")
     return {
@@ -316,30 +306,30 @@ def _credit_row(row: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-async def _safe_one(db: Any, sql: str, *args: Any, label: str) -> Optional[Dict[str, Any]]:
-    """Read one row, returning None rather than failing the whole record."""
+async def _read_one(db: Any, sql: str, *args: Any, label: str) -> Optional[Dict[str, Any]]:
+    """Read one client-record row, retaining database failures."""
     try:
         row = await db.fetch_one(sql, *args)
         return dict(row) if row else None
     except Exception as exc:  # noqa: BLE001
-        logger.error("Operator %s query failed: %s", label, exc)
-        return None
+        logger.exception("Operator %s query failed", label)
+        raise RuntimeError(f"Operator {label} query failed") from exc
 
 
-async def _safe_rows(db: Any, sql: str, *args: Any, label: str) -> List[Dict[str, Any]]:
-    """Read rows, degrading to an empty list rather than failing the record.
+async def _read_rows(db: Any, sql: str, *args: Any, label: str) -> List[Dict[str, Any]]:
+    """Read client-record rows, retaining database failures.
 
-    A client record whose order history loads but whose tickets 500 is worse
-    than one that shows no tickets: the operator cannot tell the difference
-    between "no tickets" and "the query broke". So the failure is logged and
-    the caller reports the section as empty, which the console labels.
+    A partial client record cannot support an action. In particular, treating a
+    failed returns or tickets read as ``[]`` turns unavailable evidence into a
+    false "nothing on file" claim. The route translates a failed fan-out into
+    an explicit 503 rather than returning a mixture of facts and invented zeroes.
     """
     try:
         rows = await db.fetch_all(sql, *args)
         return [dict(r) for r in (rows or [])]
     except Exception as exc:  # noqa: BLE001
-        logger.error("Operator %s query failed: %s", label, exc)
-        return []
+        logger.exception("Operator %s query failed", label)
+        raise RuntimeError(f"Operator {label} query failed") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -597,16 +587,35 @@ async def get_client(
     # queries were never slow; waiting for them one at a time was.
     import asyncio
 
-    client_task = asyncio.create_task(_safe_one(db, _CLIENT_SELECT, client_id, label="client"))
-    orders_task = asyncio.create_task(_safe_rows(db, _ORDERS_SELECT, client_id, label="orders"))
-    tickets_task = asyncio.create_task(_safe_rows(db, _TICKETS_SELECT, client_id, label="tickets"))
-    credits_task = asyncio.create_task(_safe_rows(db, _CREDITS_SELECT, client_id, label="credits"))
+    client_task = asyncio.create_task(_read_one(db, _CLIENT_SELECT, client_id, label="client"))
+    orders_task = asyncio.create_task(_read_rows(db, _ORDERS_SELECT, client_id, label="orders"))
+    tickets_task = asyncio.create_task(_read_rows(db, _TICKETS_SELECT, client_id, label="tickets"))
+    credits_task = asyncio.create_task(_read_rows(db, _CREDITS_SELECT, client_id, label="credits"))
     # Returns joins the same fan-out rather than adding a fifth round trip in
     # series. Adding it sequentially would have undone the 2.5s -> 0.65s win.
-    returns_task = asyncio.create_task(_safe_rows(db, _RETURNS_SELECT, client_id, label="returns"))
-    row, order_rows, ticket_rows, credit_rows, return_rows = await asyncio.gather(
-        client_task, orders_task, tickets_task, credits_task, returns_task
+    returns_task = asyncio.create_task(_read_rows(db, _RETURNS_SELECT, client_id, label="returns"))
+    outcomes = await asyncio.gather(
+        client_task,
+        orders_task,
+        tickets_task,
+        credits_task,
+        returns_task,
+        return_exceptions=True,
     )
+    failure = next(
+        (outcome for outcome in outcomes if isinstance(outcome, Exception)),
+        None,
+    )
+    if failure is not None:
+        logger.error("Operator client record evidence is unavailable for %s", client_id)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "client_record_evidence_unavailable: the complete client record "
+                "could not be read from Aurora. No absence claim was made."
+            ),
+        ) from failure
+    row, order_rows, ticket_rows, credit_rows, return_rows = outcomes
 
     if not row:
         raise HTTPException(status_code=404, detail=f"Unknown client: {client_id}")
@@ -664,140 +673,6 @@ async def get_client(
 
 
 # ---------------------------------------------------------------------------
-# Write
-# ---------------------------------------------------------------------------
-
-
-class ResolveReturnRequest(BaseModel):
-    """A governed operator write.
-
-    ``idempotencyKey`` is optional: the console supplies a stable key so a
-    double-click applies once, and a caller that omits it gets a generated
-    one. It is never derived from the request body, because two genuinely
-    separate returns of the same item would then collide.
-    """
-
-    customerId: str = Field(..., min_length=1, max_length=64)
-    productId: int = Field(..., ge=1)
-    reason: str = Field(..., min_length=1, max_length=64)
-    idempotencyKey: Optional[str] = Field(default=None, max_length=128)
-
-
-async def _require_confirmed_review(
-    db: Any, *, action: str, args: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Refuse a privileged mutation that no human confirmed.
-
-    This is the bypass closure. Once a review is the contract, a second HTTP
-    route that performs the same mutation without one is not a convenience — it
-    is the whole control, undone. A caller with an operator token could otherwise
-    skip the queue, the confirmation, and the parameter binding while the console
-    still looked governed.
-
-    The check is by action fingerprint, so it cannot be satisfied by *any*
-    approved review: the parameters must be the ones a human agreed to. The
-    review is then returned so the caller executes through the same governed path
-    rather than re-deriving one.
-    """
-    from services import operator_review as rv
-
-    try:
-        fingerprint = rv.action_fingerprint(action, args)
-    except rv.ReviewError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
-
-    row = await db.fetch_one(
-        """
-        SELECT a.id AS review_id, a.customer_id, a.tool AS action, a.args,
-               a.status, a.action_hash, a.source_turn_id, a.order_id,
-               a.execution_turn_id, a.decided_by
-          FROM pellier.approvals a
-         WHERE a.action_hash = %s
-           AND a.tool = %s
-           AND a.status = 'approved'
-         ORDER BY a.decided_at DESC
-         LIMIT 1
-        """,
-        fingerprint,
-        action,
-    )
-    if not row:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "no_confirmed_review: this exact action has no approved operator "
-                "review. Prepare it in Pellier, confirm it in Pellier Operator, "
-                "then execute the review."
-            ),
-        )
-    return dict(row)
-
-
-@router.post("/actions/resolve-return")
-async def resolve_return(
-    request: ResolveReturnRequest,
-    operator: Dict[str, Any] = Depends(require_operator),
-    db: Any = Depends(get_db_service),
-) -> Dict[str, Any]:
-    """Resolve a client's return, only where a human already confirmed it.
-
-    Kept as a direct API for scripted operator use, but it is no longer a way
-    around the review: it requires an approved review whose fingerprint matches
-    these exact parameters, then executes through the same governed path as
-    ``/reviews/{id}/execute``. Without that, it answers 409.
-    """
-    if request.reason not in ALLOWED_RETURN_REASONS:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"reason must be one of {list(ALLOWED_RETURN_REASONS)}, "
-                f"got '{request.reason}'"
-            ),
-        )
-
-    principal_sub = str(operator.get("sub") or "").strip()
-    if not principal_sub:
-        raise HTTPException(status_code=401, detail="actor_required")
-
-    review = await _require_confirmed_review(
-        db,
-        action="initiate_return",
-        args={
-            "customer_id": request.customerId,
-            "product_id": int(request.productId),
-            "reason": request.reason,
-        },
-    )
-
-    from services import governed_execution as ge
-
-    try:
-        outcome = await ge.execute_confirmed_review(
-            db,
-            review,
-            operator_sub=principal_sub,
-            access_token=str(operator.get("access_token") or "") or None,
-            engine_state=await _policy_engine_state(review),
-        )
-    except ge.ExecutionError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "Operator resolve-return failed for %s/%s: %s",
-            request.customerId, request.productId, exc,
-        )
-        raise HTTPException(status_code=500, detail="return_write_failed") from exc
-
-    payload = outcome.as_payload()
-    # The legacy response fields, preserved so existing callers keep working.
-    payload["result"] = outcome.result
-    payload["idempotencyKey"] = outcome.idempotency_key
-    payload["actedBy"] = principal_sub
-    payload["reviewId"] = int(review["review_id"])
-    return payload
-
-
-# ---------------------------------------------------------------------------
 # Reviews - the durable handoff from Pellier
 # ---------------------------------------------------------------------------
 #
@@ -805,12 +680,10 @@ async def resolve_return(
 # still request the verified operator payload directly because attribution is
 # part of the row they write.
 #
-# Note what confirming does NOT do: it does not call ``BusinessLogic``. The
-# ``/actions/*`` endpoints above combine confirmation and execution in one call,
-# so reusing them here would make a human decision and a governed mutation the
-# same event. They are not: a confirmed review is a person saying yes, and
-# whether the system is then authorised to act is a separate question with its own
-# evidence. Driving the mutation from a confirmation is the next stage's work.
+# Note what confirming does NOT do: it does not call ``BusinessLogic``. A
+# confirmed review is a person saying yes; whether the system is then
+# authorised to act is a separate event with its own evidence, initiated only
+# by the execute endpoint.
 
 
 def _review_payload(
@@ -1352,75 +1225,3 @@ def _receipt_payload(receipt: Optional[Dict[str, Any]]) -> Optional[Dict[str, An
         "notes": notes or {},
         "recordedAt": _iso(receipt.get("created_at")),
     }
-
-
-class IssueCreditRequest(BaseModel):
-    """A goodwill credit, in integer cents.
-
-    Cents rather than a float: money in a float is a defect waiting for a
-    rounding report to disagree with the ledger. The ceiling is expressed here
-    so a bad request is a 422 at the edge, and again as a CHECK constraint on
-    ``pellier.store_credits`` so it holds regardless of caller.
-    """
-
-    customerId: str = Field(..., min_length=1, max_length=64)
-    amountCents: int = Field(..., ge=1, le=50_000)
-    reason: str = Field(..., min_length=1, max_length=280)
-    idempotencyKey: Optional[str] = Field(default=None, max_length=128)
-
-
-@router.post("/actions/issue-credit")
-async def issue_credit(
-    request: IssueCreditRequest,
-    operator: Dict[str, Any] = Depends(require_operator),
-    db: Any = Depends(get_db_service),
-) -> Dict[str, Any]:
-    """Issue a goodwill store credit, attributed to the verified operator.
-
-    This is the one place a credit carries an ``issued_by``. The agent rail
-    deliberately passes ``None`` there, because a tool invocation has no
-    verified token and an attribution the model supplied would be worse than
-    none.
-
-    A ``policy_blocked`` result is returned as 200 with the envelope intact,
-    not as an HTTP error: the request was well-formed and the decision is the
-    answer. Only an unexpected failure is a 5xx.
-    """
-    principal_sub = str(operator.get("sub") or "").strip()
-    if not principal_sub:
-        raise HTTPException(status_code=401, detail="actor_required")
-
-    review = await _require_confirmed_review(
-        db,
-        action="issue_credit",
-        args={
-            "customer_id": request.customerId,
-            "amount_cents": int(request.amountCents),
-            "reason": request.reason,
-        },
-    )
-
-    from services import governed_execution as ge
-
-    try:
-        outcome = await ge.execute_confirmed_review(
-            db,
-            review,
-            operator_sub=principal_sub,
-            access_token=str(operator.get("access_token") or "") or None,
-            engine_state=await _policy_engine_state(review),
-        )
-    except ge.ExecutionError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "Operator issue-credit failed for %s: %s", request.customerId, exc
-        )
-        raise HTTPException(status_code=500, detail="credit_write_failed") from exc
-
-    payload = outcome.as_payload()
-    payload["result"] = outcome.result
-    payload["idempotencyKey"] = outcome.idempotency_key
-    payload["actedBy"] = principal_sub
-    payload["reviewId"] = int(review["review_id"])
-    return payload

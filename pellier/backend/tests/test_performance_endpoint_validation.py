@@ -1,4 +1,4 @@
-"""Security contract for the ``/api/performance/*`` request bodies.
+"""Security contract for the retained index-performance request models.
 
 ``hnsw.ef_search`` is applied with a Postgres ``SET``, which cannot take a bound
 parameter, so the value is interpolated into statement text. psycopg permits
@@ -9,7 +9,7 @@ unvalidated body turns that interpolation into arbitrary SQL execution:
 
 Two independent gates must hold, and this module tests both:
 
-1. The route rejects the payload (Pydantic bounds on ``ef_search``).
+1. The model rejects the payload (Pydantic bounds on ``ef_search``).
 2. ``index_performance`` clamps at the sink, because the service is reachable
    from more than one caller.
 
@@ -22,11 +22,9 @@ Runnable from the repo root per ``pytest.ini``:
 from __future__ import annotations
 
 import inspect
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 import app as app_module
@@ -138,96 +136,3 @@ def test_clamped_value_is_never_multi_statement() -> None:
         statement = f"SET hnsw.ef_search = {_clamp_ef_search(raw)}"
         assert ";" not in statement
         assert statement.rsplit("=", 1)[1].strip().isdigit()
-
-
-# ---------------------------------------------------------------------------
-# Gate 1, end to end — through the real FastAPI route
-# ---------------------------------------------------------------------------
-
-
-class _StubEmbeddings:
-    """Deterministic stand-in so no Bedrock call is made."""
-
-    def generate_embedding(self, query: str) -> List[float]:
-        return [0.1] * 1024
-
-
-class _RecordingPerformanceService:
-    """Captures what the route forwards, and fails loudly if SQL is reached."""
-
-    def __init__(self) -> None:
-        self.calls: List[Dict[str, Any]] = []
-
-    async def compare_index_performance(self, **kwargs: Any) -> Dict[str, Any]:
-        self.calls.append(kwargs)
-        return {
-            "hnsw": {"execution_time_ms": 1},
-            "sequential": {"execution_time_ms": 2},
-        }
-
-    async def compare_filtered_search(self, **kwargs: Any) -> Dict[str, Any]:
-        self.calls.append(kwargs)
-        return {"ok": True}
-
-    async def compare_quantization_benchmark(self, **kwargs: Any) -> Dict[str, Any]:
-        self.calls.append(kwargs)
-        return {"ok": True}
-
-
-@pytest.fixture
-def perf_service(monkeypatch: pytest.MonkeyPatch) -> _RecordingPerformanceService:
-    service = _RecordingPerformanceService()
-    monkeypatch.setattr(app_module, "index_performance_service", service)
-    monkeypatch.setattr(app_module, "embedding_service", _StubEmbeddings())
-    return service
-
-
-@pytest.fixture
-def client(perf_service: _RecordingPerformanceService) -> TestClient:
-    """Mount only the three performance routes, bypassing app lifespan."""
-    api = FastAPI()
-    for route in app_module.app.routes:
-        if getattr(route, "path", "").startswith("/api/performance/"):
-            api.routes.append(route)
-    api.dependency_overrides[app_module.get_embedding_service] = _StubEmbeddings
-    return TestClient(api)
-
-
-@pytest.mark.parametrize(
-    ("path", "body"),
-    [
-        ("/api/performance/compare", {"query": "linen shirt"}),
-        (
-            "/api/performance/iterative-scan",
-            {"query": "linen shirt", "category": "Shirts"},
-        ),
-    ],
-)
-def test_endpoint_rejects_injection_payload(
-    client: TestClient,
-    perf_service: _RecordingPerformanceService,
-    path: str,
-    body: Dict[str, Any],
-) -> None:
-    """422 from validation, and the service is never invoked."""
-    resp = client.post(path, json={**body, "ef_search": INJECTION_PAYLOAD})
-    assert resp.status_code == 422, resp.text
-    assert perf_service.calls == []
-
-
-def test_compare_forwards_validated_ef_search(
-    client: TestClient, perf_service: _RecordingPerformanceService
-) -> None:
-    resp = client.post(
-        "/api/performance/compare",
-        json={"query": "linen shirt", "ef_search": 64, "limit": 5},
-    )
-    assert resp.status_code == 200, resp.text
-    assert perf_service.calls[0]["ef_search"] == 64
-    assert perf_service.calls[0]["limit"] == 5
-
-
-def test_compare_rejects_missing_query(client: TestClient) -> None:
-    """Absent query is a validation error, not a hand-rolled 400."""
-    resp = client.post("/api/performance/compare", json={"ef_search": 40})
-    assert resp.status_code == 422, resp.text

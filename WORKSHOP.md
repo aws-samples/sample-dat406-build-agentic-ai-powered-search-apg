@@ -312,7 +312,7 @@ mechanisms attached to realistic customer outcomes.
 ### Guest: useful discovery without invented identity
 
 1. Enter the storefront signed out.
-2. Ask for a thoughtful gift for someone who runs.
+2. Ask for a considered carry-all for a long weekend.
 3. Retrieve from the curated catalog without assigning a customer id.
 4. Return a grounded shortlist and retain a turn id.
 

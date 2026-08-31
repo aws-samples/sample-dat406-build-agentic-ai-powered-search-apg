@@ -19,11 +19,13 @@ Why this imports the audit script
 ---------------------------------
 
 ``scripts/audit_product_assets.py`` owns the definition of "required": literal
-``/products/`` references, the ``-<width>.<format>`` derivatives ``ResponsiveImage``
-puts in a srcset, and the client portrait filenames ``personaPhotos.ts`` composes from a
-slug list at runtime. Re-implementing that here would produce a second contract that can
-agree with the first while both are wrong. The tests below assert outcomes against the
-one derivation, and each names the specific failure it is guarding.
+``/products/`` references after the same public-path resolution the browser
+uses, the ``-<width>.<format>`` derivatives ``ResponsiveImage`` puts in a
+srcset, and the client portrait filenames ``personaPhotos.ts`` composes from a
+slug list at runtime. Re-implementing that here would produce a second contract
+that can agree with the first while both are wrong. The tests below assert
+outcomes against the one derivation, and each names the specific failure it is
+guarding.
 
 Nothing here needs a database, a network, or macOS: pixel dimensions are the audit
 script's optional ``--dimensions`` mode, because ``sips`` does not exist in CI.
@@ -102,8 +104,8 @@ def test_every_required_asset_exists_on_disk(result) -> None:
     assert not missing, f"required product assets absent from the working tree: {_names(missing)}"
 
 
-def test_the_house_and_signature_masters_are_tracked(result) -> None:
-    """The exact two families the audit found untracked.
+def test_the_house_and_signature_catalog_images_are_tracked(result) -> None:
+    """The exact two catalog families the audit found absent from a fresh clone.
 
     Named explicitly so the regression cannot return disguised as a passing total: the
     house and signature SKUs are what the operator client book and the Concierge
@@ -118,8 +120,8 @@ def test_the_house_and_signature_masters_are_tracked(result) -> None:
                 families[prefix].append(entry)
     for prefix, found in families.items():
         assert len(found) >= 10, f"expected the {prefix}* family in the catalog, saw {len(found)}"
-        untracked = [e["referenced"] for e in found if not e["tracked"]]
-        assert not untracked, f"{prefix}* masters not tracked: {untracked}"
+        untracked = [e["resolved"] for e in found if not e["tracked"]]
+        assert not untracked, f"{prefix}* catalog images not tracked: {untracked}"
 
 
 def test_no_master_ships_a_half_tracked_srcset(result) -> None:
@@ -177,26 +179,12 @@ def test_client_portraits_are_derived_from_the_slug_list(audit_module) -> None:
 
 
 def test_no_shipped_reference_resolves_to_nothing(audit_module, result) -> None:
-    """A fixture may name a stale filename only if the alias map absorbs it.
-
-    Two Observatory fixture tiles pointed at ``theo-washed-linen-throw.png`` and
-    ``theo-linen-napkin-set.png``, neither of which has ever existed, and both fell back
-    to a placeholder in a surface whose entire purpose is showing what really happened.
-    """
+    """Every shipped source path must resolve to a committed public asset."""
     unresolved = audit_module.unresolved_references(result)
     assert not unresolved, (
-        "these references name no file and have no alias in resolveProductImageUrl.ts:\n  "
+        "these references name no file or runtime-resolved derivative:\n  "
         + "\n  ".join(f"{item['referenced']} <- {item['sources'][0]}" for item in unresolved)
     )
-
-
-def test_every_alias_target_exists_and_is_tracked(audit_module, result) -> None:
-    """An alias pointing at an untracked file moves the 404, it does not remove it."""
-    tracked = audit_module.tracked_paths()
-    for stale, target in result["aliases"].items():  # type: ignore[union-attr]
-        path = f"{audit_module.PRODUCTS_PREFIX}{target}"
-        assert (PRODUCTS_DIR / target).exists(), f"alias {stale} -> {target}, which is absent"
-        assert path in tracked, f"alias {stale} -> {target}, which is untracked"
 
 
 def test_nothing_is_tracked_that_nothing_references(result) -> None:

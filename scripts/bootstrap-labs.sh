@@ -201,6 +201,39 @@ if [ -n "$DB_HOST" ]; then
     # a postgresql:// URL or psycopg will misparse the string.
     DB_PASSWORD_URLENC=$(python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$DB_PASSWORD")
 
+    # Cognito's hosted-UI client is confidential. The browser never receives
+    # this value, but the server-side authorization-code exchange, refresh, and
+    # revoke calls must authenticate with it. CloudFormation exports the
+    # Secrets Manager ARN rather than the value itself, so resolve it only on
+    # the workshop host and write it only to the private root/backend .env.
+    # Never echo the secret or its payload.
+    COGNITO_CLIENT_SECRET=""
+    if [ -n "${COGNITO_CLIENT_SECRET_ARN:-}" ]; then
+        _cognito_secret_payload="$(aws secretsmanager get-secret-value \
+            --secret-id "$COGNITO_CLIENT_SECRET_ARN" \
+            --region "$AWS_REGION" \
+            --query SecretString \
+            --output text 2>/dev/null || true)"
+        if [ -n "$_cognito_secret_payload" ]; then
+            COGNITO_CLIENT_SECRET="$(printf '%s' "$_cognito_secret_payload" | python3 -c '
+import json
+import sys
+
+raw = sys.stdin.read().strip()
+try:
+    value = json.loads(raw)
+except json.JSONDecodeError:
+    value = raw
+print(value.get("client_secret", "") if isinstance(value, dict) else value)
+' 2>/dev/null || true)"
+        fi
+        if [ -n "$COGNITO_CLIENT_SECRET" ]; then
+            log "✅ Cognito Hosted UI client secret resolved for server-side token exchange"
+        else
+            warn "⚠️  Cognito Hosted UI client secret could not be resolved; sign-in callback will fail closed"
+        fi
+    fi
+
     # Write the .env with single-quoted values so a downstream
     # `set -a; source .env; set +a` reads them as literals. Without
     # the quotes, any $ in DB_PASSWORD would expand at source time
@@ -251,6 +284,7 @@ AUTH_MODE='${AUTH_MODE:-cognito}'
 COGNITO_USER_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_CLIENT_ID='${COGNITO_CLIENT_ID:-}'
+COGNITO_CLIENT_SECRET=${COGNITO_CLIENT_SECRET@Q}
 COGNITO_DOMAIN='${VITE_COGNITO_DOMAIN:-}'
 APP_BASE_PATH='/ports/8000'
 EOF
@@ -363,7 +397,7 @@ log "✅ Participant Claude Code guidance installed at $GLOBAL_CLAUDE"
 # we want to catch it here before the seeder runs and hits
 # ModuleNotFoundError.
 log "Verifying Python dependencies..."
-if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
+if sudo -u "$CODE_EDITOR_USER" python3 -c "import boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
     log "✅ Backend dependencies verified"
 else
     warn "Some backend dependencies are missing — re-running pip install"
@@ -371,7 +405,7 @@ else
         sudo -u "$CODE_EDITOR_USER" python3 -m pip install --user \
             --require-hashes -r "$REPO_PATH/pellier/backend/requirements.lock" 2>&1 \
             | tee -a /var/log/pellier-pip-install.log >/dev/null
-        if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
+        if sudo -u "$CODE_EDITOR_USER" python3 -c "import boto3, fastapi, psycopg, strands, uvicorn" 2>/dev/null; then
             log "✅ Backend dependencies recovered"
         else
             warn "Backend dependencies still missing after retry — pellier service will fail to start"
@@ -594,7 +628,10 @@ setup_database() {
             025_execution_receipts.sql \
             026_episode_outcome_lineage.sql \
             027_canonical_span_table.sql \
-            028_shopper_operator_handoff.sql
+            028_shopper_operator_handoff.sql \
+            029_live_surface_data.sql \
+            030_storefront_editorial_order.sql \
+            031_refine_fresh_storefront_edit.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -892,7 +929,7 @@ if [ -n "$DB_HOST" ]; then
 fi
 
 # Verify Python packages
-if sudo -u "$CODE_EDITOR_USER" python3 -c "import amazon_transcribe, fastapi, strands, uvicorn" 2>/dev/null; then
+if sudo -u "$CODE_EDITOR_USER" python3 -c "import fastapi, strands, uvicorn" 2>/dev/null; then
     log "✅ Pellier Backend dependencies verified"
 else
     warn "⚠️  Some Pellier Backend dependencies may be missing"

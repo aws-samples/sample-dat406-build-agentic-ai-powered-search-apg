@@ -6,21 +6,9 @@
  * coordinating the concierge, cart, and comparison overlays; product detail
  * is a destination, not an overlay.
  *
- * Two data layers, in this order:
- *
- *   1. `SHOWCASE_PRODUCTS` — the committed editorial set. Present on first
- *      paint, so the page never flashes empty and works with no backend.
- *      This layer wins for every presentation field, because the page must
- *      show the same brand, name, price, and image as the card the shopper
- *      clicked.
- *   2. `GET /api/products/{id}` — Aurora. Contributes exactly two things
- *      the committed set does not carry: the catalog's own `description`
- *      and live `availability`. Nothing else is taken from it while a local
- *      row exists.
- *
- * When the id is one Aurora carries but the showcase set does not (10, 20,
- * 30, 40), layer 2 supplies the whole page. When neither layer has the id,
- * the page states that plainly instead of rendering a shell.
+ * The product detail and its related pieces come from Aurora. A failed
+ * catalog read is explicit; this page never swaps in a committed browser
+ * entry because its price, stock, and availability may be stale.
  *
  * No fabrication rules for this surface: product copy comes from the
  * catalog or is absent; stock comes from the inventory read or is declared
@@ -43,7 +31,6 @@ import { TraceChip } from '../shared'
 import { useCart } from '../contexts/CartContext'
 import { useUI } from '../contexts/UIContext'
 import { PRODUCT_DETAIL } from '../copy'
-import { editForProduct, findShowcaseProduct } from '../data/showcaseProducts'
 import type {
   PellierBadge,
   PellierProduct,
@@ -92,10 +79,6 @@ interface ProductView {
   imagePosition?: string
 }
 
-function viewFromLocal(product: PellierProduct): ProductView {
-  return { ...product, category: String(product.category) }
-}
-
 function viewFromRemote(detail: PellierProductDetail): ProductView {
   return {
     id: detail.id,
@@ -129,14 +112,8 @@ export default function ProductDetailPage() {
   const numericId = Number.parseInt(productId ?? '', 10)
   const hasValidId = Number.isSafeInteger(numericId) && numericId > 0
 
-  const local = useMemo(
-    () => (hasValidId ? findShowcaseProduct(numericId) : undefined),
-    [hasValidId, numericId],
-  )
-
   const [detail, setDetail] = useState<PellierProductDetail | null>(null)
-  // Starts true only when there is something to read. An invalid id resolves
-  // to "not found" immediately rather than sitting in a loading state.
+  const [catalog, setCatalog] = useState<PellierProduct[]>([])
   const [loading, setLoading] = useState(hasValidId)
 
   useEffect(() => {
@@ -152,9 +129,6 @@ export default function ProductDetailPage() {
     window.scrollTo({ top: 0 })
   }, [numericId])
 
-  // Aurora read. A failure leaves `detail` null, which the description and
-  // availability blocks render as an explicit "not read" — never as absent
-  // copy or zero stock.
   useEffect(() => {
     if (!hasValidId) {
       setDetail(null)
@@ -165,14 +139,30 @@ export default function ProductDetailPage() {
     const controller = new AbortController()
     setLoading(true)
     setDetail(null)
-    fetch(`/api/products/${numericId}`, {
-      credentials: 'include',
-      signal: controller.signal,
-    })
-      .then(response => (response.ok ? response.json() : null))
-      .then((data: PellierProductDetail | null) => {
+    void Promise.all([
+      fetch(`/api/products/${numericId}`, {
+        credentials: 'include',
+        signal: controller.signal,
+      }),
+      fetch('/api/products', {
+        credentials: 'include',
+        signal: controller.signal,
+      }),
+    ])
+      .then(async ([detailResponse, catalogResponse]) => {
+        if (!detailResponse.ok) return [null, [] as PellierProduct[]] as const
+        if (!catalogResponse.ok) {
+          throw new Error(`Live catalog request failed: ${catalogResponse.status}`)
+        }
+        return [
+          await detailResponse.json() as PellierProductDetail,
+          await catalogResponse.json() as PellierProduct[],
+        ] as const
+      })
+      .then(([data, products]) => {
         if (active) {
           setDetail(data)
+          setCatalog(products)
           setLoading(false)
         }
       })
@@ -189,17 +179,16 @@ export default function ProductDetailPage() {
   }, [hasValidId, numericId])
 
   const view: ProductView | null = useMemo(() => {
-    if (local) return viewFromLocal(local)
     if (detail) return viewFromRemote(detail)
     return null
-  }, [local, detail])
+  }, [detail])
 
   const siblings = useMemo(() => {
     if (!view) return []
-    return editForProduct(view.id)
+    return catalog
       .filter(p => p.id !== view.id)
       .slice(0, SIBLING_COUNT)
-  }, [view])
+  }, [catalog, view])
 
   const handleNavigate = (item: NavItem) => {
     if (item === 'account') {

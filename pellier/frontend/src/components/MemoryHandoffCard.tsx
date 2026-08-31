@@ -16,7 +16,7 @@ const RESUME_QUERY: Record<string, string> = {
   marco: 'Pick up where I left off. Show me the linen pieces I was deciding between.',
   anna: 'Pick up where I left off. Open the gift shortlist I was building.',
   theo: 'Pick up where I left off and tell me about the bowl return.',
-  fresh: 'A thoughtful gift for someone who runs',
+  fresh: 'A considered carry-all for a long weekend.',
 }
 
 export default function MemoryHandoffCard() {

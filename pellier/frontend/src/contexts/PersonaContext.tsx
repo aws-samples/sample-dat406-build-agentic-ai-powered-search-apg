@@ -19,8 +19,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { LOCAL_PERSONAS } from '../data/personas'
-import { toMembership, type Membership } from '../data/membership'
+import { type Membership } from '../data/membership'
 
 export interface PersonaSnapshot {
   id: string
@@ -31,6 +30,9 @@ export interface PersonaSnapshot {
   customer_id: string
   /** Loyalty rung. Presentation only; policy reads Aurora, not this. */
   membership: Membership
+  hero_image: string
+  hero_alt: string
+  hero_subheadline: string
   stats: {
     visits: number
     orders: number
@@ -83,6 +85,8 @@ interface PersonaContextType {
   signOut: () => void
   /** Whether a switch is in flight. */
   switching: boolean
+  /** Last live persona-switch failure, surfaced by selection controls. */
+  switchError: string | null
   /** The most recent sign-in or sign-out event, or null if none has
    * happened in this session. Consumers can read this to render a
    * transient celebration. */
@@ -112,15 +116,6 @@ function clearPersonaStorage(): void {
   localStorage.removeItem('pellier-drawer-storefront')
 }
 
-function loadStoredPersona(): PersonaSnapshot | null {
-  try {
-    const raw = sessionStorage.getItem(PERSONA_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
 /** Drop pre-3.2 localStorage persona so shared boxes don't reopen as Marco. */
 function clearLegacyPersonaPersistence(): void {
   try {
@@ -131,12 +126,60 @@ function clearLegacyPersonaPersistence(): void {
 }
 
 export function PersonaProvider({ children }: { children: ReactNode }) {
-  const [persona, setPersona] = useState<PersonaSnapshot | null>(() => {
-    clearLegacyPersonaPersistence()
-    return loadStoredPersona()
-  })
+  const [persona, setPersona] = useState<PersonaSnapshot | null>(null)
   const [switching, setSwitching] = useState(false)
+  const [switchError, setSwitchError] = useState<string | null>(null)
   const [lastTransition, setLastTransition] = useState<PersonaTransition | null>(null)
+
+  // A session-storage snapshot is only a locator for the durable Aurora
+  // session. Rehydrate the persona from the API before presenting it so an
+  // old browser value can never masquerade as a current customer record.
+  useEffect(() => {
+    clearLegacyPersonaPersistence()
+    const sessionId = localStorage.getItem(SESSION_KEY)
+    if (!sessionId) {
+      clearPersonaStorage()
+      return
+    }
+
+    let active = true
+    const controller = new AbortController()
+    void fetch(`/api/persona/current?session_id=${encodeURIComponent(sessionId)}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Live persona request failed: ${response.status}`)
+        }
+        return response.json() as Promise<{ persona: PersonaSnapshot | null }>
+      })
+      .then((payload) => {
+        if (!active) return
+        if (payload.persona) {
+          setPersona(payload.persona)
+        } else {
+          clearPersonaStorage()
+          setPersona(null)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active || (error as { name?: string })?.name === 'AbortError') return
+        // A failed live read is not a license to reuse the local snapshot.
+        clearPersonaStorage()
+        setPersona(null)
+        setSwitchError(
+          error instanceof Error
+            ? error.message
+            : 'The live persona service is unavailable.',
+        )
+      })
+
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [])
 
   // Persist to sessionStorage on change (tab-scoped; fresh tab = signed out).
   useEffect(() => {
@@ -153,11 +196,15 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
 
   const switchPersona = useCallback(async (personaId: string) => {
     setSwitching(true)
+    setSwitchError(null)
     try {
       const res = await fetch('/api/persona/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ persona_id: personaId }),
+        body: JSON.stringify({
+          persona_id: personaId,
+          current_session_id: localStorage.getItem(SESSION_KEY),
+        }),
       })
       if (!res.ok) throw new Error(`Switch failed: ${res.status}`)
       const data = await res.json()
@@ -183,33 +230,11 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
       })
     } catch (err) {
       console.error('Persona switch failed:', err)
-      const fallback = LOCAL_PERSONAS.find((p) => p.id === personaId)
-      if (!fallback) return
-
-      const fallbackPersona: PersonaSnapshot = {
-        id: fallback.id,
-        display_name: fallback.display_name,
-        role_tag: fallback.role_tag,
-        avatar_color: fallback.avatar_color,
-        avatar_initial: fallback.avatar_initial,
-        customer_id: fallback.customer_id,
-        membership: toMembership(fallback.membership),
-        stats: fallback.stats,
-      }
-
-      localStorage.setItem(SESSION_KEY, `local-${fallback.id}-${Date.now()}`)
-      localStorage.removeItem('pellier-storefront-chat')
-      localStorage.removeItem('pellier-observatory-chat')
-      localStorage.removeItem('pellier-concierge-storefront')
-      localStorage.removeItem('pellier-concierge-observatory')
-      localStorage.removeItem('pellier-drawer-storefront')
-
-      setPersona(fallbackPersona)
-      setLastTransition({
-        id: Date.now(),
-        kind: 'sign-in',
-        persona: fallbackPersona,
-      })
+      setSwitchError(
+        err instanceof Error
+          ? err.message
+          : 'The live persona service is unavailable.',
+      )
     } finally {
       setSwitching(false)
     }
@@ -245,6 +270,7 @@ export function PersonaProvider({ children }: { children: ReactNode }) {
         clearPersona,
         signOut,
         switching,
+        switchError,
         lastTransition,
         clearTransition,
       }}

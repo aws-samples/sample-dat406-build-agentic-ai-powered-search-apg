@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   sendChatMessageStreaming: vi.fn(),
+  fetch: vi.fn(),
   persona: null as null | {
     id: string;
     display_name: string;
@@ -34,7 +35,9 @@ async function inspectTurn(
   user: ReturnType<typeof userEvent.setup>,
   query: string,
 ) {
-  await user.click(screen.getByRole('button', { name: `Inspect: ${query}` }));
+  await user.click(
+    await screen.findByRole('button', { name: `Inspect: ${query}` }),
+  );
 }
 
 /** Tool and skill names appear on the turn cards too, so trace-panel
@@ -50,10 +53,32 @@ function tracePanel(container: HTMLElement): HTMLElement {
 describe('Pellier Observatory live agent workbench', () => {
   beforeEach(() => {
     mocks.sendChatMessageStreaming.mockReset();
+    mocks.fetch.mockReset();
     mocks.persona = null;
+    mocks.fetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const requestUrl =
+        input instanceof Request ? input.url : String(input);
+      const url = new URL(requestUrl, 'http://localhost');
+      const persona = url.searchParams.get('persona') ?? 'fresh';
+      const prompts = PERSONA_HERO_PILLS[persona] ?? PERSONA_HERO_PILLS.fresh;
+      return new Response(
+        JSON.stringify({
+          persona,
+          scenarios: prompts.map((prompt, index) => ({
+            id: index + 1,
+            ordinal: index + 1,
+            prompt,
+            productName: null,
+            imageUrl: null,
+          })),
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', mocks.fetch);
   });
 
-  it('opens as an inspectable doorway with no request to compose', () => {
+  it('opens as an inspectable doorway with no request to compose', async () => {
     render(
       <MemoryRouter>
         <ObservatoryWorkbench />
@@ -79,7 +104,7 @@ describe('Pellier Observatory live agent workbench', () => {
     });
     expect(proofSummary).toHaveTextContent('Ready to inspect');
     expect(proofSummary).toHaveTextContent(
-      'Choose one of five canonical shopper turns.',
+      'Choose an Aurora-backed guided shopper request.',
     );
 
     // The free-text box is gone: nothing here asks a participant to build.
@@ -94,7 +119,7 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(FRESH_TURNS).toHaveLength(5);
     for (const query of FRESH_TURNS) {
       expect(
-        screen.getByRole('button', { name: `Inspect: ${query}` }),
+        await screen.findByRole('button', { name: `Inspect: ${query}` }),
       ).toBeEnabled();
     }
 
@@ -183,7 +208,7 @@ describe('Pellier Observatory live agent workbench', () => {
         });
         onUpdate({
           type: 'tool_call',
-          tool: 'search_products',
+          tool: 'search_products_hybrid',
           status: 'executing',
         });
         onUpdate({
@@ -271,8 +296,12 @@ describe('Pellier Observatory live agent workbench', () => {
       screen.getByText('I found a light linen option for the trip.'),
     ).toBeInTheDocument();
     expect(
-      within(tracePanel(container)).getByText('search_products'),
+      within(tracePanel(container)).getByText('search_products_hybrid'),
     ).toBeInTheDocument();
+    const toolTitle = within(tracePanel(container)).getByRole('heading', {
+      name: 'search_products_hybrid',
+    });
+    expect(toolTitle.querySelectorAll('wbr')).toHaveLength(2);
     expect(screen.getByText('Recommendation')).toBeInTheDocument();
     expect(screen.getByText('Claude Opus 4.6')).toBeInTheDocument();
     expect(screen.getByText('Routing decision')).toBeInTheDocument();
@@ -284,11 +313,11 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(
       screen.getByText('Dispatcher / Recommendation'),
     ).toBeInTheDocument();
-    expect(
-      within(tracePanel(container)).getByRole('heading', {
-        name: 'SELECT / product_catalog',
-      }),
-    ).toBeInTheDocument();
+    const sqlTitle = within(tracePanel(container)).getByRole('heading', {
+      name: 'SELECT / product_catalog',
+    });
+    expect(sqlTitle).toBeInTheDocument();
+    expect(sqlTitle.querySelectorAll('wbr')).toHaveLength(2);
     expect(screen.getByLabelText('Captured SQL')).toHaveTextContent(
       /SELECT name, price\s+FROM pellier\.product_catalog\s+LIMIT 12/,
     );
@@ -815,7 +844,7 @@ describe('Pellier Observatory live agent workbench', () => {
     },
   );
 
-  it("keeps Marco's warehouse turn aligned with workshop content", () => {
+  it("keeps Marco's warehouse turn aligned with workshop content", async () => {
     mocks.persona = {
       id: 'marco',
       display_name: 'Marco',
@@ -828,7 +857,7 @@ describe('Pellier Observatory live agent workbench', () => {
     );
 
     expect(
-      screen.getByRole('button', {
+      await screen.findByRole('button', {
         name: `Inspect: ${PERSONA_HERO_PILLS.marco[3]}`,
       }),
     ).toBeInTheDocument();

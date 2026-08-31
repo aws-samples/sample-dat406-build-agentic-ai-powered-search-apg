@@ -169,10 +169,10 @@ def test_the_runtime_target_map_matches_the_provisioning_schemas() -> None:
 def test_every_published_tool_has_a_target() -> None:
     from services.agentcore_gateway import (
         GATEWAY_TARGET_FOR_TOOL,
-        GATEWAY_TOOL_NAMES,
+        LOCAL_MCP_TOOL_NAMES,
     )
 
-    missing = sorted(set(GATEWAY_TOOL_NAMES) - set(GATEWAY_TARGET_FOR_TOOL))
+    missing = sorted(set(LOCAL_MCP_TOOL_NAMES) - set(GATEWAY_TARGET_FOR_TOOL))
     assert not missing, f"published tools with no Gateway target: {missing}"
 
 
@@ -731,24 +731,11 @@ def test_the_protected_db_function_keeps_its_name() -> None:
 # Bypass closure
 # ---------------------------------------------------------------------------
 
-def test_both_legacy_action_endpoints_require_a_confirmed_review() -> None:
+def test_legacy_action_handlers_are_not_kept_as_importable_backdoors() -> None:
     source = (BACKEND / "routes" / "operator.py").read_text()
-    for handler in ("async def resolve_return(", "async def issue_credit("):
-        block = source.split(handler, 1)[1].split("\n@router", 1)[0]
-        assert "_require_confirmed_review(" in block, (
-            f"{handler} can still mutate without a confirmed review"
-        )
-
-
-def test_the_bypass_guard_matches_on_the_action_fingerprint() -> None:
-    """Any approved review is not enough; it must be for these parameters."""
-    source = (BACKEND / "routes" / "operator.py").read_text()
-    guard = source.split("async def _require_confirmed_review(", 1)[1].split(
-        "\n@router", 1
-    )[0]
-    assert "action_fingerprint(" in guard
-    assert "a.action_hash = %s" in guard
-    assert "a.status = 'approved'" in guard
+    assert "async def resolve_return(" not in source
+    assert "async def issue_credit(" not in source
+    assert "async def _require_confirmed_review(" not in source
 
 
 def test_the_execute_route_accepts_no_action_parameters() -> None:

@@ -23,8 +23,6 @@ build/
 # database credentials was untracked but perfectly committable.
 .env.*
 *.env.bak*
-lab2/backend/.env
-lab2/frontend/.env
 
 # Generated per-box MCP client config. Written by
 # pellier/backend/generate_mcp_config.py from .env, and it carries the account
@@ -79,7 +77,6 @@ package-lock.json
 
 # Build outputs
 dist/
-lab2/frontend/dist/
 *.log
 package.zip
 *_gateway_deployment.json
@@ -93,16 +90,12 @@ package.zip
 *.sqlite
 
 # MCP Config (auto-generated with account-specific ARNs)
-lab2/config/mcp-server-config.json
 
 # AgentCore 0.18 scaffolded project (repo-level on purpose — the CodeZip
 # packager copies the whole code-location, so the project must live OUTSIDE
 # pellier/backend or it packages itself recursively). Account-specific state.
 .agentcore-project/
 
-# Participant changes (notebooks will be modified during workshop)
-lab1/*.ipynb
-lab1/**/*.ipynb
 
 # Large data files (hosted on S3)
 data/amazon-products-sample-with-embeddings.csv

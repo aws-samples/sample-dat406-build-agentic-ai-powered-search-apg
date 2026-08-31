@@ -30,18 +30,18 @@ def _clear_capability_cache():
 def test_source_registration_does_not_imply_availability() -> None:
     """The whole reason this module exists.
 
-    `GATEWAY_TOOL_NAMES` describes a fresh provision. Reading it would have
+    The local MCP catalog describes a fresh application vocabulary. Reading it would have
     reported every write available while the live Gateway had zero permits.
     """
     from services import agentcore_gateway
 
-    assert "initiate_return" in agentcore_gateway.GATEWAY_TOOL_NAMES
+    assert "initiate_return" in agentcore_gateway.LOCAL_MCP_TOOL_NAMES
     source = (
         importlib.resources.files("services").joinpath("operator_capabilities.py").read_text()
         if hasattr(importlib, "resources") else ""
     )
     if source:
-        assert "GATEWAY_TOOL_NAMES" not in source.split('"""')[2], (
+        assert "LOCAL_MCP_TOOL_NAMES" not in source.split('"""')[2], (
             "capability state is derived from the source registry"
         )
 
@@ -90,6 +90,28 @@ def test_capability_lookup_failure_fails_closed(monkeypatch) -> None:
     # Reads stay available: their own path is healthy.
     assert payload["capabilities"]["client_read"]["state"] == CAP.AVAILABLE
     assert payload["capabilities"]["catalog_search"]["state"] == CAP.AVAILABLE
+
+
+def test_missing_managed_resource_is_distinguished_but_still_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MissingGateway(Exception):
+        response = {"Error": {"Code": "ResourceNotFoundException"}}
+
+    monkeypatch.setattr(
+        CAP,
+        "_live_gateway_facts",
+        lambda: (_ for _ in ()).throw(MissingGateway("gateway missing")),
+    )
+
+    payload = CAP.get_capabilities(force_refresh=True)
+    assert payload["source"] == "unverified"
+    assert payload["governedActionsAvailable"] is False
+    for tool in CAP.GOVERNED_WRITE_TOOLS:
+        assert payload["capabilities"][tool] == {
+            "state": CAP.TEMPORARILY_UNAVAILABLE,
+            "reason": CAP.REASON_MANAGED_RESOURCES_MISSING,
+        }
 
 
 def test_a_failure_never_resolves_to_available(monkeypatch) -> None:
@@ -410,10 +432,41 @@ def test_returns_join_the_existing_concurrent_fan_out() -> None:
     block = text[text.index("client_task = asyncio.create_task"):]
     block = block[: block.index("row, order_rows")]
     assert block.count("asyncio.create_task") == 5, "a read was serialised"
-    call = text[text.index("row, order_rows"):]
-    call = call[: call.index(")\n")]
+    call = text[text.index("outcomes = await asyncio.gather"):]
+    call = call[: call.index(")\n") + 1]
     for task in ("client_task", "orders_task", "tickets_task", "credits_task", "returns_task"):
         assert task in call, f"{task} is not awaited in the gather"
+    assert "return_exceptions=True" in call, (
+        "all failed concurrent reads must be collected before the record returns 503"
+    )
+
+
+@pytest.mark.asyncio
+async def test_client_record_refuses_partial_evidence_as_a_false_empty_history() -> None:
+    """A failed ledger query is 503, never an empty array rendered as a fact."""
+    from fastapi import HTTPException
+    from routes import operator
+
+    class FailingTicketsDb:
+        async def fetch_one(self, _sql: str, *_args: Any) -> Dict[str, Any]:
+            return {
+                "customer_id": "CUST-JESSICA",
+                "name": "Jessica Nakamura",
+                "membership": "circle",
+                "spend_12mo": 3940,
+                "preferences_summary": "Open return dispute.",
+            }
+
+        async def fetch_all(self, sql: str, *_args: Any) -> List[Dict[str, Any]]:
+            if "pellier.support_tickets" in sql:
+                raise RuntimeError("tickets unavailable")
+            return []
+
+    with pytest.raises(HTTPException) as raised:
+        await operator.get_client("CUST-JESSICA", db=FailingTicketsDb())
+
+    assert raised.value.status_code == 503
+    assert "No absence claim was made" in str(raised.value.detail)
 
 
 def test_a_support_assertion_is_not_an_authoritative_return() -> None:

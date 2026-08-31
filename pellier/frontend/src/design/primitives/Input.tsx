@@ -1,5 +1,4 @@
 import React from 'react';
-import { Mic } from 'lucide-react';
 import { colors } from '../tokens';
 
 export interface InputProps {
@@ -15,7 +14,7 @@ export interface InputProps {
 /**
  * Input primitive — search bar and text input variants.
  *
- * Search variant: larger padding, mic icon, ⌘K hint badge.
+ * Search variant: larger padding and a ⌘K hint badge.
  * Text variant: standard input styling.
  * Both: cream-50 bg, rounded-xl, sand border, espresso focus ring.
  */
@@ -54,13 +53,6 @@ export const Input: React.FC<InputProps> = ({
       />
       {isSearch && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Voice search"
-            className="text-ink-quiet hover:text-espresso transition-colors duration-fade ease-out p-1"
-          >
-            <Mic size={18} />
-          </button>
           <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md bg-sand/50 px-1.5 py-0.5 text-xs font-mono text-ink-quiet">
             ⌘K
           </kbd>

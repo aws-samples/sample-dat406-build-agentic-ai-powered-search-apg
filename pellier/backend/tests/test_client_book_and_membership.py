@@ -26,8 +26,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 MIGRATION = REPO / "scripts" / "migrations" / "018_client_book.sql"
-PERSONAS_CONFIG = REPO / "pellier" / "backend" / "personas-config.json"
-FRONTEND_PERSONAS = REPO / "pellier" / "frontend" / "src" / "data" / "personas.ts"
+LIVE_PERSONAS = REPO / "scripts" / "migrations" / "029_live_surface_data.sql"
 FRONTEND_MEMBERSHIP = REPO / "pellier" / "frontend" / "src" / "data" / "membership.ts"
 BOOTSTRAP = REPO / "scripts" / "bootstrap-labs.sh"
 RESET_GOVERNED = REPO / "scripts" / "reset-governed-workshop.sh"
@@ -210,41 +209,19 @@ def test_client_book_balances_five_customers_per_rung():
 # Cross-file agreement: migration is authoritative
 # ---------------------------------------------------------------------------
 
-def test_backend_persona_config_matches_the_migration():
+def test_live_persona_profiles_match_the_membership_seed():
     seeded = _seeded_memberships()
-    personas = json.loads(PERSONAS_CONFIG.read_text())["personas"]
-
-    assert personas, "personas-config.json has no personas"
-    for p in personas:
-        cust = p["customer_id"]
-        assert "membership" in p, f"persona {p['id']} has no membership"
-        assert cust in seeded, f"persona {p['id']} customer {cust} not seeded by 018"
-        rung, spend = seeded[cust]
-        assert p["membership"] == rung, (
-            f"persona {p['id']} config says '{p['membership']}' but migration "
-            f"018 seeds '{rung}'"
-        )
-        assert float(p["spend_12mo"]) == spend, (
-            f"persona {p['id']} config spend {p['spend_12mo']} != migration {spend}"
-        )
-
-
-def test_frontend_persona_fallback_matches_the_backend_config():
-    personas = json.loads(PERSONAS_CONFIG.read_text())["personas"]
-    ts = FRONTEND_PERSONAS.read_text()
-
-    for p in personas:
-        # id: 'marco', ... membership: 'maison',
-        block = re.search(
-            r"id: '" + re.escape(p["id"]) + r"',(.*?)\n  \}", ts, re.S
-        )
-        assert block, f"persona {p['id']} not found in personas.ts"
-        m = re.search(r"membership: '(\w+)'", block.group(1))
-        assert m, f"persona {p['id']} has no membership in personas.ts"
-        assert m.group(1) == p["membership"], (
-            f"personas.ts says '{m.group(1)}' for {p['id']} but "
-            f"personas-config.json says '{p['membership']}'"
-        )
+    sql = LIVE_PERSONAS.read_text()
+    expected = {
+        "marco": ("CUST-MARCO", "maison"),
+        "anna": ("CUST-ANNA", "circle"),
+        "theo": ("CUST-THEO", "registered"),
+    }
+    for persona_id, (customer_id, membership) in expected.items():
+        assert customer_id in seeded
+        assert f"'{persona_id}', '{customer_id}'" in sql
+        assert f"'{membership}'" in sql
+        assert seeded[customer_id][0] == membership
 
 
 def test_frontend_membership_module_lists_exactly_the_three_rungs():

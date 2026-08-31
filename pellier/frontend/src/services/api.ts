@@ -78,12 +78,8 @@ class ApiClient {
       withCredentials: true,
     })
 
-    // Request logging — unchanged from before.
     this.client.interceptors.request.use(
-      (config) => {
-        console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`)
-        return config
-      },
+      (config) => config,
       (error) => {
         console.error('[API] Request error:', error)
         return Promise.reject(error)

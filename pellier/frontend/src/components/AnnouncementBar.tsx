@@ -1,21 +1,21 @@
 /**
  * AnnouncementBar — storefront service strip above the sticky header.
  *
- * Cycles through editorial "just in" findings every 5 seconds with a
+ * Cycles through editorial house notes every 5 seconds with a
  * smooth vertical crossfade. Each line reads like a concierge aside —
  * the agent quietly surfacing what it noticed while watching the floor.
  *
- * A pulse dot on the left, a small-caps-style verb (NEW ARRIVALS /
- * RESTOCKED / SERVICE) in sans semibold + wide tracking, and body copy
+ * A pulse dot on the left, a small-caps-style verb (THE HOUSE EDIT /
+ * GIFT SERVICE / SERVICE) in sans semibold + wide tracking, and body copy
  * in cream. Pellier keeps this retail-facing; Pellier Observatory carries the
  * proof and trace vocabulary.
  *
- * Copy lives in copy.ts so the rotating strip stays aligned with the
- * current catalog and proof language.
+ * Copy lives in copy.ts. It intentionally avoids mutable inventory and
+ * verification claims; those belong on a live evidence-bearing surface.
  */
 import { useState, useEffect } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { LIVE_FLOOR_FINDINGS } from '../copy'
+import { EDITORIAL_FLOOR_NOTES } from '../copy'
 import { cssVar as c } from '../design/cssVars'
 
 const MONO_STACK = 'var(--mono)'
@@ -25,12 +25,12 @@ const CYCLE_MS = 5000
 export default function AnnouncementBar() {
   const [index, setIndex] = useState(0)
   const reduceMotion = useReducedMotion()
-  const finding = LIVE_FLOOR_FINDINGS[index]
+  const finding = EDITORIAL_FLOOR_NOTES[index]
 
   useEffect(() => {
     if (reduceMotion) return
     const t = setInterval(() => {
-      setIndex((i) => (i + 1) % LIVE_FLOOR_FINDINGS.length)
+      setIndex((i) => (i + 1) % EDITORIAL_FLOOR_NOTES.length)
     }, CYCLE_MS)
     return () => clearInterval(t)
   }, [reduceMotion])

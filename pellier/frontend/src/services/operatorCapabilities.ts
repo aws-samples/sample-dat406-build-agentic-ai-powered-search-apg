@@ -48,10 +48,50 @@ export const CAPABILITY_LABELS: Record<CapabilityState, string> = {
  * the write rail on purpose: the reads are working, the operator can still do most
  * of their job, and alarming them would be inaccurate as well as unkind.
  */
-export const GOVERNED_UNAVAILABLE_COPY = {
+export interface GovernedUnavailableCopy {
+  title: string
+  detail: string
+}
+
+export const GOVERNED_UNAVAILABLE_COPY: GovernedUnavailableCopy = {
   title: 'Governed actions temporarily unavailable',
   detail: 'Client investigation and recommendations remain available.',
-} as const
+}
+
+/**
+ * Explain a fail-closed managed state without exposing control-plane ids or
+ * policy source. A missing managed resource is a deployment-readiness fact,
+ * not the same thing as a Gateway whose policy deliberately closes a write.
+ */
+export function governedUnavailableCopy(
+  capabilities: CapabilitySnapshot,
+): GovernedUnavailableCopy {
+  const capabilityMap = capabilities.capabilities ?? {}
+  const governed = [
+    'initiate_return',
+    'escalate_to_human',
+    'issue_credit',
+  ]
+    .map((tool) => capabilityMap[tool])
+    .filter((capability): capability is Capability => Boolean(capability))
+
+  if (
+    governed.length > 0
+    && governed.every(
+      (capability) =>
+        capability.state === 'temporarily_unavailable'
+        && capability.reason === 'managed_resources_missing',
+    )
+  ) {
+    return {
+      title: 'Managed action boundary not ready',
+      detail:
+        'This environment has not completed managed-action provisioning. Client investigation and recommendations remain available.',
+    }
+  }
+
+  return GOVERNED_UNAVAILABLE_COPY
+}
 
 /**
  * `verified` is reserved for ledger-reconciled state, which nothing produces yet.

@@ -33,9 +33,7 @@ Endpoints:
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 import runpy
 import time
 from pathlib import Path
@@ -47,7 +45,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 # `Path(__file__)` became a path-parameter declaration.
 from fastapi import Path as PathParam
 from pydantic import BaseModel, Field
-from services.auth import require_operator
+from services.auth import get_current_user
+from services.observatory_copy import OBSERVATORY_COPY
 
 logger = logging.getLogger(__name__)
 
@@ -102,69 +101,20 @@ class ObservatoryToolDiscoverResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Fixture loading
-# ---------------------------------------------------------------------------
-
-_FIXTURE_DIR = (
-    Path(__file__).resolve().parent.parent.parent
-    / "frontend"
-    / "src"
-    / "observatory"
-    / "fixtures"
-)
-
-_fixture_cache: dict[str, Any] = {}
-
-
-def _load_fixture(name: str) -> Any:
-    """Load a fixture JSON file from the frontend fixtures directory.
-
-    Results are cached in memory after first load. Returns None if the
-    file doesn't exist or can't be parsed.
-    """
-    if not re.fullmatch(r"[a-z0-9-]{1,128}", name):
-        logger.warning("Rejected invalid fixture name")
-        return None
-    if name in _fixture_cache:
-        return _fixture_cache[name]
-    path = (_FIXTURE_DIR / f"{name}.json").resolve()
-    try:
-        path.relative_to(_FIXTURE_DIR.resolve())
-    except ValueError:
-        logger.warning("Rejected fixture path outside fixture directory")
-        return None
-    try:
-        data = json.loads(path.read_text())
-        _fixture_cache[name] = data
-        return data
-    except FileNotFoundError:
-        logger.warning("Fixture file not found: %s", path)
-        return None
-    except json.JSONDecodeError as exc:
-        logger.warning("Fixture file malformed: %s — %s", path, exc)
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Tool / build state helpers (fixtures + workshop live overlay)
+# Live data helpers
 # ---------------------------------------------------------------------------
 
 
-def _fixture_tool_status_map() -> dict[str, str]:
-    """functionName → shipped | exercise from tools.json fixtures."""
-    tools = _load_fixture("tools") or []
-    out: dict[str, str] = {}
-    for t in tools:
-        fn = t.get("functionName")
-        st = t.get("status")
-        if isinstance(fn, str) and isinstance(st, str):
-            out[fn] = st
-    return out
+async def _live_db() -> Any:
+    """Return Aurora or fail loudly; the Observatory never renders fixtures."""
+    from app import db_service
 
-
-def _tool_discovery_status(tool_name: str) -> str:
-    """Status for discovery rows — matches Observatory Tools surface / fixtures."""
-    return _fixture_tool_status_map().get(tool_name, "shipped")
+    if db_service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Aurora is unavailable; live Observatory data cannot be shown.",
+        )
+    return db_service
 
 
 def _check_inventory_is_workshop_stub() -> bool:
@@ -267,6 +217,8 @@ async def _latest_audit_row(
     caller: str | None = None,
 ) -> dict[str, Any] | None:
     """Return the latest audit row visible to one verified principal."""
+    if not principal_sub:
+        return None
     clauses = ["(gr.principal_id = %s OR gtr.principal_sub = %s)"]
     params: list[Any] = [principal_sub, principal_sub]
     if tool:
@@ -431,6 +383,8 @@ async def _latest_governed_receipt(
     session_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Return the latest managed policy receipt owned by one principal."""
+    if not principal_sub:
+        return None
     clauses = ["gr.principal_id = %s"]
     params: list[Any] = [principal_sub]
     if session_id:
@@ -1172,200 +1126,375 @@ async def _collect_proof_board(
 async def list_sessions(
     persona: Optional[str] = Query(default=None, description="Filter by persona ID"),
 ):
-    """Return session list for the active persona.
-
-    Returns fixture data. When a persona filter is provided, only
-    sessions matching that persona are returned.
-    """
+    """Return sessions evidenced by the live Aurora tool ledger."""
+    db = await _live_db()
     try:
-        data = _load_fixture("sessions")
-        if data is None:
-            return []
-        if persona:
-            data = [s for s in data if s.get("personaId") == persona]
-        return data
+        rows = await db.fetch_all(
+            """
+            SELECT
+                ta.session_id AS id,
+                COALESCE(ss.persona_id, 'anonymous') AS "personaId",
+                (
+                    SELECT COALESCE(
+                        NULLIF(first_audit.args->>'query', ''),
+                        NULLIF(first_audit.args->>'message', ''),
+                        first_audit.tool
+                    )
+                      FROM pellier.tool_audit first_audit
+                     WHERE first_audit.session_id = ta.session_id
+                     ORDER BY first_audit.created_at ASC, first_audit.audit_id ASC
+                     LIMIT 1
+                ) AS "openingQuery",
+                GREATEST(
+                    0,
+                    floor(extract(epoch FROM max(ta.created_at) - min(ta.created_at)) * 1000)
+                )::integer AS "elapsedMs",
+                count(DISTINCT ta.caller)::integer AS "agentCount",
+                CASE
+                    WHEN bool_or(ta.caller = 'gateway') THEN 'Managed Gateway'
+                    ELSE 'Storefront Dispatcher'
+                END AS "routingPattern",
+                max(ta.created_at) AS timestamp,
+                'complete' AS status
+              FROM pellier.tool_audit ta
+              LEFT JOIN pellier.shopper_sessions ss ON ss.session_id = ta.session_id
+             WHERE (%s IS NULL OR ss.persona_id = %s)
+             GROUP BY ta.session_id, ss.persona_id
+             ORDER BY max(ta.created_at) DESC
+             LIMIT 100
+            """,
+            persona,
+            persona,
+        )
+        return [dict(row) for row in rows]
     except Exception as exc:
-        logger.error("Failed to load sessions: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load sessions")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to read Aurora sessions")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["SESSION_EVIDENCE_UNAVAILABLE"],
+        ) from exc
 
 
 @router.get("/sessions/{session_id}")
 async def get_session(session_id: str):
-    """Return full session detail for a given session ID, or 404.
-
-    Checks for a dedicated fixture file first (e.g., session-7f5a.json),
-    then falls back to the sessions list for summary-only data.
-    """
+    """Build a replay from durable message and audit rows."""
+    db = await _live_db()
     try:
-        # Try dedicated session detail fixture
-        detail = _load_fixture(f"session-{session_id.lower()}")
-        if detail is not None:
-            return detail
-
-        # Fall back to sessions list for summary data
-        sessions = _load_fixture("sessions")
-        if sessions:
-            for s in sessions:
-                if s.get("id", "").upper() == session_id.upper():
-                    return s
-
-        raise HTTPException(status_code=404, detail="Session not found")  # copy-allow: observatory-error-detail
+        rows = await db.fetch_all(
+            """
+            SELECT
+                ta.session_id AS id,
+                COALESCE(ss.persona_id, 'anonymous') AS "personaId",
+                (
+                    SELECT COALESCE(
+                        NULLIF(first_audit.args->>'query', ''),
+                        NULLIF(first_audit.args->>'message', ''),
+                        first_audit.tool
+                    )
+                      FROM pellier.tool_audit first_audit
+                     WHERE first_audit.session_id = ta.session_id
+                     ORDER BY first_audit.created_at ASC, first_audit.audit_id ASC
+                     LIMIT 1
+                ) AS "openingQuery",
+                GREATEST(
+                    0,
+                    floor(extract(epoch FROM max(ta.created_at) - min(ta.created_at)) * 1000)
+                )::integer AS "elapsedMs",
+                count(DISTINCT ta.caller)::integer AS "agentCount",
+                CASE
+                    WHEN bool_or(ta.caller = 'gateway') THEN 'Managed Gateway'
+                    ELSE 'Storefront Dispatcher'
+                END AS "routingPattern",
+                max(ta.created_at) AS timestamp,
+                'complete' AS status
+              FROM pellier.tool_audit ta
+              LEFT JOIN pellier.shopper_sessions ss ON ss.session_id = ta.session_id
+             WHERE ta.session_id = %s
+             GROUP BY ta.session_id, ss.persona_id
+            """,
+            session_id,
+        )
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=OBSERVATORY_COPY["SESSION_EVIDENCE_NOT_FOUND"],
+            )
+        summary = dict(rows[0])
+        messages = [
+            {
+                "role": row["role"],
+                "content": row["content"],
+                "timestamp": row["created_at"].isoformat(),
+            }
+            for row in map(
+                dict,
+                await db.fetch_all(
+                    """
+                    SELECT role, content, created_at
+                      FROM pellier.messages
+                     WHERE session_id = %s
+                       AND role IN ('user', 'assistant')
+                     ORDER BY created_at ASC, id ASC
+                    """,
+                    session_id,
+                ),
+            )
+        ]
+        audit_rows = [
+            dict(row)
+            for row in await db.fetch_all(
+                """
+                SELECT tool, caller, latency_ms, result, created_at
+                  FROM pellier.tool_audit
+                 WHERE session_id = %s
+                 ORDER BY created_at ASC, audit_id ASC
+                """,
+                session_id,
+            )
+        ]
+        return {
+            **summary,
+            "chat": messages,
+            "telemetry": [
+                {
+                    "index": index,
+                    "category": "managed" if row["caller"] == "gateway" else "owned",
+                    "title": row["tool"],
+                    "description": f"{row['caller']} invocation recorded in Aurora.",
+                    "status": "complete",
+                    "durationMs": int(row.get("latency_ms") or 0),
+                    "agent": row["caller"],
+                    "rows": [row.get("result") or {}],
+                }
+                for index, row in enumerate(audit_rows, start=1)
+            ],
+            "brief": {
+                "folioNumber": 0,
+                "headline": "Live session evidence",
+                "filedTime": summary["timestamp"].isoformat(),
+                "sections": [],
+                "products": [],
+            },
+        }
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error("Failed to load session %s: %s", session_id, exc)
-        raise HTTPException(status_code=500, detail="Failed to load session")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to read session %s", session_id)
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["SESSION_EVIDENCE_UNAVAILABLE"],
+        ) from exc
 
 
 @router.get("/agents")
 async def list_agents():
-    """Return 5 agents with status, tools, and model configuration.
-
-    Returns fixture data matching the frontend agents.json shape.
-    """
+    """Return the active, source-controlled agent topology."""
     try:
-        data = _load_fixture("agents")
-        if data is None:
-            return []
-        return data
+        from config import settings
+        from services import agent_tools
+        import inspect
+
+        inventory_status = (
+            "exercise"
+            if "stub state" in inspect.getsource(agent_tools.check_inventory)
+            else "shipped"
+        )
+        return [
+            {
+                "numeral": numeral,
+                "name": name,
+                "role": role,
+                "status": status,
+                "tools": tools,
+                "model": settings.BEDROCK_MODEL_ID,
+            }
+            for numeral, name, role, status, tools in (
+                (
+                    "I",
+                    "Search Agent",
+                    "Interprets shopper intent and retrieves grounded catalog options.",
+                    "shipped",
+                    ["search_products", "browse_category", "compare_products"],
+                ),
+                (
+                    "II",
+                    "Personalization Agent",
+                    "Combines customer context with hybrid retrieval.",
+                    "shipped",
+                    ["search_products_hybrid", "get_customer_preferences"],
+                ),
+                (
+                    "III",
+                    "Pricing Agent",
+                    "Explains price ranges and compares current catalog value.",
+                    "shipped",
+                    ["get_price_analysis", "compare_products"],
+                ),
+                (
+                    "IV",
+                    "Inventory Agent",
+                    "Reads the warehouse system of record for availability.",
+                    inventory_status,
+                    ["check_inventory", "get_low_stock"],
+                ),
+                (
+                    "V",
+                    "Customer Service Agent",
+                    "Handles policy-aware post-purchase requests.",
+                    "shipped",
+                    ["get_return_policy", "initiate_return", "escalate_to_human"],
+                ),
+            )
+        ]
     except Exception as exc:
-        logger.error("Failed to load agents: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load agents")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to inspect active agent topology")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["AGENT_TOPOLOGY_UNAVAILABLE"],
+        ) from exc
 
 
 @router.get("/tools/list")
 async def list_tools():
-    """Return tools with signatures, status, and metadata (fixture-backed).
-
-    Path is ``/tools/list`` to avoid conflict with the existing
-    ``/api/tools`` endpoint on the main app. Returns fixture data
-    matching the frontend tools.json shape.
-    """
+    """Return the Aurora tool registry and current invocation counts."""
+    db = await _live_db()
     try:
-        data = _load_fixture("tools")
-        if data is None:
-            return []
-        return data
+        rows = await db.fetch_all(
+            """
+            SELECT
+                t.name,
+                t.description,
+                t.schema,
+                t.owner_agent,
+                t.requires_approval,
+                count(ta.audit_id)::integer AS invocation_count
+              FROM pellier.tools t
+              LEFT JOIN pellier.tool_audit ta ON ta.tool = t.name
+             WHERE t.enabled = true
+             GROUP BY
+                t.tool_id, t.name, t.description, t.schema,
+                t.owner_agent, t.requires_approval
+             ORDER BY t.name ASC
+            """
+        )
+        return [
+            {
+                "numeral": numeral,
+                "functionName": row["name"],
+                "description": row["description"],
+                "status": "shipped",
+                "mutationType": "write"
+                if bool(row.get("requires_approval"))
+                else "read",
+                "signature": str(
+                    (row.get("schema") or {}).get("title")
+                    or f"{row['name']}(...)"
+                ),
+                "usedBy": [row.get("owner_agent") or "Pellier"],
+                "invocationCount": int(row.get("invocation_count") or 0),
+                "version": "Aurora registry",
+            }
+            for numeral, raw in enumerate(rows, start=1)
+            for row in [dict(raw)]
+        ]
     except Exception as exc:
-        logger.error("Failed to load tools: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load tools")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to read Aurora tool registry")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["TOOL_REGISTRY_UNAVAILABLE"],
+        ) from exc
 
 
 @router.post("/tools/discover", response_model=ObservatoryToolDiscoverResponse)
 async def discover_tools_endpoint(payload: ObservatoryToolDiscoverRequest):
-    """Semantic tool discovery via pgvector.
-
-    Attempts to use the real database for live pgvector similarity
-    search. Falls back to fixture data when the database is unavailable.
-    """
+    """Semantic tool discovery via the live Aurora pgvector registry."""
     start = time.time()
-
-    # Try real pgvector discovery
     try:
-        from app import db_service
-        if db_service is not None:
-            from services.embeddings import EmbeddingService
-            from services.tool_registry import discover_tools
+        from services.embeddings import EmbeddingService
+        from services.tool_registry import discover_tools
 
-            emb_service = EmbeddingService()
-            query_embedding = emb_service.embed_query(payload.query)
-            result = await discover_tools(
-                db_service, query_embedding, limit=payload.limit
+        result = await discover_tools(
+            await _live_db(),
+            EmbeddingService().embed_query(payload.query),
+            limit=payload.limit,
+        )
+        results = [
+            ObservatoryToolDiscoverResult(
+                rank=index,
+                tool_id=row.get("tool_id", row.get("name", "")),
+                name=row.get("name", ""),
+                description=row.get("description", ""),
+                similarity=round(float(row.get("similarity", 0.0)), 4),
+                status="shipped",
             )
-
-            if result.get("rows"):
-                duration_ms = result.get("duration_ms", 0)
-                results = []
-                for i, row in enumerate(result["rows"], start=1):
-                    results.append(ObservatoryToolDiscoverResult(
-                        rank=i,
-                        tool_id=row.get("tool_id", row.get("name", "")),
-                        name=row.get("name", ""),
-                        description=row.get("description", ""),
-                        similarity=round(row.get("similarity", 0.0), 4),
-                        status=_tool_discovery_status(row.get("name", "")),
-                    ))
-                return ObservatoryToolDiscoverResponse(
-                    query=payload.query,
-                    results=results,
-                    duration_ms=duration_ms,
-                    sql=result.get("sql", ""),
-                    total_count=result.get("total_count", len(results)),
-                )
-    except Exception as exc:
-        logger.warning("Live tool discovery failed, falling back to fixture: %s", exc)
-
-    # Fallback: return fixture-based results
-    duration_ms = int((time.time() - start) * 1000)
-    tools_fixture = _load_fixture("tools")
-    if tools_fixture is None:
+            for index, row in enumerate(result.get("rows") or [], start=1)
+        ]
         return ObservatoryToolDiscoverResponse(
             query=payload.query,
-            results=[],
-            duration_ms=duration_ms,
-            sql="-- fixture fallback (no tools fixture found)",
-            total_count=0,
+            results=results,
+            duration_ms=int(
+                result.get("duration_ms") or ((time.time() - start) * 1000)
+            ),
+            sql=str(result.get("sql") or ""),
+            total_count=int(result.get("total_count") or len(results)),
         )
-
-    # Simulate discovery by returning tools sorted by relevance to query
-    # (simple keyword overlap heuristic for fixture mode)
-    query_lower = payload.query.lower()
-    scored: list[tuple[float, dict]] = []
-    for tool in tools_fixture:
-        name = tool.get("functionName", "")
-        desc = tool.get("description", "")
-        # Simple keyword overlap score
-        words = set(query_lower.split())
-        tool_words = set((name + " " + desc).lower().split())
-        overlap = len(words & tool_words)
-        score = 0.95 - (0.08 * (len(scored))) + (0.02 * overlap)
-        scored.append((min(score, 0.99), tool))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-    results = []
-    for i, (score, tool) in enumerate(scored[: payload.limit], start=1):
-        results.append(ObservatoryToolDiscoverResult(
-            rank=i,
-            tool_id=tool.get("functionName", ""),
-            name=tool.get("functionName", ""),
-            description=tool.get("description", ""),
-            similarity=round(score, 4),
-            status=tool.get("status", "shipped"),
-        ))
-
-    fixture_sql = (
-        "-- fixture fallback\n"
-        "WITH q AS (SELECT $1::vector AS emb)\n"
-        "SELECT tool_id, name, description,\n"
-        "       1 - (description_emb <=> (SELECT emb FROM q)) AS similarity\n"
-        "FROM pellier.tools WHERE enabled = true\n"
-        "ORDER BY description_emb <=> (SELECT emb FROM q)\n"
-        f"LIMIT {payload.limit}"
-    )
-
-    return ObservatoryToolDiscoverResponse(
-        query=payload.query,
-        results=results,
-        duration_ms=duration_ms,
-        sql=fixture_sql,
-        total_count=len(tools_fixture),
-    )
+    except Exception as exc:
+        logger.exception("Live tool discovery failed")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["TOOL_DISCOVERY_UNAVAILABLE"],
+        ) from exc
 
 
 @router.get("/routing")
 async def list_routing():
-    """Return 3 routing patterns with active indicator.
+    """Return the source-controlled paths in the running service."""
+    return [dict(path) for path in OBSERVATORY_COPY["ROUTING"]]
 
-    Returns fixture data matching the frontend routing.json shape.
-    """
+
+@router.get("/scenarios")
+async def list_live_scenarios(
+    persona: str = Query(default="fresh", min_length=1, max_length=64),
+):
+    """Return guided shopper requests and preview images from Aurora."""
+    db = await _live_db()
     try:
-        data = _load_fixture("routing")
-        if data is None:
-            return []
-        return data
+        rows = await db.fetch_all(
+            """
+            SELECT
+                ws.scenario_id AS id,
+                ws.ordinal,
+                ws.prompt,
+                pc.name AS product_name,
+                pc."imgUrl" AS image_url
+              FROM pellier.workshop_scenarios ws
+              LEFT JOIN pellier.product_catalog pc
+                ON pc."productId" = ws.preview_product_id
+             WHERE ws.persona_id = %s
+             ORDER BY ws.ordinal ASC
+            """,
+            persona,
+        )
+        return {
+            "persona": persona,
+            "scenarios": [
+                {
+                    "id": int(row["id"]),
+                    "ordinal": int(row["ordinal"]),
+                    "prompt": row["prompt"],
+                    "productName": row.get("product_name"),
+                    "imageUrl": row.get("image_url"),
+                }
+                for raw in rows
+                for row in [dict(raw)]
+            ],
+        }
     except Exception as exc:
-        logger.error("Failed to load routing patterns: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load routing patterns")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to read live scenarios for %s", persona)
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["SCENARIOS_UNAVAILABLE"],
+        ) from exc
 
 
 _PERSONA_TO_CUSTOMER_ID = {
@@ -1762,68 +1891,58 @@ async def get_memory(persona: str):
 
 @router.get("/performance")
 async def get_performance():
-    """Return performance metrics and benchmarks.
-
-    Returns fixture data matching the frontend performance.json shape.
-    """
+    """Return metrics calculated from the live Aurora evidence ledger."""
+    db = await _live_db()
     try:
-        data = _load_fixture("performance")
-        if data is None:
-            return {
-                "coldStartP50": 0,
-                "warmReuseP50": 0,
-                "sampleCount": 0,
-                "histogram": [],
-                "latencyBudget": [],
-                "pgvectorComparison": [],
-                "storageUsage": [],
-            }
-        return data
+        rows = await db.fetch_all(
+            """
+            SELECT tool, latency_ms
+              FROM pellier.tool_audit
+             WHERE latency_ms IS NOT NULL
+             ORDER BY created_at DESC
+             LIMIT 1000
+            """
+        )
+        latencies = [int(dict(row)["latency_ms"]) for row in rows]
+        sorted_latencies = sorted(latencies)
+        p50 = (
+            sorted_latencies[(len(sorted_latencies) - 1) // 2]
+            if sorted_latencies
+            else 0
+        )
+        return {
+            "coldStartP50": 0,
+            "warmReuseP50": p50,
+            "sampleCount": len(latencies),
+            "histogram": [],
+            "latencyBudget": [],
+            "pgvectorComparison": [],
+            "pgvectorTuning": [],
+            "searchStrategies": [],
+            "storageUsage": [],
+        }
     except Exception as exc:
-        logger.error("Failed to load performance data: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load performance data")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to calculate Aurora performance metrics")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["PERFORMANCE_UNAVAILABLE"],
+        ) from exc
 
 
 @router.get("/evaluations")
 async def get_evaluations():
-    """Return agent evaluation scorecards with explicit provenance.
-
-    Three states are distinguishable, and they are never interchangeable:
-
-    ``fixture``
-        Illustrative scorecards shipped with the repo. They describe no
-        run at all — they exist so the surface has shape before anything
-        has been evaluated.
-    ``local-gate``
-        The deterministic golden-set gate
-        (``tests/test_golden_journeys.py`` plus
-        ``scripts/eval_retrieval_harness.py``). Real current commit, real
-        thresholds, fixture/golden input.
-    ``managed``
-        A real AgentCore batch evaluation over recorded sessions, scored
-        by the deployed Runtime and correlated to CloudWatch traces.
-
-    A scorecard styled the same way in all three states invites an
-    attendee to read fixture illustrations as measured results, which is
-    the confusion this envelope prevents.
-    """
+    """Expose only evaluation runs that are actually configured or recorded."""
     try:
         from services import agentcore_evals
 
-        data = _load_fixture("evaluations")
         managed = agentcore_evals.describe_configuration()
         return {
-            "provenance": "managed" if managed["configured"] else "fixture",
+            "provenance": "managed" if managed["configured"] else "unavailable",
             "states": {
-                "fixture": {
-                    "label": "Fixture / reference",
-                    "available": data is not None,
-                    "describes": "illustrative only — no run",
-                },
                 "localGate": {
                     "label": "Local deterministic gate",
                     "available": True,
-                    "describes": "real current commit, golden input",
+                    "describes": "current source validation; not a managed evaluation run",
                     "sources": [
                         "tests/test_golden_journeys.py",
                         "scripts/eval_retrieval_harness.py",
@@ -1841,66 +1960,55 @@ async def get_evaluations():
                     "configuration": managed,
                 },
             },
-            "scorecards": data if data is not None else [],
+            "scorecards": [],
         }
     except Exception as exc:
-        logger.error("Failed to load evaluations: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load evaluations")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to inspect evaluation configuration")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["EVALUATION_UNAVAILABLE"],
+        ) from exc
 
 
 @router.get("/architecture")
 async def get_architecture():
-    """Return the architecture diagram payload for the Observatory Understand surface."""
-    try:
-        data = _load_fixture("architecture")
-        if data is None:
-            return {}
-        return data
-    except Exception as exc:
-        logger.error("Failed to load architecture: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load architecture")  # copy-allow: observatory-error-detail
+    """Return source-controlled architecture facts, never measured results."""
+    return [dict(layer) for layer in OBSERVATORY_COPY["ARCHITECTURE"]]
 
 
 @router.get("/build-state")
 async def get_build_state():
-    """Shipped vs exercise for agents and tools (fixtures + live lab overlay).
-
-    Loads ``agents.json`` / ``tools.json`` then overlays live workshop
-    state from source files. Inventory Agent is shipped once its definition
-    scaffold is completed; ``check_inventory`` is shipped once the tool body
-    no longer returns the starter stub.
-
-    Shape matches ``BuildStateApiResponse`` in the frontend ``useBuildState`` hook.
-    """
+    """Return current source/registry state without a reference fixture."""
     try:
-        agents = _load_fixture("agents") or []
-        tools = _load_fixture("tools") or []
-        agent_map: dict[str, str] = {}
-        tool_map: dict[str, str] = {}
-        for agent in agents:
-            name = agent.get("name")
-            status = agent.get("status")
-            if isinstance(name, str) and isinstance(status, str):
-                agent_map[name] = status
-        for tool in tools:
-            fn = tool.get("functionName")
-            status = tool.get("status")
-            if isinstance(fn, str) and isinstance(status, str):
-                tool_map[fn] = status
-
-        if not _inventory_agent_definition_is_workshop_stub():
-            agent_map["Inventory Agent"] = "shipped"
-
-        if not _check_inventory_is_workshop_stub():
-            tool_map["check_inventory"] = "shipped"
-
-        return {"agents": agent_map, "tools": tool_map}
+        db = await _live_db()
+        tool_rows = await db.fetch_all(
+            "SELECT name FROM pellier.tools WHERE enabled = true ORDER BY name"
+        )
+        inventory = (
+            "exercise" if _inventory_agent_definition_is_workshop_stub() else "shipped"
+        )
+        check_inventory = (
+            "exercise" if _check_inventory_is_workshop_stub() else "shipped"
+        )
+        # The inventory exercise is source-defined rather than discovered from
+        # the optional Aurora tool catalog. That catalog describes additional
+        # registered tools; it must not erase the one tool a participant is
+        # editing and proving in Lab 1.
+        agent_map = {"Inventory Agent": inventory}
+        tool_map = {dict(row)["name"]: "shipped" for row in tool_rows}
+        tool_map["check_inventory"] = check_inventory
+        return {
+            "agents": agent_map,
+            "tools": tool_map,
+        }
     except Exception as exc:
-        logger.error("Failed to build build-state: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to load build state")  # copy-allow: observatory-error-detail
+        logger.exception("Failed to build live build-state")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["BUILD_STATE_UNAVAILABLE"],
+        ) from exc
 
 
-@router.get("/readiness")
 async def get_workshop_readiness():
     """Return cheap readiness checks for the live workshop pillars.
 
@@ -1922,7 +2030,7 @@ async def get_proof_board(
         default=None,
         description="Session id for the latest managed Runtime receipt",
     ),
-    operator: dict[str, Any] = Depends(require_operator),
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
 ):
     """Return required-path proof cards plus terminal fallbacks.
 
@@ -1934,7 +2042,8 @@ async def get_proof_board(
     """
     try:
         return await _collect_proof_board(
-            session_id=session_id, principal_sub=operator["sub"]
+            session_id=session_id,
+            principal_sub=str((user or {}).get("sub") or ""),
         )
     except Exception as exc:
         logger.error("Failed to build proof-board payload: %s", exc)
@@ -1980,7 +2089,7 @@ async def route_skills_endpoint(payload: ObservatorySkillRouteRequest):
 
 
 @router.get("/policies")
-async def get_cedar_policies(operator: dict[str, Any] = Depends(require_operator)):
+async def get_cedar_policies():
     """Return the Cedar policies attached to the managed AgentCore Policy
     engine (Gateway-enforced, ENFORCE mode). Used by the Observatory's
     Write-path surface to show "policy is code, code is enforcement".
@@ -2019,7 +2128,7 @@ async def get_cedar_policies(operator: dict[str, Any] = Depends(require_operator
 @router.get("/executions")
 async def list_governed_executions(
     limit: int = Query(default=20, ge=1, le=50),
-    operator: dict[str, Any] = Depends(require_operator),
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
 ):
     """Governed operator executions this principal performed, newest first.
 
@@ -2030,13 +2139,14 @@ async def list_governed_executions(
     """
     try:
         from app import db_service
-        if db_service is None:
+        principal_sub = str((user or {}).get("sub") or "")
+        if db_service is None or not principal_sub:
             return {"count": 0, "executions": []}
 
         from services.governed_execution import list_executions
 
         rows = await list_executions(
-            db_service, principal_sub=operator["sub"], limit=limit
+            db_service, principal_sub=principal_sub, limit=limit
         )
         return {"count": len(rows), "executions": rows}
     except Exception as exc:
@@ -2048,7 +2158,7 @@ async def list_governed_executions(
 async def get_operator_lineage(
     customer_id: str = PathParam(..., min_length=1, max_length=64),
     review_id: int | None = Query(default=None, ge=1),
-    operator: dict[str, Any] = Depends(require_operator),
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
 ):
     """Reconstruct the live storefront-to-operator loop for one client.
 
@@ -2145,11 +2255,12 @@ async def get_operator_lineage(
         )
 
     execution = None
-    if receipt:
+    principal_sub = str((user or {}).get("sub") or "")
+    if receipt and principal_sub:
         execution = await governed_execution.reconstruct_execution(
             db_service,
             review_id=review_id,
-            principal_sub=str(operator["sub"]),
+            principal_sub=principal_sub,
         )
 
     return {
@@ -2166,7 +2277,7 @@ async def get_operator_lineage(
 @router.get("/executions/{review_id}")
 async def reconstruct_governed_execution(
     review_id: int = PathParam(..., ge=1),
-    operator: dict[str, Any] = Depends(require_operator),
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
 ):
     """One governed execution, reconstructed layer by layer from durable artifacts.
 
@@ -2180,11 +2291,18 @@ async def reconstruct_governed_execution(
         from app import db_service
         if db_service is None:
             raise HTTPException(status_code=503, detail="database_unavailable")
+        principal_sub = str((user or {}).get("sub") or "")
+        if not principal_sub:
+            return {
+                "review_id": review_id,
+                "status": "sign_in_required",
+                "execution": None,
+            }
 
         from services.governed_execution import reconstruct_execution
 
         story = await reconstruct_execution(
-            db_service, review_id=review_id, principal_sub=operator["sub"]
+            db_service, review_id=review_id, principal_sub=principal_sub
         )
     except HTTPException:
         raise
@@ -2203,7 +2321,7 @@ async def reconstruct_governed_execution(
 @router.get("/tool-audit/recent")
 async def get_recent_tool_audit(
     limit: int = Query(default=10, ge=1, le=50),
-    operator: dict[str, Any] = Depends(require_operator),
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
 ):
     """Return the most recent rows from pellier.tool_audit, in reverse
     chronological order. Used by the Write-path surface to demonstrate
@@ -2216,13 +2334,14 @@ async def get_recent_tool_audit(
     """
     try:
         from app import db_service
-        if db_service is None:
+        principal_sub = str((user or {}).get("sub") or "")
+        if db_service is None or not principal_sub:
             return {"count": 0, "rows": []}
 
         from services.governed_turn_receipt import get_visible_tool_audit
 
         normalized = await get_visible_tool_audit(
-            db_service, principal_sub=operator["sub"], limit=limit
+            db_service, principal_sub=principal_sub, limit=limit
         )
         return {"count": len(normalized), "rows": normalized}
     except Exception as exc:

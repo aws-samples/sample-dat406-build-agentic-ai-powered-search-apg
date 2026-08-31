@@ -11,12 +11,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUTPUT_JSON="${PELLIER_AGENTCORE_OUTPUT:-/tmp/pellier-agentcore-managed.json}"
 
+# Do not execute generated dotenv values as shell. The provisioner already
+# treats its fallback dotenv input as data; this wrapper must offer the same
+# guarantee before it checks required inputs.
+# shellcheck source=../lib/dotenv.sh
+source "$REPO_ROOT/scripts/lib/dotenv.sh"
+
 for env_file in "$REPO_ROOT/.provision.env" "$REPO_ROOT/.env"; do
   if [[ -f "$env_file" ]]; then
-    set -a
-    # shellcheck source=/dev/null
-    source "$env_file"
-    set +a
+    pellier_load_dotenv "$env_file"
   fi
 done
 

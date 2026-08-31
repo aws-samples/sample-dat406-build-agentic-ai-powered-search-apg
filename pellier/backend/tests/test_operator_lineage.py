@@ -20,7 +20,7 @@ def _client(monkeypatch: Any) -> TestClient:
     monkeypatch.setattr(app_module, "db_service", object())
     fast = FastAPI()
     fast.include_router(observatory.router)
-    fast.dependency_overrides[observatory.require_operator] = lambda: {
+    fast.dependency_overrides[observatory.get_current_user] = lambda: {
         "sub": "operator-sub",
         "username": "operator",
     }
@@ -36,7 +36,7 @@ def test_operator_lineage_route_has_the_operator_boundary() -> None:
     )
 
     assert any(
-        dependency.call is observatory.require_operator
+        dependency.call is observatory.get_current_user
         for dependency in route.dependant.dependencies
     )
 

@@ -10,11 +10,10 @@
  * storefront renders the canonical unranked ordering, so the guest action
  * takes a shopper to that floor rather than pretending to tailor it.
  */
+import { useEffect, useState } from 'react'
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { usePersona } from '../contexts/PersonaContext'
-import { LOCAL_PERSONAS } from '../data/personas'
+import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
 import { getPersonaPortrait } from '../data/personaPhotos'
-import { becauseChipsForPersona } from '../data/personaCurations'
 import { HERO_CONCIERGE } from '../copy'
 
 interface PersonaConciergeProps {
@@ -22,20 +21,24 @@ interface PersonaConciergeProps {
   onContinueAsGuest: () => void
 }
 
-type ProfileId = keyof typeof HERO_CONCIERGE.PROFILES
-
-function profileNote(id: string): string {
-  return HERO_CONCIERGE.PROFILES[id as ProfileId] ?? ''
-}
-
 export default function PersonaConcierge({
   onContinueAsGuest,
 }: PersonaConciergeProps) {
-  const { persona, switchPersona, switching } = usePersona()
+  const { persona, switchPersona, switching, switchError } = usePersona()
+  const [profiles, setProfiles] = useState<PersonaListItem[]>([])
+  const [error, setError] = useState<string | null>(null)
 
-  // The seed line is the same signal the hero used to print under the
-  // search bar: it names why the floor looks the way it does.
-  const profileSignal = becauseChipsForPersona(persona?.id)[0]?.text
+  useEffect(() => {
+    void fetch('/api/observatory/personas')
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Live personas unavailable: ${response.status}`)
+        return response.json() as Promise<PersonaListItem[]>
+      })
+      .then((items) => setProfiles(items.filter((item) => item.id !== 'fresh')))
+      .catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : 'Live personas unavailable.'),
+      )
+  }, [])
 
   return (
     <aside
@@ -50,7 +53,7 @@ export default function PersonaConcierge({
       </div>
 
       <ul className="pellier-concierge-profiles">
-        {LOCAL_PERSONAS.map((profile) => {
+        {profiles.map((profile) => {
           const isActive = persona?.id === profile.id
           const portrait = getPersonaPortrait(profile.id)
           return (
@@ -86,7 +89,7 @@ export default function PersonaConcierge({
                   {profile.display_name}
                 </span>
                 <span className="pellier-profile-note">
-                  {profileNote(profile.id)}
+                  {profile.blurb}
                 </span>
                 {/* Active profile is stated, not only tinted. */}
                 {isActive ? (
@@ -97,19 +100,16 @@ export default function PersonaConcierge({
           )
         })}
       </ul>
+      {error || switchError ? (
+        <p className="pellier-concierge-seed" role="alert">
+          {error ?? switchError}
+        </p>
+      ) : null}
 
       {persona ? (
         <p className="pellier-concierge-seed" data-testid="concierge-seed">
-          {profileSignal ? (
-            <>
-              <strong>Because</strong> {profileSignal}.
-            </>
-          ) : (
-            <>
-              <strong>{persona.display_name}</strong> is shopping. Select
-              another profile to reshape the floor.
-            </>
-          )}
+          <strong>{persona.display_name}</strong> is shopping from an
+          Aurora-backed client profile.
         </p>
       ) : (
         <button

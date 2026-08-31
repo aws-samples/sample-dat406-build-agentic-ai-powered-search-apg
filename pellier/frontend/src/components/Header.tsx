@@ -24,7 +24,6 @@ import { useUI } from '../contexts/UIContext'
 import { NAV } from '../copy'
 import { Avatar } from '../design/primitives'
 import { getPersonaPhoto } from '../data/personaPhotos'
-import { LOCAL_PERSONAS } from '../data/personas'
 import { MEMBERSHIP } from '../data/membership'
 import { IconButton } from '../design/primitives'
 import { ConciergeBell,
@@ -209,6 +208,7 @@ function PersonaDropdown() {
   const [open, setOpen] = useState(false)
   const [personas, setPersonas] = useState<PersonaListItem[]>([])
   const [fetched, setFetched] = useState(false)
+  const [personaError, setPersonaError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const reduceMotion = Boolean(useReducedMotion())
 
@@ -216,17 +216,21 @@ function PersonaDropdown() {
   useEffect(() => {
     if (!open || fetched) return
     fetch('/api/observatory/personas')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Live personas unavailable: ${r.status}`)
+        return r.json()
+      })
       .then((data) => {
         const list = Array.isArray(data) ? data : []
         // Remove Fresh — signed-out state IS the baseline.
         // Only show Marco, Anna, Theo as selectable personas.
         const withoutFresh = list.filter((p: { id: string }) => p.id !== 'fresh')
-        setPersonas(withoutFresh.length > 0 ? withoutFresh : [...LOCAL_PERSONAS])
+        setPersonas(withoutFresh)
         setFetched(true)
       })
-      .catch(() => {
-        setPersonas([...LOCAL_PERSONAS])
+      .catch((error: unknown) => {
+        setPersonas([])
+        setPersonaError(error instanceof Error ? error.message : 'Live personas unavailable.')
         setFetched(true)
       })
   }, [open, fetched])
@@ -406,7 +410,10 @@ function PersonaDropdown() {
                 Loading personas…
               </div>
             )}
-            {personas.map((p) => {
+          {personaError ? (
+            <p className="px-4 py-3 text-sm text-ink-quiet">{personaError}</p>
+          ) : null}
+          {personas.map((p) => {
               const isActive = persona?.id === p.id
               return (
                 <button

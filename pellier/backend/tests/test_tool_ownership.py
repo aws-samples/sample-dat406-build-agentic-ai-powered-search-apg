@@ -49,7 +49,7 @@ AGENTS_DIR = BACKEND / "agents"
 UNBOUND_BY_DECISION: Dict[str, str] = {
     "issue_credit": (
         "Operator-only, and deferred for this workshop iteration. Its caller is the "
-        "operator desk route POST /api/operator/actions/issue-credit, not a specialist: "
+        "confirmed-review execution path, not a specialist: "
         "Cedar forbids the action for shopper principals precisely so a shopper-facing "
         "agent cannot move money, and binding it to one would put the capability back "
         "inside the conversation it was removed from. It is also absent from the "
@@ -163,7 +163,7 @@ def test_agent_wrapper_tools_all_exist() -> None:
 # The classification itself, asserted from every place that states it.
 #
 # `query_business_records` is category INTERNAL / NON-PUBLISHED. That is not a new
-# decision made here: the README says it, `GATEWAY_TOOL_NAMES` omits it,
+# decision made here: the README says it, `LOCAL_MCP_TOOL_NAMES` omits it,
 # `gateway_tool_schemas` never declares it, no surface Lambda serves it, and
 # `test_managed_gateway_tool_contract` pins in-process == CANONICAL | IN_PROCESS_ONLY.
 # What was missing was agreement between the documentation and the binding: the README
@@ -190,9 +190,9 @@ def test_the_internal_tool_is_absent_from_every_publication_path() -> None:
     backend = str(BACKEND)
     if backend not in sys.path:
         sys.path.insert(0, backend)
-    from services.agentcore_gateway import GATEWAY_TOOL_NAMES
+    from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES
 
-    assert INTERNAL_ONLY_TOOL not in set(GATEWAY_TOOL_NAMES)
+    assert INTERNAL_ONLY_TOOL not in set(LOCAL_MCP_TOOL_NAMES)
 
     served = ""
     for surface in sorted((REPO / "scripts" / "deploy").glob("pellier_*_server.py")):

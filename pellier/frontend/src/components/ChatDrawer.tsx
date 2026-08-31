@@ -26,8 +26,6 @@ import {
   ArrowUp,
   LoaderCircle,
   MessageCircle,
-  Mic,
-  MicOff,
   Trash2,
   X,
 } from 'lucide-react'
@@ -39,7 +37,6 @@ import {
   useAgentChat,
   type AgentChatMessage,
 } from '../hooks/useAgentChat'
-import { useVoiceSearch } from '../hooks/useVoiceSearch'
 import PellierChatBody from './PellierChatBody'
 import PellierWelcome from './PellierWelcome'
 import '../styles/chat-drawer.css'
@@ -88,7 +85,6 @@ export default function ChatDrawer() {
 
   const isOpen = activeModal === 'drawer'
   const [isMac, setIsMac] = useState(false)
-  const [voiceError, setVoiceError] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
 
@@ -142,19 +138,6 @@ export default function ChatDrawer() {
     initialMessages,
     persistKey: 'pellier-drawer-storefront',
     sessionId: currentSessionId,
-  })
-
-  const { isListening, startListening, stopListening } = useVoiceSearch({
-    onInterimTranscript: (text) => {
-      setInputValue(text)
-      setVoiceError(null)
-    },
-    onFinalTranscript: (text) => {
-      setInputValue(text)
-      setVoiceError(null)
-      inputRef.current?.focus()
-    },
-    onError: (message) => setVoiceError(message),
   })
 
   // Clear the conversation when the persona changes so the new
@@ -261,29 +244,13 @@ export default function ChatDrawer() {
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey && !isLoading && !isListening) {
+      if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
         e.preventDefault()
         sendMessage()
       }
     },
-    [isLoading, isListening, sendMessage],
+    [isLoading, sendMessage],
   )
-
-  const handleVoiceClick = useCallback(() => {
-    if (isLoading) return
-    if (isListening) {
-      stopListening()
-      return
-    }
-    setVoiceError(null)
-    startListening()
-  }, [isLoading, isListening, startListening, stopListening])
-
-  useEffect(() => {
-    if (!isOpen && isListening) {
-      stopListening()
-    }
-  }, [isOpen, isListening, stopListening])
 
   const hasUserMessages = messages.some(m => m.role === 'user')
   const keycap = isMac ? '⌘K' : 'Ctrl+K'
@@ -407,9 +374,7 @@ export default function ChatDrawer() {
                   onChange={e => setInputValue(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder={
-                    isListening
-                      ? 'Listening with Amazon Transcribe...'
-                      : hasUserMessages
+                    hasUserMessages
                       ? 'Continue the conversation…'
                       : "Tell Pellier what you're looking for…"
                   }
@@ -417,19 +382,8 @@ export default function ChatDrawer() {
                 />
                 <button
                   type="button"
-                  className={`cd-voice ${isListening ? 'is-listening' : ''}`}
-                  disabled={isLoading}
-                  aria-label={isListening ? 'Stop listening' : 'Use microphone'}
-                  aria-pressed={isListening}
-                  onClick={handleVoiceClick}
-                  title={isListening ? 'Stop listening' : 'Use microphone'}
-                >
-                  {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                </button>
-                <button
-                  type="button"
                   className="cd-send"
-                  disabled={!inputValue.trim() || isLoading || isListening}
+                  disabled={!inputValue.trim() || isLoading}
                   aria-label={isLoading ? 'Pellier is responding' : 'Ask Pellier'}
                   title={isLoading ? 'Pellier is responding' : 'Ask Pellier'}
                   data-loading={isLoading}
@@ -444,11 +398,7 @@ export default function ChatDrawer() {
               </div>
               <div className="cd-foot-meta">
                 <span>
-                  {voiceError
-                    ? voiceError
-                    : isListening
-                      ? 'Listening with Amazon Transcribe'
-                      : `Esc to close · ${keycap} to focus`}
+                  {`Esc to close · ${keycap} to focus`}
                 </span>
                 <span>Conversation persists this session</span>
               </div>

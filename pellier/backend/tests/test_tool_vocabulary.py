@@ -194,9 +194,9 @@ def test_gateway_publishes_the_canonical_names() -> None:
     backend = REPO / "pellier" / "backend"
     if str(backend) not in sys.path:
         sys.path.insert(0, str(backend))
-    from services.agentcore_gateway import GATEWAY_TOOL_NAMES
+    from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES
 
-    published = set(GATEWAY_TOOL_NAMES)
+    published = set(LOCAL_MCP_TOOL_NAMES)
     # query_business_records is deliberately in-process only.
     expected = set(CANONICAL_TOOLS) - {"query_business_records"}
 

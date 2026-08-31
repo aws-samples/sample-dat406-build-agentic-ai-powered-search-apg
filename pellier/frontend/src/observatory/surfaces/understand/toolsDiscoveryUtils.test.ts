@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tool } from '../../types';
 import {
-  discoverToolsLocally,
   discoveryQueryForTool,
   filterTools,
 } from './toolsDiscoveryUtils';
@@ -37,14 +36,6 @@ describe('toolsDiscoveryUtils', () => {
     expect(filterTools(sampleTools, 'exercise')).toHaveLength(1);
     expect(filterTools(sampleTools, 'write')).toHaveLength(1);
     expect(filterTools(sampleTools, 'read')).toHaveLength(1);
-  });
-
-  it('ranks tools locally for catalog search queries', () => {
-    const results = discoverToolsLocally(
-      'find products matching customer preferences',
-      sampleTools,
-    );
-    expect(results[0]?.name).toBe('search_products');
   });
 
   it('builds preset discovery queries per tool', () => {

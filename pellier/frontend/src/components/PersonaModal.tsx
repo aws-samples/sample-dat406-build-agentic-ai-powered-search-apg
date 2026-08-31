@@ -15,7 +15,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
 import { getPersonaPhoto } from '../data/personaPhotos'
-import { LOCAL_PERSONAS } from '../data/personas'
 import '../styles/persona-modal.css'
 
 interface PersonaModalProps {
@@ -30,6 +29,7 @@ const PERSONA_MODAL_EASE: [number, number, number, number] = [
 export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   const { persona, switchPersona, signOut, switching } = usePersona()
   const [personas, setPersonas] = useState<PersonaListItem[]>([])
+  const [error, setError] = useState<string | null>(null)
   const reduceMotion = Boolean(useReducedMotion())
   const cardInitial = reduceMotion
     ? { opacity: 0 }
@@ -45,13 +45,18 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   useEffect(() => {
     if (!open || personas.length > 0) return
     fetch('/api/observatory/personas')
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Live personas unavailable: ${r.status}`)
+        return r.json()
+      })
       .then((data) => {
         const list = Array.isArray(data) ? data : []
         const withoutFresh = list.filter((p: { id: string }) => p.id !== 'fresh')
-        setPersonas(withoutFresh.length > 0 ? withoutFresh : [...LOCAL_PERSONAS])
+        setPersonas(withoutFresh)
       })
-      .catch(() => setPersonas([...LOCAL_PERSONAS]))
+      .catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : 'Live personas unavailable.'),
+      )
   }, [open, personas.length])
 
   // Escape key closes the modal
@@ -130,6 +135,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
 
         {/* List */}
         <div className="pm-list">
+          {error ? <p className="pm-sub">{error}</p> : null}
           {personas.map((p) => {
             const isActive = persona?.id === p.id
             const isFresh = p.id === 'fresh'

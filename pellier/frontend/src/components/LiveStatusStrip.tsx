@@ -23,9 +23,10 @@ import {
 // Kept as exported constants so any future consumer that wants to
 // re-introduce the live-signal fetch has the same contract to hit.
 export interface InventorySignal {
-  last_refreshed: string
+  last_refreshed: string | null
   counts: Record<string, number>
-  stale: boolean
+  stale: boolean | null
+  freshness: 'current' | 'stale' | 'unavailable'
 }
 export const INVENTORY_ENDPOINT = '/api/inventory'
 

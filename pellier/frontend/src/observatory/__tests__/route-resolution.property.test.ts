@@ -46,7 +46,6 @@ const observatoryRoutes: RouteObject[] = [
       { path: 'evaluations', element: true as unknown as React.ReactNode },
       { path: 'production-patterns', element: true as unknown as React.ReactNode },
       { path: 'observatory', element: true as unknown as React.ReactNode },
-      { path: 'persona-journeys', element: true as unknown as React.ReactNode },
       { path: 'settings', element: true as unknown as React.ReactNode },
     ],
   },
@@ -100,7 +99,6 @@ const observatoryPathArb: fc.Arbitrary<string> = fc.oneof(
   fc.constant('/observatory/evaluations'),
   fc.constant('/observatory/production-patterns'),
   fc.constant('/observatory/observatory'),
-  fc.constant('/observatory/persona-journeys'),
   fc.constant('/observatory/settings'),
 
   // Parameterized: sessions/:id

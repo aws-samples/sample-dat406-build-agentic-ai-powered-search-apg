@@ -115,8 +115,8 @@ provisioning runs, so it is forensic provenance and not authority.
 
 | resource | created by | updated by | destroyed by | declared in | drift check |
 |---|---|---|---|---|---|
-| AgentCore Runtime | `agentcore deploy`, lands in CFN stack `AgentCore-pellier-default` | the same CLI | the CLI / stack delete | `render_agentcore_project.py` `runtimes[]` | `/api/observatory/readiness`, `agentcore` state |
-| AgentCore Memory | same stack, same CLI | the same CLI | the CLI / stack delete | `memories[]`, `USER_PREFERENCE` only | readiness; runtime DATA cleaned by `reset_memory_runtime.py`, which never touches the resource |
+| AgentCore Runtime | `agentcore deploy`, lands in CFN stack `AgentCore-pellier-default` | the same CLI | the CLI / stack delete | `render_agentcore_project.py` `runtimes[]` | `scripts/health-gate.sh`, AgentCore state |
+| AgentCore Memory | same stack, same CLI | the same CLI | the CLI / stack delete | `memories[]`, `USER_PREFERENCE` only | `scripts/health-gate.sh`; runtime DATA cleaned by `reset_memory_runtime.py`, which never touches the resource |
 | Gateway | fresh: the CLI project. Audited account: direct control-plane API, in **no** stack | fresh: CLI. Audited: `update_gateway`, and only for policy mode | never deleted by any script here | `agentCoreGateways[]` | `describe_workshop_publication.py` vs live discovery |
 | Gateway targets | as Gateway | `update_gateway_target`, in place | never deleted and recreated | inline `toolSchema` from `gateway_tool_schemas.py` | `provision_agentcore_end_to_end.py` asserts live discovery == expected |
 | Policy engine | as Gateway | never replaced: `add policy-engine` creates rather than adopts, so a project-declared engine would be a *second* engine | never | `policyEngines[]` | `policy_mode.py` (read-only with no flags) |
@@ -179,7 +179,6 @@ than the answer.
 ## Proof endpoints
 
     GET  /api/observatory/build-state          {"agents": {...}, "tools": {...}} -> "shipped"|"exercise"
-    GET  /api/observatory/readiness            10 checks; status ready|attention|not_ready
     GET  /api/observatory/executions[/{id}]    execution reconstruction, principal-scoped
     GET  /api/observatory/proof-board          the assembled proof view
     POST /api/observatory/tools/discover       Aurora semantic tool-registry search

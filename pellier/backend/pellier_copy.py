@@ -397,6 +397,11 @@ ERRORS = {
     "SEARCH_FALLBACK_LOADING": "Pellier is thinking...",
 }
 
+STOREFRONT_COPY = {
+    "CATALOG_STATS_UNAVAILABLE": "Aurora catalog statistics could not be read.",
+    "CATALOG_STATS_EMPTY": "Aurora returned no catalog statistics.",
+}
+
 # Machine codes used in SSE envelopes. These are NOT user-facing strings but
 # are colocated for grep-ability when wiring the error table in later tasks.
 ERROR_CODES = {

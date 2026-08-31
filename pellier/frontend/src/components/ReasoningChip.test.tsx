@@ -37,7 +37,7 @@ import type { ReasoningChip as ReasoningChipModel } from '../services/types'
 function renderGrid() {
   return render(
     <MemoryRouter>
-      <ProductGrid />
+      <ProductGrid products={SHOWCASE_PRODUCTS} />
     </MemoryRouter>,
   )
 }

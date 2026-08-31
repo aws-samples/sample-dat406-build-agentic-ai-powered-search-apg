@@ -86,7 +86,7 @@ def _run_async(coro: Any) -> Any:
         future = asyncio.run_coroutine_threadsafe(coro, _main_loop)
         return future.result(timeout=5.0)
     except Exception as exc:
-        logger.debug("tool_audit _run_async: %s", exc)
+        logger.warning("tool_audit _run_async: %s", exc)
         return None
 
 
@@ -109,8 +109,8 @@ def record_allow(
     ``latency_ms`` start NULL and get UPDATEd in AfterToolCallEvent
     (record_after).
 
-    If the INSERT fails, we log at DEBUG and move on — audit is
-    decoration; the tool call must still proceed.
+    If the INSERT fails, we log a warning and move on — audit is
+    evidence, but the tool call must still proceed.
     """
     if _db_service is None:
         return
@@ -135,7 +135,7 @@ def record_allow(
             )
         )
     except Exception as exc:
-        logger.debug("tool_audit INSERT failed: %s", exc)
+        logger.warning("tool_audit INSERT failed: %s", exc)
         return
     if not row:
         return
@@ -202,7 +202,7 @@ def record_after(
             _db_service.execute_query(sql, result_str, int(latency_ms), audit_id)
         )
     except Exception as exc:
-        logger.debug("tool_audit UPDATE failed: %s", exc)
+        logger.warning("tool_audit UPDATE failed: %s", exc)
 
 
 # -----------------------------------------------------------------
@@ -277,4 +277,4 @@ def record_operator_mutation(
             )
         )
     except Exception as exc:
-        logger.debug("operator tool_audit INSERT failed: %s", exc)
+        logger.warning("operator tool_audit INSERT failed: %s", exc)

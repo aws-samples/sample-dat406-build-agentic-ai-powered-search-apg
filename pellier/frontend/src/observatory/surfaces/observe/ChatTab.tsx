@@ -13,8 +13,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { ContextRail, ExpCard, Eyebrow, StatusDot } from '../../components';
 import { resolveProductImageUrl } from '../../../utils/resolveProductImageUrl';
-import { searchCatalog } from '../../services/catalogSearch';
-import { SHOWCASE_PRODUCTS } from '../../../data/showcaseProducts';
 import type { SessionOutletContext } from './SessionView';
 import type {
   ChatTurn,
@@ -80,26 +78,12 @@ function highlightSQL(sql: string): React.ReactNode[] {
  * Persona strip
  * ======================================================================= */
 
-// Per-persona strip metadata. Labels track the PersonaJourneys blurbs and
-// order counts mirror personas-config.json stats.orders (marco 7, anna 5,
-// theo 4) so the replay strip never asserts Marco's profile for another
-// persona's session.
-const PERSONA_STRIP_META: Record<string, { label: string; orders: number }> = {
-  marco: { label: 'Returning customer', orders: 7 },
-  anna: { label: 'Gift-giver', orders: 5 },
-  theo: { label: 'Slow-craft buyer', orders: 4 },
-};
-
 const PersonaStrip: React.FC<{
   personaId: string;
   openingQuery: string;
-}> = ({ personaId }) => {
-  // Derive persona display info from the session's personaId
+}> = ({ personaId, openingQuery }) => {
+  // This strip is intentionally limited to durable Aurora session fields.
   const name = personaId.charAt(0).toUpperCase() + personaId.slice(1);
-  const meta = PERSONA_STRIP_META[personaId.toLowerCase()] ?? {
-    label: 'Customer',
-    orders: 0,
-  };
 
   return (
     <div
@@ -151,7 +135,21 @@ const PersonaStrip: React.FC<{
             marginTop: '2px',
           }}
         >
-          {meta.label} · {meta.orders} prior order{meta.orders === 1 ? '' : 's'} · CUST-{personaId.toUpperCase()}
+          Aurora-recorded shopper session · CUST-{personaId.toUpperCase()}
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--obs-sans)',
+            fontSize: '14px',
+            color: 'var(--obs-ink-2)',
+            marginTop: '5px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={openingQuery}
+        >
+          {openingQuery}
         </div>
       </div>
     </div>
@@ -740,219 +738,6 @@ const ChatTurnDisplay: React.FC<{ turn: ChatTurn; sessionId: string }> = ({
 };
 
 /* =======================================================================
- * Follow-up hints + live catalog search
- * ======================================================================= */
-
-export function followUpHintsForSession(session: SessionDetail): string[] {
-  const q = session.openingQuery.toLowerCase();
-  const persona = session.personaId.toLowerCase();
-  const contextual: string[] = [];
-
-  if (q.includes('overshirt') || q.includes('pair')) {
-    contextual.push('Cheapest piece that goes with the overshirt');
-  }
-  if (q.includes('linen') || persona === 'marco') {
-    contextual.push('Three linen pieces under $150');
-  }
-  if (q.includes('warehouse') || q.includes('brooklyn')) {
-    contextual.push('What is in stock at Brooklyn right now?');
-  }
-  if (persona === 'anna') {
-    contextual.push('Gift-ready home accents under $80');
-  }
-  if (persona === 'theo') {
-    contextual.push('Ceramic tabletop in warm neutrals');
-  }
-
-  const generic = [
-    'What ships fastest from Brooklyn?',
-    'One more option under $100',
-    'Close substitute if my size is gone',
-  ];
-
-  return Array.from(new Set([...contextual, ...generic])).slice(0, 5);
-}
-
-const COUNT_WORDS: Record<string, number> = {
-  one: 1,
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-};
-
-interface FollowUpConstraints {
-  limit: number;
-  maxPrice?: number;
-  requiredTerms: string[];
-  preferredTerms: string[];
-  sortBy?: 'price-asc';
-  brooklynInventory?: boolean;
-}
-
-interface FollowUpProductCandidate {
-  id: number;
-  brand: string;
-  name: string;
-  price: number;
-  imageUrl: string;
-  category?: string;
-  tags?: string[];
-}
-
-function contextTermsForSession(session: SessionDetail): string[] {
-  const terms: string[] = [];
-  const opening = session.openingQuery.toLowerCase();
-
-  if (session.personaId === 'marco' || opening.includes('linen')) terms.push('linen');
-  if (session.personaId === 'anna') terms.push('gift');
-  if (session.personaId === 'theo') terms.push('home');
-
-  return terms;
-}
-
-export function parseFollowUpConstraints(
-  query: string,
-  session?: SessionDetail,
-): FollowUpConstraints {
-  const lower = query.toLowerCase();
-  const explicitCount = lower.match(/\b([1-9]|one|two|three|four|five|six)\b/);
-  const maxPrice = lower.match(/\b(?:under|below|less than|max(?:imum)?|up to)\s*\$?(\d{2,4})\b/);
-  const requiredTerms: string[] = [];
-  const preferredTerms: string[] = [];
-
-  if (lower.includes('linen')) requiredTerms.push('linen');
-  if (lower.includes('ceramic') || lower.includes('tabletop')) requiredTerms.push('ceramic');
-  if (lower.includes('home accent') || lower.includes('home accents')) requiredTerms.push('home');
-  if (lower.includes('gift')) preferredTerms.push('gift');
-
-  if (
-    (lower.includes('substitute') || lower.includes('size is gone') || lower.includes('brooklyn') || lower.includes('stock') || lower.includes('ships fastest')) &&
-    session
-  ) {
-    requiredTerms.push(...contextTermsForSession(session));
-  }
-
-  const parsedLimit = explicitCount
-    ? Number.isNaN(Number(explicitCount[1]))
-      ? COUNT_WORDS[explicitCount[1]] ?? 6
-      : Number(explicitCount[1])
-    : 6;
-  const limit = lower.includes('cheapest')
-    ? 1
-    : lower.includes('brooklyn') || lower.includes('ships fastest')
-    ? Math.min(parsedLimit, 3)
-    : parsedLimit;
-
-  return {
-    limit,
-    maxPrice: maxPrice ? Number(maxPrice[1]) : undefined,
-    requiredTerms: Array.from(new Set(requiredTerms)),
-    preferredTerms: Array.from(new Set(preferredTerms)),
-    sortBy: lower.includes('cheapest') ? 'price-asc' : undefined,
-    brooklynInventory: lower.includes('brooklyn') || lower.includes('ships fastest') || lower.includes('stock'),
-  };
-}
-
-export function productMatchesConstraints(
-  product: { name: string; category?: string; price: number; tags?: string[] },
-  constraints: FollowUpConstraints,
-): boolean {
-  if (constraints.maxPrice !== undefined && product.price >= constraints.maxPrice) {
-    return false;
-  }
-
-  const searchableText = `${product.name} ${product.category ?? ''} ${(product.tags ?? []).join(' ')}`.toLowerCase();
-  return constraints.requiredTerms.every((term) => searchableText.includes(term));
-}
-
-function fallbackCatalogProducts(): FollowUpProductCandidate[] {
-  return SHOWCASE_PRODUCTS.map((product) => ({
-    id: product.id,
-    brand: product.brand,
-    name: product.name,
-    price: product.price,
-    imageUrl: product.imageUrl,
-    category: product.category,
-    tags: product.tags,
-  }));
-}
-
-export function selectFollowUpProducts(
-  products: FollowUpProductCandidate[],
-  constraints: FollowUpConstraints,
-): FollowUpProductCandidate[] {
-  const seen = new Set<number>();
-  const merged = [...products, ...fallbackCatalogProducts()]
-    .filter((product) => {
-      if (seen.has(product.id)) return false;
-      seen.add(product.id);
-      return productMatchesConstraints(product, constraints);
-    });
-
-  if (constraints.preferredTerms.length > 0) {
-    merged.sort((a, b) => {
-      const score = (product: FollowUpProductCandidate) => {
-        const text = `${product.name} ${product.category ?? ''} ${(product.tags ?? []).join(' ')}`.toLowerCase();
-        return constraints.preferredTerms.filter((term) => text.includes(term)).length;
-      };
-      return score(b) - score(a);
-    });
-  }
-
-  if (constraints.sortBy === 'price-asc') {
-    merged.sort((a, b) => a.price - b.price);
-  }
-
-  return merged.slice(0, constraints.limit);
-}
-
-export function buildFollowUpSql(query: string, constraints: FollowUpConstraints): string {
-  const tableAlias = constraints.brooklynInventory ? 'p.' : '';
-  const whereClauses = [`${tableAlias}"imgUrl" IS NOT NULL`];
-
-  for (const term of constraints.requiredTerms) {
-    whereClauses.push(`(${tableAlias}name ILIKE '%${term}%' OR ${tableAlias}category ILIKE '%${term}%' OR ${tableAlias}tags::text ILIKE '%${term}%')`);
-  }
-
-  if (constraints.maxPrice !== undefined) {
-    whereClauses.push(`${tableAlias}price < ${constraints.maxPrice}`);
-  }
-
-  if (constraints.brooklynInventory) {
-    return [
-      'WITH query_embedding AS (SELECT $1::vector AS emb)',
-      'SELECT p.name, p.brand, p.price, wi.quantity, w.display_name, w.ship_window_min, w.ship_window_max,',
-      '       1 - (p.embedding <=> (SELECT emb FROM query_embedding)) AS similarity',
-      'FROM pellier.product_catalog p',
-      'JOIN pellier.warehouse_inventory wi ON wi.product_id = p."productId"',
-      'JOIN pellier.warehouses w ON w.id = wi.warehouse_id',
-      `WHERE ${whereClauses.join('\n  AND ')}`,
-      "  AND w.id = 'BK-01'",
-      '  AND wi.quantity > 0',
-      'ORDER BY w.ship_window_min ASC, p.embedding <=> (SELECT emb FROM query_embedding)',
-      `LIMIT ${constraints.limit}`,
-      `-- query: ${query}`,
-    ].join('\n');
-  }
-
-  return [
-    'WITH query_embedding AS (SELECT $1::vector AS emb)',
-    'SELECT name, brand, price, 1 - (embedding <=> (SELECT emb FROM query_embedding)) AS similarity',
-    'FROM pellier.product_catalog',
-    `WHERE ${whereClauses.join('\n  AND ')}`,
-    'ORDER BY embedding <=> (SELECT emb FROM query_embedding)',
-    `LIMIT ${constraints.limit}`,
-    `-- query: ${query}`,
-  ].join('\n');
-}
-
-function isoTimestamp(): string {
-  return new Date().toISOString();
-}
-
-/* =======================================================================
  * Synced replay timeline (chat column + trace rail)
  * ======================================================================= */
 
@@ -1064,175 +849,33 @@ const ReplayEntryDisplay: React.FC<{ entry: ReplayEntry; sessionId: string }> = 
 };
 
 /* =======================================================================
- * Composer bar — live POST /api/search + suggestion pills
+ * Evidence-only replay guidance and empty state
  * ======================================================================= */
 
-const ComposerBar: React.FC<{
-  suggestions: string[];
-  onSend: (text: string) => Promise<void>;
-  busy: boolean;
-  locked: boolean;
-  error: string | null;
-}> = ({ suggestions, onSend, busy, locked, error }) => {
-  const [draft, setDraft] = useState('');
-
-  const submit = async () => {
-    const t = draft.trim();
-    if (!t || busy || locked) return;
-    setDraft('');
-    await onSend(t);
-  };
-
-  const disabled = busy || locked;
-
-  return (
-    <div style={{ marginTop: '24px' }}>
-      {suggestions.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            marginBottom: '12px',
-          }}
-        >
-          {suggestions.map((hint) => (
-            <button
-              key={hint}
-              type="button"
-              disabled={disabled}
-              onClick={() => void onSend(hint)}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '999px',
-                border: '1px solid var(--obs-rule-2)',
-                background: 'var(--obs-cream-elev)',
-                fontFamily: 'var(--obs-sans)',
-                fontSize: '14px',
-                color: 'var(--obs-ink-2)',
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                opacity: disabled ? 0.55 : 1,
-              }}
-            >
-              {hint}
-            </button>
-          ))}
-        </div>
-      )}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '12px 16px',
-          background: 'var(--obs-cream-elev)',
-          border: '1px solid var(--obs-rule-2)',
-          borderRadius: '12px',
-        }}
-      >
-        <span style={{ fontSize: '17px', color: 'var(--obs-red-1)', flexShrink: 0 }}>
-          ✦
-        </span>
-        <input
-          type="text"
-          value={draft}
-          disabled={disabled}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          placeholder="Ask a follow-up question…"
-          aria-label="Follow-up question"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: 'none',
-            background: 'transparent',
-            fontFamily: 'var(--obs-sans)',
-            fontSize: '15px',
-            color: 'var(--obs-ink-1)',
-            outline: 'none',
-          }}
-        />
-        <span
-          style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: '12px',
-            color: 'var(--obs-ink-2)',
-            padding: '2px 6px',
-            border: '1px solid var(--obs-rule-2)',
-            borderRadius: '4px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          ↵
-        </span>
-        <button
-          type="button"
-          disabled={disabled || !draft.trim()}
-          onClick={() => void submit()}
-          aria-label="Send message"
-          style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'var(--obs-ink-1)',
-            color: 'var(--obs-cream-1)',
-            cursor: disabled || !draft.trim() ? 'not-allowed' : 'pointer',
-            opacity: disabled || !draft.trim() ? 0.4 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '15px',
-            flexShrink: 0,
-          }}
-        >
-          ↑
-        </button>
-      </div>
-      {error && (
-        <p
-          style={{
-            margin: '10px 0 0',
-            fontFamily: 'var(--obs-mono)',
-            fontSize: '12px',
-            color: 'var(--obs-red-1)',
-            lineHeight: 1.45,
-          }}
-        >
-          {error}
-        </p>
-      )}
-      <p
-        style={{
-          margin: '8px 0 0',
-          fontFamily: 'var(--obs-mono)',
-          fontSize: '11px',
-          color: 'var(--obs-ink-4)',
-          letterSpacing: '0.04em',
-        }}
-      >
-        Follow-ups POST to /api/search (pgvector). Backend :8000 proxied by Vite.
-      </p>
-    </div>
-  );
-};
-
-/* =======================================================================
- * Empty state with suggested queries
- * ======================================================================= */
+const ReplayOnlyNotice: React.FC = () => (
+  <aside
+    style={{
+      marginTop: '24px',
+      padding: '14px 16px',
+      border: '1px solid var(--obs-rule-2)',
+      borderRadius: '10px',
+      background: 'var(--obs-cream-2)',
+      color: 'var(--obs-ink-2)',
+      fontFamily: 'var(--obs-sans)',
+      fontSize: '14px',
+      lineHeight: 1.55,
+    }}
+  >
+    This is a durable Aurora replay. Run a new request in the{' '}
+    <Link to="/observatory" style={{ color: 'var(--obs-burgundy)' }}>
+      Live Workbench
+    </Link>{' '}
+    or storefront to create fresh evidence.
+  </aside>
+);
 
 const EmptyState: React.FC = () => {
-  const suggestions = [
-    'A linen shirt for warm evenings out',
-    'What goes well with the pour-over set?',
-    'Compare the camp shirt and the overshirt',
-    'Something beautiful under $100 for a gift',
-  ];
+  const suggestions: string[] = [];
 
   return (
     <div
@@ -1255,7 +898,7 @@ const EmptyState: React.FC = () => {
           marginBottom: '20px',
         }}
       >
-        Try asking
+        No recorded conversation
       </p>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
         {suggestions.map((s) => (
@@ -1722,13 +1365,10 @@ const SkillsCard: React.FC<{ session: SessionDetail }> = ({ session }) => {
 
 const ChatTab: React.FC = () => {
   const { session } = useOutletContext<SessionOutletContext>();
-  const fixtureTurns = session.chat ?? [];
-  const [liveTurns, setLiveTurns] = useState<ChatTurn[]>([]);
-  const [replyBusy, setReplyBusy] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
+  const recordedTurns = session.chat ?? [];
 
-  const timeline = useMemo(() => buildReplayTimeline(fixtureTurns), [fixtureTurns]);
-  const traceSteps = useMemo(() => collectLiveTraceSteps(fixtureTurns), [fixtureTurns]);
+  const timeline = useMemo(() => buildReplayTimeline(recordedTurns), [recordedTurns]);
+  const traceSteps = useMemo(() => collectLiveTraceSteps(recordedTurns), [recordedTurns]);
   const [replayVisible, setReplayVisible] = useState(0);
   const [replayDone, setReplayDone] = useState(false);
 
@@ -1760,79 +1400,7 @@ const ChatTab: React.FC = () => {
   const visibleTraceCount = traceVisibleCountFromReplay(replayVisible, timeline);
   const traceEmphasizeLatest = !replayDone && timeline.length > 0;
 
-  const displayTurns = useMemo(
-    () => [...fixtureTurns, ...liveTurns],
-    [fixtureTurns, liveTurns],
-  );
-
-  const hintPills = useMemo(() => followUpHintsForSession(session), [session]);
-
-  const composerLocked = !replayDone && timeline.length > 0;
-
-  const handleFollowUp = async (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed || replyBusy || composerLocked) return;
-    setReplyError(null);
-    setReplyBusy(true);
-    try {
-      const constraints = parseFollowUpConstraints(trimmed, session);
-      const retrievalLimit = Math.max(12, constraints.limit * 4);
-      const data = await searchCatalog(trimmed, retrievalLimit);
-      const constrainedProducts = selectFollowUpProducts(data.products, constraints);
-      const ts = isoTimestamp();
-      const userTurn: ChatTurn = {
-        role: 'user',
-        content: trimmed,
-        timestamp: ts,
-      };
-      const cards: ProductCard[] = constrainedProducts.map((p) => ({
-        brand: p.brand,
-        name: p.name,
-        price: Math.round(p.price),
-        imageUrl:
-          p.imageUrl?.startsWith('http') || p.imageUrl?.startsWith('/')
-            ? p.imageUrl
-            : `/${p.imageUrl || ''}`,
-        traceRef: `product:${p.id}`,
-      }));
-      const toolSql = buildFollowUpSql(trimmed, constraints);
-      const priceText = constraints.maxPrice !== undefined
-        ? ` under $${constraints.maxPrice}`
-        : '';
-      const termText = constraints.requiredTerms.length > 0
-        ? ` matching ${constraints.requiredTerms.join(', ')}`
-        : '';
-      const inventoryText = constraints.brooklynInventory ? ' available from Brooklyn' : '';
-
-      const assistantTurn: ChatTurn = {
-        role: 'assistant',
-        content: `Pulled ${cards.length} filtered row${cards.length === 1 ? '' : 's'}${termText}${priceText}${inventoryText} from pellier.product_catalog (${data.searchMs}ms vector search · ${data.queryEmbeddingMs}ms embed).`,
-        timestamp: ts,
-        plan: {
-          routingPattern: 'Search',
-          stepCount: 1,
-          flowSummary: 'Storefront POST /api/search → pgvector',
-        },
-        toolCalls: [
-          {
-            toolName: 'search_products',
-            description: `Semantic search: ${trimmed.length > 140 ? `${trimmed.slice(0, 137)}…` : trimmed}`,
-            durationMs: data.searchMs,
-            sql: toolSql,
-            resultSummary: `${cards.length} products after deterministic filters from ${data.products.length} retrieved candidates.`,
-          },
-        ],
-        products: cards,
-      };
-      setLiveTurns((prev) => [...prev, userTurn, assistantTurn]);
-    } catch (err) {
-      setReplyError(err instanceof Error ? err.message : 'Search failed');
-    } finally {
-      setReplyBusy(false);
-    }
-  };
-
-  const hasFixtureMessages = fixtureTurns.length > 0;
+  const hasRecordedMessages = recordedTurns.length > 0;
 
   return (
     <div
@@ -1849,11 +1417,11 @@ const ChatTab: React.FC = () => {
           openingQuery={session.openingQuery}
         />
 
-        {hasFixtureMessages ? (
+        {hasRecordedMessages ? (
           replayDone ? (
             <div>
-              {fixtureTurns.map((turn, i) => (
-                <ChatTurnDisplay key={`fixture-${i}`} turn={turn} sessionId={session.id} />
+              {recordedTurns.map((turn, i) => (
+                <ChatTurnDisplay key={`recorded-${i}`} turn={turn} sessionId={session.id} />
               ))}
             </div>
           ) : (
@@ -1867,21 +1435,7 @@ const ChatTab: React.FC = () => {
           <EmptyState />
         )}
 
-        {liveTurns.length > 0 && (
-          <div>
-            {liveTurns.map((turn, i) => (
-              <ChatTurnDisplay key={`live-${i}`} turn={turn} sessionId={session.id} />
-            ))}
-          </div>
-        )}
-
-        <ComposerBar
-          suggestions={hintPills}
-          onSend={handleFollowUp}
-          busy={replyBusy}
-          locked={composerLocked}
-          error={replyError}
-        />
+        <ReplayOnlyNotice />
       </div>
 
       <ContextRail>
@@ -1892,7 +1446,7 @@ const ChatTab: React.FC = () => {
           }
           emphasizeLatest={traceEmphasizeLatest}
         />
-        <MemoryCard turns={displayTurns} />
+        <MemoryCard turns={recordedTurns} />
         <AgentsCard />
         <SkillsCard session={session} />
       </ContextRail>

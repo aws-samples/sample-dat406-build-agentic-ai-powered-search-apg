@@ -17,22 +17,95 @@
  * truth for the strings on this page; the scanner in copy.test.ts
  * keeps forbidden words out.
  */
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CommandPill from '../components/CommandPill'
 import Footer from '../components/Footer'
 import Header, { type NavItem } from '../components/Header'
 import ProductGrid from '../components/ProductGrid'
 import { useAuth } from '../contexts/AuthContext'
+import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
 import {
+  DISCOVER_PAGE_CATALOG_LOADING,
+  DISCOVER_PAGE_CATALOG_UNAVAILABLE,
   DISCOVER_PAGE_COMING_SOON,
   DISCOVER_PAGE_SIGNED_OUT,
   SIGN_IN_STRIP,
 } from '../copy'
+import type { PellierProduct } from '../services/types'
 import ComingSoonLine from './ComingSoonLine'
 import { cssVar as c } from '../design/cssVars'
 
 const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
+
+function DiscoverCatalog() {
+  const { persona } = usePersona()
+  const [products, setProducts] = useState<PellierProduct[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>(
+    'loading',
+  )
+
+  useEffect(() => {
+    let active = true
+    const controller = new AbortController()
+    const profile = persona?.id ?? 'fresh'
+    setProducts([])
+    setStatus('loading')
+
+    void fetch(`/api/products?persona=${encodeURIComponent(profile)}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error(String(response.status))
+        return response.json() as Promise<PellierProduct[]>
+      })
+      .then(catalog => {
+        if (!active || !Array.isArray(catalog) || catalog.length === 0) {
+          if (active) setStatus('unavailable')
+          return
+        }
+        setProducts(catalog)
+        setStatus('ready')
+      })
+      .catch((error: unknown) => {
+        if (!active || (error as { name?: string })?.name === 'AbortError') {
+          return
+        }
+        setStatus('unavailable')
+      })
+
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [persona?.id])
+
+  if (status === 'ready') return <ProductGrid products={products} />
+
+  return (
+    <section
+      aria-live="polite"
+      className="flex min-h-72 items-center justify-center bg-cream-50 px-container-x py-12 text-center"
+      data-testid={
+        status === 'loading'
+          ? 'discover-catalog-loading'
+          : 'discover-catalog-unavailable'
+      }
+    >
+      <p
+        className="font-sans text-sm text-ink-soft"
+        data-testid="discover-catalog-message"
+      >
+        {status === 'loading'
+          ? DISCOVER_PAGE_CATALOG_LOADING
+          : DISCOVER_PAGE_CATALOG_UNAVAILABLE}
+      </p>
+    </section>
+  )
+}
+
 /** Centered sign-in CTA rendered when the visitor is signed out. */
 function DiscoverSigninPrompt() {
   const { login } = useAuth()
@@ -156,7 +229,7 @@ export default function DiscoverPage() {
       <main>
         {isAuthenticated ? (
           <>
-            <ProductGrid />
+            <DiscoverCatalog />
             <ComingSoonLine
               copy={DISCOVER_PAGE_COMING_SOON}
               testId="discover-coming-soon"

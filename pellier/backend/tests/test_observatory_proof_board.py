@@ -11,9 +11,9 @@ from routes import observatory
 from routes.observatory import router as observatory_router
 
 
-def test_fixture_loader_rejects_path_traversal() -> None:
-    assert observatory._load_fixture("../personas-config") is None
-    assert observatory._load_fixture("tools/../../personas-config") is None
+def test_observatory_has_no_fixture_loader() -> None:
+    """Participant surfaces must fail visibly rather than read local fixtures."""
+    assert not hasattr(observatory, "_load_fixture")
 
 
 class _ProofDB:
@@ -176,10 +176,15 @@ def _client(stub_db: _ProofDB) -> TestClient:
     app_module.db_service = stub_db  # type: ignore[attr-defined]
     fast = FastAPI()
     fast.include_router(observatory_router)
-    fast.dependency_overrides[observatory.require_operator] = lambda: {
+    fast.dependency_overrides[observatory.get_current_user] = lambda: {
         "sub": "CUST-MARCO",
         "access_token": "jwt",
     }
+
+    @fast.get("/api/observatory/readiness")
+    async def _readiness_probe() -> dict[str, Any]:
+        return await observatory._collect_readiness()
+
     return TestClient(fast)
 
 
@@ -365,7 +370,7 @@ def test_proof_board_fallbacks_use_the_authenticated_storefront_stream(
         assert '"conversation_history":[]' in command
 
 
-def test_proof_board_requires_a_verified_identity() -> None:
+def test_proof_board_is_available_without_a_principal_specific_receipt() -> None:
     import app as app_module
 
     app_module.db_service = _ProofDB()  # type: ignore[attr-defined]
@@ -373,7 +378,8 @@ def test_proof_board_requires_a_verified_identity() -> None:
     fast.include_router(observatory_router)
     response = TestClient(fast).get("/api/observatory/proof-board")
 
-    assert response.status_code == 401
+    assert response.status_code == 200
+    assert response.json()["managedReceipt"]["present"] is False
 
 
 def test_proof_board_joins_evidence_to_the_verified_principal(monkeypatch) -> None:
@@ -523,6 +529,11 @@ def test_readiness_missing_database_is_not_ready(monkeypatch) -> None:
     app_module.db_service = None  # type: ignore[attr-defined]
     fast = FastAPI()
     fast.include_router(observatory_router)
+
+    @fast.get("/api/observatory/readiness")
+    async def _readiness_probe() -> dict[str, Any]:
+        return await observatory._collect_readiness()
+
     client = TestClient(fast)
 
     r = client.get("/api/observatory/readiness")

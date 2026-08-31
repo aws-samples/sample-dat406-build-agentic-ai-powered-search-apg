@@ -9,7 +9,6 @@ function normalizeBasePath(raw: string | undefined): string {
 }
 
 const workshopBase = normalizeBasePath(process.env.VITE_BASE_PATH)
-const transcribeWsProxyPrefix = workshopBase ? `${workshopBase}/ws` : '/ws'
 const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8000'
 
 // Configuration for AWS Workshop Studio with CloudFront + VSCode Server
@@ -52,7 +51,7 @@ export default defineConfig({
       allow: ['..', '../..', '../../..', '../../../..'],
     },
 
-    // API + Transcribe WebSocket proxy (Workshop Studio: browser cannot open :8000)
+    // API proxy (Workshop Studio: browser cannot open :8000).
     proxy: {
       '/api': {
         target: backendTarget,
@@ -61,12 +60,6 @@ export default defineConfig({
         // proxied Host to :8002 made the canonical redirect point back at
         // Vite forever instead of continuing to Cognito.
         changeOrigin: false,
-      },
-      [transcribeWsProxyPrefix]: {
-        target: backendTarget,
-        changeOrigin: true,
-        ws: true,
-        rewrite: (path) => '/ws' + path.slice(transcribeWsProxyPrefix.length),
       },
     },
   },

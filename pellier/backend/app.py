@@ -57,11 +57,6 @@ from routes import (
     workshop_router,
     operator_router,
 )
-from routes.transcribe import (
-    TRANSCRIBE_REGION,
-    router as transcribe_router,
-    transcribe_runtime_status,
-)
 
 # Configure logging for Strands SDK
 logging.basicConfig(
@@ -106,35 +101,6 @@ def _float_env(name: str, default: float) -> float:
         return float(os.environ.get(name, str(default)))
     except (TypeError, ValueError):
         return default
-
-
-SMOKE_THINKING_DELAY_SECONDS = max(
-    0.0,
-    _float_env("PELLIER_SMOKE_THINKING_DELAY_SECONDS", 0.35),
-)
-SMOKE_CHUNK_DELAY_SECONDS = max(
-    0.0,
-    _float_env("PELLIER_SMOKE_CHUNK_DELAY_SECONDS", 0.045),
-)
-
-
-def _editorial_stream_chunks(content: str, target_words: int = 3) -> List[str]:
-    """Split controlled smoke copy into exact, readable streaming phrases."""
-    words = re.findall(r"\S+\s*", content)
-    chunks: List[str] = []
-    phrase: List[str] = []
-
-    for word in words:
-        phrase.append(word)
-        punctuation_break = word.rstrip().endswith((",", ".", ";", ":", "?", "!"))
-        if len(phrase) >= target_words or (len(phrase) >= 2 and punctuation_break):
-            chunks.append("".join(phrase))
-            phrase = []
-
-    if phrase:
-        chunks.append("".join(phrase))
-
-    return chunks
 
 
 SEARCH_STRATEGY_COST_PER_1000_USD = {
@@ -226,16 +192,6 @@ async def lifespan(app: FastAPI):
     
     global db_service, embedding_service, chat_service, query_logger, index_performance_service
 
-    if settings.PELLIER_SMOKE_MODE:
-        logger.info(
-            "PELLIER_SMOKE_MODE enabled — skipping Aurora, Bedrock, "
-            "Strands, and AgentCore service initialization"
-        )
-        yield
-        logger.info("Shutting down Pellier API smoke process...")
-        logger.info("👋 Goodbye!")
-        return
-    
     try:
         # Initialize Strands OpenTelemetry tracing
         try:
@@ -401,19 +357,6 @@ async def lifespan(app: FastAPI):
         # with the skills loader's "✅ Loaded N skills..." line.
         _log_agent_and_tool_inventory()
 
-        voice_status = transcribe_runtime_status()
-        if voice_status["sdk_available"]:
-            logger.info(
-                "✅ Voice WebSocket mounted at /ws/transcribe (Amazon Transcribe Streaming, region=%s, python=%s)",
-                TRANSCRIBE_REGION,
-                voice_status["python"],
-            )
-        else:
-            logger.warning(
-                "⚠️ Voice WebSocket mounted at /ws/transcribe but amazon-transcribe is not installed for python=%s",
-                voice_status["python"],
-            )
-
         logger.info("🚀 Pellier API is ready!")
         
     except Exception as e:
@@ -491,7 +434,6 @@ app.include_router(observatory_router)
 app.include_router(storefront_router)
 app.include_router(operator_router)
 app.include_router(commerce_router)
-app.include_router(transcribe_router)
 
 
 # Dependency injection
@@ -609,15 +551,6 @@ async def health_check():
     Health check endpoint
     Returns status of all services
     """
-    if settings.PELLIER_SMOKE_MODE:
-        return HealthResponse(
-            status="healthy",
-            database="smoke",
-            bedrock="smoke",
-            custom_tools="available",
-            version="1.0.0",
-        )
-
     if not db_service:
         raise HTTPException(
             status_code=503,
@@ -814,7 +747,6 @@ async def get_price_stats(
         raise HTTPException(status_code=500, detail="internal_error")
 
 
-@app.post("/api/tools/restock")
 async def restock_inventory_endpoint(
     request: RestockRequest,
     operator: Dict[str, Any] = Depends(require_operator),
@@ -1070,96 +1002,6 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
     via an asyncio.Queue bridge, instead of waiting for the full chain to finish.
     """
     from fastapi.responses import StreamingResponse
-
-    if settings.PELLIER_SMOKE_MODE:
-        async def smoke_event_generator():
-            content = (
-                "I'm Pellier. For ten days in Goa, I would start with the "
-                "Italian Linen Camp Shirt, Linen Drawstring Trousers, Linen "
-                "Overshirt, and a cotton-linen tee, then rotate the lighter "
-                "layers around dinners, travel days, and the beach."
-            )
-            if request.message.strip().lower() in {"hi", "hello", "hey"}:
-                content = (
-                    "I'm Pellier, your boutique concierge. I can help you "
-                    "search linen, compare pieces, and keep the edit grounded."
-                )
-
-            routing = {
-                "type": "skill_routing",
-                "routing": {
-                    "loaded_skills": ["the-packing-list"],
-                    "considered": [
-                        {
-                            "name": "the-packing-list",
-                            "reason": "Smoke-mode wardrobe query routing.",
-                        }
-                    ],
-                    "elapsed_ms": 1,
-                    "user_message": request.message,
-                },
-            }
-            complete = {
-                "type": "complete",
-                "response": {
-                    "response": content,
-                    "products": [],
-                    "suggestions": [
-                        "Compare the linen layers",
-                        "Show lighter travel pieces",
-                        "Build a 10-day packing list",
-                    ],
-                    "agent_execution": {
-                        "agent_steps": [],
-                        "tool_calls": [],
-                        "reasoning_steps": [],
-                        "total_duration_ms": 1,
-                        "success_rate": 1.0,
-                    },
-                    "token_count": 0,
-                    "estimated_cost_usd": 0,
-                },
-            }
-
-            # Smoke mode still mints a turn id: it is the mode that runs on
-            # stage, and a receipt link that works everywhere except the demo
-            # is not a working receipt link.
-            smoke_turn_id = new_turn_id()
-            yield (
-                "data: "
-                + json.dumps(
-                    {
-                        "type": "turn_start",
-                        "turn_id": smoke_turn_id,
-                        "session_id": request.session_id,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n\n"
-            )
-            complete["response"]["turn_id"] = smoke_turn_id
-            if request.session_id:
-                complete["response"]["session_id"] = request.session_id
-            yield f"data: {json.dumps(routing, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(SMOKE_THINKING_DELAY_SECONDS)
-            for chunk in _editorial_stream_chunks(content):
-                yield (
-                    "data: "
-                    f"{json.dumps({'type': 'content_delta', 'delta': chunk}, ensure_ascii=False)}"
-                    "\n\n"
-                )
-                await asyncio.sleep(SMOKE_CHUNK_DELAY_SECONDS)
-            yield f"data: {json.dumps(complete, ensure_ascii=False)}\n\n"
-
-        return StreamingResponse(
-            smoke_event_generator(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            },
-        )
 
     if not chat_service:
         raise HTTPException(status_code=503, detail="Chat service not initialized")
@@ -1740,7 +1582,6 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
     )
 
 
-@app.get("/api/autocomplete")
 async def autocomplete(
     q: str = Query(..., min_length=2),
     limit: int = Query(default=5, ge=1, le=10),
@@ -1777,7 +1618,6 @@ async def autocomplete(
 # SQL QUERY INSPECTOR ENDPOINTS
 # ============================================================================
 
-@app.get("/api/queries/recent")
 async def get_recent_queries(limit: int = Query(default=10, ge=1, le=50)):
     """
     Get recent SQL queries with performance metrics
@@ -1799,7 +1639,6 @@ async def get_recent_queries(limit: int = Query(default=10, ge=1, le=50)):
         raise HTTPException(status_code=500, detail="internal_error")
 
 
-@app.post("/api/queries/clear")
 async def clear_query_logs():
     """Clear all query logs"""
     try:
@@ -1815,7 +1654,6 @@ async def clear_query_logs():
 # INDEX PERFORMANCE ENDPOINTS
 # ============================================================================
 
-@app.post("/api/performance/compare")
 async def compare_index_performance(
     request: PerfCompareRequest,
     embeddings: EmbeddingService = Depends(get_embedding_service)
@@ -1856,7 +1694,6 @@ async def compare_index_performance(
         raise HTTPException(status_code=500, detail="internal_error")
 
 
-@app.get("/api/performance/runtime")
 async def performance_runtime(include_recent: bool = False):
     """Return rolling aggregates of chat turn latency breakdowns.
 
@@ -1896,7 +1733,6 @@ async def get_index_stats():
 # CONTEXT MANAGEMENT ENDPOINTS
 # ============================================================================
 
-@app.get("/api/context/stats")
 async def get_context_stats(session_id: Optional[str] = Query(default=None)):
     """
     Get context statistics for monitoring
@@ -1922,7 +1758,6 @@ async def get_context_stats(session_id: Optional[str] = Query(default=None)):
         raise HTTPException(status_code=500, detail="internal_error")
 
 
-@app.post("/api/context/clear")
 async def clear_context(session_id: str = Query(...)):
     """
     Clear context for a session
@@ -1952,7 +1787,6 @@ async def clear_context(session_id: str = Query(...)):
         raise HTTPException(status_code=500, detail="internal_error")
 
 
-@app.get("/api/context/prompts")
 async def list_prompts():
     """
     List all available prompt templates with versions and performance metrics
@@ -1983,7 +1817,6 @@ async def list_prompts():
 # QUANTIZATION COMPARISON ENDPOINT
 # ============================================================================
 
-@app.get("/api/performance/quantization")
 async def get_quantization_comparison():
     """Compare full-precision vs quantized (SQ/BQ) index sizes"""
     if not index_performance_service:
@@ -1991,7 +1824,6 @@ async def get_quantization_comparison():
     return await index_performance_service.get_quantization_comparison()
 
 
-@app.get("/api/performance/categories")
 async def get_filter_categories():
     """Get distinct categories for iterative scan demo dropdown"""
     if not index_performance_service:
@@ -2000,7 +1832,6 @@ async def get_filter_categories():
     return {"categories": categories}
 
 
-@app.post("/api/performance/iterative-scan")
 async def compare_iterative_scan(request: PerfIterativeScanRequest):
     """Compare filtered HNSW with and without iterative scan (pgvector 0.8.0+)"""
     if not index_performance_service:
@@ -2013,7 +1844,6 @@ async def compare_iterative_scan(request: PerfIterativeScanRequest):
     )
 
 
-@app.post("/api/performance/quantization-benchmark")
 async def quantization_benchmark(request: PerfQuantizationRequest):
     """Benchmark float32 vs halfvec vs binary quantization with live queries"""
     if not index_performance_service:
@@ -2704,59 +2534,91 @@ async def observatory_catalog():
 
 
 # ---------------------------------------------------------------------------
-# Persona endpoints — workshop affordance for switching curated identities.
-# Reads from docs/personas-config.json; no database table for persona defs.
+# Persona endpoints — Aurora is the only source of shopper identity data.
 # ---------------------------------------------------------------------------
 
-import pathlib as _pathlib
 
-_PERSONAS_CONFIG_PATH = _pathlib.Path(__file__).resolve().parent / "personas-config.json"
-_personas_cache: Optional[list] = None
+async def _persona_rows(*, persona_id: str | None = None) -> list[dict[str, Any]]:
+    """Load profile presentation plus current customer facts from Aurora."""
+    db = await get_db_service()
+    where = ""
+    params: tuple[Any, ...] = ()
+    if persona_id:
+        where = "WHERE pp.persona_id = %s"
+        params = (persona_id,)
+    rows = await db.fetch_all(
+        f"""
+        SELECT
+            pp.persona_id AS id,
+            pp.customer_id,
+            pp.display_name,
+            pp.role_tag,
+            pp.blurb,
+            pp.avatar_color,
+            pp.avatar_initial,
+            c.membership,
+            pp.hero_image,
+            pp.hero_alt,
+            pp.hero_subheadline,
+            pp.visit_count AS visits,
+            count(o.id)::integer AS orders,
+            CASE
+              WHEN pp.last_seen_at IS NULL THEN NULL
+              ELSE floor(extract(epoch FROM now() - pp.last_seen_at) / 86400)::integer
+            END AS last_seen_days
+          FROM pellier.persona_profiles pp
+          JOIN pellier.customers c
+            ON c.id = pp.customer_id
+          LEFT JOIN pellier.orders o ON o.customer_id = pp.customer_id
+          {where}
+         GROUP BY
+            pp.persona_id, pp.customer_id, pp.display_name, pp.role_tag,
+            pp.blurb, pp.avatar_color, pp.avatar_initial, c.membership,
+            pp.hero_image, pp.hero_alt, pp.hero_subheadline, pp.visit_count,
+            pp.last_seen_at
+         ORDER BY CASE pp.persona_id
+             WHEN 'fresh' THEN 0
+             WHEN 'marco' THEN 1
+             WHEN 'anna' THEN 2
+             WHEN 'theo' THEN 3
+             ELSE 99
+         END
+        """,
+        *params,
+    )
+    return [dict(row) for row in rows]
 
 
-def _load_personas() -> list:
-    """Load persona definitions from docs/personas-config.json. Cached."""
-    global _personas_cache
-    if _personas_cache is not None:
-        return _personas_cache
-    try:
-        raw = json.loads(_PERSONAS_CONFIG_PATH.read_text())
-        _personas_cache = raw.get("personas", [])
-    except Exception as e:
-        logger.warning(f"Failed to load personas config: {e}")
-        _personas_cache = []
-    return _personas_cache
-
-
-@app.get("/api/observatory/personas/reload")
-async def reload_personas():
-    """Dev helper — force re-read of personas-config.json."""
-    global _personas_cache
-    _personas_cache = None
-    return {"reloaded": True, "count": len(_load_personas())}
-
-
-# In-memory session → persona mapping. Lightweight — no DB table.
-# Keyed by session_id; value is the persona id string.
-_session_persona: dict[str, str] = {}
+def _persona_payload(row: dict[str, Any], *, include_customer_id: bool) -> dict[str, Any]:
+    """Project an Aurora profile onto the persona API contract."""
+    payload = {
+        "id": row["id"],
+        "display_name": row["display_name"],
+        "role_tag": row["role_tag"],
+        "blurb": row["blurb"],
+        "avatar_color": row["avatar_color"],
+        "avatar_initial": row["avatar_initial"],
+        "membership": row["membership"],
+        "hero_image": row["hero_image"],
+        "hero_alt": row["hero_alt"],
+        "hero_subheadline": row["hero_subheadline"],
+        "stats": {
+            "visits": int(row.get("visits") or 0),
+            "orders": int(row.get("orders") or 0),
+            "last_seen_days": row.get("last_seen_days"),
+        },
+    }
+    if include_customer_id:
+        payload["customer_id"] = row["customer_id"]
+    return payload
 
 
 @app.get("/api/observatory/personas")
 async def list_personas():
-    """Return the three persona definitions (without internal customer_ids)."""
-    personas = _load_personas()
+    """Return selectable shopper profiles from Aurora."""
     return [
-        {
-            "id": p["id"],
-            "display_name": p["display_name"],
-            "role_tag": p["role_tag"],
-            "blurb": p["blurb"],
-            "avatar_color": p["avatar_color"],
-            "avatar_initial": p["avatar_initial"],
-            "membership": p.get("membership", "registered"),
-            "stats": p["stats"],
-        }
-        for p in personas
+        _persona_payload(row, include_customer_id=False)
+        for row in await _persona_rows()
     ]
 
 
@@ -2770,57 +2632,64 @@ class PersonaSwitchRequest(_BaseModel):
 
 @app.post("/api/persona/switch")
 async def switch_persona(req: PersonaSwitchRequest):
-    """End the current session and start a new one under the given persona."""
-    personas = _load_personas()
-    persona = next((p for p in personas if p["id"] == req.persona_id), None)
-    if not persona:
+    """End the prior session and persist one new Aurora-backed persona session."""
+    rows = await _persona_rows(persona_id=req.persona_id)
+    if not rows:
         raise HTTPException(status_code=404, detail=f"Unknown persona: {req.persona_id}")
+    persona = rows[0]
 
     import uuid
     # AgentCore Memory requires session IDs ≥33 chars. Use the full
     # uuid4 hex (32 chars) plus the prefix to guarantee compliance.
     new_session_id = f"persona-{req.persona_id}-{uuid.uuid4().hex}"
 
-    # Track the mapping so /api/persona/current can resolve it.
-    _session_persona[new_session_id] = req.persona_id
+    db = await get_db_service()
+    if req.current_session_id:
+        await db.execute_query(
+            """
+            UPDATE pellier.shopper_sessions
+               SET ended_at = COALESCE(ended_at, now())
+             WHERE session_id = %s
+            """,
+            req.current_session_id,
+        )
+    await db.execute_query(
+        """
+        INSERT INTO pellier.shopper_sessions (session_id, persona_id, customer_id)
+        VALUES (%s, %s, %s)
+        """,
+        new_session_id,
+        persona["id"],
+        persona["customer_id"],
+    )
 
     return {
         "session_id": new_session_id,
-        "persona": {
-            "id": persona["id"],
-            "display_name": persona["display_name"],
-            "role_tag": persona["role_tag"],
-            "avatar_color": persona["avatar_color"],
-            "avatar_initial": persona["avatar_initial"],
-            "customer_id": persona["customer_id"],
-            "membership": persona.get("membership", "registered"),
-            "stats": persona["stats"],
-        },
+        "persona": _persona_payload(persona, include_customer_id=True),
     }
 
 
 @app.get("/api/persona/current")
 async def get_current_persona(session_id: Optional[str] = Query(default=None)):
     """Return the active persona for a session, or null."""
-    if not session_id or session_id not in _session_persona:
+    if not session_id:
         return {"persona": None}
-    persona_id = _session_persona[session_id]
-    personas = _load_personas()
-    persona = next((p for p in personas if p["id"] == persona_id), None)
-    if not persona:
+    db = await get_db_service()
+    session = await db.fetch_one(
+        """
+        SELECT persona_id
+          FROM pellier.shopper_sessions
+         WHERE session_id = %s
+           AND ended_at IS NULL
+        """,
+        session_id,
+    )
+    if not session:
         return {"persona": None}
-    return {
-        "persona": {
-            "id": persona["id"],
-            "display_name": persona["display_name"],
-            "role_tag": persona["role_tag"],
-            "avatar_color": persona["avatar_color"],
-            "avatar_initial": persona["avatar_initial"],
-            "customer_id": persona["customer_id"],
-            "membership": persona.get("membership", "registered"),
-            "stats": persona["stats"],
-        },
-    }
+    rows = await _persona_rows(persona_id=str(dict(session)["persona_id"]))
+    if not rows:
+        return {"persona": None}
+    return {"persona": _persona_payload(rows[0], include_customer_id=True)}
 
 
 # NOTE: the legacy /api/observatory/status endpoint (multi-module stub detection
@@ -2860,7 +2729,6 @@ async def get_cache_stats():
 # OPENTELEMETRY TRACING ENDPOINTS
 # ============================================================================
 
-@app.get("/api/traces/status")
 async def get_tracing_status():
     """Report only the in-process span capture this API can verify."""
     try:
@@ -2889,7 +2757,6 @@ async def get_tracing_status():
         return {"enabled": False, "error": "tracing_status_unavailable"}
 
 
-@app.get("/api/traces/waterfall")
 async def get_trace_waterfall(session_id: Optional[str] = Query(None)):
     """Get waterfall timing data from captured OTEL spans.
 
@@ -2917,7 +2784,6 @@ async def get_trace_waterfall(session_id: Optional[str] = Query(None)):
         }
 
 
-@app.get("/api/traces/info")
 async def get_tracing_info():
     """Describe the verified local trace path without inferring managed state."""
     from services import otel_trace_extractor
@@ -2957,7 +2823,6 @@ async def get_tracing_info():
 # GUARDRAILS ENDPOINT
 # ============================================================================
 
-@app.post("/api/guardrails/check")
 async def check_guardrails(request: Request):
     """Demo endpoint to test Bedrock Guardrails on input/output text.
 
@@ -3003,7 +2868,6 @@ async def check_guardrails(request: Request):
     }
 
 
-@app.get("/api/guardrails/decisions")
 async def guardrails_decisions(session_id: str = "", limit: int = 50):
     """Return recent guardrail outcomes for a session.
 
@@ -3026,31 +2890,9 @@ async def guardrails_decisions(session_id: str = "", limit: int = 50):
 
 
 # ============================================================================
-# CHAOS MODE (Error Handling & Resilience Demo)
-# ============================================================================
-
-_chaos_mode = False
-_chaos_fail_rate = 0.3  # 30% failure rate when chaos mode active
-
-@app.post("/api/dev/chaos")
-async def toggle_chaos_mode(request: Request):
-    """Toggle chaos mode for resilience testing"""
-    global _chaos_mode
-    body = await request.json()
-    _chaos_mode = body.get("enabled", not _chaos_mode)
-    return {"chaos_mode": _chaos_mode, "fail_rate": _chaos_fail_rate}
-
-@app.get("/api/dev/chaos")
-async def get_chaos_status():
-    """Get current chaos mode status"""
-    return {"chaos_mode": _chaos_mode, "fail_rate": _chaos_fail_rate}
-
-
-# ============================================================================
 # AGENTCORE POLICY ENDPOINTS (Cedar)
 # ============================================================================
 
-@app.get("/api/agentcore/policy/list")
 async def list_policies(operator: Dict[str, Any] = Depends(require_operator)):
     """List the Cedar policies attached to the managed AgentCore Policy
     engine (Gateway-enforced, ENFORCE mode).
@@ -3077,7 +2919,6 @@ async def list_policies(operator: Dict[str, Any] = Depends(require_operator)):
 # so there is nothing for a runtime check endpoint to call.
 
 
-@app.get("/api/agentcore/memory/ltm")
 async def memory_ltm(customer_id: str = ""):
     """Return LTM facts for a persona, ranked by recency.
 
@@ -3177,7 +3018,6 @@ async def gateway_status():
         }
 
 
-@app.get("/api/agentcore/policy/decisions")
 async def policy_decisions(
     session_id: str = "",
     limit: int = 50,
@@ -3209,16 +3049,19 @@ async def policy_decisions(
         }
 
 
-@app.get("/api/observatory/receipts/{turn_id}")
+@app.get("/api/governed-receipts/{turn_id}")
 async def governed_turn_receipt(
     turn_id: str,
-    operator: Dict[str, Any] = Depends(require_operator),
+    user: Optional[Dict[str, Any]] = Depends(get_current_user),
 ):
-    """Read one durable turn receipt only when it belongs to the caller."""
+    """Read one durable turn receipt only when it belongs to its shopper."""
+    principal_sub = str((user or {}).get("sub") or "")
+    if not principal_sub:
+        raise HTTPException(status_code=401, detail="authentication_required")
     from services.governed_turn_receipt import get_turn_receipt
 
     receipt = await get_turn_receipt(
-        db_service, turn_id=turn_id, principal_sub=operator["sub"]
+        db_service, turn_id=turn_id, principal_sub=principal_sub
     )
     if receipt is None:
         raise HTTPException(status_code=404, detail="receipt_not_found")
@@ -3229,7 +3072,6 @@ async def governed_turn_receipt(
 # AGENTCORE ENDPOINTS
 # ============================================================================
 
-@app.get("/api/agentcore/memories")
 async def agentcore_memories(user=Depends(get_current_user)):
     """Get stored memories for authenticated user"""
     if not user:
@@ -3243,7 +3085,6 @@ async def agentcore_memories(user=Depends(get_current_user)):
         return {"memories": [], "error": "managed_memory_unavailable"}
 
 
-@app.get("/api/agentcore/gateway/tools")
 async def agentcore_gateway_tools(user=Depends(get_current_user)):
     """List tools registered in the AgentCore Gateway MCP server.
 
@@ -3261,7 +3102,6 @@ async def agentcore_gateway_tools(user=Depends(get_current_user)):
         return {"tools": [], "error": "managed_gateway_unavailable"}
 
 
-@app.get("/api/agentcore/runtime/status")
 async def agentcore_runtime_status():
     """Get AgentCore Runtime execution status"""
     runtime_endpoint = settings.AGENTCORE_RUNTIME_ENDPOINT
@@ -3303,7 +3143,6 @@ async def agentcore_runtime_status():
 # AGENTCORE GOING FURTHER ENDPOINTS
 # ============================================================================
 
-@app.get("/api/agentcore/memories/episodes")
 async def get_episodic_memories(query: str, user=Depends(get_current_user)):
     """Search episodic memories for relevant past experiences"""
     if not user:
@@ -3322,7 +3161,6 @@ async def get_episodic_memories(query: str, user=Depends(get_current_user)):
 # not a runtime endpoint.
 
 
-@app.post("/api/agentcore/analytics")
 async def analytics_query(request: Request):
     """Run a data analytics query using Code Interpreter agent"""
     try:

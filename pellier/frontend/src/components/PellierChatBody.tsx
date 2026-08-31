@@ -36,9 +36,6 @@ import ChatFailureCard from './ChatFailureCard'
 import TurnReceipt from './TurnReceipt'
 import GovernedTurnReceipt from './GovernedTurnReceipt'
 import { TraceChip } from '../shared/TraceChip'
-import { resolveCover } from './PellierWelcome'
-import { PERSONA_HERO_PILLS } from '../data/personaCurations'
-import { useCatalogStats } from '../hooks/useCatalogStats'
 import { imageSrc } from '../utils/assetPath'
 import { catalogTurnFollowUps } from '../utils/catalogFollowUps'
 import { CHAT_TRUST } from '../copy'
@@ -207,56 +204,31 @@ function emphasizeProductMentionsAndPrices(
     .join('')
 }
 
-// Follow-up chips = Turns 2–5 for each persona: same strings as the
-// Pellier hero row (PERSONA_HERO_PILLS), omitting Turn 1 (already sent
-// from the hero pill / welcome pick).
-const FOLLOWUPS_BY_PERSONA: Record<string, string[]> = {
-  marco: PERSONA_HERO_PILLS.marco.slice(1),
-  anna: PERSONA_HERO_PILLS.anna.slice(1),
-  theo: PERSONA_HERO_PILLS.theo.slice(1),
-  fresh: PERSONA_HERO_PILLS.fresh.slice(1),
-}
-
 function followupsForMessage(
   message: AgentChatMessage,
-  persona?: PersonaSnapshot | null,
 ): string[] {
-  const fallback = persona
-    ? FOLLOWUPS_BY_PERSONA[persona.id] ?? FOLLOWUPS_BY_PERSONA.fresh
-    : FOLLOWUPS_BY_PERSONA.fresh
-  return catalogTurnFollowUps(message.products ?? [], fallback)
-}
-
-// Time-of-day helper for cover eyebrow resolution. Duplicated from
-// PellierWelcome so the chat body stays self-contained.
-type TimeOfDay = 'morning' | 'afternoon' | 'evening'
-function timeOfDay(): TimeOfDay {
-  const h = new Date().getHours()
-  if (h < 12) return 'morning'
-  if (h < 17) return 'afternoon'
-  return 'evening'
+  return catalogTurnFollowUps(message.products ?? [], [])
 }
 
 // ---------------------------------------------------------------------------
 // Persona cover banner
 //
-// Compact editorial banner that sits above the chat stream. Shows the
-// same persona-matched cover image the PellierWelcome hero used, so
-// the warm "standout" moment doesn't vanish the second the user fires
-// their first query. Resolves per persona via resolveCover().
+// The profile image is a durable Aurora value carried by PersonaContext.
 // ---------------------------------------------------------------------------
 function PersonaCoverBanner({ persona }: { persona: PersonaSnapshot | null }) {
-  const stats = useCatalogStats()
-  const tod = timeOfDay()
-  const { product, eyebrow } = resolveCover(persona, stats, tod)
+  if (!persona) return null
 
   return (
     <div className="ec-persona-cover">
-      <img src={imageSrc(product.imageUrl)} alt={product.name} className="ec-persona-cover-img" />
+      <img
+        src={imageSrc(persona.hero_image)}
+        alt={persona.hero_alt}
+        className="ec-persona-cover-img"
+      />
       <div className="ec-persona-cover-overlay">
         <div className="ec-persona-cover-eyebrow">
           <span className="ec-persona-cover-dot" />
-          {eyebrow}
+          Aurora profile · {persona.display_name}
         </div>
       </div>
     </div>
@@ -301,7 +273,6 @@ export default function PellierChatBody({
               <AgentMessage
                 message={message}
                 addToCart={addToCart}
-                persona={persona}
                 isLastAssistantMessage={index === lastAssistantIndex}
                 onFollowUp={(text) => void sendMessage(text)}
                 onRetry={(text) => void retryMessage(text)}
@@ -350,7 +321,6 @@ function AgentMessage({
   onRetry,
   onEditRequest,
   onAuthenticate,
-  persona,
   isLastAssistantMessage,
 }: {
   message: AgentChatMessage
@@ -359,7 +329,6 @@ function AgentMessage({
   onRetry: (text: string) => void
   onEditRequest: (text: string) => void
   onAuthenticate: () => void
-  persona: PersonaSnapshot | null
   isLastAssistantMessage: boolean
 }) {
   const isThinking = message.agentStatus === 'thinking' && !message.content
@@ -698,7 +667,7 @@ function AgentMessage({
       {/* Follow-up chips */}
       {isComplete && isLastAssistantMessage && !message.failure && (
         <div className="ec-followups">
-          {followupsForMessage(message, persona).map((chip) => (
+          {followupsForMessage(message).map((chip) => (
             <button
               key={chip}
               type="button"

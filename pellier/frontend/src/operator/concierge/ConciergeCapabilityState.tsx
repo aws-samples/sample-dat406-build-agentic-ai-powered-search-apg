@@ -17,7 +17,7 @@ import React, { useState } from 'react'
 
 import {
   CAPABILITY_LABELS,
-  GOVERNED_UNAVAILABLE_COPY,
+  governedUnavailableCopy,
 } from '../../services/operatorCapabilities'
 import type { CapabilitySnapshot, CapabilityState } from '../../services/operator'
 import type { ConciergeConfig } from '../../services/operatorConcierge'
@@ -80,6 +80,7 @@ const ConciergeCapabilityState: React.FC<Props> = ({ status, capabilities, confi
   }
 
   const closed = !capabilities.governedActionsAvailable
+  const unavailableCopy = governedUnavailableCopy(capabilities)
 
   return (
     <div
@@ -93,7 +94,7 @@ const ConciergeCapabilityState: React.FC<Props> = ({ status, capabilities, confi
       <p className="operator-concierge-state-copy">
         {closed ? (
           <>
-            {GOVERNED_UNAVAILABLE_COPY.title}. {GOVERNED_UNAVAILABLE_COPY.detail}
+            {unavailableCopy.title}. {unavailableCopy.detail}
           </>
         ) : (
           <>Client context available.</>

@@ -1,4 +1,4 @@
-"""The workshop scaffold must not spend a Bedrock call to explain it is unbuilt."""
+"""The workshop scaffold must not simulate an answer for an unbuilt specialist."""
 
 from __future__ import annotations
 
@@ -15,25 +15,9 @@ from config import settings
 async def test_inventory_stub_returns_before_skill_router_or_specialist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class ProfileDB:
-        def __init__(self) -> None:
-            self.calls = []
-
-        async def fetch_one(self, query, *params):
-            self.calls.append((query, params))
-            return {
-                "customer_exists": True,
-                "facts_available": 3,
-                "orders_available": 7,
-            }
-
-        async def fetch_all(self, *_args, **_kwargs):
-            raise AssertionError("stub path loaded full persona context")
-
     def unexpected_call(*_args, **_kwargs):
         raise AssertionError("exercise-state dispatcher invoked Bedrock-backed work")
 
-    profile_db = ProfileDB()
     memory_setup_calls = []
 
     def record_memory_setup(*args, **kwargs):
@@ -53,7 +37,7 @@ async def test_inventory_stub_returns_before_skill_router_or_specialist(
         record_memory_setup,
     )
 
-    service = EnhancedChatService(db_service=profile_db)
+    service = EnhancedChatService(db_service=object())
     events = [
         event
         async for event in service.chat_stream(
@@ -69,17 +53,6 @@ async def test_inventory_stub_returns_before_skill_router_or_specialist(
     ]
 
     assert memory_setup_calls == []
-    assert len(profile_db.calls) == 1
-    profile_event = next(
-        event for event in events if event["type"] == "aurora_profile_context"
-    )
-    assert profile_event["profile"] == {
-        "source": "Local PostgreSQL",
-        "customer_id": "CUST-MARCO",
-        "facts_available": 3,
-        "orders_available": 7,
-        "available": True,
-    }
     assert not any(event["type"] == "skill_routing" for event in events)
     assert not any(
         event.get("source") == "Amazon Bedrock"
@@ -90,11 +63,15 @@ async def test_inventory_stub_returns_before_skill_router_or_specialist(
     assert step == {
         "type": "agent_step",
         "agent": "Inventory Agent",
-        "action": "Workshop build pending",
-        "status": "completed",
+        "action": "Workshop build required",
+        "status": "blocked",
         "source": "Pellier build state",
     }
+    error = next(event for event in events if event["type"] == "error")
+    assert error["code"] == "workshop_build_required"
+    assert "intentionally unbuilt" in error["error"]
     complete = next(event for event in events if event["type"] == "complete")
-    assert complete["response"]["success"] is True
+    assert complete["response"]["success"] is False
     assert complete["response"]["agent_execution"]["model"] is None
+    assert complete["response"]["agent_execution"]["build_required"] is True
     assert events[-1]["type"] == "complete"

@@ -961,14 +961,28 @@
 }
 
 .observatory-trace-content h3 {
+  min-width: 0;
   margin-top: 7px;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   color: var(--pl-ink);
   font-family: var(--pl-sans);
   font-size: 14.5px;
   font-weight: 650;
   letter-spacing: 0;
   line-height: 1.35;
+}
+
+/*
+ * On any desktop-width ledger, a machine identifier is more readable as one
+ * literal label than as a broken pseudo-word. Small screens retain the soft
+ * breaks inserted in the markup after `_` and `/`.
+ */
+@media (min-width: 760px) {
+  .observatory-trace-content h3 {
+    white-space: nowrap;
+  }
 }
 
 .observatory-trace-content > p {
@@ -1909,15 +1923,20 @@
   }
 }
 
-@media (min-width: 1321px) {
+/*
+ * The ledger's four-column comparison is useful only when its own canvas is
+ * comfortably wide. Below this viewport the stacked source/detail rhythm is
+ * more legible than squeezing machine identifiers into a pseudo-table.
+ */
+@media (min-width: 1720px) {
   .observatory-trace-content {
     display: grid;
     grid-template-columns:
-      minmax(115px, 0.78fr)
-      minmax(135px, 0.92fr)
-      minmax(170px, 1.35fr)
+      125px
+      minmax(300px, 1.24fr)
+      minmax(270px, 1.16fr)
       auto;
-    gap: 3px 15px;
+    gap: 3px 18px;
     align-items: center;
   }
 

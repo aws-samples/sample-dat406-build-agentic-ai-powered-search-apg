@@ -9,13 +9,12 @@
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow } from '../../components';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
 import type { Session } from '../../types';
 import { usePersona } from '../../../contexts/PersonaContext';
-import { PERSONA_HERO_PILLS, PERSONA_TURN_TRACES } from '../../../data/personaCurations';
 
 /* -----------------------------------------------------------------------
  * Sort helper — exported for property-based testing (Property 1)
@@ -51,45 +50,6 @@ function formatTimestamp(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
-
-const CANONICAL_PERSONAS = ['marco', 'anna', 'theo'] as const;
-type CanonicalPersona = (typeof CANONICAL_PERSONAS)[number];
-
-const PERSONA_LABELS: Record<CanonicalPersona, string> = {
-  marco: 'Marco',
-  anna: 'Anna',
-  theo: 'Theo',
-};
-
-const REPLAY_BY_PERSONA_TURN: Record<CanonicalPersona, string[]> = {
-  marco: [
-    'marco-opening-demo',
-    'marco-opening-demo',
-    'marco-opening-demo',
-    'marco-midpoint-checkpoint',
-    'marco-capstone',
-  ],
-  anna: [
-    'anna-morning-ritual',
-    'anna-under-100',
-    'anna-candle-pairing',
-    'anna-birthday-gift',
-    'anna-housewarming',
-  ],
-  theo: [
-    'theo-pour-over',
-    'theo-pour-over-pairing',
-    'theo-linen-seasons',
-    'theo-ceramics-return',
-    'theo-home-not-wardrobe',
-  ],
-};
-
-function activeCanonicalPersona(personaId: string | null | undefined): CanonicalPersona | null {
-  return CANONICAL_PERSONAS.includes(personaId as CanonicalPersona)
-    ? (personaId as CanonicalPersona)
-    : null;
 }
 
 /* -----------------------------------------------------------------------
@@ -199,146 +159,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) => (
     </div>
   </ExpCard>
 );
-
-interface PersonaTurnCardProps {
-  personaId: CanonicalPersona;
-  turnIndex: number;
-  query: string;
-  replayId: string;
-  onOpenReplay: (id: string) => void;
-}
-
-const PersonaTurnCard: React.FC<PersonaTurnCardProps> = ({
-  personaId,
-  turnIndex,
-  query,
-  replayId,
-  onOpenReplay,
-}) => {
-  const trace = PERSONA_TURN_TRACES[personaId][turnIndex];
-  const [replayHover, setReplayHover] = useState(false);
-  return (
-    <ExpCard>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '12px',
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'var(--obs-mono)',
-              fontSize: '11px',
-              color: 'var(--obs-ink-4)',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {PERSONA_LABELS[personaId]} · turn {turnIndex + 1}
-          </span>
-          <button
-            type="button"
-            onClick={() => onOpenReplay(replayId)}
-            onMouseEnter={() => setReplayHover(true)}
-            onMouseLeave={() => setReplayHover(false)}
-            onFocus={() => setReplayHover(true)}
-            onBlur={() => setReplayHover(false)}
-            aria-label={`Open replay for ${PERSONA_LABELS[personaId]} turn ${turnIndex + 1}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '7px',
-              fontFamily: 'var(--obs-mono)',
-              fontSize: '11px',
-              fontWeight: 600,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: '#fff',
-              background: 'var(--obs-red-1)',
-              border: '1px solid var(--obs-red-1)',
-              borderRadius: '999px',
-              padding: '7px 16px',
-              cursor: 'pointer',
-              boxShadow: replayHover
-                ? '0 4px 12px rgba(0, 0, 0, 0.16)'
-                : '0 1px 3px rgba(0, 0, 0, 0.10)',
-              transform: replayHover ? 'translateY(-1px)' : 'translateY(0)',
-              transition: 'transform 120ms ease, box-shadow 120ms ease, filter 120ms ease',
-              filter: replayHover ? 'brightness(1.06)' : 'none',
-            }}
-          >
-            Open replay
-            <span
-              aria-hidden="true"
-              style={{
-                fontSize: '13px',
-                lineHeight: 1,
-                transform: replayHover ? 'translateX(2px)' : 'translateX(0)',
-                transition: 'transform 120ms ease',
-              }}
-            >
-              →
-            </span>
-          </button>
-        </div>
-
-        <p
-          style={{
-            fontFamily: 'var(--obs-sans)',
-            fontSize: '18px',
-            lineHeight: 1.35,
-            color: 'var(--obs-ink-1)',
-            margin: 0,
-          }}
-        >
-          {query}
-        </p>
-
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            alignItems: 'center',
-          }}
-        >
-          {trace.skill && (
-            <span
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: '11px',
-                color: 'var(--obs-green-1)',
-                background: 'var(--obs-green-soft)',
-                borderRadius: '4px',
-                padding: '3px 8px',
-              }}
-            >
-              skill.{trace.skill}
-            </span>
-          )}
-          {trace.tools.map((tool) => (
-            <span
-              key={tool}
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: '11px',
-                color: 'var(--obs-red-1)',
-                background: 'var(--obs-red-soft)',
-                borderRadius: '4px',
-                padding: '3px 8px',
-              }}
-            >
-              tool.{tool}
-            </span>
-          ))}
-        </div>
-      </div>
-    </ExpCard>
-  );
-};
 
 /* -----------------------------------------------------------------------
  * Empty state
@@ -483,22 +303,19 @@ const ErrorState: React.FC<ErrorStateProps> = ({ message, onRetry }) => (
 const SessionsList: React.FC = () => {
   const navigate = useNavigate();
   const { persona } = usePersona();
-  const scopedPersona = activeCanonicalPersona(persona?.id);
+  const scopedPersona = persona?.id ?? null;
   const [showAllPersonas, setShowAllPersonas] = useState(false);
   const { data, loading, error, refetch } = useObservatoryData<Session[]>({
     key: 'sessions',
   });
 
   const sorted = data ? sortSessionsByRecency(data) : [];
-  const personaTurns = useMemo(() => {
-    if (!scopedPersona) return [];
-    return PERSONA_HERO_PILLS[scopedPersona].map((query, index) => ({
-      query,
-      replayId: REPLAY_BY_PERSONA_TURN[scopedPersona][index],
-    }));
-  }, [scopedPersona]);
-  const showingPersonaJourney = Boolean(scopedPersona && !showAllPersonas);
-  const activePersonaLabel = scopedPersona ? PERSONA_LABELS[scopedPersona] : 'Persona';
+  const scopedSessions =
+    scopedPersona && !showAllPersonas
+      ? sorted.filter((session) => session.personaId === scopedPersona)
+      : sorted;
+  const showingScopedSessions = Boolean(scopedPersona && !showAllPersonas);
+  const activePersonaLabel = persona?.display_name || 'Current shopper';
 
   return (
     <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
@@ -508,11 +325,11 @@ const SessionsList: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Observe · Sessions"
-        title={showingPersonaJourney ? `${activePersonaLabel}'s five-turn journey` : 'Sessions'}
+        title={showingScopedSessions ? `${activePersonaLabel}'s recorded sessions` : 'Sessions'}
         summary={
-          showingPersonaJourney
-            ? 'Sessions opens on the signed-in persona so participants follow one coherent Pellier story. Each turn mirrors the Pellier hero pill text and expected skill/tool trace; instructor view reveals all recorded replays.'
-            : 'Instructor view shows every recorded conversation across personas, captured and ready for inspection. Select a session to explore its chat thread, telemetry timeline, and personalization_agent brief.'
+          showingScopedSessions
+            ? 'Only durable Aurora evidence for the active shopper is shown. Select a recorded session to inspect its message history and tool ledger.'
+            : 'Instructor view shows every durable recorded conversation across shoppers. Select a session to inspect its message history and tool ledger.'
         }
       />
 
@@ -531,7 +348,7 @@ const SessionsList: React.FC = () => {
       >
         <div>
           <Eyebrow
-            label={showingPersonaJourney ? `${activePersonaLabel} scoped` : 'Instructor view'}
+            label={showingScopedSessions ? `${activePersonaLabel} scoped` : 'Instructor view'}
             variant="muted"
           />
           <p
@@ -543,9 +360,9 @@ const SessionsList: React.FC = () => {
               margin: '6px 0 0',
             }}
           >
-            {showingPersonaJourney
-              ? 'Only this persona appears by default; the five cards below match the Pellier hero pills turn by turn.'
-              : 'Showing Marco, Anna, and Theo together for facilitation and QA.'}
+            {showingScopedSessions
+              ? 'Recorded turns only — no fixture replays are mixed into this view.'
+              : 'Showing all durable Aurora session evidence for facilitation and QA.'}
           </p>
         </div>
         {scopedPersona && (
@@ -577,7 +394,9 @@ const SessionsList: React.FC = () => {
 
       {error && <ErrorState message={error} onRetry={refetch} />}
 
-      {!loading && !error && scopedPersona && !showAllPersonas && (
+      {!loading && !error && scopedSessions.length === 0 && <EmptyState />}
+
+      {!loading && !error && scopedSessions.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -585,30 +404,7 @@ const SessionsList: React.FC = () => {
             gap: '16px',
           }}
         >
-          {personaTurns.map((turn, index) => (
-            <PersonaTurnCard
-              key={`${scopedPersona}-${index}`}
-              personaId={scopedPersona}
-              turnIndex={index}
-              query={turn.query}
-              replayId={turn.replayId}
-              onOpenReplay={(id) => navigate(`/observatory/sessions/${id}`)}
-            />
-          ))}
-        </div>
-      )}
-
-      {!loading && !error && !showingPersonaJourney && sorted.length === 0 && <EmptyState />}
-
-      {!loading && !error && !showingPersonaJourney && sorted.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-          }}
-        >
-          {sorted.map((session) => (
+          {scopedSessions.map((session) => (
             <SessionCard
               key={session.id}
               session={session}

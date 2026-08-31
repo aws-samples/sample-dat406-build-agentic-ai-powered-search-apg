@@ -510,13 +510,12 @@ def test_the_solution_names_the_canonical_action() -> None:
 
 
 def test_the_application_catalogue_reconciles_with_the_workshop_contract() -> None:
-    """`GATEWAY_TOOL_NAMES` is the application-level catalogue; this is its relationship.
+    """The local MCP catalog and managed workshop subset have distinct roles.
 
     Three places name the tool set and each has a different job:
 
         agent_tools.py @tool          what the process can execute (18, incl. in-process only)
-        GATEWAY_TOOL_NAMES            what the application expects to reach through a
-                                      Gateway (17: the full catalogue)
+        LOCAL_MCP_TOOL_NAMES          local in-process / MCP catalog (17)
         workshop_published_tools()    what a fresh workshop provision publishes (15)
 
     Asserted as a DERIVED relationship rather than a fourth literal list, so adding a
@@ -528,15 +527,15 @@ def test_the_application_catalogue_reconciles_with_the_workshop_contract() -> No
     backend = _os.path.abspath(".")
     if backend not in _sys.path:
         _sys.path.insert(0, backend)
-    from services.agentcore_gateway import GATEWAY_TOOL_NAMES
+    from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES
 
-    catalogue = set(GATEWAY_TOOL_NAMES)
+    catalogue = set(LOCAL_MCP_TOOL_NAMES)
     assert catalogue == canonical_tool_names(), (
         "the application catalogue and the Gateway schemas disagree: "
         f"{sorted(catalogue ^ canonical_tool_names())}"
     )
     assert catalogue - WORKSHOP_DEFERRED_TOOLS == workshop_published_tools()
-    assert len(GATEWAY_TOOL_NAMES) == len(catalogue), "a name is listed twice"
+    assert len(LOCAL_MCP_TOOL_NAMES) == len(catalogue), "a name is listed twice"
 
 
 def test_the_in_process_only_tool_is_not_published_anywhere() -> None:

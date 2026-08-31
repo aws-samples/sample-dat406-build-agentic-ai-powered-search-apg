@@ -261,6 +261,9 @@ describe('ClientBook', () => {
     expect(state).toHaveTextContent('Operator sign-in required')
     expect(state).toHaveTextContent('No database request was attempted')
     expect(state).not.toHaveTextContent('018_client_book.sql')
+    expect(screen.getByTestId('operator-state-sign-in')).toHaveTextContent(
+      'Sign in',
+    )
   })
 
   it('distinguishes an empty book from a broken one', async () => {

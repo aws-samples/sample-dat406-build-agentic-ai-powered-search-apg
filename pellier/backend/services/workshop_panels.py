@@ -100,9 +100,10 @@ def emit_gateway_panel(
     so Card 7 can show attendees that the single-source (Aurora only)
     rendering is deliberate, not a bug.
 
-    The actual live tool list for Card 7 comes from the existing
-    ``/api/agentcore/gateway/tools`` endpoint — we don't re-fetch here
-    because Card 7 does its own fetch on open.
+    Card 7 presents the managed Gateway contract from
+    ``gateway_tool_schemas.workshop_published_tools``. It never needs a
+    per-turn Gateway ``list_tools`` call: that call lists the whole catalog,
+    not the tools selected for this shopper turn.
     """
     gateway_url = settings.AGENTCORE_GATEWAY_URL
     if not gateway_url:

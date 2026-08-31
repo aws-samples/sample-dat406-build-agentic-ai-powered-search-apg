@@ -10,7 +10,7 @@ The properties pinned here:
   1. ``turn_start`` is the first event and carries ``turn_id``.
   2. The terminal ``complete`` event repeats the same id.
   3. Ids are unique per turn and never positional.
-  4. Smoke mode emits identity too — it is the mode that runs on stage.
+  4. The same contract holds on every real execution rail.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def _first(events: List[Dict[str, Any]], kind: str) -> Dict[str, Any] | None:
 
 @pytest.fixture
 def live_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    """Client on the non-smoke path with a stubbed chat service."""
+    """Client with a deterministic in-process chat dependency."""
 
     async def _stream(**kwargs: Any) -> AsyncIterator[Dict[str, Any]]:
         yield {"type": "content", "content": "hello"}
@@ -50,13 +50,6 @@ def live_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         chat_stream = staticmethod(_stream)
 
     monkeypatch.setattr(app_module, "chat_service", _Svc())
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
-    return TestClient(app_module.app)
-
-
-@pytest.fixture
-def smoke_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", True, raising=False)
     return TestClient(app_module.app)
 
 
@@ -164,7 +157,6 @@ def test_local_turn_receives_server_resolved_aurora_customer(
     class _Svc:
         chat_stream = staticmethod(_stream)
 
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
     monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", False, raising=False)
     monkeypatch.setattr(app_module, "chat_service", _Svc())
     app_module.app.dependency_overrides[app_module.get_current_user] = (
@@ -248,7 +240,6 @@ def test_managed_storefront_turn_invokes_runtime_not_local_chat(
             raise AssertionError("managed storefront turn called local chat_stream")
             yield {}
 
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
     monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", True, raising=False)
     monkeypatch.setattr(
         app_module.settings,
@@ -342,7 +333,6 @@ def test_managed_storefront_memory_write_failure_does_not_recast_action(
             raise AssertionError("managed turn called local chat_stream")
             yield {}
 
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
     monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", True, raising=False)
     monkeypatch.setattr(
         app_module.settings,
@@ -425,7 +415,6 @@ def test_unexpected_managed_memory_write_failure_preserves_completed_action(
             raise AssertionError("managed turn called local chat_stream")
             yield {}
 
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
     monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", True, raising=False)
     monkeypatch.setattr(
         app_module.settings,
@@ -493,7 +482,6 @@ def test_unavailable_managed_storefront_turn_fails_closed(
             raise AssertionError("unavailable managed turn called local chat_stream")
             yield {}
 
-    monkeypatch.setattr(app_module.settings, "PELLIER_SMOKE_MODE", False, raising=False)
     monkeypatch.setattr(app_module.settings, "USE_AGENTCORE_RUNTIME", True, raising=False)
     monkeypatch.setattr(app_module.settings, "AGENTCORE_RUNTIME_ENDPOINT", None, raising=False)
     monkeypatch.setattr(app_module, "chat_service", _LocalChatMustNotRun())
@@ -509,27 +497,3 @@ def test_unavailable_managed_storefront_turn_fails_closed(
     error = _first(events, "error")
     assert error is not None
     assert error["code"] == "service_unavailable"
-
-
-# ---------------------------------------------------------------------------
-# Smoke mode — the mode that runs on stage
-# ---------------------------------------------------------------------------
-def test_smoke_mode_emits_turn_identity(smoke_client: TestClient) -> None:
-    events = _post(smoke_client, session_id="sess-smoke")
-
-    start = _first(events, "turn_start")
-    complete = _first(events, "complete")
-
-    assert start is not None, "smoke mode must mint a turn id too"
-    assert _TURN_ID_RE.match(start["turn_id"])
-    assert complete is not None
-    assert complete["response"]["turn_id"] == start["turn_id"]
-
-
-def test_smoke_mode_turn_start_precedes_content(smoke_client: TestClient) -> None:
-    events = _post(smoke_client, session_id="sess-smoke")
-    types = [e["type"] for e in events]
-
-    assert types[0] == "turn_start"
-    assert "content_delta" in types
-    assert types.index("turn_start") < types.index("content_delta")

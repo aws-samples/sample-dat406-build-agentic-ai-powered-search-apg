@@ -5,7 +5,7 @@
  *
  * Design:
  *   - Each persona declares a set of weighted tag interests. Those
- *     interests are applied against SHOWCASE_PRODUCTS[*].tags to
+ *     interests are applied against the live catalog rows' tags to
  *     compute a score per product; the Curated grid sorts products
  *     descending by score.
  *   - Each persona also declares its own ordered list of editorial
@@ -16,11 +16,8 @@
  *     through to the canonical unbiased ordering — same product list,
  *     no scoring, and the generic editorial cards.
  *
- * Why not backend: the point of this round is the demo surface — the
- * personalization should be visible the instant an attendee picks a
- * persona from the welcome chip, no network round-trip. When a real
- * recommendation service ships, this file becomes a client-side
- * fallback that mirrors the server's ranking heuristic.
+ * The catalog itself is always read from Aurora. This file provides only the
+ * source-controlled editorial ranking weights applied to those live rows.
  */
 
 import type { PellierProduct } from '../services/types'
@@ -129,7 +126,7 @@ export function scoreProduct(
 }
 
 /**
- * Stable sort SHOWCASE_PRODUCTS for a given persona. Products with no
+ * Stable sort catalog rows for a given persona. Products with no
  * matching tags keep their original relative order (stable sort), so
  * a persona without a full coverage of the catalog still sees the
  * remainder in a predictable sequence.
@@ -346,7 +343,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
     'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?',
   ],
   fresh: [
-    'A thoughtful gift for someone who runs',
+    'A considered carry-all for a long weekend.',
     'Pieces for slow Sunday mornings',
     'Something to wear for warm evenings out',
     'Linen pieces that travel well',
@@ -465,7 +462,7 @@ export const PERSONA_TURN_PREVIEW: Record<string, (number | null)[]> = {
   marco: [11, 14, 2, 16, 2],
   anna: [27, 21, 31, null, null],
   theo: [31, 32, 37, null, null],
-  fresh: [9, 8, 11, 14, 16],
+  fresh: [10, 8, 11, 14, 16],
 }
 
 export function turnPreviewProductId(
@@ -479,9 +476,9 @@ export function turnPreviewProductId(
 
 // ---------------------------------------------------------------------
 // Featured product ID — the big hero product slot per persona.
-// Maps persona → product ID from SHOWCASE_PRODUCTS.
+// Maps persona → product ID from the seeded Aurora catalog.
 // Fresh visitors see the Nocturne Leather Weekender (id:3 in the
-// original lineup; check actual IDs in showcaseProducts.ts).
+// original lineup; check the seeded catalog migrations).
 // ---------------------------------------------------------------------
 
 export const PERSONA_FEATURED_PRODUCT_ID: Record<string, number> = {

@@ -39,22 +39,22 @@ def test_governed_receipt_requires_verified_principal(monkeypatch) -> None:
     monkeypatch.setattr(app_module, "db_service", _ReceiptDB())
     client = TestClient(app_module.app)
 
-    response = client.get("/api/observatory/receipts/turn-1")
+    response = client.get("/api/governed-receipts/turn-1")
 
     assert response.status_code == 401
 
 
 def test_governed_receipt_is_scoped_to_the_verified_principal(monkeypatch) -> None:
     monkeypatch.setattr(app_module, "db_service", _ReceiptDB())
-    app_module.app.dependency_overrides[app_module.require_operator] = lambda: {
+    app_module.app.dependency_overrides[app_module.get_current_user] = lambda: {
         "sub": "principal-1",
         "access_token": "jwt",
     }
     try:
         client = TestClient(app_module.app)
-        response = client.get("/api/observatory/receipts/turn-1")
+        response = client.get("/api/governed-receipts/turn-1")
     finally:
-        app_module.app.dependency_overrides.pop(app_module.require_operator, None)
+        app_module.app.dependency_overrides.pop(app_module.get_current_user, None)
 
     assert response.status_code == 200
     assert response.json()["turn_id"] == "turn-1"

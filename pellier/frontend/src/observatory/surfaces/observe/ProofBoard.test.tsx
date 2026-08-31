@@ -434,7 +434,7 @@ describe('ProofBoard', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes('/receipts/turn-live')) {
+        if (url.includes('/governed-receipts/turn-live')) {
           return new Response(
             JSON.stringify({
               turn_id: 'turn-live',
@@ -477,6 +477,42 @@ describe('ProofBoard', () => {
     );
     expect(screen.getByTestId('persisted-turn-receipt')).toHaveTextContent(
       'NOT EVALUATED',
+    );
+  });
+
+  it('renders a partial persisted receipt without crashing the evidence view', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes('/governed-receipts/turn-partial')) {
+          return new Response(
+            JSON.stringify({
+              turn_id: 'turn-partial',
+              rail: 'gateway-mcp',
+              terminal_status: 'failed',
+              latency_ms: null,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(JSON.stringify(proofBoardPayload), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/observatory/proof-board?turn=turn-partial']}>
+        <ProofBoard />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('persisted-turn-receipt')).toHaveTextContent(
+      'turn-partial',
+    );
+    expect(screen.getByTestId('persisted-turn-receipt')).toHaveTextContent(
+      '0 catalog citations',
     );
   });
 

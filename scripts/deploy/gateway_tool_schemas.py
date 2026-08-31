@@ -344,9 +344,9 @@ for _target in TOOL_SCHEMAS.values():
 # participant-visible discovery, and neither of these has the governance design that
 # earns those things yet:
 #
-#   issue_credit        moves money. Operator-only today, reachable through
-#                       `/api/operator/actions/issue-credit` behind `require_operator`,
-#                       and no shopper-facing agent holds the grant. Its Policy posture
+#   issue_credit        moves money. Operator-only today, reachable only after
+#                       review confirmation through the governed execution path;
+#                       no shopper-facing agent holds the grant. Its Policy posture
 #                       is an open decision, so it is not published.
 #
 #   get_ticket_history  reads another person's support history. The read is only safe

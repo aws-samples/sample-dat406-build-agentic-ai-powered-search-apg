@@ -27,7 +27,7 @@
       "persona": "guest",
       "kind": "read",
       "summary": "A signed-out visitor can discover a useful shortlist without being assigned a customer identity or inheriting another participant's session.",
-      "entryPrompt": "A thoughtful gift for someone who runs.",
+      "entryPrompt": "A considered carry-all for a long weekend.",
       "actors": {
         "requester": {
           "channel": "storefront",

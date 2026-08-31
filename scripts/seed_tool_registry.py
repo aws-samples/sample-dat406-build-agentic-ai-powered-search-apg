@@ -2,7 +2,7 @@
 """seed_tool_registry.py — Populate the ``pellier.tools`` table for /workshop card 7.
 
 Loads the 15 canonical tool names from
-``pellier/backend/services/agentcore_gateway.py:GATEWAY_TOOL_NAMES``,
+``pellier/backend/services/agentcore_gateway.py:LOCAL_MCP_TOOL_NAMES``,
 pulls each tool's docstring as the description (single source of truth —
 the Gateway uses the same docstring for its MCP ``description`` field),
 embeds the description via Cohere Embed v4, and UPSERTs into the
@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-# Allow ``from services.agentcore_gateway import GATEWAY_TOOL_NAMES`` to
+# Allow ``from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES`` to
 # resolve when this script is run from the repo root.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_SRC = REPO_ROOT / "pellier" / "backend"
@@ -106,15 +106,15 @@ def _load_tool_specs() -> List[Dict[str, Any]]:
     list authoritative — if a tool is added/removed there, rerunning
     this seeder picks it up without code change here.
     """
-    from services.agentcore_gateway import GATEWAY_TOOL_NAMES, _unwrap_strands_tool
+    from services.agentcore_gateway import LOCAL_MCP_TOOL_NAMES, _unwrap_strands_tool
     import services.agent_tools as agent_tools  # noqa: WPS433
 
     specs = []
-    for tool_name in GATEWAY_TOOL_NAMES:
+    for tool_name in LOCAL_MCP_TOOL_NAMES:
         strands_tool = getattr(agent_tools, tool_name, None)
         if strands_tool is None:
             raise RuntimeError(
-                f"Tool '{tool_name}' listed in GATEWAY_TOOL_NAMES but not "
+                f"Tool '{tool_name}' listed in LOCAL_MCP_TOOL_NAMES but not "
                 f"found in services.agent_tools — seed aborted."
             )
         fn = _unwrap_strands_tool(strands_tool)

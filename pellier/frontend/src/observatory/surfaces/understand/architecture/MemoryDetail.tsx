@@ -317,8 +317,6 @@ const MemoryDetail: React.FC = () => {
   // silently render non-live memory data.
   const { data, loading, error, refetch } = useObservatoryData<MemoryState>({
     key: `memory-${activePersonaId}`,
-    source: 'api',
-    allowFixtureFallback: false,
   });
 
   const liveCount = data

@@ -3,10 +3,9 @@
 Why this cannot be a constant
 -----------------------------
 
-The obvious implementation reads `GATEWAY_TOOL_NAMES` and reports everything as
-available. That list describes the vocabulary a *fresh provision* publishes. It has
-been wrong about this account three times in one day, because the live Gateway is
-mid-migration.
+The obvious implementation reads the local MCP catalog and reports everything as
+available. That catalog deliberately includes tools the managed Gateway does not
+publish. Live control-plane state remains the only authority for the operator desk.
 
 **The three cases below describe the MIGRATED LIVE Gateway, not a fresh provision.**
 That distinction is the whole point of this module and it is easy to lose: on a fresh
@@ -74,6 +73,7 @@ REASON_HUMAN_REVIEW = "human_review_required"
 REASON_GOVERNED_UNAVAILABLE = "governed_action_unavailable"
 REASON_NOT_PUBLISHED = "capability_not_published"
 REASON_UNVERIFIED = "capability_state_unverified"
+REASON_MANAGED_RESOURCES_MISSING = "managed_resources_missing"
 REASON_LOCAL = "local_read_path"
 
 # Sixty seconds: long enough that a page load never triggers a control-plane call in
@@ -139,10 +139,10 @@ def _read_capabilities() -> Dict[str, Capability]:
     }
 
 
-def _unverified_writes() -> Dict[str, Capability]:
+def _unverified_writes(reason: str = REASON_UNVERIFIED) -> Dict[str, Capability]:
     """Fail-closed write states, used whenever live state is unknown."""
     return {
-        name: Capability(TEMPORARILY_UNAVAILABLE, REASON_UNVERIFIED)
+        name: Capability(TEMPORARILY_UNAVAILABLE, reason)
         for name in GOVERNED_WRITE_TOOLS
     }
 
@@ -229,6 +229,23 @@ def _live_gateway_facts() -> Tuple[List[str], Dict[str, int]]:
     return published, permitted
 
 
+def _control_plane_failure_reason(exc: Exception) -> str:
+    """Classify only the safe, actionable absence case.
+
+    The browser must never receive a Gateway ARN, policy id, Cedar source, or
+    raw AWS exception. A configured resource that no longer exists is still
+    materially different from a transient control-plane outage: neither may
+    enable a write, but only the former means this environment has not reached
+    its managed-action readiness boundary.
+    """
+    response = getattr(exc, "response", None)
+    error = response.get("Error", {}) if isinstance(response, dict) else {}
+    code = str(error.get("Code", ""))
+    if code == "ResourceNotFoundException" or exc.__class__.__name__ == "ResourceNotFoundException":
+        return REASON_MANAGED_RESOURCES_MISSING
+    return REASON_UNVERIFIED
+
+
 def get_capabilities(*, force_refresh: bool = False) -> Dict[str, Any]:
     """The capability snapshot, cached for CAPABILITY_TTL_SECONDS."""
     global _cache
@@ -244,11 +261,14 @@ def get_capabilities(*, force_refresh: bool = False) -> Dict[str, Any]:
         capabilities.update(_classify(published, permitted))
         source = "agentcore"
     except Exception as exc:  # noqa: BLE001 - unknown must not become available
-        logger.info(
-            "capability state unverified (%s); governed writes reported "
-            "temporarily_unavailable", exc
+        reason = _control_plane_failure_reason(exc)
+        logger.warning(
+            "managed capability state unavailable (%s); governed writes "
+            "reported temporarily_unavailable with reason %s",
+            exc,
+            reason,
         )
-        capabilities.update(_unverified_writes())
+        capabilities.update(_unverified_writes(reason))
         source = "unverified"
 
     payload: Dict[str, Any] = {

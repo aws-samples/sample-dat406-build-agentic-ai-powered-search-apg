@@ -24,14 +24,10 @@ export interface LiveFloorFinding {
   trace?: string;
 }
 
-export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
+export const EDITORIAL_FLOOR_NOTES: LiveFloorFinding[] = [
   {
-    verb: "New arrivals",
-    text: "Alba Linen Lounge Set, Olive Branch Vessel, and Santal & Fig Candle just joined the Resort Edit.",
-  },
-  {
-    verb: "Restocked",
-    text: "Italian Linen Camp Shirt is back in Indigo and Oat, with the full size run available today.",
+    verb: "The house edit",
+    text: "Linen, leather, ceramic, and small useful objects chosen for unhurried weekends.",
   },
   {
     verb: "Travel edit",
@@ -39,7 +35,11 @@ export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   },
   {
     verb: "Gift service",
-    text: "Candles, ceramics, and wrapped objects are ready for housewarmings, milestones, and just-because notes.",
+    text: "Candles, ceramics, and wrapped objects for housewarmings, milestones, and just-because notes.",
+  },
+  {
+    verb: "Home rituals",
+    text: "Stoneware, soft linen, and quiet light for the objects you reach for every day.",
   },
   {
     verb: "Concierge",
@@ -47,7 +47,7 @@ export const LIVE_FLOOR_FINDINGS: LiveFloorFinding[] = [
   },
   {
     verb: "Service",
-    text: "Server-verified totals, careful packaging, complimentary shipping over $150, and easy 30-day returns.",
+    text: "Careful packaging, complimentary shipping over $150, and clear 30-day returns.",
   },
 ];
 
@@ -563,6 +563,9 @@ export const STORYBOARD_PAGE_COMING_SOON =
 export const DISCOVER_PAGE_SIGNED_OUT =
   "Discover is tailored to you. Sign in and watch the storefront tune itself.";
 export const DISCOVER_PAGE_COMING_SOON = STORYBOARD_PAGE_COMING_SOON;
+export const DISCOVER_PAGE_CATALOG_LOADING = "Loading the current edit.";
+export const DISCOVER_PAGE_CATALOG_UNAVAILABLE =
+  "The current edit is unavailable. Try again shortly.";
 
 export const ABOUT_BRIEF = {
   EYEBROW: "About",

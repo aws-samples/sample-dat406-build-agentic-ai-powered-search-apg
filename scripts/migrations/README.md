@@ -59,6 +59,14 @@ FKs.
 28. **`028_shopper_operator_handoff.sql`** — adds the bounded, explicitly
     untrusted shopper context captured with an immutable turn receipt when a
     proposed action reaches the operator checkpoint.
+29. **`029_live_surface_data.sql`** — persists storefront persona profiles,
+    guided shopper scenarios, and editorial catalog grouping in Aurora; it also
+    upgrades catalog image URLs to the shipped WebP contract.
+30. **`030_storefront_editorial_order.sql`** — stores the featured item and
+    exact nine-piece order for each persona’s storefront edit in Aurora.
+31. **`031_refine_fresh_storefront_edit.sql`** — keeps the unsigned edit
+    material-led by promoting the Washed Canvas Tote and aligns its guided
+    Observatory request with that Aurora-owned edit.
 
 ## Run
 
@@ -98,7 +106,10 @@ for migration in \
     025_execution_receipts.sql \
     026_episode_outcome_lineage.sql \
     027_canonical_span_table.sql \
-    028_shopper_operator_handoff.sql
+    028_shopper_operator_handoff.sql \
+    029_live_surface_data.sql \
+    030_storefront_editorial_order.sql \
+    031_refine_fresh_storefront_edit.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

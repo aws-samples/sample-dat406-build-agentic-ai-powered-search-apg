@@ -1,8 +1,7 @@
 /**
- * Client-side helpers for the Tools surface — filters, offline discovery,
- * and example queries when the live endpoint is unavailable.
+ * Client-side helpers for the live Tools surface.
  */
-import type { Tool, ToolDiscoveryResult } from '../../types';
+import type { Tool } from '../../types';
 
 export type ToolFilter = 'all' | 'shipped' | 'exercise' | 'read' | 'write';
 
@@ -14,9 +13,6 @@ export const DISCOVERY_EXAMPLES: Array<{ label: string; query: string }> = [
   { label: 'Warehouse stock', query: 'check floor stock at Brooklyn warehouse' },
   { label: 'Process return', query: 'start a product return with audit trail' },
 ];
-
-const OFFLINE_SQL =
-  'SELECT name, description, 1 - (embedding <=> query_embedding) AS similarity\nFROM tool_registry\nORDER BY embedding <=> query_embedding\nLIMIT $1;';
 
 export function filterTools(tools: Tool[], filter: ToolFilter): Tool[] {
   switch (filter) {
@@ -31,41 +27,6 @@ export function filterTools(tools: Tool[], filter: ToolFilter): Tool[] {
     default:
       return tools;
   }
-}
-
-/** Workshop fallback when POST /tools/discover is unreachable. */
-export function discoverToolsLocally(
-  query: string,
-  tools: Tool[],
-  limit = 5,
-): ToolDiscoveryResult[] {
-  const q = query.toLowerCase().trim();
-  const tokens = q.split(/\s+/).filter((w) => w.length > 2);
-
-  const scored = tools.map((tool) => {
-    const hay = `${tool.functionName} ${tool.description}`.toLowerCase();
-    let score = 0;
-    if (hay.includes(q)) score += 0.45;
-    for (const token of tokens) {
-      if (hay.includes(token)) score += 0.12;
-    }
-    if (tool.functionName.toLowerCase().includes(q.replace(/\s+/g, '_'))) {
-      score += 0.35;
-    }
-    return { tool, similarity: Math.min(0.98, 0.38 + score) };
-  });
-
-  return scored
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, limit)
-    .map(({ tool, similarity }, idx) => ({
-      rank: idx + 1,
-      toolId: String(tool.numeral),
-      name: tool.functionName,
-      description: tool.description,
-      similarity,
-      status: tool.status,
-    }));
 }
 
 export function discoveryQueryForTool(tool: Tool): string {
@@ -85,5 +46,3 @@ export function discoveryQueryForTool(tool: Tool): string {
   };
   return presets[tool.functionName] ?? tool.description;
 }
-
-export const OFFLINE_DISCOVERY_SQL = OFFLINE_SQL;

@@ -57,11 +57,40 @@ export function routePath(path: string): string {
  */
 export function imageSrc(src: string | undefined | null): string | undefined {
   if (!src) return undefined
-  if (src.startsWith('/')) return asset(src)
+  if (src.startsWith('/products/')) {
+    // Some Aurora fields intentionally name a generated derivative (for
+    // example, the compact persona portraits). They are already a concrete
+    // asset, so adding a second width suffix would manufacture a 404.
+    if (/(?:-(?:160|480|960|1600))\.(?:avif|webp)$/i.test(src)) {
+      return asset(src)
+    }
+    // Aurora rows created before migration 029 still carry the old PNG
+    // filename. Product images ship only responsive derivatives, so use the
+    // 960px WebP as the universally-supported <img> source while <picture>
+    // upgrades it to AVIF/WebP variants when available.
+    return asset(src.replace(/\.(?:png|jpe?g|webp)$/i, '-960.webp'))
+  }
+  if (src.startsWith('/')) {
+    return asset(src)
+  }
   return src // http(s):// or data: - pass through untouched
 }
 
 export type ResponsiveImageFormat = 'avif' | 'webp'
+
+/**
+ * Normalize an explicitly-sized local derivative back to its image stem
+ * before building a responsive srcset. Aurora can retain a concrete path
+ * such as `hero-marco-960.webp`; appending another width to that string
+ * would ask the browser for `hero-marco-960-480.avif`, which never exists.
+ */
+function responsiveImageStem(src: string): string {
+  const withoutConcreteDerivative = src.replace(
+    /-(?:160|480|960|1600)\.(?:avif|webp)$/i,
+    '',
+  )
+  return withoutConcreteDerivative.replace(/\.(?:png|jpe?g|webp|avif)$/i, '')
+}
 
 /**
  * Build a width-descriptor srcset for generated local image variants.
@@ -75,12 +104,13 @@ export function responsiveImageSrcSet(
 ): string | undefined {
   if (!src || !src.startsWith('/') || src.startsWith('//')) return undefined
 
-  const extensionPattern = /\.(?:png|jpe?g)$/i
+  const extensionPattern = /\.(?:png|jpe?g|webp)$/i
   if (!extensionPattern.test(src)) return undefined
 
+  const stem = responsiveImageStem(src)
   return widths
     .map((width) => {
-      const variant = src.replace(extensionPattern, `-${width}.${format}`)
+      const variant = `${stem}-${width}.${format}`
       return `${asset(variant)} ${width}w`
     })
     .join(', ')

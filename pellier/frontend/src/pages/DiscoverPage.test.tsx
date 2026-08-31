@@ -18,7 +18,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // --- Mocks --------------------------------------------------------------
 
@@ -93,6 +93,21 @@ vi.mock('../contexts/UIContext', () => ({
 import DiscoverPage from './DiscoverPage'
 import { DISCOVER_PAGE_COMING_SOON, DISCOVER_PAGE_SIGNED_OUT } from '../copy'
 
+const LIVE_CATALOG = [
+  {
+    id: 11,
+    brand: 'Pellier Editions',
+    name: 'Italian Linen Camp Shirt',
+    color: 'Indigo',
+    price: 148,
+    rating: 4.8,
+    reviewCount: 91,
+    category: 'Apparel',
+    imageUrl: '/products/marco-linen-camp-shirt-indigo.webp',
+    tags: ['linen', 'travel'],
+  },
+]
+
 /**
  * DiscoverPage nests `<Header>` which renders a `<Link to="/workshop">`,
  * so every render needs a router ancestor. MemoryRouter is the minimal
@@ -108,7 +123,18 @@ beforeEach(() => {
     isAuthenticated: false,
     login: vi.fn(),
   }
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      new Response(JSON.stringify(LIVE_CATALOG), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  )
 })
+
+afterEach(() => vi.unstubAllGlobals())
 
 // --- Tests --------------------------------------------------------------
 
@@ -172,11 +198,11 @@ describe('DiscoverPage - signed in variant (Req 1.13.2, 1.13.3)', () => {
     }
   })
 
-  it('renders the personalized product grid plus the coming-soon line', () => {
+  it('renders the live product grid plus the coming-soon line', async () => {
     renderDiscover()
 
-    // ProductGrid mounts in the signed-in branch.
-    expect(screen.getByTestId('product-grid')).toBeInTheDocument()
+    expect(await screen.findByTestId('product-grid')).toBeInTheDocument()
+    expect(screen.getByTestId('product-card-11')).toBeInTheDocument()
 
     // Same coming-soon editorial line as the Storyboard page.
     const line = screen.getByTestId('discover-coming-soon')
@@ -187,6 +213,20 @@ describe('DiscoverPage - signed in variant (Req 1.13.2, 1.13.3)', () => {
     expect(
       screen.queryByTestId('discover-signin-prompt'),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows an explicit unavailable state instead of a static catalog', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 503 })),
+    )
+
+    renderDiscover()
+
+    expect(
+      await screen.findByTestId('discover-catalog-unavailable'),
+    ).toBeInTheDocument()
+    expect(screen.queryByTestId('product-grid')).not.toBeInTheDocument()
   })
 })
 

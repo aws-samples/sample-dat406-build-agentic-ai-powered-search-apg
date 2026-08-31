@@ -281,7 +281,9 @@ for migration in \
   025_execution_receipts.sql \
   026_episode_outcome_lineage.sql \
   027_canonical_span_table.sql \
-  028_shopper_operator_handoff.sql
+  028_shopper_operator_handoff.sql \
+  029_live_surface_data.sql \
+  030_storefront_editorial_order.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \
@@ -291,8 +293,9 @@ done
 
 # 3. Backend
 cd pellier/backend
-pip install -r requirements.txt
-python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
+python3 -m venv .venv
+./.venv/bin/python -m pip install --require-hashes -r requirements.lock
+./.venv/bin/python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 
 # 4. Frontend (separate terminal)
 cd pellier/frontend
@@ -307,7 +310,7 @@ With `npm run dev`, use the same paths on <http://localhost:5173>.
 
 ### Local PostgreSQL journey rehearsal
 
-After migrations `001-028` and the catalog seed have been applied to a local
+After migrations `001-030` and the catalog seed have been applied to a local
 `pellier_dev` database, prepare the Theo shopper-to-operator checkpoint and
 survey Jessica's deliberately contradictory evidence:
 
@@ -585,8 +588,8 @@ gate on pushes and pull requests to `governed`:
 
 ```bash
 cd pellier/backend
-python -m pytest -q
-python tests/test_copy_compliance.py
+./.venv/bin/python -m pytest -q
+./.venv/bin/python tests/test_copy_compliance.py
 
 cd ../frontend
 npm test -- --run
@@ -600,11 +603,11 @@ git diff --check
 find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 ```
 
-The `e2e` workflow builds the production SPA, serves it through FastAPI in
-smoke mode, and walks the storefront, operator client preview, Pellier
-Observatory, personas, streaming, and reset path in Chromium. The optional
-Cognito suite runs only when its isolated development-pool secrets are
-configured.
+The `e2e` workflow is a manual release gate for a newly provisioned Workshop
+Studio deployment. It runs the storefront, operator, Observatory, persona,
+streaming, reset, and Cognito checks against that real URL; it does not start
+a simulated local data plane or claim to validate Aurora and AgentCore without
+them.
 
 ---
 
@@ -641,7 +644,7 @@ sample-pellier-agentic-search-apg/
 │   └── the-concierge/                       Lab 4 MCP and Gateway reference
 │
 └── scripts/
-    ├── migrations/                         Ordered fresh-cluster SQL (001-028)
+    ├── migrations/                         Ordered fresh-cluster SQL (001-030)
     ├── seed_pellier_catalog.py             60 story products + 940 retrieval distractors
     ├── seed_local_golden_journeys.py       Local Theo handoff + Jessica evidence rehearsal
     ├── bootstrap-environment.sh             Code Editor + nginx + systemd

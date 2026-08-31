@@ -20,6 +20,7 @@ import { imageSrc } from '../../utils/assetPath'
 import ClientAvatar from '../components/ClientAvatar'
 import OperatorConcierge from '../concierge/OperatorConcierge'
 import MembershipRung from '../components/MembershipRung'
+import OperatorSignInAction from '../components/OperatorSignInAction'
 
 function money(value: number): string {
   return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -114,6 +115,7 @@ const ClientRecord: React.FC = () => {
             <code>{customerId}</code>.
           </>
         )}
+        {authenticationRequired ? <OperatorSignInAction /> : null}
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>

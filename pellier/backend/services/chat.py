@@ -197,27 +197,8 @@ _TRIAGE_REPLIES = {
 }
 
 
-_DISPATCHER_STUB_FALLBACKS = {
-    "inventory": (
-        "I can help with style and recommendations, but I don't have "
-        "real-time stock visibility for individual warehouses yet. "
-        "I can tell you the product is in the catalog and marked "
-        "in-stock system-wide — but which warehouse holds it, and "
-        "how many are on the floor, sits outside what I can answer "
-        "right now."
-    ),
-    "support": (
-        "I can help with style and recommendations, but return "
-        "handling and post-purchase support sits outside what I "
-        "can answer right now. When the Customer Service Agent is wired "
-        "it will own returns, care instructions, and warranty flow "
-        "end-to-end."
-    ),
-}
-
-
-def _dispatcher_stub_fallback(intent_hint: str) -> Optional[str]:
-    """Return the exercise-state fallback without invoking a model."""
+def _unbuilt_dispatcher_specialist(intent_hint: str) -> Optional[str]:
+    """Return the deliberately unbuilt specialist, without fabricating output."""
     if intent_hint == "inventory":
         from agents import inventory_agent
 
@@ -228,93 +209,47 @@ def _dispatcher_stub_fallback(intent_hint: str) -> Optional[str]:
         stubbed = getattr(customer_service_agent, "_SUPPORT_AGENT_STUBBED", False)
     else:
         stubbed = False
-    return _DISPATCHER_STUB_FALLBACKS.get(intent_hint) if stubbed else None
+    return intent_hint if stubbed else None
 
 
-def _dispatcher_stub_events(
+def _dispatcher_build_required_events(
     intent_hint: str,
-    fallback_text: str,
+    agent_name: str,
 ) -> List[Dict[str, Any]]:
-    """Build the canonical SSE tail for an unbuilt dispatcher specialist."""
-    note = f"{intent_hint}-intent matched; agent is the workshop build"
+    """Emit an honest workshop-build failure, never a simulated shopper reply."""
+    message = (
+        f"{agent_name} is intentionally unbuilt in this workshop image. "
+        "Complete the corresponding lab build step, then rerun this request."
+    )
     return [
-        {"type": "content", "content": fallback_text},
         {
-            "type": "meta",
-            "meta": {
-                "agent": None,
-                "model": None,
-                "note": note,
-                "fallthrough": True,
-            },
+            "type": "agent_step",
+            "agent": agent_name,
+            "action": "Workshop build required",
+            "status": "blocked",
+            "source": "Pellier build state",
+        },
+        {
+            "type": "error",
+            "code": "workshop_build_required",
+            "error": message,
         },
         {
             "type": "complete",
             "response": {
-                "response": fallback_text,
+                "response": message,
                 "products": [],
                 "suggestions": [],
                 "agent_execution": {
-                    "agent": None,
+                    "agent": agent_name,
                     "model": None,
-                    "fallthrough": True,
                     "intent": intent_hint,
-                    "note": note,
+                    "build_required": True,
                 },
-                "success": True,
+                "success": False,
             },
         },
     ]
-
-
-async def _dispatcher_stub_profile(
-    db_service: Any,
-    customer_id: Optional[str],
-) -> Dict[str, Any]:
-    """Read the bounded profile receipt needed by an unbuilt specialist."""
-    profile = {
-        "source": database_source_label(),
-        "customer_id": customer_id,
-        "facts_available": 0,
-        "orders_available": 0,
-        "available": False,
-    }
-    if not customer_id or db_service is None:
-        return profile
-    try:
-        row = await db_service.fetch_one(
-            """
-            SELECT
-              EXISTS (
-                SELECT 1 FROM pellier.customers WHERE id = %s
-              ) AS customer_exists,
-              (
-                SELECT count(*) FROM pellier.customer_episodic_seed
-                 WHERE customer_id = %s
-              ) AS facts_available,
-              (
-                SELECT count(*) FROM pellier.orders WHERE customer_id = %s
-              ) AS orders_available
-            """,
-            customer_id,
-            customer_id,
-            customer_id,
-        )
-        profile.update(
-            {
-                "facts_available": int((row or {}).get("facts_available") or 0),
-                "orders_available": int((row or {}).get("orders_available") or 0),
-                "available": bool((row or {}).get("customer_exists")),
-            }
-        )
-    except Exception as exc:
-        profile["source"] = "error"
-        logger.warning(
-            "Stub profile receipt unavailable for %s: %s",
-            customer_id,
-            exc.__class__.__name__,
-        )
-    return profile
 
 
 async def _append_pellier_stm_turn(
@@ -1686,16 +1621,8 @@ CURRENT REQUEST: {message}"""
         timing["intent"] = (time.perf_counter() - intent_t0) * 1000
 
         if pattern == "dispatcher":
-            fallback_text = _dispatcher_stub_fallback(intent_hint)
-            if fallback_text is not None:
-                if customer_id:
-                    yield {
-                        "type": "aurora_profile_context",
-                        "profile": await _dispatcher_stub_profile(
-                            self.db_service,
-                            customer_id,
-                        ),
-                    }
+            unbuilt_intent = _unbuilt_dispatcher_specialist(intent_hint)
+            if unbuilt_intent is not None:
                 logger.info("🎯 Intent: %s → %s", intent, intent_hint)
                 from services.response_mode import build_intent_signal
 
@@ -1703,19 +1630,15 @@ CURRENT REQUEST: {message}"""
                 stub_name = self._tool_to_agent_name(intent_hint)
                 logger.info(
                     "🎯 Dispatcher | specialist=%s (intent=%s) is STUBBED — "
-                    "returning before Memory, SkillRouter, or specialist invocation",
+                    "reporting an explicit workshop build requirement",
                     stub_name,
                     intent_hint,
                 )
                 yield {"type": "start", "content": "Checking workshop build state..."}
-                yield {
-                    "type": "agent_step",
-                    "agent": stub_name,
-                    "action": "Workshop build pending",
-                    "status": "completed",
-                    "source": "Pellier build state",
-                }
-                for event in _dispatcher_stub_events(intent_hint, fallback_text):
+                for event in _dispatcher_build_required_events(
+                    unbuilt_intent,
+                    stub_name,
+                ):
                     yield event
                 return
 
@@ -2294,16 +2217,19 @@ CURRENT REQUEST: {message}"""
             # The normal dispatcher path returns above. Keep this guard for a
             # graph build that fails and deliberately falls back to dispatcher
             # after SkillRouter has already run.
-            fallback_text = _dispatcher_stub_fallback(intent_hint)
-            if fallback_text is not None:
+            unbuilt_intent = _unbuilt_dispatcher_specialist(intent_hint)
+            if unbuilt_intent is not None:
                 stub_name = self._tool_to_agent_name(intent_hint)
                 logger.info(
                     "🎯 Dispatcher | specialist=%s (intent=%s) is STUBBED — "
-                    "returning voice-matched non-answer (workshop build pending)",
+                    "reporting an explicit workshop build requirement",
                     stub_name,
                     intent_hint,
                 )
-                for event in _dispatcher_stub_events(intent_hint, fallback_text):
+                for event in _dispatcher_build_required_events(
+                    unbuilt_intent,
+                    stub_name,
+                ):
                     yield event
                 _reset_skill_token()
                 _reset_persona_token()

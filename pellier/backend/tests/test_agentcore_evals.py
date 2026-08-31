@@ -284,15 +284,10 @@ def test_get_batch_evaluation_requires_an_id(
 # ---------------------------------------------------------------------------
 # Provenance states on the Observatory surface (audit finding C2)
 # ---------------------------------------------------------------------------
-def test_evaluations_endpoint_labels_its_three_provenance_states(
+def test_evaluations_endpoint_labels_unavailable_without_a_managed_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Fixture, local gate, and managed must be distinguishable.
-
-    A fixture scorecard styled like a measured one invites an attendee to
-    read an illustration as a result. The envelope names which state the
-    returned scorecards actually carry.
-    """
+    """No configured run means unavailable, never illustrative scorecards."""
     import asyncio
 
     import routes.observatory as observatory
@@ -304,15 +299,14 @@ def test_evaluations_endpoint_labels_its_three_provenance_states(
 
     body = asyncio.run(observatory.get_evaluations())
 
-    assert body["provenance"] == "fixture"
+    assert body["provenance"] == "unavailable"
     states = body["states"]
-    assert states["fixture"]["describes"] == "illustrative only — no run"
     assert states["localGate"]["available"] is True
     assert "scripts/eval_retrieval_harness.py" in states["localGate"]["sources"]
     # Not provisioned: say so rather than implying a managed score exists.
     assert states["managed"]["available"] is False
     assert "not provisioned" in states["managed"]["describes"]
-    assert isinstance(body["scorecards"], list)
+    assert body["scorecards"] == []
 
 
 def test_evaluations_endpoint_reports_managed_when_provisioned(
