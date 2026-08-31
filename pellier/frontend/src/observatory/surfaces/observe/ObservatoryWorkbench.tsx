@@ -433,7 +433,9 @@ function renderLedgerTitle(title: string): ReactNode {
   return title.split(/([_/])/).map((part, index) => (
     <Fragment key={`${part}-${index}`}>
       {part}
-      {part === '_' || part === '/' ? <wbr /> : null}
+      {part === '_' || part === '/' ? (
+        <wbr className="observatory-ledger-title-break" />
+      ) : null}
     </Fragment>
   ));
 }
@@ -1470,20 +1472,6 @@ export default function ObservatoryWorkbench() {
                         </h3>
                         <p>{step.detail}</p>
                         {step.meta ? <small>{step.meta}</small> : null}
-                        {/* A disclosure appears only on events that carry a
-                            receipt. The other rows have nothing behind them,
-                            and a chevron that reveals nothing is a lie. */}
-                        {step.sql ? (
-                          <button
-                            type="button"
-                            className="observatory-receipt-toggle"
-                            aria-expanded={isReceiptOpen(step)}
-                            aria-label={`${isReceiptOpen(step) ? 'Hide' : 'Show'} the Aurora receipt for ${step.title}`}
-                            onClick={() => toggleReceipt(step)}
-                          >
-                            <ChevronDown size={14} aria-hidden="true" />
-                          </button>
-                        ) : null}
                         {step.sql && isReceiptOpen(step) ? (
                           <div className="observatory-proof-block">
                             <div className="observatory-proof-block-heading">
@@ -1557,6 +1545,21 @@ export default function ObservatoryWorkbench() {
                           </div>
                         ) : null}
                       </div>
+                      {/* The receipt control belongs to the row, not the
+                          sentence. Keeping it in its own grid column prevents
+                          the hit area from covering a long evidence detail. */}
+                      {step.sql ? (
+                        <button
+                          type="button"
+                          className="observatory-receipt-toggle"
+                          aria-expanded={isReceiptOpen(step)}
+                          aria-label={`${isReceiptOpen(step) ? 'Hide' : 'Show'} the Aurora receipt for ${step.title}`}
+                          title={`${isReceiptOpen(step) ? 'Hide' : 'Show'} Aurora receipt`}
+                          onClick={() => toggleReceipt(step)}
+                        >
+                          <ChevronDown size={14} aria-hidden="true" />
+                        </button>
+                      ) : null}
                     </motion.li>
                   ))}
                 </ol>

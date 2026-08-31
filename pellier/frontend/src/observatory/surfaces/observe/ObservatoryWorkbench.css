@@ -791,7 +791,12 @@
   position: relative;
   display: grid;
   min-width: 0;
-  grid-template-columns: 44px 40px minmax(0, 1fr);
+  /*
+   * The last column is reserved for a receipt disclosure. It is part of the
+   * row grid—not an absolute element over the detail copy—so a long receipt
+   * explanation never hides the control or sits beneath its hit area.
+   */
+  grid-template-columns: 44px 40px minmax(0, 1fr) 38px;
   gap: 0 0;
   overflow: visible;
   align-items: start;
@@ -976,12 +981,17 @@
 
 /*
  * On any desktop-width ledger, a machine identifier is more readable as one
- * literal label than as a broken pseudo-word. Small screens retain the soft
- * breaks inserted in the markup after `_` and `/`.
+ * literal label than as a broken pseudo-word. The soft breaks in the markup
+ * are deliberately disabled here; <wbr> remains active on compact screens,
+ * where preserving the full label matters more than holding one line.
  */
 @media (min-width: 760px) {
   .observatory-trace-content h3 {
     white-space: nowrap;
+  }
+
+  .observatory-ledger-title-break {
+    display: none;
   }
 }
 
@@ -1747,21 +1757,17 @@
   outline-offset: 2px;
 }
 
-/* Per-event disclosure. Sits on the row's trailing edge, present only on
-   events that carry a receipt. */
-/* Space for the toggle is reserved on every row, receipt or not, so the rows
-   stay on one grid instead of jogging where a receipt happens to exist. */
-.observatory-trace-content {
-  padding-right: 30px;
-}
-
+/* Per-event disclosure. Its fixed trailing grid column keeps the affordance
+   separate from the evidence prose at every viewport. */
 .observatory-receipt-toggle {
-  position: absolute;
-  top: 14px;
-  right: 8px;
+  grid-column: 4;
+  grid-row: 1;
+  align-self: start;
+  justify-self: end;
   display: inline-flex;
   width: 26px;
   height: 26px;
+  margin-top: 13px;
   align-items: center;
   justify-content: center;
   padding: 0;

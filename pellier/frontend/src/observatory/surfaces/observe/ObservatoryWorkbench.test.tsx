@@ -302,6 +302,9 @@ describe('Pellier Observatory live agent workbench', () => {
       name: 'search_products_hybrid',
     });
     expect(toolTitle.querySelectorAll('wbr')).toHaveLength(2);
+    expect(
+      toolTitle.querySelectorAll('.observatory-ledger-title-break'),
+    ).toHaveLength(2);
     expect(screen.getByText('Recommendation')).toBeInTheDocument();
     expect(screen.getByText('Claude Opus 4.6')).toBeInTheDocument();
     expect(screen.getByText('Routing decision')).toBeInTheDocument();
@@ -948,13 +951,13 @@ describe('Pellier Observatory live agent workbench', () => {
 
     // The newest receipt opens itself so a finished run shows proof without a
     // click; the earlier one stays closed.
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', {
-          name: 'Hide the Aurora receipt for INSERT / tool_audit',
-        }),
-      ).toBeInTheDocument(),
+    const latestReceiptToggle = await screen.findByRole('button', {
+      name: 'Hide the Aurora receipt for INSERT / tool_audit',
+    });
+    expect(latestReceiptToggle.parentElement).toHaveClass(
+      'observatory-trace-step',
     );
+    expect(latestReceiptToggle.closest('.observatory-trace-content')).toBeNull();
     expect(
       screen.getByRole('button', {
         name: 'Show the Aurora receipt for SELECT / product_catalog',
