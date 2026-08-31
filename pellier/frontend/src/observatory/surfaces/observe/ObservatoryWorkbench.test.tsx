@@ -301,10 +301,8 @@ describe('Pellier Observatory live agent workbench', () => {
     const toolTitle = within(tracePanel(container)).getByRole('heading', {
       name: 'search_products_hybrid',
     });
-    expect(toolTitle.querySelectorAll('wbr')).toHaveLength(2);
-    expect(
-      toolTitle.querySelectorAll('.observatory-ledger-title-break'),
-    ).toHaveLength(2);
+    expect(toolTitle).toHaveTextContent('search_products_hybrid');
+    expect(toolTitle.querySelector('wbr')).toBeNull();
     expect(screen.getByText('Recommendation')).toBeInTheDocument();
     expect(screen.getByText('Claude Opus 4.6')).toBeInTheDocument();
     expect(screen.getByText('Routing decision')).toBeInTheDocument();
@@ -320,10 +318,15 @@ describe('Pellier Observatory live agent workbench', () => {
       name: 'SELECT / product_catalog',
     });
     expect(sqlTitle).toBeInTheDocument();
-    expect(sqlTitle.querySelectorAll('wbr')).toHaveLength(2);
+    expect(sqlTitle.querySelector('wbr')).toBeNull();
     expect(screen.getByLabelText('Captured SQL')).toHaveTextContent(
       /SELECT name, price\s+FROM pellier\.product_catalog\s+LIMIT 12/,
     );
+    expect(
+      screen.getByRole('button', {
+        name: 'Hide the Aurora receipt for SELECT / product_catalog',
+      }),
+    ).toHaveTextContent('Receipt');
     const sqlReceipt = screen
       .getByText('Aurora SQL receipt')
       .closest('.observatory-proof-block');

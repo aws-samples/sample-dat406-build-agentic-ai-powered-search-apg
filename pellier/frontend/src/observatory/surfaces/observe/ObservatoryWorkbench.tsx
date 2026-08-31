@@ -1,6 +1,4 @@
 import {
-  Fragment,
-  type ReactNode,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -421,23 +419,6 @@ function formatSqlForDisplay(sql: string): string {
       '\n$1 ',
     )
     .replace(/\s+(AND|OR)\s+/gi, '\n  $1 ');
-}
-
-/**
- * Evidence names are deliberately literal: participants should see the actual
- * tool, table, or capability that ran. Offer wrap points at machine-readable
- * delimiters so a narrow ledger never tears a token such as `hybrid` or `seed`
- * in half.
- */
-function renderLedgerTitle(title: string): ReactNode {
-  return title.split(/([_/])/).map((part, index) => (
-    <Fragment key={`${part}-${index}`}>
-      {part}
-      {part === '_' || part === '/' ? (
-        <wbr className="observatory-ledger-title-break" />
-      ) : null}
-    </Fragment>
-  ));
 }
 
 function sqlBindingCount(sql: string): number {
@@ -1467,9 +1448,7 @@ export default function ObservatoryWorkbench() {
                           <span>{step.kind}</span>
                           <em>{step.status.replace('_', ' ')}</em>
                         </div>
-                        <h3 aria-label={step.title}>
-                          {renderLedgerTitle(step.title)}
-                        </h3>
+                        <h3 aria-label={step.title}>{step.title}</h3>
                         <p>{step.detail}</p>
                         {step.meta ? <small>{step.meta}</small> : null}
                         {step.sql && isReceiptOpen(step) ? (
@@ -1557,6 +1536,12 @@ export default function ObservatoryWorkbench() {
                           title={`${isReceiptOpen(step) ? 'Hide' : 'Show'} Aurora receipt`}
                           onClick={() => toggleReceipt(step)}
                         >
+                          <span
+                            className="observatory-receipt-toggle-label"
+                            aria-hidden="true"
+                          >
+                            Receipt
+                          </span>
                           <ChevronDown size={14} aria-hidden="true" />
                         </button>
                       ) : null}
