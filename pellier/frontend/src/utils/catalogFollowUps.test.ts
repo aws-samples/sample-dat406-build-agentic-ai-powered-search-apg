@@ -15,10 +15,12 @@ describe('catalog follow-ups', () => {
     expect(actions.map(action => action.label)).toEqual([
       'Build around it',
       'Similar pieces',
-      'Check stock',
     ])
     expect(actions.map(action => action.prompt).join(' ')).not.toMatch(
       /another (?:size|color)|colorway/i,
+    )
+    expect(actions.map(action => action.prompt).join(' ')).not.toMatch(
+      /stock|availability/i,
     )
   })
 
@@ -48,5 +50,6 @@ describe('catalog follow-ups', () => {
       'Compare Hadley Linen Shirt and Oat Linen Drawstring Trousers.',
     )
     expect(prompts.join(' ')).not.toContain('Static fallback')
+    expect(prompts.join(' ')).not.toMatch(/stock|availability/i)
   })
 })

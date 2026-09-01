@@ -476,7 +476,7 @@ describe('ProductDetailPage — actions', () => {
     })
   })
 
-  it('seeds the shopper drawer with questions that name the piece', async () => {
+  it('seeds the shopper drawer only for a catalog question', async () => {
     const user = userEvent.setup()
     stubFetch(() => jsonResponse(detailPayload()))
 
@@ -486,10 +486,6 @@ describe('ProductDetailPage — actions', () => {
     expect(openDrawerWithQuery).toHaveBeenCalledWith(
       PRODUCT_DETAIL.askQuestion(SUBJECT.name),
     )
-
-    await user.click(await screen.findByTestId('product-check-stock'))
-    expect(openDrawerWithQuery).toHaveBeenCalledWith(
-      PRODUCT_DETAIL.stockQuestion(SUBJECT.name),
-    )
+    expect(screen.queryByTestId('product-check-stock')).toBeNull()
   })
 })

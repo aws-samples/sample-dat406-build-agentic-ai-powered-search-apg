@@ -21,7 +21,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   ArrowUp,
   LoaderCircle,
@@ -45,20 +45,10 @@ import '../styles/chat-drawer.css'
 // Constants
 // ---------------------------------------------------------------------------
 
-// Persona-specific welcome greetings with personal touch.
-// Each returning persona gets a warm callback to their interests.
-// Fresh visitors get a clean, inviting intro.
-const PERSONA_GREETINGS: Record<string, string> = {
-  marco:
-    "I remember you love natural fabrics and pieces that travel well. Last time you were eyeing linen. Shall we pick up where you left off, or explore something new?",
-  anna:
-    "Always great to see you. I know you have an eye for thoughtful gifts and milestone pieces. Tell me who you're shopping for and I'll find something that lands.",
-  theo:
-    "Welcome back. I see you gravitate toward slow-craft pieces: ceramics, washed linen, things with patina. What are you looking for today?",
-}
-
 const FRESH_GREETING =
   "Welcome to Pellier. I'm your personal shopping concierge. Tell me what you're looking for and I'll find the right pieces for you."
+const RETURNING_GREETING =
+  "Welcome back. Tell me what you're looking for and I'll find the right pieces for you."
 
 // ---------------------------------------------------------------------------
 // Platform detection for keyboard hint
@@ -84,6 +74,7 @@ export default function ChatDrawer() {
   const { persona } = usePersona()
 
   const isOpen = activeModal === 'drawer'
+  const reducedMotion = useReducedMotion()
   const [isMac, setIsMac] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
@@ -99,14 +90,14 @@ export default function ChatDrawer() {
     }
   }, [persona, isOpen, closeModal])
 
-  // Initial welcome message — persona-aware with personal touch
+  // First-turn greeting stays generic. Personal claims belong to the Aurora
+  // profile context that the backend loads for a concrete shopper request.
   const initialMessages = useMemo<AgentChatMessage[]>(() => {
     const firstName = persona ? persona.display_name.split(' ')[0] : ''
     const h = new Date().getHours()
     const tod = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-    const personaGreeting = persona?.id ? PERSONA_GREETINGS[persona.id] : null
-    const content = personaGreeting
-      ? `${tod}, ${firstName}. ${personaGreeting}`
+    const content = persona && persona.id !== 'fresh'
+      ? `${tod}, ${firstName}. ${RETURNING_GREETING}`
       : FRESH_GREETING
     return [
       {
@@ -178,9 +169,9 @@ export default function ChatDrawer() {
   // message appears. sendMessage adds the user message to state
   // synchronously (via setMessages) so the first visible paint already
   // shows the user bubble + the "thinking" placeholder.
-  // When the drawer opens with a pending query (pill click), reset
-  // the conversation to the greeting + new query so the user always
-  // sees the personalized welcome above their question.
+  // A pending query adds to the active thread. Storefront suggestions are
+  // follow-on shopping questions, so clearing the conversation here silently
+  // discarded the shopper's context.
   const hasConsumedRef = useRef(false)
   useLayoutEffect(() => {
     if (!isOpen) {
@@ -191,14 +182,9 @@ export default function ChatDrawer() {
     hasConsumedRef.current = true
     const seeded = consumePendingQuery()
     if (seeded) {
-      // Reset to greeting then immediately fire the query.
-      // Both use setMessages updater functions so React 18 batches
-      // them — sendMessage's `prev` sees clearChat's result.
-      // Result: greeting + user bubble appear on the same paint.
-      clearChat(initialMessages)
       void sendMessage(seeded)
     }
-  }, [isOpen, consumePendingQuery, sendMessage, clearChat, initialMessages])
+  }, [isOpen, consumePendingQuery, sendMessage])
 
   // Auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -273,10 +259,10 @@ export default function ChatDrawer() {
           <motion.div
             className="cd-backdrop"
             data-testid="chat-drawer-backdrop"
-            initial={{ opacity: 0 }}
+            initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.24 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.24 }}
             onClick={() => closeModal()}
           />
 
@@ -288,10 +274,12 @@ export default function ChatDrawer() {
             role="dialog"
             aria-modal="true"
             aria-label="Chat with Pellier"
-            initial={{ x: '100%' }}
+            initial={reducedMotion ? false : { x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+            transition={reducedMotion
+              ? { duration: 0 }
+              : { duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
           >
             {/* Mobile drag handle (decorative) */}
             <div className="cd-drag-handle" aria-hidden />
@@ -373,6 +361,7 @@ export default function ChatDrawer() {
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   onKeyDown={handleKeyPress}
+                  aria-label="Message Pellier"
                   placeholder={
                     hasUserMessages
                       ? 'Continue the conversation…'
@@ -415,10 +404,10 @@ export default function ChatDrawer() {
       {!isOpen && hasUserMessages && (
         <motion.div
           data-testid="continue-chat-pill"
-          initial={{ opacity: 0, y: 20 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.25, delay: 0.3 }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.25, delay: 0.3 }}
           className="cd-continue-shell"
         >
           <button

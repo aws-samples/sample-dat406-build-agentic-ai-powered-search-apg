@@ -22,10 +22,11 @@ Three kinds of reference, because the app builds image URLs three ways:
 1. **Literal** - a ``/products/<name>`` string in source, a fixture, or the
    seed CSV.
 2. **Derived** - ``ResponsiveImage`` expands a ``.png`` master into
-   ``-<width>.webp`` and ``-<width>.avif`` for every width in its srcset, so a
-   tracked master with untracked derivatives publishes a srcset pointing at
-   files a clean clone does not have. Widths come from what the master already
-   publishes, matching ``derive_product_variants.widths_for``.
+   ``-<width>.webp`` and ``-<width>.avif`` for every width in its srcset. The
+   literal source master and every generated candidate remain required: a clean
+   clone needs the source named by shipped code as well as the files the browser
+   requests. Widths come from what the master already publishes, matching
+   ``derive_product_variants.widths_for``.
 3. **Templated** - ``personaPhotos.ts`` composes client portrait filenames from
    a slug list at runtime. No literal exists to grep, so the slug list is read
    out of that module: adding a 13th client without its portrait must fail here
@@ -274,6 +275,8 @@ def audit(*, with_dimensions: bool = False) -> Dict[str, object]:
         rel = PRODUCTS_PREFIX + resolved
         derived = derivatives_for(name)
         required.add(rel)
+        if name in on_disk and name.lower().endswith(MASTER_SUFFIXES):
+            required.add(PRODUCTS_PREFIX + name)
         required.update(PRODUCTS_PREFIX + child for child in derived)
         entry: Dict[str, object] = {
             "referenced": f"/products/{name}",

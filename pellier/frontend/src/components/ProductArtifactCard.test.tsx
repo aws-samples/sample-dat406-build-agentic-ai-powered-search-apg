@@ -32,14 +32,49 @@ describe('ProductArtifactCard shopping details', () => {
     expect(within(details).queryByText('Service')).not.toBeInTheDocument()
   })
 
-  it('renders measured inventory when the response carries it', () => {
+  it('renders reconciled inventory carried by the chat response', () => {
     render(
       <ProductArtifactCard
-        product={{ ...PRODUCT, quantity: 4, inStock: true }}
+        product={{
+          ...PRODUCT,
+          quantity: 50,
+          inStock: true,
+          availability: {
+            status: 'reconciled_in_stock',
+            availableQuantity: 4,
+          },
+        }}
       />,
     )
 
     const details = screen.getByLabelText('Shopping details')
     expect(within(details).getByText('4 available')).toBeInTheDocument()
+  })
+
+  it('does not turn an unresolved catalog quantity into an availability claim', () => {
+    render(
+      <ProductArtifactCard
+        product={{
+          ...PRODUCT,
+          quantity: 50,
+          inStock: true,
+          availability: { status: 'availability_not_verified' },
+        }}
+      />,
+    )
+
+    expect(within(screen.getByLabelText('Shopping details')).getByText('Not verified')).toBeInTheDocument()
+  })
+
+  it('treats a prior purchase as collection context, not an item for sale', () => {
+    render(
+      <ProductArtifactCard
+        product={{ ...PRODUCT, ownership: 'owned' }}
+        onAddToCart={() => undefined}
+      />,
+    )
+
+    expect(screen.getByText('Already in your collection')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add to bag' })).toBeNull()
   })
 })

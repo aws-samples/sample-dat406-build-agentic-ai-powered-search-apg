@@ -216,6 +216,11 @@ function mapProduct(p: any): ChatProduct {
     url: p.url || p.producturl || '',
     quantity: p.quantity,
     inStock: p.inStock,
+    availability: p.availability,
+    ownership:
+      p.ownership === 'owned' || p.badge === 'From your orders'
+        ? 'owned'
+        : undefined,
     originalPrice: p.originalPrice,
     discountPercent: p.discountPercent,
     similarityScore:

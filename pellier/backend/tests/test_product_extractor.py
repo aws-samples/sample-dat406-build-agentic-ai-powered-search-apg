@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from services import inventory_evidence
 from services.chat import (
     EnhancedChatService,
     ProductExtractor,
@@ -138,3 +139,51 @@ async def test_parser_preserves_grounded_editorial_price_sentence():
     )
 
     assert parsed["text"] == prose
+
+
+@pytest.mark.asyncio
+async def test_format_products_preserves_quantity_and_owned_status():
+    service = EnhancedChatService.__new__(EnhancedChatService)
+    service.db_service = None
+
+    products = await service._format_products(
+        [
+            {
+                **PRODUCT,
+                "quantity": 4,
+                "badge": "From your orders",
+            }
+        ]
+    )
+
+    assert products[0]["quantity"] == 4
+    assert products[0]["inStock"] is True
+    assert products[0]["ownership"] == "owned"
+
+
+@pytest.mark.asyncio
+async def test_product_cards_receive_reconciled_inventory_not_catalog_cache(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    service = EnhancedChatService.__new__(EnhancedChatService)
+    service.db_service = object()
+    products = [{"id": 7, "quantity": 50, "inStock": True}]
+
+    async def resolve(_db, product_ids):
+        assert product_ids == ["7"]
+        return {
+            "7": inventory_evidence.InventoryEvidence(
+                product_id="7",
+                status=inventory_evidence.RECONCILED_IN_STOCK,
+                available_quantity=14,
+            )
+        }
+
+    monkeypatch.setattr(inventory_evidence, "resolve_inventory_many", resolve)
+
+    await service._attach_inventory_evidence(products)
+
+    assert products[0]["quantity"] == 14
+    assert products[0]["inStock"] is True
+    assert products[0]["availability"]["status"] == "reconciled_in_stock"
+    assert products[0]["availability"]["availableQuantity"] == 14

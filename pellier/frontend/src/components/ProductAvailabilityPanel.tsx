@@ -25,8 +25,6 @@ interface ProductAvailabilityPanelProps {
   availability: ProductAvailability | null
   /** True while the product read is still in flight. */
   loading: boolean
-  /** Opens the concierge with a stock question about this piece. */
-  onCheckStock?: () => void
 }
 
 function shipWindowLabel(
@@ -40,7 +38,6 @@ function shipWindowLabel(
 export default function ProductAvailabilityPanel({
   availability,
   loading,
-  onCheckStock,
 }: ProductAvailabilityPanelProps) {
   const wasRead = !loading && availability !== null
   const warehouses = availability?.warehouses ?? []
@@ -142,23 +139,6 @@ export default function ProductAvailabilityPanel({
             </p>
           )}
         </>
-      ) : null}
-
-      {onCheckStock ? (
-        <button
-          type="button"
-          data-testid="product-check-stock"
-          onClick={onCheckStock}
-          className="
-            mt-4 font-sans text-[13px] font-medium text-accent-ink underline
-            decoration-from-font underline-offset-4 cursor-pointer
-            transition-colors duration-fade hover:text-espresso
-            focus-visible:outline-2 focus-visible:outline-offset-2
-            focus-visible:outline-accent
-          "
-        >
-          {PRODUCT_DETAIL.CHECK_STOCK_LABEL}
-        </button>
       ) : null}
     </section>
   )

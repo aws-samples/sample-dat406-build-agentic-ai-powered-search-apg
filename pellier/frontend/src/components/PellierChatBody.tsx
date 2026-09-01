@@ -10,7 +10,7 @@
  * All styling comes from storefront-chat.css (the ``ec-*`` classes).
  */
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   Brain,
@@ -149,8 +149,7 @@ function productsForRenderedProse(
       : -1,
   }))
   const mentioned = ranked.filter((item) => item.mentionIndex >= 0)
-  if (mentioned.length === 0) return products
-  const orderedMentioned = mentioned
+  return mentioned
     .sort((a, b) => {
       if (a.mentionIndex !== b.mentionIndex) {
         return a.mentionIndex - b.mentionIndex
@@ -158,23 +157,7 @@ function productsForRenderedProse(
       return a.index - b.index
     })
     .map((item) => item.product)
-
-  // Keep prose alignment as the primary rule, but ensure discovery turns
-  // still show a usable shelf when the model only names one or two picks.
-  // Backfill from original ranked tool results to a floor of 3 cards.
-  if (orderedMentioned.length >= 3) return orderedMentioned
-
-  const seen = new Set(
-    orderedMentioned.map((product) => `${product.id ?? ''}::${product.name ?? ''}`),
-  )
-  const backfill = products.filter((product) => {
-    const key = `${product.id ?? ''}::${product.name ?? ''}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-
-  return [...orderedMentioned, ...backfill].slice(0, Math.min(3, products.length))
+    .slice(0, 3)
 }
 
 function emphasizeProductMentionsAndPrices(
@@ -207,7 +190,10 @@ function emphasizeProductMentionsAndPrices(
 function followupsForMessage(
   message: AgentChatMessage,
 ): string[] {
-  return catalogTurnFollowUps(message.products ?? [], [])
+  return catalogTurnFollowUps(
+    (message.products ?? []).filter((product) => product.ownership !== 'owned'),
+    [],
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -248,6 +234,7 @@ export default function PellierChatBody({
   addToCart,
   persona,
 }: PellierChatBodyProps) {
+  const reducedMotion = useReducedMotion()
   const lastAssistantIndex = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant') return i
@@ -263,9 +250,9 @@ export default function PellierChatBody({
         return (
           <motion.div
             key={`msg-${index}-${message.timestamp.getTime()}`}
-            initial={{ opacity: 0, y: 8 }}
+            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.25, ease: 'easeOut' }}
           >
             {message.role === 'user' ? (
               <UserMessage message={message} />
@@ -331,6 +318,7 @@ function AgentMessage({
   onAuthenticate: () => void
   isLastAssistantMessage: boolean
 }) {
+  const reducedMotion = useReducedMotion()
   const isThinking = message.agentStatus === 'thinking' && !message.content
   const isStreaming = message.agentStatus === 'streaming'
   const isComplete = message.agentStatus === 'complete'
@@ -392,12 +380,22 @@ function AgentMessage({
   const orderedProducts = message.products
     ? productsForRenderedProse(message.products, message.content)
     : []
+  const recommendedProducts = orderedProducts.filter(
+    (product) => product.ownership !== 'owned',
+  )
+  const ownedProducts = orderedProducts.filter(
+    (product) => product.ownership === 'owned',
+  )
   const displayContent =
     orderedProducts.length > 0
       ? emphasizeProductMentionsAndPrices(message.content, orderedProducts)
       : message.content
   return (
-    <div className="ec-msg-agent">
+    <div
+      className="ec-msg-agent"
+      aria-live={isStreaming ? 'polite' : undefined}
+      aria-atomic={isStreaming ? 'false' : undefined}
+    >
       {/* Eyebrow */}
       <div className="ec-msg-agent-eyebrow">
         <span className="ec-b-mini">P</span>
@@ -626,24 +624,20 @@ function AgentMessage({
         </div>
       )}
 
-      {/* Product cards — one render path for all products regardless
-       * of origin. Past-order references (backend persona-match
-       * injection) and forward-looking recs (tool-returned inventory)
-       * both surface as full ProductArtifactCards. Keeps the chat's
-       * visual register consistent across retrospective and
-       * forward-looking turns. */}
-      {orderedProducts.length > 0 && !message.reviewPending && (
+      {recommendedProducts.length > 0 && !message.reviewPending && (
         <div className="ec-artifacts">
-          {orderedProducts.map((product, pIdx) => (
+          {recommendedProducts.map((product, pIdx) => (
             <motion.div
               key={product.id || pIdx}
-              initial={{ opacity: 0, y: 8, scale: 0.97 }}
+              initial={reducedMotion ? false : { opacity: 0, y: 8, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{
-                delay: pIdx * 0.1,
-                duration: 0.38,
-                ease: [0.2, 0.9, 0.3, 1.05],
-              }}
+              transition={reducedMotion
+                ? { duration: 0 }
+                : {
+                    delay: pIdx * 0.1,
+                    duration: 0.38,
+                    ease: [0.2, 0.9, 0.3, 1.05],
+                  }}
             >
               <ProductArtifactCard
                 product={product}
@@ -662,6 +656,36 @@ function AgentMessage({
             </motion.div>
           ))}
         </div>
+      )}
+
+      {ownedProducts.length > 0 && !message.reviewPending && (
+        <section className="ec-owned-artifacts" aria-labelledby="collection-pieces-heading">
+          <div id="collection-pieces-heading" className="ec-owned-artifacts-label">
+            Already in your collection
+          </div>
+          <div className="ec-artifacts">
+            {ownedProducts.map((product, pIdx) => (
+              <motion.div
+                key={product.id || pIdx}
+                initial={reducedMotion ? false : { opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={reducedMotion
+                  ? { duration: 0 }
+                  : {
+                      delay: pIdx * 0.1,
+                      duration: 0.38,
+                      ease: [0.2, 0.9, 0.3, 1.05],
+                    }}
+              >
+                <ProductArtifactCard
+                  product={product}
+                  rankIndex={pIdx}
+                  onPrompt={(prompt) => onFollowUp(prompt)}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Follow-up chips */}

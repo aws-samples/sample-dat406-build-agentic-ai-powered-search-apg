@@ -22,13 +22,6 @@ import { HERO_STATEMENT } from '../copy'
 import PersonaConcierge from './PersonaConcierge'
 import ResponsiveImage from './ResponsiveImage'
 
-interface LiveHeroProfile {
-  id: string
-  hero_image: string
-  hero_alt: string
-  hero_subheadline: string
-}
-
 interface LiveScenario {
   id: number
   ordinal: number
@@ -36,6 +29,41 @@ interface LiveScenario {
 }
 
 type StatementId = 'fresh' | 'marco' | 'anna' | 'theo'
+
+/**
+ * Storefront art direction is fixed by persona. This keeps the first viewport
+ * available even when the live database is unavailable; Aurora still owns the
+ * selectable shopper records and the guided scenarios below.
+ */
+const PERSONA_HEROES: Record<
+  StatementId,
+  { image: string; alt: string; subheadline: string }
+> = {
+  fresh: {
+    image: '/products/landing-hero-weekender.webp',
+    alt: 'Leather weekender on a travertine bench beside linen and an olive branch',
+    subheadline:
+      'Choose a workshop profile, then explore a floor shaped by explicit catalog signals.',
+  },
+  marco: {
+    image: '/products/hero-marco.png',
+    alt: 'Leather weekender with folded linen and brass travel details in warm daylight',
+    subheadline:
+      'Travel-ready linen, leather, and natural fibers for a considered edit.',
+  },
+  anna: {
+    image: '/products/hero-anna.png',
+    alt: 'Ribbon-wrapped gift beside an amber candle, ceramic bud vase, and blank card',
+    subheadline:
+      'Thoughtful gifts and warm home objects, considered within your budget.',
+  },
+  theo: {
+    image: '/products/hero-theo.png',
+    alt: 'Charcoal stoneware bowl beside natural linen, a beeswax candle, and olive branches',
+    subheadline:
+      'Quiet craft, ceramics, and lasting pieces for a slower home rhythm.',
+  },
+}
 
 function statementFor(personaId: string) {
   const key = (personaId in HERO_STATEMENT ? personaId : 'fresh') as StatementId
@@ -56,39 +84,14 @@ export default function PellierHero({
   const { openDrawerWithQuery } = useUI()
   const { persona } = usePersona()
   const [searchValue, setSearchValue] = useState('')
-  const [heroProfile, setHeroProfile] = useState<LiveHeroProfile | null>(null)
   const [suggestions, setSuggestions] = useState<LiveScenario[]>([])
 
   const personaId = persona?.id ?? 'fresh'
+  const hero = PERSONA_HEROES[
+    personaId in PERSONA_HEROES ? personaId as StatementId : 'fresh'
+  ]
   const statement = statementFor(personaId)
   const headline = splitHeadlineAtAccent(statement.HEADLINE, statement.ACCENT)
-
-  useEffect(() => {
-    let active = true
-    const controller = new AbortController()
-    const targetPersonaId = persona?.id ?? 'fresh'
-    setHeroProfile(null)
-
-    void fetch('/api/observatory/personas', { signal: controller.signal })
-      .then(async response => {
-        if (!response.ok) throw new Error(`Live persona request failed: ${response.status}`)
-        return response.json() as Promise<LiveHeroProfile[]>
-      })
-      .then(profiles => {
-        if (!active) return
-        setHeroProfile(
-          profiles.find(profile => profile.id === targetPersonaId) ?? null,
-        )
-      })
-      .catch(() => {
-        if (active) setHeroProfile(null)
-      })
-
-    return () => {
-      active = false
-      controller.abort()
-    }
-  }, [persona?.id])
 
   useEffect(() => {
     if (!persona) {
@@ -168,8 +171,7 @@ export default function PellierHero({
             data-testid="pellier-hero-subheadline"
             className="pellier-hero-lede"
           >
-            {heroProfile?.hero_subheadline
-              ?? 'Loading the current Aurora profile…'}
+            {hero.subheadline}
           </p>
 
           {persona ? (
@@ -271,32 +273,24 @@ export default function PellierHero({
         </div>
 
         <div className="pellier-hero-media">
-          {heroProfile?.hero_image && heroProfile.hero_alt ? (
-            persona ? (
-              <img
-                data-testid="persona-hero-image"
-                src={asset(heroProfile.hero_image)}
-                alt={heroProfile.hero_alt}
-                width={1672}
-                height={941}
-                loading="eager"
-                decoding="async"
-              />
-            ) : (
-              <ResponsiveImage
-                src={heroProfile.hero_image}
-                alt={heroProfile.hero_alt}
-                widths={[480, 960, 1600]}
-                sizes="100vw"
-                loading="eager"
-                pictureClassName="block h-full w-full"
-              />
-            )
+          {personaId === 'fresh' ? (
+            <ResponsiveImage
+              src={hero.image}
+              alt={hero.alt}
+              widths={[480, 960, 1600]}
+              sizes="100vw"
+              loading="eager"
+              pictureClassName="block h-full w-full"
+            />
           ) : (
-            <div
-              aria-label="Loading live profile image"
-              className="h-full w-full bg-[linear-gradient(135deg,#ebe4d8,#f6f2eb)]"
-              role="status"
+            <img
+              data-testid="persona-hero-image"
+              src={asset(hero.image)}
+              alt={hero.alt}
+              width={1672}
+              height={941}
+              loading="eager"
+              decoding="async"
             />
           )}
         </div>

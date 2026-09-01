@@ -155,20 +155,47 @@ describe('PellierHero', () => {
     expect(openDrawerWithQuery).toHaveBeenCalledWith('A live Aurora scenario')
   })
 
-  it('re-reads hero metadata from Aurora instead of trusting a stale profile snapshot', async () => {
-    persona = {
-      ...PROFILES[2],
-      hero_image: '',
-      hero_alt: '',
-      hero_subheadline: '',
-    }
-    render(<PellierHero />)
+  it('renders the four fixed hero scenes without requesting hero metadata', () => {
+    const cases = [
+      {
+        profile: null,
+        alt: 'Leather weekender on a travertine bench beside linen and an olive branch',
+        src: '/products/landing-hero-weekender-960.webp',
+        responsive: true,
+      },
+      {
+        profile: { ...PROFILES[2], hero_image: '', hero_alt: '', hero_subheadline: '' },
+        alt: 'Leather weekender with folded linen and brass travel details in warm daylight',
+        src: '/products/hero-marco.png',
+        responsive: false,
+      },
+      {
+        profile: { ...PROFILES[1], hero_image: '', hero_alt: '', hero_subheadline: '' },
+        alt: 'Ribbon-wrapped gift beside an amber candle, ceramic bud vase, and blank card',
+        src: '/products/hero-anna.png',
+        responsive: false,
+      },
+      {
+        profile: { ...PROFILES[3], hero_image: '', hero_alt: '', hero_subheadline: '' },
+        alt: 'Charcoal stoneware bowl beside natural linen, a beeswax candle, and olive branches',
+        src: '/products/hero-theo.png',
+        responsive: false,
+      },
+    ]
 
-    expect(
-      await screen.findByAltText(
-        'Marco profile',
-      ),
-    ).toHaveAttribute('src', '/products/hero-marco.png')
-    expect(screen.getByTestId('persona-hero-image')).not.toHaveAttribute('srcset')
+    for (const hero of cases) {
+      persona = hero.profile
+      const view = render(<PellierHero />)
+      const image = screen.getByAltText(hero.alt)
+
+      expect(image).toHaveAttribute('src', hero.src)
+      if (hero.responsive) {
+        expect(image).toHaveAttribute('srcset')
+      } else {
+        expect(screen.getByTestId('persona-hero-image')).not.toHaveAttribute('srcset')
+      }
+      view.unmount()
+    }
+
   })
 })

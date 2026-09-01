@@ -226,8 +226,15 @@ export interface ChatProduct {
   similarityScore?: number
   quantity?: number
   inStock?: boolean
+  availability?: ChatProductAvailability
+  ownership?: 'owned'
   originalPrice?: number
   discountPercent?: number
+}
+
+export interface ChatProductAvailability {
+  status: string
+  availableQuantity?: number | null
 }
 
 export interface AgentExecution {

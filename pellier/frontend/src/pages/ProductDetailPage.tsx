@@ -396,9 +396,6 @@ export default function ProductDetailPage() {
               <ProductAvailabilityPanel
                 availability={availability}
                 loading={loading}
-                onCheckStock={() =>
-                  openDrawerWithQuery(PRODUCT_DETAIL.stockQuestion(view.name))
-                }
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

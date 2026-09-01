@@ -67,9 +67,10 @@ async def test_inventory_stub_returns_before_skill_router_or_specialist(
         "status": "blocked",
         "source": "Pellier build state",
     }
-    error = next(event for event in events if event["type"] == "error")
-    assert error["code"] == "workshop_build_required"
-    assert "intentionally unbuilt" in error["error"]
+    build_required = next(event for event in events if event["type"] == "build_required")
+    assert build_required["code"] == "workshop_build_required"
+    assert "intentionally unbuilt" in build_required["message"]
+    assert not any(event["type"] == "error" for event in events)
     complete = next(event for event in events if event["type"] == "complete")
     assert complete["response"]["success"] is False
     assert complete["response"]["agent_execution"]["model"] is None

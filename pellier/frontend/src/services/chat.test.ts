@@ -216,6 +216,34 @@ describe('chat service auth transport', () => {
     expect(updates).toHaveLength(2)
   })
 
+  it('returns the terminal explanation for an expected workshop build state', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        [
+          'data: {"type":"build_required","code":"workshop_build_required","message":"Inventory Agent is intentionally unbuilt."}',
+          'data: {"type":"complete","response":{"response":"Inventory Agent is intentionally unbuilt.","products":[],"suggestions":[],"success":false}}',
+          '',
+        ].join('\n\n'),
+        { status: 200 },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+    const updates: Array<{ type?: string }> = []
+
+    const result = await sendChatMessageStreaming(
+      'Is the Hadley shirt in stock?',
+      [],
+      event => updates.push(event),
+    )
+
+    expect(result.response).toContain('intentionally unbuilt')
+    expect(updates.map(event => event.type)).toEqual([
+      'build_required',
+      'complete',
+    ])
+  })
+
   it('rejects a stream that closes before a complete event', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response('data: {"type":"content_delta","delta":"Partial answer"}\n\n', {

@@ -281,8 +281,6 @@ export const PRODUCT_DETAIL = {
   ADD_TO_BAG: "Add to bag",
   ASK_LABEL: "Ask Pellier about this piece",
   askQuestion: (name: string): string => `Tell me about the ${name}.`,
-  CHECK_STOCK_LABEL: "Check stock with Pellier",
-  stockQuestion: (name: string): string => `Is the ${name} in stock?`,
   DESCRIPTION_HEADING: "About this piece",
   DESCRIPTION_UNAVAILABLE:
     "Catalog copy for this piece is served from Aurora and was not reachable.",

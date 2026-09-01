@@ -240,7 +240,7 @@ retrieval-engineering work belongs in the separate Mosaic Builder Session.
 
 ## Quick start (local dev)
 
-The production flow is a single FastAPI process on `:8000` serving both the built React SPA and the API. For interactive iteration, run the backend with `--reload` and rebuild the frontend on save.
+The production flow is a single FastAPI process on `:8000` serving both the built React SPA and the API. For interactive frontend work, `npm run dev` starts an isolated Pellier API on `:8003`, waits for it to become healthy, then starts Vite on `:5173` with a same-origin API proxy. When the configured Aurora cluster is private and its security group names a Pellier SSM tunnel, the launcher opens that approved tunnel and reads its database credentials from the configured Secrets Manager ARN. This keeps Aurora private and prevents another local workshop using `:8000` from being mistaken for Pellier.
 
 ```bash
 # 1. Aurora + Bedrock credentials
@@ -298,22 +298,28 @@ do
     -f "scripts/migrations/$migration"
 done
 
-# 3. Backend
+# 3. HMR development stack
 cd pellier/backend
 python3 -m venv .venv
 ./.venv/bin/python -m pip install --require-hashes -r requirements.lock
-./.venv/bin/python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
-
-# 4. Frontend (separate terminal)
 cd pellier/frontend
 npm ci
-npm run build      # production build → served by FastAPI on :8000
-# or: npm run dev   for HMR on :5173 (still hits backend on :8000)
+npm run dev        # API on :8003, Vite on :5173
+```
+
+For a production-style local run, build the frontend, then start FastAPI on
+`:8000`:
+
+```bash
+cd pellier/frontend
+npm run build
+cd ../backend
+./.venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 With the production build, open <http://localhost:8000>,
 <http://localhost:8000/operator>, or <http://localhost:8000/observatory>.
-With `npm run dev`, use the same paths on <http://localhost:5173>.
+With `npm run dev`, use the same paths on <http://127.0.0.1:5173>.
 
 ### Local PostgreSQL journey rehearsal
 

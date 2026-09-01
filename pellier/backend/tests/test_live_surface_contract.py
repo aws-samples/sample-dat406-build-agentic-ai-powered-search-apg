@@ -147,7 +147,7 @@ def test_persona_hero_descriptions_match_the_approved_scenes() -> None:
         assert description in refinement
 
 
-def test_persona_heroes_serve_the_approved_png_masters() -> None:
+def test_persona_heroes_use_fixed_approved_images() -> None:
     seed = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
     refinement = (
         ROOT / "scripts" / "migrations" / "037_serve_persona_hero_masters.sql"
@@ -162,7 +162,9 @@ def test_persona_heroes_serve_the_approved_png_masters() -> None:
         assert image in seed
         assert image in refinement
     assert 'data-testid="persona-hero-image"' in hero
-    assert "src={asset(heroProfile.hero_image)}" in hero
+    assert "/products/landing-hero-weekender.webp" in hero
+    assert "src={asset(hero.image)}" in hero
+    assert "/api/observatory/personas" not in hero
 
 
 def test_voice_transcription_is_not_shipped_when_no_voice_control_exists() -> None:

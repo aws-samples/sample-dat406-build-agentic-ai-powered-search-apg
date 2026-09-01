@@ -128,4 +128,53 @@ describe('storefront source disclosure', () => {
     expect(container.querySelector('.ec-toolcall-active')).toBeNull()
     expect(screen.getByText('184ms')).toBeInTheDocument()
   })
+
+  it('renders only products Pellier explicitly named in the response', () => {
+    renderBody(message({
+      content: 'The Italian Linen Camp Shirt is the strongest warm-weather pick.',
+      products: [
+        {
+          id: 1,
+          name: 'Italian Linen Camp Shirt',
+          price: 228,
+          image: '',
+        },
+        {
+          id: 2,
+          name: 'Oat Linen Drawstring Trousers',
+          price: 178,
+          image: '',
+        },
+        {
+          id: 3,
+          name: 'Indigo Cotton Overshirt',
+          price: 198,
+          image: '',
+        },
+      ],
+    }))
+
+    expect(screen.getAllByText('Pulled for you')).toHaveLength(1)
+    expect(screen.queryByText('Oat Linen Drawstring Trousers')).toBeNull()
+  })
+
+  it('separates owned pieces from recommendations and removes the purchase action', () => {
+    renderBody(message({
+      content: 'Your Italian Linen Camp Shirt remains a reliable travel layer.',
+      products: [
+        {
+          id: 1,
+          name: 'Italian Linen Camp Shirt',
+          price: 228,
+          image: '',
+          ownership: 'owned',
+        },
+      ],
+    }))
+
+    expect(
+      screen.getByRole('region', { name: 'Already in your collection' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add to bag' })).toBeNull()
+  })
 })

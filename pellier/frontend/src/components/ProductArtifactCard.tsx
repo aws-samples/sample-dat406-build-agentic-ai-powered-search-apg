@@ -28,11 +28,31 @@ interface CommerceSignal {
   value: string
 }
 
-/**
- * Value shown beside the "Stock" pill label, so the word "stock" must not
- * appear again here ("Stock · Stock checked" reads as a stutter).
- */
+function confirmedAvailabilityLabel(quantity: number | null | undefined): string {
+  if (typeof quantity !== 'number') return 'Available'
+  if (quantity <= 3) return `Only ${quantity} left`
+  return `${quantity} available`
+}
+
 function availabilitySignal(product: ChatProduct): string {
+  const availability = product.availability
+  if (availability) {
+    switch (availability.status) {
+      case 'reconciled_in_stock':
+        return confirmedAvailabilityLabel(availability.availableQuantity)
+      case 'reconciled_out_of_stock':
+        return 'Sold out'
+      case 'observed_in_stock':
+        return typeof availability.availableQuantity === 'number'
+          ? `${availability.availableQuantity} observed`
+          : 'Observed'
+      case 'observed_out_of_stock':
+        return 'No units observed'
+      default:
+        return 'Not verified'
+    }
+  }
+
   if (product.inStock === false || product.quantity === 0) return 'Sold out'
   if (typeof product.quantity === 'number') {
     if (product.quantity <= 3) return `Only ${product.quantity} left`
@@ -75,6 +95,7 @@ export default function ProductArtifactCard({
 
   const brand = product.category || 'Pellier Editions'
   const rating = product.rating ?? product.reviews
+  const isOwned = product.ownership === 'owned'
 
   const matchLabel = (() => {
     const score = product.similarityScore
@@ -97,11 +118,13 @@ export default function ProductArtifactCard({
       <div className="pa-eyebrow">
         <span className="pa-eyebrow-left">
           <span className="pa-eyebrow-dot" />
-          Pulled for you
+          {isOwned ? 'Already in your collection' : 'Pulled for you'}
         </span>
-        <span className={`pa-match pa-match-${matchLabel.toLowerCase().replace(' ', '-')}`}>
-          {matchLabel}
-        </span>
+        {!isOwned && (
+          <span className={`pa-match pa-match-${matchLabel.toLowerCase().replace(' ', '-')}`}>
+            {matchLabel}
+          </span>
+        )}
       </div>
 
       {/* Image area */}
@@ -146,24 +169,26 @@ export default function ProductArtifactCard({
             </span>
           ))}
         </div>
-        <div className="pa-actions">
-          <button
-            type="button"
-            className="pa-add"
-            onClick={onAddToCart}
-          >
-            Add to bag
-          </button>
-          <button
-            type="button"
-            className={`pa-heart ${saved ? 'is-saved' : ''}`}
-            aria-label={saved ? 'Saved' : 'Save'}
-            aria-pressed={saved}
-            onClick={() => setSaved((value) => !value)}
-          >
-            <Heart size={14} fill={saved ? 'currentColor' : 'none'} />
-          </button>
-        </div>
+        {!isOwned && onAddToCart && (
+          <div className="pa-actions">
+            <button
+              type="button"
+              className="pa-add"
+              onClick={onAddToCart}
+            >
+              Add to bag
+            </button>
+            <button
+              type="button"
+              className={`pa-heart ${saved ? 'is-saved' : ''}`}
+              aria-label={saved ? 'Saved' : 'Save'}
+              aria-pressed={saved}
+              onClick={() => setSaved((value) => !value)}
+            >
+              <Heart size={14} fill={saved ? 'currentColor' : 'none'} />
+            </button>
+          </div>
+        )}
         {onPrompt && (
           <div className="pa-quick-actions">
             {quickActions.map(action => (

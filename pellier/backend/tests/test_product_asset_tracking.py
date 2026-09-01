@@ -143,6 +143,22 @@ def test_no_master_ships_a_half_tracked_srcset(result) -> None:
     assert not broken, "masters with an incomplete tracked derivative set:\n  " + "\n  ".join(broken)
 
 
+def test_literal_source_masters_remain_required_with_their_derivatives(
+    audit_module,
+    result,
+) -> None:
+    """The resolver may request a derivative, but shipped source still names the master."""
+    required: List[str] = result["required"]  # type: ignore[assignment]
+    for name in (
+        "hero-fresh-2.png",
+        "hero-marco.png",
+        "hero-anna.png",
+        "hero-theo.png",
+        "fresh-nocturne-leather-weekender.png",
+    ):
+        assert audit_module.PRODUCTS_PREFIX + name in required
+
+
 def test_derivative_widths_are_symmetric_across_formats(result) -> None:
     """Both formats must publish the same widths.
 

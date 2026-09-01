@@ -56,10 +56,6 @@ export function productQuickActions(
       label: 'Similar pieces',
       prompt: `Show current-catalog alternatives to ${name} near $${price}.`,
     },
-    {
-      label: 'Check stock',
-      prompt: `Check live availability for ${name}.`,
-    },
   ]
 }
 
@@ -74,7 +70,6 @@ export function catalogTurnFollowUps(
     return [
       `Compare ${first.name} and ${second.name}.`,
       `What current-catalog pieces pair well with ${first.name}?`,
-      `Check live availability for ${first.name}.`,
     ]
   }
 

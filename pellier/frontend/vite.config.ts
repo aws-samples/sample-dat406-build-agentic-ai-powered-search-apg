@@ -9,7 +9,9 @@ function normalizeBasePath(raw: string | undefined): string {
 }
 
 const workshopBase = normalizeBasePath(process.env.VITE_BASE_PATH)
-const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8000'
+// HMR uses a dedicated Pellier backend so an unrelated local service on 8000
+// cannot satisfy /api requests with plausible-but-wrong 404s.
+const backendTarget = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8003'
 
 // Configuration for AWS Workshop Studio with CloudFront + VSCode Server
 export default defineConfig({

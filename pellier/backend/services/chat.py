@@ -216,7 +216,7 @@ def _dispatcher_build_required_events(
     intent_hint: str,
     agent_name: str,
 ) -> List[Dict[str, Any]]:
-    """Emit an honest workshop-build failure, never a simulated shopper reply."""
+    """Emit an honest workshop-build outcome, never a simulated shopper reply."""
     message = (
         f"{agent_name} is intentionally unbuilt in this workshop image. "
         "Complete the corresponding lab build step, then rerun this request."
@@ -230,9 +230,12 @@ def _dispatcher_build_required_events(
             "source": "Pellier build state",
         },
         {
-            "type": "error",
+            # This is an expected workshop state, not a failed request. Keeping it
+            # out of the error channel lets every SSE client consume the terminal
+            # explanation below instead of cancelling the stream mid-turn.
+            "type": "build_required",
             "code": "workshop_build_required",
-            "error": message,
+            "message": message,
         },
         {
             "type": "complete",
@@ -957,6 +960,7 @@ CURRENT REQUEST: {message}"""
             
             # Extract structured data from response
             parsed = await self._parse_agent_response(response_text, message, conversation_history)
+            await self._attach_inventory_evidence(parsed["products"])
             
             result = {
                 "response": parsed["text"],
@@ -1141,9 +1145,25 @@ CURRENT REQUEST: {message}"""
                 ),
                 "badge": product.get("badge"),
                 "tags": list(product.get("tags") or []),
+                "ownership": (
+                    "owned"
+                    if product.get("ownership") == "owned"
+                    or product.get("badge") == "From your orders"
+                    else None
+                ),
+                "quantity": _safe_int(product.get("quantity"), None),
+                "inStock": (
+                    product.get("inStock")
+                    if isinstance(product.get("inStock"), bool)
+                    else product.get("in_stock")
+                    if isinstance(product.get("in_stock"), bool)
+                    else None
+                ),
                 "originalPrice": None,
                 "discountPercent": 0,
             })
+            if formatted[-1]["inStock"] is None and formatted[-1]["quantity"] is not None:
+                formatted[-1]["inStock"] = formatted[-1]["quantity"] > 0
 
         # Backfill images from database — LLM sometimes drops image URLs.
         if formatted and self.db_service:
@@ -1171,6 +1191,46 @@ CURRENT REQUEST: {message}"""
                 logger.error(f"🖼️ BACKFILL FAILED: {e}", exc_info=True)
 
         return formatted
+
+    async def _attach_inventory_evidence(self, products: List[Dict]) -> None:
+        """Attach one reconciled availability fact to every emitted product card.
+
+        Catalog ``quantity`` is an aggregate cache. The storefront may only make an
+        availability claim from the batched inventory-evidence result, which compares
+        warehouse rows with the ledger in one read for the whole card set.
+        """
+        if not products or not self.db_service:
+            return
+
+        product_ids = [
+            str(product.get("id") or product.get("productId"))
+            for product in products
+            if product.get("id") or product.get("productId")
+        ]
+        if not product_ids:
+            return
+
+        from services.inventory_evidence import (
+            RECONCILED_IN_STOCK,
+            RECONCILED_OUT_OF_STOCK,
+            resolve_inventory_many,
+        )
+
+        evidence_by_id = await resolve_inventory_many(self.db_service, product_ids)
+        for product in products:
+            product_id = product.get("id") or product.get("productId")
+            evidence = evidence_by_id.get(str(product_id))
+            if evidence is None:
+                continue
+
+            product["availability"] = evidence.to_payload()
+            product["quantity"] = evidence.available_quantity
+            if evidence.status == RECONCILED_IN_STOCK:
+                product["inStock"] = True
+            elif evidence.status == RECONCILED_OUT_OF_STOCK:
+                product["inStock"] = False
+            else:
+                product["inStock"] = None
     
     def _generate_contextual_suggestions(self, query: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> List[str]:
         """Generate action-oriented follow-up suggestions that feel agentic."""
@@ -1827,6 +1887,7 @@ CURRENT REQUEST: {message}"""
                         "rating": float(o.get("rating") or 0),
                         "reviews": int(o.get("reviews") or 0),
                         "badge": "From your orders",
+                        "ownership": "owned",
                         "tags": [],
                     })
 
@@ -2603,6 +2664,7 @@ CURRENT REQUEST: {message}"""
 
         # Now send buffered products (collected from tool hooks during execution)
         if products_buffered:
+            await self._attach_inventory_evidence(products_buffered)
             for i, product in enumerate(products_buffered):
                 yield {
                     "type": "product",
@@ -2613,6 +2675,7 @@ CURRENT REQUEST: {message}"""
             products_sent = products_buffered
         elif parsed["products"]:
             # Fallback: send products extracted from response text
+            await self._attach_inventory_evidence(parsed["products"])
             for i, product in enumerate(parsed["products"]):
                 yield {
                     "type": "product",
@@ -2658,6 +2721,7 @@ CURRENT REQUEST: {message}"""
                 if len(matched) >= 3:
                     break
             if matched:
+                await self._attach_inventory_evidence(matched)
                 for i, product in enumerate(matched):
                     yield {
                         "type": "product",

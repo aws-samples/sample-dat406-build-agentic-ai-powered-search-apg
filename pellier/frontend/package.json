@@ -4,7 +4,8 @@
   "description": "Pellier - Governed Agentic AI Search Frontend",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bash ../../scripts/start-local-pellier-dev.sh",
+    "dev:vite": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview",
     "test": "vitest",
