@@ -132,23 +132,12 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 32%;
-}
-
-.labs-catalog-contact-sheet figure:nth-child(1) img {
-  object-position: center 34%;
-}
-
-.labs-catalog-contact-sheet figure:nth-child(2) img {
-  object-position: center 31%;
-}
-
-.labs-catalog-contact-sheet figure:nth-child(3) img {
-  object-position: center 31%;
-}
-
-.labs-catalog-contact-sheet figure:nth-child(4) img {
-  object-position: center 32%;
+  /*
+   * The contact-sheet frames are much wider than their portrait sources.
+   * Centre the face in the available crop instead of treating each one as a
+   * hairline-only strip.
+   */
+  object-position: center 50%;
 }
 
 .labs-catalog-contact-sheet figcaption {
@@ -274,20 +263,8 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 22%;
+  object-position: center 50%;
   transition: transform 240ms ease;
-}
-
-.labs-catalog-card[data-lab='02'] .labs-catalog-card-media img {
-  object-position: center 17%;
-}
-
-.labs-catalog-card[data-lab='03'] .labs-catalog-card-media img {
-  object-position: center 16%;
-}
-
-.labs-catalog-card[data-lab='04'] .labs-catalog-card-media img {
-  object-position: center 24%;
 }
 
 .labs-catalog-card:hover .labs-catalog-card-media img {
@@ -531,19 +508,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 22%;
-}
-
-.lab-detail[data-lab='02'] .lab-detail-hero-media img {
-  object-position: center 17%;
-}
-
-.lab-detail[data-lab='03'] .lab-detail-hero-media img {
-  object-position: center 16%;
-}
-
-.lab-detail[data-lab='04'] .lab-detail-hero-media img {
-  object-position: center 24%;
+  object-position: center 50%;
 }
 
 .lab-detail-summary {

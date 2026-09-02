@@ -49,10 +49,11 @@ const session: SessionDetail = {
   ],
   evidenceLedger: null,
   brief: {
-    executiveSummary: 'Recorded session.',
-    whatWorked: [],
-    whatToImprove: [],
-    nextActions: [],
+    folioNumber: 0,
+    headline: 'Live session evidence',
+    filedTime: '2026-09-02T08:00:00.000Z',
+    sections: [],
+    products: [],
   },
 };
 

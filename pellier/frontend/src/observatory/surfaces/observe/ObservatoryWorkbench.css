@@ -208,7 +208,7 @@
   max-height: 64px;
   aspect-ratio: 1;
   object-fit: cover;
-  object-position: center;
+  object-position: center 50%;
   border: 1px solid var(--pl-line);
   border-radius: 11px;
   background: var(--pl-paper-muted);
@@ -241,22 +241,6 @@
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.observatory-lab-rail-card[data-lab='01'] img {
-  object-position: center 22%;
-}
-
-.observatory-lab-rail-card[data-lab='02'] img {
-  object-position: center 17%;
-}
-
-.observatory-lab-rail-card[data-lab='03'] img {
-  object-position: center 16%;
-}
-
-.observatory-lab-rail-card[data-lab='04'] img {
-  object-position: center 24%;
 }
 
 .observatory-lab-rail-card:hover img {
