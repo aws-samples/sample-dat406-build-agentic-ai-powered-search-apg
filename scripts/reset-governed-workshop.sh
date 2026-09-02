@@ -309,7 +309,8 @@ for migration in \
   040_resequence_theo_governed_turn.sql \
   041_align_theo_pairing_preview.sql \
   042_align_anna_guided_previews.sql \
-  043_evidence_ledger.sql
+  043_evidence_ledger.sql \
+  044_operator_lifecycle_ledger.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"

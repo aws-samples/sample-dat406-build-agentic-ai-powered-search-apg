@@ -124,6 +124,36 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/*
+ * Labs are the participant's shared working room, not a third product with a
+ * separate grey backdrop. Scope the Storefront and Operator warm-paper family
+ * to the Lab Collection and Live Workbench while retaining the Observatory's
+ * evidence-specific accent and status vocabulary.
+ */
+.observatory-surface[data-labs='true'],
+.observatory-surface[data-workbench='true'] {
+  --obs-canvas: var(--cream);
+  --obs-canvas-strong: var(--cream-2);
+  --obs-panel: var(--cream-elev);
+  --obs-panel-muted: color-mix(
+    in srgb,
+    var(--cream-elev) 78%,
+    var(--cream-2)
+  );
+  --obs-cream-1: var(--cream);
+  --obs-cream-2: var(--cream-2);
+  --obs-cream-elev: var(--cream-elev);
+  --obs-ink-1: var(--ink);
+  --obs-ink-2: var(--ink-soft);
+  --obs-ink-3: var(--ink-soft);
+  --obs-ink-4: var(--ink-4);
+  --obs-ink-5: var(--ink-5);
+  --obs-rule-1: var(--rule-1);
+  --obs-rule-2: var(--rule-2);
+  --obs-rule-3: var(--rule-3);
+  background: var(--cream);
+}
+
 /* -----------------------------------------------------------------------
  * Flat aesthetic enforcement — override any inherited storefront styles
  * that use glassmorphism, blurs, or gradients within the Observatory.

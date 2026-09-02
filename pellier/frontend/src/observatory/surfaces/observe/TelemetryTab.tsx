@@ -192,6 +192,7 @@ type StepType =
   | 'Query'
   | 'Tool'
   | 'Policy'
+  | 'Operator review'
   | 'Model'
   | 'Rerank'
   | 'Reply'
@@ -210,6 +211,7 @@ function stepTypeForPanel(panel: TelemetryPanel): StepType {
     model: 'Model',
     tool: 'Tool',
     policy: 'Policy',
+    operator_review: 'Operator review',
     aurora: 'Query',
     write: 'Write',
     response: 'Reply',
@@ -225,6 +227,10 @@ const STEP_TYPE_COLORS: Record<StepType, { color: string; bg: string }> = {
   Query: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
   Tool: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
   Policy: { color: '#7b5f21', bg: 'rgba(123, 95, 33, 0.12)' },
+  'Operator review': {
+    color: 'var(--obs-red-1)',
+    bg: 'var(--obs-red-soft)',
+  },
   Model: { color: 'var(--obs-ink-2)', bg: 'rgba(31, 20, 16, 0.06)' },
   Rerank: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
   Reply: { color: 'var(--obs-ink-2)', bg: 'rgba(31, 20, 16, 0.06)' },

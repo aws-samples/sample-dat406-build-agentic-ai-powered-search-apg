@@ -445,7 +445,9 @@ function stepKindForLedgerEvent(
 ): StepKind {
   if (eventKind === 'route' || eventKind === 'plan') return 'routing';
   if (eventKind === 'memory') return 'memory';
-  if (eventKind === 'policy') return 'guardrail';
+  if (eventKind === 'policy' || eventKind === 'operator_review') {
+    return 'guardrail';
+  }
   if (eventKind === 'tool' || eventKind === 'write') return 'tool';
   if (
     eventKind === 'retrieval' ||

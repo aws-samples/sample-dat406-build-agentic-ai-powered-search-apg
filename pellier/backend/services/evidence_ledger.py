@@ -59,6 +59,11 @@ _PHASE_ORDER = {
     "governance": 50,
     "execution": 60,
     "terminal": 90,
+    # Operator review decisions and their governed execution happen after the
+    # shopper turn is terminal. Keeping that lifecycle after the immutable turn
+    # receipt prevents a later human action from being presented as if it ran
+    # during the shopper rail.
+    "follow_up": 100,
 }
 
 _EVENT_TITLES = {
@@ -73,6 +78,7 @@ _EVENT_TITLES = {
     "aurora": "Governed Aurora query",
     "write": "Aurora write receipt",
     "response": "Terminal turn receipt",
+    "operator_review": "Operator review lifecycle",
 }
 
 
@@ -129,7 +135,47 @@ def _event_summary(kind: str, summary: Dict[str, Any]) -> str:
             f"with {int(summary.get('citation_count') or 0)} citations and "
             f"{int(summary.get('tool_count') or 0)} tool receipts."
         )
+    if kind == "operator_review":
+        action = str(summary.get("action") or "prepared action")
+        lifecycle = str(summary.get("lifecycle") or "")
+        if lifecycle == "review_opened":
+            return (
+                f"{action} was prepared for Operator review. "
+                "The shopper rail did not execute the mutation."
+            )
+        if lifecycle == "confirmed":
+            return (
+                f"An operator confirmed {action}. "
+                "Governed execution had not started at this checkpoint."
+            )
+        if lifecycle == "declined":
+            return (
+                f"An operator declined {action}. "
+                "The governed execution path was not entered."
+            )
+        if lifecycle == "execution_recorded":
+            return (
+                f"Operator execution for {action}: policy "
+                f"{summary.get('policy_outcome') or 'NOT_EVALUATED'}; Aurora "
+                f"{summary.get('aurora_outcome') or 'NOT_REACHED'}; evidence "
+                f"{summary.get('evidence_outcome') or 'unavailable'}."
+            )
     return "Evidence recorded."
+
+
+def _event_title(kind: str, summary: Dict[str, Any]) -> str:
+    if kind != "operator_review":
+        return _EVENT_TITLES.get(kind, "Evidence event")
+    lifecycle = str(summary.get("lifecycle") or "")
+    if lifecycle == "review_opened":
+        return "Operator review opened"
+    if lifecycle == "confirmed":
+        return "Operator confirmed the prepared action"
+    if lifecycle == "declined":
+        return "Operator declined the prepared action"
+    if lifecycle == "execution_recorded":
+        return "Operator execution receipt"
+    return _EVENT_TITLES[kind]
 
 
 def _event(
@@ -166,7 +212,7 @@ def _event(
             "kind": source_kind,
             "id": source_id,
         },
-        "title": _EVENT_TITLES.get(kind, "Evidence event"),
+        "title": _event_title(kind, summary),
         "summary": _event_summary(kind, summary),
         "details": details,
         "sql": sql,

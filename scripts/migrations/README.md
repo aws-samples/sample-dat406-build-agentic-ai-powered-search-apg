@@ -100,6 +100,9 @@ FKs.
     invocation receipts and a typed read-only projection over the canonical
     receipt tables. Prompt, completion, tool argument, and tool result content
     are intentionally absent.
+44. **`044_operator_lifecycle_ledger.sql`** — adds the durable Operator
+    review and governed-execution lifecycle to that projection. The shopper
+    turn remains terminal before the later human and execution events appear.
 
 ## Run
 
@@ -154,7 +157,8 @@ for migration in \
     040_resequence_theo_governed_turn.sql \
     041_align_theo_pairing_preview.sql \
     042_align_anna_guided_previews.sql \
-    043_evidence_ledger.sql
+    043_evidence_ledger.sql \
+    044_operator_lifecycle_ledger.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

@@ -7,6 +7,7 @@ export type EvidenceLedgerEventKind =
   | 'model'
   | 'tool'
   | 'policy'
+  | 'operator_review'
   | 'aurora'
   | 'write'
   | 'response'
@@ -19,6 +20,7 @@ export type EvidenceLedgerPhase =
   | 'governance'
   | 'execution'
   | 'terminal'
+  | 'follow_up'
 
 export type EvidenceLedgerStatus =
   | 'planned'

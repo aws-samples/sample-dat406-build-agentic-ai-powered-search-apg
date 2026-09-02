@@ -1166,6 +1166,23 @@ describe('Pellier Observatory live agent workbench', () => {
               summary: 'Turn ended complete with 1 citation and 0 tool receipts.',
               details: { terminal_status: 'complete' },
             },
+            {
+              sequence: 3,
+              eventKind: 'operator_review',
+              phase: 'follow_up',
+              status: 'planned',
+              provenance: 'aurora-receipt',
+              turnId: 'turn-1',
+              evidenceRef: { kind: 'operator_review', id: '41' },
+              title: 'Operator review opened',
+              summary:
+                'initiate_return was prepared for Operator review. The shopper rail did not execute the mutation.',
+              details: {
+                lifecycle: 'review_opened',
+                review_id: 41,
+                action: 'initiate_return',
+              },
+            },
           ],
           evidenceSufficiency: [
             {
@@ -1206,10 +1223,12 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(
       screen.getAllByText(/governed_turn_receipt:turn-1/).length,
     ).toBeGreaterThan(0);
+    expect(screen.getByText('Operator review opened')).toBeInTheDocument();
+    expect(screen.getByText('operator_review')).toBeInTheDocument();
     expect(
       tracePanel(container).querySelector('.observatory-append-only')
         ?.textContent,
-    ).toBe('Durable receipt projection. 2 events, 0 SQL receipts.');
+    ).toBe('Durable receipt projection. 3 events, 0 SQL receipts.');
     expect(screen.queryByText('search_products')).not.toBeInTheDocument();
   });
 
