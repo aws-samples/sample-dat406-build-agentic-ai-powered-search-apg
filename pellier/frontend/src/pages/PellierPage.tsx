@@ -273,7 +273,7 @@ export default function PellierPage() {
 
           {!catalogLoading && !catalogError && featuredProduct ? (
             <>
-              <div className="mx-auto w-full max-w-[1560px] px-container-x pb-12 pt-16 md:pt-24">
+              <div className="mx-auto w-full max-w-[1560px] px-container-x pb-12">
                 <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
                   <Link
                     to={`/product/${featuredProduct.id}`}

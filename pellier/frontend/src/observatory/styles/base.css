@@ -1668,61 +1668,6 @@
   align-items: center;
 }
 
-/* The pill's olive Observatory theme lives in PresencePill.tsx as inline
-   styles. Re-skinning it from here cannot work: the session fragment is
-   inline-styled, so a parent !important never reaches it and the pill
-   renders half-themed (cream session text on the light bar). */
-
-.observatory-persona {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 9px;
-  padding: 4px 10px 4px 4px !important;
-  border: 1px solid var(--obs-rule-1) !important;
-  border-radius: 999px !important;
-  background: var(--obs-panel) !important;
-}
-
-.observatory-persona > img,
-.observatory-persona-initial {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(31, 20, 16, 0.1);
-  border-radius: 50%;
-  object-fit: cover;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.observatory-persona-copy {
-  display: grid;
-  gap: 1px;
-  text-align: left;
-}
-
-.observatory-persona-copy small {
-  color: var(--obs-ink-4);
-  font-family: var(--obs-mono);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.observatory-persona-copy strong {
-  color: var(--obs-ink-1);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.2;
-}
-
 .observatory-back {
   display: inline-flex;
   min-height: 40px;
@@ -1867,15 +1812,8 @@
     display: none;
   }
 
-  .observatory-persona-copy,
   .observatory-back span {
     display: none;
-  }
-
-  .observatory-persona {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 2px !important;
   }
 
   .observatory-back {
@@ -2065,14 +2003,8 @@
   }
 
   .observatory-tab,
-  .observatory-persona,
   .observatory-topbar .pellier-home-link {
     min-height: 44px;
-  }
-
-  .observatory-persona {
-    min-width: 44px;
-    justify-content: center;
   }
 }
 

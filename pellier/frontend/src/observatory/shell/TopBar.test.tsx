@@ -6,10 +6,6 @@ vi.mock('../../contexts/PersonaContext', () => ({
   usePersona: () => ({ persona: null }),
 }))
 
-vi.mock('../../components/PersonaModal', () => ({
-  default: () => null,
-}))
-
 vi.mock('../../shared', () => ({
   PresencePill: () => null,
 }))
@@ -91,5 +87,20 @@ describe('Pellier Observatory TopBar', () => {
     expect(
       screen.getByRole('link', { name: 'Labs & Workbench' }),
     ).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('keeps persona selection in the scenario-card flow, not the Observatory header', () => {
+    render(
+      <MemoryRouter initialEntries={['/observatory/workbench']}>
+        <TopBar />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.queryByRole('button', { name: /switch persona/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('observatory-persona-switcher'),
+    ).not.toBeInTheDocument()
   })
 })

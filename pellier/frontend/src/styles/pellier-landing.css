@@ -39,10 +39,10 @@
 
   /* Editorial rhythm for the landing bands. */
   --pellier-band-y: clamp(48px, 5.5vw, 88px);
-  /* Announcement (44px) + navigation (61px) + the hero's lower breathing
-     room (48px). With the announcement visible, the full hero now lands on
-     the first viewport instead of inheriting the photograph's 16:9 height. */
-  --pellier-hero-min: clamp(520px, calc(100dvh - 153px), 780px);
+  /* Announcement (44px) + navigation (61px). The hero itself owns the rest
+     of the first viewport, so the photograph ends cleanly at the next rail
+     rather than leaving a separate cream band below it. */
+  --pellier-hero-min: max(520px, calc(100dvh - 105px));
   /* Matches the `container-x` spacing token in tailwind.config.js. */
   --pellier-gutter: clamp(16px, 4vw, 48px);
 }
@@ -165,7 +165,6 @@
 .pellier-hero {
   position: relative;
   width: 100%;
-  padding: 0 0 clamp(28px, 3vw, 48px);
   overflow: clip;
   background: var(--cream);
 }
@@ -174,10 +173,12 @@
   position: relative;
   isolation: isolate;
   display: grid;
+  box-sizing: border-box;
   width: 100%;
   max-width: none;
   min-height: var(--pellier-hero-min);
   margin: 0 auto;
+  padding-block: clamp(24px, 3vh, 44px);
   padding-inline: var(--pellier-gutter);
   gap: clamp(20px, 2.4vw, 40px);
   grid-template-columns: minmax(0, 1fr);
