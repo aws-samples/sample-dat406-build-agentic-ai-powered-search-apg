@@ -60,19 +60,19 @@ describe('LabsCatalog', () => {
     ).toEqual([
       {
         anchorName: 'Marco',
-        image: '/assets/personas/marco.png',
+        image: '/assets/personas/marco-720.webp',
       },
       {
         anchorName: 'Anna',
-        image: '/assets/personas/anna.png',
+        image: '/assets/personas/anna-720.webp',
       },
       {
         anchorName: 'Theo',
-        image: '/assets/personas/theo.png',
+        image: '/assets/personas/theo-720.webp',
       },
       {
         anchorName: 'Jessica',
-        image: '/assets/personas/jessica.png',
+        image: '/assets/personas/jessica-720.webp',
       },
     ]);
 
@@ -90,9 +90,9 @@ describe('LabsCatalog', () => {
     );
 
     expect(governed).toMatchObject({
-      image: '/assets/personas/jessica.png',
-      imageWidth: 960,
-      imageHeight: 1200,
+      image: '/assets/personas/jessica-720.webp',
+      imageWidth: 720,
+      imageHeight: 900,
     });
     expect(governed?.objective).toContain('Marco, Anna, and Jessica');
     expect(governed?.participantTodo).toContain('four-case identity matrix');

@@ -335,7 +335,7 @@ async def lifespan(app: FastAPI):
         from services import tool_audit_writer
         tool_audit_writer.set_db_service(db_service)
         tool_audit_writer.set_main_loop(asyncio.get_running_loop())
-        logger.info("✅ tool_audit writer initialized for ALLOW-path mutation logging")
+        logger.info("✅ tool_audit writer initialized for read and mutation execution logging")
 
         # The operator review writer needs the same bridge. When a governed
         # mutation declines to run on the shopper rail, the after-tool hook turns
@@ -896,17 +896,24 @@ async def _persist_terminal_turn_receipt(
     specialist_route: str = "",
     tool_calls: Optional[List[Any]] = None,
     skip_handoff_lookup: bool = False,
+    agent_execution: Optional[Dict[str, Any]] = None,
+    model_id: Optional[str] = None,
+    model_source: str = "otel",
 ) -> Optional[Dict[str, Any]]:
-    """Write one immutable receipt after a shopper turn has terminated.
+    """Write and project terminal evidence after a shopper turn terminates.
 
-    The receipt is not a prerequisite for serving an answer or an error. A
-    failed evidence write returns ``None`` so callers never claim that an
-    unpersisted receipt exists.
+    Evidence is not a prerequisite for serving an answer or an error. A failed
+    write returns ``None`` so callers never claim that an unpersisted receipt
+    or projection exists.
     """
     try:
+        from services.model_invocation_receipt import (
+            persist_model_invocation_receipts,
+        )
         from services.governed_turn_receipt import persist_turn_receipt
         from services.shopper_handoff import build_handoff_context
 
+        principal_sub = (user or {}).get("sub")
         handoff_context = {}
         if not skip_handoff_lookup:
             handoff_context = await build_handoff_context(
@@ -921,11 +928,11 @@ async def _persist_terminal_turn_receipt(
                 tool_calls=tool_calls or [],
             )
 
-        return await persist_turn_receipt(
+        receipt = await persist_turn_receipt(
             db_service,
             turn_id=turn_id,
             session_id=session_id,
-            principal_sub=(user or {}).get("sub"),
+            principal_sub=principal_sub,
             rail=rail,
             terminal_status=terminal_status,
             latency_ms=int((time.perf_counter() - started_at) * 1000),
@@ -933,6 +940,32 @@ async def _persist_terminal_turn_receipt(
             terminal_error_code=terminal_error_code,
             handoff_context=handoff_context,
         )
+        if receipt is None:
+            return None
+
+        model_rows = await persist_model_invocation_receipts(
+            db_service,
+            turn_id=turn_id,
+            session_id=session_id,
+            principal_sub=principal_sub,
+            agent_execution=agent_execution,
+            default_model_id=model_id,
+            source=model_source,
+        )
+        ledger = None
+        if principal_sub:
+            from services.evidence_ledger import project_turn_ledger
+
+            ledger = await project_turn_ledger(
+                db_service,
+                turn_id=turn_id,
+                principal_sub=str(principal_sub),
+            )
+        return {
+            "governed_receipt": receipt,
+            "evidence_ledger": ledger,
+            "model_invocation_count": len(model_rows),
+        }
     except Exception as exc:  # pragma: no cover - persistence service is defensive
         logger.warning("governed turn receipt write skipped: %s", exc)
         return None
@@ -1031,6 +1064,9 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             specialist_route: str = "",
             tool_calls: Optional[List[Any]] = None,
             skip_handoff_lookup: bool = False,
+            agent_execution: Optional[Dict[str, Any]] = None,
+            model_id: Optional[str] = None,
+            model_source: str = "otel",
         ) -> Optional[Dict[str, Any]]:
             """Persist exactly once, even if a stream then raises."""
             nonlocal receipt_attempted
@@ -1053,6 +1089,9 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                 specialist_route=specialist_route,
                 tool_calls=tool_calls,
                 skip_handoff_lookup=skip_handoff_lookup,
+                agent_execution=agent_execution,
+                model_id=model_id,
+                model_source=model_source,
             )
 
         try:
@@ -1434,16 +1473,25 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                         },
                     },
                 }
-                receipt = await persist_terminal(
+                terminal_evidence = await persist_terminal(
                     rail=actual_rail or rail_decision.rail,
                     terminal_status="complete",
                     trace=managed_trace,
                     assistant_response=managed_result.response,
                     specialist_route=managed_result.specialist,
                     tool_calls=managed_result.tool_calls,
+                    agent_execution=event["response"]["agent_execution"],
+                    model_id=managed_result.model,
+                    model_source="agentcore-service-telemetry",
                 )
-                if receipt:
-                    event["response"]["governed_receipt"] = receipt
+                if terminal_evidence:
+                    event["response"]["governed_receipt"] = terminal_evidence[
+                        "governed_receipt"
+                    ]
+                    if terminal_evidence.get("evidence_ledger"):
+                        event["response"]["evidence_ledger"] = terminal_evidence[
+                            "evidence_ledger"
+                        ]
                 event = _annotate_rail(
                     event,
                     rail_decision,
@@ -1523,7 +1571,20 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                             and isinstance(execution.get("managed_trace"), dict)
                             else None
                         )
-                        receipt = await persist_terminal(
+                        if (
+                            trace is None
+                            and isinstance(execution, dict)
+                            and execution.get("trace_id")
+                        ):
+                            trace = {
+                                "traceKind": "in-process-otel",
+                                "runtime": "in-process",
+                                "rail": rail_decision.rail,
+                                "evidenceProvenance": "otel",
+                                "traceId": execution.get("trace_id"),
+                                "sessionId": request.session_id,
+                            }
+                        terminal_evidence = await persist_terminal(
                             rail=rail_decision.rail,
                             terminal_status="complete",
                             trace=trace,
@@ -1551,9 +1612,24 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
                                 isinstance(execution, dict)
                                 and execution.get("fallthrough")
                             ),
+                            agent_execution=(
+                                execution if isinstance(execution, dict) else None
+                            ),
+                            model_id=(
+                                str(response.get("model") or "")
+                                if isinstance(response, dict)
+                                else None
+                            ),
+                            model_source="otel",
                         )
-                        if receipt and isinstance(response, dict):
-                            response["governed_receipt"] = receipt
+                        if terminal_evidence and isinstance(response, dict):
+                            response["governed_receipt"] = terminal_evidence[
+                                "governed_receipt"
+                            ]
+                            if terminal_evidence.get("evidence_ledger"):
+                                response["evidence_ledger"] = terminal_evidence[
+                                    "evidence_ledger"
+                                ]
                         event = _annotate_rail(
                             event,
                             rail_decision,

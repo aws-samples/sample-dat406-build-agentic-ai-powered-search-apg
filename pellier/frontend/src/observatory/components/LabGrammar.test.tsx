@@ -19,12 +19,12 @@ function renderGrammar(overrides: Partial<React.ComponentProps<typeof LabGrammar
   return render(
     <LabGrammar
       labLabel="Lab 1 · Build — Build a PostgreSQL-Grounded Agent"
-      try="Ask Marco's Turn 4 in Pellier."
+      try="Ask Marco's Turn 3 in Pellier."
       build="Wire check_inventory between the markers."
-      prove="The registry strip reads 15/15 shipped."
+      prove="The registry strip reads 17/17 shipped."
       provenance="live"
       proofState="pass"
-      nextAction="Re-ask Marco's Turn 4."
+      nextAction="Re-ask Marco's Turn 3."
       returnAction="Code Editor → agent_tools.py"
       {...overrides}
     />,

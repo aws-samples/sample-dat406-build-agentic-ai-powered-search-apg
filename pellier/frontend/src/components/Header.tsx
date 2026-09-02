@@ -76,7 +76,7 @@ function Wordmark() {
       to="/"
       data-testid="wordmark"
       aria-label={NAV.WORDMARK}
-      className="flex items-center gap-2.5 select-none"
+      className="flex min-h-[44px] items-center gap-2.5 select-none"
     >
       <span
         aria-hidden="true"
@@ -112,7 +112,7 @@ function NavLink({ item, label, current, onClick }: NavLinkProps) {
       aria-current={isCurrent ? 'page' : undefined}
       onClick={() => onClick?.(item)}
       className={[
-        'text-[14px] transition-colors duration-fade ease-out',
+        'inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-[14px] transition-colors duration-fade ease-out',
         'hover:opacity-70 bg-transparent cursor-pointer',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         isCurrent ? 'text-espresso font-semibold' : 'text-ink-soft font-normal',
@@ -144,8 +144,8 @@ function ObservatoryLink({
         'transition-colors duration-fade ease-out hover:text-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         mobile
-          ? 'flex w-full px-1 py-2'
-          : 'inline-flex min-h-9 border-l border-sand pl-3',
+          ? 'flex min-h-[44px] w-full px-1 py-2'
+          : 'inline-flex min-h-[44px] border-l border-sand pl-3',
       ].join(' ')}
       style={{ fontFamily: 'var(--sans)' }}
     >
@@ -185,8 +185,8 @@ function OperatorLink({
         'transition-colors duration-fade ease-out hover:text-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         mobile
-          ? 'flex w-full px-1 py-2'
-          : 'inline-flex min-h-9 border-l border-sand pl-3',
+          ? 'flex min-h-[44px] w-full px-1 py-2'
+          : 'inline-flex min-h-[44px] border-l border-sand pl-3',
       ].join(' ')}
       style={{ fontFamily: 'var(--sans)' }}
     >
@@ -277,7 +277,7 @@ function SignedOutPersonaDropdown() {
         data-testid="persona-pill"
         className={[
           'pellier-account-pill',
-          'flex items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
+          'flex min-h-[44px] items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
           'cursor-pointer rounded-full',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         ].join(' ')}
@@ -394,7 +394,7 @@ function AuthenticatedPersonaTrigger() {
         data-testid="persona-pill"
         className={[
           'pellier-account-pill',
-          'flex items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
+          'flex min-h-[44px] items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
           'cursor-pointer rounded-full',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         ].join(' ')}

@@ -390,7 +390,7 @@ describe('ClientAvatar', () => {
       <ClientAvatar customerId="CUST-MARCO" name="Marco" personaId="marco" />,
     )
     expect(container.querySelector('img')?.getAttribute('src')).toContain(
-      '/assets/personas/marco.png',
+      '/assets/personas/marco-720.webp',
     )
   })
 })

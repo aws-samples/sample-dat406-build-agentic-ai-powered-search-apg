@@ -1039,15 +1039,28 @@ class EnhancedChatService:
                 # other methods (e.g. chat_stream); mirror that here so the
                 # non-streaming path doesn't NameError on the first session.
                 from config import settings
-                # Use AgentCore Memory for managed session persistence
+                # Keep the Strands integration on the exact same isolated
+                # namespace as the STM writer and read-back route. Giving
+                # the manager a shared principal actor plus a raw session id
+                # created a second record shape that Observatory could not
+                # replay reliably.
                 if user and settings.AGENTCORE_MEMORY_ID:
                     from services.agentcore_memory import create_agentcore_session_manager
+                    from services.agentcore_identity import AgentCoreIdentityService
+                    principal_sub = user.get("sub") if isinstance(user, dict) else None
+                    memory_namespace = AgentCoreIdentityService.build_namespace(
+                        principal_sub,
+                        session_id,
+                    )
                     session_manager = create_agentcore_session_manager(
-                        session_id=session_id,
-                        user_id=user.get("sub", "anonymous"),
+                        session_id=memory_namespace,
+                        user_id=memory_namespace,
                     )
                     if session_manager:
-                        logger.info(f"🧠 AgentCore Memory session created for user={user.get('sub', 'anonymous')}")
+                        logger.info(
+                            "🧠 AgentCore Memory session created for namespace=%s",
+                            memory_namespace,
+                        )
 
                 # No fallback — AgentCore Memory is the only session manager.
                 # If AGENTCORE_MEMORY_ID is not set, the agent runs without session memory.
@@ -1330,13 +1343,6 @@ CURRENT REQUEST: {message}"""
         # Collapse blank lines
         clean_text = re.sub(r'\n{3,}', '\n\n', clean_text)
         clean_text = clean_text.strip()
-
-        # If we have products (from JSON or tool hooks), keep only brief intro
-        if have_products and clean_text:
-            sentences = re.split(r'(?<=[.!?])\s+', clean_text)
-            intro = ' '.join(sentences[:2]).strip()
-            if intro:
-                clean_text = intro
 
         result["text"] = clean_text if clean_text else ("Here are some great options!" if have_products else response_text)
 
@@ -2263,23 +2269,25 @@ CURRENT REQUEST: {message}"""
                         create_agentcore_session_manager,
                     )
 
-                    # Memory namespaces durable records by actor, so the
-                    # actor must be the *verified* identity when one
-                    # exists. Preferring the persona here would let a UI
-                    # dropdown read another attendee's durable records —
-                    # the persona is simulation context, not an identity
-                    # claim. It is used only when no token was presented.
-                    # `turn_identity` is resolved once at the top of the
-                    # stream so this branch and the evidence spans agree.
-                    memory_user_id = turn_identity.memory_actor()
+                    # The Strands manager uses an actor/session pair, while
+                    # the shopper STM writer and Observatory reader use one
+                    # immutable namespace for both. Keep those paths
+                    # identical so a fresh persona session cannot retrieve
+                    # another session's working history.
+                    from services.agentcore_identity import AgentCoreIdentityService
+
+                    memory_namespace = AgentCoreIdentityService.build_namespace(
+                        turn_identity.principal_sub,
+                        session_id,
+                    )
                     session_manager = create_agentcore_session_manager(
-                        session_id=session_id,
-                        user_id=memory_user_id,
+                        session_id=memory_namespace,
+                        user_id=memory_namespace,
                     )
                     if session_manager:
                         logger.info(
-                            "🧠 AgentCore Memory (stream) for user=%s",
-                            memory_user_id,
+                            "🧠 AgentCore Memory (stream) for namespace=%s",
+                            memory_namespace,
                         )
                 except Exception as e:
                     logger.warning("AgentCore Memory setup failed: %s", e)
@@ -2542,6 +2550,7 @@ CURRENT REQUEST: {message}"""
             from agents.specialist_hooks import (
                 set_product_collector,
                 set_specialist_reply_collector,
+                select_products_for_reply,
             )
             product_collector_token = set_product_collector(forwarded_products)
             specialist_reply_collector_token = set_specialist_reply_collector(
@@ -2945,6 +2954,24 @@ CURRENT REQUEST: {message}"""
                     "Continuity response corrected to preserve product identity "
                     "and price ceiling"
                 )
+
+        if products_buffered:
+            # Tool results are candidates. The cards alongside the shopper
+            # answer must show the pieces the specialist selected, rather than
+            # the first candidate it mentioned as an already-owned reference.
+            card_reply = specialist_reply or parsed["text"] or response_text
+            selected_products = select_products_for_reply(
+                card_reply,
+                products_buffered,
+                owned_products=persona_orders_for_cards,
+            )
+            if len(selected_products) != len(products_buffered):
+                logger.info(
+                    "Product cards narrowed to %d selected pieces from %d candidates",
+                    len(selected_products),
+                    len(products_buffered),
+                )
+            products_buffered = selected_products
         context_manager.add_message("assistant", parsed["text"])
 
         # Minimal empty-response fallback. The aggressive recovery

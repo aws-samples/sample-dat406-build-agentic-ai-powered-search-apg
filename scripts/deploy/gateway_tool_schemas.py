@@ -202,14 +202,30 @@ TOOL_SCHEMAS = {
             },
             {
                 "name": "get_related_products",
-                "description": "Find complementary products by vector similarity.",
+                "description": (
+                    "Find complementary products by vector similarity. "
+                    "The source_product_name is resolved and verified before "
+                    "any similarity query runs."
+                ),
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "product_id": {"type": "integer"},
+                        "source_product_name": {
+                            "type": "string",
+                            "description": (
+                                "Named source product from the shopper request"
+                            ),
+                        },
+                        "product_id": {
+                            "type": "integer",
+                            "description": (
+                                "Optional ID returned by search_products; must "
+                                "match source_product_name"
+                            ),
+                        },
                         "limit": {"type": "integer", "default": 5},
                     },
-                    "required": ["product_id"],
+                    "required": ["source_product_name"],
                 },
             },
         ],

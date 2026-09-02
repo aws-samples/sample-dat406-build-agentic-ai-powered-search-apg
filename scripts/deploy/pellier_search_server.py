@@ -1,8 +1,8 @@
 """
 Pellier Search MCP Server — Lambda-hosted MCP server for catalog discovery.
 
-Exposes the six catalog and inventory tools from the canonical 15-tool
-Pellier contract:
+Exposes the six catalog and inventory tools from the governed 15-tool
+Gateway subset of Pellier's 17-tool MCP registry:
   - search_products
   - search_products_hybrid
   - browse_category

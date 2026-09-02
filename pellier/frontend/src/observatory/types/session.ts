@@ -10,6 +10,7 @@
 import type { ChatTurn } from './chat';
 import type { TelemetryPanel } from './telemetry';
 import type { BriefContent } from './brief';
+import type { EvidenceLedger } from '../../shared/evidenceLedger';
 
 export interface Session {
   id: string;
@@ -25,5 +26,6 @@ export interface Session {
 export interface SessionDetail extends Session {
   chat: ChatTurn[];
   telemetry: TelemetryPanel[];
+  evidenceLedger?: EvidenceLedger | null;
   brief: BriefContent;
 }

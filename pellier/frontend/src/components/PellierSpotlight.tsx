@@ -210,7 +210,7 @@ export default function PellierSpotlight() {
             type="button"
             aria-label="Skip welcome tour"
             onClick={dismiss}
-            className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/30 bg-[rgba(24,26,31,0.56)] text-white transition-colors hover:bg-[rgba(24,26,31,0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(24,26,31,0.56)]"
+            className="absolute right-3 top-3 z-10 inline-flex h-12 w-12 items-center justify-center rounded-[8px] border border-white/30 bg-[rgba(24,26,31,0.56)] text-white transition-colors hover:bg-[rgba(24,26,31,0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(24,26,31,0.56)]"
           >
             <X size={17} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -290,13 +290,18 @@ export default function PellierSpotlight() {
                   onClick={() => setStep(index)}
                   aria-label={`Show ${tourStep.label}, step ${index + 1} of ${STEPS.length}`}
                   aria-current={index === step ? 'step' : undefined}
-                  className={[
-                    'h-px transition-[width,background-color] duration-200',
-                    index === step
-                      ? 'w-7 bg-accent'
-                      : 'w-4 bg-[rgba(24,26,31,0.18)] hover:bg-[rgba(24,26,31,0.36)]',
-                  ].join(' ')}
-                />
+                  className="group inline-flex h-12 w-12 items-center justify-center rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={[
+                      'block h-px transition-[width,background-color] duration-200',
+                      index === step
+                        ? 'w-7 bg-accent'
+                        : 'w-4 bg-[rgba(24,26,31,0.18)] group-hover:bg-[rgba(24,26,31,0.36)]',
+                    ].join(' ')}
+                  />
+                </button>
               ))}
               <span
                 aria-hidden="true"
@@ -311,7 +316,7 @@ export default function PellierSpotlight() {
                 <button
                   type="button"
                   onClick={previous}
-                  className="min-h-10 rounded-[8px] px-3.5 font-sans text-[13px] font-medium text-ink-soft transition-colors hover:bg-cream-2 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                  className="min-h-12 rounded-[8px] px-3.5 font-sans text-[13px] font-medium text-ink-soft transition-colors hover:bg-cream-2 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   Back
                 </button>
@@ -319,7 +324,7 @@ export default function PellierSpotlight() {
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="min-h-10 rounded-[8px] px-3.5 font-sans text-[13px] font-medium text-ink-soft transition-colors hover:bg-cream-2 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                  className="min-h-12 rounded-[8px] px-3.5 font-sans text-[13px] font-medium text-ink-soft transition-colors hover:bg-cream-2 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   Skip
                 </button>
@@ -327,7 +332,7 @@ export default function PellierSpotlight() {
               <button
                 type="button"
                 onClick={next}
-                className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-accent px-4 font-sans text-[13px] font-semibold text-white transition-colors hover:bg-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                className="inline-flex min-h-12 items-center gap-2 rounded-[8px] bg-accent px-4 font-sans text-[13px] font-semibold text-white transition-colors hover:bg-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 {isLast ? 'Explore Pellier' : 'Continue'}
                 <ArrowRight size={15} strokeWidth={1.8} aria-hidden="true" />

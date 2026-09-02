@@ -325,7 +325,7 @@ export default function PellierPage() {
                         <Link
                           to={`/product/${featuredProduct.id}`}
                           data-testid="featured-product-link"
-                          className="transition-colors duration-fade hover:text-accent-ink"
+                          className="inline-flex min-h-[44px] items-center transition-colors duration-fade hover:text-accent-ink"
                         >
                           {featuredProduct.name}
                         </Link>
@@ -338,7 +338,7 @@ export default function PellierPage() {
                       <button
                         type="button"
                         onClick={() => handleAddToBag(featuredProduct)}
-                        className="mt-5 cursor-pointer rounded-full bg-espresso px-8 py-3 font-sans text-sm font-medium text-cream-50 transition-colors duration-fade hover:bg-dusk"
+                        className="mt-5 min-h-12 cursor-pointer rounded-full bg-espresso px-8 py-3 font-sans text-sm font-medium text-cream-50 transition-colors duration-fade hover:bg-dusk"
                       >
                         Add to bag
                       </button>

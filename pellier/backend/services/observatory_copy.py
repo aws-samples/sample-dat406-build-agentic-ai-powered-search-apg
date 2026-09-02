@@ -17,6 +17,7 @@ OBSERVATORY_COPY = {
         "scripts/prove_identity_boundary.py to produce the evidence."
     ),
     "SESSION_EVIDENCE_NOT_FOUND": "Session evidence not found.",
+    "EVIDENCE_RECORDED": "Evidence recorded.",
     "AGENT_TOPOLOGY_UNAVAILABLE": (
         "The running agent topology could not be inspected."
     ),

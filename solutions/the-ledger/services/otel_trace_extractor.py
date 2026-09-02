@@ -159,11 +159,26 @@ def _span_to_dict(span: Any, base_ms: int) -> Dict[str, Any]:
     end_ns = span.end_time or start_ns
     duration_ms = max(int((end_ns - start_ns) / 1_000_000), 0)
     start_ms = max(int(start_ns / 1_000_000) - base_ms, 0)
+    context = getattr(span, "context", None)
+    parent = getattr(span, "parent", None)
+    status = getattr(span, "status", None)
+    status_code = getattr(status, "status_code", None)
+    status_name = getattr(status_code, "name", None)
     return {
         "name": name,
         "kind": _classify_span(name, attrs),
         "startMs": start_ms,
         "durationMs": duration_ms,
+        "traceId": _format_trace_id(getattr(context, "trace_id", None)),
+        "spanId": _format_span_id(getattr(context, "span_id", None)),
+        "parentSpanId": _format_span_id(getattr(parent, "span_id", None)),
+        "statusCode": (
+            str(status_name).lower()
+            if status_name
+            else str(status_code).rsplit(".", 1)[-1].lower()
+            if status_code is not None
+            else None
+        ),
         "attributes": attrs,
         # Mirror keys kept for the existing AgentReasoningTraces
         # waterfall component which reads ``start_ms`` / ``duration_ms``
@@ -197,6 +212,13 @@ def _format_trace_id(trace_id: Optional[int]) -> Optional[str]:
     if not trace_id:
         return None
     return f"{trace_id:032x}"
+
+
+def _format_span_id(span_id: Optional[int]) -> Optional[str]:
+    """Render an OTEL span id as the conventional 16-character hex string."""
+    if not span_id:
+        return None
+    return f"{span_id:016x}"
 
 
 def _trace_ids(spans: Iterable[Any]) -> List[str]:

@@ -18,9 +18,9 @@
 import { imageSrc } from '../utils/assetPath'
 
 const CANONICAL_PERSONA_PORTRAITS: Record<string, string> = {
-  marco: '/assets/personas/marco.png',
-  anna: '/assets/personas/anna.png',
-  theo: '/assets/personas/theo.png',
+  marco: '/assets/personas/marco-720.webp',
+  anna: '/assets/personas/anna-720.webp',
+  theo: '/assets/personas/theo-720.webp',
 }
 
 /** Avatar-sized crops for interface chrome. */

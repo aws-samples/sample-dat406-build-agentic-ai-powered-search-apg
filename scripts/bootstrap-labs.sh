@@ -278,6 +278,7 @@ AWS_DEFAULT_REGION='${AWS_REGION}'
 BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}'
 BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}'
 BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-6-v1}'
+BEDROCK_FAST_MODEL='${BEDROCK_FAST_MODEL:-global.anthropic.claude-haiku-4-5-20251001-v1:0}'
 WORKSHOP_ID='${WORKSHOP_ID:-dat416}'
 WORKSHOP_FORMAT='${WORKSHOP_FORMAT:-governed}'
 AUTH_MODE='${AUTH_MODE:-cognito}'
@@ -639,7 +640,11 @@ setup_database() {
             036_refresh_persona_hero_alt_text.sql \
             037_serve_persona_hero_masters.sql \
             038_principal_customer_cardinality.sql \
-            039_return_replay_scope.sql
+            039_return_replay_scope.sql \
+            040_resequence_theo_governed_turn.sql \
+            041_align_theo_pairing_preview.sql \
+            042_align_anna_guided_previews.sql \
+            043_evidence_ledger.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -1387,6 +1392,7 @@ EOF
         # gets a documented fallback). Passed explicitly so the dependency is visible at
         # the call site; the provisioner also reads that .env as a safety net.
         export AGENT_MODEL_ID='${AGENT_MODEL_ID:-}'
+        export BEDROCK_FAST_MODEL='${BEDROCK_FAST_MODEL:-global.anthropic.claude-haiku-4-5-20251001-v1:0}'
         export WORKSHOP_ID='${WORKSHOP_ID:-dat416}'
         python3 '$REPO_PATH/scripts/provision_agentcore_end_to_end.py' \
             --repo-path '$REPO_PATH' \

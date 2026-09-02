@@ -22,7 +22,7 @@ Read the repository `CLAUDE.md` and `VOICE.md` before editing.
   "Required proof" heading under an `Optional` badge contradicts itself in one
   viewport. The canonical proof is curl and SQL in the Code Editor; say so
   rather than implying these views are it.
-- The one real build-state number (shipped tools, e.g. `14/15`) belongs beside
+- The one real build-state number (shipped tools, e.g. `16/17`) belongs beside
   the Tool Registry entry, where it is a fact that changes when the guided
   exercise lands. Never hardcode it: show an em dash when build state is
   unavailable, because a stale literal reads as a confident "not wired yet".

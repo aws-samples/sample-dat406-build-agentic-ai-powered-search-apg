@@ -185,6 +185,9 @@
 }
 
 .operator-wordmark {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   font-family: var(--display);
   font-size: 19px;
   font-weight: 400;
@@ -240,7 +243,7 @@
 }
 
 .operator-auth-control.operator-auth-signin {
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 16px;
   border-color: var(--input-border);
   border-radius: 999px;
@@ -1356,6 +1359,7 @@
 
 .operator-back {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
   font-size: 12px;
@@ -1381,6 +1385,7 @@
   letter-spacing: 0.01em;
   color: var(--op-ink-2);
   text-decoration: none;
+  min-height: 44px;
   padding: 5px 0;
 }
 
@@ -2259,15 +2264,23 @@
   }
 
   .operator-topbar {
-    padding: 0 16px;
+    padding: 0 12px;
   }
 
   .operator-topbar-inner {
-    min-height: 58px;
+    grid-template-areas:
+      'brand auth home'
+      'nav nav nav';
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    min-height: 0;
+    gap: 0 8px;
+    padding-top: 8px;
   }
 
   .operator-topbar-start {
+    grid-area: brand;
     gap: 0;
+    overflow: hidden;
   }
 
   .operator-topbar-context {
@@ -2275,11 +2288,41 @@
   }
 
   .operator-topbar-end {
-    gap: 8px;
+    display: contents;
   }
 
   .operator-topbar-nav {
-    gap: 10px;
+    grid-area: nav;
+    display: grid;
+    width: 100%;
+    min-height: 44px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-self: auto;
+    gap: 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--op-rule);
+  }
+
+  .operator-wordmark {
+    overflow: hidden;
+    font-size: 17px;
+    text-overflow: ellipsis;
+  }
+
+  .operator-auth-control {
+    grid-area: auth;
+    min-height: 44px;
+  }
+
+  .operator-auth-control:not(.operator-auth-signin) .operator-auth-identity {
+    display: none;
+  }
+
+  .operator-topbar-end > .pellier-home-link {
+    grid-area: home;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
   }
 
   .operator-topbar .pellier-home-wordmark {
@@ -2287,16 +2330,33 @@
   }
 
   .operator-topbar-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
     white-space: nowrap;
   }
 
   .operator-topbar-link {
-    gap: 4px;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .operator-topbar-link + .operator-topbar-link {
+    border-left: 1px solid var(--op-rule);
+  }
+
+  .operator-topbar-link::after {
+    bottom: 0;
+  }
+
+  .operator-topbar-count[data-count='sign-in'],
+  .operator-topbar-count[data-count='unavailable'] {
+    display: none;
   }
 
   .operator-queue-summary {

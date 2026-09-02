@@ -32,7 +32,6 @@ import {
 import { journeyForLab } from '../../../data/workshopJourneys';
 import {
   Badge,
-  Switch,
   ToggleGroup,
   ToggleGroupItem,
 } from '../../../components/ui';
@@ -45,6 +44,15 @@ import {
   type ChatResponse,
   type ResponseMode,
 } from '../../../services/chat';
+import type {
+  EvidenceLedger,
+  EvidenceLedgerEvent,
+  EvidenceLedgerEventKind,
+  EvidenceLedgerPhase,
+  EvidenceLedgerProvenance,
+  EvidenceReference,
+  EvidenceSufficiencyCheck,
+} from '../../../shared/evidenceLedger';
 import ObservatoryCuratedTurns from './ObservatoryCuratedTurns';
 import WorkbenchResources from '../../components/WorkbenchResources';
 import './ObservatoryIndex.css';
@@ -70,6 +78,12 @@ interface JourneyStep {
   source?: string;
   meta?: string;
   sql?: string;
+  eventKind?: EvidenceLedgerEventKind;
+  phase?: EvidenceLedgerPhase;
+  provenance?: EvidenceLedgerProvenance;
+  evidenceRef?: EvidenceReference;
+  turnId?: string;
+  traceId?: string | null;
   action?: {
     label: string;
     to: string;
@@ -114,7 +128,7 @@ interface StreamEvent {
   intent?: string;
   classifier?: string;
   response_mode?: ResponseMode;
-  model_family?: 'opus' | 'sonnet';
+  model_family?: 'opus' | 'sonnet' | 'haiku';
   model_id?: string;
   routing?: {
     loaded_skills?: string[];
@@ -159,6 +173,7 @@ interface StreamEvent {
       route?: string;
       router?: string;
     };
+    evidence_ledger?: EvidenceLedger;
   };
 }
 
@@ -177,7 +192,7 @@ interface IntentSignal {
   intent: string;
   classifier: string;
   responseMode: ResponseMode;
-  modelFamily: 'opus' | 'sonnet';
+  modelFamily: 'opus' | 'sonnet' | 'haiku';
   modelId: string;
 }
 
@@ -260,15 +275,7 @@ function productsForResponse(
 
   if (!mentioned.length) return products;
 
-  const mentionedKeys = new Set(
-    mentioned.map((product) => `${product.id}::${product.name}`),
-  );
-  return [
-    ...mentioned,
-    ...products.filter(
-      (product) => !mentionedKeys.has(`${product.id}::${product.name}`),
-    ),
-  ];
+  return mentioned;
 }
 
 function LabsProductCard({
@@ -433,6 +440,63 @@ function observabilityStep(
   };
 }
 
+function stepKindForLedgerEvent(
+  eventKind: EvidenceLedgerEventKind,
+): StepKind {
+  if (eventKind === 'route' || eventKind === 'plan') return 'routing';
+  if (eventKind === 'memory') return 'memory';
+  if (eventKind === 'policy') return 'guardrail';
+  if (eventKind === 'tool' || eventKind === 'write') return 'tool';
+  if (
+    eventKind === 'retrieval' ||
+    eventKind === 'rerank' ||
+    eventKind === 'aurora'
+  ) {
+    return 'sql';
+  }
+  if (eventKind === 'response') return 'observability';
+  return 'agent';
+}
+
+function ledgerStep(event: EvidenceLedgerEvent): JourneyStep {
+  const details = event.details ?? {};
+  const compactMeta = [
+    event.provenance,
+    event.durationMs !== null && event.durationMs !== undefined
+      ? `${event.durationMs} ms`
+      : '',
+    event.traceId ? `trace ${event.traceId}` : '',
+    `${event.evidenceRef.kind}:${event.evidenceRef.id}`,
+  ]
+    .filter(Boolean)
+    .join(' / ');
+  return {
+    id: `ledger-${event.sequence}-${event.evidenceRef.kind}-${event.evidenceRef.id}`,
+    kind: stepKindForLedgerEvent(event.eventKind),
+    eventKind: event.eventKind,
+    phase: event.phase,
+    title: event.title,
+    detail: event.summary,
+    status: event.status,
+    source:
+      typeof details.caller === 'string'
+        ? details.caller
+        : typeof details.purpose === 'string'
+          ? details.purpose
+          : event.evidenceRef.kind,
+    meta: compactMeta,
+    sql: event.sql ?? undefined,
+    provenance: event.provenance,
+    evidenceRef: event.evidenceRef,
+    turnId: event.turnId,
+    traceId: event.traceId,
+  };
+}
+
+function ledgerSteps(ledger: EvidenceLedger): JourneyStep[] {
+  return ledger.events.map(ledgerStep);
+}
+
 function patternLabel(pattern: string): string {
   if (pattern === 'dispatcher') return 'Dispatcher';
   if (pattern === 'graph') return 'Graph';
@@ -451,6 +515,28 @@ function labelIntent(intent: string): string {
     .join(' ');
 }
 
+const RESPONSE_MODE_META: Record<
+  ResponseMode,
+  { label: string; note: string }
+> = {
+  balanced: {
+    label: 'Balanced',
+    note: 'Configured Opus for editorial specialists; Sonnet for reporting.',
+  },
+  editorial: {
+    label: 'Deep',
+    note: 'Configured Opus profile composes the specialist response.',
+  },
+  fast: {
+    label: 'Fast',
+    note: 'Configured Haiku profile composes a concise specialist response.',
+  },
+};
+
+function responseModeLabel(mode: ResponseMode): string {
+  return RESPONSE_MODE_META[mode].label;
+}
+
 function labelRail(rail: string): string {
   if (rail === 'gateway-mcp') return 'Gateway MCP';
   if (rail === 'in-process') return 'In process';
@@ -462,9 +548,10 @@ function modelDisplayName(
   family: IntentSignal['modelFamily'],
   modelId: string,
 ): string {
-  const familyLabel = family === 'opus' ? 'Opus' : 'Sonnet';
+  const familyLabel =
+    family === 'opus' ? 'Opus' : family === 'haiku' ? 'Haiku' : 'Sonnet';
   const version = modelId
-    .match(/claude-(?:opus|sonnet)-([0-9]+(?:-[0-9]+)?)/i)?.[1]
+    .match(/claude-(?:opus|sonnet|haiku)-([0-9]+(?:-[0-9]+)?)/i)?.[1]
     ?.replace('-', '.');
   return `Claude ${familyLabel}${version ? ` ${version}` : ''}`;
 }
@@ -542,7 +629,7 @@ function whyThisAnswer({
 }
 
 export default function ObservatoryWorkbench() {
-  const { persona } = usePersona();
+  const { persona, switchError } = usePersona();
   const reduceMotion = useReducedMotion();
   const [searchParams] = useSearchParams();
   const selectedLab =
@@ -550,6 +637,8 @@ export default function ObservatoryWorkbench() {
   const selectedJourney = journeyForLab(selectedLab.id)!;
   const selectedPersona =
     persona?.id === selectedJourney.anchorId ? persona : null;
+  const storefrontJourney = selectedJourney.surface === 'storefront';
+  const profileReady = !storefrontJourney || Boolean(selectedPersona);
   const [activeTurn, setActiveTurn] = useState<number | null>(null);
   const [activeQuery, setActiveQuery] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunStatus>('idle');
@@ -560,12 +649,15 @@ export default function ObservatoryWorkbench() {
   const [runError, setRunError] = useState<string | null>(null);
   const [responseMode, setResponseMode] =
     useState<ResponseMode>('balanced');
-  const [profileEnabled, setProfileEnabled] = useState(Boolean(selectedPersona));
   const [setupOpen, setSetupOpen] = useState(false);
   const [intentSignal, setIntentSignal] = useState<IntentSignal | null>(null);
   const [executionRail, setExecutionRail] = useState('Server selected');
   const [executionPattern, setExecutionPattern] = useState<string | null>(null);
   const [executionRoute, setExecutionRoute] = useState<string | null>(null);
+  const [evidenceSufficiency, setEvidenceSufficiency] = useState<
+    EvidenceSufficiencyCheck[]
+  >([]);
+  const [durableLedger, setDurableLedger] = useState(false);
   const [copiedSqlId, setCopiedSqlId] = useState<string | null>(null);
   /**
    * Per-receipt disclosure. Absent means "use the default", which opens the
@@ -593,11 +685,12 @@ export default function ObservatoryWorkbench() {
     setAgentResponse('');
     setElapsedMs(0);
     setRunError(null);
-    setProfileEnabled(Boolean(selectedPersona));
     setIntentSignal(null);
     setExecutionRail('Server selected');
     setExecutionPattern(null);
     setExecutionRoute(null);
+    setEvidenceSufficiency([]);
+    setDurableLedger(false);
     setCopiedSqlId(null);
     setReceiptOverrides({});
     setLinkedStepId(null);
@@ -640,6 +733,9 @@ export default function ObservatoryWorkbench() {
         detail: event.action || 'Agent lifecycle update',
         status: event.status || 'in_progress',
         source: agent,
+        eventKind: 'model',
+        phase: 'reasoning',
+        provenance: 'live-emitted-event',
       };
       if (existingIndex < 0) return [...current, next];
       return current.map((step, index) => (index === existingIndex ? next : step));
@@ -657,6 +753,9 @@ export default function ObservatoryWorkbench() {
         detail: 'Tool invocation emitted by the live agent',
         status: event.status || 'executing',
         source: tool,
+        eventKind: 'tool',
+        phase: 'execution',
+        provenance: 'live-emitted-event',
       },
     ]);
   };
@@ -674,6 +773,9 @@ export default function ObservatoryWorkbench() {
           ? `Loaded ${loaded.join(', ')}`
           : 'No optional skills loaded for this turn',
         status: 'completed',
+        eventKind: 'route',
+        phase: 'routing',
+        provenance: 'live-emitted-event',
         meta: [
           considered ? `${considered} considered` : '',
           event.routing?.elapsed_ms !== undefined
@@ -704,6 +806,9 @@ export default function ObservatoryWorkbench() {
           ? `${facts} profile ${facts === 1 ? 'fact' : 'facts'} and ${orders} past ${orders === 1 ? 'order' : 'orders'} ${legacyMemoryEvent ? 'loaded' : 'available'}`
           : 'No live Aurora profile context was available for this turn',
         status: live && available ? 'completed' : 'unavailable',
+        eventKind: 'memory',
+        phase: 'context',
+        provenance: 'live-emitted-event',
         meta: [profile.source || 'unavailable', profile.customer_id || '']
           .filter(Boolean)
           .join(' / '),
@@ -733,6 +838,9 @@ export default function ObservatoryWorkbench() {
           memory.source === 'agentcore-memory' && !memoryFailed
             ? 'completed'
             : 'unavailable',
+        eventKind: 'memory',
+        phase: 'context',
+        provenance: 'agentcore-service-telemetry',
         meta: [
           memory.source,
           memory.namespace_scope,
@@ -758,6 +866,9 @@ export default function ObservatoryWorkbench() {
           ? 'Request evaluated before agent execution'
           : 'Request flagged by the input evaluation',
         status: guardrail.action === 'ERROR' ? 'error' : 'completed',
+        eventKind: 'policy',
+        phase: 'governance',
+        provenance: 'live-emitted-event',
         meta: [
           guardrail.mode || 'configured',
           guardrail.action || 'NONE',
@@ -783,6 +894,9 @@ export default function ObservatoryWorkbench() {
           .join(' / ') || 'Database query',
         detail: 'Aurora emitted a query receipt with source and timing metadata',
         status: 'completed',
+        eventKind: 'aurora' as const,
+        phase: 'execution' as const,
+        provenance: 'live-emitted-event' as const,
         meta:
           queryItem.duration_ms !== undefined
             ? `${queryItem.duration_ms} ms`
@@ -853,6 +967,13 @@ export default function ObservatoryWorkbench() {
           mergeProducts(current, event.response?.products ?? []),
         );
       }
+      if (event.response?.evidence_ledger) {
+        setSteps(ledgerSteps(event.response.evidence_ledger));
+        setEvidenceSufficiency(
+          event.response.evidence_ledger.evidenceSufficiency,
+        );
+        setDurableLedger(true);
+      }
     } else if (event.type === 'error') {
       setRunError(
         event.error || event.message || 'The agent reported an execution error.',
@@ -866,7 +987,7 @@ export default function ObservatoryWorkbench() {
     turnIndex: number | null,
   ) => {
     const request = curatedQuery.trim();
-    if (!request || runStatus === 'running') return;
+    if (!request || runStatus === 'running' || !profileReady) return;
 
     setActiveTurn(turnIndex);
     setActiveQuery(request);
@@ -882,6 +1003,8 @@ export default function ObservatoryWorkbench() {
     setExecutionRail('Server selected');
     setExecutionPattern(null);
     setExecutionRoute(null);
+    setEvidenceSufficiency([]);
+    setDurableLedger(false);
     setCopiedSqlId(null);
     setReceiptOverrides({});
     setLinkedStepId(null);
@@ -893,7 +1016,7 @@ export default function ObservatoryWorkbench() {
         handleStreamEvent,
         undefined,
         false,
-        profileEnabled ? selectedPersona?.customer_id ?? null : null,
+        selectedPersona?.customer_id ?? null,
         'dispatcher',
         responseMode,
       );
@@ -905,22 +1028,30 @@ export default function ObservatoryWorkbench() {
       if (response.products?.length) {
         setProducts((current) => mergeProducts(current, response.products));
       }
-      const emittedObservability = observabilityStep(
-        response,
-        `observability-${eventSequenceRef.current++}`,
-      );
-      setSteps((current) => {
-        const completed = current.map((step) => ({
-          ...step,
-          status:
-            step.status === 'in_progress' || step.status === 'executing'
-              ? 'completed'
-              : step.status,
-        }));
-        return emittedObservability
-          ? [...completed, emittedObservability]
-          : completed;
-      });
+      if (response.evidence_ledger) {
+        setSteps(ledgerSteps(response.evidence_ledger));
+        setEvidenceSufficiency(
+          response.evidence_ledger.evidenceSufficiency,
+        );
+        setDurableLedger(true);
+      } else {
+        const emittedObservability = observabilityStep(
+          response,
+          `observability-${eventSequenceRef.current++}`,
+        );
+        setSteps((current) => {
+          const completed = current.map((step) => ({
+            ...step,
+            status:
+              step.status === 'in_progress' || step.status === 'executing'
+                ? 'completed'
+                : step.status,
+          }));
+          return emittedObservability
+            ? [...completed, emittedObservability]
+            : completed;
+        });
+      }
       setRunStatus('complete');
     } catch (error) {
       setRunError(errorMessage(error));
@@ -938,12 +1069,10 @@ export default function ObservatoryWorkbench() {
       .filter((step) => step.kind === 'agent' && step.source)
       .map((step) => step.source),
   ).size;
-  const sqlCount = steps.filter((step) => step.kind === 'sql').length;
+  const sqlCount = steps.filter((step) => Boolean(step.sql)).length;
   const orderedProducts = productsForResponse(products, agentResponse);
   const bestMatch = orderedProducts[0];
-  const curatedPairings = orderedProducts.slice(1, 3);
-  const displayedProductCount =
-    (bestMatch ? 1 : 0) + curatedPairings.length;
+  const supportingProducts = orderedProducts.slice(1);
   const currentStepId =
     runStatus === 'running' && steps.length
       ? steps[steps.length - 1].id
@@ -1198,6 +1327,8 @@ export default function ObservatoryWorkbench() {
               journey={selectedJourney}
               running={runStatus === 'running'}
               activeIndex={activeTurn}
+              ready={profileReady}
+              anchorError={switchError}
               onInspect={(curatedQuery, index) => {
                 void runAgent(curatedQuery, index);
               }}
@@ -1258,46 +1389,41 @@ export default function ObservatoryWorkbench() {
                           <ToggleGroupItem
                             key={mode}
                             value={mode}
-                            aria-label={
-                              mode.charAt(0).toUpperCase() + mode.slice(1)
-                            }
+                            aria-label={responseModeLabel(mode)}
                             disabled={runStatus === 'running'}
                           >
-                            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                            {responseModeLabel(mode)}
                           </ToggleGroupItem>
                         ),
                       )}
                     </ToggleGroup>
                     <p className="observatory-mode-note">
-                      {responseMode === 'balanced'
-                        ? 'Opus for editorial specialists; Sonnet for reporting.'
-                        : responseMode === 'editorial'
-                          ? 'Claude Opus 4.6 composes the specialist response.'
-                          : 'Claude Sonnet 4.6 composes the specialist response.'}
+                      {RESPONSE_MODE_META[responseMode].note}
                     </p>
                   </fieldset>
 
-                  {persona ? (
-                    <div className="observatory-profile-control">
-                        <Switch
-                          id="labs-profile-context"
-                          checked={profileEnabled}
-                          disabled={runStatus === 'running'}
-                          onCheckedChange={setProfileEnabled}
-                          aria-label="Aurora profile context"
-                        />
-                        <label htmlFor="labs-profile-context">
+                  {storefrontJourney ? (
+                    profileReady && selectedPersona ? (
+                      <div className="observatory-profile-control">
+                        <div>
                           <strong>Aurora profile context</strong>
                           <small>
-                            Add {persona.display_name}&rsquo;s current facts and
-                            order history
+                            Bound to {selectedPersona.display_name}&rsquo;s
+                            current facts and order history for this lab
                           </small>
-                        </label>
-                    </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="observatory-profile-unavailable">
+                        {switchError
+                          ? `Unable to open ${selectedJourney.anchorName}'s guided session: ${switchError}`
+                          : `Select ${selectedJourney.anchorName} in the Storefront scenario switcher before running these Aurora-backed turns.`}
+                      </p>
+                    )
                   ) : (
                     <p className="observatory-profile-unavailable">
-                      Choose a storefront persona to add live Aurora profile
-                      context to these runs.
+                      Jessica&rsquo;s case continues in the separately
+                      authenticated Operator surface.
                     </p>
                   )}
                 </div>
@@ -1305,8 +1431,8 @@ export default function ObservatoryWorkbench() {
 
               <div className="observatory-run-foot">
                 <p className="observatory-provenance">
-                  Live SSE from <code>/api/chat/stream</code>. Evidence remains
-                  visible for every run.
+                  Live SSE from <code>/api/chat/stream</code>, reconciled to
+                  principal-scoped Aurora receipts when the turn completes.
                 </p>
               </div>
             </section>
@@ -1402,7 +1528,7 @@ export default function ObservatoryWorkbench() {
                       variant="neutral"
                       className="observatory-run-mode"
                     >
-                      {labelIntent(intentSignal.responseMode)} mode
+                      {responseModeLabel(intentSignal.responseMode)} mode
                     </Badge>
                   </header>
                   <dl>
@@ -1552,7 +1678,7 @@ export default function ObservatoryWorkbench() {
                       </span>
                       <div className="observatory-trace-content">
                         <div className="observatory-trace-kicker">
-                          <span>{step.kind}</span>
+                          <span>{step.eventKind ?? step.kind}</span>
                           <em>{step.status.replace('_', ' ')}</em>
                         </div>
                         <h3 aria-label={step.title}>{step.title}</h3>
@@ -1732,9 +1858,10 @@ export default function ObservatoryWorkbench() {
                   is absent before a run rather than reading a hopeful zero. */}
               {steps.length ? (
                 <p className="observatory-append-only">
-                  Run timeline. {steps.length} emitted{' '}
-                  {steps.length === 1 ? 'event' : 'events'}, {receiptStepCount}{' '}
-                  SQL {receiptStepCount === 1 ? 'receipt' : 'receipts'}.
+                  {durableLedger ? 'Durable receipt projection' : 'Live run timeline'}.
+                  {' '}{steps.length} {steps.length === 1 ? 'event' : 'events'},{' '}
+                  {receiptStepCount} SQL{' '}
+                  {receiptStepCount === 1 ? 'receipt' : 'receipts'}.
                 </p>
               ) : null}
             </div>
@@ -1845,19 +1972,19 @@ export default function ObservatoryWorkbench() {
                     </div>
                   </section>
 
-                  {curatedPairings.length ? (
+                  {supportingProducts.length ? (
                     <section
                       className="observatory-pairings"
-                      aria-labelledby="curated-pairings-title"
+                      aria-labelledby="grounded-results-title"
                     >
                       <div className="observatory-catalog-heading">
                         <div>
-                          <h3 id="curated-pairings-title">Curated pairings</h3>
+                          <h3 id="grounded-results-title">Grounded results</h3>
                           <span>
-                            {curatedPairings.length}{' '}
-                            {curatedPairings.length === 1
-                              ? 'supporting piece'
-                              : 'supporting pieces'}
+                            {supportingProducts.length}{' '}
+                            {supportingProducts.length === 1
+                              ? 'additional product returned by this turn'
+                              : 'additional products returned by this turn'}
                           </span>
                         </div>
                       </div>
@@ -1865,7 +1992,7 @@ export default function ObservatoryWorkbench() {
                         className="observatory-products"
                         data-layout="pairings"
                       >
-                        {curatedPairings.map((product, index) => (
+                        {supportingProducts.map((product, index) => (
                           <LabsProductCard
                             key={`${product.id || product.name}-${index}`}
                             product={product}
@@ -1876,15 +2003,6 @@ export default function ObservatoryWorkbench() {
                     </section>
                   ) : null}
 
-                  {orderedProducts.length > displayedProductCount ? (
-                    <p className="observatory-products-overflow">
-                      Showing the best match and{' '}
-                      {curatedPairings.length === 1
-                        ? 'one pairing'
-                        : `${curatedPairings.length} pairings`}{' '}
-                      from {orderedProducts.length} grounded pieces.
-                    </p>
-                  ) : null}
                 </div>
               ) : (
                 <p
@@ -1898,6 +2016,35 @@ export default function ObservatoryWorkbench() {
                       : 'Grounded products from this turn will appear here.'}
                 </p>
               )}
+
+              <section
+                className="observatory-evidence-sufficiency"
+                aria-labelledby="evidence-sufficiency-title"
+              >
+                <div className="observatory-results-subheading">
+                  <h3 id="evidence-sufficiency-title">Evidence sufficiency</h3>
+                  <span>{evidenceSufficiency.length || '-'}</span>
+                </div>
+                {evidenceSufficiency.length ? (
+                  <ul>
+                    {evidenceSufficiency.map((check) => (
+                      <li key={check.id} data-status={check.status}>
+                        <span aria-hidden="true" />
+                        <div>
+                          <strong>{check.label}</strong>
+                          <small>{check.detail}</small>
+                        </div>
+                        <em>{check.status.replace(/_/g, ' ')}</em>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="observatory-results-placeholder">
+                    Sufficiency is calculated only after the durable turn
+                    receipt can be projected under the verified principal.
+                  </p>
+                )}
+              </section>
 
               <section
                 className="observatory-verified-claims"

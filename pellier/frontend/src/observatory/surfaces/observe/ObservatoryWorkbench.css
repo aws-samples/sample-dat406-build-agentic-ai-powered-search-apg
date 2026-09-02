@@ -15,19 +15,19 @@
  * ======================================================================== */
 
 .observatory-workbench {
-  /* Warm paper */
-  --pl-bg: var(--cream);
-  --pl-paper: var(--cream-warm);
-  --pl-paper-solid: var(--cream-warm);
-  --pl-paper-muted: var(--cream-2);
-  --pl-line: var(--rule-1);
-  --pl-line-strong: var(--rule-2);
+  /* Precision-instrument surfaces */
+  --pl-bg: var(--obs-canvas);
+  --pl-paper: var(--obs-panel);
+  --pl-paper-solid: var(--obs-panel);
+  --pl-paper-muted: var(--obs-panel-muted);
+  --pl-line: var(--obs-rule-1);
+  --pl-line-strong: var(--obs-rule-2);
 
   /* Ink */
-  --pl-ink: var(--ink);
-  --pl-ink-soft: var(--ink-soft);
-  --pl-muted: var(--ink-quiet);
-  --pl-faint: var(--ink-5);
+  --pl-ink: var(--obs-ink-1);
+  --pl-ink-soft: var(--obs-ink-2);
+  --pl-muted: var(--obs-ink-4);
+  --pl-faint: var(--obs-ink-5);
 
   /* Semantic accents */
   --pl-accent: #6d1f28;
@@ -48,9 +48,7 @@
   --pl-r-lg: 12px;
   --pl-r-md: 10px;
   --pl-r-sm: 8px;
-  --pl-shadow:
-    0 18px 44px rgba(63, 31, 40, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  --pl-shadow: var(--obs-card-shadow);
 
   /* Three registers, one per job.
      --pl-sans     interface: labels, controls, status, panel titles.
@@ -86,30 +84,7 @@
 }
 
 .observatory-workbench::before {
-  position: absolute;
-  z-index: -1;
-  inset: 0 0 auto;
-  height: clamp(210px, 24vw, 340px);
-  content: '';
-  background: var(--pellier-atmosphere-image) center 42% / cover
-    no-repeat;
-  filter: saturate(0.9) contrast(1.02);
-  opacity: 0.2;
-  pointer-events: none;
-  mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    rgb(0 0 0 / 0.9) 44%,
-    rgb(0 0 0 / 0.42) 76%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    rgb(0 0 0 / 0.9) 44%,
-    rgb(0 0 0 / 0.42) 76%,
-    transparent 100%
-  );
+  content: none;
 }
 
 .observatory-workbench ::selection {
@@ -125,11 +100,11 @@
 .observatory-page-title {
   flex: 0 0 auto;
   margin: 0;
-  color: var(--pl-accent);
-  font-family: var(--display, var(--obs-display)) !important;
-  font-size: 25px;
-  font-weight: 400 !important;
-  letter-spacing: 0 !important;
+  color: var(--pl-ink);
+  font-family: var(--pl-sans) !important;
+  font-size: 28px;
+  font-weight: 700 !important;
+  letter-spacing: -0.035em !important;
   line-height: 1.08;
   white-space: nowrap;
 }
@@ -194,61 +169,61 @@
   display: grid;
   margin: 0 2px 12px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .observatory-lab-rail-card {
   position: relative;
   display: grid;
   min-width: 0;
-  height: 126px;
-  align-items: end;
+  min-height: 86px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   overflow: hidden;
   border: 1px solid var(--pl-line);
-  border-radius: 8px;
-  background: var(--pl-paper-muted);
-  color: var(--cream-warm) !important;
+  border-radius: 14px;
+  background: var(--pl-paper);
+  color: var(--pl-ink) !important;
   isolation: isolate;
+  padding: 10px;
+  box-shadow: 0 1px 2px rgb(20 28 24 / 0.04);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .observatory-lab-rail-card::after {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: linear-gradient(
-    0deg,
-    rgb(25 23 21 / 0.86),
-    rgb(25 23 21 / 0.18)
-  );
-  content: '';
-}
-
-.observatory-lab-rail-card picture {
-  position: absolute;
-  z-index: -2;
-  width: 100%;
-  height: 100%;
-  inset: 0;
+  content: none;
 }
 
 .observatory-lab-rail-card img {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+  height: 64px;
+  min-height: 64px;
+  max-height: 64px;
+  aspect-ratio: 1;
   object-fit: cover;
   object-position: center;
+  border: 1px solid var(--pl-line);
+  border-radius: 11px;
+  background: var(--pl-paper-muted);
   transition: transform 180ms ease;
 }
 
 .observatory-lab-rail-card > span {
   display: grid;
   min-width: 0;
-  gap: 3px;
-  padding: 13px 14px;
+  gap: 5px;
+  padding: 0;
 }
 
 .observatory-lab-rail-card small {
-  color: rgb(250 243 232 / 0.78);
+  color: var(--pl-accent);
   font-family: var(--pl-mono);
   font-size: 9px;
   font-weight: 700;
@@ -260,7 +235,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.25;
@@ -285,12 +260,19 @@
 }
 
 .observatory-lab-rail-card:hover img {
-  transform: scale(1.025);
+  transform: scale(1.035);
+}
+
+.observatory-lab-rail-card:hover {
+  border-color: color-mix(in srgb, var(--pl-accent) 28%, var(--pl-line));
+  box-shadow: 0 10px 26px rgb(20 28 24 / 0.08);
+  transform: translateY(-1px);
 }
 
 .observatory-lab-rail-card[data-selected='true'] {
-  border-color: var(--pl-terracotta);
-  box-shadow: inset 0 -3px 0 var(--pl-terracotta);
+  border-color: color-mix(in srgb, var(--pl-accent) 56%, var(--pl-line));
+  background: color-mix(in srgb, var(--obs-red-soft) 64%, var(--pl-paper));
+  box-shadow: 0 10px 28px rgb(72 26 34 / 0.1);
 }
 
 .observatory-trace-action {
@@ -335,10 +317,8 @@
   flex-direction: column;
   border: 1px solid var(--pl-line);
   border-radius: var(--pl-r-xl);
-  background: color-mix(in srgb, var(--pl-paper) 88%, transparent);
+  background: var(--pl-paper);
   box-shadow: var(--pl-shadow);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -457,9 +437,12 @@
  * the response trade-off and optional profile context are participant-tunable.
  * ----------------------------------------------------------------------- */
 .observatory-run-controls {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
+  scroll-margin-top: 76px;
   border-top: 1px solid var(--pl-line);
   background: color-mix(in srgb, var(--pl-paper) 78%, transparent);
 }
@@ -474,6 +457,7 @@
 }
 
 .observatory-run-setup-toggle {
+  min-height: 44px;
   display: inline-flex;
   min-width: 0;
   flex: 1 1 auto;
@@ -999,6 +983,13 @@
   color: #8f1d16;
 }
 
+.observatory-trace-step[data-status='failed'] .observatory-trace-node,
+.observatory-trace-step[data-status='denied'] .observatory-trace-node {
+  border-color: rgba(143, 29, 22, 0.4);
+  background: #fff4f3;
+  color: #8f1d16;
+}
+
 .observatory-trace-step[data-status='in_progress']
   .observatory-trace-node,
 .observatory-trace-step[data-status='executing']
@@ -1020,6 +1011,10 @@
 .observatory-trace-step[data-status='pending']
   .observatory-trace-node,
 .observatory-trace-step[data-status='unavailable']
+  .observatory-trace-node,
+.observatory-trace-step[data-status='not_reached']
+  .observatory-trace-node,
+.observatory-trace-step[data-status='not_enforced']
   .observatory-trace-node {
   color: var(--pl-faint);
   opacity: 0.72;
@@ -1081,7 +1076,18 @@
   color: #8f1d16;
 }
 
+.observatory-trace-step[data-status='failed'] .observatory-trace-kicker em,
+.observatory-trace-step[data-status='denied'] .observatory-trace-kicker em {
+  border-color: rgba(143, 29, 22, 0.22);
+  background: #fff4f3;
+  color: #8f1d16;
+}
+
 .observatory-trace-step[data-status='unavailable']
+  .observatory-trace-kicker em,
+.observatory-trace-step[data-status='not_reached']
+  .observatory-trace-kicker em,
+.observatory-trace-step[data-status='not_enforced']
   .observatory-trace-kicker em {
   border-color: var(--pl-line);
   background: var(--pl-paper-muted);
@@ -1437,6 +1443,81 @@
 .observatory-verified-claims {
   padding: 16px 0;
   border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-evidence-sufficiency {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--pl-line);
+}
+
+.observatory-evidence-sufficiency ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.observatory-evidence-sufficiency li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--pl-line);
+  border-radius: var(--pl-r-sm);
+  background: rgba(255, 252, 247, 0.48);
+}
+
+.observatory-evidence-sufficiency li > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pl-faint);
+}
+
+.observatory-evidence-sufficiency li[data-status='satisfied'] > span {
+  background: var(--pl-success);
+}
+
+.observatory-evidence-sufficiency li[data-status='missing'] > span {
+  background: #8f1d16;
+}
+
+.observatory-evidence-sufficiency li > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.observatory-evidence-sufficiency strong {
+  color: var(--pl-ink);
+  font-family: var(--pl-serif);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.observatory-evidence-sufficiency small {
+  color: var(--pl-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.observatory-evidence-sufficiency em {
+  color: var(--pl-faint);
+  font-family: var(--pl-mono);
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.observatory-evidence-sufficiency li[data-status='satisfied'] em {
+  color: var(--pl-success);
+}
+
+.observatory-evidence-sufficiency li[data-status='missing'] em {
+  color: #8f1d16;
 }
 
 .observatory-verified-claims ul {

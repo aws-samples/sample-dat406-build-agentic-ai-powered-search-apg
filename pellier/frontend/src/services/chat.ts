@@ -205,6 +205,7 @@ import type {
   RailDecision,
   RailDegradation,
 } from '../shared/governedTypes'
+import type { EvidenceLedger } from '../shared/evidenceLedger'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -302,6 +303,8 @@ export interface ChatResponse {
   railDecision?: RailDecision
   /** Present only when the governed rail was requested and unavailable. */
   degradation?: RailDegradation
+  /** Canonical, principal-scoped projection returned after durable persistence. */
+  evidence_ledger?: EvidenceLedger
   orchestrator_enabled?: boolean
   token_count?: number
   estimated_cost_usd?: number
@@ -429,6 +432,7 @@ export async function sendChatMessageStreaming(
           rail: data.response?.rail,
           railDecision: data.response?.railDecision,
           degradation: data.response?.degradation,
+          evidence_ledger: data.response?.evidence_ledger,
           orchestrator_enabled: data.response?.orchestrator_enabled,
           token_count: data.response?.token_count,
           estimated_cost_usd: data.response?.estimated_cost_usd,

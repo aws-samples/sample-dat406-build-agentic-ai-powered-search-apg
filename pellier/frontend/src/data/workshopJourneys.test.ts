@@ -19,7 +19,7 @@ const EXPECTED = {
   theo: [
     'Hand-thrown ceramics for a slower morning routine',
     'What goes well with the pour-over set?',
-    'Without asking me to repeat the ritual or material, which pairing should I choose and why?',
+    'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
   ],
   jessica: [
     "Investigate Jessica's open service issue (TKT-2026-3015) and recommend the next fair step. Distinguish what the records establish from what a source reports.",

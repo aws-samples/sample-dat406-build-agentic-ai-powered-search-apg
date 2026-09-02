@@ -177,6 +177,28 @@ def test_in_process_and_recovery_files_match_the_managed_contract() -> None:
         assert decorated == CANONICAL_TOOLS | IN_PROCESS_ONLY_TOOLS, path
 
 
+def test_related_product_source_contract_stays_in_sync_with_recovery_files() -> None:
+    """A recovery copy must not restore the old guessed-ID pairing behavior."""
+    paths = [
+        REPO / "pellier" / "backend" / "services" / "agent_tools.py",
+        REPO / "solutions" / "closing-marcos-gap" / "services"
+        / "agent_tools_builders_preapply.py",
+        REPO / "solutions" / "closing-marcos-gap" / "services"
+        / "agent_tools_check_inventory_solution.py",
+    ]
+    for path in paths:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "get_related_products"
+        )
+        argument_names = [argument.arg for argument in function.args.args]
+        assert argument_names[:2] == ["source_product_name", "product_id"], path
+        assert "source_product_mismatch" in ast.unparse(function), path
+
+
 def test_gateway_targets_are_owned_by_agentcore_cli_project() -> None:
     source = (DEPLOY / "render_agentcore_project.py").read_text(encoding="utf-8")
     assert '"targetType": "lambdaFunctionArn"' in source

@@ -150,7 +150,13 @@ class FakeDb:
         return [{"table_name": t} for t in sorted(self.tables)]
 
 
-_CANONICAL = {"execution_receipts", "operator_episodes", "observatory_spans"}
+_CANONICAL = {
+    "execution_receipts",
+    "operator_episodes",
+    "observatory_spans",
+    "model_invocation_receipts",
+    "evidence_ledger_event_refs",
+}
 
 
 @pytest.fixture
@@ -209,6 +215,20 @@ async def test_a_missing_span_table_is_a_release_blocker(substrate) -> None:
     state = await substrate(FakeDb(_CANONICAL - {"observatory_spans"}))()
     assert state["state"] == "fail"
     assert "observatory_spans is missing" in state["detail"]
+
+
+@pytest.mark.asyncio
+async def test_a_missing_typed_ledger_projection_is_a_release_blocker(substrate) -> None:
+    state = await substrate(FakeDb(_CANONICAL - {"evidence_ledger_event_refs"}))()
+    assert state["state"] == "fail"
+    assert "evidence_ledger_event_refs is missing" in state["detail"]
+
+
+@pytest.mark.asyncio
+async def test_a_missing_model_receipt_table_is_a_release_blocker(substrate) -> None:
+    state = await substrate(FakeDb(_CANONICAL - {"model_invocation_receipts"}))()
+    assert state["state"] == "fail"
+    assert "model_invocation_receipts is missing" in state["detail"]
 
 
 @pytest.mark.asyncio

@@ -20,16 +20,7 @@ export const ContextRail: React.FC<ContextRailProps> = ({
 }) => {
   return (
     <aside
-      className={className}
-      style={{
-        width: '360px',
-        minWidth: '360px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px',
-        borderLeft: '1px solid var(--obs-rule-1)',
-        paddingLeft: '24px',
-      }}
+      className={`observatory-context-rail ${className}`.trim()}
     >
       {children}
     </aside>

@@ -11,7 +11,7 @@ export interface IconButtonProps {
 
 const sizeClasses: Record<NonNullable<IconButtonProps['size']>, string> = {
   sm: 'w-8 h-8',
-  md: 'w-10 h-10',
+  md: 'w-[44px] h-[44px]',
 };
 
 /**

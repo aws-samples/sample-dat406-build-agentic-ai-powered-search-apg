@@ -36,8 +36,8 @@ const EXPECTED_TURNS = {
   theo: [
     'Hand-thrown ceramics for a slower morning routine',
     'What goes well with the pour-over set?',
+    'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
     'Without asking me to repeat the ritual or material, which pairing should I choose and why?',
-    "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
     'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?',
   ],
 } satisfies Record<(typeof CANONICAL_PERSONAS)[number], string[]>
@@ -60,8 +60,8 @@ const EXPECTED_TRACES = {
   theo: [
     { skill: 'the-makers-shelf', tools: ['search_products'] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_related_products'] },
-    { skill: 'the-makers-shelf', tools: [] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_return_policy', 'initiate_return'] },
+    { skill: 'the-makers-shelf', tools: [] },
     { skill: 'the-makers-shelf', tools: ['escalate_to_human'] },
   ],
 } satisfies Pick<typeof PERSONA_TURN_TRACES, (typeof CANONICAL_PERSONAS)[number]>
@@ -77,8 +77,8 @@ const FIXTURE_ENTRYPOINTS = [
   { session: annaHousewarming, expected: PERSONA_HERO_PILLS.anna[4] },
   { session: theoPourOver, expected: PERSONA_HERO_PILLS.theo[0] },
   { session: theoPourOverPairing, expected: PERSONA_HERO_PILLS.theo[1] },
-  { session: theoLinenSeasons, expected: PERSONA_HERO_PILLS.theo[2] },
-  { session: theoCeramicsReturn, expected: PERSONA_HERO_PILLS.theo[3] },
+  { session: theoCeramicsReturn, expected: PERSONA_HERO_PILLS.theo[2] },
+  { session: theoLinenSeasons, expected: PERSONA_HERO_PILLS.theo[3] },
   { session: theoHomeNotWardrobe, expected: PERSONA_HERO_PILLS.theo[4] },
 ] as const
 

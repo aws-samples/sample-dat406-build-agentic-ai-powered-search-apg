@@ -207,7 +207,7 @@ class ChatRequest(BaseModel):
         default="balanced",
         description=(
             "Specialist response policy. Balanced keeps the configured "
-            "Opus/Sonnet mix, editorial uses Opus, and fast uses Sonnet. "
+            "Opus/Sonnet mix, editorial uses Opus, and fast uses Haiku. "
             "Routing remains on the configured Sonnet router."
         ),
     )

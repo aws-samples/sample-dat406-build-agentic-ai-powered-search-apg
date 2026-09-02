@@ -663,6 +663,7 @@ async def _collect_readiness() -> dict[str, Any]:
         "sonnet": settings.BEDROCK_SONNET_MODEL,
         "router": settings.BEDROCK_ROUTER_MODEL,
         "reporting": settings.BEDROCK_REPORTING_MODEL,
+        "fast": settings.BEDROCK_FAST_MODEL,
         "embedding": settings.BEDROCK_EMBEDDING_MODEL,
         "rerank": settings.BEDROCK_RERANK_MODEL,
     }
@@ -672,7 +673,7 @@ async def _collect_readiness() -> dict[str, Any]:
         label="Bedrock models",
         state="pass" if model_ready else "fail",
         detail=(
-            "Opus, Sonnet, Cohere Embed, and Cohere Rerank model ids are configured."  # copy-allow: observatory-readiness-detail
+            "Opus, Sonnet, Haiku, Cohere Embed, and Cohere Rerank model ids are configured."  # copy-allow: observatory-readiness-detail
             if model_ready
             else "One or more model ids are empty; run the model-access preflight."
         ),
@@ -717,7 +718,12 @@ async def _evidence_substrate_state() -> dict[str, str]:
       * `pellier.operator_episodes` with its outcome index — without migration 026's
         index the writer raises a duplicate-key error on 024's index and the best-effort
         handler swallows it, so executions succeed and remember nothing.
-      * `pellier.observatory_spans` present — the canonical span table.
+      * `pellier.observatory_spans` present — the reserved, retention-bounded
+        Aurora span cache. CloudWatch/AgentCore telemetry remains the managed
+        span authority; durable proof comes from receipt tables.
+      * `pellier.model_invocation_receipts` and
+        `pellier.evidence_ledger_event_refs` — metadata-only model receipts and
+        the typed projection index introduced by migration 043.
       * `pellier.agent_trace_spans` ABSENT — the repository contract retires that name
         for every database object, and this cluster carried it for weeks.
 
@@ -735,7 +741,9 @@ async def _evidence_substrate_state() -> dict[str, str]:
             SELECT table_name FROM information_schema.tables
              WHERE table_schema = 'pellier'
                AND table_name IN ('execution_receipts', 'operator_episodes',
-                                  'observatory_spans', 'agent_trace_spans')
+                                  'observatory_spans', 'agent_trace_spans',
+                                  'model_invocation_receipts',
+                                  'evidence_ledger_event_refs')
             """
         )
         present = {str(r["table_name"]) for r in (rows or [])}
@@ -752,7 +760,13 @@ async def _evidence_substrate_state() -> dict[str, str]:
                 "detail": "The evidence tables could not be read."}  # copy-allow: observatory-readiness-detail
 
     problems: list[str] = []
-    for table in ("execution_receipts", "operator_episodes", "observatory_spans"):
+    for table in (
+        "execution_receipts",
+        "operator_episodes",
+        "observatory_spans",
+        "model_invocation_receipts",
+        "evidence_ledger_event_refs",
+    ):
         if table not in present:
             problems.append(f"pellier.{table} is missing")
     if "agent_trace_spans" in present:
@@ -769,8 +783,9 @@ async def _evidence_substrate_state() -> dict[str, str]:
     return {
         "state": "pass",
         "detail": (
-            "Execution receipts, episodic memory and the canonical span table are "  # copy-allow: observatory-readiness-detail
-            "present, and the retired trace object is gone."
+            "Execution receipts, episodic memory, the typed ledger projection, "  # copy-allow: observatory-readiness-detail
+            "redacted model receipts, and the reserved span cache are present; "
+            "the retired trace object is gone."
         ),
     }
 
@@ -1191,7 +1206,10 @@ async def list_sessions(
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str):
+async def get_session(
+    session_id: str,
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
+):
     """Build a replay from durable message and audit rows."""
     db = await _live_db()
     try:
@@ -1235,6 +1253,32 @@ async def get_session(session_id: str):
                 detail=OBSERVATORY_COPY["SESSION_EVIDENCE_NOT_FOUND"],
             )
         summary = dict(rows[0])
+        principal_sub = str((user or {}).get("sub") or "")
+        if principal_sub:
+            visible = await db.fetch_one(
+                """
+                SELECT 1 AS visible
+                  FROM pellier.governed_turn_receipts
+                 WHERE session_id = %s
+                   AND principal_sub = %s
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM pellier.governed_turn_receipts foreign_turn
+                        WHERE foreign_turn.session_id = %s
+                          AND foreign_turn.principal_sub IS DISTINCT FROM %s
+                   )
+                 LIMIT 1
+                """,
+                session_id,
+                principal_sub,
+                session_id,
+                principal_sub,
+            )
+            if not visible:
+                raise HTTPException(
+                    status_code=404,
+                    detail=OBSERVATORY_COPY["SESSION_EVIDENCE_NOT_FOUND"],
+                )
         messages = [
             {
                 "role": row["role"],
@@ -1267,22 +1311,73 @@ async def get_session(session_id: str):
                 session_id,
             )
         ]
-        return {
-            **summary,
-            "chat": messages,
-            "telemetry": [
+        ledger = None
+        if principal_sub:
+            from services.evidence_ledger import project_session_ledger
+
+            ledger = await project_session_ledger(
+                db,
+                session_id=session_id,
+                principal_sub=principal_sub,
+                raise_on_error=True,
+            )
+        ledger_events = list((ledger or {}).get("events") or [])
+        telemetry = (
+            [
+                {
+                    "index": index,
+                    "category": (
+                        "managed"
+                        if event.get("provenance")
+                        in {
+                            "agentcore-service-telemetry",
+                            "cloudwatch-span",
+                        }
+                        else "owned"
+                    ),
+                    "title": event.get("title") or "Evidence event",
+                    "description": (
+                        event.get("summary")
+                        or OBSERVATORY_COPY["EVIDENCE_RECORDED"]
+                    ),
+                    "status": event.get("status") or "unavailable",
+                    "durationMs": int(event.get("durationMs") or 0),
+                    "agent": (event.get("details") or {}).get("caller"),
+                    "sql": event.get("sql"),
+                    "rows": [event.get("details") or {}],
+                    "eventKind": event.get("eventKind"),
+                    "phase": event.get("phase"),
+                    "provenance": event.get("provenance"),
+                    "evidenceRef": event.get("evidenceRef"),
+                    "occurredAt": event.get("occurredAt"),
+                    "turnId": event.get("turnId"),
+                    "traceId": event.get("traceId"),
+                }
+                for index, event in enumerate(ledger_events, start=1)
+            ]
+            if ledger_events
+            else [
                 {
                     "index": index,
                     "category": "managed" if row["caller"] == "gateway" else "owned",
                     "title": row["tool"],
                     "description": f"{row['caller']} invocation recorded in Aurora.",
-                    "status": "complete",
+                    "status": "succeeded",
                     "durationMs": int(row.get("latency_ms") or 0),
                     "agent": row["caller"],
                     "rows": [row.get("result") or {}],
+                    "eventKind": "tool",
+                    "phase": "execution",
+                    "provenance": "aurora-receipt",
                 }
                 for index, row in enumerate(audit_rows, start=1)
-            ],
+            ]
+        )
+        return {
+            **summary,
+            "chat": messages,
+            "telemetry": telemetry,
+            "evidenceLedger": ledger,
             "brief": {
                 "folioNumber": 0,
                 "headline": "Live session evidence",
@@ -1299,6 +1394,37 @@ async def get_session(session_id: str):
             status_code=503,
             detail=OBSERVATORY_COPY["SESSION_EVIDENCE_UNAVAILABLE"],
         ) from exc
+
+
+@router.get("/turns/{turn_id}/ledger")
+async def get_turn_evidence_ledger(
+    turn_id: str = PathParam(..., min_length=1, max_length=80),
+    user: Optional[dict[str, Any]] = Depends(get_current_user),
+):
+    """Return one durable ledger only when it belongs to the verified caller."""
+    principal_sub = str((user or {}).get("sub") or "")
+    if not principal_sub:
+        raise HTTPException(status_code=401, detail="authentication_required")
+    from services.evidence_ledger import (
+        EvidenceLedgerProjectionError,
+        project_turn_ledger,
+    )
+
+    try:
+        ledger = await project_turn_ledger(
+            await _live_db(),
+            turn_id=turn_id,
+            principal_sub=principal_sub,
+            raise_on_error=True,
+        )
+    except EvidenceLedgerProjectionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="evidence_ledger_unavailable",
+        ) from exc
+    if ledger is None:
+        raise HTTPException(status_code=404, detail="ledger_not_found")
+    return ledger
 
 
 @router.get("/agents")
@@ -1321,23 +1447,23 @@ async def list_agents():
                 "role": role,
                 "status": status,
                 "tools": tools,
-                # `BEDROCK_MODEL_ID` is not a field on Settings, so reading it
-                # raised AttributeError and this endpoint answered 503 for
-                # every request — which took the Tool Registry's agent topology
-                # down with it. `BEDROCK_CHAT_MODEL` is the specialist profile.
-                # It is reported per row for now, but the routing and reporting
-                # specialists actually run on `BEDROCK_SONNET_MODEL`; treat this
-                # value as the configured chat profile, not a per-agent fact,
-                # until the topology carries its own mapping.
-                "model": settings.BEDROCK_CHAT_MODEL,
+                # This is the Balanced-mode model assigned by each factory.
+                # Per-turn Deep/Fast overrides remain visible in the Workbench
+                # execution contract, where the actual response model is shown.
+                "model": (
+                    settings.BEDROCK_OPUS_MODEL
+                    if model_tier == "opus"
+                    else settings.BEDROCK_REPORTING_MODEL
+                ),
             }
-            for numeral, name, role, status, tools in (
+            for numeral, name, role, status, tools, model_tier in (
                 (
                     "I",
                     "Search Agent",
                     "Interprets shopper intent and retrieves grounded catalog options.",
                     "shipped",
                     ["search_products", "browse_category", "compare_products"],
+                    "opus",
                 ),
                 (
                     "II",
@@ -1345,6 +1471,7 @@ async def list_agents():
                     "Combines customer context with hybrid retrieval.",
                     "shipped",
                     ["search_products_hybrid", "get_customer_preferences"],
+                    "opus",
                 ),
                 (
                     "III",
@@ -1352,6 +1479,7 @@ async def list_agents():
                     "Explains price ranges and compares current catalog value.",
                     "shipped",
                     ["get_price_analysis", "compare_products"],
+                    "sonnet",
                 ),
                 (
                     "IV",
@@ -1359,6 +1487,7 @@ async def list_agents():
                     "Reads the warehouse system of record for availability.",
                     inventory_status,
                     ["check_inventory", "get_low_stock"],
+                    "sonnet",
                 ),
                 (
                     "V",
@@ -1366,6 +1495,7 @@ async def list_agents():
                     "Handles policy-aware post-purchase requests.",
                     "shipped",
                     ["get_return_policy", "initiate_return", "escalate_to_human"],
+                    "opus",
                 ),
             )
         ]

@@ -1,11 +1,11 @@
 /**
- * PersonaTransitionOverlay — full-screen celebration for sign-in /
- * sign-out moments.
+ * PersonaTransitionOverlay — full-screen acknowledgement for scenario
+ * selection and clearing.
  *
- * Reads PersonaContext.lastTransition. On sign-in: a smooth, centered
- * portrait lockup, a concise "Welcome, {name}." line, and a
- * persona-specific tag. On sign-out: smaller farewell card with the
- * same profile treatment.
+ * Reads PersonaContext.lastTransition. A ``sign-in`` transition means the
+ * shopper scenario changed; it does not establish a security principal.
+ * ``sign-out`` clears that scenario. The internal names remain for context
+ * compatibility, while the visible copy keeps scenario and identity separate.
  *
  * Auto-dismisses after 2400ms (sign-in) / 1600ms (sign-out). Click
  * anywhere on the overlay to dismiss early. Press Escape to dismiss
@@ -24,7 +24,7 @@ import { getPersonaPhoto } from '../data/personaPhotos'
 const SIGN_IN_DURATION_MS = 2400
 const SIGN_OUT_DURATION_MS = 1600
 
-// Persona-specific editorial line shown under the greeting on sign-in.
+// Persona-specific editorial line shown under the selected scenario.
 // This overlay also appears during ordinary persona switching, so the copy
 // describes each taste profile without implying that a prior thread exists.
 const WELCOME_TAGLINES: Record<string, string> = {
@@ -165,8 +165,8 @@ export default function PersonaTransitionOverlay() {
               >
                 <span aria-hidden>●</span>&nbsp;&nbsp;
                 {lastTransition.kind === 'sign-in'
-                  ? 'Signed in'
-                  : 'Signed out'}
+                  ? 'Scenario selected'
+                  : 'Scenario cleared'}
                 &nbsp;&nbsp;<span aria-hidden>●</span>
               </div>
 
@@ -186,12 +186,12 @@ export default function PersonaTransitionOverlay() {
               >
                 {lastTransition.kind === 'sign-in' ? (
                   <>
-                    Welcome,{' '}
+                    Viewing{' '}
                     {firstName}.
                   </>
                 ) : (
                   <>
-                    See you soon,{' '}
+                    Leaving{' '}
                     {firstName}.
                   </>
                 )}

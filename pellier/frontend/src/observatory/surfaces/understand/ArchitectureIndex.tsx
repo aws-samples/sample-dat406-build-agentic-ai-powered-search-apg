@@ -69,7 +69,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, onOpen }) => (
       </div>
 
       {/* Title */}
-      <h3
+      <h2
         style={{
           fontFamily: 'var(--obs-heading)',
           fontSize: 'var(--obs-section-size)',
@@ -81,7 +81,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, onOpen }) => (
         }}
       >
         {concept.title}
-      </h3>
+      </h2>
 
       {/* Role subtitle */}
       <p
@@ -124,6 +124,7 @@ const ConceptCard: React.FC<ConceptCardProps> = ({ concept, onOpen }) => (
       {/* Open link */}
       <button
         onClick={onOpen}
+        className="observatory-card-action"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -154,7 +155,7 @@ const LegendCard: React.FC = () => (
   <ExpCard>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <Eyebrow label="Category legend" variant="muted" />
-      <h3
+      <h2
         style={{
           fontFamily: 'var(--obs-heading)',
           fontSize: '18px',
@@ -165,7 +166,7 @@ const LegendCard: React.FC = () => (
         }}
       >
         Where this appears in Pellier
-      </h3>
+      </h2>
       <div
         style={{
           display: 'flex',
@@ -207,9 +208,9 @@ const LegendCard: React.FC = () => (
 
 const LoadingState: React.FC = () => (
   <div
+    className="observatory-architecture-loading"
     style={{
       display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
       gap: '24px',
       padding: '24px 0',
     }}
@@ -357,7 +358,7 @@ const ArchitectureIndex: React.FC = () => {
   const concepts = (data ?? []).filter((concept) => labSlugs.has(concept.slug));
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '1400px' }}>
+    <div className="observatory-reading-page observatory-architecture-page">
       <EditorialTitle
         backToReferences
         eyebrow="Start Here · Architecture Brief"
@@ -372,22 +373,9 @@ const ArchitectureIndex: React.FC = () => {
       {!loading && !error && concepts.length === 0 && <EmptyState />}
 
       {!loading && !error && concepts.length > 0 && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 320px',
-            gap: '32px',
-            alignItems: 'start',
-          }}
-        >
+        <div className="observatory-architecture-layout">
           {/* Left: 2-column grid of concept cards */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '24px',
-            }}
-          >
+          <div className="observatory-architecture-grid">
             {concepts.map((concept) => (
               <ConceptCard
                 key={concept.slug}
@@ -398,12 +386,7 @@ const ArchitectureIndex: React.FC = () => {
           </div>
 
           {/* Right: sticky legend rail */}
-          <div
-            style={{
-              position: 'sticky',
-              top: '100px',
-            }}
-          >
+          <div className="observatory-architecture-legend">
             <LegendCard />
           </div>
         </div>

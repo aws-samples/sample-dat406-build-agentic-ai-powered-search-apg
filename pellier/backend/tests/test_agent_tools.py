@@ -233,20 +233,23 @@ def test_related_products_accepts_pgvector_vector_embeddings() -> None:
 
     class _RelatedProductsDB:
         def __init__(self) -> None:
-            self.fetch_all_params: tuple[Any, ...] | None = None
-
-        async def fetch_one(self, _query: str, _product_id: str) -> Dict[str, Any]:
-            return {
-                "productId": "11",
-                "name": "Hadley Linen Shirt",
-                "brand": "Pellier",
-                "price": 128.0,
-                "category": "Apparel",
-                "embedding": Vector([0.25, -0.5, 0.75]),
-            }
+            self.source_params: tuple[Any, ...] | None = None
+            self.match_params: tuple[Any, ...] | None = None
 
         async def fetch_all(self, _query: str, *params: Any) -> list[Dict[str, Any]]:
-            self.fetch_all_params = params
+            if "LIMIT 2" in _query:
+                self.source_params = params
+                return [
+                    {
+                        "productId": "11",
+                        "name": "Hadley Linen Shirt",
+                        "brand": "Pellier",
+                        "price": 128.0,
+                        "category": "Apparel",
+                        "embedding": Vector([0.25, -0.5, 0.75]),
+                    }
+                ]
+            self.match_params = params
             return [
                 {
                     "productId": "12",
@@ -266,13 +269,90 @@ def test_related_products_accepts_pgvector_vector_embeddings() -> None:
     agent_tools._db_service = db
     agent_tools._main_loop = None
 
-    out = _invoke_named_tool(agent_tools.get_related_products, product_id=11, limit=1)
+    out = _invoke_named_tool(
+        agent_tools.get_related_products,
+        source_product_name="Hadley Linen Shirt",
+        product_id=11,
+        limit=1,
+    )
 
     parsed = json.loads(out)
     assert "error" not in parsed
     assert parsed["source"]["productId"] == "11"
     assert parsed["matches"][0]["productId"] == "12"
-    assert db.fetch_all_params is not None
-    assert db.fetch_all_params[0] == db.fetch_all_params[2]
-    assert db.fetch_all_params[0].startswith("[")
-    assert "," in db.fetch_all_params[0]
+    assert db.source_params == (
+        "Hadley Linen Shirt",
+        "%hadley linen shirt%",
+        "Hadley Linen Shirt",
+    )
+    assert db.match_params is not None
+    assert db.match_params[0] == db.match_params[2]
+    assert db.match_params[0].startswith("[")
+    assert "," in db.match_params[0]
+
+
+def test_related_products_escapes_like_metacharacters_in_named_source() -> None:
+    """A literal product name must not widen into a PostgreSQL wildcard."""
+
+    class _RelatedProductsDB:
+        def __init__(self) -> None:
+            self.source_params: tuple[Any, ...] | None = None
+
+        async def fetch_all(self, _query: str, *params: Any) -> list[Dict[str, Any]]:
+            self.source_params = params
+            return []
+
+    db = _RelatedProductsDB()
+    agent_tools._db_service = db
+    agent_tools._main_loop = None
+
+    _invoke_named_tool(
+        agent_tools.get_related_products,
+        source_product_name=r"Studio_100% \ Edition",
+    )
+
+    assert db.source_params == (
+        r"Studio_100% \ Edition",
+        r"%studio\_100\% \\ edition%",
+        r"Studio_100% \ Edition",
+    )
+
+
+def test_related_products_rejects_a_conflicting_product_id_before_similarity() -> None:
+    """A guessed model ID cannot quietly select a different source product."""
+
+    class _RelatedProductsDB:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def fetch_all(self, _query: str, *_params: Any) -> list[Dict[str, Any]]:
+            self.calls += 1
+            assert "LIMIT 2" in _query
+            return [
+                {
+                    "productId": "31",
+                    "name": "Stoneware Pour-Over Set",
+                    "brand": "Pellier",
+                    "price": 138.0,
+                    "category": "Home",
+                    "embedding": Vector([0.25, -0.5, 0.75]),
+                }
+            ]
+
+    db = _RelatedProductsDB()
+    agent_tools._db_service = db
+    agent_tools._main_loop = None
+
+    out = _invoke_named_tool(
+        agent_tools.get_related_products,
+        source_product_name="pour-over set",
+        product_id=10,
+    )
+
+    parsed = json.loads(out)
+    assert parsed["code"] == "source_product_mismatch"
+    assert parsed["source"] == {
+        "productId": "31",
+        "name": "Stoneware Pour-Over Set",
+    }
+    assert db.calls == 1

@@ -1,7 +1,8 @@
 """
 Bazaar Pricing MCP Server — Lambda-hosted MCP server for price analysis.
 
-Exposes the two pricing tools from the canonical 15-tool Pellier contract:
+Exposes the two pricing tools from the governed 15-tool Gateway subset of
+Pellier's 17-tool MCP registry:
   - get_price_analysis: Price statistics by category
   - compare_products: Side-by-side comparison of two products
 

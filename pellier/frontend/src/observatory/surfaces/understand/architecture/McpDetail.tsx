@@ -27,11 +27,11 @@ const McpDetail: React.FC = () => {
       conceptName="MCP Gateway"
       category="workshop"
       title="Gateway, governed."
-      prose="AgentCore Gateway publishes Pellier's complete 15-tool contract over MCP. Governed Runtime requests require this rail, forward the caller JWT, and fail closed when Gateway is unavailable. The separate builders format retains in-process Strands tools."
+      prose="AgentCore Gateway publishes Pellier's governed 15-tool subset over MCP from the 17-tool registry. Governed Runtime requests require this rail, forward the caller JWT, and fail closed when Gateway is unavailable. The separate builders format retains in-process Strands tools."
       cheatSheet={[
         {
           numeral: 'i.',
-          text: 'The governed agent asks Gateway for the complete tool catalog – names, signatures, and descriptions. This is MCP discovery.',
+          text: 'The governed agent asks Gateway for its 15-tool workshop subset – names, signatures, and descriptions. This is MCP discovery.',
         },
         {
           numeral: 'ii.',
@@ -46,7 +46,7 @@ const McpDetail: React.FC = () => {
         label: 'Current MCP Gateway state. Shows the required governed rail and its separate builders fallback.',
         values: [
           { label: 'Governed path', value: 'Required' },
-          { label: 'Tool contract', value: '17 tools' },
+          { label: 'Gateway subset', value: '15 of 17' },
           { label: 'Protocol', value: 'MCP' },
         ],
       }}
@@ -62,9 +62,10 @@ const McpDetail: React.FC = () => {
               <ConceptEyebrow label="The network" />
               <h3 style={sectionTitleStyle}>Three nodes, one governed rail.</h3>
               <p style={sectionProseStyle}>
-                Governed Runtime asks what is available, receives the 15-tool MCP catalog, and
-                invokes tools through the managed Gateway and Cedar boundary. The builders format
-                keeps its smaller in-process path separate.
+                Governed Runtime asks what is available, receives the 15-tool workshop subset, and
+                invokes tools through the managed Gateway and Cedar boundary. The 17-tool Aurora
+                registry remains the source catalog, while the builders format keeps its
+                in-process path separate.
               </p>
               <McpNetworkDiagram />
             </div>
@@ -82,7 +83,7 @@ const McpDetail: React.FC = () => {
               nodeKey="B"
               name="The Gateway"
               tag="Required infra"
-              description="AgentCore Gateway publishes all 17 tools as MCP and applies the managed identity and Cedar boundary."
+              description="AgentCore Gateway publishes the governed 15-tool subset as MCP and applies the managed identity and Cedar boundary."
             />
             <NodeCard
               nodeKey="C"

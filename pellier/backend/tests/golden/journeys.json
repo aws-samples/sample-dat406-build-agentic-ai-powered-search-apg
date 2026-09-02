@@ -266,7 +266,7 @@
       "persona": "theo",
       "kind": "governed_write",
       "summary": "Theo's damaged bowl request becomes an exact review; the operator, AgentCore Policy, Aurora, and the receipt each answer a different question.",
-      "entryPrompt": "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
+      "entryPrompt": "My Wabi-Sabi Bowl arrived chipped. Please help me return it.",
       "actors": {
         "requester": {
           "channel": "storefront",

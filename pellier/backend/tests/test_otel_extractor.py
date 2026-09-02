@@ -372,6 +372,11 @@ def test_extract_trace_surfaces_trace_id_and_usage(
     assert isinstance(trace["trace_id"], str)
     assert len(trace["trace_id"]) == 32
     assert trace["traceIds"] == [trace["trace_id"]]
+    assert all(len(span["spanId"]) == 16 for span in trace["spans"])
+    assert all(span["traceId"] == trace["trace_id"] for span in trace["spans"])
+    assert all(span["statusCode"] in {"unset", "ok"} for span in trace["spans"])
+    assert trace["spans"][0]["parentSpanId"] is None
+    assert trace["spans"][1]["parentSpanId"] == trace["spans"][0]["spanId"]
     assert trace["usage"] == {
         "prompt_tokens": 112,
         "completion_tokens": 33,

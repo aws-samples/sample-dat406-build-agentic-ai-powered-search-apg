@@ -461,7 +461,7 @@ def test_check_inventory_builder_contract() -> None:
     regression. A participant who completes the exercise and runs the full
     suite should therefore see this as ``SKIPPED``, never as a failure. The
     real verification of a correct wire is the Observatory Tools strip flipping
-    14/15 -> 15/15 and Marco's Brooklyn turn returning a real quantity, both
+    16/17 -> 17/17 and Marco's Brooklyn turn returning a real quantity, both
     in the lab guide. See CLAUDE.md ("How the participant verifies").
     """
     live_src = _function_source(_BACKEND / "services" / "agent_tools.py", "check_inventory")
@@ -491,7 +491,7 @@ def test_check_inventory_builder_contract() -> None:
             "check_inventory has been wired in services/agent_tools.py — this is "
             "the expected end state of the exercise, not a regression. The "
             "starter-stub guard only applies to the shipped repo. Verify your "
-            "wire via the Observatory Tools 15/15 strip and Marco's Brooklyn turn."
+            "wire via the Observatory Tools 17/17 strip and Marco's Brooklyn turn."
         )
 
     # Shipped starter state: the live + preapply builder files carry the stub.

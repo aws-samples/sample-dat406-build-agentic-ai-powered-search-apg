@@ -88,10 +88,19 @@ function detectMemorySubstrate(
 function getStatusColor(status: TelemetryPanel['status']): string {
   switch (status) {
     case 'complete':
+    case 'succeeded':
       return 'var(--obs-green-1)';
     case 'running':
       return 'var(--obs-red-1)';
+    case 'failed':
+    case 'denied':
+      return 'var(--obs-red-1)';
+    case 'not_enforced':
+      return '#9a6f21';
     case 'queued':
+    case 'planned':
+    case 'not_reached':
+    case 'unavailable':
       return 'var(--obs-ink-4)';
     default:
       return 'var(--obs-ink-4)';
@@ -102,10 +111,24 @@ function getStatusLabel(status: TelemetryPanel['status']): string {
   switch (status) {
     case 'complete':
       return 'Complete';
+    case 'succeeded':
+      return 'Succeeded';
     case 'running':
       return 'Running';
     case 'queued':
       return 'Queued';
+    case 'planned':
+      return 'Planned';
+    case 'failed':
+      return 'Failed';
+    case 'denied':
+      return 'Denied';
+    case 'not_reached':
+      return 'Not reached';
+    case 'not_enforced':
+      return 'Not enforced';
+    case 'unavailable':
+      return 'Unavailable';
     default:
       return status;
   }
@@ -161,71 +184,52 @@ function highlightSQL(sql: string): React.ReactNode[] {
   });
 }
 
-type StepType = 'Route' | 'Skill' | 'Query' | 'Tool' | 'Model' | 'Rerank' | 'Reply' | 'Write';
+type StepType =
+  | 'Route'
+  | 'Plan'
+  | 'Memory'
+  | 'Skill'
+  | 'Query'
+  | 'Tool'
+  | 'Policy'
+  | 'Model'
+  | 'Rerank'
+  | 'Reply'
+  | 'Write'
+  | 'Event';
 
 function stepTypeForPanel(panel: TelemetryPanel): StepType {
-  const title = panel.title.toLowerCase();
-  const description = panel.description.toLowerCase();
-  const agent = panel.agent?.toLowerCase() ?? '';
-  const retrievalText = `${title} ${description}`;
-
-  if (title.includes('intent') || title.includes('classify') || title.includes('dispatcher') || title.includes('router')) {
-    return 'Route';
-  }
-  if (title.includes('skill') || agent.includes('skillrouter')) {
-    return 'Skill';
-  }
-  if (title.includes('rerank') || description.includes('rerank')) {
-    return 'Rerank';
-  }
-  if (title.includes('rrf') || description.includes('reciprocal rank fusion')) {
-    return 'Query';
-  }
-  if (title.includes('initiate_return') || title.includes('write') || title.includes('restock') || description.includes('tool_audit') || description.includes('cedar')) {
-    return 'Write';
-  }
-  if (title.includes('get_related_products') || title.includes('style match') || title.includes('get_price_analysis') || title.includes('price intelligence') || title.includes('check_inventory') || title.includes('get_return_policy')) {
-    return 'Tool';
-  }
-  if (title.includes('search_products')) {
-    return 'Query';
-  }
-  if (
-    /\b(vector|semantic|postgres fts|fts|ts_rank|tsvector|gin index|pgvector|cosine|retrieval|search)\b/.test(
-      retrievalText,
-    )
-  ) {
-    return 'Query';
-  }
-  if (title.includes('response') || title.includes('reply') || title.includes('compose') || title.includes('composition') || title.includes('merge')) {
-    return 'Reply';
-  }
-  if (title.includes('return')) {
-    return 'Write';
-  }
-  if (title.includes('match') || title.includes('intelligence') || title.includes('check') || title.includes('lookup')) {
-    return 'Tool';
-  }
-  if (panel.sql) {
-    return title.includes('search') || title.includes('retrieval')
-      ? 'Query'
-      : 'Tool';
-  }
-  if (title.includes('tool:') || title.includes('tool ')) {
-    return 'Tool';
-  }
-  return 'Model';
+  const eventKind = panel.eventKind;
+  if (!eventKind) return 'Event';
+  const labels: Record<NonNullable<TelemetryPanel['eventKind']>, StepType> = {
+    route: 'Route',
+    plan: 'Plan',
+    memory: 'Memory',
+    retrieval: 'Query',
+    rerank: 'Rerank',
+    model: 'Model',
+    tool: 'Tool',
+    policy: 'Policy',
+    aurora: 'Query',
+    write: 'Write',
+    response: 'Reply',
+  };
+  return labels[eventKind];
 }
 
 const STEP_TYPE_COLORS: Record<StepType, { color: string; bg: string }> = {
   Route: { color: 'var(--obs-green-1)', bg: 'var(--obs-green-soft)' },
+  Plan: { color: 'var(--obs-green-1)', bg: 'var(--obs-green-soft)' },
+  Memory: { color: '#7b5f92', bg: 'rgba(123, 95, 146, 0.12)' },
   Skill: { color: '#b88a3a', bg: 'rgba(184, 138, 58, 0.12)' },
   Query: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
   Tool: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
+  Policy: { color: '#7b5f21', bg: 'rgba(123, 95, 33, 0.12)' },
   Model: { color: 'var(--obs-ink-2)', bg: 'rgba(31, 20, 16, 0.06)' },
   Rerank: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
   Reply: { color: 'var(--obs-ink-2)', bg: 'rgba(31, 20, 16, 0.06)' },
   Write: { color: 'var(--obs-burgundy)', bg: 'var(--obs-red-soft)' },
+  Event: { color: 'var(--obs-ink-2)', bg: 'rgba(31, 20, 16, 0.06)' },
 };
 
 const StepTypeBadge: React.FC<{ type: StepType }> = ({ type }) => {
@@ -426,6 +430,7 @@ const TimelinePanelCard: React.FC<TimelinePanelProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
+            flexWrap: 'wrap',
             gap: '10px',
           }}
         >
@@ -455,6 +460,30 @@ const TimelinePanelCard: React.FC<TimelinePanelProps> = ({
           >
             {panel.durationMs}ms
           </span>
+          {panel.provenance ? (
+            <span
+              style={{
+                fontFamily: 'var(--obs-mono)',
+                fontSize: '11px',
+                color: 'var(--obs-ink-4)',
+              }}
+            >
+              {panel.provenance}
+            </span>
+          ) : null}
+          {panel.evidenceRef ? (
+            <code
+              title={`${panel.evidenceRef.kind}:${panel.evidenceRef.id}`}
+              style={{
+                fontFamily: 'var(--obs-mono)',
+                fontSize: '10px',
+                color: 'var(--obs-ink-4)',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {panel.evidenceRef.kind}:{panel.evidenceRef.id}
+            </code>
+          ) : null}
         </div>
 
         {/* Expanded SQL (only for active panel with SQL) */}
@@ -1068,6 +1097,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 58,
       agent: 'Dispatcher',
+      eventKind: 'route',
+      phase: 'routing',
+      provenance: 'presentation-only',
     },
     {
       index: 2,
@@ -1078,6 +1110,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 36,
       agent: 'SkillRouter',
+      eventKind: 'plan',
+      phase: 'routing',
+      provenance: 'presentation-only',
     },
     {
       index: 3,
@@ -1088,6 +1123,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 312,
       agent: 'Personalization Agent · search_products_hybrid',
+      eventKind: 'retrieval',
+      phase: 'evidence',
+      provenance: 'presentation-only',
       sql:
         'SELECT id, embedding <=> $1::vector AS dist FROM pellier.product_catalog ORDER BY dist LIMIT 20;',
     },
@@ -1100,6 +1138,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 265,
       agent: 'Personalization Agent · search_products_hybrid',
+      eventKind: 'rerank',
+      phase: 'evidence',
+      provenance: 'presentation-only',
     },
     {
       index: 5,
@@ -1110,6 +1151,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 980,
       agent: 'Personalization Agent',
+      eventKind: 'response',
+      phase: 'terminal',
+      provenance: 'presentation-only',
     },
   ],
   Graph: [
@@ -1122,6 +1166,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 14,
       agent: 'Pellier application · PostgreSQL',
+      eventKind: 'write',
+      phase: 'execution',
+      provenance: 'presentation-only',
       sql:
         "INSERT INTO pellier.approvals (customer_id, tool, args, status, source_turn_id, action_hash) VALUES ($1, $2, $3::jsonb, 'pending', $4, $5);",
     },
@@ -1134,6 +1181,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 82,
       agent: 'Case Investigator Agent',
+      eventKind: 'model',
+      phase: 'reasoning',
+      provenance: 'presentation-only',
     },
     {
       index: 3,
@@ -1144,6 +1194,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 241,
       agent: 'Resolution Planner Agent',
+      eventKind: 'model',
+      phase: 'reasoning',
+      provenance: 'presentation-only',
     },
     {
       index: 4,
@@ -1154,6 +1207,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 14,
       agent: 'Pellier application · PostgreSQL',
+      eventKind: 'write',
+      phase: 'execution',
+      provenance: 'presentation-only',
       sql:
         "INSERT INTO pellier.messages (session_id, role, content, metadata) VALUES ($1, 'assistant', $2, $3::jsonb);",
     },
@@ -1166,6 +1222,9 @@ const ILLUSTRATIVE_TELEMETRY: Record<RoutingPattern, TelemetryPanel[]> = {
       status: 'complete',
       durationMs: 33,
       agent: 'Operator Concierge',
+      eventKind: 'response',
+      phase: 'terminal',
+      provenance: 'presentation-only',
     },
   ],
 };
@@ -1450,6 +1509,73 @@ const TelemetryTab: React.FC = () => {
               </>
             )}
           </div>
+
+          {showingSessionTrace && session.evidenceLedger ? (
+            <section
+              aria-label="Evidence sufficiency"
+              style={{
+                marginTop: '16px',
+                padding: '14px 16px',
+                border: '1px solid var(--obs-rule-1)',
+                borderRadius: 'var(--obs-card-radius)',
+                background: 'var(--obs-cream-2)',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'var(--obs-mono)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--obs-ink-2)',
+                  marginBottom: '10px',
+                }}
+              >
+                Evidence sufficiency
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                  gap: '8px 16px',
+                }}
+              >
+                {session.evidenceLedger.evidenceSufficiency.map((check) => (
+                  <div key={check.id} style={{ minWidth: 0 }}>
+                    <strong
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--obs-sans)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--obs-ink-1)',
+                      }}
+                    >
+                      {check.label}
+                    </strong>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--obs-mono)',
+                        fontSize: '10px',
+                        color:
+                          check.status === 'satisfied'
+                            ? 'var(--obs-green-1)'
+                            : check.status === 'missing'
+                              ? 'var(--obs-red-1)'
+                              : 'var(--obs-ink-4)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      {check.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {/* Eyebrow with panel count */}
           <div style={{ marginTop: '20px', marginBottom: '20px' }}>

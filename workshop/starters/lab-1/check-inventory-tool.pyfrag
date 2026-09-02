@@ -17,7 +17,7 @@
     # Verify (live, the real check):
     #   Click Marco's Turn 3 pill in Pellier — Inventory Agent answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Observatory Tools strip flip from 14/15 to 15/15 shipped.
+    #   Observatory Tools strip flip from 16/17 to 17/17 shipped.
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it

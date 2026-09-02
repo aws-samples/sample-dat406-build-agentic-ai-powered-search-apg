@@ -39,6 +39,8 @@ class _ProofDB:
                 {"table_name": "execution_receipts"},
                 {"table_name": "operator_episodes"},
                 {"table_name": "observatory_spans"},
+                {"table_name": "model_invocation_receipts"},
+                {"table_name": "evidence_ledger_event_refs"},
             ]
         return []
 

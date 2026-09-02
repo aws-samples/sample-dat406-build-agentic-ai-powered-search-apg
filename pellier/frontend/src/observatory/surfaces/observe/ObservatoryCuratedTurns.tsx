@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, ArrowUpRight, Loader2, Play } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Loader2, Play, Wrench } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage';
 import {
   WORKSHOP_TURN_STAGES,
@@ -27,6 +27,8 @@ export interface ObservatoryCuratedTurnsProps {
   running: boolean;
   activeIndex: number | null;
   onInspect: (query: string, index: number) => void;
+  ready?: boolean;
+  anchorError?: string | null;
   id?: string;
 }
 
@@ -35,6 +37,8 @@ export default function ObservatoryCuratedTurns({
   running,
   activeIndex,
   onInspect,
+  ready = true,
+  anchorError = null,
   id = 'curated-turns',
 }: ObservatoryCuratedTurnsProps) {
   const [scenarios, setScenarios] = useState<LiveScenario[]>([]);
@@ -107,6 +111,10 @@ export default function ObservatoryCuratedTurns({
   const renderScenario = (scenario: LiveScenario, index: number) => {
     const isActive = activeIndex === index;
     const stage = WORKSHOP_TURN_STAGES[Math.min(scenario.ordinal - 1, 2)];
+    const isBuildCheckpoint =
+      journey.surface !== 'operator' &&
+      scenario.journeyStage === 'prove' &&
+      !scenario.imageUrl;
     const content = (
       <>
         <span className="labs-turn-media" aria-hidden="true">
@@ -118,6 +126,11 @@ export default function ObservatoryCuratedTurns({
               decoding="async"
               sizes="74px"
             />
+          ) : isBuildCheckpoint ? (
+            <span className="labs-turn-build-checkpoint">
+              <Wrench size={20} strokeWidth={1.6} />
+              <span>Build</span>
+            </span>
           ) : (
             <span>{journey.surface === 'operator' ? 'Operator case' : 'No catalog image'}</span>
           )}
@@ -132,6 +145,8 @@ export default function ObservatoryCuratedTurns({
           <small>
             {journey.surface === 'operator'
               ? 'Authenticated staff investigation'
+              : isBuildCheckpoint
+                ? 'Build checkpoint · inventory proof'
               : scenario.productName
                 ? `Catalog preview · ${scenario.productName}`
                 : 'Aurora scenario'}
@@ -156,7 +171,8 @@ export default function ObservatoryCuratedTurns({
         type="button"
         className="labs-turn"
         data-active={isActive ? 'true' : undefined}
-        disabled={running}
+        data-running={isActive && running ? 'true' : undefined}
+        disabled={running || !ready}
         aria-label={`Inspect: ${scenario.prompt}`}
         onClick={() => onInspect(scenario.prompt, index)}
       >
@@ -196,6 +212,16 @@ export default function ObservatoryCuratedTurns({
         <div className="labs-turns-state" role="alert">
           <AlertCircle size={16} aria-hidden="true" />
           {error}
+        </div>
+      ) : null}
+      {!loading && !error && !ready && journey.surface !== 'operator' ? (
+        <div
+          className="labs-turns-state"
+          role={anchorError ? 'alert' : 'status'}
+        >
+          {anchorError
+            ? `Unable to open ${journey.anchorName}'s guided session: ${anchorError}`
+            : `Select ${journey.anchorName} in the Storefront scenario switcher before the three-turn journey begins.`}
         </div>
       ) : null}
       {!loading && !error && scenarios.length === 0 ? (

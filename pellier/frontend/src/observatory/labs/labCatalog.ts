@@ -51,9 +51,9 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     shortTitle: 'PostgreSQL-grounded agent',
     summary:
       'Complete the Inventory Agent and its Aurora tool, then prove the answer against the exact warehouse rows and execution receipt.',
-    image: '/assets/personas/marco.png',
-    imageWidth: 1200,
-    imageHeight: 1800,
+    image: '/assets/personas/marco-720.webp',
+    imageWidth: 720,
+    imageHeight: 1080,
     proofCardIds: ['marco-floor-check'],
     objective:
       'With Marco selected, make the Inventory Agent return a scoped fact that can be checked against live Aurora rows.',
@@ -98,9 +98,9 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     shortTitle: 'PostgreSQL retrieval',
     summary:
       'Author the RRF expression, reconstruct vector, FTS, fusion, and rerank evidence, then verify PostgreSQL enforced eligibility.',
-    image: '/assets/personas/anna.png',
-    imageWidth: 1200,
-    imageHeight: 1800,
+    image: '/assets/personas/anna-720.webp',
+    imageWidth: 720,
+    imageHeight: 1080,
     proofCardIds: ['retrieval-comparison'],
     objective:
       'With Anna selected, author the PostgreSQL RRF expression, then separate model proposals from SQL enforcement.',
@@ -145,9 +145,9 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     shortTitle: 'AgentCore managed path',
     summary:
       'Operate Runtime, Gateway, and Memory for Theo\'s three-turn thread, then author an OpenTelemetry trace contract and correlate the managed evidence.',
-    image: '/assets/personas/theo.png',
-    imageWidth: 1200,
-    imageHeight: 1800,
+    image: '/assets/personas/theo-720.webp',
+    imageWidth: 720,
+    imageHeight: 1080,
     proofCardIds: ['managed-rail', 'audit-ledger'],
     objective:
       'With Theo selected, author the OTEL predicates, then prove Gateway, fresh-process Memory, and correlated spans across his managed thread.',
@@ -192,9 +192,9 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     shortTitle: 'Identity and non-execution',
     summary:
       'Bind verified identity in Cedar, prove the four-case execution matrix and Aurora RLS backstop, then investigate Jessica\'s case as separately authorized staff.',
-    image: '/assets/personas/jessica.png',
-    imageWidth: 960,
-    imageHeight: 1200,
+    image: '/assets/personas/jessica-720.webp',
+    imageWidth: 720,
+    imageHeight: 900,
     proofCardIds: ['runtime-gateway-policy'],
     objective:
       'Use Marco, Anna, and Jessica to prove the customer boundary from Cognito through Cedar, execution receipts, PostgreSQL RLS, and the Operator checkpoint.',

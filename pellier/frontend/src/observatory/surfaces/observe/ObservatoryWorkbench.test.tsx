@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   sendChatMessageStreaming: vi.fn(),
   fetch: vi.fn(),
+  switchPersona: vi.fn(),
   persona: null as null | {
     id: string;
     display_name: string;
@@ -18,7 +19,12 @@ vi.mock('../../../services/chat', () => ({
 }));
 
 vi.mock('../../../contexts/PersonaContext', () => ({
-  usePersona: () => ({ persona: mocks.persona }),
+  usePersona: () => ({
+    persona: mocks.persona,
+    switchPersona: mocks.switchPersona,
+    switching: false,
+    switchError: null,
+  }),
 }));
 
 import { PERSONA_HERO_PILLS } from '../../../data/personaCurations';
@@ -55,7 +61,12 @@ describe('Pellier Observatory live agent workbench', () => {
   beforeEach(() => {
     mocks.sendChatMessageStreaming.mockReset();
     mocks.fetch.mockReset();
-    mocks.persona = null;
+    mocks.switchPersona.mockReset();
+    mocks.persona = {
+      id: 'marco',
+      display_name: 'Marco',
+      customer_id: 'CUST-MARCO',
+    };
     mocks.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const requestUrl =
         input instanceof Request ? input.url : String(input);
@@ -108,10 +119,10 @@ describe('Pellier Observatory live agent workbench', () => {
       labRail.querySelectorAll<HTMLImageElement>('img'),
     ).map((image) => image.getAttribute('src'));
     expect(portraits).toEqual([
-      '/assets/personas/marco.png',
-      '/assets/personas/anna.png',
-      '/assets/personas/theo.png',
-      '/assets/personas/jessica.png',
+      '/assets/personas/marco-720.webp',
+      '/assets/personas/anna-720.webp',
+      '/assets/personas/theo-720.webp',
+      '/assets/personas/jessica-720.webp',
     ]);
     expect(
       tracePanel(document.body).querySelector('canvas.labs-hero-field'),
@@ -177,7 +188,7 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(screen.queryByLabelText('Captured SQL')).not.toBeInTheDocument();
   });
 
-  it('anchors guided requests to the selected lab instead of the active persona', async () => {
+  it('anchors guided requests without changing the active shopper scenario', async () => {
     mocks.persona = {
       id: 'marco',
       display_name: 'Marco',
@@ -199,11 +210,22 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(mocks.fetch).toHaveBeenCalledWith(
       '/api/observatory/scenarios?persona=anna',
     );
+    expect(mocks.switchPersona).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('button', {
         name: `Inspect: ${WORKSHOP_JOURNEYS.marco.prompts[0]}`,
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: `Inspect: ${WORKSHOP_JOURNEYS.anna.prompts[0]}`,
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(
+        /Select Anna in the Storefront scenario switcher before the three-turn journey begins/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('carries Jessica operator prompts into Lab 4 without running them as shopper turns', async () => {
@@ -357,7 +379,7 @@ describe('Pellier Observatory live agent workbench', () => {
         expect.any(Function),
         undefined,
         false,
-        null,
+        'CUST-MARCO',
         'dispatcher',
         'balanced',
       );
@@ -663,7 +685,7 @@ describe('Pellier Observatory live agent workbench', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Show run setup' }));
-    await user.click(screen.getByRole('radio', { name: 'Editorial' }));
+    await user.click(screen.getByRole('radio', { name: 'Deep' }));
     await inspectTurn(user, FRESH_TURNS[0]);
 
     await waitFor(() => {
@@ -673,7 +695,7 @@ describe('Pellier Observatory live agent workbench', () => {
         expect.any(Function),
         undefined,
         false,
-        null,
+        'CUST-MARCO',
         'dispatcher',
         'editorial',
       );
@@ -848,7 +870,7 @@ describe('Pellier Observatory live agent workbench', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('promotes the first named product above its curated pairings', async () => {
+  it('renders only products named by the shopper answer, in answer order', async () => {
     mocks.sendChatMessageStreaming.mockImplementation(
       async (
         _query: string,
@@ -874,23 +896,47 @@ describe('Pellier Observatory live agent workbench', () => {
         onUpdate({
           type: 'product',
           product: {
+            productId: 40,
+            name: 'Canvas Dopp Kit',
+            price: 85,
+          },
+        });
+        onUpdate({
+          type: 'product',
+          product: {
+            productId: 12,
+            name: 'Washed Cotton Oxford',
+            price: 142,
+          },
+        });
+        onUpdate({
+          type: 'product',
+          product: {
             productId: 34,
             name: 'Soft Leather Travel Pouch',
             price: 96,
           },
         });
         onUpdate({
+          type: 'product',
+          product: {
+            productId: 99,
+            name: 'Unselected catalog candidate',
+            price: 40,
+          },
+        });
+        onUpdate({
           type: 'complete',
           response: {
             response:
-              'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks and Soft Leather Travel Pouch for the flight.',
+              'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks, Canvas Dopp Kit, Washed Cotton Oxford, and Soft Leather Travel Pouch for the flight.',
             products: [],
             rail: 'in-process',
           },
         });
         return {
           response:
-            'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks and Soft Leather Travel Pouch for the flight.',
+            'Lead with the Italian Linen Camp Shirt, then add the Merino Travel Socks, Canvas Dopp Kit, Washed Cotton Oxford, and Soft Leather Travel Pouch for the flight.',
           products: [],
           suggestions: [],
         };
@@ -908,8 +954,13 @@ describe('Pellier Observatory live agent workbench', () => {
     await screen.findByText('Italian Linen Camp Shirt');
 
     expect(screen.getByText('Best match')).toBeInTheDocument();
-    expect(screen.getByText('Curated pairings')).toBeInTheDocument();
-    expect(screen.getByText('2 supporting pieces')).toBeInTheDocument();
+    expect(screen.getByText('Grounded results')).toBeInTheDocument();
+    expect(
+      screen.getByText('4 additional products returned by this turn'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Unselected catalog candidate'),
+    ).not.toBeInTheDocument();
     expect(
       container.querySelector('[data-product-role="best-match"] h4'),
     ).toHaveTextContent('Italian Linen Camp Shirt');
@@ -918,6 +969,8 @@ describe('Pellier Observatory live agent workbench', () => {
     ).map((heading) => heading.textContent);
     expect(pairingNames).toEqual([
       'Merino Travel Socks',
+      'Canvas Dopp Kit',
+      'Washed Cotton Oxford',
       'Soft Leather Travel Pouch',
     ]);
 
@@ -927,6 +980,8 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(productNames).toEqual([
       'Italian Linen Camp Shirt',
       'Merino Travel Socks',
+      'Canvas Dopp Kit',
+      'Washed Cotton Oxford',
       'Soft Leather Travel Pouch',
     ]);
   });
@@ -1071,6 +1126,93 @@ describe('Pellier Observatory live agent workbench', () => {
     );
   }
 
+  it('reconciles live events to the durable principal-scoped ledger', async () => {
+    mocks.sendChatMessageStreaming.mockImplementation(
+      async (
+        _query: string,
+        _history: unknown[],
+        onUpdate: (event: unknown) => void,
+      ) => {
+        onUpdate({ type: 'tool_call', tool: 'search_products', status: 'executing' });
+        const evidenceLedger = {
+          version: '1.0',
+          authority: 'canonical-receipt-projection',
+          principalScoped: true,
+          turnId: 'turn-1',
+          sessionId: 'session-1',
+          events: [
+            {
+              sequence: 1,
+              eventKind: 'route',
+              phase: 'routing',
+              status: 'succeeded',
+              provenance: 'aurora-receipt',
+              turnId: 'turn-1',
+              evidenceRef: { kind: 'governed_turn_receipt', id: 'turn-1' },
+              title: 'Execution route recorded',
+              summary: 'gateway-mcp rail captured at terminal persistence.',
+              details: { rail: 'gateway-mcp' },
+            },
+            {
+              sequence: 2,
+              eventKind: 'response',
+              phase: 'terminal',
+              status: 'succeeded',
+              provenance: 'aurora-receipt',
+              turnId: 'turn-1',
+              durationMs: 47,
+              evidenceRef: { kind: 'governed_turn_receipt', id: 'turn-1' },
+              title: 'Terminal turn receipt',
+              summary: 'Turn ended complete with 1 citation and 0 tool receipts.',
+              details: { terminal_status: 'complete' },
+            },
+          ],
+          evidenceSufficiency: [
+            {
+              id: 'terminal-receipt',
+              label: 'Immutable terminal receipt',
+              status: 'satisfied',
+              detail: 'The turn is anchored by governed_turn_receipts.',
+            },
+          ],
+        };
+        onUpdate({
+          type: 'complete',
+          response: {
+            response: 'Durably grounded answer.',
+            products: [],
+            evidence_ledger: evidenceLedger,
+          },
+        });
+        return {
+          response: 'Durably grounded answer.',
+          products: [],
+          suggestions: [],
+          evidence_ledger: evidenceLedger,
+        };
+      },
+    );
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    expect(await screen.findByText('Evidence sufficiency')).toBeInTheDocument();
+    expect(screen.getByText('Immutable terminal receipt')).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/governed_turn_receipt:turn-1/).length,
+    ).toBeGreaterThan(0);
+    expect(
+      tracePanel(container).querySelector('.observatory-append-only')
+        ?.textContent,
+    ).toBe('Durable receipt projection. 2 events, 0 SQL receipts.');
+    expect(screen.queryByText('search_products')).not.toBeInTheDocument();
+  });
+
   it('discloses each Aurora receipt independently and in bulk', async () => {
     mockTwoReceiptRun();
     const user = userEvent.setup();
@@ -1120,7 +1262,7 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(
       tracePanel(container).querySelector('.observatory-append-only')
         ?.textContent,
-    ).toBe('Run timeline. 4 emitted events, 2 SQL receipts.');
+    ).toBe('Live run timeline. 4 events, 2 SQL receipts.');
   });
 
   it('opens the ledger event a verified claim rests on', async () => {
@@ -1339,7 +1481,9 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(panel.querySelectorAll('fieldset')).toHaveLength(0);
     expect(within(panel).queryAllByRole('radio')).toHaveLength(0);
-    expect(panel).toHaveTextContent('Evidence remains visible for every run');
+    expect(panel).toHaveTextContent(
+      'reconciled to principal-scoped Aurora receipts when the turn completes',
+    );
 
     await user.click(toggle);
 

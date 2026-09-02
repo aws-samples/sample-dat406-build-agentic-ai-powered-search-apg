@@ -7,6 +7,7 @@ fixtures or locally fabricated persona data.
 
 from __future__ import annotations
 
+import asyncio
 import pathlib
 
 
@@ -21,6 +22,23 @@ def test_observatory_data_hook_is_api_only() -> None:
     assert "const apiEndpoints" in body
     assert "fixtureImporters" not in body
     assert "allowFixtureFallback" not in body
+
+
+def test_agent_registry_reports_each_specialists_balanced_model() -> None:
+    """The topology must expose the factory's real default, not a legacy alias."""
+    from config import settings
+    from routes.observatory import list_agents
+
+    agents = asyncio.run(list_agents())
+    models = {agent["name"]: agent["model"] for agent in agents}
+
+    assert models == {
+        "Search Agent": settings.BEDROCK_OPUS_MODEL,
+        "Personalization Agent": settings.BEDROCK_OPUS_MODEL,
+        "Pricing Agent": settings.BEDROCK_REPORTING_MODEL,
+        "Inventory Agent": settings.BEDROCK_REPORTING_MODEL,
+        "Customer Service Agent": settings.BEDROCK_OPUS_MODEL,
+    }
 
 
 def test_persona_runtime_has_no_file_or_process_memory_fallback() -> None:
@@ -61,6 +79,61 @@ def test_live_surface_migration_provisions_profiles_sessions_and_scenarios() -> 
         assert f"'{stage}'" in body
     assert "'required'" in body
     assert "'explore'" in body
+
+
+def test_theo_required_journey_closes_on_the_governed_return() -> None:
+    seed = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
+    repair = (
+        ROOT / "scripts" / "migrations" / "040_resequence_theo_governed_turn.sql"
+    ).read_text()
+    bootstrap = (ROOT / "scripts" / "bootstrap-labs.sh").read_text()
+    reset = (ROOT / "scripts" / "reset-governed-workshop.sh").read_text()
+
+    required_turn = (
+        "('theo', 3, 'My Wabi-Sabi Bowl arrived chipped. Please help me return it.', "
+        "'required', 'prove', '37')"
+    )
+    optional_turn = (
+        "('theo', 4, 'Without asking me to repeat the ritual or material, "
+        "which pairing should I choose and why?', 'explore', NULL, '34')"
+    )
+    assert required_turn in seed
+    assert optional_turn in seed
+    assert "WHERE persona_id = 'theo'" in repair
+    assert "AND ordinal = 2" in repair
+    assert "AND ordinal = 3" in repair
+    assert "040_resequence_theo_governed_turn.sql" in bootstrap
+    assert "041_align_theo_pairing_preview.sql" in bootstrap
+    assert "040_resequence_theo_governed_turn.sql" in reset
+    assert "041_align_theo_pairing_preview.sql" in reset
+
+
+def test_anna_required_journey_distinguishes_retrieval_from_the_build_checkpoint() -> None:
+    seed = (ROOT / "scripts" / "migrations" / "029_live_surface_data.sql").read_text()
+    repair = (
+        ROOT / "scripts" / "migrations" / "042_align_anna_guided_previews.sql"
+    ).read_text()
+    bootstrap = (ROOT / "scripts" / "bootstrap-labs.sh").read_text()
+    reset = (ROOT / "scripts" / "reset-governed-workshop.sh").read_text()
+
+    retrieval_turn = (
+        "('anna', 2, 'Keep the gift under $100 and show me the strongest two options.', "
+        "'required', 'exercise', '28')"
+    )
+    proof_turn = (
+        "('anna', 3, 'Which one should I choose, and prove it stayed in budget and in stock?', "
+        "'required', 'prove', NULL)"
+    )
+    assert retrieval_turn in seed
+    assert proof_turn in seed
+    assert "WHERE persona_id = 'anna'" in repair
+    assert "AND ordinal = 2" in repair
+    assert "AND ordinal = 3" in repair
+    assert "Build checkpoint · inventory proof" in (
+        FRONTEND / "observatory" / "surfaces" / "observe" / "ObservatoryCuratedTurns.tsx"
+    ).read_text()
+    assert "042_align_anna_guided_previews.sql" in bootstrap
+    assert "042_align_anna_guided_previews.sql" in reset
 
 
 def test_storefront_persona_edits_are_durable_aurora_merchandising() -> None:

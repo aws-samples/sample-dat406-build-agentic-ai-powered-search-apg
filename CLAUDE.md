@@ -90,7 +90,7 @@ The application must continue to demonstrate:
 
 The required participant path is:
 
-1. 01 GROUND THE ANSWER — Live Data and Evidence
+1. Lab 1: Build a PostgreSQL-Grounded Agent
 2. 02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs
 3. 03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace
 4. 04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts

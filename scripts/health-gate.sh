@@ -200,6 +200,16 @@ if $managed_required; then
     ok=false
   fi
 
+  model_invocation_receipts_table="$(_psql "SELECT to_regclass('pellier.model_invocation_receipts');" || echo '')"
+  evidence_ledger_view="$(_psql "SELECT to_regclass('pellier.evidence_ledger_event_refs');" || echo '')"
+  if [[ "$model_invocation_receipts_table" == "pellier.model_invocation_receipts" ]] \
+      && [[ "$evidence_ledger_view" == "pellier.evidence_ledger_event_refs" ]]; then
+    pass "Typed Evidence Ledger projection is installed"
+  else
+    fail "Evidence Ledger schema missing. Apply scripts/migrations/043_evidence_ledger.sql."
+    ok=false
+  fi
+
   commerce_receipts_table="$(_psql "SELECT to_regclass('pellier.commerce_receipts');" || echo '')"
   commerce_payment_events_table="$(_psql "SELECT to_regclass('pellier.commerce_payment_events');" || echo '')"
   if [[ "$commerce_receipts_table" == "pellier.commerce_receipts" ]] \

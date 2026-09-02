@@ -113,7 +113,7 @@ const EnforcementDiagram: React.FC = () => {
   return (
     <ExpCard>
       <Eyebrow label="Two-layer enforcement" />
-      <h3
+      <h2
         style={{
           fontFamily: 'var(--obs-heading)',
           fontSize: '24px',
@@ -123,7 +123,7 @@ const EnforcementDiagram: React.FC = () => {
         }}
       >
         Cedar guards what; SQL guards whose.
-      </h3>
+      </h2>
       <p
         style={{
           fontFamily: 'var(--obs-sans)',
@@ -220,7 +220,7 @@ const PoliciesCard: React.FC = () => {
   return (
     <ExpCard>
       <Eyebrow label={`Cedar policies · ${policies?.length ?? '–'} on the managed engine`} />
-      <h3
+      <h2
         style={{
           fontFamily: 'var(--obs-heading)',
           fontSize: '24px',
@@ -230,7 +230,7 @@ const PoliciesCard: React.FC = () => {
         }}
       >
         Policy is code, code is enforcement.
-      </h3>
+      </h2>
       <p
         style={{
           fontFamily: 'var(--obs-sans)',
@@ -350,7 +350,7 @@ const ToolAuditCard: React.FC = () => {
   return (
     <ExpCard>
       <Eyebrow label={`tool_audit · last ${rows?.length ?? '–'} rows`} />
-      <h3
+      <h2
         style={{
           fontFamily: 'var(--obs-heading)',
           fontSize: '24px',
@@ -360,7 +360,7 @@ const ToolAuditCard: React.FC = () => {
         }}
       >
         Every mutation, replayable from a single row.
-      </h3>
+      </h2>
       <p
         style={{
           fontFamily: 'var(--obs-sans)',
@@ -471,7 +471,7 @@ const ToolAuditCard: React.FC = () => {
 
 const WritePath: React.FC = () => {
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
+    <div className="observatory-reading-page observatory-write-path-page">
       <EditorialTitle
         backToReferences
         eyebrow="Understand · Write-path · Aurora as system-of-record"

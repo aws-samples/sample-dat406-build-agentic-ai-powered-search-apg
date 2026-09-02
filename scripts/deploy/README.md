@@ -22,7 +22,7 @@ helpers seed Memory, authenticate test users, and verify the deployed path.
 3. **AgentCore Gateway** — MCP Gateway that registers all four Lambda targets with:
    - Cognito JWT authentication
    - Runtime tool discovery over MCP streamable HTTP
-   - Exact parity with the 15-tool in-process contract
+   - Exact parity with the governed 15-tool Gateway subset
 
    Docs: [Gateway overview](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html)
 
@@ -102,7 +102,7 @@ value, `30` in the workshop template).
 | `pellier_recommend_server.py`      | Lambda MCP server for curation + evidence      |
 | `pellier_experience_server.py`     | Lambda MCP server for returns + escalation     |
 | `deploy_lambda.py`                | Lambda deployment script (adapted from DAT403) |
-| `gateway_tool_schemas.py`         | Canonical four-target, 15-tool schema          |
+| `gateway_tool_schemas.py`         | Governed four-target, 15-tool Gateway subset   |
 | `render_agentcore_project.py`     | Writes the declarative AgentCore CLI project   |
 | `seed_agentcore_memory.py`        | Seeds managed preference records after deploy  |
 | `gateway_initiate_return.py`       | Live ALLOW/DENY and JWT-bound receipt proof    |

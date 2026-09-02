@@ -102,7 +102,11 @@ def test_the_managed_rail_is_required_under_the_default() -> None:
 
 def test_the_reset_clears_the_evidence_tables_added_since_it_was_written() -> None:
     cleared = _truncate_list()
-    for table in ("execution_receipts", "operator_episodes"):
+    for table in (
+        "execution_receipts",
+        "operator_episodes",
+        "model_invocation_receipts",
+    ):
         assert table in cleared, table
 
 

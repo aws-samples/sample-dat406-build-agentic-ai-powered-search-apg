@@ -1,10 +1,8 @@
 /**
- * ExpCard — Elevated cream card with burgundy accent line.
+ * ExpCard — shared Observatory working surface.
  *
- * cream-elev background, 1px rule-1 border, 14px border-radius,
- * 24px burgundy accent line at top-left.
- *
- * Requirements: 15.3
+ * The visual contract lives in base.css so sessions, traces, architecture,
+ * Gateway and policy, evaluation, and proof views evolve as one system.
  */
 
 import React from 'react';
@@ -37,30 +35,9 @@ export const ExpCard: React.FC<ExpCardProps> = ({
             }
           : undefined
       }
-      className={className}
-      style={{
-        position: 'relative',
-        background: 'var(--obs-card-bg)',
-        border: '1px solid var(--obs-card-border)',
-        borderRadius: 'var(--obs-card-radius)',
-        padding: '24px',
-        cursor: isClickable ? 'pointer' : undefined,
-        overflow: 'hidden',
-      }}
+      className={`observatory-exp-card ${className}`.trim()}
+      data-clickable={isClickable ? 'true' : undefined}
     >
-      {/* Burgundy accent line at top-left */}
-      <span
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: '20px',
-          width: 'var(--obs-card-accent-width)',
-          height: '3px',
-          backgroundColor: 'var(--obs-card-accent-color)',
-          borderRadius: '0 0 2px 2px',
-        }}
-      />
       {children}
     </div>
   );

@@ -27,7 +27,7 @@ const ToolRegistryDetail: React.FC = () => {
       conceptName="Tool Registry"
       category="workshop"
       title="Tools, discovered."
-      prose="The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded and searched with pgvector; AgentCore Gateway publishes the complete 15-tool callable contract required by governed Runtime. The separate builders format retains in-process Strands tools."
+      prose="The Aurora tool registry is the live workshop teaching surface for semantic discovery. Tool descriptions are embedded and searched with pgvector; AgentCore Gateway publishes a bounded 15-tool workshop subset from the 17-tool registry for governed Runtime. The separate builders format retains in-process Strands tools."
       seeInPellier={{
         href: '/?ask=Show+me+linen+pieces+like+the+Camp+Shirt',
         label: 'See tool discovery fire on the storefront',
@@ -43,14 +43,14 @@ const ToolRegistryDetail: React.FC = () => {
         },
         {
           numeral: 'iii.',
-          text: 'Fixture labels on the Understand · Tools surface: fourteen shipped baseline; check_inventory is the required-path exercise until its stub is replaced - then /api/observatory/build-state reflects shipped.',
+          text: 'The required-path starter ships 16 of the 17 registered MCP tools; check_inventory completes the registry exercise. The direct-only query_business_records helper is intentionally outside this MCP count.',
         },
       ]}
       liveState={{
         label: 'Current tool registry state. Aurora ranks tool descriptions while required governed Gateway publishes the callable surface over MCP.',
         values: [
-          { label: 'Tools registered', value: '15' },
-          { label: 'Shipped (baseline image)', value: '14' },
+          { label: 'Tools registered', value: '17' },
+          { label: 'Shipped (starter)', value: '16' },
           { label: 'Index', value: 'HNSW' },
         ],
       }}

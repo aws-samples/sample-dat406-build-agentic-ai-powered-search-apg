@@ -23,7 +23,7 @@ import { ClipboardCheck, LogOut, User, UsersRound } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import PellierHomeLink from '../../components/PellierHomeLink'
 import { useAuth } from '../../contexts/AuthContext'
-import { fetchReviewQueue } from '../../services/operator'
+import { fetchReviewQueue, OperatorApiError } from '../../services/operator'
 import '../styles/operator.css'
 
 const OperatorQueueRefreshContext = createContext<() => void>(() => undefined)
@@ -49,6 +49,7 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
   refreshRevision,
 }) => {
   const [pending, setPending] = useState<number | null>(null)
+  const [signInRequired, setSignInRequired] = useState(false)
   const [unreachable, setUnreachable] = useState(false)
 
   useEffect(() => {
@@ -57,12 +58,16 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
       .then((queue) => {
         if (!active) return
         setPending(queue.pendingCount)
+        setSignInRequired(false)
         setUnreachable(false)
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!active) return
         setPending(null)
-        setUnreachable(true)
+        const needsSignIn =
+          error instanceof OperatorApiError && error.needsOperatorSignIn
+        setSignInRequired(needsSignIn)
+        setUnreachable(!needsSignIn)
       })
     return () => {
       active = false
@@ -80,7 +85,16 @@ const PendingReviewLink: React.FC<{ refreshRevision: number }> = ({
     >
       <ClipboardCheck className="operator-topbar-icon" aria-hidden />
       <span className="operator-topbar-label">Action Queue</span>
-      {unreachable ? (
+      {signInRequired ? (
+        <span
+          className="operator-topbar-count"
+          data-count="sign-in"
+          data-testid="operator-reviews-count"
+          title="Sign in as an operator to read the action queue"
+        >
+          Sign in required
+        </span>
+      ) : unreachable ? (
         <span
           className="operator-topbar-count"
           data-count="unavailable"

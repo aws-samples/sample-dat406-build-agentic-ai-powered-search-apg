@@ -331,7 +331,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
   theo: [
     ...WORKSHOP_JOURNEYS.theo.prompts,
-    "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",  // Turn 4 (Customer Service Agent payoff)
+    'Without asking me to repeat the ritual or material, which pairing should I choose and why?', // Turn 4 (managed-memory continuity)
     // Turn 5 (capstone) → Customer Service Agent · escalate_to_human.
     // Durability-expectation framing past the standard return window —
     // initiate_return refuses, escalate_to_human is the honest
@@ -377,8 +377,8 @@ export const PERSONA_HERO_PILL_LABELS: Record<string, (string | null)[]> = {
   theo: [
     null,
     null,
-    'Choose the pairing without repeating context',
     'File a damaged return for the Wabi-Sabi Bowl',
+    'Choose the pairing without repeating context',
     'Handle a worn-in piece past the return window',
   ],
   fresh: [null, null, null, null, null],
@@ -424,8 +424,8 @@ export const PERSONA_TURN_TRACES: Record<string, PersonaTurnTrace[]> = {
   theo: [
     { skill: 'the-makers-shelf', tools: ['search_products'] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_related_products'] },
-    { skill: 'the-makers-shelf', tools: [] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_return_policy', 'initiate_return'] },
+    { skill: 'the-makers-shelf', tools: [] },
     { skill: 'the-makers-shelf', tools: ['escalate_to_human'] },
   ],
   fresh: PERSONA_HERO_PILLS.fresh.map(() => ({ tools: ['search_products'] })),
@@ -460,27 +460,6 @@ export const OPERATOR_TURNS: OperatorTurn[] = [
     access: 'write',
   },
 ]
-
-/**
- * Catalog images provide editorial context for the guided turn only. They
- * are not a prediction of the result: the live agent response remains the
- * only evidence of what the request returned.
- */
-export const PERSONA_TURN_PREVIEW: Record<string, (number | null)[]> = {
-  marco: [11, 14, 2, 2, 2],
-  anna: [27, 21, 21, null, null],
-  theo: [31, 32, 32, null, null],
-  fresh: [10, 8, 11, 14, 16],
-}
-
-export function turnPreviewProductId(
-  personaId: string | null | undefined,
-  index: number,
-): number | null {
-  const key = personaId ?? 'fresh'
-  const previews = PERSONA_TURN_PREVIEW[key] ?? PERSONA_TURN_PREVIEW.fresh
-  return previews[index] ?? null
-}
 
 // ---------------------------------------------------------------------
 // Featured product ID — the big hero product slot per persona.

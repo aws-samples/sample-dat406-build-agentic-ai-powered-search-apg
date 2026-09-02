@@ -141,8 +141,8 @@ def test_unknown_verified_username_does_not_fall_back_to_persona() -> None:
     assert identity.shopper_customer_id is None
 
 
-def test_chat_scopes_memory_through_the_identity_service() -> None:
-    """The conflation site must route through the resolver, not raw fields."""
+def test_chat_uses_one_identity_service_namespace_for_shopper_stm() -> None:
+    """The agent manager and Observatory replay must use the same STM key."""
     from pathlib import Path
 
     chat_source = (
@@ -150,9 +150,10 @@ def test_chat_scopes_memory_through_the_identity_service() -> None:
     ).read_text()
 
     assert "resolve_turn_identity" in chat_source
-    assert "turn_identity.memory_actor()" in chat_source
-    # The old precedence must be gone.
-    assert "Prefer persona customer_id over Cognito sub" not in chat_source
+    assert chat_source.count("AgentCoreIdentityService.build_namespace(") >= 3
+    assert chat_source.count("session_id=memory_namespace") >= 2
+    assert chat_source.count("user_id=memory_namespace") >= 2
+    assert "memory_user_id = turn_identity.memory_actor()" not in chat_source
 
 
 def test_default_identity_is_anonymous() -> None:

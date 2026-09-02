@@ -305,7 +305,11 @@ for migration in \
   036_refresh_persona_hero_alt_text.sql \
   037_serve_persona_hero_masters.sql \
   038_principal_customer_cardinality.sql \
-  039_return_replay_scope.sql
+  039_return_replay_scope.sql \
+  040_resequence_theo_governed_turn.sql \
+  041_align_theo_pairing_preview.sql \
+  042_align_anna_guided_previews.sql \
+  043_evidence_ledger.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -331,6 +335,7 @@ TRUNCATE TABLE
     pellier.governed_receipts,
     pellier.governed_turn_receipts,
     pellier.governed_query_receipts,
+    pellier.model_invocation_receipts,
     pellier.tool_audit,
     pellier.retrieval_receipts,
     pellier.inventory_ledger,
@@ -460,7 +465,7 @@ _verify_baseline() {
   local empty_tables=(
     approvals execution_receipts operator_episodes write_operations
     conversations messages observatory_spans semantic_cache
-    session_metadata tool_uses retrieval_receipts
+    session_metadata tool_uses retrieval_receipts model_invocation_receipts
   )
   local table count bad=0
   for table in "${empty_tables[@]}"; do

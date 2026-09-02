@@ -22,6 +22,7 @@ import type {
   ConfidenceRow,
   MemoryPill,
   SessionDetail,
+  TelemetryPanel,
 } from '../../types';
 
 /* =======================================================================
@@ -931,9 +932,15 @@ type LiveTraceStep = {
   title: string;
   subtitle?: string;
   durationMs?: number;
+  phase?: string;
+  provenance?: string;
+  status?: string;
 };
 
-function collectLiveTraceSteps(turns: ChatTurn[]): LiveTraceStep[] {
+function collectLiveTraceSteps(
+  turns: ChatTurn[],
+  telemetry: TelemetryPanel[],
+): LiveTraceStep[] {
   const out: LiveTraceStep[] = [];
   turns.forEach((turn, ti) => {
     if (turn.role !== 'assistant') return;
@@ -943,6 +950,8 @@ function collectLiveTraceSteps(turns: ChatTurn[]): LiveTraceStep[] {
         id: `t${ti}-plan`,
         title: np.routingPattern,
         subtitle: `${np.stepCount} steps · ${np.flowSummary}`,
+        phase: 'routing',
+        status: 'recorded',
       });
     }
     (turn.toolCalls ?? []).forEach((tool, j) => {
@@ -951,11 +960,74 @@ function collectLiveTraceSteps(turns: ChatTurn[]): LiveTraceStep[] {
         title: tool.toolName,
         subtitle: tool.description,
         durationMs: tool.durationMs,
+        phase: 'execution',
+        status: 'recorded',
       });
     });
   });
-  return out;
+
+  if (out.length > 0) return out;
+
+  return telemetry.map((panel) => ({
+    id: `telemetry-${panel.index}`,
+    title: panel.title,
+    subtitle: panel.description,
+    durationMs: panel.durationMs,
+    phase: panel.phase,
+    provenance: panel.provenance,
+    status: panel.status,
+  }));
 }
+
+const RecordedEvidenceReplay: React.FC<{
+  openingQuery: string;
+  steps: LiveTraceStep[];
+  visibleCount: number;
+  replayDone: boolean;
+}> = ({ openingQuery, steps, visibleCount, replayDone }) => {
+  const visible = steps.slice(0, visibleCount);
+  return (
+    <section
+      className="observatory-session-recorded-replay"
+      aria-label="Recorded evidence replay"
+      aria-live="polite"
+    >
+      <div className="observatory-session-recorded-request">
+        <span>Recorded request</span>
+        <p>{openingQuery}</p>
+      </div>
+      <div className="observatory-session-recorded-events">
+        {visible.map((step, index) => {
+          const isLatest = !replayDone && index === visible.length - 1;
+          return (
+            <article
+              key={step.id}
+              className={`observatory-session-recorded-event observatory-replay-enter${isLatest ? ' is-current' : ''}`}
+            >
+              <div className="observatory-session-recorded-index">
+                {String(index + 1).padStart(2, '0')}
+              </div>
+              <div>
+                <div className="observatory-session-recorded-title">
+                  <h2>{step.title}</h2>
+                  {step.durationMs != null && <span>{step.durationMs}ms</span>}
+                </div>
+                <p>{step.subtitle}</p>
+                <div className="observatory-session-recorded-meta">
+                  {step.phase && <span>{step.phase}</span>}
+                  {step.status && <span>{step.status.replace(/_/g, ' ')}</span>}
+                  {step.provenance && (
+                    <span>{step.provenance.replace(/-/g, ' ')}</span>
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
 
 /**
  * Routing + tool steps; ``visibleCount`` stays in lockstep with the chat
@@ -990,80 +1062,38 @@ const LiveTraceRail: React.FC<{
   const visible = steps.slice(0, cap);
 
   return (
-    <ExpCard>
-      <Eyebrow label="Live trace" />
-      <div
-        style={{
-          marginTop: '14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-        }}
-      >
+    <ExpCard className="observatory-session-trace-card">
+      <div className="observatory-session-card-heading">
+        <Eyebrow label="Evidence replay" />
+        <span>
+          {cap}/{steps.length} events
+        </span>
+      </div>
+      <div className="observatory-session-trace-list" aria-live="polite">
         {visible.map((step, index) => {
           const isLatest = emphasizeLatest && index === visible.length - 1;
           return (
             <div
               key={step.id}
-              style={{
-                borderLeft: isLatest
-                  ? '3px solid var(--obs-red-1)'
-                  : '3px solid var(--obs-rule-1)',
-                paddingLeft: '12px',
-                paddingTop: '2px',
-                paddingBottom: '2px',
-                background: isLatest
-                  ? 'var(--obs-red-soft)'
-                  : 'transparent',
-                borderRadius: '0 8px 8px 0',
-                transition: 'background 0.25s ease, border-color 0.25s ease',
-              }}
+              className={`observatory-session-trace-step${isLatest ? ' is-current' : ''}`}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'var(--obs-mono)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: 'var(--obs-ink-1)',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {step.title}
-                </span>
-                {step.durationMs != null && (
-                  <span
-                    style={{
-                      fontFamily: 'var(--obs-mono)',
-                      fontSize: '12px',
-                      color: 'var(--obs-ink-2)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {step.durationMs}ms
-                  </span>
+              <span className="observatory-session-trace-marker" aria-hidden="true" />
+              <div className="observatory-session-trace-copy">
+                <div className="observatory-session-trace-title">
+                  <strong>{step.title}</strong>
+                  {step.durationMs != null && (
+                    <span>{step.durationMs}ms</span>
+                  )}
+                </div>
+                {(step.phase || step.status || step.provenance) && (
+                  <div className="observatory-session-trace-meta">
+                    {step.phase && <span>{step.phase}</span>}
+                    {step.status && <span>{step.status.replace(/_/g, ' ')}</span>}
+                    {step.provenance && <span>{step.provenance.replace(/-/g, ' ')}</span>}
+                  </div>
                 )}
+                {step.subtitle && <p>{step.subtitle}</p>}
               </div>
-              {step.subtitle && (
-                <p
-                  style={{
-                    margin: '6px 0 0',
-                    fontFamily: 'var(--obs-sans)',
-                    fontSize: '14px',
-                    color: 'var(--obs-ink-2)',
-                    lineHeight: 1.45,
-                  }}
-                >
-                  {step.subtitle}
-                </p>
-              )}
             </div>
           );
         })}
@@ -1072,211 +1102,117 @@ const LiveTraceRail: React.FC<{
   );
 };
 
-/** Four memory types, with item counts and chips. */
-const MEMORY_SUBSTRATES: {
-  tier: MemoryPill['tier'];
+type RecordedMemoryItem = {
+  id: string;
   label: string;
-  store: string;
-  gloss: string;
-}[] = [
-  {
-    tier: 'working',
-    label: 'Working',
-    store: 'AgentCore Memory · session turns',
-    gloss: "This session's last K turns – read first, written every turn.",
-  },
-  {
-    tier: 'semantic',
-    label: 'Semantic',
-    store: 'AgentCore Memory · durable preferences',
-    gloss: 'Stable facts about this customer – fabric, sizing, palette.',
-  },
-  {
-    tier: 'episodic',
-    label: 'Episodic',
-    store: 'Aurora · per-customer events',
-    gloss: 'What this customer has bought or returned over time.',
-  },
-  {
-    tier: 'procedural',
-    label: 'Procedural',
-    store: 'Runtime skills · MCP schemas',
-    gloss: 'How the agent should work and which arguments tools accept.',
-  },
-];
+  detail: string;
+  source: string;
+};
 
-const MemoryCard: React.FC<{ turns: ChatTurn[] }> = ({ turns }) => {
-  const allPills = turns.flatMap((t) => t.memoryPills ?? []);
+function recordedMemoryItems(session: SessionDetail): RecordedMemoryItem[] {
+  const pills = session.chat.flatMap((turn, turnIndex) =>
+    (turn.memoryPills ?? []).map((pill, pillIndex) => ({
+      id: `pill-${turnIndex}-${pillIndex}`,
+      label: pill.tier,
+      detail: pill.content,
+      source: 'recorded conversation',
+    })),
+  );
+  const events = session.telemetry
+    .filter((panel) => panel.eventKind === 'memory')
+    .map((panel) => ({
+      id: `memory-event-${panel.index}`,
+      label: panel.title,
+      detail: panel.description,
+      source: panel.provenance?.replace(/-/g, ' ') ?? 'recorded telemetry',
+    }));
+  return [...pills, ...events];
+}
+
+const MemoryCard: React.FC<{ session: SessionDetail }> = ({ session }) => {
+  const items = recordedMemoryItems(session);
 
   return (
-    <ExpCard>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          gap: '12px',
-          flexWrap: 'wrap',
-        }}
-      >
+    <ExpCard className="observatory-session-context-card">
+      <div className="observatory-session-card-heading">
         <Eyebrow label="Memory" />
         <Link
           to="/observatory/architecture/memory"
-          style={{
-            fontFamily: 'var(--obs-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: 'var(--obs-burgundy)',
-            textDecoration: 'none',
-          }}
+          className="observatory-session-card-link"
         >
-          → Memory types and operational history
+          Memory architecture
         </Link>
       </div>
-      <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {MEMORY_SUBSTRATES.map(({ tier, label, store, gloss }) => {
-          const pills = allPills.filter((p) => p.tier === tier);
-          return (
-            <div key={tier}>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'var(--obs-mono)',
-                    fontSize: '11px',
-                    letterSpacing: '0.22em',
-                    textTransform: 'uppercase',
-                    color: 'var(--obs-ink-1)',
-                    fontWeight: 500,
-                  }}
-                >
-                  {label}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--obs-mono)',
-                    fontSize: '12px',
-                    color: 'var(--obs-ink-4)',
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  {store}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'var(--obs-mono)',
-                    fontSize: '13px',
-                    color: 'var(--obs-ink-2)',
-                    marginLeft: 'auto',
-                  }}
-                >
-                  {pills.length} item{pills.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <p
-                style={{
-                  fontFamily: 'var(--obs-sans)',
-                  fontSize: '13px',
-                  lineHeight: 1.5,
-                  color: 'var(--obs-ink-2)',
-                  margin: '0 0 8px 0',
-                }}
-              >
-                {gloss}
-              </p>
-              {pills.length === 0 ? (
-                <span
-                  style={{
-                    fontFamily: 'var(--obs-sans)',
-                    fontSize: '13px',
-                    color: 'var(--obs-ink-4)',
-                  }}
-                >
-                  No items recorded this turn.
-                </span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {pills.map((pill, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        fontFamily: 'var(--obs-sans)',
-                        fontSize: '14px',
-                        color: 'var(--obs-ink-2)',
-                        padding: '4px 10px',
-                        background: 'var(--obs-cream-2)',
-                        borderRadius: '6px',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {pill.content}
-                    </span>
-                  ))}
-                </div>
-              )}
+      {items.length === 0 ? (
+        <p className="observatory-session-empty-evidence">
+          No durable memory event is attached to this replay.
+        </p>
+      ) : (
+        <div className="observatory-session-evidence-list">
+          {items.map((item) => (
+            <div key={item.id}>
+              <strong>{item.label}</strong>
+              <p>{item.detail}</p>
+              <span>{item.source}</span>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </ExpCard>
   );
 };
 
-/** Agents card — 5 specialists with status dots */
-const AGENTS_LIST = [
-  { name: 'Search Agent', status: 'live' as const },
-  { name: 'Personalization Agent', status: 'live' as const },
-  { name: 'Pricing Agent', status: 'live' as const },
-  { name: 'Inventory Agent', status: 'idle' as const },
-  { name: 'Customer Service Agent', status: 'idle' as const },
-];
+function displayAgentName(agent: string, routingPattern: string): string {
+  if (agent === 'agent') {
+    return routingPattern.toLowerCase().includes('gateway')
+      ? 'Managed gateway agent'
+      : 'Storefront agent';
+  }
+  if (agent === 'gateway') return 'AgentCore Gateway';
+  return agent
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+}
 
-const AgentsCard: React.FC = () => (
-  <ExpCard>
-    <Eyebrow label="Agents" />
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        marginTop: '14px',
-      }}
-    >
-      {AGENTS_LIST.map((agent) => (
-        <div
-          key={agent.name}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}
-        >
-          <StatusDot status={agent.status} size={8} />
-          <span
-            style={{
-              fontFamily: 'var(--obs-sans)',
-              fontSize: '15px',
-              color:
-                agent.status === 'live'
-                  ? 'var(--obs-ink-1)'
-                  : 'var(--obs-ink-4)',
-            }}
-          >
-            {agent.name}
-          </span>
+function recordedAgents(session: SessionDetail): string[] {
+  const agents = new Set<string>();
+  session.chat.forEach((turn) => {
+    if (turn.meta?.agent) agents.add(turn.meta.agent);
+  });
+  session.telemetry.forEach((panel) => {
+    if (panel.agent) agents.add(panel.agent);
+  });
+  return [...agents].map((agent) =>
+    displayAgentName(agent, session.routingPattern),
+  );
+}
+
+const AgentsCard: React.FC<{ session: SessionDetail }> = ({ session }) => {
+  const agents = recordedAgents(session);
+  return (
+    <ExpCard className="observatory-session-context-card">
+      <div className="observatory-session-card-heading">
+        <Eyebrow label="Agents" />
+        <span>{agents.length} observed</span>
+      </div>
+      {agents.length === 0 ? (
+        <p className="observatory-session-empty-evidence">
+          No agent attribution was recorded for this session.
+        </p>
+      ) : (
+        <div className="observatory-session-agent-list">
+          {agents.map((agent) => (
+            <div key={agent}>
+              <StatusDot status="live" size={8} />
+              <span>{agent}</span>
+              <small>Recorded</small>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
-  </ExpCard>
-);
+      )}
+    </ExpCard>
+  );
+};
 
 /** Skills card — prompt overlays (`skills.json` bundles) */
 const SKILLS_LIST = [
@@ -1310,52 +1246,27 @@ const SkillsCard: React.FC<{ session: SessionDetail }> = ({ session }) => {
   const activeSkills = activeSkillsForSession(session);
 
   return (
-  <ExpCard>
-    <Eyebrow label="Skills" />
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        marginTop: '14px',
-      }}
-    >
-      {SKILLS_LIST.map((skill) => {
-        const active = activeSkills.has(skill);
-        return (
-          <div
-            key={skill}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-            }}
-          >
-            <StatusDot status={active ? 'live' : 'empty'} size={8} />
-            <span
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: '13px',
-                color: active ? 'var(--obs-ink-1)' : 'var(--obs-ink-4)',
-              }}
-            >
-              {skill}
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--obs-mono)',
-                fontSize: '11px',
-                color: 'var(--obs-ink-2)',
-                marginLeft: 'auto',
-              }}
-            >
-              {active ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  </ExpCard>
+    <ExpCard className="observatory-session-context-card">
+      <div className="observatory-session-card-heading">
+        <Eyebrow label="Skills" />
+        <span>{activeSkills.size} recorded</span>
+      </div>
+      {activeSkills.size === 0 ? (
+        <p className="observatory-session-empty-evidence">
+          No runtime skill overlay was recorded for this session.
+        </p>
+      ) : (
+        <div className="observatory-session-agent-list">
+          {[...activeSkills].map((skill) => (
+            <div key={skill}>
+              <StatusDot status="live" size={8} />
+              <span className="observatory-session-skill-name">{skill}</span>
+              <small>Recorded</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </ExpCard>
   );
 };
 
@@ -1364,22 +1275,29 @@ const SkillsCard: React.FC<{ session: SessionDetail }> = ({ session }) => {
  * ======================================================================= */
 
 const ChatTab: React.FC = () => {
-  const { session } = useOutletContext<SessionOutletContext>();
+  const { session, replayNonce } = useOutletContext<SessionOutletContext>();
   const recordedTurns = session.chat ?? [];
 
   const timeline = useMemo(() => buildReplayTimeline(recordedTurns), [recordedTurns]);
-  const traceSteps = useMemo(() => collectLiveTraceSteps(recordedTurns), [recordedTurns]);
+  const traceSteps = useMemo(
+    () => collectLiveTraceSteps(recordedTurns, session.telemetry ?? []),
+    [recordedTurns, session.telemetry],
+  );
+  const hasInlineTrace = recordedTurns.some(
+    (turn) => Boolean(turn.plan) || Boolean(turn.toolCalls?.length),
+  );
+  const replayLength = Math.max(timeline.length, traceSteps.length);
   const [replayVisible, setReplayVisible] = useState(0);
   const [replayDone, setReplayDone] = useState(false);
 
   useEffect(() => {
-    if (timeline.length === 0) {
+    if (replayLength === 0) {
       setReplayVisible(0);
       setReplayDone(true);
       return;
     }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setReplayVisible(timeline.length);
+      setReplayVisible(replayLength);
       setReplayDone(true);
       return;
     }
@@ -1388,30 +1306,39 @@ const ChatTab: React.FC = () => {
     let count = 0;
     const id = window.setInterval(() => {
       count += 1;
-      setReplayVisible(Math.min(count, timeline.length));
-      if (count >= timeline.length) {
+      setReplayVisible(Math.min(count, replayLength));
+      if (count >= replayLength) {
         window.clearInterval(id);
         setReplayDone(true);
       }
-    }, 400);
+    }, 480);
     return () => window.clearInterval(id);
-  }, [timeline]);
+  }, [replayLength, replayNonce]);
 
-  const visibleTraceCount = traceVisibleCountFromReplay(replayVisible, timeline);
-  const traceEmphasizeLatest = !replayDone && timeline.length > 0;
+  const visibleTraceCount = hasInlineTrace
+    ? traceVisibleCountFromReplay(replayVisible, timeline)
+    : Math.ceil(
+        (replayVisible / Math.max(replayLength, 1)) * traceSteps.length,
+      );
+  const traceEmphasizeLatest = !replayDone && replayLength > 0;
 
   const hasRecordedMessages = recordedTurns.length > 0;
+  const hasRecordedEvidence = traceSteps.length > 0;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: '0',
-        alignItems: 'flex-start',
-      }}
-    >
+    <div className="observatory-session-replay-layout">
       {/* Left column — chat thread */}
-      <div style={{ flex: 1, minWidth: 0, paddingRight: '24px' }}>
+      <div className="observatory-session-replay-main">
+        <div
+          className="observatory-session-replay-status"
+          role="status"
+          aria-live="polite"
+        >
+          <span className={replayDone ? 'is-complete' : 'is-running'} />
+          {replayDone
+            ? `${traceSteps.length} recorded evidence events ready to inspect`
+            : `Replaying event ${Math.min(replayVisible + 1, replayLength)} of ${replayLength}`}
+        </div>
         <PersonaStrip
           personaId={session.personaId}
           openingQuery={session.openingQuery}
@@ -1427,10 +1354,19 @@ const ChatTab: React.FC = () => {
           ) : (
             <div>
               {timeline.slice(0, replayVisible).map((entry) => (
-                <ReplayEntryDisplay key={entry.id} entry={entry} sessionId={session.id} />
+                <div key={entry.id} className="observatory-replay-enter">
+                  <ReplayEntryDisplay entry={entry} sessionId={session.id} />
+                </div>
               ))}
             </div>
           )
+        ) : hasRecordedEvidence ? (
+          <RecordedEvidenceReplay
+            openingQuery={session.openingQuery}
+            steps={traceSteps}
+            visibleCount={replayDone ? traceSteps.length : visibleTraceCount}
+            replayDone={replayDone}
+          />
         ) : (
           <EmptyState />
         )}
@@ -1446,8 +1382,8 @@ const ChatTab: React.FC = () => {
           }
           emphasizeLatest={traceEmphasizeLatest}
         />
-        <MemoryCard turns={recordedTurns} />
-        <AgentsCard />
+        <MemoryCard session={session} />
+        <AgentsCard session={session} />
         <SkillsCard session={session} />
       </ContextRail>
     </div>

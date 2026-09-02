@@ -9,12 +9,14 @@
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow } from '../../components';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
 import type { Session } from '../../types';
 import { usePersona } from '../../../contexts/PersonaContext';
+
+export const SESSION_PAGE_SIZE = 8;
 
 /* -----------------------------------------------------------------------
  * Sort helper — exported for property-based testing (Property 1)
@@ -305,20 +307,36 @@ const SessionsList: React.FC = () => {
   const { persona } = usePersona();
   const scopedPersona = persona?.id ?? null;
   const [showAllPersonas, setShowAllPersonas] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(SESSION_PAGE_SIZE);
   const { data, loading, error, refetch } = useObservatoryData<Session[]>({
     key: 'sessions',
   });
 
-  const sorted = data ? sortSessionsByRecency(data) : [];
-  const scopedSessions =
-    scopedPersona && !showAllPersonas
-      ? sorted.filter((session) => session.personaId === scopedPersona)
-      : sorted;
+  const sorted = useMemo(
+    () => (data ? sortSessionsByRecency(data) : []),
+    [data],
+  );
+  const scopedSessions = useMemo(
+    () =>
+      scopedPersona && !showAllPersonas
+        ? sorted.filter((session) => session.personaId === scopedPersona)
+        : sorted,
+    [scopedPersona, showAllPersonas, sorted],
+  );
   const showingScopedSessions = Boolean(scopedPersona && !showAllPersonas);
   const activePersonaLabel = persona?.display_name || 'Current shopper';
+  const visibleSessions = scopedSessions.slice(0, visibleCount);
+  const remainingSessionCount = Math.max(
+    0,
+    scopedSessions.length - visibleSessions.length,
+  );
+
+  useEffect(() => {
+    setVisibleCount(SESSION_PAGE_SIZE);
+  }, [scopedPersona, showAllPersonas]);
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: '960px' }}>
+    <div className="observatory-reading-page observatory-sessions-page">
       {/* Observatory-wide welcome band lives on Observatory now (the
           default landing surface). Sessions is zoom-in, no need
           to repeat the intro here. */}
@@ -404,13 +422,30 @@ const SessionsList: React.FC = () => {
             gap: '16px',
           }}
         >
-          {scopedSessions.map((session) => (
+          {visibleSessions.map((session) => (
             <SessionCard
               key={session.id}
               session={session}
               onClick={() => navigate(`/observatory/sessions/${session.id}`)}
             />
           ))}
+          <footer className="observatory-sessions-pagination">
+            <p aria-live="polite">
+              Showing {visibleSessions.length} of {scopedSessions.length}{' '}
+              recorded sessions
+            </p>
+            {remainingSessionCount > 0 ? (
+              <button
+                type="button"
+                data-testid="sessions-load-more"
+                onClick={() =>
+                  setVisibleCount((count) => count + SESSION_PAGE_SIZE)
+                }
+              >
+                Load {Math.min(SESSION_PAGE_SIZE, remainingSessionCount)} more
+              </button>
+            ) : null}
+          </footer>
         </div>
       )}
     </div>

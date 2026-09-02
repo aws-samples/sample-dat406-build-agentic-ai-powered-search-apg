@@ -56,7 +56,7 @@ export const WORKSHOP_JOURNEYS: Record<WorkshopAnchorId, WorkshopJourney> = {
     prompts: [
       'Hand-thrown ceramics for a slower morning routine',
       'What goes well with the pour-over set?',
-      'Without asking me to repeat the ritual or material, which pairing should I choose and why?',
+      'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
     ],
   },
   jessica: {

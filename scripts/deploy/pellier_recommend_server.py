@@ -1,8 +1,8 @@
 """
 Pellier Curation MCP Server - Lambda-hosted read and recommendation tools.
 
-Exposes the five curation and evidence tools from the canonical 15-tool
-Pellier contract:
+Exposes the five curation and evidence tools from the governed 15-tool
+Gateway subset of Pellier's 17-tool MCP registry:
   - get_customer_preferences
   - get_audit_trail
   - get_trending_products
@@ -14,6 +14,7 @@ Deployed as a Lambda function behind AgentCore Gateway.
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import boto3
@@ -29,6 +30,7 @@ DB_CLUSTER_ARN = os.environ.get("DB_CLUSTER_ARN", "")
 SECRET_ARN = os.environ.get("SECRET_ARN", "")
 DATABASE = os.environ.get("DATABASE", "postgres")
 SCHEMA = "pellier"
+_LIKE_METACHARACTERS = re.compile(r"([\\%_])")
 
 # Module-level clients for Lambda warm start reuse
 
@@ -46,6 +48,12 @@ def _decode_json(value: Any) -> Any:
 def _resolve_customer_id(customer_id: str = "") -> str:
     """Normalize only the server-bound Aurora customer identifier."""
     return (customer_id or "").strip().upper()
+
+
+def _prepare_like_pattern(term: str) -> str:
+    """Return a literal contains-match pattern for PostgreSQL LIKE."""
+    escaped = _LIKE_METACHARACTERS.sub(r"\\\1", str(term).lower())
+    return f"%{escaped}%"
 
 
 # --- Tool implementations ---
@@ -291,23 +299,84 @@ def get_return_policy(category: str = "default") -> dict:
     return rows[0]
 
 
-def get_related_products(product_id: int, limit: int = 5) -> dict:
-    """Find products nearest to a source product in the catalog vector space."""
-    product_id_text = str(product_id).strip()
+def get_related_products(
+    source_product_name: str,
+    product_id: int | None = None,
+    limit: int = 5,
+) -> dict:
+    """Find products nearest to a verified named source product."""
+    source_name = " ".join((source_product_name or "").split())
+    if not source_name:
+        return {
+            "error": "source_product_name is required",
+            "code": "source_product_name_required",
+        }
+    source_pattern = _prepare_like_pattern(source_name)
+
     source_rows = _execute_sql(
         f"""
         SELECT "productId", name, brand, price, embedding::text AS embedding
           FROM {SCHEMA}.product_catalog
-         WHERE "productId" = :product_id;
+         WHERE (
+                LOWER(TRIM(name)) = LOWER(:source_product_name)
+                OR LOWER(name) LIKE :source_product_pattern ESCAPE '\\'
+               )
+           AND NOT (tags ? 'archive')
+         ORDER BY CASE
+                    WHEN LOWER(TRIM(name)) = LOWER(:source_product_name) THEN 0
+                    ELSE 1
+                  END,
+                  "productId"
+         LIMIT 2;
         """,
-        [{"name": "product_id", "value": {"stringValue": product_id_text}}],
+        [
+            {
+                "name": "source_product_name",
+                "value": {"stringValue": source_name},
+            },
+            {
+                "name": "source_product_pattern",
+                "value": {"stringValue": source_pattern},
+            },
+        ],
     )
     if not source_rows:
-        return {"error": f"Product {product_id} not found"}
+        return {
+            "error": f"No curated product matches {source_name!r}",
+            "code": "source_product_not_found",
+        }
+    if len(source_rows) > 1:
+        return {
+            "error": (
+                f"More than one curated product matches {source_name!r}; "
+                "search first and retry with the exact product name."
+            ),
+            "code": "source_product_ambiguous",
+            "candidates": [
+                {
+                    "productId": str(row["productId"]).strip(),
+                    "name": row["name"],
+                }
+                for row in source_rows
+            ],
+        }
+
     source = source_rows[0]
+    product_id_text = str(source["productId"]).strip()
+    if product_id is not None and str(product_id).strip() != product_id_text:
+        return {
+            "error": (
+                f"product_id {product_id} does not identify {source['name']!r}"
+            ),
+            "code": "source_product_mismatch",
+            "source": {
+                "productId": product_id_text,
+                "name": source["name"],
+            },
+        }
     embedding = source.pop("embedding", None)
     if not embedding:
-        return {"error": f"Product {product_id} has no embedding"}
+        return {"error": f"Product {source['name']!r} has no embedding"}
 
     matches = _execute_sql(
         f"""
@@ -387,14 +456,17 @@ TOOLS = {
     },
     "get_related_products": {
         "fn": get_related_products,
-        "description": "Find complementary products by vector similarity.",
+        "description": (
+            "Find complementary products from a verified named source product."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
+                "source_product_name": {"type": "string"},
                 "product_id": {"type": "integer"},
                 "limit": {"type": "integer", "default": 5},
             },
-            "required": ["product_id"],
+            "required": ["source_product_name"],
         },
     },
 }

@@ -91,7 +91,7 @@ def list_gateway_tools(gateway_url: str, token: str):
     unexpected = sorted(observed - EXPECTED_TOOLS)
     print(f"\nTotal: {len(tools)} tools")
     if len(tools) != 15 or missing or unexpected:
-        print(f"ERROR: Expected the canonical 15 tools.")
+        print("ERROR: Expected the governed 15-tool Gateway subset.")
         if missing:
             print(f"  Missing: {', '.join(missing)}")
         if unexpected:

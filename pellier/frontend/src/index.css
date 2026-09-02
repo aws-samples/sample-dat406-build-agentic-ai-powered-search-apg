@@ -58,6 +58,8 @@
    */
   .pellier-home-link {
     display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
     align-items: center;
     gap: 8px;
     text-decoration: none;
@@ -494,6 +496,7 @@
   }
   .pulse-dot { animation: pulseDot 2s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
     .pulse-dot { animation: none; }
   }
 

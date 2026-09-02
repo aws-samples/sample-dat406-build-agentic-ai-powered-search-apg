@@ -123,7 +123,7 @@
   {
     "id": "theo-ceramics-return",
     "personaId": "theo",
-    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
+    "openingQuery": "My Wabi-Sabi Bowl arrived chipped. Please help me return it.",
     "elapsedMs": 2140,
     "agentCount": 1,
     "routingPattern": "Dispatcher",

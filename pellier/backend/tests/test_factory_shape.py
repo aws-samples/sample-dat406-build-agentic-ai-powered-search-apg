@@ -34,7 +34,7 @@ from agents import inventory_agent as inventory_agent_module
 from agents.inventory_agent import build_inventory_agent, inventory
 from agents.pricing_agent import build_pricing_agent, pricing
 from agents.personalization_agent import build_recommendation_agent, recommendation
-from agents.search_agent import build_search_agent, search
+from agents.search_agent import _SEARCH_SYSTEM_PROMPT, build_search_agent, search
 from services.persona_context import persona_preamble_var, set_persona_preamble
 
 
@@ -189,6 +189,12 @@ def test_inventory_wrapper_reports_scaffold_not_error() -> None:
     assert payload.get("status") == "unavailable"
     assert "Inventory Agent exercise" in payload.get("message", "")
     assert "error" not in payload
+
+
+def test_pairing_prompt_requires_a_named_verified_source() -> None:
+    """The model must not invent a numeric source ID for pairings."""
+    assert "source_product_name" in _SEARCH_SYSTEM_PROMPT
+    assert "Never invent or guess a product_id" in _SEARCH_SYSTEM_PROMPT
 
 
 # ---------------------------------------------------------------------------

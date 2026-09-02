@@ -199,8 +199,15 @@ Cognito bearer token; no HTTP endpoint proxies it.
                                  design: that absence is the evidence
     pellier.write_operations     the idempotency claim; completed = applied exactly once
     pellier.operator_episodes    derived memory of terminal outcomes
-    pellier.observatory_spans    OTEL spans. This is the canonical span table name;
-                                 migration 027 converges the retired one
+    pellier.model_invocation_receipts
+                                 redacted model metadata: model/profile id, token
+                                 counts, latency, outcome and trace correlation
+    pellier.evidence_ledger_event_refs
+                                 typed metadata index over the canonical receipts;
+                                 API reads still filter by verified principal
+    pellier.observatory_spans    reserved, retention-bounded Aurora span cache.
+                                 CloudWatch/AgentCore telemetry is the managed span
+                                 authority; migration 027 only converges the name
 
 An ALLOW never proves execution occurred. Keep policy, execution and data evidence
 separate.

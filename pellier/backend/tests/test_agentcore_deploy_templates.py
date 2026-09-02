@@ -76,6 +76,7 @@ def _render(tmp_path: Path, *, include_policies: bool) -> tuple[Path, dict[str, 
         cognito_client="client-id",
         lambda_arns=_lambda_arns(),
         model_id="global.anthropic.claude-sonnet-4-6",
+        fast_model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
         workshop_id="p12345678",
         include_policies=include_policies,
     )
@@ -135,6 +136,7 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
         "BEDROCK_REPORTING_MODEL": "global.anthropic.claude-sonnet-4-6",
         "BEDROCK_ROUTER_MODEL": "global.anthropic.claude-sonnet-4-6",
         "BEDROCK_SONNET_MODEL": "global.anthropic.claude-sonnet-4-6",
+        "BEDROCK_FAST_MODEL": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
         "UNIFIED_TRACES_DESTINATION_ENABLED": "true",
     }
     assert runtime["instrumentation"] == {"enableOtel": True}
@@ -1212,6 +1214,7 @@ def test_deploy_sequence_validates_both_cli_phases(
         cognito_client="client",
         lambda_arns=_lambda_arns(),
         model_id="model",
+        fast_model_id="fast-model",
         workshop_id="workshop",
         env={},
     )

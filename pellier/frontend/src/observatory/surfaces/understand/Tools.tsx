@@ -1276,9 +1276,9 @@ const Tools: React.FC = () => {
     <div style={{ padding: '40px 48px', maxWidth: '1100px' }}>
       <EditorialTitle
         backToReferences
-        eyebrow="Understand · Tools · five agents · fifteen functions"
+        eyebrow="Understand · Tools · five agents · live MCP registry"
         title="Tool registry"
-        summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; check_inventory is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."
+        summary="Five specialists own the registered MCP tool catalog. The workshop image ships every reference tool except check_inventory, the hands-on inventory wire in the required path. A separate in-process-only query tool is intentionally outside this registry. The live registry stays the source of truth for the exact count, read/write split, shipped state, signatures, and pgvector discovery."
       />
 
       {/* One interaction grammar on every required lab destination:
@@ -1296,7 +1296,7 @@ const Tools: React.FC = () => {
           }
           try={
             <>
-              Ask Marco&rsquo;s Turn 4 in Pellier: &ldquo;Is the Hadley shirt
+              Ask Marco&rsquo;s Turn 3 in Pellier: &ldquo;Is the Hadley shirt
               at the Brooklyn warehouse, and can it still ship in time?&rdquo; A
               stubbed tool answers with an error envelope instead of a BK-01
               quantity and ship window.
@@ -1316,14 +1316,14 @@ const Tools: React.FC = () => {
               <strong>
                 {buildState.toolTotal > 0
                   ? `${buildState.toolShipped}/${buildState.toolTotal}`
-                  : '14/15'}{' '}
+                  : '—'}{' '}
                 shipped
               </strong>
-              . It flips to 15/15 once the body is wired, and Marco&rsquo;s
-              turn returns a real Brooklyn quantity.
+              . It reaches full shipped state once the body is wired, and
+              Marco&rsquo;s turn returns a real Brooklyn quantity.
             </>
           }
-          nextAction="Re-ask Marco's Turn 4 in Pellier and read the BK-01 quantity."
+          nextAction="Re-ask Marco's Turn 3 in Pellier and read the BK-01 quantity."
           returnAction="Code Editor → pellier/backend/services/agent_tools.py"
         />
       </div>

@@ -142,6 +142,27 @@ async def test_parser_preserves_grounded_editorial_price_sentence():
 
 
 @pytest.mark.asyncio
+async def test_parser_preserves_full_specialist_reply_when_cards_exist():
+    service = EnhancedChatService.__new__(EnhancedChatService)
+    prose = (
+        "The Olive Branch Vessel is the strongest anchor for the table. "
+        "Pair it with the Ceramic Ring Dish for a smaller echo of the same glaze. "
+        "The Wabi-Sabi Bowl you already own belongs in the background, not as the "
+        "new recommendation."
+    )
+
+    parsed = await service._parse_agent_response(
+        prose,
+        "Help me build a ceramic table edit",
+        has_tool_products=True,
+    )
+
+    assert parsed["text"] == prose
+    assert "Ceramic Ring Dish" in parsed["text"]
+    assert parsed["text"].endswith("new recommendation.")
+
+
+@pytest.mark.asyncio
 async def test_format_products_preserves_quantity_and_owned_status():
     service = EnhancedChatService.__new__(EnhancedChatService)
     service.db_service = None

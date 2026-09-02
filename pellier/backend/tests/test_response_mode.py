@@ -226,6 +226,7 @@ def test_response_modes_select_the_expected_specialist_models(monkeypatch) -> No
 
     monkeypatch.setattr(response_mode.settings, "BEDROCK_OPUS_MODEL", "opus-5")
     monkeypatch.setattr(response_mode.settings, "BEDROCK_SONNET_MODEL", "sonnet-5")
+    monkeypatch.setattr(response_mode.settings, "BEDROCK_FAST_MODEL", "haiku-4-5")
     monkeypatch.setattr(
         response_mode.settings,
         "BEDROCK_REPORTING_MODEL",
@@ -233,6 +234,7 @@ def test_response_modes_select_the_expected_specialist_models(monkeypatch) -> No
     )
     monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_OPUS", 8192)
     monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_SONNET", 4096)
+    monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_HAIKU", 768)
 
     assert resolve_specialist_model("opus", "balanced") == (
         "opus-5",
@@ -250,9 +252,9 @@ def test_response_modes_select_the_expected_specialist_models(monkeypatch) -> No
         "opus",
     )
     assert resolve_specialist_model("opus", "fast") == (
-        "sonnet-5",
-        4096,
-        "sonnet",
+        "haiku-4-5",
+        768,
+        "haiku",
     )
     assert resolve_specialist_model(
         "sonnet",
@@ -267,12 +269,14 @@ def test_response_mode_context_is_scoped_and_reset(monkeypatch) -> None:
 
     monkeypatch.setattr(response_mode.settings, "BEDROCK_OPUS_MODEL", "opus-5")
     monkeypatch.setattr(response_mode.settings, "BEDROCK_SONNET_MODEL", "sonnet-5")
+    monkeypatch.setattr(response_mode.settings, "BEDROCK_FAST_MODEL", "haiku-4-5")
     monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_OPUS", 8192)
     monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_SONNET", 4096)
+    monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_HAIKU", 768)
 
     token = set_response_mode("fast")
     try:
-        assert resolve_specialist_model("opus") == ("sonnet-5", 4096, "sonnet")
+        assert resolve_specialist_model("opus") == ("haiku-4-5", 768, "haiku")
     finally:
         reset_response_mode(token)
 
@@ -293,6 +297,23 @@ def test_intent_signal_reports_the_real_policy(monkeypatch) -> None:
         "model_family": "opus",
         "model_id": "opus-5",
     }
+
+
+def test_intent_signal_reports_haiku_for_fast_mode(monkeypatch) -> None:
+    from services import response_mode
+
+    monkeypatch.setattr(
+        response_mode.settings,
+        "BEDROCK_FAST_MODEL",
+        "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    )
+    monkeypatch.setattr(response_mode.settings, "AGENT_MAX_TOKENS_HAIKU", 768)
+
+    signal = build_intent_signal("inventory", "fast")
+
+    assert signal["response_mode"] == "fast"
+    assert signal["model_family"] == "haiku"
+    assert signal["model_id"] == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 def test_managed_dispatcher_keeps_live_mode_and_profile(monkeypatch) -> None:

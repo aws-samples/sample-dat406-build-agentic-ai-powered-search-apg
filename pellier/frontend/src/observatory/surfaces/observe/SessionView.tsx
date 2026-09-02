@@ -8,8 +8,15 @@
  * Requirements: 3.1, 20.2
  */
 
-import React, { useEffect } from 'react';
-import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import {
+  Link,
+  Outlet,
+  useParams,
+  useNavigate,
+  useLocation,
+} from 'react-router-dom';
+import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { TabNav, Eyebrow } from '../../components';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
 import type { SessionDetail } from '../../types';
@@ -18,19 +25,29 @@ import { usePersona } from '../../../contexts/PersonaContext';
 /** Context shape passed to child tabs via useOutletContext. */
 export interface SessionOutletContext {
   session: SessionDetail;
+  replayNonce: number;
 }
 
 const SESSION_TABS = [
-  { id: 'chat', label: 'i. Chat' },
-  { id: 'telemetry', label: 'ii. Telemetry' },
-  { id: 'brief', label: 'iii. Brief' },
+  { id: 'chat', label: 'Replay' },
+  { id: 'telemetry', label: 'Evidence' },
+  { id: 'brief', label: 'Brief' },
 ];
+
+function formatElapsed(elapsedMs: number): string {
+  if (elapsedMs < 1000) return `${elapsedMs}ms`;
+  if (elapsedMs < 60_000) return `${(elapsedMs / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(elapsedMs / 60_000);
+  const seconds = Math.round((elapsedMs % 60_000) / 1000);
+  return `${minutes}m ${seconds}s`;
+}
 
 const SessionView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { persona } = usePersona();
+  const [replayNonce, setReplayNonce] = useState(0);
 
   // Derive active tab from the current URL path segment
   const pathSegments = location.pathname.split('/');
@@ -57,6 +74,13 @@ const SessionView: React.FC = () => {
 
   const handleTabChange = (tabId: string) => {
     navigate(`/observatory/sessions/${id}/${tabId}`);
+  };
+
+  const handleReplay = () => {
+    setReplayNonce((current) => current + 1);
+    if (activeTab !== 'chat') {
+      navigate(`/observatory/sessions/${id}/chat`);
+    }
   };
 
   /* Loading state */
@@ -184,36 +208,65 @@ const SessionView: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '32px 48px' }}>
-      {/* Session header */}
-      <div style={{ marginBottom: '20px' }}>
-        <Eyebrow label={`Session #${session.id} · ${session.routingPattern}`} />
-        <h2
-          style={{
-            fontFamily: 'var(--obs-sans)',
-            fontSize: '28px',
-            fontWeight: 400,
-            lineHeight: 1.2,
-            color: 'var(--obs-ink-1)',
-            margin: '8px 0 0 0',
-          }}
+    <main className="observatory-reading-page observatory-session-page">
+      <div className="observatory-session-actions">
+        <Link
+          to="/observatory/sessions"
+          className="observatory-reference-return"
         >
-          {session.openingQuery}
-        </h2>
+          <ArrowLeft aria-hidden="true" size={16} strokeWidth={1.8} />
+          Sessions &amp; traces
+        </Link>
+        <button
+          type="button"
+          className="observatory-session-replay-button"
+          onClick={handleReplay}
+        >
+          <RotateCcw aria-hidden="true" size={16} strokeWidth={1.8} />
+          Replay evidence
+        </button>
       </div>
+
+      <header className="observatory-session-header">
+        <div className="observatory-session-heading">
+          <Eyebrow label={`Recorded session · ${session.routingPattern}`} />
+          <h1>{session.openingQuery}</h1>
+          <p>
+            Reconstruct this session from its stored conversation, telemetry,
+            and durable Aurora evidence.
+          </p>
+        </div>
+        <dl className="observatory-session-facts">
+          <div>
+            <dt>Status</dt>
+            <dd>{session.status === 'active' ? 'Active' : 'Recorded'}</dd>
+          </div>
+          <div>
+            <dt>Elapsed</dt>
+            <dd>{formatElapsed(session.elapsedMs)}</dd>
+          </div>
+          <div>
+            <dt>Agents</dt>
+            <dd>{session.agentCount}</dd>
+          </div>
+        </dl>
+      </header>
 
       {/* Tab navigation */}
       <TabNav
         tabs={SESSION_TABS}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        className="observatory-session-tabs"
       />
 
       {/* Tab content — child routes receive session via outlet context */}
-      <div style={{ marginTop: '24px' }}>
-        <Outlet context={{ session } satisfies SessionOutletContext} />
+      <div className="observatory-session-content">
+        <Outlet
+          context={{ session, replayNonce } satisfies SessionOutletContext}
+        />
       </div>
-    </div>
+    </main>
   );
 };
 

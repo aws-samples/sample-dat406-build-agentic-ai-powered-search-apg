@@ -2,7 +2,7 @@
 
 These files are facilitator recovery paths and readable reference implementations. A participant who uses a reference still runs the same live proof.
 
-## 01 GROUND THE ANSWER — Live Data and Evidence
+## Lab 1: Build a PostgreSQL-Grounded Agent
 
 Complete the Inventory Agent definition:
 

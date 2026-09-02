@@ -94,7 +94,7 @@ const GroundingDetail: React.FC = () => {
             />
             <SourceCard
               name="tools (registry)"
-              description="Aurora-backed teaching surface for semantic tool discovery; governed Gateway publishes the full 15-tool callable surface over MCP."
+              description="Aurora-backed teaching surface with 17 registered MCP tools; governed Gateway publishes the bounded 15-tool workshop subset."
               query="SELECT name, similarity FROM tools ORDER BY embedding <=> $1 LIMIT 5;"
             />
           </div>

@@ -131,3 +131,96 @@ def test_get_audit_trail_filters_audit_rows_by_bound_customer_first(
     assert _parameter_value(parameters, "session_id") == "session-123"
     assert _parameter_value(parameters, "tool") == "initiate_return"
     assert _parameter_value(parameters, "caller") == "gateway"
+
+
+def test_related_products_requires_a_named_source_and_verifies_any_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _load_server(monkeypatch)
+    calls: list[tuple[str, list[dict[str, Any]]]] = []
+
+    def _execute(
+        sql: str,
+        parameters: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
+        calls.append((sql, parameters or []))
+        if "LIMIT 2" in sql:
+            return [
+                {
+                    "productId": "31",
+                    "name": "Stoneware Pour-Over Set",
+                    "brand": "Pellier",
+                    "price": 138.0,
+                    "embedding": "[0.1,0.2,0.3]",
+                }
+            ]
+        return [
+            {
+                "productId": "36",
+                "name": "Ceramic Tumblers",
+                "brand": "Pellier",
+                "color": "Bone",
+                "price": 64.0,
+                "rating": 4.9,
+                "reviews": 18,
+                "category": "Home",
+                "imgUrl": "/products/ceramic-tumblers.png",
+                "similarity_score": 0.91,
+            }
+        ]
+
+    monkeypatch.setattr(server, "_execute_sql", _execute)
+
+    result = server.get_related_products(
+        source_product_name="pour-over set",
+        product_id=31,
+        limit=1,
+    )
+
+    assert result["source"]["productId"] == "31"
+    assert result["matches"][0]["productId"] == "36"
+    assert len(calls) == 2
+    assert "source_product_name" in calls[0][0]
+    assert _parameter_value(calls[0][1], "source_product_name") == "pour-over set"
+    assert _parameter_value(calls[0][1], "source_product_pattern") == "%pour-over set%"
+
+    mismatch = server.get_related_products(
+        source_product_name="pour-over set",
+        product_id=10,
+    )
+    assert mismatch["code"] == "source_product_mismatch"
+
+    deployed_schema = server.TOOLS["get_related_products"]["inputSchema"]
+    assert deployed_schema["required"] == ["source_product_name"]
+    assert "product_id" in deployed_schema["properties"]
+
+    from gateway_tool_schemas import TOOL_SCHEMAS
+
+    managed_schema = next(
+        tool["inputSchema"]
+        for tool in TOOL_SCHEMAS["recommendation"]["tools"]
+        if tool["name"] == "get_related_products"
+    )
+    assert managed_schema["required"] == ["source_product_name"]
+    assert "product_id" in managed_schema["properties"]
+
+
+def test_managed_related_products_escapes_like_metacharacters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _load_server(monkeypatch)
+    captured: list[dict[str, Any]] = []
+
+    def _execute(
+        _sql: str,
+        parameters: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
+        captured.extend(parameters or [])
+        return []
+
+    monkeypatch.setattr(server, "_execute_sql", _execute)
+    server.get_related_products(source_product_name=r"Studio_100% \ Edition")
+
+    assert _parameter_value(captured, "source_product_pattern") == (
+        r"%studio\_100\% \\ edition%"
+    )

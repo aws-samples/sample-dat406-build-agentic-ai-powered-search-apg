@@ -85,7 +85,7 @@ LAB3_MARKER = "WORKSHOP · AgentCore OTEL · trace contract"
 
 LAB4_STARTER = "policies/workshop_identity_match_forbid.cedar"
 LAB4_REFERENCE = "solutions/the-concierge/policies/identity_match_forbid.cedar"
-LAB4_PROOF_SCRIPT = "scripts/deploy/gateway_initiate_return.py"
+LAB4_PROOF_SCRIPT = "scripts/prove_identity_boundary.py"
 LAB4_RLS_PROOF = "workshop/lab-4-rls.sql"
 
 # The policy name passed to `agentcore add policy --name` and to the proof script's
@@ -96,10 +96,9 @@ LAB4_POLICY_NAME = "workshop_identity_match_forbid"
 # and the rule is inert against any other action id.
 LAB4_ACTION = "pellier-concierge-experience-target___initiate_return"
 
-# Every flag the guide passes to the proof script, in both the DENY and ALLOW steps.
+# Every flag the guide passes to the one-command Lab 4 proof driver.
 LAB4_PROOF_FLAGS = (
-    "--customer-id", "--product-id", "--reason", "--expect",
-    "--record-receipt", "--policy-name", "--session-id",
+    "--json",
 )
 
 # The identity pairs the reference rule binds. Each pair joins a Cognito username to an
@@ -309,12 +308,8 @@ def test_lab4_proof_script_accepts_every_flag_the_guide_passes() -> None:
     assert not missing, f"{LAB4_PROOF_SCRIPT} does not declare {missing}"
 
 
-def test_lab4_policy_name_default_matches_the_cli_step() -> None:
-    """One name in three places: the CLI `add policy`, the proof script, and the receipt."""
-    source = _read(LAB4_PROOF_SCRIPT)
-    assert f'"--policy-name", default="{LAB4_POLICY_NAME}"' in source, (
-        f"{LAB4_PROOF_SCRIPT} must default --policy-name to {LAB4_POLICY_NAME}"
-    )
+def test_lab4_policy_name_matches_the_cli_source() -> None:
+    """The starter filename is the policy name passed by the guide's CLI step."""
     assert Path(LAB4_STARTER).stem == LAB4_POLICY_NAME, (
         "the starter filename is what the guide's --source points at; it must match "
         "the policy name"
@@ -369,6 +364,10 @@ def test_no_lab_anchor_is_a_broken_path() -> None:
     anchors += [source for source, _ in LAB1_FALLBACK_COPIES]
     anchors += [destination for _, destination in LAB1_FALLBACK_COPIES]
     anchors += [
+        LAB2_STARTER,
+        LAB2_REFERENCE,
+        LAB3_STARTER,
+        LAB3_REFERENCE,
         LAB4_STARTER,
         LAB4_REFERENCE,
         LAB4_PROOF_SCRIPT,

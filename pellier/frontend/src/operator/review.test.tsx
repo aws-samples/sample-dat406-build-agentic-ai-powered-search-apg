@@ -365,6 +365,22 @@ describe('OperatorFrame review link', () => {
     )
   })
 
+  it('distinguishes operator sign-in from an unavailable queue', async () => {
+    mockFetch(() => ({ status: 401, body: { detail: 'operator_sign_in_required' } }))
+    render(
+      <MemoryRouter initialEntries={['/operator']}>
+        <Routes>
+          <Route path="/operator" element={<OperatorFrame />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const badge = await screen.findByTestId('operator-reviews-count')
+    expect(badge).toHaveAttribute('data-count', 'sign-in')
+    expect(badge).toHaveTextContent('Sign in required')
+    expect(badge).not.toHaveTextContent('Queue unavailable')
+    expect(badge).toHaveAccessibleDescription(/sign in as an operator/i)
+  })
+
   it('refreshes the waiting count after a nested review is confirmed', async () => {
     let confirmed = false
     const confirmedDetail = {

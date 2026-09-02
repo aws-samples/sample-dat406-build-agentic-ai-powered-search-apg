@@ -231,12 +231,12 @@ BEGIN
             'turnId', v_review.source_turn_id
         ),
         'shopperRequest',
-            'My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is ''theo''.',
+            'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
         'transcriptExcerpt', jsonb_build_array(
             jsonb_build_object(
                 'role', 'user',
                 'content',
-                    'My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is ''theo''.',
+                    'My Wabi-Sabi Bowl arrived chipped. Please help me return it.',
                 'truncated', 'false'
             )
         ),

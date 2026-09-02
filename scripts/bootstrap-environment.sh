@@ -1001,6 +1001,7 @@ if [ ! -z "${STAGE2_SCRIPT_URL}" ]; then
         export BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}' && \
         export BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}' && \
         export BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-6-v1}' && \
+        export BEDROCK_FAST_MODEL='${BEDROCK_FAST_MODEL:-global.anthropic.claude-haiku-4-5-20251001-v1:0}' && \
         export ASSETS_BUCKET_NAME='${ASSETS_BUCKET_NAME:-}' && \
         export ASSETS_BUCKET_PREFIX='${ASSETS_BUCKET_PREFIX:-}' && \
         nohup /tmp/bootstrap-labs.sh > /var/log/bootstrap-labs.log 2>&1 &"

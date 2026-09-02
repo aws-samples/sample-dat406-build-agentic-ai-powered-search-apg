@@ -67,8 +67,9 @@ def _marker_bounds(text: str, marker: str) -> tuple[int, int, int, int]:
 
     start = text.index(start_token)
     start_line_end = text.index("\n", start) + 1
-    end = text.index(end_token, start_line_end)
-    end_line_end = text.find("\n", end)
+    end_token_start = text.index(end_token, start_line_end)
+    end = text.rfind("\n", start_line_end, end_token_start) + 1
+    end_line_end = text.find("\n", end_token_start)
     if end_line_end == -1:
         end_line_end = len(text)
     else:

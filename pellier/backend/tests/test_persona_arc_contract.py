@@ -61,7 +61,8 @@ ARC = {
     },
     "theo": {
         "persona_id": "theo",
-        # Both resolve. The bare alias exists because the live prompt passes it.
+        # Both resolve in authoritative order history; the shopper prompt
+        # never supplies either value as an identity claim.
         "customer_ids": ("CUST-THEO", "theo"),
         "membership": "registered",
         "spend_12mo": 940.00,
@@ -69,10 +70,7 @@ ARC = {
         "product_name": "Wabi-Sabi Bowl",
         "reason": "damaged",
         "tools": ("initiate_return", "issue_credit"),
-        "question": (
-            "My Wabi-Sabi Bowl arrived chipped. Please help me return it. "
-            "My customer id is 'theo'."
-        ),
+        "question": "My Wabi-Sabi Bowl arrived chipped. Please help me return it.",
     },
 }
 

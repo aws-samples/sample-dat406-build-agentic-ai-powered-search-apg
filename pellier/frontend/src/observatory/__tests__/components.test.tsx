@@ -48,7 +48,7 @@ describe('EditorialTitle', () => {
 // ExpCard
 // ---------------------------------------------------------------------------
 describe('ExpCard', () => {
-  it('renders children inside a card with cream-elev bg, rule-1 border, 14px radius', () => {
+  it('renders children inside the shared Observatory card primitive', () => {
     const { container } = render(
       <ExpCard>
         <span>Card content</span>
@@ -59,26 +59,8 @@ describe('ExpCard', () => {
     expect(card).toBeTruthy();
     expect(card.textContent).toContain('Card content');
 
-    // Verify design-system inline styles
-    expect(card.style.background).toBe('var(--obs-card-bg)');
-    expect(card.style.border).toBe('1px solid var(--obs-card-border)');
-    expect(card.style.borderRadius).toBe('var(--obs-card-radius)');
-  });
-
-  it('renders a burgundy accent line at top-left', () => {
-    const { container } = render(
-      <ExpCard>
-        <span>Content</span>
-      </ExpCard>,
-    );
-
-    // The accent line is the first child span with aria-hidden
-    const accent = container.querySelector('[aria-hidden="true"]') as HTMLElement;
-    expect(accent).toBeTruthy();
-    expect(accent.style.backgroundColor).toBe('var(--obs-card-accent-color)');
-    expect(accent.style.width).toBe('var(--obs-card-accent-width)');
-    expect(accent.style.position).toBe('absolute');
-    expect(accent.style.top).toBe('0px');
+    expect(card.classList.contains('observatory-exp-card')).toBe(true);
+    expect(card.querySelector('[aria-hidden="true"]')).toBeNull();
   });
 
   it('applies button role and tabIndex when onClick is provided', () => {
@@ -91,7 +73,7 @@ describe('ExpCard', () => {
     const card = container.firstElementChild as HTMLElement;
     expect(card.getAttribute('role')).toBe('button');
     expect(card.getAttribute('tabindex')).toBe('0');
-    expect(card.style.cursor).toBe('pointer');
+    expect(card.getAttribute('data-clickable')).toBe('true');
   });
 
   it('does not apply button role when onClick is absent', () => {

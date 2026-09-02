@@ -26,7 +26,7 @@
 .labs-catalog-hero {
   display: grid;
   padding: clamp(38px, 5vw, 68px) clamp(16px, 4vw, 56px) 0;
-  background: var(--obs-cream-2);
+  background: var(--obs-canvas);
 }
 
 .labs-catalog-hero-copy {
@@ -64,18 +64,45 @@
   min-height: 44px;
   width: fit-content;
   align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  border: 1px solid var(--obs-red-1);
-  border-radius: 4px;
-  background: var(--obs-red-1);
-  color: var(--cream-warm) !important;
+  gap: 14px;
+  padding: 6px 8px 6px 18px;
+  border: 1px solid var(--obs-ink-1);
+  border-radius: 12px;
+  background: var(--obs-ink-1);
+  color: var(--obs-panel) !important;
+  box-shadow: 0 12px 28px rgb(20 28 24 / 0.14);
   font-size: 13px;
   font-weight: 700;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.labs-catalog-hero-copy > a svg {
+  width: 32px;
+  height: 32px;
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--obs-red-1);
+  color: #fff;
+  transition: transform 160ms ease;
 }
 
 .labs-catalog-hero-copy > a:hover {
-  background: var(--obs-burgundy);
+  border-color: #2c332f;
+  background: #2c332f;
+  box-shadow: 0 16px 36px rgb(20 28 24 / 0.2);
+  transform: translateY(-1px);
+}
+
+.labs-catalog-hero-copy > a:hover svg {
+  transform: translateX(2px);
+}
+
+.labs-catalog-hero-copy > a:active {
+  transform: translateY(0);
 }
 
 .labs-catalog-contact-sheet {
@@ -105,23 +132,23 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: center 32%;
 }
 
 .labs-catalog-contact-sheet figure:nth-child(1) img {
-  object-position: center 22%;
+  object-position: center 34%;
 }
 
 .labs-catalog-contact-sheet figure:nth-child(2) img {
-  object-position: center 17%;
+  object-position: center 31%;
 }
 
 .labs-catalog-contact-sheet figure:nth-child(3) img {
-  object-position: center 16%;
+  object-position: center 31%;
 }
 
 .labs-catalog-contact-sheet figure:nth-child(4) img {
-  object-position: center 24%;
+  object-position: center 32%;
 }
 
 .labs-catalog-contact-sheet figcaption {
@@ -201,8 +228,8 @@
   overflow: hidden;
   grid-template-columns: minmax(0, 0.92fr) minmax(280px, 1.08fr);
   border: 1px solid var(--obs-rule-1);
-  border-radius: 8px;
-  background: var(--obs-cream-elev);
+  border-radius: 16px;
+  background: var(--obs-panel);
   color: inherit !important;
   transition:
     border-color 160ms ease,
@@ -228,7 +255,7 @@
 
 .labs-catalog-card:hover {
   border-color: color-mix(in srgb, var(--obs-red-1) 48%, var(--obs-rule-1));
-  box-shadow: 0 12px 30px rgb(52 25 30 / 0.1);
+  box-shadow: var(--obs-card-shadow-hover);
   transform: translateY(-2px);
 }
 

@@ -48,6 +48,10 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
             return False
         if model.get("role") == "sonnet":
             model["_resolved_id"] = "global.anthropic.claude-sonnet-4-6"
+        if model.get("role") == "fast":
+            model["_resolved_id"] = (
+                "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+            )
         return True
 
     monkeypatch.setattr(module, "check_model", fake_check)
@@ -65,6 +69,10 @@ def test_model_preflight_persists_sonnet_46_runtime_fallback(
     )
     assert values["BEDROCK_OPUS_MODEL"] == "global.anthropic.claude-sonnet-4-6"
     assert values["BEDROCK_ROUTER_MODEL"] == "global.anthropic.claude-sonnet-4-6"
+    assert (
+        values["BEDROCK_FAST_MODEL"]
+        == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+    )
     assert "CLAUDE_CODE_MODEL" not in values
     assert values["AGENT_MODEL_ID"] == "global.anthropic.claude-sonnet-4-6"
     assert values["BEDROCK_MODEL_ACCESS_READY"] == "true"
@@ -82,6 +90,16 @@ def test_claude_code_pins_global_sonnet_46_profile() -> None:
     )
     assert "ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-sonnet}" not in source
     assert "CLAUDE_CODE_MODEL" not in source
+
+
+def test_managed_runtime_handoff_preserves_the_fast_model_profile() -> None:
+    source = BOOTSTRAP.read_text(encoding="utf-8")
+
+    assert (
+        "export BEDROCK_FAST_MODEL="
+        "'${BEDROCK_FAST_MODEL:-global.anthropic.claude-haiku-4-5-20251001-v1:0}'"
+        in source
+    )
 
 
 def test_facilitator_dry_run_preflights_the_recommended_claude_lane() -> None:
@@ -358,6 +376,7 @@ def _run_health_gate(
     audit_count: int = 1,
     retrieval_receipts_exists: bool = True,
     governed_turn_receipts_exists: bool = True,
+    evidence_ledger_schema_exists: bool = True,
     commerce_schema_exists: bool = True,
     managed_receipt: dict[str, object] | None = None,
     shopper_in_operator_group: bool = False,
@@ -416,6 +435,8 @@ case "$*" in
   *tool_audit*) printf '{audit_count}\n' ;;
   *"to_regclass('pellier.retrieval_receipts')"*) printf '{"pellier.retrieval_receipts" if retrieval_receipts_exists else ""}\n' ;;
   *"to_regclass('pellier.governed_turn_receipts')"*) printf '{"pellier.governed_turn_receipts" if governed_turn_receipts_exists else ""}\n' ;;
+  *"to_regclass('pellier.model_invocation_receipts')"*) printf '{"pellier.model_invocation_receipts" if evidence_ledger_schema_exists else ""}\n' ;;
+  *"to_regclass('pellier.evidence_ledger_event_refs')"*) printf '{"pellier.evidence_ledger_event_refs" if evidence_ledger_schema_exists else ""}\n' ;;
   *"to_regclass('pellier.commerce_receipts')"*) printf '{"pellier.commerce_receipts" if commerce_schema_exists else ""}\n' ;;
   *"to_regclass('pellier.commerce_payment_events')"*) printf '{"pellier.commerce_payment_events" if commerce_schema_exists else ""}\n' ;;
 esac
@@ -549,6 +570,10 @@ def test_governed_health_gate_rejects_incomplete_managed_receipt(
         (
             {"governed_turn_receipts_exists": False},
             "Governed turn receipt schema missing",
+        ),
+        (
+            {"evidence_ledger_schema_exists": False},
+            "Evidence Ledger schema missing",
         ),
         (
             {"commerce_schema_exists": False},

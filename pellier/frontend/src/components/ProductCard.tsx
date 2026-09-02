@@ -261,6 +261,7 @@ export default function ProductCard({
               to={detailPath}
               data-testid={`product-card-link-${product.id}`}
               className="
+                inline-flex min-h-[44px] items-center
                 transition-colors duration-fade hover:text-accent-ink
                 focus-visible:outline-2 focus-visible:outline-offset-2
                 focus-visible:outline-accent
@@ -303,7 +304,7 @@ export default function ProductCard({
           >
             <summary
               className="
-                flex cursor-pointer list-none items-center justify-between gap-3
+                flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3
                 font-sans text-[12px] font-medium text-ink-soft
                 focus-visible:outline-none focus-visible:ring-2
                 focus-visible:ring-accent
@@ -350,7 +351,7 @@ export default function ProductCard({
             data-testid={`product-card-add-${product.id}`}
             onClick={() => onAddToBag(product)}
             className="
-              mt-1 w-full rounded-full bg-espresso text-cream-50 border border-espresso
+              mt-1 h-12 min-h-12 w-full rounded-full bg-espresso text-cream-50 border border-espresso
               py-2.5 px-3.5 text-[13px] tracking-[0.06em] cursor-pointer
               font-sans font-medium transition-colors duration-fade ease-out
               hover:bg-dusk hover:text-cream-50 hover:border-dusk

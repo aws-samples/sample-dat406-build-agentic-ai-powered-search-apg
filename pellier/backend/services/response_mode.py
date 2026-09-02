@@ -31,17 +31,28 @@ except ModuleNotFoundError:
             os.environ.get("BEDROCK_REPORTING_MODEL")
             or BEDROCK_SONNET_MODEL
         )
+        # The rendered AgentCore Runtime always injects this. The Sonnet
+        # fallback keeps minimal local imports executable when no Runtime
+        # environment exists; the bootstrap preflight makes Haiku mandatory
+        # before a workshop is marked ready.
+        BEDROCK_FAST_MODEL = (
+            os.environ.get("BEDROCK_FAST_MODEL")
+            or BEDROCK_SONNET_MODEL
+        )
         AGENT_MAX_TOKENS_OPUS = int(
             os.environ.get("AGENT_MAX_TOKENS_OPUS", "1200")
         )
         AGENT_MAX_TOKENS_SONNET = int(
             os.environ.get("AGENT_MAX_TOKENS_SONNET", "2048")
         )
+        AGENT_MAX_TOKENS_HAIKU = int(
+            os.environ.get("AGENT_MAX_TOKENS_HAIKU", "768")
+        )
 
     settings = _RuntimeSettings()
 
 ResponseMode = Literal["balanced", "editorial", "fast"]
-ModelTier = Literal["opus", "sonnet"]
+ModelTier = Literal["opus", "sonnet", "haiku"]
 
 response_mode_var: ContextVar[ResponseMode] = ContextVar(
     "pellier_response_mode",
@@ -96,7 +107,7 @@ def resolve_specialist_model(
     if mode == "editorial":
         tier = "opus"
     elif mode == "fast":
-        tier = "sonnet"
+        tier = "haiku"
     else:
         tier = default_tier
 
@@ -106,6 +117,13 @@ def resolve_specialist_model(
             settings.AGENT_MAX_TOKENS_OPUS,
             tier,
         )
+    if tier == "haiku":
+        return (
+            settings.BEDROCK_FAST_MODEL,
+            settings.AGENT_MAX_TOKENS_HAIKU,
+            tier,
+        )
+
     model_id = (
         settings.BEDROCK_REPORTING_MODEL
         if mode == "balanced"
@@ -137,6 +155,8 @@ def build_intent_signal(intent: str, response_mode: object) -> dict:
         if "opus" in model_id_lower
         else "sonnet"
         if "sonnet" in model_id_lower
+        else "haiku"
+        if "haiku" in model_id_lower
         else tier
     )
     return {

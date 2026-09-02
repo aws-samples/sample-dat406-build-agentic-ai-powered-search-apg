@@ -705,6 +705,7 @@ def _deploy_cli_project(
     env: dict[str, str],
     opus_model_id: str | None = None,
     sonnet_model_id: str | None = None,
+    fast_model_id: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """Deploy infrastructure first, then add Gateway-scoped Cedar policies."""
     root = _scaffold_cli_project(repo=repo, env=env)
@@ -718,6 +719,7 @@ def _deploy_cli_project(
         "model_id": model_id,
         "opus_model_id": opus_model_id or model_id,
         "sonnet_model_id": sonnet_model_id or model_id,
+        "fast_model_id": fast_model_id or model_id,
         "workshop_id": workshop_id,
     }
 
@@ -1552,6 +1554,7 @@ def main() -> int:
         os.environ.get("BEDROCK_SONNET_MODEL", "").strip()
         or required["model_id"]
     )
+    fast_model_id = _require_env("BEDROCK_FAST_MODEL")
     client_secret_arn = (
         os.environ.get("COGNITO_CLIENT_SECRET_ARN", "").strip() or None
     )
@@ -1657,6 +1660,7 @@ def main() -> int:
             model_id=required["model_id"],
             opus_model_id=opus_model_id,
             sonnet_model_id=sonnet_model_id,
+            fast_model_id=fast_model_id,
             workshop_id=required["workshop_id"],
             env=deploy_env,
         )

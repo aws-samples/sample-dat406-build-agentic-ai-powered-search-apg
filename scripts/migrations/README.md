@@ -87,6 +87,19 @@ FKs.
     one customer scope; multiple principals may still map to one customer.
 39. **`039_return_replay_scope.sql`** — re-checks the caller's RLS-scoped
     order ownership before returning an idempotent replay.
+40. **`040_resequence_theo_governed_turn.sql`** — makes Theo's damaged
+    Wabi-Sabi Bowl return the required Lab 3 outcome while retaining the
+    managed-memory continuity prompt as an optional follow-up.
+41. **`041_align_theo_pairing_preview.sql`** — aligns Theo's pairing
+    preview with the first novel companion from the verified pour-over
+    similarity result, rather than a product already in his order history.
+42. **`042_align_anna_guided_previews.sql`** — aligns Anna's retrieval preview
+    with the live result and leaves the intentionally unbuilt inventory proof
+    without a fabricated catalog result.
+43. **`043_evidence_ledger.sql`** — adds append-only, metadata-only model
+    invocation receipts and a typed read-only projection over the canonical
+    receipt tables. Prompt, completion, tool argument, and tool result content
+    are intentionally absent.
 
 ## Run
 
@@ -137,7 +150,11 @@ for migration in \
     036_refresh_persona_hero_alt_text.sql \
     037_serve_persona_hero_masters.sql \
     038_principal_customer_cardinality.sql \
-    039_return_replay_scope.sql
+    039_return_replay_scope.sql \
+    040_resequence_theo_governed_turn.sql \
+    041_align_theo_pairing_preview.sql \
+    042_align_anna_guided_previews.sql \
+    043_evidence_ledger.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -165,9 +182,10 @@ snake_case SQL alias created by `001_schema.sql`.
 ## `pg_cron` note
 
 If `pg_cron` isn't installed, `002_workshop_telemetry.sql` emits a
-`WARNING` and continues —
-`pellier.observatory_spans` will then grow unbounded unless the workshop
-operator schedules a cleanup out-of-band. To install:
+`WARNING` and continues. The shipped runtime does not write the reserved
+`pellier.observatory_spans` cache; CloudWatch/AgentCore telemetry remains the
+managed span authority. If an experiment enables an Aurora span-cache writer,
+install `pg_cron` or schedule equivalent retention:
 
 ```sql
 CREATE EXTENSION pg_cron;  -- must run in postgres database as superuser
@@ -187,6 +205,8 @@ workshop state with:
 \dt pellier.approvals
 \dt pellier.retrieval_receipts
 \dt pellier.governed_turn_receipts
+\dt pellier.model_invocation_receipts
+\dv pellier.evidence_ledger_event_refs
 \dt pellier.commerce_receipts
 \dt pellier.commerce_payment_events
 

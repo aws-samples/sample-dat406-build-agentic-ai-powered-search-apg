@@ -4,6 +4,7 @@ from agents.specialist_hooks import (
     forward_or_append_products,
     reset_product_collector,
     reset_specialist_reply_collector,
+    select_products_for_reply,
     set_product_collector,
     set_specialist_reply_collector,
 )
@@ -55,3 +56,23 @@ def test_bound_reply_collector_preserves_completed_specialist_prose():
 
     assert result == "Lead with the Italian Linen Camp Shirt."
     assert replies == ["Lead with the Italian Linen Camp Shirt."]
+
+
+def test_reply_selection_does_not_promote_owned_context_to_best_match():
+    candidates = [
+        {"productId": "36", "name": "Ceramic Tumblers"},
+        {"productId": "37", "name": "Wabi-Sabi Bowl"},
+        {"productId": "35", "name": "Brass Incense Holder"},
+        {"productId": "34", "name": "Terracotta Planter"},
+    ]
+    selected = select_products_for_reply(
+        (
+            "Since you already own the Ceramic Tumblers, Wabi-Sabi Bowl, and "
+            "Brass Incense Holder, the Terracotta Planter is the new piece "
+            "that completes the ritual."
+        ),
+        candidates,
+        owned_products=candidates[:3],
+    )
+
+    assert selected == [{"productId": "34", "name": "Terracotta Planter"}]

@@ -1558,7 +1558,11 @@ def get_return_policy(category: str = "default") -> str:
 
 
 @tool
-def get_related_products(product_id: int, limit: int = 5) -> str:
+def get_related_products(
+    source_product_name: str,
+    product_id: int | None = None,
+    limit: int = 5,
+) -> str:
     """Find complementary pieces that pair well with a given product.
 
     Uses pgvector cosine similarity to find products whose embeddings
@@ -1566,7 +1570,12 @@ def get_related_products(product_id: int, limit: int = 5) -> str:
     matching, not keyword overlap. Great for "what goes with this?"
 
     Args:
-        product_id: The product to match against. Curated catalog IDs are 1-60; archive distractors use high IDs.
+        source_product_name: The named piece the shopper wants to pair. The
+            service resolves this against the curated catalog before finding
+            related products.
+        product_id: Optional catalog ID from a preceding search. When
+            supplied, it must match ``source_product_name``; a guessed ID is
+            refused rather than selecting a different source product.
         limit: Number of matches to return (default: 5)
 
     Returns:
@@ -1577,17 +1586,73 @@ def get_related_products(product_id: int, limit: int = 5) -> str:
         return json.dumps({"error": "Database service not initialized"})
 
     try:
-        product_id_text = str(product_id).strip()
-        source = _run_async(_db_service.fetch_one(
+        from services.business_logic import prepare_like_pattern
+
+        source_name = " ".join((source_product_name or "").split())
+        if not source_name:
+            return json.dumps({
+                "error": "source_product_name is required",
+                "code": "source_product_name_required",
+            })
+        source_pattern = prepare_like_pattern(source_name)
+
+        # The model may know a shopper-facing fragment such as "pour-over
+        # set", rather than the catalog's full name. Resolve it by name first,
+        # never by an unverified model-generated number. Two possible matches
+        # are deliberately surfaced as an error instead of picking one.
+        source_rows = _run_async(_db_service.fetch_all(
             'SELECT "productId", name, brand, price, category, embedding '
-            'FROM pellier.product_catalog WHERE "productId" = %s',
-            product_id_text,
+            'FROM pellier.product_catalog '
+            'WHERE (LOWER(TRIM(name)) = LOWER(%s) '
+            "OR LOWER(name) LIKE %s ESCAPE '\\') "
+            "AND NOT (tags ? 'archive') "
+            'ORDER BY CASE WHEN LOWER(TRIM(name)) = LOWER(%s) THEN 0 ELSE 1 END, '
+            '"productId" '
+            "LIMIT 2",
+            source_name,
+            source_pattern,
+            source_name,
         ))
-        if not source:
-            return json.dumps({"error": f"Product {product_id} not found"})
+        if not source_rows:
+            return json.dumps({
+                "error": f"No curated product matches {source_name!r}",
+                "code": "source_product_not_found",
+            })
+        if len(source_rows) > 1:
+            return json.dumps({
+                "error": (
+                    f"More than one curated product matches {source_name!r}; "
+                    "search first and retry with the exact product name."
+                ),
+                "code": "source_product_ambiguous",
+                "candidates": [
+                    {
+                        "productId": str(row["productId"]).strip(),
+                        "name": row["name"],
+                    }
+                    for row in source_rows
+                ],
+            })
+
+        source = source_rows[0]
+        product_id_text = str(source["productId"]).strip()
+        if product_id is not None and str(product_id).strip() != product_id_text:
+            return json.dumps({
+                "error": (
+                    f"product_id {product_id} does not identify "
+                    f"{source['name']!r}"
+                ),
+                "code": "source_product_mismatch",
+                "source": {
+                    "productId": product_id_text,
+                    "name": source["name"],
+                },
+            })
         emb = source.get("embedding")
         if emb is None:
-            return json.dumps({"error": f"Product {product_id} has no embedding"})
+            return json.dumps({
+                "error": f"Product {source['name']!r} has no embedding"
+            })
 
         # pgvector-python returns ``Vector`` with psycopg 3 and numpy arrays
         # with some older adapter paths. Normalize both before serialization.
@@ -1598,7 +1663,9 @@ def get_related_products(product_id: int, limit: int = 5) -> str:
         else:
             emb_values = list(emb)
         if not emb_values:
-            return json.dumps({"error": f"Product {product_id} has no embedding"})
+            return json.dumps({
+                "error": f"Product {source['name']!r} has no embedding"
+            })
 
         # pgvector's text I/O wants ``[v1,v2,...]`` (comma-separated).
         # ``str(numpy_array)`` produces space-separated values, which

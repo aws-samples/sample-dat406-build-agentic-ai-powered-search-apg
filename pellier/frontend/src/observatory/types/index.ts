@@ -20,6 +20,17 @@ export type {
 } from './chat';
 
 export type { TelemetryPanel } from './telemetry';
+export type {
+  EvidenceLedger,
+  EvidenceLedgerEvent,
+  EvidenceLedgerEventKind,
+  EvidenceLedgerPhase,
+  EvidenceLedgerProvenance,
+  EvidenceLedgerStatus,
+  EvidenceReference,
+  EvidenceSufficiencyCheck,
+  EvidenceSufficiencyStatus,
+} from '../../shared/evidenceLedger';
 
 export type { BriefContent, BriefSection } from './brief';
 

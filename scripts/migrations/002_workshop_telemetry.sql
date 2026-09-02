@@ -110,11 +110,13 @@ BEGIN
 END
 $rename$;
 
--- OTEL span persistence. Populated by the Strands OTLP exporter when we
--- ship a custom SpanProcessor that INSERTs alongside the
--- InMemorySpanExporter path. The 24h pg_cron cleanup at the bottom of
--- this file expires old rows so the table doesn't grow unbounded between
--- workshop runs.
+-- Reserved Aurora span cache. The shipped runtime exports managed telemetry to
+-- CloudWatch/AgentCore and captures in-process spans in memory; it does not
+-- currently INSERT those spans here. Keep the schema for compatibility and
+-- bounded workshop experiments, but do not treat an empty table as missing
+-- execution evidence. Canonical durable proof lives in the receipt tables and
+-- migration 043's typed projection. The 24h pg_cron cleanup below protects any
+-- future or experimental cache writer from unbounded growth.
 CREATE TABLE IF NOT EXISTS pellier.observatory_spans (
     trace_id        UUID NOT NULL,
     span_id         UUID PRIMARY KEY,
@@ -264,7 +266,8 @@ BEGIN
         END IF;
     ELSE
         RAISE WARNING
-            'pg_cron extension not installed — pellier.observatory_spans will grow unbounded. '
+            'pg_cron extension not installed — the reserved pellier.observatory_spans '
+            'cache has no automatic retention if an experimental writer is enabled. '
             'Install with: CREATE EXTENSION pg_cron;';
     END IF;
 EXCEPTION
