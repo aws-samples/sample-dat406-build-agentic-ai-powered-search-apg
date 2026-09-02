@@ -39,10 +39,10 @@
 
   /* Editorial rhythm for the landing bands. */
   --pellier-band-y: clamp(48px, 5.5vw, 88px);
-  /* Announcement (44px) + navigation (61px). The hero itself owns the rest
-     of the first viewport, so the photograph ends cleanly at the next rail
-     rather than leaving a separate cream band below it. */
-  --pellier-hero-min: max(520px, calc(100dvh - 105px));
+  /* Announcement (44px) + navigation (61px) + a 48px editorial interlude.
+     The hero remains the opening statement, but it does not consume the full
+     viewport or run directly into the Weekend Edit. */
+  --pellier-hero-min: clamp(520px, calc(100dvh - 153px), 860px);
   /* Matches the `container-x` spacing token in tailwind.config.js. */
   --pellier-gutter: clamp(16px, 4vw, 48px);
 }
@@ -165,6 +165,7 @@
 .pellier-hero {
   position: relative;
   width: 100%;
+  padding-bottom: clamp(32px, 3vw, 48px);
   overflow: clip;
   background: var(--cream);
 }
