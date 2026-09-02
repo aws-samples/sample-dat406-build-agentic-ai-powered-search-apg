@@ -87,4 +87,22 @@ describe('SessionsList live data boundary', () => {
     expect(screen.getByText('Anna durable session 9')).toBeInTheDocument()
     expect(screen.queryByTestId('sessions-load-more')).not.toBeInTheDocument()
   })
+
+  it('describes the cross-persona record as shared workshop evidence', () => {
+    render(
+      <MemoryRouter>
+        <SessionsList />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'View all personas' }))
+
+    expect(screen.getByText('Workshop sessions')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Every durable recorded conversation captured during the workshop is available here. Select a session to inspect its message history and tool ledger.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Instructor view/i)).not.toBeInTheDocument()
+  })
 })

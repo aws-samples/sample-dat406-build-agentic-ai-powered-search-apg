@@ -2080,66 +2080,15 @@
 }
 
 /* -----------------------------------------------------------------------
- * Pellier Observatory proof entry
+ * Proof Board
  *
- * The canvas is decorative atmosphere only. Proof Board data and the
- * checkpoint cards remain the source of record for every operational claim.
+ * This is a reference reading surface, so it uses the same centered shell
+ * and plain editorial title as Sessions. Checkpoint cards remain the source
+ * of record for every operational claim.
  * ----------------------------------------------------------------------- */
 
-.proof-board-page {
-  width: min(1320px, 100%);
-  max-width: none;
-  padding: 16px 0 40px;
-}
-
-.observatory-masthead {
-  position: relative;
-  display: flex;
-  min-height: 172px;
-  align-items: center;
-  overflow: hidden;
-  margin-bottom: 28px;
-  padding: 20px 26px;
-  border: 1px solid var(--obs-rule-1);
-  border-radius: 20px;
-  background: var(--obs-panel);
-  box-shadow: var(--obs-card-shadow);
-}
-
-.observatory-masthead-copy {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 500px);
-  padding: 20px 0 24px;
-}
-
-.observatory-masthead-copy h1 {
-  margin: 10px 0 8px;
-  color: var(--obs-ink-1);
-  font-size: clamp(32px, 3.5vw, 44px);
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.08;
-}
-
-.observatory-masthead-copy > p {
-  max-width: 440px;
-  color: var(--obs-ink-2);
-  font-family: var(--obs-sans);
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-.observatory-masthead-flow {
-  position: absolute;
-  inset: 0 -80px 0 44%;
-  pointer-events: none;
-}
-
-.observatory-masthead-flow canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+.observatory-proof-board-page {
+  max-width: 1320px;
 }
 
 .pellier-governed-proof-rail {
@@ -2211,7 +2160,7 @@
 .pellier-governed-proof-tab-copy > span {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
@@ -2228,7 +2177,7 @@
 .pellier-governed-proof-tab > small {
   color: var(--obs-ink-3);
   font-family: var(--obs-mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
   text-transform: uppercase;
 }
@@ -2246,7 +2195,7 @@
   gap: 8px;
   color: var(--obs-ink-3);
   font-family: var(--obs-heading);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1;
   text-transform: uppercase;
@@ -2299,7 +2248,7 @@
 .pellier-governed-proof-evidence-label > span {
   color: var(--obs-red-1);
   font-family: var(--obs-heading);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -2308,7 +2257,7 @@
 .pellier-governed-proof-evidence > .font-mono {
   overflow-wrap: anywhere;
   color: var(--obs-ink-2);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -2353,52 +2302,12 @@
 }
 
 @media (max-width: 900px) {
-  .proof-board-page {
-    padding: 8px 0 32px;
-  }
-
-  .observatory-masthead {
-    min-height: 164px;
-  }
-
-  .observatory-masthead-flow {
-    inset-inline-start: 36%;
-    opacity: 0.72;
-  }
-
   .pellier-governed-proof-panel {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 640px) {
-  .proof-board-page {
-    padding: 4px 0 28px;
-  }
-
-  .observatory-masthead {
-    min-height: 182px;
-  }
-
-  .observatory-masthead-copy {
-    width: min(100%, 285px);
-    padding-block: 20px;
-  }
-
-  .observatory-masthead-copy h1 {
-    font-size: 34px;
-  }
-
-  .observatory-masthead-copy > p {
-    max-width: 280px;
-    font-size: 14px;
-  }
-
-  .observatory-masthead-flow {
-    inset-inline-start: 20%;
-    opacity: 0.44;
-  }
-
   .pellier-governed-proof-rail {
     padding-bottom: 22px;
   }
@@ -2500,10 +2409,6 @@
   border-radius: 3px;
   outline: 2px solid var(--obs-red-1);
   outline-offset: 3px;
-}
-
-.proof-board-reference-return {
-  margin-bottom: 14px;
 }
 
 /* Wider than the 1120px reading measure this started at. This page is the

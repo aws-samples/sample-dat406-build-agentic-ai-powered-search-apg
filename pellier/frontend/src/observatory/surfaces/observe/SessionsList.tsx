@@ -347,7 +347,7 @@ const SessionsList: React.FC = () => {
         summary={
           showingScopedSessions
             ? 'Only durable Aurora evidence for the active shopper is shown. Select a recorded session to inspect its message history and tool ledger.'
-            : 'Instructor view shows every durable recorded conversation across shoppers. Select a session to inspect its message history and tool ledger.'
+            : 'Every durable recorded conversation captured during the workshop is available here. Select a session to inspect its message history and tool ledger.'
         }
       />
 
@@ -366,7 +366,7 @@ const SessionsList: React.FC = () => {
       >
         <div>
           <Eyebrow
-            label={showingScopedSessions ? `${activePersonaLabel} scoped` : 'Instructor view'}
+            label={showingScopedSessions ? `${activePersonaLabel} scoped` : 'Workshop sessions'}
             variant="muted"
           />
           <p
@@ -380,7 +380,7 @@ const SessionsList: React.FC = () => {
           >
             {showingScopedSessions
               ? 'Recorded turns only — no fixture replays are mixed into this view.'
-              : 'Showing all durable Aurora session evidence for facilitation and QA.'}
+              : 'Showing all durable Aurora session evidence recorded by the workshop.'}
           </p>
         </div>
         {scopedPersona && (

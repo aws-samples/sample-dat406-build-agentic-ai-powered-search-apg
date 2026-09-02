@@ -229,9 +229,12 @@ describe('ProofBoard', () => {
     expect(await screen.findByText('Proof Board')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Inspect readiness checks and the runtime, policy, execution, and Aurora evidence already recorded by the system.',
+        'Read the durable runtime, policy, execution, and Aurora evidence recorded by the workshop. Use a terminal or SQL fallback whenever you need canonical proof.',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('observatory-particle-canvas'),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Run a live agent turn and inspect the evidence it emits.'),
     ).not.toBeInTheDocument();
@@ -549,7 +552,7 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Proof board')).toBeInTheDocument();
+    expect(await screen.findByText('Proof Board')).toBeInTheDocument();
     expect(await screen.findByTestId('proof-card-audit-ledger')).toHaveTextContent(
       'Prove the audit trail in Aurora',
     );

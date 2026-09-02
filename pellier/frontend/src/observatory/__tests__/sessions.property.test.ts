@@ -3,7 +3,7 @@
  *
  * Property 1: Sessions are sorted by recency — for any list of Session
  * objects with distinct timestamps, sortSessionsByRecency returns them
- * in ascending order (earliest first) so the instructor view reads
+ * in ascending order (earliest first) so the shared workshop timeline reads
  * Marco → Anna → Theo, matching the canonical persona order.
  *
  * Property 2: Session card field completeness — for any valid Session

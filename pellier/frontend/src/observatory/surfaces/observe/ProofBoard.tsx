@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { EditorialTitle, Eyebrow } from '../../components';
 import { PolicyDecisionBadge, type PolicyDecision } from '../../../shared';
-import { ObservatoryMasthead } from './ObservatoryMasthead';
 
 type CheckState = 'pass' | 'warn' | 'fail';
 type CardStatus = 'complete' | 'needs_build' | 'needs_run' | 'needs_data' | 'needs_config' | 'pending' | 'available';
@@ -1596,7 +1595,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
   );
 
   return (
-    <div className="proof-board-page">
+    <div className="observatory-reading-page observatory-proof-board-page">
       {isAuditFocus && (
         <Link
           to="/observatory/proof-board"
@@ -1616,26 +1615,20 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
           All checkpoints
         </Link>
       )}
-      {!isAuditFocus ? (
-        <Link
-          to="/observatory/workbench#resources"
-          className="observatory-reference-return proof-board-reference-return"
-          aria-label="Back to Labs and Workbench resources"
-        >
-          <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          <span>Labs &amp; Workbench resources</span>
-        </Link>
-      ) : null}
-      {isAuditFocus ? (
-        <EditorialTitle
-          backToReferences
-          eyebrow="Lab 3 · Operate & Observe — AgentCore Managed Path"
-          title="Proof board"
-          summary="A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present."
-        />
-      ) : (
-        <ObservatoryMasthead />
-      )}
+      <EditorialTitle
+        backToReferences={!isAuditFocus}
+        eyebrow={
+          isAuditFocus
+            ? 'Lab 3 · Operate & Observe — AgentCore Managed Path'
+            : 'Observe · Evidence'
+        }
+        title="Proof Board"
+        summary={
+          isAuditFocus
+            ? 'A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present.'
+            : 'Read the durable runtime, policy, execution, and Aurora evidence recorded by the workshop. Use a terminal or SQL fallback whenever you need canonical proof.'
+        }
+      />
 
       {turnReceipt && <PersistedTurnReceiptPanel receipt={turnReceipt} />}
 

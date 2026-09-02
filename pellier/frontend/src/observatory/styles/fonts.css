@@ -54,13 +54,13 @@
   --obs-brief-leading: 1.65;
 
   /* Eyebrow labels — same step and tracking as `.pellier-eyebrow`. */
-  --obs-eyebrow-size: 11px;
+  --obs-eyebrow-size: 12px;
   --obs-eyebrow-weight: 600;
   --obs-eyebrow-tracking: 0.08em;
 
   /* Monospace: identifiers, SQL, latency, telemetry. Whole pixels only —
      11.5px and 16.5px were the only fractional steps on the surface. */
-  --obs-mono-size: 11px;
+  --obs-mono-size: 12px;
   --obs-mono-leading: 1.7;
 
   /* Tab navigation — a control, so it sits on the control step. */
