@@ -23,7 +23,7 @@
 .workbench-resources-heading > div:first-child > span {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -160,13 +160,13 @@
   flex: 0 0 auto;
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .workbench-resource-links span > small {
   color: var(--obs-ink-4);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 

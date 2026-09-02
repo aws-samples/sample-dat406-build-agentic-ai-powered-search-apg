@@ -12,6 +12,11 @@
 @import './styles/daylight-tokens.css';
 @import './styles/daylight-components.css';
 @import './styles/daylight-bridge.css';
+/* Governed status tokens and the .gov-visually-hidden utility. Loaded after
+   the bridge because every value resolves to a --dl-* primitive. Without
+   this import PolicyDecisionBadge, GovernedSeal and GovernedTurnReceipt
+   render with no colour and their screen-reader text becomes visible. */
+@import './styles/governed-tokens.css';
 /* Storefront brand tokens + landing compositions. Loaded after the bridge
    so it can reference the aliased names, and before Tailwind so a utility
    on the same element still wins. */

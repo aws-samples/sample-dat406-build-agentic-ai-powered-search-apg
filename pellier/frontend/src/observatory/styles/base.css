@@ -78,6 +78,22 @@
   --obs-terracotta: #9a3412;
   --obs-terracotta-soft: #f7ebe5;
   --obs-terracotta-line: #e1b9a6;
+  /* Status roles for chips and pills. Burgundy is deliberately absent: it is
+     the brand accent, so a status must never borrow it. ok = verified
+     positive state, attention = a lab step still to run or build,
+     degraded = configuration or data missing, neutral = not evaluated. */
+  --obs-status-ok-fg: var(--obs-olive);
+  --obs-status-ok-bg: var(--obs-olive-soft);
+  --obs-status-ok-line: var(--obs-olive-line);
+  --obs-status-attention-fg: var(--obs-terracotta);
+  --obs-status-attention-bg: var(--obs-terracotta-soft);
+  --obs-status-attention-line: var(--obs-terracotta-line);
+  --obs-status-degraded-fg: #7c5b18;
+  --obs-status-degraded-bg: #f6efdf;
+  --obs-status-degraded-line: #e3cf9f;
+  --obs-status-neutral-fg: var(--obs-ink-3);
+  --obs-status-neutral-bg: rgba(31, 20, 16, 0.06);
+  --obs-status-neutral-line: var(--obs-rule-2);
   --obs-ledger-r: 18px;
   --obs-ledger-r-sm: 12px;
   --obs-label-track: 0.16em;
@@ -716,7 +732,7 @@
   padding: 2px 8px;
   color: var(--obs-ink-3);
   font-family: var(--obs-sans);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
   line-height: 1.4;
@@ -777,7 +793,7 @@
 
 .observatory-tab:focus-visible {
   border-radius: 4px;
-  outline: 2px solid color-mix(in srgb, var(--obs-red-1) 22%, transparent);
+  outline: 2px solid var(--obs-red-1);
   outline-offset: -2px;
 }
 
@@ -808,7 +824,7 @@
 
 .observatory-root .observatory-view-trigger:focus-visible {
   border-color: var(--obs-red-1);
-  outline: 2px solid color-mix(in srgb, var(--obs-red-1) 18%, transparent);
+  outline: 2px solid var(--obs-red-1);
   outline-offset: 2px;
 }
 
@@ -918,7 +934,7 @@
   background: var(--obs-cream-2);
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1;
 }
@@ -1067,9 +1083,9 @@
 .observatory-persona-copy small {
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 650;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -1449,30 +1465,34 @@
   gap: 8px;
 }
 
-.pellier-governed-proof-tab {
+/* Scoped under .observatory-root so these rules outrank the
+   `.observatory-root button` reset above (which zeroes padding and strips
+   border and background). The reset used to win on padding, which left the
+   status label touching the card border on every viewport. */
+.observatory-root .pellier-governed-proof-tab {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr) auto;
   min-height: 78px;
   align-items: center;
   gap: 10px;
   padding: 12px;
-  border: 1px solid var(--obs-rule-1) !important;
+  border: 1px solid var(--obs-rule-1);
   border-radius: 6px;
-  background: var(--obs-cream-2) !important;
-  color: var(--obs-ink-2) !important;
+  background: var(--obs-cream-2);
+  color: var(--obs-ink-2);
   text-align: left;
 }
 
-.pellier-governed-proof-tab[data-active='true'] {
-  border-color: color-mix(in srgb, var(--obs-red-1) 52%, var(--obs-rule-1)) !important;
-  background: color-mix(in srgb, var(--obs-red-soft) 52%, var(--obs-cream-2)) !important;
-  color: var(--obs-ink-1) !important;
+.observatory-root .pellier-governed-proof-tab[data-active='true'] {
+  border-color: color-mix(in srgb, var(--obs-red-1) 52%, var(--obs-rule-1));
+  background: color-mix(in srgb, var(--obs-red-soft) 52%, var(--obs-cream-2));
+  color: var(--obs-ink-1);
   box-shadow: 0 5px 14px rgba(45, 24, 16, 0.06);
 }
 
-.pellier-governed-proof-tab:hover {
-  border-color: color-mix(in srgb, var(--obs-red-1) 36%, var(--obs-rule-1)) !important;
-  background: color-mix(in srgb, var(--obs-red-soft) 28%, var(--obs-cream-2)) !important;
+.observatory-root .pellier-governed-proof-tab:hover {
+  border-color: color-mix(in srgb, var(--obs-red-1) 36%, var(--obs-rule-1));
+  background: color-mix(in srgb, var(--obs-red-soft) 28%, var(--obs-cream-2));
 }
 
 .pellier-governed-proof-tab-icon {
@@ -1496,7 +1516,7 @@
 .pellier-governed-proof-tab-copy > span {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
@@ -1513,7 +1533,7 @@
 .pellier-governed-proof-tab > small {
   color: var(--obs-ink-3);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.2;
   text-transform: uppercase;
 }
@@ -1542,7 +1562,7 @@
   font-family: var(--obs-mono);
 }
 
-.pellier-governed-proof-question h3 {
+.pellier-governed-proof-question h2 {
   max-width: 560px;
   margin: 10px 0 8px;
   color: var(--obs-ink-1);
@@ -1620,6 +1640,19 @@
   line-height: 1.45;
 }
 
+/* On phones the checkpoint link chips, "Open checkpoint" and the managed
+   trace links are the primary way between evidence views; give them a real
+   touch target without changing their desktop footprint. */
+@media (max-width: 640px) {
+  .observatory-root .proof-board-link-chip,
+  .observatory-root .proof-board-trace-link,
+  .observatory-root .pellier-governed-proof-evidence > a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+}
+
 .proof-board-section-heading {
   margin-top: 2px;
 }
@@ -1680,11 +1713,17 @@
     border-bottom: 0;
   }
 
-  .pellier-governed-proof-tab {
+  .observatory-root .pellier-governed-proof-tab {
     min-height: 72px;
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    gap: 8px;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 6px 8px;
     padding: 10px;
+  }
+
+  /* Three columns no longer fit a 176px tab at 11px type; the status word
+     drops under the title instead of squeezing it. */
+  .observatory-root .pellier-governed-proof-tab > small {
+    grid-column: 2;
   }
 
   .pellier-governed-proof-panel {
@@ -1699,7 +1738,7 @@
 
   .proof-board-section-heading > span {
     max-width: 140px;
-    font-size: 10px !important;
+    font-size: 11px !important;
     line-height: 1.25 !important;
     text-align: right;
   }
@@ -1764,7 +1803,7 @@
 
 .observatory-root .observatory-reference-return:focus-visible {
   border-radius: 3px;
-  outline: 2px solid color-mix(in srgb, var(--obs-red-1) 28%, transparent);
+  outline: 2px solid var(--obs-red-1);
   outline-offset: 3px;
 }
 
@@ -1904,7 +1943,7 @@
 }
 
 .observatory-reference-link:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--obs-red-1) 24%, transparent);
+  outline: 2px solid var(--obs-red-1);
   outline-offset: 2px;
 }
 

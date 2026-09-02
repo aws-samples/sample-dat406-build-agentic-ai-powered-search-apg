@@ -2,7 +2,7 @@
  * Full-width Pellier Observatory shell for live agent inspection.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import ObservatoryContextBanner from './ObservatoryContextBanner';
@@ -11,11 +11,57 @@ import ObservatoryErrorBoundary from './ObservatoryErrorBoundary';
 import { interactionForPath } from './observatoryInteraction';
 import '../styles/base.css';
 
+/**
+ * Tab, history and bookmark titles for each Observatory route. Every route
+ * used to inherit the storefront's title from index.html, so a participant
+ * with several Observatory tabs open could not tell them apart.
+ */
+const ROUTE_TITLES: ReadonlyArray<[prefix: string, title: string]> = [
+  ['/observatory/proof-board', 'Proof Board'],
+  ['/observatory/audit-proof', 'Audit proof'],
+  ['/observatory/operator-lineage', 'Operator lineage'],
+  ['/observatory/workbench', 'Workbench'],
+  ['/observatory/labs', 'Lab'],
+  ['/observatory/sessions', 'Sessions'],
+  ['/observatory/architecture', 'Architecture'],
+  ['/observatory/tools', 'Tool Registry'],
+  ['/observatory/search', 'Search pipeline'], // copy-allow: route title
+  ['/observatory/skills', 'Skills'],
+  ['/observatory/routing', 'Routing'],
+  ['/observatory/memory', 'Memory'],
+  ['/observatory/write-path', 'Write-path'],
+  ['/observatory/performance', 'Retrieval comparison'],
+  ['/observatory/evaluations', 'Evaluations'],
+  ['/observatory/production-patterns', 'Production patterns'],
+  ['/observatory/workshop-map', 'Workshop map'],
+  ['/observatory/settings', 'Settings'],
+];
+
+export function observatoryTitleForPath(pathname: string): string {
+  const match = ROUTE_TITLES.find(
+    ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+  const page = match ? match[1] : 'Lab Collection';
+  return `${page} · Pellier Observatory`;
+}
+
 const ObservatoryFrame: React.FC = () => {
   // Key the error boundary on the pathname so a crash on one surface doesn't
   // strand the operator on every other surface — navigating remounts it,
   // clearing stale error state.
   const { pathname } = useLocation();
+  const isLabsSurface =
+    pathname === '/observatory' ||
+    pathname === '/observatory/' ||
+    pathname.startsWith('/observatory/labs');
+
+  useEffect(() => {
+    const previous = document.title;
+    document.title = observatoryTitleForPath(pathname);
+    return () => {
+      document.title = previous;
+    };
+  }, [pathname]);
 
   return (
     <div className="observatory-root pellier-page-surface">
@@ -26,6 +72,7 @@ const ObservatoryFrame: React.FC = () => {
           <main
             className="observatory-surface"
             data-mode={interactionForPath(pathname)}
+            data-labs={isLabsSurface ? 'true' : undefined}
             data-workbench={
               pathname === '/observatory/workbench' ||
               pathname.startsWith('/observatory/workbench/')

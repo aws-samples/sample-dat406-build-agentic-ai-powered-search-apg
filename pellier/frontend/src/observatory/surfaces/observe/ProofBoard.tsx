@@ -156,7 +156,7 @@ interface GovernanceReceipt {
 }
 
 const STATUS_LABEL: Record<CardStatus, string> = {
-  complete: 'Complete',
+  complete: 'Observed',
   needs_build: 'Build',
   needs_run: 'Run',
   needs_data: 'Data',
@@ -165,39 +165,41 @@ const STATUS_LABEL: Record<CardStatus, string> = {
   available: 'Available',
 };
 
+// Status roles come from base.css (--obs-status-*). The brand burgundy is not
+// among them on purpose: a chip that borrows the accent reads as a button.
 const STATUS_TONE: Record<CardStatus, { color: string; bg: string }> = {
-  complete: { color: 'var(--obs-green-1)', bg: 'rgba(73, 116, 88, 0.12)' },
-  needs_build: { color: 'var(--obs-red-1)', bg: 'rgba(168, 66, 58, 0.12)' },
-  needs_run: { color: 'var(--obs-red-1)', bg: 'rgba(168, 66, 58, 0.12)' },
-  needs_data: { color: '#7c5b18', bg: 'rgba(184, 138, 58, 0.14)' },
-  needs_config: { color: '#7c5b18', bg: 'rgba(184, 138, 58, 0.14)' },
-  pending: { color: 'var(--obs-ink-3)', bg: 'rgba(31, 20, 16, 0.06)' },
-  available: { color: 'var(--obs-ink-2)', bg: 'rgba(31, 20, 16, 0.06)' },
+  complete: { color: 'var(--obs-status-ok-fg)', bg: 'var(--obs-status-ok-bg)' },
+  needs_build: { color: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)' },
+  needs_run: { color: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)' },
+  needs_data: { color: 'var(--obs-status-degraded-fg)', bg: 'var(--obs-status-degraded-bg)' },
+  needs_config: { color: 'var(--obs-status-degraded-fg)', bg: 'var(--obs-status-degraded-bg)' },
+  pending: { color: 'var(--obs-status-neutral-fg)', bg: 'var(--obs-status-neutral-bg)' },
+  available: { color: 'var(--obs-status-neutral-fg)', bg: 'var(--obs-status-neutral-bg)' },
 };
 
 const CHECK_TONE: Record<CheckState, { label: string; color: string; bg: string }> = {
-  pass: { label: 'Pass', color: 'var(--obs-green-1)', bg: 'rgba(73, 116, 88, 0.12)' },
-  warn: { label: 'Warn', color: '#7c5b18', bg: 'rgba(184, 138, 58, 0.14)' },
-  fail: { label: 'Fix', color: 'var(--obs-red-1)', bg: 'rgba(168, 66, 58, 0.12)' },
+  pass: { label: 'Pass', color: 'var(--obs-status-ok-fg)', bg: 'var(--obs-status-ok-bg)' },
+  warn: { label: 'Warn', color: 'var(--obs-status-degraded-fg)', bg: 'var(--obs-status-degraded-bg)' },
+  fail: { label: 'Fix', color: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)' },
 };
 
 const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: string; border: string }> = {
   pass: {
     label: 'Seen',
-    color: 'var(--obs-green-1)',
-    bg: 'rgba(73, 116, 88, 0.12)',
-    border: 'rgba(73, 116, 88, 0.28)',
+    color: 'var(--obs-status-ok-fg)',
+    bg: 'var(--obs-status-ok-bg)',
+    border: 'var(--obs-status-ok-line)',
   },
   warn: {
     label: 'Gap',
-    color: '#7c5b18',
-    bg: 'rgba(184, 138, 58, 0.14)',
-    border: 'rgba(184, 138, 58, 0.32)',
+    color: 'var(--obs-status-degraded-fg)',
+    bg: 'var(--obs-status-degraded-bg)',
+    border: 'var(--obs-status-degraded-line)',
   },
   pending: {
     label: 'Pending',
-    color: 'var(--obs-ink-3)',
-    bg: 'rgba(31, 20, 16, 0.05)',
+    color: 'var(--obs-status-neutral-fg)',
+    bg: 'var(--obs-status-neutral-bg)',
     border: 'var(--obs-card-border)',
   },
 };
@@ -297,7 +299,7 @@ function statusPill(status: CardStatus) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        borderRadius: '999px',
+        borderRadius: '4px',
         padding: '4px 9px',
         color: tone.color,
         background: tone.bg,
@@ -429,7 +431,7 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
             <span>{activeStage.number}</span>
             <span>{activeStage.title}</span>
           </div>
-          <h3>{activeStage.question}</h3>
+          <h2>{activeStage.question}</h2>
           <p>{activeStage.description}</p>
         </div>
         <div className="pellier-governed-proof-evidence">
@@ -445,7 +447,7 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
             </a>
           ) : (
             <p className="pellier-governed-proof-unavailable" role="status">
-              Run the required lab or update the governed backend before using this stage as proof.
+              Run that lab or update the governed backend before using this stage as proof.
             </p>
           )}
         </div>
@@ -461,7 +463,7 @@ const CheckPill: React.FC<{ state: CheckState }> = ({ state }) => {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        borderRadius: '999px',
+        borderRadius: '4px',
         padding: '3px 8px',
         color: tone.color,
         background: tone.bg,
@@ -490,7 +492,9 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
           marginBottom: '14px',
         }}
       >
-        <Eyebrow label="Readiness" />
+        <h2 style={{ margin: 0, fontSize: 'inherit', lineHeight: 1 }}>
+          <Eyebrow label="Readiness" />
+        </h2>
         <span
           style={{
             fontFamily: 'var(--obs-heading)',
@@ -667,12 +671,12 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
         </span>
         <span
           style={{
-            borderRadius: '999px',
+            borderRadius: '4px',
             padding: '4px 8px',
             color: tone.color,
             background: tone.bg,
             fontFamily: 'var(--obs-heading)',
-            fontSize: '10px',
+            fontSize: '11px',
             fontWeight: 700,
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
@@ -770,7 +774,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
               className="font-mono"
               style={{
                 color: 'var(--obs-ink-2)',
-                fontSize: '10px',
+                fontSize: '11px',
                 overflowWrap: 'anywhere',
               }}
             >
@@ -790,6 +794,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
               href={trace.xrayConsoleUrl}
               target="_blank"
               rel="noreferrer"
+              className="proof-board-trace-link"
               style={{ alignItems: 'center', color: 'var(--obs-red-1)', display: 'inline-flex', fontSize: '11px', gap: '4px' }}
             >
               Trace in CloudWatch <ExternalLink size={12} aria-hidden="true" />
@@ -800,6 +805,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
               href={trace.logsConsoleUrl}
               target="_blank"
               rel="noreferrer"
+              className="proof-board-trace-link"
               style={{ alignItems: 'center', color: 'var(--obs-red-1)', display: 'inline-flex', fontSize: '11px', gap: '4px' }}
             >
               Runtime logs <ExternalLink size={12} aria-hidden="true" />
@@ -1045,9 +1051,15 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
   );
 };
 
-const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
+const ProofCardView: React.FC<{
+  card: ProofCard;
+  highlighted?: boolean;
+  /** h3 under a rail heading; h2 when the card is the page's only section. */
+  titleAs?: 'h2' | 'h3';
+}> = ({
   card,
   highlighted = false,
+  titleAs: TitleTag = 'h3',
 }) => {
   const lastUpdated = formatTimestamp(card.lastUpdated);
   return (
@@ -1061,7 +1073,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
       padding: '22px 24px',
       scrollMarginTop: '80px',
       boxShadow: highlighted
-        ? '0 0 0 3px rgba(168, 66, 58, 0.12), 0 2px 10px rgba(45, 24, 16, 0.04)'
+        ? '0 0 0 3px color-mix(in srgb, var(--obs-red-1) 14%, transparent), 0 2px 10px rgba(45, 24, 16, 0.04)'
         : '0 2px 10px rgba(45, 24, 16, 0.04)',
     }}
   >
@@ -1097,10 +1109,10 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
           color: 'var(--obs-ink-3)',
         }}
       >
-        {card.required ? 'Required path' : 'Optional visual'}
+        {card.required ? 'Baseline evidence' : 'Extension evidence'}
       </span>
     </div>
-    <h2
+    <TitleTag
       style={{
         margin: '0 0 6px',
         color: 'var(--obs-ink-1)',
@@ -1111,7 +1123,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
       }}
     >
       {card.title}
-    </h2>
+    </TitleTag>
     <p
       style={{
         margin: '0 0 12px',
@@ -1151,7 +1163,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
               style={{
                 color: 'var(--obs-ink-3)',
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '10px',
+                fontSize: '11px',
                 fontWeight: 600,
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
@@ -1179,7 +1191,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
               style={{
                 color: 'var(--obs-ink-3)',
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '10px',
+                fontSize: '11px',
                 fontWeight: 600,
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
@@ -1237,10 +1249,11 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
         <Link
           key={`${card.id}-${link.to}`}
           to={link.to}
+          className="proof-board-link-chip"
           style={{
             color: 'var(--obs-red-1)',
             border: '1px solid var(--obs-card-border)',
-            borderRadius: '999px',
+            borderRadius: '4px',
             padding: '5px 10px',
             textDecoration: 'none',
             fontFamily: 'var(--obs-heading)',
@@ -1635,8 +1648,8 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         <div
           role="alert"
           style={{
-            border: '1px solid rgba(124, 91, 24, 0.32)',
-            background: 'rgba(184, 138, 58, 0.1)',
+            border: '1px solid var(--obs-status-degraded-line)',
+            background: 'var(--obs-status-degraded-bg)',
             borderRadius: '8px',
             padding: '18px 20px',
             color: 'var(--obs-ink-1)',
@@ -1650,7 +1663,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
               size={20}
               strokeWidth={1.8}
               aria-hidden="true"
-              style={{ flex: '0 0 auto', marginTop: '2px', color: '#7c5b18' }}
+              style={{ flex: '0 0 auto', marginTop: '2px', color: 'var(--obs-status-degraded-fg)' }}
             />
             <div>
               <h2
@@ -1714,11 +1727,11 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         <div
           role="alert"
           style={{
-            border: '1px solid rgba(168, 66, 58, 0.35)',
-            background: 'rgba(168, 66, 58, 0.08)',
+            border: '1px solid var(--obs-status-attention-line)',
+            background: 'var(--obs-status-attention-bg)',
             borderRadius: '8px',
             padding: '14px 16px',
-            color: 'var(--obs-red-1)',
+            color: 'var(--obs-status-attention-fg)',
             fontFamily: 'var(--obs-sans)',
             marginBottom: '24px',
           }}
@@ -1734,7 +1747,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
               aria-label="Lab 3 audit evidence"
               style={{ maxWidth: '860px' }}
             >
-              <ProofCardView card={focusedCard} highlighted />
+              <ProofCardView card={focusedCard} highlighted titleAs="h2" />
             </section>
           ) : (
             <div
@@ -1756,9 +1769,9 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
             <ReadinessPanel checks={data.readiness.checks} />
 
             <ProofRail
-              eyebrow="Required path"
+              eyebrow="Baseline evidence"
               title="Lab checkpoints"
-              summary="These cards mirror evidence from the required path. Use their terminal or SQL fallbacks when you need canonical proof."
+              summary="These cards summarize the evidence each lab leaves behind. Use their terminal or SQL fallbacks when you need canonical proof."
               cards={rails.required}
               activeAnchor={activeAnchor}
             />
