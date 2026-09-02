@@ -208,7 +208,11 @@
   max-height: 64px;
   aspect-ratio: 1;
   object-fit: cover;
-  object-position: center 50%;
+  /*
+   * These source portraits are intentionally tall. The rail is a small
+   * square, so its focal point must sit on the face rather than the hairline.
+   */
+  object-position: center 48%;
   border: 1px solid var(--pl-line);
   border-radius: 11px;
   background: var(--pl-paper-muted);

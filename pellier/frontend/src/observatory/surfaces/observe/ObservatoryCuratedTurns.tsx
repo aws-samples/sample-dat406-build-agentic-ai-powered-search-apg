@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowUpRight, Loader2, Play, Wrench } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import ResponsiveImage from '../../../components/ResponsiveImage';
 import {
   WORKSHOP_TURN_STAGES,
@@ -201,6 +202,19 @@ export default function ObservatoryCuratedTurns({
         </p>
       </header>
 
+      {!loading && !error && journey.surface === 'operator' ? (
+        <Link
+          className="labs-turns-operator-link"
+          to="/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title"
+        >
+          <span>
+            <strong>Open Jessica in Operator</strong>
+            <small>Continue with the separately authenticated staff desk.</small>
+          </span>
+          <ArrowUpRight size={17} aria-hidden="true" />
+        </Link>
+      ) : null}
+
       {loading ? (
         <div className="labs-turns-skeleton" role="status" aria-label="Loading guided requests">
           {[0, 1, 2].map((index) => (
@@ -263,15 +277,6 @@ export default function ObservatoryCuratedTurns({
         </section>
       ) : null}
 
-      {!loading && !error && journey.surface === 'operator' ? (
-        <a
-          className="labs-turns-operator-link"
-          href="/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title"
-        >
-          Open Jessica in Operator
-          <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
-      ) : null}
     </section>
   );
 }

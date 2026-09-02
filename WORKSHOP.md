@@ -46,7 +46,7 @@ architecture demonstration:
 | **Marco · Lab 1** | "What linen do you have for 10 days in Goa?"<br>"What would go with the Hadley shirt?"<br>"Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?" |
 | **Anna · Lab 2** | "A thoughtful gift for someone who loves morning rituals"<br>"Keep the gift under $100 and show me the strongest two options."<br>"Which one should I choose, and prove it stayed in budget and in stock?" |
 | **Theo · Lab 3** | "Hand-thrown ceramics for a slower morning routine"<br>"What goes well with the pour-over set?"<br>"My Wabi-Sabi Bowl arrived chipped. Please help me return it." |
-| **Jessica · Lab 4 Operator close** | "Investigate Jessica's open service issue, TKT-2026-3015, and recommend the next fair step. Distinguish what the records establish from what a source reports."<br>"Which customer, order, return, and identity records are authoritative for this decision?"<br>"Prepare the fairest next step for human review without executing it." |
+| **Jessica · Lab 4 Operator close** | "Investigate Jessica's open service issue (TKT-2026-3015) and recommend the next fair step. Distinguish what the records establish from what a source reports."<br>"Which customer, order, return, and identity records are authoritative for this decision?"<br>"Prepare the fairest next step for human review without executing it." |
 
 For each Storefront script, the requests carry 0, then 2, then 4 prior
 dialogue messages. Theo's third turn closes the managed thread with a
@@ -146,6 +146,18 @@ is the positive control. The required Operator close then runs three turns:
 
 The staff investigation is a separate request and fact from the direct Gateway
 proof. It stops at the human checkpoint; no approval or mutation is implied.
+The Operator deep link keeps that boundary visible: an unsigned visitor is
+asked to sign in to the staff desk, while an unavailable governed service is
+reported as unavailable rather than leaving the case in a permanent loading
+state.
+
+After the terminal shopper receipt, the Evidence Ledger can project the
+Operator lifecycle as a separate typed follow-up: **review opened**, **review
+confirmed or declined**, and, only when a reviewed action is attempted, the
+resulting **execution receipt**. Those events stay after the immutable shopper
+turn. They do not make a staff action look like a Storefront mutation, and
+they do not expose action arguments, principal identifiers, or customer
+mapping details.
 
 ## Pellier Observatory
 
@@ -156,7 +168,10 @@ run legible, but it does not replace the evidence process.
 The Lab Collection and Live Workbench are one Observatory experience, not a
 fourth product surface. The Lab Collection selects the current lab; the Live
 Workbench carries its context into shared evidence views. Use it to orient the
-room, replay a turn, and make the evidence easier to scan.
+room, replay a turn, and make the evidence easier to scan. For the Jessica
+handoff, it also makes the boundary explicit: the shopper turn ends, then the
+typed Operator review and, if one occurs, execution lifecycle follows as
+separate evidence.
 
 The required hands-on work remains deliberately concrete:
 
@@ -228,7 +243,9 @@ Keep the explanation at this level unless someone asks to go deeper:
   effect can occur.
 - A staff investigation in Operator requires authorized staff access, moves
   from Case Investigator to Resolution Planner, and ends at a human checkpoint
-  without execution.
+  without execution in the required participant path. If a reviewer acts
+  later, the decision and any execution receipt are projected as typed
+  follow-up evidence after the shopper receipt.
 - Observatory reconstructs the path from receipts, database evidence, and
   traces.
 
@@ -267,6 +284,8 @@ Use these lines to keep the story consistent:
 - "Memory carries context; Aurora remains the system of record."
 - "An allow decision is not an execution receipt, and a deny decision needs named
   non-execution evidence."
+- "The shopper turn ends before the staff review begins. The ledger shows that
+  handoff without collapsing the two into one action."
 - "The database is not a passive store behind the agent. It independently
   enforces the final boundary."
 
@@ -302,7 +321,8 @@ constraint, and recorded the evidence."
 - Choose speaker ownership for Storefront narrative, labs, managed path, and
   governance.
 - Rehearse Jessica's required three-turn Operator close and verify it stops at
-  the human checkpoint without preparing or executing a business action.
+  the human checkpoint after preparing, but without approving or executing, a
+  business action.
 
 The run-of-show is still being polished. This brief is the shared map for the
 team: customer experience first, a meaningful build moment in each lab,

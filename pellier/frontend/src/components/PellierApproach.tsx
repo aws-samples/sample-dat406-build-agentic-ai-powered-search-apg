@@ -84,9 +84,13 @@ export default function PellierApproach() {
                 <h3>{pillar.title}</h3>
                 <p>{pillar.body}</p>
                 {pillar.href.startsWith('/#') ? (
-                  <a href={pillar.href}>{pillar.linkLabel}</a>
+                  <a className="pellier-pillar-link" href={pillar.href}>
+                    {pillar.linkLabel}
+                  </a>
                 ) : (
-                  <Link to={pillar.href}>{pillar.linkLabel}</Link>
+                  <Link className="pellier-pillar-link" to={pillar.href}>
+                    {pillar.linkLabel}
+                  </Link>
                 )}
               </li>
             )

@@ -61,6 +61,7 @@ const ClientBook: React.FC = () => {
     const authenticationRequired =
       error === 'authentication_required' || error === 'invalid_credentials'
     const operatorRequired = error === 'operator_group_required'
+    const unavailable = error === 'operator_unavailable'
     return (
       <div className="operator-state" data-testid="operator-book-error">
         <span className="operator-state-title">
@@ -68,7 +69,9 @@ const ClientBook: React.FC = () => {
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
-              : 'The book is unavailable'}
+              : unavailable
+                ? 'Operator is temporarily unavailable'
+                : 'The book is unavailable'}
         </span>
         {authenticationRequired ? (
           <>
@@ -79,6 +82,11 @@ const ClientBook: React.FC = () => {
           <>
             This signed-in account is not a member of the operator group. No
             database request was attempted.
+          </>
+        ) : unavailable ? (
+          <>
+            The governed service could not be reached, so no current client
+            book was returned.
           </>
         ) : (
           <>

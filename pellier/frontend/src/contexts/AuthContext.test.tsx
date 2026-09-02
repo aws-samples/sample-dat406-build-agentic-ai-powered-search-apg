@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthProvider, useAuth } from './AuthContext'
+import {
+  AUTH_REQUEST_TIMEOUT_MS,
+  AuthProvider,
+  useAuth,
+} from './AuthContext'
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>
@@ -57,6 +61,7 @@ describe('AuthContext hydration', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     localStorage.clear()
     clearCookie('just_signed_in')
@@ -119,6 +124,28 @@ describe('AuthContext hydration', () => {
       '/api/auth/me',
       expect.objectContaining({ credentials: 'include' }),
     )
+  })
+
+  it('finishes hydration when the auth endpoint does not respond', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('The auth request timed out.', 'AbortError'))
+          })
+        })
+      }),
+    )
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTH_REQUEST_TIMEOUT_MS)
+    })
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.user).toBeNull()
   })
 
   it('returns browser sign-in to the current SPA route', async () => {

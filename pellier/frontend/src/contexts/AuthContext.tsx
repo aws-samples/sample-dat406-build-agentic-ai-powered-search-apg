@@ -87,6 +87,22 @@ export function useOptionalAuth(): AuthContextType | null {
 }
 
 const AUTH_SESSION_MARKER_KEY = 'pellier-auth-session'
+/** A hung local proxy must not strand every surface in its auth loading state. */
+export const AUTH_REQUEST_TIMEOUT_MS = 8_000
+
+async function authFetch(path: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    AUTH_REQUEST_TIMEOUT_MS,
+  )
+
+  try {
+    return await fetch(path, { ...init, signal: controller.signal })
+  } finally {
+    globalThis.clearTimeout(timeout)
+  }
+}
 
 // Shape returned by GET /api/auth/me (see Req 3.1.3). The server returns
 // camelCase fields matching the `User` wire type in services/types.ts.
@@ -120,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const refresh = useCallback(async () => {
     try {
-      const meRes = await fetch('/api/auth/me', {
+      const meRes = await authFetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
       })
@@ -143,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       // Fetch preferences only once we know we have a verified user.
-      const prefsRes = await fetch('/api/user/preferences', {
+      const prefsRes = await authFetch('/api/user/preferences', {
         method: 'GET',
         credentials: 'include',
       })
@@ -170,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * throws so the PreferencesModal (Task 5.3) can surface the error.
    */
   const savePreferences = useCallback(async (p: Preferences) => {
-    const res = await fetch('/api/user/preferences', {
+    const res = await authFetch('/api/user/preferences', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -224,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(AUTH_SESSION_MARKER_KEY)
     setUser(null)
     setPreferences(null)
-    void fetch('/api/auth/logout', {
+    void authFetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
     }).finally(() => window.location.reload())

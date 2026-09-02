@@ -134,10 +134,10 @@
   object-fit: cover;
   /*
    * The contact-sheet frames are much wider than their portrait sources.
-   * Centre the face in the available crop instead of treating each one as a
-   * hairline-only strip.
+   * Bias the crop toward the face so the four anchors read as people rather
+   * than a row of hairlines.
    */
-  object-position: center 50%;
+  object-position: center 48%;
 }
 
 .labs-catalog-contact-sheet figcaption {

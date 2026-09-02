@@ -993,7 +993,10 @@
   line-height: 1.55;
 }
 
-.pellier-pillar a {
+.pellier-pillar-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   align-self: flex-start;
   margin-top: 2px;
   color: var(--pellier-burgundy);
@@ -1004,11 +1007,11 @@
   transition: text-decoration-color var(--gov-motion-base, 200ms) ease;
 }
 
-.pellier-pillar a:hover {
+.pellier-pillar-link:hover {
   text-decoration: underline;
 }
 
-.pellier-pillar a:focus-visible {
+.pellier-pillar-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 3px;

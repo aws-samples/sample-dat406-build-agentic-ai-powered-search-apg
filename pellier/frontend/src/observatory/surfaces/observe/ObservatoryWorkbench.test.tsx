@@ -244,11 +244,14 @@ describe('Pellier Observatory live agent workbench', () => {
       ).not.toBeInTheDocument();
     }
     expect(
-      screen.getByRole('link', { name: 'Open Jessica in Operator' }),
+      screen.getByRole('link', { name: /Open Jessica in Operator/i }),
     ).toHaveAttribute(
       'href',
       '/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title',
     );
+    expect(
+      screen.getByRole('link', { name: /Open Jessica in Operator/i }),
+    ).toHaveTextContent('Continue with the separately authenticated staff desk.')
   });
 
   it('keeps the idle ledger and metrics honest before a run', () => {

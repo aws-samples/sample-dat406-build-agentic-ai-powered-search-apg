@@ -247,6 +247,10 @@ export function AppRoutes() {
         </Route>
         <Route path="/observatory" element={<ObservatoryFrame />}>
           <Route index element={<LabsCatalog />} />
+          {/* Old navigation and screenshots used the collection noun as an
+              index route. Preserve that deep link instead of falling through
+              to the Storefront wildcard. */}
+          <Route path="labs" element={<Navigate to="/observatory" replace />} />
           <Route path="labs/:exerciseId" element={<LabDetail />} />
           <Route path="workbench" element={<ObservatoryWorkbench />} />
           <Route

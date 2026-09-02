@@ -96,6 +96,17 @@ describe('canonical application routes', () => {
     )
   })
 
+  it('keeps the old Labs collection deep link inside Observatory', async () => {
+    renderRoute('/observatory/labs')
+
+    expect(
+      await screen.findByText('Governed Lab Collection'),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/observatory')
+    })
+  })
+
   it('redirects the retired references surface into workbench resources', async () => {
     renderRoute('/observatory/references')
 

@@ -329,16 +329,28 @@ export class OperatorApiError extends Error {
   }
 }
 
+/** Read APIs should surface an unavailable state, never leave the desk loading. */
+export const OPERATOR_REQUEST_TIMEOUT_MS = 8_000
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response
+  const controller = new AbortController()
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    OPERATOR_REQUEST_TIMEOUT_MS,
+  )
+
   try {
     response = await fetch(path, {
       ...init,
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...init.headers },
+      signal: controller.signal,
     })
   } catch {
     throw new OperatorApiError('operator_unavailable', 503)
+  } finally {
+    globalThis.clearTimeout(timeout)
   }
 
   if (!response.ok) {

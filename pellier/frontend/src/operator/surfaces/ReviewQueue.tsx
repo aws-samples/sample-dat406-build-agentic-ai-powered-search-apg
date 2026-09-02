@@ -163,6 +163,7 @@ const ReviewQueue: React.FC = () => {
     const authenticationRequired =
       error === 'authentication_required' || error === 'invalid_credentials'
     const operatorRequired = error === 'operator_group_required'
+    const unavailable = error === 'operator_unavailable'
     return (
       <div className="operator-state" data-testid="operator-reviews-error">
         <span className="operator-state-title">
@@ -170,7 +171,9 @@ const ReviewQueue: React.FC = () => {
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
-              : 'The action queue is unavailable'}
+              : unavailable
+                ? 'Operator is temporarily unavailable'
+                : 'The action queue is unavailable'}
         </span>
         {authenticationRequired ? (
           <>
@@ -181,6 +184,11 @@ const ReviewQueue: React.FC = () => {
           <>
             This signed-in account is not a member of the operator group. No
             database request was attempted.
+          </>
+        ) : unavailable ? (
+          <>
+            The governed service could not be reached, so no current action
+            queue was returned.
           </>
         ) : (
           <>

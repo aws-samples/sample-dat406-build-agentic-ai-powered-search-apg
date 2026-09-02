@@ -87,6 +87,7 @@ const ClientRecord: React.FC = () => {
     const authenticationRequired =
       error === 'authentication_required' || error === 'invalid_credentials'
     const operatorRequired = error === 'operator_group_required'
+    const unavailable = error === 'operator_unavailable'
     return (
       <div className="operator-state" data-testid="operator-record-error">
         <Link to="/operator" className="operator-back">
@@ -97,7 +98,9 @@ const ClientRecord: React.FC = () => {
             ? 'Operator sign-in required'
             : operatorRequired
               ? 'Operator access required'
-              : 'Record unavailable'}
+              : unavailable
+                ? 'Operator is temporarily unavailable'
+                : 'Record unavailable'}
         </span>
         {authenticationRequired ? (
           <>
@@ -108,6 +111,11 @@ const ClientRecord: React.FC = () => {
           <>
             This signed-in account is not a member of the operator group. No
             database request was attempted.
+          </>
+        ) : unavailable ? (
+          <>
+            The governed service could not be reached for{' '}
+            <code>{customerId}</code>. No current client record was returned.
           </>
         ) : (
           <>

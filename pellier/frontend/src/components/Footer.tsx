@@ -202,7 +202,7 @@ function ExploreColumn() {
             <Link
               to={href}
               data-testid={`footer-explore-link-${label.toLowerCase().replace(/\s+/g, '-')}`}
-              className="text-espresso text-sm no-underline transition-colors duration-fade ease-out hover:text-accent"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center py-1 text-espresso text-sm no-underline transition-colors duration-fade ease-out hover:text-accent"
             >
               {label}
             </Link>
@@ -246,7 +246,7 @@ function EditorialColumn({
       <Link
         to={ctaHref}
         data-testid={`${testId}-cta`}
-        className="font-sans text-[13px] font-medium tracking-tight text-accent no-underline mt-1 inline-flex items-center gap-1.5 transition-all duration-fade ease-out hover:underline"
+        className="font-sans text-[13px] font-medium tracking-tight text-accent no-underline mt-1 inline-flex min-h-[44px] items-center gap-1.5 py-1 transition-all duration-fade ease-out hover:underline"
       >
         {ctaLabel}
         <span aria-hidden>&rarr;</span>
@@ -321,7 +321,7 @@ function BottomStrip({
           rel="noopener noreferrer"
           aria-label={githubLabel}
           title={githubLabel}
-          className="group inline-flex h-7 w-7 items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-espresso"
+          className="group inline-flex min-h-[44px] min-w-[44px] items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-espresso"
         >
           <img
             data-testid="footer-github-icon"
