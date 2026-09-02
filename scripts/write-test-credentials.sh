@@ -36,13 +36,15 @@ if [ -z "$CREDS_JSON" ]; then
     exit 1
 fi
 
-# Personalization preferences seeded onto each sign-in account (users 1/2/3 =
-# Marco/Anna/Theo), matched to the persona's editorial profile and deliberately
-# disjoint per persona - kept in sync with seed-sample-preferences.sh.
+# Personalization preferences are seeded only for the three Storefront personas.
+# Jessica is a Lab 4 identity principal and Operator client, so her credential is
+# labeled separately and intentionally has no Storefront preference bundle.
 declare -A PREF_LABEL
 PREF_LABEL[1]="neutral, linen, travel, everyday, classic"
 PREF_LABEL[2]="bold, creative, warm, evening, dresses"
 PREF_LABEL[3]="minimal, serene, earth, slow, home"
+declare -A ROLE_LABEL
+ROLE_LABEL[4]="Lab 4 customer principal and Jessica Operator case"
 
 HOSTED_UI="${COGNITO_HOSTED_UI_URL:-<hosted-ui-url>}"
 
@@ -65,6 +67,9 @@ HOSTED_UI="${COGNITO_HOSTED_UI_URL:-<hosted-ui-url>}"
         echo "Password: $password"
         if [ -n "${PREF_LABEL[$n]:-}" ]; then
             echo "Pre-configured preferences: ${PREF_LABEL[$n]}"
+        fi
+        if [ -n "${ROLE_LABEL[$n]:-}" ]; then
+            echo "Workshop role: ${ROLE_LABEL[$n]}"
         fi
         echo ""
     done

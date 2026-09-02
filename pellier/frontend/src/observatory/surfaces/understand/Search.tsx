@@ -27,7 +27,7 @@ import type { SearchStage, SearchTagClass } from '../../types';
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '12.5px',
+  fontSize: '12px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
@@ -157,7 +157,7 @@ const StagePanel: React.FC<{ stage: SearchStage; index: number }> = ({
                       fontWeight: 600,
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase',
-                      fontSize: '10.5px',
+                      fontSize: '10px',
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -339,7 +339,7 @@ const CodeReadCard: React.FC = () => (
             <code
               style={{
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '12.5px',
+                fontSize: '12px',
                 color: 'var(--obs-red-1)',
                 background: 'var(--obs-cream-2)',
                 padding: '2px 7px',
@@ -442,7 +442,7 @@ const Search: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Understand · Search · embed → vector ∥ lexical → RRF → rerank"
-        title="How one query becomes a ranking."
+        title="Retrieval"
         summary="Anna's hybrid-search-and-rerank path runs live but is usually invisible. Type a query and watch the real pipeline: a Cohere Embed v4 vector, a pgvector HNSW cosine branch and a Postgres full-text branch running in parallel, Reciprocal Rank Fusion merging the two, and Cohere Rerank v3.5 reordering the survivors. The SQL is the SQL that ran; the reordering is live. The Proof Board keeps the required checkpoint."
       />
 

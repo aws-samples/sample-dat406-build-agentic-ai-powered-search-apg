@@ -125,7 +125,7 @@ const SubstratePanel: React.FC<SubstratePanelProps> = ({ panel }) => (
         <p
           style={{
             fontFamily: 'var(--obs-sans)',
-            fontSize: '12.5px',
+            fontSize: '12px',
             lineHeight: 1.5,
             color: 'var(--obs-ink-2)',
             margin: 0,

@@ -82,6 +82,11 @@ FKs.
     descriptions with the approved Marco, Anna, and Theo full-bleed masters.
 37. **`037_serve_persona_hero_masters.sql`** — serves the approved persona
     hero PNG masters directly while retaining derivatives for secondary use.
+38. **`038_principal_customer_cardinality.sql`** — rejects an ambiguous
+    principal-to-customer mapping before constraining each verified subject to
+    one customer scope; multiple principals may still map to one customer.
+39. **`039_return_replay_scope.sql`** — re-checks the caller's RLS-scoped
+    order ownership before returning an idempotent replay.
 
 ## Run
 
@@ -130,7 +135,9 @@ for migration in \
     034_refine_persona_personalities.sql \
     035_expand_persona_discovery_grids.sql \
     036_refresh_persona_hero_alt_text.sql \
-    037_serve_persona_hero_masters.sql
+    037_serve_persona_hero_masters.sql \
+    038_principal_customer_cardinality.sql \
+    039_return_replay_scope.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \

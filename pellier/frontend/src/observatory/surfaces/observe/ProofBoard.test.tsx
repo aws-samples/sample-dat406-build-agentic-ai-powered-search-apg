@@ -63,7 +63,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      lab: '01 GROUND THE ANSWER — Live Data and Evidence',
+      lab: 'Lab 1 · Build — Build a PostgreSQL-Grounded Agent',
       group: 'Agent and tool evidence',
       title: 'Wire Marco to check_inventory',
       status: 'complete',
@@ -72,14 +72,14 @@ const proofBoardPayload = {
       summary: "The Inventory Agent tool is wired and Marco's warehouse turn leaves a check_inventory audit row.",
       evidence: ['Latest check_inventory row: audit_id 101'],
       fallback: {
-        label: 'Terminal fallback',
-        command: 'curl -sN http://localhost:8000/api/chat/stream',
+        label: 'PostgreSQL proof',
+        command: 'psql -X -v ON_ERROR_STOP=1 -c "SELECT * FROM pellier.tool_audit"',
       },
       links: [{ label: 'Tools', to: '/observatory/tools' }],
     },
     {
       id: 'retrieval-comparison',
-      lab: '02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs',
+      lab: 'Lab 2 · Build & Measure — Build and Measure PostgreSQL Hybrid Retrieval',
       group: 'Retrieval evidence',
       title: 'Compare retrieval strategies',
       status: 'available',
@@ -89,14 +89,14 @@ const proofBoardPayload = {
       evidenceSource: 'Aurora search strategy comparison',
       evidence: ['Hybrid retrieval preserves candidate provenance.'],
       fallback: {
-        label: 'Terminal fallback',
-        command: 'curl -s http://localhost:8000/api/agent/search-strategies/compare',
+        label: 'PostgreSQL proof',
+        command: 'psql -X -v ON_ERROR_STOP=1 -c "SELECT * FROM pellier.retrieval_receipts"',
       },
       links: [{ label: 'Retrieval comparison', to: '/observatory/performance' }],
     },
     {
       id: 'audit-ledger',
-      lab: '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
+      lab: 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -111,7 +111,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
+      lab: 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -123,14 +123,14 @@ const proofBoardPayload = {
         'JWT passthrough: true',
       ],
       fallback: {
-        label: 'Terminal fallback',
-        command: 'curl -sN http://localhost:8000/api/chat/stream',
+        label: 'AgentCore Runtime proof',
+        command: 'npx -y @aws/agentcore@0.26.0 invoke --runtime pellier_orchestrator',
       },
       links: [{ label: 'Sessions', to: '/observatory/sessions' }],
     },
     {
       id: 'runtime-gateway-policy',
-      lab: '04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts',
+      lab: 'Lab 4 · Govern — Enforce Identity and Prove Non-Execution',
       group: 'Governance evidence',
       title: 'Verify Gateway, Cedar, and the governed receipt',
       status: 'complete',
@@ -139,8 +139,8 @@ const proofBoardPayload = {
       summary: 'The Gateway decision and the corresponding audit row are correlated.',
       evidence: ['ALLOW receipt linked to tool_audit 303.'],
       fallback: {
-        label: 'Terminal fallback',
-        command: 'curl -s http://localhost:8000/api/observatory/proof-board',
+        label: 'AgentCore validation',
+        command: 'npx -y @aws/agentcore@0.26.0 validate --json',
       },
       links: [{ label: 'Gateway & Policy', to: '/observatory/write-path' }],
     },
@@ -283,10 +283,20 @@ describe('ProofBoard', () => {
     expect(screen.getByTestId('proof-card-marco-floor-check')).toHaveTextContent(
       'Wire Marco to check_inventory',
     );
-    expect(screen.getAllByText('01 GROUND THE ANSWER — Live Data and Evidence')).toHaveLength(2);
-    expect(screen.getAllByText('03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('Lab 1 · Build — Build a PostgreSQL-Grounded Agent'),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByText(
+        'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
-    expect(screen.getAllByText('curl -sN http://localhost:8000/api/chat/stream')).toHaveLength(2);
+    expect(
+      screen.getByText(
+        'npx -y @aws/agentcore@0.26.0 invoke --runtime pellier_orchestrator',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('keeps the governed path compact until a participant selects a stage', async () => {
@@ -425,8 +435,14 @@ describe('ProofBoard', () => {
     );
 
     // Four-lab spine: managed execution and audit share Lab 3.
-    expect(await screen.findAllByText('01 GROUND THE ANSWER — Live Data and Evidence')).toHaveLength(2);
-    expect(screen.getAllByText('03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace').length).toBeGreaterThan(0);
+    expect(
+      await screen.findAllByText('Lab 1 · Build — Build a PostgreSQL-Grounded Agent'),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByText(
+        'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it('renders an authenticated persisted turn record instead of session fixtures', async () => {
@@ -533,7 +549,7 @@ describe('ProofBoard', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Audit proof, row by row.')).toBeInTheDocument();
+    expect(await screen.findByText('Proof board')).toBeInTheDocument();
     expect(await screen.findByTestId('proof-card-audit-ledger')).toHaveTextContent(
       'Prove the audit trail in Aurora',
     );

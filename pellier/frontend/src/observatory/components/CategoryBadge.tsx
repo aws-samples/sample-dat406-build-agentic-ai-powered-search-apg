@@ -58,7 +58,7 @@ export const CategoryBadge: React.FC<CategoryBadgeProps> = ({
         backgroundColor: bg,
         color: color,
         fontFamily: 'var(--obs-heading)',
-        fontSize: '11.5px',
+        fontSize: '11px',
         fontWeight: 600,
         letterSpacing: '0.02em',
         lineHeight: 1.4,

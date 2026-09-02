@@ -6,7 +6,8 @@
  * Design goals:
  *  - renders four nav items (Shop, Stories, Ask Pellier, About)
  *  - centered "Pellier" wordmark with circular P logo
- *  - persona Avatar dropdown replaces PersonaPill + PersonaModal
+ *  - signed-out visitors keep the compact sign-in dropdown
+ *  - signed-in visitors open the shared portrait-led PersonaModal
  *  - bag icon with live count badge
  *  - sticky with backdrop-filter blur
  *
@@ -19,7 +20,7 @@
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { UIProvider } from '../contexts/UIContext'
 
@@ -57,9 +58,41 @@ vi.mock('../contexts/PersonaContext', () => ({
   }),
 }))
 
+const LIVE_PERSONAS = [
+  {
+    id: 'marco',
+    display_name: 'Marco',
+    role_tag: 'Returning',
+    blurb: 'Live Aurora profile.',
+    avatar_color: '#5a3528',
+    avatar_initial: 'M',
+    membership: 'maison',
+    stats: { visits: 11, orders: 7, last_seen_days: 21 },
+  },
+  {
+    id: 'anna',
+    display_name: 'Anna',
+    role_tag: 'Gift-giver',
+    blurb: 'Live Aurora profile.',
+    avatar_color: '#6b3d2a',
+    avatar_initial: 'A',
+    membership: 'circle',
+    stats: { visits: 6, orders: 5, last_seen_days: 9 },
+  },
+  {
+    id: 'theo',
+    display_name: 'Theo',
+    role_tag: 'Home + slow craft',
+    blurb: 'Live Aurora profile.',
+    avatar_color: '#5a4535',
+    avatar_initial: 'T',
+    membership: 'registered',
+    stats: { visits: 8, orders: 4, last_seen_days: 14 },
+  },
+]
+
 // Import Header AFTER mocks so the mocked hooks are bound inside the module.
 import Header from './Header'
-import { MEMBERSHIP } from '../data/membership'
 
 // --- Helpers -----------------------------------------------------------
 
@@ -77,6 +110,19 @@ beforeEach(() => {
   setCartOpen.mockClear()
   mockSwitchPersona.mockClear()
   mockSignOut.mockClear()
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      new Response(JSON.stringify(LIVE_PERSONAS), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 // --- Tests -------------------------------------------------------------
@@ -163,7 +209,7 @@ describe('Header — nav items', () => {
   })
 })
 
-describe('Header — Persona Avatar dropdown', () => {
+describe('Header — persona account control', () => {
   it('uses the shared deep-maroon hover treatment for signed-out account pills', () => {
     const stylesheet = readFileSync(
       'src/index.css',
@@ -204,7 +250,7 @@ describe('Header — Persona Avatar dropdown', () => {
     expect(pill.textContent).toContain('M')
   })
 
-  it('states the membership rung and what it earns, once, when signed in', () => {
+  it('opens the shared portrait selector when signed in', async () => {
     mockPersona = {
       id: 'marco',
       display_name: 'Marco',
@@ -218,14 +264,17 @@ describe('Header — Persona Avatar dropdown', () => {
     renderHeader()
     fireEvent.click(screen.getByTestId('persona-pill'))
 
-    const block = screen.getByTestId('persona-membership')
-    expect(block).toHaveTextContent('Maison')
-    expect(block).toHaveTextContent(MEMBERSHIP.maison.earns)
-    // Stated once: the rung must not also appear in the pill.
-    expect(screen.getByTestId('persona-pill')).not.toHaveTextContent('Maison')
+    expect(screen.getByTestId('persona-modal')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(
+      'Choose who enters Pellier.',
+    )
+    expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId('persona-card-marco')).toBeInTheDocument()
+    })
   })
 
-  it('uses the rung the persona actually carries, not a hardcoded one', () => {
+  it('closes the authenticated selector from its close control', async () => {
     mockPersona = {
       id: 'theo',
       display_name: 'Theo',
@@ -238,18 +287,21 @@ describe('Header — Persona Avatar dropdown', () => {
     }
     renderHeader()
     fireEvent.click(screen.getByTestId('persona-pill'))
+    expect(screen.getByTestId('persona-modal')).toBeInTheDocument()
 
-    const block = screen.getByTestId('persona-membership')
-    expect(block).toHaveTextContent('Registered')
-    expect(block).not.toHaveTextContent('Maison')
+    fireEvent.click(screen.getByTestId('persona-modal-close'))
+    await waitFor(() => {
+      expect(screen.queryByTestId('persona-modal')).not.toBeInTheDocument()
+    })
   })
 
-  it('shows no membership block when signed out', () => {
+  it('keeps the compact sign-in dropdown when signed out', () => {
     mockPersona = null
     renderHeader()
     fireEvent.click(screen.getByTestId('persona-pill'))
 
-    expect(screen.queryByTestId('persona-membership')).not.toBeInTheDocument()
+    expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
+    expect(screen.queryByTestId('persona-modal')).not.toBeInTheDocument()
   })
 
   it('opens dropdown on click (Req 5.1)', () => {

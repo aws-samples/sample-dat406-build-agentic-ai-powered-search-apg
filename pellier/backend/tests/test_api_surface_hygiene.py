@@ -29,7 +29,6 @@ RETIRED_DEMO_PATHS = {
     "/api/agentcore/policy/decisions",
     "/api/agentcore/memories",
     "/api/agentcore/gateway/tools",
-    "/api/agentcore/runtime/status",
     "/api/agentcore/memories/episodes",
     "/api/agentcore/analytics",
     "/api/observatory/readiness",
@@ -55,13 +54,15 @@ def test_supported_status_routes_remain_for_bootstrap_health_checks() -> None:
         "/api/performance/stats",
         "/api/agentcore/gateway/status",
         "/api/agentcore/memory/status",
+        "/api/agentcore/runtime/status",
     } <= _published_paths()
 
 
-def test_observatory_has_one_public_participant_boundary() -> None:
+def test_identity_boundary_is_restricted_to_operators() -> None:
     source = (
         __import__("pathlib").Path(__file__).resolve().parents[1]
         / "routes"
         / "observatory.py"
     ).read_text()
-    assert "Depends(require_operator)" not in source
+    boundary = source[source.index('@router.get("/identity-boundary")'):]
+    assert "Depends(require_operator)" in boundary

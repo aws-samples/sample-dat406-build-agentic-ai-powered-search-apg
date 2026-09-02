@@ -188,18 +188,16 @@ export default function ChatDrawer() {
 
   // Auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!isOpen) return
-    const el = scrollAreaRef.current
-    if (!el) return
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    if (nearBottom) {
-      const t = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 50)
-      return () => clearTimeout(t)
-    }
+    // This drawer is an active concierge conversation. A long streamed answer
+    // can move the end marker more than 120px in one render, so a "near bottom"
+    // check made turn 02/03 appear stuck on turn 01. Follow every active update;
+    // once streaming stops, the shopper can still scroll back through history.
+    const t = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }, 50)
+    return () => clearTimeout(t)
   }, [messages, isOpen])
 
   // Focus trap: Tab/Shift+Tab cycle within drawer
@@ -327,7 +325,7 @@ export default function ChatDrawer() {
             </div>
 
             {/* Body */}
-            <div className="cd-body" ref={scrollAreaRef}>
+            <div className="cd-body">
               {!hasUserMessages && (
                 <PellierWelcome
                   persona={persona}

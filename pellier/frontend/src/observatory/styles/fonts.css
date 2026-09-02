@@ -19,129 +19,63 @@
    * (min 1280px, no mobile breakpoints)
    * ---------------------------------------------------------------- */
 
-  /* Display / hero titles */
-  --obs-display-size: 56px;
-  --obs-display-weight: 400;
-  --obs-display-leading: 1.05;
-  --obs-display-tracking: -0.02em;
+  /* ------------------------------------------------------------------
+   * The scale is a strict subset of the storefront's ladder
+   * (50 / 40 / 30 / 24 / 18 / 16 / 15 / 14 / 13 / 12 / 11 / 10) so the two
+   * surfaces read as one product. The Observatory stops at 40: the storefront
+   * hero owns 50, and this is the optional instrument beside it, not a second
+   * shopfront. There is deliberately ONE display step — the previous 56px
+   * "display" and 52px "title" were two ceilings for the same job and neither
+   * matched what any route actually rendered.
+   * ---------------------------------------------------------------- */
 
-  /* Page titles (e.g., SessionsList, Agents) */
-  --obs-title-size: 52px;
+  /* The one page title per screen. Set on `.observatory-page-title`. */
+  --obs-title-size: clamp(30px, 3.2vw, 40px);
   --obs-title-weight: 400;
   --obs-title-leading: 1.08;
-  --obs-title-tracking: -0.02em;
+  --obs-title-tracking: -0.012em;
 
   /* Section titles (e.g., card headings) */
-  --obs-section-size: 26px;
+  --obs-section-size: 24px;
   --obs-section-weight: 600;
   --obs-section-leading: 1.2;
   --obs-section-tracking: 0;
 
   /* Agent / tool card names */
-  --obs-card-title-size: 24px;
+  --obs-card-title-size: 18px;
 
-  /* Body prose */
+  /* Body prose. 15px is the app-wide `--dl-fs-body`; do not fork it here. */
   --obs-body-size: 15px;
   --obs-body-weight: 400;
   --obs-body-leading: 1.6;
 
-  /* Brief prose (magazine layout) */
-  --obs-brief-size: 16.5px;
+  /* Longer-form reading (session brief) — the storefront's lede step. */
+  --obs-brief-size: 16px;
   --obs-brief-leading: 1.65;
 
-  /* Eyebrow labels */
+  /* Eyebrow labels — same step and tracking as `.pellier-eyebrow`. */
   --obs-eyebrow-size: 11px;
   --obs-eyebrow-weight: 600;
   --obs-eyebrow-tracking: 0.08em;
 
-  /* Monospace code / metadata */
-  --obs-mono-size: 11.5px;
+  /* Monospace: identifiers, SQL, latency, telemetry. Whole pixels only —
+     11.5px and 16.5px were the only fractional steps on the surface. */
+  --obs-mono-size: 11px;
   --obs-mono-leading: 1.7;
 
-  /* Tab navigation */
-  --obs-tab-size: 16px;
+  /* Tab navigation — a control, so it sits on the control step. */
+  --obs-tab-size: 14px;
 
   /* Tool function names */
-  --obs-tool-name-size: 17px;
+  --obs-tool-name-size: 16px;
 }
 
 /* -----------------------------------------------------------------------
- * Utility classes — optional convenience for Observatory components.
- * Components may also reference the custom properties directly.
+ * No utility classes ship from this file.
+ *
+ * A block of eight text helpers used to live here. Every one of them had zero
+ * call sites — components set type from the custom properties above directly —
+ * and they were named with the retired inspection-surface prefix that the
+ * naming contract bans in every other position. Deleted rather than renamed:
+ * a helper with no callers is not worth a name.
  * ----------------------------------------------------------------------- */
-
-.at-text-display {
-  font-family: var(--obs-display);
-  font-size: var(--obs-display-size);
-  font-weight: var(--obs-display-weight);
-  line-height: var(--obs-display-leading);
-  letter-spacing: var(--obs-display-tracking);
-  color: var(--obs-ink-1);
-}
-
-.at-text-title {
-  font-family: var(--obs-display);
-  font-size: var(--obs-title-size);
-  font-weight: var(--obs-title-weight);
-  line-height: var(--obs-title-leading);
-  letter-spacing: var(--obs-title-tracking);
-  color: var(--obs-ink-1);
-}
-
-.at-text-section {
-  font-family: var(--obs-heading);
-  font-size: var(--obs-section-size);
-  font-weight: var(--obs-section-weight);
-  line-height: var(--obs-section-leading);
-  letter-spacing: var(--obs-section-tracking);
-  color: var(--obs-ink-1);
-}
-
-.at-text-body {
-  font-family: var(--obs-sans);
-  font-size: var(--obs-body-size);
-  font-weight: var(--obs-body-weight);
-  line-height: var(--obs-body-leading);
-  color: var(--obs-ink-1);
-}
-
-.at-text-brief {
-  font-family: var(--obs-sans);
-  font-size: var(--obs-brief-size);
-  line-height: var(--obs-brief-leading);
-  font-weight: 400;
-  color: var(--obs-ink-1);
-}
-
-.at-text-eyebrow {
-  font-family: var(--obs-sans);
-  font-size: var(--obs-eyebrow-size);
-  font-weight: var(--obs-eyebrow-weight);
-  letter-spacing: var(--obs-eyebrow-tracking);
-  text-transform: uppercase;
-  color: var(--obs-red-1);
-}
-
-.at-text-mono {
-  font-family: var(--obs-mono);
-  font-size: var(--obs-mono-size);
-  line-height: var(--obs-mono-leading);
-  font-feature-settings: 'calt' 1, 'liga' 1;
-  color: var(--obs-ink-1);
-}
-
-.at-text-tab {
-  font-family: var(--obs-heading);
-  font-size: var(--obs-tab-size);
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--obs-ink-3);
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.at-text-tab-active {
-  color: var(--obs-ink-1);
-  border-bottom: 2px solid var(--obs-red-1);
-  padding-bottom: 6px;
-}

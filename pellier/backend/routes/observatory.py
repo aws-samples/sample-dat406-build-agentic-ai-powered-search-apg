@@ -29,6 +29,9 @@ Endpoints:
     POST /skills/route         - Live skill router demo (Sonnet 4.6)
     GET  /policies             - Cedar policies for the Write-path surface
     GET  /tool-audit/recent    - Recent rows from pellier.tool_audit
+    GET  /identity-boundary    - Verified principal vs requested customer,
+                                 Cedar decision, and keyed execution presence
+                                 or absence, from pellier.governed_receipts
 """
 
 from __future__ import annotations
@@ -45,7 +48,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 # `Path(__file__)` became a path-parameter declaration.
 from fastapi import Path as PathParam
 from pydantic import BaseModel, Field
-from services.auth import get_current_user
+from services.auth import get_current_user, require_operator
 from services.observatory_copy import OBSERVATORY_COPY
 
 logger = logging.getLogger(__name__)
@@ -884,7 +887,7 @@ async def _collect_proof_board(
             write_operation.get("completed_at") if write_operation else None
         ),
         "absenceCheckDetail": (
-            "Gateway/Cedar DENY: governed receipt has no audit_id and no tool_audit row was written."
+            "JWT-bound helper-classified DENY: the uniquely keyed workshop attempt has no audit_id and no tool_audit row."
             if governed_absence_verified
             else ""
         ),
@@ -893,7 +896,7 @@ async def _collect_proof_board(
     cards = [
         {
             "id": "marco-floor-check",
-            "lab": "01 GROUND THE ANSWER — Live Data and Evidence",
+            "lab": "Lab 1 · Build — Build a PostgreSQL-Grounded Agent",
             "group": "Agent and tool evidence",
             "title": "Wire Marco to check_inventory",
             "status": _card_status(check_inventory_wired and bool(latest_check_inventory), "needs_run" if check_inventory_wired else "needs_build"),
@@ -911,12 +914,12 @@ async def _collect_proof_board(
                 ),
             ],
             "fallback": {
-                "label": "Terminal fallback",
+                "label": "PostgreSQL proof",
                 "command": (
-                    "curl -sN http://localhost:8000/api/chat/stream "
-                    "-H 'Content-Type: application/json' "
-                    "-H \"Authorization: Bearer $ACCESS_TOKEN\" "
-                    "-d '{\"message\":\"Marco needs the floor count for the Kyoto Linen Overshirt in cedar, size M\",\"conversation_history\":[],\"session_id\":\"marco-proof\"}'"
+                    "psql -X -v ON_ERROR_STOP=1 -P pager=off -c \""
+                    "SELECT audit_id, session_id, caller, args, latency_ms "
+                    "FROM pellier.tool_audit WHERE tool = 'check_inventory' "
+                    "ORDER BY audit_id DESC LIMIT 3;\""
                 ),
             },
             "links": [
@@ -926,9 +929,9 @@ async def _collect_proof_board(
         },
         {
             "id": "retrieval-comparison",
-            "lab": "02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs",
+            "lab": "Lab 2 · Build & Measure — Build and Measure PostgreSQL Hybrid Retrieval",
             "group": "Retrieval evidence",
-            "title": "Compare Anna's four retrieval strategies",
+            "title": "Reconstruct Anna's hybrid retrieval receipt",
             "status": (
                 "available"
                 if int(counts.get("catalog_count") or 0) >= 60
@@ -936,18 +939,21 @@ async def _collect_proof_board(
             ),
             "required": True,
             "surface": "Pellier + Code Editor",
-            "summary": "Vector, hybrid RRF, hybrid plus rerank, and Anna's agentic path are ready for one quality, latency, and cost comparison.",
-            "evidenceSource": "search-strategies/compare + pellier.product_catalog",
+            "summary": "The durable receipt exposes vector and lexical ranks, RRF, rerank, typed constraints, latency, and modeled cost for PostgreSQL reconstruction.",
+            "evidenceSource": "pellier.retrieval_receipts + pellier.product_catalog",
             "evidence": [
                 f"Catalog rows: {counts.get('catalog_count', 0)}",
                 f"Embedding model: {settings.BEDROCK_EMBEDDING_MODEL}",
                 f"Rerank model: {settings.BEDROCK_RERANK_MODEL}",
             ],
             "fallback": {
-                "label": "Terminal fallback",
+                "label": "PostgreSQL proof",
                 "command": (
-                    "curl -s 'http://localhost:8000/api/observatory/search-strategies/compare"
-                    "?query=A%20milestone%20gift%20for%20a%20new%20homeowner'"
+                    "psql -X -v ON_ERROR_STOP=1 -P pager=off -c \""
+                    "SELECT receipt_id, hard_constraints, retrieval_config, "
+                    "latency_breakdown, modeled_cost_usd "
+                    "FROM pellier.retrieval_receipts "
+                    "ORDER BY receipt_id DESC LIMIT 1;\""
                 ),
             },
             "links": [
@@ -957,7 +963,7 @@ async def _collect_proof_board(
         },
         {
             "id": "audit-ledger",
-            "lab": "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace",
+            "lab": "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path",
             "group": "Operational evidence",
             "title": "Prove the tool_audit ledger",
             "status": (
@@ -995,7 +1001,7 @@ async def _collect_proof_board(
             "fallback": {
                 "label": "SQL fallback",
                 "command": (
-                    "psql \"$DATABASE_URL\" -c \"SELECT audit_id, session_id, tool, caller, args, result "
+                    "psql -X -v ON_ERROR_STOP=1 -P pager=off -c \"SELECT audit_id, session_id, tool, caller, args, result "
                     "FROM pellier.tool_audit WHERE tool = 'initiate_return' ORDER BY audit_id DESC LIMIT 3;\""
                 ),
             },
@@ -1005,7 +1011,7 @@ async def _collect_proof_board(
         },
         {
             "id": "runtime-gateway-policy",
-            "lab": "04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts",
+            "lab": "Lab 4 · Govern — Enforce Identity and Prove Non-Execution",
             "group": "Managed boundaries",
             "title": "Inspect the Gateway and Cedar boundary",
             "status": (
@@ -1029,8 +1035,8 @@ async def _collect_proof_board(
                 "Policy engine configured" if policy_configured else "Policy engine not configured",
             ],
             "fallback": {
-                "label": "Config check",
-                "command": "grep -E 'COGNITO|AGENTCORE_(RUNTIME|GATEWAY|POLICY)' pellier/backend/.env",
+                "label": "AgentCore validation",
+                "command": "cd .agentcore-project/pellier && npx -y @aws/agentcore@0.26.0 validate --json",
             },
             "links": [
                 {"label": "Write-path", "to": "/observatory/write-path"},
@@ -1038,7 +1044,7 @@ async def _collect_proof_board(
         },
         {
             "id": "managed-rail",
-            "lab": "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace",
+            "lab": "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path",
             "group": "Managed boundaries",
             "title": "Prove the managed Runtime and Gateway rail",
             "status": _card_status(
@@ -1084,12 +1090,14 @@ async def _collect_proof_board(
                 ),
             ],
             "fallback": {
-                "label": "Terminal fallback",
+                "label": "AgentCore Runtime proof",
                 "command": (
-                    "curl -sN http://localhost:8000/api/chat/stream "
-                    "-H 'Content-Type: application/json' "
-                    "-H \"Authorization: Bearer $ACCESS_TOKEN\" "
-                    "-d '{\"message\":\"Check floor inventory for BK-01\",\"conversation_history\":[],\"session_id\":\"managed-proof\"}'"
+                    "cd .agentcore-project/pellier && "
+                    "npx -y @aws/agentcore@0.26.0 invoke "
+                    "--runtime pellier_orchestrator "
+                    "--session-id \"$RUNTIME_SESSION\" "
+                    "--bearer-token \"$PELLIER_TOKEN\" "
+                    "--prompt \"Check floor inventory for BK-01\" --json"
                 ),
             },
             "links": [
@@ -1158,7 +1166,14 @@ async def list_sessions(
                 'complete' AS status
               FROM pellier.tool_audit ta
               LEFT JOIN pellier.shopper_sessions ss ON ss.session_id = ta.session_id
-             WHERE (%s IS NULL OR ss.persona_id = %s)
+             -- Both placeholders carry an explicit ::text cast. An uncast
+             -- placeholder compared against NULL gives Postgres nothing to
+             -- infer a type from, and the statement fails to plan with
+             -- "could not determine data type of parameter $1". That is the
+             -- default listing path (persona is None), so /sessions answered
+             -- 503 for every unfiltered request. Keep literal placeholder
+             -- tokens out of these comments: psycopg counts them.
+             WHERE (%s::text IS NULL OR ss.persona_id = %s::text)
              GROUP BY ta.session_id, ss.persona_id
              ORDER BY max(ta.created_at) DESC
              LIMIT 100
@@ -1306,7 +1321,15 @@ async def list_agents():
                 "role": role,
                 "status": status,
                 "tools": tools,
-                "model": settings.BEDROCK_MODEL_ID,
+                # `BEDROCK_MODEL_ID` is not a field on Settings, so reading it
+                # raised AttributeError and this endpoint answered 503 for
+                # every request — which took the Tool Registry's agent topology
+                # down with it. `BEDROCK_CHAT_MODEL` is the specialist profile.
+                # It is reported per row for now, but the routing and reporting
+                # specialists actually run on `BEDROCK_SONNET_MODEL`; treat this
+                # value as the configured chat profile, not a per-agent fact,
+                # until the topology carries its own mapping.
+                "model": settings.BEDROCK_CHAT_MODEL,
             }
             for numeral, name, role, status, tools in (
                 (
@@ -1465,6 +1488,8 @@ async def list_live_scenarios(
                 ws.scenario_id AS id,
                 ws.ordinal,
                 ws.prompt,
+                ws.journey_role,
+                ws.journey_stage,
                 pc.name AS product_name,
                 pc."imgUrl" AS image_url
               FROM pellier.workshop_scenarios ws
@@ -1482,6 +1507,10 @@ async def list_live_scenarios(
                     "id": int(row["id"]),
                     "ordinal": int(row["ordinal"]),
                     "prompt": row["prompt"],
+                    "journeyRole": row.get("journey_role") or (
+                        "required" if int(row["ordinal"]) <= 3 else "explore"
+                    ),
+                    "journeyStage": row.get("journey_stage"),
                     "productName": row.get("product_name"),
                     "imageUrl": row.get("image_url"),
                 }
@@ -2347,3 +2376,315 @@ async def get_recent_tool_audit(
     except Exception as exc:
         logger.error("Failed to load tool_audit: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to load tool audit")  # copy-allow: observatory-error-detail
+
+
+@router.get("/identity-boundary")
+async def identity_boundary(
+    _operator: dict[str, Any] = Depends(require_operator),
+):
+    """Reconstruct the governed identity boundary from Aurora receipts.
+
+    This operator-only read model backs Lab 4's visual. It answers one question for
+    each recorded attempt: which verified principal asked for which customer's
+    data, what the policy engine decided, and whether an execution row exists
+    that carries that attempt's key.
+
+    It reports; it does not evaluate. Every field comes from
+    ``pellier.governed_receipts``, which the CLI proof writes after Cognito has
+    validated the exact bearer token used, so the Observatory cannot claim an
+    identity the Gateway never accepted. Rows arrive only from
+    ``scripts/prove_identity_boundary.py`` or ``gateway_initiate_return.py
+    --record-receipt``; an empty table renders as "not run yet", never as a
+    pass.
+
+    Never returned: the access token, the password, or the Secrets Manager
+    value. ``verified_subject`` is truncated here rather than in the client, so
+    the full subject does not travel to the browser at all. The stored
+    ``token_fingerprint_sha256`` is a safe correlation handle and is passed
+    through as-is.
+
+    ``execution_row`` is the honest three-state answer. ``present`` means an
+    execution row carries this attempt's key. ``absent`` means the key was
+    searched for and found nowhere, which is what makes a DENY provable.
+    ``unknown`` means the receipt predates keyed correlation, and is NEVER
+    reported as absence: "we did not look" and "it is not there" are different
+    claims, and only the second one proves anything.
+    """
+    db = await _live_db()
+
+    def _truncate_subject(subject: str) -> str:
+        clean = (subject or "").strip()
+        if len(clean) <= 12:
+            return clean
+        return f"{clean[:8]}…{clean[-4:]}"
+
+    try:
+        rows = await db.fetch_all(
+            """
+            SELECT
+                gr.receipt_id                              AS "receiptId",
+                gr.session_id                              AS "correlationKey",
+                COALESCE(
+                    NULLIF(gr.args->>'idempotency_key', ''),
+                    gr.session_id
+                )                                          AS "idempotencyKey",
+                gr.verified_username                       AS "verifiedUsername",
+                gr.verified_subject                        AS "verifiedSubject",
+                gr.args->>'customer_id'                    AS "requestedCustomerId",
+                gr.decision                                AS decision,
+                gr.policy_name                             AS "policyName",
+                gr.policy_engine_id                        AS "policyEngineId",
+                gr.token_fingerprint_sha256                AS "tokenFingerprint",
+                gr.identity_source                         AS "identitySource",
+                gr.tool                                    AS tool,
+                gr.audit_id                                AS "auditId",
+                gr.created_at                              AS "createdAt",
+                mapping.customer_ids                        AS "mappedCustomerIds",
+                (
+                    SELECT count(*)
+                      FROM pellier.tool_audit ta
+                     WHERE ta.tool = 'initiate_return'
+                       AND ta.args->>'idempotency_key' = COALESCE(
+                         NULLIF(gr.args->>'idempotency_key', ''),
+                         gr.session_id
+                     )
+                       AND ta.args->>'customer_id' = gr.args->>'customer_id'
+                       AND ta.args->>'product_id' = gr.args->>'product_id'
+                       AND ta.args->>'reason' = gr.args->>'reason'
+                )::integer                                 AS "keyedAuditRows",
+                (
+                    SELECT count(*)
+                      FROM pellier.write_operations wo
+                      JOIN pellier.returns r
+                        ON r.id::text = wo.result->>'return_id'
+                     WHERE wo.idempotency_key = COALESCE(
+                         NULLIF(gr.args->>'idempotency_key', ''),
+                         gr.session_id
+                     )
+                       AND wo.operation = 'initiate_return'
+                       AND wo.completed_at IS NOT NULL
+                       AND wo.result->>'status' = 'success'
+                       AND r.customer_id = gr.args->>'customer_id'
+                       AND r.product_id = gr.args->>'product_id'
+                       AND r.reason = gr.args->>'reason'
+                )::integer                                 AS "keyedWriteRows"
+              FROM pellier.governed_receipts gr
+              LEFT JOIN LATERAL (
+                  SELECT array_agg(pc.customer_id ORDER BY pc.customer_id) AS customer_ids
+                    FROM pellier.principal_customers pc
+                   WHERE pc.principal_sub = gr.verified_subject
+              ) mapping ON TRUE
+             ORDER BY gr.created_at DESC, gr.receipt_id DESC
+             LIMIT 30
+            """
+        )
+    except Exception as exc:
+        logger.exception("Failed to read governed identity receipts")
+        raise HTTPException(
+            status_code=503,
+            detail=OBSERVATORY_COPY["IDENTITY_BOUNDARY_UNAVAILABLE"],
+        ) from exc
+
+    attempts = []
+    for row in rows:
+        record = dict(row)
+        receipt_key = (record.get("correlationKey") or "").strip()
+        idempotency_key = (record.get("idempotencyKey") or "").strip()
+        audit_rows = record.get("keyedAuditRows") or 0
+        source = (record.get("identitySource") or "").strip().lower()
+        raw_mapping = record.get("mappedCustomerIds") or []
+        mapped_customers = [
+            customer.strip()
+            for customer in raw_mapping
+            if isinstance(customer, str) and customer.strip()
+        ] if isinstance(raw_mapping, (list, tuple)) else []
+        # Migration 010 seeds one deterministic forensic incident into this same
+        # table. It is a teaching fixture, not a provider decision, and it
+        # predates keyed correlation: its session_id is a readable label rather
+        # than an idempotency key. Reporting "absent" for it would manufacture a
+        # negative proof out of a row nobody ever keyed, which is the exact
+        # failure mode this view exists to rule out.
+        is_fixture = source in {"seeded", "fixture"} or source.startswith("seeded")
+        if is_fixture or not idempotency_key:
+            execution_row = "unknown"
+        elif audit_rows > 0:
+            execution_row = "present"
+        else:
+            execution_row = "absent"
+
+        requested = (record.get("requestedCustomerId") or "").strip()
+        mapped = mapped_customers[0] if len(mapped_customers) == 1 else ""
+        # Whether the principal was asking about its own customer. Reported as a
+        # fact about the two values, not as an authorization verdict: Cedar owns
+        # that, and `decision` above carries its answer.
+        if len(mapped_customers) > 1:
+            ownership = "ambiguous-mapping"
+        elif requested and mapped:
+            ownership = "own-customer" if requested == mapped else "other-customer"
+        else:
+            ownership = "unmapped"
+
+        attempts.append(
+            {
+                "receiptId": record.get("receiptId"),
+                "correlationKey": receipt_key,
+                "idempotencyKey": idempotency_key,
+                "verifiedUsername": record.get("verifiedUsername"),
+                "verifiedSubject": _truncate_subject(record.get("verifiedSubject") or ""),
+                "requestedCustomerId": requested or None,
+                "mappedCustomerId": mapped or None,
+                "mappingCardinality": len(mapped_customers),
+                "ownership": ownership,
+                "decision": (record.get("decision") or "").upper() or "NOT_EVALUATED",
+                "policyName": record.get("policyName"),
+                "policyEngineId": record.get("policyEngineId"),
+                "tokenFingerprint": record.get("tokenFingerprint"),
+                "identitySource": record.get("identitySource"),
+                # Per-row, not per-page. A page-level badge would let one
+                # seeded row inherit the credibility of the live ones beside it.
+                "provenance": "Fixture" if is_fixture else "Authoritative",
+                "tool": record.get("tool"),
+                "executionRow": execution_row,
+                "keyedAuditRows": audit_rows,
+                "durableWriteRows": record.get("keyedWriteRows") or 0,
+                "auditId": record.get("auditId"),
+                "createdAt": record.get("createdAt"),
+            }
+        )
+
+    # Live proof and seeded reference are separate collections, not one list with
+    # a page-level badge. A "weakest row wins" summary was the first shape here
+    # and it was wrong in a specific way: migration 010 seeds a permanent
+    # forensic fixture, so the page could never report a valid live run as
+    # authoritative no matter how many times a participant proved it.
+    fixtures = [a for a in attempts if a["provenance"] == "Fixture"]
+    live = [a for a in attempts if a["provenance"] == "Authoritative"]
+
+    # The proof driver keys every attempt `identity-boundary-<run>-<case>`, so
+    # the run is recoverable from the key and one command's four cases stay
+    # together. Anything else live is grouped under its own key as a run of one.
+    def _run_of(attempt: dict[str, Any]) -> str:
+        key = attempt.get("correlationKey") or ""
+        parts = key.split("-")
+        if len(parts) >= 4 and parts[0] == "identity" and parts[1] == "boundary":
+            return "-".join(parts[:3])
+        return key or f"receipt-{attempt.get('receiptId')}"
+
+    runs: list[dict[str, Any]] = []
+    seen_runs: dict[str, dict[str, Any]] = {}
+    for attempt in live:
+        run_id = _run_of(attempt)
+        run = seen_runs.get(run_id)
+        if run is None:
+            # `attempts` is ordered newest first, so the first sighting of a run
+            # carries its most recent timestamp.
+            run = {"runId": run_id, "startedAt": attempt.get("createdAt"), "attempts": []}
+            seen_runs[run_id] = run
+            runs.append(run)
+        run["attempts"].append(attempt)
+
+    for run in runs:
+        cases = run["attempts"]
+        decisions = {c["decision"] for c in cases}
+        # Summaries are computed inside one run only. Mixing runs would let a
+        # stale failure follow a participant who has since fixed their policy.
+        run["caseCount"] = len(cases)
+        run["denyCount"] = sum(1 for c in cases if c["decision"] == "DENY")
+        run["allowCount"] = sum(1 for c in cases if c["decision"] == "ALLOW")
+        run["provenance"] = "Authoritative"
+        # "Two DENYs and one ALLOW" is not a complete proof: it could be three
+        # unrelated receipts. The driver writes exactly four named cases, with
+        # two Jessica invocations sharing one durable write key. Require that
+        # concrete contract before the Observatory calls a run held.
+        expected_cases = {
+            f"{run['runId']}-marco": ("marco", "CUST-MARCO", "DENY", "absent"),
+            f"{run['runId']}-anna": ("anna", "CUST-ANNA", "DENY", "absent"),
+            f"{run['runId']}-jessica": (
+                "jessica",
+                "CUST-JESSICA",
+                "ALLOW",
+                "present",
+            ),
+            f"{run['runId']}-jessica-replay": (
+                "jessica",
+                "CUST-JESSICA",
+                "ALLOW",
+                "present",
+            ),
+        }
+        cases_by_receipt: dict[str, list[dict[str, Any]]] = {}
+        for case in cases:
+            cases_by_receipt.setdefault(case["correlationKey"], []).append(case)
+
+        matrix_shape_held = (
+            len(cases) == len(expected_cases)
+            and set(cases_by_receipt) == set(expected_cases)
+            and all(len(group) == 1 for group in cases_by_receipt.values())
+        )
+        matrix_cases_held = matrix_shape_held
+        for receipt_key, (
+            expected_username,
+            expected_customer,
+            expected_decision,
+            expected_execution,
+        ) in expected_cases.items():
+            case = cases_by_receipt.get(receipt_key, [None])[0]
+            if case is None:
+                matrix_cases_held = False
+                continue
+            if (
+                (case.get("verifiedUsername") or "").lower() != expected_username
+                or case.get("requestedCustomerId") != "CUST-JESSICA"
+                or case.get("mappedCustomerId") != expected_customer
+                or case.get("mappingCardinality") != 1
+                or case.get("tool") != "initiate_return"
+                or case.get("decision") != expected_decision
+                or case.get("executionRow") != expected_execution
+            ):
+                matrix_cases_held = False
+                continue
+            if expected_decision == "DENY" and (
+                case.get("keyedAuditRows") != 0 or case.get("durableWriteRows") != 0
+            ):
+                matrix_cases_held = False
+
+        jessica = cases_by_receipt.get(f"{run['runId']}-jessica", [None])[0]
+        replay = cases_by_receipt.get(
+            f"{run['runId']}-jessica-replay", [None]
+        )[0]
+        replay_contract_held = bool(
+            jessica
+            and replay
+            and jessica.get("idempotencyKey")
+            and jessica.get("idempotencyKey") == replay.get("idempotencyKey")
+            and jessica.get("keyedAuditRows") == 2
+            and replay.get("keyedAuditRows") == 2
+            and jessica.get("durableWriteRows") == 1
+            and replay.get("durableWriteRows") == 1
+        )
+        run["complete"] = matrix_cases_held and replay_contract_held
+        run["contradiction"] = next(
+            (
+                f"{c['verifiedUsername']}: {c['decision']} with execution "
+                f"{c['executionRow']}"
+                for c in cases
+                if (c["decision"] == "DENY" and c["executionRow"] == "present")
+                or (c["decision"] == "ALLOW" and c["executionRow"] == "absent")
+            ),
+            None,
+        )
+        run["decisions"] = sorted(decisions)
+
+    return {
+        # Flat list retained for callers that want the raw rows.
+        "attempts": attempts,
+        "count": len(attempts),
+        "liveRuns": runs,
+        "liveCount": len(live),
+        # The run a participant is looking at: the newest live one. Its summary is
+        # computed only from its own cases.
+        "selectedRunId": runs[0]["runId"] if runs else None,
+        "fixtures": fixtures,
+        "fixtureCount": len(fixtures),
+        "emptyReason": None if runs else OBSERVATORY_COPY["IDENTITY_BOUNDARY_EMPTY"],
+    }

@@ -63,13 +63,15 @@ fi
 
 # --- Preference sets -------------------------------------------------------
 # One bundle per persona, matched to the persona's editorial profile (see
-# personas-config.json). Users are seeded in order Marco/Anna/Theo, so PREFS[1]
-# = Marco, [2] = Anna, [3] = Theo. The three bundles are deliberately DISJOINT
+# personas-config.json). Users are provisioned in order Marco/Anna/Theo/Jessica,
+# but only the first three are Storefront personas, so PREFS[1] = Marco,
+# [2] = Anna, [3] = Theo. The three bundles are deliberately DISJOINT
 # (no tag appears in two) so signed-in personalization stays distinguishable per
 # persona. Backend stores each as a single tag list for personalization.
 #   Marco  - Brooklyn, natural fibers, linen pieces that travel well; returning.
 #   Anna   - gift-giver; bold, milestone, evening, dresses.
 #   Theo   - quiet slow craft; ceramics, linen throws, home, earth tones.
+#   Jessica - no Storefront bundle; she anchors the Lab 4 identity/Operator case.
 declare -A PREFS
 PREFS[1]='["neutral","linen","travel","everyday","classic"]'
 PREFS[2]='["bold","creative","warm","evening","dresses"]'

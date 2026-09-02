@@ -21,6 +21,7 @@ when the dispatcher's intent space is reshaped.
 import json
 from strands import Agent, tool
 from strands.models import BedrockModel
+from config import settings
 from services.agent_tools import check_inventory, restock_inventory, get_low_stock
 from skills import inject_skills
 from services.persona_context import inject_persona_preamble

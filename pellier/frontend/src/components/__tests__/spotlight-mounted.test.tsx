@@ -50,62 +50,47 @@ describe('first-visit orientation', () => {
 
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByRole('heading', { name: 'Begin with the edit.' })).toBeInTheDocument();
-    // Derived from the source rather than hardcoded: the tour gained an
-    // operator step, and a literal count made that a test failure instead of
-    // a content change.
+    // The welcome remains a deliberately short arrival sequence.
     const dots = screen.getAllByRole('button', { name: /Show / });
-    expect(dots.length).toBeGreaterThanOrEqual(4);
+    expect(dots).toHaveLength(3);
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(screen.getByRole('button', { name: 'Show Personalize' })).toHaveAttribute(
-      'aria-current',
-      'step',
-    );
+    expect(
+      screen.getByRole('button', { name: 'Show Ask, step 2 of 3' }),
+    ).toHaveAttribute('aria-current', 'step');
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(screen.getByRole('button', { name: 'Show Browse' })).toHaveAttribute(
-      'aria-current',
-      'step',
-    );
+    expect(
+      screen.getByRole('button', { name: 'Show Choose, step 1 of 3' }),
+    ).toHaveAttribute('aria-current', 'step');
   });
 
-  it('teaches separate storefront and operator agent workflows over shared customer truth', async () => {
+  it('closes on the separate governed evidence surfaces rather than a feature tour', async () => {
     render(<PellierSpotlight />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show Assist' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Show Trace, step 3 of 3' }),
+    );
 
     await waitFor(() =>
       expect(
         screen.getByRole('heading', {
-          name: 'Different agents. Shared customer truth.',
+          name: 'Follow the evidence.',
         }),
       ).toBeInTheDocument(),
     );
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'The Storefront Dispatcher routes each shopper request to a specialist.',
+      'the Operator workspace and Observatory make the customer scope',
     );
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'A separate Case Investigator → Resolution Planner graph assists advisors',
+      'routed tools, policy decision, and Aurora record visible.',
     );
-    expect(screen.getByRole('dialog')).not.toHaveTextContent(
-      'Advisors work the same agent',
-    );
-  });
-
-  it('describes Observatory using the evidence stages the live workbench exposes', async () => {
-    render(<PellierSpotlight />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show Inspect' }));
-
     await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: 'Follow the evidence.' }),
-      ).toBeInTheDocument(),
+      expect(screen.getAllByRole('img').at(-1)).toHaveAttribute(
+        'src',
+        expect.stringContaining('tour-proof-board'),
+      ),
     );
-    expect(screen.getByRole('dialog')).toHaveTextContent(
-      'routing, memory, guardrails, agent activity, tool calls, SQL',
-    );
-    expect(screen.getByRole('dialog')).not.toHaveTextContent('policy decision');
   });
 
   it('contains keyboard focus and restores it after dismissal', () => {

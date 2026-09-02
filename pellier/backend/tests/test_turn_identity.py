@@ -17,7 +17,12 @@ from __future__ import annotations
 
 import pytest
 
-from services.turn_identity import TurnIdentity, resolve_turn_identity
+from services.turn_identity import (
+    TurnIdentity,
+    authorized_customer_id_var,
+    current_authorized_customer_id,
+    resolve_turn_identity,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +119,19 @@ def test_authenticated_customer_scope_comes_only_from_verified_username() -> Non
     assert identity.demo_persona_id == "CUST-ANNA"
 
 
+def test_jessica_has_a_verified_customer_scope_without_becoming_a_persona() -> None:
+    identity = resolve_turn_identity(
+        user={"sub": "sub-jessica", "username": "Jessica"},
+        requested_customer_id="CUST-MARCO",
+    )
+
+    assert identity.shopper_customer_id == "CUST-JESSICA"
+    assert identity.principal_sub == "sub-jessica"
+    assert identity.demo_persona_id == "CUST-MARCO"
+    assert identity.authenticated is True
+    assert identity.persona_is_simulated is False
+
+
 def test_unknown_verified_username_does_not_fall_back_to_persona() -> None:
     identity = resolve_turn_identity(
         user={"sub": "sub-1", "username": "participant-99"},
@@ -140,6 +158,29 @@ def test_chat_scopes_memory_through_the_identity_service() -> None:
 def test_default_identity_is_anonymous() -> None:
     assert TurnIdentity().memory_actor() == "anonymous"
     assert TurnIdentity().authorization_principal() is None
+
+
+def test_verified_customer_scope_is_turn_local() -> None:
+    assert current_authorized_customer_id() is None
+    token = authorized_customer_id_var.set("CUST-MARCO")
+    try:
+        assert current_authorized_customer_id() == "CUST-MARCO"
+    finally:
+        authorized_customer_id_var.reset(token)
+    assert current_authorized_customer_id() is None
+
+
+def test_chat_binds_the_verified_customer_scope_on_both_paths() -> None:
+    from pathlib import Path
+
+    chat_source = (
+        Path(__file__).resolve().parents[1] / "services" / "chat.py"
+    ).read_text()
+    assert chat_source.count("authorized_customer_id_var.set(") >= 2
+    assert (
+        "turn_identity.shopper_customer_id if turn_identity.authenticated else None"
+        in chat_source
+    )
 
 
 # ---------------------------------------------------------------------------

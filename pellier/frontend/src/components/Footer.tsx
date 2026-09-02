@@ -13,7 +13,7 @@
  *   - Storyboard:   Italic blurb + a real link to `/storyboard`.
  *   - Observatory:  Italic blurb + a real link to `/observatory`.
  *   - Disclaimer:   States that nothing is charged and the catalog is synthetic.
- *   - Legal strip:  Copyright, licence, author credit. No Privacy/Terms/
+ *   - Legal strip:  Copyright, licence, team credit, source link. No Privacy/Terms/
  *                   Accessibility stubs — those were the same dead links the
  *                   earlier rewrite eliminated, and inventing them back would
  *                   undo it.
@@ -75,6 +75,8 @@ export default function Footer() {
           rights={FOOTER.BOTTOM_STRIP.RIGHTS}
           license={FOOTER.BOTTOM_STRIP.LICENSE}
           attribution={FOOTER.BOTTOM_STRIP.ATTRIBUTION}
+          githubUrl={FOOTER.BOTTOM_STRIP.GITHUB_URL}
+          githubLabel={FOOTER.BOTTOM_STRIP.GITHUB_LABEL}
         />
       </div>
     </footer>
@@ -274,6 +276,8 @@ interface BottomStripProps {
   rights: string
   license: string
   attribution: string
+  githubUrl: string
+  githubLabel: string
 }
 
 function BottomStrip({
@@ -281,6 +285,8 @@ function BottomStrip({
   rights,
   license,
   attribution,
+  githubUrl,
+  githubLabel,
 }: BottomStripProps) {
   return (
     <div
@@ -293,20 +299,41 @@ function BottomStrip({
       >
         {copyrightLine}
       </span>
-      <span
-        data-testid="footer-legal"
-        className="font-sans text-xs text-ink-quiet tracking-tight"
-      >
-        {rights}
-        <span aria-hidden className="mx-2 text-ink-quiet/50">
-          &middot;
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span
+          data-testid="footer-legal"
+          className="font-sans text-xs text-ink-quiet tracking-tight"
+        >
+          {rights}
+          <span aria-hidden className="mx-2 text-ink-quiet/50">
+            &middot;
+          </span>
+          {license}
+          <span aria-hidden className="mx-2 text-ink-quiet/50">
+            &middot;
+          </span>
+          <span data-testid="footer-attribution">{attribution}</span>
         </span>
-        {license}
-        <span aria-hidden className="mx-2 text-ink-quiet/50">
-          &middot;
-        </span>
-        <span data-testid="footer-attribution">{attribution}</span>
-      </span>
+        <a
+          data-testid="footer-github-link"
+          href={githubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={githubLabel}
+          title={githubLabel}
+          className="group inline-flex h-7 w-7 items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-espresso"
+        >
+          <img
+            data-testid="footer-github-icon"
+            src="/assets/icons/github-mark.svg"
+            alt=""
+            aria-hidden="true"
+            width={18}
+            height={18}
+            className="h-[18px] w-[18px] opacity-65 transition-opacity group-hover:opacity-100"
+          />
+        </a>
+      </div>
     </div>
   )
 }

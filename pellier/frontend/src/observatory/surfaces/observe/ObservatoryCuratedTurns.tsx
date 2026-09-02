@@ -5,20 +5,25 @@
  */
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, Loader2, Play } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Loader2, Play } from 'lucide-react';
 import ResponsiveImage from '../../../components/ResponsiveImage';
+import {
+  WORKSHOP_TURN_STAGES,
+  type WorkshopJourney,
+} from '../../../data/workshopJourneys';
 
 interface LiveScenario {
   id: number;
   ordinal: number;
   prompt: string;
+  journeyRole?: 'required' | 'explore';
+  journeyStage?: 'establish' | 'exercise' | 'prove' | null;
   productName: string | null;
   imageUrl: string | null;
 }
 
 export interface ObservatoryCuratedTurnsProps {
-  personaId: string;
-  personaLabel: string;
+  journey: WorkshopJourney;
   running: boolean;
   activeIndex: number | null;
   onInspect: (query: string, index: number) => void;
@@ -26,8 +31,7 @@ export interface ObservatoryCuratedTurnsProps {
 }
 
 export default function ObservatoryCuratedTurns({
-  personaId,
-  personaLabel,
+  journey,
   running,
   activeIndex,
   onInspect,
@@ -42,7 +46,27 @@ export default function ObservatoryCuratedTurns({
     setLoading(true);
     setError(null);
     setScenarios([]);
-    void fetch(`/api/observatory/scenarios?persona=${encodeURIComponent(personaId)}`)
+    if (journey.surface === 'operator') {
+      setScenarios(
+        journey.prompts.map((prompt, index) => ({
+          id: index + 1,
+          ordinal: index + 1,
+          prompt,
+          journeyRole: 'required',
+          journeyStage: (['establish', 'exercise', 'prove'] as const)[index],
+          productName: null,
+          imageUrl: null,
+        })),
+      );
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void fetch(
+      `/api/observatory/scenarios?persona=${encodeURIComponent(journey.anchorId)}`,
+    )
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`Live scenario request failed: ${response.status}`);
@@ -67,24 +91,105 @@ export default function ObservatoryCuratedTurns({
     return () => {
       cancelled = true;
     };
-  }, [personaId]);
+  }, [journey]);
 
-  const namedPersona = personaId !== 'fresh' && personaId !== 'anonymous';
+  const requiredScenarios = scenarios.filter((scenario) =>
+    scenario.journeyRole
+      ? scenario.journeyRole === 'required'
+      : scenario.ordinal <= 3,
+  );
+  const exploreScenarios = scenarios.filter((scenario) =>
+    scenario.journeyRole
+      ? scenario.journeyRole === 'explore'
+      : scenario.ordinal > 3,
+  );
+
+  const renderScenario = (scenario: LiveScenario, index: number) => {
+    const isActive = activeIndex === index;
+    const stage = WORKSHOP_TURN_STAGES[Math.min(scenario.ordinal - 1, 2)];
+    const content = (
+      <>
+        <span className="labs-turn-media" aria-hidden="true">
+          {scenario.imageUrl ? (
+            <ResponsiveImage
+              src={scenario.imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              sizes="74px"
+            />
+          ) : (
+            <span>{journey.surface === 'operator' ? 'Operator case' : 'No catalog image'}</span>
+          )}
+        </span>
+        <span className="labs-turn-copy">
+          <span className="labs-turn-stage">
+            {scenario.journeyRole === 'explore'
+              ? `Explore ${scenario.ordinal - 3}`
+              : `Turn ${scenario.ordinal} · ${stage}`}
+          </span>
+          <strong>{scenario.prompt}</strong>
+          <small>
+            {journey.surface === 'operator'
+              ? 'Authenticated staff investigation'
+              : scenario.productName
+                ? `Catalog preview · ${scenario.productName}`
+                : 'Aurora scenario'}
+          </small>
+        </span>
+      </>
+    );
+
+    if (journey.surface === 'operator') {
+      return (
+        <article className="labs-turn labs-turn-static">
+          {content}
+          <span className="labs-turn-action" aria-hidden="true">
+            <ArrowUpRight size={15} />
+          </span>
+        </article>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        className="labs-turn"
+        data-active={isActive ? 'true' : undefined}
+        disabled={running}
+        aria-label={`Inspect: ${scenario.prompt}`}
+        onClick={() => onInspect(scenario.prompt, index)}
+      >
+        {content}
+        <span className="labs-turn-action" aria-hidden="true">
+          {isActive && running ? (
+            <Loader2 className="spin" size={15} />
+          ) : (
+            <Play size={14} fill="currentColor" />
+          )}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <section className="labs-turns" id={id} aria-labelledby="labs-turns-title">
       <header className="labs-turns-heading">
-        <h2 id="labs-turns-title">Shopper turns</h2>
+        <h2 id="labs-turns-title">
+          {journey.surface === 'operator' ? 'Operator close' : 'Shopper turns'}
+        </h2>
         <p>
-          {namedPersona
-            ? `Aurora-backed guided requests for ${personaLabel}`
-            : 'Aurora-backed guided requests for the storefront'}
+          {journey.surface === 'operator'
+            ? `Jessica's governed case continues in the separately authenticated staff surface.`
+            : `Aurora-backed guided requests for ${journey.anchorName}`}
         </p>
       </header>
 
       {loading ? (
-        <div className="labs-turns-state" role="status">
-          <Loader2 className="spin" size={16} aria-hidden="true" />
-          Loading live scenarios…
+        <div className="labs-turns-skeleton" role="status" aria-label="Loading guided requests">
+          {[0, 1, 2].map((index) => (
+            <span key={index} className="labs-turn-skeleton-row" aria-hidden="true" />
+          ))}
         </div>
       ) : null}
       {error ? (
@@ -99,53 +204,47 @@ export default function ObservatoryCuratedTurns({
         </div>
       ) : null}
 
-      {!loading && !error && scenarios.length > 0 ? (
-        <ol className="labs-turns-list">
-          {scenarios.map((scenario, index) => {
-            const isActive = activeIndex === index;
-            return (
+      {!loading && !error && requiredScenarios.length > 0 ? (
+        <section
+          className="labs-turns-group"
+          aria-label="Required three-turn journey"
+        >
+          <div className="labs-turns-group-heading">
+            <h3>Required three-turn journey</h3>
+            <span>0 → 2 → 4 prior messages</span>
+          </div>
+          <ol className="labs-turns-list" data-journey-role="required">
+            {requiredScenarios.map((scenario, index) => (
+              <li key={scenario.id}>{renderScenario(scenario, index)}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {!loading && !error && exploreScenarios.length > 0 ? (
+        <section className="labs-turns-group" aria-label="Explore further">
+          <div className="labs-turns-group-heading">
+            <h3>Explore further</h3>
+            <span>Optional extensions</span>
+          </div>
+          <ol className="labs-turns-list labs-turns-list-explore" data-journey-role="explore">
+            {exploreScenarios.map((scenario, index) => (
               <li key={scenario.id}>
-                <button
-                  type="button"
-                  className="labs-turn"
-                  data-active={isActive ? 'true' : undefined}
-                  disabled={running}
-                  aria-label={`Inspect: ${scenario.prompt}`}
-                  onClick={() => onInspect(scenario.prompt, index)}
-                >
-                  <span className="labs-turn-media" aria-hidden="true">
-                    {scenario.imageUrl ? (
-                      <ResponsiveImage
-                        src={scenario.imageUrl}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        sizes="74px"
-                      />
-                    ) : (
-                      <span>No catalog image</span>
-                    )}
-                  </span>
-                  <span className="labs-turn-copy">
-                    <strong>{scenario.prompt}</strong>
-                    <small>
-                      {scenario.productName
-                        ? `Catalog preview · ${scenario.productName}`
-                        : 'Aurora scenario'}
-                    </small>
-                  </span>
-                  <span className="labs-turn-action" aria-hidden="true">
-                    {isActive && running ? (
-                      <Loader2 className="spin" size={15} />
-                    ) : (
-                      <Play size={14} fill="currentColor" />
-                    )}
-                  </span>
-                </button>
+                {renderScenario(scenario, requiredScenarios.length + index)}
               </li>
-            );
-          })}
-        </ol>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {!loading && !error && journey.surface === 'operator' ? (
+        <a
+          className="labs-turns-operator-link"
+          href="/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title"
+        >
+          Open Jessica in Operator
+          <ArrowUpRight size={15} aria-hidden="true" />
+        </a>
       ) : null}
     </section>
   );

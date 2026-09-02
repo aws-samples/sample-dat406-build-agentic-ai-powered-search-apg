@@ -26,6 +26,7 @@ interface LiveScenario {
   id: number
   ordinal: number
   prompt: string
+  journeyRole?: 'required' | 'explore'
 }
 
 type StatementId = 'fresh' | 'marco' | 'anna' | 'theo'
@@ -109,7 +110,17 @@ export default function PellierHero({
         return response.json() as Promise<{ scenarios?: LiveScenario[] }>
       })
       .then(payload => {
-        if (active) setSuggestions((payload.scenarios ?? []).slice(0, 3))
+        if (active) {
+          setSuggestions(
+            (payload.scenarios ?? [])
+              .filter((scenario) =>
+                scenario.journeyRole
+                  ? scenario.journeyRole === 'required'
+                  : scenario.ordinal <= 3,
+              )
+              .slice(0, 3),
+          )
+        }
       })
       .catch(() => {
         if (active) setSuggestions([])

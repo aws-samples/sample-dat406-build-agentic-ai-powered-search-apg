@@ -396,8 +396,8 @@ const IdentityCard: React.FC<{ pattern: IdentityPattern }> = ({ pattern }) => (
         marginTop: '14px',
         padding: '12px 14px',
         backgroundColor: 'color-mix(in srgb, var(--obs-red-1) 5%, transparent)',
-        borderLeft: '3px solid var(--obs-red-1)',
-        borderRadius: '4px',
+        border: '1px solid color-mix(in srgb, var(--obs-red-1) 22%, transparent)',
+        borderRadius: 'var(--obs-card-radius)',
       }}
     >
       <Eyebrow label="When to reach for it" variant="muted" />
@@ -766,7 +766,7 @@ const ProductionPatterns: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Measure · Production patterns · identity · guardrails · tenancy · tools"
-        title="What you reach for once it's real."
+        title="Production patterns"
         summary={
           data?.summary ??
           'Four production patterns sit underneath every shipped agent. The default builder path runs without any of them – they are the seams you reach for once the prototype is real.'

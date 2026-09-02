@@ -1,7 +1,7 @@
 {
   "id": "anna-under-100",
   "personaId": "anna",
-  "openingQuery": "Something beautiful under $100",
+  "openingQuery": "Keep the gift under $100 and show me the strongest two options.",
   "elapsedMs": 4860,
   "agentCount": 2,
   "routingPattern": "Dispatcher",
@@ -11,7 +11,7 @@
   "chat": [
     {
       "role": "user",
-      "content": "Something beautiful under $100",
+      "content": "Keep the gift under $100 and show me the strongest two options.",
       "timestamp": "2026-05-25T17:44:00Z"
     },
     {
@@ -48,7 +48,7 @@
       "memoryPills": [
         {
           "tier": "working",
-          "content": "Looking for something beautiful under $100"
+          "content": "Keep the morning-ritual gift under $100 and return two options"
         },
         {
           "tier": "semantic",
@@ -73,7 +73,7 @@
       "index": 1,
       "category": "managed",
       "title": "Intent \u2192 Personalization Agent",
-      "description": "'beautiful' + '$100' routed as gift constraint",
+      "description": "'gift' + '$100' + 'strongest two' routed as bounded gift retrieval",
       "status": "complete",
       "durationMs": 54,
       "agent": "Dispatcher"
@@ -112,7 +112,7 @@
       "description": "literal price and gift language over description_tsv",
       "status": "complete",
       "durationMs": 70,
-      "sql": "SELECT product_id, name, price, ts_rank_cd(description_tsv, q) AS text_rank\nFROM product_catalog, to_tsquery('english', 'beautiful:* | gift:*') q\nWHERE price < 100 AND quantity > 0 AND description_tsv @@ q\nORDER BY text_rank DESC\nLIMIT 20;",
+      "sql": "SELECT product_id, name, price, ts_rank_cd(description_tsv, q) AS text_rank\nFROM product_catalog, to_tsquery('english', 'morning:* | ritual:* | gift:*') q\nWHERE price < 100 AND quantity > 0 AND description_tsv @@ q\nORDER BY text_rank DESC\nLIMIT 20;",
       "agent": "Personalization Agent \u00b7 search_products_hybrid"
     },
     {
@@ -147,7 +147,7 @@
       "index": 9,
       "category": "owned",
       "title": "Memory Write - Working",
-      "description": "Wrote turn-scoped context to AgentCore Memory: looking for something beautiful under $100.",
+      "description": "Wrote turn-scoped context to AgentCore Memory: keep the morning-ritual gift under $100 and preserve the two-product shortlist.",
       "status": "complete",
       "durationMs": 22
     }

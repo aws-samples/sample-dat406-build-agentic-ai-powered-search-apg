@@ -28,6 +28,14 @@ If the live comparison endpoint stalls, use:
 sed -n '1,120p' solutions/retrieval-eval/reference-output.txt
 ```
 
+The required Lab 2 build is the psql RRF worksheet. If the room reaches its
+cut line, restore only that bounded expression:
+
+```bash
+cp solutions/the-quiet-search/sql/lab-2-rrf-solution.sql \
+  workshop/lab-2-rrf.sql
+```
+
 The reference supports the quality, latency, and cost decision. It does not prove the participant's live endpoint passed.
 
 ## 03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace
@@ -39,6 +47,14 @@ The forensic SQL is deterministic:
 ```bash
 psql -v ON_ERROR_STOP=1 \
   -f solutions/the-ledger/sql/forensic_incident.sql
+```
+
+Lab 3 also has a bounded OpenTelemetry acceptance contract. Its recovery copy
+does not provision or change managed resources:
+
+```bash
+cp solutions/the-ledger/observability/lab-3-otel-contract-solution.jq \
+  workshop/lab-3-otel-contract.jq
 ```
 
 It joins `governed_receipts` to `tool_audit` and resolves the authenticated Marco principal against the Theo customer named in tool input.
@@ -66,7 +82,7 @@ npx -y @aws/agentcore@0.26.0 validate --json
 npx -y @aws/agentcore@0.26.0 deploy --yes --json
 ```
 
-The participant must still prove Marco-for-Theo DENY, prove Theo-for-Theo
+The participant must still prove Marco-for-Jessica DENY, prove Jessica-for-Jessica
 ALLOW, inspect both receipts, and remove the participant policy through the CLI.
 
 ## Bootstrap Reference

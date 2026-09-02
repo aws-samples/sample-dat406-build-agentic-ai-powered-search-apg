@@ -14,16 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import {
-  ArrowRight,
-  ConciergeBell,
-  FlaskConical,
-  MessageCircle,
-  Store,
-  User,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
+import { ArrowRight, X } from 'lucide-react'
 import { imageSrc } from '../utils/assetPath'
 
 interface SpotlightStep {
@@ -33,54 +24,32 @@ interface SpotlightStep {
   body: string
   image: string
   imageAlt: string
-  icon: LucideIcon
 }
 
 const STEPS: SpotlightStep[] = [
   {
-    label: 'Browse',
+    label: 'Choose',
     eyebrow: 'Welcome to Pellier',
     headline: 'Begin with the edit.',
-    body: 'Browse the current collection or start with a specific piece you have in mind.',
+    body: 'Choose a point of view, then browse a collection shaped by the details that matter to that shopper.',
     image: '/products/hero-fresh-2.png',
     imageAlt: 'Pellier leather tote, linen, and olive branches in warm daylight',
-    icon: Store,
-  },
-  {
-    label: 'Personalize',
-    eyebrow: 'Choose a profile',
-    headline: 'Make the floor personal.',
-    body: 'Choose Marco, Anna, or Theo in the hero. Each profile applies its own explicit catalog signals.',
-    image: '/products/hero-marco.png',
-    imageAlt: 'Leather weekender and folded linen shirts in warm daylight',
-    icon: User,
   },
   {
     label: 'Ask',
     eyebrow: 'Ask Pellier',
     headline: 'Use your own words.',
-    body: 'Not a scripted chatbot. It decides which tools to call, reads Aurora, and answers from what it found there.',
+    body: 'Ask for a piece or occasion. Pellier reads the current catalog and your chosen point of view before it recommends a place to start.',
     image: '/products/hero-anna.png',
     imageAlt: 'Wrapped gift, beeswax candles, and a ceramic ring dish',
-    icon: MessageCircle,
   },
   {
-    label: 'Assist',
-    eyebrow: 'Pellier Operator',
-    headline: 'Different agents. Shared customer truth.',
-    body: 'The Storefront Dispatcher routes each shopper request to a specialist. A separate Case Investigator → Resolution Planner graph assists advisors over the same Aurora customer record. Credits and returns wait for human confirmation, then policy and database controls decide whether the write may proceed.',
-    image: '/products/landing-approach-atelier.png',
-    imageAlt: "A leatherworker's hands finishing a bag at a workbench",
-    icon: ConciergeBell,
-  },
-  {
-    label: 'Inspect',
-    eyebrow: 'Pellier Observatory · Optional',
+    label: 'Trace',
+    eyebrow: 'Operator and Observatory',
     headline: 'Follow the evidence.',
-    body: 'Optional. Replay a storefront turn to inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the evidence behind the grounded answer.',
-    image: '/products/hero-theo.png',
-    imageAlt: 'Stoneware pour-over set on a sunlit wooden table',
-    icon: FlaskConical,
+    body: 'When a recommendation becomes a case, the Operator workspace and Observatory make the customer scope, routed tools, policy decision, and Aurora record visible.',
+    image: '/products/tour-proof-board-960.webp',
+    imageAlt: 'Pellier Observatory Proof Board showing governed evidence checkpoints',
   },
 ]
 
@@ -207,8 +176,8 @@ export default function PellierSpotlight() {
   if (!visible) return null
 
   const current = STEPS[step]
-  const CurrentIcon = current.icon
   const isLast = step === STEPS.length - 1
+  const currentImageSrc = imageSrc(current.image)
 
   return (
     <AnimatePresence>
@@ -227,7 +196,7 @@ export default function PellierSpotlight() {
           aria-labelledby="pellier-spotlight-title"
           aria-describedby="pellier-spotlight-description"
           tabIndex={-1}
-          className="relative w-full max-w-[500px] overflow-hidden rounded-[8px] border border-[rgba(24,26,31,0.16)] bg-cream-warm text-espresso shadow-[0_28px_70px_rgba(24,26,31,0.26)] outline-none"
+          className="relative w-full max-w-[552px] overflow-hidden rounded-[8px] border border-[rgba(24,26,31,0.16)] bg-cream-warm text-espresso shadow-[0_28px_70px_rgba(24,26,31,0.26)] outline-none"
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.985 }}
           animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.99 }}
@@ -246,11 +215,11 @@ export default function PellierSpotlight() {
             <X size={17} strokeWidth={1.8} aria-hidden="true" />
           </button>
 
-          <div className="h-[172px] overflow-hidden bg-cream-2">
+          <div className="h-[194px] overflow-hidden bg-cream-2 sm:h-[208px]">
             <AnimatePresence initial={false} mode="wait">
               <motion.img
                 key={current.image}
-                src={imageSrc(current.image)}
+                src={currentImageSrc}
                 alt={current.imageAlt}
                 className="h-full w-full object-cover"
                 initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.035 }}
@@ -265,14 +234,10 @@ export default function PellierSpotlight() {
           </div>
 
           <div className="relative px-6 pb-2 pt-0 sm:px-8">
-            <div className="-mt-6 flex h-12 w-12 items-center justify-center rounded-[8px] border border-[rgba(24,26,31,0.16)] bg-cream-warm text-accent shadow-[0_8px_20px_rgba(24,26,31,0.11)]">
-              <CurrentIcon size={21} strokeWidth={1.7} aria-hidden="true" />
-            </div>
-
             <AnimatePresence initial={false} mode="wait">
               <motion.div
                 key={current.label}
-                className="pt-5"
+                className="pt-6"
                 initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 7 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -5 }}
@@ -281,12 +246,22 @@ export default function PellierSpotlight() {
                   ease: MOTION_EASE,
                 }}
               >
-                <p className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                  {current.eyebrow}
-                </p>
+                <div className="mb-3 flex items-baseline gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="text-[18px] leading-none text-accent"
+                    style={{ fontFamily: 'var(--display)' }}
+                  >
+                    {String(step + 1).padStart(2, '0')}
+                  </span>
+                  <p className="font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+                    {current.eyebrow}
+                  </p>
+                </div>
                 <h2
                   id="pellier-spotlight-title"
-                  className="max-w-[18ch] font-sans text-[30px] font-semibold leading-[1.08] text-espresso sm:text-[34px]"
+                  className="max-w-[18ch] text-[34px] font-normal leading-[1.03] text-espresso sm:text-[38px]"
+                  style={{ fontFamily: 'var(--display)' }}
                 >
                   {current.headline}
                 </h2>
@@ -301,22 +276,34 @@ export default function PellierSpotlight() {
           </div>
 
           <div className="mt-6 flex items-center justify-between border-t border-sand px-6 py-4 sm:px-8">
-            <nav className="flex items-center gap-1.5" aria-label="Welcome tour progress">
+            <nav className="flex items-center gap-2.5" aria-label="Welcome tour progress">
+              <span
+                aria-hidden="true"
+                className="font-sans text-[10px] font-semibold tracking-[0.14em] text-ink-quiet"
+              >
+                01
+              </span>
               {STEPS.map((tourStep, index) => (
                 <button
                   key={tourStep.label}
                   type="button"
                   onClick={() => setStep(index)}
-                  aria-label={`Show ${tourStep.label}`}
+                  aria-label={`Show ${tourStep.label}, step ${index + 1} of ${STEPS.length}`}
                   aria-current={index === step ? 'step' : undefined}
                   className={[
-                    'h-2 rounded-full transition-[width,background-color] duration-200',
+                    'h-px transition-[width,background-color] duration-200',
                     index === step
                       ? 'w-7 bg-accent'
-                      : 'w-2 bg-[rgba(24,26,31,0.18)] hover:bg-[rgba(24,26,31,0.36)]',
+                      : 'w-4 bg-[rgba(24,26,31,0.18)] hover:bg-[rgba(24,26,31,0.36)]',
                   ].join(' ')}
                 />
               ))}
+              <span
+                aria-hidden="true"
+                className="font-sans text-[10px] font-semibold tracking-[0.14em] text-ink-quiet"
+              >
+                03
+              </span>
             </nav>
 
             <div className="flex items-center gap-2">

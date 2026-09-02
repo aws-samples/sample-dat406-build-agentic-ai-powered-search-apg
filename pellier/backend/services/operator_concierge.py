@@ -242,7 +242,18 @@ async def load_client_evidence(
     evidence.append(Evidence(
         kind="order", role=ROLE_FACT, status="verified", source=SOURCE_AURORA,
         label="Order history",
-        detail=f"{len(orders)} orders totalling {_money(client.get('orderValue', 0))}",
+        detail=(
+            f"{len(orders)} orders totalling "
+            f"{_money(client.get('orderValue', 0))}. Order lines: "
+            + "; ".join(
+                f"#{order.get('orderId')} {order.get('productName')}: "
+                f"{_money(
+                    float(order.get('price') or 0)
+                    * int(order.get('quantity') or 1)
+                )}"
+                for order in orders[:10]
+            )
+        ),
         data={"orderCount": len(orders),
               "orderIds": [o.get("orderId") for o in orders][:10]},
     ))
@@ -267,11 +278,17 @@ async def load_client_evidence(
     # A ticket is a source REPORTING something. That is context, not fact, and the
     # distinction is the whole point of this workflow.
     for ticket in tickets:
+        last_note = " ".join(str(ticket.get("lastNote") or "").split())[:400]
+        ticket_detail = (
+            f"{ticket.get('subject', '')} ({ticket.get('status', '')})"
+        )
+        if last_note:
+            ticket_detail += f". Source note: {last_note}"
         evidence.append(Evidence(
             kind="ticket", role=ROLE_CONTEXT, status="unverified",
             source=SOURCE_AURORA, label="Service context",
             record_id=str(ticket.get("ticketId") or ""),
-            detail=f"{ticket.get('subject', '')} ({ticket.get('status', '')})",
+            detail=ticket_detail,
             data={"lastNote": ticket.get("lastNote", "")},
         ))
 
@@ -681,7 +698,11 @@ _ROUTING_RULES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
          "start the return", "start a return", "open a return", "open the return",
          "initiate the return", "initiate a return", "initiate return",
          "help me initiate", "raise a return", "log the return", "log a return",
-         "process the return", "put the return", "return for review"),
+         "process the return", "put the return", "return for review",
+         # The guided Jessica investigation remains read-only. These phrases keep
+         # turns two and three on the investigation graph without matching the
+         # narrower action-intent classifier that may prepare a review.
+         "authoritative for this decision", "fairest next step for human review"),
     ),
 )
 

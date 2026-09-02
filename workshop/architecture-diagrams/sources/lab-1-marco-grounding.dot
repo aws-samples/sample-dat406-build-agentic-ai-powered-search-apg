@@ -1,0 +1,102 @@
+digraph Lab1MarcoGrounding {
+  graph [
+    bgcolor="#f7f3ec",
+    dpi=144,
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=22,
+    label="LAB 1 · MARCO\nBuild a PostgreSQL-grounded Inventory Agent",
+    labelloc=t,
+    labeljust=l,
+    margin=0,
+    nodesep=0.48,
+    outputorder=edgesfirst,
+    pad=0.34,
+    ranksep="0.72 equally",
+    ratio=fill,
+    size="13.333,7.5!",
+    splines=ortho
+  ];
+  node [
+    color="#cbc1ad",
+    fillcolor="#fbf8f2",
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=12,
+    margin="0.2,0.15",
+    penwidth=1.2,
+    shape=box,
+    style=filled,
+    width=2.45
+  ];
+  edge [
+    arrowsize=0.78,
+    color="#9a3412",
+    fontcolor="#5a2a0a",
+    fontname="Helvetica Neue",
+    fontsize=10,
+    penwidth=2.3
+  ];
+
+  marco [
+    label="01 · MARCO IN STOREFRONT\nThree turns · 0 → 2 → 4 prior messages",
+    fillcolor="#1f1410",
+    fontcolor="#fbf8f2"
+  ];
+  dispatcher [
+    label="02 · STRANDS DISPATCHER\nSelect exactly one bounded specialist"
+  ];
+  inventory [
+    label="03 · INVENTORY AGENT\nParticipant completes the specialist\nand check_inventory tool",
+    color="#9a3412",
+    penwidth=2
+  ];
+  aurora [
+    label="04 · AURORA POSTGRESQL\nWarehouse quantity · ship window\nlive system-of-record rows",
+    color="#3f6212",
+    penwidth=2
+  ];
+  answer [
+    label="05 · GROUNDED ANSWER\nHadley identity preserved\nBrooklyn availability refreshed",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=2
+  ];
+
+  marco -> dispatcher [label="What linen…"];
+  dispatcher -> inventory [label="route"];
+  inventory -> aurora [label="typed SQL-backed tool"];
+  aurora -> answer [label="facts + identifiers", color="#3f6212", fontcolor="#3f6212"];
+  answer -> marco [label="answer + receipt ID", color="#3f6212", fontcolor="#3f6212"];
+
+  evidence [
+    label="REQUIRED PROOF\npsql: inventory row + exactly one tool_audit row",
+    color="#3f6212",
+    fillcolor="#eef4e6",
+    fontcolor="#3f6212",
+    width=3.25
+  ];
+  not_claimed [
+    label="NOT CLAIMED IN LAB 1\nAgentCore Runtime · Gateway · Cedar · RLS",
+    color="#e3ddd1",
+    fillcolor="#f1ece1",
+    fontcolor="#6b665d",
+    width=3.25
+  ];
+  aurora -> evidence [
+    label="WRITE · tool_audit",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.7
+  ];
+  inventory -> not_claimed [
+    arrowhead=none,
+    color="#9a9285",
+    penwidth=1,
+    style=dashed
+  ];
+
+  { rank=same; marco; dispatcher; inventory; }
+  { rank=same; aurora; answer; }
+  { rank=same; evidence; not_claimed; }
+}

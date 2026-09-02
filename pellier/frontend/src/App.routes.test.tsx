@@ -40,10 +40,6 @@ vi.mock('./observatory/surfaces/labs/LabDetail', () => ({
   default: () => <div>Governed lab detail</div>,
 }))
 
-vi.mock('./observatory/surfaces/ReferencesIndex', () => ({
-  default: () => <div>Optional deep dives index</div>,
-}))
-
 vi.mock('./observatory/surfaces/observe/SessionsList', () => ({
   default: () => <div>Live Aurora sessions</div>,
 }))
@@ -100,13 +96,17 @@ describe('canonical application routes', () => {
     )
   })
 
-  it('renders the optional deep dives index at its canonical route', async () => {
+  it('redirects the retired references surface into workbench resources', async () => {
     renderRoute('/observatory/references')
 
-    expect(await screen.findByText('Optional deep dives index')).toBeInTheDocument()
-    expect(screen.getByTestId('location')).toHaveTextContent(
-      '/observatory/references',
-    )
+    expect(
+      await screen.findByText('Pellier Observatory workbench'),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/observatory/workbench#resources',
+      )
+    })
   })
 
   it('serves one piece at its own deep-linkable route', async () => {
@@ -175,5 +175,13 @@ describe('surface boundaries', () => {
     const source = readSource('src/App.tsx')
     expect(source).not.toContain('ObservatoryConciergeSlot')
     expect(source).not.toContain("import('./components/ConciergeModal')")
+  })
+
+  it('keeps the storefront drawer following the active multi-turn response', () => {
+    const source = readSource('src/components/ChatDrawer.tsx')
+    expect(source).not.toContain('nearBottom')
+    expect(source).toContain(
+      "messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })",
+    )
   })
 })

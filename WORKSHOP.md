@@ -1,228 +1,273 @@
-# Pellier L400 Workshop — Co-Speaker Brief
+# Pellier L400 Workshop - Co-Speaker Brief
 
-This is the single internal briefing to share with co-presenters. It describes
-the story we tell, the four required participant labs, the proof boundaries, the
-suggested handoffs, and how the governed application is delivered to Workshop
-Studio. It is not the participant manual: Workshop Studio owns copy-paste
-commands, screenshots, and minute-by-minute recovery instructions.
+> **Working draft.** This is the staff-facing story of the workshop as it is
+> taking shape. The participant guide, recovery steps, and exact commands are
+> still being refined in Workshop Studio. Use this brief to understand the
+> experience we are building and how to present it coherently.
 
-## The session in one paragraph
+## The workshop in one minute
 
-Pellier is a governed agentic retail application built on a curated workshop
-dataset in a live Aurora PostgreSQL environment. A shopper asks for help; a
-Strands dispatcher routes the request to a bounded specialist; typed tools and
-PostgreSQL establish what is true; and durable records show what actually ran.
-For consequential service actions, an Operator investigates a persisted
-proposal, a human confirms or declines its exact terms, AgentCore Policy
-authorizes the request, and Aurora still independently enforces ownership,
-constraints, and idempotency. The workshop's argument is simple: a plausible
-model response is never enough. We need grounding, authorization, data
-enforcement, and evidence that can be reconstructed later.
+Pellier is a governed agentic retail experience. A shopper asks for help in a
+premium storefront; a Strands dispatcher selects a bounded specialist; and
+Aurora PostgreSQL supplies the facts behind the answer. Participants then move
+from an answer that looks credible to evidence that can be queried, measured,
+and governed: PostgreSQL proves what is true, AgentCore provides managed
+capabilities, and durable receipts make it possible to reconstruct what
+happened.
 
-## What participants leave with
+The central idea is simple: a good agent response is not enough. We want people
+to distinguish four things:
 
-- A practical pattern for grounding agent answers in a system of record.
-- A way to compare semantic, lexical, hybrid, reranked, and agentic retrieval
-  without treating relevance as eligibility.
-- A working mental model for AgentCore Runtime, Gateway, Memory, and traces.
-- A precise governance model: human decision, policy decision, database result,
-  and evidence are separate facts that can disagree.
+1. What is true in the system of record.
+2. What retrieval or an agent proposed.
+3. What identity and policy permitted.
+4. What actually executed and what evidence remains.
 
-## The four-lab arc
+## Pellier Storefront
 
-The official Workshop Studio title and sequence are canonical.
+The experience starts with **Pellier**, not a dashboard. Marco, Anna, and Theo
+make the system feel like a real retail interaction before we reveal the
+architecture behind it. Jessica then anchors the governed customer case in
+Pellier Operator. Start the room in the Storefront, then use one named customer
+anchor per lab.
 
-| Time | Lab | Story and participant outcome | What counts as proof |
+Each Storefront shopper has a coherent multi-turn conversation. Marco's
+warehouse check anchors Lab 1, Anna's bounded gift request anchors Lab 2, and
+Theo's three-turn ceramic and morning-ritual thread anchors Lab 3. Jessica is
+not added to the Storefront selector; her customer identity and service case
+anchor Lab 4. The designed experiences remain the participant's reason to build
+and prove the underlying paths.
+
+The rehearsal scripts are fixed because the history depth is part of the
+architecture demonstration:
+
+| Lab anchor | Three-turn script |
+|---|---|
+| **Marco · Lab 1** | `What linen do you have for 10 days in Goa?`<br>`What would go with the Hadley shirt?`<br>`Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?` |
+| **Anna · Lab 2** | `A thoughtful gift for someone who loves morning rituals`<br>`Keep the gift under $100 and show me the strongest two options.`<br>`Which one should I choose, and prove it stayed in budget and in stock?` |
+| **Theo · Lab 3** | `Hand-thrown ceramics for a slower morning routine`<br>`What goes well with the pour-over set?`<br>`Without asking me to repeat the ritual or material, which pairing should I choose and why?` |
+| **Jessica · Lab 4 Operator close** | `Investigate Jessica's open service issue (TKT-2026-3015) and recommend the next fair step. Distinguish what the records establish from what a source reports.`<br>`Which customer, order, return, and identity records are authoritative for this decision?`<br>`Prepare the fairest next step for human review without executing it.` |
+
+For each Storefront script, the requests carry `0`, then `2`, then `4` prior
+dialogue messages. The third turn therefore proves continuity only when the
+agent preserves the earlier product and constraint identities. Jessica's
+Operator script uses a separate authenticated staff session and stops at the
+human checkpoint.
+
+### Agent and tool model
+
+The Storefront production path is a deterministic Strands dispatcher. Each
+shopper turn is routed to exactly one bounded specialist:
+
+- **Search** for catalog discovery and comparison.
+- **Personalization** for recommendations and curated choices.
+- **Pricing** for price and offer questions.
+- **Inventory** for availability and fulfillment facts.
+- **Customer Service** for order, return, and support requests.
+
+Each specialist is a Strands `Agent` with an explicit, small `@tool` allowlist.
+The tools are typed server-side operations, not an invitation for the model to
+invent data or take arbitrary actions. Lab 1 makes this concrete by building
+the Inventory Agent's `check_inventory` path; Lab 2 applies the same discipline
+to retrieval and eligibility.
+
+Labs 1 and 2 begin on the in-process rail so participants can build and measure
+the application boundary directly. In Lab 3, they first prove Gateway and
+Runtime with the AgentCore CLI, then set `USE_AGENTCORE_RUNTIME=true` and
+restart `pellier` before running the three-turn Storefront path.
+
+That managed Storefront proof requires a signed-in Cognito user. Selecting a
+shopper persona is a scenario choice, not authentication, and an unsigned turn
+must not be described as a managed fallback. The Runtime status endpoint
+(`/api/agentcore/runtime/status`) proves the resource's lifecycle state; a turn
+receipt with `rail=gateway-mcp` proves that a request actually used the managed
+Runtime and Gateway path.
+
+### Identity and proof guardrails
+
+- A persona supplies workshop scenario context; a verified Cognito principal
+  supplies authorization. Customer-specific reads require that verified scope.
+- Fresh Gateway Cedar policies bind the verified username to the requested
+  customer. A deny must be observed before target execution, then paired with
+  `psql` evidence that no execution or canonical write occurred.
+- Legacy migrated read aliases remain intentionally default-denied while their
+  scoped policies converge. The workshop demonstrates only the current
+  customer-preference and audit-trail tool names.
+- Lab 4's return-ownership rule is deliberately participant-authored. It
+  exercises the condition without weakening the shipped RLS backstop.
+- Local tests validate the contract, not the deployed AWS path. The live
+  rehearsal must capture a real Gateway denial before Lambda and the matching
+  Aurora non-execution evidence.
+
+## Pellier Operator
+
+**Pellier Operator** is the authenticated service and human-decision surface.
+Use Jessica's client record to close Lab 4. A separately authorized operator
+investigates the same business subject after the identity and database boundaries
+have been proven.
+
+The Operator uses a separate Strands pattern: a bounded `GraphBuilder` flow
+orders **Case Investigator** before **Resolution Planner**. It produces an
+investigation and a proposed plan. It does not approve a review, authorize a
+write, or mutate business data.
+
+Jessica is not a fourth Storefront persona. She is a real Cognito customer
+principal and the required Lab 4 business subject, while the separate
+`operator` Cognito user remains the only account authorized for the staff desk.
+Marco-for-Jessica demonstrates the cross-customer denial; Jessica-for-Jessica
+is the positive control. The required Operator close then runs three turns:
+
+1. Investigate ticket `TKT-2026-3015`, keeping established records separate
+   from what the support source reports.
+2. Identify which customer, order, return, and identity records are
+   authoritative for the decision.
+3. Prepare the fairest next step for human review without executing it.
+
+The staff investigation is a separate request and fact from the direct Gateway
+proof. It stops at the human checkpoint; no approval or mutation is implied.
+
+## Pellier Observatory
+
+**Pellier Observatory** is the inspection layer across routing, tools, SQL,
+Memory, policy, receipts, and telemetry. It makes a live Storefront or Operator
+run legible, but it does not replace the terminal as proof.
+
+The Lab Collection and Live Workbench are one Observatory experience, not a
+fourth product surface. The Lab Collection selects the current lab; the Live
+Workbench carries its context into shared evidence views. Use it to orient the
+room, replay a turn, and make the evidence easier to scan.
+
+The required hands-on work remains deliberately concrete:
+
+- **Code Editor** is where participants inspect and make the bounded changes.
+- **`psql`** is the primary way to query, measure, and prove Aurora behavior.
+- **AgentCore CLI** is used for managed Runtime, Gateway, and Policy
+  interactions.
+
+The UI helps participants inspect. PostgreSQL and AgentCore CLI let them prove.
+Avoid turning this into a generic API-call workshop.
+
+### Participant delivery model
+
+Workshop Studio exposes one Pellier URL on port `8000`. FastAPI serves both the
+built Storefront, Operator, and Observatory application and every `/api/*`
+route. The separate Vite and FastAPI ports used during local development are
+not part of the participant journey and should not appear in the room's
+instructions.
+
+## The four-lab journey
+
+| Lab | Participant moment | What they build or prove | Takeaway |
 |---|---|---|---|
-| 0–8 | Introduction | Open Code Editor and Pellier; confirm the two Lab 1 build markers are still exercises. | The starting state is visible and reproducible. |
-| 8–30 | **01 GROUND THE ANSWER — Live Data and Evidence** | Marco asks whether the Hadley shirt is available in Brooklyn and can still ship in time. Participants complete the typed `check_inventory` path. | Marco's answer, the Aurora inventory row, the tool trace, and the correlated `pellier.tool_audit` row agree. |
-| 30–45 | **02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs** | Anna needs an in-stock housewarming gift under $100. Participants compare vector-only, hybrid RRF, hybrid plus rerank, and agentic retrieval. | A defensible quality/latency/cost choice plus SQL showing that PostgreSQL enforced price and stock eligibility. |
-| 45–70 | **03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace** | Operate the pre-provisioned Dispatcher through AgentCore and reconstruct the Marco-for-Theo identity mismatch. | Authenticated Gateway tool list, Runtime receipt with `rail=gateway-mcp`, active managed Memory, fresh-process recall, and a correlated agent/model/tool trace. |
-| 70–95 | **04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts** | Bind JWT identity to the requested customer id. Marco-for-Theo is denied; Theo-for-Theo is allowed; Aurora scopes the same data independently. | Cedar `DENY` plus verified non-execution, Cedar `ALLOW` plus linked execution evidence, scoped RLS reads, and participant-policy reset. |
-| 95–110 | Recovery buffer | Finish a required checkpoint or reset a table. | Every table leaves the managed policy and data state clean. |
-| 110–120 | Close | Transfer the boundaries to the audience's own architecture. | Participants can name the owner of each fact, decision, effect, and receipt. |
+| **Lab 1 · Build**<br>**Build a PostgreSQL-Grounded Agent** | Marco needs a live availability answer. | Complete the Inventory Agent and its `check_inventory` tool, then reconcile the response, warehouse rows, and `tool_audit` evidence with `psql`. | An agent answer is grounded only when it can be checked against the system of record and an execution receipt. |
+| **Lab 2 · Build & Measure**<br>**Build and Measure PostgreSQL Hybrid Retrieval** | Anna narrows a morning-ritual gift to two in-stock options under $100, then chooses from that same shortlist. | Author the PostgreSQL RRF fusion expression, compare retrieval paths, and use SQL to prove the returned products met price and stock constraints. | Retrieval quality is a measured tradeoff. Relevance can rank results; PostgreSQL enforces eligibility. |
+| **Lab 3 · Operate & Observe**<br>**Operate and Observe the AgentCore Managed Path** | Theo's multi-turn ceramic request needs context and a traceable managed path. | Complete an OTEL trace contract, invoke the managed path as Theo with AgentCore CLI, verify Memory across a fresh process, and correlate his three-turn Storefront thread with Runtime, Gateway, and PostgreSQL receipts. | Managed Runtime, Gateway, Memory, and telemetry each prove different parts of the path. A successful answer alone proves none of them. |
+| **Lab 4 · Govern**<br>**Enforce Identity and Prove Non-Execution** | Marco and Anna must not act as Jessica; Jessica can act only as Jessica. | Write the Cedar identity condition; run Marco DENY, Anna DENY, Jessica ALLOW, and Jessica replay; use `psql` to prove exact execution and durable-effect counts plus RLS read/write enforcement; then complete Jessica's three-turn Operator investigation and stop before approval. | Authentication, policy authorization, execution, database enforcement, staff access, durable effects, and human approval are separate controls and separate facts. |
 
-### The one sentence for each lab
-
-1. **Ground the answer:** “The database establishes what is true, and the audit
-   row establishes that the read happened.”
-2. **Measure hybrid retrieval:** “The model can propose constraints; PostgreSQL
-   must enforce them.”
-3. **Operate the managed path:** “A managed runtime changes the execution
-   envelope, not the proof standard.”
-4. **Govern and prove actions:** “An allowed action is not necessarily an
-   executed action, and a human confirmation is not an authorization.”
-
-## The architecture story to keep straight
+The labs intentionally form one narrative:
 
 ```text
-Shopper request
-  -> Storefront Dispatcher
-  -> one bounded specialist
-  -> typed Aurora-backed tool or retrieval path
-  -> streamed response + tool evidence
-
-Consequential request
-  -> immutable shopper handoff + pending review
-  -> Operator Concierge graph:
-       Case Investigator -> Resolution Planner
-  -> persisted bounded recommendation
-  -> later human confirmation or decline
-  -> later Gateway + AgentCore Policy request
-  -> Aurora enforcement
-  -> durable receipts and reconstruction
+Ground the answer
+  -> measure the retrieval decision
+  -> operate the managed path and inspect its traces
+  -> govern a consequential action and prove its outcome
 ```
 
-There are deliberately **two Strands patterns**, not one shared agent:
+## Architecture and proof boundaries
 
-- **Storefront Dispatcher:** one specialist owns a shopper turn. It is the
-  required AgentCore Runtime proof in Lab 3.
-- **Operator Concierge graph:** investigation and resolution planning are
-  separate responsibilities. The graph persists an operator-safe result; it
-  does not create a review, wait for a human, authorize a write, or mutate
-  business state.
+Keep the explanation at this level unless someone asks to go deeper:
 
-The human checkpoint is a durable, later request. It preserves the exact action
-terms across restarts and ensures that “the agent proposed it” never becomes
-“the system did it.”
+```text
+Shopper request in Pellier Storefront
+  -> Strands dispatcher selects one bounded specialist
+  -> Aurora-backed tool or retrieval path
+  -> response plus durable evidence
 
-## The proof model
+Customer-authenticated consequential request
+  -> AgentCore Gateway and Cedar policy
+  -> bounded tool execution
+  -> Aurora RLS and durable effect
 
-Use this distinction consistently. It is the intellectual center of the
-workshop.
+Staff investigation in Pellier Operator
+  -> authenticated operator group membership
+  -> Case Investigator then Resolution Planner
+  -> human checkpoint, no execution
 
-| Fact | Owner | What it does **not** prove |
-|---|---|---|
-| A model or graph proposed an action | Application workflow | That a person agreed, policy allowed it, or data changed |
-| A person confirmed exact terms | Operator review | That the Gateway invocation ran or Aurora accepted it |
-| AgentCore Policy returned `ALLOW` | Policy receipt | That a tool or database statement executed |
-| AgentCore Policy returned `DENY` | Policy receipt + named attempt | A database refusal; verify non-execution evidence separately |
-| Aurora refused a statement | Database result | “Not reached” — the tool reached Aurora and its guard rejected it |
-| `tool_audit`, `execution_receipts`, and domain/write rows exist | Durable evidence | That every preceding layer made the same decision |
+Observatory
+  -> reconstruction from receipts, SQL, and traces
+```
 
-The participant path queries three evidence classes:
+This is not one long-running super-agent. Storefront orchestration, Operator
+investigation, human decision, policy authorization, database execution, and
+Observatory reconstruction are deliberately separate boundaries. That is why
+the room can ask, "What happened here?" and receive an answer that is more
+precise than "the agent did it."
 
-- **Policy receipt:** `pellier.governed_receipts` answers whether the action was
-  permitted.
-- **Execution evidence:** `pellier.tool_audit` shows what reached the
-  application/tool boundary; `pellier.execution_receipts` preserves attempts
-  across the operator path, including an Aurora refusal.
-- **Data evidence:** `pellier.write_operations`, domain rows, and
-  `inventory_ledger` show what reached the system of record and what durable
-  state resulted.
+## Suggested flow for speakers
 
-## Surface roles and demo choices
+1. **Narrative lead:** Open in the storefront. Establish the retail problem and
+   choose the persona that will anchor the next lab.
+2. **Lab lead:** Move to Code Editor and the terminal. Keep the build moment
+   small. Participants can work in the Manual or Claude Code pane, open hints
+   in order, and use the solution only as a recovery path. Both panes converge
+   on the same `psql` or AgentCore CLI proof.
+3. **Platform lead:** Use the Workbench and Observatory to make the resulting
+   routing, Memory, tool, SQL, and trace evidence readable.
+4. **Governance lead:** Run the four-case identity matrix, then the RLS
+   read/write worksheet. Make authorization, execution, durable effect, and
+   database enforcement separate claims.
+5. **Operator lead:** Open Jessica's client record as the separate `operator`
+   account and run the three guided turns. Show Case Investigator before
+   Resolution Planner, then stop at the human checkpoint. Do not call the
+   direct Gateway invocation a human-approved action.
 
-| Surface | Role in the workshop | Presenter guidance |
-|---|---|---|
-| **Pellier storefront** | Primary retail experience for Marco, Anna, and Theo. | Start here. It makes the technical boundaries feel like customer outcomes. |
-| **Code Editor + terminal** | Canonical proof surface. | Use it for all required build, curl, SQL, policy, and reset evidence. |
-| **Pellier Observatory** | Optional visual lens over a live shopper run. | Open it when it helps the room read routing, tool calls, SQL receipts, or the grounded answer. Do not make it another required app at minute zero. |
-| **Pellier Operator** | Separate human clienteling and service-recovery surface. | Use it for the optional human-in-the-loop close, not as a substitute for the Lab 4 Gateway evidence. |
+## Speaker anchors
 
-### The optional Operator close
+Use these lines to keep the story consistent:
 
-If time allows after Lab 4, use **Theo** or **Jessica** to make the human
-boundary tangible:
+- "Pellier starts with a customer outcome, then earns the right to make a
+  technical claim."
+- "The UI helps us inspect; `psql` and AgentCore CLI let us prove."
+- "A retrieval result can be relevant without being eligible."
+- "Memory carries context; Aurora remains the system of record."
+- "An `ALLOW` is not an execution receipt, and a `DENY` needs named
+  non-execution evidence."
+- "The database is not a passive store behind the agent. It independently
+  enforces the final boundary."
 
-- **Theo:** the storefront request becomes an immutable handoff and a pending
-  review. Operator Concierge investigates, then prepares a bounded plan. A
-  signed-in operator confirms the exact action; a separate request executes it.
-- **Jessica:** a support ticket says a return was received, while the returns
-  ledger has no row. The correct outcome is investigation and reconciliation,
-  not an invented completed return. The participant supplies missing material
-  terms before any proposal can be prepared.
+Avoid saying that a configured managed service was necessarily invoked on every
+Storefront turn. Runtime, Gateway, Memory, policy, and telemetry must be shown
+with their own evidence in the managed-path labs.
 
-Say explicitly: support narrative is context, not system-of-record fact.
+## What staff should take away
 
-## Suggested speaker handoffs
+The product is a connected teaching system, not four unrelated demos:
 
-Assign names to these roles in the pre-brief; the handoffs are intentionally
-content-based rather than person-based.
+- The **Storefront** gives the architecture a human reason to exist.
+- The **labs** add a real build or authoring moment before asking for proof.
+- **PostgreSQL** makes data truth, retrieval behavior, and enforcement
+  inspectable.
+- **AgentCore** makes managed execution, tool exposure, Memory, and policy
+  tangible.
+- **Observatory** makes the invisible path legible without competing with the
+  terminal.
+- **Operator** makes clear that meaningful actions require a durable human and
+  governance boundary.
 
-| Speaker role | Owns | Handoff line |
-|---|---|---|
-| **Narrative lead** | Opening, Marco, Anna, and the product story. | “We have shown what is true and how results become eligible. Now let’s move the same dispatcher into the managed execution path.” |
-| **Platform lead** | Lab 3, Runtime, Gateway, Memory, and traces. | “Runtime proves how the request travelled. It does not by itself decide whether a sensitive action should happen.” |
-| **Governance lead** | Lab 4, RLS, receipts, and the Operator close. | “Now we will make the identity mismatch fail twice: first at policy, then independently at the database boundary.” |
-| **Table/facilitation lead** | Timebox, recoveries, and reset. | “Record an unavailable managed checkpoint as unproven; do not convert it into a claimed pass. Preserve time for the reset.” |
+The core participant outcome is not simply "I used an agent." It is: "I can
+explain which layer supplied the fact, made the decision, enforced the
+constraint, and recorded the evidence."
 
-## Claims to make — and claims to avoid
+## Before the session
 
-### Say
+- Confirm the Workshop Studio source pin and the intended governed revision.
+- Rehearse the exact four-lab path with the participant environment.
+- Verify that `psql`, the AgentCore CLI, and the required credentials are ready.
+- Choose speaker ownership for Storefront narrative, labs, managed path, and
+  governance.
+- Rehearse Jessica's required three-turn Operator close and verify it stops at
+  the human checkpoint without preparing or executing a business action.
 
-- “This is a live, provisioned workshop environment with a curated retail
-  dataset and real Aurora/AgentCore integrations on the required managed path.”
-- “Local PostgreSQL rehearsal proves application behavior and fixture shape; it
-  does not prove Aurora, AgentCore Runtime, Gateway, Memory, Cedar, or deployed
-  RLS.”
-- “Observatory is a visual view of evidence; Code Editor, curl, and SQL are the
-  required source of proof.”
-- “The operator desk is protected by the `pellier-operators` Cognito-group
-  boundary. Its API authorization and Cedar action authorization are different
-  controls.”
-- “A missing execution row is meaningful only when paired with a policy receipt
-  naming the denied attempt.”
-
-### Do not say
-
-- “One agent works both channels.” Storefront Dispatcher and Operator Concierge
-  use different Strands patterns for different jobs.
-- “Reranking enforces the budget or inventory rule.” It changes ordering;
-  PostgreSQL enforces eligibility.
-- “Policy allowed it, so it happened.” `ALLOW` is not a database receipt.
-- “Aurora was not reached” when Aurora rejected a guard or constraint. That is
-  an attempted execution with a database refusal.
-- “The graph executes the action.” It investigates and plans; human decision,
-  authorization, execution, and data enforcement happen later.
-
-## Delivery and release contract
-
-The governed source and Workshop Studio are different products with a strict
-handoff:
-
-1. Commit and push application changes on the `governed` branch.
-2. Update the exact immutable SHA in Workshop Studio using
-   `python3 scripts/set_source_revision.py <full-sha>`. It updates the
-   `RepoRevision` values in `contentspec.yaml`, `static/pellier-builders.yml`,
-   and `assets/pellier-code-editor.yml`.
-3. Commit/publish the Workshop Studio content and asset changes through its own
-   repository workflow and asset synchronization.
-4. A fresh Workshop Studio environment clones that pinned SHA, verifies it
-   before bootstrap, exports `WORKSHOP_SOURCE_REVISION`, writes
-   `.workshop-ref.json`, and must pass `scripts/health-gate.sh`.
-5. Complete a fresh-account rehearsal before claiming an end-to-end release.
-
-Git operations and S3 synchronization in Workshop Studio publish the guide and
-assets. They do **not** update the Pellier application unless the immutable
-source pin changes too. A repair on one workshop box is never a product fix.
-
-## Pre-session checklist
-
-- Confirm the Studio pin matches the intended pushed `governed` commit.
-- Verify the environment exposes only **CodeEditorURL** and **PellierURL** to
-  participants; Observatory remains an optional in-app link.
-- Require the health gate to report `READY` before the room starts.
-- Confirm the Lab 1 markers start at `exercise`.
-- Confirm the Operator account is available for the optional close; do not
-  distribute it as a shopper identity.
-- Keep the Lab 4 participant Cedar reset and the global workshop reset in the
-  room plan.
-- Capture managed proof as it happens: Runtime receipt, Gateway rail, Memory
-  read, trace, policy decision, execution evidence, and database result.
-
-## Authoritative references
-
-| Need | Source |
-|---|---|
-| Participant instructions, commands, screenshots, and timing | Governed Workshop Studio `content/00-*` through `content/40-*` |
-| Workshop/source publication boundary | `docs/HANDOFF-SOURCE-CONTRACT.md` |
-| Machine-readable golden journeys | `pellier/backend/tests/golden/journeys.json` |
-| Golden journey tests | `pellier/backend/tests/test_golden_journeys.py` |
-| Operator graph | `pellier/backend/services/operator_graph.py` |
-| Operator review lifecycle | `pellier/backend/services/operator_concierge.py` and `operator_concierge_sessions.py` |
-| Cross-surface reconstruction | `pellier/backend/routes/observatory.py` and `OperatorLineage.tsx` |
-| Readiness gate | `scripts/health-gate.sh` |
-
-The workshop succeeds when participants can explain not only what an agent
-answered, but which layer supplied each fact, decision, effect, and receipt.
+The run-of-show is still being polished. This brief is the shared map for the
+team: customer experience first, a meaningful build moment in each lab,
+evidence over assertion, and governance that holds at more than one layer.

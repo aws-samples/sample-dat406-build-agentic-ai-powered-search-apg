@@ -19,7 +19,7 @@
 #      into a named cause.)
 #   5. Required Bedrock model preflight passed     (required)
 #   6. AGENTCORE_MEMORY_ID set and SDK-backed
-#   7. AGENTCORE_RUNTIME_ENDPOINT set and enabled
+#   7. AGENTCORE_RUNTIME_ENDPOINT set and the workshop starts on its intended rail
 #   8. AGENTCORE_GATEWAY_URL + ARN set
 #   9. AGENTCORE_POLICY_ENGINE_ID set
 #  10. Provisioning receipt proves managed resources, Runtime smoke, and traces
@@ -249,16 +249,22 @@ else
   managed_missing "AgentCore Memory is not ACTIVE through the SDK path (got: ${memory_json:-no response})"
 fi
 
-# 7. AgentCore Runtime endpoint and active backend switch
+# 7. AgentCore Runtime endpoint and intended starting rail
 if [[ -n "${AGENTCORE_RUNTIME_ENDPOINT:-}" ]]; then
   pass "AGENTCORE_RUNTIME_ENDPOINT set"
 else
   managed_missing "AGENTCORE_RUNTIME_ENDPOINT empty — managed Runtime unavailable"
 fi
-if [[ "${USE_AGENTCORE_RUNTIME:-false}" == "true" ]]; then
+if $managed_required; then
+  if [[ "${USE_AGENTCORE_RUNTIME:-false}" == "false" ]]; then
+    pass "USE_AGENTCORE_RUNTIME=false (Labs 1-2 start in-process; Lab 3 switches to the provisioned Runtime)"
+  else
+    pass "USE_AGENTCORE_RUNTIME=true (Lab 3 managed storefront rail selected)"
+  fi
+elif [[ "${USE_AGENTCORE_RUNTIME:-false}" == "true" ]]; then
   pass "USE_AGENTCORE_RUNTIME=true"
 else
-  managed_missing "USE_AGENTCORE_RUNTIME is not true — /api/agent/chat would not use managed Runtime"
+  warn "USE_AGENTCORE_RUNTIME is not true — the optional managed chat rail is disabled"
 fi
 
 # 8. AgentCore Gateway endpoint and ARN
@@ -344,7 +350,7 @@ if [[ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ]]; then
     managed_missing "${operator_user} is not in ${operator_group} — the Operator desk refuses every caller with 403"
   fi
   shopper_in_group=""
-  for shopper in marco anna theo; do
+  for shopper in marco anna theo jessica; do
     if in_group "$shopper"; then
       shopper_in_group="$shopper_in_group $shopper"
     fi

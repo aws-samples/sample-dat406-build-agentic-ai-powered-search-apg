@@ -7,8 +7,9 @@
  * IconButton, persona Avatar dropdown, bag IconButton with count badge, and
  * a direct link to Pellier Observatory.
  *
- * The persona Avatar dropdown replaces the old PersonaPill + PersonaModal
- * pattern. It calls `switchPersona` and `signOut` directly from `usePersona()`.
+ * Signed-out visitors retain the compact sign-in menu. Once a persona is
+ * active, the same header pill opens the shared portrait-led PersonaModal
+ * used by Pellier Observatory.
  *
  * Validates Requirements 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 15.3.
  *
@@ -24,14 +25,13 @@ import { useUI } from '../contexts/UIContext'
 import { NAV } from '../copy'
 import { Avatar } from '../design/primitives'
 import { getPersonaPhoto } from '../data/personaPhotos'
-import { MEMBERSHIP } from '../data/membership'
 import { IconButton } from '../design/primitives'
+import PersonaModal from './PersonaModal'
 import { ConciergeBell,
   Search,
   ShoppingBag,
   User as UserIcon,
   ChevronDown,
-  LogOut,
   Menu,
   X,
   Telescope,
@@ -200,11 +200,11 @@ function OperatorLink({
 }
 
 // ---------------------------------------------------------------------------
-// PersonaDropdown — replaces PersonaPill + PersonaModal
+// Signed-out persona menu
 // ---------------------------------------------------------------------------
 
-function PersonaDropdown() {
-  const { persona, switchPersona, signOut, switching } = usePersona()
+function SignedOutPersonaDropdown() {
+  const { switchPersona, switching } = usePersona()
   const [open, setOpen] = useState(false)
   const [personas, setPersonas] = useState<PersonaListItem[]>([])
   const [fetched, setFetched] = useState(false)
@@ -268,11 +268,6 @@ function PersonaDropdown() {
     [switchPersona],
   )
 
-  const handleSignOut = useCallback(() => {
-    signOut()
-    setOpen(false)
-  }, [signOut])
-
   return (
     <div ref={dropdownRef} className="relative">
       {/* Trigger */}
@@ -286,52 +281,12 @@ function PersonaDropdown() {
           'cursor-pointer rounded-full',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         ].join(' ')}
-        style={{
-          ...(persona
-            ? {
-                padding: '4px 12px 4px 4px',
-                background: 'var(--ink)',
-                color: 'var(--cream)',
-                border: '1px solid var(--ink)',
-              }
-            : { padding: '7px 14px' }),
-        }}
+        style={{ padding: '7px 14px' }}
         aria-expanded={open}
-        aria-haspopup="true"
+        aria-haspopup="menu"
       >
-        {persona ? (
-          <>
-            <Avatar
-              initial={persona.avatar_initial}
-              bgColor={persona.avatar_color}
-              photoUrl={getPersonaPhoto(persona.id)}
-              size="sm"
-            />
-            <span
-              className="text-cream-50 truncate"
-              style={{
-                fontFamily: 'var(--sans)',
-                fontSize: 13,
-                fontWeight: 500,
-                maxWidth: 118,
-              }}
-            >
-              {persona.display_name}
-            </span>
-            <ChevronDown
-              size={14}
-              className="text-cream-50 opacity-60"
-              aria-hidden
-            />
-          </>
-        ) : (
-          <>
-            <UserIcon className="w-4 h-4" aria-hidden />
-            <span style={{ fontFamily: 'var(--sans)' }}>
-              Sign in
-            </span>
-          </>
-        )}
+        <UserIcon className="w-4 h-4" aria-hidden />
+        <span style={{ fontFamily: 'var(--sans)' }}>Sign in</span>
       </button>
 
       {/* Dropdown */}
@@ -367,40 +322,6 @@ function PersonaDropdown() {
             }}
             style={{ transformOrigin: 'top right' }}
           >
-            {/* The active shopper's rung. Stated once, quietly: the
-                authoritative value lives on pellier.customers.membership and
-                is what policy reads. This is only the shopper's view of it. */}
-            {persona && (
-              <div
-                data-testid="persona-membership"
-                className="px-4 pt-2 pb-3 mb-1 border-b border-sand"
-              >
-                <div
-                  style={{
-                    fontFamily: 'var(--sans)',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--pellier-burgundy)',
-                  }}
-                >
-                  {MEMBERSHIP[persona.membership].label}
-                </div>
-                <div
-                  className="text-ink-soft"
-                  style={{
-                    fontFamily: 'var(--sans)',
-                    fontSize: 11,
-                    lineHeight: 1.4,
-                    marginTop: 3,
-                  }}
-                >
-                  {MEMBERSHIP[persona.membership].earns}
-                </div>
-              </div>
-            )}
-
             {!fetched && personas.length === 0 && (
               <div
                 className="px-4 py-2.5 text-ink-soft text-[12px]"
@@ -410,81 +331,116 @@ function PersonaDropdown() {
                 Loading personas…
               </div>
             )}
-          {personaError ? (
-            <p className="px-4 py-3 text-sm text-ink-quiet">{personaError}</p>
-          ) : null}
-          {personas.map((p) => {
-              const isActive = persona?.id === p.id
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="menuitem"
-                  disabled={switching}
-                  data-testid={`persona-option-${p.id}`}
-                  onClick={() => handleSelect(p.id)}
-                  className={[
-                    'w-full flex items-center gap-3 py-2.5 text-left border-l-[3px] transition-colors duration-fade ease-out',
-                    'hover:bg-sand/50 cursor-pointer',
-                    'focus-visible:outline-none focus-visible:bg-sand/50',
-                    isActive
-                      ? 'border-espresso bg-sand/70 pl-[13px] pr-4'
-                      : 'border-transparent pl-[13px] pr-4',
-                  ].join(' ')}
-                >
-                  <Avatar
-                    initial={p.avatar_initial}
-                    bgColor={p.avatar_color}
-                    photoUrl={getPersonaPhoto(p.id)}
-                    size="sm"
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <span
-                      className="text-espresso text-[13px] font-medium truncate"
-                      style={{ fontFamily: 'var(--sans)' }}
-                    >
-                      {p.display_name}
-                    </span>
-                    <span
-                      className="text-ink-soft text-[11px] truncate"
-                      style={{ fontFamily: 'var(--sans)' }}
-                    >
-                      {p.role_tag}
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-
-            {persona && (
-              <>
-                <div className="border-t border-sand my-1" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  data-testid="persona-sign-out"
-                  onClick={handleSignOut}
-                  className={[
-                    'w-full flex items-center gap-3 px-4 py-2.5 text-left',
-                    'transition-colors duration-fade ease-out',
-                    'hover:bg-sand/50 cursor-pointer text-espresso',
-                    'focus-visible:outline-none focus-visible:bg-sand/50',
-                  ].join(' ')}
-                >
-                  <LogOut size={16} className="text-ink-soft" aria-hidden />
+            {personaError ? (
+              <p className="px-4 py-3 text-sm text-ink-quiet">
+                {personaError}
+              </p>
+            ) : null}
+            {personas.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                role="menuitem"
+                disabled={switching}
+                data-testid={`persona-option-${p.id}`}
+                onClick={() => handleSelect(p.id)}
+                className={[
+                  'w-full flex items-center gap-3 py-2.5 text-left border-l-[3px] transition-colors duration-fade ease-out',
+                  'hover:bg-sand/50 cursor-pointer',
+                  'focus-visible:outline-none focus-visible:bg-sand/50',
+                  'border-transparent pl-[13px] pr-4',
+                ].join(' ')}
+              >
+                <Avatar
+                  initial={p.avatar_initial}
+                  bgColor={p.avatar_color}
+                  photoUrl={getPersonaPhoto(p.id)}
+                  size="sm"
+                />
+                <div className="flex flex-col min-w-0">
                   <span
-                    className="text-[13px] font-medium"
+                    className="text-espresso text-[13px] font-medium truncate"
                     style={{ fontFamily: 'var(--sans)' }}
                   >
-                    Sign out
+                    {p.display_name}
                   </span>
-                </button>
-              </>
-            )}
+                  <span
+                    className="text-ink-soft text-[11px] truncate"
+                    style={{ fontFamily: 'var(--sans)' }}
+                  >
+                    {p.role_tag}
+                  </span>
+                </div>
+              </button>
+            ))}
           </motion.div>
         ) : null}
       </AnimatePresence>
     </div>
+  )
+}
+
+function AuthenticatedPersonaTrigger() {
+  const { persona } = usePersona()
+  const [open, setOpen] = useState(false)
+
+  if (!persona) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-testid="persona-pill"
+        className={[
+          'pellier-account-pill',
+          'flex items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
+          'cursor-pointer rounded-full',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
+        ].join(' ')}
+        style={{
+          padding: '4px 12px 4px 4px',
+          background: 'var(--ink)',
+          color: 'var(--cream)',
+          border: '1px solid var(--ink)',
+        }}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <Avatar
+          initial={persona.avatar_initial}
+          bgColor={persona.avatar_color}
+          photoUrl={getPersonaPhoto(persona.id)}
+          size="sm"
+        />
+        <span
+          className="text-cream-50 truncate"
+          style={{
+            fontFamily: 'var(--sans)',
+            fontSize: 13,
+            fontWeight: 500,
+            maxWidth: 118,
+          }}
+        >
+          {persona.display_name}
+        </span>
+        <ChevronDown
+          size={14}
+          className="text-cream-50 opacity-60"
+          aria-hidden
+        />
+      </button>
+      <PersonaModal open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+function PersonaAccountControl() {
+  const { persona } = usePersona()
+  return persona ? (
+    <AuthenticatedPersonaTrigger />
+  ) : (
+    <SignedOutPersonaDropdown />
   )
 }
 
@@ -587,7 +543,7 @@ export default function Header({
               </div>
             )}
 
-            <PersonaDropdown />
+            <PersonaAccountControl />
 
             <div className="relative">
               <IconButton

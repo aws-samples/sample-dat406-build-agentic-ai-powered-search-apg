@@ -152,6 +152,10 @@ CREATE TABLE IF NOT EXISTS pellier.workshop_scenarios (
                ON DELETE CASCADE,
     ordinal SMALLINT NOT NULL CHECK (ordinal BETWEEN 1 AND 5),
     prompt TEXT NOT NULL CHECK (length(trim(prompt)) > 0),
+    journey_role TEXT NOT NULL DEFAULT 'explore'
+                 CHECK (journey_role IN ('required', 'explore')),
+    journey_stage TEXT
+                  CHECK (journey_stage IN ('establish', 'exercise', 'prove')),
     preview_product_id TEXT
                        REFERENCES pellier.product_catalog("productId")
                        ON DELETE SET NULL,
@@ -160,6 +164,13 @@ CREATE TABLE IF NOT EXISTS pellier.workshop_scenarios (
     UNIQUE (persona_id, ordinal)
 );
 
+ALTER TABLE pellier.workshop_scenarios
+    ADD COLUMN IF NOT EXISTS journey_role TEXT NOT NULL DEFAULT 'explore'
+        CHECK (journey_role IN ('required', 'explore'));
+ALTER TABLE pellier.workshop_scenarios
+    ADD COLUMN IF NOT EXISTS journey_stage TEXT
+        CHECK (journey_stage IN ('establish', 'exercise', 'prove'));
+
 DROP TRIGGER IF EXISTS workshop_scenarios_set_updated_at
     ON pellier.workshop_scenarios;
 CREATE TRIGGER workshop_scenarios_set_updated_at
@@ -167,30 +178,32 @@ CREATE TRIGGER workshop_scenarios_set_updated_at
     FOR EACH ROW EXECUTE FUNCTION pellier.set_updated_at();
 
 INSERT INTO pellier.workshop_scenarios (
-    persona_id, ordinal, prompt, preview_product_id
+    persona_id, ordinal, prompt, journey_role, journey_stage, preview_product_id
 ) VALUES
-    ('fresh', 1, 'A considered carry-all for a long weekend.', '10'),
-    ('fresh', 2, 'Pieces for slow Sunday mornings', '8'),
-    ('fresh', 3, 'Something to wear for warm evenings out', '2'),
-    ('fresh', 4, 'Linen pieces that travel well', '3'),
-    ('fresh', 5, 'A cozy layer for cooler nights', '8'),
-    ('marco', 1, 'What linen do you have for 10 days in Goa?', '11'),
-    ('marco', 2, 'Build a carry-on wardrobe around what I already own.', '12'),
-    ('marco', 3, 'What is the value range for the pieces you picked?', '17'),
-    ('marco', 4, 'Is the Kyoto Linen Overshirt in cedar, size M, on the floor?', '14'),
-    ('marco', 5, 'Connect me with a stylist for my brother’s wedding.', '19'),
-    ('anna', 1, 'A thoughtful gift for someone who loves morning rituals', '22'),
-    ('anna', 2, 'Something beautiful under $100', '24'),
-    ('anna', 3, 'Help me pair a candle with something else', '21'),
-    ('anna', 4, 'Wrap-ready gifts with no extra effort', '26'),
-    ('anna', 5, 'I need a human to help with a sympathy gift.', '28'),
-    ('theo', 1, 'A pour-over set with a little patina', '31'),
-    ('theo', 2, 'Pair it with something for a slow Sunday breakfast.', '32'),
-    ('theo', 3, 'Washed linen for every season, not a wardrobe.', '35'),
-    ('theo', 4, 'The Wabi-Sabi Bowl arrived chipped. Can I start a return?', '37'),
-    ('theo', 5, 'Can a person help with an exception return?', '38')
+    ('fresh', 1, 'A considered carry-all for a long weekend.', 'explore', NULL, '10'),
+    ('fresh', 2, 'Pieces for slow Sunday mornings', 'explore', NULL, '8'),
+    ('fresh', 3, 'Something to wear for warm evenings out', 'explore', NULL, '2'),
+    ('fresh', 4, 'Linen pieces that travel well', 'explore', NULL, '3'),
+    ('fresh', 5, 'A cozy layer for cooler nights', 'explore', NULL, '8'),
+    ('marco', 1, 'What linen do you have for 10 days in Goa?', 'required', 'establish', '11'),
+    ('marco', 2, 'What would go with the Hadley shirt?', 'required', 'exercise', '14'),
+    ('marco', 3, 'Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?', 'required', 'prove', '2'),
+    ('marco', 4, 'What''s the price range for linen shirts?', 'explore', NULL, '2'),
+    ('marco', 5, 'Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother''s wedding – not product cards.', 'explore', NULL, '19'),
+    ('anna', 1, 'A thoughtful gift for someone who loves morning rituals', 'required', 'establish', '22'),
+    ('anna', 2, 'Keep the gift under $100 and show me the strongest two options.', 'required', 'exercise', '21'),
+    ('anna', 3, 'Which one should I choose, and prove it stayed in budget and in stock?', 'required', 'prove', '21'),
+    ('anna', 4, 'Wrap-ready gifts with no extra effort', 'explore', NULL, '26'),
+    ('anna', 5, 'Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.', 'explore', NULL, '28'),
+    ('theo', 1, 'Hand-thrown ceramics for a slower morning routine', 'required', 'establish', '31'),
+    ('theo', 2, 'What goes well with the pour-over set?', 'required', 'exercise', '32'),
+    ('theo', 3, 'Without asking me to repeat the ritual or material, which pairing should I choose and why?', 'required', 'prove', '32'),
+    ('theo', 4, 'My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is ''theo''.', 'explore', NULL, '37'),
+    ('theo', 5, 'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?', 'explore', NULL, '38')
 ON CONFLICT (persona_id, ordinal) DO UPDATE SET
     prompt = EXCLUDED.prompt,
+    journey_role = EXCLUDED.journey_role,
+    journey_stage = EXCLUDED.journey_stage,
     preview_product_id = EXCLUDED.preview_product_id;
 
 COMMIT;

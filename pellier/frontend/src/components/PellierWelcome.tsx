@@ -18,7 +18,9 @@ interface PellierWelcomeProps {
 
 interface LiveScenario {
   id: number
+  ordinal?: number
   prompt: string
+  journeyRole?: 'required' | 'explore'
 }
 
 type TimeOfDay = 'morning' | 'afternoon' | 'evening'
@@ -107,8 +109,16 @@ export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps)
     TIME_GREETING[tod],
     persona && persona.id !== 'fresh' ? `, ${persona.display_name.split(' ')[0]}` : '',
   )
-  const primary = scenarios.slice(0, 3)
-  const more = scenarios.slice(3, 5)
+  const primary = scenarios.filter((scenario, index) =>
+    scenario.journeyRole
+      ? scenario.journeyRole === 'required'
+      : (scenario.ordinal ?? index + 1) <= 3,
+  )
+  const more = scenarios.filter((scenario, index) =>
+    scenario.journeyRole
+      ? scenario.journeyRole === 'explore'
+      : (scenario.ordinal ?? index + 1) > 3,
+  )
 
   return (
     <div className="sf-welcome">
@@ -142,11 +152,14 @@ export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps)
         </p>
 
         {!error && primary.length > 0 ? (
-          <div className="sf-section">
+          <section
+            className="sf-section"
+            aria-label="Required three-turn journey"
+          >
             <div className="sf-section-head">
               <span className="sf-eyebrow-sm sf-eyebrow-red">
                 <span className="sf-dot" />
-                Guided requests
+                Required three-turn journey
               </span>
               <span className="sf-count sf-count-hero">Live</span>
             </div>
@@ -163,14 +176,17 @@ export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps)
                 </button>
               ))}
             </div>
-          </div>
+          </section>
         ) : null}
 
         {more.length > 0 ? (
           <>
             <div className="sf-divider" />
-            <p className="sf-prompt">Or choose another live starting point.</p>
-            <div className="sf-postscript-list">
+            <p className="sf-prompt">Explore beyond the required lab journey.</p>
+            <section
+              className="sf-postscript-list"
+              aria-label="Explore further"
+            >
               {more.map((scenario) => (
                 <button
                   key={scenario.id}
@@ -184,7 +200,7 @@ export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps)
                   </span>
                 </button>
               ))}
-            </div>
+            </section>
           </>
         ) : null}
       </div>

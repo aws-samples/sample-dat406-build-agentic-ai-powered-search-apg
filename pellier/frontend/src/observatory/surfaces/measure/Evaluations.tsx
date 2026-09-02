@@ -851,7 +851,7 @@ const EmptyState: React.FC = () => (
 /**
  * Provenance envelope returned by `GET /api/observatory/evaluations`.
  *
- * The backend reports three states that must never be styled alike:
+ * The backend reports provenance states that must never be styled alike:
  * `fixture` (illustrative, describes no run), `localGate` (real commit,
  * golden input), and `managed` (real deployed Runtime, trace-backed).
  * A fixture scorecard rendered identically to a measured one invites an
@@ -903,11 +903,19 @@ const PROVENANCE_TONE: Record<EvaluationsEnvelope['provenance'], string> = {
 const ProvenanceStrip: React.FC<{ envelope: EvaluationsEnvelope }> = ({
   envelope,
 }) => {
-  const entries: [string, EvaluationProvenanceState][] = [
-    ['Fixture', envelope.states.fixture],
-    ['Local gate', envelope.states.localGate],
-    ['Managed', envelope.states.managed],
-  ];
+  // Render the states the API actually returned. This used to hard-code three
+  // keys — fixture, localGate, managed — but the endpoint answers with
+  // localGate and managed only, so `envelope.states.fixture` was undefined and
+  // reading `.available` off it crashed the route into the error boundary.
+  // Each state carries its own `label`, so the list stays self-describing if
+  // the backend adds or drops one.
+  const entries: [string, EvaluationProvenanceState][] = Object.entries(
+    envelope.states ?? {},
+  )
+    .filter((entry): entry is [string, EvaluationProvenanceState] =>
+      Boolean(entry[1]),
+    )
+    .map(([key, state]) => [state.label ?? key, state]);
   return (
     <div
       style={{
@@ -930,8 +938,8 @@ const ProvenanceStrip: React.FC<{ envelope: EvaluationsEnvelope }> = ({
           margin: '8px 0 10px',
         }}
       >
-        These three states are not interchangeable. The scorecards below carry
-        the <strong>{envelope.provenance}</strong> provenance.
+        These states are not interchangeable. The scorecards below carry the{' '}
+        <strong>{envelope.provenance}</strong> provenance.
       </p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         {entries.map(([name, state]) => (
@@ -980,7 +988,7 @@ const Evaluations: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Measure · Evaluations · accuracy · latency · citations"
-        title="How good is good enough."
+        title="Evaluations"
         summary="Scorecards for accuracy, latency, and citations – plus teaching panels on eval methods (LLM-as-judge, RAGAS, AgentCore) and retrieval metrics (Recall@K, MRR, context relevance, faithfulness)."
       />
 

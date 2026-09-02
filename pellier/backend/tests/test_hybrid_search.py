@@ -237,6 +237,20 @@ class TestRRFMerge:
         scores = [r["rrf_score"] for r in merged]
         assert scores == sorted(scores, reverse=True)
 
+    def test_merge_preserves_both_branch_ranks(self) -> None:
+        v_rows = [_make_row(1), _make_row(2)]
+        fts_rows = [_make_row(2), _make_row(3)]
+
+        merged = HybridSearch._rrf_merge(v_rows, fts_rows, rrf_k=60)
+        by_id = {row["product_id"]: row for row in merged}
+
+        assert by_id[1]["vec_rank"] == 1
+        assert by_id[1]["fts_rank"] is None
+        assert by_id[2]["vec_rank"] == 2
+        assert by_id[2]["fts_rank"] == 1
+        assert by_id[3]["vec_rank"] is None
+        assert by_id[3]["fts_rank"] == 2
+
 
 # ---------------------------------------------------------------------------
 # search() end-to-end — both branches run, results merged
@@ -263,6 +277,8 @@ class TestHybridSearchEndToEnd:
         head = next(r for r in results if r["product_id"] == 1)
         assert "rrf_score" in head
         assert head.get("similarity") == 0.92  # vector row preserved
+        assert head["vec_rank"] == 1
+        assert head["fts_rank"] == 1
 
     def test_top_n_caps_results(self, embedding: List[float]) -> None:
         v_rows = [_make_row(i) for i in range(1, 21)]

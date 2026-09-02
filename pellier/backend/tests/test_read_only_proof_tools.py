@@ -17,11 +17,13 @@ class FakeDB:
         orders: list[dict[str, Any]] | None = None,
         facts: list[dict[str, Any]] | None = None,
         receipts: list[dict[str, Any]] | None = None,
+        governed_receipts: list[dict[str, Any]] | None = None,
     ) -> None:
         self.customer = customer
         self.orders = orders or []
         self.facts = facts or []
         self.receipts = receipts or []
+        self.governed_receipts = governed_receipts or []
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
 
     async def fetch_one(self, query: str, *params: Any) -> dict[str, Any] | None:
@@ -38,12 +40,31 @@ class FakeDB:
             return self.facts
         if "FROM pellier.tool_audit" in query:
             return self.receipts
+        if "FROM pellier.governed_receipts" in query:
+            return self.governed_receipts
         return []
 
 
 def _call(tool_obj, *args: Any, **kwargs: Any) -> dict[str, Any]:
     fn = getattr(tool_obj, "__wrapped__", tool_obj)
     return json.loads(fn(*args, **kwargs))
+
+
+def _bind_verified_scope(customer_id: str, principal_sub: str):
+    from services.turn_identity import authorized_customer_id_var, principal_sub_var
+
+    return (
+        authorized_customer_id_var.set(customer_id),
+        principal_sub_var.set(principal_sub),
+    )
+
+
+def _reset_verified_scope(tokens) -> None:
+    from services.turn_identity import authorized_customer_id_var, principal_sub_var
+
+    customer_token, principal_token = tokens
+    authorized_customer_id_var.reset(customer_token)
+    principal_sub_var.reset(principal_token)
 
 
 def test_get_customer_preferences_reads_safe_customer_memory() -> None:
@@ -74,7 +95,11 @@ def test_get_customer_preferences_reads_safe_customer_memory() -> None:
     )
     agent_tools.set_db_service(db)
 
-    payload = _call(agent_tools.get_customer_preferences, customer_id="CUST-MARCO")
+    tokens = _bind_verified_scope("CUST-MARCO", "sub-marco")
+    try:
+        payload = _call(agent_tools.get_customer_preferences, customer_id="CUST-MARCO")
+    finally:
+        _reset_verified_scope(tokens)
 
     assert payload["status"] == "success"
     assert payload["read_only"] is True
@@ -86,6 +111,27 @@ def test_get_customer_preferences_reads_safe_customer_memory() -> None:
         "pellier.orders",
         "pellier.customer_episodic_seed",
     ]
+
+
+def test_customer_preference_reads_fail_closed_without_scope_or_on_mismatch() -> None:
+    db = FakeDB(customer={"id": "CUST-MARCO"})
+    agent_tools.set_db_service(db)
+
+    anonymous = _call(
+        agent_tools.get_customer_preferences, customer_id="CUST-THEO"
+    )
+    assert anonymous["status"] == "customer_scope_required"
+    assert db.calls == []
+
+    tokens = _bind_verified_scope("CUST-MARCO", "sub-marco")
+    try:
+        mismatch = _call(
+            agent_tools.get_customer_preferences, customer_id="CUST-THEO"
+        )
+    finally:
+        _reset_verified_scope(tokens)
+    assert mismatch["status"] == "customer_scope_mismatch"
+    assert db.calls == []
 
 
 def test_get_audit_trail_returns_allow_receipts_with_result_summary() -> None:
@@ -105,11 +151,15 @@ def test_get_audit_trail_returns_allow_receipts_with_result_summary() -> None:
     )
     agent_tools.set_db_service(db)
 
-    payload = _call(
-        agent_tools.get_audit_trail,
-        tool_name="initiate_return",
-        caller="gateway",
-    )
+    tokens = _bind_verified_scope("CUST-THEO", "sub-theo")
+    try:
+        payload = _call(
+            agent_tools.get_audit_trail,
+            tool_name="initiate_return",
+            caller="gateway",
+        )
+    finally:
+        _reset_verified_scope(tokens)
 
     assert payload["status"] == "success"
     assert payload["read_only"] is True
@@ -121,20 +171,26 @@ def test_get_audit_trail_returns_allow_receipts_with_result_summary() -> None:
     assert receipt["created_at"] == "2026-07-01T00:00:00+00:00"
 
     sql, params = db.calls[-1]
-    assert "tool = %s" in sql
-    assert "caller = %s" in sql
-    assert params == ("initiate_return", "gateway", 3)
+    assert "gr.args->>'customer_id' = %s" in sql
+    assert "gr.verified_subject = %s" in sql
+    assert "gr.tool = %s" in sql
+    assert "gr.caller = %s" in sql
+    assert params == ("CUST-THEO", "sub-theo", "initiate_return", "gateway", 3)
 
 
 def test_get_audit_trail_no_rows_reports_no_allow_boundary() -> None:
     db = FakeDB(receipts=[])
     agent_tools.set_db_service(db)
 
-    payload = _call(
-        agent_tools.get_audit_trail,
-        session_id="persona-marco-none",
-        tool_name="check_inventory",
-    )
+    tokens = _bind_verified_scope("CUST-MARCO", "sub-marco")
+    try:
+        payload = _call(
+            agent_tools.get_audit_trail,
+            session_id="persona-marco-none",
+            tool_name="check_inventory",
+        )
+    finally:
+        _reset_verified_scope(tokens)
 
     assert payload["status"] == "no_allow_receipt"
     assert payload["read_only"] is True
@@ -144,3 +200,54 @@ def test_get_audit_trail_no_rows_reports_no_allow_boundary() -> None:
         "caller": None,
     }
     assert "no-row" in payload["interpretation"]
+
+
+def test_audit_reads_require_the_verified_customer_scope_before_querying() -> None:
+    db = FakeDB()
+    agent_tools.set_db_service(db)
+
+    payload = _call(agent_tools.get_audit_trail, tool_name="initiate_return")
+
+    assert payload["status"] == "customer_scope_required"
+    assert db.calls == []
+
+
+def test_governed_receipt_output_redacts_identity_diagnostics() -> None:
+    db = FakeDB(
+        governed_receipts=[
+            {
+                "receipt_id": 9,
+                "audit_id": 8,
+                "session_id": "session-theo",
+                "tool": "initiate_return",
+                "caller": "gateway",
+                "decision": "ALLOW",
+                "args": {"customer_id": "CUST-THEO"},
+                "policy_name": "identity_scope",
+                "principal_id": "CUST-THEO",
+                "token_fingerprint_sha256": "secret-diagnostic",
+                "verified_subject": "sub-theo",
+            }
+        ]
+    )
+    agent_tools.set_db_service(db)
+
+    tokens = _bind_verified_scope("CUST-THEO", "sub-theo")
+    try:
+        payload = _call(agent_tools.get_audit_trail)
+    finally:
+        _reset_verified_scope(tokens)
+
+    receipt = payload["governed_receipts"][0]
+    assert receipt["receipt_id"] == 9
+    for sensitive_key in (
+        "principal_id",
+        "principal_label",
+        "token_fingerprint_sha256",
+        "verified_subject",
+        "verified_username",
+        "issuer",
+        "client_id",
+        "identity_source",
+    ):
+        assert sensitive_key not in receipt

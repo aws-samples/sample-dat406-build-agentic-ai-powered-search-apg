@@ -62,18 +62,29 @@ class ObservatoryErrorBoundary extends React.Component<
         >
           <Eyebrow label="Something went wrong" variant="burgundy" />
 
+          {/* An error message names the problem and the recovery. It does not
+              make a joke about it: a participant who hits this needs to know
+              whether their lab progress is affected. */}
           <h1
-            className="font-display italic text-espresso"
+            className="observatory-page-title font-display text-espresso"
+            style={{ margin: '20px 0 16px' }}
+          >
+            This view failed to render
+          </h1>
+          <p
             style={{
-              fontSize: 'clamp(36px, 4vw, 48px)',
-              fontWeight: 400,
-              lineHeight: 1.15,
-              margin: '20px 0 16px',
-              letterSpacing: '-0.015em',
+              fontFamily: 'var(--obs-sans)',
+              fontSize: 'var(--obs-body-size)',
+              lineHeight: 'var(--obs-body-leading)',
+              color: 'var(--obs-ink-2)',
+              maxWidth: '520px',
+              margin: '0 0 20px',
             }}
           >
-            The observatory hit a snag.
-          </h1>
+            The Observatory is optional, so nothing you have proved in a lab is
+            affected. Reload to try again, or read the same evidence with{' '}
+            <code>psql</code> in the Code Editor.
+          </p>
 
           {this.state.error?.message && (
             <p

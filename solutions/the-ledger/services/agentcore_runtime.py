@@ -537,6 +537,13 @@ async def run_agent(
             unavailable, or when the managed invocation itself fails.
     """
     from services.execution_rail import resolve_rail
+    from services.turn_identity import authorized_customer_id_var, principal_sub_var
+
+    # The in-process fallback also reaches deterministic customer tools. Bind
+    # only an authenticated, server-resolved scope before its worker thread
+    # starts; a runtime caller cannot turn a supplied customer_id into scope.
+    principal_sub_var.set(user_id or None)
+    authorized_customer_id_var.set(customer_id if user_id and customer_id else None)
 
     decision = resolve_rail(auth_token=auth_token)
     if decision.managed_requested and not decision.available:

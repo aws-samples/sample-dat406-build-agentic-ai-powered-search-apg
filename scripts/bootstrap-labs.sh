@@ -637,7 +637,9 @@ setup_database() {
             034_refine_persona_personalities.sql \
             035_expand_persona_discovery_grids.sql \
             036_refresh_persona_hero_alt_text.sql \
-            037_serve_persona_hero_masters.sql
+            037_serve_persona_hero_masters.sql \
+            038_principal_customer_cardinality.sql \
+            039_return_replay_scope.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -1283,6 +1285,14 @@ if [ "${WORKSHOP_FORMAT}" = "builders" ] || [ "${WORKSHOP_FORMAT}" = "governed" 
                   "pellier/frontend/src/utils/agentIdentity.ts" "Frontend agent identity"
     else
         log "Governed format: preserving Inventory Agent and check_inventory scaffolds for participant build"
+        if (
+            cd "$REPO_PATH"
+            python3 scripts/reset_participant_exercises.py --repo "$REPO_PATH"
+        ); then
+            log "✅ Governed format: all four participant exercises restored to starter state"
+        else
+            fail "Governed participant exercise reset failed"
+        fi
     fi
 
     # ---- AgentCore full managed path ----
@@ -1411,7 +1421,15 @@ EOF
         upsert_env "AGENTCORE_GATEWAY_ID" "$GATEWAY_ID" "$REPO_PATH/.env"
         upsert_env "AGENTCORE_GATEWAY_ARN" "$GATEWAY_ARN" "$REPO_PATH/.env"
         upsert_env "AGENTCORE_GATEWAY_URL" "$GATEWAY_URL" "$REPO_PATH/.env"
-        upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
+        if [ "${WORKSHOP_FORMAT}" = "governed" ]; then
+            # Labs 1 and 2 must exercise the participant's local Inventory
+            # Agent and hybrid retrieval code. Lab 3 deliberately switches
+            # the storefront to this already-provisioned Runtime, after the
+            # participant has proved the in-process rail.
+            upsert_env "USE_AGENTCORE_RUNTIME" "false" "$REPO_PATH/.env"
+        else
+            upsert_env "USE_AGENTCORE_RUNTIME" "true" "$REPO_PATH/.env"
+        fi
         # Managed AgentCore Policy engine (4th pillar). The provisioner cannot
         # report ready without this id; keep the explicit guard because Lab 4
         # and the Pellier Observatory Policy surface both read it.
@@ -1536,7 +1554,7 @@ fi
 # failure mode. So we pre-bake a one-command helper that mints a FRESH token
 # (tokens expire ~1h, so we generate on demand rather than bake a stale one):
 #
-#     source ~/pellier-token.sh      # sets $PELLIER_TOKEN for the curl below
+#     source ~/pellier-token.sh theo  # sets $PELLIER_TOKEN for AgentCore CLI
 #
 # The participant never types Cognito plumbing — they get the learning (managed
 # Cedar gates at the Gateway), not the auth ceremony. Identity is still REAL:
@@ -1556,17 +1574,24 @@ if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -n "${COGNITO_POOL:-${
 # Usage:  source ~/pellier-token.sh          # default persona (Marco)
 #         source ~/pellier-token.sh anna     # mint Anna's token instead
 #         source ~/pellier-token.sh theo     # mint Theo's
-# The Cognito users are named after the personas, so the access token carries
+#         source ~/pellier-token.sh jessica  # mint Jessica's Lab 4 token
+# The Cognito users are named after the workshop anchors, so the access token carries
 # the chosen name (the access token's \`username\` claim, lowercased — NOT
 # cognito:username, that's the ID token; box-verified 2026-06-12) through the
 # JWT-gated Gateway – identity passthrough you can see. Case-insensitive match;
-# an unknown/no arg falls back to the first user (Marco). Sets \$PELLIER_TOKEN.
+# no argument selects Marco, while an unknown named principal fails closed.
+# Sets \$PELLIER_TOKEN.
 _want="\${1:-}"
 _creds=\$(aws secretsmanager get-secret-value \\
   --secret-id "$COGNITO_TEST_CREDENTIALS_SECRET_ARN" --region "$AWS_REGION" \\
   --query SecretString --output text 2>/dev/null)
-_u=\$(echo "\$_creds" | python3 -c 'import sys,json;w=(sys.argv[1] if len(sys.argv)>1 else "").strip().lower();us=json.load(sys.stdin)["users"];print(next((x for x in us if x["username"].lower()==w), us[0])["username"])' "\$_want" 2>/dev/null)
-_p=\$(echo "\$_creds" | python3 -c 'import sys,json;w=(sys.argv[1] if len(sys.argv)>1 else "").strip().lower();us=json.load(sys.stdin)["users"];print(next((x for x in us if x["username"].lower()==w), us[0])["password"])' "\$_want" 2>/dev/null)
+_pair=\$(echo "\$_creds" | python3 -c 'import sys,json;w=(sys.argv[1] if len(sys.argv)>1 else "").strip().lower();us=[x for x in json.load(sys.stdin).get("users",[]) if str(x.get("username","")).strip()];matches=[x for x in us if x["username"].strip().lower()==w];chosen=(us[0] if not w and us else matches[0] if len(matches)==1 else None);print((chosen["username"]+"\\t"+chosen["password"]) if chosen else "")' "\$_want" 2>/dev/null)
+if [ -z "\$_pair" ]; then
+  echo "✗ Unknown Cognito username '\$_want'. Expected marco, anna, theo, or jessica."
+  unset PELLIER_TOKEN
+  return 1 2>/dev/null || exit 1
+fi
+IFS=\$'\\t' read -r _u _p <<< "\$_pair"
 # The app client is configured WITH a secret, so admin-initiate-auth must
 # send SECRET_HASH = b64(hmac-sha256(client_secret, username+client_id)) or
 # Cognito rejects with NotAuthorizedException (box-verified 2026-06-12).
@@ -1630,7 +1655,7 @@ fi
 #
 # Seeded here rather than in the CloudFormation template so the group and its member
 # travel with the source revision the box checks out, and so a fix does not require an
-# asset re-sync. The pool and its three persona users are created by the template; this
+# asset re-sync. The pool and its four customer principals are created by the template; this
 # adds the group and the one account that belongs to it.
 #
 # NOT best-effort. A failed seeding leaves a console nobody can open, which is the correct
@@ -1681,7 +1706,7 @@ if [ -n "$(_pool_id)" ]; then
 
     # A shopper must NOT be in the group. Asserted rather than assumed, because the whole
     # point is that a valid token is not authorization.
-    for SHOPPER in marco anna theo; do
+    for SHOPPER in marco anna theo jessica; do
         if aws cognito-idp admin-list-groups-for-user --user-pool-id "$POOL" \
              --username "$SHOPPER" --region "$AWS_REGION" \
              --query "Groups[?GroupName=='${OPERATOR_GROUP}'].GroupName" --output text 2>/dev/null \

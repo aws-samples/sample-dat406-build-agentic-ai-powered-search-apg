@@ -124,6 +124,38 @@ def test_facilitator_dry_run_covers_both_lab1_build_sites() -> None:
     assert '"check_inventory"[[:space:]]*:[[:space:]]*"shipped"' in source
 
 
+def test_governed_bootstrap_restores_all_participant_starters() -> None:
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+    command = "python3 scripts/reset_participant_exercises.py --repo \"$REPO_PATH\""
+    assert command in bootstrap
+    governed_branch = bootstrap.index(
+        'log "Governed format: preserving Inventory Agent and check_inventory scaffolds'
+    )
+    managed_provision = bootstrap.index(
+        'log "Provisioning full AgentCore managed path'
+    )
+    assert governed_branch < bootstrap.index(command) < managed_provision
+
+
+def test_governed_reset_restores_participant_starters_before_health_gate() -> None:
+    reset = RESET_GOVERNED.read_text(encoding="utf-8")
+    command = '"$PYTHON" "$REPO/scripts/reset_participant_exercises.py"'
+    health_gate = 'bash "$REPO/scripts/health-gate.sh"'
+    assert command in reset
+    assert reset.index(command) < reset.index(health_gate)
+
+
+def test_governed_identity_bootstrap_covers_jessica_as_a_shopper_principal() -> None:
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+    health = HEALTH_GATE.read_text(encoding="utf-8")
+
+    assert "source ~/pellier-token.sh jessica" in bootstrap
+    assert "for SHOPPER in marco anna theo jessica" in bootstrap
+    assert "for shopper in marco anna theo jessica" in health
+    assert "Unknown Cognito username" in bootstrap
+    assert 'next((x for x in us if x["username"].lower()==w), us[0])' not in bootstrap
+
+
 def _write_executable(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(0o755)
@@ -343,7 +375,11 @@ def _run_health_gate(
             [
                 "AGENTCORE_MEMORY_ID=memory-123",
                 "AGENTCORE_RUNTIME_ENDPOINT=arn:aws:bedrock-agentcore:us-east-1:123:runtime/test",
-                "USE_AGENTCORE_RUNTIME=true",
+                (
+                    "USE_AGENTCORE_RUNTIME=false"
+                    if workshop_format == "governed"
+                    else "USE_AGENTCORE_RUNTIME=true"
+                ),
                 "AGENTCORE_GATEWAY_URL=https://gateway.example.test/mcp",
                 "AGENTCORE_GATEWAY_ARN=arn:aws:bedrock-agentcore:us-east-1:123:gateway/test",
                 "AGENTCORE_POLICY_ENGINE_ID=policy-123",
@@ -477,6 +513,7 @@ def test_governed_health_gate_requires_complete_managed_receipt(
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "gateway-mcp Runtime smoke" in proc.stdout
+    assert "Labs 1-2 start in-process" in proc.stdout
     assert "READY" in proc.stdout
 
 

@@ -1,0 +1,112 @@
+digraph Lab2AnnaRetrieval {
+  graph [
+    bgcolor="#f7f3ec",
+    dpi=144,
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=22,
+    label="LAB 2 · ANNA\nBuild and measure bounded PostgreSQL hybrid retrieval",
+    labelloc=t,
+    labeljust=l,
+    margin=0,
+    nodesep=0.42,
+    outputorder=edgesfirst,
+    pad=0.34,
+    ranksep="0.68 equally",
+    ratio=fill,
+    size="13.333,7.5!",
+    splines=ortho
+  ];
+  node [
+    color="#cbc1ad",
+    fillcolor="#fbf8f2",
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=12,
+    margin="0.2,0.15",
+    penwidth=1.2,
+    shape=box,
+    style=filled,
+    width=2.35
+  ];
+  edge [
+    arrowsize=0.78,
+    color="#9a3412",
+    fontcolor="#5a2a0a",
+    fontname="Helvetica Neue",
+    fontsize=10,
+    penwidth=2.3
+  ];
+
+  anna [
+    label="01 · ANNA IN STOREFRONT\nMorning ritual · under $100 · in stock",
+    fillcolor="#1f1410",
+    fontcolor="#fbf8f2"
+  ];
+  planner [
+    label="02 · SEARCH PLAN\nIntent + hard constraints\nfrom bounded conversation context"
+  ];
+  candidates [
+    label="03 · POSTGRESQL CANDIDATES\npgvector semantic rank\nFTS lexical rank"
+  ];
+  rrf [
+    label="04 · PARTICIPANT RRF\nFuse ranks with explicit SQL\nbefore optional reranking",
+    color="#9a3412",
+    penwidth=2
+  ];
+  eligibility [
+    label="05 · ELIGIBILITY GATE\nprice < $100 · stock > 0\nPostgreSQL owns the hard boundary",
+    color="#3f6212",
+    penwidth=2
+  ];
+  answer [
+    label="06 · BOUNDED SHORTLIST\nTwo stable product identities\none justified choice",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=2
+  ];
+
+  anna -> planner [label="three-turn request"];
+  planner -> candidates [label="query + constraints"];
+  candidates -> rrf [label="vector_rank + fts_rank"];
+  rrf -> eligibility [label="ordered candidates"];
+  eligibility -> answer [label="eligible products only", color="#3f6212", fontcolor="#3f6212"];
+  answer -> anna [label="choice + evidence ID", color="#3f6212", fontcolor="#3f6212"];
+
+  receipt [
+    label="REQUIRED PROOF · retrieval_receipts\ncandidate IDs · vector rank · FTS rank · RRF\nprice · stock · selected IDs",
+    color="#3f6212",
+    fillcolor="#eef4e6",
+    fontcolor="#3f6212",
+    width=3.6
+  ];
+  boundary [
+    label="BOUNDARY\nThe model may propose relevance.\nPostgreSQL enforces eligibility.",
+    color="#b45309",
+    fillcolor="#fff7ed",
+    fontcolor="#7c2d12",
+    width=3.2
+  ];
+  rrf -> receipt [
+    label="WRITE · ranking evidence",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.7
+  ];
+  eligibility -> receipt [
+    label="WRITE · eligibility evidence",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.7
+  ];
+  eligibility -> boundary [
+    arrowhead=none,
+    color="#b45309",
+    penwidth=1.2,
+    style=dashed
+  ];
+
+  { rank=same; anna; planner; candidates; }
+  { rank=same; rrf; eligibility; answer; }
+  { rank=same; receipt; boundary; }
+}

@@ -53,9 +53,6 @@ const LabsCatalog = lazy(
 const LabDetail = lazy(
   () => import('./observatory/surfaces/labs/LabDetail'),
 )
-const ReferencesIndex = lazy(
-  () => import('./observatory/surfaces/ReferencesIndex'),
-)
 const ArchitectureIndex = lazy(
   () => import('./observatory/surfaces/understand/ArchitectureIndex'),
 )
@@ -252,7 +249,10 @@ export function AppRoutes() {
           <Route index element={<LabsCatalog />} />
           <Route path="labs/:exerciseId" element={<LabDetail />} />
           <Route path="workbench" element={<ObservatoryWorkbench />} />
-          <Route path="references" element={<ReferencesIndex />} />
+          <Route
+            path="references"
+            element={<Navigate to="/observatory/workbench#resources" replace />}
+          />
           <Route path="proof-board" element={<ProofBoard />} />
           <Route path="operator-lineage" element={<OperatorLineage />} />
           <Route

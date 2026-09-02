@@ -899,7 +899,7 @@ const Routing: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Optional pattern read"
-        title="How requests find their specialist."
+        title="Request routing"
         summary={
           storefrontPattern
             ? 'Dispatcher owns Storefront turns; the Operator Concierge uses a bounded two-agent Strands graph.'

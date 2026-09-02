@@ -222,6 +222,31 @@ def test_aws_default_region_overrides_ambient_aws_region(
     assert s.cognito_region_resolved == "us-east-1"
 
 
+def test_cloudwatch_span_export_uses_the_resolved_aws_region() -> None:
+    """Startup must not bypass the stale-shell override for trace export."""
+    from pathlib import Path
+
+    app_source = (Path(__file__).parents[1] / "app.py").read_text()
+    export_call = app_source.split("init_cloudwatch_span_export(", 1)[1].split(
+        ")", 1
+    )[0]
+
+    assert "region=settings.aws_region_resolved" in export_call
+    assert "region=settings.AWS_REGION" not in export_call
+
+
+def test_operator_capability_probe_uses_the_resolved_aws_region() -> None:
+    """Operator control-plane checks must target the workshop stack region."""
+    from pathlib import Path
+
+    source = (
+        Path(__file__).parents[1] / "services" / "operator_capabilities.py"
+    ).read_text()
+
+    assert "region_name=settings.aws_region_resolved" in source
+    assert "region_name=settings.AWS_REGION" not in source
+
+
 def test_cognito_pool_id_resolved_prefers_new_name(
     monkeypatch: pytest.MonkeyPatch, _db_env: None
 ) -> None:

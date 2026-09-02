@@ -74,6 +74,140 @@ describe('chat service auth transport', () => {
     })
   })
 
+  it('keeps prior rendered product identity in multi-turn requests', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        'data: {"type":"complete","response":{"response":"done","products":[]}}\n\n',
+        { status: 200 },
+      ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+    await sendChatMessageStreaming(
+      'Keep that pair and confirm the total.',
+      [
+        {
+          role: 'assistant',
+          content: 'The Beeswax Pillar Candle and Brass Incense Holder make a quiet ritual.',
+          timestamp: new Date(),
+          products: [
+            {
+              id: 41,
+              name: 'Beeswax Pillar Candle',
+              price: 38,
+              image: '',
+              category: 'Home Decor',
+              availability: { status: 'in_stock' },
+            },
+            {
+              id: 42,
+              name: 'Brass Incense Holder',
+              price: 45,
+              image: '',
+              category: 'Home Decor',
+              availability: { status: 'in_stock' },
+            },
+            {
+              id: 43,
+              name: 'Ceramic Ring Dish',
+              price: 35,
+              image: '',
+              category: 'Home Decor',
+              availability: { status: 'in_stock' },
+            },
+          ],
+        },
+      ],
+      vi.fn(),
+    )
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse(init.body as string).conversation_history).toEqual([
+      {
+        role: 'assistant',
+        content: 'The Beeswax Pillar Candle and Brass Incense Holder make a quiet ritual.',
+        products: [
+          {
+            id: 41,
+            name: 'Beeswax Pillar Candle',
+            price: 38,
+            category: 'Home Decor',
+            availability: 'in_stock',
+          },
+          {
+            id: 42,
+            name: 'Brass Incense Holder',
+            price: 45,
+            category: 'Home Decor',
+            availability: 'in_stock',
+          },
+        ],
+      },
+    ])
+  })
+
+  it('sends zero, two, then four prior messages across a three-turn thread', async () => {
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(
+          'data: {"type":"complete","response":{"response":"done","products":[]}}\n\n',
+          { status: 200 },
+        ),
+    )
+
+    const { sendChatMessageStreaming } = await import('./chat')
+    const turn1User = {
+      role: 'user' as const,
+      content: 'Hand-thrown ceramics for a slower morning routine',
+      timestamp: new Date(),
+    }
+    const turn1Assistant = {
+      role: 'assistant' as const,
+      content: 'The Stoneware Pour-Over Set establishes the ritual.',
+      timestamp: new Date(),
+    }
+    const turn2User = {
+      role: 'user' as const,
+      content: 'What goes well with the pour-over set?',
+      timestamp: new Date(),
+    }
+    const turn2Assistant = {
+      role: 'assistant' as const,
+      content: 'The Ceramic Tumblers and Woven Mat Set are the strongest companions.',
+      timestamp: new Date(),
+    }
+
+    await sendChatMessageStreaming(turn1User.content, [], vi.fn())
+    await sendChatMessageStreaming(
+      turn2User.content,
+      [turn1User, turn1Assistant],
+      vi.fn(),
+    )
+    await sendChatMessageStreaming(
+      'Without asking me to repeat the ritual or material, which pairing should I choose and why?',
+      [turn1User, turn1Assistant, turn2User, turn2Assistant],
+      vi.fn(),
+    )
+
+    expect(
+      fetchMock.mock.calls.map(([, init]) =>
+        JSON.parse(init.body as string).conversation_history,
+      ),
+    ).toEqual([
+      [],
+      [
+        { role: 'user', content: turn1User.content, products: [] },
+        { role: 'assistant', content: turn1Assistant.content, products: [] },
+      ],
+      [
+        { role: 'user', content: turn1User.content, products: [] },
+        { role: 'assistant', content: turn1Assistant.content, products: [] },
+        { role: 'user', content: turn2User.content, products: [] },
+        { role: 'assistant', content: turn2Assistant.content, products: [] },
+      ],
+    ])
+  })
+
   it('classifies non-2xx responses using status and response detail', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ detail: 'Chat service not initialized' }), {

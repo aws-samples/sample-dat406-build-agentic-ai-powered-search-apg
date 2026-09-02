@@ -84,17 +84,39 @@ def test_logical_gateway_tool_name_strips_target_prefix(
     assert gateway._logical_gateway_tool_name(published) == logical
 
 
-def test_server_context_overrides_model_identity_and_correlation() -> None:
-    bound = gateway._bind_server_tool_context(
-        {
-            "name": "recommendation-target___get_customer_preferences",
-            "toolUseId": "call-1",
-            "input": {
+@pytest.mark.parametrize(
+    ("name", "model_input", "expected_input"),
+    [
+        (
+            "recommendation-target___get_customer_preferences",
+            {
                 "customer_id": "CUST-THEO",
                 "persona": "theo",
                 "turn_id": "turn-model-value",
                 "limit": 3,
             },
+            {"limit": 3},
+        ),
+        (
+            "recommendation-target___get_audit_trail",
+            {
+                "customer_id": "CUST-THEO",
+                "turn_id": "turn-model-value",
+                "session_id": "session-theo",
+                "tool_name": "initiate_return",
+            },
+            {"session_id": "session-theo", "tool_name": "initiate_return"},
+        ),
+    ],
+)
+def test_server_context_overrides_model_identity_and_correlation(
+    name: str, model_input: Dict[str, Any], expected_input: Dict[str, Any]
+) -> None:
+    bound = gateway._bind_server_tool_context(
+        {
+            "name": name,
+            "toolUseId": "call-1",
+            "input": model_input,
         },
         customer_id="CUST-MARCO",
         turn_id="turn-" + ("a" * 32),
@@ -103,7 +125,7 @@ def test_server_context_overrides_model_identity_and_correlation() -> None:
     assert bound["input"] == {
         "customer_id": "CUST-MARCO",
         "turn_id": "turn-" + ("a" * 32),
-        "limit": 3,
+        **expected_input,
     }
 
 

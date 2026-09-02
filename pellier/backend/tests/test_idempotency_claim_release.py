@@ -25,6 +25,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 MIGRATION = REPO / "scripts" / "migrations" / "023_idempotency_claims_release_on_failure.sql"
 ELEVEN = REPO / "scripts" / "migrations" / "011_governed_write_integrity.sql"
+REPLAY_SCOPE = REPO / "scripts" / "migrations" / "039_return_replay_scope.sql"
 
 
 def _body() -> str:
@@ -92,6 +93,24 @@ def test_the_replay_guard_still_requires_a_stored_result() -> None:
     """Unfinalised claims must not short-circuit a retry."""
     text = _body()
     assert "IF NOT v_claimed AND v_existing.result IS NOT NULL THEN" in text
+
+
+def test_replay_scope_is_checked_before_every_keyed_response() -> None:
+    """A completed global key never bypasses the caller's RLS ownership scope."""
+    text = REPLAY_SCOPE.read_text()
+    body = text[text.index("CREATE OR REPLACE FUNCTION"):text.index("COMMIT;")]
+
+    assert "CREATE OR REPLACE FUNCTION pellier.process_return_idempotent" in body
+    ownership_probe = body.index("PERFORM 1\n      FROM pellier.orders")
+    conflict = body.index("IF v_existing.operation <> 'initiate_return'")
+    replay = body.index("IF NOT v_claimed AND v_existing.result IS NOT NULL THEN")
+    assert ownership_probe < conflict < replay, (
+        "the RLS-scoped orders probe must run before an idempotency conflict or "
+        "a stored replay can return"
+    )
+    assert "SECURITY INVOKER" in text, (
+        "the migration must document that this ownership probe runs as the caller"
+    )
 
 
 def test_a_vanished_claim_is_adopted_rather_than_used_as_null() -> None:

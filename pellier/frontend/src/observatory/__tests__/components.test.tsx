@@ -25,7 +25,7 @@ import { EditorialTitle } from '../components/EditorialTitle';
 // EditorialTitle
 // ---------------------------------------------------------------------------
 describe('EditorialTitle', () => {
-  it('can return to the proof and references index', () => {
+  it('can return to the embedded workbench resources', () => {
     render(
       <MemoryRouter>
         <EditorialTitle
@@ -37,8 +37,10 @@ describe('EditorialTitle', () => {
     );
 
     expect(
-      screen.getByRole('link', { name: 'Back to Proof & References' }),
-    ).toHaveAttribute('href', '/observatory/references');
+      screen.getByRole('link', {
+        name: 'Back to Labs and Workbench resources',
+      }),
+    ).toHaveAttribute('href', '/observatory/workbench#resources');
   });
 });
 

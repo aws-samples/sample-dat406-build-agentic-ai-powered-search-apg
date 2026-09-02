@@ -109,8 +109,8 @@ export function ExerciseRail({
   statuses: Map<string, LabStatus>;
 }) {
   return (
-    <nav className="lab-exercise-rail" aria-label="Lab exercises">
-      <p className="lab-rail-title">Exercises</p>
+    <nav className="lab-exercise-rail" aria-label="Labs">
+      <p className="lab-rail-title">Labs</p>
       <ol className="lab-exercise-rail-list">
         {exercises.map((exercise) => {
           const status = statuses.get(exercise.id);
@@ -123,7 +123,9 @@ export function ExerciseRail({
                 data-active={active ? 'true' : undefined}
                 aria-current={active ? 'page' : undefined}
               >
-                <span className="lab-exercise-rail-number">{exercise.number}</span>
+                <span className="lab-exercise-rail-number">
+                  Lab {Number(exercise.number)}
+                </span>
                 <span className="lab-exercise-rail-copy">
                   <strong>{exercise.shortTitle}</strong>
                   <small>{status?.label ?? 'Unknown'}</small>
@@ -134,22 +136,31 @@ export function ExerciseRail({
           );
         })}
       </ol>
-      <Link to="/observatory/references" className="lab-rail-reference">
+      <Link
+        to="/observatory/workbench#resources"
+        className="lab-rail-reference"
+      >
         <BookOpen size={15} strokeWidth={1.8} aria-hidden="true" />
-        Reference
+        Evidence routes
       </Link>
     </nav>
   );
 }
 
-const WORKFLOW_STEPS = ['Build', 'Measure', 'Prove', 'Govern'] as const;
+const WORKFLOW_STEPS = [
+  'Baseline',
+  'Build / operate',
+  'Measure',
+  'Prove',
+  'Explain',
+] as const;
 
 export function WorkflowStepper() {
   return (
     <section className="lab-workflow" aria-labelledby="lab-workflow-title">
       <div className="lab-section-heading">
-        <h2 id="lab-workflow-title">Exercise contract</h2>
-        <p>These are required proof stages, not inferred learner progress.</p>
+        <h2 id="lab-workflow-title">Lab contract</h2>
+        <p>Focused two-hour stages, not inferred learner progress.</p>
       </div>
       <ol className="lab-workflow-list">
         {WORKFLOW_STEPS.map((step, index) => (
@@ -232,7 +243,7 @@ export function EvidenceClassificationCard({
 
 export function LabActionBar({ exercise }: { exercise: LabExercise }) {
   return (
-    <div className="lab-action-bar" aria-label="Exercise actions">
+    <div className="lab-action-bar" aria-label="Lab actions">
       {exercise.primaryAction ? (
         <Link to={exercise.primaryAction.to} className="lab-action-primary">
           {exercise.primaryAction.label}

@@ -44,7 +44,7 @@ export type { EvaluationScorecard } from './evaluations';
 
 export type { ArchitectureConcept } from './architecture';
 
-export type { Skill } from './skill';
+export type { Skill, SkillApiRow } from './skill';
 
 export type {
   SearchExplainResponse,

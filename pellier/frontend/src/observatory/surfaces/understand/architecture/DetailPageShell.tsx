@@ -119,7 +119,7 @@ const CheatSheetStrip: React.FC<{ items: CheatSheetItem[] }> = ({ items }) => {
             <p
               style={{
                 fontFamily: 'var(--obs-sans)',
-                fontSize: '13.5px',
+                fontSize: '13px',
                 lineHeight: 1.55,
                 color: 'var(--obs-ink-1)',
                 margin: 0,

@@ -5,16 +5,10 @@
  * to images.unsplash.com, so a blocked request left every avatar as a bare
  * initial circle. Local files remove that dependency.
  *
- * Two sizes, two roles:
- *
- *   `PERSONA_PHOTOS`    160px avatar crop. Chrome: header pill, Labs top
- *                       bar, persona modal, transition overlay.
- *   `PERSONA_PORTRAITS` 480px editorial crop. The hero concierge panel,
- *                       where the face is a composition element.
- *
- * Both are width-suffixed WebP derivatives of the tracked source PNGs
- * (`persona-<id>-portrait.png`), matching the `-<width>.<format>`
- * convention in `utils/assetPath.ts`.
+ * One lossless PNG per person is the canonical identity image across the
+ * selector, sign-in transition, header, Observatory, and signed-in switcher.
+ * CSS owns the crop for each surface so a persona never changes faces when
+ * the participant moves between them.
  *
  * The maps hold root-relative repository paths. The accessors resolve them
  * through `imageSrc()` so a caller can assign the result straight to
@@ -23,18 +17,27 @@
  */
 import { imageSrc } from '../utils/assetPath'
 
+const CANONICAL_PERSONA_PORTRAITS: Record<string, string> = {
+  marco: '/assets/personas/marco.png',
+  anna: '/assets/personas/anna.png',
+  theo: '/assets/personas/theo.png',
+}
+
 /** Avatar-sized crops for interface chrome. */
 export const PERSONA_PHOTOS: Record<string, string> = {
-  marco: '/products/persona-marco-portrait-160.webp',
-  anna: '/products/persona-anna-portrait-160.webp',
-  theo: '/products/persona-theo-portrait-160.webp',
+  ...CANONICAL_PERSONA_PORTRAITS,
 }
 
 /** Editorial crops for the hero concierge panel. */
 export const PERSONA_PORTRAITS: Record<string, string> = {
-  marco: '/products/persona-marco-portrait-480.webp',
-  anna: '/products/persona-anna-portrait-480.webp',
-  theo: '/products/persona-theo-portrait-480.webp',
+  ...CANONICAL_PERSONA_PORTRAITS,
+}
+
+/**
+ * Edge-to-edge crops for the portrait-led persona modal.
+ */
+export const PERSONA_MODAL_PORTRAITS: Record<string, string> = {
+  ...CANONICAL_PERSONA_PORTRAITS,
 }
 
 /**
@@ -106,4 +109,12 @@ export function getPersonaPortrait(
 ): string | undefined {
   if (!personaId) return undefined
   return imageSrc(PERSONA_PORTRAITS[personaId])
+}
+
+/** Get the edge-to-edge portrait used only by the persona selection modal. */
+export function getPersonaModalPortrait(
+  personaId: string | null | undefined,
+): string | undefined {
+  if (!personaId) return undefined
+  return imageSrc(PERSONA_MODAL_PORTRAITS[personaId])
 }

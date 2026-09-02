@@ -86,7 +86,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, unit, detail }) => (
     <p
       style={{
         fontFamily: 'var(--obs-sans)',
-        fontSize: '12.5px',
+        fontSize: '12px',
         color: 'var(--obs-ink-2)',
         marginTop: '8px',
         margin: '8px 0 0',
@@ -300,11 +300,13 @@ const LatencyBudgetTable: React.FC<LatencyBudgetProps> = ({ budget }) => {
                 <div
                   style={{
                     height: '100%',
-                    width: `${barPct}%`,
+                    width: '100%',
+                    transform: `scaleX(${barPct / 100})`,
+                    transformOrigin: 'left center',
                     backgroundColor: color,
                     borderRadius: '7px',
                     opacity: 0.7,
-                    transition: 'width 0.4s ease',
+                    transition: 'transform 0.4s ease',
                   }}
                 />
               </div>
@@ -344,7 +346,7 @@ interface PgvectorComparisonProps {
 const PgvectorComparison: React.FC<PgvectorComparisonProps> = ({ strategies }) => {
   const headerStyle: React.CSSProperties = {
     fontFamily: 'var(--obs-heading)',
-    fontSize: '11.5px',
+    fontSize: '11px',
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
     color: 'var(--obs-ink-2)',
@@ -657,8 +659,8 @@ const PgvectorTuning: React.FC<PgvectorTuningProps> = ({ tuning }) => {
           marginTop: '16px',
           padding: '14px 16px',
           backgroundColor: 'var(--obs-cream-2)',
-          borderLeft: '3px solid var(--obs-green-1)',
-          borderRadius: '4px',
+          border: '1px solid var(--obs-green-1)',
+          borderRadius: 'var(--obs-card-radius)',
         }}
       >
         <Eyebrow label="Why this is not a third exercise" variant="muted" />
@@ -1143,7 +1145,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                             display: 'block',
                             marginTop: '5px',
                             fontFamily: 'var(--obs-mono)',
-                            fontSize: '10.5px',
+                            fontSize: '10px',
                             fontWeight: 500,
                             letterSpacing: '0.04em',
                             color:
@@ -1362,8 +1364,8 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           marginTop: '20px',
           padding: '14px 16px',
           backgroundColor: 'var(--obs-cream-2)',
-          borderLeft: '3px solid var(--obs-green-1)',
-          borderRadius: '4px',
+          border: '1px solid var(--obs-green-1)',
+          borderRadius: 'var(--obs-card-radius)',
         }}
       >
         <Eyebrow label="Why agentic is Anna's path" variant="muted" />
@@ -1405,8 +1407,8 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           marginTop: '12px',
           padding: '14px 16px',
           backgroundColor: 'var(--obs-cream-2)',
-          borderLeft: '3px solid var(--obs-red-1)',
-          borderRadius: '4px',
+          border: '1px solid var(--obs-red-1)',
+          borderRadius: 'var(--obs-card-radius)',
         }}
       >
         <Eyebrow label="Why hybrid (RRF) is a teaching foil, not Anna's path" variant="muted" />
@@ -1501,11 +1503,13 @@ const StorageUsageBars: React.FC<StorageUsageProps> = ({ usage }) => {
               <div
                 style={{
                   height: '100%',
-                  width: `${item.percentage}%`,
+                  width: '100%',
+                  transform: `scaleX(${item.percentage / 100})`,
+                  transformOrigin: 'left center',
                   backgroundColor: barColors[i % barColors.length],
                   borderRadius: '5px',
                   opacity: 0.7,
-                  transition: 'width 0.4s ease',
+                  transition: 'transform 0.4s ease',
                 }}
               />
             </div>
@@ -1551,7 +1555,7 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
         <span
           style={{
             fontFamily: 'var(--obs-heading)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
             color: 'var(--obs-ink-2)',
@@ -1570,7 +1574,7 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
             aria-label={`Time window: ${w}`}
             style={{
               fontFamily: 'var(--obs-heading)',
-              fontSize: '12.5px',
+              fontSize: '12px',
               fontWeight: activeWindow === w ? 600 : 500,
               letterSpacing: 0,
               padding: '5px 14px',
@@ -1592,7 +1596,7 @@ const MeasureControls: React.FC<MeasureControlsProps> = ({
         <span
           style={{
             fontFamily: 'var(--obs-heading)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
             color: 'var(--obs-ink-2)',
@@ -1817,7 +1821,7 @@ const Performance: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Measure · Performance · latency · pgvector · storage"
-        title="Under the hood."
+        title="Performance"
         summary="Cold start times, per-panel latency budgets, pgvector index benchmarks, retrieval strategy comparisons, and storage footprint. The Aurora-backed comparison card can run live; advanced pgvector tuning notes come from smoke probes."
       />
 

@@ -1,0 +1,5 @@
+GitHub mark from Primer Octicons:
+https://github.com/primer/octicons/blob/main/icons/mark-github-24.svg
+
+Primer Octicons are licensed under the MIT License:
+https://github.com/primer/octicons/blob/main/LICENSE

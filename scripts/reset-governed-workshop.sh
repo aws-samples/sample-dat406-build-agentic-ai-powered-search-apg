@@ -261,6 +261,13 @@ echo "------------------------------------------------------------"
 _quiesce_services
 _assert_no_active_execution
 
+if ! "$PYTHON" "$REPO/scripts/reset_participant_exercises.py" \
+    --repo "$REPO" >/tmp/pellier-governed-reset-exercises.log 2>&1; then
+  fail "Participant exercise reset failed; see /tmp/pellier-governed-reset-exercises.log"
+  exit 1
+fi
+pass "Labs 1-4 restored to their incomplete participant starters"
+
 if ! "$PYTHON" "$REPO/scripts/seed_pellier_catalog.py" \
     --from-cache >/tmp/pellier-governed-reset-catalog.log 2>&1; then
   fail "Deterministic catalog reset failed; see /tmp/pellier-governed-reset-catalog.log"
@@ -296,7 +303,9 @@ for migration in \
   034_refine_persona_personalities.sql \
   035_expand_persona_discovery_grids.sql \
   036_refresh_persona_hero_alt_text.sql \
-  037_serve_persona_hero_masters.sql
+  037_serve_persona_hero_masters.sql \
+  038_principal_customer_cardinality.sql \
+  039_return_replay_scope.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"

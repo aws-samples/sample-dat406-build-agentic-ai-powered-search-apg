@@ -264,7 +264,7 @@ async def lifespan(app: FastAPI):
 
                 span_export = init_cloudwatch_span_export(
                     enabled=settings.OTEL_CLOUDWATCH_TRACES_ENABLED,
-                    region=settings.AWS_REGION,
+                    region=settings.aws_region_resolved,
                     endpoint=settings.OTEL_CLOUDWATCH_TRACES_ENDPOINT,
                 )
                 if not span_export.attached:
@@ -813,8 +813,15 @@ async def chat(request: ChatRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=503, detail="Chat service not initialized")
 
     try:
-        # Convert conversation history to dict format
-        history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
+        # Convert bounded conversation history to the service shape.
+        history = [
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "products": [product.model_dump() for product in msg.products],
+            }
+            for msg in request.conversation_history
+        ]
 
         # Get chat response with session persistence
         response = await chat_service.chat(
@@ -1049,7 +1056,14 @@ async def chat_stream(request: ChatRequest, user=Depends(get_current_user)):
             )
 
         try:
-            history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
+            history = [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "products": [product.model_dump() for product in msg.products],
+                }
+                for msg in request.conversation_history
+            ]
             effective_user = dict(user) if user else {}
             from services.turn_identity import resolve_turn_identity
 
@@ -1889,11 +1903,18 @@ async def list_skills():
     surface is ever switched from fixture mode to ``source: 'api'`` for the
     ``skills`` key — a wrapper object would break the downstream ``.map``.
 
-    Each item carries name, description, version, display_name,
+    Each item carries name, description, version, display_name, persona,
     token_estimate, and the full markdown body so the "Open SKILL.md →"
-    link can render it inline without a second request. (Curated UI-only
-    fields — persona, loadedBy, signals, status — live in the fixture; the
-    registry does not own them.)
+    link can render it inline without a second request.
+
+    ``persona`` comes straight from SKILL.md frontmatter, so it is a real
+    registry fact and is served here. Without it every persona filter on the
+    Skills surface matched zero rows while still advertising five choices.
+
+    ``loadedBy``, ``signals`` and ``status`` are curated presentation fields
+    that only the bundled fixture owns; the registry does not know them, so
+    they are omitted rather than invented. The surface renders those panels
+    only when a value is present.
     """
     from skills import get_registry
     registry = get_registry()
@@ -1903,6 +1924,7 @@ async def list_skills():
             "display_name": s.display_name_resolved,
             "description": s.description,
             "version": s.version,
+            "persona": s.frontmatter.get("persona", "shared"),
             "token_estimate": s.token_estimate,
             "body": s.body,
             "path": s.path,
@@ -3102,41 +3124,78 @@ async def agentcore_gateway_tools(user=Depends(get_current_user)):
         return {"tools": [], "error": "managed_gateway_unavailable"}
 
 
+@app.get("/api/agentcore/runtime/status")
 async def agentcore_runtime_status():
-    """Get AgentCore Runtime execution status"""
-    runtime_endpoint = settings.AGENTCORE_RUNTIME_ENDPOINT
-    if runtime_endpoint:
-        if runtime_endpoint.startswith("arn:"):
-            runtime_id = runtime_endpoint.rsplit("/", 1)[-1]
-            return {
-                "mode": "agentcore",
-                "endpoint": runtime_endpoint,
-                "runtime_id": runtime_id,
-                "healthy": True,
-                "status": "configured",
-            }
+    """Return the Runtime control-plane state without claiming an invocation.
 
-        # Check health of remote runtime
-        try:
-            import requests as req
-            resp = await asyncio.to_thread(req.get, f"{runtime_endpoint}/health", timeout=3)
-            return {
-                "mode": "agentcore",
-                "endpoint": runtime_endpoint,
-                "healthy": resp.status_code == 200,
-                "latency_ms": int(resp.elapsed.total_seconds() * 1000),
-            }
-        except Exception:
-            return {
-                "mode": "agentcore",
-                "endpoint": runtime_endpoint,
-                "healthy": False,
-            }
-    return {
-        "mode": "local",
-        "endpoint": f"http://localhost:{settings.PORT}",
-        "healthy": True,
-    }
+    An AgentCore Runtime ARN being configured does not prove that a Storefront
+    turn used Runtime. The control plane can prove the resource's lifecycle
+    state; a managed-turn receipt with ``rail=gateway-mcp`` proves invocation.
+    Keep those facts separate in the response so Observatory and facilitators
+    do not mistake configuration for execution.
+    """
+    runtime_endpoint = settings.AGENTCORE_RUNTIME_ENDPOINT or ""
+    managed_rail_requested = bool(settings.USE_AGENTCORE_RUNTIME)
+    if not runtime_endpoint:
+        return {
+            "configured": False,
+            "source": "not-configured",
+            "runtime_id": "",
+            "runtime_version": None,
+            "resource_status": None,
+            "ready": False,
+            "managed_rail_requested": managed_rail_requested,
+            "storefront_rail": "in-process",
+            "fallback_reason": "AGENTCORE_RUNTIME_ENDPOINT env var not set",
+        }
+
+    runtime_id = runtime_endpoint.rsplit("/", 1)[-1]
+    try:
+        import boto3
+
+        client = boto3.client(
+            "bedrock-agentcore-control",
+            region_name=settings.aws_region_resolved,
+        )
+        runtime = await asyncio.to_thread(
+            client.get_agent_runtime,
+            agentRuntimeId=runtime_id,
+        )
+        resource_status = str(runtime.get("status") or "UNKNOWN")
+        return {
+            "configured": True,
+            "source": "agentcore-control-plane",
+            "runtime_id": runtime_id,
+            "runtime_version": runtime.get("agentRuntimeVersion"),
+            "resource_status": resource_status,
+            "ready": resource_status == "READY",
+            "managed_rail_requested": managed_rail_requested,
+            "storefront_rail": (
+                "runtime" if managed_rail_requested else "in-process"
+            ),
+            "fallback_reason": None,
+        }
+    except Exception as exc:
+        logger.warning(
+            "AgentCore Runtime control-plane status check failed: %s",
+            exc.__class__.__name__,
+        )
+        return {
+            "configured": True,
+            "source": "agentcore-control-plane",
+            "runtime_id": runtime_id,
+            "runtime_version": None,
+            "resource_status": None,
+            "ready": False,
+            "managed_rail_requested": managed_rail_requested,
+            "storefront_rail": (
+                "runtime" if managed_rail_requested else "in-process"
+            ),
+            "fallback_reason": (
+                "AgentCore GetAgentRuntime verification failed: "
+                f"{exc.__class__.__name__}"
+            ),
+        }
 
 
 # ============================================================================

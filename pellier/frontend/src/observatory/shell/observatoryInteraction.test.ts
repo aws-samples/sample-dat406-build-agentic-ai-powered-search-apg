@@ -7,9 +7,9 @@ import {
 
 describe('observatory interaction routing', () => {
   it.each([
-    ['/observatory', 'Lab Collection'],
+    ['/observatory', 'Labs & Workbench'],
     ['/observatory/labs/grounded-inventory', 'Exercise workbench'],
-    ['/observatory/workbench', 'Live Workbench'],
+    ['/observatory/workbench', 'Labs & Workbench'],
   ])('treats %s as an interactive %s surface', (path, label) => {
     expect(interactionForPath(path)).toBe('interactive');
     expect(modeCopyForPath(path).label).toBe(label);

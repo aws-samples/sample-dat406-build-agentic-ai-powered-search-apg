@@ -31,7 +31,7 @@ export default function LabDetail() {
   if (!exercise) {
     return (
       <div className="lab-not-found">
-        <h1>Exercise not found</h1>
+        <h1>Lab not found</h1>
         <p>The requested governed lab is not part of this collection.</p>
         <Link to="/observatory">
           <ArrowLeft size={16} aria-hidden="true" />
@@ -54,14 +54,18 @@ export default function LabDetail() {
   const classification = classificationFromPayload(data);
 
   return (
-    <article className="lab-detail" data-testid="lab-detail">
+    <article
+      className="lab-detail"
+      data-lab={exercise.number}
+      data-testid="lab-detail"
+    >
       <nav className="lab-detail-breadcrumb" aria-label="Breadcrumb">
         <Link to="/observatory">
           <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
           Lab Collection
         </Link>
         <span aria-hidden="true">/</span>
-        <span aria-current="page">Exercise {exercise.number}</span>
+        <span aria-current="page">Lab {Number(exercise.number)}</span>
       </nav>
 
       <header className="lab-detail-hero">
@@ -77,8 +81,10 @@ export default function LabDetail() {
           />
         </div>
         <div className="lab-detail-summary">
-          <span className="lab-detail-number">Exercise {exercise.number}</span>
-          <h1>{exercise.title}</h1>
+          <span className="lab-detail-number">Lab {Number(exercise.number)}</span>
+          <h1 className="observatory-page-title font-display">
+            {exercise.title}
+          </h1>
           <p>{exercise.summary}</p>
           <LabStatusMark status={status} loading={loading} />
           <dl className="lab-detail-contract">
@@ -117,7 +123,7 @@ export default function LabDetail() {
           <section className="lab-workspace-section">
             <div className="lab-section-heading">
               <h2>Focused run or verify command</h2>
-              <span>Exercise contract</span>
+              <span>Lab contract</span>
             </div>
             <pre className="lab-command">
               <code>{exercise.command}</code>
@@ -137,7 +143,7 @@ export default function LabDetail() {
                     <strong>{measurement.value}</strong>
                     <span className="lab-measurement-meta">
                       <SourceBadge provenance="Derived" compact />
-                      <span>Exercise contract</span>
+                      <span>Lab contract</span>
                       <span>Static</span>
                     </span>
                   </div>
@@ -164,7 +170,7 @@ export default function LabDetail() {
           <LabActionBar exercise={exercise} />
         </main>
 
-        <aside className="lab-evidence-rail" aria-label="Exercise evidence">
+        <aside className="lab-evidence-rail" aria-label="Lab evidence">
           <div className="lab-evidence-rail-heading">
             <h2>Evidence</h2>
             <p>Exact identities and source boundaries from the current response.</p>

@@ -52,8 +52,8 @@ const PILLARS: PillarItem[] = [
 
 const LABS: LabItem[] = [
   {
-    lab: '01 GROUND THE ANSWER',
-    title: 'Live Data and Evidence',
+    lab: 'Lab 1 · Build',
+    title: 'Build a PostgreSQL-Grounded Agent',
     summary:
       "Complete Inventory Agent and check_inventory, then prove Marco's warehouse turn against live Aurora inventory and tool_audit.",
     primary: {
@@ -71,8 +71,8 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: '02 MEASURE HYBRID RETRIEVAL',
-    title: 'Search, Filters, and Trade-offs',
+    lab: 'Lab 2 · Build & Measure',
+    title: 'Build and Measure PostgreSQL Hybrid Retrieval',
     summary:
       "Compare Anna's vector, hybrid, hybrid plus rerank, and agentic paths, then defend one choice with quality, latency, and cost.",
     primary: {
@@ -94,8 +94,8 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: '03 OPERATE THE MANAGED AGENT PATH',
-    title: 'Runtime, Gateway, Memory, and Trace',
+    lab: 'Lab 3 · Operate & Observe',
+    title: 'Operate and Observe the AgentCore Managed Path',
     summary:
       "Prove cross-turn context through AgentCore Memory and the managed rail, then reconstruct the seeded principal-versus-customer mismatch from Aurora evidence.",
     primary: {
@@ -117,10 +117,10 @@ const LABS: LabItem[] = [
     ],
   },
   {
-    lab: '04 GOVERN AND PROVE ACTIONS',
-    title: 'Human Decision, Policy, Database, and Receipts',
+    lab: 'Lab 4 · Govern',
+    title: 'Enforce Identity and Prove Non-Execution',
     summary:
-      'Bind JWT identity to the requested customer, prove DENY leaves no execution row, confirm the matching identity executes, and reset the participant policy.',
+      'Bind JWT identity to the requested customer, classify the managed DENY, prove its exact key has no execution row, confirm the matching identity executes once, and reset the participant policy.',
     primary: {
       to: '/observatory/write-path',
       label: 'Open Gateway & Policy',
@@ -215,7 +215,7 @@ const ActionLink: React.FC<LinkItem & { primary?: boolean }> = ({
         className="font-mono"
         style={{
           color: 'var(--obs-ink-3)',
-          fontSize: '10.5px',
+          fontSize: '10px',
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           lineHeight: 1.35,
@@ -245,7 +245,7 @@ const PillarCard: React.FC<PillarItem> = ({ verb, title, description }) => (
     <div
       style={{
         fontFamily: 'var(--obs-mono)',
-        fontSize: '10.5px',
+        fontSize: '10px',
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         color: 'var(--obs-red-1)',
@@ -270,7 +270,7 @@ const PillarCard: React.FC<PillarItem> = ({ verb, title, description }) => (
     <p
       className="font-sans text-ink-soft"
       style={{
-        fontSize: '13.5px',
+        fontSize: '13px',
         lineHeight: 1.55,
         margin: 0,
       }}
@@ -341,20 +341,15 @@ const WorkshopMap: React.FC = () => {
           marginBottom: '34px',
         }}
       >
-        <SectionEyebrow>Workshop map</SectionEyebrow>
+        {/* The eyebrow used to read "Workshop map" while the title read "The
+            workshop, in one view." — the label named the page and the heading
+            sold it. The heading names it now, so the label is redundant. */}
         <h1
           id="workshop-map-title"
-          className="font-display italic text-espresso"
-          style={{
-            fontSize: '48px',
-            fontWeight: 400,
-            lineHeight: 1.05,
-            letterSpacing: 0,
-            margin: '16px 0 14px',
-            maxWidth: '820px',
-          }}
+          className="observatory-page-title font-display text-espresso"
+          style={{ margin: '0 0 14px', maxWidth: '820px' }}
         >
-          The workshop, in one view.
+          Workshop map
         </h1>
         <p
           className="font-sans text-ink-soft"

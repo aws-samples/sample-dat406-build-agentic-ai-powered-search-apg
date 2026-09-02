@@ -187,7 +187,10 @@ def _live_gateway_facts() -> Tuple[List[str], Dict[str, int]]:
 
     import boto3
 
-    client = boto3.client("bedrock-agentcore-control", region_name=settings.AWS_REGION)
+    client = boto3.client(
+        "bedrock-agentcore-control",
+        region_name=settings.aws_region_resolved,
+    )
     gateway_id = gateway_arn.rsplit("/", 1)[-1]
 
     published: List[str] = []

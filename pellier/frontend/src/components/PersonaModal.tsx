@@ -2,19 +2,18 @@
  * PersonaModal — the shared persona switcher.
  *
  * One component, two entry points: the storefront header pill and the
- * Observatory breadcrumb indicator both open this same modal. Structure
- * matches docs/persona-switcher.html byte-for-byte; styling lives in
- * src/styles/persona-modal.css.
+ * Observatory breadcrumb indicator both open this same modal. Styling lives
+ * in src/styles/persona-modal.css.
  *
- * Three persona cards as buttons. Active persona gets a burgundy ring
- * + inner box-shadow. Closes via: X button, backdrop click, Escape.
+ * Three visual persona cards as buttons. The active persona is explicit and
+ * every close and account state is shared by Storefront and Observatory.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { X } from 'lucide-react'
+import { ArrowRight, Check, X } from 'lucide-react'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
-import { getPersonaPhoto } from '../data/personaPhotos'
+import { getPersonaModalPortrait } from '../data/personaPhotos'
 import '../styles/persona-modal.css'
 
 interface PersonaModalProps {
@@ -30,20 +29,14 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   const { persona, switchPersona, signOut, switching } = usePersona()
   const [personas, setPersonas] = useState<PersonaListItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const reduceMotion = Boolean(useReducedMotion())
-  const cardInitial = reduceMotion
-    ? { opacity: 0 }
-    : { opacity: 0, transform: 'translateY(6px) scale(0.97)' }
-  const cardAnimate = reduceMotion
-    ? { opacity: 1 }
-    : { opacity: 1, transform: 'translateY(0) scale(1)' }
-  const cardExit = reduceMotion
-    ? { opacity: 0 }
-    : { opacity: 0, transform: 'translateY(6px) scale(0.97)' }
 
   // Fetch persona list on first open
   useEffect(() => {
     if (!open || personas.length > 0) return
+    setLoading(true)
+    setError(null)
     fetch('/api/observatory/personas')
       .then((r) => {
         if (!r.ok) throw new Error(`Live personas unavailable: ${r.status}`)
@@ -57,6 +50,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
       .catch((reason: unknown) =>
         setError(reason instanceof Error ? reason.message : 'Live personas unavailable.'),
       )
+      .finally(() => setLoading(false))
   }, [open, personas.length])
 
   // Escape key closes the modal
@@ -88,10 +82,10 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
         <motion.div
           className="pm-backdrop"
           data-testid="persona-modal-backdrop"
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18, ease: PERSONA_MODAL_EASE }}
+          exit={{ opacity: 1 }}
+          transition={{ duration: 0 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) onClose()
           }}
@@ -102,124 +96,134 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="persona-modal-title"
-            initial={cardInitial}
-            animate={cardAnimate}
-            exit={{
-              ...cardExit,
-              transition: { duration: 0.18, ease: PERSONA_MODAL_EASE },
-            }}
+            initial={
+              reduceMotion
+                ? false
+                : { transform: 'translateY(6px) scale(0.97)' }
+            }
+            animate={{ transform: 'translateY(0) scale(1)' }}
+            exit={
+              reduceMotion
+                ? undefined
+                : {
+                    transform: 'translateY(6px) scale(0.97)',
+                    transition: { duration: 0.18, ease: PERSONA_MODAL_EASE },
+                  }
+            }
             transition={{ duration: 0.24, ease: PERSONA_MODAL_EASE }}
             style={{ transformOrigin: 'center' }}
           >
-        {/* Head */}
-        <div className="pm-head">
-          <div>
-            <div className="pm-eyebrow">Sign in</div>
-            <h2 id="persona-modal-title" className="pm-title">
-              Choose a <em>persona to inhabit.</em>
-            </h2>
-            <p className="pm-sub">
-              Three histories. Pellier shifts depending on who you are.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            data-testid="persona-modal-close"
-            className="pm-close"
-            aria-label="Close"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* List */}
-        <div className="pm-list">
-          {error ? <p className="pm-sub">{error}</p> : null}
-          {personas.map((p) => {
-            const isActive = persona?.id === p.id
-            const isFresh = p.id === 'fresh'
-            const photoUrl = getPersonaPhoto(p.id)
-            return (
+            <div className="pm-head">
+              <div>
+                <div className="pm-eyebrow">Client perspective</div>
+                <h2 id="persona-modal-title" className="pm-title">
+                  Choose who enters Pellier.
+                </h2>
+                <p className="pm-sub">
+                  Each profile carries distinct Aurora history, preferences,
+                  and managed memory.
+                </p>
+              </div>
               <button
-                key={p.id}
                 type="button"
-                disabled={switching}
-                data-testid={`persona-card-${p.id}`}
-                onClick={() => handleSelect(p.id)}
-                className={`pm-card-btn${isActive ? ' active' : ''}`}
+                onClick={onClose}
+                data-testid="persona-modal-close"
+                className="pm-close"
+                aria-label="Close"
               >
-                <span
-                  className={`pm-avatar ${isFresh ? 'fresh' : p.id}`}
-                  aria-hidden
-                >
-                  {photoUrl ? (
-                    <img
-                      className="pm-avatar-photo"
-                      src={photoUrl}
-                      alt=""
-                    />
-                  ) : (
-                    p.avatar_initial
-                  )}
-                </span>
+                <X size={17} aria-hidden="true" />
+              </button>
+            </div>
 
-                <span className="pm-content">
-                  <span className="pm-name-row">
-                    <span className="pm-name">
-                      <em>{p.display_name}</em>
+            <div className="pm-list">
+              {loading ? (
+                <div className="pm-loading" role="status">
+                  <span />
+                  <span />
+                  <span />
+                  <p>Loading live client profiles</p>
+                </div>
+              ) : null}
+              {error ? (
+                <p className="pm-error" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {personas.map((p) => {
+                const isActive = persona?.id === p.id
+                const photoUrl = getPersonaModalPortrait(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={switching}
+                    data-testid={`persona-card-${p.id}`}
+                    data-persona={p.id}
+                    onClick={() => handleSelect(p.id)}
+                    className={`pm-card-btn${isActive ? ' active' : ''}`}
+                    aria-pressed={isActive}
+                  >
+                    <span className="pm-avatar" aria-hidden="true">
+                      {photoUrl ? (
+                        <img
+                          className="pm-avatar-photo"
+                          src={photoUrl}
+                          width={1200}
+                          height={1800}
+                          alt=""
+                          decoding="async"
+                        />
+                      ) : (
+                        <span className="pm-avatar-fallback">
+                          {p.avatar_initial}
+                        </span>
+                      )}
                     </span>
-                    <span className={`pm-tag${isFresh ? ' fresh' : ''}`}>
-                      {p.role_tag}
-                    </span>
-                  </span>
-                  <span className="pm-blurb">{p.blurb}</span>
-                  <span className="pm-meta-row">
-                    <span className="pm-meta-item">
-                      visits ·{' '}
-                      <span className="num">{p.stats.visits}</span>
-                    </span>
-                    <span className="pm-meta-item">
-                      orders ·{' '}
-                      <span className="num">{p.stats.orders}</span>
-                    </span>
-                    <span className="pm-meta-item">
-                      last seen ·{' '}
-                      <span className="num">
-                        {p.stats.last_seen_days === null
-                          ? 'never'
-                          : `${p.stats.last_seen_days}d ago`}
+
+                    <span className="pm-content">
+                      <span className="pm-name-row">
+                        <span className="pm-name">{p.display_name}</span>
+                        <span className="pm-tag">{p.role_tag}</span>
+                      </span>
+                      <span className="pm-blurb">{p.blurb}</span>
+                      <span className="pm-meta-row">
+                        <span className="pm-meta-item">
+                          <span className="num">{p.stats.visits}</span> visits
+                        </span>
+                        <span className="pm-meta-item">
+                          <span className="num">{p.stats.orders}</span> orders
+                        </span>
+                        <span className="pm-meta-item">
+                          {p.stats.last_seen_days === null
+                            ? 'New profile'
+                            : `Seen ${p.stats.last_seen_days}d ago`}
+                        </span>
                       </span>
                     </span>
-                  </span>
+
+                    <span className="pm-select" aria-hidden="true">
+                      {isActive ? <Check size={16} /> : <ArrowRight size={16} />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {persona ? (
+              <div className="pm-foot">
+                <span>
+                  Active profile: <strong>{persona.display_name}</strong>
                 </span>
-
-                <span className="pm-arrow" aria-hidden>
-                  →
-                </span>
-              </button>
-            )
-          })}
-
-          {persona && (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              data-testid="persona-sign-out"
-              className="pm-signout"
-            >
-              Sign out
-            </button>
-          )}
-        </div>
-
-        {/* Foot */}
-        <div className="pm-foot">
-          <div className="pm-foot-text">
-            <em>Three curated identities</em> - switch any time from the header.
-          </div>
-          <div className="pm-foot-meta">v1.0</div>
-        </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  data-testid="persona-sign-out"
+                  className="pm-signout"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
           </motion.div>
         </motion.div>
       )}

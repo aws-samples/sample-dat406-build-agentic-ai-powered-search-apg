@@ -1,0 +1,19 @@
+# WORKSHOP_EXERCISE_STUB
+#
+# Field 1: set False only after the definition fields below are complete.
+_INVENTORY_AGENT_STUBBED = True
+
+# Field 2: Inventory Agent's system instructions.
+_INVENTORY_SYSTEM_PROMPT_FOR_AGENT = ""
+
+# Field 3: the reporting model id for factual stock answers.
+_INVENTORY_MODEL_ID = ""
+
+# Field 4: the reporting max-token ceiling.
+_INVENTORY_MAX_TOKENS = 0
+
+# Field 5: the three tools Inventory Agent owns.
+_INVENTORY_TOOLS = []
+#
+# Source delta: Inventory Agent has no temperature field. Sonnet 4.6 rejects the
+# deprecated temperature kwarg, so the correct definition omits it.

@@ -1,0 +1,122 @@
+digraph Lab3TheoManagedPath {
+  graph [
+    bgcolor="#f7f3ec",
+    dpi=144,
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=22,
+    label="LAB 3 · THEO\nOperate and observe the managed AgentCore path",
+    labelloc=t,
+    labeljust=l,
+    margin=0,
+    nodesep=0.38,
+    outputorder=edgesfirst,
+    pad=0.32,
+    ranksep="0.64 equally",
+    ratio=fill,
+    size="13.333,7.5!",
+    splines=ortho
+  ];
+  node [
+    color="#cbc1ad",
+    fillcolor="#fbf8f2",
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=11,
+    margin="0.18,0.14",
+    penwidth=1.2,
+    shape=box,
+    style=filled,
+    width=2.15
+  ];
+  edge [
+    arrowsize=0.76,
+    color="#9a3412",
+    fontcolor="#5a2a0a",
+    fontname="Helvetica Neue",
+    fontsize=9,
+    penwidth=2.2
+  ];
+
+  theo [
+    label="01 · THEO + COGNITO\nVerified customer session\nthree ceramic turns",
+    fillcolor="#1f1410",
+    fontcolor="#fbf8f2"
+  ];
+  runtime [
+    label="02 · AGENTCORE RUNTIME\nManaged dispatcher execution",
+    color="#9a3412",
+    penwidth=2
+  ];
+  memory [
+    label="03 · AGENTCORE MEMORY\nShort-term session events\nfresh-process recall",
+    color="#6b21a8",
+    fontcolor="#4c1d69",
+    penwidth=2
+  ];
+  gateway [
+    label="04 · AGENTCORE GATEWAY\nTyped MCP tool catalog\nverified JWT passthrough",
+    color="#9a3412",
+    penwidth=2
+  ];
+  tools [
+    label="05 · BOUNDED SPECIALIST\nOnly the routed allowlist"
+  ];
+  aurora [
+    label="06 · AURORA POSTGRESQL\nProducts · episodic customer facts\nreceipts and correlation IDs",
+    color="#3f6212",
+    penwidth=2
+  ];
+  answer [
+    label="07 · CONTINUOUS ANSWER\nRitual + material + product\npreserved without repetition",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=2
+  ];
+
+  theo -> runtime [label="CUSTOM_JWT turn"];
+  runtime -> memory [label="read / append", color="#6b21a8", fontcolor="#6b21a8"];
+  runtime -> gateway [label="discover + invoke"];
+  gateway -> tools [label="target-qualified tool"];
+  tools -> aurora [label="grounded query"];
+  aurora -> runtime [label="facts + receipt IDs", color="#3f6212", fontcolor="#3f6212"];
+  runtime -> answer [label="rail=gateway-mcp", color="#3f6212", fontcolor="#3f6212"];
+  answer -> theo [label="managed response", color="#3f6212", fontcolor="#3f6212"];
+
+  trace [
+    label="OTEL ACCEPTANCE CONTRACT\nRuntime span · model span · Gateway/tool span\nMemory evidence · shared trace/session IDs",
+    color="#1e40af",
+    fillcolor="#eff6ff",
+    fontcolor="#1e40af",
+    width=3.7
+  ];
+  proof [
+    label="REQUIRED PROOF\nAgentCore CLI + fresh-process Memory read\n+ correlated PostgreSQL receipt",
+    color="#3f6212",
+    fillcolor="#eef4e6",
+    fontcolor="#3f6212",
+    width=3.5
+  ];
+  runtime -> trace [
+    label="WRITE · OTEL",
+    color="#1e40af",
+    fontcolor="#1e40af",
+    penwidth=1.6
+  ];
+  memory -> proof [
+    label="prove recall",
+    color="#6b21a8",
+    fontcolor="#6b21a8",
+    penwidth=1.5
+  ];
+  aurora -> proof [
+    label="prove effect",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.5
+  ];
+
+  { rank=same; theo; runtime; memory; gateway; }
+  { rank=same; tools; aurora; answer; }
+  { rank=same; trace; proof; }
+}

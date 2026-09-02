@@ -182,6 +182,74 @@ def test_the_prompt_prefixes_every_item_with_its_role() -> None:
     assert rendered.count("[FACT]") == 1 and rendered.count("[CONTEXT]") == 1
 
 
+@pytest.mark.asyncio
+async def test_client_evidence_includes_order_lines_and_attributed_ticket_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The graph must see the same bounded facts the Operator UI displays."""
+
+    async def get_client(*, client_id: str, db: Any) -> Dict[str, Any]:
+        assert client_id == "CUST-JESSICA"
+        assert db is not None
+        return {
+            "client": {
+                "customerId": "CUST-JESSICA",
+                "name": "Jessica Nakamura",
+                "membership": "circle",
+                "spend12mo": 3940.0,
+                "orderValue": 432.66,
+                "creditBalance": "0.00",
+                "creditBalanceCents": 0,
+                "returnEvidence": {"unconfirmedReturnAssertion": True},
+            },
+            "orders": [
+                {
+                    "orderId": 406,
+                    "productId": "41",
+                    "productName": "Coral Lacquer Catchall",
+                    "price": 325.36,
+                    "quantity": 1,
+                },
+                {
+                    "orderId": 407,
+                    "productId": "42",
+                    "productName": "Luxury Bath Robe, Sage",
+                    "price": 107.30,
+                    "quantity": 1,
+                },
+            ],
+            "tickets": [
+                {
+                    "ticketId": "TKT-2026-3015",
+                    "subject": "Return received, refund amount disputed",
+                    "status": "pending",
+                    "lastNote": (
+                        "Return logged for the catchall and the robe. "
+                        "Client expected a full refund including original shipping."
+                    ),
+                }
+            ],
+            "credits": [],
+            "returns": [],
+        }
+
+    monkeypatch.setattr("routes.operator.get_client", get_client)
+
+    _record, _steps, evidence = await ORCH.load_client_evidence(
+        object(), "CUST-JESSICA"
+    )
+
+    order = next(item for item in evidence if item.kind == "order")
+    ticket = next(item for item in evidence if item.kind == "ticket")
+    rendered = ORCH._evidence_for_prompt([order, ticket])
+
+    assert "#406 Coral Lacquer Catchall: $325.36" in rendered
+    assert "#407 Luxury Bath Robe, Sage: $107.30" in rendered
+    assert "Return logged for the catchall and the robe." in rendered
+    assert "[FACT] Order history:" in rendered
+    assert "[CONTEXT] Service context:" in rendered
+
+
 # ---------------------------------------------------------------------------
 # Observable steps only
 # ---------------------------------------------------------------------------
@@ -363,6 +431,10 @@ def test_the_request_text_decides_the_workflow() -> None:
         "What happened with her last order?": ORCH.WORKFLOW_INVESTIGATE,
         "Draft a short, sincere note to Jessica.": ORCH.WORKFLOW_DRAFT_NOTE,
         "Write a note about the delay.": ORCH.WORKFLOW_DRAFT_NOTE,
+        "Which customer, order, return, and identity records are authoritative "
+        "for this decision?": ORCH.WORKFLOW_INVESTIGATE,
+        "Prepare the fairest next step for human review without executing it.":
+            ORCH.WORKFLOW_INVESTIGATE,
     }
     for request, expected in cases.items():
         assert ORCH.classify_workflow(request) == expected, request
@@ -378,6 +450,16 @@ def test_routing_is_keyed_to_the_deliverable_not_the_topic() -> None:
 def test_an_unrecognised_request_falls_back_to_the_defensible_read() -> None:
     for request in ("", "hello", "tell me about this person"):
         assert ORCH.classify_workflow(request) == ORCH.WORKFLOW_CLIENT_SUMMARY
+
+
+def test_the_guided_human_review_turn_does_not_prepare_an_action() -> None:
+    from services import operator_proposals
+
+    request = (
+        "Prepare the fairest next step for human review without executing it."
+    )
+    assert ORCH.classify_workflow(request) == ORCH.WORKFLOW_INVESTIGATE
+    assert operator_proposals.classify_action_intent(request) is None
 
 
 def test_every_suggestion_keyword_the_ui_ships_actually_routes() -> None:

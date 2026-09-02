@@ -257,6 +257,58 @@ def test_governed_readiness_requires_exact_warehouse_seed(monkeypatch) -> None:
     assert "expected exactly 180" in checks["aurora"]["detail"]
 
 
+def test_identity_boundary_requires_an_operator_and_allows_the_operator(monkeypatch) -> None:
+    """Cross-principal receipt material is never a public Observatory feed."""
+    fast = FastAPI()
+    fast.include_router(observatory_router)
+
+    anonymous = TestClient(fast).get("/api/observatory/identity-boundary")
+    assert anonymous.status_code == 401
+    assert anonymous.json()["detail"] == "authentication_required"
+
+    class _Shopper:
+        user_id = "shopper-sub"
+        username = "marco"
+        email = "marco@example.com"
+        given_name = "Marco"
+        access_token = "shopper-token"
+        groups = ()
+
+    class _AuthService:
+        async def extract_user(self, _request):
+            return _Shopper()
+
+    from services import cognito_auth
+
+    monkeypatch.setattr(
+        cognito_auth,
+        "get_cognito_auth_service",
+        lambda: _AuthService(),
+    )
+    shopper = TestClient(fast).get(
+        "/api/observatory/identity-boundary",
+        headers={"Authorization": "Bearer shopper-token"},
+    )
+    assert shopper.status_code == 403
+    assert shopper.json()["detail"] == "operator_group_required"
+
+    class _EmptyIdentityDb:
+        async def fetch_all(self, _query: str) -> list[dict]:
+            return []
+
+    async def _live_db():
+        return _EmptyIdentityDb()
+
+    monkeypatch.setattr(observatory, "_live_db", _live_db)
+    fast.dependency_overrides[observatory.require_operator] = lambda: {
+        "sub": "operator-sub",
+        "groups": ("pellier-operators",),
+    }
+    operator = TestClient(fast).get("/api/observatory/identity-boundary")
+    assert operator.status_code == 200
+    assert operator.json()["count"] == 0
+
+
 def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     _configure_managed(monkeypatch)
     monkeypatch.setattr(
@@ -325,31 +377,33 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert "act" not in cards["marco-floor-check"]
     assert cards["audit-ledger"]["status"] == "complete"
     assert cards["managed-rail"]["status"] == "complete"
-    assert cards["marco-floor-check"]["lab"] == "01 GROUND THE ANSWER — Live Data and Evidence"
-    assert cards["retrieval-comparison"]["lab"] == "02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs"
+    assert cards["marco-floor-check"]["lab"] == "Lab 1 · Build — Build a PostgreSQL-Grounded Agent"
+    assert cards["retrieval-comparison"]["lab"] == (
+        "Lab 2 · Build & Measure — Build and Measure PostgreSQL Hybrid Retrieval"
+    )
     assert cards["retrieval-comparison"]["status"] == "available"
-    assert cards["managed-rail"]["lab"] == "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace"
+    assert cards["managed-rail"]["lab"] == (
+        "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path"
+    )
     assert cards["managed-rail"]["required"] is True
-    assert cards["audit-ledger"]["lab"] == "03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace"
-    assert cards["runtime-gateway-policy"]["lab"] == "04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts"
+    assert cards["audit-ledger"]["lab"] == (
+        "Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path"
+    )
+    assert cards["runtime-gateway-policy"]["lab"] == "Lab 4 · Govern — Enforce Identity and Prove Non-Execution"
     assert cards["runtime-gateway-policy"]["required"] is True
     assert all("act" not in card for card in cards.values())
-    assert "curl" in cards["managed-rail"]["fallback"]["command"]
-    assert "search-strategies/compare" in cards["retrieval-comparison"]["fallback"]["command"]
+    assert (
+        "npx -y @aws/agentcore@0.26.0 invoke"
+        in cards["managed-rail"]["fallback"]["command"]
+    )
+    assert "retrieval_receipts" in cards["retrieval-comparison"]["fallback"]["command"]
     assert "initiate_return" in cards["audit-ledger"]["fallback"]["command"]
 
 
-def test_proof_board_fallbacks_use_the_authenticated_storefront_stream(
+def test_proof_board_fallbacks_use_psql_and_agentcore_cli(
     monkeypatch,
 ) -> None:
-    """A fallback must write the principal-scoped receipt that its card reads.
-
-    ``/api/agent/chat`` returns a valid answer, but its in-process branch does
-    not feed the storefront's audit/turn-receipt lifecycle. The Proof Board
-    joins audit rows through that authenticated receipt, so documenting that
-    endpoint leaves a participant with a correct answer and a permanent
-    ``needs_run`` card.
-    """
+    """Fallbacks inspect PostgreSQL or the managed boundary directly."""
     _configure_managed(monkeypatch)
     monkeypatch.setattr(
         observatory,
@@ -362,12 +416,14 @@ def test_proof_board_fallbacks_use_the_authenticated_storefront_stream(
     assert response.status_code == 200
     cards = {card["id"]: card for card in response.json()["cards"]}
 
-    for card_id in ("marco-floor-check", "managed-rail"):
-        command = cards[card_id]["fallback"]["command"]
-        assert "/api/chat/stream" in command
-        assert "/api/agent/chat" not in command
-        assert "Authorization: Bearer $ACCESS_TOKEN" in command
-        assert '"conversation_history":[]' in command
+    inventory = cards["marco-floor-check"]["fallback"]["command"]
+    managed = cards["managed-rail"]["fallback"]["command"]
+    assert inventory.startswith("psql -X -v ON_ERROR_STOP=1")
+    assert "FROM pellier.tool_audit" in inventory
+    assert "npx -y @aws/agentcore@0.26.0 invoke" in managed
+    assert '--bearer-token "$PELLIER_TOKEN"' in managed
+    assert "curl " not in inventory
+    assert "curl " not in managed
 
 
 def test_proof_board_is_available_without_a_principal_specific_receipt() -> None:
@@ -423,7 +479,7 @@ def test_proof_board_scopes_gateway_deny_absence(monkeypatch) -> None:
     assert receipt["governedAuditId"] is None
     assert receipt["gatewayAuditPresent"] is False
     assert receipt["gatewayAuditAbsenceVerified"] is True
-    assert "Gateway/Cedar DENY" in receipt["absenceCheckDetail"]
+    assert "JWT-bound helper-classified DENY" in receipt["absenceCheckDetail"]
 
 
 def test_build_state_reports_inventory_agent_midpoint(monkeypatch) -> None:

@@ -1,0 +1,30 @@
+    # WORKSHOP_EXERCISE_STUB
+    #
+    # Wire this tool to BusinessLogic.check_inventory() so Inventory Agent
+    # can answer Marco's Turn 3: "Is the Hadley shirt at the
+    # Brooklyn warehouse?" (Hadley · Pellier Linen Shirt in ecru.)
+    #
+    # Steps:
+    #   1. Guard on _db_service being initialized (return a JSON error
+    #      if not).
+    #   2. Import BusinessLogic from services.business_logic.
+    #   3. Normalize product_query and pass it to logic.check_inventory()
+    #      via _run_async() — it's an async method.
+    #   4. Return the result as a JSON string (use json.dumps with
+    #      indent=2).
+    #   5. Catch exceptions and return a JSON error envelope.
+    #
+    # Verify (live, the real check):
+    #   Click Marco's Turn 3 pill in Pellier — Inventory Agent answers
+    #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
+    #   Observatory Tools strip flip from 14/15 to 15/15 shipped.
+    #
+    # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
+    # check — it asserts this starter file still carries the stub, so it
+    # PASSES while stubbed and SKIPS once you wire it. Don't use it to
+    # verify your edit.
+    return json.dumps({
+        "error": "check_inventory is in stub state",
+        "hint": "Implement the tool body or run the cp command.",
+        "received_product_query": product_query,
+    })

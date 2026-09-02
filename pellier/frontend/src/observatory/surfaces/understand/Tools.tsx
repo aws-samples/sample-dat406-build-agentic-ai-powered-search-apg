@@ -37,7 +37,7 @@ import {
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '12.5px',
+  fontSize: '12px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
@@ -150,7 +150,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
         <span
           style={{
             fontFamily: 'var(--obs-heading)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             letterSpacing: '0.06em',
             textTransform: 'uppercase' as const,
             color: 'var(--obs-ink-2)',
@@ -197,7 +197,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
             onClick={() => runExample(ex.query)}
             style={{
               fontFamily: 'var(--obs-heading)',
-              fontSize: '12.5px',
+              fontSize: '12px',
               fontWeight: 500,
               letterSpacing: 0,
               padding: '5px 12px',
@@ -229,7 +229,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
           <span
             style={{
               fontFamily: 'var(--obs-heading)',
-              fontSize: '11.5px',
+              fontSize: '11px',
               letterSpacing: '0.06em',
               textTransform: 'uppercase' as const,
               color: 'var(--obs-red-1)',
@@ -261,7 +261,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
             disabled={loading || !query.trim()}
             style={{
               fontFamily: 'var(--obs-heading)',
-              fontSize: '12.5px',
+              fontSize: '12px',
               letterSpacing: 0,
               textTransform: 'uppercase' as const,
               fontWeight: 600,
@@ -363,7 +363,7 @@ const DiscoveryDemoCard: React.FC<DiscoveryDemoCardProps> = ({
               <span
                 style={{
                   fontFamily: 'var(--obs-heading)',
-                  fontSize: '11.5px',
+                  fontSize: '11px',
                   letterSpacing: '0.04em',
                   textTransform: 'uppercase' as const,
                   fontWeight: 600,
@@ -596,7 +596,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
             <span
               style={{
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '10.5px',
+                fontSize: '10px',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
                 color: 'var(--obs-cream-1)',
@@ -798,7 +798,7 @@ const ToolFilterBar: React.FC<{
     <span
       style={{
         fontFamily: 'var(--obs-heading)',
-        fontSize: '11.5px',
+        fontSize: '11px',
         fontWeight: 600,
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
@@ -817,7 +817,7 @@ const ToolFilterBar: React.FC<{
           onClick={() => onChange(opt.id)}
           style={{
             fontFamily: 'var(--obs-heading)',
-            fontSize: '12.5px',
+            fontSize: '12px',
             fontWeight: active ? 600 : 500,
             letterSpacing: 0,
             padding: '5px 12px',
@@ -896,7 +896,7 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
               key={label}
               style={{
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 fontWeight: 600,
                 letterSpacing: '0.03em',
                 textTransform: 'uppercase',
@@ -994,7 +994,7 @@ const AgentRoster: React.FC<AgentRosterProps> = ({ agents, tools, onToolSelect }
               <div
                 style={{
                   fontFamily: 'var(--obs-mono)',
-                  fontSize: '10.5px',
+                  fontSize: '10px',
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
                   color: 'var(--obs-ink-4)',
@@ -1277,7 +1277,7 @@ const Tools: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Understand · Tools · five agents · fifteen functions"
-        title="The toolkit, by owner and action."
+        title="Tool registry"
         summary="Five specialists own fifteen registered tools. Fourteen ship as reference in the workshop image; check_inventory is the hands-on inventory wire in the required path. The registry stays the source of truth for read/write split, shipped state, signatures, and pgvector discovery."
       />
 
@@ -1287,7 +1287,7 @@ const Tools: React.FC = () => {
           endpoint, so the PASS/FAIL state describes the actual repo. */}
       <div style={{ marginBottom: '20px' }}>
         <LabGrammar
-          labLabel="01 GROUND THE ANSWER · Live Data and Evidence"
+          labLabel="Lab 1 · Build — Build a PostgreSQL-Grounded Agent"
           provenance="live"
           proofState={
             buildState.toolTotal > 0 && buildState.toolShipped >= buildState.toolTotal

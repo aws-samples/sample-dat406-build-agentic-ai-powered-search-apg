@@ -1,0 +1,193 @@
+digraph PellierDeployedTopology {
+  graph [
+    bgcolor="#f7f3ec",
+    color="#e3ddd1",
+    dpi=144,
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=22,
+    label="PELLIER GOVERNED WORKSHOP\nDeployed topology · numbered request path · four durable evidence writes",
+    labelloc=t,
+    labeljust=l,
+    margin=0,
+    nodesep=0.34,
+    outputorder=edgesfirst,
+    pad=0.28,
+    ranksep="0.62 equally",
+    ratio=fill,
+    size="13.333,7.5!",
+    splines=ortho
+  ];
+  node [
+    color="#cbc1ad",
+    fillcolor="#fbf8f2",
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=11,
+    margin="0.18,0.13",
+    penwidth=1.15,
+    shape=box,
+    style=filled
+  ];
+  edge [
+    arrowsize=0.72,
+    color="#9a3412",
+    fontcolor="#5a2a0a",
+    fontname="Helvetica Neue",
+    fontsize=9,
+    penwidth=2.1
+  ];
+
+  surfaces [
+    label="PELLIER SURFACES\nStorefront · Operator · Observatory",
+    fillcolor="#1f1410",
+    fontcolor="#fbf8f2",
+    width=2.3
+  ];
+  cognito [
+    label="AMAZON COGNITO\nCustomer and operator identity",
+    width=2.25
+  ];
+  app [
+    label="FASTAPI + STRANDS\nDispatcher · bounded specialists\nOperator GraphBuilder flow",
+    width=2.45
+  ];
+  runtime [
+    label="AGENTCORE RUNTIME\nManaged request execution",
+    color="#9a3412",
+    penwidth=1.8,
+    width=2.25
+  ];
+  memory [
+    label="AGENTCORE MEMORY\nSession events · preference records",
+    color="#6b21a8",
+    fontcolor="#4c1d69",
+    width=2.25
+  ];
+  gateway [
+    label="AGENTCORE GATEWAY + POLICY\nTyped MCP catalog · Cedar decision",
+    color="#9a3412",
+    penwidth=1.8,
+    width=2.55
+  ];
+  tools [
+    label="BOUNDED TOOL TARGETS\nSearch · pricing · inventory\nrecommendation · service",
+    width=2.25
+  ];
+  aurora [
+    label="AURORA POSTGRESQL\npgvector · FTS · RRF · business rows\nprincipal mapping · RLS",
+    color="#3f6212",
+    penwidth=1.8,
+    width=2.55
+  ];
+  human [
+    label="HUMAN CHECKPOINT\nReview is separate from execution",
+    color="#b45309",
+    fontcolor="#7c2d12",
+    width=2.25
+  ];
+
+  surfaces -> cognito [label="01 · authenticate"];
+  cognito -> app [label="02 · verified principal"];
+  app -> runtime [label="03 · managed turn"];
+  runtime -> gateway [label="04 · discover + invoke"];
+  gateway -> tools [label="05 · authorize first"];
+  tools -> aurora [label="06 · query or mutate"];
+  aurora -> app [label="07 · grounded result", color="#3f6212", fontcolor="#3f6212"];
+  app -> surfaces [label="08 · answer + evidence IDs", color="#3f6212", fontcolor="#3f6212"];
+
+  app -> tools [
+    label="Labs 1–2 · in-process rail",
+    color="#6b665d",
+    fontcolor="#6b665d",
+    penwidth=1.2,
+    style=dashed
+  ];
+  runtime -> memory [
+    label="read / write session",
+    color="#6b21a8",
+    fontcolor="#6b21a8",
+    penwidth=1.5
+  ];
+  app -> human [
+    label="prepare only",
+    color="#b45309",
+    fontcolor="#b45309",
+    penwidth=1.4,
+    style=dashed
+  ];
+  human -> gateway [
+    label="confirmed action only",
+    color="#b45309",
+    fontcolor="#b45309",
+    penwidth=1.4,
+    style=dashed
+  ];
+
+  subgraph cluster_evidence {
+    color="#cbc1ad";
+    fillcolor="#f1ece1";
+    fontcolor="#6b665d";
+    fontname="Helvetica Neue";
+    fontsize=10;
+    label="DURABLE EVIDENCE WRITE POINTS";
+    labeljust=l;
+    margin=16;
+    penwidth=1;
+    style=filled;
+
+    e1 [
+      label="E1 · RETRIEVAL + TOOL\nretrieval_receipts · tool_audit",
+      color="#3f6212",
+      fillcolor="#fbf8f2",
+      fontcolor="#3f6212"
+    ];
+    e2 [
+      label="E2 · MEMORY\nsession events · preference records",
+      color="#6b21a8",
+      fillcolor="#fbf8f2",
+      fontcolor="#6b21a8"
+    ];
+    e3 [
+      label="E3 · GOVERNANCE\npolicy · execution · write receipts",
+      color="#3f6212",
+      fillcolor="#fbf8f2",
+      fontcolor="#3f6212"
+    ];
+    e4 [
+      label="E4 · OBSERVABILITY\nOTEL spans · correlated identifiers",
+      color="#1e40af",
+      fillcolor="#fbf8f2",
+      fontcolor="#1e40af"
+    ];
+    { rank=same; e1; e2; e3; e4; }
+  }
+
+  aurora -> e1 [
+    label="WRITE E1",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.5
+  ];
+  memory -> e2 [
+    label="WRITE E2",
+    color="#6b21a8",
+    fontcolor="#6b21a8",
+    penwidth=1.5
+  ];
+  gateway -> e3 [
+    label="WRITE E3",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.5
+  ];
+  runtime -> e4 [
+    label="WRITE E4",
+    color="#1e40af",
+    fontcolor="#1e40af",
+    penwidth=1.5
+  ];
+
+  { rank=same; surfaces; cognito; app; runtime; }
+  { rank=same; memory; gateway; tools; aurora; human; }
+}

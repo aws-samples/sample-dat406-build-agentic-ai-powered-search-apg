@@ -29,7 +29,7 @@ export const BreadcrumbTrail: React.FC<BreadcrumbTrailProps> = ({
         alignItems: 'center',
         gap: '8px',
         fontFamily: 'var(--obs-heading)',
-        fontSize: '12.5px',
+        fontSize: '12px',
         fontWeight: 600,
         letterSpacing: '0.02em',
         color: 'var(--obs-ink-2)',

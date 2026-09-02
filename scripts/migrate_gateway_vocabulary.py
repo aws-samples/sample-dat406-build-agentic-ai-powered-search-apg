@@ -205,13 +205,14 @@ repository exists to teach against. ``phase_states()`` refuses it, and
 MIGRATION SCOPE
 ---------------
 
-These four phases migrate ``pellier-concierge-experience-target`` only, because it
-is the only target whose action ids appear in any policy. The other three targets
-publish 13 retired tool names that no Cedar statement references:
-``baseline_permit_gateway_tools`` constrains no action, and both
-``process_return_*`` policies name only concierge actions. Renaming those three is
-a pure schema change with no authorization implication and no window to close, so
-it is a separate step with its own approval rather than folded in here.
+These four phases change the schema of ``pellier-concierge-experience-target``
+only. The other three targets continue publishing retired names until their own
+approved convergence step. That does not make every retained action equivalent:
+``preference_snapshot`` and ``trace_receipt`` dispatch to customer-scoped reads,
+so the baseline deliberately omits both legacy ids and their canonical
+counterparts. They fail at Cedar before Lambda execution until the recommendation
+target and matching scoped policies are converged together. The remaining
+unaffected aliases stay in the explicit permit list.
 
 Migration fidelity rule
 -----------------------
@@ -331,7 +332,8 @@ RETIRED_TO_CURRENT: Dict[str, str] = {
 # Default-deny quiesce. Safety comes from withdrawing PERMISSION, never from
 # adding a forbid:
 #
-#   A  default-deny-quiesce   baseline permit -> the 13 unaffected actions only.
+#   A  default-deny-quiesce   baseline permit -> the 11 non-sensitive unaffected
+#                             actions only.
 #                             The experience target has no matching permit, so
 #                             every child action is DENY by default, old name or
 #                             new, named by a policy or not.
@@ -342,9 +344,10 @@ RETIRED_TO_CURRENT: Dict[str, str] = {
 #                             permit it was originally. While the baseline stays
 #                             narrowed this is the ONLY matching permit, so exactly
 #                             one business path opens: damaged initiate_return.
-#   E  explicit-baseline-final THE FINAL AUTHORIZATION. Baseline 13 -> 14 explicit
+#   E  explicit-baseline-final THE FINAL AUTHORIZATION. Baseline 11 -> 12 explicit
 #                             actions, adding only escalate_to_human. The return action
-#                             stays governed by its dedicated permit/forbid pair, and a
+#                             stays governed by its dedicated permit/forbid pair, the
+#                             customer-scoped read aliases remain default-denied, and a
 #                             future published tool gets NO matching permit.
 #
 #   F  restore-broad-permit  FALLBACK ONLY. Restores the historical wildcard. Requires
@@ -384,6 +387,21 @@ BASELINE_POLICY_NAME = "baseline_permit_gateway_tools"
 # cutover needs the quiesce. See MIGRATION SCOPE in the module docstring for the
 # other three, which no policy references.
 RETURN_TARGET_NAME = "pellier-concierge-experience-target"
+RECOMMENDATION_TARGET_NAME = "pellier-curation-recommendation-target"
+
+# The existing engineering recommendation target still exposes these retired
+# aliases. Both ultimately use an attacker-supplied customer_id to read customer
+# facts, and the legacy policy engine has no action-specific scope policy for
+# them. Keep both spellings absent from every migrated baseline so Cedar denies
+# before the Lambda sees a caller-selected customer.
+CUSTOMER_SCOPED_READ_TOOL_NAMES = frozenset(
+    {
+        "preference_snapshot",
+        "trace_receipt",
+        "get_customer_preferences",
+        "get_audit_trail",
+    }
+)
 
 # The policy whose steady-state definition contributes nothing under the broad
 # baseline permit, and which therefore serves as the temporary quiesce control.
@@ -845,11 +863,13 @@ def assert_broad_baseline_matches_capture(directory: Path) -> None:
 
 
 def unaffected_action_ids(live: Dict[str, Any]) -> List[str]:
-    """Every live action id that does NOT belong to the return target.
+    """Every live action id the migration may safely retain in its baseline.
 
     Derived from the control-plane snapshot, never hand-maintained: a stale list
     would either permit something it should not or black-hole a target that is not
-    part of this migration.
+    part of this migration. Customer-scoped reads are the exception: until their
+    target schema and scoped Cedar constraints converge together, no spelling of
+    either action may inherit the broad legacy permit.
     """
     out: List[str] = []
     for target in live["targets"]:
@@ -857,6 +877,11 @@ def unaffected_action_ids(live: Dict[str, Any]) -> List[str]:
         if name == RETURN_TARGET_NAME:
             continue
         for tool in _tool_names(target):
+            if (
+                name == RECOMMENDATION_TARGET_NAME
+                and tool in CUSTOMER_SCOPED_READ_TOOL_NAMES
+            ):
+                continue
             if tool:
                 out.append(f"{name}___{tool}")
     return sorted(out)
@@ -873,7 +898,9 @@ def narrowed_baseline_statement(live: Dict[str, Any]) -> str:
 
     Unconditional: no ``when``, no ``unless``, no ``context.input``. A condition
     would be type-checked against every action in scope and would fail the way the
-    two-action set did.
+    two-action set did. Customer-scoped reads are intentionally absent, even on
+    the untouched recommendation target: the existing migration policy engine
+    cannot bind their caller-provided customer_id safely.
     """
     ids = unaffected_action_ids(live)
     if not ids:
@@ -898,7 +925,7 @@ FINAL_BASELINE_EXTRA_TOOL = "escalate_to_human"
 
 
 def final_baseline_statement(live: Dict[str, Any]) -> str:
-    """The FINAL baseline permit: the 13 unaffected actions plus escalation.
+    """The FINAL baseline permit: non-sensitive actions plus escalation.
 
     This replaces the historical wildcard ``permit(principal, action, resource == gw)``
     as the end state, and the reason is the whole lesson of this migration: a wildcard
@@ -909,9 +936,10 @@ def final_baseline_statement(live: Dict[str, Any]) -> str:
 
     With an explicit list, publication and authorization stay separate decisions:
 
-        13 unaffected actions   explicit permit here
+        11 non-sensitive actions explicit permit here
         escalate_to_human       explicit permit here
         initiate_return         dedicated permit (damaged) + dedicated forbid (other)
+        customer reads          default DENY pending scoped policy convergence
         anything published next  no matching permit -> DENY by default
 
     Measured before choosing this shape (2026-08-27): policy-filtered MCP
@@ -954,7 +982,7 @@ def final_baseline_statement(live: Dict[str, Any]) -> str:
     # other three targets deliberately still publish their historical names
     # (`floor_check`, `running_low`, …) and those are live, permitted actions. Scoping
     # this to the return target is the difference between the invariant and a guard that
-    # rejects the thirteen actions it is supposed to permit.
+    # rejects unrelated retained actions.
     for retired in RETIRED_TO_CURRENT:
         bad = [a for a in ids if a == f"{RETURN_TARGET_NAME}___{retired}"]
         if bad:
@@ -1166,9 +1194,10 @@ def build_plan(live: Dict[str, Any], canonical: Dict[str, Any]) -> Dict[str, Any
         {
             "phase": "explicit-baseline-final",
             "intent": (
-                "THE FINAL AUTHORIZATION. Baseline 13 -> 14 explicit actions, adding "
+                "THE FINAL AUTHORIZATION. Baseline 11 -> 12 explicit actions, adding "
                 "only escalate_to_human. The return action keeps its dedicated permit "
-                "and forbid, and a tool published tomorrow gets no matching permit."
+                "and forbid; customer-scoped recommendation reads remain default-denied "
+                "pending their scoped-policy convergence."
             ),
             "policyUpdates": [dict(policy_update(
                 baseline, baseline_before, baseline_final,
@@ -2396,7 +2425,7 @@ def main() -> int:
             "  The historical wildcard permit authorizes any action published after it, "
             "which is the property that made this migration's own window unsafe and "
             "would silently authorize a future issue_credit on publication alone.\n"
-            "  The intended end state is --phase explicit-baseline-final: 14 explicit "
+            "  The intended end state is --phase explicit-baseline-final: 12 explicit "
             "actions, with the return action governed by its dedicated pair and a "
             "future tool denied by default."
         )

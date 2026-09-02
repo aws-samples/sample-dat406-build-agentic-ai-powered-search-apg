@@ -15,13 +15,16 @@
   padding: 14px 0 18px;
 }
 
+/* The masthead is still one page title, so it takes the shared display voice
+   and step. It carried its own 42px sans, which made the Proof Board the only
+   surface whose title did not match the other seventeen. */
 .observatory-root .observatory-masthead-copy h1 {
   margin: 8px 0 6px;
   color: var(--ink);
-  font-family: var(--sans);
-  font-size: 42px;
+  font-family: var(--obs-display);
+  font-size: var(--obs-title-size);
   font-style: normal;
-  font-weight: 500;
+  font-weight: var(--obs-title-weight);
   letter-spacing: 0;
   line-height: 1.05;
 }
@@ -106,10 +109,6 @@
   .observatory-root .observatory-masthead-copy {
     width: min(100%, 320px);
     padding-block: 24px;
-  }
-
-  .observatory-root .observatory-masthead-copy h1 {
-    font-size: 36px;
   }
 
   .observatory-root .observatory-masthead-copy > p {

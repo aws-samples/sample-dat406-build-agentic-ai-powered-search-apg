@@ -67,7 +67,7 @@ const PillarCard: React.FC<PillarCardProps> = ({ verb, title, description }) => 
     <p
       style={{
         fontFamily: 'var(--obs-sans)',
-        fontSize: '13.5px',
+        fontSize: '13px',
         lineHeight: 1.55,
         color: 'var(--obs-ink-2)',
         margin: 0,

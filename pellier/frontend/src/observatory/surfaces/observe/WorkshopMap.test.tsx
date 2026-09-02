@@ -11,19 +11,27 @@ describe('Observatory workshop map', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText(/^0[1-4] /).map((node) => node.textContent)).toEqual([
-      '01 GROUND THE ANSWER',
-      '02 MEASURE HYBRID RETRIEVAL',
-      '03 OPERATE THE MANAGED AGENT PATH',
-      '04 GOVERN AND PROVE ACTIONS',
+    expect(screen.getAllByText(/^Lab [1-4] ·/).map((node) => node.textContent)).toEqual([
+      'Lab 1 · Build',
+      'Lab 2 · Build & Measure',
+      'Lab 3 · Operate & Observe',
+      'Lab 4 · Govern',
     ]);
-    expect(screen.getByRole('heading', { name: 'Live Data and Evidence' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Search, Filters, and Trade-offs' }),
+      screen.getByRole('heading', { name: 'Build a PostgreSQL-Grounded Agent' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Runtime, Gateway, Memory, and Trace' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Human Decision, Policy, Database, and Receipts' }),
+      screen.getByRole('heading', {
+        name: 'Build and Measure PostgreSQL Hybrid Retrieval',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Operate and Observe the AgentCore Managed Path',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Enforce Identity and Prove Non-Execution' }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
 

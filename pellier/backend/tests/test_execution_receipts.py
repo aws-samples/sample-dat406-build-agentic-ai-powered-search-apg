@@ -537,3 +537,104 @@ def test_the_return_row_reports_status_and_requested_at() -> None:
     assert row["status"] == "pending"
     assert "requestedAt" in row
     assert "createdAt" not in row
+
+
+# ---------------------------------------------------------------------------
+# The attempt receipt across a rolled-back business transaction
+#
+# Closure item: the workshop guide may only claim that a refused attempt leaves
+# durable evidence if that is actually true. These tests establish WHICH of the
+# two possible truths the implementation has, so the wording can follow the code
+# instead of the code being trusted to match the wording.
+#
+# The answer is A: the receipt is written on its own connection, after the
+# business transaction has already resolved, and independently of whether that
+# transaction committed. An RLS refusal rolls the write back and the attempt is
+# still provable afterwards.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_the_receipt_uses_its_own_connection_not_the_business_transaction() -> None:
+    """Structural guarantee behind rollback survival.
+
+    `record_receipt` acquires a connection from the pool and inserts on it. It
+    does not join, and cannot be enlisted in, whatever transaction performed the
+    domain write — so a rollback there cannot take the receipt with it. If a
+    future refactor threads the business connection in, this fails and the
+    workshop claim has to be revisited.
+    """
+    db = FakeDb()
+    await GE.record_receipt(db, _outcome(), review_id=41)
+    insert = next(s for s in db.statements if s.startswith("INSERT"))
+    assert "pellier.execution_receipts" in insert
+    # The insert went through get_connection()/cursor, which is the pool's own
+    # connection, rather than through a caller-supplied transaction handle.
+    assert GE.record_receipt.__doc__ is not None
+    source = pathlib.Path("services/governed_execution.py").read_text()
+    writer = source[source.index("async def record_receipt("):]
+    writer = writer[: writer.index("\n_LATEST_RECEIPT")]
+    assert "db.get_connection()" in writer, (
+        "record_receipt must own its connection; sharing the business "
+        "transaction would let a rollback erase the attempt receipt."
+    )
+    assert "conn.rollback" not in writer and "conn.commit" not in writer, (
+        "the pool's connection is autocommit for this insert; explicit "
+        "transaction control here would couple the receipt to the write."
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_aurora_refusal_still_records_the_attempt() -> None:
+    """The row that makes "two independent layers" provable.
+
+    Cedar permitted the invocation and PostgreSQL refused the write, so the
+    domain tables hold nothing and `tool_audit` may hold nothing for this key.
+    The attempt receipt is the only artifact that can distinguish this from a
+    call that never happened, so it must exist and must say both things.
+    """
+    db = FakeDb()
+    receipt_id = await GE.record_receipt(
+        db,
+        _outcome(policy=GE.POLICY_ALLOW, aurora=GE.AURORA_DENIED),
+        review_id=41,
+        engine_state=_Engine(),
+    )
+    assert receipt_id == 7
+    params = next(p for p in db.params if isinstance(p, dict))
+    assert params["policy_outcome"] == "ALLOW"
+    assert params["aurora_outcome"] == "DENIED"
+    # Not RECEIPTED: nothing durable was written, so the evidence class must not
+    # imply that it was.
+    assert params["evidence_outcome"] != GE.EVIDENCE_RECEIPTED
+
+
+@pytest.mark.asyncio
+async def test_the_receipt_write_is_ordered_after_the_business_outcome() -> None:
+    """The receipt describes a resolved attempt, never predicts one.
+
+    `execute_governed_action` classifies the Aurora result and only then records.
+    Recording first would produce a receipt whose `aurora_outcome` was a guess,
+    and a crash between the two would leave a confident row about a write that
+    never landed.
+    """
+    source = pathlib.Path("services/governed_execution.py").read_text()
+    classify_at = source.index("evidence = classify_evidence_for(")
+    record_at = source.index("receipt_id = await record_receipt(")
+    assert classify_at < record_at, (
+        "classification must precede the receipt insert so the stored axes and "
+        "the returned payload cannot disagree."
+    )
+
+
+def test_the_receipt_is_append_only_per_attempt() -> None:
+    """A retry must not overwrite the attempt it followed.
+
+    Rollback survival is worth nothing if the next attempt silently replaces the
+    refused one: the pair is the evidence.
+    """
+    migration = MIGRATION.read_text()
+    assert "ON CONFLICT" not in migration.upper() or "DO NOTHING" in migration.upper(), (
+        "an upsert on this table would let a later attempt erase an earlier "
+        "refusal; migration 025 keeps one row per attempt."
+    )

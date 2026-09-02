@@ -204,11 +204,11 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
 
 // Four-lab workshop spine.
 const LAB_BY_CARD_ID: Record<string, string> = {
-  'marco-floor-check': '01 GROUND THE ANSWER — Live Data and Evidence',
-  'retrieval-comparison': '02 MEASURE HYBRID RETRIEVAL — Search, Filters, and Trade-offs',
-  'managed-rail': '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
-  'audit-ledger': '03 OPERATE THE MANAGED AGENT PATH — Runtime, Gateway, Memory, and Trace',
-  'runtime-gateway-policy': '04 GOVERN AND PROVE ACTIONS — Human Decision, Policy, Database, and Receipts',
+  'marco-floor-check': 'Lab 1 · Build — Build a PostgreSQL-Grounded Agent',
+  'retrieval-comparison': 'Lab 2 · Build & Measure — Build and Measure PostgreSQL Hybrid Retrieval',
+  'managed-rail': 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+  'audit-ledger': 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+  'runtime-gateway-policy': 'Lab 4 · Govern — Enforce Identity and Prove Non-Execution',
 };
 
 interface GovernedProofStage {
@@ -494,7 +494,7 @@ const ReadinessPanel: React.FC<{ checks: ReadinessCheck[] }> = ({ checks }) => {
         <span
           style={{
             fontFamily: 'var(--obs-heading)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             fontWeight: 600,
             letterSpacing: '0.04em',
             textTransform: 'uppercase',
@@ -672,7 +672,7 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
             color: tone.color,
             background: tone.bg,
             fontFamily: 'var(--obs-heading)',
-            fontSize: '10.5px',
+            fontSize: '10px',
             fontWeight: 700,
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
@@ -698,7 +698,7 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
           margin: '0 0 14px',
           color: 'var(--obs-ink-2)',
           fontFamily: 'var(--obs-sans)',
-          fontSize: '13.5px',
+          fontSize: '13px',
           lineHeight: 1.5,
         }}
       >
@@ -709,7 +709,7 @@ const GovernanceReceiptCard: React.FC<React.PropsWithChildren<{ receipt: Governa
         style={{
           margin: 'auto 0 0',
           color: 'var(--obs-ink-3)',
-          fontSize: '11.5px',
+          fontSize: '11px',
           lineHeight: 1.45,
           overflowWrap: 'anywhere',
         }}
@@ -770,7 +770,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
               className="font-mono"
               style={{
                 color: 'var(--obs-ink-2)',
-                fontSize: '10.5px',
+                fontSize: '10px',
                 overflowWrap: 'anywhere',
               }}
             >
@@ -779,7 +779,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
           </div>
         ))
       ) : (
-        <p style={{ color: 'var(--obs-ink-3)', fontSize: '11.5px', margin: 0 }}>
+        <p style={{ color: 'var(--obs-ink-3)', fontSize: '11px', margin: 0 }}>
           Correlation IDs were not reported on the latest Runtime response.
         </p>
       )}
@@ -790,7 +790,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
               href={trace.xrayConsoleUrl}
               target="_blank"
               rel="noreferrer"
-              style={{ alignItems: 'center', color: 'var(--obs-red-1)', display: 'inline-flex', fontSize: '11.5px', gap: '4px' }}
+              style={{ alignItems: 'center', color: 'var(--obs-red-1)', display: 'inline-flex', fontSize: '11px', gap: '4px' }}
             >
               Trace in CloudWatch <ExternalLink size={12} aria-hidden="true" />
             </a>
@@ -800,7 +800,7 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
               href={trace.logsConsoleUrl}
               target="_blank"
               rel="noreferrer"
-              style={{ alignItems: 'center', color: 'var(--obs-red-1)', display: 'inline-flex', fontSize: '11.5px', gap: '4px' }}
+              style={{ alignItems: 'center', color: 'var(--obs-red-1)', display: 'inline-flex', fontSize: '11px', gap: '4px' }}
             >
               Runtime logs <ExternalLink size={12} aria-hidden="true" />
             </a>
@@ -1034,7 +1034,7 @@ const ReceiptStrip: React.FC<{ receipt: ManagedReceipt }> = ({ receipt }) => {
           margin: '12px 0 0',
           color: 'var(--obs-ink-3)',
           fontFamily: 'var(--obs-sans)',
-          fontSize: '12.5px',
+          fontSize: '12px',
           lineHeight: 1.5,
         }}
       >
@@ -1077,7 +1077,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
       <span
         style={{
           fontFamily: 'var(--obs-heading)',
-          fontSize: '11.5px',
+          fontSize: '11px',
           fontWeight: 600,
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
@@ -1117,7 +1117,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
         margin: '0 0 12px',
         color: 'var(--obs-ink-3)',
         fontFamily: 'var(--obs-heading)',
-        fontSize: '11.5px',
+        fontSize: '11px',
         fontWeight: 600,
         letterSpacing: '0.04em',
         textTransform: 'uppercase',
@@ -1151,7 +1151,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
               style={{
                 color: 'var(--obs-ink-3)',
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '10.5px',
+                fontSize: '10px',
                 fontWeight: 600,
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
@@ -1164,7 +1164,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
               style={{
                 color: 'var(--obs-ink-2)',
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 lineHeight: 1.45,
                 wordBreak: 'break-word',
               }}
@@ -1179,7 +1179,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
               style={{
                 color: 'var(--obs-ink-3)',
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '10.5px',
+                fontSize: '10px',
                 fontWeight: 600,
                 letterSpacing: '0.04em',
                 textTransform: 'uppercase',
@@ -1192,7 +1192,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
               style={{
                 color: 'var(--obs-ink-2)',
                 fontFamily: 'var(--obs-mono)',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 lineHeight: 1.45,
               }}
             >
@@ -1208,7 +1208,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
         paddingLeft: '18px',
         color: 'var(--obs-ink-2)',
         fontFamily: 'var(--obs-sans)',
-        fontSize: '13.5px',
+        fontSize: '13px',
         lineHeight: 1.55,
       }}
     >
@@ -1244,7 +1244,7 @@ const ProofCardView: React.FC<{ card: ProofCard; highlighted?: boolean }> = ({
             padding: '5px 10px',
             textDecoration: 'none',
             fontFamily: 'var(--obs-heading)',
-            fontSize: '12.5px',
+            fontSize: '12px',
             fontWeight: 600,
           }}
         >
@@ -1307,7 +1307,7 @@ const ProofRail: React.FC<{
           style={{
             color: 'var(--obs-ink-3)',
             fontFamily: 'var(--obs-heading)',
-            fontSize: '11.5px',
+            fontSize: '11px',
             fontWeight: 600,
             letterSpacing: '0.03em',
             textTransform: 'uppercase',
@@ -1343,7 +1343,7 @@ const ProofRail: React.FC<{
               style={{
                 color: 'var(--obs-ink-3)',
                 fontFamily: 'var(--obs-heading)',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 fontWeight: 600,
                 letterSpacing: '0.03em',
                 textTransform: 'uppercase',
@@ -1605,19 +1605,19 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
       )}
       {!isAuditFocus ? (
         <Link
-          to="/observatory/references"
+          to="/observatory/workbench#resources"
           className="observatory-reference-return proof-board-reference-return"
-          aria-label="Back to Proof & References"
+          aria-label="Back to Labs and Workbench resources"
         >
           <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          <span>Proof &amp; References</span>
+          <span>Labs &amp; Workbench resources</span>
         </Link>
       ) : null}
       {isAuditFocus ? (
         <EditorialTitle
           backToReferences
-          eyebrow="03 OPERATE THE MANAGED AGENT PATH · Runtime, Gateway, Memory, and Trace"
-          title="Audit proof, row by row."
+          eyebrow="Lab 3 · Operate & Observe — AgentCore Managed Path"
+          title="Proof board"
           summary="A focused read of the live Aurora ledger and governed receipt. The SQL result remains the canonical proof; this view confirms that the expected evidence is present."
         />
       ) : (

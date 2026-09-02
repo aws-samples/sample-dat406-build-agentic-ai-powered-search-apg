@@ -351,6 +351,43 @@ def _infer_customer_id(customer_id: str = "", persona: str = "") -> str:
     return ""
 
 
+def _verified_read_customer_scope(
+    customer_id: str = "", persona: str = ""
+) -> tuple[str | None, dict | None]:
+    """Return the server-bound customer scope for a sensitive read.
+
+    A customer id in model tool input is useful as a consistency check, never
+    as the authority for which profile or receipts to read. Demo personas are
+    intentionally not sufficient here: customer-specific facts need a verified
+    principal-to-customer mapping.
+    """
+    from services.turn_identity import current_authorized_customer_id
+
+    authorized_customer = current_authorized_customer_id()
+    if not authorized_customer:
+        return None, {
+            "status": "customer_scope_required",
+            "message": (
+                "A verified customer identity is required before Pellier can "
+                "read customer-specific data."
+            ),
+            "read_only": True,
+        }
+
+    requested_customer = _infer_customer_id(customer_id, persona)
+    if requested_customer and requested_customer.casefold() != authorized_customer.casefold():
+        return None, {
+            "status": "customer_scope_mismatch",
+            "message": (
+                "The requested customer context does not match the verified "
+                "shopper identity."
+            ),
+            "read_only": True,
+        }
+
+    return authorized_customer, None
+
+
 @tool
 def get_customer_preferences(customer_id: str = "", persona: str = "", limit: int = 5) -> str:
     """Read a safe shopper preference snapshot from Aurora memory tables.
@@ -362,26 +399,22 @@ def get_customer_preferences(customer_id: str = "", persona: str = "", limit: in
     profile summary, recent order anchors, and memory facts.
 
     Args:
-        customer_id: Optional explicit customer id such as CUST-MARCO.
-            If omitted, the tool infers it from persona or the active
-            persona preamble.
-        persona: Optional persona alias: marco, anna, theo, or fresh.
+        customer_id: Optional customer id used only to confirm the caller's
+            verified customer scope.
+        persona: Optional display persona used only to confirm the caller's
+            verified customer scope.
         limit: Maximum number of order and memory rows to return.
     """
     if not _db_service:
         return json.dumps({"error": "Database service not initialized"})
 
     try:
-        resolved_customer = _infer_customer_id(customer_id, persona)
-        if not resolved_customer:
-            return json.dumps({
-                "status": "no_customer_context",
-                "message": (
-                    "No customer_id or persona context was available for "
-                    "a preference snapshot."
-                ),
-                "read_only": True,
-            })
+        resolved_customer, scope_error = _verified_read_customer_scope(
+            customer_id, persona
+        )
+        if scope_error:
+            return json.dumps(scope_error)
+        assert resolved_customer is not None
 
         safe_limit = max(1, min(int(limit or 5), 10))
 
@@ -496,9 +529,9 @@ def get_audit_trail(
     caller: str = "",
     limit: int = 3,
 ) -> str:
-    """Read recent tool_audit and governed receipts for a session, tool, or caller rail.
+    """Read this shopper's recent tool_audit and governed receipts.
 
-    Use when the shopper or operator asks how Pellier knows, what tool ran,
+    Use when the shopper asks how Pellier knows, what tool ran,
     whether a Gateway call produced an ALLOW receipt, or how to compare the
     in-process ``caller='agent'`` rail with the managed ``caller='gateway'``
     rail. This is read-only: it reads pellier.tool_audit as the execution
@@ -508,7 +541,8 @@ def get_audit_trail(
     the expected shape of a DENY or missing invocation.
 
     Args:
-        session_id: Optional exact session id to inspect.
+        session_id: Optional exact session id to inspect within this shopper's
+            own evidence.
         tool_name: Optional tool name such as check_inventory or initiate_return.
         caller: Optional caller rail: agent or gateway.
         limit: Maximum receipts to return.
@@ -517,41 +551,77 @@ def get_audit_trail(
         return json.dumps({"error": "Database service not initialized"})
 
     try:
+        from services.turn_identity import current_principal_sub
+
+        authorized_customer, scope_error = _verified_read_customer_scope()
+        if scope_error:
+            return json.dumps(scope_error)
+        principal_sub = current_principal_sub()
+        assert authorized_customer is not None
+        if not principal_sub:
+            return json.dumps({
+                "status": "customer_scope_required",
+                "message": (
+                    "A verified customer identity is required before Pellier can "
+                    "read customer-specific evidence."
+                ),
+                "read_only": True,
+            })
+
         safe_limit = max(1, min(int(limit or 3), 10))
-        filters = []
-        params = []
+        audit_filters = [
+            "ta.args->>'customer_id' = %s",
+            (
+                "(ta.args->>'principal_sub' = %s OR EXISTS ("
+                "SELECT 1 FROM pellier.governed_receipts gr_scope "
+                "WHERE gr_scope.audit_id = ta.audit_id "
+                "AND gr_scope.verified_subject = %s))"
+            ),
+        ]
+        audit_params = [authorized_customer, principal_sub, principal_sub]
+        governed_filters = [
+            "gr.args->>'customer_id' = %s",
+            "gr.verified_subject = %s",
+        ]
+        governed_params = [authorized_customer, principal_sub]
 
         clean_session = (session_id or "").strip()
         clean_tool = (tool_name or "").strip()
         clean_caller = (caller or "").strip().lower()
 
         if clean_session:
-            filters.append("session_id = %s")
-            params.append(clean_session)
+            audit_filters.append("ta.session_id = %s")
+            audit_params.append(clean_session)
+            governed_filters.append("gr.session_id = %s")
+            governed_params.append(clean_session)
         if clean_tool:
-            filters.append("tool = %s")
-            params.append(clean_tool)
+            audit_filters.append("ta.tool = %s")
+            audit_params.append(clean_tool)
+            governed_filters.append("gr.tool = %s")
+            governed_params.append(clean_tool)
         if clean_caller:
-            filters.append("caller = %s")
-            params.append(clean_caller)
+            audit_filters.append("ta.caller = %s")
+            audit_params.append(clean_caller)
+            governed_filters.append("gr.caller = %s")
+            governed_params.append(clean_caller)
 
-        where = f"WHERE {' AND '.join(filters)}" if filters else ""
+        audit_where = f"WHERE {' AND '.join(audit_filters)}"
         rows = _run_async(_db_service.fetch_all(
             f"""
-            SELECT audit_id,
-                   session_id,
-                   tool,
-                   caller,
-                   args,
-                   result,
-                   latency_ms,
-                   created_at
-              FROM pellier.tool_audit
-              {where}
-             ORDER BY audit_id DESC
+            SELECT ta.audit_id,
+                   ta.session_id,
+                   ta.tool,
+                   ta.caller,
+                   ta.args,
+                   ta.result,
+                   ta.latency_ms,
+                   ta.created_at
+              FROM pellier.tool_audit ta
+              {audit_where}
+             ORDER BY ta.audit_id DESC
              LIMIT %s
             """,
-            *params,
+            *audit_params,
             safe_limit,
         ))
 
@@ -572,31 +642,24 @@ def get_audit_trail(
 
         governed_receipts = []
         try:
+            governed_where = f"WHERE {' AND '.join(governed_filters)}"
             governed_rows = _run_async(_db_service.fetch_all(
                 f"""
-                SELECT receipt_id,
-                       audit_id,
-                       session_id,
-                       principal_id,
-                       principal_label,
-                       tool,
-                       caller,
-                       decision,
-                       args,
-                       policy_name,
-                       token_fingerprint_sha256,
-                       verified_subject,
-                       verified_username,
-                       issuer,
-                       client_id,
-                       identity_source,
-                       created_at
-                  FROM pellier.governed_receipts
-                  {where}
-                 ORDER BY receipt_id DESC
+                SELECT gr.receipt_id,
+                       gr.audit_id,
+                       gr.session_id,
+                       gr.tool,
+                       gr.caller,
+                       gr.decision,
+                       gr.args,
+                       gr.policy_name,
+                       gr.created_at
+                  FROM pellier.governed_receipts gr
+                  {governed_where}
+                 ORDER BY gr.receipt_id DESC
                  LIMIT %s
                 """,
-                *params,
+                *governed_params,
                 safe_limit,
             ))
             governed_receipts = [
@@ -604,19 +667,11 @@ def get_audit_trail(
                     "receipt_id": row.get("receipt_id"),
                     "audit_id": row.get("audit_id"),
                     "session_id": row.get("session_id"),
-                    "principal_id": row.get("principal_id"),
-                    "principal_label": row.get("principal_label"),
                     "tool": row.get("tool"),
                     "caller": row.get("caller"),
                     "decision": row.get("decision"),
                     "args": row.get("args"),
                     "policy_name": row.get("policy_name"),
-                    "token_fingerprint_sha256": row.get("token_fingerprint_sha256"),
-                    "verified_subject": row.get("verified_subject"),
-                    "verified_username": row.get("verified_username"),
-                    "issuer": row.get("issuer"),
-                    "client_id": row.get("client_id"),
-                    "identity_source": row.get("identity_source"),
                     "created_at": row.get("created_at"),
                 }
                 for row in governed_rows
@@ -678,7 +733,7 @@ def check_inventory(product_query: str = "") -> str:
     # WORKSHOP_EXERCISE_STUB
     #
     # Wire this tool to BusinessLogic.check_inventory() so Inventory Agent
-    # can answer Marco's Turn 4: "Is the Hadley shirt at the
+    # can answer Marco's Turn 3: "Is the Hadley shirt at the
     # Brooklyn warehouse?" (Hadley · Pellier Linen Shirt in ecru.)
     #
     # Steps:
@@ -692,7 +747,7 @@ def check_inventory(product_query: str = "") -> str:
     #   5. Catch exceptions and return a JSON error envelope.
     #
     # Verify (live, the real check):
-    #   Click Marco's Turn 4 pill in Pellier — Inventory Agent answers
+    #   Click Marco's Turn 3 pill in Pellier — Inventory Agent answers
     #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
     #   Observatory Tools strip flip from 14/15 to 15/15 shipped.
     #
@@ -1548,17 +1603,25 @@ def get_related_products(product_id: int, limit: int = 5) -> str:
         ))
         if not source:
             return json.dumps({"error": f"Product {product_id} not found"})
-        # ``embedding`` comes back as a numpy array (pgvector adapter).
-        # ``if not array`` raises "truth value is ambiguous" — check
-        # for None / length-zero explicitly.
         emb = source.get("embedding")
-        if emb is None or len(emb) == 0:
+        if emb is None:
+            return json.dumps({"error": f"Product {product_id} has no embedding"})
+
+        # pgvector-python returns ``Vector`` with psycopg 3 and numpy arrays
+        # with some older adapter paths. Normalize both before serialization.
+        if hasattr(emb, "to_list"):
+            emb_values = emb.to_list()
+        elif hasattr(emb, "tolist"):
+            emb_values = emb.tolist()
+        else:
+            emb_values = list(emb)
+        if not emb_values:
             return json.dumps({"error": f"Product {product_id} has no embedding"})
 
         # pgvector's text I/O wants ``[v1,v2,...]`` (comma-separated).
-        # ``str(numpy_array)`` produces space-separated values which
+        # ``str(numpy_array)`` produces space-separated values, which
         # the parser rejects with "invalid input syntax for type vector".
-        emb_literal = "[" + ",".join(repr(float(v)) for v in emb) + "]"
+        emb_literal = "[" + ",".join(repr(float(v)) for v in emb_values) + "]"
 
         limit = max(1, min(int(limit), settings.MAX_SEARCH_LIMIT))
         matches = _run_async(_db_service.fetch_all(

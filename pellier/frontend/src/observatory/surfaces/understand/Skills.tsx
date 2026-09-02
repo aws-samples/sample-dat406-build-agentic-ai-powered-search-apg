@@ -17,7 +17,8 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { EditorialTitle, ExpCard, Eyebrow, SurfaceFilterBar } from '../../components';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
-import type { Skill } from '../../types';
+import type { Skill, SkillApiRow } from '../../types';
+import { toSkill } from '../../types/skill';
 import { routerQueryForSkill } from './skillsRouterUtils';
 
 type PersonaFilter = 'all' | 'marco' | 'anna' | 'theo' | 'shared';
@@ -546,25 +547,34 @@ const SkillCard: React.FC<SkillCardProps> = ({
       {skill.description}
     </p>
 
-    {/* Signals */}
-    <div style={{ marginBottom: '18px' }}>
-      <Eyebrow label="Signals the SkillRouter watches for" />
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-        {skill.signals.map((s) => (
-          <SignalPill key={s} label={s} />
-        ))}
+    {/* Signals and "loaded by" are curated fields that the live registry does
+        not own: GET /api/observatory/skills reads SKILL.md frontmatter, which
+        carries name, display_name, description, version and persona only. When
+        the surface reads live data these are absent, so the panel is omitted
+        rather than filled — an inspection surface must not invent the evidence
+        it is supposed to show. `skill.signals.map` on an absent array is what
+        crashed this route into the error boundary. */}
+    {skill.signals && skill.signals.length > 0 ? (
+      <div style={{ marginBottom: '18px' }}>
+        <Eyebrow label="Signals the SkillRouter watches for" />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+          {skill.signals.map((s) => (
+            <SignalPill key={s} label={s} />
+          ))}
+        </div>
       </div>
-    </div>
+    ) : null}
 
-    {/* Loaded by */}
-    <div style={{ marginBottom: '18px' }}>
-      <Eyebrow label="Loaded by" />
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-        {skill.loadedBy.map((a) => (
-          <AgentChip key={a} name={a} />
-        ))}
+    {skill.loadedBy && skill.loadedBy.length > 0 ? (
+      <div style={{ marginBottom: '18px' }}>
+        <Eyebrow label="Loaded by" />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+          {skill.loadedBy.map((a) => (
+            <AgentChip key={a} name={a} />
+          ))}
+        </div>
       </div>
-    </div>
+    ) : null}
 
     {/* Body (the guidance passed to the model) */}
     <div>
@@ -681,8 +691,12 @@ const EmptyState: React.FC = () => (
 const ROMAN = ['I.', 'II.', 'III.', 'IV.', 'V.'];
 
 const Skills: React.FC = () => {
-  const { data, loading, error, refetch } = useObservatoryData<Skill[]>({ key: 'skills' });
-  const skills = data ?? [];
+  const { data, loading, error, refetch } = useObservatoryData<SkillApiRow[]>({
+    key: 'skills',
+  });
+  // The registry answers in snake_case and omits the curated fields; normalize
+  // once here so no card reads `undefined` for its own title.
+  const skills: Skill[] = useMemo(() => (data ?? []).map(toSkill), [data]);
   const [personaFilter, setPersonaFilter] = useState<PersonaFilter>('all');
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [routerMatchSkill, setRouterMatchSkill] = useState<string | null>(null);
@@ -727,7 +741,7 @@ const Skills: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Understand · Skills · five prompt overlays"
-        title="Persona-specific knowledge the agents load."
+        title="Runtime skills"
         summary="Five Markdown files. Three are persona-tied; two are shared proof and care overlays. Loaded per turn by the SkillRouter – Sonnet 4.6 with a JSON-only routing prompt – and injected into the specialist's system prompt. Skills change voice and handling, not product selection."
       />
       <ExpCard>

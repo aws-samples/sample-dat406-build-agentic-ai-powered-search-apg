@@ -24,6 +24,7 @@ import {
   ExpCard,
   Eyebrow,
 } from '../../components';
+import IdentityBoundaryCard from './IdentityBoundaryCard';
 
 /* -----------------------------------------------------------------------
  * Types
@@ -50,7 +51,7 @@ interface ToolAuditRow {
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '12.5px',
+  fontSize: '12px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
@@ -64,7 +65,7 @@ const DARK_CODE_BLOCK: React.CSSProperties = {
 
 const DARK_INLINE_CODE: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '11.5px',
+  fontSize: '11px',
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
   borderRadius: '6px',
@@ -102,7 +103,7 @@ const EnforcementDiagram: React.FC = () => {
   };
   const layerLabel: React.CSSProperties = {
     fontFamily: 'var(--obs-heading)',
-    fontSize: '11.5px',
+    fontSize: '11px',
     fontWeight: 600,
     letterSpacing: '0.04em',
     textTransform: 'uppercase' as const,
@@ -474,12 +475,16 @@ const WritePath: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Understand · Write-path · Aurora as system-of-record"
-        title="Theo's third Aurora capability."
+        title="Write path"
         summary="Marco read. Anna read harder. Theo writes – and every write leaves a paper trail. The agent calls a mutating tool; Cedar gates on what; SQL gates on whose; Aurora records the turn in tool_audit. Replayable from a single SELECT."
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <EnforcementDiagram />
+        {/* Placed above the policy source: "who was refused, and what proves
+            it" is the question a participant arrives with. The Cedar text and
+            the raw ledger answer "how", and follow. */}
+        <IdentityBoundaryCard />
         <PoliciesCard />
         <ToolAuditCard />
       </div>

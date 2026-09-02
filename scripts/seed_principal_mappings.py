@@ -115,10 +115,34 @@ def resolve_subs(
             ),
             None,
         )
-        if not sub:
+        # `sub` is None when Cognito returned no such attribute. Do not stringify
+        # before the emptiness test: str(None) is the truthy "None", which would
+        # seed the literal text as a principal subject and silently key an RLS
+        # policy on a value no token can ever carry.
+        cleaned = sub.strip() if isinstance(sub, str) else ""
+        if not cleaned:
             missing.append(username)
             continue
-        resolved[username] = sub
+        resolved[username] = cleaned
+
+    # Two usernames resolving to one subject would silently collapse two
+    # principals into a single customer scope: Marco's token would satisfy an
+    # RLS policy written for Anna, and the mapping table would look correct
+    # while the boundary it defines had quietly disappeared. There is no safe
+    # way to guess which row is wrong, so refuse the whole seed.
+    by_sub: Dict[str, List[str]] = {}
+    for username, sub in resolved.items():
+        by_sub.setdefault(sub, []).append(username)
+    collisions = {sub: names for sub, names in by_sub.items() if len(names) > 1}
+    if collisions:
+        detail = "; ".join(
+            f"{sub} claimed by {', '.join(sorted(names))}"
+            for sub, names in sorted(collisions.items())
+        )
+        raise SystemExit(
+            "Cognito returned the same subject for more than one username: "
+            f"{detail}. Each principal must map to exactly one customer scope."
+        )
 
     return resolved, missing
 
@@ -149,24 +173,64 @@ def _psql(cfg: Dict[str, str], sql: str) -> Tuple[int, str, str]:
     return result.returncode, result.stdout.strip(), result.stderr.strip()
 
 
+def mapping_problems(
+    existing_rows: List[Tuple[str, str]],
+    incoming: Dict[str, Tuple[str, str]],
+) -> List[str]:
+    """Return every mapping conflict that would widen a principal's RLS scope.
+
+    The database migration is the durable enforcement point. This preflight
+    gives a workshop operator a specific explanation before a write is
+    attempted, and keeps `--check` from calling an unsafe table complete.
+    """
+    existing_by_sub: Dict[str, set[str]] = {}
+    for customer, sub in existing_rows:
+        clean_customer = customer.strip()
+        clean_sub = sub.strip()
+        if clean_customer and clean_sub:
+            existing_by_sub.setdefault(clean_sub, set()).add(clean_customer)
+
+    problems = [
+        f"existing subject {sub} maps to multiple customers: {', '.join(sorted(customers))}"
+        for sub, customers in sorted(existing_by_sub.items())
+        if len(customers) > 1
+    ]
+
+    incoming_by_sub: Dict[str, set[str]] = {}
+    for _username, (sub, customer) in incoming.items():
+        incoming_by_sub.setdefault(sub, set()).add(customer)
+    problems.extend(
+        f"resolved subject {sub} maps to multiple requested customers: {', '.join(sorted(customers))}"
+        for sub, customers in sorted(incoming_by_sub.items())
+        if len(customers) > 1
+    )
+
+    for username, (sub, customer) in sorted(incoming.items()):
+        existing_customers = existing_by_sub.get(sub, set())
+        if existing_customers and existing_customers != {customer}:
+            problems.append(
+                f"{username}'s subject {sub} is already mapped to "
+                f"{', '.join(sorted(existing_customers))}, not {customer}"
+            )
+    return problems
+
+
 def upsert_sql(mappings: Dict[str, Tuple[str, str]]) -> str:
     """Build the idempotent upsert for username -> (sub, customer_id).
 
-    Also deletes stale rows for the same customer: a pool rebuild issues new
-    subjects, and leaving the old ones mapped would keep authorizing subjects
-    that no longer exist.
+    This is deliberately additive. `principal_customers` supports legitimate
+    multiple logins for one customer, but does not record which row this
+    workshop seeder owns. Deleting every unmatched subject for a customer would
+    silently revoke a legitimate second login. Retiring a principal needs an
+    explicit, auditable lifecycle operation outside this automation.
     """
     if not mappings:
         return ""
     values = ", ".join(
         f"('{sub}', '{customer}')" for sub, customer in mappings.values()
     )
-    customers = ", ".join(f"'{customer}'" for _sub, customer in mappings.values())
-    subs = ", ".join(f"'{sub}'" for sub, _customer in mappings.values())
     return (
         "BEGIN;\n"
-        f"DELETE FROM pellier.principal_customers\n"
-        f" WHERE customer_id IN ({customers}) AND principal_sub NOT IN ({subs});\n"
         "INSERT INTO pellier.principal_customers (principal_sub, customer_id)\n"
         f" VALUES {values}\n"
         " ON CONFLICT (principal_sub, customer_id) DO NOTHING;\n"
@@ -202,22 +266,35 @@ def main(argv: Optional[List[str]] = None) -> int:
     code, out, err = _psql(
         cfg,
         "SELECT customer_id || '|' || principal_sub FROM pellier.principal_customers"
-        " ORDER BY customer_id",
+        " ORDER BY customer_id, principal_sub",
     )
     if code != 0:
         print(f"could not read pellier.principal_customers: {err}")
         return _EXIT_UNCONFIGURED
 
-    seeded: Dict[str, str] = {}
+    existing_rows: List[Tuple[str, str]] = []
+    seeded: Dict[str, List[str]] = {}
     for line in out.splitlines():
         if "|" in line:
             customer, _, sub = line.strip().partition("|")
-            seeded[customer] = sub
+            clean_customer = customer.strip()
+            clean_sub = sub.strip()
+            if clean_customer and clean_sub:
+                existing_rows.append((clean_customer, clean_sub))
+                seeded.setdefault(clean_customer, []).append(clean_sub)
+
+    existing_problems = mapping_problems(existing_rows, {})
+    if existing_problems:
+        print("Unsafe principal mapping state; no write will be attempted:")
+        for problem in existing_problems:
+            print(f"  - {problem}")
+        return _EXIT_INCOMPLETE
 
     print("Seeded mapping:")
     if seeded:
         for customer in sorted(seeded):
-            print(f"  {customer:<12} <- {seeded[customer]}")
+            for sub in sorted(seeded[customer]):
+                print(f"  {customer:<12} <- {sub}")
     else:
         print("  (empty — Row-Level Security denies every signed-in shopper)")
 
@@ -245,6 +322,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         username: (resolved[username], wanted[username])
         for username in resolved
     }
+    incoming_problems = mapping_problems(existing_rows, mappings)
+    if incoming_problems:
+        print("\nUnsafe principal mapping state; no write will be attempted:")
+        for problem in incoming_problems:
+            print(f"  - {problem}")
+        return _EXIT_INCOMPLETE
 
     if args.check:
         # Completeness is a property of the TABLE, not of the pool. Comparing
@@ -255,13 +338,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         problems: List[str] = []
         for username, customer in sorted(wanted.items()):
             pool_sub = resolved.get(username)
-            seeded_sub = seeded.get(customer)
-            if seeded_sub is None:
+            seeded_subs = set(seeded.get(customer, []))
+            if not seeded_subs:
                 problems.append(f"{customer} has no seeded mapping")
-            elif pool_sub and seeded_sub != pool_sub:
+            elif pool_sub and pool_sub not in seeded_subs:
                 problems.append(
                     f"{customer} maps to a stale subject "
-                    f"(seeded {seeded_sub}, pool {pool_sub})"
+                    f"(seeded {', '.join(sorted(seeded_subs))}, pool {pool_sub})"
                 )
         if problems:
             print("\nMapping incomplete — RLS will deny the affected shoppers:")

@@ -290,7 +290,9 @@ for migration in \
   034_refine_persona_personalities.sql \
   035_expand_persona_discovery_grids.sql \
   036_refresh_persona_hero_alt_text.sql \
-  037_serve_persona_hero_masters.sql
+  037_serve_persona_hero_masters.sql \
+  038_principal_customer_cardinality.sql \
+  039_return_replay_scope.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \

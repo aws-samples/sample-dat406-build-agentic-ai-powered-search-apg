@@ -9,5 +9,7 @@ export function routerQueryForSkill(skill: Skill): string {
     'the-care-card': 'the bowl arrived damaged, what now?',
     'the-proof-counter': 'how do you know this fits my taste?',
   };
-  return presets[skill.name] ?? skill.signals[0] ?? skill.description;
+  // `signals` is fixture-only, so fall through to the description when the
+  // live registry answered without it rather than indexing an absent array.
+  return presets[skill.name] ?? skill.signals?.[0] ?? skill.description;
 }

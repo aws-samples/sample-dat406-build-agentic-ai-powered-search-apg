@@ -62,7 +62,61 @@ def _secret_hash(username: str, client_id: str, client_secret: str) -> str:
     return base64.b64encode(digest).decode("utf-8")
 
 
-def _token_from_cognito() -> str:
+def select_credential(users: list[dict[str, Any]], requested: str) -> dict[str, Any]:
+    """Pick one Cognito credential by username.
+
+    Resolution is by name, never by array index. Index selection silently
+    authenticated whoever happened to be first in the secret, which made the
+    identity of a governed call an accident of provisioning order — the exact
+    thing Lab 4 asks a participant to reason about.
+
+    ``requested`` is matched case-insensitively. An empty request keeps the
+    historical behaviour of taking the first entry, so existing callers that do
+    not care which principal they use are unaffected.
+
+    Raises SystemExit for an unknown username, and for a secret that lists the
+    same username twice: a duplicate makes "which principal signed this call"
+    unanswerable, and answering it wrong is worse than refusing.
+    """
+    named = [u for u in users if str(u.get("username", "")).strip()]
+    if not named:
+        raise SystemExit("Cognito test credential secret has no usable users array.")
+
+    seen: dict[str, int] = {}
+    for user in named:
+        key = str(user["username"]).strip().lower()
+        seen[key] = seen.get(key, 0) + 1
+    duplicates = sorted(name for name, count in seen.items() if count > 1)
+    if duplicates:
+        raise SystemExit(
+            "Cognito test credential secret lists a username more than once: "
+            f"{', '.join(duplicates)}. Every principal must be unambiguous."
+        )
+
+    wanted = requested.strip().lower()
+    if not wanted:
+        return named[0]
+
+    for user in named:
+        if str(user["username"]).strip().lower() == wanted:
+            return user
+
+    available = ", ".join(sorted(seen)) or "(none)"
+    raise SystemExit(
+        f"No Cognito user named {requested!r} in the credential secret. "
+        f"Available: {available}."
+    )
+
+
+def _token_from_cognito(requested_user: str = "") -> str:
+    """Mint a real Cognito access token for one named principal.
+
+    The access token's identity claim is ``username`` (lowercased). It is NOT
+    ``cognito:username`` — that claim is on the ID token, and the Gateway
+    validates the access token. AgentCore Policy exposes the claim as a
+    principal tag, which is what the Lab 4 Cedar rule compares against the
+    tool's ``customer_id`` input.
+    """
     region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
     pool_id = os.environ.get("COGNITO_POOL_ID") or os.environ.get("COGNITO_POOL")
     client_id = os.environ.get("COGNITO_CLIENT_ID") or os.environ.get("COGNITO_CLIENT")
@@ -76,8 +130,9 @@ def _token_from_cognito() -> str:
     users = creds.get("users") or []
     if not users:
         raise SystemExit("Cognito test credential secret has no users array.")
-    username = users[0].get("username", "")
-    password = users[0].get("password", "")
+    credential = select_credential(users, requested_user)
+    username = str(credential.get("username", "")).strip()
+    password = credential.get("password", "")
     if not username or not password:
         raise SystemExit("Cognito test credential secret is missing username/password.")
 
@@ -376,12 +431,10 @@ def _is_authorization_denial(exc: BaseException) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Invoke initiate_return through AgentCore Gateway.")
-    # Canonical customer id, not the bare persona alias. Row-Level Security
-    # scopes on `pellier.principal_customers`, which is keyed on `CUST-THEO`; a
-    # request naming `theo` queries an order row the policy filters out, so the
-    # write is refused with "did not order" even though the order exists.
-    # Box-verified 2026-08-26 once the Gateway rail began binding the principal.
-    parser.add_argument("--customer-id", default="CUST-THEO")
+    # Canonical customer id, never a display name or Storefront persona alias.
+    # Lab 4 anchors on Jessica's Operator case and separately authenticated
+    # Cognito principal.
+    parser.add_argument("--customer-id", default="CUST-JESSICA")
     parser.add_argument("--product-id", type=int, required=True)
     parser.add_argument("--reason", default="damaged")
     parser.add_argument("--expect", choices=("allow", "deny"), default="allow")
@@ -399,10 +452,41 @@ def main() -> int:
         help="Stable write key; defaults to the receipt session id.",
     )
     parser.add_argument("--policy-name", default="workshop_identity_match_forbid")
+    parser.add_argument(
+        "--user",
+        default="",
+        metavar="USERNAME",
+        help=(
+            "Cognito username to authenticate as (marco, anna, theo, jessica). This is "
+            "the security PRINCIPAL, not a storefront persona: it selects whose "
+            "verified JWT signs the call, which is what Cedar and Row-Level "
+            "Security evaluate. Resolved by name from the credential secret; an "
+            "unknown name is refused. Ignored when PELLIER_TOKEN is already set, "
+            "since that token already names its own principal."
+        ),
+    )
     args = parser.parse_args()
 
     _load_env()
-    token = os.environ.get("PELLIER_TOKEN", "").strip() or _token_from_cognito()
+    # The two identity sources are mutually exclusive, and supplying both is a
+    # hard error rather than a precedence rule.
+    #
+    # Ignoring --user because an inherited PELLIER_TOKEN happened to be exported
+    # is the worst available behaviour for this script: the operator believes
+    # they tested Theo, the receipt records Marco, and the transcript looks like
+    # a successful proof. An identity-source ambiguity must never resolve
+    # silently in a tool whose entire output is an identity claim.
+    preset_token = os.environ.get("PELLIER_TOKEN", "").strip()
+    if preset_token and args.user:
+        raise SystemExit(
+            "Refusing to guess the principal: --user "
+            f"{args.user!r} and PELLIER_TOKEN both name an identity.\n"
+            "  Use one:\n"
+            f"    --user {args.user}          mint a fresh token for that Cognito user\n"
+            "    unset PELLIER_TOKEN     then re-run with --user\n"
+            "    (or drop --user)        to use the token already in the environment"
+        )
+    token = preset_token or _token_from_cognito(args.user)
     identity = _verified_identity(token)
     before_audit_id = _audit_high_water(args) if args.record_receipt else 0
 

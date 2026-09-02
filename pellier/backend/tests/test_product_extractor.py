@@ -162,6 +162,67 @@ async def test_format_products_preserves_quantity_and_owned_status():
 
 
 @pytest.mark.asyncio
+async def test_continuity_cards_rehydrate_catalog_media_without_overwriting_live_stock():
+    class Catalog:
+        async def fetch_all(self, query, *params):
+            assert '"productId" = ANY(%s)' in query
+            assert params == (["35", "37"],)
+            return [
+                {
+                    "productId": 35,
+                    "brand": "Pellier Home",
+                    "color": "Brass",
+                    "imgUrl": "/products/brass-incense-holder.png",
+                    "rating": 4.8,
+                    "reviews": 189,
+                    "category": "Home Decor",
+                    "badge": None,
+                    "tags": ["ritual"],
+                },
+                {
+                    "productId": 37,
+                    "brand": "Pellier Home",
+                    "color": "Cream",
+                    "imgUrl": "/products/wabi-sabi-bowl.png",
+                    "rating": 4.9,
+                    "reviews": 167,
+                    "category": "Home Decor",
+                    "badge": "Editor's Pick",
+                    "tags": ["stoneware"],
+                },
+            ]
+
+    service = EnhancedChatService.__new__(EnhancedChatService)
+    service.db_service = Catalog()
+    products = [
+        {
+            "id": 35,
+            "name": "Brass Incense Holder",
+            "price": 45,
+            "quantity": 50,
+            "inStock": True,
+        },
+        {
+            "id": 37,
+            "name": "Wabi-Sabi Bowl",
+            "price": 65,
+            "quantity": 50,
+            "inStock": True,
+        },
+    ]
+
+    await service._hydrate_catalog_card_metadata(products)
+
+    assert products[0]["image"] == "/products/brass-incense-holder.png"
+    assert products[0]["category"] == "Home Decor"
+    assert products[0]["rating"] == 4.8
+    assert products[0]["quantity"] == 50
+    assert products[0]["inStock"] is True
+    assert products[1]["image"] == "/products/wabi-sabi-bowl.png"
+    assert products[1]["badge"] == "Editor's Pick"
+
+
+@pytest.mark.asyncio
 async def test_product_cards_receive_reconciled_inventory_not_catalog_cache(
     monkeypatch: pytest.MonkeyPatch,
 ):

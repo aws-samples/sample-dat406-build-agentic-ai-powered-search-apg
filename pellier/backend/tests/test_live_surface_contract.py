@@ -55,6 +55,12 @@ def test_live_surface_migration_provisions_profiles_sessions_and_scenarios() -> 
     ):
         assert relation in body
     assert "regexp_replace(\"imgUrl\", '\\.png$', '.webp')" in body
+    assert "journey_role" in body
+    assert "journey_stage" in body
+    for stage in ("establish", "exercise", "prove"):
+        assert f"'{stage}'" in body
+    assert "'required'" in body
+    assert "'explore'" in body
 
 
 def test_storefront_persona_edits_are_durable_aurora_merchandising() -> None:
@@ -99,7 +105,10 @@ def test_unsigned_edit_restores_the_reference_runner_merchandising() -> None:
     assert 'WHEN "productId" = \'10\' THEN 9' in refinement
     assert 'WHEN "productId" = \'9\' THEN 9' in restoration
     assert 'WHEN "productId" = \'10\' THEN NULL' in restoration
-    assert "'A considered carry-all for a long weekend.', '10'" in scenarios
+    assert (
+        "'A considered carry-all for a long weekend.', 'explore', NULL, '10'"
+        in scenarios
+    )
     assert "A considered carry-all for a long weekend." in curations
 
 

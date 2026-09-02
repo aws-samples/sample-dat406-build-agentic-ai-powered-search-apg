@@ -22,6 +22,7 @@ vi.mock('../../../contexts/PersonaContext', () => ({
 }));
 
 import { PERSONA_HERO_PILLS } from '../../../data/personaCurations';
+import { WORKSHOP_JOURNEYS } from '../../../data/workshopJourneys';
 import ObservatoryWorkbench from './ObservatoryWorkbench';
 
 /**
@@ -29,7 +30,7 @@ import ObservatoryWorkbench from './ObservatoryWorkbench';
  * curated turns, and the query the agent receives is the canonical string from
  * personaCurations. Tests drive the surface the same way a participant does.
  */
-const FRESH_TURNS = PERSONA_HERO_PILLS.fresh;
+const FRESH_TURNS = PERSONA_HERO_PILLS.marco;
 
 async function inspectTurn(
   user: ReturnType<typeof userEvent.setup>,
@@ -87,15 +88,31 @@ describe('Pellier Observatory live agent workbench', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: 'Live Workbench',
+        name: 'Labs & Live Workbench',
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
+        /With Marco selected, make the Inventory Agent return a scoped fact/,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Live trace surface')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'Lab 1: Build a PostgreSQL-Grounded Agent',
+      }),
+    ).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByRole('region', { name: 'Lab collection' })).toBeVisible();
+    const labRail = screen.getByRole('region', { name: 'Lab collection' });
+    const portraits = Array.from(
+      labRail.querySelectorAll<HTMLImageElement>('img'),
+    ).map((image) => image.getAttribute('src'));
+    expect(portraits).toEqual([
+      '/assets/personas/marco.png',
+      '/assets/personas/anna.png',
+      '/assets/personas/theo.png',
+      '/assets/personas/jessica.png',
+    ]);
     expect(
       tracePanel(document.body).querySelector('canvas.labs-hero-field'),
     ).not.toBeInTheDocument();
@@ -115,8 +132,17 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.queryByText(/recorded/i)).not.toBeInTheDocument();
 
-    // Five curated turns, straight from the shared storefront source.
+    // Three required turns and two explicitly optional extensions, straight
+    // from the shared storefront source.
     expect(FRESH_TURNS).toHaveLength(5);
+    const requiredJourney = await screen.findByRole('region', {
+      name: 'Required three-turn journey',
+    });
+    const exploreFurther = screen.getByRole('region', {
+      name: 'Explore further',
+    });
+    expect(requiredJourney.querySelectorAll('button')).toHaveLength(3);
+    expect(exploreFurther.querySelectorAll('button')).toHaveLength(2);
     for (const query of FRESH_TURNS) {
       expect(
         await screen.findByRole('button', { name: `Inspect: ${query}` }),
@@ -151,6 +177,58 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(screen.queryByLabelText('Captured SQL')).not.toBeInTheDocument();
   });
 
+  it('anchors guided requests to the selected lab instead of the active persona', async () => {
+    mocks.persona = {
+      id: 'marco',
+      display_name: 'Marco',
+      customer_id: 'CUST-MARCO',
+    };
+    render(
+      <MemoryRouter
+        initialEntries={['/observatory/workbench?lab=retrieval-acceptance']}
+      >
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: `Inspect: ${WORKSHOP_JOURNEYS.anna.prompts[0]}`,
+      }),
+    ).toBeInTheDocument();
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      '/api/observatory/scenarios?persona=anna',
+    );
+    expect(
+      screen.queryByRole('button', {
+        name: `Inspect: ${WORKSHOP_JOURNEYS.marco.prompts[0]}`,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('carries Jessica operator prompts into Lab 4 without running them as shopper turns', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={['/observatory/workbench?lab=fail-closed-policy']}
+      >
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    for (const prompt of WORKSHOP_JOURNEYS.jessica.prompts) {
+      expect(await screen.findByText(prompt)).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: `Inspect: ${prompt}` }),
+      ).not.toBeInTheDocument();
+    }
+    expect(
+      screen.getByRole('link', { name: 'Open Jessica in Operator' }),
+    ).toHaveAttribute(
+      'href',
+      '/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title',
+    );
+  });
+
   it('keeps the idle ledger and metrics honest before a run', () => {
     const { container } = render(
       <MemoryRouter>
@@ -168,7 +246,7 @@ describe('Pellier Observatory live agent workbench', () => {
     ).toBeInTheDocument();
     expect(
       container.querySelectorAll('.observatory-trace-node'),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
 
     // Every metric reads "-" rather than 0, so an untouched page claims nothing.
     const metrics = screen.getByText('Elapsed').closest('dl');
@@ -356,6 +434,54 @@ describe('Pellier Observatory live agent workbench', () => {
     expect(
       tracePanel(container).querySelector('[data-current="true"]'),
     ).not.toBeInTheDocument();
+    expect(
+      within(tracePanel(container)).queryByText('OpenTelemetry export'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('adds observability only when the completed response emits trace evidence', async () => {
+    mocks.sendChatMessageStreaming.mockResolvedValue({
+      response: 'Trace-backed response',
+      products: [],
+      suggestions: [],
+      session_id: 'session-otel-1',
+      agent_execution: {
+        agent_steps: [],
+        tool_calls: [],
+        reasoning_steps: [],
+        trace_id: '4bf92f3577b34da6a3ce929d0e0e4736',
+        traceIds: [
+          '4bf92f3577b34da6a3ce929d0e0e4736',
+          '4bf92f3577b34da6a3ce929d0e0e4736',
+        ],
+        total_duration_ms: 42,
+        success_rate: 1,
+        otel_enabled: true,
+      },
+    });
+
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <ObservatoryWorkbench />
+      </MemoryRouter>,
+    );
+
+    await inspectTurn(user, FRESH_TURNS[0]);
+
+    const trace = within(tracePanel(container));
+    expect(await trace.findByText('OpenTelemetry export')).toBeInTheDocument();
+    expect(
+      trace.getByText('1 trace identifier emitted for this completed turn'),
+    ).toBeInTheDocument();
+    expect(
+      trace.getByText(/SDK-backed OTEL \/ agent \/ model \/ tool spans/),
+    ).toBeInTheDocument();
+    expect(trace.getByRole('link', { name: 'Open session telemetry' }))
+      .toHaveAttribute(
+        'href',
+        '/observatory/sessions/session-otel-1/telemetry',
+      );
   });
 
   it('renders Markdown emphasis in the grounded recommendation', async () => {
@@ -807,12 +933,12 @@ describe('Pellier Observatory live agent workbench', () => {
 
   // A representative turn from each persona must stay byte-for-byte aligned.
   it.each([
-    ['Marco', 'marco', 'CUST-MARCO'],
-    ['Anna', 'anna', 'CUST-ANNA'],
-    ['Theo', 'theo', 'CUST-THEO'],
+    ['Marco', 'marco', 'CUST-MARCO', 'grounded-inventory'],
+    ['Anna', 'anna', 'CUST-ANNA', 'retrieval-acceptance'],
+    ['Theo', 'theo', 'CUST-THEO', 'managed-agent-path'],
   ] as const)(
     'sends %s their canonical curated turn verbatim, with live memory',
-    async (displayName, id, customerId) => {
+    async (displayName, id, customerId, labId) => {
       mocks.persona = {
         id,
         display_name: displayName,
@@ -826,18 +952,20 @@ describe('Pellier Observatory live agent workbench', () => {
 
       const user = userEvent.setup();
       render(
-        <MemoryRouter>
+        <MemoryRouter
+          initialEntries={[`/observatory/workbench?lab=${labId}`]}
+        >
           <ObservatoryWorkbench />
         </MemoryRouter>,
       );
 
-      const turn4 = PERSONA_HERO_PILLS[id][3];
+      const requiredTurn = PERSONA_HERO_PILLS[id][2];
       expect(mocks.sendChatMessageStreaming).not.toHaveBeenCalled();
-      await inspectTurn(user, turn4);
+      await inspectTurn(user, requiredTurn);
 
       await waitFor(() => {
         expect(mocks.sendChatMessageStreaming).toHaveBeenCalledWith(
-          turn4,
+          requiredTurn,
           [],
           expect.any(Function),
           undefined,
@@ -857,14 +985,16 @@ describe('Pellier Observatory live agent workbench', () => {
       customer_id: 'CUST-MARCO',
     };
     render(
-      <MemoryRouter>
+      <MemoryRouter
+        initialEntries={['/observatory/workbench?lab=grounded-inventory']}
+      >
         <ObservatoryWorkbench />
       </MemoryRouter>,
     );
 
     expect(
       await screen.findByRole('button', {
-        name: `Inspect: ${PERSONA_HERO_PILLS.marco[3]}`,
+        name: `Inspect: ${PERSONA_HERO_PILLS.marco[2]}`,
       }),
     ).toBeInTheDocument();
   });

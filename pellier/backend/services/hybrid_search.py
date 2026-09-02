@@ -243,13 +243,9 @@ class HybridSearch:
         :meth:`_rrf_merge` as the shipped path, so what a participant sees
         is what actually runs — there is no parallel "demo" pipeline.
 
-        The one thing :meth:`search` throws away that the teaching view
-        needs is the *per-branch rank* of each row: ``_rrf_merge`` consumes
-        the ordered branch lists and only emits the fused ``rrf_score``.
-        Here we capture each branch's 1-based rank by enumerating the
-        ordered lists ourselves (the same enumeration ``_rrf_merge`` does
-        internally), so the FUSION panel can show ``vec_rank`` and
-        ``fts_rank`` side by side with the ``rrf_score`` they produce.
+        ``_rrf_merge`` preserves each branch's 1-based rank on the merged
+        rows, so this teaching view and the durable retrieval receipt inspect
+        the same evidence produced by the shipped search path.
 
         Returns a dict with:
           - ``vector_rows``  — ordered vector-branch rows (carry ``similarity``)
@@ -274,20 +270,7 @@ class HybridSearch:
             self._fts_search(query, k_fts),
         )
 
-        # Per-branch 1-based ranks, keyed by product_id. This mirrors the
-        # enumeration inside _rrf_merge exactly (rank_zero + 1).
-        vec_rank_by_id = {
-            row["product_id"]: i + 1 for i, row in enumerate(vector_rows)
-        }
-        fts_rank_by_id = {
-            row["product_id"]: i + 1 for i, row in enumerate(fts_rows)
-        }
-
         merged = self._rrf_merge(vector_rows, fts_rows, rrf_k)
-        for row in merged:
-            pid = row["product_id"]
-            row["vec_rank"] = vec_rank_by_id.get(pid)
-            row["fts_rank"] = fts_rank_by_id.get(pid)
 
         return {
             "vector_rows": vector_rows,
@@ -503,11 +486,12 @@ class HybridSearch:
         one — that's the point. Sort descending; the result is a
         consensus ranking.
 
-        Returns a list of merged rows with an ``rrf_score`` field
-        appended. Each row carries through the original SQL projection
-        (name/price/category/...). When a candidate appears in both
-        branches we keep the vector-branch row as the source of truth
-        so the per-row similarity score survives.
+        Returns a list of merged rows with ``vec_rank``, ``fts_rank``, and
+        ``rrf_score`` fields appended. A rank is ``None`` when the candidate
+        did not appear in that branch. Each row carries through the original
+        SQL projection (name/price/category/...). When a candidate appears in
+        both branches we keep the vector-branch row as the source of truth so
+        the per-row similarity score survives.
         """
         scores: Dict[Any, float] = {}
         rows_by_id: Dict[Any, Dict[str, Any]] = {}
@@ -519,6 +503,8 @@ class HybridSearch:
             # First time seeing this id, capture the row.
             if pid not in rows_by_id:
                 rows_by_id[pid] = dict(row)
+                rows_by_id[pid]["fts_rank"] = None
+            rows_by_id[pid]["vec_rank"] = rank_zero + 1
 
         # FTS branch.
         for rank_zero, row in enumerate(fts_rows):
@@ -530,12 +516,14 @@ class HybridSearch:
             # useful downstream (e.g. for telemetry).
             if pid not in rows_by_id:
                 rows_by_id[pid] = dict(row)
+                rows_by_id[pid]["vec_rank"] = None
             else:
                 # Carry the lexical rank score over for diagnostics.
                 # The field name stays fts_rank_score for backward-compatible
                 # fixtures/tests, but the source is Postgres ts_rank_cd.
                 if "fts_rank_score" in row and "fts_rank_score" not in rows_by_id[pid]:
                     rows_by_id[pid]["fts_rank_score"] = row["fts_rank_score"]
+            rows_by_id[pid]["fts_rank"] = rank_zero + 1
 
         # Merge final scores into rows and sort.
         for pid, row in rows_by_id.items():

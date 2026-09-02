@@ -125,6 +125,15 @@ export default function PersonaConcierge() {
       >
         {HERO_CONCIERGE.CHOOSE_HELPER}
       </p>
+      {/* Stated at the point of choice, not deferred to a lab page: a
+          participant who reads this selector as an identity assertion will
+          misread every later policy decision. */}
+      <p
+        data-testid="persona-identity-boundary"
+        className="pellier-concierge-identity-note"
+      >
+        {HERO_CONCIERGE.IDENTITY_BOUNDARY}
+      </p>
     </aside>
   )
 }

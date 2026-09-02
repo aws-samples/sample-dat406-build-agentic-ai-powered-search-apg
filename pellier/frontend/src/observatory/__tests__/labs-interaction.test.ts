@@ -15,11 +15,11 @@ describe('governed Labs interaction contract', () => {
     }
   });
 
-  it('normalizes a trailing slash on the Lab Collection', () => {
+  it('normalizes a trailing slash on the lab workbench', () => {
     expect(interactionForPath('/observatory/')).toBe('interactive');
-    expect(modeCopyForPath('/observatory/').label).toBe('Lab Collection');
+    expect(modeCopyForPath('/observatory/').label).toBe('Labs & Workbench');
     expect(modeCopyForPath('/observatory/').detail).toBe(
-      'Choose one evidence-first exercise, then build, measure, prove, and govern the exact system behavior.',
+      'Choose one evidence-first lab, then use the same workbench to inspect its live system behavior.',
     );
   });
 

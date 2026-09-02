@@ -35,7 +35,15 @@
   --dl-accent: var(--accent);
   --dl-accent-soft: var(--red-soft);
   --dl-accent-ink: var(--accent-ink);
-  --dl-font-display: var(--sans);
+  /* `--dl-font-display` is deliberately NOT remapped to the sans stack. The
+     Observatory shares the storefront's two-register system: Fraunces carries
+     the one page-level title per screen, Instrument Sans carries every
+     operational heading, label, and control. Remapping it here forced page
+     titles to sans while sibling rules that read `var(--display)` still
+     resolved to Fraunces (that token is declared on `:root`, so it
+     substitutes there), which split one surface across two display voices.
+     `--dl-font-serif` / `--serif` / `--obs-serif` stay on sans on purpose:
+     Instrument Serif reads poorly at prose sizes on this surface. */
   --dl-font-serif: var(--sans);
   --serif: var(--sans);
   --obs-cream-1: var(--cream);
@@ -49,18 +57,25 @@
   --obs-rule-1: var(--rule-1);
   --obs-rule-2: var(--rule-2);
   --obs-rule-3: var(--rule-3);
-  --obs-red-1: var(--accent);
+  /* One accent per role, same roles the storefront documents in
+     pellier-landing.css: burgundy is brand and authority, terracotta is
+     "active or in flight", olive is verified. Burgundy is never a status and
+     terracotta is never a brand mark. `--obs-red-1` is the brand accent (188
+     call sites: eyebrows, links, active tab rule, card accents), so it takes
+     the storefront's burgundy rather than the Daylight terracotta it used to
+     inherit — three different reds rendered on one surface before this. */
+  --obs-red-1: var(--pellier-burgundy, #6d1f28);
   --obs-red-soft: var(--red-soft);
-  --obs-espresso-1: #262a32;
-  --obs-espresso-2: #30343d;
-  --obs-display: var(--obs-sans);
+  --obs-display: var(--display);
   --obs-serif: var(--sans);
   --obs-card-radius: 6px;
-  --obs-accent-2: #8a3943;
+  --obs-accent-2: var(--pellier-burgundy-soft, #8a3943);
   --obs-olive: #6a7a4d;
   --obs-olive-soft: #edf2e7;
   --obs-olive-line: #c9d6bc;
-  --obs-terracotta: #b6603a;
+  /* Matches the storefront's terracotta so "in flight" is one colour across
+     both surfaces. */
+  --obs-terracotta: #9a3412;
   --obs-terracotta-soft: #f7ebe5;
   --obs-terracotta-line: #e1b9a6;
   --obs-ledger-r: 18px;
@@ -127,6 +142,36 @@
   font-family: var(--obs-heading) !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
+}
+
+/* The exclusion above only protects `.font-display` from THIS rule. index.css
+ * separately forces `.pellier-page-surface .font-display` to the sans stack
+ * with `font-style: normal`, and `.observatory-root` carries that class — so
+ * every editorial title rendered upright sans and the opt-in above described
+ * behaviour that did not happen. Restore the display voice here rather than
+ * editing the shared rule, which also governs the storefront, the operator
+ * desk, and ProductDetailPage. */
+.observatory-root .font-display,
+.pellier-page-surface .observatory-root .font-display {
+  font-family: var(--obs-display);
+  letter-spacing: -0.012em;
+}
+
+.observatory-root .font-display.italic {
+  font-style: italic;
+}
+
+/* One page title per screen, one size. h1 previously rendered at seven
+ * different sizes across the surface (25px to 72px) because each route set
+ * its own. `--obs-title-size` is the single step; routes that need a
+ * different rhythm should change the token, not the element. */
+.observatory-root .observatory-page-title {
+  font-family: var(--obs-display);
+  font-size: var(--obs-title-size);
+  font-weight: var(--obs-title-weight);
+  line-height: var(--obs-title-leading);
+  letter-spacing: var(--obs-title-tracking);
+  color: var(--obs-ink-1);
 }
 
 .observatory-root p {
@@ -697,7 +742,7 @@
   padding: 0 14px;
   color: var(--obs-ink-4) !important;
   font-family: var(--obs-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1;
   text-decoration: none !important;
@@ -776,7 +821,7 @@
   min-width: 0;
   color: var(--obs-ink-2);
   font-family: var(--obs-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0;
   line-height: 1;
@@ -873,7 +918,7 @@
   background: var(--obs-cream-2);
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 600;
   line-height: 1;
 }
@@ -922,7 +967,7 @@
   overflow: hidden;
   color: var(--obs-ink-1);
   font-family: var(--obs-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
@@ -1046,7 +1091,7 @@
   border-radius: 4px;
   background: var(--obs-ink-1);
   color: var(--obs-cream-1) !important;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   text-decoration: none !important;
   white-space: nowrap;
@@ -1213,7 +1258,7 @@
   .observatory-tab {
     gap: 6px;
     padding-inline: 4px;
-    font-size: 11.5px;
+    font-size: 11px;
   }
 }
 
@@ -1255,7 +1300,7 @@
   color: var(--obs-red-1);
   box-shadow: 0 7px 18px rgb(61 29 32 / 7%);
   font-family: var(--obs-sans);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.11em;
   line-height: 1;
@@ -1281,7 +1326,7 @@
   margin: 0;
   color: var(--obs-ink-2);
   font-family: var(--obs-sans);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -1468,7 +1513,7 @@
 .pellier-governed-proof-tab > small {
   color: var(--obs-ink-3);
   font-family: var(--obs-mono);
-  font-size: 9.5px;
+  font-size: 9px;
   line-height: 1.2;
   text-transform: uppercase;
 }
@@ -1539,7 +1584,7 @@
 .pellier-governed-proof-evidence-label > span {
   color: var(--obs-red-1);
   font-family: var(--obs-heading);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 650;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -1548,7 +1593,7 @@
 .pellier-governed-proof-evidence > .font-mono {
   overflow-wrap: anywhere;
   color: var(--obs-ink-2);
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -1559,7 +1604,7 @@
   margin-top: auto;
   color: var(--obs-red-1);
   font-family: var(--obs-heading);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   text-decoration: none;
 }
@@ -1654,7 +1699,7 @@
 
   .proof-board-section-heading > span {
     max-width: 140px;
-    font-size: 10.5px !important;
+    font-size: 10px !important;
     line-height: 1.25 !important;
     text-align: right;
   }
@@ -1699,7 +1744,7 @@
   gap: 7px;
   color: var(--obs-ink-3) !important;
   font-family: var(--obs-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1;
   text-decoration: none !important;
@@ -1897,7 +1942,7 @@
 .observatory-reference-link-copy strong {
   color: inherit;
   font-family: var(--obs-sans);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
 }

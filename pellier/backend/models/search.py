@@ -168,11 +168,27 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class ChatHistoryProduct(BaseModel):
+    """A rendered product card retained as bounded chat context.
+
+    This identifies a prior recommendation; it is not authoritative for a
+    live price or inventory answer, which still requires a current tool read.
+    """
+
+    id: int = Field(ge=1)
+    name: str = Field(min_length=1, max_length=300)
+    price: float = Field(ge=0)
+    category: Optional[str] = Field(default=None, max_length=120)
+    availability: Optional[str] = Field(default=None, max_length=80)
+    ownership: Optional[Literal["owned"]] = None
+
+
 class ChatMessage(BaseModel):
     """Chat message. ``role`` is constrained so a client cannot inject an
     arbitrary role label that gets concatenated into the LLM prompt."""
     role: Literal["user", "assistant"]
     content: str
+    products: List[ChatHistoryProduct] = Field(default_factory=list, max_length=3)
 
 
 class ChatRequest(BaseModel):

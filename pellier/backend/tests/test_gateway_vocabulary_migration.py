@@ -595,11 +595,34 @@ def test_the_narrowed_baseline_names_exactly_the_unaffected_actions() -> None:
     control = FakeControl()
     live = MIG.read_live(control)
     ids = MIG.unaffected_action_ids(live)
-    assert len(ids) == 13, ids
+    assert len(ids) == 11, ids
     assert all(not a.startswith(f"{RETURN_TARGET}___") for a in ids)
     statement = MIG.narrowed_baseline_statement(live)
     for action in ids:
         assert f'AgentCore::Action::"{action}"' in statement
+
+
+def test_customer_scoped_recommendation_actions_stay_default_denied() -> None:
+    """Retired target aliases must not bypass the scoped fresh-stack policies."""
+    live = MIG.read_live(FakeControl())
+    recommendation = next(
+        target
+        for target in live["targets"]
+        if target["name"] == MIG.RECOMMENDATION_TARGET_NAME
+    )
+    published = set(MIG._tool_names(recommendation))
+    expected = {"preference_snapshot", "trace_receipt"}
+    assert expected <= published
+
+    for statement in (
+        MIG.narrowed_baseline_statement(live),
+        MIG.final_baseline_statement(_migrated_live()),
+    ):
+        parsed = MIG.parse_statement("customer-read-default-deny", statement)
+        for tool in MIG.CUSTOMER_SCOPED_READ_TOOL_NAMES:
+            action = f"{MIG.RECOMMENDATION_TARGET_NAME}___{tool}"
+            assert action not in (parsed.actions or ()), action
+            assert MIG.evaluate([parsed], action, "damaged") == "DENY", action
 
 
 def test_the_narrowed_baseline_excludes_every_experience_action() -> None:
@@ -1629,11 +1652,11 @@ def test_the_migrated_fixture_publishes_the_canonical_return_vocabulary() -> Non
     ]
 
 
-def test_the_final_baseline_names_fourteen_explicit_actions() -> None:
+def test_the_final_baseline_names_twelve_explicit_actions() -> None:
     live = _migrated_live()
     parsed = MIG.parse_statement("final", MIG.final_baseline_statement(live))
     assert parsed.actions is not None, "the final baseline is a wildcard"
-    assert len(parsed.actions) == 14
+    assert len(parsed.actions) == 12
     assert parsed.groups == ()
     assert parsed.condition == "none"
 

@@ -383,6 +383,10 @@ def test_nonstreaming_path_attaches_audit_hooks() -> None:
     )
     assert "orchestrator.add_hook(audit_before)" in src
     assert "orchestrator.add_hook(audit_after)" in src
+    assert "turn_identity." not in src, (
+        "_strands_enhanced_chat has no local turn_identity; its audit hook "
+        "must read the identity already bound to this turn's context"
+    )
 
 
 def test_make_tool_audit_hooks_two_phase(monkeypatch) -> None:
@@ -401,7 +405,10 @@ def test_make_tool_audit_hooks_two_phase(monkeypatch) -> None:
     )
 
     before, after = chat_mod.make_tool_audit_hooks(
-        session_id="sess-1", turn_id="turn-abc"
+        session_id="sess-1",
+        turn_id="turn-abc",
+        principal_sub="sub-marco",
+        customer_id="CUST-MARCO",
     )
     event = SimpleNamespace(
         tool_use={
@@ -422,7 +429,49 @@ def test_make_tool_audit_hooks_two_phase(monkeypatch) -> None:
     assert allow_kw["session_id"] == "sess-1"
     assert allow_kw["args"]["product_query"] == "hadley"
     assert allow_kw["args"]["turn_id"] == "turn-abc"
+    assert allow_kw["args"]["customer_id"] == "CUST-MARCO"
+    assert allow_kw["args"]["principal_sub"] == "sub-marco"
     after_kw = calls[1][1]
     assert after_kw["tool_use_id"] == "tu-1"
     assert after_kw["result"] == {"quantity": 4}
     assert isinstance(after_kw["latency_ms"], int)
+
+
+def test_make_tool_audit_hooks_uses_the_bound_turn_identity(monkeypatch) -> None:
+    """The non-streaming path supplies only its session, so defaults are scoped."""
+    from services import chat as chat_mod
+    from services import tool_audit_writer
+    from services.turn_identity import (
+        authorized_customer_id_var,
+        principal_sub_var,
+        turn_id_var,
+    )
+
+    calls: list = []
+    monkeypatch.setattr(
+        tool_audit_writer, "record_allow", lambda **kw: calls.append(kw)
+    )
+    customer_token = authorized_customer_id_var.set("CUST-THEO")
+    principal_token = principal_sub_var.set("sub-theo")
+    turn_token = turn_id_var.set("turn-theo")
+    try:
+        before, _ = chat_mod.make_tool_audit_hooks(session_id="sess-theo")
+        before(
+            SimpleNamespace(
+                tool_use={
+                    "name": "get_customer_preferences",
+                    "toolUseId": "tu-theo",
+                    "input": {"customer_id": "CUST-MARCO"},
+                }
+            )
+        )
+    finally:
+        turn_id_var.reset(turn_token)
+        principal_sub_var.reset(principal_token)
+        authorized_customer_id_var.reset(customer_token)
+
+    assert calls[0]["args"] == {
+        "customer_id": "CUST-THEO",
+        "principal_sub": "sub-theo",
+        "turn_id": "turn-theo",
+    }

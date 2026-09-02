@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PERSONA_HERO_PILLS, PERSONA_TURN_TRACES } from '../../data/personaCurations'
+import { WORKSHOP_JOURNEYS } from '../../data/workshopJourneys'
 import sessions from '../fixtures/sessions.json'
 import annaMorningRitual from '../fixtures/session-anna-morning-ritual.json'
 import annaUnder100 from '../fixtures/session-anna-under-100.json'
@@ -21,21 +22,21 @@ const EXPECTED_TURNS = {
   marco: [
     'What linen do you have for 10 days in Goa?',
     'What would go with the Hadley shirt?',
-    "What's the price range for linen shirts?",
     'Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?',
+    "What's the price range for linen shirts?",
     "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding – not product cards.",
   ],
   anna: [
     'A thoughtful gift for someone who loves morning rituals',
-    'Something beautiful under $100',
-    'Help me pair a candle with something else',
+    'Keep the gift under $100 and show me the strongest two options.',
+    'Which one should I choose, and prove it stayed in budget and in stock?',
     'Wrap-ready gifts with no extra effort',
     'Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.',
   ],
   theo: [
     'Hand-thrown ceramics for a slower morning routine',
     'What goes well with the pour-over set?',
-    'Linen pieces that soften over seasons',
+    'Without asking me to repeat the ritual or material, which pairing should I choose and why?',
     "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",
     'The linen throw I bought 4 months ago developed a tear at the seam – I know the standard window closed but pieces like this should last. Can you handle this as an exception?',
   ],
@@ -45,8 +46,8 @@ const EXPECTED_TRACES = {
   marco: [
     { skill: 'the-packing-list', tools: ['search_products'] },
     { skill: 'the-packing-list', tools: ['search_products', 'get_related_products'] },
-    { tools: ['get_price_analysis'] },
     { tools: ['check_inventory'] },
+    { tools: ['get_price_analysis'] },
     { skill: 'the-packing-list', tools: ['escalate_to_human'] },
   ],
   anna: [
@@ -59,7 +60,7 @@ const EXPECTED_TRACES = {
   theo: [
     { skill: 'the-makers-shelf', tools: ['search_products'] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_related_products'] },
-    { skill: 'the-makers-shelf', tools: ['search_products'] },
+    { skill: 'the-makers-shelf', tools: [] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_return_policy', 'initiate_return'] },
     { skill: 'the-makers-shelf', tools: ['escalate_to_human'] },
   ],
@@ -67,7 +68,7 @@ const EXPECTED_TRACES = {
 
 const FIXTURE_ENTRYPOINTS = [
   { session: marcoOpening, expected: PERSONA_HERO_PILLS.marco[0] },
-  { session: marcoMidpoint, expected: PERSONA_HERO_PILLS.marco[3] },
+  { session: marcoMidpoint, expected: PERSONA_HERO_PILLS.marco[2] },
   { session: marcoCapstone, expected: PERSONA_HERO_PILLS.marco[4] },
   { session: annaMorningRitual, expected: PERSONA_HERO_PILLS.anna[0] },
   { session: annaUnder100, expected: PERSONA_HERO_PILLS.anna[1] },
@@ -82,10 +83,13 @@ const FIXTURE_ENTRYPOINTS = [
 ] as const
 
 describe('persona turn alignment', () => {
-  it('keeps Marco, Anna, and Theo at exactly five canonical Pellier turns', () => {
+  it('keeps three required workshop turns followed by two exploration turns', () => {
     for (const persona of CANONICAL_PERSONAS) {
       expect(PERSONA_HERO_PILLS[persona]).toHaveLength(5)
       expect(PERSONA_HERO_PILLS[persona]).toEqual(EXPECTED_TURNS[persona])
+      expect(PERSONA_HERO_PILLS[persona].slice(0, 3)).toEqual(
+        WORKSHOP_JOURNEYS[persona].prompts,
+      )
     }
   })
 

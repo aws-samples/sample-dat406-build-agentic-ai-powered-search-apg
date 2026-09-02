@@ -1,7 +1,7 @@
 /**
  * Which governed Labs surfaces are primary and which are optional depth.
  *
- * The Lab Collection and Live Workbench are participant-facing work surfaces.
+ * The collection is the visual entry to one participant-facing workbench.
  * Deeper system pages remain reference views.
  */
 
@@ -20,9 +20,9 @@ export interface ObservatoryModeCopy {
 
 const INTERACTIVE_COPY: Record<string, ObservatoryModeCopy> = {
   '/observatory': {
-    label: 'Lab Collection',
+    label: 'Labs & Workbench',
     detail:
-      'Choose one evidence-first exercise, then build, measure, prove, and govern the exact system behavior.',
+      'Choose one evidence-first lab, then use the same workbench to inspect its live system behavior.',
   },
   '/observatory/labs': {
     label: 'Exercise workbench',
@@ -30,7 +30,7 @@ const INTERACTIVE_COPY: Record<string, ObservatoryModeCopy> = {
       'Follow the bounded participant TODO, measurement target, evidence assertion, and architecture decision for this exercise.',
   },
   '/observatory/workbench': {
-    label: 'Live Workbench',
+    label: 'Labs & Workbench',
     detail:
       'Run a live Storefront Dispatcher request and inspect routing, memory, guardrails, agent activity, tool calls, SQL, and the grounded answer.',
   },

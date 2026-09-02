@@ -285,16 +285,6 @@ export function statusForExercise(
   exercise: LabExercise,
   payload: ProofBoardPayload | null,
 ): LabStatus {
-  if (exercise.id === 'governed-evidence-bundle') {
-    return {
-      key: 'unknown',
-      label: 'Unknown',
-      source: 'No scoped bundle endpoint',
-      provenance: 'Unknown',
-      freshness: 'Endpoint unavailable',
-    };
-  }
-
   if (!payload) {
     return {
       key: 'unknown',
@@ -456,8 +446,7 @@ export function isLabExerciseId(value: string): value is LabExerciseId {
   return [
     'grounded-inventory',
     'retrieval-acceptance',
-    'exactly-once-return',
+    'managed-agent-path',
     'fail-closed-policy',
-    'governed-evidence-bundle',
   ].includes(value);
 }

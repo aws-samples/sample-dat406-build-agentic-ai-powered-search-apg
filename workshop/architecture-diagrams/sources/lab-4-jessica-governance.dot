@@ -1,0 +1,133 @@
+digraph Lab4JessicaGovernance {
+  graph [
+    bgcolor="#f7f3ec",
+    dpi=144,
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=22,
+    label="LAB 4 · JESSICA\nEnforce identity and prove non-execution",
+    labelloc=t,
+    labeljust=l,
+    margin=0,
+    nodesep=0.34,
+    outputorder=edgesfirst,
+    pad=0.3,
+    ranksep="0.58 equally",
+    ratio=fill,
+    size="13.333,7.5!",
+    splines=ortho
+  ];
+  node [
+    color="#cbc1ad",
+    fillcolor="#fbf8f2",
+    fontcolor="#1f1410",
+    fontname="Helvetica Neue",
+    fontsize=10,
+    margin="0.17,0.13",
+    penwidth=1.2,
+    shape=box,
+    style=filled,
+    width=2
+  ];
+  edge [
+    arrowsize=0.72,
+    color="#9a3412",
+    fontcolor="#5a2a0a",
+    fontname="Helvetica Neue",
+    fontsize=9,
+    penwidth=2
+  ];
+
+  principals [
+    label="01 · CUSTOMER PRINCIPALS\nMarco · Anna · Jessica\npersona is not identity",
+    fillcolor="#1f1410",
+    fontcolor="#fbf8f2"
+  ];
+  cognito [
+    label="02 · COGNITO\nVerified username + immutable sub"
+  ];
+  cedar [
+    label="03 · CEDAR POLICY\nusername must map to\nrequested customer_id",
+    color="#9a3412",
+    penwidth=2
+  ];
+  gateway [
+    label="04 · AGENTCORE GATEWAY\nDENY before target execution\nALLOW exposes bounded action"
+  ];
+  tool [
+    label="05 · INITIATE_RETURN\nIdempotency key + owned input"
+  ];
+  rls [
+    label="06 · POSTGRESQL RLS\nprincipal_sub → principal_customers\nUSING + WITH CHECK",
+    color="#3f6212",
+    penwidth=2
+  ];
+  effect [
+    label="07 · DURABLE EFFECT\none tool_audit · one write_operation\nJessica-owned return row",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=2
+  ];
+
+  principals -> cognito [label="authenticate"];
+  cognito -> cedar [label="verified claims"];
+  cedar -> gateway [label="ALLOW or DENY"];
+  gateway -> tool [label="ALLOW only"];
+  tool -> rls [label="database transaction"];
+  rls -> effect [label="owned write only", color="#3f6212", fontcolor="#3f6212"];
+
+  deny [
+    label="NEGATIVE CONTROL\nMarco/Anna → Jessica = DENY\n0 execution · 0 write · 0 business rows",
+    color="#991b1b",
+    fillcolor="#fef2f2",
+    fontcolor="#991b1b",
+    penwidth=2,
+    width=3
+  ];
+  allow [
+    label="POSITIVE CONTROL\nJessica → Jessica = ALLOW\nreplay keeps canonical write count = 1",
+    color="#3f6212",
+    fillcolor="#eef4e6",
+    fontcolor="#3f6212",
+    penwidth=2,
+    width=3
+  ];
+  cedar -> deny [
+    label="policy receipt only",
+    color="#991b1b",
+    fontcolor="#991b1b",
+    penwidth=1.8
+  ];
+  effect -> allow [
+    label="exact-key matrix",
+    color="#3f6212",
+    fontcolor="#3f6212",
+    penwidth=1.8
+  ];
+
+  operator [
+    label="SEPARATE OPERATOR BOUNDARY\noperator Cognito group → Case Investigator\n→ Resolution Planner → human review",
+    color="#b45309",
+    fillcolor="#fff7ed",
+    fontcolor="#7c2d12",
+    width=3.25
+  ];
+  no_execution [
+    label="STOP CONDITION\nPrepare the fair next step.\nDo not approve or execute it.",
+    color="#b45309",
+    fillcolor="#fbf8f2",
+    fontcolor="#7c2d12",
+    width=2.8
+  ];
+  operator -> no_execution [
+    label="human checkpoint",
+    color="#b45309",
+    fontcolor="#b45309",
+    penwidth=1.5,
+    style=dashed
+  ];
+
+  { rank=same; principals; cognito; cedar; gateway; }
+  { rank=same; tool; rls; effect; }
+  { rank=same; deny; allow; operator; no_execution; }
+}

@@ -16,6 +16,7 @@ import json
 from typing import Any, Dict, Optional
 
 import pytest
+from pgvector import Vector
 
 import services.agent_tools as agent_tools
 import services.business_logic as business_logic_module
@@ -134,6 +135,12 @@ def _invoke_tool(**kwargs: Any) -> str:
     return fn(**kwargs)
 
 
+def _invoke_named_tool(tool: Any, **kwargs: Any) -> str:
+    """Call any underlying @tool-wrapped function directly."""
+    fn = getattr(tool, "__wrapped__", tool)
+    return fn(**kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Happy path — Req 2.4.1 / 2.4.2
 # ---------------------------------------------------------------------------
@@ -219,3 +226,53 @@ def test_raised_exception_returns_error_envelope(
     parsed = json.loads(out)
     assert set(parsed.keys()) == {"error"}
     assert parsed["error"] == "db connection refused"
+
+
+def test_related_products_accepts_pgvector_vector_embeddings() -> None:
+    """The live psycopg adapter returns pgvector.Vector, not a numpy array."""
+
+    class _RelatedProductsDB:
+        def __init__(self) -> None:
+            self.fetch_all_params: tuple[Any, ...] | None = None
+
+        async def fetch_one(self, _query: str, _product_id: str) -> Dict[str, Any]:
+            return {
+                "productId": "11",
+                "name": "Hadley Linen Shirt",
+                "brand": "Pellier",
+                "price": 128.0,
+                "category": "Apparel",
+                "embedding": Vector([0.25, -0.5, 0.75]),
+            }
+
+        async def fetch_all(self, _query: str, *params: Any) -> list[Dict[str, Any]]:
+            self.fetch_all_params = params
+            return [
+                {
+                    "productId": "12",
+                    "name": "Linen Drawstring Trouser",
+                    "brand": "Pellier",
+                    "color": "Sand",
+                    "price": 118.0,
+                    "rating": 4.7,
+                    "reviews": 81,
+                    "category": "Apparel",
+                    "imgUrl": "/products/trouser.webp",
+                    "similarity_score": 0.91,
+                }
+            ]
+
+    db = _RelatedProductsDB()
+    agent_tools._db_service = db
+    agent_tools._main_loop = None
+
+    out = _invoke_named_tool(agent_tools.get_related_products, product_id=11, limit=1)
+
+    parsed = json.loads(out)
+    assert "error" not in parsed
+    assert parsed["source"]["productId"] == "11"
+    assert parsed["matches"][0]["productId"] == "12"
+    assert db.fetch_all_params is not None
+    assert db.fetch_all_params[0] == db.fetch_all_params[2]
+    assert db.fetch_all_params[0].startswith("[")
+    assert "," in db.fetch_all_params[0]

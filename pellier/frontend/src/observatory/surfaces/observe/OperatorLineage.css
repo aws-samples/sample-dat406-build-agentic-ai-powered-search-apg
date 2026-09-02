@@ -209,7 +209,7 @@
 .observatory-lineage-flow li p {
   margin: 10px 0 0;
   font-family: var(--obs-sans);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--obs-ink-2);
 }

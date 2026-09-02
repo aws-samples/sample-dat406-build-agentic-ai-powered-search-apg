@@ -46,24 +46,24 @@
   {
     "id": "anna-under-100",
     "personaId": "anna",
-    "openingQuery": "Something beautiful under $100",
+    "openingQuery": "Keep the gift under $100 and show me the strongest two options.",
     "elapsedMs": 4860,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
     "timestamp": "2026-05-25T17:44:00Z",
     "status": "complete",
-    "tagline": "Beautiful gift under $100"
+    "tagline": "Two eligible gifts under $100"
   },
   {
     "id": "anna-candle-pairing",
     "personaId": "anna",
-    "openingQuery": "Help me pair a candle with something else",
+    "openingQuery": "Which one should I choose, and prove it stayed in budget and in stock?",
     "elapsedMs": 5120,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
     "timestamp": "2026-05-25T17:46:00Z",
     "status": "complete",
-    "tagline": "Candle plus companion gift"
+    "tagline": "Choose from the bounded shortlist"
   },
   {
     "id": "anna-birthday-gift",
@@ -112,13 +112,13 @@
   {
     "id": "theo-linen-seasons",
     "personaId": "theo",
-    "openingQuery": "Linen pieces that soften over seasons",
+    "openingQuery": "Without asking me to repeat the ritual or material, which pairing should I choose and why?",
     "elapsedMs": 4680,
     "agentCount": 2,
     "routingPattern": "Dispatcher",
     "timestamp": "2026-05-25T18:16:00Z",
     "status": "complete",
-    "tagline": "Linen with patina"
+    "tagline": "Managed continuity without a new search"
   },
   {
     "id": "theo-ceramics-return",

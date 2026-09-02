@@ -20,7 +20,11 @@ import ConciergeCapabilityState from './ConciergeCapabilityState'
 import ConciergeHumanCheckpoint from './ConciergeHumanCheckpoint'
 import ConciergePendingTurn from './ConciergePendingTurn'
 import ConciergeSuggestions from './ConciergeSuggestions'
-import { TEMPLATES, buildTemplateContext } from './templates'
+import {
+  GUIDED_SERVICE_RECOVERY_PROMPTS,
+  TEMPLATES,
+  buildTemplateContext,
+} from './templates'
 import ConciergeComposer from './ConciergeComposer'
 import ConciergeConversation from './ConciergeConversation'
 import ConciergeEmptyState from './ConciergeEmptyState'
@@ -59,6 +63,33 @@ const OperatorConcierge: React.FC<Props> = ({
   const hasPreparedAction = concierge.messages.some(
     (message) => Boolean(message.artifact?.proposedActions?.length),
   )
+  const guidedCompletedTurns = useMemo(() => {
+    if (!guidedServiceRecovery) return 0
+    let completed = 0
+    for (const prompt of GUIDED_SERVICE_RECOVERY_PROMPTS) {
+      const request = concierge.messages.find(
+        (message) => message.role === 'user' && message.content === prompt,
+      )
+      if (!request) break
+      const answer = concierge.messages.find(
+        (message) =>
+          message.role === 'assistant' &&
+          message.turnId === request.turnId &&
+          message.turnState === 'complete',
+      )
+      if (!answer) break
+      completed += 1
+    }
+    return completed
+  }, [concierge.messages, guidedServiceRecovery])
+  const nextGuidedPrompt =
+    guidedServiceRecovery && guidedCompletedTurns > 0
+      ? GUIDED_SERVICE_RECOVERY_PROMPTS[guidedCompletedTurns]
+      : undefined
+  const nextGuidedLabel =
+    guidedCompletedTurns === 1
+      ? 'Continue to authoritative records'
+      : 'Prepare the fair next step'
 
   useEffect(() => {
     if (
@@ -81,7 +112,7 @@ const OperatorConcierge: React.FC<Props> = ({
       return
     }
     guidedStarted.current = true
-    void concierge.submit(template.buildRequest(templateContext))
+    void concierge.submit(GUIDED_SERVICE_RECOVERY_PROMPTS[0])
   }, [
     concierge.composerEnabled,
     concierge.config?.supportedWorkflowKinds,
@@ -176,9 +207,34 @@ const OperatorConcierge: React.FC<Props> = ({
                 />
               </ol>
             ) : null}
+            {!inFlight && nextGuidedPrompt ? (
+              <section
+                className="operator-concierge-guided-next"
+                data-testid="operator-concierge-guided-next"
+                aria-label={`Guided Jessica case, turn ${guidedCompletedTurns + 1} of ${GUIDED_SERVICE_RECOVERY_PROMPTS.length}`}
+              >
+                <div>
+                  <span>
+                    Guided case · Turn {guidedCompletedTurns + 1} of{' '}
+                    {GUIDED_SERVICE_RECOVERY_PROMPTS.length}
+                  </span>
+                  <p>{nextGuidedPrompt}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!concierge.composerEnabled}
+                  onClick={() => void concierge.submit(nextGuidedPrompt)}
+                >
+                  {nextGuidedLabel}
+                  <ArrowRight size={15} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              </section>
+            ) : null}
             {!inFlight &&
             hasAnsweredTurn &&
             !hasPreparedAction &&
+            (!guidedServiceRecovery ||
+              guidedCompletedTurns === GUIDED_SERVICE_RECOVERY_PROMPTS.length) &&
             record?.client.returnEvidence?.unconfirmedReturnAssertion ? (
               <ConciergeHumanCheckpoint
                 record={record}

@@ -361,7 +361,7 @@ const ArchitectureIndex: React.FC = () => {
       <EditorialTitle
         backToReferences
         eyebrow="Start Here · Architecture Brief"
-        title="The governed path, compact."
+        title="Architecture"
         summary="A short map of the pieces the labs ask you to prove: Aurora grounding, dispatcher routing, skills, tool registry, memory, Runtime, and Gateway. Use it as orientation, then return to Code Editor or Pellier."
       />
 

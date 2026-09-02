@@ -298,7 +298,7 @@ const OperatorLineage: React.FC = () => {
     <div className="observatory-lineage">
       <header className="observatory-lineage-head">
         <div>
-          <h1>From shopper ask to governed outcome.</h1>
+          <h1 className="observatory-page-title font-display">Operator lineage</h1>
           <p>
             {data?.customerName ?? 'This client'}&rsquo;s live closed loop,
             reconstructed from PostgreSQL and persisted graph artifacts.

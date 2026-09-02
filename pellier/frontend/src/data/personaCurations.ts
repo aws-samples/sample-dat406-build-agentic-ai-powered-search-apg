@@ -21,6 +21,7 @@
  */
 
 import type { PellierProduct } from '../services/types'
+import { WORKSHOP_JOURNEYS } from './workshopJourneys'
 
 // ---------------------------------------------------------------------
 // Persona interest profiles. Scores are 0-10; higher = stronger lean.
@@ -300,16 +301,15 @@ export function editorialForPersona(
 // Turn 2/3 follow-ups so the demo flows as one coherent journey.
 export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   marco: [
-    // Marco's canonical 4-turn workshop demo sequence (+ capstone Turn 5).
+    // Marco's first three turns are the Lab 1 journey. The remaining two are
+    // optional pricing and human-handoff extensions.
     // See the Workshop Studio repo's content/ for Marco's arc — these pill
     // strings must match the demo-conversation fixtures exactly.
-    // Turn 4 clicks twice per session: once during the opening demo
+    // Turn 3 clicks twice per session: once during the opening demo
     // (Inventory Agent stubbed → graceful non-answer), once during the
     // midpoint checkpoint (Inventory Agent wired → real warehouse data).
-    'What linen do you have for 10 days in Goa?',            // Turn 1 → Search Agent · search_products
-    'What would go with the Hadley shirt?',                  // Turn 2 → Search Agent + the-packing-list · search_products → get_related_products
-    "What's the price range for linen shirts?",              // Turn 3 → Pricing Agent · get_price_analysis
-    'Is the Hadley shirt at the Brooklyn warehouse, and can it still ship in time?',        // Turn 4 → Inventory Agent (stub/wired)
+    ...WORKSHOP_JOURNEYS.marco.prompts,
+    "What's the price range for linen shirts?",              // Turn 4 → Pricing Agent · get_price_analysis
     // Turn 5 (capstone) → Search Agent · escalate_to_human. The
     // explicit "real Pellier stylist" + "not product cards" framing is
     // load-bearing: it teaches the orchestrator's stylist-handoff
@@ -319,9 +319,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
     "Can you connect me with a real Pellier stylist? I want a person to help me pick what to wear to my brother's wedding – not product cards.",
   ],
   anna: [
-    'A thoughtful gift for someone who loves morning rituals',  // Turn 1
-    'Something beautiful under $100',                            // Turn 2
-    'Help me pair a candle with something else',                 // Turn 3
+    ...WORKSHOP_JOURNEYS.anna.prompts,
     'Wrap-ready gifts with no extra effort',                     // Turn 4
     // Turn 5 (capstone) → Search Agent · escalate_to_human. Sympathy
     // gifting is the honest fallback seam — catalog tools can
@@ -332,9 +330,7 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
     "Can you connect me with a real stylist? My friend just lost her mother and I want a person to help me pick a sympathy gift, not just see product cards.",
   ],
   theo: [
-    'Hand-thrown ceramics for a slower morning routine',  // Turn 1
-    'What goes well with the pour-over set?',              // Turn 2
-    'Linen pieces that soften over seasons',               // Turn 3
+    ...WORKSHOP_JOURNEYS.theo.prompts,
     "My Wabi-Sabi Bowl arrived chipped. Please help me return it. My customer id is 'theo'.",  // Turn 4 (Customer Service Agent payoff)
     // Turn 5 (capstone) → Customer Service Agent · escalate_to_human.
     // Durability-expectation framing past the standard return window —
@@ -351,8 +347,8 @@ export const PERSONA_HERO_PILLS: Record<string, string[]> = {
   ],
 }
 
-/** Marco Pellier / Observatory Turn 4 — warehouse ask (Inventory Agent · `check_inventory`). */
-export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
+/** Marco Pellier / Observatory Turn 3 — warehouse ask (Inventory Agent · `check_inventory`). */
+export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[2]
 
 /**
  * Short display labels for hero pills. The underlying click-fire query
@@ -362,14 +358,26 @@ export const MARCO_BUILDER_SESSION_QUERY = PERSONA_HERO_PILLS.marco[3]
  * (or missing entry) falls back to the full query.
  */
 export const PERSONA_HERO_PILL_LABELS: Record<string, (string | null)[]> = {
-  marco: [null, null, null, null, 'Connect me with a real Pellier stylist'],
-  anna: [null, null, null, null, 'Connect me with a real Pellier stylist'],
+  marco: [
+    null,
+    null,
+    'Check Hadley at the Brooklyn warehouse',
+    null,
+    'Connect me with a real Pellier stylist',
+  ],
+  anna: [
+    null,
+    'Two options under $100',
+    'Choose one and prove the constraints',
+    null,
+    'Connect me with a real Pellier stylist',
+  ],
   // Index 3 is Theo's governed return. It is surfaced on sign-on, so it needs
   // a short label; the pill sends the full canonical query regardless.
   theo: [
     null,
     null,
-    null,
+    'Choose the pairing without repeating context',
     'File a damaged return for the Wabi-Sabi Bowl',
     'Handle a worn-in piece past the return window',
   ],
@@ -402,8 +410,8 @@ export const PERSONA_TURN_TRACES: Record<string, PersonaTurnTrace[]> = {
   marco: [
     { skill: 'the-packing-list', tools: ['search_products'] },
     { skill: 'the-packing-list', tools: ['search_products', 'get_related_products'] },
-    { tools: ['get_price_analysis'] },
     { tools: ['check_inventory'] },
+    { tools: ['get_price_analysis'] },
     { skill: 'the-packing-list', tools: ['escalate_to_human'] },
   ],
   anna: [
@@ -416,7 +424,7 @@ export const PERSONA_TURN_TRACES: Record<string, PersonaTurnTrace[]> = {
   theo: [
     { skill: 'the-makers-shelf', tools: ['search_products'] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_related_products'] },
-    { skill: 'the-makers-shelf', tools: ['search_products'] },
+    { skill: 'the-makers-shelf', tools: [] },
     { skill: 'the-makers-shelf', tools: ['search_products', 'get_return_policy', 'initiate_return'] },
     { skill: 'the-makers-shelf', tools: ['escalate_to_human'] },
   ],
@@ -459,9 +467,9 @@ export const OPERATOR_TURNS: OperatorTurn[] = [
  * only evidence of what the request returned.
  */
 export const PERSONA_TURN_PREVIEW: Record<string, (number | null)[]> = {
-  marco: [11, 14, 2, 16, 2],
-  anna: [27, 21, 31, null, null],
-  theo: [31, 32, 37, null, null],
+  marco: [11, 14, 2, 2, 2],
+  anna: [27, 21, 21, null, null],
+  theo: [31, 32, 32, null, null],
   fresh: [10, 8, 11, 14, 16],
 }
 

@@ -39,7 +39,7 @@ const SQL_KEYWORDS = new Set([
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '12.5px',
+  fontSize: '12px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',
@@ -867,8 +867,8 @@ const ReplayOnlyNotice: React.FC = () => (
     }}
   >
     This is a durable Aurora replay. Run a new request in the{' '}
-    <Link to="/observatory" style={{ color: 'var(--obs-burgundy)' }}>
-      Live Workbench
+    <Link to="/observatory/workbench" style={{ color: 'var(--obs-burgundy)' }}>
+      Labs & Workbench
     </Link>{' '}
     or storefront to create fresh evidence.
   </aside>

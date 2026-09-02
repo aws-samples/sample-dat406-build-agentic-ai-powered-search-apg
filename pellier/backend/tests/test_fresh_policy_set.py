@@ -41,6 +41,13 @@ from render_agentcore_project import baseline_policies  # noqa: E402
 
 EXPERIENCE = "pellier-concierge-experience-target"
 RETURN_ACTION = f"{EXPERIENCE}___initiate_return"
+RECOMMENDATION = "pellier-curation-recommendation-target"
+CUSTOMER_READ_POLICIES = {
+    "get_customer_preferences_identity_scope": (
+        f"{RECOMMENDATION}___get_customer_preferences"
+    ),
+    "get_audit_trail_identity_scope": f"{RECOMMENDATION}___get_audit_trail",
+}
 
 # The exact 15 this workshop iteration publishes. Written out ONCE, here, so a change to
 # the derived contract has to be acknowledged in a test rather than absorbed silently.
@@ -140,10 +147,11 @@ def test_the_experience_target_publishes_only_the_two_governed_actions() -> None
 # ---------------------------------------------------------------------------
 
 
-def test_the_fresh_policy_set_is_exactly_three_named_policies() -> None:
+def test_the_fresh_policy_set_is_exactly_the_named_baseline_and_scoped_reads() -> None:
     """Exact set, never a count: a count passes while the names are wrong."""
     assert set(_by_name()) == {
         "baseline_permit_workshop_tools",
+        *CUSTOMER_READ_POLICIES,
         "initiate_return_damaged_only",
         "initiate_return_deny_other_reasons",
     }
@@ -319,6 +327,26 @@ def test_the_return_permit_is_damaged_only_and_the_forbid_is_its_complement() ->
     assert '!(context.input has reason) || context.input.reason != "damaged"' in forbid
 
 
+def test_sensitive_gateway_reads_are_fail_closed_to_the_verified_customer() -> None:
+    """Direct Gateway invocation must not turn a customer_id into authority."""
+    for name, action in CUSTOMER_READ_POLICIES.items():
+        statement = _norm(_by_name()[name]["statement"])
+        assert statement.startswith("forbid ("), name
+        assert f'AgentCore::Action::"{action}"' in statement, name
+        assert 'principal.hasTag("username")' in statement, name
+        assert "context.input has customer_id" in statement, name
+        for username, customer_id in (
+            ("marco", "CUST-MARCO"),
+            ("anna", "CUST-ANNA"),
+            ("theo", "CUST-THEO"),
+            ("jessica", "CUST-JESSICA"),
+        ):
+            assert (
+                f'principal.getTag("username") == "{username}"' in statement
+            ), name
+            assert f'context.input.customer_id == "{customer_id}"' in statement, name
+
+
 # ---------------------------------------------------------------------------
 # The Lab 4 challenge must NOT be pre-installed
 # ---------------------------------------------------------------------------
@@ -340,6 +368,8 @@ def test_no_fresh_policy_contains_the_lab_four_ownership_condition() -> None:
     for policy in _policies():
         statement = policy["statement"]
         name = policy["name"]
+        if RETURN_ACTION not in _actions(statement):
+            continue
         assert 'getTag("username")' not in statement, name
         assert 'hasTag("username")' not in statement, name
         assert "context.input.customer_id" not in statement, name
@@ -348,7 +378,18 @@ def test_no_fresh_policy_contains_the_lab_four_ownership_condition() -> None:
 
 def test_no_fresh_policy_names_a_persona_customer() -> None:
     for policy in _policies():
-        for persona in ("CUST-MARCO", "CUST-ANNA", "CUST-THEO", '"marco"', '"anna"', '"theo"'):
+        if RETURN_ACTION not in _actions(policy["statement"]):
+            continue
+        for persona in (
+            "CUST-MARCO",
+            "CUST-ANNA",
+            "CUST-THEO",
+            "CUST-JESSICA",
+            '"marco"',
+            '"anna"',
+            '"theo"',
+            '"jessica"',
+        ):
             assert persona not in policy["statement"], f"{policy['name']} / {persona}"
 
 
@@ -469,8 +510,12 @@ def test_the_solution_file_contains_the_ownership_binding() -> None:
     body = SOLUTION.read_text()
     assert 'principal.hasTag("username")' in body
     assert "context.input has customer_id" in body
-    for username, customer in (("marco", "CUST-MARCO"), ("anna", "CUST-ANNA"),
-                               ("theo", "CUST-THEO")):
+    for username, customer in (
+        ("marco", "CUST-MARCO"),
+        ("anna", "CUST-ANNA"),
+        ("theo", "CUST-THEO"),
+        ("jessica", "CUST-JESSICA"),
+    ):
         assert _ownership_holds(username, customer), f"{username}/{customer}"
 
 
@@ -481,6 +526,8 @@ def test_before_the_solution_a_cross_customer_return_is_permitted() -> None:
     """
     assert _decide(RETURN_ACTION, "damaged") == "ALLOW"
     for policy in _policies():
+        if RETURN_ACTION not in _actions(policy["statement"]):
+            continue
         assert 'getTag("username")' not in policy["statement"]
 
 
@@ -490,8 +537,8 @@ def test_after_the_solution_the_cross_customer_return_is_denied() -> None:
     The forbid's `unless` fails for marco/CUST-THEO, so the forbid applies and Cedar
     denies — while the owner's own damaged return still passes.
     """
-    assert _ownership_holds("marco", "CUST-THEO") is False   # forbid applies -> DENY
-    assert _ownership_holds("theo", "CUST-THEO") is True     # unless holds  -> permitted
+    assert _ownership_holds("marco", "CUST-JESSICA") is False
+    assert _ownership_holds("jessica", "CUST-JESSICA") is True
     # And the baseline the solution lands on still permits the damaged case, so the
     # DENY is attributable to the participant's rule and nothing else.
     assert _decide(RETURN_ACTION, "damaged") == "ALLOW"

@@ -6,6 +6,7 @@ import {
 } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
+  Activity,
   Bot,
   Brain,
   Check,
@@ -22,7 +23,13 @@ import {
   Sparkles,
   Wrench,
 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePersona } from '../../../contexts/PersonaContext';
+import {
+  LAB_EXERCISES,
+  findLabExercise,
+} from '../../labs/labCatalog';
+import { journeyForLab } from '../../../data/workshopJourneys';
 import {
   Badge,
   Switch,
@@ -30,6 +37,7 @@ import {
   ToggleGroupItem,
 } from '../../../components/ui';
 import ResponsiveImage from '../../../components/ResponsiveImage';
+import { imageSrc } from '../../../utils/assetPath';
 import MarkdownMessage from '../../../components/MarkdownMessage';
 import {
   sendChatMessageStreaming,
@@ -38,6 +46,7 @@ import {
   type ResponseMode,
 } from '../../../services/chat';
 import ObservatoryCuratedTurns from './ObservatoryCuratedTurns';
+import WorkbenchResources from '../../components/WorkbenchResources';
 import './ObservatoryIndex.css';
 import './ObservatoryWorkbench.css';
 
@@ -49,7 +58,8 @@ type StepKind =
   | 'guardrail'
   | 'agent'
   | 'tool'
-  | 'sql';
+  | 'sql'
+  | 'observability';
 
 interface JourneyStep {
   id: string;
@@ -60,6 +70,10 @@ interface JourneyStep {
   source?: string;
   meta?: string;
   sql?: string;
+  action?: {
+    label: string;
+    to: string;
+  };
 }
 
 /**
@@ -73,6 +87,7 @@ const TRACE_SKELETON: StepKind[] = [
   'agent',
   'tool',
   'sql',
+  'observability',
 ];
 
 const TRACE_LINE_TOP = 28;
@@ -371,7 +386,51 @@ function iconForStep(kind: StepKind) {
   if (kind === 'guardrail') return <ShieldCheck size={15} aria-hidden="true" />;
   if (kind === 'tool') return <Wrench size={15} aria-hidden="true" />;
   if (kind === 'sql') return <Database size={15} aria-hidden="true" />;
+  if (kind === 'observability') {
+    return <Activity size={15} aria-hidden="true" />;
+  }
   return <Bot size={15} aria-hidden="true" />;
+}
+
+function observabilityStep(
+  response: ChatResponse,
+  id: string,
+): JourneyStep | null {
+  const execution = response.agent_execution;
+  const traceIds = Array.from(
+    new Set(
+      [
+        execution?.trace_id,
+        ...(Array.isArray(execution?.traceIds) ? execution.traceIds : []),
+      ].filter(
+        (traceId): traceId is string =>
+          typeof traceId === 'string' && traceId.trim().length > 0,
+      ),
+    ),
+  );
+  if (!traceIds.length) return null;
+
+  const sessionPath = response.session_id
+    ? `/observatory/sessions/${encodeURIComponent(response.session_id)}/telemetry`
+    : '/observatory/sessions';
+
+  return {
+    id,
+    kind: 'observability',
+    title: 'OpenTelemetry export',
+    detail: `${traceIds.length} ${traceIds.length === 1 ? 'trace identifier' : 'trace identifiers'} emitted for this completed turn`,
+    status: 'completed',
+    source: 'agent_execution',
+    meta: [
+      execution?.otel_enabled === true ? 'SDK-backed OTEL' : 'Trace context',
+      'agent / model / tool spans',
+      traceIds[0],
+    ].join(' / '),
+    action: {
+      label: response.session_id ? 'Open session telemetry' : 'Open sessions',
+      to: sessionPath,
+    },
+  };
 }
 
 function patternLabel(pattern: string): string {
@@ -485,7 +544,12 @@ function whyThisAnswer({
 export default function ObservatoryWorkbench() {
   const { persona } = usePersona();
   const reduceMotion = useReducedMotion();
-  const personaId = persona?.id ?? 'fresh';
+  const [searchParams] = useSearchParams();
+  const selectedLab =
+    findLabExercise(searchParams.get('lab') ?? undefined) ?? LAB_EXERCISES[0];
+  const selectedJourney = journeyForLab(selectedLab.id)!;
+  const selectedPersona =
+    persona?.id === selectedJourney.anchorId ? persona : null;
   const [activeTurn, setActiveTurn] = useState<number | null>(null);
   const [activeQuery, setActiveQuery] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<RunStatus>('idle');
@@ -496,7 +560,7 @@ export default function ObservatoryWorkbench() {
   const [runError, setRunError] = useState<string | null>(null);
   const [responseMode, setResponseMode] =
     useState<ResponseMode>('balanced');
-  const [profileEnabled, setProfileEnabled] = useState(Boolean(persona));
+  const [profileEnabled, setProfileEnabled] = useState(Boolean(selectedPersona));
   const [setupOpen, setSetupOpen] = useState(false);
   const [intentSignal, setIntentSignal] = useState<IntentSignal | null>(null);
   const [executionRail, setExecutionRail] = useState('Server selected');
@@ -529,7 +593,7 @@ export default function ObservatoryWorkbench() {
     setAgentResponse('');
     setElapsedMs(0);
     setRunError(null);
-    setProfileEnabled(Boolean(persona));
+    setProfileEnabled(Boolean(selectedPersona));
     setIntentSignal(null);
     setExecutionRail('Server selected');
     setExecutionPattern(null);
@@ -537,7 +601,7 @@ export default function ObservatoryWorkbench() {
     setCopiedSqlId(null);
     setReceiptOverrides({});
     setLinkedStepId(null);
-  }, [personaId]);
+  }, [selectedJourney.anchorId, selectedPersona]);
 
   // A highlight timer that outlives its node would fire against a step from a
   // previous run, so it is cancelled on unmount.
@@ -829,7 +893,7 @@ export default function ObservatoryWorkbench() {
         handleStreamEvent,
         undefined,
         false,
-        profileEnabled ? persona?.customer_id ?? null : null,
+        profileEnabled ? selectedPersona?.customer_id ?? null : null,
         'dispatcher',
         responseMode,
       );
@@ -841,15 +905,22 @@ export default function ObservatoryWorkbench() {
       if (response.products?.length) {
         setProducts((current) => mergeProducts(current, response.products));
       }
-      setSteps((current) =>
-        current.map((step) => ({
+      const emittedObservability = observabilityStep(
+        response,
+        `observability-${eventSequenceRef.current++}`,
+      );
+      setSteps((current) => {
+        const completed = current.map((step) => ({
           ...step,
           status:
             step.status === 'in_progress' || step.status === 'executing'
               ? 'completed'
               : step.status,
-        })),
-      );
+        }));
+        return emittedObservability
+          ? [...completed, emittedObservability]
+          : completed;
+      });
       setRunStatus('complete');
     } catch (error) {
       setRunError(errorMessage(error));
@@ -868,7 +939,6 @@ export default function ObservatoryWorkbench() {
       .map((step) => step.source),
   ).size;
   const sqlCount = steps.filter((step) => step.kind === 'sql').length;
-  const personaLabel = persona?.display_name ?? 'Anonymous';
   const orderedProducts = productsForResponse(products, agentResponse);
   const bestMatch = orderedProducts[0];
   const curatedPairings = orderedProducts.slice(1, 3);
@@ -1059,11 +1129,12 @@ export default function ObservatoryWorkbench() {
       <div className="labs-index-inner">
         <header className="observatory-workbench-intro">
           <div className="observatory-workbench-intro-copy">
-            <h1 className="observatory-page-title">Live Workbench</h1>
+            <h1 className="observatory-page-title font-display">
+              Labs & Live Workbench
+            </h1>
             <p className="observatory-workbench-purpose">
-              Run a live Storefront Dispatcher request and inspect routing,
-              memory, guardrails, agent activity, tool calls, SQL, and the
-              grounded answer.
+              <strong>Lab {Number(selectedLab.number)}:</strong>{' '}
+              {selectedLab.objective}
             </p>
           </div>
           <span className="observatory-workbench-presence">
@@ -1071,6 +1142,39 @@ export default function ObservatoryWorkbench() {
             Live trace surface
           </span>
         </header>
+        <section
+          className="observatory-lab-rail"
+          aria-label="Lab collection"
+        >
+          {LAB_EXERCISES.map((exercise) => {
+            const selected = exercise.id === selectedLab.id;
+            return (
+              <Link
+                key={exercise.id}
+                to={`/observatory/workbench?lab=${exercise.id}`}
+                className="observatory-lab-rail-card"
+                data-lab={exercise.number}
+                data-selected={selected ? 'true' : undefined}
+                aria-current={selected ? 'step' : undefined}
+                aria-label={`Lab ${Number(exercise.number)}: ${exercise.title}`}
+              >
+                <img
+                  src={imageSrc(exercise.image)}
+                  width={exercise.imageWidth}
+                  height={exercise.imageHeight}
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>
+                  <small>Lab {Number(exercise.number)}</small>
+                  <strong>{exercise.title}</strong>
+                </span>
+              </Link>
+            );
+          })}
+        </section>
         <div className="observatory-workbench-grid" aria-label="Live agent run">
           <motion.aside
             className="observatory-input-panel"
@@ -1091,8 +1195,7 @@ export default function ObservatoryWorkbench() {
             }}
           >
             <ObservatoryCuratedTurns
-              personaId={personaId}
-              personaLabel={personaLabel}
+              journey={selectedJourney}
               running={runStatus === 'running'}
               activeIndex={activeTurn}
               onInspect={(curatedQuery, index) => {
@@ -1126,7 +1229,11 @@ export default function ObservatoryWorkbench() {
                     />
                   </span>
                 </button>
-                <Badge variant="neutral">Storefront Dispatcher</Badge>
+                <Badge variant="neutral">
+                  {selectedJourney.surface === 'operator'
+                    ? 'Operator handoff'
+                    : 'Storefront Dispatcher'}
+                </Badge>
               </header>
 
               {setupOpen ? (
@@ -1451,6 +1558,15 @@ export default function ObservatoryWorkbench() {
                         <h3 aria-label={step.title}>{step.title}</h3>
                         <p>{step.detail}</p>
                         {step.meta ? <small>{step.meta}</small> : null}
+                        {step.action ? (
+                          <Link
+                            to={step.action.to}
+                            className="observatory-trace-action"
+                          >
+                            {step.action.label}
+                            <Link2 size={12} aria-hidden="true" />
+                          </Link>
+                        ) : null}
                         {step.sql && isReceiptOpen(step) ? (
                           <div className="observatory-proof-block">
                             <div className="observatory-proof-block-heading">
@@ -1853,6 +1969,7 @@ export default function ObservatoryWorkbench() {
             </div>
           </motion.section>
         </div>
+        <WorkbenchResources compact />
       </div>
     </div>
   );

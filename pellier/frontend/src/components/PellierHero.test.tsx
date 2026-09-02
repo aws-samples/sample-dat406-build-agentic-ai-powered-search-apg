@@ -88,6 +88,9 @@ function liveFetch(input: RequestInfo | URL): Promise<Response> {
           scenarios: [
             { id: 1, ordinal: 1, prompt: 'A live Aurora scenario' },
             { id: 2, ordinal: 2, prompt: 'A second live scenario' },
+            { id: 3, ordinal: 3, prompt: 'A third live scenario' },
+            { id: 4, ordinal: 4, prompt: 'The live build moment' },
+            { id: 5, ordinal: 5, prompt: 'The optional capstone' },
           ],
         }),
         { status: 200 },
@@ -153,6 +156,21 @@ describe('PellierHero', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'A live Aurora scenario' }))
     expect(openDrawerWithQuery).toHaveBeenCalledWith('A live Aurora scenario')
+  })
+
+  it('shows only the three required workshop turns in the hero', async () => {
+    persona = PROFILES[2]
+    render(<PellierHero />)
+
+    expect(
+      await screen.findByRole('button', { name: 'A third live scenario' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'The live build moment' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'The optional capstone' }),
+    ).not.toBeInTheDocument()
   })
 
   it('renders the four fixed hero scenes without requesting hero metadata', () => {

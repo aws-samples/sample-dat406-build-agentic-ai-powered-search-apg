@@ -13,7 +13,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import ClientRecord from '../surfaces/ClientRecord'
-import { TEMPLATES, buildTemplateContext, rankTemplates } from './templates'
+import {
+  GUIDED_SERVICE_RECOVERY_PROMPTS,
+  TEMPLATES,
+  buildTemplateContext,
+  rankTemplates,
+} from './templates'
 import type { OperatorClientRecord } from '../../services/operator'
 
 // ---------------------------------------------------------------------------
@@ -362,11 +367,94 @@ describe('submitting a turn', () => {
         expect.objectContaining({ method: 'POST' }),
       )
     })
+    const streamCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith('/turns/stream'),
+    )
+    expect(JSON.parse(String(streamCall?.[1]?.body)).message).toBe(
+      GUIDED_SERVICE_RECOVERY_PROMPTS[0],
+    )
     expect(
       fetchMock.mock.calls.some(([input]) =>
         String(input).includes('/concierge/sessions/latest'),
       ),
     ).toBe(false)
+  })
+
+  it('offers the exact second guided turn after the investigation completes', async () => {
+    const firstTurn = [
+      {
+        messageId: 1, role: 'user' as const,
+        content: GUIDED_SERVICE_RECOVERY_PROMPTS[0], turnId: 'turn-1',
+        turnState: 'incomplete' as const, actorType: 'operator', artifact: null,
+        artifactVersion: null, createdAt: null,
+      },
+      {
+        messageId: 2, role: 'assistant' as const,
+        content: 'The records and the ticket disagree.', turnId: 'turn-1',
+        turnState: 'complete' as const, actorType: 'assistant',
+        artifact: {
+          workflow: 'investigate_resolution',
+          primaryLabel: 'Established by the records',
+          primaryNote: '',
+          sections: [], investigation: [], evidence: [], sources: [],
+          proposedActions: [], products: [],
+        },
+        artifactVersion: 2, createdAt: null,
+      },
+    ]
+    const fetchMock = wire({ stream: STREAM, messages: firstTurn })
+    renderRecord(
+      '/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title',
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Continue to authoritative records' }),
+    )
+
+    await waitFor(() => {
+      const streamCalls = fetchMock.mock.calls.filter(([input]) =>
+        String(input).endsWith('/turns/stream'),
+      )
+      expect(streamCalls).toHaveLength(2)
+      expect(JSON.parse(String(streamCalls[1][1]?.body)).message).toBe(
+        GUIDED_SERVICE_RECOVERY_PROMPTS[1],
+      )
+    })
+  })
+
+  it('reveals the human checkpoint only after all three guided turns', async () => {
+    const messages = GUIDED_SERVICE_RECOVERY_PROMPTS.flatMap((prompt, index) => [
+      {
+        messageId: index * 2 + 1, role: 'user' as const,
+        content: prompt, turnId: `turn-${index + 1}`,
+        turnState: 'incomplete' as const, actorType: 'operator', artifact: null,
+        artifactVersion: null, createdAt: null,
+      },
+      {
+        messageId: index * 2 + 2, role: 'assistant' as const,
+        content: `Guided answer ${index + 1}`, turnId: `turn-${index + 1}`,
+        turnState: 'complete' as const, actorType: 'assistant',
+        artifact: {
+          workflow: 'investigate_resolution',
+          primaryLabel: 'Established by the records',
+          primaryNote: '',
+          sections: [], investigation: [], evidence: [], sources: [],
+          proposedActions: [], products: [],
+        },
+        artifactVersion: 2, createdAt: null,
+      },
+    ])
+    wire({ stream: STREAM, messages })
+    renderRecord(
+      '/operator/clients/CUST-JESSICA?guided=service-recovery#operator-concierge-title',
+    )
+
+    expect(
+      await screen.findByTestId('operator-concierge-human-checkpoint'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('operator-concierge-guided-next'),
+    ).not.toBeInTheDocument()
   })
 
   it('labels a draft as unsent and keeps operator context separate', async () => {

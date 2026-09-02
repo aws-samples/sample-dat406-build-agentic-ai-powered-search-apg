@@ -100,6 +100,21 @@ describe('Footer — bottom strip', () => {
     )
   })
 
+  it('links to the source repository with an accessible GitHub icon', () => {
+    renderFooter()
+    const strip = screen.getByTestId('footer-bottom-strip')
+    const link = within(strip).getByRole('link', {
+      name: FOOTER.BOTTOM_STRIP.GITHUB_LABEL,
+    })
+    expect(link).toHaveAttribute('href', FOOTER.BOTTOM_STRIP.GITHUB_URL)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(within(link).getByTestId('footer-github-icon')).toHaveAttribute(
+      'src',
+      '/assets/icons/github-mark.svg',
+    )
+  })
+
   it('does not render Privacy / Terms / Accessibility placeholder links', () => {
     renderFooter()
     const strip = screen.getByTestId('footer-bottom-strip')

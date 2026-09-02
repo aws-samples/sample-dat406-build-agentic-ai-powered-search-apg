@@ -17,6 +17,8 @@ unless {
     (principal.getTag("username") == "anna" &&
       context.input.customer_id == "CUST-ANNA") ||
     (principal.getTag("username") == "theo" &&
-      context.input.customer_id == "CUST-THEO")
+      context.input.customer_id == "CUST-THEO") ||
+    (principal.getTag("username") == "jessica" &&
+      context.input.customer_id == "CUST-JESSICA")
   )
 };

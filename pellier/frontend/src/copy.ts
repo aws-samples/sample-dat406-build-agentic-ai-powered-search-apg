@@ -118,6 +118,21 @@ export const HERO_CONCIERGE = {
   ASK_ACTION: "Ask Pellier",
   CHOOSE_HELPER: "Choose Marco, Anna, or Theo to begin.",
   /**
+   * Persona is scenario, not identity. This distinction is the workshop's
+   * central lesson, so it is stated where the choice is made rather than left
+   * for a lab page to explain later.
+   *
+   * `/api/persona/switch` has no authentication dependency: it records a
+   * client-declared presentation choice. Governed actions authenticate through
+   * Cognito, and Cedar and Row-Level Security evaluate that verified principal
+   * — never this click. A participant who reads the selector as "I am now
+   * Theo" would draw exactly the wrong conclusion from a later DENY.
+   */
+  IDENTITY_BOUNDARY:
+    "Choosing Marco, Anna, or Theo changes the workshop scenario. It does not " +
+    "authenticate you as that customer. Governed actions use a separately " +
+    "verified Cognito identity.",
+  /**
    * One line per profile, and each must match that persona's actual
    * curation. The mockup carried generic luxury copy which contradicted the
    * seeded profiles: Anna is the gift-giver, so a descriptor that never
@@ -648,13 +663,15 @@ export const FOOTER = {
       "Returns within 30 days",
       "Confirmed totals",
     ],
-    /** Licensing line. The repository is MIT, explicitly NOT MIT-0, and its
-     * NOTICE makes author attribution a condition of reuse rather than a
-     * courtesy - so the footer carries the licence and the credit, not one
-     * or the other. Keep in step with LICENSE and NOTICE. */
+    /** The repository is MIT, explicitly NOT MIT-0. Formal individual
+     * attribution remains in NOTICE; the storefront credits the team and
+     * links to the source. Keep this in step with LICENSE and NOTICE. */
     RIGHTS: "\u00a9 2026 Amazon Web Services",
     LICENSE: "Sample code under the MIT License",
-    ATTRIBUTION: "Created by Shayon Sanyal",
+    ATTRIBUTION: "Built with the AWS Database Specialists team",
+    GITHUB_URL:
+      "https://github.com/aws-samples/sample-pellier-agentic-search-apg",
+    GITHUB_LABEL: "View the source on GitHub",
   },
 } as const;
 

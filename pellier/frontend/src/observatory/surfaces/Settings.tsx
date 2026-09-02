@@ -230,7 +230,7 @@ const StatChip: React.FC<StatChipProps> = ({ label, value }) => (
     <span
       style={{
         fontFamily: 'var(--obs-mono)',
-        fontSize: '8.5px',
+        fontSize: '9px',
         fontWeight: 500,
         letterSpacing: '0.22em',
         textTransform: 'uppercase',
@@ -383,7 +383,7 @@ const Settings: React.FC = () => {
     <div style={{ padding: '40px 48px', maxWidth: '720px' }}>
       <EditorialTitle
         eyebrow="Settings · Persona · workshop identity"
-        title="Who walks in."
+        title="Persona"
         summary="Select a persona to scope every Pellier Observatory surface to their history, preferences, and memory. The sidebar, sessions, and memory dashboard all follow the active persona."
       />
 

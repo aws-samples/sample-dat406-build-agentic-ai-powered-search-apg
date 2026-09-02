@@ -22,6 +22,12 @@ files to copy. A missing marker breaks the primary lane; a missing fallback brea
 recovery lane, which is worse, because it only fails for the participant who is already
 behind.
 
+**Lab 2 - Build and Measure PostgreSQL Hybrid Retrieval.** A runnable psql
+worksheet whose RRF expression starts degraded and a complete recovery twin.
+
+**Lab 3 - Operate and Observe the AgentCore Managed Path.** A jq contract whose
+OTEL predicates start false and a complete recovery twin.
+
 **Lab 4 - Govern and Prove Actions.** A starter Cedar file that must NOT contain
 the answer, a reference rule that must, and one proof script whose flags the guide passes
 verbatim.
@@ -31,6 +37,9 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import List, Tuple
 
@@ -59,12 +68,25 @@ LAB1_FALLBACK_COPIES: Tuple[Tuple[str, str], ...] = (
 )
 
 # ---------------------------------------------------------------------------
+# Labs 2 and 3, bounded build artifacts plus pacing fallbacks.
+# ---------------------------------------------------------------------------
+
+LAB2_STARTER = "workshop/lab-2-rrf.sql"
+LAB2_REFERENCE = "solutions/the-quiet-search/sql/lab-2-rrf-solution.sql"
+LAB2_MARKER = "WORKSHOP · PostgreSQL RRF · fusion expression"
+
+LAB3_STARTER = "workshop/lab-3-otel-contract.jq"
+LAB3_REFERENCE = "solutions/the-ledger/observability/lab-3-otel-contract-solution.jq"
+LAB3_MARKER = "WORKSHOP · AgentCore OTEL · trace contract"
+
+# ---------------------------------------------------------------------------
 # Lab 4, "40-govern-actions-and-prove-outcomes", steps 1 through 4.
 # ---------------------------------------------------------------------------
 
 LAB4_STARTER = "policies/workshop_identity_match_forbid.cedar"
 LAB4_REFERENCE = "solutions/the-concierge/policies/identity_match_forbid.cedar"
 LAB4_PROOF_SCRIPT = "scripts/deploy/gateway_initiate_return.py"
+LAB4_RLS_PROOF = "workshop/lab-4-rls.sql"
 
 # The policy name passed to `agentcore add policy --name` and to the proof script's
 # `--policy-name`. One string in three places.
@@ -86,7 +108,32 @@ LAB4_IDENTITY_PAIRS = (
     ("marco", "CUST-MARCO"),
     ("anna", "CUST-ANNA"),
     ("theo", "CUST-THEO"),
+    ("jessica", "CUST-JESSICA"),
 )
+
+PARTICIPANT_EXERCISE_RESET = "scripts/reset_participant_exercises.py"
+PARTICIPANT_STARTERS = {
+    "lab-1-inventory-agent": (
+        "workshop/starters/lab-1/inventory-agent-definition.pyfrag",
+        "pellier/backend/agents/inventory_agent.py",
+    ),
+    "lab-1-inventory-tool": (
+        "workshop/starters/lab-1/check-inventory-tool.pyfrag",
+        "pellier/backend/services/agent_tools.py",
+    ),
+    "lab-2-rrf": (
+        "workshop/starters/lab-2-rrf.sql",
+        LAB2_STARTER,
+    ),
+    "lab-3-otel": (
+        "workshop/starters/lab-3-otel-contract.jq",
+        LAB3_STARTER,
+    ),
+    "lab-4-cedar": (
+        "workshop/starters/workshop_identity_match_forbid.cedar",
+        LAB4_STARTER,
+    ),
+}
 
 
 def _read(rel: str) -> str:
@@ -152,6 +199,50 @@ def test_lab1_fallback_copy_keeps_the_markers(source: str, destination: str) -> 
     for label in labels:
         assert f"{label}: START ===" in text, f"{source} lost the {label} START marker"
         assert f"{label}: END ===" in text, f"{source} lost the {label} END marker"
+
+
+@pytest.mark.parametrize(
+    "starter,reference,label",
+    (
+        (LAB2_STARTER, LAB2_REFERENCE, LAB2_MARKER),
+        (LAB3_STARTER, LAB3_REFERENCE, LAB3_MARKER),
+    ),
+)
+def test_labs_2_and_3_have_matching_build_markers(
+    starter: str,
+    reference: str,
+    label: str,
+) -> None:
+    for rel in (starter, reference):
+        text = _read(rel)
+        assert text.count(f"{label}: START ===") == 1
+        assert text.count(f"{label}: END ===") == 1
+
+
+def test_lab2_starter_fails_until_rrf_is_authored() -> None:
+    starter = _read(LAB2_STARTER)
+    reference = _read(LAB2_REFERENCE)
+    assert "0::numeric AS recomputed_rrf" in starter
+    assert "0::numeric AS recomputed_rrf" not in reference
+    assert reference.count("1.0 / (60 +") == 2
+    assert "\\if :fusion_matches" in starter
+    assert "\\quit 1" in starter
+
+
+def test_lab3_starter_fails_until_otel_contract_is_authored() -> None:
+    starter = _read(LAB3_STARTER)
+    reference = _read(LAB3_REFERENCE)
+    for field in ("agentSpan", "modelSpan", "toolSpan", "sessionCorrelated"):
+        assert f"{field}: false" in starter
+        assert f"{field}: false" not in reference
+    for required in (
+        "invoke_agent",
+        "gen_ai.request.model",
+        "execute_tool",
+        "gen_ai.tool.name",
+        'attributes["session.id"]',
+    ):
+        assert required in reference
 
 
 def test_lab4_starter_does_not_ship_the_answer() -> None:
@@ -235,20 +326,146 @@ def test_lab4_proof_script_parses() -> None:
     ast.parse(_read(LAB4_PROOF_SCRIPT))
 
 
+def test_lab4_rls_proof_covers_read_write_and_rolls_everything_back() -> None:
+    """The required psql proof must exercise both RLS clauses without durable writes."""
+    text = _read(LAB4_RLS_PROOF)
+    for fragment in (
+        r"\set ON_ERROR_STOP on",
+        "SET LOCAL ROLE pellier_query",
+        "SET LOCAL ROLE pellier_agent",
+        "current_setting('pellier.principal_sub', true)",
+        "CUST-MARCO",
+        "CUST-JESSICA",
+        "RLS_READ_MARCO_JESSICA_ROWS:",
+        "RLS_READ_JESSICA_JESSICA_ROWS:",
+        "RLS_PROBE_ROLE_OK",
+        "RLS_PROBE_MARCO_SQLSTATE:42501",
+        "RLS_PROBE_JESSICA_SQLSTATE:00000",
+        "ROLLBACK",
+    ):
+        assert fragment in text, f"{LAB4_RLS_PROOF} lost {fragment!r}"
+
+    assert "COMMIT" not in text
+    assert text.count("ROLLBACK") >= 3
+
+
+def test_lab4_rls_proof_fails_when_the_positive_controls_do_not_hold() -> None:
+    """A deny-everyone database must not look like a successful RLS proof."""
+    text = _read(LAB4_RLS_PROOF)
+    for condition in (
+        "mapped_shoppers <> 4",
+        ":'marco_jessica_rows'::INTEGER <> 0",
+        ":'jessica_jessica_rows'::INTEGER = 0",
+        "RLS_PROBE_MARCO_SQLSTATE:00000",
+    ):
+        assert condition in text, (
+            f"{LAB4_RLS_PROOF} must fail closed when {condition!r} is observed"
+        )
+
+
 def test_no_lab_anchor_is_a_broken_path() -> None:
     """One list, so a future anchor cannot be added without an existence check."""
     anchors: List[str] = [rel for rel, _ in LAB1_REGIONS]
     anchors += [source for source, _ in LAB1_FALLBACK_COPIES]
     anchors += [destination for _, destination in LAB1_FALLBACK_COPIES]
-    anchors += [LAB4_STARTER, LAB4_REFERENCE, LAB4_PROOF_SCRIPT]
+    anchors += [
+        LAB4_STARTER,
+        LAB4_REFERENCE,
+        LAB4_PROOF_SCRIPT,
+        LAB4_RLS_PROOF,
+    ]
     absent = sorted({rel for rel in anchors if not (REPO / rel).is_file()})
     assert not absent, f"lab anchors missing from the repository: {absent}"
+
+
+def test_participant_exercise_reset_declares_every_incomplete_artifact() -> None:
+    source = _read(PARTICIPANT_EXERCISE_RESET)
+    for exercise_id, (starter, destination) in PARTICIPANT_STARTERS.items():
+        assert exercise_id in source
+        assert starter in source
+        assert destination in source
+
+
+def test_participant_starter_copies_are_incomplete_not_solutions() -> None:
+    inventory_agent = _read(PARTICIPANT_STARTERS["lab-1-inventory-agent"][0])
+    inventory_tool = _read(PARTICIPANT_STARTERS["lab-1-inventory-tool"][0])
+    lab2 = _read(PARTICIPANT_STARTERS["lab-2-rrf"][0])
+    lab3 = _read(PARTICIPANT_STARTERS["lab-3-otel"][0])
+    lab4 = _read(PARTICIPANT_STARTERS["lab-4-cedar"][0])
+
+    assert "_INVENTORY_AGENT_STUBBED = True" in inventory_agent
+    assert "_INVENTORY_SYSTEM_PROMPT_FOR_AGENT = \"\"" in inventory_agent
+    assert '"error": "check_inventory is in stub state"' in inventory_tool
+    assert "result = _run_async(logic.check_inventory" not in inventory_tool
+    assert "0::numeric AS recomputed_rrf" in lab2
+    for field in ("agentSpan", "modelSpan", "toolSpan", "sessionCorrelated"):
+        assert f"{field}: false" in lab3
+    assert re.search(r"unless\s*\{\s*false\s*\}", lab4)
+    assert "CUST-JESSICA" not in lab4
+
+
+def test_participant_exercise_reset_check_accepts_the_checked_in_starters() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / PARTICIPANT_EXERCISE_RESET),
+            "--repo",
+            str(REPO),
+            "--check",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    for exercise_id in PARTICIPANT_STARTERS:
+        assert exercise_id in completed.stdout
+
+
+def test_participant_exercise_reset_restores_only_the_named_marker_region() -> None:
+    reset_script = REPO / PARTICIPANT_EXERCISE_RESET
+    with tempfile.TemporaryDirectory() as tempdir:
+        repo = Path(tempdir)
+        for _exercise_id, (starter, destination) in PARTICIPANT_STARTERS.items():
+            source_path = repo / starter
+            destination_path = repo / destination
+            source_path.parent.mkdir(parents=True, exist_ok=True)
+            destination_path.parent.mkdir(parents=True, exist_ok=True)
+            source_path.write_text((REPO / starter).read_text(encoding="utf-8"))
+            destination_path.write_text(
+                (REPO / destination).read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+        inventory_destination = (
+            repo / PARTICIPANT_STARTERS["lab-1-inventory-agent"][1]
+        )
+        inventory_destination.write_text(
+            inventory_destination.read_text(encoding="utf-8").replace(
+                "_INVENTORY_AGENT_STUBBED = True",
+                "_INVENTORY_AGENT_STUBBED = False",
+            )
+            + "\n# PARTICIPANT_UNRELATED_EDIT\n",
+            encoding="utf-8",
+        )
+
+        completed = subprocess.run(
+            [sys.executable, str(reset_script), "--repo", str(repo)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
+        restored = inventory_destination.read_text(encoding="utf-8")
+        assert "_INVENTORY_AGENT_STUBBED = True" in restored
+        assert "# PARTICIPANT_UNRELATED_EDIT" in restored
 
 
 # ---------------------------------------------------------------------------
 # Lab titles, as the participant reads them in TWO products.
 #
-# The guide was renamed to a GROUND / RETRIEVE / OPERATE / GOVERN & PROVE spine and the
+# The guide was renamed to a BUILD / BUILD & MEASURE / OPERATE & OBSERVE /
+# GOVERN spine and the
 # shipped application was not, so the Observatory's Workshop Map and Proof Board went on
 # naming "Design the Retrieval Strategy" while the guide beside them said "Measure Hybrid
 # Retrieval Trade-offs". Nothing failed: the naming guards in this repository scan for
@@ -260,13 +477,10 @@ def test_no_lab_anchor_is_a_broken_path() -> None:
 # ---------------------------------------------------------------------------
 
 CANONICAL_LAB_TITLE_PARTS: Tuple[Tuple[str, str], ...] = (
-    ("01 GROUND THE ANSWER", "Live Data and Evidence"),
-    ("02 MEASURE HYBRID RETRIEVAL", "Search, Filters, and Trade-offs"),
-    ("03 OPERATE THE MANAGED AGENT PATH", "Runtime, Gateway, Memory, and Trace"),
-    (
-        "04 GOVERN AND PROVE ACTIONS",
-        "Human Decision, Policy, Database, and Receipts",
-    ),
+    ("Lab 1 · Build", "Build a PostgreSQL-Grounded Agent"),
+    ("Lab 2 · Build & Measure", "Build and Measure PostgreSQL Hybrid Retrieval"),
+    ("Lab 3 · Operate & Observe", "Operate and Observe the AgentCore Managed Path"),
+    ("Lab 4 · Govern", "Enforce Identity and Prove Non-Execution"),
 )
 
 # Titles the rename replaced. Present anywhere in the shipped product, they are drift.

@@ -12,9 +12,9 @@ Two properties are pinned because both were wrong in the first version:
      `--check` compared *resolvable* subjects against the wanted personas and
      printed "Mapping complete" against an empty table — the precise failure
      the script exists to prevent.
-  2. **A pool rebuild must not leave a stale subject authorized.** Cognito
-     issues new subjects, and an old row would keep granting access to a
-     subject that no longer exists.
+  2. **One subject has one customer scope.** Multiple subjects for one customer
+     are legitimate, but one subject mapped to multiple customers would widen
+     every RLS policy that calls the shared resolver.
 
 The username -> customer half is imported from `turn_identity`, never
 restated, so the application and the database cannot disagree about scope.
@@ -75,8 +75,13 @@ def test_every_named_persona_is_covered():
 
     wanted = seeder._username_to_customer()
 
-    assert set(wanted) == {"marco", "anna", "theo"}
-    assert set(wanted.values()) == {"CUST-MARCO", "CUST-ANNA", "CUST-THEO"}
+    assert set(wanted) == {"marco", "anna", "theo", "jessica"}
+    assert set(wanted.values()) == {
+        "CUST-MARCO",
+        "CUST-ANNA",
+        "CUST-THEO",
+        "CUST-JESSICA",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -93,15 +98,14 @@ def test_upsert_is_idempotent():
     assert sql.startswith("BEGIN;") and sql.rstrip().endswith("COMMIT;")
 
 
-def test_upsert_removes_stale_subjects_for_the_same_customer():
-    """A rebuilt pool issues new subjects; the old row must stop authorizing."""
+def test_upsert_preserves_other_logins_for_the_same_customer():
+    """The seeder cannot know which existing login a lifecycle task owns."""
     seeder = _load_seeder()
 
     sql = seeder.upsert_sql({"marco": ("sub-new", "CUST-MARCO")})
 
-    assert "DELETE FROM pellier.principal_customers" in sql
-    assert "customer_id IN ('CUST-MARCO')" in sql
-    assert "principal_sub NOT IN ('sub-new')" in sql
+    assert "DELETE FROM pellier.principal_customers" not in sql
+    assert "INSERT INTO pellier.principal_customers" in sql
 
 
 def test_upsert_of_nothing_is_empty_not_a_delete_everything():
@@ -119,11 +123,67 @@ def test_upsert_covers_every_resolved_persona():
             "marco": ("sub-m", "CUST-MARCO"),
             "anna": ("sub-a", "CUST-ANNA"),
             "theo": ("sub-t", "CUST-THEO"),
+            "jessica": ("sub-j", "CUST-JESSICA"),
         }
     )
 
-    for sub, customer in (("sub-m", "CUST-MARCO"), ("sub-a", "CUST-ANNA"), ("sub-t", "CUST-THEO")):
+    for sub, customer in (
+        ("sub-m", "CUST-MARCO"),
+        ("sub-a", "CUST-ANNA"),
+        ("sub-t", "CUST-THEO"),
+        ("sub-j", "CUST-JESSICA"),
+    ):
         assert f"('{sub}', '{customer}')" in sql
+
+
+def test_mapping_preflight_rejects_one_existing_subject_with_two_customers():
+    seeder = _load_seeder()
+
+    problems = seeder.mapping_problems(
+        [("CUST-MARCO", "subject-1"), ("CUST-THEO", "subject-1")],
+        {},
+    )
+
+    assert problems == [
+        "existing subject subject-1 maps to multiple customers: CUST-MARCO, CUST-THEO"
+    ]
+
+
+def test_mapping_preflight_rejects_an_incoming_subject_owned_by_another_customer():
+    seeder = _load_seeder()
+
+    problems = seeder.mapping_problems(
+        [("CUST-MARCO", "subject-1")],
+        {"theo": ("subject-1", "CUST-THEO")},
+    )
+
+    assert problems == [
+        "theo's subject subject-1 is already mapped to CUST-MARCO, not CUST-THEO"
+    ]
+
+
+def test_mapping_preflight_allows_multiple_principals_for_one_customer():
+    seeder = _load_seeder()
+
+    assert seeder.mapping_problems(
+        [("CUST-THEO", "subject-1"), ("CUST-THEO", "subject-2")],
+        {"theo": ("subject-3", "CUST-THEO")},
+    ) == []
+
+
+def test_cardinality_migration_constrains_the_security_critical_direction():
+    migration = (
+        Path(__file__).resolve().parents[3]
+        / "scripts"
+        / "migrations"
+        / "038_principal_customer_cardinality.sql"
+    ).read_text()
+
+    assert r"\set ON_ERROR_STOP on" in migration
+    assert "GROUP BY principal_sub" in migration
+    assert "HAVING count(*) > 1" in migration
+    assert "UNIQUE (principal_sub)" in migration
+    assert "UNIQUE (customer_id)" not in migration
 
 
 # ---------------------------------------------------------------------------

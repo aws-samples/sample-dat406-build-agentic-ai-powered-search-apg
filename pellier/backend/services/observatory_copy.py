@@ -8,6 +8,14 @@ without weakening shopper copy rules.
 
 OBSERVATORY_COPY = {
     "SESSION_EVIDENCE_UNAVAILABLE": "Aurora session evidence is unavailable.",
+    "IDENTITY_BOUNDARY_UNAVAILABLE": (
+        "Aurora governed receipts are unavailable, so the identity boundary "
+        "cannot be reconstructed."
+    ),
+    "IDENTITY_BOUNDARY_EMPTY": (
+        "No governed identity attempt has been recorded yet. Run "
+        "scripts/prove_identity_boundary.py to produce the evidence."
+    ),
     "SESSION_EVIDENCE_NOT_FOUND": "Session evidence not found.",
     "AGENT_TOPOLOGY_UNAVAILABLE": (
         "The running agent topology could not be inspected."

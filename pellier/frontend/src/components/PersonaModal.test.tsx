@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getPersonaPhoto } from '../data/personaPhotos'
+import { getPersonaModalPortrait } from '../data/personaPhotos'
 import PersonaModal from './PersonaModal'
 
 const LIVE_PERSONAS = [
@@ -73,7 +73,10 @@ describe('PersonaModal', () => {
         .querySelector<HTMLImageElement>('.pm-avatar-photo')
 
       expect(image).not.toBeNull()
-      expect(image).toHaveAttribute('src', getPersonaPhoto(persona.id))
+      expect(image).toHaveAttribute('src', getPersonaModalPortrait(persona.id))
+      expect(image).toHaveAttribute('width', '1200')
+      expect(image).toHaveAttribute('height', '1800')
     }
+    expect(screen.queryByText('v1.0')).not.toBeInTheDocument()
   })
 })

@@ -19,6 +19,7 @@
  */
 
 import type { OperatorClientRecord } from '../../services/operator'
+import { WORKSHOP_JOURNEYS } from '../../data/workshopJourneys'
 
 export type TemplateId =
   | 'summarize_client'
@@ -61,6 +62,9 @@ export interface ConciergeTemplate {
   rank: (ctx: TemplateContext) => number
   buildRequest: (ctx: TemplateContext) => string
 }
+
+export const GUIDED_SERVICE_RECOVERY_PROMPTS =
+  WORKSHOP_JOURNEYS.jessica.prompts
 
 export const TEMPLATES: ConciergeTemplate[] = [
   {

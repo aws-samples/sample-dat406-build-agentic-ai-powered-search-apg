@@ -34,7 +34,7 @@ export function SurfaceFilterBar<T extends string>({
       <span
         style={{
           fontFamily: 'var(--obs-heading)',
-          fontSize: '11.5px',
+          fontSize: '11px',
           fontWeight: 600,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
@@ -53,7 +53,7 @@ export function SurfaceFilterBar<T extends string>({
             onClick={() => onChange(opt.id)}
             style={{
               fontFamily: 'var(--obs-heading)',
-              fontSize: '12.5px',
+              fontSize: '12px',
               fontWeight: active ? 600 : 500,
               letterSpacing: 0,
               padding: '5px 12px',

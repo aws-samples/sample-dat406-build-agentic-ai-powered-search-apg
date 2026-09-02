@@ -14,76 +14,131 @@
 }
 
 .labs-catalog-hero {
-  position: relative;
-  display: flex;
-  min-height: clamp(320px, 38vw, 470px);
-  align-items: flex-end;
-  overflow: hidden;
+  display: grid;
+  padding: clamp(38px, 5vw, 68px) clamp(16px, 4vw, 56px) 0;
   border-bottom: 1px solid var(--obs-rule-1);
-  background: var(--obs-espresso-1);
-}
-
-.labs-catalog-hero > img {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  inset: 0;
-  object-fit: cover;
-  object-position: center 48%;
-  opacity: 0.68;
-}
-
-.labs-catalog-hero::after {
-  position: absolute;
-  inset: 0;
   background:
-    linear-gradient(90deg, rgb(30 28 26 / 0.82), rgb(30 28 26 / 0.28) 65%, transparent),
-    linear-gradient(0deg, rgb(30 28 26 / 0.54), transparent 58%);
-  content: '';
+    linear-gradient(180deg, var(--obs-cream-1), var(--obs-cream-2));
 }
 
 .labs-catalog-hero-copy {
-  position: relative;
-  z-index: 1;
   display: grid;
-  width: min(760px, 100%);
-  gap: 16px;
-  padding: clamp(36px, 6vw, 76px) clamp(20px, 5vw, 72px);
-  color: var(--cream-warm);
+  width: min(1380px, 100%);
+  margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.72fr);
+  gap: 16px clamp(34px, 7vw, 110px);
+  align-items: end;
+  padding-bottom: clamp(30px, 4vw, 48px);
+  color: var(--obs-ink-1);
 }
 
+/* The collection index is still one page title, so it takes the shared step
+   rather than its own 72px ceiling. */
 .labs-catalog-hero-copy h1 {
-  color: var(--cream-warm);
-  font-family: var(--obs-display);
-  font-size: clamp(40px, 5.4vw, 72px);
-  font-weight: 500;
-  line-height: 0.98;
+  color: var(--obs-ink-1);
+  font-family: var(--display, var(--obs-display)) !important;
+  font-size: var(--obs-title-size);
+  font-weight: 400 !important;
+  letter-spacing: var(--obs-title-tracking) !important;
+  line-height: var(--obs-title-leading);
 }
 
 .labs-catalog-hero-copy p {
-  max-width: 620px;
-  color: rgb(250 243 232 / 0.88);
-  font-size: clamp(16px, 1.6vw, 20px);
+  max-width: 590px;
+  color: var(--obs-ink-3);
+  font-size: clamp(15px, 1.45vw, 18px);
   line-height: 1.5;
 }
 
 .labs-catalog-hero-copy > a {
+  grid-column: 2;
   display: inline-flex;
   min-height: 44px;
   width: fit-content;
   align-items: center;
   gap: 10px;
   padding: 0 16px;
-  border: 1px solid rgb(250 243 232 / 0.55);
+  border: 1px solid var(--obs-red-1);
   border-radius: 4px;
-  background: rgb(250 243 232 / 0.94);
-  color: var(--obs-espresso-1) !important;
+  background: var(--obs-red-1);
+  color: var(--cream-warm) !important;
   font-size: 13px;
   font-weight: 700;
 }
 
 .labs-catalog-hero-copy > a:hover {
-  background: var(--cream-warm);
+  background: var(--obs-burgundy);
+}
+
+.labs-catalog-contact-sheet {
+  display: grid;
+  width: min(1380px, 100%);
+  margin: 0 auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(8px, 1vw, 14px);
+}
+
+.labs-catalog-contact-sheet figure {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  grid-template-rows: clamp(180px, 15vw, 248px) auto;
+}
+
+.labs-catalog-contact-sheet picture {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--obs-cream-2);
+}
+
+.labs-catalog-contact-sheet img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.labs-catalog-contact-sheet figure:nth-child(1) img {
+  object-position: center 22%;
+}
+
+.labs-catalog-contact-sheet figure:nth-child(2) img {
+  object-position: center 17%;
+}
+
+.labs-catalog-contact-sheet figure:nth-child(3) img {
+  object-position: center 16%;
+}
+
+.labs-catalog-contact-sheet figure:nth-child(4) img {
+  object-position: center 24%;
+}
+
+.labs-catalog-contact-sheet figcaption {
+  display: grid;
+  min-height: 58px;
+  gap: 5px;
+  align-content: start;
+  padding: 11px 2px 13px;
+  border-top: 2px solid var(--obs-red-1);
+  color: var(--obs-ink-2);
+}
+
+.labs-catalog-contact-sheet figcaption span {
+  color: var(--obs-red-1);
+  font-family: var(--obs-mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.labs-catalog-contact-sheet figcaption strong {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .labs-catalog-body {
@@ -100,10 +155,13 @@
   margin-bottom: 26px;
 }
 
+/* A section heading, not a second page title. 38px sat one pixel-step under
+   the 40px h1 above it, so the page read as having two titles. */
 .labs-catalog-intro h2 {
-  font-family: var(--obs-heading);
-  font-size: clamp(25px, 3vw, 38px);
-  font-weight: 600;
+  font-family: var(--display, var(--obs-display)) !important;
+  font-size: var(--obs-section-size);
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
   line-height: 1.1;
 }
 
@@ -181,7 +239,20 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 22%;
   transition: transform 240ms ease;
+}
+
+.labs-catalog-card[data-lab='02'] .labs-catalog-card-media img {
+  object-position: center 17%;
+}
+
+.labs-catalog-card[data-lab='03'] .labs-catalog-card-media img {
+  object-position: center 16%;
+}
+
+.labs-catalog-card[data-lab='04'] .labs-catalog-card-media img {
+  object-position: center 24%;
 }
 
 .labs-catalog-card:hover .labs-catalog-card-media img {
@@ -200,7 +271,7 @@
 .lab-detail-number {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -209,7 +280,7 @@
 .labs-catalog-card h3 {
   margin-top: 10px;
   font-family: var(--obs-heading);
-  font-size: clamp(22px, 2.2vw, 31px);
+  font-size: var(--obs-section-size);
   font-weight: 600;
   line-height: 1.1;
 }
@@ -217,7 +288,7 @@
 .labs-catalog-card-copy > p {
   margin-top: 12px;
   color: var(--obs-ink-3);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -275,7 +346,7 @@
   align-items: center;
   gap: 5px 8px;
   color: var(--obs-ink-4);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -305,7 +376,7 @@
 .lab-source-badge[data-compact='true'] {
   min-height: 20px;
   padding: 2px 6px;
-  font-size: 8.5px;
+  font-size: 9px;
 }
 
 .lab-source-badge[data-provenance='authoritative'] {
@@ -393,7 +464,7 @@
   gap: 8px;
   margin-bottom: 18px;
   color: var(--obs-ink-4);
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .lab-detail-breadcrumb a {
@@ -425,6 +496,19 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 22%;
+}
+
+.lab-detail[data-lab='02'] .lab-detail-hero-media img {
+  object-position: center 17%;
+}
+
+.lab-detail[data-lab='03'] .lab-detail-hero-media img {
+  object-position: center 16%;
+}
+
+.lab-detail[data-lab='04'] .lab-detail-hero-media img {
+  object-position: center 24%;
 }
 
 .lab-detail-summary {
@@ -517,7 +601,7 @@
 .lab-exercise-rail-link {
   display: grid;
   min-height: 62px;
-  grid-template-columns: 30px minmax(0, 1fr) 16px;
+  grid-template-columns: 42px minmax(0, 1fr) 16px;
   gap: 9px;
   align-items: center;
   padding: 8px 9px;
@@ -550,13 +634,13 @@
 
 .lab-exercise-rail-copy strong {
   overflow-wrap: anywhere;
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.25;
 }
 
 .lab-exercise-rail-copy small {
   color: var(--obs-ink-4);
-  font-size: 9.5px;
+  font-size: 9px;
 }
 
 .lab-rail-reference {
@@ -648,7 +732,8 @@
 
 .lab-todo {
   padding: 18px 20px;
-  border-left: 3px solid var(--obs-red-1);
+  border: 1px solid var(--obs-rule-1);
+  border-radius: var(--obs-card-radius);
   background: var(--obs-cream-2);
   color: var(--obs-ink-2);
   font-size: 14px;
@@ -686,7 +771,7 @@
 .lab-measurement > span:first-child {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -712,14 +797,14 @@
 .lab-decision p {
   margin-top: 6px;
   color: var(--obs-ink-2);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
 .lab-decision > span {
   color: #8d4328;
   font-family: var(--obs-mono);
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
 }
 
@@ -732,7 +817,7 @@
   border-radius: 6px;
   background: #f8f1df;
   color: #594217;
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -760,7 +845,7 @@
   border-radius: 4px;
   background: var(--obs-ink-1);
   color: var(--obs-cream-1) !important;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -819,7 +904,7 @@
   overflow-wrap: anywhere;
   color: #74551c;
   font-family: var(--obs-mono);
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 750;
 }
 
@@ -833,7 +918,7 @@
 
 .lab-classification p {
   color: var(--obs-ink-3);
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -843,7 +928,7 @@
   align-items: center;
   gap: 7px;
   color: var(--obs-ink-4);
-  font-size: 9.5px;
+  font-size: 9px;
 }
 
 .lab-evidence-section {
@@ -886,7 +971,7 @@
   overflow-wrap: anywhere;
   color: var(--obs-ink-2);
   font-family: var(--obs-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.45;
 }
@@ -976,11 +1061,26 @@
 
 @media (max-width: 820px) {
   .labs-catalog-hero {
-    min-height: 360px;
+    padding-inline: 16px;
   }
 
   .labs-catalog-hero-copy {
-    padding-bottom: 40px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding-bottom: 32px;
+  }
+
+  .labs-catalog-hero-copy > a {
+    grid-column: 1;
+    margin-top: 4px;
+  }
+
+  .labs-catalog-contact-sheet {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .labs-catalog-contact-sheet figure {
+    grid-template-rows: 224px auto;
   }
 
   .labs-catalog-card,
@@ -1011,21 +1111,9 @@
 }
 
 @media (max-width: 640px) {
-  .labs-catalog-hero {
-    min-height: 315px;
-  }
-
-  .labs-catalog-hero > img {
-    object-position: 58% center;
-  }
-
-  .labs-catalog-hero::after {
-    background: linear-gradient(0deg, rgb(30 28 26 / 0.82), rgb(30 28 26 / 0.2));
-  }
-
   .labs-catalog-hero-copy {
     gap: 12px;
-    padding: 28px 16px;
+    padding: 0 0 28px;
   }
 
   .labs-catalog-hero-copy h1 {
@@ -1039,6 +1127,15 @@
   .labs-catalog-intro {
     display: grid;
     align-items: start;
+  }
+
+  .labs-catalog-contact-sheet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .labs-catalog-contact-sheet figure {
+    grid-template-rows: 210px auto;
   }
 
   .labs-catalog-card,

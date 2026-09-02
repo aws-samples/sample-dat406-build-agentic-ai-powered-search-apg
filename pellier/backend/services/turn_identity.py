@@ -64,6 +64,22 @@ def current_principal_sub() -> Optional[str]:
     return principal_sub_var.get()
 
 
+# The verified customer scope for the turn currently executing.
+#
+# This is deliberately separate from the display persona and is populated only
+# when a verified principal resolves to a customer mapping. It lets read-only
+# deterministic tools refuse model-supplied customer identifiers before they
+# reach Aurora.
+authorized_customer_id_var: ContextVar[Optional[str]] = ContextVar(
+    "authorized_customer_id_var", default=None
+)
+
+
+def current_authorized_customer_id() -> Optional[str]:
+    """Return this turn's verified self-service customer scope, if any."""
+    return authorized_customer_id_var.get()
+
+
 # The correlation key for the turn currently executing.
 #
 # Travels the same way as the principal, and for the same reason: a
@@ -81,6 +97,7 @@ USERNAME_TO_CUSTOMER_ID = {
     "marco": "CUST-MARCO",
     "anna": "CUST-ANNA",
     "theo": "CUST-THEO",
+    "jessica": "CUST-JESSICA",
 }
 
 

@@ -97,11 +97,29 @@ def test_renderer_owns_baseline_cedar_and_enforce_attachment() -> None:
     assert "resource is AgentCore::Gateway" in statements
     assert "permit (principal, action, resource is AgentCore::Gateway)" not in statements
 
-    # The Lab 4 ownership condition is the participant's work. A baseline that already
-    # bound username to customer_id would make step 3's DENY fire before they wrote
-    # anything, and the exercise would silently become a copy-paste.
-    assert 'principal.getTag("username")' not in statements
-    assert "CUST-MARCO" not in statements
+    # The Lab 4 return-ownership condition is the participant's work. Sensitive
+    # Gateway reads now carry their own self-service constraints, but no
+    # `initiate_return` baseline statement may bind username to customer_id or
+    # the exercise's before-state would be false.
+    return_statements = "\n".join(
+        policy["statement"]
+        for policy in policies
+        if renderer.INITIATE_RETURN_ACTION in policy["statement"]
+    )
+    assert 'principal.getTag("username")' not in return_statements
+    assert "CUST-MARCO" not in return_statements
+
+    for name, action in (
+        (
+            "get_customer_preferences_identity_scope",
+            renderer.CUSTOMER_PREFERENCES_ACTION,
+        ),
+        ("get_audit_trail_identity_scope", renderer.AUDIT_TRAIL_ACTION),
+    ):
+        policy = next(item for item in policies if item["name"] == name)
+        assert policy["statement"].lstrip().startswith("forbid")
+        assert action in policy["statement"]
+        assert 'principal.hasTag("username")' in policy["statement"]
 
     source = RENDERER_PATH.read_text()
     assert '"mode": "ENFORCE"' in source
@@ -132,6 +150,7 @@ def test_participant_cedar_files_are_direct_cli_sources() -> None:
         ("marco", "CUST-MARCO"),
         ("anna", "CUST-ANNA"),
         ("theo", "CUST-THEO"),
+        ("jessica", "CUST-JESSICA"),
     ):
         assert f'principal.getTag("username") == "{username}"' in solution
         assert f'context.input.customer_id == "{customer_id}"' in solution

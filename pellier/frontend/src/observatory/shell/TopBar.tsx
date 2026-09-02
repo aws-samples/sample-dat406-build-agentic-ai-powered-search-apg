@@ -1,12 +1,13 @@
 /**
  * Pellier Observatory top bar.
  *
- * The governed workbench is the primary destination. Every deeper surface is
- * intentionally grouped behind one Proof & References index.
+ * The governed workbench is the primary destination. Deeper evidence routes
+ * are linked from the collection and workbench rather than becoming another
+ * first-level navigation surface.
  */
 
 import React, { useState } from 'react';
-import { BookOpen, LibraryBig, ReceiptText } from 'lucide-react';
+import { LibraryBig } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import PellierHomeLink from '../../components/PellierHomeLink';
 import PersonaModal from '../../components/PersonaModal';
@@ -17,19 +18,9 @@ import { NAV } from '../../copy';
 
 const OBSERVATORY_TABS = [
   {
-    label: 'Lab Collection',
+    label: 'Labs & Workbench',
     path: '/observatory',
     icon: LibraryBig,
-  },
-  {
-    label: 'Live Workbench',
-    path: '/observatory/workbench',
-    icon: ReceiptText,
-  },
-  {
-    label: 'Proof & References',
-    path: '/observatory/references',
-    icon: BookOpen,
   },
 ] as const;
 
@@ -42,13 +33,7 @@ const TopBar: React.FC = () => {
   const avatarColor = persona?.avatar_color ?? '#665f58';
   const personaLabel = persona?.display_name?.split(' ')[0] ?? 'Choose profile';
   const photoUrl = persona ? getPersonaPhoto(persona.id) : undefined;
-  const isLabCollection =
-    pathname === '/observatory' ||
-    pathname === '/observatory/' ||
-    pathname.startsWith('/observatory/labs/');
-  const isWorkbench =
-    pathname === '/observatory/workbench' ||
-    pathname.startsWith('/observatory/workbench/');
+  const isLabWorkspace = pathname.startsWith('/observatory');
 
   return (
     <>
@@ -72,12 +57,7 @@ const TopBar: React.FC = () => {
 
         <nav className="observatory-tabs" aria-label="Pellier Observatory views">
           {OBSERVATORY_TABS.map((tab) => {
-            const isActive =
-              tab.path === '/observatory'
-                ? isLabCollection
-                : tab.path === '/observatory/workbench'
-                  ? isWorkbench
-                  : !isLabCollection && !isWorkbench;
+            const isActive = isLabWorkspace;
             const TabIcon = tab.icon;
             return (
               <Link

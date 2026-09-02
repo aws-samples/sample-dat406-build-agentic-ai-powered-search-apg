@@ -127,7 +127,7 @@ const SQL_KEYWORDS = new Set([
 
 const DARK_CODE_BLOCK: React.CSSProperties = {
   fontFamily: 'var(--obs-mono)',
-  fontSize: '12.5px',
+  fontSize: '12px',
   lineHeight: 1.6,
   background: 'var(--dl-ink)',
   color: 'var(--dl-accent-soft)',

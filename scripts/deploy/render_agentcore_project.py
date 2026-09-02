@@ -33,6 +33,9 @@ GATEWAY_NAME = "pellier-gateway"
 POLICY_ENGINE_NAME = "pellier_policy_engine"
 EXPERIENCE_TARGET = "pellier-concierge-experience-target"
 INITIATE_RETURN_ACTION = f"{EXPERIENCE_TARGET}___initiate_return"
+RECOMMENDATION_TARGET = "pellier-curation-recommendation-target"
+CUSTOMER_PREFERENCES_ACTION = f"{RECOMMENDATION_TARGET}___get_customer_preferences"
+AUDIT_TRAIL_ACTION = f"{RECOMMENDATION_TARGET}___get_audit_trail"
 RESTOCK_ACTION = "pellier-discovery-search-target___restock_inventory"
 ISSUE_CREDIT_ACTION = "pellier-concierge-experience-target___issue_credit"
 WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
@@ -72,10 +75,32 @@ def _render_runtime_source(root: Path, backend_dir: Path) -> Path:
     return runtime_dir
 
 
+def _customer_scope_forbid_statement(action: str) -> str:
+    """Return the fail-closed ownership condition for a sensitive read."""
+    return (
+        f'forbid (principal, action == AgentCore::Action::"{action}", '
+        "resource is AgentCore::Gateway)\n"
+        "unless {\n"
+        '  principal.hasTag("username") &&\n'
+        "  context.input has customer_id &&\n"
+        "  (\n"
+        '    (principal.getTag("username") == "marco" &&\n'
+        '      context.input.customer_id == "CUST-MARCO") ||\n'
+        '    (principal.getTag("username") == "anna" &&\n'
+        '      context.input.customer_id == "CUST-ANNA") ||\n'
+        '    (principal.getTag("username") == "theo" &&\n'
+        '      context.input.customer_id == "CUST-THEO") ||\n'
+        '    (principal.getTag("username") == "jessica" &&\n'
+        '      context.input.customer_id == "CUST-JESSICA")\n'
+        "  )\n"
+        "};"
+    )
+
+
 def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[str, Any]]:
     """The fail-closed Cedar baseline a fresh workshop provision installs.
 
-    THREE POLICIES, and each one exists for a reason the migration proved the hard way.
+    FIVE POLICIES, and each one exists for a reason the migration proved the hard way.
 
     1. `baseline_permit_workshop_tools` — an EXACT allow-list of action ids, never
        `permit(principal, action, resource == gw)`. A wildcard hands every future
@@ -88,6 +113,13 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
 
     3. `initiate_return_deny_other_reasons` — the matching forbid.
 
+    4. `get_customer_preferences_identity_scope` and
+       `get_audit_trail_identity_scope` — fail-closed self-service constraints
+       for the two Gateway reads that expose customer-specific facts or
+       receipts. The Lambda receives no verified principal, so these
+       action-specific Cedar forbids must constrain the broad read permit before
+       the target receives caller-controlled `customer_id`.
+
     WHAT THIS BASELINE DELIBERATELY OMITS
     -------------------------------------
 
@@ -98,15 +130,17 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
 
     An earlier version of this renderer installed `initiate_return_owned_damaged` and
     `initiate_return_deny_unowned_or_unsupported`, both carrying that ownership
-    condition, plus four ownership-gated read permits. On a freshly provisioned stack the
+    condition. On a freshly provisioned stack the
     participant's exercise would already be solved: step 3's DENY would fire before they
     wrote anything, and the lab would teach that Cedar does something it was already
-    doing. That is why this is a teaching baseline and not a claim about the complete
-    recommended production posture — the Lab 4 solution adds the ownership dimension, and
-    a production deployment would keep it.
+    doing. The read-only constraints stay because exposing another shopper's
+    preferences or evidence is not a workshop exercise. This teaching baseline
+    is not a claim about a complete recommended production posture — the Lab 4
+    solution still adds the return ownership dimension.
 
-    Nothing downstream may re-add the challenge condition. `tests/test_fresh_policy_set.py`
-    evaluates the generated Cedar and fails if it reappears.
+    Nothing downstream may re-add the return challenge condition.
+    `tests/test_fresh_policy_set.py` evaluates the generated Cedar and fails if
+    it reappears on `initiate_return`.
 
     EXCLUDED FROM THE ALLOW-LIST
     ----------------------------
@@ -187,6 +221,24 @@ def baseline_policies(action_token: str = INITIATE_RETURN_ACTION) -> list[dict[s
                 f"  {gateway_type}\n"
                 ");"
             ),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+        {
+            "name": "get_customer_preferences_identity_scope",
+            "description": (
+                "Forbid preference reads unless the JWT username owns the requested customer"
+            ),
+            "statement": _customer_scope_forbid_statement(CUSTOMER_PREFERENCES_ACTION),
+            "validationMode": "FAIL_ON_ANY_FINDINGS",
+            "enforcementMode": "ACTIVE",
+        },
+        {
+            "name": "get_audit_trail_identity_scope",
+            "description": (
+                "Forbid audit reads unless the JWT username owns the requested customer"
+            ),
+            "statement": _customer_scope_forbid_statement(AUDIT_TRAIL_ACTION),
             "validationMode": "FAIL_ON_ANY_FINDINGS",
             "enforcementMode": "ACTIVE",
         },

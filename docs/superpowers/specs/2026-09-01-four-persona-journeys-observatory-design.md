@@ -1,7 +1,7 @@
 # Pellier Governed: Four Persona Journeys and Observatory Design
 
 Date: 2026-09-01
-Status: Approved design, implementation pending
+Status: Approved design, implementation in progress
 Source branch: `governed`
 
 ## Purpose
@@ -102,6 +102,40 @@ The Operator case then uses three guided requests:
 | 2 | `Which customer, order, return, and identity records are authoritative for this decision?` | The response identifies the owning Aurora records and explains that Jessica's customer principal, the operator principal, Cedar, and RLS answer different questions. It exposes no raw token or subject value. |
 | 3 | `Prepare the fairest next step for human review without executing it.` | The Resolution Planner may prepare one exact review candidate. The UI must state that no action is authorized or executed until a person confirms it and Cedar plus Aurora independently permit it. |
 
+### Required Lab 4 Delivery Shape
+
+Lab 4 must fit the workshop's 25-minute room clock without making the strongest
+governance proofs optional.
+
+The required path is:
+
+1. **Build:** author, validate, and deploy the Cedar identity-to-customer rule.
+2. **Exercise:** run `scripts/prove_identity_boundary.py` once. Its Marco DENY,
+   Anna DENY, Jessica ALLOW, and Jessica replay cases are the canonical managed
+   exercise.
+3. **Prove:** inspect the exact-key execution/write matrix, then run both the
+   RLS read filter and RLS `WITH CHECK` write-refusal assertions.
+4. **Synthesize:** complete Jessica's three-turn Operator investigation and
+   stop at the human-review boundary.
+5. **Reset:** remove the participant policy and prove the baseline is restored.
+
+The two verbose hand-written Gateway calls and the full SQL notebook remain
+available as optional decomposition and recovery material. They must not
+duplicate the required path or make participants repeat the same proof twice.
+
+The final participant-facing matrix must keep these states visible as separate
+columns:
+
+```text
+Cognito identity
+-> Cedar authorization
+-> tool execution
+-> PostgreSQL RLS
+-> durable effect
+-> OTEL / receipt
+-> human approval
+```
+
 ## Conversation and Product Artifact Contract
 
 The frontend sends at most the bounded recent dialogue plus the product cards
@@ -143,6 +177,38 @@ The governed source repository owns:
 Workshop Studio owns participant instructions, but its validator must compare
 the four persona anchors and canonical prompts against the governed source
 checkout. Studio may explain the prompts; it must not invent alternate ones.
+
+## Participant Exercise Contract
+
+Every lab begins with one deliberately incomplete artifact in both a local
+governed checkout and a freshly provisioned Workshop Studio account:
+
+| Lab | Incomplete starter | Participant-authored boundary | Escape hatch |
+|---|---|---|---|
+| 1 | Inventory Agent definition and `check_inventory` tool body | A bounded Strands specialist and typed Aurora tool | Two marker-preserving Python reference files |
+| 2 | `workshop/lab-2-rrf.sql` | The PostgreSQL RRF expression | A complete psql worksheet |
+| 3 | `workshop/lab-3-otel-contract.jq` | Four OTEL acceptance predicates | A complete jq contract |
+| 4 | `policies/workshop_identity_match_forbid.cedar` | The fail-closed identity-to-customer condition | A complete Cedar rule |
+
+Provisioning and `scripts/reset-governed-workshop.sh` must restore the same
+starter state. They must never copy the Lab 1 solutions or the Lab 2-4 reference
+artifacts over the live participant files. A shared reset helper owns the
+mapping so bootstrap, reset, tests, and guide recovery commands cannot drift.
+
+Each lab guide presents the build in two adjacent learning lanes:
+
+1. **Build it yourself:** the exact marker, acceptance criteria, and progressive
+   hints without the final answer.
+2. **Use Claude Code:** one bounded prompt that may edit only the named artifact
+   and must show the participant the diff before acceptance.
+
+The deterministic solution copy remains an optional pacing fallback after one
+failed attempt or the lab's stated timebox. Taking the fallback does not waive
+the live exercise or proof.
+
+Every lab keeps one required proof command, one expected result, and one named
+evidence artifact. Detailed psql notebooks and architecture rationale live in
+optional expanders.
 
 `WORKSHOP.md` is a co-presenter brief. It should summarize:
 

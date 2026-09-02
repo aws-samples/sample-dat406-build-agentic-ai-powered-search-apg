@@ -38,25 +38,23 @@ export const EditorialTitle: React.FC<EditorialTitleProps> = ({
     >
       {backToReferences ? (
         <Link
-          to="/observatory/references"
+          to="/observatory/workbench#resources"
           className="observatory-reference-return"
-          aria-label="Back to Proof & References"
+          aria-label="Back to Labs and Workbench resources"
         >
           <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          <span>Proof &amp; References</span>
+          <span>Labs &amp; Workbench resources</span>
         </Link>
       ) : null}
       <Eyebrow label={eyebrow} />
 
+      {/* Size, leading, weight and tracking come from
+          `.observatory-page-title` so every route shares one page-title step.
+          Inline values here previously won over the class and let each surface
+          drift to its own size. */}
       <h1
-        className="font-display italic text-espresso"
-        style={{
-          fontSize: 'clamp(34px, 4.5vw, 56px)',
-          lineHeight: 1.08,
-          letterSpacing: 0,
-          fontWeight: 400,
-          margin: 0,
-        }}
+        className="observatory-page-title font-display text-espresso"
+        style={{ margin: 0 }}
       >
         {title}
       </h1>
