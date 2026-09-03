@@ -159,6 +159,11 @@ describe('Pellier Observatory live agent workbench', () => {
       name: 'Explore further',
     });
     expect(requiredJourney.querySelectorAll('button')).toHaveLength(3);
+    expect(
+      within(requiredJourney).getByText(
+        'Each turn keeps the previous conversation.',
+      ),
+    ).toBeInTheDocument();
     expect(exploreFurther.querySelectorAll('button')).toHaveLength(2);
     for (const query of FRESH_TURNS) {
       expect(

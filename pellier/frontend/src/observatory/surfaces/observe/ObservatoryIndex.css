@@ -89,6 +89,22 @@
   text-align: right;
 }
 
+.labs-turns-group-heading-context {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.labs-turns-group-heading .labs-turns-context {
+  color: var(--pl-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-align: left;
+  text-transform: none;
+}
+
 .labs-turns-skeleton {
   display: grid;
   gap: 10px;

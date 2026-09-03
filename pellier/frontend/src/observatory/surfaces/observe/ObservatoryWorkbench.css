@@ -131,9 +131,9 @@
   gap: 5px;
 }
 
-.observatory-workbench-purpose {
+.observatory-root .observatory-workbench-purpose {
   max-width: 80ch;
-  margin: 0;
+  margin: 0 0 0 22px;
   color: var(--pl-ink-soft);
   font-size: 14px;
   line-height: 1.45;
@@ -2343,7 +2343,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .observatory-workbench-purpose {
+  .observatory-root .observatory-workbench-purpose {
+    margin-left: 0;
     font-size: 13px;
     line-height: 1.5;
   }

@@ -249,9 +249,11 @@ export default function ObservatoryCuratedTurns({
           className="labs-turns-group"
           aria-label="Required three-turn journey"
         >
-          <div className="labs-turns-group-heading">
+          <div className="labs-turns-group-heading labs-turns-group-heading-context">
             <h3>Required three-turn journey</h3>
-            <span>0 → 2 → 4 prior messages</span>
+            <span className="labs-turns-context">
+              Each turn keeps the previous conversation.
+            </span>
           </div>
           <ol className="labs-turns-list" data-journey-role="required">
             {requiredScenarios.map((scenario, index) => (
