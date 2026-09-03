@@ -137,7 +137,7 @@
    * Bias the crop toward the face so the four anchors read as people rather
    * than a row of hairlines.
    */
-  object-position: center 48%;
+  object-position: center 36%;
 }
 
 .labs-catalog-contact-sheet figcaption {
@@ -153,16 +153,16 @@
 .labs-catalog-contact-sheet figcaption span {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
   text-transform: uppercase;
 }
 
 .labs-catalog-contact-sheet figcaption strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .labs-catalog-body {
