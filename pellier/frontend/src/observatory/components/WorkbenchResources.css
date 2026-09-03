@@ -15,6 +15,78 @@
   gap: 20px;
 }
 
+.workbench-resources[data-collapsible='true'] {
+  gap: 0;
+  padding: 0 0 12px;
+}
+
+.workbench-resources-disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+}
+
+.workbench-resources-disclosure-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--obs-rule-2);
+  border-radius: 999px;
+  background: var(--obs-panel);
+  color: var(--obs-ink-1);
+  font-family: var(--obs-sans);
+  text-align: left;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--obs-ink-1) 4%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.workbench-resources-disclosure-button:hover {
+  border-color: color-mix(in srgb, var(--obs-red-1) 48%, var(--obs-rule-2));
+  background: var(--obs-cream-1);
+  color: var(--obs-red-1);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--obs-ink-1) 8%, transparent);
+}
+
+.workbench-resources-disclosure-button:focus-visible {
+  outline: 2px solid var(--obs-red-1);
+  outline-offset: 3px;
+}
+
+.workbench-resources-disclosure-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.workbench-resources-disclosure-copy strong {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.workbench-resources-disclosure-button svg {
+  flex: 0 0 auto;
+  color: var(--obs-red-1);
+  transition: transform 160ms ease;
+}
+
+.workbench-resources-disclosure-button svg[data-expanded='true'] {
+  transform: rotate(180deg);
+}
+
+.workbench-resources[data-collapsible='true'] .workbench-resources-content {
+  padding-top: 24px;
+}
+
 .workbench-resources-heading {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
@@ -177,6 +249,15 @@
 }
 
 @media (max-width: 560px) {
+  .workbench-resources-disclosure {
+    min-height: 44px;
+  }
+
+  .workbench-resources-disclosure-button {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .workbench-resource-table thead {
     display: none;
   }

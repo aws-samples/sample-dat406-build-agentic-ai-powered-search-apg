@@ -1709,7 +1709,17 @@ export default function ObservatoryWorkbench() {
               </div>
             </div>
 
-            <div className="observatory-panel-scroll observatory-ledger-scroll">
+            <div
+              className="observatory-panel-scroll observatory-ledger-scroll"
+              data-idle={
+                !intentSignal &&
+                !runError &&
+                steps.length === 0 &&
+                runStatus === 'idle'
+                  ? 'true'
+                  : undefined
+              }
+            >
               {intentSignal ? (
                 <section
                   className="observatory-run-contract"
@@ -2344,7 +2354,7 @@ export default function ObservatoryWorkbench() {
             </div>
           </motion.section>
         </div>
-        <WorkbenchResources compact />
+        <WorkbenchResources compact collapsible defaultExpanded={false} />
       </div>
     </div>
   );

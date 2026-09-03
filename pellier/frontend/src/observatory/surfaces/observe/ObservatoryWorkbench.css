@@ -285,7 +285,7 @@
    and the answer needs room for a product card plus its claims. */
 .observatory-workbench-grid {
   display: grid;
-  height: calc(100dvh - 242px);
+  height: calc(100dvh - 248px);
   min-height: 0;
   max-height: none;
   grid-template-columns:
@@ -694,6 +694,12 @@
 
 .observatory-ledger-scroll {
   padding: 0 20px 18px;
+}
+
+.observatory-ledger-scroll[data-idle='true'] {
+  display: grid;
+  align-content: center;
+  padding-block: 18px;
 }
 
 .observatory-run-contract {

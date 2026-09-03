@@ -1,4 +1,5 @@
-import { ArrowUpRight } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import './WorkbenchResources.css';
@@ -109,17 +110,50 @@ const GITHUB_REPOSITORY_URL =
 
 interface WorkbenchResourcesProps {
   compact?: boolean;
+  /**
+   * The Lab Collection is an orientation surface, while the live workbench is
+   * an execution surface. The latter can keep this index available without
+   * taking space from the Evidence ledger until a participant asks for it.
+   */
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
 }
 
 export default function WorkbenchResources({
   compact = false,
+  collapsible = false,
+  defaultExpanded = true,
 }: WorkbenchResourcesProps) {
-  return (
-    <section
-      id="resources"
-      className="workbench-resources"
-      data-compact={compact ? 'true' : undefined}
-      aria-labelledby="workbench-resources-title"
+  const contentId = useId();
+  const [expanded, setExpanded] = useState(
+    () =>
+      !collapsible ||
+      defaultExpanded ||
+      (typeof window !== 'undefined' && window.location.hash === '#resources'),
+  );
+
+  // Several reference links intentionally target /observatory/workbench#resources.
+  // Opening the index before the browser scrolls there keeps that destination
+  // useful without making the workbench default to a long reference section.
+  useEffect(() => {
+    if (!collapsible) return undefined;
+
+    const revealForResourceHash = () => {
+      if (window.location.hash === '#resources') {
+        setExpanded(true);
+      }
+    };
+
+    revealForResourceHash();
+    window.addEventListener('hashchange', revealForResourceHash);
+    return () => window.removeEventListener('hashchange', revealForResourceHash);
+  }, [collapsible]);
+
+  const content = (
+    <div
+      id={contentId}
+      className="workbench-resources-content"
+      hidden={collapsible && !expanded}
     >
       <header className="workbench-resources-heading">
         <div>
@@ -183,6 +217,42 @@ export default function WorkbenchResources({
           </section>
         ))}
       </div>
+    </div>
+  );
+
+  return (
+    <section
+      id="resources"
+      className="workbench-resources"
+      data-compact={compact ? 'true' : undefined}
+      data-collapsible={collapsible ? 'true' : undefined}
+      aria-label={collapsible ? 'Reference views' : undefined}
+      aria-labelledby={collapsible ? undefined : 'workbench-resources-title'}
+    >
+      {collapsible ? (
+        <div className="workbench-resources-disclosure">
+          <button
+            type="button"
+            className="workbench-resources-disclosure-button"
+            aria-expanded={expanded}
+            aria-controls={contentId}
+            onClick={() => setExpanded((current) => !current)}
+          >
+            <span className="workbench-resources-disclosure-copy">
+              <strong>
+                {expanded ? 'Hide reference views' : 'Explore reference views'}
+              </strong>
+              <ChevronDown
+                size={14}
+                strokeWidth={1.8}
+                aria-hidden="true"
+                data-expanded={expanded ? 'true' : undefined}
+              />
+            </span>
+          </button>
+        </div>
+      ) : null}
+      {content}
     </section>
   );
 }

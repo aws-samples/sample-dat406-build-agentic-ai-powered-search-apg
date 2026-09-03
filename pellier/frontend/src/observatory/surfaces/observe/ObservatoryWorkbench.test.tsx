@@ -197,6 +197,14 @@ describe('Pellier Observatory live agent workbench', () => {
       screen.getByText('Grounded products from this turn will appear here.'),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Captured SQL')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Explore reference views/i }),
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Telemetry from the running system',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('anchors guided requests without changing the active shopper scenario', async () => {
@@ -280,6 +288,9 @@ describe('Pellier Observatory live agent workbench', () => {
         'Select a guided request to populate the live trace.',
       ),
     ).toBeInTheDocument();
+    expect(
+      tracePanel(container).querySelector('.observatory-ledger-scroll'),
+    ).toHaveAttribute('data-idle', 'true');
     expect(
       container.querySelectorAll('.observatory-trace-node'),
     ).toHaveLength(7);
