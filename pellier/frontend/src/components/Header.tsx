@@ -16,25 +16,24 @@
  * Copy comes from `copy.ts`. Design tokens from `design/tokens.ts` and
  * Tailwind extended config.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCart } from '../contexts/CartContext'
-import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
+import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
 import { NAV } from '../copy'
 import { Avatar } from '../design/primitives'
 import { getPersonaPhoto } from '../data/personaPhotos'
 import { IconButton } from '../design/primitives'
 import PersonaModal from './PersonaModal'
-import { ConciergeBell,
+import {
   Search,
   ShoppingBag,
   User as UserIcon,
   ChevronDown,
   Menu,
   X,
-  Telescope,
 } from 'lucide-react'
 
 // Keep old NavItem values for backward compatibility with consuming pages,
@@ -140,7 +139,7 @@ function ObservatoryLink({
       data-testid={mobile ? 'observatory-link-mobile' : 'observatory-link'}
       onClick={onClick}
       className={[
-        'items-center gap-2 text-[13px] font-medium text-espresso',
+        'items-center gap-1.5 text-[12px] font-medium text-ink-quiet',
         'transition-colors duration-fade ease-out hover:text-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         mobile
@@ -149,7 +148,6 @@ function ObservatoryLink({
       ].join(' ')}
       style={{ fontFamily: 'var(--sans)' }}
     >
-      <Telescope className="h-4 w-4" strokeWidth={1.8} aria-hidden />
       <span>{NAV.OBSERVATORY}</span>
       {/* The badge is part of the link's accessible name on purpose: a screen
           reader should hear "Pellier Observatory, Optional" rather than a bare
@@ -181,7 +179,7 @@ function OperatorLink({
       data-testid={mobile ? 'operator-link-mobile' : 'operator-link'}
       onClick={onClick}
       className={[
-        'items-center gap-2 text-[13px] font-medium text-espresso',
+        'items-center gap-1.5 text-[12px] font-medium text-ink-quiet',
         'transition-colors duration-fade ease-out hover:text-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         mobile
@@ -190,7 +188,6 @@ function OperatorLink({
       ].join(' ')}
       style={{ fontFamily: 'var(--sans)' }}
     >
-      <ConciergeBell className="h-4 w-4" strokeWidth={1.8} aria-hidden />
       <span>{NAV.OPERATOR}</span>
       {/* Deliberately no "Optional" badge. The Observatory carries one because
           it is an inspection surface nothing depends on; the operator desk is
@@ -203,77 +200,18 @@ function OperatorLink({
 // Signed-out persona menu
 // ---------------------------------------------------------------------------
 
-function SignedOutPersonaDropdown() {
-  const { switchPersona, switching } = usePersona()
+function SignedOutPersonaTrigger() {
+  // The signed-out pill used to open a compact dropdown of the three
+  // personas, a second chooser beside the modal the active-persona pill
+  // already opens. Both now open the same three-card modal, so the choice
+  // is made in one place with the same portraits and copy.
   const [open, setOpen] = useState(false)
-  const [personas, setPersonas] = useState<PersonaListItem[]>([])
-  const [fetched, setFetched] = useState(false)
-  const [personaError, setPersonaError] = useState<string | null>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const reduceMotion = Boolean(useReducedMotion())
-
-  // Fetch persona list on first open
-  useEffect(() => {
-    if (!open || fetched) return
-    fetch('/api/observatory/personas')
-      .then((r) => {
-        if (!r.ok) throw new Error(`Live personas unavailable: ${r.status}`)
-        return r.json()
-      })
-      .then((data) => {
-        const list = Array.isArray(data) ? data : []
-        // Remove Fresh — signed-out state IS the baseline.
-        // Only show Marco, Anna, Theo as selectable personas.
-        const withoutFresh = list.filter((p: { id: string }) => p.id !== 'fresh')
-        setPersonas(withoutFresh)
-        setFetched(true)
-      })
-      .catch((error: unknown) => {
-        setPersonas([])
-        setPersonaError(error instanceof Error ? error.message : 'Live personas unavailable.')
-        setFetched(true)
-      })
-  }, [open, fetched])
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [open])
-
-  const handleSelect = useCallback(
-    async (id: string) => {
-      await switchPersona(id)
-      setOpen(false)
-    },
-    [switchPersona],
-  )
 
   return (
-    <div ref={dropdownRef} className="relative">
-      {/* Trigger */}
+    <>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => setOpen(true)}
         data-testid="persona-pill"
         className={[
           'pellier-account-pill',
@@ -282,101 +220,14 @@ function SignedOutPersonaDropdown() {
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         ].join(' ')}
         style={{ padding: '7px 14px' }}
+        aria-haspopup="dialog"
         aria-expanded={open}
-        aria-haspopup="menu"
       >
         <UserIcon className="w-4 h-4" aria-hidden />
         <span style={{ fontFamily: 'var(--sans)' }}>Sign in</span>
       </button>
-
-      {/* Dropdown */}
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.div
-            data-testid="persona-dropdown"
-            className={[
-              'absolute right-0 top-full mt-2 z-50',
-              'bg-cream-50 border border-sand rounded-lg shadow-warm-md',
-              'min-w-[240px] py-2',
-            ].join(' ')}
-            role="menu"
-            aria-label="Persona menu"
-            initial={
-              reduceMotion
-                ? { opacity: 0 }
-                : { opacity: 0, transform: 'translateY(-4px) scale(0.98)' }
-            }
-            animate={
-              reduceMotion
-                ? { opacity: 1 }
-                : { opacity: 1, transform: 'translateY(0) scale(1)' }
-            }
-            exit={
-              reduceMotion
-                ? { opacity: 0 }
-                : { opacity: 0, transform: 'translateY(-4px) scale(0.98)' }
-            }
-            transition={{
-              duration: reduceMotion ? 0.12 : 0.18,
-              ease: MENU_EASE,
-            }}
-            style={{ transformOrigin: 'top right' }}
-          >
-            {!fetched && personas.length === 0 && (
-              <div
-                className="px-4 py-2.5 text-ink-soft text-[12px]"
-                style={{ fontFamily: 'var(--sans)' }}
-                aria-live="polite"
-              >
-                Loading personas…
-              </div>
-            )}
-            {personaError ? (
-              <p className="px-4 py-3 text-sm text-ink-quiet">
-                {personaError}
-              </p>
-            ) : null}
-            {personas.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                role="menuitem"
-                disabled={switching}
-                data-testid={`persona-option-${p.id}`}
-                onClick={() => handleSelect(p.id)}
-                className={[
-                  'w-full flex items-center gap-3 py-2.5 text-left border-l-[3px] transition-colors duration-fade ease-out',
-                  'hover:bg-sand/50 cursor-pointer',
-                  'focus-visible:outline-none focus-visible:bg-sand/50',
-                  'border-transparent pl-[13px] pr-4',
-                ].join(' ')}
-              >
-                <Avatar
-                  initial={p.avatar_initial}
-                  bgColor={p.avatar_color}
-                  photoUrl={getPersonaPhoto(p.id)}
-                  size="sm"
-                />
-                <div className="flex flex-col min-w-0">
-                  <span
-                    className="text-espresso text-[13px] font-medium truncate"
-                    style={{ fontFamily: 'var(--sans)' }}
-                  >
-                    {p.display_name}
-                  </span>
-                  <span
-                    className="text-ink-soft text-[11px] truncate"
-                    style={{ fontFamily: 'var(--sans)' }}
-                  >
-                    {p.role_tag}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+      <PersonaModal open={open} onClose={() => setOpen(false)} />
+    </>
   )
 }
 
@@ -440,7 +291,7 @@ function PersonaAccountControl() {
   return persona ? (
     <AuthenticatedPersonaTrigger />
   ) : (
-    <SignedOutPersonaDropdown />
+    <SignedOutPersonaTrigger />
   )
 }
 

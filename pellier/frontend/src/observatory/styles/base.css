@@ -73,10 +73,13 @@
      inherit — three different reds rendered on one surface before this. */
   --obs-red-1: #70232e;
   --obs-red-soft: #f3e9eb;
-  /* Operational pages use the sans register at every hierarchy level.
-     Storefront display typography remains unchanged outside this scope. */
-  --display: var(--sans);
-  --obs-display: var(--sans);
+  /* `--display` and `--obs-display` are deliberately NOT remapped here. The
+     comment above already documents the two-register system: Fraunces carries
+     the one page-level title per screen (`.observatory-page-title`,
+     `.font-display`), Instrument Sans carries every operational heading, label
+     and control through `--obs-heading`. Remapping the display tokens to sans
+     made the restore rule below read an already-sans variable, so no title on
+     the surface ever rendered in the display face. */
   --obs-serif: var(--sans);
   --obs-card-bg: var(--obs-panel);
   --obs-card-border: var(--obs-rule-1);

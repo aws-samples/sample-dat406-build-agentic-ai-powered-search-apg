@@ -20,6 +20,7 @@ import { asset } from '../utils/assetPath'
 import { splitHeadlineAtAccent } from '../utils/headlineAccent'
 import { HERO_STATEMENT } from '../copy'
 import PersonaConcierge from './PersonaConcierge'
+import { useSpotlightSeen } from './PellierSpotlight'
 import ResponsiveImage from './ResponsiveImage'
 
 interface LiveScenario {
@@ -82,6 +83,7 @@ interface PellierHeroProps {
 export default function PellierHero({
   onBrowseCollection,
 }: PellierHeroProps) {
+  const spotlightSeen = useSpotlightSeen()
   const { openDrawerWithQuery } = useUI()
   const { persona } = usePersona()
   const [searchValue, setSearchValue] = useState('')
@@ -306,7 +308,10 @@ export default function PellierHero({
           )}
         </div>
 
-        <PersonaConcierge />
+        {/* The chooser is the tour's job on a first visit. Once the tour has
+            run, the header pill carries the persona choice and this card
+            retires rather than asking the same question a third time. */}
+        {spotlightSeen ? null : <PersonaConcierge />}
       </div>
     </section>
   )

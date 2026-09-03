@@ -329,7 +329,7 @@ export default function ProductDetailPage() {
                 </p>
                 <h1
                   data-testid="product-detail-name"
-                  className="mt-2 font-display text-espresso"
+                  className="mt-2 font-display pellier-product-title text-espresso"
                   style={{ fontSize: 'clamp(30px, 3.6vw, 48px)', lineHeight: 1.1 }}
                 >
                   {view.name}
@@ -456,17 +456,17 @@ export default function ProductDetailPage() {
                     data-testid="product-detail-signals"
                     className="mt-3 flex flex-wrap gap-1.5"
                   >
-                    {/* `labelMode="tool"` prints the raw signal. The
-                        friendly `label` mode resolves every `tag.match`
-                        entry to the same vocabulary label, which would
-                        render four identical chips and hide the tags
-                        that make them worth showing. */}
+                    {/* `signal` prints the tag itself. The friendly `label`
+                        mode resolves every `tag.match` entry to the same
+                        vocabulary label, which would render four identical
+                        chips; `tool` mode prints the internal signal name,
+                        which belongs in the Observatory, not on a piece. */}
                     {signals.map(signal => (
                       <TraceChip
                         key={signal}
                         tool={signal}
                         variant="provenance"
-                        labelMode="tool"
+                        labelMode="signal"
                         compact
                       />
                     ))}

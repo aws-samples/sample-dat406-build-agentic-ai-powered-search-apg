@@ -20,7 +20,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { EditorialTitle, ExpCard } from '../../components';
 import { useSearchExplain } from '../../hooks/useSearchExplain';
 import type { SearchStage, SearchTagClass } from '../../types';
@@ -404,7 +404,12 @@ const CodeReadCard: React.FC = () => (
 const Search: React.FC = () => {
   const { stages, params, query, loading, error, durationMs, explain } =
     useSearchExplain();
-  const [input, setInput] = useState(DEFAULT_QUERY);
+  // A turn can hand its own query here (`?q=`), so "trace this retrieval"
+  // opens the pipeline on the exact text the shopper sent instead of the
+  // default example.
+  const [searchParams] = useSearchParams();
+  const handedQuery = (searchParams.get('q') ?? '').trim();
+  const [input, setInput] = useState(handedQuery || DEFAULT_QUERY);
   // Tracks whether the participant has run a query themselves. We auto-fire
   // the default query on mount so the surface is never empty, but if that
   // auto-run fails (e.g. the backend is still warming up at page-open) we
@@ -412,9 +417,10 @@ const Search: React.FC = () => {
   // for something the participant did not trigger.
   const [hasRunManually, setHasRunManually] = useState(false);
 
-  // Run the default query once on mount so the surface is never empty.
+  // Run once on mount so the surface is never empty: the handed query when a
+  // turn linked here, the default example otherwise.
   useEffect(() => {
-    explain(DEFAULT_QUERY);
+    explain(handedQuery || DEFAULT_QUERY);
   }, []);
 
   const handleSubmit = useCallback(

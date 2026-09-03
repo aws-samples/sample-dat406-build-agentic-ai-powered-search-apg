@@ -417,6 +417,9 @@ const ToolAuditCard: React.FC = () => {
                   args
                 </th>
                 <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
+                  result
+                </th>
+                <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
                   latency_ms
                 </th>
                 <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
@@ -448,6 +451,24 @@ const ToolAuditCard: React.FC = () => {
                     title={JSON.stringify(r.args)}
                   >
                     <code style={DARK_INLINE_CODE}>{JSON.stringify(r.args)}</code>
+                  </td>
+                  <td
+                    style={{
+                      padding: '6px 8px',
+                      borderBottom: '1px solid var(--obs-card-border)',
+                      maxWidth: '320px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap' as const,
+                    }}
+                    title={r.result === null ? 'No result recorded' : JSON.stringify(r.result)}
+                    data-testid="tool-audit-result"
+                  >
+                    {r.result === null ? (
+                      '–'
+                    ) : (
+                      <code style={DARK_INLINE_CODE}>{JSON.stringify(r.result)}</code>
+                    )}
                   </td>
                   <td style={{ padding: '6px 8px', borderBottom: '1px solid var(--obs-card-border)' }}>
                     {r.latency_ms ?? '–'}

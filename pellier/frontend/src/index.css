@@ -254,6 +254,16 @@
     letter-spacing: 0;
   }
 
+  /* The piece's name is the one headline on the detail page that keeps the
+     storefront's display voice, matching the home hero. Card names and chips
+     stay in the sans register. Declared after the reset above at equal
+     specificity so source order decides. */
+  .pellier-page-surface .pellier-product-title {
+    font-family: var(--display);
+    font-style: normal;
+    letter-spacing: -0.02em;
+  }
+
   html {
     scroll-behavior: smooth;
   }

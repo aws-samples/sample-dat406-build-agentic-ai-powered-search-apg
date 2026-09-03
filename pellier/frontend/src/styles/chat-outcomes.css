@@ -89,6 +89,12 @@
   background: rgba(239, 237, 232, 0.78);
 }
 
+/* A build state is expected, not a fault: olive-neutral, no alarm tint. */
+.chat-failure--workshop_build_required {
+  border-color: rgba(107, 112, 92, 0.28);
+  background: rgba(240, 238, 229, 0.8);
+}
+
 .chat-failure__icon {
   width: 32px;
   height: 32px;
@@ -98,6 +104,11 @@
   border-radius: 50%;
   background: rgba(135, 72, 48, 0.1);
   color: var(--red-1, #9a3412);
+}
+
+.chat-failure--workshop_build_required .chat-failure__icon {
+  background: rgba(107, 112, 92, 0.12);
+  color: var(--green-1, #4f6f5a);
 }
 
 .chat-failure--policy_denied .chat-failure__icon {

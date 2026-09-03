@@ -246,7 +246,7 @@
   min-height: 44px;
   padding: 9px 16px;
   border-color: var(--input-border);
-  border-radius: 999px;
+  border-radius: 4px;
   background: transparent;
   color: var(--op-ink);
   font-size: 13.5px;
@@ -1345,6 +1345,11 @@
 }
 
 .operator-state-signin {
+  /* A block-level control so it always sits on its own line under the
+     sentence; auto margins on an inline-flex button did nothing and the pill
+     shared a line with the prose on phones. */
+  display: flex;
+  width: max-content;
   margin: 18px auto 0;
 }
 
@@ -1596,6 +1601,34 @@
   color: var(--op-muted);
 }
 
+.operator-review-state-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.operator-review-outcome-glyph {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+  flex: none;
+}
+
+/* Outcome roles, derived from the assurance axes. Green is verified positive
+   state, red is blocked; the glyph and the word carry the distinction for
+   anyone who cannot rely on colour. */
+.operator-review-state[data-outcome='executed'] {
+  color: var(--op-verified, #3f6212);
+}
+
+.operator-review-state[data-outcome='refused'] {
+  color: var(--op-blocked, #991b1b);
+}
+
+.operator-review-state[data-outcome='approved'] {
+  color: var(--op-caution, #b45309);
+}
+
 .operator-review-open {
   width: 17px;
   height: 17px;
@@ -1633,23 +1666,30 @@
   grid-row: 4;
 }
 
-.operator-review-record-layout:has(.operator-review-handoff-card)
-  > .operator-review-context-card,
-.operator-review-record-layout:has(.operator-review-handoff-card)
-  > .operator-review-recommendation-card {
-  grid-row: 5;
-}
+/* Desktop-only row assignments. The `:has()` selectors below carry more
+   specificity than the single-column reset in the 860px media block, so
+   without this guard they survived into the phone layout and stacked the
+   action and decision cards on the same grid row: the proposed action's
+   parameter table rendered underneath the decision buttons. */
+@media (min-width: 861px) {
+  .operator-review-record-layout:has(.operator-review-handoff-card)
+    > .operator-review-context-card,
+  .operator-review-record-layout:has(.operator-review-handoff-card)
+    > .operator-review-recommendation-card {
+    grid-row: 5;
+  }
 
-.operator-review-record-layout:has(.operator-review-handoff-card)
-  > .operator-review-order-card {
-  grid-row: 6;
-}
+  .operator-review-record-layout:has(.operator-review-handoff-card)
+    > .operator-review-order-card {
+    grid-row: 6;
+  }
 
-.operator-review-record-layout:has(.operator-review-handoff-card)
-  > .operator-review-action-card,
-.operator-review-record-layout:has(.operator-review-handoff-card)
-  > .operator-review-decision-card {
-  grid-row: 7;
+  .operator-review-record-layout:has(.operator-review-handoff-card)
+    > .operator-review-action-card,
+  .operator-review-record-layout:has(.operator-review-handoff-card)
+    > .operator-review-decision-card {
+    grid-row: 7;
+  }
 }
 
 .operator-review-record-layout > .operator-review-recommendation-card {

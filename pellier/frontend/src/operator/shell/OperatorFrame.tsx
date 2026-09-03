@@ -20,13 +20,29 @@ import React, {
   useState,
 } from 'react'
 import { ClipboardCheck, LogOut, User, UsersRound } from 'lucide-react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import PellierHomeLink from '../../components/PellierHomeLink'
 import { useAuth } from '../../contexts/AuthContext'
 import { fetchReviewQueue, OperatorApiError } from '../../services/operator'
 import '../styles/operator.css'
 
 const OperatorQueueRefreshContext = createContext<() => void>(() => undefined)
+
+/**
+ * Tab, history and bookmark titles for each desk route. Every route used to
+ * inherit the storefront's title from index.html, so an operator with the
+ * storefront, the desk and the Observatory open could not tell the tabs apart.
+ */
+const ROUTE_TITLES: ReadonlyArray<[prefix: string, title: string]> = [
+  ['/operator/clients/', 'Client'],
+  ['/operator/reviews/', 'Review'],
+  ['/operator/reviews', 'Action Queue'],
+]
+
+export function operatorTitleForPath(pathname: string): string {
+  const match = ROUTE_TITLES.find(([prefix]) => pathname.startsWith(prefix))
+  return `${match ? match[1] : 'Clients'} · Pellier Operator`
+}
 
 /**
  * Invalidates the shell's queue count after a nested route changes a review.
@@ -153,7 +169,7 @@ const OperatorAuthControl: React.FC = () => {
   return (
     <button
       type="button"
-      className="operator-auth-control operator-auth-signin pellier-account-pill"
+      className="operator-auth-control operator-auth-signin"
       onClick={login}
       data-testid="operator-sign-in"
     >
@@ -164,7 +180,15 @@ const OperatorAuthControl: React.FC = () => {
 }
 
 const OperatorFrame: React.FC = () => {
+  const { pathname } = useLocation()
   const [queueRefreshRevision, setQueueRefreshRevision] = useState(0)
+  useEffect(() => {
+    const previous = document.title
+    document.title = operatorTitleForPath(pathname)
+    return () => {
+      document.title = previous
+    }
+  }, [pathname])
   const refreshQueue = useCallback(() => {
     setQueueRefreshRevision((revision) => revision + 1)
   }, [])

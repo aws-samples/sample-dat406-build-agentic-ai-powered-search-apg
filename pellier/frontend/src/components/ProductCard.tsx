@@ -325,17 +325,18 @@ export default function ProductCard({
                   className="flex flex-wrap gap-1.5"
                   aria-label="Recommendation signals"
                 >
-                  {/* `labelMode="tool"` prints the raw signal. The friendly
-                      `label` mode resolves every `tag.match` entry to one
-                      vocabulary label, so two chips citing different tags both
-                      read "Category match" — identical pills that hide the only
-                      information they carry. */}
+                  {/* `signal` prints the tag itself. The friendly `label`
+                      mode resolves every `tag.match` entry to one vocabulary
+                      label, so two chips citing different tags both read
+                      "Category match"; `tool` mode prints the internal signal
+                      name, which is provenance for the Observatory, not for a
+                      shopper. */}
                   {traceChips.map((trace) => (
                     <TraceChip
                       key={trace}
                       tool={trace}
                       variant="provenance"
-                      labelMode="tool"
+                      labelMode="signal"
                       compact
                     />
                   ))}

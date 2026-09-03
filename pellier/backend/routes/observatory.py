@@ -1303,7 +1303,7 @@ async def get_session(
             dict(row)
             for row in await db.fetch_all(
                 """
-                SELECT tool, caller, latency_ms, result, created_at
+                SELECT tool, caller, args, latency_ms, result, created_at
                   FROM pellier.tool_audit
                  WHERE session_id = %s
                  ORDER BY created_at ASC, audit_id ASC
@@ -1365,7 +1365,14 @@ async def get_session(
                     "status": "succeeded",
                     "durationMs": int(row.get("latency_ms") or 0),
                     "agent": row["caller"],
-                    "rows": [row.get("result") or {}],
+                    # Input and output together: the replay shows the exact
+                    # arguments the tool ran with, not only what came back.
+                    "rows": [
+                        {
+                            "args": row.get("args") or {},
+                            "result": row.get("result") or {},
+                        }
+                    ],
                     "eventKind": "tool",
                     "phase": "execution",
                     "provenance": "aurora-receipt",

@@ -310,7 +310,8 @@ describe('OperatorFrame review link', () => {
 
     await screen.findByTestId('operator-reviews-count')
     const signIn = screen.getByTestId('operator-sign-in')
-    expect(signIn).toHaveClass('pellier-account-pill')
+    expect(signIn).toHaveClass('operator-auth-signin')
+    expect(signIn).not.toHaveClass('pellier-account-pill')
     fireEvent.click(signIn)
     expect(authMock.login).toHaveBeenCalledOnce()
   })

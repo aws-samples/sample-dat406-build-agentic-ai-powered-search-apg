@@ -129,9 +129,9 @@ export const HERO_CONCIERGE = {
    * Theo" would draw exactly the wrong conclusion from a later DENY.
    */
   IDENTITY_BOUNDARY:
-    "Choosing Marco, Anna, or Theo changes the workshop scenario. It does not " +
-    "authenticate you as that customer. Governed actions use a separately " +
-    "verified Cognito identity.",
+    "Choosing Marco, Anna, or Theo changes the shopping scenario. It does not " +
+    "sign you in as that customer. Actions on an account use a separately " +
+    "verified sign-in.",
   /**
    * One line per profile, and each must match that persona's actual
    * curation. The mockup carried generic luxury copy which contradicted the
@@ -298,15 +298,15 @@ export const PRODUCT_DETAIL = {
   askQuestion: (name: string): string => `Tell me about the ${name}.`,
   DESCRIPTION_HEADING: "About this piece",
   DESCRIPTION_UNAVAILABLE:
-    "Catalog copy for this piece is served from Aurora and was not reachable.",
+    "Notes for this piece could not be read just now.",
   AVAILABILITY_HEADING: "Availability",
-  AVAILABILITY_SOURCE: "Live from Aurora",
+  AVAILABILITY_SOURCE: "Checked just now",
   AVAILABILITY_READING: "Reading inventory",
   AVAILABILITY_UNAVAILABLE:
     "Inventory was not read for this piece, so no stock figure is shown.",
   ON_HAND_LABEL: "units on hand",
   WAREHOUSE_CAPTION:
-    "Per-warehouse counts, the same rows the Inventory Agent reads.",
+    "Counts by warehouse at the moment this page was read.",
   WAREHOUSE_EMPTY: "No warehouse holds this piece right now.",
   shipWindow: (min: number, max: number): string =>
     min === max ? `Ships in ${min} days` : `Ships in ${min} to ${max} days`,
@@ -822,6 +822,16 @@ export const CHAT_FAILURES = {
     eyebrow: "Request paused",
     title: "Pellier could not complete that request.",
     body: "Try again, or adjust the wording while keeping the rest of the conversation.",
+  },
+  /** An expected build state, not an error: the capability this request
+   * needs is left unbuilt on purpose until a lab step lands. The card stays
+   * quiet and in the shopper's voice; the reference code beneath it is the
+   * participant's pointer to the build step, and nothing here claims a tool
+   * ran. */
+  workshop_build_required: {
+    eyebrow: "Still being set up",
+    title: "Pellier cannot answer this one yet.",
+    body: "The part of the boutique that checks this is not finished. Nothing was changed, and a stylist can confirm it for you in the meantime.",
   },
   TRY_AGAIN: "Try again",
   EDIT_REQUEST: "Edit request",

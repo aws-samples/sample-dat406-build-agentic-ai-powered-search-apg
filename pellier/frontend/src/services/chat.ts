@@ -16,6 +16,7 @@ export const CHAT_ERROR_CODES = [
   'stream_interrupted',
   'network_error',
   'request_failed',
+  'workshop_build_required',
 ] as const
 
 export type ChatErrorCode = (typeof CHAT_ERROR_CODES)[number]
@@ -48,9 +49,12 @@ export class ChatServiceError extends Error {
 }
 
 function isRetryableCode(code: ChatErrorCode): boolean {
-  return !['policy_denied', 'authentication_required', 'invalid_request'].includes(
-    code,
-  )
+  return ![
+    'policy_denied',
+    'authentication_required',
+    'invalid_request',
+    'workshop_build_required',
+  ].includes(code)
 }
 
 function isChatErrorCode(value: unknown): value is ChatErrorCode {
@@ -408,6 +412,23 @@ export async function sendChatMessageStreaming(
       onUpdate(data)
       if (data.type === 'error') {
         streamError = errorFromStreamEvent(data)
+        return
+      }
+      if (data.type === 'build_required') {
+        // An expected workshop state, sent outside the error channel so the
+        // stream completes cleanly. The storefront still treats it as a
+        // terminal outcome with its own card: the participant wording in
+        // `message` is never rendered to a shopper, and the backend's code
+        // travels as the reference so the lab guide can name it.
+        streamError = new ChatServiceError(
+          messageFromPayload(data) || 'This capability is not built yet.',
+          {
+            code: 'workshop_build_required',
+            retryable: false,
+            referenceId:
+              typeof data.code === 'string' ? data.code : 'workshop_build_required',
+          },
+        )
         return
       }
 

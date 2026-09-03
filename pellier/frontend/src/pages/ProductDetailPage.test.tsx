@@ -351,6 +351,19 @@ describe('ProductDetailPage — Aurora layer', () => {
     // vocabulary label, which rendered four identical chips.
     expect(new Set(labels).size).toBe(labels.length)
     expect(labels[0]).toContain(SUBJECT.tags[0])
+    // A shopper reads the tag itself, never the catalog signal's internal name.
+    expect(labels.join(' ')).not.toContain('tag.match')
+  })
+
+  it('sets the piece name in the editorial display voice', async () => {
+    stubFetch(() => jsonResponse(detailPayload()))
+
+    renderAt(`/product/${SUBJECT.id}`)
+
+    const name = await screen.findByTestId('product-detail-name')
+    // index.css forces `.font-display` to sans on every Pellier surface; the
+    // product title opts back into Fraunces through its own class.
+    expect(name).toHaveClass('pellier-product-title')
   })
 
   it('requests the piece by its catalog id', async () => {

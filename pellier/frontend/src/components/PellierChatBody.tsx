@@ -348,11 +348,13 @@ function AgentMessage({
   const loadedSkills = message.skillRouting?.loaded_skills ?? []
   const sourceActivity = message.sourceActivity ?? []
   const traceReference = message.agentExecution?.trace_id ?? undefined
+  // A failed turn has no match to detail: the failure card is the whole story.
   const hasAttribution =
-    sourceActivity.length > 0 ||
-    loadedSkills.length > 0 ||
-    dedupedToolCalls.length > 0 ||
-    !!traceReference
+    !message.failure &&
+    (sourceActivity.length > 0 ||
+      loadedSkills.length > 0 ||
+      dedupedToolCalls.length > 0 ||
+      !!traceReference)
   const attributionSummary = [
     sourceActivity.length > 0
       ? `${sourceActivity.length} ${sourceActivity.length === 1 ? 'source' : 'sources'}`

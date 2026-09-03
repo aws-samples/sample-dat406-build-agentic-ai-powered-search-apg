@@ -55,6 +55,33 @@ interface StatCardProps {
   detail: string;
 }
 
+/**
+ * Names a panel whose backing array is empty instead of drawing an empty
+ * chart. Evaluations already distinguishes "unavailable" from a zero; this
+ * keeps Performance on the same honesty contract when the endpoint returns
+ * samples without the per-panel breakdowns (the live shape during the audit).
+ */
+const UnrecordedPanel: React.FC<{ label: string; panel: string }> = ({ label, panel }) => (
+  <ExpCard>
+    <Eyebrow label={label} variant="muted" />
+    <p
+      data-testid="performance-panel-unrecorded"
+      data-panel={panel}
+      style={{
+        marginTop: '12px',
+        fontFamily: 'var(--obs-sans)',
+        fontSize: '14px',
+        lineHeight: 1.5,
+        color: 'var(--obs-ink-3)',
+        maxWidth: '52ch',
+      }}
+    >
+      Not recorded in this window. Run a benchmark from the measure controls
+      below to populate it.
+    </p>
+  </ExpCard>
+);
+
 const StatCard: React.FC<StatCardProps> = ({ label, value, unit, detail }) => (
   <ExpCard>
     <Eyebrow label={label} variant="muted" />
@@ -1835,12 +1862,31 @@ const Performance: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Stat cards row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <StatCard
-              label="P50 cold start"
-              value={formatMs(data.coldStartP50)}
-              unit="median"
-              detail={`${data.sampleCount} samples · bimodal distribution`}
-            />
+            {data.coldStartP50 > 0 ? (
+              <StatCard
+                label="P50 cold start"
+                value={formatMs(data.coldStartP50)}
+                unit="median"
+                detail={`${data.sampleCount} samples · bimodal distribution`}
+              />
+            ) : (
+              <ExpCard>
+                <Eyebrow label="P50 cold start" variant="muted" />
+                <p
+                  data-testid="performance-stat-cold-start"
+                  style={{
+                    marginTop: '14px',
+                    fontFamily: 'var(--obs-sans)',
+                    fontSize: '14px',
+                    lineHeight: 1.5,
+                    color: 'var(--obs-ink-3)',
+                  }}
+                >
+                  No cold starts recorded in this window. A zero here would
+                  be a fabricated median, not a measurement.
+                </p>
+              </ExpCard>
+            )}
             <StatCard
               label="P50 warm reuse"
               value={formatMs(data.warmReuseP50)}
@@ -1850,13 +1896,25 @@ const Performance: React.FC = () => {
           </div>
 
           {/* Cold start histogram */}
-          <ColdStartHistogram histogram={data.histogram} />
+          {data.histogram.length > 0 ? (
+            <ColdStartHistogram histogram={data.histogram} />
+          ) : (
+            <UnrecordedPanel label="Cold start distribution" panel="cold-start-distribution" />
+          )}
 
           {/* Latency budget table */}
-          <LatencyBudgetTable budget={data.latencyBudget} />
+          {data.latencyBudget.length > 0 ? (
+            <LatencyBudgetTable budget={data.latencyBudget} />
+          ) : (
+            <UnrecordedPanel label="Per-panel latency · p50 / budget" panel="latency-budget" />
+          )}
 
           {/* pgvector comparison table */}
-          <PgvectorComparison strategies={data.pgvectorComparison} />
+          {data.pgvectorComparison.length > 0 ? (
+            <PgvectorComparison strategies={data.pgvectorComparison} />
+          ) : (
+            <UnrecordedPanel label="pgvector index comparison" panel="pgvector-comparison" />
+          )}
 
           {/* Production pgvector knobs — iterative scans and vector
               representation tradeoffs. */}
@@ -1873,7 +1931,11 @@ const Performance: React.FC = () => {
           )}
 
           {/* Storage usage bars */}
-          <StorageUsageBars usage={data.storageUsage} />
+          {data.storageUsage.length > 0 ? (
+            <StorageUsageBars usage={data.storageUsage} />
+          ) : (
+            <UnrecordedPanel label="Storage usage" panel="storage-usage" />
+          )}
 
           {/* Measure controls */}
           <MeasureControls

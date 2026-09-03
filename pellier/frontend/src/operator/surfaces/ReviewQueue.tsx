@@ -12,7 +12,7 @@
  */
 
 import React, { useEffect, useState } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, CircleCheck, CircleDashed, CircleMinus, Clock3, ShieldX } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   fetchReviewQueue,
@@ -65,6 +65,46 @@ export function relativeTime(iso: string | null, now: Date = new Date()): string
  * The axes come from the API, which resolves them from the stored execution receipt.
  * Nothing is inferred here.
  */
+/**
+ * Coarse outcome for a queue row, derived from the assurance axes rather than
+ * the human state alone. A DENY that never entered the tool and a write that
+ * reached Aurora both used to render "Confirmed" and differ only in a small
+ * grey sentence; the row now carries the distinction as an attribute the
+ * stylesheet and an icon can read.
+ */
+const OutcomeGlyph: React.FC<{ kind: ReviewOutcomeKind }> = ({ kind }) => {
+  const Icon =
+    kind === 'executed'
+      ? CircleCheck
+      : kind === 'refused'
+        ? ShieldX
+        : kind === 'declined'
+          ? CircleMinus
+          : kind === 'approved'
+            ? CircleDashed
+            : Clock3
+  return <Icon className="operator-review-outcome-glyph" aria-hidden />
+}
+
+export type ReviewOutcomeKind =
+  | 'pending'
+  | 'declined'
+  | 'approved'
+  | 'refused'
+  | 'executed'
+
+export function outcomeKind(review: OperatorReview): ReviewOutcomeKind {
+  if (review.humanState === 'confirmation_required') return 'pending'
+  if (review.humanState === 'declined') return 'declined'
+  if (!review.execution) return 'approved'
+  const { policy, aurora } = review.assurance
+  if (policy === 'DENY' || policy === 'WOULD_DENY' || aurora === 'DENIED') {
+    return 'refused'
+  }
+  if (aurora === 'PERMITTED') return 'executed'
+  return 'approved'
+}
+
 export function outcomeLine(review: OperatorReview): string {
   const action = actionLabel(review.action)
   if (review.humanState === 'confirmation_required') {
@@ -129,9 +169,16 @@ const ReviewCard: React.FC<{ review: OperatorReview }> = ({ review }) => {
           {outcomeLine(review)}
         </span>
       </span>
-      <span className="operator-review-state" data-state={review.humanState}>
+      <span
+        className="operator-review-state"
+        data-state={review.humanState}
+        data-outcome={outcomeKind(review)}
+      >
         <span className="operator-review-cell-label">Human decision</span>
-        <span>{humanState}</span>
+        <span className="operator-review-state-value">
+          <OutcomeGlyph kind={outcomeKind(review)} />
+          {humanState}
+        </span>
       </span>
       <ArrowUpRight className="operator-review-open" aria-hidden />
     </Link>

@@ -19,6 +19,8 @@ import {
 } from '../../components';
 import type { SessionOutletContext } from './SessionView';
 import type { ProductCard, TelemetryPanel } from '../../types';
+import { RetrievalReceipt } from '../../components/RetrievalReceipt';
+import { parseRetrievalReceipt } from '../../labs/retrievalReceipt';
 import { BEDROCK_INFERENCE_PROFILES } from '../../constants/bedrockModels';
 import { resolveProductImageUrl } from '../../../utils/resolveProductImageUrl';
 import {
@@ -505,8 +507,68 @@ const TimelinePanelCard: React.FC<TimelinePanelProps> = ({
             {highlightSQL(panel.sql)}
           </pre>
         )}
+
+        {/* Expanded details: the receipt fields the ledger attached to this
+            event. Retrieval and rerank events carry the candidate ranks and
+            scores; tool events carry the recorded args and result. The
+            backend has always sent these rows; the tab used to drop them. */}
+        {isActive ? <PanelDetails panel={panel} /> : null}
       </div>
     </div>
+  );
+};
+
+
+
+/** Keys a tool or evidence row carries that are worth printing verbatim. */
+const DETAIL_KEYS = ['args', 'result', 'caller', 'purpose', 'tool'] as const;
+
+const PanelDetails: React.FC<{ panel: TelemetryPanel }> = ({ panel }) => {
+  const row = panel.rows?.[0];
+  if (!row || typeof row !== 'object') return null;
+  if (panel.eventKind === 'retrieval' || panel.eventKind === 'rerank') {
+    const view = parseRetrievalReceipt(row as Record<string, unknown>);
+    if (!view) return null;
+    return (
+      <div className="observatory-root" style={{ marginTop: '12px' }}>
+        <RetrievalReceipt view={view} />
+      </div>
+    );
+  }
+  const entries = DETAIL_KEYS.filter((key) => {
+    const value = (row as Record<string, unknown>)[key];
+    if (value === null || value === undefined || value === '') return false;
+    if (typeof value === 'object' && Object.keys(value as object).length === 0) return false;
+    return true;
+  });
+  if (entries.length === 0) return null;
+  return (
+    <dl
+      data-testid="telemetry-panel-details"
+      style={{
+        marginTop: '12px',
+        display: 'grid',
+        gap: '6px 14px',
+        gridTemplateColumns: 'max-content minmax(0, 1fr)',
+        fontFamily: 'var(--obs-mono)',
+        fontSize: '12px',
+        color: 'var(--obs-ink-2)',
+      }}
+    >
+      {entries.map((key) => {
+        const value = (row as Record<string, unknown>)[key];
+        return (
+          <React.Fragment key={key}>
+            <dt style={{ color: 'var(--obs-ink-3)' }}>{key}</dt>
+            <dd style={{ margin: 0, overflowWrap: 'anywhere' }}>
+              <code>
+                {typeof value === 'string' ? value : JSON.stringify(value)}
+              </code>
+            </dd>
+          </React.Fragment>
+        );
+      })}
+    </dl>
   );
 };
 
@@ -1476,16 +1538,13 @@ const TelemetryTab: React.FC = () => {
 
   return (
     <div>
-      {/* Two-column layout: timeline + context rail */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '0',
-          alignItems: 'flex-start',
-        }}
-      >
+      {/* Two-column layout: timeline + context rail. The same classes ChatTab
+          uses, so the rail stacks under the timeline at the 1120px breakpoint
+          in base.css; the inline flex this replaced never stacked, and on a
+          phone the timeline collapsed to a 42px column. */}
+      <div className="observatory-session-replay-layout">
         {/* Left column — timeline */}
-        <div style={{ flex: 1, minWidth: 0, paddingRight: '24px' }}>
+        <div className="observatory-session-replay-main">
           <RoutingPatternIntro />
           <WorkshopBedrockProfilesStrip />
           <ModeStrip

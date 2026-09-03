@@ -44,11 +44,23 @@ _QUERY_SQL_BY_TURN = """
 """
 
 _RETRIEVAL_SQL_BY_TURN = """
-    SELECT receipt_id, vector_ranks, lexical_ranks, rrf_scores, rerank_scores,
-           merchandising_rules, memory_record_ids_used, latency_breakdown
+    SELECT receipt_id, query_preview, vector_ranks, lexical_ranks, rrf_scores,
+           rerank_scores, merchandising_rules, memory_record_ids_used,
+           latency_breakdown
       FROM pellier.retrieval_receipts
      WHERE turn_id = %s
        AND principal_sub = %s
+"""
+
+# Principal-scoped like the receipts above: an audit row is visible only
+# through the governed turn receipt that names its turn.
+_TOOL_AUDIT_SQL_BY_TURN = """
+    SELECT ta.audit_id, ta.args, ta.result
+      FROM pellier.tool_audit ta
+      JOIN pellier.governed_turn_receipts gtr
+        ON gtr.turn_id = ta.args->>'turn_id'
+     WHERE gtr.turn_id = %s
+       AND gtr.principal_sub = %s
 """
 
 _PHASE_ORDER = {
@@ -183,6 +195,7 @@ def _event(
     *,
     sql_by_receipt: Dict[str, str],
     retrieval_by_receipt: Dict[str, Dict[str, Any]],
+    tool_by_audit: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     kind = str(row.get("event_kind") or "response")
     source_kind = str(row.get("source_kind") or "unknown")
@@ -196,6 +209,11 @@ def _event(
         sql = sql_by_receipt.get(source_id)
     if source_kind == "retrieval_receipt":
         details.update(retrieval_by_receipt.get(source_id, {}))
+    if source_kind == "tool_audit" and tool_by_audit:
+        # The view's summary names the tool and caller only; the recorded
+        # input and output travel with the event so replay can show exactly
+        # what ran, not just that it ran.
+        details.update(tool_by_audit.get(source_id, {}))
     return {
         "sequence": 0,
         "eventKind": kind,
@@ -333,6 +351,27 @@ def _order(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return ordered
 
 
+async def _tool_details(
+    db: Any, *, turn_ids: List[str], principal_sub: str
+) -> Dict[str, Dict[str, Any]]:
+    """Recorded args and result per audit row, keyed by audit_id as text."""
+    tool_by_audit: Dict[str, Dict[str, Any]] = {}
+    for turn_id in turn_ids:
+        try:
+            rows = _rows(
+                await db.fetch_all(_TOOL_AUDIT_SQL_BY_TURN, turn_id, principal_sub)
+            )
+        except Exception as exc:  # pragma: no cover - degraded read keeps the ledger
+            logger.warning("tool audit detail read failed: %s", exc)
+            return {}
+        for row in rows:
+            tool_by_audit[str(row.get("audit_id"))] = {
+                "args": _decode(row.get("args"), {}),
+                "result": _decode(row.get("result"), {}),
+            }
+    return tool_by_audit
+
+
 async def _details(
     db: Any, *, turn_ids: List[str], principal_sub: str
 ) -> tuple[Dict[str, str], Dict[str, Dict[str, Any]]]:
@@ -369,6 +408,12 @@ async def _details(
                     "latency_breakdown",
                 )
             }
+            # The stored preview (not the full shopper phrasing) lets the
+            # Observatory open the Search pipeline on the same text a turn
+            # actually retrieved with, instead of a default example query.
+            retrieval_by_receipt[str(row.get("receipt_id"))]["query_preview"] = (
+                str(row.get("query_preview") or "")
+            )
     return sql_by_receipt, retrieval_by_receipt
 
 
@@ -386,12 +431,16 @@ async def _project(
         turn_ids=turn_ids,
         principal_sub=principal_sub,
     )
+    tool_by_audit = await _tool_details(
+        db, turn_ids=turn_ids, principal_sub=principal_sub
+    )
     events = _order(
         [
             _event(
                 row,
                 sql_by_receipt=sql_by_receipt,
                 retrieval_by_receipt=retrieval_by_receipt,
+                tool_by_audit=tool_by_audit,
             )
             for row in rows
         ]

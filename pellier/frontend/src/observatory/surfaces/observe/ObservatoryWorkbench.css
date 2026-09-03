@@ -2429,3 +2429,121 @@
   }
 
 }
+
+/* Retrieval receipt: the candidate table behind a retrieval or rerank event.
+   Mono and tabular, right-aligned numbers, the same register as the SQL
+   receipt it sits beside. */
+.observatory-root .observatory-retrieval-receipt {
+  display: grid;
+  gap: 10px;
+  font-family: var(--obs-mono);
+  font-size: 12px;
+  color: var(--obs-ink-2);
+}
+
+.observatory-root .observatory-retrieval-receipt-head,
+.observatory-root .observatory-retrieval-receipt-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+}
+
+.observatory-root .observatory-retrieval-receipt code {
+  font-family: var(--obs-mono);
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--obs-cream-2);
+  color: var(--obs-ink-1);
+}
+
+.observatory-root .observatory-retrieval-latency {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.observatory-root .observatory-retrieval-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--obs-rule-1);
+  border-radius: 6px;
+}
+
+.observatory-root .observatory-retrieval-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.observatory-root .observatory-retrieval-table th,
+.observatory-root .observatory-retrieval-table td {
+  padding: 6px 10px;
+  text-align: right;
+  border-top: 1px solid var(--obs-rule-1);
+  white-space: nowrap;
+}
+
+.observatory-root .observatory-retrieval-table th:first-child,
+.observatory-root .observatory-retrieval-table td:first-child {
+  text-align: left;
+}
+
+.observatory-root .observatory-retrieval-table thead th {
+  border-top: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--obs-ink-3);
+  background: var(--obs-cream-2);
+}
+
+/* The three receipts for the current turn, under the ledger heading. Policy,
+   execution and data are separate questions; the strip keeps them separate
+   and says "not recorded" out loud. */
+.observatory-root .observatory-receipt-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.observatory-root .observatory-receipt-strip > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--obs-rule-1);
+  border-radius: 6px;
+  background: var(--obs-cream-2);
+}
+
+.observatory-root .observatory-receipt-strip dt {
+  font-family: var(--obs-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--obs-ink-3);
+}
+
+.observatory-root .observatory-receipt-strip dd {
+  margin: 0;
+  font-family: var(--obs-mono);
+  font-size: 12px;
+  color: var(--obs-ink-1);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .observatory-root .observatory-receipt-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Receipt fields read as a two-column ledger; long JSON wraps instead of
+   pushing the column. */
+.observatory-root .observatory-receipt-fields code {
+  font-family: var(--obs-mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}

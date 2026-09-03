@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Clock3,
+  Hammer,
   KeyRound,
   LogIn,
   Pencil,
@@ -23,6 +24,7 @@ interface ChatFailureCardProps {
 
 function failureIcon(code: ChatErrorCode) {
   if (code === 'policy_denied') return ShieldCheck
+  if (code === 'workshop_build_required') return Hammer
   if (code === 'authentication_required') return KeyRound
   if (code === 'request_timeout' || code === 'rate_limited') return Clock3
   if (code === 'network_error' || code === 'service_unavailable') return WifiOff
@@ -62,6 +64,7 @@ export default function ChatFailureCard({
             Reference <code>{failure.referenceId}</code>
           </p>
         )}
+        {failure.code !== 'workshop_build_required' && (
         <div className="chat-failure__actions">
           {failure.code === 'authentication_required' ? (
             <button type="button" onClick={onAuthenticate}>
@@ -83,6 +86,7 @@ export default function ChatFailureCard({
             {CHAT_FAILURES.EDIT_REQUEST}
           </button>
         </div>
+        )}
       </div>
     </div>
   )

@@ -55,6 +55,30 @@ Memory, while the identity, policy, Aurora, and human-review boundaries remain
 separate. Jessica's Operator script uses a separate authenticated staff session
 and stops at the human checkpoint.
 
+### What the room sees in the Storefront (updated 2026-09-03)
+
+- A first visit opens a short welcome tour. Once it is dismissed, the persona
+  choice lives in the header pill. Signed out, that pill opens the same
+  three-card chooser ("Choose who enters Pellier") as the signed-in pill; the
+  old compact dropdown is gone. The hero no longer repeats the question.
+- Before Lab 1 is built, Marco's warehouse question returns a quiet card,
+  "Still being set up", with the reference code `workshop_build_required`.
+  That is the designed state, not an error: the inventory tool does not exist
+  yet. After Lab 1 the same question returns live stock. Tell the room this
+  before they try it. Anna's third turn ("prove it stayed in budget and in
+  stock") needs the same tool, so it shows the same card until Lab 1 is
+  built: run the labs in order.
+- Rehearsal timing: an editorial turn (Marco or Anna's first two, Theo's
+  first two) takes about 30 to 35 seconds to answer on Opus. Theo's return
+  and the build-state card come back in a second or two. Keep talking while
+  the first answer streams.
+- Shopper copy never names Aurora, Cognito, agents or tools. The product page
+  says "Checked just now" and "Counts by warehouse"; the persona card says the
+  choice "does not sign you in as that customer". The Observatory is where
+  the architecture words live.
+- The product page title, the home hero and every Observatory page title use
+  the same display typeface, so the three surfaces read as one product.
+
 ### Agent and tool model
 
 The Storefront production path is a deterministic Strands dispatcher. Each
@@ -74,7 +98,7 @@ to retrieval and eligibility.
 
 The Live Workbench exposes three response settings without changing the
 deterministic routing or authorization path: **Balanced** uses the established
-Opus/Sonnet specialist mix, **Deep** selects the configured Opus profile for
+Opus/Sonnet specialist mix, **Editorial** selects the configured Opus profile for
 the responding specialist, and **Fast** selects the configured Claude Haiku
 4.5 profile for a concise grounded response. The Workbench records the exact
 model identifier used by each turn rather than relying on the selected label.
@@ -82,7 +106,7 @@ model identifier used by each turn rather than relying on the selected label.
 | Concern | Fixed model contract | What the presenter should show |
 |---|---|---|
 | Dispatcher, routing, structured extraction, reporting | Claude Sonnet 4.6, global profile | The route is deterministic. Changing a response setting does not reroute the request. |
-| Search, Personalization, Customer Service | Claude Opus 4.6, global profile by default | Balanced preserves the editorial/reporting split; Deep uses the configured Opus profile for the responding specialist. |
+| Search, Personalization, Customer Service | Claude Opus 4.6, global profile by default | Balanced preserves the editorial/reporting split; Editorial uses the configured Opus profile for the responding specialist. |
 | Fast response composition | Claude Haiku 4.5, global profile | Fast is concise composition after the same routing and tool boundary, not a shortcut around grounding. |
 | Retrieval | Cohere Embed v4 and Cohere Rerank v3.5 | These remain retrieval infrastructure, not a Run setup option. |
 
@@ -132,6 +156,15 @@ Investigator** before **Resolution Planner**. It produces an
 investigation and a proposed plan. It does not approve a review, authorize a
 write, or mutate business data.
 
+What the desk looks like now (updated 2026-09-03): the sign-in control is the
+desk's own square control, not the shopper persona pill, so nobody reads it as
+"pick a persona". Each browser tab is titled by the desk view (Clients, Action
+Queue, Client, Review). Action Queue rows carry an outcome glyph and word,
+pending, declined, approved, refused or executed, so a policy refusal and a
+carried-out write never look alike in the list. On a phone the review record
+stacks every card, including the proposed action's parameters, above the
+decision buttons.
+
 Jessica is not a fourth Storefront persona. She is a real Cognito customer
 principal and the required Lab 4 business subject, while the separate
 operator sign-in remains the only account authorized for the staff desk.
@@ -172,6 +205,26 @@ room, replay a turn, and make the evidence easier to scan. For the Jessica
 handoff, it also makes the boundary explicit: the shopper turn ends, then the
 typed Operator review and, if one occurs, execution lifecycle follows as
 separate evidence.
+
+What to point at in the Workbench (updated 2026-09-03):
+
+- The Evidence ledger opens with the three receipts for the turn: **Policy**
+  (the decisions recorded), **Execution** (tool calls audited) and **Data**
+  (Aurora receipts, with any rejected statement counted). "Not recorded" is
+  printed rather than hidden.
+- Every ledger event can open its receipt fields: a policy event shows the
+  decision, principal, action, resource and policy; a model event shows model
+  id and tokens; an Aurora event shows the database role, statement timeout,
+  rows returned and whether it was accepted; a tool event shows the recorded
+  arguments and result. Retrieval events show the candidate table with vector
+  rank, lexical rank, RRF and rerank score, and a "Trace this retrieval" link
+  that opens the Search pipeline on the shopper's own query.
+- The Sessions telemetry tab shows the same details per panel, and stacks
+  properly on a phone.
+- Performance says "not recorded in this window" for any panel without data
+  and never prints a zero as a median.
+- The reference views under the Lab Collection are an index table: each view,
+  what it shows and the table or service it reads from.
 
 The required hands-on work remains deliberately concrete:
 
@@ -323,6 +376,9 @@ constraint, and recorded the evidence."
 - Rehearse Jessica's required three-turn Operator close and verify it stops at
   the human checkpoint after preparing, but without approving or executing, a
   business action.
+- Rehearsing locally: the dev script's tunnel to Aurora expires after about an
+  hour. If the storefront starts stalling for thirty seconds on every request,
+  restart the dev script before blaming the app.
 
 The run-of-show is still being polished. This brief is the shared map for the
 team: customer experience first, a meaningful build moment in each lab,

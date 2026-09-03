@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PellierHero from './PellierHero'
+import { SPOTLIGHT_SEEN_KEY } from './PellierSpotlight'
 
 const switchPersona = vi.fn()
 const openDrawerWithQuery = vi.fn()
@@ -140,6 +141,17 @@ describe('PellierHero', () => {
     expect(
       screen.getByText('Choose Marco, Anna, or Theo to begin.'),
     ).toBeInTheDocument()
+  })
+
+  it('retires the profile chooser once the welcome tour has been seen', () => {
+    persona = null
+    window.sessionStorage.setItem(SPOTLIGHT_SEEN_KEY, 'true')
+    try {
+      render(<PellierHero />)
+      expect(screen.queryByTestId('persona-concierge')).not.toBeInTheDocument()
+    } finally {
+      window.sessionStorage.removeItem(SPOTLIGHT_SEEN_KEY)
+    }
   })
 
   it('removes the profile chooser after a profile is active', () => {

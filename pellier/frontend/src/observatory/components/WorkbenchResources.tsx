@@ -1,16 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
-import {
-  Activity,
-  ArrowRight,
-  ArrowUpRight,
-  ClipboardCheck,
-  Database,
-  FileCheck,
-  History,
-  Network,
-  ShieldCheck,
-  Wrench,
-} from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import './WorkbenchResources.css';
@@ -19,7 +7,8 @@ interface ResourceLink {
   label: string;
   description: string;
   path: string;
-  icon: LucideIcon;
+  /** The table, service or artefact the view reads. Never a paraphrase. */
+  source: string;
 }
 
 interface ResourceQuestion {
@@ -38,13 +27,15 @@ const RESOURCE_QUESTIONS: readonly ResourceQuestion[] = [
         label: 'Sessions & traces',
         description: 'Turn-scoped chat, telemetry, and durable replay.',
         path: '/observatory/sessions',
-        icon: Activity,
+
+        source: 'governed_turn_receipts, evidence_ledger_event_refs',
       },
       {
         label: 'Proof Board',
         description: 'Managed rail, policy, audit, and SQL-backed checkpoints.',
         path: '/observatory/proof-board',
-        icon: FileCheck,
+
+        source: 'policy, tool_audit and write receipts per lab',
       },
     ],
   },
@@ -57,13 +48,15 @@ const RESOURCE_QUESTIONS: readonly ResourceQuestion[] = [
         label: 'Gateway & policy',
         description: 'Cognito claims, Cedar decisions, and fail-closed writes.',
         path: '/observatory/write-path',
-        icon: ShieldCheck,
+
+        source: 'governed_receipts (Cedar), tool_audit',
       },
       {
         label: 'Tool Registry',
         description: 'Callable schemas and the exact governed Aurora surface.',
         path: '/observatory/tools',
-        icon: Wrench,
+
+        source: 'tool registry, MCP schemas',
       },
     ],
   },
@@ -76,13 +69,15 @@ const RESOURCE_QUESTIONS: readonly ResourceQuestion[] = [
         label: 'Search pipeline',
         description: 'pgvector, full-text search, RRF, filters, and reranking.',
         path: '/observatory/search',
-        icon: Database,
+
+        source: 'retrieval_receipts, live EXPLAIN',
       },
       {
         label: 'Retrieval comparison',
         description: 'Observed latency, index behavior, quality, and cost.',
         path: '/observatory/performance',
-        icon: History,
+
+        source: 'measured on Aurora at run time',
       },
     ],
   },
@@ -95,13 +90,15 @@ const RESOURCE_QUESTIONS: readonly ResourceQuestion[] = [
         label: 'Architecture',
         description: 'Runtime boundaries, control planes, and state ownership.',
         path: '/observatory/architecture',
-        icon: Network,
+
+        source: 'source tree, deploy templates',
       },
       {
         label: 'Evaluations & production',
         description: 'Golden journeys, tenancy, reliability, and release gates.',
         path: '/observatory/evaluations',
-        icon: ClipboardCheck,
+
+        source: 'evaluation scorecards, golden journeys',
       },
     ],
   },
@@ -149,40 +146,40 @@ export default function WorkbenchResources({
         </div>
       </header>
 
-      <div className="workbench-resources-grid">
+      <div className="workbench-resources-index">
         {RESOURCE_QUESTIONS.map((group) => (
           <section
             key={group.question}
             className="workbench-resource-question"
             aria-label={group.question}
           >
-            <h3>{group.question}</h3>
-            <p>{group.answer}</p>
-            <div className="workbench-resource-links">
-              {group.links.map((item) => {
-                const ItemIcon = item.icon;
-                return (
-                  <Link key={item.path} to={item.path}>
-                    <ItemIcon
-                      size={17}
-                      strokeWidth={1.8}
-                      aria-hidden="true"
-                    />
-                    <span>
-                      <strong>
-                        {item.label}
-                      </strong>
-                      <small>{item.description}</small>
-                    </span>
-                    <ArrowRight
-                      size={15}
-                      strokeWidth={1.8}
-                      aria-hidden="true"
-                    />
-                  </Link>
-                );
-              })}
+            <div className="workbench-resource-question-head">
+              <h3>{group.question}</h3>
+              <p>{group.answer}</p>
             </div>
+            <table className="workbench-resource-table">
+              <thead>
+                <tr>
+                  <th scope="col">View</th>
+                  <th scope="col">What it shows</th>
+                  <th scope="col">Reads from</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.links.map((item) => (
+                  <tr key={item.path}>
+                    <th scope="row">
+                      <Link to={item.path}>{item.label}</Link>
+                      <code>{item.path.replace('/observatory', '')}</code>
+                    </th>
+                    <td>{item.description}</td>
+                    <td>
+                      <code>{item.source}</code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
         ))}
       </div>

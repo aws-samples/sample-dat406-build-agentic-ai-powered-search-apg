@@ -53,7 +53,8 @@ const STEPS: SpotlightStep[] = [
   },
 ]
 
-const SPOTLIGHT_SEEN_KEY = 'pellier-storefront-spotlight-seen'
+export const SPOTLIGHT_SEEN_KEY = 'pellier-storefront-spotlight-seen'
+const SPOTLIGHT_SEEN_EVENT = 'pellier:spotlight-seen'
 const MOTION_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1]
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -80,6 +81,24 @@ function markSpotlightSeen(): void {
   } catch {
     // Storage is optional. Do not trap the visitor in the tour.
   }
+  window.dispatchEvent(new Event(SPOTLIGHT_SEEN_EVENT))
+}
+
+/**
+ * Whether the welcome tour has already run this session. The hero used to
+ * keep its "Who are you shopping for?" chooser on screen behind the tour and
+ * after it, so a first visit asked the persona question three times (tour,
+ * hero card, header pill). Once the tour has been seen, the header pill is the
+ * persistent mechanism and the hero card retires.
+ */
+export function useSpotlightSeen(): boolean {
+  const [seen, setSeen] = useState<boolean>(() => hasSeenSpotlight())
+  useEffect(() => {
+    const sync = () => setSeen(hasSeenSpotlight())
+    window.addEventListener(SPOTLIGHT_SEEN_EVENT, sync)
+    return () => window.removeEventListener(SPOTLIGHT_SEEN_EVENT, sync)
+  }, [])
+  return seen
 }
 
 export default function PellierSpotlight() {
@@ -275,7 +294,7 @@ export default function PellierSpotlight() {
             </AnimatePresence>
           </div>
 
-          <div className="mt-6 flex items-center justify-between border-t border-sand px-6 py-4 sm:px-8">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-sand px-6 py-4 sm:px-8">
             <nav className="flex items-center gap-2.5" aria-label="Welcome tour progress">
               <span
                 aria-hidden="true"

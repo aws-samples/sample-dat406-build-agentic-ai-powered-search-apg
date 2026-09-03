@@ -69,6 +69,12 @@ type StepKind =
   | 'sql'
   | 'observability';
 
+import { RetrievalReceipt } from '../../components/RetrievalReceipt';
+import {
+  parseRetrievalReceipt,
+  type RetrievalReceiptView,
+} from '../../labs/retrievalReceipt';
+
 interface JourneyStep {
   id: string;
   kind: StepKind;
@@ -87,6 +93,144 @@ interface JourneyStep {
   action?: {
     label: string;
     to: string;
+  };
+  /** Candidate ranks and scores behind a retrieval or rerank event. */
+  retrieval?: RetrievalReceiptView;
+  /** The receipt fields the projection attached to this event. */
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Which receipt fields each event kind is worth reading verbatim, in the
+ * order a reviewer asks about them. Everything else stays in `details` for
+ * the JSON the row already links to. Policy comes first in spirit: a decision
+ * without its principal, action and resource is not evidence of governance.
+ */
+const RECEIPT_FIELDS: Partial<
+  Record<EvidenceLedgerEventKind, ReadonlyArray<[key: string, label: string]>>
+> = {
+  route: [
+    ['rail', 'Rail'],
+    ['model_config', 'Model config'],
+  ],
+  policy: [
+    ['decision', 'Decision'],
+    ['principal', 'Principal'],
+    ['action', 'Action'],
+    ['resource', 'Resource'],
+    ['policy_name', 'Policy'],
+    ['policy_engine_id', 'Policy engine'],
+    ['enforcement_mode', 'Enforcement'],
+    ['source', 'Source'],
+  ],
+  model: [
+    ['model_id', 'Model'],
+    ['inference_profile_id', 'Inference profile'],
+    ['purpose', 'Purpose'],
+    ['input_tokens', 'Input tokens'],
+    ['output_tokens', 'Output tokens'],
+    ['stop_reason', 'Stop reason'],
+  ],
+  aurora: [
+    ['role_used', 'Database role'],
+    ['statement_timeout', 'Statement timeout'],
+    ['result_limit', 'Result limit'],
+    ['row_count', 'Rows returned'],
+    ['accepted', 'Accepted'],
+    ['rejection_reason', 'Rejected because'],
+    ['execution_outcome', 'Outcome'],
+  ],
+  tool: [
+    ['tool', 'Tool'],
+    ['caller', 'Caller'],
+    ['args', 'Args'],
+    ['result', 'Result'],
+  ],
+  retrieval: [
+    ['embedding_model', 'Embedding model'],
+    ['rerank_model', 'Rerank model'],
+    ['candidate_count', 'Candidates'],
+    ['hard_constraints', 'Hard constraints'],
+    ['soft_preferences', 'Soft preferences'],
+    ['relaxations', 'Relaxations'],
+  ],
+  response: [
+    ['rail', 'Rail'],
+    ['terminal_status', 'Terminal status'],
+    ['citation_count', 'Citations'],
+    ['tool_count', 'Tool calls'],
+  ],
+  operator_review: [
+    ['lifecycle', 'Lifecycle'],
+    ['review_id', 'Review'],
+    ['action', 'Action'],
+  ],
+};
+
+function isEmptyValue(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value as object).length === 0;
+  return false;
+}
+
+function formatReceiptValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
+/** Labelled receipt fields for a step, or an empty list when it has none. */
+function receiptFields(
+  step: JourneyStep,
+): Array<{ key: string; label: string; value: string }> {
+  const details = step.details;
+  if (!details) return [];
+  const allowlist = step.eventKind ? RECEIPT_FIELDS[step.eventKind] : undefined;
+  const pairs: Array<[string, string]> = allowlist
+    ? [...allowlist]
+    : Object.keys(details)
+        .filter((key) => typeof details[key] !== 'object' || details[key] === null)
+        .map((key) => [key, key.replace(/_/g, ' ')]);
+  return pairs
+    .filter(([key]) => !isEmptyValue(details[key]))
+    .map(([key, label]) => ({ key, label, value: formatReceiptValue(details[key]) }));
+}
+
+type ReceiptStripSummary = {
+  policy: string;
+  execution: string;
+  data: string;
+};
+
+/**
+ * The three receipts for one turn, from the ledger's own events. Policy is
+ * the decision recorded, execution is what ran, data is what reached Aurora.
+ * "Not recorded" is a finding, never hidden behind a neutral zero.
+ */
+function summarizeReceipts(steps: JourneyStep[]): ReceiptStripSummary {
+  const decisions = steps
+    .filter((step) => step.eventKind === 'policy')
+    .map((step) => String(step.details?.decision ?? step.status).toUpperCase());
+  const tools = steps.filter((step) => step.eventKind === 'tool');
+  const aurora = steps.filter(
+    (step) => step.eventKind === 'aurora' || step.eventKind === 'write',
+  );
+  const rejected = aurora.filter((step) => step.details?.accepted === false);
+  const count = (list: string[]) =>
+    [...new Set(list)]
+      .map((value) => `${value} ×${list.filter((item) => item === value).length}`)
+      .join(', ');
+  return {
+    policy: decisions.length ? count(decisions) : 'not recorded',
+    execution: tools.length
+      ? `${tools.length} tool ${tools.length === 1 ? 'call' : 'calls'} audited`
+      : 'no tool ran',
+    data: aurora.length
+      ? `${aurora.length} Aurora ${aurora.length === 1 ? 'receipt' : 'receipts'}${
+          rejected.length ? `, ${rejected.length} rejected` : ''
+        }`
+      : 'nothing reached Aurora',
   };
 }
 
@@ -462,6 +606,13 @@ function stepKindForLedgerEvent(
 
 function ledgerStep(event: EvidenceLedgerEvent): JourneyStep {
   const details = event.details ?? {};
+  // The projection merges the retrieval receipt into these two events. The
+  // Search pipeline page shows the same tables for a typed query; here they
+  // belong to the query the shopper sent, and the action opens that page on it.
+  const retrieval =
+    event.eventKind === 'retrieval' || event.eventKind === 'rerank'
+      ? (parseRetrievalReceipt(details) ?? undefined)
+      : undefined;
   const compactMeta = [
     event.provenance,
     event.durationMs !== null && event.durationMs !== undefined
@@ -492,6 +643,15 @@ function ledgerStep(event: EvidenceLedgerEvent): JourneyStep {
     evidenceRef: event.evidenceRef,
     turnId: event.turnId,
     traceId: event.traceId,
+    retrieval,
+    details,
+    action:
+      event.eventKind === 'retrieval' && retrieval?.queryPreview
+        ? {
+            label: 'Trace this retrieval',
+            to: `/observatory/search?q=${encodeURIComponent(retrieval.queryPreview)}`,
+          }
+        : undefined,
   };
 }
 
@@ -526,7 +686,7 @@ const RESPONSE_MODE_META: Record<
     note: 'Configured Opus for editorial specialists; Sonnet for reporting.',
   },
   editorial: {
-    label: 'Deep',
+    label: 'Editorial',
     note: 'Configured Opus profile composes the specialist response.',
   },
   fast: {
@@ -1185,7 +1345,9 @@ export default function ObservatoryWorkbench() {
 
   /** Explicit choice beats the default, which opens the newest receipt. */
   const isReceiptOpen = (step: JourneyStep): boolean => {
-    if (!step.sql) return false;
+    if (!step.sql && !step.retrieval && receiptFields(step).length === 0) {
+      return false;
+    }
     const override = receiptOverrides[step.id];
     if (override !== undefined) return override;
     return step.id === latestSqlStep?.id;
@@ -1475,6 +1637,33 @@ export default function ObservatoryWorkbench() {
                   {activeQuery ??
                     'A live timeline of emitted decisions and evidence.'}
                 </p>
+                {steps.length && durableLedger ? (
+                  <dl
+                    className="observatory-receipt-strip"
+                    data-testid="observatory-receipt-strip"
+                    aria-label="The three receipts for this turn"
+                  >
+                    {(() => {
+                      const receipts = summarizeReceipts(steps);
+                      return (
+                        <>
+                          <div>
+                            <dt>Policy</dt>
+                            <dd>{receipts.policy}</dd>
+                          </div>
+                          <div>
+                            <dt>Execution</dt>
+                            <dd>{receipts.execution}</dd>
+                          </div>
+                          <div>
+                            <dt>Data</dt>
+                            <dd>{receipts.data}</dd>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </dl>
+                ) : null}
               </div>
               {/* Only offered when there is more than one receipt to act on;
                   a control that cannot change anything is not an affordance. */}
@@ -1775,11 +1964,40 @@ export default function ObservatoryWorkbench() {
                             </dl>
                           </div>
                         ) : null}
+                        {step.retrieval && isReceiptOpen(step) ? (
+                          <div className="observatory-proof-block">
+                            <div className="observatory-proof-block-heading">
+                              <div>
+                                <span>
+                                  <Database size={14} aria-hidden="true" />
+                                  Retrieval receipt
+                                </span>
+                                <strong>{step.title}</strong>
+                              </div>
+                            </div>
+                            <RetrievalReceipt view={step.retrieval} />
+                          </div>
+                        ) : null}
+                        {isReceiptOpen(step) && receiptFields(step).length ? (
+                          <dl
+                            className="observatory-proof-receipt observatory-receipt-fields"
+                            data-testid="observatory-receipt-fields"
+                          >
+                            {receiptFields(step).map((field) => (
+                              <div key={field.key}>
+                                <dt>{field.label}</dt>
+                                <dd>
+                                  <code title={field.value}>{field.value}</code>
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : null}
                       </div>
                       {/* The receipt control belongs to the row, not the
                           sentence. Keeping it in its own grid column prevents
                           the hit area from covering a long evidence detail. */}
-                      {step.sql ? (
+                      {step.sql || step.retrieval || receiptFields(step).length ? (
                         <button
                           type="button"
                           className="observatory-receipt-toggle"

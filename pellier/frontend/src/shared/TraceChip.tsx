@@ -37,7 +37,7 @@ export interface TraceChipProps {
   /** Label display. `tool` preserves the raw trace, `label` uses the
    *  attendee-friendly vocabulary label while keeping the raw trace in
    *  the tooltip and test id. */
-  labelMode?: 'tool' | 'label'
+  labelMode?: 'tool' | 'label' | 'signal'
   /** Compact mode shrinks padding for dense tables. */
   compact?: boolean
 }
@@ -63,7 +63,15 @@ export const TraceChip: React.FC<TraceChipProps> = ({
   const vocab = lookupVocab(tool)
   const isProvenance = variant === 'provenance'
   const accent = 'var(--trace-accent, var(--accent))'
-  const label = labelMode === 'label' ? vocab.label : tool
+  // `signal` prints the part after the separator (the catalog tag itself),
+  // keeping the canonical prefix for vocabulary lookup while sparing the
+  // shopper the internal signal name.
+  const label =
+    labelMode === 'label'
+      ? vocab.label
+      : labelMode === 'signal'
+        ? tool.split(' · ').slice(1).join(' · ') || tool
+        : tool
 
   const baseStyle: React.CSSProperties = {
     display: 'inline-flex',

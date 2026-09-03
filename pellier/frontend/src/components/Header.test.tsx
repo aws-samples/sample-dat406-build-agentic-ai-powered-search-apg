@@ -6,7 +6,7 @@
  * Design goals:
  *  - renders four nav items (Shop, Stories, Ask Pellier, About)
  *  - centered "Pellier" wordmark with circular P logo
- *  - signed-out visitors keep the compact sign-in dropdown
+ *  - signed-out visitors open the same three-card persona chooser as the pill
  *  - signed-in visitors open the shared portrait-led PersonaModal
  *  - bag icon with live count badge
  *  - sticky with backdrop-filter blur
@@ -17,7 +17,7 @@
  *
  * Header renders route links, so every render wraps in a `<MemoryRouter>`.
  */
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
@@ -295,50 +295,25 @@ describe('Header — persona account control', () => {
     })
   })
 
-  it('keeps the compact sign-in dropdown when signed out', () => {
+  it('opens the three-card persona chooser when signed out', () => {
     mockPersona = null
     renderHeader()
-    fireEvent.click(screen.getByTestId('persona-pill'))
-
-    expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
     expect(screen.queryByTestId('persona-modal')).not.toBeInTheDocument()
-  })
 
-  it('opens dropdown on click (Req 5.1)', () => {
-    mockPersona = null
-    renderHeader()
+    fireEvent.click(screen.getByTestId('persona-pill'))
+
+    expect(screen.getByTestId('persona-modal')).toBeInTheDocument()
     expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('persona-pill'))
-    expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
   })
 
-  it('closes dropdown on Escape (Req 5.5)', async () => {
+  it('closes the persona chooser from its close control', async () => {
     mockPersona = null
     renderHeader()
     fireEvent.click(screen.getByTestId('persona-pill'))
-    expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('persona-modal-close'))
 
-    await act(async () => {
-      fireEvent.keyDown(window, { key: 'Escape' })
-    })
     await waitFor(() => {
-      expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
-    })
-  })
-
-  it('closes dropdown on outside click (Req 5.5)', async () => {
-    mockPersona = null
-    renderHeader()
-    fireEvent.click(screen.getByTestId('persona-pill'))
-    expect(screen.getByTestId('persona-dropdown')).toBeInTheDocument()
-
-    // Click outside the dropdown
-    await act(async () => {
-      fireEvent.mouseDown(document.body)
-    })
-    await waitFor(() => {
-      expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('persona-modal')).not.toBeInTheDocument()
     })
   })
 })

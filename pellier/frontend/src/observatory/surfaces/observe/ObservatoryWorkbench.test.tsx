@@ -694,7 +694,7 @@ describe('Pellier Observatory live agent workbench', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Show run setup' }));
-    await user.click(screen.getByRole('radio', { name: 'Deep' }));
+    await user.click(screen.getByRole('radio', { name: 'Editorial' }));
     await inspectTurn(user, FRESH_TURNS[0]);
 
     await waitFor(() => {

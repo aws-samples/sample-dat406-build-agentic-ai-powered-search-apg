@@ -182,6 +182,7 @@ function AttemptRow({ attempt }: { attempt: IdentityAttempt }) {
       >
         <Field name="Verified subject" value={attempt.verifiedSubject} />
         <Field name="Mapped customer" value={attempt.mappedCustomerId} />
+        <Field name="Action" value={attempt.tool} />
         <Field name="Policy" value={attempt.policyName} />
         <Field name="Policy engine" value={attempt.policyEngineId} />
         <Field name="Receipt key" value={attempt.correlationKey || null} />
