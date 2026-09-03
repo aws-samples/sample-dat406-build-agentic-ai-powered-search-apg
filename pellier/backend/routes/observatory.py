@@ -1455,7 +1455,7 @@ async def list_agents():
                 "status": status,
                 "tools": tools,
                 # This is the Balanced-mode model assigned by each factory.
-                # Per-turn Deep/Fast overrides remain visible in the Workbench
+                # Per-turn Editorial/Fast overrides remain visible in the Workbench
                 # execution contract, where the actual response model is shown.
                 "model": (
                     settings.BEDROCK_OPUS_MODEL
