@@ -74,6 +74,8 @@ const ProductionPatterns = lazy(
 )
 const ObservatorySettings = lazy(() => import('./observatory/surfaces/Settings'))
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
+const StoryboardPage = lazy(() => import('./pages/StoryboardPage'))
+const AboutPage = lazy(() => import('./pages/AboutPage'))
 
 // ---------------------------------------------------------------------------
 // AuthGate — Cognito-aware auth wrapper. Gates the Pellier Observatory surface when
@@ -300,13 +302,15 @@ export function AppRoutes() {
           />
           <Route path="settings" element={<ObservatorySettings />} />
         </Route>
-        {/* These were browser-local demonstration pages. Keep old bookmarks
-            safe, but do not ship a second storefront with static catalog or
-            localStorage evidence alongside the Aurora-backed experience. */}
+        {/* Stories and About are real destinations again: the header and
+            footer link to them on every storefront page, and a nav item that
+            sends a shopper back home is a dead end. Both render only editorial
+            copy and the teaser grid, none of the browser-local catalog or
+            localStorage evidence that retired /inspector and /discover. */}
+        <Route path="/storyboard" element={<StoryboardPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/inspector" element={<Navigate to="/" replace />} />
-        <Route path="/storyboard" element={<Navigate to="/" replace />} />
         <Route path="/discover" element={<Navigate to="/" replace />} />
-        <Route path="/about" element={<Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

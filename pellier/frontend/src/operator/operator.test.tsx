@@ -114,6 +114,29 @@ afterEach(() => {
 })
 
 describe('ClientBook', () => {
+  it('narrows the book by a typed name and offers a clear control', async () => {
+    mockFetch(() => ({ body: BOOK }))
+    render(
+      <MemoryRouter initialEntries={['/operator']}>
+        <Routes>
+          <Route path="/operator" element={<ClientBook />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByTestId('operator-client-amara')
+
+    fireEvent.change(screen.getByTestId('operator-book-search'), {
+      target: { value: 'nadia' },
+    })
+
+    expect(screen.getByTestId('operator-client-new')).toBeInTheDocument()
+    expect(screen.queryByTestId('operator-client-amara')).not.toBeInTheDocument()
+    expect(screen.getByTestId('operator-filter-note')).toHaveTextContent('matching "nadia"')
+
+    fireEvent.click(screen.getByTestId('operator-filter-clear'))
+    expect(screen.getByTestId('operator-client-amara')).toBeInTheDocument()
+  })
+
   beforeEach(() => {
     mockFetch(() => ({ body: BOOK }))
   })

@@ -36,7 +36,7 @@ Three font families cover all surfaces. Fluid sizing via `clamp()` keeps text pr
 | Role                | Family                    | Fallback Stack          | Weight |
 | ------------------- | ------------------------- | ----------------------- | ------ |
 | Display / Headlines | Fraunces (variable)       | Georgia, serif          | 400    |
-| Body / UI           | Inter (variable)          | system-ui, sans-serif   | 400    |
+| Body / UI           | Instrument Sans (variable)          | system-ui, sans-serif   | 400    |
 | Mono / Code         | JetBrains Mono (variable) | ui-monospace, monospace | 400    |
 
 ### Text Utility Classes (`typography.css`)
@@ -45,11 +45,11 @@ Three font families cover all surfaces. Fluid sizing via `clamp()` keeps text pr
 | ----------------- | -------------- | -------------------------------- | ----------------------------- |
 | `.text-display`   | Fraunces       | `clamp(28px, 4vw, 48px)`         | Hero headlines, product names |
 | `.text-headline`  | Fraunces       | `clamp(22px, 3vw, 36px)`         | Section headlines             |
-| `.text-body`      | Inter          | `clamp(14px, 1.1vw, 16px)`       | Default body text             |
-| `.text-body-sm`   | Inter          | 13px                             | Small body text, captions     |
+| `.text-body`      | Instrument Sans          | `clamp(14px, 1.1vw, 16px)`       | Default body text             |
+| `.text-body-sm`   | Instrument Sans          | 13px                             | Small body text, captions     |
 | `.text-mono`      | JetBrains Mono | 12px                             | Code, tech footnotes          |
-| `.text-eyebrow`   | Inter          | 10px, uppercase, 0.16em tracking | Category labels               |
-| `.text-microcopy` | Inter          | 11px                             | Fine print, disclaimers       |
+| `.text-eyebrow`   | Instrument Sans          | 10px, uppercase, 0.16em tracking | Category labels               |
+| `.text-microcopy` | Instrument Sans          | 11px                             | Fine print, disclaimers       |
 
 ---
 

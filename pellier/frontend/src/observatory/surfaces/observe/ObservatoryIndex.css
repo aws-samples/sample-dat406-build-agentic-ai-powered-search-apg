@@ -224,7 +224,7 @@
   max-width: 9ch;
   color: var(--pl-muted);
   font-family: var(--pl-sans);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.1em;
   line-height: 1.3;
@@ -246,7 +246,7 @@
 .labs-turn-media > .labs-turn-build-checkpoint > span {
   max-width: none;
   color: inherit;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.14em;
 }
 
@@ -281,7 +281,7 @@
   border: 1px solid #57171f;
   border-radius: var(--pl-r-lg);
   background: var(--pl-accent);
-  color: #fffdfa;
+  color: var(--obs-paper-bright);
   font-family: var(--pl-sans);
   font-size: 14px;
   font-weight: 800;
@@ -316,7 +316,7 @@
 .observatory-root .labs-turns-operator-link:hover {
   border-color: var(--pl-accent-2);
   background: var(--pl-accent-2);
-  color: #fffdfa;
+  color: var(--obs-paper-bright);
   box-shadow: 0 8px 20px rgba(var(--pl-accent-rgb), 0.28);
   transform: translateY(-1px);
 }
@@ -367,13 +367,13 @@
 .labs-turn:hover:not(:disabled) .labs-turn-action {
   border-color: var(--pl-accent);
   background: var(--pl-accent);
-  color: #fffdfa;
+  color: var(--obs-paper-bright);
 }
 
 .labs-turn[data-active='true'] .labs-turn-action {
   border-color: var(--pl-accent);
   background: var(--pl-accent);
-  color: #fffdfa;
+  color: var(--obs-paper-bright);
 }
 
 /* -----------------------------------------------------------------------
@@ -483,11 +483,11 @@
 .labs-lens-stages > li[data-status='active'] span::before {
   color: var(--pl-terracotta);
   content: '\25CF';
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .labs-lens-stages > li[data-status='error'] span {
-  color: #8f1d16;
+  color: var(--obs-red-deep);
 }
 
 .labs-lens-stages > li[data-status='unavailable'] span {

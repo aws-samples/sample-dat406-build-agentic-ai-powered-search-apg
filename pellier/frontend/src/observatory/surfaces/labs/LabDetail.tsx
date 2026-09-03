@@ -185,8 +185,11 @@ export default function LabDetail() {
           />
           <EvidenceDatumList title="Policy identity" data={policy} />
 
-          <section className="lab-evidence-section">
-            <h2>Reconciliation</h2>
+          <details className="lab-evidence-section lab-evidence-reconciliation">
+            <summary>
+              <h2>Reconciliation</h2>
+              <span className="lab-evidence-meta">Not observed until a run lands</span>
+            </summary>
             <dl className="lab-evidence-data">
               {[
                 ['Aurora transaction', 'Unknown'],
@@ -206,7 +209,7 @@ export default function LabDetail() {
                 </div>
               ))}
             </dl>
-          </section>
+          </details>
         </aside>
       </div>
     </article>

@@ -36,6 +36,9 @@ const ClientBook: React.FC = () => {
   // Client-side: the whole book is already loaded, so filtering needs no
   // round trip. Null means "no filter", not "registered".
   const [rungFilter, setRungFilter] = useState<Membership | null>(null)
+  // Typed name filter. Fifteen clients fit on one screen; forty do not, and an
+  // associate who knows the name should not have to scan the ladder for it.
+  const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -111,9 +114,15 @@ const ClientBook: React.FC = () => {
     )
   }
 
-  const visible = rungFilter
-    ? book.clients.filter((c) => c.membership === rungFilter)
-    : book.clients
+  const needle = query.trim().toLowerCase()
+  const visible = book.clients.filter(
+    (c) =>
+      (!rungFilter || c.membership === rungFilter) &&
+      (!needle ||
+        c.name.toLowerCase().includes(needle) ||
+        c.slug.toLowerCase().includes(needle) ||
+        (c.note ?? '').toLowerCase().includes(needle)),
+  )
   const jessicaCase = book.clients.find(
     (client) =>
       client.slug === 'jessica' &&
@@ -184,6 +193,19 @@ const ClientBook: React.FC = () => {
         </section>
       ) : null}
 
+      <label className="operator-search" htmlFor="operator-book-search">
+        <span>Find a client</span>
+        <input
+          id="operator-book-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Name or note"
+          autoComplete="off"
+          data-testid="operator-book-search"
+        />
+      </label>
+
       {/* The ladder, defined where the choice is made. */}
       <div className="operator-ladder" data-testid="operator-book-summary">
         {MEMBERSHIP_RUNGS.map((rung: Membership) => {
@@ -227,16 +249,20 @@ const ClientBook: React.FC = () => {
         })}
       </div>
 
-      {rungFilter ? (
+      {rungFilter || needle ? (
         <p className="operator-filter-note" data-testid="operator-filter-note">
           <span>
-            Showing {visible.length} of {book.total} ·{' '}
-            {MEMBERSHIP[rungFilter].label}
+            Showing {visible.length} of {book.total}
+            {rungFilter ? ` · ${MEMBERSHIP[rungFilter].label}` : ''}
+            {needle ? ` · matching "${query.trim()}"` : ''}
           </span>
           <button
             type="button"
             className="operator-filter-clear"
-            onClick={() => setRungFilter(null)}
+            onClick={() => {
+              setRungFilter(null)
+              setQuery('')
+            }}
             data-testid="operator-filter-clear"
           >
             Show all clients

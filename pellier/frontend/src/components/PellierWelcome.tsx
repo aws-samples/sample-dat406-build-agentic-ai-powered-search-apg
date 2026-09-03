@@ -131,7 +131,7 @@ export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps)
         <div className="sf-cover-overlay">
           <div className="sf-cover-eyebrow">
             <span className="sf-cover-dot" />
-            {cover ? 'Live Aurora catalog' : 'Live catalog loading'}
+            {cover ? 'Live catalog' : 'Live catalog loading'}
           </div>
         </div>
       </div>

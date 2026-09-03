@@ -104,7 +104,7 @@
   display: grid;
   min-width: 0;
   overflow: hidden;
-  grid-template-rows: 190px minmax(0, 1fr);
+  grid-template-rows: 300px minmax(0, 1fr);
   padding: 0;
   border: 1px solid var(--rule-2);
   border-radius: 7px;
@@ -152,20 +152,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 20%;
+  object-position: center 30%;
 }
 
-.pm-card-btn[data-persona='marco'] .pm-avatar-photo {
-  object-position: center 22%;
-}
 
-.pm-card-btn[data-persona='anna'] .pm-avatar-photo {
-  object-position: center 17%;
-}
-
-.pm-card-btn[data-persona='theo'] .pm-avatar-photo {
-  object-position: center 16%;
-}
 
 .pm-avatar-fallback {
   display: flex;

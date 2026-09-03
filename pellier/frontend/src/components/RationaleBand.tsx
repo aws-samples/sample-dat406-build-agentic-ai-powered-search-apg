@@ -27,7 +27,7 @@ const PERSONA_RATIONALE: Record<string, PersonaRationale> = {
     text: 'Theo ranks ceramic, slow, artisanal, and home tags higher. Each card below shows the reason it made the edit.',
   },
   fresh: {
-    text: 'The default floor preserves the authored catalog order. Choose a workshop profile to apply its explicit tag weights.',
+    text: 'The floor opens in its authored order. Choose who is shopping and it rearranges around their taste.',
   },
 }
 

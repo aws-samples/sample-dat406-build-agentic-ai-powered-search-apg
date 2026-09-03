@@ -107,6 +107,29 @@ describe('canonical application routes', () => {
     })
   })
 
+  it('serves Stories as a real storefront destination', async () => {
+    renderRoute('/storyboard')
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/storyboard')
+    })
+  })
+
+  it('serves About as a real storefront destination', async () => {
+    renderRoute('/about')
+    await waitFor(() => {
+      expect(screen.getByTestId('location')).toHaveTextContent('/about')
+    })
+  })
+
+  it('sends the storefront header to Stories and About, not the shop band', () => {
+    const page = readSource('src/pages/PellierPage.tsx')
+    const routes = page.match(/const NAV_ROUTES[^{]*\{([^}]*)\}/)?.[1] ?? ''
+    expect(routes).toMatch(/stories:\s*'\/storyboard'/)
+    expect(routes).toMatch(/storyboard:\s*'\/storyboard'/)
+    expect(routes).toMatch(/about:\s*'\/about'/)
+    expect(routes).not.toMatch(/(stories|about):\s*'\/#shop'/)
+  })
+
   it('redirects the retired references surface into workbench resources', async () => {
     renderRoute('/observatory/references')
 

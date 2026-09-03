@@ -490,7 +490,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
             ? '1.5px dashed var(--obs-rule-3)'
             : '1px solid var(--obs-card-border)',
         borderRadius: 'var(--obs-card-radius)',
-        padding: '20px 24px 18px',
+        padding: '14px 20px 12px',
         overflow: 'hidden',
         cursor: 'pointer',
         boxShadow: isDiscoveryMatch
@@ -578,7 +578,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
 
         {/* Status: dot + pill + (optional) WRITE badge.
             The burgundy WRITE pill marks tools that mutate Aurora
-            state — restock_inventory and initiate_return today. Read tools
+            state, restock_inventory and initiate_return today. Read tools
             render no badge (the absence is the badge). Pattern matches
             the Shipped pill on Performance.tsx exactly: same Eyebrow
             shape, uppercase letterspacing, but var(--obs-red-1) bg. */}
@@ -613,7 +613,9 @@ const ToolRow: React.FC<ToolRowProps> = ({
         </div>
       </div>
 
-      {/* Signature code block */}
+      {/* Signature code block, only for the selected tool: fifteen always-open
+          code blocks made the registry a scroll instead of a list. */}
+      {isSelected ? (
       <div
         style={{
           ...DARK_CODE_BLOCK,
@@ -636,6 +638,7 @@ const ToolRow: React.FC<ToolRowProps> = ({
           </span>
         </code>
       </div>
+      ) : null}
 
       {/* Meta row: used-by + invocation count + version */}
       <div
@@ -1287,7 +1290,7 @@ const Tools: React.FC = () => {
           endpoint, so the PASS/FAIL state describes the actual repo. */}
       <div style={{ marginBottom: '20px' }}>
         <LabGrammar
-          labLabel="Lab 1 · Build — Build a PostgreSQL-Grounded Agent"
+          labLabel="Lab 1 · Build a PostgreSQL-Grounded Agent"
           provenance="live"
           proofState={
             buildState.toolTotal > 0 && buildState.toolShipped >= buildState.toolTotal

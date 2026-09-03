@@ -169,7 +169,7 @@ const OperatorAuthControl: React.FC = () => {
   return (
     <button
       type="button"
-      className="operator-auth-control operator-auth-signin"
+      className="pellier-account-pill operator-auth-signin"
       onClick={login}
       data-testid="operator-sign-in"
     >

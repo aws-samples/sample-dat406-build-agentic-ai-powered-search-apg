@@ -100,6 +100,24 @@ State what happened, what did not happen, and the next useful action. Never
 claim a tool executed without a result or audit row. Never claim a Cedar DENY
 from a bare 401.
 
+## Editorial pages
+
+Stories and About are the boutique writing about itself. They keep the same
+voice as the concierge, with two extra rules:
+
+- Every claim about a persona comes from the seeded data: Marco's seven
+  orders, Anna's gift under a hundred, Theo's incense holder to wabi-sabi
+  bowl. Do not invent a product, a colourway, or a timeline the seed does not
+  carry.
+- The page speaks as the boutique, not the workshop. "Pellier" and "the
+  floor", never "profile", "signal" or "tag weight". The About page may name
+  the stack once, in its chips; the prose names the three surfaces in plain
+  words: the boutique, the Operator desk, the Observatory.
+
+Photography for these pages belongs to one world: warm limewash plaster,
+travertine, raking afternoon light, oat and sand and espresso. Persona
+portraits share that wall.
+
 ## Typography and punctuation
 
 - No emojis in shopper-facing copy.

@@ -33,6 +33,7 @@ import {
 } from '../../services/operator'
 import ActionAssurance from '../components/ActionAssurance'
 import ClientAvatar from '../components/ClientAvatar'
+import OperatorSignInAction from '../components/OperatorSignInAction'
 import MembershipRung from '../components/MembershipRung'
 import ShopperHandoffView from '../components/ShopperHandoffView'
 import { useOperatorQueueRefresh } from '../shell/OperatorFrame'
@@ -79,9 +80,18 @@ function actionTitle(action: string, parameters: Record<string, unknown>): strin
   return base
 }
 
-function formatParameter(key: string, value: unknown): string {
+function formatParameter(
+  key: string,
+  value: unknown,
+  order?: { productId: string; productName: string } | null,
+): string {
   if (key === 'amount_cents' && typeof value === 'number') {
     return centsToMoney(value)
+  }
+  // The table's job is the exact bound value, so the id stays first; the
+  // piece's name beside it costs nothing and spares a lookup.
+  if (key === 'product_id' && order && String(order.productId) === String(value)) {
+    return `${String(value)} · ${order.productName}`
   }
   if (key === 'reason' && typeof value === 'string') {
     return value.replace(/_/g, ' ')
@@ -99,6 +109,33 @@ export function issueLine(productName: string | undefined, issue: string): strin
   // operator wrote a full sentence about it.
   if (problem.toLowerCase().includes(piece.toLowerCase())) return problem
   return `${piece} ${problem}`
+}
+
+
+const DECISION_ERROR_COPY: Record<string, string> = {
+  parameters_changed:
+    'The proposed values changed since this page loaded. Reload and read the new terms before confirming.',
+  operator_sign_in_required:
+    'A verified operator sign-in is required to decide this action.',
+  authentication_required:
+    'Your operator sign-in has expired. Sign in again to decide this action.',
+  operator_group_required:
+    'This signed-in account is not a member of the operator group, so it cannot decide this action.',
+  review_not_found:
+    'This prepared action no longer exists. Return to the Action Queue for the current list.',
+  review_already_open:
+    'Another operator already has this action open. Reload to see its current state.',
+  operator_unavailable:
+    'The governed service could not be reached, so nothing was recorded. Try again in a moment.',
+  temporarily_unavailable:
+    'The governed service could not be reached, so nothing was recorded. Try again in a moment.',
+  governed_action_unavailable:
+    'The governed action is not available right now, so nothing was recorded.',
+}
+
+/** Plain-language decision failure; the raw code stays visible for the receipt. */
+function describeDecisionError(code: string): string {
+  return DECISION_ERROR_COPY[code] ?? `The decision could not be recorded (${code}). Nothing was written. Reload and try again.`
 }
 
 const ReviewRecord: React.FC = () => {
@@ -214,9 +251,12 @@ const ReviewRecord: React.FC = () => {
             database request was attempted.
           </span>
         ) : null}
-        <Link to="/operator/reviews" className="operator-filter-clear">
-          Back to Action Queue
-        </Link>
+        {authenticationRequired ? <OperatorSignInAction /> : null}
+        <div style={{ marginTop: 12 }}>
+          <Link to="/operator/reviews" className="operator-filter-clear">
+            Back to Action Queue
+          </Link>
+        </div>
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>
@@ -503,7 +543,7 @@ const ReviewRecord: React.FC = () => {
             {Object.entries(review.parameters).map(([key, value]) => (
               <tr key={key} data-testid={`operator-review-param-${key}`}>
                 <td>{PARAMETER_LABELS[key] ?? key}</td>
-                <td className="operator-table-id">{formatParameter(key, value)}</td>
+                <td className="operator-table-id">{formatParameter(key, value, order)}</td>
               </tr>
             ))}
           </tbody>
@@ -689,11 +729,7 @@ const ReviewRecord: React.FC = () => {
             className="operator-receipt-key"
             data-testid="operator-review-decision-error"
           >
-            {decisionError === 'parameters_changed'
-              ? 'The proposed values changed since this page loaded. Reload and read the new terms before confirming.'
-              : decisionError === 'operator_sign_in_required'
-                ? 'A verified operator sign-in is required to decide this action.'
-                : decisionError}
+            {describeDecisionError(decisionError)}
           </p>
         ) : null}
       </section>

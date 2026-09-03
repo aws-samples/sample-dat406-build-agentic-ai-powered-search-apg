@@ -45,7 +45,7 @@ const PERSONA_HEROES: Record<
     image: '/products/landing-hero-weekender.webp',
     alt: 'Leather weekender on a travertine bench beside linen and an olive branch',
     subheadline:
-      'Choose a workshop profile, then explore a floor shaped by explicit catalog signals.',
+      'Choose who is shopping, then browse a floor arranged around them.',
   },
   marco: {
     image: '/products/hero-marco.png',

@@ -355,6 +355,19 @@ describe('ProductDetailPage — Aurora layer', () => {
     expect(labels.join(' ')).not.toContain('tag.match')
   })
 
+  it('opens an enlarged view of the piece and closes it on Escape', async () => {
+    stubFetch(() => jsonResponse(detailPayload()))
+
+    renderAt(`/product/${SUBJECT.id}`)
+
+    const zoom = await screen.findByTestId('product-detail-zoom')
+    await userEvent.click(zoom)
+    expect(screen.getByTestId('product-detail-zoom-dialog')).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByTestId('product-detail-zoom-dialog')).not.toBeInTheDocument()
+  })
+
   it('sets the piece name in the editorial display voice', async () => {
     stubFetch(() => jsonResponse(detailPayload()))
 

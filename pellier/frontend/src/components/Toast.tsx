@@ -2,7 +2,7 @@
  * Toast — warm slide-in notification for cart and system events.
  *
  * Pellier palette: cream background, espresso text, burgundy check.
- * Slides in from top-right, auto-dismisses after `duration` ms.
+^ * Slides in at top centre, auto-dismisses after `duration` ms.
  */
 import { useEffect, useState } from 'react'
 import { CheckCircle, X } from 'lucide-react'
@@ -32,10 +32,12 @@ const Toast = ({ message, show, onClose, duration = 3000 }: ToastProps) => {
 
   return (
     <div
-      className={`fixed top-6 right-6 z-[1100] transition-all duration-300 ease-out ${
+      // Top centre, not top right: the cart drawer opens on the right and the
+      // "Added to bag" toast used to land on its "Your Bag" heading.
+      className={`fixed top-6 left-1/2 z-[1100] -translate-x-1/2 transition-all duration-300 ease-out ${
         isVisible
-          ? 'translate-x-0 opacity-100'
-          : 'translate-x-[120%] opacity-0'
+          ? 'translate-y-0 opacity-100'
+          : '-translate-y-3 opacity-0'
       }`}
     >
       <div

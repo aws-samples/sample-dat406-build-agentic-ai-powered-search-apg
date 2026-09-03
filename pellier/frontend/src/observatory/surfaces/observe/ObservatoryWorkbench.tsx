@@ -6,22 +6,23 @@ import {
 } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
-  Activity,
-  Bot,
-  Brain,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
+  CircleDashed,
   Copy,
   Database,
+  Dot,
   GitBranch,
   Link2,
+  LoaderCircle,
+  Minus,
   RotateCcw,
-  ShieldCheck,
+  ShieldX,
   Sparkles,
-  Wrench,
+  X,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { usePersona } from '../../../contexts/PersonaContext';
@@ -531,16 +532,30 @@ function metricValue(status: RunStatus, value: number | string): string {
   return String(value);
 }
 
-function iconForStep(kind: StepKind) {
-  if (kind === 'routing') return <Sparkles size={15} aria-hidden="true" />;
-  if (kind === 'memory') return <Brain size={15} aria-hidden="true" />;
-  if (kind === 'guardrail') return <ShieldCheck size={15} aria-hidden="true" />;
-  if (kind === 'tool') return <Wrench size={15} aria-hidden="true" />;
-  if (kind === 'sql') return <Database size={15} aria-hidden="true" />;
-  if (kind === 'observability') {
-    return <Activity size={15} aria-hidden="true" />;
+/**
+ * The node marks the event's status, never its kind. The kicker already names
+ * the kind in words; a category glyph beside it was redundant texture, and it
+ * left status encoded by colour alone. Pending is a dashed ring, recorded is a
+ * dot, succeeded a check, denied a shield, failed a cross, in flight a loader.
+ */
+function glyphForStatus(status: string) {
+  if (status === 'succeeded' || status === 'completed' || status === 'complete') {
+    return <Check size={14} strokeWidth={2.2} aria-hidden="true" />;
   }
-  return <Bot size={15} aria-hidden="true" />;
+  if (status === 'denied') return <ShieldX size={14} aria-hidden="true" />;
+  if (status === 'failed' || status === 'error') {
+    return <X size={14} strokeWidth={2.2} aria-hidden="true" />;
+  }
+  if (status === 'in_progress' || status === 'executing' || status === 'running') {
+    return <LoaderCircle size={14} aria-hidden="true" />;
+  }
+  if (status === 'pending' || status === 'planned') {
+    return <CircleDashed size={14} aria-hidden="true" />;
+  }
+  if (status === 'not_reached' || status === 'not_enforced' || status === 'unavailable') {
+    return <Minus size={14} aria-hidden="true" />;
+  }
+  return <Dot size={22} aria-hidden="true" />;
 }
 
 function observabilityStep(
@@ -1883,7 +1898,7 @@ export default function ObservatoryWorkbench() {
                         {String(index + 1).padStart(2, '0')}
                       </span>
                       <span className="observatory-trace-node" aria-hidden="true">
-                        {iconForStep(step.kind)}
+                        {glyphForStatus(step.status)}
                       </span>
                       <div className="observatory-trace-content">
                         <div className="observatory-trace-kicker">
@@ -2055,7 +2070,7 @@ export default function ObservatoryWorkbench() {
                           className="observatory-trace-node"
                           aria-hidden="true"
                         >
-                          {iconForStep(kind)}
+                          {glyphForStatus(runStatus === 'running' ? 'pending' : 'planned')}
                         </span>
                         <div className="observatory-trace-content">
                           <div className="observatory-trace-kicker">

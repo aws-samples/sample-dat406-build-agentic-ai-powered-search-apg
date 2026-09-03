@@ -30,37 +30,37 @@ const NOTES: readonly Note[] = [
     kicker: 'Field note · No. 01',
     title: 'On asking for the piece, not the product.',
     body: [
-      'A storefront that really knows its floor should answer "a linen piece that travels well" the same way it answers "medium oatmeal camp shirt, size M." Both are the same question dressed differently. The first is softer; the second assumes too much.',
-      'Pellier is built on that smaller, quieter assumption: that you know what you want, not what it\'s called.',
+      'A boutique that knows its floor should answer "a linen piece that travels well" as readily as "camp shirt, size 41." They are the same question dressed differently. The first is softer. The second assumes you already know the name.',
+      'Pellier is built on the smaller, quieter assumption: that you know what you want, not what it is called.',
     ],
-    signature: '– The editors',
+    signature: 'The editors',
   },
   {
     kicker: 'Field note · No. 02',
     title: 'Marco, on being remembered.',
     body: [
-      "Three weeks between visits is long enough to forget someone in most shops. A natural-fiber wardrobe is narrow enough that you shouldn't have to explain it twice.",
-      "When Marco signs back in, the storefront leads with the piece he'd reach for next, the Italian Linen Camp Shirt in sage. Not because it's trending, but because the thread of his purchases points there.",
+      'A run of orders tells a story. A Hadley linen shirt, then the camp shirt, drawstring trousers, an overshirt, a crew tee. Then a leather holdall and merino travel socks. Nobody who buys in that order is dressing for the office.',
+      'When Marco signs back in, Pellier does not start over. It leads with the next piece for the trip rather than another copy of what he already owns, because the thread of his orders points there.',
     ],
-    signature: '– Marco, a regular',
+    signature: 'Marco, a regular',
   },
   {
     kicker: 'Field note · No. 03',
     title: 'Anna, on gifting as a practiced art.',
     body: [
-      "Gifts are the hardest search queries a storefront will take. They're indirect by design: the shopper isn't the recipient, the recipient isn't in the room, and the moment the piece is chosen for matters more than the piece itself.",
-      "Anna walks in with recipients, not products. A milestone gift under two hundred is a meaningful constraint. The storefront should know, and does.",
+      'Gifts are the hardest requests a boutique will take. They are indirect by design: the shopper is not the recipient, the recipient is not in the room, and the occasion matters more than the object.',
+      'Anna arrives with people, not products. A milestone gift under a hundred is a real constraint, and a useful one. Pellier holds to it, and can show that it did.',
     ],
-    signature: '– Anna, a gift-giver',
+    signature: 'Anna, a gift-giver',
   },
   {
     kicker: 'Field note · No. 04',
     title: 'Theo, on pieces that wear in.',
     body: [
-      "A ceramic tumbler set kept for six months before the second order is the opposite of a cart abandonment. It's a purchase that earned its keep first.",
-      "Slow craft is what happens when a shopper doesn't want to be told what's new. Theo returns for ceramics, linen throws, stoneware: pieces that do more of their work later than sooner.",
+      'First a brass incense holder. Then ceramic tumblers, a stoneware pour-over set, and most recently a wabi-sabi bowl. Nothing in that sequence was an impulse. Each piece earned the next.',
+      'Slow craft is what happens when a shopper does not want to be told what is new. Theo returns for ceramics, linen throws and stoneware: pieces that do more of their work later than sooner.',
     ],
-    signature: '– Theo, a slow shopper',
+    signature: 'Theo, a slow shopper',
   },
 ]
 
@@ -105,6 +105,7 @@ export default function FieldNotes() {
           <h2
             id="field-notes-heading"
             style={{
+              scrollMarginTop: 96,
               fontFamily: FRAUNCES_STACK,
               fontStyle: 'italic',
               fontWeight: 400,
@@ -147,7 +148,7 @@ export default function FieldNotes() {
               <p
                 style={{
                   fontFamily: MONO_STACK,
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: '0.22em',
                   textTransform: 'uppercase',
                   color: c.muted,
@@ -214,7 +215,7 @@ export default function FieldNotes() {
             style={{
               fontFamily: FRAUNCES_STACK,
               fontStyle: 'italic',
-              fontWeight: 600,
+              fontWeight: 400,
               fontSize: 15,
               lineHeight: 1.6,
               color: c.ink2,
@@ -223,8 +224,8 @@ export default function FieldNotes() {
               maxWidth: 420,
             }}
           >
-            More field notes land with each Edit. For now, this is the
-            Storyboard — a slower kind of shopping, in short essays.
+            More notes arrive with each Edit. Until then, four short essays
+            on how Pellier reads the floor.
           </p>
         </div>
       </div>

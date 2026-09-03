@@ -797,11 +797,11 @@
   padding: 12px;
   border: 1px solid rgba(153, 27, 27, 0.25);
   border-radius: 8px;
-  background: #fff4f3;
+  background: var(--obs-red-tint);
 }
 
 .observatory-error strong {
-  color: #8f1d16;
+  color: var(--obs-red-deep);
   font-size: 11px;
 }
 
@@ -822,7 +822,7 @@
   border: 1px solid var(--pl-ink);
   border-radius: var(--dl-r-md);
   background: var(--pl-ink);
-  color: #fffdfa;
+  color: var(--obs-paper-bright);
   font-size: 12px;
   font-weight: 650;
 }
@@ -950,7 +950,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
-  padding: 18px 10px 0 0;
+  /* 20px puts the 11px numeral's centre on the node's centre (10 + 17). */
+  padding: 20px 10px 0 0;
   color: var(--pl-terracotta);
   font-family: var(--pl-mono);
   font-size: 10px;
@@ -976,14 +977,14 @@
 
 .observatory-trace-step[data-status='error'] .observatory-trace-node {
   border-color: rgba(143, 29, 22, 0.4);
-  color: #8f1d16;
+  color: var(--obs-red-deep);
 }
 
 .observatory-trace-step[data-status='failed'] .observatory-trace-node,
 .observatory-trace-step[data-status='denied'] .observatory-trace-node {
   border-color: rgba(143, 29, 22, 0.4);
-  background: #fff4f3;
-  color: #8f1d16;
+  background: var(--obs-red-tint);
+  color: var(--obs-red-deep);
 }
 
 .observatory-trace-step[data-status='in_progress']
@@ -1018,11 +1019,15 @@
 
 .observatory-trace-content {
   min-width: 0;
-  padding: 13px 0 17px 14px;
+  /* The label row is given the node's height (34px) and centred, and the
+     content starts at the node's top margin (10px), so index, icon and label
+     share one centreline whether the row carries a status pill or not. */
+  padding: 10px 0 12px 14px;
 }
 
 .observatory-trace-kicker {
   display: flex;
+  min-height: 34px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1068,15 +1073,15 @@
 
 .observatory-trace-step[data-status='error'] .observatory-trace-kicker em {
   border-color: rgba(143, 29, 22, 0.22);
-  background: #fff4f3;
-  color: #8f1d16;
+  background: var(--obs-red-tint);
+  color: var(--obs-red-deep);
 }
 
 .observatory-trace-step[data-status='failed'] .observatory-trace-kicker em,
 .observatory-trace-step[data-status='denied'] .observatory-trace-kicker em {
   border-color: rgba(143, 29, 22, 0.22);
-  background: #fff4f3;
-  color: #8f1d16;
+  background: var(--obs-red-tint);
+  color: var(--obs-red-deep);
 }
 
 .observatory-trace-step[data-status='unavailable']
@@ -1312,11 +1317,11 @@
 }
 
 .observatory-trace-list[data-skeleton='true'] .observatory-trace-index {
-  padding-top: 18px;
+  padding-top: 20px;
 }
 
 .observatory-trace-list[data-skeleton='true'] .observatory-trace-content {
-  padding: 13px 0 17px 14px;
+  padding: 10px 0 4px 14px;
 }
 
 .observatory-trace-ghost {
@@ -1477,7 +1482,7 @@
 }
 
 .observatory-evidence-sufficiency li[data-status='missing'] > span {
-  background: #8f1d16;
+  background: var(--obs-red-deep);
 }
 
 .observatory-evidence-sufficiency li > div {
@@ -1513,7 +1518,7 @@
 }
 
 .observatory-evidence-sufficiency li[data-status='missing'] em {
-  color: #8f1d16;
+  color: var(--obs-red-deep);
 }
 
 .observatory-verified-claims ul {
@@ -1601,8 +1606,8 @@
 
 .observatory-answer-state[data-status='error'] {
   border-color: rgba(143, 29, 22, 0.22);
-  background: #fff4f3;
-  color: #8f1d16;
+  background: var(--obs-red-tint);
+  color: var(--obs-red-deep);
 }
 
 .observatory-results-scroll {
@@ -1939,7 +1944,7 @@
 .observatory-ledger-action:hover {
   border-color: var(--pl-accent-deep);
   background: var(--pl-accent-deep);
-  color: #fffdfa;
+  color: var(--obs-paper-bright);
 }
 
 .observatory-ledger-action:focus-visible {

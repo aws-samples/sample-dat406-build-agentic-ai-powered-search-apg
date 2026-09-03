@@ -394,7 +394,7 @@
 .lab-source-badge[data-provenance='authoritative'] {
   border-color: var(--obs-olive-line);
   background: var(--obs-olive-soft);
-  color: #3f6212;
+  color: var(--dl-ok);
 }
 
 .lab-source-badge[data-provenance='telemetry'] {
@@ -416,8 +416,8 @@
 }
 
 .lab-source-badge[data-provenance='unknown'] {
-  border-color: #d8c9a9;
-  background: #f8f1df;
+  border-color: var(--obs-sand-line);
+  background: var(--obs-sand-2);
   color: #74551c;
 }
 
@@ -428,9 +428,9 @@
   gap: 18px;
   margin: 0 0 22px;
   padding: 14px 16px;
-  border: 1px solid #d8c9a9;
+  border: 1px solid var(--obs-sand-line);
   border-radius: 6px;
-  background: #f8f1df;
+  background: var(--obs-sand-2);
   color: #594217;
 }
 
@@ -553,7 +553,7 @@
 .lab-detail-contract dt {
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -585,7 +585,7 @@
 .lab-rail-title {
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -622,7 +622,7 @@
 .lab-exercise-rail-number {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -640,7 +640,7 @@
 
 .lab-exercise-rail-copy small {
   color: var(--obs-ink-4);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .lab-rail-reference {
@@ -771,7 +771,7 @@
 .lab-measurement > span:first-child {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -804,7 +804,7 @@
 .lab-decision > span {
   color: #8d4328;
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -813,9 +813,9 @@
   align-items: flex-start;
   gap: 10px;
   padding: 14px 16px;
-  border: 1px solid #d8c9a9;
+  border: 1px solid var(--obs-sand-line);
   border-radius: 6px;
-  background: #f8f1df;
+  background: var(--obs-sand-2);
   color: #594217;
   font-size: 12px;
   line-height: 1.5;
@@ -890,9 +890,9 @@
   display: grid;
   gap: 8px;
   padding: 16px;
-  border: 1px solid #d8c9a9;
+  border: 1px solid var(--obs-sand-line);
   border-radius: 6px;
-  background: #f8f1df;
+  background: var(--obs-sand-2);
 }
 
 .lab-classification[data-contradiction='true'] {
@@ -904,7 +904,7 @@
   overflow-wrap: anywhere;
   color: #74551c;
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 750;
 }
 
@@ -928,7 +928,7 @@
   align-items: center;
   gap: 7px;
   color: var(--obs-ink-4);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .lab-evidence-section {
@@ -956,7 +956,7 @@
 
 .lab-evidence-datum dt {
   color: var(--obs-ink-4);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -1284,4 +1284,37 @@
   .labs-catalog-card:hover .labs-catalog-card-media img {
     transform: none;
   }
+}
+
+/* Reconciliation is closed until something has run: three "Unknown" rows on a
+   fresh visit read as broken, not as pending. */
+.lab-evidence-reconciliation > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lab-evidence-reconciliation > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lab-evidence-reconciliation > summary h2 {
+  margin: 0;
+}
+
+.lab-evidence-reconciliation > summary::after {
+  content: '+';
+  font-family: var(--obs-mono);
+  color: var(--obs-ink-3);
+}
+
+.lab-evidence-reconciliation[open] > summary::after {
+  content: '–';
+}
+
+.lab-evidence-reconciliation[open] > summary {
+  margin-bottom: 12px;
 }

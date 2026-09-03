@@ -18,13 +18,14 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, Sparkles, Star, X } from 'lucide-react'
 
 import AnnouncementBar from '../components/AnnouncementBar'
 import Footer from '../components/Footer'
 import Header, { type NavItem } from '../components/Header'
 import ProductAvailabilityPanel from '../components/ProductAvailabilityPanel'
 import ProductCard from '../components/ProductCard'
+import { asset } from '../utils/assetPath'
 import ReasoningChip from '../components/ReasoningChip'
 import ResponsiveImage from '../components/ResponsiveImage'
 import { TraceChip } from '../shared'
@@ -105,6 +106,15 @@ function catalogSignals(tags: string[]): string[] {
 
 export default function ProductDetailPage() {
   const { productId } = useParams<{ productId: string }>()
+  const [zoomOpen, setZoomOpen] = useState(false)
+  useEffect(() => {
+    if (!zoomOpen) return undefined
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setZoomOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomOpen])
   const navigate = useNavigate()
   const { addToCart } = useCart()
   const { openModal, openDrawerWithQuery, setChatSurface } = useUI()
@@ -303,7 +313,16 @@ export default function ProductDetailPage() {
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:gap-16 xl:gap-20">
             {/* --- Piece ------------------------------------------------ */}
             <div className="overflow-hidden rounded-[8px] border border-sand bg-sand">
-              <div className="relative aspect-[4/5]">
+              {/* One photograph per piece today. A zoom is the honest version
+                  of a gallery until more angles exist: the shopper can still
+                  look closely at the weave before paying for it. */}
+              <button
+                type="button"
+                className="relative block aspect-[4/5] w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2"
+                aria-label={`Zoom in on ${view.name}`}
+                data-testid="product-detail-zoom"
+                onClick={() => setZoomOpen(true)}
+              >
                 <ResponsiveImage
                   src={view.imageUrl}
                   alt={view.name}
@@ -315,8 +334,33 @@ export default function ProductDetailPage() {
                   className="h-full w-full object-cover"
                   style={{ objectPosition: view.imagePosition ?? 'center center' }}
                 />
-              </div>
+              </button>
             </div>
+            {zoomOpen ? (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={`${view.name}, enlarged`}
+                data-testid="product-detail-zoom-dialog"
+                className="fixed inset-0 z-[1200] flex items-center justify-center bg-[rgba(24,26,31,0.86)] p-6"
+                onClick={() => setZoomOpen(false)}
+              >
+                <img
+                  src={asset(view.imageUrl)}
+                  alt={view.name}
+                  className="max-h-[92vh] max-w-[92vw] rounded-[6px] object-contain shadow-warm-md"
+                  onClick={(event) => event.stopPropagation()}
+                />
+                <button
+                  type="button"
+                  className="absolute right-6 top-6 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream-50 text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cream-50"
+                  aria-label="Close enlarged image"
+                  onClick={() => setZoomOpen(false)}
+                >
+                  <X size={18} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
 
             {/* --- Detail ---------------------------------------------- */}
             <div

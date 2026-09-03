@@ -72,6 +72,13 @@
      the storefront's burgundy rather than the Daylight terracotta it used to
      inherit — three different reds rendered on one surface before this. */
   --obs-red-1: #70232e;
+  /* Named here because the same literals recurred across Workbench, Index and
+     Labs stylesheets; a palette change now stays in one place. */
+  --obs-red-deep: #8f1d16;
+  --obs-red-tint: #fff4f3;
+  --obs-paper-bright: #fffdfa;
+  --obs-sand-2: #f8f1df;
+  --obs-sand-line: #d8c9a9;
   --obs-red-soft: #f3e9eb;
   /* `--display` and `--obs-display` are deliberately NOT remapped here. The
      comment above already documents the two-register system: Fraunces carries
@@ -128,11 +135,17 @@
 }
 
 /*
- * Labs are the participant's shared working room, not a third product with a
- * separate grey backdrop. Scope the Storefront and Operator warm-paper family
- * to the Lab Collection and Live Workbench while retaining the Observatory's
- * evidence-specific accent and status vocabulary.
+ * One canvas for the whole product. The Observatory used to keep a cooler
+ * grey-green backdrop with white cards for its reference views while the Lab
+ * Collection and Workbench borrowed the storefront's warm paper, so the Proof
+ * Board, Tools and Performance read as a third product beside the Storefront
+ * and Operator. The instrument character lives in the mono type, the density
+ * and the evidence vocabulary, not in a different hue: every Observatory
+ * surface now takes the warm-paper family and keeps the evidence-specific
+ * accent and status colours.
  */
+.observatory-root,
+.observatory-surface,
 .observatory-surface[data-labs='true'],
 .observatory-surface[data-workbench='true'] {
   --obs-canvas: var(--cream);
@@ -413,7 +426,7 @@
 .observatory-session-facts dt {
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -503,7 +516,7 @@
 .observatory-session-recorded-request > span {
   color: var(--obs-red-1);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -592,7 +605,7 @@
 .observatory-session-trace-meta span {
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -628,7 +641,7 @@
   align-items: center;
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -708,7 +721,7 @@
   flex: 0 0 auto;
   color: var(--obs-ink-3);
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -761,7 +774,7 @@
   margin-top: 6px;
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -782,7 +795,7 @@
 .observatory-session-agent-list small {
   color: var(--obs-ink-4);
   font-family: var(--obs-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -967,7 +980,7 @@
   background: color-mix(in srgb, var(--obs-red-1) 9%, var(--obs-cream-1));
   color: color-mix(in srgb, var(--obs-red-1) 86%, var(--obs-ink-1));
   font-family: var(--obs-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   padding: 4px 8px;
@@ -1884,7 +1897,7 @@
   color: var(--obs-red-1);
   box-shadow: 0 7px 18px rgb(61 29 32 / 7%);
   font-family: var(--obs-sans);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.11em;
   line-height: 1;
@@ -2636,4 +2649,16 @@
   .observatory-reference-links {
     grid-template-columns: 1fr;
   }
+}
+
+/* Proof Board prose keeps a readable measure inside full-width panels; code
+   and commands scroll in their own block instead of stretching the line. */
+.observatory-root .pellier-governed-proof-panel p,
+.observatory-root .pellier-governed-proof-panel li,
+.observatory-root .pellier-governed-proof-evidence p {
+  max-width: 72ch;
+}
+
+.observatory-root .pellier-governed-proof-panel pre {
+  overflow-x: auto;
 }

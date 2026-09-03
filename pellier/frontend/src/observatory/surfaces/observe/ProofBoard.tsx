@@ -205,11 +205,11 @@ const TRACE_TONE: Record<TraceStepState, { label: string; color: string; bg: str
 
 // Four-lab workshop spine.
 const LAB_BY_CARD_ID: Record<string, string> = {
-  'marco-floor-check': 'Lab 1 · Build — Build a PostgreSQL-Grounded Agent',
-  'retrieval-comparison': 'Lab 2 · Build & Measure — Build and Measure PostgreSQL Hybrid Retrieval',
-  'managed-rail': 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
-  'audit-ledger': 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
-  'runtime-gateway-policy': 'Lab 4 · Govern — Enforce Identity and Prove Non-Execution',
+  'marco-floor-check': 'Lab 1 · Build a PostgreSQL-Grounded Agent',
+  'retrieval-comparison': 'Lab 2 · Build and Measure PostgreSQL Hybrid Retrieval',
+  'managed-rail': 'Lab 3 · Operate and Observe the AgentCore Managed Path',
+  'audit-ledger': 'Lab 3 · Operate and Observe the AgentCore Managed Path',
+  'runtime-gateway-policy': 'Lab 4 · Enforce Identity and Prove Non-Execution',
 };
 
 interface GovernedProofStage {
@@ -1091,7 +1091,6 @@ const ProofCardView: React.FC<{
           fontSize: '11px',
           fontWeight: 600,
           letterSpacing: '0.04em',
-          textTransform: 'uppercase',
           color: 'var(--obs-red-1)',
         }}
       >
@@ -1619,7 +1618,7 @@ const ProofBoard: React.FC<ProofBoardProps> = ({ focusCardId }) => {
         backToReferences={!isAuditFocus}
         eyebrow={
           isAuditFocus
-            ? 'Lab 3 · Operate & Observe — AgentCore Managed Path'
+            ? 'Lab 3 · Operate and Observe the AgentCore Managed Path'
             : 'Observe · Evidence'
         }
         title="Proof Board"

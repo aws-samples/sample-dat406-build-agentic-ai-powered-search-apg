@@ -141,8 +141,8 @@
 
   /* ========================================================================
    * Apple.com Design Tokens
-   * Dark:  pure black bg, #f5f5f7 text, #2997ff links
-   * Light: pure white bg, #1d1d1f text, #0071e3 links
+   * Dark:  pure black bg, var(--text-primary) text, var(--link-color) links
+   * Light: pure white bg, var(--bg-secondary) text, var(--link-color) links
    * ======================================================================== */
 
   :root.dark {
@@ -258,7 +258,8 @@
      storefront's display voice, matching the home hero. Card names and chips
      stay in the sans register. Declared after the reset above at equal
      specificity so source order decides. */
-  .pellier-page-surface .pellier-product-title {
+  .pellier-page-surface .pellier-product-title,
+.pellier-page-surface .pellier-page-title {
     font-family: var(--display);
     font-style: normal;
     letter-spacing: -0.02em;
@@ -391,7 +392,7 @@
   .btn-primary {
     @apply px-8 py-3 font-normal rounded-full transition-all duration-300;
     background: var(--link-color);
-    color: #ffffff;
+    color: var(--bg-primary);
     letter-spacing: 0.01em;
     position: relative;
     overflow: hidden;
@@ -785,7 +786,7 @@
   .orb-float-2 { animation: orbFloat2 25s ease-in-out infinite; }
   .orb-float-3 { animation: orbFloat3 18s ease-in-out infinite; }
 
-  .category-default { --category-accent: #888888; }
+  .category-default { --category-accent: var(--category-accent); }
 
   /* ========================================================================
    * Realistic Wood Panel Material — Dev Tools Panel & Modals

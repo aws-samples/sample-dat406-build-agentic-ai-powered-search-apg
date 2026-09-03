@@ -11,7 +11,7 @@
  *   - The `Coming soon - the full editorial hub arrives with the
  *     next Edit.` editorial line renders in italic Fraunces
  *     (Req 1.13.1).
- *   - Footer and CommandPill render so the chrome matches the home
+ *   - Footer renders and the floating CommandPill does not, matching About
  *     page (Req 1.13.1).
  *
  * Context providers (AuthContext, CartContext, UIContext) are mocked
@@ -170,11 +170,11 @@ describe('StoryboardPage - Field Notes essay surface', () => {
 })
 
 describe('StoryboardPage - site chrome (Req 1.13.1)', () => {
-  it('renders the Footer and floating CommandPill alongside the header', () => {
+  it('renders the Footer with the header and keeps the floating pill off the prose', () => {
     renderStoryboard()
 
     expect(screen.getByTestId('sticky-header')).toBeInTheDocument()
     expect(screen.getByTestId('footer')).toBeInTheDocument()
-    expect(screen.getByTestId('command-pill')).toBeInTheDocument()
+    expect(screen.queryByTestId('command-pill')).not.toBeInTheDocument()
   })
 })

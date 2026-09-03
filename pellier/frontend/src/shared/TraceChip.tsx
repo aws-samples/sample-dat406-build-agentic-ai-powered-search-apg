@@ -140,7 +140,7 @@ export const TraceChip: React.FC<TraceChipProps> = ({
     return (
       <a
         href={routePath(withPellierTraceContext(vocab.observatoryPath, tool))}
-        title={`${vocab.label} — ${vocab.description}`}
+        title={`${vocab.label}: ${vocab.description}`}
         data-testid={`trace-chip-${tool}`}
         style={baseStyle}
         onMouseEnter={(e) => {
@@ -173,7 +173,7 @@ export const TraceChip: React.FC<TraceChipProps> = ({
 
   return (
     <span
-      title={`${vocab.label} — ${vocab.description}`}
+      title={`${vocab.label}: ${vocab.description}`}
       data-testid={`trace-chip-${tool}`}
       style={baseStyle}
     >

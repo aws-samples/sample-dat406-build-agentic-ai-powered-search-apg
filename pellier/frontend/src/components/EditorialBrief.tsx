@@ -1,44 +1,54 @@
 /**
- * EditorialBrief — "About" section + colophon.
+ * EditorialBrief: the About band plus a colophon strip.
  *
  * Two-part closer before the footer:
  *
- *   1. About band — editorial portrait left, "About" eyebrow,
- *      Pellier/Observatory positioning, and tech-stack chips.
- *   2. Colophon strip — single centered italic line on a slightly
- *      darker warm ground, doubling as the visual page-end signal.
+ *   1. About band: editorial still life left; eyebrow, headline,
+ *      Pellier/Observatory label, two paragraphs, and stack chips right.
+ *      Every string comes from `ABOUT_BRIEF` in copy.ts so the page and
+ *      the copy file cannot drift apart.
+ *   2. Colophon strip: a single centred italic line on a slightly darker
+ *      warm ground, doubling as the visual page-end signal.
  */
+import { Fragment } from 'react'
+import { ABOUT_BRIEF } from '../copy'
+import ResponsiveImage from './ResponsiveImage'
 
-const BRIEF_IMAGE = '/products/hero-fresh-2.png'
+const BRIEF_IMAGE = ABOUT_BRIEF.IMAGE
+
+const BODY_STYLE = {
+  fontSize: '15px',
+  lineHeight: 1.7,
+  maxWidth: '520px',
+  color: 'var(--ink-soft)',
+} as const
 
 export default function EditorialBrief() {
   return (
     <>
-      {/* ── About band ── */}
       <section
         id="about"
         data-testid="editorial-brief"
-        aria-label="About this workshop"
+        aria-label="About Pellier"
         className="w-full"
         style={{
-          background: 'linear-gradient(180deg, #F7F3EE 0%, #EDE4D6 100%)',
+          background: 'linear-gradient(180deg, var(--cream) 0%, var(--cream-2) 100%)',
           scrollMarginTop: 84,
         }}
       >
         <div className="max-w-[1440px] mx-auto px-container-x py-20 md:py-28">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-            {/* Left: editorial illustration */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1.3fr_1fr] gap-x-12 lg:gap-x-16 gap-y-6 items-start">
             <div
-              className="relative rounded-2xl overflow-hidden shadow-warm-md"
-              style={{ aspectRatio: '16 / 10' }}
+              className="relative rounded-2xl overflow-hidden shadow-warm-md lg:col-start-1 lg:row-start-2 lg:mt-[5px]"
+              style={{ aspectRatio: '4 / 3' }}
             >
-              <img
+              <ResponsiveImage
                 src={BRIEF_IMAGE}
-                alt="Pellier editorial still life"
+                widths={[480, 960]}
+                sizes="(min-width: 1024px) 760px, 100vw"
+                alt={ABOUT_BRIEF.IMAGE_ALT}
+                pictureClassName="block h-full w-full"
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
               />
               <div
                 className="absolute inset-0 pointer-events-none"
@@ -50,14 +60,9 @@ export default function EditorialBrief() {
               />
             </div>
 
-            {/* Right: editorial text */}
-            <div className="flex flex-col gap-6">
-              {/* Eyebrow */}
+            <div className="lg:col-start-2 flex flex-col gap-6">
               <div className="flex items-center gap-2">
-                <span
-                  aria-hidden
-                  style={{ color: '#a8423a', fontSize: '9px' }}
-                >
+                <span aria-hidden style={{ color: 'var(--accent)', fontSize: '9px' }}>
                   &#9679;
                 </span>
                 <span
@@ -67,16 +72,15 @@ export default function EditorialBrief() {
                     fontWeight: 600,
                     letterSpacing: '0.22em',
                     textTransform: 'uppercase',
-                    color: '#a8423a',
+                    color: 'var(--accent)',
                   }}
                 >
-                  About
+                  {ABOUT_BRIEF.EYEBROW}
                 </span>
               </div>
 
-              {/* Headline */}
               <h2
-                className="font-display italic text-espresso"
+                className="font-display pellier-page-title italic text-espresso"
                 style={{
                   fontSize: 'clamp(28px, 3.5vw, 44px)',
                   lineHeight: 1.1,
@@ -84,14 +88,18 @@ export default function EditorialBrief() {
                   fontWeight: 400,
                 }}
               >
-                A storefront surface.
-                <br />
-                A proof surface.
+                {ABOUT_BRIEF.TITLE_LINES.map((line, index) => (
+                  <Fragment key={line}>
+                    {index > 0 && <br />}
+                    {line}
+                  </Fragment>
+                ))}
               </h2>
+            </div>
 
-              {/* Brand mark */}
+            <div className="lg:col-start-2 lg:row-start-2 flex flex-col gap-6">
               <div
-                className="font-sans text-espresso"
+                className="font-sans"
                 style={{
                   fontSize: '12px',
                   fontWeight: 600,
@@ -100,59 +108,22 @@ export default function EditorialBrief() {
                   color: 'rgba(31, 20, 16, 0.68)',
                 }}
               >
-                Pellier + Pellier Observatory
+                {ABOUT_BRIEF.LABEL}
               </div>
 
-              {/* Philosophy */}
-              <p
-                className="font-sans"
-                style={{
-                  fontSize: '15px',
-                  lineHeight: 1.7,
-                  maxWidth: '520px',
-                  color: '#4a3a2e',
-                }}
-              >
-                Pellier is a working storefront built to show governed agentic
-                search in motion. Shoppers ask in natural language: a linen
-                shirt for Goa, a thoughtful gift, a slow-craft object for home.
-                The storefront answers with pieces that feel personal, while
-                Pellier Observatory shows how each answer was built.
-              </p>
+              {ABOUT_BRIEF.PARAGRAPHS.map((paragraph) => (
+                <p key={paragraph.slice(0, 32)} className="font-sans" style={BODY_STYLE}>
+                  {paragraph}
+                </p>
+              ))}
 
-              <p
-                className="font-sans"
-                style={{
-                  fontSize: '15px',
-                  lineHeight: 1.7,
-                  maxWidth: '520px',
-                  color: '#4a3a2e',
-                }}
-              >
-                Every recommendation is grounded in Aurora PostgreSQL, shaped
-                by specialist agents, checked against tools and inventory, and
-                traceable back to the signals that produced it. The promise is
-                simple: recommendations can feel personal without becoming
-                invisible.
-              </p>
-
-              {/* Stack */}
-              <div
-                className="flex flex-wrap gap-2 mt-2"
+              <ul
+                aria-label="Built with"
+                className="flex flex-wrap gap-2 mt-2 list-none p-0 m-0"
                 style={{ maxWidth: '520px' }}
               >
-                {[
-                  'Aurora PostgreSQL',
-                  'pgvector',
-                  'Amazon Bedrock',
-                  'AgentCore',
-                  'Strands SDK',
-                  'Claude',
-                  'Cohere Embed v4',
-                  'Amazon Transcribe',
-                  'Cedar',
-                ].map((tech) => (
-                  <span
+                {ABOUT_BRIEF.STACK.map((tech) => (
+                  <li
                     key={tech}
                     className="font-mono"
                     style={{
@@ -166,30 +137,28 @@ export default function EditorialBrief() {
                     }}
                   >
                     {tech}
-                  </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Colophon strip ── */}
       <div
         className="w-full text-center"
-        style={{ background: '#E8DFD4', padding: '28px 24px' }}
+        style={{ background: 'var(--cream-2)', padding: '28px 24px' }}
       >
         <p
-          className="font-display italic"
+          className="font-display pellier-page-title italic"
           style={{
             fontSize: '15px',
             lineHeight: 1.5,
-            color: '#6b5a4e',
+            color: 'var(--ink-soft)',
             letterSpacing: '0.01em',
           }}
         >
-          Built for teams who want agentic experiences that are practical,
-          governed, and inspectable.
+          {ABOUT_BRIEF.COLOPHON}
         </p>
       </div>
     </>

@@ -47,11 +47,11 @@
 
 .turn-receipt__copy:hover {
   background: rgba(31, 20, 16, 0.06);
-  color: var(--ink-1, #1f1410);
+  color: var(--ink-1, var(--dl-ink));
 }
 
 .turn-receipt__copy:focus-visible {
-  outline: 2px solid var(--red-1, #9a3412);
+  outline: 2px solid var(--red-1, var(--dl-accent));
   outline-offset: 1px;
 }
 
@@ -103,7 +103,7 @@
   justify-content: center;
   border-radius: 50%;
   background: rgba(135, 72, 48, 0.1);
-  color: var(--red-1, #9a3412);
+  color: var(--red-1, var(--dl-accent));
 }
 
 .chat-failure--workshop_build_required .chat-failure__icon {
@@ -132,7 +132,7 @@
 
 .chat-failure h4 {
   margin: 0;
-  color: var(--ink-1, #1f1410);
+  color: var(--ink-1, var(--dl-ink));
   font-family: var(--sans);
   font-size: 14px;
   font-weight: 650;
@@ -171,10 +171,10 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--ink-1, #1f1410);
+  border: 1px solid var(--ink-1, var(--dl-ink));
   border-radius: 6px;
-  background: var(--ink-1, #1f1410);
-  color: var(--cream-1, #fbf8f2);
+  background: var(--ink-1, var(--dl-ink));
+  color: var(--cream-1, var(--dl-paper));
   font-family: var(--sans);
   font-size: 12px;
   font-weight: 600;
@@ -188,13 +188,13 @@
 }
 
 .chat-failure__actions button:hover {
-  border-color: var(--red-1, #9a3412);
-  background: var(--red-1, #9a3412);
-  color: var(--cream-1, #fbf8f2);
+  border-color: var(--red-1, var(--dl-accent));
+  background: var(--red-1, var(--dl-accent));
+  color: var(--cream-1, var(--dl-paper));
 }
 
 .chat-failure__actions button:focus-visible {
-  outline: 2px solid var(--red-1, #9a3412);
+  outline: 2px solid var(--red-1, var(--dl-accent));
   outline-offset: 2px;
 }
 

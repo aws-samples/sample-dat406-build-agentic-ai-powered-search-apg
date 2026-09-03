@@ -277,7 +277,7 @@ export default function ProductCard({
                 <span aria-hidden="true">/</span>
                 <span
                   data-testid={`product-card-badge-${product.id}`}
-                  className="font-medium text-accent-ink"
+                  className="font-medium tracking-[0.04em] text-espresso"
                 >
                   {BADGE_LABEL[product.badge]}
                 </span>

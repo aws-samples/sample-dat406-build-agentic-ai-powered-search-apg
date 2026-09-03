@@ -120,8 +120,8 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
                   Choose who enters Pellier.
                 </h2>
                 <p className="pm-sub">
-                  Each profile carries distinct Aurora history, preferences,
-                  and managed memory.
+                  Each profile carries its own history, preferences and
+                  memory.
                 </p>
               </div>
               <button

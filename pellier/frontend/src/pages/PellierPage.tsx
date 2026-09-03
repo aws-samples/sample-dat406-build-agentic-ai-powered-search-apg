@@ -43,10 +43,10 @@ import { splitHeadlineAtRe } from '../utils/headlineAccent'
 const NAV_ROUTES: Record<NavItem, string> = {
   home: '/',
   shop: '/#shop',
-  storyboard: '/#shop',
-  stories: '/#shop',
+  storyboard: '/storyboard',
+  stories: '/storyboard',
   discover: '/#shop',
-  about: '/#shop',
+  about: '/about',
   account: '/',
   'ask-pellier': '/',
 }

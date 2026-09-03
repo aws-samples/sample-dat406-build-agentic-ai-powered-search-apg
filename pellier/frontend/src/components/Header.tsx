@@ -139,7 +139,7 @@ function ObservatoryLink({
       data-testid={mobile ? 'observatory-link-mobile' : 'observatory-link'}
       onClick={onClick}
       className={[
-        'items-center gap-1.5 text-[12px] font-medium text-ink-quiet',
+        'items-center gap-1.5 text-[14px] font-medium text-ink-quiet',
         'transition-colors duration-fade ease-out hover:text-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         mobile
@@ -157,7 +157,7 @@ function ObservatoryLink({
         data-testid={mobile ? 'observatory-optional-mobile' : 'observatory-optional'}
         className={[
           'rounded-full border border-sand bg-cream-warm px-1.5 py-0.5',
-          'text-[10px] font-medium uppercase tracking-[0.08em] text-ink-quiet',
+          'text-[11px] font-medium uppercase tracking-[0.08em] text-ink-quiet',
         ].join(' ')}
       >
         {NAV.OBSERVATORY_OPTIONAL}
@@ -179,7 +179,7 @@ function OperatorLink({
       data-testid={mobile ? 'operator-link-mobile' : 'operator-link'}
       onClick={onClick}
       className={[
-        'items-center gap-1.5 text-[12px] font-medium text-ink-quiet',
+        'items-center gap-1.5 text-[14px] font-medium text-ink-quiet',
         'transition-colors duration-fade ease-out hover:text-accent',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
         mobile
@@ -200,34 +200,35 @@ function OperatorLink({
 // Signed-out persona menu
 // ---------------------------------------------------------------------------
 
-function SignedOutPersonaTrigger() {
+function SignedOutPersonaTrigger({
+  open,
+  onOpen,
+}: {
+  open: boolean
+  onOpen: () => void
+}) {
   // The signed-out pill used to open a compact dropdown of the three
   // personas, a second chooser beside the modal the active-persona pill
-  // already opens. Both now open the same three-card modal, so the choice
-  // is made in one place with the same portraits and copy.
-  const [open, setOpen] = useState(false)
-
+  // already opens. Both now open the same three-card modal, which the
+  // header owns so the signed-out Ask Pellier item can open it too.
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        data-testid="persona-pill"
-        className={[
-          'pellier-account-pill',
-          'flex min-h-[44px] items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
-          'cursor-pointer rounded-full',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
-        ].join(' ')}
-        style={{ padding: '7px 14px' }}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <UserIcon className="w-4 h-4" aria-hidden />
-        <span style={{ fontFamily: 'var(--sans)' }}>Sign in</span>
-      </button>
-      <PersonaModal open={open} onClose={() => setOpen(false)} />
-    </>
+    <button
+      type="button"
+      onClick={onOpen}
+      data-testid="persona-pill"
+      className={[
+        'pellier-account-pill',
+        'flex min-h-[44px] items-center gap-2 text-[13.5px] transition-colors duration-fade ease-out',
+        'cursor-pointer rounded-full',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-espresso focus-visible:ring-offset-2',
+      ].join(' ')}
+      style={{ padding: '7px 14px' }}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+    >
+      <UserIcon className="w-4 h-4" aria-hidden />
+      <span style={{ fontFamily: 'var(--sans)' }}>Sign in</span>
+    </button>
   )
 }
 
@@ -286,12 +287,18 @@ function AuthenticatedPersonaTrigger() {
   )
 }
 
-function PersonaAccountControl() {
+function PersonaAccountControl({
+  chooserOpen,
+  onOpenChooser,
+}: {
+  chooserOpen: boolean
+  onOpenChooser: () => void
+}) {
   const { persona } = usePersona()
   return persona ? (
     <AuthenticatedPersonaTrigger />
   ) : (
-    <SignedOutPersonaTrigger />
+    <SignedOutPersonaTrigger open={chooserOpen} onOpen={onOpenChooser} />
   )
 }
 
@@ -307,26 +314,34 @@ export default function Header({
   const { openModal } = useUI()
   const { persona } = usePersona()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [chooserOpen, setChooserOpen] = useState(false)
   const reduceMotion = Boolean(useReducedMotion())
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
-  const navItems = persona
-    ? NAV_ITEMS
-    : NAV_ITEMS.filter(({ item }) => item !== 'ask-pellier')
+  const navItems = NAV_ITEMS
+  const openChooser = useCallback(() => setChooserOpen(true), [])
 
   // The storefront's search is Pellier - the chat drawer. Clicking the
-  // Search icon opens the same concierge pill uses, which keeps the
-  // header honest: one search surface, two entry points.
+  // Search icon opens the same concierge the pill uses, which keeps the
+  // header honest: one search surface, two entry points. Signed out, both
+  // lead to the chooser first, because the concierge needs a shopper.
   const handleSearchClick = useCallback(() => {
-    if (!persona) return
+    if (!persona) {
+      setChooserOpen(true)
+      return
+    }
     openModal('drawer')
   }, [persona, openModal])
 
   const handleNavigate = useCallback(
     (item: NavItem) => {
       setMobileMenuOpen(false)
+      if (item === 'ask-pellier' && !persona) {
+        setChooserOpen(true)
+        return
+      }
       onNavigate?.(item)
     },
-    [onNavigate],
+    [onNavigate, persona],
   )
 
   useEffect(() => {
@@ -394,7 +409,7 @@ export default function Header({
               </div>
             )}
 
-            <PersonaAccountControl />
+            <PersonaAccountControl chooserOpen={chooserOpen} onOpenChooser={openChooser} />
 
             <div className="relative">
               <IconButton
@@ -493,6 +508,9 @@ export default function Header({
           ) : null}
         </AnimatePresence>
       </nav>
+      {!persona ? (
+        <PersonaModal open={chooserOpen} onClose={() => setChooserOpen(false)} />
+      ) : null}
     </header>
   )
 }

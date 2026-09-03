@@ -21,6 +21,7 @@ import {
   type OperatorReviewQueue,
 } from '../../services/operator'
 import ClientAvatar from '../components/ClientAvatar'
+import OperatorSignInAction from '../components/OperatorSignInAction'
 
 /** Proposed actions in the operator's language, not the tool's. */
 const ACTION_LABELS: Record<string, string> = {
@@ -185,8 +186,17 @@ const ReviewCard: React.FC<{ review: OperatorReview }> = ({ review }) => {
   )
 }
 
+const OUTCOME_FILTERS: ReadonlyArray<{ id: ReviewOutcomeKind; label: string }> = [
+  { id: 'pending', label: 'Needs decision' },
+  { id: 'refused', label: 'Refused' },
+  { id: 'executed', label: 'Carried out' },
+  { id: 'approved', label: 'Approved, not run' },
+  { id: 'declined', label: 'Declined' },
+]
+
 const ReviewQueue: React.FC = () => {
   const [queue, setQueue] = useState<OperatorReviewQueue | null>(null)
+  const [outcomeFilter, setOutcomeFilter] = useState<ReviewOutcomeKind | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -244,6 +254,7 @@ const ReviewQueue: React.FC = () => {
             <code>020_operator_review.sql</code> has been applied.
           </>
         )}
+        {authenticationRequired ? <OperatorSignInAction /> : null}
         <div className="operator-receipt-key" style={{ marginTop: 10 }}>
           {error}
         </div>
@@ -259,10 +270,20 @@ const ReviewQueue: React.FC = () => {
     )
   }
 
-  const pending = queue.reviews.filter(
+  const counts = OUTCOME_FILTERS.reduce<Record<ReviewOutcomeKind, number>>(
+    (acc, filter) => {
+      acc[filter.id] = queue.reviews.filter((r) => outcomeKind(r) === filter.id).length
+      return acc
+    },
+    { pending: 0, declined: 0, approved: 0, refused: 0, executed: 0 },
+  )
+  const scoped = outcomeFilter
+    ? queue.reviews.filter((r) => outcomeKind(r) === outcomeFilter)
+    : queue.reviews
+  const pending = scoped.filter(
     (r) => r.humanState === 'confirmation_required',
   )
-  const decided = queue.reviews.filter(
+  const decided = scoped.filter(
     (r) => r.humanState !== 'confirmation_required',
   )
 
@@ -273,6 +294,31 @@ const ReviewQueue: React.FC = () => {
         Pellier stops consequential work here. Decide the exact terms;
         authorization and execution remain separate.
       </p>
+
+      <div
+        className="operator-outcome-filters"
+        role="group"
+        aria-label="Filter by outcome"
+        data-testid="operator-outcome-filters"
+      >
+        {OUTCOME_FILTERS.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className="operator-outcome-filter"
+            aria-pressed={outcomeFilter === filter.id}
+            data-outcome={filter.id}
+            data-testid={`operator-outcome-filter-${filter.id}`}
+            onClick={() =>
+              setOutcomeFilter((current) => (current === filter.id ? null : filter.id))
+            }
+          >
+            <OutcomeGlyph kind={filter.id} />
+            {filter.label}
+            <span className="operator-outcome-filter-count">{counts[filter.id]}</span>
+          </button>
+        ))}
+      </div>
 
       <dl className="operator-queue-summary" aria-label="Action queue summary">
         <div>

@@ -40,8 +40,14 @@ export function sortSessionsByRecency(sessions: Session[]): Session[] {
 
 /** Format elapsed milliseconds as a human-readable duration (e.g., "4.2s"). */
 function formatElapsed(ms: number): string {
+  // Sessions span from a sub-second replay to hours of a workshop; one unit
+  // per magnitude reads faster than "4229.8s".
   if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${Math.round(seconds % 60)}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 function formatTimestamp(iso: string): string {
@@ -308,6 +314,10 @@ const SessionsList: React.FC = () => {
   const scopedPersona = persona?.id ?? null;
   const [showAllPersonas, setShowAllPersonas] = useState(false);
   const [visibleCount, setVisibleCount] = useState(SESSION_PAGE_SIZE);
+  // Forty-six recorded sessions do not fit a scan. A typed filter over the
+  // opening query and id, plus a status chip, narrows without a round trip.
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'complete'>('all');
   const { data, loading, error, refetch } = useObservatoryData<Session[]>({
     key: 'sessions',
   });
@@ -316,13 +326,20 @@ const SessionsList: React.FC = () => {
     () => (data ? sortSessionsByRecency(data) : []),
     [data],
   );
-  const scopedSessions = useMemo(
-    () =>
+  const scopedSessions = useMemo(() => {
+    const byPersona =
       scopedPersona && !showAllPersonas
         ? sorted.filter((session) => session.personaId === scopedPersona)
-        : sorted,
-    [scopedPersona, showAllPersonas, sorted],
-  );
+        : sorted;
+    const needle = query.trim().toLowerCase();
+    return byPersona.filter(
+      (session) =>
+        (statusFilter === 'all' || session.status === statusFilter) &&
+        (!needle ||
+          session.openingQuery.toLowerCase().includes(needle) ||
+          session.id.toLowerCase().includes(needle)),
+    );
+  }, [scopedPersona, showAllPersonas, sorted, query, statusFilter]);
   const showingScopedSessions = Boolean(scopedPersona && !showAllPersonas);
   const activePersonaLabel = persona?.display_name || 'Current shopper';
   const visibleSessions = scopedSessions.slice(0, visibleCount);
@@ -382,6 +399,54 @@ const SessionsList: React.FC = () => {
               ? 'Recorded turns only — no fixture replays are mixed into this view.'
               : 'Showing all durable Aurora session evidence recorded by the workshop.'}
           </p>
+        </div>
+        <div
+          className="observatory-sessions-filters"
+          role="group"
+          aria-label="Filter sessions"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}
+        >
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find by opening query or id"
+            aria-label="Find a session"
+            data-testid="observatory-sessions-search"
+            style={{
+              fontFamily: 'var(--obs-mono)',
+              fontSize: '12px',
+              padding: '8px 10px',
+              minWidth: '240px',
+              border: '1px solid var(--obs-rule-2)',
+              borderRadius: '6px',
+              background: 'var(--obs-panel)',
+              color: 'var(--obs-ink-1)',
+            }}
+          />
+          {(['all', 'active', 'complete'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={statusFilter === value}
+              data-testid={`observatory-sessions-status-${value}`}
+              onClick={() => setStatusFilter(value)}
+              style={{
+                fontFamily: 'var(--obs-mono)',
+                fontSize: '11px',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                padding: '7px 10px',
+                border: '1px solid var(--obs-rule-2)',
+                borderRadius: '999px',
+                background: statusFilter === value ? 'var(--obs-ink-1)' : 'transparent',
+                color: statusFilter === value ? 'var(--obs-cream-1)' : 'var(--obs-ink-2)',
+                cursor: 'pointer',
+              }}
+            >
+              {value}
+            </button>
+          ))}
         </div>
         {scopedPersona && (
           <button

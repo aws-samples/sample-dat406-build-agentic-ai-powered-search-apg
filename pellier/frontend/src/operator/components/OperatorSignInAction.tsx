@@ -6,7 +6,7 @@ import { redirectToSignIn } from '../../utils/auth'
 const OperatorSignInAction: React.FC = () => (
   <button
     type="button"
-    className="operator-auth-control operator-auth-signin operator-state-signin"
+    className="pellier-account-pill operator-auth-signin operator-state-signin"
     onClick={() => redirectToSignIn('email')}
     data-testid="operator-state-sign-in"
   >

@@ -1375,13 +1375,16 @@ const ChatTab: React.FC = () => {
       </div>
 
       <ContextRail>
-        <LiveTraceRail
-          steps={traceSteps}
-          visibleCount={
-            replayDone ? traceSteps.length : visibleTraceCount
-          }
-          emphasizeLatest={traceEmphasizeLatest}
-        />
+        {/* The rail animates the trace while a replay runs. Once it is done the
+            recorded request in the centre lists the same tool rows, so the rail
+            copy would be a duplicate and gives way to memory, agents and skills. */}
+        {!replayDone ? (
+          <LiveTraceRail
+            steps={traceSteps}
+            visibleCount={visibleTraceCount}
+            emphasizeLatest={traceEmphasizeLatest}
+          />
+        ) : null}
         <MemoryCard session={session} />
         <AgentsCard session={session} />
         <SkillsCard session={session} />

@@ -25,7 +25,7 @@
  * Declared on `.operator-root`, NOT `:root`. A custom property's `var()` is
  * substituted where the property is DECLARED, so `--op-bg: var(--cream)` on
  * `:root` resolved against the warm `--cream` from daylight-bridge and then
- * inherited down already-resolved as #f7f3ec — the surface override on
+ * inherited down already-resolved as var(--dl-bg) — the surface override on
  * `.operator-root` never got a chance to apply. Declaring them here resolves
  * them against the overridden palette.
  */
@@ -237,33 +237,31 @@
   cursor: pointer;
 }
 
-.operator-auth-control:not(.operator-auth-signin):hover {
+.operator-auth-control:hover {
   border-color: var(--op-accent);
   color: var(--op-accent);
 }
 
-.operator-auth-control.operator-auth-signin {
+/* The sign-in control is the storefront account pill (`.pellier-account-pill`
+   in index.css owns border, radius, colour and hover). Only layout lives here
+   so the two surfaces cannot drift apart. */
+.operator-auth-signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 44px;
-  padding: 9px 16px;
-  border-color: var(--input-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--op-ink);
+  padding: 7px 14px;
   font-size: 13.5px;
-  font-weight: 400;
-  transition:
-    border-color 160ms ease-out,
-    background-color 160ms ease-out,
-    color 160ms ease-out;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.operator-auth-control.operator-auth-signin:hover {
-  border-color: var(--op-accent);
-  background: var(--op-accent);
-  color: var(--op-paper);
+.operator-auth-signin .operator-topbar-icon {
+  width: 16px;
+  height: 16px;
 }
 
-.operator-auth-control.operator-auth-signin:focus-visible {
+.operator-auth-signin:focus-visible {
   outline: 2px solid var(--op-accent);
   outline-offset: 2px;
 }
@@ -1618,15 +1616,15 @@
    state, red is blocked; the glyph and the word carry the distinction for
    anyone who cannot rely on colour. */
 .operator-review-state[data-outcome='executed'] {
-  color: var(--op-verified, #3f6212);
+  color: var(--op-verified, var(--dl-ok));
 }
 
 .operator-review-state[data-outcome='refused'] {
-  color: var(--op-blocked, #991b1b);
+  color: var(--op-blocked, var(--dl-err));
 }
 
 .operator-review-state[data-outcome='approved'] {
-  color: var(--op-caution, #b45309);
+  color: var(--op-caution, var(--dl-warn));
 }
 
 .operator-review-open {
@@ -2354,7 +2352,7 @@
     min-height: 44px;
   }
 
-  .operator-auth-control:not(.operator-auth-signin) .operator-auth-identity {
+  .operator-auth-control .operator-auth-identity {
     display: none;
   }
 
@@ -4264,4 +4262,73 @@
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+}
+
+/* Book search: the desk's own control, beside the rung ladder. */
+.operator-search {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  margin: 22px 0 18px;
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+
+.operator-search input {
+  font-family: var(--sans);
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--op-ink);
+  padding: 9px 12px;
+  border: 1px solid var(--op-rule-strong);
+  border-radius: 4px;
+  background: var(--op-paper, var(--dl-paper));
+}
+
+.operator-search input:focus-visible {
+  outline: 2px solid var(--op-accent);
+  outline-offset: 2px;
+}
+
+/* Outcome chips over the action queue: the same glyph and word the rows use. */
+.operator-outcome-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 20px;
+}
+
+.operator-outcome-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--op-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--op-muted);
+  font-family: var(--sans);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.operator-outcome-filter[aria-pressed='true'] {
+  border-color: var(--op-ink);
+  color: var(--op-ink);
+}
+
+.operator-outcome-filter .operator-review-outcome-glyph {
+  width: 14px;
+  height: 14px;
+}
+
+.operator-outcome-filter-count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--op-muted);
 }

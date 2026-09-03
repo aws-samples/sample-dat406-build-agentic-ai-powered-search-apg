@@ -63,7 +63,7 @@ const proofBoardPayload = {
   cards: [
     {
       id: 'marco-floor-check',
-      lab: 'Lab 1 · Build — Build a PostgreSQL-Grounded Agent',
+      lab: 'Lab 1 · Build a PostgreSQL-Grounded Agent',
       group: 'Agent and tool evidence',
       title: 'Wire Marco to check_inventory',
       status: 'complete',
@@ -79,7 +79,7 @@ const proofBoardPayload = {
     },
     {
       id: 'retrieval-comparison',
-      lab: 'Lab 2 · Build & Measure — Build and Measure PostgreSQL Hybrid Retrieval',
+      lab: 'Lab 2 · Build and Measure PostgreSQL Hybrid Retrieval',
       group: 'Retrieval evidence',
       title: 'Compare retrieval strategies',
       status: 'available',
@@ -96,7 +96,7 @@ const proofBoardPayload = {
     },
     {
       id: 'audit-ledger',
-      lab: 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+      lab: 'Lab 3 · Operate and Observe the AgentCore Managed Path',
       title: 'Prove the audit trail in Aurora',
       status: 'complete',
       required: true,
@@ -111,7 +111,7 @@ const proofBoardPayload = {
     },
     {
       id: 'managed-rail',
-      lab: 'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+      lab: 'Lab 3 · Operate and Observe the AgentCore Managed Path',
       group: 'Managed boundaries',
       title: 'Prove the managed Runtime and Gateway rail',
       status: 'complete',
@@ -130,7 +130,7 @@ const proofBoardPayload = {
     },
     {
       id: 'runtime-gateway-policy',
-      lab: 'Lab 4 · Govern — Enforce Identity and Prove Non-Execution',
+      lab: 'Lab 4 · Enforce Identity and Prove Non-Execution',
       group: 'Governance evidence',
       title: 'Verify Gateway, Cedar, and the governed receipt',
       status: 'complete',
@@ -287,11 +287,11 @@ describe('ProofBoard', () => {
       'Wire Marco to check_inventory',
     );
     expect(
-      screen.getAllByText('Lab 1 · Build — Build a PostgreSQL-Grounded Agent'),
+      screen.getAllByText('Lab 1 · Build a PostgreSQL-Grounded Agent'),
     ).toHaveLength(2);
     expect(
       screen.getAllByText(
-        'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+        'Lab 3 · Operate and Observe the AgentCore Managed Path',
       ).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText(/^Act (I|II|III)$/)).not.toBeInTheDocument();
@@ -439,11 +439,11 @@ describe('ProofBoard', () => {
 
     // Four-lab spine: managed execution and audit share Lab 3.
     expect(
-      await screen.findAllByText('Lab 1 · Build — Build a PostgreSQL-Grounded Agent'),
+      await screen.findAllByText('Lab 1 · Build a PostgreSQL-Grounded Agent'),
     ).toHaveLength(2);
     expect(
       screen.getAllByText(
-        'Lab 3 · Operate & Observe — Operate and Observe the AgentCore Managed Path',
+        'Lab 3 · Operate and Observe the AgentCore Managed Path',
       ).length,
     ).toBeGreaterThan(0);
   });

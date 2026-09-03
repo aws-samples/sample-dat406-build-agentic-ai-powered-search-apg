@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ReviewQueue, { relativeTime, outcomeLine } from './surfaces/ReviewQueue'
 import ReviewRecord, { issueLine } from './surfaces/ReviewRecord'
@@ -207,6 +207,27 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('ReviewQueue', () => {
+  it('filters the queue by outcome and counts each outcome', async () => {
+    mockFetch(() => ({
+      body: { reviews: [PENDING_REVIEW], total: 1, pendingCount: 1 },
+    }))
+    renderQueue()
+    await screen.findByTestId(`operator-review-${PENDING_REVIEW.reviewId}`)
+
+    expect(screen.getByTestId('operator-outcome-filter-pending')).toHaveTextContent('1')
+    expect(screen.getByTestId('operator-outcome-filter-declined')).toHaveTextContent('0')
+
+    fireEvent.click(screen.getByTestId('operator-outcome-filter-declined'))
+    expect(
+      screen.queryByTestId(`operator-review-${PENDING_REVIEW.reviewId}`),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('operator-outcome-filter-declined'))
+    expect(
+      screen.getByTestId(`operator-review-${PENDING_REVIEW.reviewId}`),
+    ).toBeInTheDocument()
+  })
+
   it('shows a pending review so the operator finds Theo without searching', async () => {
     mockFetch(() => ({
       body: { reviews: [PENDING_REVIEW], total: 1, pendingCount: 1 },
@@ -268,6 +289,7 @@ describe('ReviewQueue', () => {
     expect(state).toHaveTextContent('Operator sign-in required')
     expect(state).toHaveTextContent('No database request was attempted')
     expect(state).not.toHaveTextContent('Aurora did not return')
+    expect(within(state).getByTestId('operator-state-sign-in')).toBeInTheDocument()
   })
 
   it('separates decided reviews from ones still waiting', async () => {
@@ -311,7 +333,7 @@ describe('OperatorFrame review link', () => {
     await screen.findByTestId('operator-reviews-count')
     const signIn = screen.getByTestId('operator-sign-in')
     expect(signIn).toHaveClass('operator-auth-signin')
-    expect(signIn).not.toHaveClass('pellier-account-pill')
+    expect(signIn).toHaveClass('pellier-account-pill')
     fireEvent.click(signIn)
     expect(authMock.login).toHaveBeenCalledOnce()
   })
@@ -763,6 +785,8 @@ describe('ReviewRecord', () => {
     expect(state).toHaveTextContent('Operator sign-in required')
     expect(state).toHaveTextContent('No database request was attempted')
     expect(state).not.toHaveTextContent('This prepared action is unavailable')
+    expect(within(state).getByTestId('operator-state-sign-in')).toBeInTheDocument()
+    expect(state.textContent).not.toMatch(/attempted\.Back to/)
   })
 
   it('renders a loading state', () => {

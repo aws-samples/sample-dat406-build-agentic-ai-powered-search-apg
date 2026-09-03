@@ -24,8 +24,8 @@
 import { useState } from 'react'
 
 import { STORYBOARD_TEASERS, type StoryboardTeaser as StoryboardTeaserCard } from '../copy'
+import ResponsiveImage from './ResponsiveImage'
 import { cssVar as c } from '../design/cssVars'
-import { imageSrc } from '../utils/assetPath'
 
 // --- Design tokens (storefront.md) ---------------------------------------
 const FRAUNCES_STACK = 'Fraunces, Georgia, serif'
@@ -62,7 +62,7 @@ export default function StoryboardTeaser() {
               margin: 0,
             }}
           >
-            From the Storyboard
+            Pellier Stories
           </p>
           <h2
             id="storyboard-teaser-heading"
@@ -76,7 +76,7 @@ export default function StoryboardTeaser() {
               margin: '12px 0 0',
             }}
           >
-            Field notes from a slower kind of shopping.
+            The Edit, in three volumes.
           </h2>
         </header>
 
@@ -137,11 +137,13 @@ function StoryboardCard({ card, index }: StoryboardCardProps) {
           background: '#e8d8bc',
         }}
       >
-        <img
+        <ResponsiveImage
           data-testid={`storyboard-card-image-${index}`}
-          src={imageSrc(card.imageUrl)}
+          src={card.imageUrl}
           alt={card.imageAlt}
           loading="lazy"
+          sizes="(min-width: 1024px) 405px, 90vw"
+          pictureClassName="block h-full w-full"
           style={{
             width: '100%',
             height: '100%',
@@ -209,7 +211,7 @@ function StoryboardCard({ card, index }: StoryboardCardProps) {
         </p>
         <a
           data-testid={`storyboard-card-link-${index}`}
-          href="#storyboard"
+          href="#field-notes-heading"
           style={{
             // Req 1.9.2 - terracotta link.
             color: c.accent,

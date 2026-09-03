@@ -77,7 +77,39 @@ and stops at the human checkpoint.
   choice "does not sign you in as that customer". The Observatory is where
   the architecture words live.
 - The product page title, the home hero and every Observatory page title use
-  the same display typeface, so the three surfaces read as one product.
+  the same display typeface, so the three surfaces read as one product. The
+  product photograph opens enlarged on click; Escape closes it. Stories and
+  About in the header are real pages again rather than links back home.
+- About names all three surfaces in plain words: the boutique, the Operator
+  desk (where a return, a credit or a held action is decided by a person and
+  the decision is kept) and the Observatory (which specialist took the
+  request, what it read, what it was allowed to do, what the database
+  changed). The stack chips are the real stack; Amazon Transcribe is gone
+  and Cohere Rerank is listed. Stories carries three volumes and four field
+  notes; the notes now match the seeded orders (Marco's linen-then-travel
+  run, Anna's gift under a hundred, Theo's incense holder to wabi-sabi bowl).
+  The three Stories photographs and the About photograph are our own
+  generated stills, served as local WebP and AVIF, so neither page needs the
+  internet in the room.
+- The header's Pellier Operator and Pellier Observatory links are the same
+  size as the primary nav, still in the muted colour.
+- Marco, Anna and Theo have new portraits from one shoot (warm plaster wall,
+  raking light, linen and knit in their own palettes). The chooser's photo
+  row is taller so each face is a full headshot. Jessica keeps her
+  client-book portrait: she is the Lab 4 customer, not a shopper persona,
+  and her photo must stay the same face in the client book and the lab
+  cards.
+- The chooser blurbs now match the seeded orders (migration 045: Marco's
+  "seven orders of linen and leather", no invented "Maren tunic", no em
+  dashes). Fresh boxes get it from bootstrap; an existing cluster needs the
+  migration applied once.
+- Signed out, "Ask Pellier" in the header and the search icon open the
+  persona chooser instead of doing nothing, because the concierge needs a
+  shopper. The hero card and the chooser use the same words: "Choose who
+  enters Pellier."
+- Shopper copy no longer says Aurora, "workshop profile" or "tag weights".
+  The chat eyebrow reads "Signed in as Marco", the hero badge "Live
+  catalog". The Observatory is still where the architecture words live.
 
 ### Agent and tool model
 
@@ -157,13 +189,17 @@ investigation and a proposed plan. It does not approve a review, authorize a
 write, or mutate business data.
 
 What the desk looks like now (updated 2026-09-03): the sign-in control is the
-desk's own square control, not the shopper persona pill, so nobody reads it as
-"pick a persona". Each browser tab is titled by the desk view (Clients, Action
+same round pill as the Storefront's, so the two surfaces read as one product;
+it opens the Cognito sign-in, not the persona chooser. Each browser tab is titled by the desk view (Clients, Action
 Queue, Client, Review). Action Queue rows carry an outcome glyph and word,
 pending, declined, approved, refused or executed, so a policy refusal and a
-carried-out write never look alike in the list. On a phone the review record
-stacks every card, including the proposed action's parameters, above the
-decision buttons.
+carried-out write never look alike in the list, and the queue can be filtered
+by those outcomes. The client book has a name filter beside the membership
+ladder. On a phone the review record stacks every card, including the
+proposed action's parameters, above the decision buttons. Every signed-out
+desk view, including the Action Queue and a single review, carries its own
+Sign in button, and a decision that fails for a reason other than changed
+parameters or an expired sign-in reads as a sentence, not a raw error code.
 
 Jessica is not a fourth Storefront persona. She is a real Cognito customer
 principal and the required Lab 4 business subject, while the separate
@@ -224,7 +260,24 @@ What to point at in the Workbench (updated 2026-09-03):
 - Performance says "not recorded in this window" for any panel without data
   and never prints a zero as a median.
 - The reference views under the Lab Collection are an index table: each view,
-  what it shows and the table or service it reads from.
+  what it shows and the table or service it reads from. In the live Workbench
+  the same index is collapsed behind "Explore reference views" so the ledger
+  keeps the space.
+- Sessions can be narrowed by a typed query or a status chip. The Tool Registry
+  lists tools one line each and opens a tool's signature only when selected.
+  The registry reads the `pellier.tools` table; it should show the current
+  `search_products` and `check_inventory` names. If it does not, re-run
+  `scripts/seed_tool_registry.py` against that cluster. A fresh bootstrap
+  seeds the current names.
+- In the Evidence ledger the round node beside each row marks the event's
+  status, not its kind: dashed ring pending, check succeeded, shield denied,
+  cross failed. The kind is the small label next to it.
+- Every Observatory view sits on the same warm paper as the Storefront and the
+  Operator desk. The cooler grey backdrop behind the Proof Board and the
+  reference views is gone; the instrument feel comes from the mono type and
+  the receipts, not from a different colour.
+  Lab labels read "Lab 1 · Build a PostgreSQL-Grounded Agent" and so on, with
+  no dashes; small Observatory labels are never below 11px.
 
 The required hands-on work remains deliberately concrete:
 

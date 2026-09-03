@@ -57,6 +57,23 @@ vi.mock('../../../contexts/PersonaContext', () => ({
 import SessionsList from './SessionsList'
 
 describe('SessionsList live data boundary', () => {
+  it('narrows recorded sessions by the typed query', () => {
+    render(
+      <MemoryRouter>
+        <SessionsList />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Durable live Aurora session')).toBeInTheDocument()
+    expect(screen.getByText('Anna durable session 1')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByTestId('observatory-sessions-search'), {
+      target: { value: 'durable live' },
+    })
+
+    expect(screen.getByText('Durable live Aurora session')).toBeInTheDocument()
+    expect(screen.queryByText('Anna durable session 1')).not.toBeInTheDocument()
+  })
+
   it('shows the signed-in shopper only durable Aurora sessions, not canned turns', () => {
     render(
       <MemoryRouter>

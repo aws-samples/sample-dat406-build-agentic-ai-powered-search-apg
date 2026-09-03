@@ -214,7 +214,7 @@ function PersonaCoverBanner({ persona }: { persona: PersonaSnapshot | null }) {
       <div className="ec-persona-cover-overlay">
         <div className="ec-persona-cover-eyebrow">
           <span className="ec-persona-cover-dot" />
-          Aurora profile · {persona.display_name}
+          Signed in as {persona.display_name}
         </div>
       </div>
     </div>

@@ -316,7 +316,7 @@ export default function PellierSpotlight() {
                     className={[
                       'block h-px transition-[width,background-color] duration-200',
                       index === step
-                        ? 'w-7 bg-accent'
+                        ? 'w-7 bg-espresso'
                         : 'w-4 bg-[rgba(24,26,31,0.18)] group-hover:bg-[rgba(24,26,31,0.36)]',
                     ].join(' ')}
                   />

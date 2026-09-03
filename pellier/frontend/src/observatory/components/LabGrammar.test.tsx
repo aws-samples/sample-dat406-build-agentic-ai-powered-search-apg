@@ -18,7 +18,7 @@ import { LabGrammar } from './LabGrammar';
 function renderGrammar(overrides: Partial<React.ComponentProps<typeof LabGrammar>> = {}) {
   return render(
     <LabGrammar
-      labLabel="Lab 1 · Build — Build a PostgreSQL-Grounded Agent"
+      labLabel="Lab 1 · Build a PostgreSQL-Grounded Agent"
       try="Ask Marco's Turn 3 in Pellier."
       build="Wire check_inventory between the markers."
       prove="The registry strip reads 17/17 shipped."
@@ -71,7 +71,7 @@ describe('LabGrammar', () => {
 
     expect(screen.getByText('FIXTURE')).toBeInTheDocument();
     expect(
-      screen.getByText(/illustrative — describes no run/i),
+      screen.getByText(/illustrative, describes no run/i),
     ).toBeInTheDocument();
   });
 
@@ -118,6 +118,6 @@ describe('LabGrammar', () => {
     );
 
     expect(source).toContain('LabGrammar');
-    expect(source).toContain('Lab 1 · Build — Build a PostgreSQL-Grounded Agent');
+    expect(source).toContain('Lab 1 · Build a PostgreSQL-Grounded Agent');
   });
 });

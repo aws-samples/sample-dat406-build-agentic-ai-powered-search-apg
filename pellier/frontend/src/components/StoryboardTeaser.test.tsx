@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest'
 
 import StoryboardTeaser from './StoryboardTeaser'
 import { STORYBOARD_TEASERS } from '../copy'
+import { imageSrc } from '../utils/assetPath'
 
 describe('StoryboardTeaser - 3-card grid (Req 1.9.1)', () => {
   it('renders exactly 3 cards, never 1', () => {
@@ -80,7 +81,7 @@ describe('StoryboardTeaser - per-card contents (Req 1.9.2, 1.9.4)', () => {
       const img = screen.getByTestId(
         `storyboard-card-image-${i}`,
       ) as HTMLImageElement
-      expect(img.getAttribute('src')).toBe(card.imageUrl)
+      expect(img.getAttribute('src')).toBe(imageSrc(card.imageUrl))
       expect(img.getAttribute('alt')).toBe(card.imageAlt)
       expect(screen.getByTestId(`storyboard-card-wash-${i}`)).toBeInTheDocument()
     })

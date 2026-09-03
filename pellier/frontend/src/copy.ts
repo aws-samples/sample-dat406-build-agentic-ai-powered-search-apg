@@ -112,7 +112,7 @@ export const PELLIER_HERO_SIGNED_OUT = {
  */
 export const HERO_CONCIERGE = {
   EYEBROW: "Welcome to Pellier",
-  TITLE: "Who are you shopping for?",
+  TITLE: "Choose who enters Pellier.",
   HELPER:
     "Get a more personal experience with recommendations tailored to their style.",
   ASK_ACTION: "Ask Pellier",
@@ -538,10 +538,9 @@ export const STORYBOARD_TEASERS: StoryboardTeaser[] = [
     title: "A summer worth slowing for.",
     excerpt:
       "Linen, ceramic, light that lingers. Three days in the hills with the pieces we kept reaching for.",
-    link: "Read the full vision \u203a",
-    imageUrl:
-      "https://images.unsplash.com/photo-1693928126497-d9bda6903c03?w=1600&q=85",
-    imageAlt: "Golden afternoon light falling across a linen-draped table",
+    link: "Read the notes \u203a",
+    imageUrl: "/products/story-summer.png",
+    imageAlt: "A folded stack of oatmeal linen shirt and trousers on a travertine ledge, a stem of dried wheat across it and a charcoal stoneware tumbler beside it, in raking afternoon light",
   },
   {
     badge: "VISION BOARD",
@@ -550,22 +549,20 @@ export const STORYBOARD_TEASERS: StoryboardTeaser[] = [
     title: "The last clay studio in Ojai.",
     excerpt:
       "One kiln, two hands, forty years of practice. A visit with the makers behind our ceramic line.",
-    link: "Read the full vision \u203a",
-    imageUrl:
-      "https://images.unsplash.com/photo-1607556671927-78a6605e290b?w=1600&q=85",
-    imageAlt: "A pair of hands shaping clay on a potter's wheel",
+    link: "Read the notes \u203a",
+    imageUrl: "/products/story-makers.png",
+    imageAlt: "A freshly thrown charcoal stoneware bowl resting on a potter's wheel with a wooden rib tool, olive-branch shadows on the plaster wall behind",
   },
   {
     badge: "BEHIND THE SCENES",
     volume: "Vol. 10",
     theme: "The Edit",
-    title: "How we chose this season.",
+    title: "How we chose the Edit.",
     excerpt:
       "Nine pieces survived the cut. A quiet walk-through of the edit room conversations that got us here.",
-    link: "Read the full vision \u203a",
-    imageUrl:
-      "https://images.unsplash.com/photo-1761896902115-49793a359daf?w=1600&q=85",
-    imageAlt: "An open edit room with fabric swatches laid out on a warm wood table",
+    link: "Read the notes \u203a",
+    imageUrl: "/products/story-edit.png",
+    imageAlt: "Linen swatches in sage, oat, charcoal and warm white fanned across an oak table, with a folded linen shirt, a stoneware cup, wooden rings and tailor's shears",
   },
 ];
 
@@ -581,11 +578,15 @@ export const DISCOVER_PAGE_CATALOG_UNAVAILABLE =
 
 export const ABOUT_BRIEF = {
   EYEBROW: "About",
-  TITLE_LINES: ["A storefront surface.", "A proof surface."],
-  LABEL: "Pellier + Pellier Observatory",
+  IMAGE: "/products/hero-about.png",
+  IMAGE_ALT:
+    "A leather weekender, a folded stack of linen, a charcoal stoneware bowl and tumbler, and a ceramic vase holding an olive branch on a travertine counter in raking afternoon light",
+  TITLE_LINES: ["A boutique that", "shows its work."],
+  LABEL: "Pellier + Pellier Operator + Pellier Observatory",
   PARAGRAPHS: [
-    "Pellier is a working storefront built to show governed recommendations in motion. Shoppers ask in natural language: a linen shirt for Goa, a thoughtful gift, a slow-craft object for home. The storefront answers with pieces that feel personal, while Pellier Observatory shows how each answer was built.",
-    "Every recommendation is grounded in Aurora PostgreSQL, shaped by specialist agents, checked against tools and inventory, and traceable back to the signals that produced it. The promise is simple: recommendations can feel personal without becoming invisible.",
+    "Pellier is a working boutique for natural materials: linen for travel, stoneware for the table, leather that wears in. Ask for what you mean, a linen shirt for ten days in Goa, a gift under a hundred, a tumbler that earns its place, and Pellier answers with one piece, one reason, and whether it is on the floor today.",
+    "Every answer is read from live stock and your own history in Aurora PostgreSQL, checked before it is promised, and written down. Some requests should not be settled by software alone. A return, a credit, an action the policy holds back: those go to the Pellier Operator desk, where a person sees the same client record and the same evidence, decides, and the decision is kept.",
+    "Pellier Observatory opens the same answer from the other side: which specialist took the request, what it read, what it was allowed to do, and what the database actually changed. Nothing is recommended, held, or approved that cannot be shown.",
   ],
   STACK: [
     "Aurora PostgreSQL",
@@ -595,11 +596,11 @@ export const ABOUT_BRIEF = {
     "Strands SDK",
     "Claude",
     "Cohere Embed v4",
-    "Amazon Transcribe",
+    "Cohere Rerank",
     "Cedar",
   ],
   COLOPHON:
-    "Built for teams who want agentic experiences that are practical, governed, and inspectable.",
+    "Built for teams who need the same answer to hold for the shopper, the operator, and the auditor.",
 } as const;
 
 // Footer \u2014 three live columns + a brand + a bottom strip.
