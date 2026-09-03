@@ -52,7 +52,10 @@ Pellier has two connected surfaces:
   product comparison, a shopping bag, and a conversational concierge.
 - **Pellier Labs** (`/pellier-labs`) is the engineering and operator surface.
   It exposes routing, retrieval, tools, memory, evaluations, performance,
-  architecture, and durable evidence from the same application path.
+  architecture, and durable evidence from the same application path. Start in
+  **Live Workbench** for the interactive participant path; **Optional Deep
+  Dives** are reference views when you want the underlying architecture or
+  evidence detail.
 
 A concise first-visit tour introduces the shopper point of view, the
 concierge, and the optional evidence surface. Three returning-customer

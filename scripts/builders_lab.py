@@ -24,6 +24,21 @@ DEFAULT_BASE_URL = os.environ.get("PELLIER_BASE_URL", "http://localhost:8000")
 DEFAULT_QUERY = "A housewarming gift under $100 that is in stock"
 
 
+def _print_build_state_legend() -> None:
+    """Explain workshop-only state labels without changing JSON stdout."""
+    print(
+        "Status legend: 'exercise' is an intentional workshop gap; "
+        "'shipped' means the capability or agent grant is complete.",
+        file=sys.stderr,
+    )
+    print(
+        "For this lab, floor_check becomes 'shipped' after its direct "
+        "Aurora check works; Stock Keeper becomes 'shipped' only after "
+        "floor_check is added to its tool list.",
+        file=sys.stderr,
+    )
+
+
 def _url(base_url: str, path: str, query: dict[str, str] | None = None) -> str:
     url = f"{base_url.rstrip('/')}{path}"
     if query:
@@ -125,6 +140,7 @@ def readiness(args: argparse.Namespace) -> int:
         },
     }
     print(json.dumps(result, indent=2))
+    _print_build_state_legend()
     ready = (
         result["application"]["status"] == "healthy"
         and result["application"]["database"] == "connected"
@@ -152,6 +168,7 @@ def build_state(args: argparse.Namespace) -> int:
         "floor_check": (payload.get("tools") or {}).get("floor_check"),
     }
     print(json.dumps(result, indent=2))
+    _print_build_state_legend()
     expected_agent = args.expect_agent or args.expect
     expected_tool = args.expect_tool or args.expect
     if expected_agent is None or expected_tool is None:
