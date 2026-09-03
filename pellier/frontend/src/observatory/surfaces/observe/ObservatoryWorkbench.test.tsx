@@ -115,15 +115,21 @@ describe('Pellier Observatory live agent workbench', () => {
     ).toHaveAttribute('aria-current', 'step');
     expect(screen.getByRole('region', { name: 'Lab collection' })).toBeVisible();
     const labRail = screen.getByRole('region', { name: 'Lab collection' });
-    const portraits = Array.from(
-      labRail.querySelectorAll<HTMLImageElement>('img'),
-    ).map((image) => image.getAttribute('src'));
-    expect(portraits).toEqual([
-      '/assets/personas/marco-720.webp',
-      '/assets/personas/anna-720.webp',
-      '/assets/personas/theo-720.webp',
-      '/assets/personas/jessica-720.webp',
-    ]);
+    expect(
+      Array.from(
+        labRail.querySelectorAll<HTMLElement>('[data-lab-portrait]'),
+      ).map(
+        (portrait) => portrait.getAttribute('aria-hidden'),
+      ),
+    ).toEqual(['true', 'true', 'true', 'true']);
+    expect(labRail).toHaveTextContent('Marco · Lab 1');
+    expect(labRail).toHaveTextContent('PostgreSQL-grounded agent');
+    expect(labRail).toHaveTextContent('Anna · Lab 2');
+    expect(labRail).toHaveTextContent('PostgreSQL retrieval');
+    expect(labRail).toHaveTextContent('Theo · Lab 3');
+    expect(labRail).toHaveTextContent('AgentCore managed path');
+    expect(labRail).toHaveTextContent('Jessica · Lab 4');
+    expect(labRail).toHaveTextContent('Identity and non-execution');
     expect(
       tracePanel(document.body).querySelector('canvas.labs-hero-field'),
     ).not.toBeInTheDocument();

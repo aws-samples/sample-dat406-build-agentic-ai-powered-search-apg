@@ -198,7 +198,7 @@
   content: none;
 }
 
-.observatory-lab-rail-card img {
+.observatory-lab-rail-portrait {
   display: block;
   width: 64px;
   min-width: 64px;
@@ -207,31 +207,33 @@
   min-height: 64px;
   max-height: 64px;
   aspect-ratio: 1;
-  object-fit: cover;
   /*
-   * These source portraits are intentionally tall. The rail is a small
-   * square, so its focal point must sit on the face rather than the hairline.
+   * These source portraits are intentionally tall. Raise the crop so each
+   * person sits lower in the square and their full head remains visible.
    */
-  object-position: center 48%;
+  background-color: var(--pl-paper-muted);
+  background-position: center 18%;
+  background-repeat: no-repeat;
+  background-size: cover;
   border: 1px solid var(--pl-line);
   border-radius: 11px;
-  background: var(--pl-paper-muted);
   transition: transform 180ms ease;
 }
 
 .observatory-lab-rail-card > span {
   display: grid;
   min-width: 0;
-  gap: 5px;
+  gap: 4px;
   padding: 0;
 }
 
 .observatory-lab-rail-card small {
   color: var(--pl-accent);
   font-family: var(--pl-mono);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
@@ -239,15 +241,15 @@
   display: -webkit-box;
   overflow: hidden;
   color: inherit;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0;
-  line-height: 1.25;
+  line-height: 1.3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.observatory-lab-rail-card:hover img {
+.observatory-lab-rail-card:hover .observatory-lab-rail-portrait {
   transform: scale(1.035);
 }
 

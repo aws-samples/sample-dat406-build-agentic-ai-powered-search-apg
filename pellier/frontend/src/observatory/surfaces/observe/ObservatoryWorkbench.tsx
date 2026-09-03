@@ -1279,6 +1279,11 @@ export default function ObservatoryWorkbench() {
         >
           {LAB_EXERCISES.map((exercise) => {
             const selected = exercise.id === selectedLab.id;
+            const portrait = imageSrc(
+              exercise.id === 'fail-closed-policy'
+                ? '/products/client-jessica-portrait-160.webp'
+                : exercise.image,
+            );
             return (
               <Link
                 key={exercise.id}
@@ -1289,18 +1294,21 @@ export default function ObservatoryWorkbench() {
                 aria-current={selected ? 'step' : undefined}
                 aria-label={`Lab ${Number(exercise.number)}: ${exercise.title}`}
               >
-                <img
-                  src={imageSrc(exercise.image)}
-                  width={exercise.imageWidth}
-                  height={exercise.imageHeight}
-                  alt=""
+                <span
+                  className="observatory-lab-rail-portrait"
+                  style={
+                    portrait
+                      ? { backgroundImage: `url("${portrait}")` }
+                      : undefined
+                  }
                   aria-hidden="true"
-                  loading="lazy"
-                  decoding="async"
+                  data-lab-portrait
                 />
                 <span>
-                  <small>Lab {Number(exercise.number)}</small>
-                  <strong>{exercise.title}</strong>
+                  <small>
+                    {exercise.anchorName} · Lab {Number(exercise.number)}
+                  </small>
+                  <strong>{exercise.shortTitle}</strong>
                 </span>
               </Link>
             );
