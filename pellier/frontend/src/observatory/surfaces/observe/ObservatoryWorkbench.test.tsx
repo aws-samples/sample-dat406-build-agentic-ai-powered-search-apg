@@ -1467,6 +1467,11 @@ describe('Pellier Observatory live agent workbench', () => {
       }),
     );
 
+    const responseModes = within(controls as HTMLElement).getAllByRole('radio');
+    expect(responseModes.map((mode) => mode.getAttribute('aria-label'))).toEqual(
+      ['Editorial', 'Balanced', 'Fast'],
+    );
+    expect(responseModes[1]).toHaveAttribute('data-state', 'on');
     expect(within(controls as HTMLElement).getAllByText(/^Balanced$/))
       .toHaveLength(1);
     expect(

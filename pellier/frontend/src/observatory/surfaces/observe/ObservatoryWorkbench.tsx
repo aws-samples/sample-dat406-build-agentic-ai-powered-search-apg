@@ -1556,7 +1556,7 @@ export default function ObservatoryWorkbench() {
                         if (value) setResponseMode(value as ResponseMode);
                       }}
                     >
-                      {(['balanced', 'editorial', 'fast'] as ResponseMode[]).map(
+                      {(['editorial', 'balanced', 'fast'] as ResponseMode[]).map(
                         (mode) => (
                           <ToggleGroupItem
                             key={mode}
