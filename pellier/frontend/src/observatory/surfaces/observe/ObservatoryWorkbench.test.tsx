@@ -104,7 +104,7 @@ describe('Pellier Observatory live agent workbench', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /With Marco selected, make the Inventory Agent return a scoped fact/,
+        /Select Marco in the Storefront scenario switcher before the three-turn journey begins/i,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Live trace surface')).toBeInTheDocument();

@@ -116,27 +116,27 @@
 }
 
 .observatory-workbench-intro {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 0;
+  align-items: start;
   justify-content: space-between;
   gap: 24px;
   margin: 0 2px 12px;
 }
 
 .observatory-workbench-intro-copy {
-  display: flex;
+  display: grid;
   min-width: 0;
-  align-items: baseline;
-  gap: 18px;
+  gap: 5px;
 }
 
 .observatory-workbench-purpose {
-  max-width: 74ch;
+  max-width: 80ch;
   margin: 0;
   color: var(--pl-ink-soft);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .observatory-workbench-purpose strong {
@@ -2323,15 +2323,13 @@
 
   .observatory-workbench-intro {
     min-height: 0;
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
     gap: 7px;
     margin: 2px 2px 12px;
   }
 
   .observatory-workbench-intro-copy {
-    align-items: flex-start;
-    flex-direction: column;
     gap: 4px;
   }
 

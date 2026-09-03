@@ -56,7 +56,7 @@ export const LAB_EXERCISES: readonly LabExercise[] = [
     imageHeight: 1080,
     proofCardIds: ['marco-floor-check'],
     objective:
-      'With Marco selected, make the Inventory Agent return a scoped fact that can be checked against live Aurora rows.',
+      'Select Marco in the Storefront scenario switcher before the three-turn journey begins.',
     participantTodo:
       'Complete the two marked source regions, verify both build markers, and replay Marco\'s warehouse request under a unique session.',
     command:
