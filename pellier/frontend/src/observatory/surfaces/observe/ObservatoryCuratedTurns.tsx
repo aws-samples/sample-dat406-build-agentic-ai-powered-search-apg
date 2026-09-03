@@ -228,17 +228,15 @@ export default function ObservatoryCuratedTurns({
           {error}
         </div>
       ) : null}
-      {!loading && !error && !ready && journey.surface !== 'operator' ? (
+      {!loading && !error && !ready && anchorError ? (
         <div
           className="labs-turns-state"
-          role={anchorError ? 'alert' : 'status'}
+          role="alert"
         >
-          {anchorError
-            ? `Unable to open ${journey.anchorName}'s guided session: ${anchorError}`
-            : `Select ${journey.anchorName} in the Storefront scenario switcher before the three-turn journey begins.`}
+          {`Unable to open ${journey.anchorName}'s guided session: ${anchorError}`}
         </div>
       ) : null}
-      {!loading && !error && scenarios.length === 0 ? (
+      {!loading && !error && ready && scenarios.length === 0 ? (
         <div className="labs-turns-state">
           Aurora has no guided requests for this profile yet.
         </div>

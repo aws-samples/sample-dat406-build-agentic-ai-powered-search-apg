@@ -233,10 +233,10 @@ describe('Pellier Observatory live agent workbench', () => {
       }),
     ).toBeDisabled();
     expect(
-      screen.getByText(
+      screen.queryByText(
         /Select Anna in the Storefront scenario switcher before the three-turn journey begins/i,
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it('carries Jessica operator prompts into Lab 4 without running them as shopper turns', async () => {
