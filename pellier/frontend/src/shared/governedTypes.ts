@@ -23,11 +23,42 @@
  * exist end-to-end.
  */
 
-/** Execution rail as reported by the backend on a completed turn. */
-export type ExecutionRail = 'in-process' | 'runtime' | 'gateway-mcp'
+/**
+ * Execution rail as reported by the backend on a completed turn.
+ *
+ * `refused` is not a rail the work ran on: it records that the governed rail
+ * was required, was unavailable, and the call was declined rather than
+ * quietly served in-process.
+ */
+export type ExecutionRail =
+  | 'in-process'
+  | 'runtime'
+  | 'gateway-mcp'
+  | 'refused'
 
-/** Cedar policy outcome. `NOT_EVALUATED` is a real state, not an error. */
-export type PolicyDecision = 'ALLOW' | 'DENY' | 'NOT_EVALUATED'
+/**
+ * Policy outcome.
+ *
+ * Six states, and the distinctions are the point:
+ *
+ *   ALLOW                 the engine permitted the action
+ *   DENY                  the engine blocked it before execution
+ *   WOULD_DENY            a real deny event under LOG_ONLY: observed, not enforced
+ *   NOT_EVALUATED         no engine was asked
+ *   EVALUATION_INCOMPLETE an engine was asked and the answer could not be read
+ *   POLICY_INFERRED       a text scan of policy source, which is not a decision
+ *
+ * `EVALUATION_INCOMPLETE` and `POLICY_INFERRED` exist because their absence
+ * pushed both cases into NOT_EVALUATED, where "we could not read the decision
+ * log" was indistinguishable from "no policy engine is involved".
+ */
+export type PolicyDecision =
+  | 'ALLOW'
+  | 'DENY'
+  | 'WOULD_DENY'
+  | 'NOT_EVALUATED'
+  | 'EVALUATION_INCOMPLETE'
+  | 'POLICY_INFERRED'
 
 /**
  * Where a displayed value came from. Shared with the backend so a number
@@ -76,6 +107,7 @@ export type GovernedRailState =
   | 'selected'
   | 'in-process'
   | 'degraded'
+  | 'refused'
   | 'unknown'
 
 /**
@@ -89,6 +121,8 @@ export function resolveRailState(
   decision?: RailDecision | null,
 ): GovernedRailState {
   if (!decision) return 'unknown'
+  // A refusal outranks degradation: nothing ran at all.
+  if (decision.rail === 'refused') return 'refused'
   if (decision.managedRequested && !decision.available) return 'degraded'
   if (decision.rail === 'gateway-mcp') return 'verified'
   if (decision.rail === 'runtime') return 'selected'
@@ -102,6 +136,7 @@ export const RAIL_STATE_LABEL: Record<GovernedRailState, string> = {
   selected: 'Managed runtime',
   'in-process': 'In-process',
   degraded: 'Degraded',
+  refused: 'Refused',
   unknown: 'Rail unknown',
 }
 
@@ -115,6 +150,7 @@ export const RAIL_STATE_DETAIL: Record<GovernedRailState, string> = {
     'Tools ran in this process against Aurora directly. A legitimate rail, not a failure.',
   degraded:
     'The governed rail was requested but unavailable, so mutation-capable tools were withheld. This is not a policy denial.',
+  refused: 'Refused: governed rail unavailable',
   unknown: 'No rail was reported for this turn.',
 }
 

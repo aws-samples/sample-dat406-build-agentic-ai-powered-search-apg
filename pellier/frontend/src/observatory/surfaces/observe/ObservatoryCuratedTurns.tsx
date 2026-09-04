@@ -29,6 +29,16 @@ export interface ObservatoryCuratedTurnsProps {
   activeIndex: number | null;
   onInspect: (query: string, index: number) => void;
   ready?: boolean;
+  /**
+   * Whether the request at this index may run yet. The three-turn journey is
+   * a conversation, so turn N waits for turn N-1; a turn offered out of order
+   * would be answered by an agent that never saw the turns it refers to.
+   * Explore prompts are side excursions and the predicate exempts them.
+   *
+   * Pass the same function the run itself is gated on. This decides whether
+   * the button is pressable, so a looser answer here is a dead click.
+   */
+  canRunTurn?: (index: number) => boolean;
   anchorError?: string | null;
   id?: string;
 }
@@ -39,6 +49,7 @@ export default function ObservatoryCuratedTurns({
   activeIndex,
   onInspect,
   ready = true,
+  canRunTurn = () => true,
   anchorError = null,
   id = 'curated-turns',
 }: ObservatoryCuratedTurnsProps) {
@@ -111,6 +122,9 @@ export default function ObservatoryCuratedTurns({
 
   const renderScenario = (scenario: LiveScenario, index: number) => {
     const isActive = activeIndex === index;
+    // One predicate decides both the button and the run. The explore
+    // exemption lives inside it, not here, so an offered prompt always runs.
+    const waitingOnEarlierTurn = !canRunTurn(index);
     const stage = WORKSHOP_TURN_STAGES[Math.min(scenario.ordinal - 1, 2)];
     const isBuildCheckpoint =
       journey.surface !== 'operator' &&
@@ -141,6 +155,11 @@ export default function ObservatoryCuratedTurns({
             {scenario.journeyRole === 'explore'
               ? `Explore ${scenario.ordinal - 3}`
               : `Turn ${scenario.ordinal} · ${stage}`}
+            {waitingOnEarlierTurn ? (
+              <em className="labs-turn-waiting">
+                {`after turn ${scenario.ordinal - 1}`}
+              </em>
+            ) : null}
           </span>
           <strong>{scenario.prompt}</strong>
           <small>
@@ -173,7 +192,8 @@ export default function ObservatoryCuratedTurns({
         className="labs-turn"
         data-active={isActive ? 'true' : undefined}
         data-running={isActive && running ? 'true' : undefined}
-        disabled={running || !ready}
+        data-waiting={waitingOnEarlierTurn ? 'true' : undefined}
+        disabled={running || !ready || waitingOnEarlierTurn}
         aria-label={`Inspect: ${scenario.prompt}`}
         onClick={() => onInspect(scenario.prompt, index)}
       >

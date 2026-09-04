@@ -37,6 +37,8 @@ const STATE_LABELS: Record<string, string> = {
   ALLOW: 'Allow',
   DENY: 'Deny',
   WOULD_DENY: 'Would deny',
+  EVALUATION_INCOMPLETE: 'Evaluation incomplete',
+  POLICY_INFERRED: 'Inferred from policy text',
   PERMITTED: 'Permitted',
   DENIED: 'Denied',
   NOT_ENFORCED: 'Not enforced',
@@ -58,6 +60,10 @@ const AXIS_NOTES: Record<keyof Assurance, Record<string, string>> = {
     ALLOW: 'AgentCore Policy evaluated this action and permitted it.',
     DENY: 'AgentCore Policy refused. The tool was never entered.',
     WOULD_DENY: 'A forbid policy matched, but enforcement is off. Observed, not enforced.',
+    EVALUATION_INCOMPLETE:
+      'The engine was asked and its decision could not be read. This is not an ALLOW.',
+    POLICY_INFERRED:
+      'Inferred from policy text, not a decision. No engine evaluated this action.',
   },
   aurora: {
     NOT_EVALUATED: 'No statement has reached the database.',

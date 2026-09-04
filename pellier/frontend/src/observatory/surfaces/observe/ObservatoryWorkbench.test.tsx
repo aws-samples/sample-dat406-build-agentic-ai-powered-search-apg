@@ -30,6 +30,7 @@ vi.mock('../../../contexts/PersonaContext', () => ({
 import { PERSONA_HERO_PILLS } from '../../../data/personaCurations';
 import { WORKSHOP_JOURNEYS } from '../../../data/workshopJourneys';
 import ObservatoryWorkbench from './ObservatoryWorkbench';
+import { WORKBENCH_VIEW_KEY } from './workbenchView';
 
 /**
  * There is no free-text box any more: a run starts by inspecting one of the
@@ -59,6 +60,11 @@ function tracePanel(container: HTMLElement): HTMLElement {
 
 describe('Pellier Observatory live agent workbench', () => {
   beforeEach(() => {
+    // This suite is about what the workbench renders and sends, so it runs in
+    // expert view where all three panels are mounted. Focus mode's one-panel
+    // stepper is its own behaviour, covered by ObservatoryWorkbench.focus.test.tsx.
+    localStorage.clear();
+    localStorage.setItem(WORKBENCH_VIEW_KEY, 'expert');
     mocks.sendChatMessageStreaming.mockReset();
     mocks.fetch.mockReset();
     mocks.switchPersona.mockReset();
@@ -165,7 +171,19 @@ describe('Pellier Observatory live agent workbench', () => {
       ),
     ).toBeInTheDocument();
     expect(exploreFurther.querySelectorAll('button')).toHaveLength(2);
-    for (const query of FRESH_TURNS) {
+    // The required journey is a conversation: turn 1 is open, and turns 2 and
+    // 3 wait for the turn before them. The explore prompts are optional
+    // extensions and are never gated.
+    expect(
+      await screen.findByRole('button', { name: `Inspect: ${FRESH_TURNS[0]}` }),
+    ).toBeEnabled();
+    for (const query of FRESH_TURNS.slice(1, 3)) {
+      expect(
+        await screen.findByRole('button', { name: `Inspect: ${query}` }),
+      ).toBeDisabled();
+    }
+    expect(within(requiredJourney).getByText('after turn 1')).toBeInTheDocument();
+    for (const query of FRESH_TURNS.slice(3)) {
       expect(
         await screen.findByRole('button', { name: `Inspect: ${query}` }),
       ).toBeEnabled();
@@ -1041,12 +1059,34 @@ describe('Pellier Observatory live agent workbench', () => {
 
       const requiredTurn = PERSONA_HERO_PILLS[id][2];
       expect(mocks.sendChatMessageStreaming).not.toHaveBeenCalled();
+
+      // The third turn is the end of a conversation, so it is reached by
+      // running the journey in order; it cannot be started on its own.
+      await inspectTurn(user, PERSONA_HERO_PILLS[id][0]);
+      await waitFor(() =>
+        expect(mocks.sendChatMessageStreaming).toHaveBeenCalledTimes(1),
+      );
+      await inspectTurn(user, PERSONA_HERO_PILLS[id][1]);
+      await waitFor(() =>
+        expect(mocks.sendChatMessageStreaming).toHaveBeenCalledTimes(2),
+      );
       await inspectTurn(user, requiredTurn);
 
       await waitFor(() => {
         expect(mocks.sendChatMessageStreaming).toHaveBeenCalledWith(
           requiredTurn,
-          [],
+          [
+            expect.objectContaining({
+              role: 'user',
+              content: PERSONA_HERO_PILLS[id][0],
+            }),
+            expect.objectContaining({ role: 'assistant', content: 'Live response' }),
+            expect.objectContaining({
+              role: 'user',
+              content: PERSONA_HERO_PILLS[id][1],
+            }),
+            expect.objectContaining({ role: 'assistant', content: 'Live response' }),
+          ],
           expect.any(Function),
           undefined,
           false,

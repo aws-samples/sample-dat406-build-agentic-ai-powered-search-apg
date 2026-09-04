@@ -9,16 +9,31 @@
  *
  * The three states carry different claims:
  *
- *   ALLOW         the policy permitted the action; execution is a separate fact
- *   DENY          the policy blocked it *before* execution — no tool ran
- *   NOT_EVALUATED no policy decision exists for this turn
+ *   ALLOW                 the policy permitted the action; execution is a
+ *                         separate fact
+ *   DENY                  the policy blocked it *before* execution, no tool ran
+ *   WOULD_DENY            a real deny event under LOG_ONLY: observed, not
+ *                         enforced, so the tool did run
+ *   NOT_EVALUATED         no policy decision exists for this turn
+ *   EVALUATION_INCOMPLETE the engine was asked and its answer could not be
+ *                         read, which is not the same as no decision
+ *   POLICY_INFERRED       a text scan of policy source matched; no engine
+ *                         evaluated anything, so this is not a decision at all
  *
- * `NOT_EVALUATED` is deliberately not styled as either success or failure.
- * Absence of a decision is a real, honest state; coloring it green would
- * claim a permission nobody granted.
+ * Neither absence state is styled as success or failure. Absence of a
+ * decision is a real, honest state; coloring it green would claim a
+ * permission nobody granted, and coloring an inference like a decision would
+ * be worse: it would launder a substring match into governance evidence.
  */
 import type React from 'react'
-import { Check, MinusCircle, ShieldOff } from 'lucide-react'
+import {
+  Check,
+  CircleHelp,
+  FileSearch,
+  MinusCircle,
+  ShieldAlert,
+  ShieldOff,
+} from 'lucide-react'
 import type { PolicyDecision } from './governedTypes'
 
 export interface PolicyDecisionBadgeProps {
@@ -61,6 +76,15 @@ const PRESENTATION: Record<PolicyDecision, DecisionPresentation> = {
     bg: 'var(--gov-deny-bg)',
     border: 'var(--gov-deny-border)',
   },
+  WOULD_DENY: {
+    label: 'WOULD DENY',
+    Icon: ShieldAlert,
+    accessibleName:
+      'Policy decision: WOULD DENY — a deny event was recorded under LOG_ONLY, so it was observed but not enforced and the tool ran',
+    fg: 'var(--gov-rail-fallback-fg)',
+    bg: 'var(--gov-rail-fallback-bg)',
+    border: 'var(--gov-degraded-border)',
+  },
   NOT_EVALUATED: {
     label: 'NOT EVALUATED',
     Icon: MinusCircle,
@@ -68,6 +92,24 @@ const PRESENTATION: Record<PolicyDecision, DecisionPresentation> = {
     fg: 'var(--gov-neutral-fg)',
     bg: 'var(--gov-neutral-bg)',
     border: 'var(--gov-neutral-border)',
+  },
+  EVALUATION_INCOMPLETE: {
+    label: 'EVALUATION INCOMPLETE',
+    Icon: CircleHelp,
+    accessibleName:
+      'Policy decision: evaluation incomplete — the engine was asked and its decision could not be read',
+    fg: 'var(--gov-unavailable-fg)',
+    bg: 'var(--gov-unavailable-bg)',
+    border: 'var(--gov-unavailable-border)',
+  },
+  POLICY_INFERRED: {
+    label: 'POLICY INFERRED',
+    Icon: FileSearch,
+    accessibleName:
+      'Inferred from policy text, not a decision — no engine evaluated this action',
+    fg: 'var(--gov-unavailable-fg)',
+    bg: 'var(--gov-unavailable-bg)',
+    border: 'var(--gov-unavailable-border)',
   },
 }
 

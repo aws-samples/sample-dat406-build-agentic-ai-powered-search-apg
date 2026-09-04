@@ -8,12 +8,14 @@
  * Three visual persona cards as buttons. The active persona is explicit and
  * every close and account state is shared by Storefront and Observatory.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { usePersona, type PersonaListItem } from '../contexts/PersonaContext'
+import { SCENARIO } from '../copy'
 import { getPersonaModalPortrait } from '../data/personaPhotos'
+import { useFocusTrap } from '../shared/useFocusTrap'
 import '../styles/persona-modal.css'
 
 interface PersonaModalProps {
@@ -31,6 +33,11 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const reduceMotion = Boolean(useReducedMotion())
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+
+  // Escape closes, Tab stays inside, and focus returns to the pill that
+  // opened the chooser.
+  useFocusTrap({ containerRef: dialogRef, active: open, onClose })
 
   // Fetch persona list on first open
   useEffect(() => {
@@ -52,16 +59,6 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
       )
       .finally(() => setLoading(false))
   }, [open, personas.length])
-
-  // Escape key closes the modal
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
 
   const handleSelect = useCallback(
     async (id: string) => {
@@ -91,6 +88,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
           }}
         >
           <motion.div
+            ref={dialogRef}
             className="pm-card"
             data-testid="persona-modal"
             role="dialog"
@@ -117,7 +115,7 @@ export default function PersonaModal({ open, onClose }: PersonaModalProps) {
               <div>
                 <div className="pm-eyebrow">Client perspective</div>
                 <h2 id="persona-modal-title" className="pm-title">
-                  Choose who enters Pellier.
+                  {SCENARIO.CHOOSE_TITLE}
                 </h2>
                 <p className="pm-sub">
                   Each profile carries its own history, preferences and

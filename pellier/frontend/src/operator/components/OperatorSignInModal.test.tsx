@@ -101,6 +101,35 @@ describe('OperatorSignInModal', () => {
     await waitFor(() => expect(opener).toHaveFocus())
   })
 
+  it('closes on Escape and returns focus to the opener', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    const opener = screen.getByTestId('operator-state-sign-in')
+
+    await user.click(opener)
+    expect(screen.getByTestId('operator-signin-modal')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByTestId('operator-signin-modal')).toBeNull()
+    await waitFor(() => expect(opener).toHaveFocus())
+  })
+
+  it('keeps Tab and Shift+Tab inside the dialog', async () => {
+    const user = userEvent.setup()
+    renderModal()
+
+    await user.click(screen.getByText('Open sign-in'))
+    const close = screen.getByTestId('operator-signin-modal-close')
+    const primary = screen.getByTestId('operator-signin-modal-continue')
+    await waitFor(() => expect(primary).toHaveFocus())
+
+    await user.keyboard('{Tab}')
+    expect(close).toHaveFocus()
+
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(primary).toHaveFocus()
+  })
+
   it('closes when the warm-paper dialog backdrop is clicked', async () => {
     const user = userEvent.setup()
     renderModal()

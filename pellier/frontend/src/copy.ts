@@ -850,9 +850,39 @@ export const CHAT_FAILURES = {
 export const CHAT_TRUST = {
   MATCH_DETAILS: "Match details",
   TURN_RECEIPT: "Turn receipt",
-  VERIFIED: "Recorded",
+  /** The stream finished. Says nothing about evidence. */
+  RESPONSE_COMPLETE: "Response complete",
+  /** Every required evidence-sufficiency check for the turn is satisfied. */
+  EVIDENCE_RECORDED: "Evidence recorded",
   COPY_REFERENCE: "Copy turn reference",
   COPIED_REFERENCE: "Reference copied",
+} as const;
+
+/**
+ * A persona is a workshop scenario, not a login. Cognito sign-in keeps its
+ * own wording (see OPERATOR_SIGNIN_MODAL); these strings never claim that
+ * choosing Marco authenticated anyone.
+ */
+export const SCENARIO = {
+  SELECT: "Select scenario",
+  CHOOSE_TITLE: "Choose a scenario",
+  NONE_SELECTED: "None selected",
+  /**
+   * The banner over an open conversation. It reports the scenario already
+   * running, so it reads as a label; "Select scenario: Marco" is the control
+   * that starts one, and putting an imperative on a state banner asked the
+   * reader to do something they had already done.
+   */
+  active: (displayName: string): string => `Scenario: ${displayName}`,
+} as const;
+
+/** The three status lines under the chat header, each from its own source. */
+export const STATUS_LINES = {
+  SCENARIO: "Scenario",
+  VERIFIED_IDENTITY: "Verified identity",
+  NOT_SIGNED_IN: "Not signed in",
+  EXECUTION_PATH: "Execution path",
+  EXECUTION_UNKNOWN: "Unknown until the first turn",
 } as const;
 
 export const ERROR_CODES = {

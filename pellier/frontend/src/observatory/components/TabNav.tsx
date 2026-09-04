@@ -7,7 +7,7 @@
  * Requirements: 15.7
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 
 export interface Tab {
   id: string;
@@ -28,6 +28,29 @@ export const TabNav: React.FC<TabNavProps> = ({
   onTabChange,
   className = '',
 }) => {
+  const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  /**
+   * WAI-ARIA tabs, automatic activation: arrow keys move focus and select,
+   * Home and End jump to the ends, and the list is one tab stop. Without this
+   * a keyboard user paid one Tab press per tab to cross the strip.
+   */
+  const handleKeyDown = (event: React.KeyboardEvent, index: number) => {
+    const lastIndex = tabs.length - 1;
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight') nextIndex = index === lastIndex ? 0 : index + 1;
+    else if (event.key === 'ArrowLeft') nextIndex = index === 0 ? lastIndex : index - 1;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = lastIndex;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    const nextTab = tabs[nextIndex];
+    if (!nextTab) return;
+    tabRefs.current.get(nextTab.id)?.focus();
+    onTabChange?.(nextTab.id);
+  };
+
   return (
     <nav
       role="tablist"
@@ -39,7 +62,7 @@ export const TabNav: React.FC<TabNavProps> = ({
         paddingBottom: '0',
       }}
     >
-      {tabs.map((tab) => {
+      {tabs.map((tab, index) => {
         const isActive = tab.id === activeTab;
 
         return (
@@ -47,6 +70,12 @@ export const TabNav: React.FC<TabNavProps> = ({
             key={tab.id}
             role="tab"
             aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1}
+            ref={(node) => {
+              if (node) tabRefs.current.set(tab.id, node);
+              else tabRefs.current.delete(tab.id);
+            }}
+            onKeyDown={(event) => handleKeyDown(event, index)}
             onClick={() => onTabChange?.(tab.id)}
             style={{
               fontFamily: 'var(--obs-heading)',

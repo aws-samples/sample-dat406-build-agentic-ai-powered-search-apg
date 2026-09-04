@@ -2557,3 +2557,157 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+
+/* ---------------------------------------------------------------------------
+ * Focus mode: one panel at a time, in the order the work happens.
+ * Expert view restores the three-panel grid for anyone who wants the whole
+ * instrument at once.
+ * ------------------------------------------------------------------------- */
+.observatory-workbench-intro-aside {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.observatory-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.observatory-view-toggle:hover {
+  color: var(--pl-ink);
+  border-color: var(--pl-accent);
+}
+
+.observatory-view-toggle[aria-pressed='true'] {
+  border-color: var(--pl-accent);
+  background: color-mix(in srgb, var(--pl-accent) 8%, transparent);
+  color: var(--pl-accent);
+}
+
+.observatory-focus-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 2px 12px;
+}
+
+.observatory-focus-steps button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--pl-line);
+  border-radius: 999px;
+  background: var(--pl-paper);
+  color: var(--pl-muted);
+  font-family: var(--pl-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.observatory-focus-steps button > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-family: var(--pl-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.observatory-focus-steps button[data-state='current'] {
+  border-color: var(--pl-accent);
+  color: var(--pl-accent);
+}
+
+.observatory-focus-steps button[data-state='done'] {
+  color: var(--pl-olive);
+  border-color: var(--pl-olive-line);
+}
+
+/* One column while a single panel is on screen. */
+.observatory-workbench-grid[data-view='focus'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Focus mode marks the stepped-back panels with the `hidden` attribute, and
+   this is the rule that makes the mark mean something.
+   `[hidden]:where(:not([hidden="until-found"]))` from Tailwind preflight is
+   (0,1,0), the same weight as the `display: flex` the panels carry above, and
+   this stylesheet ships as a chunk loaded after index.css — so on a tie the
+   flex declaration wins and every panel stays on screen. Class plus parent
+   plus attribute is (0,3,0), which cannot lose that tie whatever the load
+   order turns out to be. Covered by ObservatoryWorkbench.focusVisibility.test.tsx. */
+.observatory-workbench-grid > .observatory-input-panel[hidden],
+.observatory-workbench-grid > .observatory-trace-panel[hidden],
+.observatory-workbench-grid > .observatory-results-panel[hidden] {
+  display: none;
+}
+
+/* A guided turn whose predecessor has not run is not an error state: it is a
+   turn that has not arrived yet. Quiet, legible, and clearly not clickable. */
+.labs-turn[data-waiting='true'] {
+  opacity: 0.62;
+}
+
+.labs-turn-waiting {
+  margin-left: 8px;
+  color: var(--pl-muted);
+  font-style: normal;
+  font-weight: 500;
+  text-transform: none;
+}
+
+/* Resume: a way back to the lab and step this browser left, offered only
+   when there is one. Quiet by default; it is a convenience, not a task. */
+.observatory-resume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--pl-line-strong);
+  border-radius: 999px;
+  color: var(--pl-ink-soft);
+  font-family: var(--pl-sans);
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.observatory-resume:hover {
+  border-color: var(--pl-accent);
+  color: var(--pl-accent);
+}
+
+.observatory-resume > span {
+  display: grid;
+  gap: 1px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.observatory-resume small {
+  color: var(--pl-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}

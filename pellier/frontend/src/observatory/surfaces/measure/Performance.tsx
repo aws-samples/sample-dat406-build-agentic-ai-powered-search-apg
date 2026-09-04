@@ -14,6 +14,8 @@ import {
   Eyebrow,
 } from '../../components';
 import { useObservatoryData } from '../../hooks/useObservatoryData';
+import MicroEvalCard from './MicroEvalCard';
+import { CANONICAL_ANNA_QUERY } from '../../constants/canonicalQuery';
 import type { PerformanceData } from '../../types';
 
 /* -----------------------------------------------------------------------
@@ -917,7 +919,9 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
   // Pre-filled with Anna's canonical rerank anchor so participants press
   // Run instead of typing — matches the Pellier memory chip and the lab
   // guide's "click, don't type" path. Editable for the optional turns.
-  const [query, setQuery] = useState('A milestone gift for a new homeowner');
+  // This exact string is the one the golden set, the micro-eval and the lab
+  // guide all use; a near-miss here scores against a different query.
+  const [query, setQuery] = useState(CANONICAL_ANNA_QUERY);
   const [liveStrategies, setLiveStrategies] =
     useState<PerformanceData['searchStrategies'] | null>(null);
   const [running, setRunning] = useState(false);
@@ -1053,7 +1057,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !running) handleRun();
           }}
-          placeholder="under $100 milestone gift for a homeowner"
+          placeholder={CANONICAL_ANNA_QUERY}
           aria-label="Query to run against all four search strategies"
           style={{
             flex: 1,
@@ -1311,7 +1315,7 @@ const SearchStrategyComparison: React.FC<SearchStrategyComparisonProps> = ({
                       extracted, the soft_signal the reranker scored
                       against, and which filter-degradation step the
                       pipeline ended up using. This is the receipt for
-                      "Sonnet → filter → vector → rerank". */}
+                      "Sonnet → filter → hybrid → rerank". */}
                   {s.extractedFilters && (
                     <tr style={{ backgroundColor: rowBg }}>
                       <td colSpan={5} style={{ padding: '0 12px 14px' }}>
@@ -1929,6 +1933,10 @@ const Performance: React.FC = () => {
           {data.searchStrategies && data.searchStrategies.length > 0 && (
             <SearchStrategyComparison strategies={data.searchStrategies} />
           )}
+
+          {/* What a smaller rerank candidate pool costs on the canonical
+              query. Measured server-side; the card names its own absence. */}
+          <MicroEvalCard />
 
           {/* Storage usage bars */}
           {data.storageUsage.length > 0 ? (

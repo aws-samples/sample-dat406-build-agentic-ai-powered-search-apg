@@ -123,6 +123,12 @@ export function outcomeLine(review: OperatorReview): string {
   if (policy === 'WOULD_DENY') {
     return `${action} would have been refused; enforcement was off`
   }
+  if (policy === 'EVALUATION_INCOMPLETE') {
+    return `${action} attempted; the policy decision could not be read`
+  }
+  if (policy === 'POLICY_INFERRED') {
+    return `${action} attempted; policy text was matched, not evaluated`
+  }
   if (aurora === 'DENIED') return `${action} permitted, then refused by Aurora`
   if (aurora === 'PERMITTED') return `${action} carried out`
   return `${action} attempted; the outcome was not recorded`

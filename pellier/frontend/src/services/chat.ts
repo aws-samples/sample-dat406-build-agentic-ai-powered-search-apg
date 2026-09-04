@@ -3,8 +3,7 @@
  * Handles product search and AI chat functionality
  */
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || ''
+import { API_BASE_URL } from './apiBase'
 
 export const CHAT_ERROR_CODES = [
   'policy_denied',
@@ -498,11 +497,21 @@ export async function sendChatMessageStreaming(
 }
 
 /**
- * Health check for the backend
+ * Health check for the backend.
+ *
+ * @param signal Optional abort signal. Pass one with a deadline: a health
+ *   endpoint that hangs is indistinguishable from one that is healthy but
+ *   slow, and a caller that waits forever reports the wrong answer forever.
+ * @returns True only when the endpoint answered with a success status.
  */
-export async function checkBackendHealth(): Promise<boolean> {
+export async function checkBackendHealth(
+  signal?: AbortSignal,
+): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`)
+    const response = await fetch(`${API_BASE_URL}/api/health`, {
+      method: 'GET',
+      signal,
+    })
     return response.ok
   } catch {
     return false

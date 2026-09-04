@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getPersonaModalPortrait } from '../data/personaPhotos'
 import PersonaModal from './PersonaModal'
@@ -49,7 +51,94 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+function stubPersonaFetch() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      new Response(JSON.stringify(LIVE_PERSONAS), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  )
+}
+
+describe('PersonaModal keyboard and focus', () => {
+  it('closes on Escape', async () => {
+    stubPersonaFetch()
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<PersonaModal open onClose={onClose} />)
+    await screen.findByTestId('persona-card-marco')
+
+    await user.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('wraps Tab and Shift+Tab inside the dialog', async () => {
+    stubPersonaFetch()
+    const user = userEvent.setup()
+    render(<PersonaModal open onClose={vi.fn()} />)
+    await screen.findByTestId('persona-card-theo')
+
+    const close = screen.getByTestId('persona-modal-close')
+    const last = screen.getByTestId('persona-card-theo')
+
+    last.focus()
+    await user.keyboard('{Tab}')
+    expect(close).toHaveFocus()
+
+    await user.keyboard('{Shift>}{Tab}{/Shift}')
+    expect(last).toHaveFocus()
+  })
+
+  it('returns focus to the opener when it closes', async () => {
+    stubPersonaFetch()
+    function Harness() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" data-testid="opener" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          <PersonaModal open={open} onClose={() => setOpen(false)} />
+        </>
+      )
+    }
+    const user = userEvent.setup()
+    render(<Harness />)
+    const opener = screen.getByTestId('opener')
+
+    await user.click(opener)
+    await screen.findByTestId('persona-card-marco')
+    await user.click(screen.getByTestId('persona-modal-close'))
+
+    await waitFor(() => expect(opener).toHaveFocus())
+  })
+})
+
 describe('PersonaModal', () => {
+  it('titles itself as a scenario choice rather than a sign-in', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify(LIVE_PERSONAS), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+
+    render(<PersonaModal open onClose={vi.fn()} />)
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Choose a scenario')
+    await waitFor(() => {
+      expect(screen.getByTestId('persona-card-marco')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/sign in/i)).not.toBeInTheDocument()
+  })
+
   it('uses the shared Marco, Anna, and Theo headshots', async () => {
     vi.stubGlobal(
       'fetch',

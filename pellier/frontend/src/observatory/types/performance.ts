@@ -57,7 +57,14 @@ export interface PerformanceData {
    * deltas.
    */
   searchStrategies: {
-    strategy: 'vector only' | 'hybrid (RRF)' | 'hybrid + rerank' | 'agentic (Sonnet → filter → vector → rerank)';
+    // These are the labels `/api/observatory/search-strategies/compare`
+    // emits, and the card merges live rows onto fixture rows by matching
+    // them, so a stale label here silently drops the live numbers.
+    strategy:
+      | 'vector only'
+      | 'hybrid (RRF)'
+      | 'hybrid + rerank'
+      | 'agentic (Sonnet → filter → hybrid → rerank)';
     recallAt5: number;       // 0.0–1.0
     modeledLatencyMs: number;
     observedMs?: number;     // one live endpoint observation, not a percentile

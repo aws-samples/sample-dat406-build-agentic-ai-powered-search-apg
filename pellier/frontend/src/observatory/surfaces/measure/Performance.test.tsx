@@ -17,6 +17,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { CANONICAL_ANNA_QUERY } from '../../constants/canonicalQuery';
 import performanceRaw from '../../fixtures/performance.json';
 import type { PerformanceData } from '../../types';
 
@@ -44,7 +45,7 @@ function renderSurface() {
 /** One live payload shaped like the compare endpoint's response. */
 function liveComparePayload() {
   return {
-    query: 'A milestone gift for a new homeowner',
+    query: CANONICAL_ANNA_QUERY,
     strategies: data.searchStrategies.map((s, index) => ({
       strategy: s.strategy,
       observedMs: 120 + index,

@@ -17,7 +17,8 @@ describe('telemetryTrace', () => {
   it('resolves Marco top pick to the retrieval panel', () => {
     const session = sessionMarco as SessionDetail;
     const pick = getTopPickProduct(session);
-    expect(pick?.name).toBe('Pellier Linen Shirt');
+    // The Marco fixture names the seeded catalog row: the Hadley Linen Shirt.
+    expect(pick?.name).toBe('Hadley Linen Shirt');
     // Panel 1 = intent · 2 = Memory Recall (Semantic) · 3 = Semantic search.
     // resolveTracePanelIndex skips the recall panel and lands on retrieval.
     expect(resolveTracePanelIndex(pick, session.telemetry)).toBe(3);

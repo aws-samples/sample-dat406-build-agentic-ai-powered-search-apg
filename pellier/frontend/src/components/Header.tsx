@@ -7,9 +7,9 @@
  * IconButton, persona Avatar dropdown, bag IconButton with count badge, and
  * a direct link to Pellier Observatory.
  *
- * Signed-out visitors retain the compact sign-in menu. Once a persona is
+ * Visitors without a scenario see a "Select scenario" pill. Once a persona is
  * active, the same header pill opens the shared portrait-led PersonaModal
- * used by Pellier Observatory.
+ * used by Pellier Observatory. Neither state is a Cognito sign-in.
  *
  * Validates Requirements 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 15.3.
  *
@@ -22,7 +22,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useCart } from '../contexts/CartContext'
 import { usePersona } from '../contexts/PersonaContext'
 import { useUI } from '../contexts/UIContext'
-import { NAV } from '../copy'
+import { NAV, SCENARIO } from '../copy'
 import { Avatar } from '../design/primitives'
 import { getPersonaPhoto } from '../data/personaPhotos'
 import { IconButton } from '../design/primitives'
@@ -227,7 +227,7 @@ function SignedOutPersonaTrigger({
       aria-expanded={open}
     >
       <UserIcon className="w-4 h-4" aria-hidden />
-      <span style={{ fontFamily: 'var(--sans)' }}>Sign in</span>
+      <span style={{ fontFamily: 'var(--sans)' }}>{SCENARIO.SELECT}</span>
     </button>
   )
 }

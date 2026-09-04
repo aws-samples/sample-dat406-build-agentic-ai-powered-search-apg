@@ -90,7 +90,14 @@ describe('TurnReceipt', () => {
 
     render(<TurnReceipt reference={reference} surface="observatory" />)
 
-    expect(screen.getByTestId('turn-receipt')).toHaveTextContent('Recorded')
+    // "Response complete" is the transport fact. Evidence is a separate badge
+    // that appears only when the ledger says so; see TurnReceipt.test.tsx.
+    expect(screen.getByTestId('turn-receipt')).toHaveTextContent(
+      'Response complete',
+    )
+    expect(screen.getByTestId('turn-receipt')).not.toHaveTextContent(
+      'Evidence recorded',
+    )
     expect(screen.getByTitle(reference)).not.toHaveTextContent(reference)
 
     await user.click(

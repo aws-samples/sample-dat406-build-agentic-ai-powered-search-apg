@@ -1,20 +1,29 @@
 /**
- * PresencePill — compact “agent is here” cue: breathing accent dot + a
- * short professional label. The optional trailing fragment (mono) only
- * appears for signed-in personas so first-time visitors are not hit with
- * session jargon.
+ * PresencePill — compact "agent is here" cue: breathing accent dot + a
+ * short professional label.
+ *
+ * Both halves are claims about live systems, so both are measured:
+ *
+ *   the label   `Concierge online` only while `/api/health` has answered
+ *               successfully within the last 30 seconds; `Concierge offline`
+ *               otherwise, including before the first check returns, and
+ *               including when a check is still in flight past its deadline.
+ *   the tail    the persona, plus a memory age derived from the newest
+ *               event the memory endpoint reports for them. No event, no
+ *               age: a literal "14h memory" described no session and was
+ *               indistinguishable from a measurement.
  *
  * Used on the Pellier capability strip (cream-tinted, glass background)
  * and on the Observatory TopBar. Both bars are light, so both variants
  * use dark text: Pellier keeps the editorial ink family, Observatory uses
- * the green "live surface" family. Every Observatory fragment is styled
- * here so the label and session tail cannot drift into different themes.
+ * the green "live surface" family.
  *
- * Pass `sessionLabel=""` explicitly to force-hide the fragment, or rely
- * on defaults: fresh / anonymous → no fragment; returning shoppers →
- * `marco · 14h memory` style tail.
+ * Pass `sessionLabel=""` explicitly to force-hide the fragment.
  */
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+
+import { API_BASE_URL } from '../services/apiBase'
+import { checkBackendHealth } from '../services/chat'
 
 export type PresenceSurface = 'pellier' | 'observatory'
 export type PresenceMode = 'listening' | 'thinking' | 'idle'
@@ -27,21 +36,169 @@ export interface PresencePillProps {
   sessionLabel?: string
   /** Animation state. `thinking` makes the dot pulse faster. */
   mode?: PresenceMode
-  /** Lead label. Defaults to a discreet concierge cue (no “listening”). */
+  /**
+   * Override the lead label. Left unset the pill reports measured health,
+   * which is the only honest default.
+   */
   label?: string
 }
 
 const ACCENT = 'var(--accent)'
 
-const MEMORY_AGE: Record<string, string> = {
-  marco: '14h memory',
-  anna: '2d memory',
-  theo: '5d memory',
+/**
+ * How long a successful check stands for. This is the claim the label makes,
+ * so it is the number that has to be true.
+ */
+export const HEALTH_FRESH_MS = 30_000
+
+/**
+ * How often a check is attempted. Shorter than the freshness window so a
+ * healthy backend always has a fresh answer in hand: at the same cadence,
+ * every cycle would blink offline for the duration of the request.
+ */
+const HEALTH_POLL_MS = 15_000
+
+/**
+ * How long one check may take before it is abandoned. Without this a hung
+ * health endpoint leaves the pill reading online for as long as the tab is
+ * open, which is the exact opposite of what it is for.
+ */
+export const HEALTH_TIMEOUT_MS = 5_000
+
+const PRESENCE_ONLINE = 'Concierge online'
+const PRESENCE_OFFLINE = 'Concierge offline'
+
+/** Whole hours or days since `iso`, or null when it is not a usable date. */
+function memoryAgeLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return null
+  const minutes = Math.floor((Date.now() - then) / 60_000)
+  if (minutes < 0) return null
+  if (minutes < 60) return `${Math.max(minutes, 1)}m memory`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h memory`
+  return `${Math.floor(hours / 24)}d memory`
 }
 
-function deriveSessionLabel(personaId: string | null | undefined): string {
-  if (!personaId || personaId === 'fresh') return ''
-  return `${personaId} · ${MEMORY_AGE[personaId] ?? 'recall on'}`
+interface MemoryPanelItem {
+  timestamp?: string | null
+}
+
+/** The newest timestamp across every substrate panel the endpoint returned. */
+function newestMemoryTimestamp(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  let newest: number | null = null
+  let newestIso: string | null = null
+  for (const panel of Object.values(payload as Record<string, unknown>)) {
+    if (!panel || typeof panel !== 'object') continue
+    const items = (panel as { items?: MemoryPanelItem[] }).items
+    if (!Array.isArray(items)) continue
+    for (const item of items) {
+      if (!item?.timestamp) continue
+      const parsed = Date.parse(item.timestamp)
+      if (Number.isNaN(parsed)) continue
+      if (newest === null || parsed > newest) {
+        newest = parsed
+        newestIso = item.timestamp
+      }
+    }
+  }
+  return newestIso
+}
+
+/**
+ * True while a health check has *succeeded* inside the freshness window.
+ *
+ * Three things make this a measurement rather than a cadence. Each check
+ * carries a deadline, so a hung endpoint resolves as a failure instead of
+ * never resolving. A check that is still in flight blocks the next one, so a
+ * slow backend does not accumulate requests. And a success is stamped with
+ * the time it arrived and expires on its own, so the label can never outlive
+ * the evidence for it even if the polling loop stops running.
+ */
+function useBackendReachable(): boolean {
+  const [reachable, setReachable] = useState(false)
+  const [freshUntil, setFreshUntil] = useState<number | null>(null)
+  const inFlight = useRef(false)
+
+  useEffect(() => {
+    let active = true
+
+    const check = async () => {
+      if (inFlight.current) return
+      inFlight.current = true
+      const controller = new AbortController()
+      const deadline = window.setTimeout(
+        () => controller.abort(),
+        HEALTH_TIMEOUT_MS,
+      )
+      try {
+        const ok = await checkBackendHealth(controller.signal)
+        if (!active) return
+        if (ok) {
+          setFreshUntil(Date.now() + HEALTH_FRESH_MS)
+          setReachable(true)
+        } else {
+          // The endpoint answered, and answered badly. No need to wait out
+          // the window for a fact already in hand.
+          setReachable(false)
+        }
+      } finally {
+        window.clearTimeout(deadline)
+        inFlight.current = false
+      }
+    }
+
+    void check()
+    const poll = window.setInterval(() => void check(), HEALTH_POLL_MS)
+    return () => {
+      active = false
+      window.clearInterval(poll)
+    }
+  }, [])
+
+  // One timer per success, armed for the exact moment the claim lapses.
+  useEffect(() => {
+    if (freshUntil === null) return
+    const remaining = freshUntil - Date.now()
+    if (remaining <= 0) {
+      setReachable(false)
+      return
+    }
+    const expiry = window.setTimeout(() => setReachable(false), remaining)
+    return () => window.clearTimeout(expiry)
+  }, [freshUntil])
+
+  return reachable
+}
+
+/** The persona's memory age, or null when no event carries a timestamp. */
+function useMemoryAge(personaId: string | null | undefined): string | null {
+  const [age, setAge] = useState<string | null>(null)
+
+  useEffect(() => {
+    setAge(null)
+    if (!personaId || personaId === 'fresh') return
+    const controller = new AbortController()
+    fetch(
+      `${API_BASE_URL}/api/observatory/memory/${encodeURIComponent(personaId)}`,
+      {
+        signal: controller.signal,
+      },
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (controller.signal.aborted) return
+        setAge(memoryAgeLabel(newestMemoryTimestamp(payload)))
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAge(null)
+      })
+    return () => controller.abort()
+  }, [personaId])
+
+  return age
 }
 
 const KEYFRAMES_INJECTED_FLAG = '__pelliersPresenceKeyframesInjected'
@@ -78,17 +235,25 @@ export const PresencePill: React.FC<PresencePillProps> = ({
   personaId,
   sessionLabel,
   mode = 'listening',
-  label = 'Concierge online',
+  label,
 }) => {
   // Inject the breathing keyframes once per page. Component-scoped
   // <style> tags would re-render on every mount; this hoists them.
   ensureKeyframes()
 
+  const reachable = useBackendReachable()
+  const memoryAge = useMemoryAge(personaId)
   const isObservatory = surface === 'observatory'
-  const session = sessionLabel ?? deriveSessionLabel(personaId)
+  const resolvedLabel =
+    label ?? (reachable ? PRESENCE_ONLINE : PRESENCE_OFFLINE)
+  const derivedSession =
+    !personaId || personaId === 'fresh'
+      ? ''
+      : [personaId, memoryAge].filter(Boolean).join(' · ')
+  const session = sessionLabel ?? derivedSession
 
   const animation =
-    mode === 'idle'
+    mode === 'idle' || !reachable
       ? 'none'
       : mode === 'thinking'
         ? 'pelliers-presence-think 1.2s ease-in-out infinite'
@@ -98,8 +263,13 @@ export const PresencePill: React.FC<PresencePillProps> = ({
     <div
       data-testid={`presence-pill-${surface}`}
       data-mode={mode}
+      data-reachable={reachable ? 'true' : 'false'}
       role="status"
-      aria-label="AI-assisted personal shopping. A concierge agent is ready to help."
+      aria-label={
+        reachable
+          ? 'AI-assisted personal shopping. A concierge agent is ready to help.'
+          : 'AI-assisted personal shopping. The concierge is not reachable right now.'
+      }
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -133,12 +303,12 @@ export const PresencePill: React.FC<PresencePillProps> = ({
           flexShrink: 0,
         }}
       />
-      <span>{label}</span>
+      <span>{resolvedLabel}</span>
       {session ? (
         <span
           style={{
             fontFamily: 'var(--mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.06em',
             color: isObservatory ? 'rgba(51, 79, 19, 0.72)' : 'var(--ink-soft)',
             textTransform: 'none',

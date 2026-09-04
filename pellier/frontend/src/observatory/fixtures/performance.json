@@ -105,7 +105,7 @@
       "isShipped": false
     },
     {
-      "strategy": "agentic (Sonnet → filter → vector → rerank)",
+      "strategy": "agentic (Sonnet → filter → hybrid → rerank)",
       "recallAt5": 0.96,
       "modeledLatencyMs": 2300,
       "modeledCostPerThousandUsd": 8.18,

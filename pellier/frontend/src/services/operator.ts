@@ -132,8 +132,20 @@ export interface OperatorClientRecord {
  */
 export interface ActionAssurance {
   human: 'CONFIRMATION_REQUIRED' | 'CONFIRMED' | 'DECLINED'
-  /** ALLOW / DENY / WOULD_DENY come only from a real policy engine response. */
-  policy: 'PENDING' | 'NOT_EVALUATED' | 'ALLOW' | 'DENY' | 'WOULD_DENY'
+  /**
+   * ALLOW / DENY / WOULD_DENY come only from a real policy engine response.
+   * EVALUATION_INCOMPLETE means the engine was asked and its answer could not
+   * be read; POLICY_INFERRED is a text scan of policy source and is not a
+   * decision at all.
+   */
+  policy:
+    | 'PENDING'
+    | 'NOT_EVALUATED'
+    | 'ALLOW'
+    | 'DENY'
+    | 'WOULD_DENY'
+    | 'EVALUATION_INCOMPLETE'
+    | 'POLICY_INFERRED'
   aurora:
     | 'NOT_EVALUATED'
     | 'NOT_REACHED'
@@ -151,7 +163,7 @@ export interface ActionAssurance {
 /** One governed execution attempt. Each axis comes from its own artifact. */
 export interface OperatorExecutionResult {
   reviewId: number
-  rail: 'gateway-mcp' | 'in-process'
+  rail: 'gateway-mcp' | 'in-process' | 'refused'
   executionTurnId: string
   idempotencyKey: string
   /** The operator AgentCore Policy authorizes. */
@@ -188,7 +200,7 @@ export interface OperatorExecutionReceipt {
   tool: string
   /** The Cedar action id evaluated, e.g. `<target>___initiate_return`. */
   gatewayActionId: string
-  rail: 'gateway-mcp' | 'in-process'
+  rail: 'gateway-mcp' | 'in-process' | 'refused'
   /** The operator AgentCore Policy authorized. */
   actorPrincipal: string
   /** The customer Aurora RLS scoped. Null when the client has no mapping. */

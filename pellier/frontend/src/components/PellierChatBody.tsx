@@ -38,7 +38,7 @@ import GovernedTurnReceipt from './GovernedTurnReceipt'
 import { TraceChip } from '../shared/TraceChip'
 import { imageSrc } from '../utils/assetPath'
 import { catalogTurnFollowUps } from '../utils/catalogFollowUps'
-import { CHAT_TRUST } from '../copy'
+import { CHAT_TRUST, SCENARIO } from '../copy'
 import '../styles/pellier-chat.css'
 import '../styles/pellier-welcome.css'
 
@@ -214,7 +214,7 @@ function PersonaCoverBanner({ persona }: { persona: PersonaSnapshot | null }) {
       <div className="ec-persona-cover-overlay">
         <div className="ec-persona-cover-eyebrow">
           <span className="ec-persona-cover-dot" />
-          Signed in as {persona.display_name}
+          {SCENARIO.active(persona.display_name)}
         </div>
       </div>
     </div>
@@ -348,13 +348,16 @@ function AgentMessage({
   const loadedSkills = message.skillRouting?.loaded_skills ?? []
   const sourceActivity = message.sourceActivity ?? []
   const traceReference = message.agentExecution?.trace_id ?? undefined
+  // The trace id is the preferred reference; a turn that emitted none still
+  // has a turn id worth copying into the Observatory.
+  const receiptReference = traceReference ?? message.turnId
   // A failed turn has no match to detail: the failure card is the whole story.
   const hasAttribution =
     !message.failure &&
     (sourceActivity.length > 0 ||
       loadedSkills.length > 0 ||
       dedupedToolCalls.length > 0 ||
-      !!traceReference)
+      !!receiptReference)
   const attributionSummary = [
     sourceActivity.length > 0
       ? `${sourceActivity.length} ${sourceActivity.length === 1 ? 'source' : 'sources'}`
@@ -365,7 +368,7 @@ function AgentMessage({
     dedupedToolCalls.length
       ? `${dedupedToolCalls.length} check${dedupedToolCalls.length === 1 ? '' : 's'}`
       : null,
-    traceReference ? 'recorded' : null,
+    receiptReference ? 'turn reference' : null,
   ].filter(Boolean).join(' · ')
 
   useEffect(() => {
@@ -515,12 +518,16 @@ function AgentMessage({
                 </div>
               )}
 
-              {traceReference && (
+              {receiptReference && (
                 <div className="ec-worked-section">
                   <div className="ec-worked-section-label">
                     {CHAT_TRUST.TURN_RECEIPT}
                   </div>
-                  <TurnReceipt reference={traceReference} />
+                  <TurnReceipt
+                    reference={receiptReference}
+                    turnId={message.turnId}
+                    complete={isComplete}
+                  />
                 </div>
               )}
 

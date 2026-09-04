@@ -50,7 +50,7 @@
     "title": "Evaluations",
     "role": "Quality checks and capability scorecards",
     "description": "Evaluation cards are the owned quality layer: latency, relevance, grounding, and scenario checks for the three workshop capabilities. They are not the request path; they are how the team decides whether a path is worth shipping.",
-    "codeSnippet": "# Evaluation scorecard shape\nscorecard = {\n    'capability': 'agentic (Sonnet → filter → vector → rerank)',\n    'recall_at_5': 0.96,\n    'latency_p50_ms': 2300,\n    'grounded': true\n}",
+    "codeSnippet": "# Evaluation scorecard shape\nscorecard = {\n    'capability': 'agentic (Sonnet → filter → hybrid → rerank)',\n    'recall_at_5': 0.96,\n    'latency_p50_ms': 2300,\n    'grounded': true\n}",
     "slug": "evaluations"
   },
   {

@@ -14,8 +14,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || ''
+import { API_BASE_URL } from '../services/apiBase'
 const REFRESH_MS = 60_000 // catalog size moves on the order of minutes
 
 export interface CatalogStats {

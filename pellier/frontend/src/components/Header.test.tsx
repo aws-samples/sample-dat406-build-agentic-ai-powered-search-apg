@@ -224,11 +224,12 @@ describe('Header — persona account control', () => {
     )
   })
 
-  it('shows "Sign in" when no persona is active (Req 5.3)', () => {
+  it('invites a scenario choice, not a sign-in, when no persona is active', () => {
     mockPersona = null
     renderHeader()
     const pill = screen.getByTestId('persona-pill')
-    expect(pill).toHaveTextContent('Sign in')
+    expect(pill).toHaveTextContent('Select scenario')
+    expect(pill).not.toHaveTextContent(/sign in/i)
     expect(pill).toHaveClass('pellier-account-pill')
   })
 
@@ -266,7 +267,7 @@ describe('Header — persona account control', () => {
 
     expect(screen.getByTestId('persona-modal')).toBeInTheDocument()
     expect(screen.getByRole('dialog')).toHaveAccessibleName(
-      'Choose who enters Pellier.',
+      'Choose a scenario',
     )
     expect(screen.queryByTestId('persona-dropdown')).not.toBeInTheDocument()
     await waitFor(() => {

@@ -24,10 +24,16 @@ import { describe, expect, it } from 'vitest'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = resolve(HERE, '..')
 
+// Two directories plus the shared files that render *on* those surfaces.
+// `TurnReceipt` takes `surface="observatory"`, so it and its stylesheet are
+// part of the Observatory even though they live under components/ and
+// styles/. A guard scoped to directories missed exactly that.
 const SCAN_ROOTS = [
   join(SRC, 'observatory'),
   join(SRC, 'operator'),
   join(SRC, 'styles', 'observatory-arch.css'),
+  join(SRC, 'styles', 'turn-receipt.css'),
+  join(SRC, 'components', 'TurnReceipt.tsx'),
 ]
 
 const SCAN_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
@@ -114,5 +120,9 @@ describe('Observatory and Operator type floor', () => {
     expect(scanned.length).toBeGreaterThan(50)
     expect(scanned).toContain(join('observatory', 'styles', 'base.css'))
     expect(scanned).toContain(join('operator', 'styles', 'operator.css'))
+    // The dual-surface receipt: shipped on the Observatory, authored outside
+    // both directories.
+    expect(scanned).toContain(join('styles', 'turn-receipt.css'))
+    expect(scanned).toContain(join('components', 'TurnReceipt.tsx'))
   })
 })

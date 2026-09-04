@@ -6,10 +6,11 @@
  * authorization boundary clear without exposing implementation details or
  * presenting providers that cannot grant Operator access.
  */
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { ArrowRight, ShieldCheck, X } from 'lucide-react'
 import { OPERATOR_SIGNIN_MODAL } from '../../copy'
 import { useUI } from '../../contexts/UIContext'
+import { useFocusTrap } from '../../shared/useFocusTrap'
 import { redirectToSignIn } from '../../utils/auth'
 
 export default function OperatorSignInModal() {
@@ -17,6 +18,20 @@ export default function OperatorSignInModal() {
   const isOpen = activeModal === 'operator-auth'
   const primaryActionRef = useRef<HTMLButtonElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
+  const dialogRef = useRef<HTMLElement | null>(null)
+  const close = useCallback(
+    () => closeModal({ restoreDrawer: false }),
+    [closeModal],
+  )
+
+  // Escape closes and Tab stays inside. Focus placement stays with the effect
+  // below: this desk opens on its one action, not on the dialog frame.
+  useFocusTrap({
+    containerRef: dialogRef,
+    active: isOpen,
+    onClose: close,
+    manageFocus: false,
+  })
 
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') return
@@ -46,9 +61,10 @@ export default function OperatorSignInModal() {
       className="operator-signin-overlay"
       data-testid="operator-signin-modal-backdrop"
       role="presentation"
-      onClick={() => closeModal({ restoreDrawer: false })}
+      onClick={close}
     >
       <section
+        ref={dialogRef}
         className="operator-signin-dialog"
         data-testid="operator-signin-modal"
         role="dialog"
@@ -60,7 +76,7 @@ export default function OperatorSignInModal() {
         <button
           className="operator-signin-close"
           type="button"
-          onClick={() => closeModal({ restoreDrawer: false })}
+          onClick={close}
           aria-label="Close Operator sign-in"
           data-testid="operator-signin-modal-close"
         >

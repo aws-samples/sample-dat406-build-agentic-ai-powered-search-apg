@@ -9,6 +9,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Columns3,
   ChevronsDownUp,
   ChevronsUpDown,
   CircleDashed,
@@ -56,6 +57,27 @@ import type {
 } from '../../../shared/evidenceLedger';
 import ObservatoryCuratedTurns from './ObservatoryCuratedTurns';
 import WorkbenchResources from '../../components/WorkbenchResources';
+import {
+  canRunTurn,
+  completeTurn,
+  historyForTurn,
+  type GuidedTurnEntry,
+} from './guidedHistory';
+import {
+  FOCUS_INSPECT_STEP,
+  FOCUS_PANELS,
+  focusStepIndex,
+  readWorkbenchView,
+  writeWorkbenchView,
+  type WorkbenchView,
+} from './workbenchView';
+import {
+  readLabProgress,
+  resumeHref,
+  writeLabProgress,
+  type LabProgress,
+  type LabProgressStep,
+} from '../../../shared/labProgress';
 import './ObservatoryIndex.css';
 import './ObservatoryWorkbench.css';
 
@@ -714,6 +736,16 @@ function responseModeLabel(mode: ResponseMode): string {
   return RESPONSE_MODE_META[mode].label;
 }
 
+/** "Lab 3: AgentCore managed path, Inspect evidence" for a stored position. */
+function resumeLabel(progress: LabProgress): string {
+  const exercise = findLabExercise(progress.lab);
+  const panel = FOCUS_PANELS.find((item) => item.id === progress.step);
+  const lab = exercise
+    ? `Lab ${Number(exercise.number)}: ${exercise.shortTitle}`
+    : 'the workbench';
+  return panel ? `${lab}, ${panel.label}` : lab;
+}
+
 function labelRail(rail: string): string {
   if (rail === 'gateway-mcp') return 'Gateway MCP';
   if (rail === 'in-process') return 'In process';
@@ -845,6 +877,29 @@ export default function ObservatoryWorkbench() {
     Record<string, boolean>
   >({});
   const [linkedStepId, setLinkedStepId] = useState<string | null>(null);
+  /**
+   * Focus mode walks Run -> Inspect evidence -> Reconcile answer one panel at
+   * a time; expert restores the three-panel grid. The preference is per
+   * browser, so it lives in localStorage and is read once on mount.
+   */
+  const [view, setView] = useState<WorkbenchView>(() => readWorkbenchView());
+  // The step is addressable: Resume and a shared link both carry `?step=`.
+  const urlStep = focusStepIndex(searchParams.get('step'));
+  const [focusStep, setFocusStep] = useState(urlStep);
+  /**
+   * Where this browser left off, read once on mount. Read once on purpose:
+   * the control is a way back to a previous session, and repointing it at the
+   * position the participant is currently in would make it a no-op link.
+   */
+  const [resumePoint] = useState<LabProgress | null>(() => readLabProgress());
+  /**
+   * Completed guided turns, indexed by turn. This is the conversation the
+   * next turn is sent with: the journey promises each turn keeps the previous
+   * one, and turn N stays disabled until turn N-1 has an entry here.
+   */
+  const [turnEntries, setTurnEntries] = useState<
+    Array<GuidedTurnEntry | undefined>
+  >([]);
   const startedAtRef = useRef<number | null>(null);
   const eventSequenceRef = useRef(0);
   const traceListRef = useRef<HTMLOListElement | null>(null);
@@ -853,6 +908,16 @@ export default function ObservatoryWorkbench() {
   const linkTimerRef = useRef<number | null>(null);
   const [traceLineHeight, setTraceLineHeight] = useState(0);
 
+  /**
+   * A different lab or a different shopper is a different run, so nothing
+   * from the previous one survives it.
+   *
+   * Keyed on `customer_id` rather than the persona object because that is the
+   * identity the run actually sends. A provider that rebuilds the object for
+   * the same shopper would otherwise wipe a live run, and since this effect
+   * assigns fresh arrays and objects React can never bail out on an unchanged
+   * value: every pass would schedule the next one.
+   */
   useEffect(() => {
     setActiveTurn(null);
     setActiveQuery(null);
@@ -871,7 +936,15 @@ export default function ObservatoryWorkbench() {
     setCopiedSqlId(null);
     setReceiptOverrides({});
     setLinkedStepId(null);
-  }, [selectedJourney.anchorId, selectedPersona]);
+    setTurnEntries([]);
+  }, [selectedJourney.anchorId, selectedPersona?.customer_id]);
+
+  // The step is a view of the run, not a new run, so it follows `?step=` on
+  // its own. Folded into the reset above, every step change discarded the
+  // turn entries, trace and products it was meant to be a view of.
+  useEffect(() => {
+    setFocusStep(urlStep);
+  }, [urlStep]);
 
   // A highlight timer that outlives its node would fire against a step from a
   // previous run, so it is cancelled on unmount.
@@ -1165,6 +1238,14 @@ export default function ObservatoryWorkbench() {
   ) => {
     const request = curatedQuery.trim();
     if (!request || runStatus === 'running' || !profileReady) return;
+    // Turn N is not a fresh conversation: it may only run once turn N-1 has
+    // completed, because it is sent with that turn's exchange behind it.
+    // Explore prompts are exempt, which is the predicate's business, not
+    // this call site's: the request rail disables exactly what this refuses.
+    if (turnIndex !== null && !canRunTurn(turnEntries, turnIndex)) return;
+
+    const conversationHistory =
+      turnIndex === null ? [] : historyForTurn(turnEntries, turnIndex);
 
     setActiveTurn(turnIndex);
     setActiveQuery(request);
@@ -1189,7 +1270,7 @@ export default function ObservatoryWorkbench() {
     try {
       const response: ChatResponse = await sendChatMessageStreaming(
         request,
-        [],
+        conversationHistory,
         handleStreamEvent,
         undefined,
         false,
@@ -1229,7 +1310,21 @@ export default function ObservatoryWorkbench() {
             : completed;
         });
       }
+      if (turnIndex !== null) {
+        const answer = response.response ?? '';
+        setTurnEntries((current) =>
+          completeTurn(current, turnIndex, {
+            query: request,
+            answer,
+            products: response.products ?? [],
+          }),
+        );
+      }
       setRunStatus('complete');
+      // The evidence panel is only worth reading once there is evidence in
+      // it. While the turn streams, the request rail is the useful view, so
+      // focus mode moves to Inspect on completion rather than on dispatch.
+      setFocusStep(FOCUS_INSPECT_STEP);
     } catch (error) {
       setRunError(errorMessage(error));
       setRunStatus('error');
@@ -1422,6 +1517,34 @@ export default function ObservatoryWorkbench() {
     products.length,
   );
 
+  const focusMode = view === 'focus';
+  const currentStep = (FOCUS_PANELS[focusStep] ?? FOCUS_PANELS[0]).id;
+
+  // Record the position as it changes so a closed tab is recoverable. The
+  // next action is the lab's own participant TODO, not an invented instruction.
+  useEffect(() => {
+    writeLabProgress({
+      lab: selectedLab.id,
+      step: currentStep as LabProgressStep,
+      nextAction: selectedLab.participantTodo,
+    });
+  }, [selectedLab.id, selectedLab.participantTodo, currentStep]);
+
+  const activeFocusPanel = FOCUS_PANELS[focusStep] ?? FOCUS_PANELS[0];
+  /** In focus mode only the current step's panel is mounted-visible. */
+  const focusProps = (panel: 'requests' | 'trace' | 'results') =>
+    focusMode
+      ? {
+          'data-focus-active': activeFocusPanel.panel === panel ? 'true' : 'false',
+          hidden: activeFocusPanel.panel !== panel,
+        }
+      : {};
+
+  const chooseView = (next: WorkbenchView) => {
+    setView(next);
+    writeWorkbenchView(next);
+  };
+
   const copySql = async (step: JourneyStep) => {
     if (!step.sql || !navigator.clipboard?.writeText) return;
     try {
@@ -1445,11 +1568,60 @@ export default function ObservatoryWorkbench() {
               {selectedLab.objective}
             </p>
           </div>
-          <span className="observatory-workbench-presence">
-            <span aria-hidden="true" />
-            Live trace surface
-          </span>
+          <div className="observatory-workbench-intro-aside">
+            <span className="observatory-workbench-presence">
+              <span aria-hidden="true" />
+              Live trace surface
+            </span>
+            {resumePoint ? (
+              <Link
+                className="observatory-resume"
+                to={resumeHref(resumePoint)}
+                aria-label={`Resume ${resumeLabel(resumePoint)}`}
+              >
+                <RotateCcw size={14} aria-hidden="true" />
+                <span>
+                  Resume
+                  <small>{resumeLabel(resumePoint)}</small>
+                </span>
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              className="observatory-view-toggle"
+              aria-pressed={focusMode ? 'false' : 'true'}
+              onClick={() => chooseView(focusMode ? 'expert' : 'focus')}
+            >
+              <Columns3 size={14} aria-hidden="true" />
+              Expert view
+            </button>
+          </div>
         </header>
+        {focusMode ? (
+          <nav
+            className="observatory-focus-steps"
+            aria-label="Workbench steps"
+          >
+            {FOCUS_PANELS.map((panel, index) => (
+              <button
+                key={panel.id}
+                type="button"
+                data-state={
+                  index === focusStep
+                    ? 'current'
+                    : index < focusStep
+                      ? 'done'
+                      : 'ahead'
+                }
+                aria-current={index === focusStep ? 'step' : undefined}
+                onClick={() => setFocusStep(index)}
+              >
+                <span aria-hidden="true">{index + 1}</span>
+                {panel.label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
         <section
           className="observatory-lab-rail"
           aria-label="Lab collection"
@@ -1491,11 +1663,16 @@ export default function ObservatoryWorkbench() {
             );
           })}
         </section>
-        <div className="observatory-workbench-grid" aria-label="Live agent run">
+        <div
+          className="observatory-workbench-grid"
+          data-view={view}
+          aria-label="Live agent run"
+        >
           <motion.aside
             className="observatory-input-panel"
             data-motion-panel="requests"
             aria-label="Guided requests and run settings"
+            {...focusProps('requests')}
             initial={
               reduceMotion
                 ? false
@@ -1515,6 +1692,7 @@ export default function ObservatoryWorkbench() {
               running={runStatus === 'running'}
               activeIndex={activeTurn}
               ready={profileReady}
+              canRunTurn={(index) => canRunTurn(turnEntries, index)}
               anchorError={switchError}
               onInspect={(curatedQuery, index) => {
                 void runAgent(curatedQuery, index);
@@ -1630,6 +1808,7 @@ export default function ObservatoryWorkbench() {
             className="observatory-trace-panel"
             data-motion-panel="trace"
             aria-labelledby="live-journey-title"
+            {...focusProps('trace')}
             initial={
               reduceMotion
                 ? false
@@ -2123,6 +2302,7 @@ export default function ObservatoryWorkbench() {
           <motion.section
             className="observatory-results-panel"
             data-motion-panel="results"
+            {...focusProps('results')}
             aria-labelledby="live-result-title"
             initial={
               reduceMotion

@@ -39,6 +39,7 @@ import {
 } from '../hooks/useAgentChat'
 import PellierChatBody from './PellierChatBody'
 import PellierWelcome from './PellierWelcome'
+import StatusLines from './StatusLines'
 import '../styles/chat-drawer.css'
 
 // ---------------------------------------------------------------------------
@@ -323,6 +324,9 @@ export default function ChatDrawer() {
                 <X size={14} />
               </button>
             </div>
+
+            {/* Three facts, three sources: scenario, verified identity, rail. */}
+            <StatusLines messages={messages} />
 
             {/* Body */}
             <div className="cd-body">

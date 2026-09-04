@@ -23,7 +23,13 @@
  * system has something true to say.
  */
 import type React from 'react'
-import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion } from 'lucide-react'
+import {
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldOff,
+  ShieldQuestion,
+} from 'lucide-react'
 import {
   RAIL_STATE_DETAIL,
   RAIL_STATE_LABEL,
@@ -70,6 +76,12 @@ const PRESENTATION: Record<GovernedRailState, SealPresentation> = {
     fg: 'var(--gov-rail-inprocess-fg)',
     bg: 'var(--gov-rail-inprocess-bg)',
     border: 'var(--gov-neutral-border)',
+  },
+  refused: {
+    Icon: ShieldOff,
+    fg: 'var(--gov-deny-fg)',
+    bg: 'var(--gov-deny-bg)',
+    border: 'var(--gov-deny-border)',
   },
   degraded: {
     Icon: ShieldAlert,
