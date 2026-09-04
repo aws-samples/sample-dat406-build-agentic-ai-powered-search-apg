@@ -51,6 +51,17 @@ if os.environ.get("MEMORY_PELLIERMEMORY_ID") and not os.environ.get(
 if os.environ.get("AGENT_MODEL_ID") and not os.environ.get("BEDROCK_ROUTER_MODEL"):
     os.environ["BEDROCK_ROUTER_MODEL"] = os.environ["AGENT_MODEL_ID"]
 
+# The content digest of the sources packaged into THIS deployment, injected by
+# scripts/deploy/render_agentcore_project.py. Echoed on every response so the
+# caller can compare it against a digest of their own working tree and prove
+# which revision Runtime actually executed -- the invoke response carries no
+# version of its own, and `qualifier=DEFAULT` is an alias that reads the same
+# for yesterday's baseline as for today's package.
+#
+# Empty when a runtime was deployed before this mechanism existed. Callers must
+# render that as unknown, never as a mismatch.
+_build_fingerprint = os.environ.get("PELLIER_BUILD_FINGERPRINT", "").strip()
+
 try:
     from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
@@ -152,6 +163,7 @@ try:
                 "products": list(dispatcher.last_products or []),
                 "rail": rail,
                 "tool_calls": list(dispatcher.last_tool_events or []),
+                "build_fingerprint": _build_fingerprint,
             }
         return {
             "response": str(response),
@@ -164,6 +176,7 @@ try:
             "gateway_tools": list(dispatcher.last_tool_names),
             "tool_calls": list(dispatcher.last_tool_events or []),
             "orchestration": "dispatcher",
+            "build_fingerprint": _build_fingerprint,
         }
 
 except ImportError:

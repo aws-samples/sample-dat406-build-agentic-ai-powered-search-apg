@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -46,6 +47,9 @@ logger = logging.getLogger(__name__)
 # instead of whatever request finished most recently in this process.
 _latest_trace: Dict[str, Any] = {"spans": [], "totalMs": 0, "specialistRoute": ""}
 _LATEST_TRACES_BY_SESSION_MAX = 32
+# Cached digest of this checkout's packaged runtime sources; see
+# _local_runtime_fingerprint().
+_local_fingerprint_cache: Optional[str] = None
 _latest_traces_by_session: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 _managed_traces_by_principal_session: (
     "OrderedDict[tuple[str, str], Dict[str, Any]]"
@@ -201,6 +205,40 @@ def _cloudwatch_trace_links(
     }
 
 
+def _local_runtime_fingerprint() -> str:
+    """Digest this checkout's copy of the packaged runtime sources.
+
+    Cached because it reads several files and cannot change within a process:
+    the backend restarts when its source changes. Returns an empty string if
+    the digest cannot be computed, so a packaging question never becomes a
+    failed shopper turn.
+    """
+    global _local_fingerprint_cache
+    if _local_fingerprint_cache is None:
+        try:
+            from services.build_fingerprint import compute_fingerprint
+
+            _local_fingerprint_cache = compute_fingerprint(
+                Path(__file__).resolve().parents[1]
+            )
+        except Exception:  # noqa: BLE001 - provenance is never load-bearing
+            logger.debug("Local runtime fingerprint unavailable", exc_info=True)
+            _local_fingerprint_cache = ""
+    return _local_fingerprint_cache
+
+
+def _build_state(deployed: str, local: str) -> str:
+    """Classify the deployed revision against this checkout.
+
+    Three states, deliberately, because two would lie. ``unknown`` is not a
+    soft ``stale``: a runtime deployed before the fingerprint existed reports
+    nothing, and absence of evidence is not evidence of stale code.
+    """
+    if not deployed or not local:
+        return "unknown"
+    return "current" if deployed == local else "stale"
+
+
 def _store_managed_runtime_receipt(
     session_id: str,
     *,
@@ -209,6 +247,7 @@ def _store_managed_runtime_receipt(
     auth_token_present: bool,
     trace_id: Optional[str] = None,
     request_id: Optional[str] = None,
+    build_fingerprint: Optional[str] = None,
 ) -> None:
     """Expose a truthful managed-runtime receipt without synthesizing OTEL spans.
 
@@ -235,6 +274,16 @@ def _store_managed_runtime_receipt(
         "traceId": trace_id,
         "runtimeRequestId": request_id,
         "sessionId": session_id,
+        # Which revision answered. The invoke response carries no version of
+        # its own and `qualifier=DEFAULT` reads identically for yesterday's
+        # baseline, so the deployed package carries its own content digest and
+        # we compare it against this checkout. `buildState` is the participant
+        # -facing answer to "did Runtime run the code I just packaged?".
+        "buildFingerprint": (build_fingerprint or "").strip(),
+        "localBuildFingerprint": _local_runtime_fingerprint(),
+        "buildState": _build_state(
+            (build_fingerprint or "").strip(), _local_runtime_fingerprint()
+        ),
         "managedTrace": _cloudwatch_trace_links(
             session_id=session_id, trace_id=trace_id, request_id=request_id
         ),
@@ -447,6 +496,7 @@ async def run_agent_on_runtime_result(
             auth_token_present=bool(auth_token),
             trace_id=_trace_id_from(response_headers),
             request_id=response_headers.get("x-amzn-requestid"),
+            build_fingerprint=str(parsed.get("build_fingerprint") or ""),
         )
         products = parsed.get("products")
         tool_calls = parsed.get("tool_calls")

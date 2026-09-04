@@ -455,6 +455,12 @@ def _empty_managed_receipt(session_id: str | None = None) -> dict[str, Any]:
         "sessionId": session_id,
         "managedTrace": {},
         "evidenceProvenance": "",
+        # Kept in step with the populated shape below: a field present in one
+        # and absent in the other makes the frontend read `undefined` on
+        # exactly the path where no receipt exists.
+        "buildFingerprint": "",
+        "localBuildFingerprint": "",
+        "buildState": "unknown",
     }
 
 
@@ -489,7 +495,40 @@ def _latest_managed_receipt(
             else {}
         ),
         "evidenceProvenance": trace.get("evidenceProvenance", ""),
+        # This projection is a whitelist: a field added to the trace dict does
+        # not reach the frontend unless it is named here.
+        "buildFingerprint": trace.get("buildFingerprint", ""),
+        "localBuildFingerprint": trace.get("localBuildFingerprint", ""),
+        "buildState": trace.get("buildState", "unknown"),
     }
+
+
+def _build_fingerprint_evidence(receipt: dict[str, Any]) -> str:
+    """Describe which revision the managed Runtime executed.
+
+    Three outcomes, because two would misreport the third. A runtime deployed
+    before the fingerprint mechanism existed reports nothing, and that is not
+    the same finding as a stale deployment.
+    """
+    state = str(receipt.get("buildState") or "unknown")
+    deployed = str(receipt.get("buildFingerprint") or "")
+    local = str(receipt.get("localBuildFingerprint") or "")
+    if state == "current":
+        return (
+            f"Runtime executed this checkout's revision (build {deployed[:12]})"  # copy-allow: observatory-evidence-line
+        )
+    if state == "stale":
+        return (
+            f"Runtime executed build {deployed[:12]}, but this checkout is "  # copy-allow: observatory-evidence-line
+            f"{local[:12]}. The deployed package is not your current source."  # copy-allow: observatory-evidence-line
+        )
+    if not deployed:
+        return (
+            "Runtime did not report a build fingerprint. Re-render and deploy "  # copy-allow: observatory-evidence-line
+            "the project to stamp one; until then the executed revision is "  # copy-allow: observatory-evidence-line
+            "unproven, which is not the same as stale."  # copy-allow: observatory-evidence-line
+        )
+    return "Build fingerprint could not be compared against this checkout."  # copy-allow: observatory-evidence-line
 
 
 async def _collect_readiness() -> dict[str, Any]:
@@ -1093,6 +1132,12 @@ async def _collect_proof_board(
                     if managed_receipt.get("traceId")
                     else "Managed trace id was not reported on the Runtime response"
                 ),
+                # Deliberately an evidence line, not an input to
+                # managed_rail_proven. "The rail works" and "the rail ran the
+                # revision I packaged" are two claims; collapsing them would
+                # let a stale deployment pass as a proven rail, which is the
+                # exact substitution this workshop teaches against.
+                _build_fingerprint_evidence(managed_receipt),
                 (
                     f"Latest gateway audit row: audit_id {latest_gateway.get('audit_id')}"
                     if latest_gateway

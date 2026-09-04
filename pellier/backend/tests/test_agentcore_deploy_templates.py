@@ -130,6 +130,16 @@ def test_runtime_uses_cli_managed_role_and_resource_discovery(tmp_path: Path) ->
     assert Path(runtime["codeLocation"]) == root / "runtime-src"
 
     env = {item["name"]: item["value"] for item in runtime["envVars"]}
+
+    # The build fingerprint is a content digest of the staged sources, so it
+    # changes whenever the runtime source changes -- which is the point. Assert
+    # its shape and that it matches what the renderer digested, then compare the
+    # rest of the environment exactly.
+    build_fingerprint = env.pop(renderer.FINGERPRINT_ENV_VAR)
+    assert len(build_fingerprint) == 64
+    assert set(build_fingerprint) <= set("0123456789abcdef")
+    assert build_fingerprint == renderer.compute_fingerprint(root / "runtime-src")
+
     assert env == {
         "AGENT_MODEL_ID": "global.anthropic.claude-sonnet-4-6",
         "BEDROCK_OPUS_MODEL": "global.anthropic.claude-sonnet-4-6",

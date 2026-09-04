@@ -164,6 +164,11 @@ def test_entrypoint_runs_fixed_dispatcher_and_returns_observed_evidence(
         "gateway_tools": ["search_products_hybrid"],
         "tool_calls": dispatcher.last_tool_events,
         "orchestration": "dispatcher",
+        # Echoed on every response so the caller can prove which revision
+        # Runtime executed; empty here because the test process carries no
+        # injected digest, which is the same honest answer a runtime deployed
+        # before this mechanism gives.
+        "build_fingerprint": "",
     }
 
 
@@ -190,4 +195,7 @@ def test_entrypoint_rejects_truncated_model_output(
         "products": dispatcher.last_products,
         "rail": "gateway-mcp",
         "tool_calls": dispatcher.last_tool_events,
+        # Present on the failure path too: which revision produced a truncated
+        # answer is exactly as worth knowing as which produced a good one.
+        "build_fingerprint": "",
     }

@@ -45,6 +45,18 @@ interface ManagedReceipt {
   runtimeRequestId?: string | null;
   sessionId?: string | null;
   evidenceProvenance?: string;
+  /** Content digest of the sources packaged into the deployed runtime. */
+  buildFingerprint?: string;
+  /** The same digest computed over this checkout, for comparison. */
+  localBuildFingerprint?: string;
+  /**
+   * 'current' when the deployed package was built from this checkout,
+   * 'stale' when it was not, 'unknown' when the runtime reported no
+   * fingerprint. Unknown is not a soft stale: a runtime deployed before the
+   * mechanism existed cannot report one, and absence of evidence is not
+   * evidence of stale code.
+   */
+  buildState?: 'current' | 'stale' | 'unknown';
   managedTrace?: {
     traceId?: string | null;
     runtimeRequestId?: string | null;
@@ -735,6 +747,19 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
     ['Session', sessionId],
     ['Provenance', receipt.evidenceProvenance],
   ].filter((row): row is [string, string] => Boolean(row[1]));
+  const buildState = receipt.buildState ?? 'unknown';
+  const deployedBuild = (receipt.buildFingerprint || '').slice(0, 12);
+  const localBuild = (receipt.localBuildFingerprint || '').slice(0, 12);
+  // Which revision answered. Rendered as its own row rather than folded into
+  // the list above because it is the one line that answers "did Runtime run
+  // the code I just packaged?" -- and because a stale build has to read as a
+  // finding, not as another correlation id.
+  const buildTone =
+    buildState === 'current'
+      ? { fg: 'var(--obs-status-ok-fg)', bg: 'var(--obs-status-ok-bg)', label: 'This checkout' }
+      : buildState === 'stale'
+        ? { fg: 'var(--obs-status-attention-fg)', bg: 'var(--obs-status-attention-bg)', label: 'Older deployment' }
+        : { fg: 'var(--obs-status-neutral-fg)', bg: 'var(--obs-status-neutral-bg)', label: 'Not reported' };
 
   return (
     <div
@@ -756,6 +781,48 @@ const ManagedTraceCorrelation: React.FC<{ receipt: ManagedReceipt }> = ({ receip
         }}
       >
         Managed trace correlation
+      </div>
+      <div
+        data-testid="managed-build-fingerprint"
+        data-build-state={buildState}
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'baseline',
+          gap: '8px',
+          marginBottom: '10px',
+          paddingBottom: '10px',
+          borderBottom: '1px solid var(--obs-rule-1)',
+        }}
+      >
+        <span style={{ color: 'var(--obs-ink-3)', fontSize: '11px' }}>
+          Executed revision
+        </span>
+        <span
+          style={{
+            borderRadius: '4px',
+            padding: '2px 7px',
+            color: buildTone.fg,
+            background: buildTone.bg,
+            fontFamily: 'var(--obs-heading)',
+            fontSize: '11px',
+            fontWeight: 600,
+            letterSpacing: '0.03em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {buildTone.label}
+        </span>
+        <span
+          className="font-mono"
+          style={{ color: 'var(--obs-ink-2)', fontSize: '11px', overflowWrap: 'anywhere' }}
+        >
+          {buildState === 'unknown'
+            ? 'Runtime reported no build fingerprint'
+            : buildState === 'stale'
+              ? `deployed ${deployedBuild} · checkout ${localBuild}`
+              : deployedBuild}
+        </span>
       </div>
       {rows.length > 0 ? (
         rows.map(([label, value]) => (

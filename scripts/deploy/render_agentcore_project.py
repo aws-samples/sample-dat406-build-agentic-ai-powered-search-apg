@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -39,14 +40,21 @@ AUDIT_TRAIL_ACTION = f"{RECOMMENDATION_TARGET}___get_audit_trail"
 RESTOCK_ACTION = "pellier-discovery-search-target___restock_inventory"
 ISSUE_CREDIT_ACTION = "pellier-concierge-experience-target___issue_credit"
 WORKSHOP_RUNTIME_EXPOSURE = "public-workshop-only"
-RUNTIME_SOURCE_FILES = (
-    Path("agentcore_runtime.py"),
-    Path("services/__init__.py"),
-    Path("services/agentcore_gateway.py"),
-    Path("services/conversation_context.py"),
-    Path("services/intent_router.py"),
-    Path("services/product_envelope.py"),
-    Path("services/response_mode.py"),
+
+# The packaged-file list and the digest algorithm live in the backend so that
+# what is staged and what is fingerprinted cannot drift apart. Import them
+# rather than keeping a second copy of the tuple here: a file added to the
+# runtime but not to the shared list would ship unfingerprinted, weakening the
+# executed-revision proof silently instead of failing loudly.
+_BACKEND_DIR = Path(__file__).resolve().parents[2] / "pellier" / "backend"
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+
+from services.build_fingerprint import (  # noqa: E402
+    FINGERPRINT_ENV_VAR,
+    RUNTIME_DEPENDENCY_FILES,
+    RUNTIME_SOURCE_FILES,
+    compute_fingerprint,
 )
 
 
@@ -59,20 +67,28 @@ def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n")
 
 
-def _render_runtime_source(root: Path, backend_dir: Path) -> Path:
-    """Stage only the source files reachable from the managed entrypoint."""
+def _render_runtime_source(root: Path, backend_dir: Path) -> tuple[Path, str]:
+    """Stage the source files reachable from the managed entrypoint, and digest them.
+
+    Returns the staged directory and the content fingerprint of what was staged.
+    The fingerprint is injected as an environment variable on the runtime rather
+    than written into a staged file, so it cannot alter the very bytes it
+    describes.
+    """
     runtime_dir = root / "runtime-src"
     shutil.rmtree(runtime_dir, ignore_errors=True)
     runtime_dir.mkdir(parents=True)
 
-    for dependency_file in ("pyproject.toml", "uv.lock"):
-        shutil.copy2(backend_dir / dependency_file, runtime_dir / dependency_file)
+    for relative in RUNTIME_DEPENDENCY_FILES:
+        shutil.copy2(backend_dir / relative, runtime_dir / relative)
     for relative in RUNTIME_SOURCE_FILES:
         source = backend_dir / relative
         destination = runtime_dir / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
-    return runtime_dir
+
+    # Digest the staged copy, not the working tree: this is the thing that ships.
+    return runtime_dir, compute_fingerprint(runtime_dir)
 
 
 def _customer_scope_forbid_statement(action: str) -> str:
@@ -295,7 +311,7 @@ def render_project(
     config_dir = root / "agentcore"
     schemas_dir = root / "tool-schemas"
     backend_dir = repo / "pellier" / "backend"
-    runtime_dir = _render_runtime_source(root, backend_dir)
+    runtime_dir, build_fingerprint = _render_runtime_source(root, backend_dir)
     runtime_opus_model = opus_model_id or model_id
     runtime_sonnet_model = sonnet_model_id or model_id
     runtime_fast_model = fast_model_id or model_id
@@ -364,6 +380,16 @@ def render_project(
                     {
                         "name": "UNIFIED_TRACES_DESTINATION_ENABLED",
                         "value": "true",
+                    },
+                    # The digest of the sources staged immediately above. The
+                    # entrypoint echoes it on every response so a participant can
+                    # prove Runtime executed the revision they just packaged
+                    # rather than a previous deployment. Carried as an env var,
+                    # not a staged file, so it cannot change the bytes it
+                    # describes.
+                    {
+                        "name": FINGERPRINT_ENV_VAR,
+                        "value": build_fingerprint,
                     },
                 ],
                 "networkMode": "PUBLIC",

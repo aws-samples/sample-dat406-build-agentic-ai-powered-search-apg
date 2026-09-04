@@ -302,6 +302,91 @@ describe('ProofBoard', () => {
     ).toBeInTheDocument();
   });
 
+  // Lab 3's whole claim is "Runtime executed the revision I packaged". The
+  // invoke response carries no version, so these three states are the only
+  // thing separating a real proof from a green invocation of stale code.
+  describe('executed revision', () => {
+    const renderWithReceipt = async (
+      receipt: Record<string, unknown>,
+    ): Promise<void> => {
+      const payload = {
+        ...proofBoardPayload,
+        managedReceipt: { ...proofBoardPayload.managedReceipt, ...receipt },
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+        ),
+      );
+      render(
+        <MemoryRouter>
+          <ProofBoard />
+        </MemoryRouter>,
+      );
+      expect(await screen.findByText('Proof Board')).toBeInTheDocument();
+    };
+
+    it('reports the deployed package as this checkout when the digests match', async () => {
+      await renderWithReceipt({
+        buildFingerprint: 'abc123def456aaaa',
+        localBuildFingerprint: 'abc123def456aaaa',
+        buildState: 'current',
+      });
+      const row = await screen.findByTestId('managed-build-fingerprint');
+      expect(row).toHaveAttribute('data-build-state', 'current');
+      expect(row).toHaveTextContent('This checkout');
+      expect(row).toHaveTextContent('abc123def456');
+    });
+
+    it('names both digests when the deployment is older than this checkout', async () => {
+      await renderWithReceipt({
+        buildFingerprint: 'aaaaaaaaaaaa1111',
+        localBuildFingerprint: 'bbbbbbbbbbbb2222',
+        buildState: 'stale',
+      });
+      const row = await screen.findByTestId('managed-build-fingerprint');
+      expect(row).toHaveAttribute('data-build-state', 'stale');
+      expect(row).toHaveTextContent('Older deployment');
+      // Both sides are shown: "yours differs" is only actionable if the
+      // participant can see which two things differ.
+      expect(row).toHaveTextContent('aaaaaaaaaaaa');
+      expect(row).toHaveTextContent('bbbbbbbbbbbb');
+    });
+
+    it('reports an unstamped runtime as not reported, never as stale', async () => {
+      // A runtime deployed before the fingerprint existed cannot report one.
+      // Rendering that as a mismatch would send a participant hunting a
+      // deployment fault that is not there.
+      await renderWithReceipt({
+        buildFingerprint: '',
+        localBuildFingerprint: 'bbbbbbbbbbbb2222',
+        buildState: 'unknown',
+      });
+      const row = await screen.findByTestId('managed-build-fingerprint');
+      expect(row).toHaveAttribute('data-build-state', 'unknown');
+      expect(row).toHaveTextContent('Not reported');
+      expect(row).not.toHaveTextContent('Older deployment');
+    });
+
+    it('treats a receipt with no build fields at all as unknown', async () => {
+      // Older backends do not send these keys; the surface must not read
+      // `undefined` as a mismatch.
+      await renderWithReceipt({
+        buildFingerprint: undefined,
+        localBuildFingerprint: undefined,
+        buildState: undefined,
+      });
+      const row = await screen.findByTestId('managed-build-fingerprint');
+      expect(row).toHaveAttribute('data-build-state', 'unknown');
+      expect(row).toHaveTextContent('Not reported');
+    });
+  });
+
   it('keeps the governed path compact until a participant selects a stage', async () => {
     vi.stubGlobal(
       'fetch',
