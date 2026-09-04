@@ -21,7 +21,45 @@ WORKSHOP_FORMAT="${WORKSHOP_FORMAT:-governed}"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log() { echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $1"; }
 warn() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] WARNING:${NC} $1"; }
-fail() { echo -e "${RED}[$(date +'%H:%M:%S')] ERROR:${NC} $1"; exit 1; }
+fail() { echo -e "${RED}[$(date +'%H:%M:%S')] ERROR:${NC} $1"; set_provision_state FAILED; exit 1; }
+
+# ----------------------------------------------------------------------------
+# Provisioning state machine.
+#
+# One word in one file answers "how far did bootstrap actually get" for
+# CloudFormation, for the health gate, and for an operator on the box:
+#
+#   PROVISIONING   bootstrap has started
+#   APP_READY      the pellier service answered /api/health
+#   MANAGED_READY  the managed Runtime, Gateway, Memory and Policy proof passed
+#   E2E_PROVED     the post-boot health gate passed in the governed format
+#   FAILED         any fatal path (every one of them goes through fail() above)
+#
+# bootstrap-environment.sh signals CloudFormation SUCCESS only from E2E_PROVED
+# (governed) or APP_READY and later (builders). health-gate.sh requires
+# E2E_PROVED in the governed format outside bootstrap's own proving runs.
+# The directory is shared with the reset's quarantine marker and is
+# group-writable by the participant so reset can write and clear that marker
+# without a sudoers entry naming the file.
+# ----------------------------------------------------------------------------
+PELLIER_STATE_DIR="/var/lib/pellier"
+PROVISION_STATE_FILE="${PELLIER_PROVISION_STATE_FILE:-/var/lib/pellier/provision-state}"
+set_provision_state() {
+    local state="$1"
+    mkdir -p "$(dirname "$PROVISION_STATE_FILE")" 2>/dev/null || true
+    if printf '%s\n' "$state" > "$PROVISION_STATE_FILE" 2>/dev/null; then
+        chmod 0644 "$PROVISION_STATE_FILE" 2>/dev/null || true
+        log "Provision state: ${state}"
+    else
+        warn "Could not record provision state ${state} at $PROVISION_STATE_FILE"
+    fi
+}
+mkdir -p "$PELLIER_STATE_DIR"
+chown "root:$CODE_EDITOR_USER" "$PELLIER_STATE_DIR" 2>/dev/null \
+    || warn "Could not group-own $PELLIER_STATE_DIR for $CODE_EDITOR_USER; reset cannot write its quarantine marker"
+chmod 0775 "$PELLIER_STATE_DIR"
+set_provision_state PROVISIONING
+
 write_status_json() {
     local status="$1"
     local managed_status="$2"
@@ -673,7 +711,10 @@ setup_database() {
             043_evidence_ledger.sql \
             044_operator_lifecycle_ledger.sql \
             045_persona_blurbs.sql \
-            046_retrieval_citation_snapshots.sql
+            046_retrieval_citation_snapshots.sql \
+            047_evidence_immutability.sql \
+            048_policy_decisions.sql \
+            049_workshop_runs.sql
         do
             if [ -f "$REPO_PATH/scripts/migrations/$migration" ]; then
                 log "Applying migration $migration..."
@@ -728,7 +769,11 @@ wait $PID_FE && log "✅ Frontend dependencies installed" || warn "Frontend inst
 if wait $PID_DB; then
     log "✅ Database setup complete (expanded catalog, HNSW index, workshop tables)"
 else
+    # setup_database returns early on a failed seed, which also skips the whole
+    # 002-onward migration loop. A box in that state has no catalog and no
+    # workshop schema, so it must never reach E2E_PROVED and signal success.
     warn "Database setup had issues - check /var/log/database-setup.log"
+    set_provision_state FAILED
 fi
 
 # ============================================================================
@@ -944,6 +989,12 @@ cat << 'ALS'
 alias start-backend='sudo systemctl restart pellier && journalctl -fu pellier --no-pager'
 alias rebuild-frontend='bash /workshop/sample-pellier-agentic-search-apg/scripts/rebuild-frontend-builders.sh'
 alias reset-governed='bash /workshop/sample-pellier-agentic-search-apg/scripts/reset-governed-workshop.sh'
+# One word per lab entry point. `workshop-start` mints the run id before Lab 1,
+# `lab3-start` switches the storefront to the managed rail and proves it, and
+# `doctor --lab N` names the prerequisite a stuck participant has not met.
+alias workshop-start='bash /workshop/sample-pellier-agentic-search-apg/scripts/workshop-start.sh'
+alias lab3-start='bash /workshop/sample-pellier-agentic-search-apg/scripts/lab3-start.sh'
+alias doctor='python3 /workshop/sample-pellier-agentic-search-apg/scripts/workshop_doctor.py'
 ALS
 printf '%s\n' "$BASHRC_END"
 } >> "$BASHRC_TMP"
@@ -1183,12 +1234,25 @@ systemctl daemon-reload
 systemctl enable pellier
 systemctl start pellier
 
-# Verify it started
-sleep 8
-if systemctl is-active --quiet pellier; then
-    log "✅ pellier service running (port 8000, serves SPA + /api)"
+# Verify it answers, not merely that systemd spawned it. ExecStartPre builds the
+# frontend first, so the unit sits in "activating" for the length of a Vite
+# build before uvicorn binds :8000; `is-active` after a fixed sleep read that as
+# a failed start. APP_READY is recorded only once /api/health reports healthy,
+# which is the same probe the health gate and the reset use.
+APP_HEALTH_OK=false
+for _attempt in {1..150}; do
+    if curl -fs --max-time 3 http://localhost:8000/api/health 2>/dev/null \
+        | grep -q '"status".*"healthy"'; then
+        APP_HEALTH_OK=true
+        break
+    fi
+    sleep 2
+done
+if [ "$APP_HEALTH_OK" = true ]; then
+    log "✅ pellier service answers /api/health (port 8000, serves SPA + /api)"
+    set_provision_state APP_READY
 else
-    warn "pellier service failed to start — check: journalctl -u pellier"
+    warn "pellier service did not answer /api/health as healthy within 300s; check: journalctl -u pellier"
 fi
 
 log "✅ Auto-start service configured"
@@ -1455,6 +1519,14 @@ EOF
         chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO_PATH/.env"
         write_status_json "complete" "ready" "$MANAGED_OUTPUT_JSON"
         log "✅ AgentCore managed path ready"
+        # MANAGED_READY builds on APP_READY. A managed proof over an application
+        # that never answered /api/health is not a later milestone, so the state
+        # stays where it is and the health gate reports the gap.
+        if [ "${APP_HEALTH_OK:-false}" = true ]; then
+            set_provision_state MANAGED_READY
+        else
+            warn "Managed path proved but the application never answered /api/health; provision state not advanced"
+        fi
     else
         warn "AgentCore managed path NOT ready — continuing so the backend launches. The health gate will flag this; see $AGENTCORE_LOG, then re-run provisioning to recover the Runtime/Gateway path."
         # Preserve CLI-created resources in backend configuration even when a
@@ -1532,8 +1604,12 @@ EOF
 
     if [ "${WORKSHOP_FORMAT}" = "governed" ] && [ "$AGENTCORE_OK" = true ]; then
         log "Restoring canonical governed state after live Runtime and Policy proof..."
+        # The reset ends with the health gate, which requires E2E_PROVED in the
+        # governed format. That state is written after STEP 19, so this run is
+        # marked as bootstrap's own proving phase.
         if sudo -u "$CODE_EDITOR_USER" bash -c "
             export PELLIER_REPO='$REPO_PATH'
+            export PELLIER_PROVISION_PHASE=bootstrap
             bash '$REPO_PATH/scripts/reset-governed-workshop.sh'
         " 2>&1 | tee /var/log/pellier-governed-reset.log; then
             log "✅ Governed database, evidence, and Policy state reset"
@@ -1811,24 +1887,42 @@ echo ""
 # One consolidated PASS/FAIL summary so the facilitator sees readiness at a
 # glance. Give the backend a moment to come up first. A failed gate is fatal for
 # the governed workshop and warning-only for the one-hour builders format.
-HEALTH_GATE_OK=true
+# FALSE until a gate actually runs and passes. Initialised true, a health-gate.sh
+# that is missing or not executable skipped the `if` below and left the flag true:
+# governed bootstrap then wrote E2E_PROVED and CloudFormation reported a proved
+# environment with no gate evidence behind it. Absence of evidence is not a pass.
+HEALTH_GATE_OK=false
 if [ -x "$REPO_PATH/scripts/health-gate.sh" ]; then
     log "Running post-boot health gate..."
     sleep 5
-    if ! sudo -u "$CODE_EDITOR_USER" bash -c "
+    # This is the proving run: E2E_PROVED is written only after it passes, so the
+    # gate's own E2E_PROVED requirement is relaxed for it (a FAILED state is not).
+    # `set -o pipefail` is on, so the gate's status survives the pipe into tee.
+    if sudo -u "$CODE_EDITOR_USER" bash -c "
         export PELLIER_REPO='$REPO_PATH'
         export WORKSHOP_FORMAT='${WORKSHOP_FORMAT}'
+        export PELLIER_PROVISION_PHASE=bootstrap
         bash '$REPO_PATH/scripts/health-gate.sh'
     " 2>&1 | tee /var/log/pellier-health-gate.log; then
-        HEALTH_GATE_OK=false
+        HEALTH_GATE_OK=true
+    else
         warn "Health gate reported NOT READY — see /var/log/pellier-health-gate.log"
     fi
+else
+    warn "No health gate to run at $REPO_PATH/scripts/health-gate.sh; readiness is unproven"
 fi
 
 log "=========================================="
 
 if [ "$HEALTH_GATE_OK" != true ] && [ "${WORKSHOP_FORMAT}" = "governed" ]; then
     fail "Governed workshop readiness failed; CloudFormation must not report this environment ready"
+fi
+
+# The gate that just passed covers the seeded Operator token mint, an
+# authenticated call through the application, the managed invocation receipt
+# and the evidence receipt. A literal browser session is not run on the box.
+if [ "$HEALTH_GATE_OK" = true ] && [ "${WORKSHOP_FORMAT}" = "governed" ]; then
+    set_provision_state E2E_PROVED
 fi
 
 exit 0

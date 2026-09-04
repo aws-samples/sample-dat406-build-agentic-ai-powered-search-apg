@@ -107,6 +107,40 @@ managed_missing() {
 echo "Pellier health gate — $(date '+%H:%M:%S')"
 echo "------------------------------------------------------------"
 
+# 0. Lifecycle markers. Both live under /var/lib/pellier on a box; the env
+# overrides exist so the contract tests can point them at a sandbox.
+#
+# The quarantine marker is written by reset-governed-workshop.sh when it could
+# not clean AgentCore Memory or restore Cedar enforcement. Either leaves the box
+# with someone else's residue or with denials that silently do not happen, and
+# a green gate on top of that is exactly the lie this check exists to refuse.
+# Only a full, successful reset removes it.
+QUARANTINE_FILE="${PELLIER_QUARANTINE_FILE:-/var/lib/pellier/quarantine}"
+if [[ -f "$QUARANTINE_FILE" ]]; then
+  fail "Box is quarantined: $(cat "$QUARANTINE_FILE")"
+  ok=false
+fi
+
+# The provisioning state file records how far bootstrap actually got:
+# PROVISIONING -> APP_READY -> MANAGED_READY -> E2E_PROVED, or FAILED. In the
+# governed format a box is ready only at E2E_PROVED. Bootstrap itself runs this
+# gate twice before it can write that state (inside the governed reset and at
+# STEP 19), and marks those runs with PELLIER_PROVISION_PHASE=bootstrap; a
+# FAILED state is refused even then.
+PROVISION_STATE_FILE="${PELLIER_PROVISION_STATE_FILE:-/var/lib/pellier/provision-state}"
+provision_state="$(tr -d '[:space:]' < "$PROVISION_STATE_FILE" 2>/dev/null || true)"
+echo "  Provision state: ${provision_state:-absent}"
+if $managed_required && [[ -n "$provision_state" ]]; then
+  if [[ "$provision_state" == "E2E_PROVED" ]]; then
+    pass "Provisioning reached E2E_PROVED"
+  elif [[ "$provision_state" != "FAILED" && "${PELLIER_PROVISION_PHASE:-}" == "bootstrap" ]]; then
+    pass "Provisioning at ${provision_state} during bootstrap's own proving run"
+  else
+    fail "Provision state is ${provision_state}, expected E2E_PROVED. Re-run bootstrap-labs.sh; see /var/log/bootstrap-labs.log."
+    ok=false
+  fi
+fi
+
 # 1. Backend health
 health_json="$(curl -fs --max-time 5 "$HEALTH_URL" 2>/dev/null || true)"
 if echo "$health_json" | grep -q '"status".*"healthy"'; then
@@ -252,6 +286,22 @@ if $managed_required; then
     pass "Proof-carrying commerce schema is installed"
   else
     fail "Proof-carrying commerce schema missing. Apply scripts/migrations/015_proof_carrying_commerce.sql."
+    ok=false
+  fi
+
+  policy_decisions_table="$(_psql "SELECT to_regclass('pellier.policy_decisions');" || echo '')"
+  if [[ "$policy_decisions_table" == "pellier.policy_decisions" ]]; then
+    pass "Policy decision schema is installed"
+  else
+    fail "Policy decision schema missing. Apply scripts/migrations/048_policy_decisions.sql."
+    ok=false
+  fi
+
+  workshop_runs_table="$(_psql "SELECT to_regclass('pellier.workshop_runs');" || echo '')"
+  if [[ "$workshop_runs_table" == "pellier.workshop_runs" ]]; then
+    pass "Workshop run schema is installed"
+  else
+    fail "Workshop run schema missing. Apply scripts/migrations/049_workshop_runs.sql."
     ok=false
   fi
 fi
@@ -454,7 +504,10 @@ if [[ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ]]; then
     else
       token_username="$(aws cognito-idp get-user --access-token "$operator_token" \
         --region "${AWS_REGION:-us-east-1}" --query Username --output text 2>/dev/null || true)"
-      if [[ "${token_username,,}" == "${operator_user,,}" ]]; then
+      # `tr`, not `${var,,}`: the case-folding expansion is bash 4 only, and the
+      # macOS test runner executes this gate under /bin/bash 3.2.
+      if [[ "$(printf '%s' "$token_username" | tr '[:upper:]' '[:lower:]')" \
+          == "$(printf '%s' "$operator_user" | tr '[:upper:]' '[:lower:]')" ]]; then
         pass "Seeded Operator can complete Cognito sign-in"
       else
         managed_missing "Operator access token did not resolve to ${operator_user}"

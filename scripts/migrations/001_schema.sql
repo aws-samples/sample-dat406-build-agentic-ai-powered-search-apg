@@ -81,6 +81,14 @@ ALTER TABLE pellier.product_catalog
     ADD COLUMN IF NOT EXISTS product_id text
     GENERATED ALWAYS AS ("productId") STORED;
 
+-- persona_id is written by scripts/seed_pellier_catalog.py, and bootstrap runs
+-- that seeder BEFORE the 002-onward migration loop. Migration 029 is what
+-- assigns the editorial values, but the column has to exist here or the very
+-- first seed on a fresh cluster fails with "column persona_id does not exist",
+-- setup_database returns early, and the rest of the migrations never run.
+ALTER TABLE pellier.product_catalog
+    ADD COLUMN IF NOT EXISTS persona_id text;
+
 -- updated_at trigger — cheap, idempotent, only fires on real changes.
 CREATE OR REPLACE FUNCTION pellier.set_updated_at()
 RETURNS TRIGGER AS $$

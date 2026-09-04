@@ -109,6 +109,17 @@ FKs.
     catalog citation snapshot with each retrieval receipt and makes retrieval
     receipts append-only, so a later catalog edit cannot rewrite prior turn
     evidence.
+47. **`047_evidence_immutability.sql`** makes `governed_receipts` and
+    `execution_receipts` append-only, allows `tool_audit` and `write_operations`
+    rows to be completed exactly once, and narrows the runtime role's UPDATE
+    grant on `write_operations` to the completion columns.
+48. **`048_policy_decisions.sql`** creates `pellier.policy_decisions`, the
+    per-turn record of Gateway Policy decision events (ALLOW, DENY, WOULD_DENY,
+    EVALUATION_INCOMPLETE, POLICY_INFERRED) with the link from a later decision
+    to the one it reverses.
+49. **`049_workshop_runs.sql`** creates `pellier.workshop_runs` and stamps
+    every evidence table with the current run id from the session setting
+    `pellier.run_id`, so one participant run can be reconstructed end to end.
 
 ## Run
 
@@ -166,7 +177,10 @@ for migration in \
     043_evidence_ledger.sql \
     044_operator_lifecycle_ledger.sql \
     045_persona_blurbs.sql \
-    046_retrieval_citation_snapshots.sql
+    046_retrieval_citation_snapshots.sql \
+    047_evidence_immutability.sql \
+    048_policy_decisions.sql \
+    049_workshop_runs.sql
 do
     PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
         -U "$DB_USER" -d "$DB_NAME" \
@@ -221,6 +235,8 @@ workshop state with:
 \dv pellier.evidence_ledger_event_refs
 \dt pellier.commerce_receipts
 \dt pellier.commerce_payment_events
+\dt pellier.policy_decisions
+\dt pellier.workshop_runs
 
 SELECT COUNT(*) FROM pellier.product_catalog;          -- 1000 by default
 SELECT COUNT(*) FROM pellier.customers;                -- at least 5

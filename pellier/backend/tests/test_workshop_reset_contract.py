@@ -153,6 +153,62 @@ def test_every_migration_in_the_chain_is_reachable_from_bootstrap() -> None:
     assert not missing, f"migrations not registered in bootstrap: {missing}"
 
 
+NEW_EVIDENCE_MIGRATIONS = (
+    "047_evidence_immutability.sql",
+    "048_policy_decisions.sql",
+    "049_workshop_runs.sql",
+)
+
+
+def test_the_new_evidence_migrations_are_registered_everywhere() -> None:
+    """A migration that exists but is never applied is a table nobody has.
+
+    047 (immutability triggers), 048 (`pellier.policy_decisions`) and 049
+    (`pellier.workshop_runs`) are registered by name in every apply list before
+    the files land, so bootstrap, reset and the operator README agree on the chain.
+    """
+    bootstrap = BOOTSTRAP.read_text()
+    reset = _reset_body()
+    readme = (MIGRATIONS / "README.md").read_text()
+    health = pathlib.Path("../../scripts/health-gate.sh").read_text()
+    for name in NEW_EVIDENCE_MIGRATIONS:
+        assert name in bootstrap, f"bootstrap does not apply {name}"
+        assert name in reset, f"reset does not re-apply {name}"
+        assert readme.count(name) >= 2, f"README lacks a numbered entry or list line for {name}"
+    # Apply order is preserved: each new file follows 046 in every list.
+    for text, label in ((bootstrap, "bootstrap"), (reset, "reset"), (readme, "README")):
+        anchor = text.rindex("046_retrieval_citation_snapshots.sql")
+        for name in NEW_EVIDENCE_MIGRATIONS:
+            assert text.rindex(name) > anchor, f"{label} lists {name} before 046"
+    assert "Apply scripts/migrations/048_policy_decisions.sql" in health
+    assert "Apply scripts/migrations/049_workshop_runs.sql" in health
+    assert "to_regclass('pellier.policy_decisions')" in health
+    assert "to_regclass('pellier.workshop_runs')" in health
+
+
+def test_the_reset_clears_and_verifies_the_new_evidence_tables() -> None:
+    """Policy decisions and workshop runs are per-run evidence; a fresh box has none."""
+    cleared = _truncate_list()
+    section = _reset_body()[_reset_body().index("_verify_baseline() {"):]
+    for table in ("policy_decisions", "workshop_runs"):
+        assert table in cleared, f"{table} survives a reset"
+        assert table in section, f"{table} is truncated but never verified empty"
+
+
+def test_the_bootstrap_registers_the_workshop_journey_aliases() -> None:
+    """One word per lab entry point, next to `reset-governed` where the shell finds it."""
+    body = BOOTSTRAP.read_text()
+    repo = "/workshop/sample-pellier-agentic-search-apg"
+    for alias in (
+        f"alias workshop-start='bash {repo}/scripts/workshop-start.sh'",
+        f"alias lab3-start='bash {repo}/scripts/lab3-start.sh'",
+        f"alias doctor='python3 {repo}/scripts/workshop_doctor.py'",
+        f"alias receipt='python3 {repo}/scripts/build_receipt.py'",
+        f"alias reset-governed='bash {repo}/scripts/reset-governed-workshop.sh'",
+    ):
+        assert alias in body, alias
+
+
 def test_the_reset_uses_truncate_rather_than_delete() -> None:
     """TRUNCATE fires no row-level triggers.
 
@@ -269,6 +325,167 @@ def test_the_reset_quiesces_before_it_truncates() -> None:
     )
 
 
+def test_the_reset_controls_the_service_through_sudo_when_not_root() -> None:
+    """The participant is not root, and a stop that quietly fails is a racing reset.
+
+    The `reset-governed` alias runs as the participant, whose sudoers drop-in permits
+    exactly `systemctl start|stop|restart|is-active|status pellier` without a password.
+    A bare `systemctl stop` there returns "Access denied", the script treats the unit as
+    already stopped, and the TRUNCATE runs underneath a live application. Every service
+    call therefore goes through one helper that prepends `sudo -n` when EUID is not 0.
+    """
+    body = _reset_body()
+    assert "_systemctl() {" in body
+    helper = body[body.index("_systemctl() {"):]
+    # The function's own closing brace sits alone on a line; the first `}` in the body
+    # closes the `${EUID:-$(id -u)}` expansion.
+    helper = helper[: helper.index("\n}") + 2]
+    assert "sudo -n systemctl" in helper
+    assert '"${EUID:-$(id -u)}" -eq 0' in helper
+    # Only the helper may invoke a PRIVILEGED systemctl verb at a command position.
+    # `sudo systemctl` inside an operator-facing message is prose and does not match.
+    # `list-unit-files` is deliberately absent: it needs no privilege and is called
+    # bare, which the vector test below pins as an explicit exemption.
+    bare = re.compile(
+        r"(?:^|\bif\s+!?\s*|&&\s*|\|\|\s*|;\s*)"
+        r"systemctl\s+(?:start|stop|restart|is-active|status)\b"
+    )
+    offenders = [
+        line for line in body.splitlines()
+        if "_systemctl() {" not in line and bare.search(line)
+    ]
+    assert not offenders, f"bare systemctl calls remain: {offenders}"
+    # The helper must be defined before the first function that uses it.
+    assert body.index("_systemctl() {") < body.index("_have_systemd_unit() {")
+
+
+# The sudoers drop-in bootstrap installs names FIVE argument vectors, and sudo
+# matches the WHOLE vector. A verb the drop-in does not name, or a permitted verb
+# carrying an extra flag, is DENIED - silently, because every service call in the
+# reset redirects to /dev/null and reads the exit status as service state.
+# Quotes are stripped before this lookup, so the keys are the bare forms. Both
+# ${VAR} and $VAR spellings appear in the script and must resolve identically.
+_SERVICE_TOKENS = {
+    "$PELLIER_SERVICE": "pellier",
+    "${PELLIER_SERVICE}": "pellier",
+    "$PELLIER_SERVICE.service": "pellier.service",
+    "${PELLIER_SERVICE}.service": "pellier.service",
+}
+
+# `systemctl list-unit-files` reads unit metadata and needs no privilege, so it is
+# called bare on purpose. Routing it through the sudo helper hands sudo a vector the
+# drop-in never names; sudo denies it, `_have_systemd_unit` reports "no unit" on a box
+# that has one, and the reset then refuses to run at all. That shipped once.
+_BARE_SYSTEMCTL_EXEMPTIONS = {"systemctl list-unit-files pellier.service"}
+
+_COMMAND_POSITION = r"(?:^[ \t]*|\bif\s+!?\s*|&&\s*|\|\|\s*|;\s*|\bthen\s+)"
+
+
+def _normalize_systemctl_vector(arguments: str) -> str:
+    """Render one systemctl call as the argument vector sudo would have to match."""
+    tokens: list[str] = []
+    for raw in arguments.split():
+        # A vector quoted inside an operator message ("run: sudo systemctl start
+        # pellier") normalizes to the same vector the shell would run, so the
+        # guidance we print is checked against the grant too.
+        token = raw.rstrip(";").strip('"\'')
+        if not token or token in ("then", "do", "fi", "&&", "||", "|"):
+            break
+        if token[0] in "<>|&#" or re.match(r"^\d[<>]", token):
+            break
+        tokens.append(_SERVICE_TOKENS.get(token, token))
+        if raw.endswith(";"):
+            break
+    return " ".join(["systemctl", *tokens])
+
+
+def _systemctl_vectors_in_the_reset() -> tuple[set[str], set[str]]:
+    """Every systemctl call in the reset, split into (privileged, bare).
+
+    The scan is deliberately position-independent. An earlier version matched
+    only at a command position, so `sudo systemctl daemon-reload` and
+    `x=$(systemctl show ...)` both slipped past the guard that exists to stop
+    exactly those. Anything that reaches systemctl counts, wherever it sits.
+    """
+    body = _reset_body()
+    definition = body.index("_systemctl() {")
+    body = body[:definition] + body[body.index("\n}", definition) + 2:]
+    body = "\n".join(
+        line for line in body.splitlines() if not line.lstrip().startswith("#")
+    )
+    privileged: set[str] = set()
+    bare: set[str] = set()
+    pattern = re.compile(
+        r"(?<![\w-])(?P<how>_systemctl|sudo(?:\s+-[A-Za-z]+)*\s+systemctl|systemctl)"
+        r"\s+(?P<args>.*)"
+    )
+    for match in pattern.finditer(body):
+        vector = _normalize_systemctl_vector(match.group("args"))
+        if vector == "systemctl":
+            # No argument vector: `command -v systemctl` and friends test for the
+            # binary rather than acting on a unit, so sudo never sees them.
+            continue
+        if match.group("how") == "systemctl":
+            bare.add(vector)
+        else:
+            privileged.add(vector)
+    return privileged, bare
+
+
+def _sudoers_permitted_vectors() -> set[str]:
+    """The argument vectors the bootstrap sudoers drop-in grants passwordless."""
+    lines = [
+        candidate for candidate in BOOTSTRAP.read_text().splitlines()
+        if "NOPASSWD:" in candidate and "systemctl" in candidate.lower()
+    ]
+    assert len(lines) == 1, (
+        "bootstrap installs more than one systemctl sudoers grant, so reading the "
+        f"first one no longer describes what the participant may run: {lines}"
+    )
+    grants = lines[0].partition("NOPASSWD:")[2].split('"')[0]
+    vectors = set()
+    for grant in grants.split(","):
+        tokens = grant.split()
+        if not tokens:
+            continue
+        # ${SYSTEMCTL_BIN} is an absolute path on a box; the verb is what matters.
+        tokens[0] = "systemctl"
+        vectors.add(" ".join(tokens))
+    return vectors
+
+
+def test_every_systemctl_vector_the_reset_uses_is_permitted_by_the_sudoers_line() -> None:
+    """Parse both files rather than trusting the comment that says they agree.
+
+    Two shipped defects came from this exact gap, and both were silent:
+    `_systemctl list-unit-files` made `_have_systemd_unit` return false on a box
+    that has the unit, so every participant reset aborted; and
+    `_systemctl is-active --quiet pellier` was denied, read as "already stopped",
+    and let the TRUNCATE run underneath a live application.
+    """
+    permitted = _sudoers_permitted_vectors()
+    assert permitted == {
+        "systemctl start pellier",
+        "systemctl stop pellier",
+        "systemctl restart pellier",
+        "systemctl is-active pellier",
+        "systemctl status pellier",
+    }, f"the bootstrap sudoers grant changed: {sorted(permitted)}"
+
+    privileged, bare = _systemctl_vectors_in_the_reset()
+    assert privileged, "the reset no longer routes any service call through _systemctl"
+    denied = sorted(vector for vector in privileged if vector not in permitted)
+    assert not denied, (
+        "sudo matches the full argument vector, so these calls are denied for the "
+        f"participant: {denied}. Permitted: {sorted(permitted)}"
+    )
+    assert bare == _BARE_SYSTEMCTL_EXEMPTIONS, (
+        "the set of bare systemctl calls changed. Bare is allowed only for a verb "
+        "that needs no privilege; anything else must go through _systemctl AND be "
+        f"named in the sudoers line. Found: {sorted(bare)}"
+    )
+
+
 def test_the_reset_restarts_the_service_even_when_a_step_fails() -> None:
     """`set -e` plus a stopped service is a workshop box with no application.
 
@@ -379,6 +596,44 @@ def test_the_reset_still_truncates_rather_than_deletes() -> None:
         "a DELETE reappeared in the reset; that fires the row-level triggers TRUNCATE "
         "deliberately bypasses"
     )
+
+
+# ---------------------------------------------------------------------------
+# The two-cycle proof.
+#
+# One successful reset proves the reset works on whatever state the box happened to
+# be in. Two prove it works on the state a workshop leaves behind: the smoke turn
+# between them writes the rows the second reset must clear.
+# ---------------------------------------------------------------------------
+
+PROVE_CYCLES = pathlib.Path("../../scripts/prove-reset-cycles.sh")
+
+
+def test_the_two_cycle_proof_runs_reset_then_smoke_twice() -> None:
+    import os
+    import subprocess
+
+    assert PROVE_CYCLES.is_file(), "scripts/prove-reset-cycles.sh is missing"
+    assert os.access(PROVE_CYCLES, os.X_OK), "prove-reset-cycles.sh is not executable"
+    subprocess.run(["bash", "-n", str(PROVE_CYCLES)], check=True)
+    body = PROVE_CYCLES.read_text()
+
+    first = body.index("run_cycle 1")
+    second = body.index("run_cycle 2")
+    assert first < second
+    cycle = body[body.index("run_cycle() {"):first]
+    reset = cycle.index("reset-governed-workshop.sh")
+    receipt = cycle.index("validate_agentcore_receipt.py")
+    turn = cycle.index('_smoke_turn "$cycle"')
+    assert reset < receipt < turn, "each cycle must reset before it proves the journey"
+    assert 'echo "CYCLE ${cycle} PASS"' in cycle
+    assert "run_cycle 1 || exit 1" in body and "run_cycle 2 || exit 1" in body
+    # The smoke is an authenticated turn using the seeded shopper credentials.
+    smoke = body[body.index("_smoke_turn() {"):body.index("run_cycle() {")]
+    assert "/api/chat" in smoke
+    assert "Authorization: Bearer" in smoke
+    assert "test-credentials.txt" in body
+    assert "A housewarming gift under $100 that is currently in stock." in body
 
 
 # ---------------------------------------------------------------------------

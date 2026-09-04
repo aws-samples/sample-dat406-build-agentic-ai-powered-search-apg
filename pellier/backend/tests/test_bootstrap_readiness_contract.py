@@ -407,14 +407,27 @@ def _run_health_gate(
     governed_turn_receipts_exists: bool = True,
     evidence_ledger_schema_exists: bool = True,
     commerce_schema_exists: bool = True,
+    policy_decisions_exists: bool = True,
+    workshop_runs_exists: bool = True,
     managed_receipt: dict[str, object] | None = None,
     shopper_in_operator_group: bool = False,
     operator_token_ready: bool = True,
+    quarantine: str | None = None,
+    provision_state: str | None = None,
+    provision_phase: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
     fake_bin = tmp_path / "bin"
     repo.mkdir()
     fake_bin.mkdir()
+    # Both lifecycle markers default to /var/lib/pellier on a box. Point them at
+    # the sandbox so a developer's real markers never leak into the verdict.
+    quarantine_file = tmp_path / "quarantine"
+    provision_state_file = tmp_path / "provision-state"
+    if quarantine is not None:
+        quarantine_file.write_text(quarantine, encoding="utf-8")
+    if provision_state is not None:
+        provision_state_file.write_text(provision_state + "\n", encoding="utf-8")
     env_lines = [
         f"BEDROCK_MODEL_ACCESS_READY={'true' if model_ready else 'false'}",
         f"WORKSHOP_FORMAT={workshop_format}",
@@ -475,6 +488,8 @@ case "$*" in
   *"to_regclass('pellier.evidence_ledger_event_refs')"*) printf '{"pellier.evidence_ledger_event_refs" if evidence_ledger_schema_exists else ""}\n' ;;
   *"to_regclass('pellier.commerce_receipts')"*) printf '{"pellier.commerce_receipts" if commerce_schema_exists else ""}\n' ;;
   *"to_regclass('pellier.commerce_payment_events')"*) printf '{"pellier.commerce_payment_events" if commerce_schema_exists else ""}\n' ;;
+  *"to_regclass('pellier.policy_decisions')"*) printf '{"pellier.policy_decisions" if policy_decisions_exists else ""}\n' ;;
+  *"to_regclass('pellier.workshop_runs')"*) printf '{"pellier.workshop_runs" if workshop_runs_exists else ""}\n' ;;
 esac
 """,
     )
@@ -531,6 +546,11 @@ esac
         env.pop(managed_key, None)
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     env["PELLIER_REPO"] = str(repo)
+    env["PELLIER_QUARANTINE_FILE"] = str(quarantine_file)
+    env["PELLIER_PROVISION_STATE_FILE"] = str(provision_state_file)
+    env.pop("PELLIER_PROVISION_PHASE", None)
+    if provision_phase is not None:
+        env["PELLIER_PROVISION_PHASE"] = provision_phase
     if managed_ready:
         env["AGENTCORE_MANAGED_OUTPUT_JSON"] = str(tmp_path / "managed.json")
     return subprocess.run(
@@ -634,6 +654,14 @@ def test_governed_health_gate_rejects_incomplete_managed_receipt(
         (
             {"commerce_schema_exists": False},
             "Proof-carrying commerce schema missing",
+        ),
+        (
+            {"policy_decisions_exists": False},
+            "Policy decision schema missing. Apply scripts/migrations/048_policy_decisions.sql",
+        ),
+        (
+            {"workshop_runs_exists": False},
+            "Workshop run schema missing. Apply scripts/migrations/049_workshop_runs.sql",
         ),
     ],
 )
@@ -1236,6 +1264,363 @@ def test_the_health_gate_refuses_an_operator_that_cannot_sign_in(tmp_path) -> No
     )
     assert proc.returncode == 1, proc.stdout
     assert "Seeded Operator cannot obtain a Cognito access token" in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# Quarantine marker and provisioning state machine
+#
+# A reset that could not clean AgentCore Memory or restore Cedar enforcement has
+# left the box with someone else's residue or with denials that silently do not
+# happen. Both used to exit 1 into a log nobody reads while the next `health`
+# read green. The marker makes that state durable until a full reset clears it.
+#
+# The provisioning state file answers "how far did bootstrap actually get" for
+# CloudFormation and for every later gate run: PROVISIONING -> APP_READY ->
+# MANAGED_READY -> E2E_PROVED, or FAILED.
+# ---------------------------------------------------------------------------
+
+QUARANTINE_DEFAULT = '"${PELLIER_QUARANTINE_FILE:-/var/lib/pellier/quarantine}"'
+PROVISION_STATE_DEFAULT = '"${PELLIER_PROVISION_STATE_FILE:-/var/lib/pellier/provision-state}"'
+
+
+def _run_reset(
+    tmp_path: Path,
+    *,
+    memory_exit: int = 0,
+    policy_exit: int = 0,
+    quarantine_seed: str | None = None,
+    backend_listening: bool = False,
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    """Run the real reset against a sandbox repo with every external binary faked.
+
+    The reset's own contract tests read its text. This one runs it, because the
+    quarantine marker is a FILE the health gate reads, and "the script contains the
+    string `_quarantine memory`" does not prove a marker is ever written, nor that a
+    leg the box legitimately lacks avoids writing one.
+
+    Args:
+        tmp_path: The pytest sandbox.
+        memory_exit: Exit status the faked interpreter returns for the Memory leg.
+        policy_exit: Exit status the faked interpreter returns for the Policy leg.
+        quarantine_seed: Marker content to place before the run, to prove a clean
+            run clears it.
+        backend_listening: Whether the faked curl answers /api/health. True also
+            sets PELLIER_RESET_ALLOW_LIVE, since a listening backend with no systemd
+            unit is exactly what the reset refuses to race.
+
+    Returns:
+        The completed process and the path the quarantine marker would occupy.
+    """
+    repo = tmp_path / "repo"
+    fake_bin = tmp_path / "bin"
+    (repo / "scripts" / "migrations").mkdir(parents=True)
+    (repo / "pellier" / "backend" / ".venv" / "bin").mkdir(parents=True)
+    (repo / ".agentcore-project" / "pellier" / "agentcore").mkdir(parents=True)
+    fake_bin.mkdir()
+
+    quarantine_file = tmp_path / "quarantine"
+    if quarantine_seed is not None:
+        quarantine_file.write_text(quarantine_seed, encoding="utf-8")
+    (repo / ".env").write_text(
+        "DB_NAME=pellier\nDB_USER=pellier\nDB_HOST=localhost\nDB_PORT=5432\n",
+        encoding="utf-8",
+    )
+    (repo / ".agentcore-project" / "pellier" / "agentcore" / "agentcore.json").write_text(
+        "{}\n", encoding="utf-8"
+    )
+    for migration in (REPO / "scripts" / "migrations").glob("*.sql"):
+        (repo / "scripts" / "migrations" / migration.name).touch()
+    _write_executable(repo / "scripts" / "health-gate.sh", "#!/bin/bash\nexit 0\n")
+    _write_executable(
+        repo / "pellier" / "backend" / ".venv" / "bin" / "python",
+        f"""#!/bin/bash
+case "$1" in
+  *reset_memory_runtime.py) exit {memory_exit} ;;
+  *policy_mode.py) exit {policy_exit} ;;
+esac
+exit 0
+""",
+    )
+    # Baseline verification reads real counts: every runtime table empty, and exactly
+    # one row each for the migration 010 forensic incident.
+    _write_executable(
+        fake_bin / "psql",
+        """#!/bin/bash
+case "$*" in
+  *CUST-JESSICA*) printf '0\\n' ;;
+  *"FROM pellier.returns;"*) printf '1\\n' ;;
+  *"FROM pellier.tool_audit;"*) printf '1\\n' ;;
+  *"FROM pellier.governed_receipts;"*) printf '1\\n' ;;
+  *"count(*)"*) printf '0\\n' ;;
+esac
+exit 0
+""",
+    )
+    _write_executable(
+        fake_bin / "curl",
+        "#!/bin/bash\n"
+        + ("printf '{\"status\":\"healthy\"}'\n" if backend_listening else "exit 1\n"),
+    )
+    # No systemd on this host, which is the developer-clone branch of the contract.
+    _write_executable(fake_bin / "systemctl", "#!/bin/bash\nexit 1\n")
+    _write_executable(
+        fake_bin / "jq",
+        """#!/bin/bash
+case "$*" in
+  *policyEngines*) exit 1 ;;
+  *agentCoreGateways*) printf 'ENFORCE\\n' ;;
+esac
+exit 0
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}:{env['PATH']}"
+    env["PELLIER_REPO"] = str(repo)
+    env["PELLIER_QUARANTINE_FILE"] = str(quarantine_file)
+    for inherited in ("PELLIER_RESET_SKIP_MEMORY", "PELLIER_RESET_SKIP_AGENTCORE"):
+        env.pop(inherited, None)
+    if backend_listening:
+        env["PELLIER_RESET_ALLOW_LIVE"] = "1"
+    else:
+        env.pop("PELLIER_RESET_ALLOW_LIVE", None)
+    proc = subprocess.run(
+        ["bash", str(RESET_GOVERNED)],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return proc, quarantine_file
+
+
+@pytest.mark.parametrize(
+    ("leg", "reason"),
+    [
+        ("memory", "Could not clean AgentCore Memory runtime"),
+        ("policy", "Could not restore live Cedar enforcement mode"),
+    ],
+)
+def test_a_failed_restore_leg_actually_writes_the_marker_the_gate_reads(
+    tmp_path: Path, leg: str, reason: str
+) -> None:
+    """The gate's READ is behavioral; without this the WRITE was only asserted as text."""
+    proc, quarantine_file = _run_reset(
+        tmp_path,
+        memory_exit=1 if leg == "memory" else 0,
+        policy_exit=1 if leg == "policy" else 0,
+        backend_listening=leg == "policy",
+    )
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert quarantine_file.exists(), proc.stdout + proc.stderr
+    marker = json.loads(quarantine_file.read_text(encoding="utf-8"))
+    assert marker["step"] == leg
+    assert marker["reason"] == reason
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", marker["at"]), marker
+
+
+def test_a_box_with_no_policy_engine_is_reported_not_quarantined(tmp_path: Path) -> None:
+    """Exit 2 from policy_mode.py means "no engine provisioned", not "restore failed".
+
+    Quarantining on it strands the box permanently: only a full successful reset
+    clears the marker, and on a box with no engine that reset can never happen, so
+    `health` fails forever. The seeded marker proves the recovery direction too.
+    """
+    proc, quarantine_file = _run_reset(
+        tmp_path,
+        policy_exit=2,
+        quarantine_seed='{"reason": "stale", "step": "policy", "at": "2026-09-01T00:00:00Z"}',
+        backend_listening=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not quarantine_file.exists(), proc.stdout
+    assert "NOT_EVALUATED" in proc.stdout
+    assert "Could not restore live Cedar enforcement mode" not in proc.stdout
+
+
+def test_a_box_with_no_memory_resource_is_reported_not_quarantined(tmp_path: Path) -> None:
+    """The Memory leg carries the same distinction on its own reserved exit code."""
+    proc, quarantine_file = _run_reset(
+        tmp_path, memory_exit=3, backend_listening=True
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not quarantine_file.exists(), proc.stdout
+    assert "Could not clean AgentCore Memory runtime" not in proc.stdout
+
+
+def test_the_reset_writes_a_quarantine_marker_when_memory_or_policy_cannot_be_restored() -> None:
+    reset = RESET_GOVERNED.read_text(encoding="utf-8")
+    assert f"QUARANTINE_FILE={QUARANTINE_DEFAULT}" in reset
+    assert "_quarantine() {" in reset
+    assert "sudo -n tee" in reset
+    for key in ('"reason"', '"step"', '"at"'):
+        assert key in reset, f"quarantine JSON lacks {key}"
+    memory = reset[reset.index("reset_memory_runtime.py"):reset.index("# STEP 7")]
+    policy_end = reset.rindex("_restart_services_and_wait || exit 1")
+    policy = reset[reset.index("policy_mode.py"):policy_end]
+    assert "_quarantine memory" in memory
+    assert "_quarantine policy" in policy
+    # A full success clears it, and only after both legs have actually run.
+    assert "_clear_quarantine() {" in reset
+    assert "_clear_quarantine\n" in reset
+    assert reset.rindex("_clear_quarantine\n") > reset.index("_quarantine policy")
+
+
+def test_the_health_gate_refuses_a_quarantined_box(tmp_path: Path) -> None:
+    marker = json.dumps(
+        {
+            "reason": "Could not clean AgentCore Memory runtime",
+            "step": "memory",
+            "at": "2026-09-04T10:00:00Z",
+        }
+    )
+    proc = _run_health_gate(
+        tmp_path,
+        model_ready=True,
+        workshop_format="governed",
+        managed_ready=True,
+        quarantine=marker,
+    )
+    assert proc.returncode == 1, proc.stdout
+    assert "Box is quarantined:" in proc.stdout
+    assert '"step": "memory"' in proc.stdout
+    assert "NOT READY" in proc.stdout
+    assert f"QUARANTINE_FILE={QUARANTINE_DEFAULT}" in HEALTH_GATE.read_text(encoding="utf-8")
+
+
+def test_bootstrap_creates_the_lifecycle_state_directory_for_the_participant() -> None:
+    """The participant runs reset and must be able to write and clear the marker.
+
+    No sudoers line for `tee`/`rm` on one path: the directory is group-writable by
+    the participant's group instead, which is narrower than a passwordless rm.
+    """
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+    assert 'mkdir -p "$PELLIER_STATE_DIR"' in bootstrap
+    assert 'PELLIER_STATE_DIR="/var/lib/pellier"' in bootstrap
+    assert 'chown "root:$CODE_EDITOR_USER" "$PELLIER_STATE_DIR"' in bootstrap
+    assert 'chmod 0775 "$PELLIER_STATE_DIR"' in bootstrap
+    assert "/var/lib/pellier/quarantine" not in bootstrap.split("PELLIER_STATE_DIR=")[0]
+    # Assert the GRANT, not the shell around it. The old slice ended at `visudo`,
+    # so its `" rm " not in ...` could never see the `rm -f "$SUDOERS_FILE"` that
+    # sits after it, and the assertion could not fail for the thing it named.
+    granted = next(
+        line for line in bootstrap.splitlines() if "NOPASSWD:" in line
+    ).partition("NOPASSWD:")[2]
+    assert "quarantine" not in granted
+    assert "tee" not in granted
+    assert re.search(r"\brm\b", granted) is None, granted
+    assert "${SYSTEMCTL_BIN}" in granted, granted
+
+
+def test_bootstrap_advances_the_provision_state_in_lifecycle_order() -> None:
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+    assert f"PROVISION_STATE_FILE={PROVISION_STATE_DEFAULT}" in bootstrap
+    assert "set_provision_state() {" in bootstrap
+    assert 'chmod 0644 "$PROVISION_STATE_FILE"' in bootstrap
+    positions = [
+        bootstrap.index(f"set_provision_state {state}")
+        for state in ("PROVISIONING", "APP_READY", "MANAGED_READY", "E2E_PROVED")
+    ]
+    assert positions == sorted(positions), "provision states are not written in order"
+    # FAILED comes from the one function every fatal path already calls.
+    fail_fn = bootstrap[bootstrap.index("fail() {"):]
+    fail_fn = fail_fn[: fail_fn.index("\n")]
+    assert "set_provision_state FAILED" in fail_fn
+    # APP_READY means the service answered, not that systemd spawned it.
+    app_ready = bootstrap.index("set_provision_state APP_READY")
+    assert "api/health" in bootstrap[app_ready - 1500:app_ready]
+    # MANAGED_READY sits with the managed proof, E2E_PROVED with the health gate.
+    managed_ready = bootstrap.index("set_provision_state MANAGED_READY")
+    assert bootstrap.index("AGENTCORE_OK=true") < managed_ready
+    e2e_proved = bootstrap.index("set_provision_state E2E_PROVED")
+    assert bootstrap.index("HEALTH_GATE_OK=true") < e2e_proved
+    e2e = bootstrap[bootstrap.index("set_provision_state E2E_PROVED") - 400:]
+    assert '"${WORKSHOP_FORMAT}" = "governed"' in e2e[:400]
+
+
+def test_the_gate_verdict_starts_false_so_an_absent_gate_cannot_prove_anything() -> None:
+    """E2E_PROVED and a CloudFormation SUCCESS both hang off this one flag.
+
+    Initialised to true, a health-gate.sh that is missing or not executable skipped
+    the `if` entirely and the flag stayed true: governed bootstrap reported a proved
+    environment with no gate evidence at all. Only a gate that ran and passed may
+    set it.
+    """
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+    assignments = re.findall(r"^\s*HEALTH_GATE_OK=(\w+)", bootstrap, re.M)
+    assert assignments, "the health gate verdict flag is gone"
+    assert assignments[0] == "false", f"the flag is initialised {assignments[0]}"
+    # Exactly one place may raise it, and it sits inside the gate invocation.
+    assert assignments.count("true") == 1
+    gate_call = bootstrap.index("bash '$REPO_PATH/scripts/health-gate.sh'")
+    assert gate_call < bootstrap.index("HEALTH_GATE_OK=true")
+    # A missing or non-executable gate must say so rather than pass in silence.
+    guard = bootstrap.index('if [ -x "$REPO_PATH/scripts/health-gate.sh" ]')
+    assert "health gate" in bootstrap[guard:gate_call + 2000].lower()
+    assert 'warn "No health gate' in bootstrap
+
+
+def test_bootstrap_marks_its_own_gate_runs_as_the_proving_phase() -> None:
+    """The gate demands E2E_PROVED, which bootstrap cannot have written yet.
+
+    Bootstrap runs the gate twice before that state exists: once inside the
+    governed reset, once at STEP 19. Both are marked as the proving run.
+    """
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+    reset_call = bootstrap.index("bash '$REPO_PATH/scripts/reset-governed-workshop.sh'")
+    gate_call = bootstrap.index("bash '$REPO_PATH/scripts/health-gate.sh'")
+    for position in (reset_call, gate_call):
+        assert "export PELLIER_PROVISION_PHASE=bootstrap" in bootstrap[position - 400:position]
+
+
+def test_stage_one_signals_success_only_from_the_proved_state() -> None:
+    source = ENVIRONMENT_BOOTSTRAP.read_text(encoding="utf-8")
+    assert f"PROVISION_STATE_FILE={PROVISION_STATE_DEFAULT}" in source
+    read_state = source.index('cat "$PROVISION_STATE_FILE"')
+    success = source.index('signal_cloudformation \\\n    "SUCCESS"')
+    assert read_state < success
+    decision = source[read_state:success]
+    assert "E2E_PROVED" in decision
+    assert "APP_READY" in decision and "MANAGED_READY" in decision
+    assert 'signal_cloudformation "FAILURE"' in decision
+    assert "${provision_state:-absent}" in decision
+
+
+@pytest.mark.parametrize(
+    ("state", "phase", "ready"),
+    [
+        ("E2E_PROVED", None, True),
+        ("FAILED", None, False),
+        ("MANAGED_READY", None, False),
+        ("MANAGED_READY", "bootstrap", True),
+        ("FAILED", "bootstrap", False),
+    ],
+)
+def test_the_health_gate_requires_the_proved_state_outside_bootstrap(
+    tmp_path: Path, state: str, phase: str | None, ready: bool
+) -> None:
+    proc = _run_health_gate(
+        tmp_path,
+        model_ready=True,
+        workshop_format="governed",
+        managed_ready=True,
+        provision_state=state,
+        provision_phase=phase,
+    )
+    assert f"Provision state: {state}" in proc.stdout
+    if ready:
+        assert proc.returncode == 0, proc.stdout
+    else:
+        assert proc.returncode == 1, proc.stdout
+        assert "NOT READY" in proc.stdout
+
+
+def test_the_health_gate_reports_an_absent_state_file_as_informational(tmp_path: Path) -> None:
+    proc = _run_health_gate(
+        tmp_path, model_ready=True, workshop_format="governed", managed_ready=True
+    )
+    assert proc.returncode == 0, proc.stdout
+    assert "Provision state: absent" in proc.stdout
 
 
 def test_governed_bootstrap_makes_the_participant_credentials_file_required() -> None:

@@ -1025,13 +1025,45 @@ write_stage2_manifest
 curl -fsSL "$STAGE2_SCRIPT_URL" -o /tmp/bootstrap-labs.sh
 chmod 700 /tmp/bootstrap-labs.sh
 
+stage2_ok=true
 if bash -c 'source "$1"; exec /tmp/bootstrap-labs.sh' -- "$STAGE2_ENV_MANIFEST" \
     2>&1 | tee /var/log/bootstrap-labs.log; then
     log "✅ Stage 2 and governed readiness gate completed"
 else
-    signal_cloudformation "FAILURE" "Stage 2 or governed readiness failed" "See /var/log/bootstrap-labs.log" || true
+    stage2_ok=false
+fi
+
+# Stage 2's exit status says the script ended. Its provisioning state file says
+# how far it proved: PROVISIONING -> APP_READY -> MANAGED_READY -> E2E_PROVED,
+# or FAILED. A governed box is ready only at E2E_PROVED; the builders format is
+# ready once the application answered /api/health. Anything else, including an
+# absent file from a Stage 2 that never started, is reported to CloudFormation
+# as a failure with the state in the reason.
+PROVISION_STATE_FILE="${PELLIER_PROVISION_STATE_FILE:-/var/lib/pellier/provision-state}"
+provision_state="$(cat "$PROVISION_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
+log "Provision state after Stage 2: ${provision_state:-absent}"
+
+if [ "$stage2_ok" != true ]; then
+    signal_cloudformation "FAILURE" \
+        "Stage 2 or governed readiness failed (provision state ${provision_state:-absent})" \
+        "See /var/log/bootstrap-labs.log" || true
     error "Stage 2 did not prove an application-ready governed workshop"
 fi
+
+case "${WORKSHOP_FORMAT:-governed}:${provision_state}" in
+    governed:E2E_PROVED)
+        log "✅ Governed provisioning reached E2E_PROVED"
+        ;;
+    builders:APP_READY|builders:MANAGED_READY|builders:E2E_PROVED)
+        log "✅ Builders provisioning reached ${provision_state}"
+        ;;
+    *)
+        signal_cloudformation "FAILURE" \
+            "Provision state is ${provision_state:-absent}, not proved for the ${WORKSHOP_FORMAT:-governed} format" \
+            "See /var/log/bootstrap-labs.log" || true
+        error "Stage 2 ended in provision state ${provision_state:-absent}; refusing to report the workshop ready"
+        ;;
+esac
 
 # ============================================================================
 # STEP 13: SIGNAL CLOUDFORMATION SUCCESS

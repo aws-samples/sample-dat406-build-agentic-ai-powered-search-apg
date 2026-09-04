@@ -171,7 +171,22 @@ PELLIER_SERVICE="${PELLIER_SERVICE:-pellier}"
 BACKEND_PORT="${PELLIER_BACKEND_PORT:-8000}"
 _service_was_running=false
 
+# Every service call goes through here. The `reset-governed` alias runs as the
+# participant, not root, and the sudoers drop-in bootstrap writes permits exactly
+# `systemctl start|stop|restart|is-active|status pellier` without a password. A bare
+# `systemctl stop` from that account returns "Access denied", the script would treat the
+# unit as already stopped, and the TRUNCATE would run underneath a live application.
+# `-n` never prompts: a missing sudoers entry fails loudly instead of hanging bootstrap.
+_systemctl() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then systemctl "$@"; else sudo -n systemctl "$@"; fi
+}
+
 _have_systemd_unit() {
+  # BARE systemctl on purpose, and the only bare call in this file. `list-unit-files`
+  # reads unit metadata and needs no privilege; the sudoers drop-in does not name that
+  # vector, and sudo matches the whole vector, so routing it through `_systemctl` gets
+  # it DENIED - this function returns false on a box that has the unit, `_quiesce_services`
+  # takes the no-unit branch, finds the backend listening, and the reset aborts.
   command -v systemctl >/dev/null 2>&1 \
     && systemctl list-unit-files "${PELLIER_SERVICE}.service" >/dev/null 2>&1
 }
@@ -184,7 +199,7 @@ _backend_listening() {
 # workshop box leaves the participant with a stopped backend and no message that says so.
 _resume_services() {
   if [[ "$_service_was_running" == true ]]; then
-    if systemctl start "$PELLIER_SERVICE" >/dev/null 2>&1; then
+    if _systemctl start "$PELLIER_SERVICE" >/dev/null 2>&1; then
       pass "Application service restarted: ${PELLIER_SERVICE}"
     else
       fail "Could not restart ${PELLIER_SERVICE}; run: sudo systemctl start ${PELLIER_SERVICE}"
@@ -196,8 +211,12 @@ trap _resume_services EXIT
 
 _quiesce_services() {
   if _have_systemd_unit; then
-    if systemctl is-active --quiet "$PELLIER_SERVICE"; then
-      if systemctl stop "$PELLIER_SERVICE" >/dev/null 2>&1; then
+    # `is-active`, not `is-active --quiet`. The sudoers drop-in grants the exact
+    # vector `systemctl is-active pellier`; the flag makes it a different vector,
+    # sudo denies it, and a denial reads here as "already stopped" - which is how a
+    # TRUNCATE ends up running underneath a live application. Redirect instead.
+    if _systemctl is-active "$PELLIER_SERVICE" >/dev/null 2>&1; then
+      if _systemctl stop "$PELLIER_SERVICE" >/dev/null 2>&1; then
         _service_was_running=true
         pass "Application quiesced: ${PELLIER_SERVICE} stopped for the reset"
       else
@@ -228,7 +247,7 @@ _quiesce_services() {
 _restart_services_and_wait() {
   local attempt
   if _have_systemd_unit; then
-    if ! systemctl start "$PELLIER_SERVICE" >/dev/null 2>&1; then
+    if ! _systemctl start "$PELLIER_SERVICE" >/dev/null 2>&1; then
       fail "Could not restart ${PELLIER_SERVICE}; the reset is not ready for a participant."
       return 1
     fi
@@ -257,6 +276,61 @@ _run_health_gate() {
   fi
   echo "------------------------------------------------------------"
   PELLIER_REPO="$REPO" bash "$REPO/scripts/health-gate.sh"
+}
+
+# ---------------------------------------------------------------------------
+# QUARANTINE MARKER
+#
+# A reset that could not clean AgentCore Memory leaves the next participant with
+# someone else's preferences on their first turn. One that could not restore Cedar
+# enforcement leaves denials that silently do not happen. Both used to exit 1 into a
+# log nobody reads while the next `health` read green. The marker is durable: the
+# health gate refuses the box while it exists, and only a full, successful reset
+# removes it. /var/lib/pellier is group-writable by the participant (bootstrap sets
+# root:<participant> 0775), so no sudoers line names this path; `sudo -n tee` is the
+# fallback for a host that never ran bootstrap.
+#
+# QUARANTINE IS FOR A FAILURE, NOT FOR AN ABSENT SUBSYSTEM. A box that never
+# provisioned AgentCore Memory or AgentCore Policy has no residue to clean and no
+# enforcement to restore; that leg is NOT_EVALUATED, not broken. Marking such a box
+# strands it, because only a full successful reset lifts the marker and that reset can
+# never happen there - `health` would then fail forever. Both legs read a dedicated
+# exit code for "not provisioned" and treat every other non-zero as the real failure.
+QUARANTINE_FILE="${PELLIER_QUARANTINE_FILE:-/var/lib/pellier/quarantine}"
+# True once the Memory leg reached a conclusion of its own: cleaned, or legitimately
+# absent. False means an operator SKIPPED it, which is not a full reset, so the marker
+# stays where it is.
+_memory_leg_settled=false
+
+_write_lifecycle_file() {
+  local target="$1" content="$2" dir
+  dir="$(dirname "$target")"
+  if [[ -w "$dir" || ( -e "$target" && -w "$target" ) ]]; then
+    printf '%s\n' "$content" > "$target"
+  else
+    printf '%s\n' "$content" | sudo -n tee "$target" >/dev/null
+  fi
+}
+
+_quarantine() {
+  local step="$1" reason="$2" at payload
+  at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  payload="$(printf '{"reason": "%s", "step": "%s", "at": "%s"}' "$reason" "$step" "$at")"
+  if _write_lifecycle_file "$QUARANTINE_FILE" "$payload" 2>/dev/null; then
+    fail "Box quarantined until a full reset succeeds: $QUARANTINE_FILE"
+  else
+    fail "Could not write the quarantine marker at $QUARANTINE_FILE; treat this box as quarantined"
+  fi
+}
+
+_clear_quarantine() {
+  [[ -e "$QUARANTINE_FILE" ]] || return 0
+  if rm -f "$QUARANTINE_FILE" 2>/dev/null || sudo -n rm -f "$QUARANTINE_FILE" 2>/dev/null; then
+    pass "Quarantine marker cleared: $QUARANTINE_FILE"
+  else
+    fail "Could not clear the quarantine marker at $QUARANTINE_FILE"
+    return 1
+  fi
 }
 
 # Run AFTER quiescing. Before that, an unfinished claim may be a live execution; after
@@ -346,7 +420,10 @@ for migration in \
   043_evidence_ledger.sql \
   044_operator_lifecycle_ledger.sql \
   045_persona_blurbs.sql \
-  046_retrieval_citation_snapshots.sql
+  046_retrieval_citation_snapshots.sql \
+  047_evidence_immutability.sql \
+  048_policy_decisions.sql \
+  049_workshop_runs.sql
 do
   if [[ ! -f "$REPO/scripts/migrations/$migration" ]]; then
     fail "Missing scripts/migrations/$migration"
@@ -401,10 +478,16 @@ TRUNCATE TABLE
     -- Shopper sessions are runtime state and must not survive a reset.
     pellier.shopper_sessions,
     pellier.tool_uses,
+    -- Per-run evidence added by 048 and 049. Gateway Policy decision events are
+    -- ingested per turn and a workshop run is minted per participant, so a fresh
+    -- box has neither. (No semicolon in this comment: the contract test reads
+    -- the statement up to the first one.)
+    pellier.policy_decisions,
+    pellier.workshop_runs,
     -- LAST in the list, because execution_receipts and operator_episodes reference it.
     -- One TRUNCATE covers them together, so no CASCADE is needed and nothing is
     -- orphaned. TRUNCATE also fires no row-level triggers: a DELETE here would run
-    -- `record_inventory_movement` and `reject_governed_turn_receipt_mutation`, writing
+    -- record_inventory_movement and reject_governed_turn_receipt_mutation, writing
     -- new ledger history while trying to clear history.
     pellier.approvals
 RESTART IDENTITY;
@@ -484,12 +567,26 @@ pass "HNSW index present: product_catalog_embedding_hnsw"
 # them must still complete.
 if [[ "${PELLIER_RESET_SKIP_MEMORY:-0}" == "1" ]]; then
   pass "AgentCore Memory runtime left untouched (PELLIER_RESET_SKIP_MEMORY=1)"
-elif "$PYTHON" "$REPO/scripts/reset_memory_runtime.py" --apply \
-       >/tmp/pellier-governed-reset-memory.log 2>&1; then
-  pass "AgentCore Memory runtime cleaned; seeded persona actors preserved"
 else
-  fail "Could not clean AgentCore Memory runtime (see /tmp/pellier-governed-reset-memory.log)"
-  exit 1
+  _memory_rc=0
+  "$PYTHON" "$REPO/scripts/reset_memory_runtime.py" --apply \
+    >/tmp/pellier-governed-reset-memory.log 2>&1 || _memory_rc=$?
+  if [[ "$_memory_rc" -eq 0 ]]; then
+    pass "AgentCore Memory runtime cleaned; seeded persona actors preserved"
+    _memory_leg_settled=true
+  elif [[ "$_memory_rc" -eq 3 ]]; then
+    # `reset_memory_runtime.py` reserves exit 3 for "no AGENTCORE_MEMORY_ID": a box
+    # with no Memory resource, not one this script failed to clean.
+    pass "AgentCore Memory not provisioned here; no runtime residue to clean"
+    _memory_leg_settled=true
+  else
+    # Exit 2 means residue survived a completed delete pass, printed as RESIDUE
+    # lines in the log; anything else is a delete that failed. Either way the box
+    # is not clean.
+    fail "Could not clean AgentCore Memory runtime (see /tmp/pellier-governed-reset-memory.log)"
+    _quarantine memory "Could not clean AgentCore Memory runtime"
+    exit 1
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -504,6 +601,7 @@ _verify_baseline() {
     approvals execution_receipts operator_episodes write_operations
     conversations messages observatory_spans semantic_cache
     session_metadata tool_uses retrieval_receipts model_invocation_receipts
+    policy_decisions workshop_runs
   )
   local table count bad=0
   for table in "${empty_tables[@]}"; do
@@ -613,14 +711,34 @@ pass "Gateway Policy remains configured in ENFORCE mode"
 # denials silently do not happen, so the live mode is restored at both scopes
 # (per-policy `enforcementMode`, gateway `policyEngineConfiguration.mode`).
 #
-# Non-fatal: many boxes have no AgentCore Policy engine provisioned, and on
-# those the policy leg is legitimately NOT_EVALUATED rather than broken.
-if "$PYTHON" "$REPO/scripts/policy_mode.py" --restore-shipped \
-     >/tmp/pellier-governed-reset-policy-mode.log 2>&1; then
+# Non-fatal for a box with no AgentCore Policy engine provisioned: there the policy
+# leg is legitimately NOT_EVALUATED rather than broken, and `policy_mode.py` says so
+# with a dedicated exit code rather than in prose.
+_policy_rc=0
+"$PYTHON" "$REPO/scripts/policy_mode.py" --restore-shipped \
+  >/tmp/pellier-governed-reset-policy-mode.log 2>&1 || _policy_rc=$?
+if [[ "$_policy_rc" -eq 0 ]]; then
   pass "Live Cedar enforcement mode restored at both scopes"
+elif [[ "$_policy_rc" -eq 2 ]]; then
+  # `policy_mode.py` reserves exit 2 for "AGENTCORE_POLICY_ENGINE_ID is not set, so
+  # there is no engine to read". Its other exit-2 path, a missing CLI project, cannot
+  # be reached here: this script already hard-failed above if $AGENTCORE_CONFIG were
+  # absent, and that is the same project directory.
+  pass "AgentCore Policy not provisioned here; live enforcement is NOT_EVALUATED"
 else
   fail "Could not restore live Cedar enforcement mode (see /tmp/pellier-governed-reset-policy-mode.log)"
+  _quarantine policy "Could not restore live Cedar enforcement mode"
   exit 1
+fi
+
+# Both legs that can quarantine the box have now settled - each either succeeded or
+# is legitimately absent - so the marker is lifted before the gate runs; a gate that
+# refused a quarantined box could otherwise never pass again. A data-only reset
+# (PELLIER_RESET_SKIP_MEMORY=1) is not a full reset and leaves the marker where it is.
+if [[ "$_memory_leg_settled" == true ]]; then
+  _clear_quarantine
+elif [[ -e "$QUARANTINE_FILE" ]]; then
+  warn "Quarantine marker left in place: the Memory leg was skipped, so this was not a full reset"
 fi
 
 _restart_services_and_wait || exit 1

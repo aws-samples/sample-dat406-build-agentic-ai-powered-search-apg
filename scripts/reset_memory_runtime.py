@@ -37,6 +37,18 @@ WHAT THIS SCRIPT DOES NOT DO
     has. Deleting them would make the reset cluster emptier than a fresh one.
 
 Dry run by default. Nothing is deleted without ``--apply``.
+
+EXIT CODES
+----------
+
+  0  the Memory runtime is clean.
+  1  at least one delete call failed.
+  2  a delete pass completed and a re-list still found events or preference records.
+  3  AgentCore Memory is NOT PROVISIONED here, so there is nothing to clean.
+
+3 is separate from 1 on purpose. The reset quarantines a box on a failed Memory leg,
+and only a full successful reset lifts that marker, so treating an absent Memory
+resource as a failure would strand a box that can never produce one.
 """
 
 from __future__ import annotations
@@ -55,9 +67,21 @@ PRESERVE_ACTORS = frozenset({"CUST-MARCO", "CUST-ANNA", "CUST-THEO"})
 
 PREFERENCE_NAMESPACE = "/pellier/preferences/{actor}/"
 
+# "This box has no Memory resource", which the reset must not confuse with
+# "cleaning it failed". See EXIT CODES in the module docstring.
+EXIT_NOT_PROVISIONED = 3
+
 
 def _env() -> Dict[str, str]:
-    """Read the backend .env. Refuses to guess a memory id."""
+    """Read the backend .env. Refuses to guess a memory id.
+
+    Returns:
+        The dotenv values, which are guaranteed to carry ``AGENTCORE_MEMORY_ID``.
+
+    Raises:
+        SystemExit: With :data:`EXIT_NOT_PROVISIONED` when no memory id is
+            configured. That is an absent resource, not a cleanup failure.
+    """
     from dotenv import dotenv_values
 
     root = pathlib.Path(__file__).resolve().parents[1]
@@ -66,9 +90,12 @@ def _env() -> Dict[str, str]:
             values = {k: v for k, v in dotenv_values(candidate).items() if v}
             if values.get("AGENTCORE_MEMORY_ID"):
                 return values
-    raise SystemExit(
-        "No .env with AGENTCORE_MEMORY_ID found. Refusing to guess a memory resource."
+    print(
+        "No .env with AGENTCORE_MEMORY_ID found. AgentCore Memory is not provisioned "
+        "here, so there is no runtime data to clean and nothing to guess at.",
+        file=sys.stderr,
     )
+    raise SystemExit(EXIT_NOT_PROVISIONED)
 
 
 def _client(region: str):
@@ -88,30 +115,61 @@ def _client(region: str):
     return boto3.client("bedrock-agentcore", region_name=region)
 
 
+def _paginate(call: Any, key: str, **kwargs: Any) -> List[Dict[str, Any]]:
+    """Every item under ``key`` across all pages of a data-plane list call.
+
+    Each list operation pages on ``nextToken``. A single ``maxResults=100`` call
+    surveyed the first hundred items, deleted those, and reported a cleaned Memory
+    that still held the rest.
+
+    Args:
+        call: The bound client method, for example ``client.list_events``.
+        key: The response member holding the page's items.
+        **kwargs: The call's own parameters, repeated on every page.
+
+    Returns:
+        The concatenated items from every page, in service order.
+    """
+    items: List[Dict[str, Any]] = []
+    token: Any = None
+    while True:
+        params = dict(kwargs)
+        if token:
+            params["nextToken"] = token
+        page = call(**params)
+        items.extend(page.get(key, []))
+        token = page.get("nextToken")
+        if not token:
+            return items
+
+
 def survey(client: Any, memory_id: str) -> List[Dict[str, Any]]:
     """Every actor in this memory resource, with what it holds and how it is classified."""
     actors: List[Dict[str, Any]] = []
-    for summary in client.list_actors(
-        memoryId=memory_id, maxResults=100
-    ).get("actorSummaries", []):
+    for summary in _paginate(
+        client.list_actors, "actorSummaries", memoryId=memory_id, maxResults=100
+    ):
         actor = str(summary["actorId"])
         sessions: List[Dict[str, Any]] = []
-        for session in client.list_sessions(
-            memoryId=memory_id, actorId=actor, maxResults=100
-        ).get("sessionSummaries", []):
-            events = client.list_events(
+        for session in _paginate(
+            client.list_sessions, "sessionSummaries",
+            memoryId=memory_id, actorId=actor, maxResults=100,
+        ):
+            events = _paginate(
+                client.list_events, "events",
                 memoryId=memory_id, actorId=actor,
                 sessionId=session["sessionId"], maxResults=100,
-            ).get("events", [])
+            )
             sessions.append({
                 "sessionId": session["sessionId"],
                 "eventIds": [e["eventId"] for e in events],
             })
-        records = client.list_memory_records(
+        records = _paginate(
+            client.list_memory_records, "memoryRecordSummaries",
             memoryId=memory_id,
             namespace=PREFERENCE_NAMESPACE.format(actor=actor),
             maxResults=100,
-        ).get("memoryRecordSummaries", [])
+        )
         actors.append({
             "actorId": actor,
             "preserve": actor in PRESERVE_ACTORS,
@@ -169,6 +227,48 @@ def apply_cleanup(
     return counts
 
 
+def residue(actors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Non-preserved actors that still hold DATA: events or preference records.
+
+    Run over a fresh survey after the delete pass. The pass counts its own calls;
+    only a re-list proves the service agrees.
+
+    A listed session or actor is deliberately NOT residue. The data plane exposes
+    no delete for either: both are derived from events, so an emptied session can
+    keep being listed with nothing in it. Counting that would quarantine a box whose
+    Memory is genuinely clean, and only a full successful reset lifts the marker,
+    so the box could never recover. Sessions are still surveyed and printed, because
+    naming which session held the leftover events is what makes the report usable.
+
+    Args:
+        actors: A survey taken after the delete pass.
+
+    Returns:
+        The survey entries that still carry events or preference records.
+    """
+    return [
+        entry for entry in actors
+        if not entry["preserve"] and (entry["eventCount"] or entry["records"])
+    ]
+
+
+def _report_residue(client: Any, memory_id: str) -> List[Dict[str, Any]]:
+    """Re-survey after the delete pass and print one RESIDUE line per leftover actor."""
+    leftovers = residue(survey(client, memory_id))
+    for entry in leftovers:
+        print(
+            f"RESIDUE actor={entry['actorId']} sessions={len(entry['sessions'])} "
+            f"events={entry['eventCount']} records={len(entry['records'])}"
+        )
+    if leftovers:
+        print(
+            f"residue: {len(leftovers)} actor(s) still hold runtime data after the "
+            "delete pass; this Memory is NOT clean",
+            file=sys.stderr,
+        )
+    return leftovers
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true",
@@ -205,16 +305,23 @@ def main() -> int:
     if counts["failures"]:
         print(f"failures: {counts['failures']}", file=sys.stderr)
 
+    # Exit 2 is the verified-residue signal the reset quarantines on. It is
+    # distinct from exit 1 (a delete call failed) because the delete pass can
+    # report every call succeeded and the service still hold a record.
+    leftovers = _report_residue(client, memory_id) if args.apply else []
+
     if args.json:
         pathlib.Path(args.json).write_text(json.dumps(
             {"memoryId": memory_id, "region": region, "actors": actors,
-             "counts": counts, "applied": bool(args.apply)},
+             "counts": counts, "applied": bool(args.apply), "residue": leftovers},
             indent=2, default=str,
         ) + "\n")
         print(f"survey written to {args.json}")
 
     if not args.apply:
         print("\nDry run. Re-run with --apply to delete.")
+    if leftovers:
+        return 2
     return 1 if counts["failures"] else 0
 
 
