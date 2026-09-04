@@ -485,6 +485,17 @@ _verify_baseline() {
       bad=$((bad + 1))
     fi
   done
+  # The Operator service-recovery walkthrough is built on Jessica's ticket
+  # asserting a return that the authoritative table does not carry. The count
+  # above says one return exists; it does not say whose. Assert the customer
+  # explicitly, because a stray row here empties the human checkpoint and the
+  # symptom (a section that renders nothing) points nowhere near the cause.
+  count="$(_psql_scalar "SELECT count(*) FROM pellier.returns WHERE customer_id = 'CUST-JESSICA';" 2>/dev/null | tr -d '[:space:]')"
+  if [[ "$count" != "0" ]]; then
+    fail "Baseline: CUST-JESSICA should have no authoritative returns, has ${count}. The Operator human checkpoint reads this as a resolved dispute."
+    bad=$((bad + 1))
+  fi
+
   if [[ "$bad" -gt 0 ]]; then
     fail "Baseline verification failed on ${bad} table(s); this reset did not land a clean state"
     return 1

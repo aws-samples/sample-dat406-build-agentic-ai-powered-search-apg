@@ -70,6 +70,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+import re
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -200,6 +201,47 @@ _RETURNS_SELECT = """
      WHERE r.customer_id = %s
      ORDER BY r.requested_at DESC
 """
+
+
+# Tokens too generic to identify a product; matching on them would pull in
+# every item the client owns and defeat the scoping.
+_TICKET_MATCH_STOPWORDS = frozenset({"pellier", "luxury", "bath", "sage"})
+_TICKET_MIN_TOKEN = 4
+
+
+def _ticket_named_product_ids(
+    tickets: List[Dict[str, Any]], orders: List[Dict[str, Any]]
+) -> set[str]:
+    """Product ids the open tickets name, by token overlap with product names.
+
+    Mirrors the candidate matcher the Operator checkpoint uses, so the flag the
+    backend computes and the list the desk offers cannot disagree.
+
+    Returns an empty set when nothing matches, which callers must read as "the
+    ticket does not identify a product" rather than "no products". Narrowing to
+    an empty set would resolve every dispute automatically, which is the
+    opposite of the intended failure direction.
+    """
+    ticket_text = " ".join(
+        f"{t.get('subject', '')} {t.get('lastNote', '')}"
+        for t in tickets
+        if t.get("status") in {"open", "pending"}
+    ).lower()
+    if not ticket_text.strip():
+        return set()
+
+    named: set[str] = set()
+    for order in orders:
+        name = str(order.get("productName") or "").lower()
+        tokens = re.split(r"[^a-z0-9]+", name)
+        if any(
+            len(token) >= _TICKET_MIN_TOKEN
+            and token not in _TICKET_MATCH_STOPWORDS
+            and token in ticket_text
+            for token in tokens
+        ):
+            named.add(str(order.get("productId") or ""))
+    return named
 
 
 def _return_row(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -657,10 +699,29 @@ async def get_client(
         "return" in (t_.get("subject", "") + " " + t_.get("lastNote", "")).lower()
         for t_ in tickets
     )
+    # Scope the conflict to the products the ticket actually names.
+    #
+    # This used to read `asserts_return and not returns` -- any return row for
+    # this customer resolved the dispute. Two problems with that. It is not
+    # true: a return for an unrelated product says nothing about a disputed
+    # refund on the catchall. And it made the Operator demonstration erasable
+    # from another lab, because Lab 4's identity matrix writes a real
+    # `pellier.returns` row for this same customer on whichever product she
+    # ordered first. Running the matrix before the Operator walkthrough
+    # silently emptied the human checkpoint -- not replayed, absent -- and only
+    # a full governed reset brought it back.
+    disputed_products = _ticket_named_product_ids(tickets, orders)
+    unresolved = [
+        r for r in returns
+        if not disputed_products or r.get("productId") in disputed_products
+    ]
     record["returnEvidence"] = {
         "authoritativeReturnCount": len(returns),
         "supportAssertsReturn": asserts_return,
-        "unconfirmedReturnAssertion": asserts_return and not returns,
+        "unconfirmedReturnAssertion": asserts_return and not unresolved,
+        # Named so a surface can say which products the disagreement is about,
+        # rather than implying the client's whole history is in dispute.
+        "disputedProductIds": sorted(disputed_products),
     }
 
     return {
