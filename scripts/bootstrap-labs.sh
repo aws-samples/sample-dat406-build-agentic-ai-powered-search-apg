@@ -80,31 +80,57 @@ log "=========================================="
 # tree is present, so a failure here must stop rather than warn-and-continue.
 REPO_URL="${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}"
 
+# The branch IS the workshop: `governed` carries the flagship two-hour lab set,
+# `main` the one-hour builders session. Deriving the branch from WORKSHOP_FORMAT
+# is what stops the two from ever disagreeing -- the clone used to pass no
+# --branch at all, so it took whatever origin/HEAD resolved to. That is `main`,
+# which has no workshop/, no WORKSHOP.md and no VOICE.md, so a governed run on
+# this path installed the wrong workshop, warn-and-skipped ~30 migrations, and
+# still printed a success line.
+case "${WORKSHOP_FORMAT}" in
+    governed) WORKSHOP_BRANCH="${WORKSHOP_BRANCH:-governed}" ;;
+    *)        WORKSHOP_BRANCH="${WORKSHOP_BRANCH:-main}" ;;
+esac
+
 log "Cloning repository..."
 if [ ! -d "$REPO_PATH" ]; then
     # --depth 1: .git is deleted moments later, so full history is pure
     # download cost. 2>&1 into a variable, not 2>/dev/null: the old code
     # discarded the one line that says why the clone failed.
     clone_log=$(sudo -u "$CODE_EDITOR_USER" git clone --depth 1 \
+        --branch "$WORKSHOP_BRANCH" \
         "$REPO_URL" "$REPO_PATH" 2>&1) \
-        || fail "Clone of ${REPO_URL} failed: ${clone_log}"
+        || fail "Clone of ${REPO_URL} (branch ${WORKSHOP_BRANCH}) failed: ${clone_log}"
 
     # Record what was delivered BEFORE .git is removed. This is the only
-    # post-provision answer to "which content is this box running?".
+    # post-provision answer to "which content is this box running?". It records
+    # the branch actually requested, not a placeholder: a provenance file that
+    # says `<default-branch>` is recording that it does not know.
     resolved_sha=$(sudo -u "$CODE_EDITOR_USER" git -C "$REPO_PATH" rev-parse HEAD 2>/dev/null || echo unknown)
     sudo -u "$CODE_EDITOR_USER" tee "$REPO_PATH/.workshop-ref.json" >/dev/null << EOF
 {
     "repo_url": "${REPO_URL}",
-    "repo_ref": "<default-branch>",
+    "repo_ref": "${WORKSHOP_BRANCH}",
     "resolved_sha": "${resolved_sha}",
     "cloned_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
     "clone_path": "bootstrap-fallback"
 }
 EOF
 
-    log "✅ Repository cloned (default branch @ ${resolved_sha:0:8})"
+    log "✅ Repository cloned (${WORKSHOP_BRANCH} @ ${resolved_sha:0:8})"
 else
     log "✅ Repository exists"
+fi
+
+# Assert the tree carries the workshop this run is configured for, on BOTH the
+# event path and the fallback. The event path is pinned by CloudFormation, but
+# a pinned SHA on the wrong branch is exactly as wrong as an unpinned clone, and
+# every step below assumes the content is present. Checking one governed-only
+# path is cheaper than discovering it thirty warn-and-skipped migrations later.
+if [ "${WORKSHOP_FORMAT}" = "governed" ] && [ ! -d "$REPO_PATH/workshop/starters" ]; then
+    fail "WORKSHOP_FORMAT=governed but ${REPO_PATH} has no workshop/starters. \
+This tree is not the governed workshop (branch requested: ${WORKSHOP_BRANCH}). \
+Re-run with WORKSHOP_BRANCH=governed, or set WORKSHOP_FORMAT to match the tree."
 fi
 
 # Remove .git on BOTH paths, not just the fallback.
@@ -1794,6 +1820,7 @@ if [ -x "$REPO_PATH/scripts/health-gate.sh" ]; then
     sleep 5
     if ! sudo -u "$CODE_EDITOR_USER" bash -c "
         export PELLIER_REPO='$REPO_PATH'
+        export WORKSHOP_FORMAT='${WORKSHOP_FORMAT}'
         bash '$REPO_PATH/scripts/health-gate.sh'
     " 2>&1 | tee /var/log/pellier-health-gate.log; then
         HEALTH_GATE_OK=false

@@ -56,15 +56,40 @@ if [[ ! -r "$DOTENV_HELPER" ]]; then
 fi
 # shellcheck source=lib/dotenv.sh
 source "$DOTENV_HELPER"
+env_file_loaded=false
 if [[ -f "$ENV_FILE" ]]; then
   pellier_load_dotenv "$ENV_FILE"
+  env_file_loaded=true
 elif [[ -f "${REPO}/pellier/backend/.env" ]]; then
   ENV_FILE="${REPO}/pellier/backend/.env"
   pellier_load_dotenv "$ENV_FILE"
+  env_file_loaded=true
+fi
+
+# Default to the strict workshop, not the lenient one.
+#
+# This read used to default to `builders`, the inverse of bootstrap-labs.sh,
+# which defaults to `governed`. The two disagreeing is not a style difference:
+# in the lenient branch every managed AgentCore check downgrades from fail to
+# warn AND the whole Aurora verification block below is skipped -- customers,
+# orders, the JSONB tool audit, retrieval receipts, governed turn receipts, the
+# evidence ledger and commerce receipts, which are the exact tables Labs 2-4
+# query. The gate then exits 0 and prints READY, so bootstrap's governed fatal
+# check never fires. Defaulting the other way makes an unset variable produce a
+# noisy failure instead of a quiet, green, wrong answer.
+#
+# `pellier/backend/.env` (the fallback file above) carries no WORKSHOP_FORMAT
+# key at all, so this default decides the outcome on every local run.
+if [[ -z "${WORKSHOP_FORMAT:-}" ]]; then
+  if $env_file_loaded; then
+    warn "WORKSHOP_FORMAT is not set in ${ENV_FILE}; assuming governed."
+  else
+    warn "No environment file found (looked for \$PELLIER_ENV_FILE and ${REPO}/pellier/backend/.env); assuming WORKSHOP_FORMAT=governed."
+  fi
 fi
 
 managed_required=false
-if [[ "${WORKSHOP_FORMAT:-builders}" == "governed" ]]; then
+if [[ "${WORKSHOP_FORMAT:-governed}" == "governed" ]]; then
   managed_required=true
 fi
 
