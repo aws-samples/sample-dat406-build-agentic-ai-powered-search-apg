@@ -292,7 +292,17 @@ for migration in \
   036_refresh_persona_hero_alt_text.sql \
   037_serve_persona_hero_masters.sql \
   038_principal_customer_cardinality.sql \
-  039_return_replay_scope.sql
+  039_return_replay_scope.sql \
+  040_resequence_theo_governed_turn.sql \
+  041_align_theo_pairing_preview.sql \
+  042_align_anna_guided_previews.sql \
+  043_evidence_ledger.sql \
+  044_operator_lifecycle_ledger.sql \
+  045_persona_blurbs.sql \
+  046_retrieval_citation_snapshots.sql \
+  047_evidence_immutability.sql \
+  048_policy_decisions.sql \
+  049_workshop_runs.sql
 do
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" \
     -U "$DB_USER" -d "$DB_NAME" \
@@ -399,6 +409,25 @@ The session content (lab manual, CloudFormation, prereq images) lives in the sep
 | Close | Map the pattern to your own stack, wrap up, and Q&A. |
 
 Make canonical edits to the lab manual in the Workshop Studio repo, not here.
+
+### Workshop run tooling
+
+Four commands carry a participant through that path. Bootstrap aliases each one,
+and every one of them is scoped to a single run.
+
+| Command | Script | What it does |
+|---|---|---|
+| `workshop-start [persona]` | `scripts/workshop-start.sh` | Mints one run id, records it in `pellier.workshop_runs`, exports `PELLIER_RUN_ID` to the service, and restarts. Idempotent: a second call reuses the existing id. |
+| `doctor --lab N` | `scripts/workshop_doctor.py` | Checks that lab's prerequisites and prints PASS or FAIL per check with the reason. Exits 1 on any failure. |
+| `lab3-start` | `scripts/lab3-start.sh` | Verifies Gateway and Runtime, validates the provisioning receipt, switches the storefront to the managed rail, restarts, and proves one authenticated turn reported `gateway-mcp`. Refuses if either resource is missing. |
+| `receipt` | `scripts/build_receipt.py` | Assembles the portable evidence receipt for the run. `--strict` exits 1 unless every lab's contract is proved **and** the evidence was scoped to that run, so an unapplied migration 049 fails rather than grading someone else's rows; the default reports honestly and exits 0. |
+
+Migration 049 gives every evidence table a `run_id` column defaulted from the
+`pellier.run_id` session setting, which `services/database.py` binds on each
+pooled connection from `services/workshop_run.py`. No writer names the column,
+so one participant's evidence is separable from a seeded incident or a previous
+run without changing a single INSERT. Rows written outside that pool carry no
+run id, and the receipt reports them as unattributed rather than as absent.
 
 ### Boundary with Mosaic
 

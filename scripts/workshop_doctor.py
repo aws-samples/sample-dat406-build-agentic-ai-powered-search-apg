@@ -1,0 +1,498 @@
+#!/usr/bin/env python3
+"""Name the prerequisite a stuck participant has not met, one lab at a time.
+
+The build receipt says which boundaries a run has proved. This answers the
+question that comes first at a table: "why is Lab N not working for me?" Each
+lab has a short list of things that must already be true before its exercise
+can leave evidence, and each one is checked directly rather than inferred from
+a symptom.
+
+    Lab 1  Aurora reachable; check_inventory wired past the stub; the Inventory
+           Agent definition no longer stubbed.
+    Lab 2  Migration 046's citation columns present; a retrieval receipt exists
+           for this run.
+    Lab 3  The service environment carries the two settings resolve_rail
+           reads (USE_AGENTCORE_RUNTIME, AGENTCORE_RUNTIME_ENDPOINT); a turn
+           receipt in this run records the gateway-mcp rail, and a turn in this
+           run was informed by memory.
+    Lab 4  The Cedar policy pair is present and the identity rule has been
+           authored; Row-Level Security is enabled on the tables the proof
+           exercises; an execution receipt exists for this run.
+
+Every line prints PASS or FAIL with the reason, and the exit status is 1 on any
+FAIL. A database that cannot be reached is a FAIL with the connection error, not
+a silent pass: the doctor exists to be believed.
+
+Usage::
+
+    python3 scripts/workshop_doctor.py --lab 1
+    python3 scripts/workshop_doctor.py --lab 3 --run-id run-0123456789ab
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import pathlib
+import re
+import sys
+from dataclasses import dataclass
+from typing import Any, Dict, List, Mapping, Optional, Sequence
+
+REPO = pathlib.Path(__file__).resolve().parents[1]
+BACKEND = REPO / "pellier" / "backend"
+SCRIPTS = REPO / "scripts"
+DEFAULT_ENV = BACKEND / ".env"
+DEFAULT_RUN_ENV = pathlib.Path("/etc/pellier/run.env")
+
+sys.path.insert(0, str(SCRIPTS))
+import build_receipt  # noqa: E402  (sibling script: dotenv, DSN, run id shape)
+
+PASS = "PASS"
+FAIL = "FAIL"
+
+TOOL_BLOCK_START = "# === WORKSHOP · Inventory Agent · check_inventory: START ==="
+TOOL_BLOCK_END = "# === WORKSHOP · Inventory Agent · check_inventory: END ==="
+TOOL_STUB_MARKERS = ("check_inventory is in stub state", "received_product_query")
+AGENT_STUB_MARKER = "_INVENTORY_AGENT_STUBBED = True"
+# The SQL keyword, not the English words `selected` and `selection`, which a
+# stub envelope can easily contain.
+_SELECT_KEYWORD = re.compile(r"\bSELECT\b", re.IGNORECASE)
+
+CEDAR_POLICY = "policies/workshop_identity_match_forbid.cedar"
+CEDAR_STARTER = "workshop/starters/workshop_identity_match_forbid.cedar"
+CONTEXT_POLICY = "policies/advanced_verified_customer_context.dogwood"
+POLICY_FILES = (CEDAR_POLICY, CONTEXT_POLICY)
+
+_DB_REACHABLE = "SELECT 1 AS ok;"
+_MIGRATION_046 = """
+SELECT count(*) AS n
+  FROM information_schema.columns
+ WHERE table_schema = 'pellier'
+   AND table_name = 'retrieval_receipts'
+   AND column_name IN ('citation_snapshots', 'citation_snapshot_hash');
+"""
+_RETRIEVAL_FOR_RUN = """
+SELECT receipt_id
+  FROM pellier.retrieval_receipts
+ WHERE run_id = %(run)s
+ ORDER BY receipt_id DESC
+ LIMIT 1;
+"""
+# The managed rail's own record of itself. `governed_turn_receipts` is written
+# through the application pool, so migration 049's DEFAULT stamps the run on it,
+# and the row's `rail` is the rail that actually served the turn. That is the
+# whole of what Lab 3 asks a participant to establish.
+#
+# This deliberately does not require a `caller = 'gateway'` tool_audit row. Only
+# the three mutation tools leave one (the MCP Lambda writes it in
+# scripts/deploy/common/dataapi.py) and Gateway reads leave no tool_audit row at
+# all, while Lab 3's Theo journey ends at a pending review with no mutation
+# performed. Requiring that row would fail a participant who completed Lab 3
+# exactly as designed. build_receipt.py's Lab 3 query matches this one.
+_MANAGED_RAIL_TURN_FOR_RUN = """
+SELECT gtr.turn_id
+  FROM pellier.governed_turn_receipts gtr
+ WHERE gtr.run_id = %(run)s
+   AND gtr.rail = 'gateway-mcp'
+ ORDER BY gtr.created_at DESC
+ LIMIT 1;
+"""
+_MEMORY_FOR_RUN = """
+SELECT receipt_id
+  FROM pellier.retrieval_receipts
+ WHERE run_id = %(run)s
+   AND COALESCE(memory_record_ids_used, '[]'::jsonb) <> '[]'::jsonb
+ ORDER BY receipt_id DESC
+ LIMIT 1;
+"""
+_RLS_TABLES = """
+SELECT bool_and(c.relrowsecurity) AS enabled, count(*) AS n
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'pellier'
+   AND c.relname IN ('orders', 'returns');
+"""
+_EXECUTION_FOR_RUN = """
+SELECT receipt_id
+  FROM pellier.execution_receipts
+ WHERE run_id = %(run)s
+ ORDER BY receipt_id DESC
+ LIMIT 1;
+"""
+
+
+@dataclass(frozen=True)
+class Check:
+    name: str
+    passed: bool
+    detail: str = ""
+
+
+class Evidence:
+    """One read-only query surface over Aurora, or the reason there is none.
+
+    Use it as a context manager. The doctor is a short-lived command, but it is
+    run repeatedly at a table of participants against one shared cluster, so
+    each invocation returns its connection rather than waiting for interpreter
+    exit to do it.
+    """
+
+    def __init__(self, conn: Any = None, reason: str = "") -> None:
+        self._conn = conn
+        self.reason = reason
+
+    @property
+    def available(self) -> bool:
+        return self._conn is not None and not self.reason
+
+    def one(self, sql: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        if self._conn is None:
+            return None
+        with self._conn.cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchone()
+
+    def close(self) -> None:
+        """Release the connection. Safe to call more than once."""
+        conn, self._conn = self._conn, None
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001 - closing must never mask a finding
+                pass
+
+    def __enter__(self) -> "Evidence":
+        return self
+
+    def __exit__(self, *exc: Any) -> bool:
+        self.close()
+        return False
+
+
+def open_evidence(env_path: pathlib.Path) -> Evidence:
+    """Open the read-only Aurora surface named by ``env_path``, or say why not."""
+    cfg = build_receipt.db_config(env_path)
+    if cfg is None:
+        return Evidence(reason=f"no database settings in {env_path} or the environment")
+    connect = build_receipt.psycopg_connector()
+    if connect is None:
+        return Evidence(reason="psycopg is not installed")
+    try:
+        return Evidence(conn=connect(build_receipt.connection_dsn(cfg)))
+    except Exception as exc:  # noqa: BLE001 - the reason is the finding
+        return Evidence(reason=f"{type(exc).__name__}: {str(exc)[:160]}")
+
+
+# ---------------------------------------------------------------------------
+# Shared check builders
+# ---------------------------------------------------------------------------
+
+
+def _db_reachable(evidence: Evidence) -> Check:
+    if not evidence.available:
+        return Check("database reachable", False, evidence.reason or "no connection")
+    try:
+        row = evidence.one(_DB_REACHABLE)
+    except Exception as exc:  # noqa: BLE001 - the error is the finding
+        return Check("database reachable", False, f"{type(exc).__name__}: {str(exc)[:120]}")
+    return Check("database reachable", bool(row), "" if row else "SELECT 1 returned nothing")
+
+
+def _row_for_run(
+    evidence: Evidence, *, name: str, sql: str, run_id: Optional[str], key: str, hint: str
+) -> Check:
+    """PASS when ``sql`` finds a row for ``run_id``; FAIL names what is missing."""
+    if not run_id:
+        return Check(name, False, "no run id in effect; run scripts/workshop-start.sh first")
+    if not evidence.available:
+        return Check(name, False, evidence.reason or "database unavailable")
+    try:
+        row = evidence.one(sql, {"run": run_id})
+    except Exception as exc:  # noqa: BLE001
+        return Check(name, False, f"{type(exc).__name__}: {str(exc)[:120]}")
+    if row:
+        return Check(name, True, f"{key}={row.get(key)}")
+    return Check(name, False, hint)
+
+
+# ---------------------------------------------------------------------------
+# Lab 1
+# ---------------------------------------------------------------------------
+
+
+def _tool_wired(source: str) -> Check:
+    name = "check_inventory wired"
+    start = source.find(TOOL_BLOCK_START)
+    end = source.find(TOOL_BLOCK_END)
+    if start < 0 or end < 0 or end < start:
+        return Check(name, False, "workshop marker block not found in services/agent_tools.py")
+    block = source[start + len(TOOL_BLOCK_START):end]
+    if any(marker in block for marker in TOOL_STUB_MARKERS):
+        return Check(name, False, "the marker block still returns the shipped stub envelope")
+    if "check_inventory(" not in block and not _SELECT_KEYWORD.search(block):
+        return Check(name, False, "the marker block has no query: it neither calls "
+                                  "BusinessLogic.check_inventory nor runs SQL")
+    return Check(name, True, "marker block calls into the inventory read")
+
+
+def lab1_checks(evidence: Evidence, *, backend: pathlib.Path = BACKEND) -> List[Check]:
+    checks = [_db_reachable(evidence)]
+    try:
+        tool_source = (backend / "services" / "agent_tools.py").read_text(encoding="utf-8")
+        checks.append(_tool_wired(tool_source))
+    except OSError as exc:
+        checks.append(Check("check_inventory wired", False, f"unreadable: {exc}"))
+    try:
+        agent_source = (backend / "agents" / "inventory_agent.py").read_text(encoding="utf-8")
+        stubbed = AGENT_STUB_MARKER in agent_source
+        checks.append(
+            Check(
+                "Inventory Agent defined",
+                not stubbed,
+                "_INVENTORY_AGENT_STUBBED is still True in agents/inventory_agent.py"
+                if stubbed else "",
+            )
+        )
+    except OSError as exc:
+        checks.append(Check("Inventory Agent defined", False, f"unreadable: {exc}"))
+    return checks
+
+
+# ---------------------------------------------------------------------------
+# Lab 2
+# ---------------------------------------------------------------------------
+
+
+def lab2_checks(evidence: Evidence, run_id: Optional[str]) -> List[Check]:
+    name = "migration 046 columns present"
+    if not evidence.available:
+        columns = Check(name, False, evidence.reason or "database unavailable")
+    else:
+        try:
+            row = evidence.one(_MIGRATION_046)
+            n = int((row or {}).get("n") or 0)
+            columns = Check(
+                name, n == 2,
+                "" if n == 2 else f"{n} of 2 citation columns on pellier.retrieval_receipts; "
+                                  "apply scripts/migrations/046_retrieval_citation_snapshots.sql",
+            )
+        except Exception as exc:  # noqa: BLE001
+            columns = Check(name, False, f"{type(exc).__name__}: {str(exc)[:120]}")
+    receipt = _row_for_run(
+        evidence,
+        name="retrieval receipt for this run",
+        sql=_RETRIEVAL_FOR_RUN,
+        run_id=run_id,
+        key="receipt_id",
+        hint="no pellier.retrieval_receipts row for this run; run Anna's hybrid turn",
+    )
+    return [columns, receipt]
+
+
+# ---------------------------------------------------------------------------
+# Lab 3
+# ---------------------------------------------------------------------------
+
+
+def _managed_rail_selected(
+    run_env: pathlib.Path, env_path: pathlib.Path, environ: Mapping[str, str]
+) -> Check:
+    """PASS when the settings the backend actually reads select the Runtime.
+
+    ``services/execution_rail.py::resolve_rail`` reads exactly two settings:
+    ``USE_AGENTCORE_RUNTIME`` decides whether the managed rail is requested, and
+    ``AGENTCORE_RUNTIME_ENDPOINT`` decides whether it can serve. Nothing in the
+    backend reads a rail-name variable, so nothing here checks for one.
+
+    Args:
+        run_env: The service ``run.env`` the systemd unit sources.
+        env_path: The backend ``.env`` provisioning wrote the endpoint into.
+        environ: Process environment, consulted when neither file carries a key.
+    """
+    name = "service env selects the managed rail"
+    layered: Dict[str, str] = {}
+    for source in (build_receipt.parse_dotenv(env_path), build_receipt.parse_dotenv(run_env)):
+        layered.update({key: value for key, value in source.items() if value})
+
+    def _value(key: str) -> str:
+        return (layered.get(key) or environ.get(key, "")).strip()
+
+    missing = []
+    switch = _value("USE_AGENTCORE_RUNTIME")
+    if switch.lower() != "true":
+        missing.append(f"USE_AGENTCORE_RUNTIME={switch or 'unset'} (want true)")
+    if not _value("AGENTCORE_RUNTIME_ENDPOINT"):
+        missing.append("AGENTCORE_RUNTIME_ENDPOINT unset (the Runtime ARN)")
+    if missing:
+        return Check(name, False, "; ".join(missing) + f"; run scripts/lab3-start.sh ({run_env})")
+    return Check(name, True, f"{run_env}")
+
+
+def lab3_checks(
+    evidence: Evidence,
+    run_id: Optional[str],
+    *,
+    run_env: pathlib.Path = DEFAULT_RUN_ENV,
+    env_path: pathlib.Path = DEFAULT_ENV,
+    environ: Optional[Mapping[str, str]] = None,
+) -> List[Check]:
+    env = os.environ if environ is None else environ
+    return [
+        _managed_rail_selected(run_env, env_path, env),
+        _row_for_run(
+            evidence,
+            name="managed-rail turn receipt for this run",
+            sql=_MANAGED_RAIL_TURN_FOR_RUN,
+            run_id=run_id,
+            key="turn_id",
+            hint="no pellier.governed_turn_receipts row in this run carries "
+                 "rail='gateway-mcp'; run scripts/lab3-start.sh to switch the rail, "
+                 "then run a Theo turn in Pellier as a signed-in caller",
+        ),
+        _row_for_run(
+            evidence,
+            name="memory informed a turn in this run",
+            sql=_MEMORY_FOR_RUN,
+            run_id=run_id,
+            key="receipt_id",
+            hint="no retrieval receipt in this run used AgentCore Memory records; "
+                 "run Theo's second turn in the same session",
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Lab 4
+# ---------------------------------------------------------------------------
+
+
+def _cedar_checks(repo: pathlib.Path) -> List[Check]:
+    missing = [rel for rel in POLICY_FILES if not (repo / rel).is_file()]
+    pair = Check(
+        "Cedar policy pair present in policies/",
+        not missing,
+        "missing: " + ", ".join(missing) if missing else ", ".join(POLICY_FILES),
+    )
+    name = "identity rule authored"
+    try:
+        policy = (repo / CEDAR_POLICY).read_bytes()
+        starter = (repo / CEDAR_STARTER).read_bytes()
+    except OSError as exc:
+        return [pair, Check(name, False, f"unreadable: {exc}")]
+    if policy == starter:
+        return [pair, Check(name, False, f"{CEDAR_POLICY} is byte-identical to the starter; "
+                                          "complete the unless block")]
+    return [pair, Check(name, True, f"{CEDAR_POLICY} differs from the starter")]
+
+
+def _rls_check(evidence: Evidence) -> Check:
+    name = "RLS enabled on orders and returns"
+    if not evidence.available:
+        return Check(name, False, evidence.reason or "database unavailable")
+    try:
+        row = evidence.one(_RLS_TABLES) or {}
+    except Exception as exc:  # noqa: BLE001
+        return Check(name, False, f"{type(exc).__name__}: {str(exc)[:120]}")
+    n = int(row.get("n") or 0)
+    enabled = bool(row.get("enabled")) and n == 2
+    return Check(
+        name, enabled,
+        "" if enabled else f"{n} of 2 tables found, relrowsecurity={row.get('enabled')}; "
+                           "apply scripts/migrations/016_runtime_roles_rls.sql",
+    )
+
+
+def lab4_checks(
+    evidence: Evidence, run_id: Optional[str], *, repo: pathlib.Path = REPO
+) -> List[Check]:
+    return [
+        *_cedar_checks(repo),
+        _rls_check(evidence),
+        _row_for_run(
+            evidence,
+            name="execution receipt for this run",
+            sql=_EXECUTION_FOR_RUN,
+            run_id=run_id,
+            key="receipt_id",
+            hint="no pellier.execution_receipts row for this run; confirm Theo's review "
+                 "in Pellier Operator and execute it on the managed rail",
+        ),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def run_lab(
+    lab: int,
+    evidence: Evidence,
+    run_id: Optional[str],
+    *,
+    run_env: pathlib.Path = DEFAULT_RUN_ENV,
+    env_path: pathlib.Path = DEFAULT_ENV,
+) -> List[Check]:
+    if lab == 1:
+        return lab1_checks(evidence)
+    if lab == 2:
+        return lab2_checks(evidence, run_id)
+    if lab == 3:
+        return lab3_checks(evidence, run_id, run_env=run_env, env_path=env_path)
+    return lab4_checks(evidence, run_id)
+
+
+def render(lab: int, run_id: Optional[str], persona: Optional[str], checks: List[Check]) -> str:
+    run = f"run {run_id}" if run_id else "no run id"
+    if persona:
+        run += f", persona {persona}"
+    lines = [f"Pellier doctor: Lab {lab} ({run})", "-" * 60]
+    for check in checks:
+        state = PASS if check.passed else FAIL
+        lines.append(f"{state}  {check.name}" + (f"  ({check.detail})" if check.detail else ""))
+    failed = sum(1 for check in checks if not check.passed)
+    lines.append("-" * 60)
+    lines.append("READY" if failed == 0 else f"NOT READY: {failed} check(s) failed")
+    return "\n".join(lines)
+
+
+def _current_run() -> tuple[Optional[str], Optional[str]]:
+    try:
+        sys.path.insert(0, str(BACKEND))
+        from services.workshop_run import current_run_id, current_run_persona
+    except Exception:  # noqa: BLE001 - the doctor must run without the backend
+        return None, None
+    return current_run_id(), current_run_persona()
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Check one lab's prerequisites.")
+    parser.add_argument("--lab", type=int, choices=(1, 2, 3, 4), required=True)
+    parser.add_argument("--run-id", default=None, help="run to scope to (default: current run)")
+    parser.add_argument("--env", default=str(DEFAULT_ENV), help="backend .env path")
+    parser.add_argument(
+        "--run-env", default=str(DEFAULT_RUN_ENV), help="service run.env the unit sources"
+    )
+    args = parser.parse_args(argv)
+
+    run_id, persona = (args.run_id, None) if args.run_id else _current_run()
+    if run_id and not build_receipt.RUN_ID_PATTERN.fullmatch(run_id):
+        print(f"workshop_doctor: run id {run_id!r} must match run-<12 hex>", file=sys.stderr)
+        return 2
+
+    env_path = pathlib.Path(args.env)
+    with open_evidence(env_path) as evidence:
+        checks = run_lab(
+            args.lab,
+            evidence,
+            run_id,
+            run_env=pathlib.Path(args.run_env),
+            env_path=env_path,
+        )
+    print(render(args.lab, run_id, persona, checks))
+    return 0 if all(check.passed for check in checks) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

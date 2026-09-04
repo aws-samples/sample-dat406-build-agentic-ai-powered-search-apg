@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "description": "Golden retail journeys. Fixture checks are deterministic PR gates; stage contracts define what a participant must be able to prove from customer intent through business outcome. No local fixture may manufacture an AgentCore Policy verdict.",
+  "description": "Golden retail journeys. Fixture checks are deterministic PR gates; stage contracts define what a participant must be able to prove from customer intent through business outcome. A journey may end early (endsAt) and hand its remaining stages to another journey. No local fixture may manufacture an AgentCore Policy verdict.",
   "fixtureRoot": "pellier/frontend/src/observatory/fixtures",
   "stageContract": {
     "order": [
@@ -110,7 +110,7 @@
               "search_products"
             ],
             "expectedProductsAny": [
-              "Pellier Linen Shirt",
+              "Hadley Linen Shirt",
               "Italian Linen Camp Shirt"
             ],
             "expectedProductsAll": [
@@ -127,7 +127,7 @@
               "check_inventory"
             ],
             "expectedProductsAll": [
-              "Pellier Linen Shirt"
+              "Hadley Linen Shirt"
             ]
           }
         }
@@ -185,7 +185,7 @@
       "persona": "anna",
       "kind": "read",
       "summary": "Anna's gift query applies price and stock as hard predicates, then compares lexical, vector, hybrid, and reranked retrieval.",
-      "entryPrompt": "A housewarming gift under $100 that is in stock.",
+      "entryPrompt": "A housewarming gift under $100 that is currently in stock.",
       "actors": {
         "requester": {
           "channel": "storefront",
@@ -264,8 +264,8 @@
     {
       "id": "theo-damaged-return-closed-loop",
       "persona": "theo",
-      "kind": "governed_write",
-      "summary": "Theo's damaged bowl request becomes an exact review; the operator, AgentCore Policy, Aurora, and the receipt each answer a different question.",
+      "kind": "governed_proposal",
+      "summary": "Theo's damaged bowl request becomes an exact, fingerprinted review that waits for a human; nothing is authorized, enforced, or committed in this journey.",
       "entryPrompt": "My Wabi-Sabi Bowl arrived chipped. Please help me return it.",
       "actors": {
         "requester": {
@@ -306,11 +306,7 @@
         "humanConfirmationRequired": true,
         "executionParametersSource": "persisted_review_only",
         "serverResolvedCustomerSubject": true,
-        "idempotencyRequired": true,
-        "rowLevelSecurityRequired": true,
-        "receiptRequired": true,
-        "correlationKey": "turn_id",
-        "localExecutionBoundary": "managed_execution_deferred_live"
+        "correlationKey": "turn_id"
       },
       "stages": [
         {
@@ -331,12 +327,109 @@
         {
           "id": "proposal",
           "proof": "source_contract",
-          "teaches": "A pending review binds the exact material parameters by fingerprint."
+          "teaches": "A pending review binds the exact material parameters by fingerprint and stops; the shopper turn ends here."
+        }
+      ],
+      "endsAt": "proposal",
+      "human_decision": "pending",
+      "handoff": {
+        "continuesIn": "jessica-governed-return",
+        "carries": [
+          "authorization",
+          "data_enforcement",
+          "durable_evidence"
+        ],
+        "teaches": "Lab 3 ends with the review pending. Authorization, database enforcement, and durable evidence are proved in Lab 4 on Jessica's return, where identity is the only variable."
+      }
+    },
+    {
+      "id": "jessica-governed-return",
+      "persona": "jessica",
+      "kind": "governed_write",
+      "summary": "One byte-identical initiate_return for CUST-JESSICA is sent through Gateway as Marco, Anna, and Jessica, then replayed as Jessica; only the verified identity changes, so policy, execution, durable effect, and database enforcement each become their own fact.",
+      "entryPrompt": "Initiate a return for CUST-JESSICA's damaged order through Gateway signed in as Jessica; repeat the identical request as Marco and Anna; then replay Jessica's request with the same idempotency key.",
+      "actors": {
+        "requester": {
+          "channel": "gateway",
+          "principal": "jessica"
+        },
+        "executor": {
+          "channel": "gateway",
+          "principal": "jessica"
+        },
+        "customerSubject": "CUST-JESSICA"
+      },
+      "negativeControls": [
+        "marco",
+        "anna"
+      ],
+      "fixtureChecks": [],
+      "identityMatrix": [
+        {
+          "principal": "marco",
+          "expectedDecision": "DENY",
+          "executionRows": 0,
+          "durableEffects": 0
+        },
+        {
+          "principal": "anna",
+          "expectedDecision": "DENY",
+          "executionRows": 0,
+          "durableEffects": 0
+        },
+        {
+          "principal": "jessica",
+          "expectedDecision": "ALLOW",
+          "executionRows": 1,
+          "durableEffects": 1
+        },
+        {
+          "principal": "jessica",
+          "replay": true,
+          "expectedDecision": "ALLOW",
+          "executionRows": 1,
+          "durableEffects": 0
+        }
+      ],
+      "closedLoop": {
+        "action": "initiate_return",
+        "materialParameters": [
+          "customer_id",
+          "product_id",
+          "reason"
+        ],
+        "actionFingerprint": "sha256_canonical_operation_arguments",
+        "idempotencyRequired": true,
+        "rowLevelSecurityRequired": true,
+        "receiptRequired": true,
+        "correlationKey": "idempotency_key",
+        "localExecutionBoundary": "managed_execution_deferred_live"
+      },
+      "stages": [
+        {
+          "id": "intent",
+          "proof": "source_contract",
+          "teaches": "The request names Jessica's order and a damage reason; nothing is inferred from a persona."
+        },
+        {
+          "id": "identity",
+          "proof": "source_contract",
+          "teaches": "The Cognito access token, not the storefront persona, is the principal Cedar evaluates."
+        },
+        {
+          "id": "grounding",
+          "proof": "source_contract",
+          "teaches": "Order ownership is read from Aurora before any write is attempted."
+        },
+        {
+          "id": "proposal",
+          "proof": "source_contract",
+          "teaches": "The same protected input is prepared for every principal so identity is the only variable."
         },
         {
           "id": "human_decision",
-          "proof": "source_contract",
-          "teaches": "Confirmation records human intent and still reports policy PENDING."
+          "proof": "not_applicable",
+          "teaches": "The direct Gateway proof carries no operator approval; the Operator close stops before one."
         },
         {
           "id": "authorization",
@@ -346,17 +439,17 @@
         {
           "id": "data_enforcement",
           "proof": "source_contract",
-          "teaches": "Aurora RLS, ownership, and constraints decide whether the statement lands."
+          "teaches": "Aurora RLS empties the out-of-scope read and refuses the out-of-scope write; the idempotency key lands the replay once."
         },
         {
           "id": "durable_evidence",
           "proof": "source_contract",
-          "teaches": "Execution receipt, audit row, idempotency claim, and turn id reconstruct the attempt."
+          "teaches": "Policy receipt, tool_audit row, write_operations row, and execution receipt each answer a different question."
         },
         {
           "id": "customer_outcome",
           "proof": "deferred_live",
-          "teaches": "The final answer follows the real managed verdict and database effect."
+          "teaches": "Jessica's return exists exactly once; Marco's and Anna's attempts left no execution and no effect."
         }
       ]
     },

@@ -15,7 +15,7 @@
     },
     {
       "role": "assistant",
-      "content": "Yes - Brooklyn (BK-01) has 8 of the Hadley (Pellier Linen Shirt in ecru) on the floor right now. Also 4 at Austin (ATX-02) and 12 at Portland (PDX-01). Ship window from Brooklyn to your zip is 1\u20132 business days.",
+      "content": "Yes - Brooklyn (BK-01) has 8 of the Hadley Linen Shirt in ivory on the floor right now. Also 4 at Austin (ATX-02) and 12 at Portland (PDX-01). Ship window from Brooklyn to your zip is 1\u20132 business days.",
       "timestamp": "2026-05-25T17:24:02Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -26,7 +26,7 @@
       "toolCalls": [
         {
           "toolName": "check_inventory",
-          "description": "Warehouse-level stock lookup for Hadley / Pellier Linen Shirt",
+          "description": "Warehouse-level stock lookup for the Hadley Linen Shirt",
           "durationMs": 142,
           "sql": "SELECT warehouse_id, warehouse_name, quantity, restock_eta FROM inventory_by_warehouse WHERE product_id = $1 AND quantity > 0 ORDER BY warehouse_id;",
           "resultSummary": "3 warehouses, 24 total units, Brooklyn leads with 8"
@@ -34,10 +34,10 @@
       ],
       "products": [
         {
-          "name": "Pellier Linen Shirt",
-          "brand": "Pellier Editions",
-          "price": 148,
-          "imageUrl": "/products/marco-pellier-linen-shirt-ecru.png",
+          "name": "Hadley Linen Shirt",
+          "brand": "Hadley",
+          "price": 248,
+          "imageUrl": "/products/fresh-pellier-linen-shirt.png",
           "traceRef": "panel-2"
         }
       ],
@@ -113,10 +113,10 @@
     ],
     "products": [
       {
-        "name": "Pellier Linen Shirt",
-        "brand": "Pellier Editions",
-        "price": 148,
-        "imageUrl": "/products/marco-pellier-linen-shirt-ecru.png"
+        "name": "Hadley Linen Shirt",
+        "brand": "Hadley",
+        "price": 248,
+        "imageUrl": "/products/fresh-pellier-linen-shirt.png"
       }
     ],
     "confidence": {

@@ -18,6 +18,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
 from config import settings
+from services.workshop_run import RUN_ID_PATTERN, current_run_id
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +185,12 @@ async def _configure_connection(conn: AsyncConnection) -> None:
     The catalog loader sets this at database level via ALTER DATABASE, but
     that only applies to NEW connections — existing pool connections need
     this configure callback to pick up the setting.
+
+    Also binds ``pellier.run_id`` when a workshop run is in progress, so the
+    ``run_id`` DEFAULT on every evidence table (migration 049) stamps rows
+    written through this pool. The value is bound as a parameter and only
+    after it matches the shape the database CHECKs; a malformed id is
+    dropped with a warning rather than reaching SQL.
     """
     stmt_ms = int(max(1000, settings.DB_STATEMENT_TIMEOUT_MS))
     lock_ms = int(max(250, settings.DB_LOCK_TIMEOUT_MS))
@@ -204,6 +211,17 @@ async def _configure_connection(conn: AsyncConnection) -> None:
         await cur.execute(f"SET lock_timeout = '{lock_ms}ms'")
         await cur.execute(f"SET idle_in_transaction_session_timeout = '{idle_ms}ms'")
         await cur.execute(f"SET work_mem = '{work_mem_mb}MB'")
+        run_id = current_run_id()
+        if run_id and RUN_ID_PATTERN.fullmatch(run_id):
+            await cur.execute(
+                "SELECT set_config('pellier.run_id', %s, false)", (run_id,)
+            )
+        elif run_id:
+            logger.warning(
+                "Ignoring malformed workshop run id %r; evidence rows will not "
+                "carry a run_id until it matches run-<12 hex>",
+                run_id,
+            )
     await conn.commit()
 
 

@@ -15,7 +15,7 @@
     },
     {
       "role": "assistant",
-      "content": "Goa in linen - you'll want pieces that breathe, pack flat, and forgive a ten-day wear. Three I'd pull: the Pellier Linen Shirt in ecru ($148), the Linen Drawstring Trousers in oat ($118), and the Italian Linen Camp Shirt in indigo ($228). All three crumple honestly rather than crease - that's the tell of real linen, not a blend.",
+      "content": "Goa in linen - you'll want pieces that breathe, pack flat, and forgive a ten-day wear. Three I'd pull: the Hadley Linen Shirt in ivory ($248), the Linen Drawstring Trousers in oat ($178), and the Italian Linen Camp Shirt in indigo ($228). All three crumple honestly rather than crease - that's the tell of real linen, not a blend.",
       "timestamp": "2026-05-25T17:00:04Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -34,16 +34,16 @@
       ],
       "products": [
         {
-          "name": "Pellier Linen Shirt",
-          "brand": "Pellier Editions",
-          "price": 148,
-          "imageUrl": "/products/marco-pellier-linen-shirt-ecru.png",
+          "name": "Hadley Linen Shirt",
+          "brand": "Hadley",
+          "price": 248,
+          "imageUrl": "/products/fresh-pellier-linen-shirt.png",
           "traceRef": "panel-3"
         },
         {
           "name": "Linen Drawstring Trousers",
           "brand": "Pellier Editions",
-          "price": 118,
+          "price": 178,
           "imageUrl": "/products/marco-linen-drawstring-trousers.png",
           "traceRef": "panel-3"
         },
@@ -57,7 +57,7 @@
       ],
       "confidence": {
         "percentage": 91,
-        "reasoning": "Strong semantic match on 'linen' + 'travel'; Marco's semantic-memory preference profile (natural fibers, warm tones) weights the Hadley / Pellier linen shirt and drawstring trousers highest."
+        "reasoning": "Strong semantic match on 'linen' + 'travel'; Marco's semantic-memory preference profile (natural fibers, warm tones) weights the Hadley Linen Shirt and drawstring trousers highest."
       },
       "memoryPills": [
         {
@@ -82,7 +82,7 @@
     },
     {
       "role": "assistant",
-      "content": "The Hadley pairs beautifully with the Drawstring Trousers in oat - same washed-linen family, same tonal register, they read as a considered set rather than an accident. For layering when the evening cools, the Washed Cotton Overshirt in ecru picks up the same muted palette without adding bulk. And the Leather Weekender ties the whole packing list together - the kind of bag that earns its patina on the trip.",
+      "content": "The Hadley pairs beautifully with the Drawstring Trousers in oat - same washed-linen family, same tonal register, they read as a considered set rather than an accident. For layering when the evening cools, the Linen Overshirt in sage picks up the same muted palette without adding bulk. And the Leather Weekend Holdall ties the whole packing list together - the kind of bag that earns its patina on the trip.",
       "timestamp": "2026-05-25T17:00:38Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -93,7 +93,7 @@
       "toolCalls": [
         {
           "toolName": "get_related_products",
-          "description": "Product-to-product pgvector similarity from Hadley / Pellier Linen Shirt",
+          "description": "Product-to-product pgvector similarity from the Hadley Linen Shirt",
           "durationMs": 218,
           "sql": "SELECT p2.name, p2.price, 1 - (p1.embedding <=> p2.embedding) AS similarity FROM product_catalog p1, product_catalog p2 WHERE p1.product_id = $1 AND p2.product_id != $1 AND p2.quantity > 0 ORDER BY p1.embedding <=> p2.embedding LIMIT 5;",
           "resultSummary": "3 companion pieces returned by product-to-product similarity"
@@ -103,22 +103,22 @@
         {
           "name": "Linen Drawstring Trousers",
           "brand": "Pellier Editions",
-          "price": 118,
+          "price": 178,
           "imageUrl": "/products/marco-linen-drawstring-trousers.png",
           "traceRef": "panel-8"
         },
         {
-          "name": "Washed Cotton Overshirt",
+          "name": "Linen Overshirt",
           "brand": "Pellier Editions",
-          "price": 185,
-          "imageUrl": "/products/marco-washed-cotton-overshirt.png",
+          "price": 195,
+          "imageUrl": "/products/marco-linen-overshirt-sage.png",
           "traceRef": "panel-8"
         },
         {
-          "name": "Leather Weekender",
-          "brand": "Pellier Editions",
+          "name": "Leather Weekend Holdall",
+          "brand": "Pellier Travel",
           "price": 485,
-          "imageUrl": "/products/marco-leather-weekender.png",
+          "imageUrl": "/products/marco-leather-weekend-holdall.png",
           "traceRef": "panel-8"
         }
       ],
@@ -150,7 +150,7 @@
     },
     {
       "role": "assistant",
-      "content": "Linen shirts in the catalog run from $88 to $285. Median is $148. The Pellier Linen Shirt sits right at the median; the Italian Linen Camp Shirt ($228) is in the upper third. Under $100 there are two - both cotton-linen blends rather than pure linen.",
+      "content": "Linen shirts in the catalog run from $88 to $285. Median is $148. The Hadley Linen Shirt ($248) and the Italian Linen Camp Shirt ($228) both sit in the upper third. Under $100 there are two - both cotton-linen blends rather than pure linen.",
       "timestamp": "2026-05-25T17:01:03Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -191,7 +191,7 @@
     },
     {
       "role": "assistant",
-      "content": "I can help with style and recommendations, but I don't have real-time stock visibility for individual warehouses yet. I can tell you the Hadley shirt (Pellier Linen Shirt in ecru) is in the catalog and marked in-stock system-wide - but which warehouse holds it, and how many are on the floor, sits outside what I can answer right now.",
+      "content": "I can help with style and recommendations, but I don't have real-time stock visibility for individual warehouses yet. I can tell you the Hadley Linen Shirt is in the catalog and marked in-stock system-wide - but which warehouse holds it, and how many are on the floor, sits outside what I can answer right now.",
       "timestamp": "2026-05-25T17:01:24Z",
       "plan": {
         "routingPattern": "Dispatcher",
@@ -291,7 +291,7 @@
       "index": 8,
       "category": "both",
       "title": "Style match",
-      "description": "Product-to-product pgvector similarity from Hadley / Pellier Linen Shirt; embeddings via Cohere Embed v4 (us.cohere.embed-v4:0)",
+      "description": "Product-to-product pgvector similarity from the Hadley Linen Shirt; embeddings via Cohere Embed v4 (us.cohere.embed-v4:0)",
       "status": "complete",
       "durationMs": 218,
       "agent": "Personalization Agent",
@@ -376,15 +376,15 @@
     ],
     "products": [
       {
-        "name": "Pellier Linen Shirt",
-        "brand": "Pellier Editions",
-        "price": 148,
-        "imageUrl": "/products/marco-pellier-linen-shirt-ecru.png"
+        "name": "Hadley Linen Shirt",
+        "brand": "Hadley",
+        "price": 248,
+        "imageUrl": "/products/fresh-pellier-linen-shirt.png"
       },
       {
         "name": "Linen Drawstring Trousers",
         "brand": "Pellier Editions",
-        "price": 118,
+        "price": 178,
         "imageUrl": "/products/marco-linen-drawstring-trousers.png"
       },
       {

@@ -78,12 +78,17 @@ Then ask each question and have them point at the line that answers it. The
 receipt reports `PROVED`, `NOT YET`, or `UNCHECKED`, and the third one matters
 here: "I could not look" is not "it did not happen".
 
+The receipt is scoped to the run id minted by `workshop-start`, so each line
+speaks to that participant's own two hours rather than to whatever the shared
+cluster saw most recently. A receipt whose header reads `Run: none` is still
+true, but it is answering a broader question than the participant asked.
+
 | Question | What answers it | Why that and not something else |
 |---|---|---|
 | What established Marco's inventory truth? | `01.execution_row` — a `tool_audit` row for `check_inventory` | The answer text is not evidence. The audit row proves the typed tool ran; it does not prove the *stock figure*, which comes from the inventory tables. |
 | What excluded Anna's ineligible result? | `02.hybrid_receipt` — a receipt carrying vector ranks, lexical ranks, and their fusion | A relevant-looking result list proves ranking happened. Only the deterministic eligibility gate proves the ineligible candidate was excluded on purpose rather than by luck of ordering. |
 | What proved your Runtime revision executed? | The build fingerprint on the managed receipt | A successful invocation proves the service answered. Only the fingerprint comparison distinguishes your package from the previous deployment, because `qualifier=DEFAULT` reads the same for both. |
-| What separated Theo's policy decision from PostgreSQL's outcome? | `04.deny_did_not_execute` beside `04.durable_effect` | Cedar decided whether the action was permitted. PostgreSQL decided, independently, whether the row was allowed to change. Either can refuse, and the two refusals are different evidence. |
+| What separated Jessica's policy decision from PostgreSQL's outcome? | `04.deny_did_not_execute` beside `04.durable_effect` | Cedar decided whether the action was permitted. PostgreSQL decided, independently, whether the row was allowed to change. Either can refuse, and the two refusals are different evidence. |
 
 If a participant's receipt says `NOT YET` on one of these, that is a better
 teaching moment than a full set. Ask what evidence would have to exist, and

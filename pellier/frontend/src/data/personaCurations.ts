@@ -563,11 +563,12 @@ export const PERSONA_BECAUSE_CHIPS: Record<string, BecauseChip[]> = {
     {
       kind: 'memory',
       text: 'you were shopping for a milestone gift',
-      // Fires Anna's canonical rerank anchor verbatim so the lab guide's
-      // "click, don't type" path matches memory-anna.json and the
-      // search-strategies comparison. Keep this string in sync with the
-      // Performance card's pre-filled query.
-      query: 'A milestone gift for a new homeowner',
+      // Fires Anna's canonical Lab 2 retrieval query verbatim so the lab
+      // guide's "click, don't type" path, the golden journey entryPrompt
+      // (backend/tests/golden/journeys.json), the search-strategies
+      // comparison, and the eval harness golden set all measure the same
+      // request. tests/test_golden_journeys.py pins this string.
+      query: 'A housewarming gift under $100 that is currently in stock.',
     },
     {
       kind: 'trend',

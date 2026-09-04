@@ -331,30 +331,111 @@ appear in the room's instructions.
 
 ### Exact participant exercises
 
-Every lab follows the same disciplined rhythm: make one intentionally bounded
-change, run the named-person scenario, then prove the result from durable
-evidence. Bootstrap restores the starter gaps; a solution file is a timed
-recovery path, never a substitute for the exercise or proof.
+Every lab follows the same five-beat rhythm, and the beats are named on the
+page so nobody has to infer where they are:
 
-1. **Lab 1 - Marco grounds a warehouse answer.** Participants complete a
-   deliberately unfinished inventory capability, replay Marco's linen, pairing,
-   and fulfillment turns, then reconcile the answer with Aurora warehouse data
-   and execution evidence.
-2. **Lab 2 - Anna measures hybrid retrieval.** Participants restore a
-   deliberately incomplete hybrid-ranking calculation, replay Anna's
-   morning-ritual gift journey, compare the retrieval evidence, and prove that
-   the selected products satisfy price and stock constraints.
-3. **Lab 3 - Theo operates the managed path.** Participants verify the managed
-   Runtime and Gateway path, define the observability criteria, and use Theo's
-   three turns to connect Memory, traces, managed tools, and PostgreSQL
-   evidence into one account of what happened.
-4. **Lab 4 - Jessica governs a consequential action.** Participants complete a
-   fail-closed identity-to-customer policy, exercise deny, allow, and replay
-   cases, and establish the resulting authorization, execution, durable-effect,
-   and database-enforcement outcomes. Jessica's three Operator turns then
-   synthesize the case for human review without executing the proposed action.
-   Jessica is the Lab 4 business subject; Marco and Anna are the negative
-   controls that prove the boundary holds.
+**Predict** what the system will do, and say it out loud before running
+anything. **Change** exactly one bounded thing. **Run** the named person's
+scenario. **Prove** the result from a durable row, not from the answer text.
+**Explain** which layer supplied the fact, so the pattern travels off this
+box.
+
+Predict is not a warm-up. A participant who has committed to an expected
+outcome learns something from being wrong; one who runs first and reads the
+result afterwards learns that the demo worked. Bootstrap restores the starter
+gaps; a solution file is a timed recovery path, never a substitute for the
+exercise or its proof.
+
+Before Lab 1, each participant runs `workshop-start`. It mints one run id,
+records it in `pellier.workshop_runs`, and puts it in front of the service, so
+every evidence row the next two hours produce carries that id. That is what
+lets `receipt` and `doctor` answer questions about *their* run rather than
+about whatever the cluster saw most recently. If a lab will not start, the
+first move is `doctor --lab N`, which names the unmet prerequisite instead of
+leaving the participant to guess from a symptom.
+
+#### Lab 1 - Marco grounds a warehouse answer
+
+- **Predict.** Marco's warehouse turn currently returns the quiet
+  "Still being set up" card with the reference code `workshop_build_required`.
+  Ask the room what the answer should contain once the tool exists, and what
+  would have to be true in the database for it to be trustworthy.
+- **Change.** Complete the deliberately unfinished inventory capability: the
+  Inventory Agent definition and the `check_inventory` body, inside their
+  marker blocks and nowhere else.
+- **Run.** Replay Marco's three turns: linen for Goa, the pairing question,
+  then the Brooklyn fulfillment question.
+- **Prove.** Reconcile the answer against Aurora warehouse rows and the
+  execution row in `pellier.tool_audit`. The receipt line is
+  `01.execution_row`. An answer that reads correct and leaves no row has
+  proved nothing.
+- **Explain.** An agent answer is grounded only when it can be checked against
+  the system of record and an execution receipt. The same shape applies to any
+  entitlement, claim-status, or capacity lookup.
+
+#### Lab 2 - Anna measures hybrid retrieval
+
+- **Predict.** The retrieval comparison runs one fixed request, "A housewarming
+  gift under $100 that is currently in stock." That is not one of Anna's three
+  storefront turns above. It is the single request the comparison surface, the
+  golden journey, and the eval harness golden set all measure, and it is what
+  her memory chip fires when a participant clicks instead of typing. Before
+  running it, ask which strategy will win and why, and which constraint ranking
+  cannot enforce.
+- **Change.** Restore the deliberately incomplete hybrid-ranking calculation.
+- **Run.** Replay Anna's gift thread in the storefront, then compare the four
+  retrieval paths on that one fixed request. Comparing four strategies is only
+  meaningful when all four answer the same question, which is why the wording is
+  fixed.
+- **Prove.** Read the retrieval receipt: vector ranks, lexical ranks, and their
+  fusion all populated, and every returned product inside the price and stock
+  constraints. The receipt line is `02.hybrid_receipt`.
+- **Explain.** Retrieval quality is a measured tradeoff. Relevance can rank
+  results; PostgreSQL enforces eligibility. A reranker cannot recover a
+  candidate that retrieval never surfaced.
+
+#### Lab 3 - Theo operates the managed path
+
+- **Predict.** Ask what a successful managed answer would and would not prove.
+  It does not prove the participant's revision ran: the invoke response carries
+  no version and `qualifier=DEFAULT` is an alias.
+- **Change.** Run `lab3-start`. It verifies Gateway and Runtime, switches the
+  storefront to the managed rail, restarts the service, and runs one
+  authenticated turn. It refuses if either resource is missing, because a
+  storefront that quietly degrades to in-process while the room believes it is
+  managed teaches the opposite of the lesson.
+- **Run.** Use Theo's three turns as a signed-in caller, with 0, then 2, then 4
+  prior messages.
+- **Prove.** Correlate the thread with Runtime, Gateway, and PostgreSQL
+  evidence, verify Memory beyond the application process, and confirm the build
+  fingerprint on the managed receipt reads **This checkout**.
+- **Explain.** Managed Runtime, Gateway, Memory, telemetry, and the executed
+  revision each prove a different part of the path. A successful answer alone
+  proves none of them.
+
+#### Lab 4 - Jessica governs a consequential action
+
+- **Predict.** Same request, four principals. Ask the room which cases will be
+  denied, which will execute, and what the replay will and will not change.
+- **Change.** Complete the fail-closed identity-to-customer rule in the Cedar
+  policy. It is deliberately participant-authored and exercises the condition
+  without weakening the shipped row-level-security backstop.
+- **Run.** Exercise the deny, allow, and replay cases, then complete Jessica's
+  three-turn Operator investigation and stop before approval.
+- **Prove.** Establish four separate outcomes: the policy decision, the
+  execution row (or its keyed absence), the durable write, and the database
+  enforcement result. The receipt lines are `04.deny_did_not_execute` beside
+  `04.durable_effect`.
+- **Explain.** Authentication, policy authorization, execution, database
+  enforcement, staff access, durable effects, and human approval are separate
+  controls and separate facts. An ALLOW is not an execution receipt, and an
+  execution row is not a commit.
+
+Theo's thread and Jessica's return are deliberately different journeys. Theo's
+ends at a prepared review with the human decision still pending, which is where
+a shopper turn honestly stops. Jessica's is where authorization, database
+enforcement, and durable evidence are proved, because there identity is the
+only variable that changes between the denied and allowed cases.
 
 The labs intentionally form one narrative: ground the answer, measure the
 retrieval decision, operate the managed path and inspect its traces, then
