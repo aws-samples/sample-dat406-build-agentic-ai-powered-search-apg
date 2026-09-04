@@ -443,10 +443,21 @@ def floor_check(product_query: str = "") -> str:
     #      indent=2).
     #   5. Catch exceptions and return a JSON error envelope.
     #
-    # Verify (live, the real check):
-    #   Click Marco's Turn 5 pill in Pellier - Stock Keeper answers
-    #   with the Brooklyn (BK-01) warehouse breakdown — and watch the
-    #   Pellier Labs Tools strip flip from 14/15 to 15/15 shipped.
+    # Verify THIS exercise (the tool, on its own):
+    #   uv run scripts/builders_lab.py tool-check
+    #   uv run scripts/builders_lab.py build-state \
+    #       --expect-tool shipped --expect-agent exercise
+    #
+    #   tool-check calls floor_check directly and must return the
+    #   Brooklyn (BK-01) quantity and ship-window fields. The Pellier
+    #   Labs Tools strip flips from 14/15 to 15/15 shipped.
+    #
+    # Do NOT verify this exercise by asking Marco in Pellier yet.
+    # Stock Keeper has no floor_check grant at this point, so an
+    # inventory turn returns a deliberate non-answer about lacking
+    # warehouse visibility. That is the correct before-state, not a
+    # failed build. Granting the tool, and the Pellier pill check that
+    # proves it, belong to the later Trace Agent Actions section.
     #
     # Note: tests/test_solutions_parity.py is a repo guard, NOT your wire
     # check — it asserts this starter file still carries the stub, so it
