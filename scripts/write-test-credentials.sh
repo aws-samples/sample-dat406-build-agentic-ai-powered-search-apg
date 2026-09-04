@@ -6,7 +6,6 @@
 #
 # Requires env vars:
 #   COGNITO_TEST_CREDENTIALS_SECRET_ARN
-#   COGNITO_HOSTED_UI_URL
 #   AWS_REGION
 #   CODE_EDITOR_USER                 (default: workshop)
 #   HOME_FOLDER                      (default: /home/<user>)
@@ -46,8 +45,6 @@ PREF_LABEL[3]="minimal, serene, earth, slow, home"
 declare -A ROLE_LABEL
 ROLE_LABEL[4]="Lab 4 customer principal and Jessica Operator case"
 
-HOSTED_UI="${COGNITO_HOSTED_UI_URL:-<hosted-ui-url>}"
-
 {
     echo "============================================================="
     echo "Pellier Workshop Test Credentials"
@@ -55,7 +52,9 @@ HOSTED_UI="${COGNITO_HOSTED_UI_URL:-<hosted-ui-url>}"
     echo "These are throwaway credentials for workshop use only."
     echo "DO NOT use for any production system."
     echo ""
-    echo "Sign-in URL: $HOSTED_UI"
+    echo "To sign in: open PellierURL from the Workshop Studio outputs,"
+    echo "then choose Sign in. The app supplies the deployment-specific"
+    echo "Cognito callback URL; do not open a raw Hosted UI /login link."
     echo ""
 
     num_users=$(echo "$CREDS_JSON" | jq -r '.users | length')

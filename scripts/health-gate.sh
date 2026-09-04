@@ -24,6 +24,7 @@
 #   9. AGENTCORE_POLICY_ENGINE_ID set
 #  10. Provisioning receipt proves managed resources, Runtime smoke, and traces
 #  11. Operator group authorizes the desk, and no shopper is in it
+#  12. Hosted UI sign-in is configured and the seeded Operator can mint a token
 #
 # In WORKSHOP_FORMAT=governed, all managed AgentCore checks are required because
 # Labs 3 and 4 and the session abstract depend on them. The separate one-hour
@@ -357,7 +358,7 @@ else
 fi
 
 echo "------------------------------------------------------------"
-# 11. The operator authorization group.
+# 11–12. The operator authorization group and sign-in contract.
 #
 # The Pellier Operator desk is authorized by membership in one Cognito group. Two failure
 # modes, and both must be loud rather than latent:
@@ -368,10 +369,20 @@ echo "------------------------------------------------------------"
 # The second is the finding this check exists for. `require_operator` used to accept any
 # valid token, so `marco` could confirm, decline and execute any review. A shopper
 # accidentally added to the group restores exactly that, and nothing else would notice.
+#
+# A successful group lookup does not prove participants can sign in. The initial
+# deployment used to announce READY after that lookup while a missing Hosted UI
+# domain, client setting, or permanent Operator password only surfaced in a
+# browser. The stack custom resource proves the CloudFront callback is
+# registered; this gate proves the bootstrap half by minting a real access
+# token with the Operator account and checking who Cognito says it belongs to.
 if [[ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ]]; then
   operator_pool="${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}"
   operator_group="pellier-operators"
   operator_user="${PELLIER_OPERATOR_USERNAME:-operator}"
+  operator_client="${COGNITO_CLIENT_ID:-}"
+  operator_domain="${COGNITO_DOMAIN:-}"
+  operator_password="${PELLIER_OPERATOR_PASSWORD:-Pellier-${WORKSHOP_ID:-dat416}-Operator1}"
   in_group() {
     aws cognito-idp admin-list-groups-for-user \
       --user-pool-id "$operator_pool" --username "$1" \
@@ -395,6 +406,51 @@ if [[ -n "${COGNITO_USER_POOL_ID:-${COGNITO_POOL_ID:-}}" ]]; then
     ok=false
   else
     pass "No shopper is in ${operator_group}"
+  fi
+
+  if [[ -z "$operator_client" || -z "$operator_domain" ]]; then
+    managed_missing "Hosted UI sign-in config incomplete: COGNITO_CLIENT_ID and COGNITO_DOMAIN are both required"
+  else
+    oauth_flows="$(aws cognito-idp describe-user-pool-client \
+      --user-pool-id "$operator_pool" --client-id "$operator_client" \
+      --region "${AWS_REGION:-us-east-1}" \
+      --query 'UserPoolClient.AllowedOAuthFlows' --output text 2>/dev/null || true)"
+    oauth_scopes="$(aws cognito-idp describe-user-pool-client \
+      --user-pool-id "$operator_pool" --client-id "$operator_client" \
+      --region "${AWS_REGION:-us-east-1}" \
+      --query 'UserPoolClient.AllowedOAuthScopes' --output text 2>/dev/null || true)"
+    if [[ "$oauth_flows" == *"code"* && "$oauth_scopes" == *"openid"* ]]; then
+      pass "Hosted UI client is configured for OAuth authorization-code sign-in"
+    else
+      managed_missing "Hosted UI client must allow OAuth code flow with openid scope"
+    fi
+
+    auth_parameters="USERNAME=${operator_user},PASSWORD=${operator_password}"
+    if [[ -n "${COGNITO_CLIENT_SECRET:-}" ]]; then
+      secret_hash="$(python3 -c 'import sys,hmac,hashlib,base64;u,c,k=sys.argv[1:4];print(base64.b64encode(hmac.new(k.encode(),(u+c).encode(),hashlib.sha256).digest()).decode())' \
+        "$operator_user" "$operator_client" "$COGNITO_CLIENT_SECRET" 2>/dev/null || true)"
+      if [[ -z "$secret_hash" ]]; then
+        managed_missing "Could not derive the Cognito client SECRET_HASH for Operator sign-in"
+      else
+        auth_parameters="${auth_parameters},SECRET_HASH=${secret_hash}"
+      fi
+    fi
+    operator_token="$(aws cognito-idp admin-initiate-auth \
+      --user-pool-id "$operator_pool" --client-id "$operator_client" \
+      --auth-flow ADMIN_USER_PASSWORD_AUTH --auth-parameters "$auth_parameters" \
+      --region "${AWS_REGION:-us-east-1}" \
+      --query 'AuthenticationResult.AccessToken' --output text 2>/dev/null || true)"
+    if [[ -z "$operator_token" || "$operator_token" == "None" ]]; then
+      managed_missing "Seeded Operator cannot obtain a Cognito access token"
+    else
+      token_username="$(aws cognito-idp get-user --access-token "$operator_token" \
+        --region "${AWS_REGION:-us-east-1}" --query Username --output text 2>/dev/null || true)"
+      if [[ "${token_username,,}" == "${operator_user,,}" ]]; then
+        pass "Seeded Operator can complete Cognito sign-in"
+      else
+        managed_missing "Operator access token did not resolve to ${operator_user}"
+      fi
+    fi
   fi
 else
   managed_missing "No Cognito pool id — operator group authorization is unverified"

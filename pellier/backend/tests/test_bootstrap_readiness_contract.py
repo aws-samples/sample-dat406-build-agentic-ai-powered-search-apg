@@ -24,6 +24,7 @@ CATALOG_SEED = REPO / "scripts" / "seed_pellier_catalog.py"
 WAREHOUSE_MIGRATION = REPO / "scripts" / "migrations" / "006_warehouse_inventory.sql"
 SEED_PREFERENCES = REPO / "scripts" / "seed-sample-preferences.sh"
 FACILITATOR_DRY_RUN = REPO / "scripts" / "dry-run-builders.sh"
+WRITE_TEST_CREDENTIALS = REPO / "scripts" / "write-test-credentials.sh"
 
 
 def _load_model_check():
@@ -380,6 +381,7 @@ def _run_health_gate(
     commerce_schema_exists: bool = True,
     managed_receipt: dict[str, object] | None = None,
     shopper_in_operator_group: bool = False,
+    operator_token_ready: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     repo = tmp_path / "repo"
     fake_bin = tmp_path / "bin"
@@ -403,8 +405,13 @@ def _run_health_gate(
                 "AGENTCORE_GATEWAY_ARN=arn:aws:bedrock-agentcore:us-east-1:123:gateway/test",
                 "AGENTCORE_POLICY_ENGINE_ID=policy-123",
                 # A provisioned governed box has a pool, and the operator group check
-                # needs one. Without it the gate correctly reports the desk unverified.
+                # and live sign-in check need one. Without it the gate correctly
+                # reports the desk unverified.
                 "COGNITO_USER_POOL_ID=us-east-1_example",
+                "COGNITO_CLIENT_ID=client-123",
+                "COGNITO_CLIENT_SECRET=test-client-secret",
+                "COGNITO_DOMAIN=pellier-example.auth.us-east-1.amazoncognito.com",
+                "WORKSHOP_ID=example",
             ]
         )
         (tmp_path / "managed.json").write_text(
@@ -461,6 +468,22 @@ case "$*" in
           exit 0 ;;
       esac
     done
+    exit 0 ;;
+  *describe-user-pool-client*AllowedOAuthFlows*)
+    printf 'code\\n'
+    exit 0 ;;
+  *describe-user-pool-client*AllowedOAuthScopes*)
+    printf 'openid email profile\\n'
+    exit 0 ;;
+  *admin-initiate-auth*)
+    if [ "{'true' if operator_token_ready else 'false'}" = "true" ]; then
+      printf 'operator-access-token\\n'
+    else
+      printf 'None\\n'
+    fi
+    exit 0 ;;
+  *get-user*)
+    printf 'operator\\n'
     exit 0 ;;
   *) printf 'ENFORCE\n' ;;
 esac
@@ -1166,3 +1189,35 @@ def test_the_health_gate_passes_when_only_the_operator_is_in_the_group(tmp_path)
     assert proc.returncode == 0, proc.stdout
     assert "Operator group pellier-operators authorizes operator" in proc.stdout
     assert "No shopper is in pellier-operators" in proc.stdout
+    assert "Hosted UI client is configured for OAuth authorization-code sign-in" in proc.stdout
+    assert "Seeded Operator can complete Cognito sign-in" in proc.stdout
+
+
+def test_the_health_gate_refuses_an_operator_that_cannot_sign_in(tmp_path) -> None:
+    proc = _run_health_gate(
+        tmp_path,
+        model_ready=True,
+        workshop_format="governed",
+        managed_ready=True,
+        operator_token_ready=False,
+    )
+    assert proc.returncode == 1, proc.stdout
+    assert "Seeded Operator cannot obtain a Cognito access token" in proc.stdout
+
+
+def test_governed_bootstrap_makes_the_participant_credentials_file_required() -> None:
+    bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+
+    assert 'CREDENTIALS_FILE="$HOME_FOLDER/test-credentials.txt"' in bootstrap
+    assert 'OUT_FILE="$CREDENTIALS_FILE"' in bootstrap
+    assert '>> "$CREDENTIALS_FILE"' in bootstrap
+    assert "pellier-oauth-callback.service" not in bootstrap
+    assert "OAuth callback registration is a CloudFormation readiness dependency" in bootstrap
+
+
+def test_credential_file_routes_participants_through_pellier_not_a_raw_hosted_ui_login() -> None:
+    credentials_writer = WRITE_TEST_CREDENTIALS.read_text(encoding="utf-8")
+
+    assert "open PellierURL from the Workshop Studio outputs" in credentials_writer
+    assert "do not open a raw Hosted UI /login link" in credentials_writer
+    assert 'echo "Sign-in URL: $HOSTED_UI"' not in credentials_writer

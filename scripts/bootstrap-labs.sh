@@ -312,7 +312,7 @@ COGNITO_USER_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_POOL_ID='${COGNITO_USER_POOL_ID:-}'
 COGNITO_CLIENT_ID='${COGNITO_CLIENT_ID:-}'
 COGNITO_CLIENT_SECRET=${COGNITO_CLIENT_SECRET@Q}
-COGNITO_DOMAIN='${VITE_COGNITO_DOMAIN:-}'
+COGNITO_DOMAIN='${COGNITO_DOMAIN:-${VITE_COGNITO_DOMAIN:-}}'
 APP_BASE_PATH='/ports/8000'
 EOF
 
@@ -1195,39 +1195,13 @@ log "   App URL (Workshop Studio): https://<cloudfront>/ports/8000/"
 log "   App URL (local):           http://localhost:8000/"
 log "   Frontend rebuild: run 'rebuild-frontend' alias or restart the service"
 
-# --- pellier-oauth-callback: register the CloudFront sign-in callback -------
-#
-# The CloudFront distribution is created only AFTER this bootstrap signals
-# CloudFormation, so the Cognito hosted-UI callback cannot be registered
-# here synchronously (and the template cannot reference the distribution
-# from the app client without a circular dependency — see the header of
-# scripts/register_oauth_callback.sh). A detached oneshot polls for the
-# distribution and registers https://<cf-domain>/api/auth/callback once it
-# exists. Its failure is benign: browser sign-in stays unregistered and
-# nothing on the required workshop path is affected.
-cat > /etc/systemd/system/pellier-oauth-callback.service << EOF
-[Unit]
-Description=Register the CloudFront OAuth callback on the Cognito app client
-After=network-online.target pellier.service
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-Environment=HOME_FOLDER=$HOME_FOLDER
-Environment=REPO_PATH=$REPO_PATH
-ExecStart=/bin/bash $REPO_PATH/scripts/register_oauth_callback.sh
-TimeoutStartSec=1800
-StandardOutput=append:/tmp/pellier/oauth-callback.log
-StandardError=append:/tmp/pellier/oauth-callback.log
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-systemctl enable pellier-oauth-callback 2>/dev/null || true
-systemctl start --no-block pellier-oauth-callback || \
-    warn "pellier-oauth-callback did not start — browser sign-in callback stays unregistered"
-log "✅ OAuth callback registration queued (polls for CloudFront post-boot)"
+# The CloudFormation template owns the Hosted UI callback registration. It
+# runs a custom resource after the CloudFront distribution exists, so a stack
+# cannot reach CREATE_COMPLETE with an unregistered callback. Keeping that
+# dependency in the stack avoids the old detached-oneshot race: the instance
+# necessarily booted before the distribution existed, and a failed background
+# retry could leave browser sign-in broken while bootstrap still reported ready.
+log "✅ OAuth callback registration is a CloudFormation readiness dependency"
 
 # ============================================================================
 # STEP 15: STATUS MARKER
@@ -1577,12 +1551,26 @@ fi
 # ============================================================================
 # STEP 17: WRITE TEST CREDENTIALS FILE
 # ============================================================================
-if [ -n "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ] && [ -x "$REPO_PATH/scripts/write-test-credentials.sh" ]; then
-    log "Writing test credentials file..."
-    export COGNITO_TEST_CREDENTIALS_SECRET_ARN COGNITO_HOSTED_UI_URL AWS_REGION \
-           CODE_EDITOR_USER HOME_FOLDER
-    bash "$REPO_PATH/scripts/write-test-credentials.sh" 2>&1 | tee /var/log/pellier-write-credentials.log || \
-        warn "write-test-credentials.sh reported issues"
+# The path is deliberately stable and participant-visible through the
+# Workshop Studio stack output. The file itself remains on the participant's
+# Code Editor volume; stack outputs must never expose a Cognito password.
+CREDENTIALS_FILE="$HOME_FOLDER/test-credentials.txt"
+if [ -z "${COGNITO_TEST_CREDENTIALS_SECRET_ARN:-}" ]; then
+    fail "COGNITO_TEST_CREDENTIALS_SECRET_ARN is required to create participant sign-in credentials"
+fi
+if [ ! -x "$REPO_PATH/scripts/write-test-credentials.sh" ]; then
+    fail "Missing credential writer: $REPO_PATH/scripts/write-test-credentials.sh"
+fi
+log "Writing participant test credentials..."
+export COGNITO_TEST_CREDENTIALS_SECRET_ARN COGNITO_HOSTED_UI_URL AWS_REGION \
+       CODE_EDITOR_USER HOME_FOLDER CREDENTIALS_FILE
+if ! OUT_FILE="$CREDENTIALS_FILE" \
+    bash "$REPO_PATH/scripts/write-test-credentials.sh" 2>&1 \
+    | tee /var/log/pellier-write-credentials.log; then
+    fail "Could not write participant sign-in credentials to $CREDENTIALS_FILE"
+fi
+if [ ! -s "$CREDENTIALS_FILE" ]; then
+    fail "Participant credential file is missing or empty: $CREDENTIALS_FILE"
 fi
 
 # ============================================================================
@@ -1735,11 +1723,13 @@ if [ -n "$(_pool_id)" ]; then
          | grep -q "$OPERATOR_GROUP"; then
         OPERATOR_GROUP_OK=true
         log "✅ $OPERATOR_USERNAME is in $OPERATOR_GROUP"
-        printf 'Operator console (Pellier Operator)\n  Username: %s\n  Password: %s\n  Group:    %s\n\n' \
+        if ! printf 'Operator console (Pellier Operator)\n  Username: %s\n  Password: %s\n  Group:    %s\n\n' \
             "$OPERATOR_USERNAME" "$OPERATOR_PASSWORD" "$OPERATOR_GROUP" \
-            >> /workshop/test-credentials.txt 2>/dev/null || true
-        chmod 600 /workshop/test-credentials.txt 2>/dev/null || true
-        chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" /workshop/test-credentials.txt 2>/dev/null || true
+            >> "$CREDENTIALS_FILE"; then
+            fail "Could not add Pellier Operator credentials to $CREDENTIALS_FILE"
+        fi
+        chmod 600 "$CREDENTIALS_FILE"
+        chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CREDENTIALS_FILE"
     else
         warn "Could not verify $OPERATOR_USERNAME in $OPERATOR_GROUP — the Operator desk will refuse every caller with 403"
     fi
