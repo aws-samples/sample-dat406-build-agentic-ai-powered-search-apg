@@ -58,6 +58,21 @@ DATABASE = os.environ.get("DATABASE", "postgres")
 EMBED_MODEL_ID = os.environ.get("BEDROCK_EMBED_MODEL_ID", "us.cohere.embed-v4:0")
 SCHEMA = "pellier"
 _TURN_ID_RE = re.compile(r"^turn-[0-9a-f]{32}$")
+_LIKE_METACHARACTERS = re.compile(r"([\\%_])")
+
+
+def _prepare_like_pattern(term: str) -> str:
+    """Return a literal contains-match pattern for PostgreSQL LIKE.
+
+    The same helper the in-process path uses (``app._prepare_like_pattern``)
+    and the recommend server's copy. Escaping matters more here than it looks:
+    the category filter is a hard SQL predicate applied to *both* retrieval
+    branches before fusion, so an unescaped ``%`` or ``_`` in caller text does
+    not merely widen a display filter, it changes which candidates the
+    reranker ever sees. The value stays a bound parameter either way.
+    """
+    escaped = _LIKE_METACHARACTERS.sub(r"\\\1", str(term).lower())
+    return f"%{escaped}%"
 _GATEWAY_RETRIEVAL_INSERT = f"""
     INSERT INTO {SCHEMA}.retrieval_receipts (
         turn_id, query_hash, query_preview, search_plan,
@@ -202,7 +217,7 @@ def search_products_hybrid(
     category: str = None,
     limit: int = 5,
 ) -> dict:
-    """Hybrid retrieval: pgvector + Postgres FTS → RRF → Cohere Rerank v3.5.
+    """Hybrid retrieval: pgvector + Postgres FTS, RRF, Cohere Rerank v3.5.
 
     Mirrors `services.agent_tools.search_products_hybrid` but runs inside the
     Lambda microVM instead of the orchestrator's process. Three stages:
@@ -212,18 +227,20 @@ def search_products_hybrid(
          `pellier.product_catalog`. Each Data API `ExecuteStatement`
          carries exactly one statement, so we fold the two ranked lists
          into a CTE plus Reciprocal Rank Fusion (RRF) inside the same
-         query. (Multi-call transactions are supported — see the
-         `transactionId` path in `initiate_return` — but they still send
-         one statement per call.)
+         query. (Multi-call transactions are supported, see the
+         `transactionId` path in `initiate_return`, but they still send
+         one statement per call.) The hard filters (`max_price`,
+         `min_rating`, `category`, and in-stock) are WHERE predicates on
+         BOTH branches, before fusion, so an invalid row never enters the
+         pool, never consumes reranker capacity, and never shortens the
+         final list after the fact.
       2. The merged ~30-candidate pool is sent to Cohere Rerank v3.5
          (`cohere.rerank-v3-5:0`) through the Bedrock Agent Runtime
          `rerank` API (see `_bedrock_rerank`; IAM: `bedrock:Rerank`).
-      3. Top `limit` results are returned, with post-rerank filters for
-         max_price and min_rating applied last so the rerank order is
-         preserved.
+      3. The top `limit` reranked rows are returned in rerank order.
 
     On a Bedrock failure (rate limit, invalid response), we fall back to
-    RRF order — the Observatory surfaces this as a missing rerank stage in
+    RRF order; the Observatory surfaces this as a missing rerank stage in
     telemetry rather than crashing the request.
     """
     retrieval_started = time.monotonic()
@@ -231,25 +248,46 @@ def search_products_hybrid(
     embedding_ms = int((time.monotonic() - retrieval_started) * 1000)
     embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
 
-    # Hybrid retrieval in a single statement. RRF merges the two
-    # ranked lists by `1/(60 + rank)` — the same constant the
-    # in-process implementation uses, so participants get a one-to-one
-    # comparison between paths.
-    # Single statement only — Data API rejects a prepended SET (see
-    # semantic_search). The CTE shape already folds everything into one query.
+    where_clauses = ["quantity > 0"]
+    parameters = [
+        {"name": "embedding", "value": {"stringValue": embedding_str}},
+        {"name": "query", "value": {"stringValue": query}},
+    ]
+    if max_price:
+        where_clauses.append("price <= :max_price")
+        parameters.append({"name": "max_price", "value": {"doubleValue": float(max_price)}})
+    if min_rating:
+        where_clauses.append("rating >= :min_rating")
+        parameters.append({"name": "min_rating", "value": {"doubleValue": float(min_rating)}})
+    if category:
+        where_clauses.append("lower(category) LIKE :category")
+        parameters.append(
+            {
+                "name": "category",
+                "value": {"stringValue": _prepare_like_pattern(category)},
+            }
+        )
+    where_sql = " AND ".join(where_clauses)
+
+    # Hybrid retrieval in a single statement. RRF merges the two ranked
+    # lists by `1/(60 + rank)`, the same constant the in-process
+    # implementation uses, so participants get a one-to-one comparison
+    # between paths. Single statement only: Data API rejects a prepended
+    # SET (see semantic_search). The CTE shape folds everything into one
+    # query, and the same hard predicates gate both branches.
     sql = f"""
         WITH vector_results AS (
           SELECT "productId" AS pid,
                  row_number() OVER (ORDER BY embedding <=> :embedding::vector) AS vrank
           FROM {SCHEMA}.product_catalog
-          WHERE quantity > 0
+          WHERE {where_sql}
           LIMIT 20
         ),
         fts_results AS (
           SELECT "productId" AS pid,
                  row_number() OVER (ORDER BY ts_rank_cd(description_tsv, plainto_tsquery(:query)) DESC) AS frank
           FROM {SCHEMA}.product_catalog
-          WHERE quantity > 0
+          WHERE {where_sql}
             AND description_tsv @@ plainto_tsquery(:query)
           LIMIT 20
         ),
@@ -272,10 +310,6 @@ def search_products_hybrid(
         ORDER BY rrf.rrf_score DESC
         LIMIT 30;
     """
-    parameters = [
-        {"name": "embedding", "value": {"stringValue": embedding_str}},
-        {"name": "query", "value": {"stringValue": query}},
-    ]
     candidate_query_started = time.monotonic()
     candidates = _execute_sql(sql, parameters)
     candidate_query_ms = int((time.monotonic() - candidate_query_started) * 1000)
@@ -304,28 +338,9 @@ def search_products_hybrid(
         ordered = [{**c, "rerank_score": None} for c in candidates]
         search_method = "hybrid (rerank fallback to RRF order)"
 
-    # Apply post-rerank filters last so the rerank ordering is honoured.
-    filter_started = time.monotonic()
-    filtered = []
-    for p in ordered:
-        if max_price is not None:
-            try:
-                if float(p.get("price") or 0) > float(max_price):
-                    continue
-            except (TypeError, ValueError):
-                pass
-        if min_rating:
-            try:
-                if float(p.get("stars") or 0) < float(min_rating):
-                    continue
-            except (TypeError, ValueError):
-                pass
-        if category and category.lower() not in (p.get("category_name") or "").lower():
-            continue
-        filtered.append(p)
-        if len(filtered) >= limit:
-            break
-    filter_ms = int((time.monotonic() - filter_started) * 1000)
+    # The hard filters already ran in SQL before fusion, so the reranked
+    # order is the final order and only the limit applies here.
+    filtered = ordered[: max(1, int(limit))]
 
     return {
         "status": "success",
@@ -333,6 +348,7 @@ def search_products_hybrid(
         "count": len(filtered),
         "products": filtered,
         "search_method": search_method,
+        "strategy": "gateway-hybrid-rerank",
         "pool_size": len(candidates),
         # This does not leave the Lambda. ``lambda_handler`` uses it to
         # persist the exact candidate/ranking evidence, then removes it
@@ -346,11 +362,12 @@ def search_products_hybrid(
                 "cohere.rerank-v3-5:0" if rerank_results else None
             ),
             "retrieval_config": {
-                "strategy": "vector+fts_rrf+cohere_rerank",
+                "strategy": "gateway-hybrid-rerank",
                 "rrf_k": 60,
                 "candidate_limit": 30,
                 "rerank_top_n": min(limit * 3, 30),
                 "rerank_applied": bool(rerank_results),
+                "hard_filters_before_fusion": True,
             },
             "index_parameters": {
                 "vector_candidate_limit": 20,
@@ -360,7 +377,6 @@ def search_products_hybrid(
                 "embedding_ms": embedding_ms,
                 "candidate_query_ms": candidate_query_ms,
                 "rerank_ms": rerank_ms,
-                "post_filter_ms": filter_ms,
             },
         },
     }
@@ -939,6 +955,10 @@ def restock_inventory(
 
 # --- Lambda MCP handler ---
 
+# Every hybrid filter is a SQL predicate on both branches before fusion, never
+# a post-pass over the fused list. One sentence, three parameters.
+_PRE_FUSION_FILTER = "{} filter (SQL predicate on both branches before fusion)."
+
 TOOLS = {
     "search_products": {
         "fn": search_products,
@@ -962,9 +982,22 @@ TOOLS = {
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Natural language search query"},
-                "max_price": {"type": "number", "description": "Maximum price filter (post-rerank)"},
-                "min_rating": {"type": "number", "description": "Minimum star rating filter (post-rerank)", "default": 0.0},
-                "category": {"type": "string", "description": "Category substring filter (post-rerank). Leave unset to let the reranker pick across categories."},
+                "max_price": {
+                    "type": "number",
+                    "description": _PRE_FUSION_FILTER.format("Maximum price"),
+                },
+                "min_rating": {
+                    "type": "number",
+                    "description": _PRE_FUSION_FILTER.format("Minimum star rating"),
+                    "default": 0.0,
+                },
+                "category": {
+                    "type": "string",
+                    "description": (
+                        _PRE_FUSION_FILTER.format("Category substring")
+                        + " Leave unset to let the reranker pick across categories."
+                    ),
+                },
                 "limit": {"type": "integer", "description": "Max results to return", "default": 5},
             },
             "required": ["query"],

@@ -1213,6 +1213,124 @@ def search_products(
         return json.dumps({"error": str(e)})
 
 
+def _normalize_hybrid_product(row: dict) -> dict:
+    """Project one retrieval row onto the shape ``search_products`` returns."""
+    reviews_raw = row.get("reviews")
+    try:
+        reviews_int = int(reviews_raw) if reviews_raw is not None else 0
+    except (TypeError, ValueError):
+        reviews_int = 0
+    price = row.get("price")
+    rating = row.get("rating")
+    return {
+        "productId": row.get("product_id"),
+        "name": row.get("name", ""),
+        "brand": row.get("brand", ""),
+        "color": row.get("color", ""),
+        "description": row.get("description", ""),
+        "price": float(price) if hasattr(price, "__float__") else (price or 0),
+        "rating": float(rating) if hasattr(rating, "__float__") else (rating or 0),
+        "reviews": reviews_int,
+        "category": row.get("category", ""),
+        "imgUrl": row.get("img_url", ""),
+        "badge": row.get("badge"),
+        "tags": list(row.get("tags") or []),
+        "rrf_score": row.get("rrf_score"),
+        "rerank_score": row.get("rerank_score"),
+    }
+
+
+def _keeps_post_rerank_preferences(
+    product: dict,
+    *,
+    max_price: float | None,
+    min_rating: float,
+    category: str | None,
+) -> bool:
+    """Apply the caller's preferences to one reranked, already-eligible row.
+
+    Price and explicit category are hard predicates that ran in SQL before
+    RRF and were rechecked by the executor; the checks here are a last
+    defence, not the enforcement point. ``min_rating`` is genuinely post-hoc:
+    it is a preference the caller applies to the reranked list.
+    """
+    if max_price and product["price"] > max_price:
+        return False
+    if min_rating and product["rating"] < min_rating:
+        return False
+    if category and category.lower() not in str(product["category"]).lower():
+        return False
+    return True
+
+
+def _select_shown_products(
+    ordered: list[dict],
+    *,
+    limit: int,
+    max_price: float | None,
+    min_rating: float,
+    category: str | None,
+) -> tuple[list[dict], list[dict]]:
+    """Walk the eligible list in rank order and keep what the shopper sees.
+
+    Returns ``(rows, products)``: the raw retrieval rows and their normalized
+    projections, index-aligned, so the receipt can cite exactly the rows
+    behind the products in the payload.
+    """
+    rows: list[dict] = []
+    products: list[dict] = []
+    for row in ordered:
+        product = _normalize_hybrid_product(row)
+        if not _keeps_post_rerank_preferences(
+            product, max_price=max_price, min_rating=min_rating, category=category
+        ):
+            continue
+        rows.append(row)
+        products.append(product)
+        if len(products) >= limit:
+            break
+    return rows, products
+
+
+def _hybrid_retrieval_config() -> dict:
+    """The executor knobs the storefront runs with, recorded on the receipt."""
+    return {
+        "k_vector": settings.HYBRID_VECTOR_K,
+        "k_fts": settings.HYBRID_FTS_K,
+        "rrf_k": settings.HYBRID_RRF_K,
+        "top_n": settings.HYBRID_TOP_N,
+        "rerank_pool_k": settings.RERANK_MAX_DOCUMENTS,
+    }
+
+
+def _persist_hybrid_receipt(
+    *,
+    query: str,
+    execution,
+    shown_rows: list[dict],
+    merchandising_applied: list[dict],
+    retrieval_config: dict,
+) -> None:
+    """PROVE: persist the plan, per-stage ranks, and the rows actually cited."""
+    _write_retrieval_receipt(
+        query=query,
+        plan=execution.plan,
+        candidates=execution.candidates,
+        ordered=execution.ordered,
+        citation_rows=shown_rows,
+        merchandising_rules=merchandising_applied,
+        embedding_model=settings.BEDROCK_EMBEDDING_MODEL,
+        rerank_model=settings.BEDROCK_RERANK_MODEL,
+        retrieval_config={
+            **retrieval_config,
+            "rerank_pool_k": execution.rerank_pool_k,
+            "search_method": execution.search_method,
+            "relaxation_steps": execution.relaxation_steps,
+        },
+        latency_breakdown=execution.latency_breakdown(),
+    )
+
+
 @tool
 def search_products_hybrid(
     query: str,
@@ -1223,28 +1341,23 @@ def search_products_hybrid(
 ) -> str:
     """Hybrid pgvector + Postgres FTS + Cohere Rerank v3.5. Anna's Personalization Agent uses this.
 
-    Three-stage retrieval:
-      1. Vector branch (pgvector cosine) and FTS branch (tsvector
-         ts_rank_cd) run in parallel against pellier.product_catalog.
-      2. Reciprocal Rank Fusion merges the two ranked lists into a
-         single candidate pool of ~30 products.
-      3. Cohere Rerank v3.5 reorders the pool by relevance to the
-         original query and returns the top ``limit``.
+    Runs the shared search executor (``services.planned_hybrid_retrieval``):
+      1. A typed plan compiles the price ceiling and any explicit category
+         into SQL predicates applied to BOTH branches before fusion.
+      2. Vector branch (pgvector cosine) and FTS branch (tsvector
+         ts_rank_cd) run in parallel; Reciprocal Rank Fusion merges them.
+      3. Cohere Rerank v3.5 reorders a bounded pool; rows that break a hard
+         constraint are rechecked and refused; the top ``limit`` return.
 
-    Each stage adds a different kind of signal:
-      - Vector catches *meaning*: "something beautiful" → editorial pieces
-      - Postgres FTS catches *literals*: "candle" → only candle-shaped products
-      - Rerank catches *coherence*: "for a slow Sunday morning" → the
-        ceramic mug pulls ahead of the lounge set when the candidate
-        pool included both
+    Vector catches meaning, Postgres FTS catches literal tokens, and the
+    reranker scores coherence with the whole query.
 
     Args:
         query: Natural language search query
-        max_price: Maximum price filter (optional, applied post-rerank)
+        max_price: Maximum price filter (optional, a hard SQL predicate)
         min_rating: Minimum star rating (default: 0.0, applied post-rerank)
-        category: Category filter (optional — only applied as a hard
-            filter when the agent passes it explicitly, mirroring
-            search_products' behavior)
+        category: Category filter (optional, only applied as a hard filter
+            when the agent passes it explicitly, mirroring search_products)
         limit: Number of final results (default: 5)
     """
     if not _db_service:
@@ -1252,168 +1365,69 @@ def search_products_hybrid(
 
     try:
         from services.embeddings import EmbeddingService
-        from services.hybrid_search import HybridSearch
+        from services.planned_hybrid_retrieval import execute_search_plan
         from services.rerank import get_rerank_service
         from services.search_plan import build_plan
 
-        # Same explicit-vs-auto category guard as search_products. Anna's
-        # auto-detected categories ("linen" → "Linen") still don't match
-        # the catalog's higher-level taxonomy ("Apparel"); only filter
-        # when the agent supplies an explicit category.
-        category_was_explicit = bool(category)
+        # Only an explicit category is a hard filter, as in search_products:
+        # auto-detected ones ("linen") do not match the catalog taxonomy.
+        explicit_category = category if category else None
 
-        # PLAN. The model proposes a typed plan; deterministic code
-        # validates it and compiles the predicates. This is the same
-        # planner the Observatory comparison surface runs, so the "agentic"
-        # strategy the workshop demonstrates is the one shoppers get —
-        # not a parallel implementation that only exists in a demo.
-        #
-        # The plan is also what makes price and category *hard*: its
-        # predicates go into both retrieval branches before RRF, so
-        # invalid candidates never enter the pool, never consume reranker
-        # capacity, and never make the final list unexpectedly short after
-        # a post-filter pass.
-        extracted = _extract_query_structure(query)
+        # PLAN, then RETRIEVE through the planner and executor the Observatory
+        # comparison also runs: the demonstrated strategy is the shipped one.
         plan = build_plan(
             query,
-            extracted,
+            _extract_query_structure(query),
             price_max_usd=max_price,
-            category=category if category_was_explicit else None,
+            category=explicit_category,
             top_k=limit,
         )
-        hard_clauses, hard_params = plan.compile_predicates()
-
-        embedding_service = EmbeddingService()
-        query_embedding = embedding_service.embed_query(query)
-
-        hybrid = HybridSearch(_db_service)
-        # Pool size 30 — enough material for the reranker to reorder
-        # meaningfully; Cohere bills per call, not per candidate.
-        candidates = _run_async(
-            hybrid.search(
+        retrieval_config = _hybrid_retrieval_config()
+        execution = _run_async(
+            execute_search_plan(
+                _db_service,
+                plan=plan,
                 query=query,
-                query_embedding=query_embedding,
-                k_vector=settings.HYBRID_VECTOR_K,
-                k_fts=settings.HYBRID_FTS_K,
-                top_n=settings.HYBRID_TOP_N,
-                hard_clauses=hard_clauses,
-                hard_params=hard_params,
+                limit=limit,
+                embed=EmbeddingService().embed_query,
+                rerank=get_rerank_service().rerank,
+                config=retrieval_config,
             )
         )
 
-        # Build the per-document text the reranker reads. Three fields
-        # in priority order: name (carries brand identity), description
-        # (carries style + use case), category (coarse semantic anchor).
-        # Truncate descriptions at 240 chars to stay well below Cohere's
-        # per-document token limit.
-        def _doc_for_rerank(p: dict) -> str:
-            name = (p.get("name") or "").strip()
-            desc = (p.get("description") or "").strip()
-            cat = (p.get("category") or "").strip()
-            if len(desc) > 240:
-                desc = desc[:237] + "…"
-            return f"{name} — {desc} ({cat})"
-
-        documents = [_doc_for_rerank(p) for p in candidates]
-        rerank_service = get_rerank_service()
-        rerank_results = rerank_service.rerank(
-            query=query,
-            documents=documents,
-            top_n=min(limit * 3, settings.RERANK_MAX_DOCUMENTS),  # over-rerank then filter
+        # Merchandising reorders the eligible list before the limit cut.
+        ordered, merchandising_applied = _apply_merchandising_rules(query, execution.ordered)
+        shown_rows, products = _select_shown_products(
+            ordered,
+            limit=limit,
+            max_price=max_price,
+            min_rating=min_rating,
+            category=explicit_category,
         )
-
-        # Project candidates by reranked indices. If rerank failed
-        # (returned []), fall back to RRF order — the Observatory will show
-        # this as a missing rerank stage in telemetry.
-        if rerank_results:
-            ordered = [
-                {**candidates[r["index"]],
-                 "rerank_score": float(r["relevance_score"])}
-                for r in rerank_results
-            ]
-            search_method = "hybrid+rerank"
-        else:
-            ordered = [{**c, "rerank_score": None} for c in candidates]
-            search_method = "hybrid (rerank fallback to RRF order)"
-
-        ordered, merchandising_applied = _apply_merchandising_rules(query, ordered)
-
-        # Normalize field shapes to match search_products output.
-        normalized = []
-        for p in ordered:
-            reviews_raw = p.get("reviews")
-            try:
-                reviews_int = int(reviews_raw) if reviews_raw is not None else 0
-            except (TypeError, ValueError):
-                reviews_int = 0
-            product = {
-                "productId": p.get("product_id"),
-                "name": p.get("name", ""),
-                "brand": p.get("brand", ""),
-                "color": p.get("color", ""),
-                "description": p.get("description", ""),
-                "price": float(p["price"]) if hasattr(p.get("price"), '__float__') else p.get("price", 0),
-                "rating": float(p["rating"]) if hasattr(p.get("rating"), '__float__') else p.get("rating", 0),
-                "reviews": reviews_int,
-                "category": p.get("category", ""),
-                "imgUrl": p.get("img_url", ""),
-                "badge": p.get("badge"),
-                "tags": list(p.get("tags") or []),
-                "rrf_score": p.get("rrf_score"),
-                "rerank_score": p.get("rerank_score"),
-            }
-            # Hard price/category predicates already ran in SQL, before
-            # RRF. These checks are a defence-in-depth assertion, not the
-            # enforcement point. min_rating is genuinely post-hoc: it is a
-            # preference the caller applies to the reranked list.
-            if max_price and product["price"] > max_price:
-                continue
-            if min_rating and product["rating"] < min_rating:
-                continue
-            if (
-                category_was_explicit
-                and category
-                and category.lower() not in product["category"].lower()
-            ):
-                continue
-            normalized.append(product)
-
-        normalized = normalized[:limit]
 
         payload = {
             "status": "success",
             "query": query,
-            "count": len(normalized),
-            "products": normalized,
-            "search_method": search_method,
-            "pool_size": len(candidates),
-            "hard_constraints_enforced": plan.hard.describe(),
+            "count": len(products),
+            "products": products,
+            "search_method": execution.search_method,
+            "pool_size": len(execution.candidates),
+            "rerank_pool_k": execution.rerank_pool_k,
+            "hard_constraints_enforced": execution.plan.hard.describe(),
             "constraints_applied_before_rerank": True,
-            "search_plan": plan.to_dict(),
+            "search_plan": execution.plan.to_dict(),
         }
         if merchandising_applied:
             # Disclosed, not hidden: a ranking signal other than relevance
             # moved a product, and the response says so.
             payload["merchandising_rules_applied"] = merchandising_applied
 
-        # PROVE. Persist why this result set appeared: the plan, the
-        # per-branch ranks, the rerank scores, and any declared
-        # merchandising rule. Best-effort — see _write_retrieval_receipt.
-        _write_retrieval_receipt(
+        _persist_hybrid_receipt(
             query=query,
-            plan=plan,
-            candidates=candidates,
-            ordered=ordered,
-            merchandising_rules=merchandising_applied,
-            embedding_model=settings.BEDROCK_EMBEDDING_MODEL,
-            rerank_model=settings.BEDROCK_RERANK_MODEL,
-            retrieval_config={
-                "k_vector": settings.HYBRID_VECTOR_K,
-                "k_fts": settings.HYBRID_FTS_K,
-                "rrf_k": settings.HYBRID_RRF_K,
-                "top_n": settings.HYBRID_TOP_N,
-                "search_method": search_method,
-            },
+            execution=execution,
+            shown_rows=shown_rows,
+            merchandising_applied=merchandising_applied,
+            retrieval_config=retrieval_config,
         )
         return json.dumps(payload, indent=2)
     except Exception as e:

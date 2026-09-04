@@ -3,17 +3,34 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi import HTTPException
 
+from config import settings
+
 import app as app_module
 import services.embeddings as embeddings_module
 import services.hybrid_search as hybrid_module
+import services.planned_hybrid_retrieval as retrieval_module
 import services.rerank as rerank_module
+import services.retrieval_receipt as receipt_module
 import services.structured_extract as extract_module
 import services.vector_search as vector_module
+import services.agent_tools as agent_tools_module
+
+REPO = Path(__file__).resolve().parents[3]
+LAB_2_SQL = REPO / "workshop" / "lab-2-rrf.sql"
+LAB_2_STARTER_SQL = REPO / "workshop" / "starters" / "lab-2-rrf.sql"
+LAB_2_SOLUTION_SQL = (
+    REPO / "solutions" / "the-quiet-search" / "sql" / "lab-2-rrf-solution.sql"
+)
+LAB_2_MARKERS = (
+    "-- === WORKSHOP · PostgreSQL RRF · fusion expression: START ===",
+    "-- === WORKSHOP · PostgreSQL RRF · fusion expression: END ===",
+)
 
 
 class _Embedding:
@@ -39,7 +56,7 @@ class _VectorSearch:
                 "name": f"Filtered {index}",
                 "product_id": index,
                 "description": "A filtered result",
-                "category": "Home",
+                "category": "Home Decor",
             }
             for index in range(1, 7)
         ]
@@ -56,7 +73,7 @@ class _VectorSearch:
                 "name": f"Planned {index}",
                 "product_id": index,
                 "description": "A planned result",
-                "category": "Home",
+                "category": "Home Decor",
             }
             for index in range(1, 7)
         ]
@@ -69,12 +86,27 @@ class _HybridSearch:
 
     async def search(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
         self.search_calls.append(kwargs)
+        return self._rows()
+
+    async def search_explained(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        rows = self._rows()
+        return {
+            "vector_rows": rows,
+            "fts_rows": rows,
+            "merged": rows,
+            "params": {"k_vector": 20, "k_fts": 20, "rrf_k": 60, "top_n": 5},
+            "vector_sql": "SELECT 1",
+            "fts_sql": "SELECT 2",
+        }
+
+    @staticmethod
+    def _rows() -> list[dict[str, Any]]:
         return [
             {
                 "name": f"Hybrid {index}",
                 "product_id": index,
                 "description": "A hybrid result",
-                "category": "Home",
+                "category": "Home Decor",
             }
             for index in range(1, 7)
         ]
@@ -135,6 +167,19 @@ def _stub_services(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture
+def receipt_writes(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+    """Record every retrieval receipt the comparison persists."""
+    written: list[Any] = []
+
+    async def _persist(db: Any, receipt: Any) -> bool:
+        written.append(receipt)
+        return True
+
+    monkeypatch.setattr(receipt_module, "persist_receipt", _persist)
+    return written
+
+
 def test_comparison_labels_single_run_latency_and_modeled_cost_honestly() -> None:
     body = asyncio.run(
         app_module.compare_search_strategies(
@@ -169,6 +214,51 @@ def test_comparison_labels_single_run_latency_and_modeled_cost_honestly() -> Non
         assert strategy["rerank"]["status"] == "applied"
         assert strategy["rerank"]["model"] == "cohere.rerank-v3-5:0"
         assert strategy["rerank"]["candidates"] >= strategy["rerank"]["returned"] > 0
+        assert strategy["rerank"]["poolK"] >= 3
+    assert agentic["strategy"] == "agentic (Sonnet → filter → hybrid → rerank)"
+    assert agentic["shares_storefront_executor"] is True
+    assert "shares_storefront_executor" not in body["strategies"][2]
+
+
+def test_hybrid_rerank_strategy_runs_an_unconstrained_plan_without_widening() -> None:
+    body = asyncio.run(
+        app_module.compare_search_strategies(
+            query="A milestone gift for a new homeowner"
+        )
+    )
+
+    hybrid_rerank = body["strategies"][2]
+    assert hybrid_rerank["strategy"] == "hybrid + rerank"
+    assert hybrid_rerank["rerank"]["candidates"] == 6
+    assert "extractedFilters" not in hybrid_rerank
+    assert "relaxations" not in hybrid_rerank
+
+
+def test_agentic_strategy_persists_one_receipt_citing_its_returned_rows(
+    receipt_writes: list[Any],
+) -> None:
+    """Lab 2's SQL reads this receipt; it must describe the rows the row shows."""
+    body = asyncio.run(
+        app_module.compare_search_strategies(
+            query="A housewarming gift under $100 that is currently in stock."
+        )
+    )
+
+    assert len(receipt_writes) == 1
+    row = receipt_writes[0].to_row()
+    agentic = body["strategies"][3]
+    shown = [str(product["productId"]) for product in agentic["products"]]
+    assert row["citation_ids"] == shown
+    assert [s["entity_id"] for s in row["citation_snapshots"]] == shown
+    assert row["query_preview"] == (
+        "A housewarming gift under $100 that is currently in stock."
+    )
+    assert row["hard_constraints"]["price_max_usd"] == 100.0
+    assert set(row["candidate_product_ids"]) >= set(shown)
+    assert row["rerank_scores"]
+    assert row["rail"] == "in-process"
+    assert row["retrieval_config"]["source"] == "observatory-compare"
+    assert row["latency_breakdown"]
 
 
 def test_comparison_discloses_rerank_fallback_instead_of_reusing_the_label(
@@ -187,13 +277,18 @@ def test_comparison_discloses_rerank_fallback_instead_of_reusing_the_label(
     )
 
     hybrid_rerank = body["strategies"][2]["rerank"]
+    # An unconfigured pool resolves to the reranker's own document cap, which
+    # is the value the fallback disclosure must report: the pool the reranker
+    # was offered, not the zero documents it came back with.
     assert hybrid_rerank == {
         "status": "fallback",
         "model": "cohere.rerank-v3-5:0",
         "candidates": 6,
         "returned": 0,
+        "poolK": 30,
         "fallbackOrder": "rrf",
     }
+    assert settings.RERANK_MAX_DOCUMENTS == 30
     agentic_rerank = body["strategies"][3]["rerank"]
     assert agentic_rerank["status"] == "fallback"
     assert agentic_rerank["fallbackOrder"] == "planned-hybrid-rrf"
@@ -245,6 +340,180 @@ def test_comparison_rejects_blank_query() -> None:
     with pytest.raises(HTTPException) as exc_info:
         asyncio.run(app_module.compare_search_strategies(query="  "))
     assert exc_info.value.status_code == 400
+
+
+def test_the_comparison_runs_both_planned_strategies_through_the_shared_executor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Behavioral, not textual: the real executor is called, twice, as configured.
+
+    Strategy 3 runs an unconstrained plan with widening off; strategy 4 runs the
+    extracted plan with the storefront's ladder. Counting call sites in the
+    source proved neither, and would have broken on a reformat.
+    """
+    real = retrieval_module.execute_search_plan
+    calls: list[dict[str, Any]] = []
+
+    async def _recording(db: Any, **kwargs: Any) -> Any:
+        calls.append(kwargs)
+        return await real(db, **kwargs)
+
+    monkeypatch.setattr(retrieval_module, "execute_search_plan", _recording)
+
+    body = asyncio.run(
+        app_module.compare_search_strategies(
+            query="A milestone gift for a new homeowner"
+        )
+    )
+
+    assert len(calls) == 2
+    unconstrained, agentic = calls
+    assert unconstrained["relax"] is False
+    assert unconstrained["plan"].hard.price_max_usd is None
+    assert agentic.get("relax", True) is True
+    assert agentic["plan"].hard.price_max_usd == 100.0
+    # Both strategies embed once for the whole request, not once each.
+    assert unconstrained["embed"] is agentic["embed"]
+    # And the rows the executor returned are the rows the surface reports.
+    assert [product["name"] for product in body["strategies"][3]["products"]]
+
+
+def test_the_search_explain_surface_deliberately_does_not_run_the_executor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """It exposes the artifacts the executor collapses, so it drives the branches.
+
+    Pinned behaviorally so the divergence stays a decision. The docstrings in
+    ``services/planned_hybrid_retrieval.py`` and on ``explain_search`` record
+    the reasoning; if this fails, one of them is stale.
+    """
+
+    async def _forbidden(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError(
+            "explain_search ran the shared executor; update the docstrings or "
+            "route it deliberately"
+        )
+
+    monkeypatch.setattr(retrieval_module, "execute_search_plan", _forbidden)
+
+    body = asyncio.run(app_module.explain_search(query="linen for a resort"))
+
+    assert [stage["stage"] for stage in body["stages"]][:2] == ["embed", "vector"]
+
+
+def _lab_2_receipt_cte() -> str:
+    """The ``receipt`` CTE from the Lab 2 build artifact, as shipped."""
+    text = LAB_2_SQL.read_text(encoding="utf-8")
+    start = text.index("WITH receipt AS (")
+    end = text.index(")", text.index("LIMIT 1", start)) + 1
+    return text[start:end]
+
+
+def test_lab_2_selects_the_comparison_surface_and_names_the_turn_it_read() -> None:
+    """No query literal survives in the selection, and the marker block is intact.
+
+    The selection is the high-water mark plus the receipt's own record of which
+    surface wrote it. Both are needed: the mark alone would read any newer
+    storefront turn, and matching the query text broke the moment the surfaces
+    stopped sending one exact sentence.
+    """
+    text = LAB_2_SQL.read_text(encoding="utf-8")
+    cte = _lab_2_receipt_cte()
+
+    predicates = [
+        line.strip()
+        for line in cte.splitlines()
+        if line.strip().startswith(("WHERE ", "AND "))
+    ]
+    assert predicates == [
+        "WHERE receipt_id > :'receipt_high_water'::bigint",
+        "AND retrieval_config->>'source' = "
+        f"'{app_module.OBSERVATORY_COMPARE_RECEIPT_SOURCE}'",
+    ]
+    assert "query_preview =" not in text
+    assert "ORDER BY receipt_id DESC" in cte
+    assert "LIMIT 1" in cte
+    # The participant can see which turn the fusion table came from.
+    assert "r.query_preview," in text
+    assert "\\echo 'Lab 2 fusion source query:' :lab_2_query" in text
+    for marker in LAB_2_MARKERS:
+        assert text.count(marker) == 1
+
+
+def test_every_shipped_copy_of_lab_2_carries_the_same_receipt_selection() -> None:
+    """Starter and solution differ by the fusion expression, never by the source."""
+    predicate = (
+        "AND retrieval_config->>'source' = "
+        f"'{app_module.OBSERVATORY_COMPARE_RECEIPT_SOURCE}'"
+    )
+    for path in (LAB_2_SQL, LAB_2_STARTER_SQL, LAB_2_SOLUTION_SQL):
+        assert predicate in path.read_text(encoding="utf-8"), path
+
+
+def test_the_storefront_writer_leaves_the_comparison_source_unset() -> None:
+    """The discriminator only discriminates while only one surface sets it."""
+    assert "source" not in agent_tools_module._hybrid_retrieval_config()
+
+
+def test_lab_2_would_select_exactly_the_receipt_the_comparison_just_wrote(
+    receipt_writes: list[Any],
+) -> None:
+    """The one coupling that matters: endpoint writes it, Lab 2 reads it.
+
+    The simulated table starts with three older receipts, including one
+    carrying the retired literal the SQL used to pin, so a selection that
+    still matched on query text would pick the wrong row. A storefront
+    retrieval receipt then lands *after* the comparison's, which is what any
+    ordinary shopper turn does while the participant reads the page: a
+    selection that took the newest row above the mark would read that turn.
+    """
+    retired = "Keep the gift under $100 and show me the strongest two options."
+    storefront_config = agent_tools_module._hybrid_retrieval_config()
+    table: list[dict[str, Any]] = [
+        {"receipt_id": 1, "query_preview": retired, "retrieval_config": {}},
+        {
+            "receipt_id": 2,
+            "query_preview": "Marco's Brooklyn warehouse turn",
+            "retrieval_config": storefront_config,
+        },
+        {"receipt_id": 3, "query_preview": retired, "retrieval_config": {}},
+    ]
+    high_water = max(row["receipt_id"] for row in table)
+    query = "Something quietly celebratory for a first flat"
+
+    asyncio.run(app_module.compare_search_strategies(query=query))
+
+    assert len(receipt_writes) == 1
+    written = receipt_writes[0].to_row()
+    table.append(
+        {
+            "receipt_id": high_water + 1,
+            "query_preview": written["query_preview"],
+            "retrieval_config": written["retrieval_config"],
+        }
+    )
+    table.append(
+        {
+            "receipt_id": high_water + 2,
+            "query_preview": "linen for a resort",
+            "retrieval_config": storefront_config,
+        }
+    )
+
+    # The shipped predicate, applied: above the high-water mark, written by the
+    # comparison surface, newest first, one row. Nothing reads the query text.
+    candidates = [
+        row
+        for row in table
+        if row["receipt_id"] > high_water
+        and row["retrieval_config"].get("source")
+        == app_module.OBSERVATORY_COMPARE_RECEIPT_SOURCE
+    ]
+    selected = sorted(candidates, key=lambda row: row["receipt_id"], reverse=True)[0]
+
+    assert selected["receipt_id"] == high_water + 1
+    assert selected["query_preview"] == query
+    assert selected["query_preview"] != retired
 
 
 def teardown_function() -> None:

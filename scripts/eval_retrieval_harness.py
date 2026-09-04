@@ -8,6 +8,11 @@ Runs the same Aurora catalog through four retrieval strategies:
 * hybrid+rerank
 * agentic, planned by the *real* ``services.search_plan`` planner
 
+Every strategy runs through the backend's shared executor,
+``services.planned_hybrid_retrieval.execute_search_plan``. The harness owns
+no SQL, no fusion, and no rerank call of its own: an evaluation that scores a
+private copy of the pipeline cannot detect a regression in the shipped one.
+
 The agentic row deliberately does **not** use the pinned filters in each
 golden query's definition. Pinned filters make that row an oracle-filter
 experiment: it measures how good retrieval could be if a perfect planner
@@ -19,16 +24,18 @@ into a healthy-looking recall figure.
 
 Three evaluation layers, per the governed-workshop audit:
 
-1. **Planner correctness** — did the plan recover the expected hard
+1. **Planner correctness**: did the plan recover the expected hard
    constraints, and did it invent any that were not asked for?
-2. **Retriever/ranker quality** — Recall@5, Hit@1, MRR@5, candidate
+2. **Retriever/ranker quality**: Recall@5, Hit@1, MRR@5, candidate
    coverage, short-result rate, and hard-constraint compliance.
-3. **Exit status** — the harness fails with a non-zero exit code when a
+3. **Exit status**: the harness fails with a non-zero exit code when a
    threshold regresses, so CI can gate on relevance instead of merely
    printing it.
 
-The harness is intentionally standalone. It does not need the FastAPI server
-running, but it uses the same Bedrock models and PostgreSQL tables as the app.
+The harness does not need the FastAPI server running, but it uses the same
+Bedrock models, the same database service, and the same PostgreSQL tables as
+the app. ``--pool-k`` is the candidate count per branch before RRF and the
+rerank pool bound, so a small value shows what the reranker cannot recover.
 
 Run ``--json`` for machine-readable output, ``--no-gate`` to report without
 enforcing thresholds (useful when exploring), and ``--strict-planner`` to
@@ -38,22 +45,22 @@ also gate on planner precision.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
-import re
+import sys
 import time
 from dataclasses import dataclass, field
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import boto3
-import psycopg
-from psycopg.rows import dict_row
 
 
 EMBED_MODEL_DEFAULT = "us.cohere.embed-v4:0"
 RERANK_MODEL_DEFAULT = "cohere.rerank-v3-5:0"
+
+STRATEGIES = ("vector", "hybrid", "rerank", "agentic")
 
 
 # CI thresholds. A regression below any of these fails the run with a
@@ -96,6 +103,16 @@ class GoldenQuery:
 
 
 GOLDEN_QUERIES: tuple[GoldenQuery, ...] = (
+    # The canonical Lab 2 query. Expected ids are the in-stock Home Decor
+    # pieces tagged both ``gift`` and ``home`` at or under $100 in
+    # scripts/seed_pellier_catalog.py; the backend pins the same entry as
+    # ``planned_hybrid_retrieval.CANONICAL_ANNA_GOLDEN_IDS``.
+    GoldenQuery(
+        "anna_housewarming",
+        "A housewarming gift under $100 that is currently in stock.",
+        ("21", "22", "23", "25", "27", "29"),
+        Filters(categories=("Home Decor", "Gifts"), tags=("gift", "home"), price_max=100),
+    ),
     GoldenQuery(
         "goa_linen",
         "linen shirts and layers for ten days in Goa",
@@ -205,36 +222,36 @@ def _load_env() -> None:
             os.environ[key.strip()] = value.strip().strip("'\"")
 
 
-def _require(name: str) -> str:
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise SystemExit(f"Missing required environment variable: {name}")
-    return value
+def _import_backend() -> dict[str, Any]:
+    """Import the shipped planner, executor, and services from the backend.
 
+    The harness is standalone, so the backend package is not on the path
+    by default. Importing it here (rather than reimplementing retrieval)
+    is the whole point: an evaluation that scores its own private copy of
+    the pipeline cannot detect a regression in the shipped one.
+    """
+    backend = _repo_root() / "pellier" / "backend"
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+    from services import search_plan  # noqa: PLC0415
+    from services.database import DatabaseService  # noqa: PLC0415
+    from services.planned_hybrid_retrieval import execute_search_plan  # noqa: PLC0415
+    from services.rerank import get_rerank_service  # noqa: PLC0415
+    from services.structured_extract import get_structured_extractor  # noqa: PLC0415
 
-def _connect() -> psycopg.Connection[Any]:
-    return psycopg.connect(
-        host=_require("DB_HOST"),
-        port=os.environ.get("DB_PORT", "5432"),
-        user=_require("DB_USER"),
-        password=_require("DB_PASSWORD"),
-        dbname=_require("DB_NAME"),
-        row_factory=dict_row,
-    )
-
-
-def _vector_literal(values: list[float]) -> str:
-    return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
-
-
-def _jsonable(value: Any) -> Any:
-    if isinstance(value, Decimal):
-        return float(value)
-    if isinstance(value, list):
-        return [_jsonable(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _jsonable(v) for k, v in value.items()}
-    return value
+    return {
+        "build_plan": search_plan.build_plan,
+        "strategies": {
+            "vector": search_plan.STRATEGY_VECTOR,
+            "hybrid": search_plan.STRATEGY_HYBRID,
+            "rerank": search_plan.STRATEGY_HYBRID_RERANK,
+        },
+        "strict_policy": search_plan.RELAXATION_POLICY_STRICT,
+        "database_service": DatabaseService,
+        "execute_search_plan": execute_search_plan,
+        "rerank": get_rerank_service().rerank,
+        "extractor": get_structured_extractor(),
+    }
 
 
 def _embed_queries(queries: list[str], *, region: str, model_id: str) -> list[list[float]]:
@@ -262,24 +279,6 @@ def _embed_queries(queries: list[str], *, region: str, model_id: str) -> list[li
     return [[float(v) for v in vector] for vector in vectors]
 
 
-def _import_backend_planner() -> Any:
-    """Import the shipped planner so the agentic row runs real code.
-
-    The harness is standalone, so the backend package is not on the path
-    by default. Importing it here (rather than reimplementing planning)
-    is the whole point: an evaluation that scores its own private copy of
-    the planner cannot detect a planner regression.
-    """
-    import sys
-
-    backend = Path(__file__).resolve().parents[1] / "pellier" / "backend"
-    if str(backend) not in sys.path:
-        sys.path.insert(0, str(backend))
-    from services.search_plan import build_plan  # noqa: PLC0415
-
-    return build_plan
-
-
 def _plan_for(build_plan: Any, golden: "GoldenQuery", extractor: Any, top_k: int) -> Any:
     """Run the shipped extractor + planner for one golden query.
 
@@ -293,6 +292,32 @@ def _plan_for(build_plan: Any, golden: "GoldenQuery", extractor: Any, top_k: int
         print(f"  ! extractor failed for {golden.label}: {exc}")
         extracted = {}
     return build_plan(golden.query, extracted, top_k=top_k)
+
+
+def _baseline_plan(backend: dict[str, Any], query: str, strategy: str, top_k: int) -> Any:
+    """A plan with no model input for the three non-agentic rows.
+
+    ``in_stock_only`` is pinned so the baselines measure the sellable
+    catalog, the same population the golden ids were labeled against.
+    """
+    return backend["build_plan"](
+        query,
+        {"in_stock_only": True},
+        top_k=top_k,
+        retrieval_strategy=backend["strategies"][strategy],
+        relaxation_policy=backend["strict_policy"],
+    )
+
+
+def _executor_config(args: argparse.Namespace) -> dict[str, Any]:
+    pool_k = max(1, int(args.pool_k))
+    return {
+        "k_vector": pool_k,
+        "k_fts": pool_k,
+        "rrf_k": int(args.rrf_k),
+        "top_n": max(pool_k, int(args.top_k)),
+        "rerank_pool_k": pool_k,
+    }
 
 
 def _score_plan(plan: Any, expected: Filters) -> dict[str, Any]:
@@ -376,142 +401,6 @@ def _score_compliance(rows: list[dict[str, Any]], plan: Any) -> dict[str, int]:
     }
 
 
-def _plan_filters(plan: Any) -> "Filters":
-    """Project a ``SearchPlan``'s hard constraints onto harness Filters.
-
-    Soft tag preferences are deliberately excluded: they are preferences,
-    and the harness measures what the *hard* constraints did to recall.
-    """
-    return Filters(
-        categories=tuple(plan.hard.categories),
-        tags=(),
-        price_max=plan.hard.price_max_usd,
-    )
-
-
-def _where_for_filters(filters: Filters, params: list[Any]) -> str:
-    clauses = ['"imgUrl" IS NOT NULL', "embedding IS NOT NULL", "quantity > 0"]
-    if filters.categories:
-        clauses.append("category = ANY(%s)")
-        params.append(list(filters.categories))
-    if filters.tags:
-        clauses.append("tags ?| %s")
-        params.append(list(filters.tags))
-    if filters.price_max is not None:
-        clauses.append("price <= %s")
-        params.append(float(filters.price_max))
-    return " AND ".join(clauses)
-
-
-def _vector_search(conn: psycopg.Connection[Any], vector: list[float], *, limit: int, filters: Filters | None = None) -> list[dict[str, Any]]:
-    params: list[Any] = [_vector_literal(vector)]
-    where = _where_for_filters(filters or Filters(), params)
-    sql = f"""
-        SELECT product_id, name, category, price, tags, description,
-               1 - (embedding <=> %s::vector) AS score
-        FROM pellier.product_catalog
-        WHERE {where}
-        ORDER BY embedding <=> %s::vector
-        LIMIT %s;
-    """
-    params.extend([_vector_literal(vector), int(limit)])
-    with conn.cursor() as cur:
-        cur.execute("SET LOCAL hnsw.iterative_scan = 'relaxed_order'")
-        cur.execute(sql, params)
-        return [_jsonable(dict(row)) for row in cur.fetchall()]
-
-
-def _fts_search(conn: psycopg.Connection[Any], query: str, *, limit: int, filters: Filters | None = None) -> list[dict[str, Any]]:
-    params: list[Any] = [query]
-    where = _where_for_filters(filters or Filters(), params)
-    sql = f"""
-        WITH q AS (
-            SELECT websearch_to_tsquery('english', %s) AS ts_q
-        )
-        SELECT product_id, name, category, price, tags, description,
-               ts_rank_cd(description_tsv, q.ts_q) AS score
-        FROM pellier.product_catalog
-        CROSS JOIN q
-        WHERE {where}
-          AND description_tsv @@ q.ts_q
-        ORDER BY score DESC
-        LIMIT %s;
-    """
-    params.append(int(limit))
-    with conn.cursor() as cur:
-        cur.execute(sql, params)
-        return [_jsonable(dict(row)) for row in cur.fetchall()]
-
-
-def _rrf_merge(vector_rows: list[dict[str, Any]], fts_rows: list[dict[str, Any]], *, rrf_k: int, limit: int) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
-    for rows, rank_key in ((vector_rows, "vector_rank"), (fts_rows, "fts_rank")):
-        for idx, row in enumerate(rows, start=1):
-            pid = str(row["product_id"])
-            item = merged.setdefault(pid, {**row, "rrf_score": 0.0, "vector_rank": None, "fts_rank": None})
-            item["rrf_score"] += 1.0 / (rrf_k + idx)
-            item[rank_key] = idx
-    return sorted(merged.values(), key=lambda row: (-row["rrf_score"], str(row["product_id"])))[:limit]
-
-
-def _hybrid_search(
-    conn: psycopg.Connection[Any],
-    query: str,
-    vector: list[float],
-    *,
-    rrf_k: int,
-    pool_k: int,
-    limit: int,
-    filters: Filters | None = None,
-) -> list[dict[str, Any]]:
-    vector_rows = _vector_search(conn, vector, limit=pool_k, filters=filters)
-    fts_rows = _fts_search(conn, query, limit=pool_k, filters=filters)
-    return _rrf_merge(vector_rows, fts_rows, rrf_k=rrf_k, limit=limit)
-
-
-def _document(row: dict[str, Any]) -> str:
-    tags = ", ".join(row.get("tags") or [])
-    return (
-        f"Name: {row['name']}. Category: {row['category']}. "
-        f"Price: ${float(row['price']):.0f}. Tags: {tags}. "
-        f"Description: {row.get('description') or ''}"
-    )
-
-
-def _rerank(query: str, candidates: list[dict[str, Any]], *, region: str, model_id: str, limit: int) -> list[dict[str, Any]]:
-    if not candidates:
-        return []
-    model_arn = model_id if model_id.startswith("arn:") else f"arn:aws:bedrock:{region}::foundation-model/{model_id}"
-    sources = [
-        {
-            "type": "INLINE",
-            "inlineDocumentSource": {
-                "type": "TEXT",
-                "textDocument": {"text": _document(row)},
-            },
-        }
-        for row in candidates
-    ]
-    client = boto3.client("bedrock-agent-runtime", region_name=region)
-    response = client.rerank(
-        queries=[{"type": "TEXT", "textQuery": {"text": query}}],
-        sources=sources,
-        rerankingConfiguration={
-            "type": "BEDROCK_RERANKING_MODEL",
-            "bedrockRerankingConfiguration": {
-                "modelConfiguration": {"modelArn": model_arn},
-                "numberOfResults": min(limit, len(sources)),
-            },
-        },
-    )
-    out = []
-    for item in response.get("results", []):
-        row = dict(candidates[int(item["index"])])
-        row["rerank_score"] = float(item.get("relevanceScore", 0.0))
-        out.append(row)
-    return out[:limit]
-
-
 def _recall_at_5(product_ids: list[str], expected: tuple[str, ...]) -> tuple[int, int, float]:
     hits = len(set(product_ids[:5]) & set(expected))
     total = len(expected)
@@ -552,18 +441,21 @@ def _print_summary(results: dict[str, list[tuple[int, int, float, int, int]]]) -
         )
 
 
-def _metric_totals(results: dict[str, list[tuple[int, int, float, int, int]]]) -> dict[str, dict[str, float]]:
+def _metric_totals(
+    results: dict[str, list[tuple[int, int, float, int, int]]],
+) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     for strategy, pairs in results.items():
         hits = sum(pair[0] for pair in pairs)
         expected = sum(pair[1] for pair in pairs)
+        count = len(pairs) or 1
         out[strategy] = {
             "hits": hits,
             "expected": expected,
             "recall_at_5": round(hits / expected if expected else 0.0, 3),
-            "hit_at_1": round(sum(pair[3] for pair in pairs) / len(pairs), 3) if pairs else 0.0,
-            "mrr_at_5": round(sum(pair[2] for pair in pairs) / len(pairs), 3) if pairs else 0.0,
-            "short_result_rate_at_5": round(sum(pair[4] for pair in pairs) / len(pairs), 3) if pairs else 0.0,
+            "hit_at_1": round(sum(pair[3] for pair in pairs) / count, 3),
+            "mrr_at_5": round(sum(pair[2] for pair in pairs) / count, 3),
+            "short_result_rate_at_5": round(sum(pair[4] for pair in pairs) / count, 3),
         }
     return out
 
@@ -683,10 +575,285 @@ def _evaluate_gate(
     }
 
 
+async def _run_strategies(
+    db: Any,
+    golden: GoldenQuery,
+    vector: list[float],
+    *,
+    backend: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, dict[str, Any]]:
+    """Run the four strategies for one golden query through the executor.
+
+    The embedding was batched up front, so ``embed`` hands it back unchanged
+    and the per-strategy timing covers retrieval, fusion, rerank, and the
+    eligibility recheck only. The agentic row is the only one allowed to
+    widen: it runs the shipped relaxation ladder exactly as the storefront
+    tool does. Baseline rows use a strict single-rung plan.
+    """
+    config = _executor_config(args)
+    top_k = int(args.top_k)
+
+    def embed(_query: str) -> list[float]:
+        return vector
+
+    plans = {
+        "vector": (_baseline_plan(backend, golden.query, "vector", top_k), False),
+        "hybrid": (_baseline_plan(backend, golden.query, "hybrid", top_k), False),
+        "rerank": (_baseline_plan(backend, golden.query, "rerank", top_k), False),
+        "agentic": (
+            _plan_for(backend["build_plan"], golden, backend["extractor"], top_k),
+            True,
+        ),
+    }
+    outcomes: dict[str, dict[str, Any]] = {}
+    for strategy in STRATEGIES:
+        plan, relax = plans[strategy]
+        started = time.perf_counter()
+        execution = await backend["execute_search_plan"](
+            db,
+            plan=plan,
+            query=golden.query,
+            limit=top_k,
+            embed=embed,
+            rerank=backend["rerank"],
+            config=config,
+            relax=relax,
+        )
+        outcomes[strategy] = {
+            "execution": execution,
+            "elapsed_s": time.perf_counter() - started,
+        }
+    return outcomes
+
+
+def _detail_for(
+    golden: GoldenQuery,
+    outcomes: dict[str, dict[str, Any]],
+    *,
+    top_k: int,
+) -> dict[str, Any]:
+    """Score one golden query's outcomes into the per-query report row.
+
+    Coverage is labeled with the pool the executor actually used, read back
+    off the execution. ``--pool-k`` is a request, not a setting: the executor
+    clamps it to the reranker's document cap and ``HybridSearch`` raises each
+    branch to at least five, so reporting the requested number would label a
+    pool of 30 as "@50".
+    """
+    agentic = outcomes["agentic"]["execution"]
+    detail: dict[str, Any] = {
+        "label": golden.label,
+        "query": golden.query,
+        "expected": list(golden.expected),
+        "latency_ms": {
+            strategy: round(outcomes[strategy]["elapsed_s"] * 1000, 1)
+            for strategy in STRATEGIES
+        },
+        "stage_latency_ms": {
+            strategy: outcomes[strategy]["execution"].latency_breakdown()
+            for strategy in STRATEGIES
+        },
+    }
+    hybrid_execution = outcomes["hybrid"]["execution"]
+    pool_ids = [str(row["product_id"]) for row in hybrid_execution.rerank_pool]
+    coverage_hits, coverage_total, coverage = _recall(pool_ids, golden.expected)
+    detail["hybrid_candidate_coverage"] = {
+        "pool_k": hybrid_execution.rerank_pool_k,
+        "hits": coverage_hits,
+        "expected": coverage_total,
+        "coverage": round(coverage, 3),
+    }
+    detail["planner"] = _score_plan(agentic.plan, golden.filters)
+    detail["agentic_hard_constraint_compliance"] = _score_compliance(
+        agentic.returned, agentic.plan
+    )
+    detail["search_plan"] = agentic.plan.to_dict()
+    for strategy in STRATEGIES:
+        product_ids = [
+            str(row["product_id"]) for row in outcomes[strategy]["execution"].returned
+        ]
+        hits, total, recall = _recall_at_5(product_ids, golden.expected)
+        detail[strategy] = {
+            "top5": product_ids[:5],
+            "hits": hits,
+            "expected": total,
+            "recall_at_5": round(recall, 3),
+            "hit_at_1": _hit_at_1(product_ids, golden.expected),
+            "mrr_at_5": round(_mrr_at_5(product_ids, golden.expected), 3),
+            "short_result_at_5": len(product_ids) < top_k,
+        }
+    return detail
+
+
+async def _evaluate(args: argparse.Namespace, backend: dict[str, Any]) -> dict[str, Any]:
+    """Run every golden query and aggregate the report."""
+    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+    embed_model = (
+        os.environ.get("BEDROCK_EMBEDDING_MODEL")
+        or os.environ.get("BEDROCK_EMBED_MODEL_ID")
+        or EMBED_MODEL_DEFAULT
+    )
+    rerank_model = os.environ.get("BEDROCK_RERANK_MODEL") or RERANK_MODEL_DEFAULT
+    pool_k = max(1, int(args.pool_k))
+
+    started = time.perf_counter()
+    embed_started = time.perf_counter()
+    vectors = _embed_queries([q.query for q in GOLDEN_QUERIES], region=region, model_id=embed_model)
+    embed_elapsed_s = time.perf_counter() - embed_started
+
+    detailed: list[dict[str, Any]] = []
+    db = backend["database_service"]()
+    await db.connect()
+    try:
+        for golden, vector in zip(GOLDEN_QUERIES, vectors):
+            outcomes = await _run_strategies(db, golden, vector, backend=backend, args=args)
+            detailed.append(_detail_for(golden, outcomes, top_k=int(args.top_k)))
+    finally:
+        await db.disconnect()
+
+    # What the executor resolved, not what the flag asked for.
+    resolved_pool_k = (
+        detailed[0]["hybrid_candidate_coverage"]["pool_k"] if detailed else pool_k
+    )
+
+    summary = {
+        strategy: [
+            (
+                item[strategy]["hits"],
+                item[strategy]["expected"],
+                item[strategy]["mrr_at_5"],
+                item[strategy]["hit_at_1"],
+                int(item[strategy]["short_result_at_5"]),
+            )
+            for item in detailed
+        ]
+        for strategy in STRATEGIES
+    }
+    timings = {
+        strategy: [item["latency_ms"][strategy] / 1000 for item in detailed]
+        for strategy in STRATEGIES
+    }
+    totals = _metric_totals(summary)
+    coverage_hits = sum(item["hybrid_candidate_coverage"]["hits"] for item in detailed)
+    coverage_expected = sum(item["hybrid_candidate_coverage"]["expected"] for item in detailed)
+    coverage_total = round(coverage_hits / coverage_expected if coverage_expected else 0.0, 3)
+    planner_totals = _planner_totals([item["planner"] for item in detailed])
+    compliance_totals = _compliance_totals(
+        [item["agentic_hard_constraint_compliance"] for item in detailed]
+    )
+    return {
+        "query_count": len(GOLDEN_QUERIES),
+        "rrf_k": args.rrf_k,
+        "pool_k": resolved_pool_k,
+        "requested_pool_k": int(args.pool_k),
+        "top_k": args.top_k,
+        "embed_model": embed_model,
+        "rerank_model": rerank_model,
+        "executor": "services.planned_hybrid_retrieval.execute_search_plan",
+        "elapsed_s": round(time.perf_counter() - started, 2),
+        "embedding_batch_ms": round(embed_elapsed_s * 1000, 1),
+        "avg_strategy_latency_ms": _timing_totals(timings),
+        "summary": totals,
+        "hybrid_candidate_coverage_at_pool": coverage_total,
+        "rerank_lift_mrr_vs_hybrid": round(
+            totals["rerank"]["mrr_at_5"] - totals["hybrid"]["mrr_at_5"], 3
+        ),
+        "agentic_lift_mrr_vs_hybrid": round(
+            totals["agentic"]["mrr_at_5"] - totals["hybrid"]["mrr_at_5"], 3
+        ),
+        "planner": planner_totals,
+        "hard_constraint_compliance": compliance_totals,
+        "gate": _evaluate_gate(
+            totals=totals,
+            coverage=coverage_total,
+            planner=planner_totals,
+            compliance=compliance_totals,
+            strict_planner=args.strict_planner,
+        ),
+        "queries": detailed,
+        "_summary_pairs": summary,
+    }
+
+
+def _print_report(report: dict[str, Any], *, no_gate: bool) -> None:
+    """Render the human-readable report."""
+    pool_k = report["pool_k"]
+    requested = report.get("requested_pool_k", pool_k)
+    pool_label = f"{pool_k}" if requested == pool_k else f"{pool_k} (requested {requested})"
+    print(
+        f"Pellier retrieval eval | queries={report['query_count']} | "
+        f"rrf_k={report['rrf_k']} | pool_k={pool_label} | top_k={report['top_k']}"
+    )
+    print(f"Models: {report['embed_model']} + {report['rerank_model']}")
+    print(f"Executor: {report['executor']}")
+    print()
+    _print_summary(report["_summary_pairs"])
+    print()
+    print(f"embedding batch latency: {report['embedding_batch_ms']:.1f} ms")
+    print("avg strategy latency (ms): " + " | ".join(
+        f"{strategy} {latency:.1f}"
+        for strategy, latency in report["avg_strategy_latency_ms"].items()
+    ))
+    print(f"hybrid candidate coverage@pool_k: {report['hybrid_candidate_coverage_at_pool']:.3f}")
+    print(
+        f"mrr@5 lift vs hybrid: rerank {report['rerank_lift_mrr_vs_hybrid']:+.3f} | "
+        f"agentic {report['agentic_lift_mrr_vs_hybrid']:+.3f}"
+    )
+    print()
+    print("query | expected | vector@5 | hybrid@5 | rerank@5 | agentic@5")
+    print("------|----------|----------|----------|----------|----------")
+    for item in report["queries"]:
+        print(
+            f"{item['label']} | {','.join(item['expected'])} | "
+            f"{','.join(item['vector']['top5']) or '-'} | "
+            f"{','.join(item['hybrid']['top5']) or '-'} | "
+            f"{','.join(item['rerank']['top5']) or '-'} | "
+            f"{','.join(item['agentic']['top5']) or '-'}"
+        )
+    print()
+    planner = report["planner"]
+    compliance = report["hard_constraint_compliance"]
+    print(
+        "planner: constraint recall "
+        f"{planner['constraint_recall']:.3f} "
+        f"({planner['constraints_recovered']}/{planner['constraints_expected']}) | "
+        f"hallucinated-constraint rate {planner['hallucinated_constraint_rate']:.3f}"
+    )
+    print(
+        "hard-constraint compliance: "
+        f"violations {compliance['hard_violations']}/{compliance['rows_scored']} rows "
+        f"(rate {compliance['hard_constraint_violation_rate']:.3f}) | "
+        f"exclusion violations {compliance['exclusion_violations']} "
+        f"(rate {compliance['exclusion_violation_rate']:.3f})"
+    )
+    print()
+    gate = report["gate"]
+    if gate["passed"]:
+        print("GATE: PASS. Every threshold met.")
+    else:
+        print("GATE: FAIL")
+        for failure in gate["failures"]:
+            print(f"  - {failure}")
+        if no_gate:
+            print("  (--no-gate set: reporting only, exit status forced to 0)")
+    print()
+    print(f"Elapsed: {report['elapsed_s']:.1f}s")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Pellier golden-query retrieval evaluation.")
-    parser.add_argument("--rrf-k", type=int, default=60, help="RRF damping constant for hybrid strategies.")
-    parser.add_argument("--pool-k", type=int, default=20, help="Candidate count per vector/FTS branch before RRF.")
+    parser = argparse.ArgumentParser(
+        description="Run Pellier golden-query retrieval evaluation."
+    )
+    parser.add_argument(
+        "--rrf-k", type=int, default=60, help="RRF damping constant for hybrid strategies."
+    )
+    parser.add_argument(
+        "--pool-k",
+        type=int,
+        default=20,
+        help="Candidate count per vector/FTS branch before RRF, and the rerank pool bound.",
+    )
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
     parser.add_argument(
@@ -701,233 +868,16 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    build_plan = _import_backend_planner()
-    from services.structured_extract import get_structured_extractor  # noqa: PLC0415
-
-    extractor = get_structured_extractor()
-    planner_scores: list[dict[str, Any]] = []
-    compliance_scores: list[dict[str, int]] = []
-
     _load_env()
-    region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
-    embed_model = os.environ.get("BEDROCK_EMBEDDING_MODEL") or os.environ.get("BEDROCK_EMBED_MODEL_ID") or EMBED_MODEL_DEFAULT
-    rerank_model = os.environ.get("BEDROCK_RERANK_MODEL") or RERANK_MODEL_DEFAULT
-
-    started = time.perf_counter()
-    embed_started = time.perf_counter()
-    vectors = _embed_queries([q.query for q in GOLDEN_QUERIES], region=region, model_id=embed_model)
-    embed_elapsed_s = time.perf_counter() - embed_started
-    detailed: list[dict[str, Any]] = []
-    summary: dict[str, list[tuple[int, int, float, int, int]]] = {
-        "vector": [],
-        "hybrid": [],
-        "rerank": [],
-        "agentic": [],
-    }
-    strategy_timings: dict[str, list[float]] = {
-        "vector": [],
-        "hybrid": [],
-        "rerank": [],
-        "agentic": [],
-    }
-    pool_coverage: list[tuple[int, int]] = []
-
-    with _connect() as conn:
-        for golden, vector in zip(GOLDEN_QUERIES, vectors):
-            strategy_started = time.perf_counter()
-            vector_rows = _vector_search(conn, vector, limit=args.top_k)
-            vector_elapsed_s = time.perf_counter() - strategy_started
-
-            pool_k = max(1, int(args.pool_k))
-            strategy_started = time.perf_counter()
-            hybrid_rows = _hybrid_search(
-                conn,
-                golden.query,
-                vector,
-                rrf_k=args.rrf_k,
-                pool_k=pool_k,
-                limit=max(pool_k, args.top_k),
-            )
-            hybrid_elapsed_s = time.perf_counter() - strategy_started
-
-            strategy_started = time.perf_counter()
-            rerank_rows = _rerank(
-                golden.query,
-                hybrid_rows,
-                region=region,
-                model_id=rerank_model,
-                limit=args.top_k,
-            )
-            rerank_elapsed_s = hybrid_elapsed_s + (time.perf_counter() - strategy_started)
-
-            # Agentic row: the SHIPPED extractor + planner decide the
-            # filters. Using golden.filters here instead would make this
-            # an oracle experiment that cannot fail on a planner bug.
-            strategy_started = time.perf_counter()
-            plan = _plan_for(build_plan, golden, extractor, args.top_k)
-            agentic_candidates = _hybrid_search(
-                conn,
-                golden.query,
-                vector,
-                rrf_k=args.rrf_k,
-                pool_k=pool_k,
-                limit=max(pool_k, args.top_k),
-                filters=_plan_filters(plan),
-            )
-            agentic_rows = _rerank(
-                golden.query,
-                agentic_candidates,
-                region=region,
-                model_id=rerank_model,
-                limit=args.top_k,
-            )
-            agentic_elapsed_s = time.perf_counter() - strategy_started
-            plan_score = _score_plan(plan, golden.filters)
-            planner_scores.append(plan_score)
-            compliance = _score_compliance(agentic_rows, plan)
-            compliance_scores.append(compliance)
-
-            rows_by_strategy = {
-                "vector": vector_rows,
-                "hybrid": hybrid_rows[: args.top_k],
-                "rerank": rerank_rows,
-                "agentic": agentic_rows,
-            }
-            strategy_timings["vector"].append(vector_elapsed_s)
-            strategy_timings["hybrid"].append(hybrid_elapsed_s)
-            strategy_timings["rerank"].append(rerank_elapsed_s)
-            strategy_timings["agentic"].append(agentic_elapsed_s)
-            detail = {
-                "label": golden.label,
-                "query": golden.query,
-                "expected": list(golden.expected),
-                "latency_ms": {
-                    "vector": round(vector_elapsed_s * 1000, 1),
-                    "hybrid": round(hybrid_elapsed_s * 1000, 1),
-                    "rerank": round(rerank_elapsed_s * 1000, 1),
-                    "agentic": round(agentic_elapsed_s * 1000, 1),
-                },
-            }
-            candidate_ids = [str(row["product_id"]) for row in hybrid_rows]
-            coverage_hits, coverage_total, coverage = _recall(candidate_ids, golden.expected)
-            pool_coverage.append((coverage_hits, coverage_total))
-            detail["hybrid_candidate_coverage"] = {
-                "pool_k": pool_k,
-                "hits": coverage_hits,
-                "expected": coverage_total,
-                "coverage": round(coverage, 3),
-            }
-            detail["planner"] = plan_score
-            detail["agentic_hard_constraint_compliance"] = compliance
-            detail["search_plan"] = plan.to_dict()
-            for strategy, rows in rows_by_strategy.items():
-                product_ids = [str(row["product_id"]) for row in rows]
-                hits, total, recall = _recall_at_5(product_ids, golden.expected)
-                mrr = _mrr_at_5(product_ids, golden.expected)
-                hit_at_1 = _hit_at_1(product_ids, golden.expected)
-                short_result = int(len(product_ids) < args.top_k)
-                summary[strategy].append((hits, total, mrr, hit_at_1, short_result))
-                detail[strategy] = {
-                    "top5": product_ids[:5],
-                    "hits": hits,
-                    "expected": total,
-                    "recall_at_5": round(recall, 3),
-                    "hit_at_1": hit_at_1,
-                    "mrr_at_5": round(mrr, 3),
-                    "short_result_at_5": bool(short_result),
-                }
-            detailed.append(detail)
-
-    elapsed_s = time.perf_counter() - started
-    totals = _metric_totals(summary)
-    timing_totals = _timing_totals(strategy_timings)
-    coverage_hits = sum(pair[0] for pair in pool_coverage)
-    coverage_expected = sum(pair[1] for pair in pool_coverage)
-    coverage_total = round(coverage_hits / coverage_expected if coverage_expected else 0.0, 3)
-    rerank_lift = round(totals["rerank"]["mrr_at_5"] - totals["hybrid"]["mrr_at_5"], 3)
-    agentic_lift = round(totals["agentic"]["mrr_at_5"] - totals["hybrid"]["mrr_at_5"], 3)
-    planner_totals = _planner_totals(planner_scores)
-    compliance_totals = _compliance_totals(compliance_scores)
-    gate = _evaluate_gate(
-        totals=totals,
-        coverage=coverage_total,
-        planner=planner_totals,
-        compliance=compliance_totals,
-        strict_planner=args.strict_planner,
-    )
+    backend = _import_backend()
+    report = asyncio.run(_evaluate(args, backend))
+    passed = report["gate"]["passed"]
     if args.json:
-        print(json.dumps({
-            "query_count": len(GOLDEN_QUERIES),
-            "rrf_k": args.rrf_k,
-            "pool_k": args.pool_k,
-            "top_k": args.top_k,
-            "embed_model": embed_model,
-            "rerank_model": rerank_model,
-            "elapsed_s": round(elapsed_s, 2),
-            "embedding_batch_ms": round(embed_elapsed_s * 1000, 1),
-            "avg_strategy_latency_ms": timing_totals,
-            "summary": totals,
-            "hybrid_candidate_coverage_at_pool": coverage_total,
-            "rerank_lift_mrr_vs_hybrid": rerank_lift,
-            "agentic_lift_mrr_vs_hybrid": agentic_lift,
-            "planner": planner_totals,
-            "hard_constraint_compliance": compliance_totals,
-            "gate": gate,
-            "queries": detailed,
-        }, indent=2))
-        return 0 if (gate["passed"] or args.no_gate) else 1
-
-    print(f"Pellier retrieval eval | queries={len(GOLDEN_QUERIES)} | rrf_k={args.rrf_k} | pool_k={args.pool_k} | top_k={args.top_k}")
-    print(f"Models: {embed_model} + {rerank_model}")
-    print()
-    _print_summary(summary)
-    print()
-    print(f"embedding batch latency: {embed_elapsed_s * 1000:.1f} ms")
-    print("avg strategy latency (ms): " + " | ".join(
-        f"{strategy} {latency:.1f}" for strategy, latency in timing_totals.items()
-    ))
-    print(f"hybrid candidate coverage@pool_k: {coverage_total:.3f}")
-    print(f"mrr@5 lift vs hybrid: rerank {rerank_lift:+.3f} | agentic {agentic_lift:+.3f}")
-    print()
-    print("query | expected | vector@5 | hybrid@5 | rerank@5 | agentic@5")
-    print("------|----------|----------|----------|----------|----------")
-    for item in detailed:
-        print(
-            f"{item['label']} | {','.join(item['expected'])} | "
-            f"{','.join(item['vector']['top5']) or '-'} | "
-            f"{','.join(item['hybrid']['top5']) or '-'} | "
-            f"{','.join(item['rerank']['top5']) or '-'} | "
-            f"{','.join(item['agentic']['top5']) or '-'}"
-        )
-    print()
-    print(
-        "planner: constraint recall "
-        f"{planner_totals['constraint_recall']:.3f} "
-        f"({planner_totals['constraints_recovered']}/"
-        f"{planner_totals['constraints_expected']}) | "
-        f"hallucinated-constraint rate "
-        f"{planner_totals['hallucinated_constraint_rate']:.3f}"
-    )
-    print(
-        "hard-constraint compliance: "
-        f"violations {compliance_totals['hard_violations']}"
-        f"/{compliance_totals['rows_scored']} rows "
-        f"(rate {compliance_totals['hard_constraint_violation_rate']:.3f}) | "
-        f"exclusion violations {compliance_totals['exclusion_violations']} "
-        f"(rate {compliance_totals['exclusion_violation_rate']:.3f})"
-    )
-    print()
-    if gate["passed"]:
-        print("GATE: PASS — every threshold met.")
+        report.pop("_summary_pairs", None)
+        print(json.dumps(report, indent=2, default=str))
     else:
-        print("GATE: FAIL")
-        for failure in gate["failures"]:
-            print(f"  - {failure}")
-        if args.no_gate:
-            print("  (--no-gate set: reporting only, exit status forced to 0)")
-    print()
-    print(f"Elapsed: {elapsed_s:.1f}s")
-    return 0 if (gate["passed"] or args.no_gate) else 1
+        _print_report(report, no_gate=args.no_gate)
+    return 0 if (passed or args.no_gate) else 1
 
 
 if __name__ == "__main__":

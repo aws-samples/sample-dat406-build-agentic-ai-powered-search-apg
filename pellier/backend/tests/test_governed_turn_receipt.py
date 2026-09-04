@@ -11,6 +11,7 @@ from services.governed_turn_receipt import (
     _receipt_citations,
     get_turn_receipt,
     get_visible_tool_audit,
+    map_answer_claims,
     persist_turn_receipt,
 )
 from services.managed_policy import recent_decisions
@@ -142,6 +143,76 @@ def test_persisted_receipt_uses_captured_catalog_evidence_not_live_catalog() -> 
     trace = json.loads(insert[11])
     assert trace["traceId"] == "trace-1"
     assert "spans" not in trace
+
+
+def test_answer_sentences_map_to_the_cited_products_they_name() -> None:
+    citations = _receipt_citations(
+        retrieval_receipt_id=42,
+        citation_snapshots=_citation_snapshots(),
+        expected_snapshot_hash=citation_snapshot_hash(_citation_snapshots()),
+    )
+
+    claims, unsupported = map_answer_claims(
+        "The Linen Camp Shirt breathes well in Goa heat. "
+        "You will also want a good sunscreen!",
+        citations,
+    )
+
+    assert claims == [
+        {
+            "text": "The Linen Camp Shirt breathes well in Goa heat.",
+            "evidence_ids": ["retrieval-42-catalog-P-2"],
+        }
+    ]
+    assert unsupported == ["You will also want a good sunscreen!"]
+
+
+def test_claim_mapping_is_case_insensitive_and_handles_empty_input() -> None:
+    citations = _receipt_citations(
+        retrieval_receipt_id=42,
+        citation_snapshots=_citation_snapshots(),
+        expected_snapshot_hash=citation_snapshot_hash(_citation_snapshots()),
+    )
+
+    claims, unsupported = map_answer_claims(
+        "Pair the linen trouser with the LINEN CAMP SHIRT? Yes.", citations
+    )
+
+    assert claims[0]["evidence_ids"] == [
+        "retrieval-42-catalog-P-2",
+        "retrieval-42-catalog-P-1",
+    ]
+    assert unsupported == ["Yes."]
+    assert map_answer_claims("", citations) == ([], [])
+    assert map_answer_claims("Nothing cited here.", []) == ([], ["Nothing cited here."])
+
+
+def test_persisted_receipt_records_claims_inside_the_terminal_outcome() -> None:
+    db = _ReceiptDB()
+
+    receipt = asyncio.run(
+        persist_turn_receipt(
+            db,
+            turn_id="turn-persisted",
+            session_id="session-1",
+            principal_sub="principal-1",
+            rail="gateway-mcp",
+            terminal_status="complete",
+            latency_ms=32,
+            answer_text="Start with the Linen Trouser. Pack light.",
+        )
+    )
+
+    assert receipt is not None
+    insert = db.calls[-1]
+    outcome = json.loads(insert[13])
+    assert outcome["claims"] == [
+        {
+            "text": "Start with the Linen Trouser.",
+            "evidence_ids": ["retrieval-42-catalog-P-1"],
+        }
+    ]
+    assert outcome["unsupported"] == ["Pack light."]
 
 
 def test_invalid_citation_snapshot_hash_suppresses_citations() -> None:
@@ -308,3 +379,99 @@ def test_recent_policy_decisions_include_explicit_allow_and_deny() -> None:
     assert db.seen is not None
     assert db.seen[1:] == ("principal-1", "session-1", 10)
     assert "principal_id = %s" in db.seen[0]
+
+
+def _short_name_snapshots() -> list[dict[str, Any]]:
+    """A cited product whose name is a common substring of ordinary words."""
+    return [
+        {
+            "entity_id": "P-9",
+            "source_uri": "aurora://pellier/product_catalog/P-9",
+            "revision": "2026-08-09T00:00:00+00:00",
+            "quote": "Ash: Hand-turned ash serving bowl",
+        }
+    ]
+
+
+def test_a_short_product_name_does_not_match_inside_a_longer_word() -> None:
+    """Substring matching attached evidence to sentences it did not support."""
+    citations = _receipt_citations(
+        retrieval_receipt_id=42,
+        citation_snapshots=_short_name_snapshots(),
+        expected_snapshot_hash=citation_snapshot_hash(_short_name_snapshots()),
+    )
+
+    claims, unsupported = map_answer_claims(
+        "Wash the cashmere separately. The Ash bowl anchors the table.",
+        citations,
+    )
+
+    assert claims == [
+        {
+            "text": "The Ash bowl anchors the table.",
+            "evidence_ids": ["retrieval-42-catalog-P-9"],
+        }
+    ]
+    assert unsupported == ["Wash the cashmere separately."]
+
+
+def test_a_multi_word_name_only_counts_as_a_whole_phrase() -> None:
+    """Every word present is not the same claim as the product being named."""
+    citations = _receipt_citations(
+        retrieval_receipt_id=42,
+        citation_snapshots=_citation_snapshots(),
+        expected_snapshot_hash=citation_snapshot_hash(_citation_snapshots()),
+    )
+
+    claims, unsupported = map_answer_claims(
+        "Linen wears well, and a camp collar shirt travels flat.", citations
+    )
+
+    assert claims == []
+    assert unsupported == [
+        "Linen wears well, and a camp collar shirt travels flat."
+    ]
+
+
+def _no_separator_snapshots() -> list[dict[str, Any]]:
+    """Quotes the writer produces when a catalog row has no description."""
+    return [
+        {
+            "entity_id": "P-7",
+            "source_uri": "aurora://pellier/product_catalog/P-7",
+            "revision": "2026-08-07T00:00:00+00:00",
+            "quote": "Ceramic Vase",
+        },
+        {
+            "entity_id": "P-8",
+            "source_uri": "aurora://pellier/product_catalog/P-8",
+            "revision": "2026-08-08T00:00:00+00:00",
+            "quote": "Rope Basket:A woven floor basket",
+        },
+    ]
+
+
+def test_a_citation_quote_without_the_separator_still_yields_its_name() -> None:
+    """A description-free product is captured as a bare name, not ``Name: ...``."""
+    citations = _receipt_citations(
+        retrieval_receipt_id=42,
+        citation_snapshots=_no_separator_snapshots(),
+        expected_snapshot_hash=citation_snapshot_hash(_no_separator_snapshots()),
+    )
+
+    claims, unsupported = map_answer_claims(
+        "The Ceramic Vase reads quiet. The Rope Basket hides the rest. Done.",
+        citations,
+    )
+
+    assert claims == [
+        {
+            "text": "The Ceramic Vase reads quiet.",
+            "evidence_ids": ["retrieval-42-catalog-P-7"],
+        },
+        {
+            "text": "The Rope Basket hides the rest.",
+            "evidence_ids": ["retrieval-42-catalog-P-8"],
+        },
+    ]
+    assert unsupported == ["Done."]

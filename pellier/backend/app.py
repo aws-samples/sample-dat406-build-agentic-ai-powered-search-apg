@@ -37,6 +37,11 @@ from models.search import (
 from models.product import ProductWithScore
 from services.database import DatabaseService
 from services.auth import get_current_user, require_operator
+from services.planned_hybrid_retrieval import (
+    MICRO_EVAL_POOL_SIZES_MAX,
+    MICRO_EVAL_REPETITIONS_DEFAULT,
+    MICRO_EVAL_REPETITIONS_MAX,
+)
 from services.embeddings import EmbeddingService
 from services.chat import ChatService
 from services.chat_error_taxonomy import classify_chat_error
@@ -939,6 +944,7 @@ async def _persist_terminal_turn_receipt(
             trace=trace,
             terminal_error_code=terminal_error_code,
             handoff_context=handoff_context,
+            answer_text=assistant_response,
         )
         if receipt is None:
             return None
@@ -2009,58 +2015,177 @@ async def list_skills():
     ]
 
 
+def _strategy_products(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Project returned rows onto the comparison's name + id shape."""
+    return [
+        {"name": row.get("name", ""), "productId": row.get("product_id")}
+        for row in rows[:5]
+    ]
+
+
+def _rerank_disclosure(execution: Any, fallback_order: str) -> Dict[str, Any]:
+    """Say whether the reranker ran, and which order stood in when it did not."""
+    stage = execution.stage("rerank")
+    returned = stage.count if stage else 0
+    return {
+        "status": "applied" if returned else "fallback",
+        "model": settings.BEDROCK_RERANK_MODEL,
+        "candidates": len(execution.rerank_pool),
+        "returned": returned,
+        "poolK": execution.rerank_pool_k,
+        "fallbackOrder": None if returned else fallback_order,
+    }
+
+
+# Recorded on every receipt this comparison writes, and the only thing that
+# tells Lab 2's SQL which turn to read. The storefront's own retrieval writer
+# (services/agent_tools.py::_hybrid_retrieval_config) sets no ``source``, so a
+# shopper turn taken after the participant captured the high-water mark cannot
+# be mistaken for the comparison. Changing this value breaks
+# workshop/lab-2-rrf.sql and its two sibling copies.
+OBSERVATORY_COMPARE_RECEIPT_SOURCE = "observatory-compare"
+
+
+async def _persist_comparison_receipt(db: Any, *, query: str, execution: Any) -> None:
+    """Write the agentic strategy's retrieval receipt for Lab 2 to read back.
+
+    The receipt comes from the execution that produced the row, so the ranks,
+    the rerank scores, and the cited rows are the ones the surface showed. It
+    is stamped with ``OBSERVATORY_COMPARE_RECEIPT_SOURCE`` so the lab selects
+    this turn rather than whichever retrieval receipt happens to be newest.
+    """
+    from services.retrieval_receipt import build_receipt, persist_receipt
+
+    receipt = build_receipt(
+        query=query,
+        plan=execution.plan,
+        candidates=execution.candidates,
+        ordered=execution.ordered,
+        citation_rows=execution.returned,
+        embedding_model=settings.BEDROCK_EMBEDDING_MODEL,
+        rerank_model=settings.BEDROCK_RERANK_MODEL,
+        retrieval_config={
+            "source": OBSERVATORY_COMPARE_RECEIPT_SOURCE,
+            "k_vector": settings.HYBRID_VECTOR_K,
+            "k_fts": settings.HYBRID_FTS_K,
+            "rrf_k": settings.HYBRID_RRF_K,
+            "top_n": settings.HYBRID_TOP_N,
+            "rerank_pool_k": execution.rerank_pool_k,
+            "search_method": execution.search_method,
+            "relaxation_steps": execution.relaxation_steps,
+        },
+        latency_breakdown=execution.latency_breakdown(),
+        rail="in-process",
+    )
+    await persist_receipt(db, receipt)
+
+
+SEARCH_STRATEGY_MEASUREMENT_ASSUMPTIONS = {
+    "latency": (
+        "One wall-clock observation per strategy for this request; "
+        "not a percentile. Strategies run sequentially after a shared "
+        "query embedding."
+    ),
+    "cost": (
+        "Modeled incremental request cost per 1,000 queries; not a "
+        "billing measurement and excluding provisioned Aurora compute."
+    ),
+    "quality": (
+        "Product order is live. Recall requires labeled relevance "
+        "judgments and is not calculated by this endpoint."
+    ),
+}
+
+
+async def _baseline_strategy_entries(
+    db: Any, *, query: str, query_embedding: List[float]
+) -> List[Dict[str, Any]]:
+    """Run strategies 1 (vector only) and 2 (hybrid RRF, no reranker)."""
+    from services.hybrid_search import HybridSearch
+    from services.vector_search import VectorSearch
+
+    t0 = time.perf_counter()
+    vec_rows = await VectorSearch(db).vector_search(
+        query_embedding, 5, ef_search=settings.VECTOR_EF_SEARCH_DEFAULT
+    )
+    vec_ms = int((time.perf_counter() - t0) * 1000)
+
+    t0 = time.perf_counter()
+    hybrid_rows = await HybridSearch(db).search(
+        query=query, query_embedding=query_embedding, top_n=5
+    )
+    hybrid_ms = int((time.perf_counter() - t0) * 1000)
+    return [
+        {
+            "strategy": "vector only",
+            "observedMs": vec_ms,
+            "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["vector"],
+            "products": _strategy_products(vec_rows),
+        },
+        {
+            "strategy": "hybrid (RRF)",
+            "observedMs": hybrid_ms,
+            "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["hybrid"],
+            "products": _strategy_products(hybrid_rows),
+        },
+    ]
+
+
+def _agentic_strategy_entry(
+    execution: Any, *, observed_ms: int, extracted: Dict[str, Any], soft_signal: str
+) -> Dict[str, Any]:
+    """Describe the agentic row: what Sonnet proposed and what actually ran.
+
+    The typed plan is reported alongside the raw extraction, with hard
+    constraints and exclusions separate from preferences, so the surface can
+    state plainly which of the two the pipeline was allowed to relax.
+    """
+    plan_used = execution.plan
+    return {
+        "strategy": "agentic (Sonnet → filter → hybrid → rerank)",
+        "observedMs": observed_ms,
+        "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
+        "products": _strategy_products(execution.returned),
+        "shares_storefront_executor": True,
+        "rerank": _rerank_disclosure(execution, "planned-hybrid-rrf"),
+        "extractedFilters": {
+            "categories": extracted.get("categories", []),
+            "tags": extracted.get("tags", []),
+            "priceMaxUsd": extracted.get("price_max_usd"),
+            "inStockOnly": extracted.get("in_stock_only", False),
+            "softSignal": soft_signal,
+            "filterUsed": (
+                plan_used.relaxations[-1].step if plan_used.relaxations else "strict"
+            ),
+        },
+        "searchPlan": plan_used.to_dict(),
+        "hardConstraintsEnforced": plan_used.hard.describe(),
+        "relaxations": [r.to_dict() for r in plan_used.relaxations],
+    }
+
+
 @app.get("/api/observatory/search-strategies/compare")
 async def compare_search_strategies(query: str):
-    """Run the same query through four retrieval strategies, return
-    one observed duration per strategy + top-5 product names + (when present) the
-    structured filters Sonnet extracted.
+    """Run one query through four retrieval strategies and report each.
 
-    Surfaces Anna's anchor-capability comparison live to the
-    Observatory Performance page so workshop participants can see the
-    delta between vector-only / hybrid / hybrid+rerank / agentic
-    against the real catalog rather than reading a static fixture.
+    Surfaces Anna's anchor-capability comparison live to the Observatory
+    Performance page: a duration and top-5 per strategy, plus the agentic
+    row's extracted filters and plan.
 
-    Strategies:
-      1. **vector only** — pgvector cosine over product_catalog.
-         Marco's foundation path.
-      2. **hybrid (RRF)** — vector + Postgres FTS in parallel, RRF-merged.
-         No reranker pass. Kept as a teaching foil — pure lexical
-         loses on conversational queries with this corpus.
-      3. **hybrid + rerank** — same as #2 plus Cohere Rerank v3.5.
-      4. **agentic (Sonnet → filter → hybrid → rerank)** — Anna's
-         shipped path. Sonnet 4.6 extracts {categories, tags,
-         price_max, in_stock, soft_signal}; those hard constraints
-         are compiled into both pgvector and FTS branches before RRF;
-         Cohere Rerank then orders only that valid pool using the
-         soft_signal phrase (not the raw query), so structured
-         constraints do not pollute the rerank score.
+    1. vector only: pgvector cosine. Marco's path.
+    2. hybrid (RRF): vector + Postgres FTS, RRF-merged, no reranker.
+    3. hybrid + rerank: the shared executor on an unconstrained plan.
+    4. agentic: Sonnet proposes constraints, the planner compiles the hard
+       ones into both branches before RRF, and the storefront's executor
+       reranks that pool. Its receipt is persisted for Lab 2 to read back.
 
-    Returns:
-      {
-        "query": str,
-        "strategies": [
-          {"strategy", "observedMs", "modeledCostPerThousandUsd",
-           "products": [{name, productId}],
-           "extractedFilters": {...}  // strategy 4 only
-          }
-        ]
-      }
-
-    This endpoint runs each strategy once. Its durations are observations,
-    not percentile statistics. Cost values are modeled incremental request
-    costs sourced from ``SEARCH_STRATEGY_COST_PER_1000_USD`` so the live
-    endpoint and operator copy have one backend source; they are not values
-    read from a bill.
+    Each strategy runs once, so these durations are observations, not
+    percentile statistics. Costs are modeled incremental request costs from
+    ``SEARCH_STRATEGY_COST_PER_1000_USD``, not values read from a bill.
     """
-    import asyncio
-    import time
     from services.embeddings import EmbeddingService
-    from services.vector_search import VectorSearch
-    from services.hybrid_search import HybridSearch
-    from services.planned_hybrid_retrieval import (
-        rerank_hybrid_candidates,
-        retrieve_planned_hybrid,
-    )
+    from services.planned_hybrid_retrieval import execute_search_plan
+    from services.rerank import get_rerank_service
     from services.search_plan import build_plan
     from services.structured_extract import get_structured_extractor
 
@@ -2068,12 +2193,9 @@ async def compare_search_strategies(query: str):
         raise HTTPException(status_code=400, detail="query parameter required")
     q = query.strip()
 
-    embed = EmbeddingService()
     shared_embed_started = time.perf_counter()
-    query_embedding = embed.embed_query(q)
-    shared_embedding_ms = int(
-        (time.perf_counter() - shared_embed_started) * 1000
-    )
+    query_embedding = EmbeddingService().embed_query(q)
+    shared_embedding_ms = int((time.perf_counter() - shared_embed_started) * 1000)
 
     if db_service is None:
         raise HTTPException(
@@ -2081,168 +2203,208 @@ async def compare_search_strategies(query: str):
             detail="DB not initialized — wait for backend startup to complete",
         )
     db = db_service
-
-    # Strategy 1: pure pgvector cosine. Marco's path.
-    t0 = time.perf_counter()
-    vec = VectorSearch(db)
-    vec_rows = await vec.vector_search(
-        query_embedding,
-        5,
-        ef_search=settings.VECTOR_EF_SEARCH_DEFAULT,
+    strategies = await _baseline_strategy_entries(
+        db, query=q, query_embedding=query_embedding
     )
-    vec_ms = int((time.perf_counter() - t0) * 1000)
-    vec_products = [
-        {"name": r.get("name", ""), "productId": r.get("product_id")}
-        for r in vec_rows[:5]
-    ]
 
-    # Strategy 2: hybrid (RRF), no rerank.
+    # Strategies 3 and 4 run the storefront's executor on the shared embedding.
+    def _shared_embedding(_: str) -> List[float]:
+        return query_embedding
+
+    rerank_fn = get_rerank_service().rerank
+    # Strategy 3: hybrid + rerank over an unconstrained plan, no widening.
     t0 = time.perf_counter()
-    hybrid = HybridSearch(db)
-    hybrid_rows = await hybrid.search(
+    rerank_execution = await execute_search_plan(
+        db,
+        plan=build_plan(q, None, top_k=5),
         query=q,
-        query_embedding=query_embedding,
-        top_n=5,
+        limit=5,
+        embed=_shared_embedding,
+        rerank=rerank_fn,
+        config={},
+        relax=False,
     )
-    hybrid_ms = int((time.perf_counter() - t0) * 1000)
-    hybrid_products = [
-        {"name": r.get("name", ""), "productId": r.get("product_id")}
-        for r in hybrid_rows[:5]
-    ]
+    strategies.append(
+        {
+            "strategy": "hybrid + rerank",
+            "observedMs": int((time.perf_counter() - t0) * 1000),
+            "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["rerank"],
+            "products": _strategy_products(rerank_execution.returned),
+            "rerank": _rerank_disclosure(rerank_execution, "rrf"),
+        }
+    )
 
-    # Strategy 3: hybrid + rerank.
+    # Strategy 4: agentic. Sonnet proposes constraints (a synchronous boto3
+    # call, so on a worker thread), the planner types them, and the same
+    # executor runs them with the storefront's relaxation ladder.
     t0 = time.perf_counter()
-    rerank_pool = await hybrid.search(
+    extracted = await asyncio.to_thread(get_structured_extractor().extract, q)
+    agentic = await execute_search_plan(
+        db,
+        plan=build_plan(q, extracted, top_k=5),
         query=q,
-        query_embedding=query_embedding,
-        top_n=settings.HYBRID_TOP_N,
-    )
-    reranked_pool, rerank_results = rerank_hybrid_candidates(
-        rerank_pool, query=q, top_n=5
-    )
-    rerank_ms = int((time.perf_counter() - t0) * 1000)
-    rerank_products = [
-        {"name": r.get("name", ""), "productId": r.get("product_id")}
-        for r in reranked_pool[:5]
-    ]
-
-    # Strategy 4: agentic — Sonnet-extracted constraints → planned hybrid
-    # candidate generation → rerank with soft_signal. The boto3 call is
-    # synchronous, so it runs on a worker thread to keep the event loop
-    # responsive.
-    t0 = time.perf_counter()
-    extractor = get_structured_extractor()
-    extracted = await asyncio.to_thread(extractor.extract, q)
-    soft_signal = extracted.get("soft_signal") or q
-
-    # Compile the model's extraction into a typed plan, then walk that
-    # plan's relaxation ladder. The ladder widens *preferences* only:
-    # price ceilings, availability, explicit categories, and exclusions
-    # are hard constraints that no rung may drop. A one-result return is
-    # sometimes worse than a wider pool — but a $250 candle returned for
-    # "in-stock gift under $100, no candles" is always worse than both,
-    # so the widening stops at the correctness boundary.
-    AGENTIC_MIN_POOL = 5
-    plan = build_plan(q, extracted, top_k=5)
-    agentic_pool: List[Dict[str, Any]] = []
-    plan_used = plan
-    for rung in plan.relaxation_ladder():
-        agentic_pool = await retrieve_planned_hybrid(
-            db,
-            query=q,
-            query_embedding=query_embedding,
-            plan=rung,
-        )
-        plan_used = rung
-        if len(agentic_pool) >= AGENTIC_MIN_POOL:
-            break
-    filter_used = (
-        plan_used.relaxations[-1].step if plan_used.relaxations else "strict"
-    )
-    agentic_ordered, agentic_rerank = rerank_hybrid_candidates(
-        agentic_pool, query=soft_signal, top_n=5
+        limit=5,
+        embed=_shared_embedding,
+        rerank=rerank_fn,
+        config={},
     )
     agentic_ms = int((time.perf_counter() - t0) * 1000)
-    agentic_products = [
-        {"name": r.get("name", ""), "productId": r.get("product_id")}
-        for r in agentic_ordered[:5]
-    ]
+    await _persist_comparison_receipt(db, query=q, execution=agentic)
+    strategies.append(
+        _agentic_strategy_entry(
+            agentic,
+            observed_ms=agentic_ms,
+            extracted=extracted,
+            soft_signal=extracted.get("soft_signal") or q,
+        )
+    )
 
     return {
         "query": q,
         "sharedQueryEmbeddingObservedMs": shared_embedding_ms,
-        "measurementAssumptions": {
-            "latency": (
-                "One wall-clock observation per strategy for this request; "
-                "not a percentile. Strategies run sequentially after a shared "
-                "query embedding."
+        "measurementAssumptions": SEARCH_STRATEGY_MEASUREMENT_ASSUMPTIONS,
+        "strategies": strategies,
+    }
+
+
+def _micro_eval_pool_sizes(requested: List[int]) -> List[int]:
+    """Resolve requested rerank pools through the executor's bounds, deduplicated.
+
+    Two requested sizes that clamp to the same pool are one variant, not two
+    identical rows bought with a second round of Bedrock calls. Order follows
+    the request. The resolved count is capped because distinct sizes multiply
+    with repetitions: without a ceiling one URL buys an unbounded number of
+    Bedrock Rerank calls. Over the ceiling the request is refused rather than
+    truncated, so the caller is never billed for a comparison it did not get.
+
+    Args:
+        requested: Pool sizes as the caller asked for them.
+
+    Returns:
+        The distinct resolved pool sizes, in first-requested order.
+
+    Raises:
+        HTTPException: 400 when a requested size is below one, or when the
+            request resolves to more distinct sizes than the ceiling allows.
+    """
+    from services.planned_hybrid_retrieval import resolve_rerank_pool_k
+
+    if any(k < 1 for k in requested):
+        raise HTTPException(status_code=400, detail="pool_k must be at least 1")
+    resolved: List[int] = []
+    for value in requested:
+        bounded = resolve_rerank_pool_k({"rerank_pool_k": value})
+        if bounded not in resolved:
+            resolved.append(bounded)
+    if len(resolved) > MICRO_EVAL_POOL_SIZES_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"at most {MICRO_EVAL_POOL_SIZES_MAX} distinct pool_k sizes may be "
+                f"compared in one request; this one resolves to {len(resolved)}"
             ),
-            "cost": (
-                "Modeled incremental request cost per 1,000 queries; not a "
-                "billing measurement and excluding provisioned Aurora compute."
-            ),
-            "quality": (
-                "Product order is live. Recall requires labeled relevance "
-                "judgments and is not calculated by this endpoint."
-            ),
-        },
-        "strategies": [
-            {
-                "strategy": "vector only",
-                "observedMs": vec_ms,
-                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["vector"],
-                "products": vec_products,
-            },
-            {
-                "strategy": "hybrid (RRF)",
-                "observedMs": hybrid_ms,
-                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["hybrid"],
-                "products": hybrid_products,
-            },
-            {
-                "strategy": "hybrid + rerank",
-                "observedMs": rerank_ms,
-                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["rerank"],
-                "products": rerank_products,
-                "rerank": {
-                    "status": "applied" if rerank_results else "fallback",
-                    "model": settings.BEDROCK_RERANK_MODEL,
-                    "candidates": len(rerank_pool),
-                    "returned": len(rerank_results),
-                    "fallbackOrder": None if rerank_results else "rrf",
-                },
-            },
-            {
-                "strategy": "agentic (Sonnet → filter → hybrid → rerank)",
-                "observedMs": agentic_ms,
-                "modeledCostPerThousandUsd": SEARCH_STRATEGY_COST_PER_1000_USD["agentic"],
-                "products": agentic_products,
-                "rerank": {
-                    "status": "applied" if agentic_rerank else "fallback",
-                    "model": settings.BEDROCK_RERANK_MODEL,
-                    "candidates": len(agentic_pool),
-                    "returned": len(agentic_rerank),
-                    "fallbackOrder": (
-                        None if agentic_rerank else "planned-hybrid-rrf"
-                    ),
-                },
-                "extractedFilters": {
-                    "categories": extracted.get("categories", []),
-                    "tags": extracted.get("tags", []),
-                    "priceMaxUsd": extracted.get("price_max_usd"),
-                    "inStockOnly": extracted.get("in_stock_only", False),
-                    "softSignal": soft_signal,
-                    "filterUsed": filter_used,
-                },
-                # The typed plan that actually ran, including any widening.
-                # Hard constraints and exclusions are reported separately
-                # from preferences so the surface can state plainly which
-                # of the two the pipeline is allowed to relax.
-                "searchPlan": plan_used.to_dict(),
-                "hardConstraintsEnforced": plan_used.hard.describe(),
-                "relaxations": [r.to_dict() for r in plan_used.relaxations],
-            },
-        ],
+        )
+    return resolved
+
+
+@app.get("/api/observatory/search-strategies/micro-eval")
+async def micro_eval_search_strategies(
+    pool_k: Optional[List[int]] = Query(default=None),
+    limit: int = 5,
+    repetitions: int = MICRO_EVAL_REPETITIONS_DEFAULT,
+    user: Optional[Dict[str, Any]] = Depends(get_current_user),
+):
+    """Measure what the rerank pool size costs on the canonical Anna query.
+
+    Runs ``A housewarming gift under $100 that is currently in stock.`` through
+    the shared executor once per distinct ``pool_k`` (repeat the parameter,
+    default 20 and 3) and scores each variant against the labeled golden ids.
+    The query is embedded once and the plan is extracted once, so the variants
+    differ only in the pool the reranker may see.
+
+    Every pass costs two SQL round trips and one Bedrock Rerank call, and the
+    two axes multiply, so the route is bounded four ways: pool sizes are
+    resolved and de-duplicated, more than ``MICRO_EVAL_POOL_SIZES_MAX``
+    distinct sizes is refused rather than truncated, ``repetitions`` is
+    clamped to ``MICRO_EVAL_REPETITIONS_MAX``, and the quality metrics, being
+    deterministic over a fixed pool, are scored once from the first pass while
+    the repetitions only sample latency. The response reports the repetition
+    count actually run.
+
+    Args:
+        pool_k: Rerank pool sizes to compare. Repeat the parameter.
+        limit: Rows each pass returns. Clamped to 1..20.
+        repetitions: Latency samples per variant. Clamped to 1..5.
+        user: Optional verified Cognito identity, the same dependency the
+            sibling Observatory read models declare.
+
+    Raises:
+        HTTPException: 400 when a pool size is below one or when the request
+            resolves to more distinct pool sizes than the ceiling allows.
+    """
+    from services.embeddings import EmbeddingService
+    from services.planned_hybrid_retrieval import (
+        CANONICAL_ANNA_GOLDEN_IDS,
+        CANONICAL_ANNA_QUERY,
+        execute_search_plan,
+        micro_eval_variant,
+    )
+    from services.rerank import get_rerank_service
+    from services.search_plan import build_plan
+    from services.structured_extract import get_structured_extractor
+
+    requested = [int(k) for k in pool_k] if isinstance(pool_k, list) and pool_k else [20, 3]
+    pool_sizes = _micro_eval_pool_sizes(requested)
+    limit = max(1, min(int(limit), 20))
+    passes = max(1, min(int(repetitions), MICRO_EVAL_REPETITIONS_MAX))
+    if db_service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="DB not initialized — wait for backend startup to complete",
+        )
+
+    q = CANONICAL_ANNA_QUERY
+    query_embedding = await asyncio.to_thread(EmbeddingService().embed_query, q)
+    extracted = await asyncio.to_thread(get_structured_extractor().extract, q)
+    plan = build_plan(q, extracted, top_k=limit)
+    rerank_fn = get_rerank_service().rerank
+
+    def _shared_embedding(_: str) -> List[float]:
+        return query_embedding
+
+    async def _one_pass(pool_size: int) -> tuple[Any, float]:
+        started = time.perf_counter()
+        execution = await execute_search_plan(
+            db_service,
+            plan=plan,
+            query=q,
+            limit=limit,
+            embed=_shared_embedding,
+            rerank=rerank_fn,
+            config={"rerank_pool_k": pool_size},
+        )
+        return execution, (time.perf_counter() - started) * 1000
+
+    variants: List[Dict[str, Any]] = []
+    for pool_size in pool_sizes:
+        scored, first_ms = await _one_pass(pool_size)
+        latencies_ms: List[float] = [first_ms]
+        for _ in range(passes - 1):
+            _, elapsed_ms = await _one_pass(pool_size)
+            latencies_ms.append(elapsed_ms)
+        variants.append(
+            micro_eval_variant(
+                scored,
+                latencies_ms=latencies_ms,
+                golden_ids=CANONICAL_ANNA_GOLDEN_IDS,
+                limit=limit,
+            )
+        )
+    return {
+        "query": q,
+        "limit": limit,
+        "repetitions": passes,
+        "variants": variants,
     }
 
 
@@ -2254,6 +2416,14 @@ async def explain_search(query: str):
     This is the mechanism counterpart to ``/search-strategies/compare``
     (which shows the *outcome* — which products win, how fast, at what
     cost). Here the payload walks the pipeline a single query takes:
+
+    Unlike ``/compare``, this route does **not** run the shared executor
+    (``services.planned_hybrid_retrieval.execute_search_plan``) and carries
+    no post-rerank eligibility recheck. It exists to expose the intermediate
+    artifacts the executor collapses into stage counts, so it drives
+    ``HybridSearch.search_explained`` directly. Nothing here is a shopper
+    answer, no plan constrains it, and it writes no retrieval receipt: it is
+    a teaching read model over one unconstrained query.
 
         EMBED → VECTOR → LEXICAL → FUSION → RERANK
 

@@ -839,3 +839,38 @@ async def test_nothing_reconciled_yields_no_best_match_and_a_coverage_note(
     # No card claims to be the recommendation when none can be promised.
     assert all(r.role == RS.ROLE_ALTERNATIVE for r in result.close_matches)
     assert "40 of 1,000" in result.coverage_note
+
+
+@pytest.mark.asyncio
+async def test_the_concierge_composes_the_parts_without_the_shared_executor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Deliberate divergence, pinned so it stays a decision rather than a drift.
+
+    ``services.planned_hybrid_retrieval.execute_search_plan`` is the shopper
+    surfaces' one executor. This pipeline does not run it: it adds two hard
+    predicates the executor has no contract for, breaks its ladder on candidate
+    count before reranking rather than on returned count after it, and offers
+    the reranker every candidate. The module docstring records the reasoning.
+    If this test ever fails, the reasoning changed and the docstring is stale.
+    """
+    from services import planned_hybrid_retrieval as PHR
+
+    async def _forbidden(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError(
+            "find_replacements ran the shared executor; update the docstring "
+            "in services/replacement_search.py or route it deliberately"
+        )
+
+    monkeypatch.setattr(PHR, "execute_search_plan", _forbidden)
+    seen = _wire_pipeline(
+        monkeypatch,
+        candidates=[_candidate("37", "Wabi-Sabi Bowl", 65.0)],
+        inventory={"37": _reconciled("37")},
+    )
+
+    result = await RS.find_replacements(FakeDb(), _plan("find a replacement", {}))
+
+    assert [r.product_id for r in result.available] == ["37"]
+    # The replacement-specific predicate the shared executor cannot express.
+    assert any("<> %s" in clause for clause in seen["hard_clauses"])

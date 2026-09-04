@@ -9,6 +9,7 @@ relevance regression was invisible to CI by construction.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,106 @@ def _load_harness() -> Any:
 @pytest.fixture(scope="module")
 def harness() -> Any:
     return _load_harness()
+
+
+# ---------------------------------------------------------------------------
+# Fakes for the two behavioral tests below. They stand in for Aurora and
+# Bedrock only; the harness code under test is the shipped code.
+# ---------------------------------------------------------------------------
+
+
+def _catalog_row(product_id: int) -> dict[str, Any]:
+    return {
+        "product_id": str(product_id),
+        "name": f"Product {product_id}",
+        "description": f"Description {product_id}",
+        "category": "Home Decor",
+        "price": 40.0 + product_id,
+        "tags": ["home", "gift"],
+        "quantity": 12,
+    }
+
+
+class _RecordingCursor:
+    """Answers both branch queries and records the LIMIT each one bound."""
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self._rows = rows
+        self.limits: list[Any] = []
+
+    async def __aenter__(self) -> "_RecordingCursor":
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> None:
+        return None
+
+    async def execute(self, sql: str, params: Any = None) -> None:
+        # Both branch queries bind their pool size last.
+        self.limits.append(list(params)[-1] if params else None)
+
+    async def fetchall(self) -> list[dict[str, Any]]:
+        return [dict(row) for row in self._rows]
+
+
+class _RecordingConnection:
+    def __init__(self, cursor: _RecordingCursor) -> None:
+        self._cursor = cursor
+
+    def cursor(self) -> _RecordingCursor:
+        return self._cursor
+
+
+class _RecordingDB:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.cursor = _RecordingCursor(rows)
+
+    @contextlib.asynccontextmanager
+    async def get_connection(self) -> Any:
+        yield _RecordingConnection(self.cursor)
+
+
+class _RecordingReranker:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def __call__(self, *, query: str, documents: list[str], top_n: int) -> list[dict]:
+        self.calls.append({"query": query, "documents": list(documents), "top_n": top_n})
+        return [
+            {"index": index, "relevance_score": 1.0 - index * 0.1}
+            for index in range(min(top_n, len(documents)))
+        ]
+
+
+class _StubExecution:
+    """The subset of ``SearchExecution`` the harness's scoring layer reads."""
+
+    def __init__(
+        self,
+        plan: Any,
+        *,
+        rerank_pool_k: int = 20,
+        returned: list[dict[str, Any]] | None = None,
+        pool: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self.plan = plan
+        self.rerank_pool_k = rerank_pool_k
+        self.returned = returned if returned is not None else []
+        self.rerank_pool = pool if pool is not None else []
+
+    def latency_breakdown(self) -> dict[str, int]:
+        return {"embed": 1, "hybrid": 2, "rerank": 3, "eligibility": 0}
+
+
+class _StubExtractor:
+    def extract(self, query: str) -> dict[str, Any]:
+        return {
+            "categories": ["Home Decor"],
+            "tags": ["gift"],
+            "price_max_usd": 100,
+            "in_stock_only": True,
+            "exclusions": [],
+            "soft_signal": "housewarming gift",
+        }
 
 
 def _healthy_totals() -> dict[str, dict[str, float]]:
@@ -309,17 +410,153 @@ def test_compliance_totals_aggregate_rates(harness: Any) -> None:
     assert totals["exclusion_violation_rate"] == 0.1
 
 
-def test_plan_filters_drop_soft_tags(harness: Any) -> None:
-    """Only hard constraints reach the SQL filter for the agentic row."""
+def test_baseline_rows_run_a_strict_unextracted_plan(harness: Any) -> None:
+    """Only the agentic row may carry model-proposed filters or widen.
+
+    The three baseline rows exist to isolate what retrieval mechanics buy.
+    Giving them the extractor's constraints would make every row agentic;
+    letting them widen would hide a short result behind a relaxed pass.
+    """
+    from services import search_plan
+
+    backend = {
+        "build_plan": search_plan.build_plan,
+        "strategies": {
+            "vector": search_plan.STRATEGY_VECTOR,
+            "hybrid": search_plan.STRATEGY_HYBRID,
+            "rerank": search_plan.STRATEGY_HYBRID_RERANK,
+        },
+        "strict_policy": search_plan.RELAXATION_POLICY_STRICT,
+    }
+
+    plan = harness._baseline_plan(backend, "gift under $100", "rerank", 5)
+
+    assert plan.hard.price_max_usd is None
+    assert plan.hard.categories == ()
+    assert plan.soft.tags == ()
+    assert plan.hard.in_stock_only is True
+    assert plan.retrieval_strategy == search_plan.STRATEGY_HYBRID_RERANK
+    assert len(plan.relaxation_ladder()) == 1
+
+
+def test_pool_k_bounds_both_branches_and_the_rerank_pool(harness: Any) -> None:
+    """``--pool-k`` is the one knob the harness varies to show pool effects.
+
+    The config dict is a request. What the branches receive is the contract,
+    and ``HybridSearch`` raises each branch to a floor of five, so a config
+    assertion alone would have reported a pool of three where the vector and
+    lexical branches actually asked Postgres for five rows each.
+    """
+    import argparse
+    import asyncio
+
+    from services.planned_hybrid_retrieval import execute_search_plan
     from services.search_plan import build_plan
 
-    plan = build_plan(
-        "gift under $100",
-        {"categories": ["Gifts"], "tags": ["home"], "price_max_usd": 100},
+    args = argparse.Namespace(pool_k=3, rrf_k=60, top_k=5)
+    config = harness._executor_config(args)
+    assert config == {
+        "k_vector": 3,
+        "k_fts": 3,
+        "rrf_k": 60,
+        "top_n": 5,
+        "rerank_pool_k": 3,
+    }
+
+    db = _RecordingDB([_catalog_row(index) for index in range(1, 9)])
+    reranker = _RecordingReranker()
+    execution = asyncio.run(
+        execute_search_plan(
+            db,
+            plan=build_plan("a housewarming gift", {"in_stock_only": True}, top_k=5),
+            query="a housewarming gift",
+            limit=5,
+            embed=lambda _query: [0.01] * 1024,
+            rerank=reranker,
+            config=config,
+            relax=False,
+        )
     )
 
-    filters = harness._plan_filters(plan)
+    # Both branch queries ran, and each bound a LIMIT of five, not three.
+    assert len(db.cursor.limits) == 2
+    assert db.cursor.limits == [5, 5]
+    # The reranker, in contrast, honors the requested three exactly.
+    assert execution.rerank_pool_k == 3
+    assert len(reranker.calls[0]["documents"]) == 3
 
-    assert filters.categories == ("Gifts",)
-    assert filters.price_max == 100.0
-    assert filters.tags == ()
+
+def test_the_harness_runs_the_shipped_executor(harness: Any) -> None:
+    """An eval that scores its own private pipeline cannot detect a regression.
+
+    Behavioral rather than textual: the harness is handed a recording
+    executor and must route every strategy through it, with the widening
+    policy each strategy is supposed to carry.
+    """
+    import argparse
+    import asyncio
+
+    from services import search_plan
+
+    calls: list[dict[str, Any]] = []
+
+    async def _recording_executor(db: Any, **kwargs: Any) -> Any:
+        calls.append(kwargs)
+        return _StubExecution(kwargs["plan"])
+
+    backend = {
+        "build_plan": search_plan.build_plan,
+        "strategies": {
+            "vector": search_plan.STRATEGY_VECTOR,
+            "hybrid": search_plan.STRATEGY_HYBRID,
+            "rerank": search_plan.STRATEGY_HYBRID_RERANK,
+        },
+        "strict_policy": search_plan.RELAXATION_POLICY_STRICT,
+        "execute_search_plan": _recording_executor,
+        "rerank": lambda **_kwargs: [],
+        "extractor": _StubExtractor(),
+    }
+    golden = harness.GOLDEN_QUERIES[0]
+    args = argparse.Namespace(pool_k=20, rrf_k=60, top_k=5)
+
+    outcomes = asyncio.run(
+        harness._run_strategies(
+            object(), golden, [0.01] * 1024, backend=backend, args=args
+        )
+    )
+
+    assert harness.STRATEGIES == ("vector", "hybrid", "rerank", "agentic")
+    assert tuple(outcomes) == harness.STRATEGIES
+    assert len(calls) == 4
+    # Every strategy went through the injected executor with the harness config.
+    for call in calls:
+        assert call["config"]["rerank_pool_k"] == 20
+        assert call["query"] == golden.query
+        assert call["limit"] == 5
+    # Only the agentic row is allowed to widen.
+    assert [call["relax"] for call in calls] == [False, False, False, True]
+    assert calls[3]["plan"].hard.price_max_usd == 100.0
+
+
+def test_the_harness_reports_the_pool_the_executor_resolved(harness: Any) -> None:
+    """``--pool-k 50`` cannot label coverage at 50 over a pool of thirty."""
+    from services.search_plan import build_plan
+
+    golden = harness.GOLDEN_QUERIES[0]
+    plan = build_plan(golden.query, {"in_stock_only": True}, top_k=5)
+    resolved = 30
+    rows = [{"product_id": str(expected)} for expected in golden.expected]
+    outcomes = {
+        strategy: {
+            "execution": _StubExecution(
+                plan, rerank_pool_k=resolved, returned=rows, pool=rows
+            ),
+            "elapsed_s": 0.01,
+        }
+        for strategy in harness.STRATEGIES
+    }
+
+    detail = harness._detail_for(golden, outcomes, top_k=5)
+
+    assert detail["hybrid_candidate_coverage"]["pool_k"] == resolved
+    assert detail["hybrid_candidate_coverage"]["coverage"] == 1.0

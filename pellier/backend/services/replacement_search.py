@@ -24,6 +24,27 @@ parts — grounding, the price anchor, the availability contract, and the
 recommendation object — and nothing else. A second retrieval implementation inside
 the Concierge would be a second thing to keep true.
 
+What it does *not* share, and why
+---------------------------------
+
+The shopper surfaces run one executor,
+``services.planned_hybrid_retrieval.execute_search_plan``. This module composes the
+same parts one level up instead, because three of its behaviors have no expression
+in that executor's contract: it adds two hard predicates of its own (never the SKU
+being replaced, and reconciled availability rather than the aggregate cache), it
+stops walking the ladder on candidate count *before* reranking rather than on
+returned count after it, and it shows the reranker every candidate while keeping
+only the best ``_RERANK_POOL``. Routing it through the shared executor would change
+which rung serves, how many Bedrock rerank calls a request makes, and which
+candidates the reranker ever sees.
+
+The cost of that choice is one thing the shared executor provides and this pipeline
+does not: a post-rerank eligibility recheck. Here the hard predicates are enforced
+once, in SQL, on both branches — which is the enforcement point, and the reranker
+can only reorder what SQL already validated. The executor's second check exists to
+catch a row that slipped past the SQL. Add it here if this module ever gains a code
+path that can put an unvalidated row into ``candidates``.
+
 Three boundaries that carry the weight
 --------------------------------------
 

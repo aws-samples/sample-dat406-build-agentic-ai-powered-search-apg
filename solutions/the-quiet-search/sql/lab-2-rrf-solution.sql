@@ -2,17 +2,26 @@
 
 DROP TABLE IF EXISTS pg_temp.lab_2_fusion;
 
+-- Two facts select the turn. The high-water mark was captured before you
+-- started this lab, and retrieval_config->>'source' records which surface
+-- wrote the receipt: the Observatory comparison stamps 'observatory-compare',
+-- while an ordinary shopper turn stamps nothing. Both are needed. The mark
+-- alone would read any storefront turn that landed after it, and matching
+-- query text broke the moment the surfaces stopped sending one exact
+-- sentence. The receipt reports its own query below so you can see which turn
+-- you are reading.
 CREATE TEMP TABLE lab_2_fusion AS
 WITH receipt AS (
   SELECT *
     FROM pellier.retrieval_receipts
    WHERE receipt_id > :'receipt_high_water'::bigint
-     AND query_preview =
-       'Keep the gift under $100 and show me the strongest two options.'
+     AND retrieval_config->>'source' = 'observatory-compare'
    ORDER BY receipt_id DESC
    LIMIT 1
 )
 SELECT keys.product_id,
+       r.receipt_id,
+       r.query_preview,
        (r.vector_ranks->>keys.product_id)::int AS vector_rank,
        (r.lexical_ranks->>keys.product_id)::int AS lexical_rank,
        -- === WORKSHOP · PostgreSQL RRF · fusion expression: START ===
@@ -29,6 +38,17 @@ SELECT keys.product_id,
  CROSS JOIN LATERAL jsonb_object_keys(
    r.vector_ranks || r.lexical_ranks
  ) AS keys(product_id);
+
+SELECT coalesce(max(receipt_id)::text, '(none)') AS lab_2_receipt_id,
+       coalesce(
+         max(query_preview),
+         '(no comparison receipt written since the high-water mark)'
+       ) AS lab_2_query
+  FROM lab_2_fusion
+\gset
+
+\echo 'Lab 2 fusion source: receipt' :lab_2_receipt_id
+\echo 'Lab 2 fusion source query:' :lab_2_query
 
 SELECT product_id,
        vector_rank,

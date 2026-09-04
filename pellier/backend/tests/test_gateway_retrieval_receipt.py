@@ -155,6 +155,96 @@ def test_gateway_hybrid_search_persists_actual_ranking_evidence(
     assert plan["hard_constraints"] == {"in_stock": True, "max_price": 175}
 
 
+def _cte(sql: str, name: str) -> str:
+    """Return the body of one named CTE so each branch can be checked alone."""
+    after = sql.split(f"{name} AS (", 1)[1]
+    return after.split("\n        )", 1)[0]
+
+
+def test_gateway_hybrid_search_applies_hard_filters_in_both_branches_before_fusion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _load_server(monkeypatch)
+    rds = _Rds()
+    monkeypatch.setattr(_shared_transport(), "rds_client", rds)
+    monkeypatch.setattr(server, "_get_embedding", lambda _query: [0.1, 0.2])
+    seen: list[tuple[str, list[dict[str, Any]]]] = []
+
+    def _execute_sql(sql: str, parameters: list[dict[str, Any]] | None = None) -> list:
+        seen.append((sql, list(parameters or [])))
+        return _candidate_rows()
+
+    monkeypatch.setattr(server, "_execute_sql", _execute_sql)
+    monkeypatch.setattr(
+        server, "_bedrock_rerank", lambda *_a, **_k: [{"index": 0, "relevance_score": 0.9}]
+    )
+
+    response = server.lambda_handler(
+        {
+            "name": "search_products_hybrid",
+            "arguments": {
+                "query": "linen for a resort",
+                "turn_id": "turn-0123456789abcdef0123456789abcdef",
+                "limit": 2,
+                "max_price": 175,
+                "min_rating": 4.5,
+                "category": "Resort",
+            },
+        },
+        SimpleNamespace(client_context=None),
+    )
+
+    payload = json.loads(response["content"][0]["text"])
+    assert payload["strategy"] == "gateway-hybrid-rerank"
+    assert [product["productId"] for product in payload["products"]] == ["P-1"]
+
+    sql, parameters = seen[0]
+    for branch in (_cte(sql, "vector_results"), _cte(sql, "fts_results")):
+        assert "quantity > 0" in branch
+        assert "price <= :max_price" in branch
+        assert "rating >= :min_rating" in branch
+        assert "lower(category) LIKE :category" in branch
+    bound = {parameter["name"]: parameter["value"] for parameter in parameters}
+    assert bound["max_price"] == {"doubleValue": 175.0}
+    assert bound["min_rating"] == {"doubleValue": 4.5}
+    assert bound["category"] == {"stringValue": "%resort%"}
+
+    values = _parameter_values(rds.calls[0])
+    assert json.loads(values["retrieval_config"])["strategy"] == "gateway-hybrid-rerank"
+    assert json.loads(values["search_plan"])["strategy"] == "gateway-hybrid-rerank"
+    assert json.loads(values["hard_constraints"]) == {
+        "in_stock": True,
+        "max_price": 175,
+        "min_rating": 4.5,
+        "category": "Resort",
+    }
+
+
+def test_gateway_hybrid_search_binds_no_filter_predicates_when_none_are_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    server = _load_server(monkeypatch)
+    monkeypatch.setattr(_shared_transport(), "rds_client", _Rds())
+    monkeypatch.setattr(server, "_get_embedding", lambda _query: [0.1, 0.2])
+    seen: list[str] = []
+
+    def _execute_sql(sql: str, parameters: list[dict[str, Any]] | None = None) -> list:
+        seen.append(sql)
+        return _candidate_rows()
+
+    monkeypatch.setattr(server, "_execute_sql", _execute_sql)
+    monkeypatch.setattr(server, "_bedrock_rerank", lambda *_a, **_k: [])
+
+    server.lambda_handler(
+        {"name": "search_products_hybrid", "arguments": {"query": "linen", "limit": 2}},
+        SimpleNamespace(client_context=None),
+    )
+
+    assert ":max_price" not in seen[0]
+    assert ":min_rating" not in seen[0]
+    assert ":category" not in seen[0]
+
+
 def test_gateway_hybrid_search_never_persists_an_untrusted_turn_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -217,3 +307,60 @@ def test_gateway_semantic_search_persists_cosine_order_without_rerank(
     config = json.loads(values["retrieval_config"])
     assert config["strategy"] == "vector_similarity"
     assert config["similarity_scores"] == {"P-3": 0.91, "P-4": 0.77}
+
+
+def test_gateway_category_wildcards_are_escaped_before_they_reach_both_branches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The category filter gates candidate generation, so a stray ``%`` matters.
+
+    An unescaped metacharacter here does not widen a display filter, it widens
+    the pre-fusion predicate on both branches and changes which candidates the
+    reranker is ever offered. Same helper, same escaping as
+    ``app._prepare_like_pattern`` and the recommend server's copy.
+    """
+    server = _load_server(monkeypatch)
+    rds = _Rds()
+    monkeypatch.setattr(_shared_transport(), "rds_client", rds)
+    monkeypatch.setattr(server, "_get_embedding", lambda _query: [0.1, 0.2])
+    seen: list[tuple[str, list[dict[str, Any]]]] = []
+
+    def _execute_sql(sql: str, parameters: list[dict[str, Any]] | None = None) -> list:
+        seen.append((sql, list(parameters or [])))
+        return _candidate_rows()
+
+    monkeypatch.setattr(server, "_execute_sql", _execute_sql)
+    monkeypatch.setattr(
+        server, "_bedrock_rerank", lambda *_a, **_k: [{"index": 0, "relevance_score": 0.9}]
+    )
+
+    server.lambda_handler(
+        {
+            "name": "search_products_hybrid",
+            "arguments": {
+                "query": "linen for a resort",
+                "turn_id": "turn-0123456789abcdef0123456789abcdef",
+                "limit": 2,
+                "category": "%_Re\\sort",
+            },
+        },
+        SimpleNamespace(client_context=None),
+    )
+
+    _sql, parameters = seen[0]
+    bound = {parameter["name"]: parameter["value"] for parameter in parameters}
+    assert bound["category"] == {"stringValue": "%\\%\\_re\\\\sort%"}
+
+
+def test_gateway_like_helper_matches_the_in_process_escaping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One escaping rule across the in-process path and the Lambda."""
+    import app as app_module
+
+    server = _load_server(monkeypatch)
+
+    for term in ("Resort", "100% linen", "a_b", "back\\slash", "Home Decor"):
+        assert server._prepare_like_pattern(term) == app_module._prepare_like_pattern(
+            term.lower()
+        )

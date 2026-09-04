@@ -18,10 +18,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Answer text is split into sentences at ". ", "! ", and "? ".
+_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 
 _INSERT_SQL = """
     INSERT INTO pellier.governed_turn_receipts (
@@ -260,6 +264,109 @@ def _receipt_citations(
     return citations
 
 
+def _citation_product_name(citation: Dict[str, Any]) -> str:
+    """Recover the product name from a snapshot quote.
+
+    The retrieval writer captures ``Name: description``, but a catalog row with
+    no description is captured as the bare name, and a hand-seeded snapshot may
+    carry neither shape. Take the text before the first colon when there is
+    one, and the whole quote when there is not, so a separator-less quote
+    degrades to "the quote is the name" rather than to a description read as a
+    name.
+
+    Args:
+        citation: One citation dict as built by :func:`_receipt_citations`.
+
+    Returns:
+        The recovered name, whitespace collapsed. Empty when the quote is.
+    """
+    quote = " ".join(str(citation.get("quote") or "").split())
+    return quote.split(":", 1)[0].strip() or quote
+
+
+def _name_phrase_pattern(name: str) -> "re.Pattern[str]":
+    r"""Compile a case-insensitive whole-phrase matcher for one product name.
+
+    Word-character lookarounds rather than ``\b`` so a name that begins or ends
+    in punctuation still anchors: ``\b`` is defined against the adjacent
+    character class, and would silently never match ``Bowl (Small)``.
+
+    Args:
+        name: The product name recovered from a citation quote.
+
+    Returns:
+        A compiled pattern that matches the name only as a whole phrase.
+    """
+    return re.compile(rf"(?<!\w){re.escape(name)}(?!\w)", re.IGNORECASE)
+
+
+def map_answer_claims(
+    answer_text: Optional[str], citations: List[Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Map each answer sentence to the cited products it names.
+
+    A sentence that names at least one cited product becomes a claim with
+    the evidence ids behind it, in citation order. A sentence that names none
+    is listed as unsupported. Matching is case-insensitive on the product name
+    captured at retrieval time, so the mapping never reads the live catalog and
+    never invents support.
+
+    The name must appear as a whole phrase on word boundaries. A bare substring
+    test attached a short or common-word name to sentences it did not support:
+    a product called ``Ash`` claimed every sentence containing ``wash`` or
+    ``cashmere``.
+
+    Args:
+        answer_text: The assistant's final answer.
+        citations: Citation dicts as built by ``_receipt_citations``.
+
+    Returns:
+        ``(claims, unsupported)`` where each claim is
+        ``{"text": sentence, "evidence_ids": [...]}``.
+    """
+    text = " ".join((answer_text or "").split())
+    if not text:
+        return [], []
+    patterns: List[Tuple[Any, str]] = []
+    for citation in citations:
+        name = _citation_product_name(citation)
+        evidence_id = citation.get("evidence_id")
+        if name and evidence_id:
+            patterns.append((_name_phrase_pattern(name), str(evidence_id)))
+    claims: List[Dict[str, Any]] = []
+    unsupported: List[str] = []
+    for sentence in (part.strip() for part in _SENTENCE_BOUNDARY.split(text)):
+        if not sentence:
+            continue
+        evidence_ids = [
+            evidence_id
+            for pattern, evidence_id in patterns
+            if pattern.search(sentence)
+        ]
+        if evidence_ids:
+            claims.append({"text": sentence, "evidence_ids": evidence_ids})
+        else:
+            unsupported.append(sentence)
+    return claims, unsupported
+
+
+def _terminal_outcome(
+    *,
+    terminal_error_code: Optional[str],
+    answer_text: Optional[str],
+    citations: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build the outcome JSON: the error code, and the answer's claims map."""
+    outcome: Dict[str, Any] = {}
+    if terminal_error_code:
+        outcome["error_code"] = terminal_error_code
+    if answer_text:
+        claims, unsupported = map_answer_claims(answer_text, citations)
+        outcome["claims"] = claims
+        outcome["unsupported"] = unsupported
+    return outcome
+
+
 def _policy_events(
     rows: List[Dict[str, Any]],
     *,
@@ -392,12 +499,17 @@ async def persist_turn_receipt(
     trace: Optional[Dict[str, Any]] = None,
     terminal_error_code: Optional[str] = None,
     handoff_context: Optional[Dict[str, Any]] = None,
+    answer_text: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Persist one immutable turn record and return its truthful summary.
 
     Receipt persistence is evidence collection. The shopper turn has already
     reached a terminal state, so a database failure is logged and represented
     by ``None`` rather than changing that outcome or inventing a receipt.
+
+    When ``answer_text`` is given, ``terminal_outcome`` also carries the
+    answer's sentences mapped to the citations they name (``claims``) and the
+    sentences no citation supports (``unsupported``).
     """
     if db is None:
         return None
@@ -447,9 +559,11 @@ async def persist_turn_receipt(
                 retrieval_row or {}
             ).get("citation_snapshot_hash"),
         )
-        outcome = {
-            "error_code": terminal_error_code,
-        } if terminal_error_code else {}
+        outcome = _terminal_outcome(
+            terminal_error_code=terminal_error_code,
+            answer_text=answer_text,
+            citations=citations,
+        )
         from services.shopper_handoff import attach_evidence_refs
 
         durable_handoff = attach_evidence_refs(

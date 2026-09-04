@@ -402,6 +402,85 @@ def test_extractor_failure_degrades_to_no_extraction(
 
 
 # ---------------------------------------------------------------------------
+# Storefront call site: the receipt cites exactly the rows the shopper saw
+# ---------------------------------------------------------------------------
+def _hybrid_rows() -> List[Dict[str, Any]]:
+    return [
+        {
+            "product_id": index,
+            "name": f"Product {index}",
+            "description": f"Description {index}",
+            "category": "Home Decor",
+            "price": 50.0 + index * 10,
+            "rating": 4.7,
+            "reviews": "12",
+            "tags": ["home"],
+            "quantity": 8,
+            "updated_at": f"2026-09-0{index}T00:00:00+00:00",
+            "rrf_score": 0.05 - index * 0.005,
+        }
+        for index in range(1, 6)
+    ]
+
+
+def test_storefront_receipt_cites_the_returned_rows_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``citation_rows`` must be the rows returned, after every post-rerank cut."""
+    import asyncio
+
+    import services.agent_tools as agent_tools
+    import services.embeddings as embeddings_module
+    import services.hybrid_search as hybrid_module
+    import services.rerank as rerank_module
+
+    class _HybridSearch:
+        def __init__(self, db: Any) -> None:
+            self.db = db
+
+        async def search(self, **kwargs: Any) -> List[Dict[str, Any]]:
+            return _hybrid_rows()
+
+    class _Reranker:
+        def rerank(self, *, query: str, documents: List[str], top_n: int) -> List[Dict]:
+            return [
+                {"index": index, "relevance_score": 0.9 - index * 0.1}
+                for index in reversed(range(len(documents)))
+            ]
+
+    class _Embedding:
+        def embed_query(self, query: str) -> List[float]:
+            return [0.01] * 1024
+
+    recorded: List[Dict[str, Any]] = []
+    monkeypatch.setattr(agent_tools, "_db_service", object())
+    monkeypatch.setattr(agent_tools, "_run_async", lambda coro: asyncio.run(coro))
+    monkeypatch.setattr(agent_tools, "_write_retrieval_receipt", lambda **kw: recorded.append(kw))
+    monkeypatch.setattr(embeddings_module, "EmbeddingService", _Embedding)
+    monkeypatch.setattr(hybrid_module, "HybridSearch", _HybridSearch)
+    monkeypatch.setattr(rerank_module, "get_rerank_service", lambda: _Reranker())
+
+    payload = json.loads(
+        agent_tools.search_products_hybrid(query="a housewarming gift", max_price=80, limit=2)
+    )
+
+    # Rerank reversed the pool (5,4,3,2,1); the $90 and $100 rows fail the
+    # ceiling; the limit keeps two. The shopper saw products 3 and 2.
+    assert [product["productId"] for product in payload["products"]] == [3, 2]
+    assert len(recorded) == 1
+    receipt_kwargs = recorded[0]
+    assert [row["product_id"] for row in receipt_kwargs["citation_rows"]] == [3, 2]
+    assert all("updated_at" in row for row in receipt_kwargs["citation_rows"])
+    assert [row["product_id"] for row in receipt_kwargs["ordered"]] == [3, 2, 1]
+    assert [row["product_id"] for row in receipt_kwargs["candidates"]] == [1, 2, 3, 4, 5]
+    assert receipt_kwargs["retrieval_config"]["rerank_pool_k"] >= 3
+    assert set(receipt_kwargs["latency_breakdown"]) >= {"embed", "hybrid", "rerank"}
+
+    receipt = build_receipt(**receipt_kwargs)
+    assert receipt.to_row()["citation_ids"] == ["3", "2"]
+
+
+# ---------------------------------------------------------------------------
 # Migration registration
 # ---------------------------------------------------------------------------
 def test_every_migration_is_applied_by_bootstrap() -> None:

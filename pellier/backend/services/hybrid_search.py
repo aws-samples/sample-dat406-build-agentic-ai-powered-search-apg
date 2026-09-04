@@ -90,6 +90,7 @@ def _vector_branch_sql(extra_clauses: Sequence[str] = ()) -> str:
                 reviews,
                 badge,
                 tags,
+                quantity,
                 updated_at,
                 1 - (embedding <=> (SELECT emb FROM query_embedding)) AS similarity
             FROM pellier.product_catalog
@@ -119,6 +120,7 @@ def _fts_branch_sql(extra_clauses: Sequence[str] = ()) -> str:
                 reviews,
                 badge,
                 tags,
+                quantity,
                 updated_at,
                 ts_rank_cd(description_tsv, q.ts_q) AS fts_rank_score
             FROM pellier.product_catalog
@@ -225,6 +227,34 @@ class HybridSearch:
 
         return results
 
+    async def vector_only(
+        self,
+        query_embedding: List[float],
+        k: int = 0,
+        hard_clauses: Sequence[str] = (),
+        hard_params: Sequence[Any] = (),
+    ) -> List[Dict[str, Any]]:
+        """Run the vector branch alone, annotated like a fused row.
+
+        This is the ``vector`` retrieval strategy a ``SearchPlan`` may
+        declare. Rows carry ``vec_rank`` (1-based) with ``fts_rank`` and
+        ``rrf_score`` set to ``None``, so receipts and the executor's
+        eligibility recheck read them the same way as ``search`` output.
+
+        Args:
+            query_embedding: 1024-dim Cohere Embed v4 vector.
+            k: Pool size for the vector branch (default ``HYBRID_VECTOR_K``).
+            hard_clauses: Compiled hard predicates ANDed into the WHERE.
+            hard_params: Bound parameters for ``hard_clauses``.
+        """
+        k = max(5, min(int(k or settings.HYBRID_VECTOR_K), 100))
+        rows = await self._vector_search(query_embedding, k, hard_clauses, hard_params)
+        for rank_zero, row in enumerate(rows):
+            row["vec_rank"] = rank_zero + 1
+            row["fts_rank"] = None
+            row["rrf_score"] = None
+        return rows
+
     # -----------------------------------------------------------------
     # Teaching surface — explain the merge with per-branch ranks
     # -----------------------------------------------------------------
@@ -298,12 +328,21 @@ class HybridSearch:
         extra_clauses: Sequence[str] = (),
         extra_params: Sequence[Any] = (),
     ) -> List[Dict[str, Any]]:
-        """Pgvector cosine search, no HNSW knobs.
+        """Pgvector cosine search over the filtered catalog.
 
-        We deliberately don't tune ``ef_search`` or enable iterative_scan
-        in the hybrid path — the FTS branch covers the recall floor that
-        iterative_scan was designed to protect, and a smaller HNSW pool
-        keeps this stage fast (the reranker is the recall amplifier).
+        This query sets no HNSW knobs of its own. ``hnsw.iterative_scan``
+        and ``hnsw.ef_search`` are session settings applied once per pooled
+        connection in ``services.database._configure_connection``, so every
+        branch query already runs with relaxed-order iterative scan and the
+        configured ``ef_search``. A hard predicate in ``extra_clauses`` is
+        therefore safe here: iterative scan keeps walking the graph until
+        the filtered LIMIT is met instead of returning a short list.
+
+        Two things this branch does not do. The FTS branch is an independent
+        lexical signal fused by RRF; it does not backfill vector recall and
+        it cannot see what this branch failed to retrieve. The reranker only
+        reorders the pool it is given; a candidate absent from both branches
+        cannot be recovered downstream, which is why the pool size matters.
 
         Args:
             embedding: Query vector.
