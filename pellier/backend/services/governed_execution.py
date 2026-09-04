@@ -62,13 +62,32 @@ logger = logging.getLogger(__name__)
 
 RAIL_GATEWAY = "gateway-mcp"
 RAIL_IN_PROCESS = "in-process"
+# Not a rail that ran. The governed format requires the managed rail, so an
+# execution that cannot reach it is refused before anything runs, and the receipt
+# records the refusal rather than a quiet downgrade.
+RAIL_REFUSED = "refused"
 
-# Policy axis. ALLOW / DENY / WOULD_DENY come only from a real policy engine
-# response; NOT_EVALUATED means nothing was asked, which is a fact rather than a
-# failure.
+# Policy axis, six values and each from a different kind of source:
+#
+#   ALLOW / DENY            an enforced decision the engine produced
+#   WOULD_DENY              a real LOG_ONLY deny event, observed not enforced
+#   POLICY_INFERRED         the Cedar text names the action; not a decision
+#   EVALUATION_INCOMPLETE   an engine was involved and its answer is unreadable
+#   NOT_EVALUATED           no engine was asked at all (the in-process rail)
+#
+# The last two are deliberately distinct. "Nobody asked" and "the answer could
+# not be read" are different facts, and collapsing them hides a broken managed
+# rail behind an expected in-process one.
 POLICY_ALLOW = "ALLOW"
 POLICY_DENY = "DENY"
 POLICY_WOULD_DENY = "WOULD_DENY"
+
+# The one observation source whose reading is not per-call. Kept here rather
+# than imported so this module's vocabulary stays readable in one place; the
+# value is policy_decisions.SOURCE_METRIC.
+_SOURCE_METRIC = "cloudwatch-metric"
+POLICY_INFERRED = "POLICY_INFERRED"
+POLICY_EVALUATION_INCOMPLETE = "EVALUATION_INCOMPLETE"
 POLICY_NOT_EVALUATED = "NOT_EVALUATED"
 
 # Aurora axis.
@@ -92,6 +111,30 @@ class ExecutionError(Exception):
         super().__init__(code)
         self.code = code
         self.status_code = status_code
+
+
+class GovernedRailUnavailable(ExecutionError):
+    """The governed format requires the managed rail and it is not usable.
+
+    Carries the receipt this refusal already recorded, so the route reports a
+    refusal that is provable after the response is gone rather than a bare error.
+    """
+
+    def __init__(
+        self,
+        missing: tuple[str, ...],
+        *,
+        reason: str,
+        receipt_id: Optional[int] = None,
+    ) -> None:
+        super().__init__("governed_rail_unavailable", 409)
+        self.missing = tuple(missing)
+        self.reason = reason
+        self.receipt_id = receipt_id
+
+    def as_detail(self) -> Dict[str, Any]:
+        """The HTTP 409 body: the machine code plus what is missing."""
+        return {"error": self.code, "missing": list(self.missing)}
 
 
 @dataclass
@@ -691,20 +734,88 @@ def gateway_action_id(tool: str) -> str:
     return f"{target}___{tool}"
 
 
-def select_rail(access_token: Optional[str]) -> str:
-    """Gateway when it is configured and we hold the caller's token, else local.
+def _missing_managed_rail_parts(
+    gateway_url: str, access_token: Optional[str]
+) -> List[str]:
+    """Which elements of the managed rail this request cannot supply.
+
+    Named individually rather than reported as one boolean: "the managed rail is
+    unavailable" sends an operator looking at the Gateway when the actual gap may
+    be an unconfigured policy engine or a token the browser never sent.
+    """
+    from services.managed_policy import policy_engine_id
+
+    missing: List[str] = []
+    if not gateway_url:
+        missing.append("AGENTCORE_GATEWAY_URL")
+    if not access_token:
+        missing.append("access_token")
+    if not policy_engine_id():
+        missing.append("AGENTCORE_POLICY_ENGINE_ID")
+    return missing
+
+
+@dataclass(frozen=True)
+class RailSelection:
+    """Which rail will run this execution, and why it cannot be the managed one."""
+
+    rail: str
+    refusal_reason: str = ""
+    missing: tuple[str, ...] = ()
+
+
+def select_rail(access_token: Optional[str]) -> RailSelection:
+    """Gateway when it is usable; refused in the governed format when it is not.
 
     Identity passthrough is the point of the managed rail: the Gateway must see
     the operator's own JWT so Cedar authorizes a person rather than a service.
     Without a token there is nothing to authorize, so the managed rail is not
     merely unavailable — it would be meaningless.
+
+    On this lineage `WORKSHOP_FORMAT` is `governed`, which means a governed write
+    is managed-rail-only, and the managed rail is all three of a Gateway URL, the
+    caller's token, and a policy engine to evaluate the call. Any one of them
+    missing is a refusal, checked before the Gateway is considered: falling back
+    to the in-process rail, or taking the Gateway with no engine behind it, would
+    execute the write with no Cedar verdict at all while the operator believes
+    the boundary held. The builders lineage keeps the in-process rail, because
+    there it is the intended path rather than a silent downgrade.
+
+    Args:
+        access_token: The caller's own JWT, or None.
+
+    Returns:
+        A ``RailSelection``. ``rail`` is ``gateway-mcp``, ``in-process``, or
+        ``refused``; a refusal names every missing item.
     """
     from config import settings
 
     gateway_url = str(getattr(settings, "AGENTCORE_GATEWAY_URL", "") or "").strip()
-    if gateway_url and access_token:
-        return RAIL_GATEWAY
-    return RAIL_IN_PROCESS
+    governed = str(getattr(settings, "WORKSHOP_FORMAT", "") or "").lower() == "governed"
+
+    if not governed:
+        if gateway_url and access_token:
+            return RailSelection(rail=RAIL_GATEWAY)
+        return RailSelection(rail=RAIL_IN_PROCESS)
+
+    # The governed test runs BEFORE the gateway test, and over every part rather
+    # than over the reachable ones. A Gateway and a token with no policy engine
+    # would otherwise take the managed rail and execute the write with nothing
+    # evaluating it, leaving one EVALUATION_INCOMPLETE row that reads as an
+    # unreadable verdict rather than as no verdict at all.
+    missing = _missing_managed_rail_parts(gateway_url, access_token)
+    if not missing:
+        return RailSelection(rail=RAIL_GATEWAY)
+    return RailSelection(
+        rail=RAIL_REFUSED,
+        refusal_reason=(
+            "This deployment runs the governed format, where a write executes only "
+            "through the managed Gateway rail under AgentCore Policy. Missing: "
+            + ", ".join(missing)
+            + ". Nothing was executed."
+        ),
+        missing=tuple(missing),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1051,16 +1162,59 @@ class PolicyEngineState:
     policies: Dict[str, tuple[str, str]] = field(default_factory=dict)
     # Forbid policies whose Cedar statement names this action.
     matching_forbids: tuple[str, ...] = ()
+    # policy name -> control-plane policy id, for attribution on an observation.
+    policy_ids: Dict[str, str] = field(default_factory=dict)
+    policy_engine_id: str = ""
+    # Always true for a control-plane read: this is configuration, not a decision.
+    inferred: bool = True
+
+    @classmethod
+    def from_engine_read(
+        cls, state: Optional[Mapping[str, Any]]
+    ) -> Optional["PolicyEngineState"]:
+        """Build one from what ``managed_policy.engine_state_for_action`` returns.
+
+        Args:
+            state: The engine-read mapping, or None when the engine is unreadable.
+
+        Returns:
+            The typed state, or None for None.
+        """
+        if state is None:
+            return None
+        if isinstance(state, cls):
+            return state
+        return cls(
+            gateway_mode=str(state.get("gateway_mode") or ""),
+            policies=dict(state.get("policies") or {}),
+            matching_forbids=tuple(state.get("matching") or ()),
+            policy_ids=dict(state.get("policy_ids") or {}),
+            policy_engine_id=str(state.get("policy_engine_id") or ""),
+            inferred=bool(state.get("inferred", True)),
+        )
+
+    def as_engine_read(self) -> Dict[str, Any]:
+        """The mapping form, for ``policy_decisions.inferred_from_policy_text``."""
+        return {
+            "gateway_mode": self.gateway_mode,
+            "policies": dict(self.policies),
+            "policy_ids": dict(self.policy_ids),
+            "matching": list(self.matching_forbids),
+            "policy_engine_id": self.policy_engine_id,
+            "inferred": self.inferred,
+        }
 
     @property
     def enforcement_is_on(self) -> bool:
         return str(self.gateway_mode).upper() == "ENFORCE"
 
     def observed_forbid(self) -> Optional[str]:
-        """A forbid policy that matches this action and is switched on.
+        """A forbid policy that names this action and is switched on.
 
-        A forbid in LOG_ONLY is not observed either — it is simply off. Only an
-        ACTIVE forbid under a LOG_ONLY gateway produces a would-deny.
+        Named "observed" historically, and the name overstated it: a policy whose
+        text names an action has not been observed to do anything. It is an
+        inference, and it is what makes a reading POLICY_INFERRED rather than
+        WOULD_DENY. A forbid in LOG_ONLY is off entirely and is not returned.
         """
         for name in self.matching_forbids:
             effect, mode = self.policies.get(name, ("", ""))
@@ -1072,35 +1226,191 @@ class PolicyEngineState:
 def resolve_permissive_policy_state(
     engine: Optional[PolicyEngineState],
 ) -> tuple[str, str]:
-    """Classify a Gateway call that RETURNED, using the engine's declared state.
+    """Classify a Gateway call that RETURNED, from the engine's declared state alone.
 
-    A returned call means the tool was reached. Whether that is an authorization
-    or merely an unenforced observation depends on the engine, not on the
-    response, so this reads the engine's own policy set and mode:
+    This is the BASE reading, before any decision telemetry is consulted. It can
+    reach exactly one positive verdict, and only because enforcement makes the
+    return itself informative:
 
-      * enforcement on  → the action was genuinely permitted → ALLOW
-      * enforcement off and an ACTIVE forbid matches → WOULD_DENY, not enforced
-      * enforcement off and nothing matches → ALLOW, with the mode disclosed
+      * enforcement on  -> the action was genuinely permitted -> ALLOW
+      * enforcement off and an ACTIVE forbid names the action -> POLICY_INFERRED
+      * enforcement off and nothing names it -> EVALUATION_INCOMPLETE
+      * no engine state -> EVALUATION_INCOMPLETE
 
-    Without engine state we do not guess. Reporting ALLOW because a call
-    succeeded under LOG_ONLY would be the exact lie this arc exists to prevent.
+    Three of those used to be different. A matching forbid under a LOG_ONLY
+    gateway returned WOULD_DENY, and nothing else returned ALLOW. Both were
+    wrong in the same way: the Cedar statement of `process_return_damaged_only`
+    names the action on every call, including the ones it permits, so a text
+    match is not a decision and its absence is not an authorization. WOULD_DENY
+    now comes only from `services.policy_decisions`, which reads real LOG_ONLY
+    flip events.
     """
     if engine is None:
-        return POLICY_NOT_EVALUATED, (
+        return POLICY_EVALUATION_INCOMPLETE, (
             "The policy engine state could not be read, so no verdict is claimed."
         )
     if engine.enforcement_is_on:
         return POLICY_ALLOW, "AgentCore Policy evaluated the action and permitted it."
-    observed = engine.observed_forbid()
-    if observed:
-        return POLICY_WOULD_DENY, (
-            f"{observed} matched this action and would have denied it. The gateway "
-            f"is {engine.gateway_mode}, so the decision was observed, not enforced."
+    named = engine.observed_forbid()
+    if named:
+        return POLICY_INFERRED, (
+            f"{named} is an active forbid whose Cedar statement names this action. "
+            f"The gateway is {engine.gateway_mode or 'not in ENFORCE'}, so nothing was "
+            "enforced, and matching policy text is not a decision about this call."
         )
-    return POLICY_ALLOW, (
-        f"No forbid policy matched. The gateway is {engine.gateway_mode}, so a "
-        "denial would not have been enforced in any case."
+    return POLICY_EVALUATION_INCOMPLETE, (
+        f"The gateway is {engine.gateway_mode or 'not in ENFORCE'}, so the call "
+        "returning is not a decision. No forbid policy names this action, which is "
+        "not a decision either."
     )
+
+
+# ---------------------------------------------------------------------------
+# Observed decisions: the only source of ALLOW, DENY and WOULD_DENY
+# ---------------------------------------------------------------------------
+
+
+def _receipt_observation(
+    state: str,
+    *,
+    action_id: str,
+    engine: Optional[PolicyEngineState],
+    operator_sub: str,
+    observed_at: Any,
+    note: str,
+):
+    """The Gateway's own response to this call, as an observation.
+
+    Only an enforced decision qualifies. A call that returned under LOG_ONLY
+    proves the tool was reached and nothing else, so it produces no row here and
+    the span and metric readers are left to say what the engine decided.
+    """
+    from services.policy_decisions import PolicyObservation, SOURCE_RECEIPT
+
+    return PolicyObservation(
+        state=state, source=SOURCE_RECEIPT, action_id=action_id, policy_id=None,
+        policy_name=None, policy_mode=None,
+        engine_mode=(engine.gateway_mode or None) if engine else None,
+        principal_id=operator_sub or None, resource=action_id,
+        observed_at=observed_at, raw={"gateway_response": note},
+    )
+
+
+async def _observe_policy_decisions(
+    db: Any,
+    *,
+    base_policy: str,
+    action_id: str,
+    engine: Optional[PolicyEngineState],
+    operator_sub: str,
+    session_id: str,
+    execution_turn_id: str,
+    started_at: Any,
+    finished_at: Any,
+) -> tuple[str, Dict[str, str]]:
+    """Collect and persist the decision observations for one governed call.
+
+    The base reading from the Gateway response is recorded as a
+    ``governed-receipt`` observation when it is an enforced decision, then the
+    span and metric readers add whatever the engine reported, and the Cedar text
+    scan adds its inference. The terminal state is what the receipt records.
+
+    Never raises: the governed call has already happened, and a telemetry failure
+    must not turn a completed write into an error. A collection failure leaves
+    the base reading in place and says so.
+
+    Returns:
+        ``(policy_state, notes)`` where notes carries the policy sentence and,
+        when rows were written, the decision ids that prove it.
+    """
+    from services import policy_decisions as pdec
+
+    prior = []
+    if base_policy in (POLICY_ALLOW, POLICY_DENY):
+        prior.append(_receipt_observation(
+            base_policy, action_id=action_id, engine=engine, operator_sub=operator_sub,
+            observed_at=finished_at,
+            note=("AgentCore Policy denied the action before the tool ran."
+                  if base_policy == POLICY_DENY
+                  else "The Gateway executed the action under an enforcing engine."),
+        ))
+    try:
+        collected = await pdec.collect_for_turn(
+            db,
+            action_id=action_id,
+            session_id=session_id,
+            turn_id=execution_turn_id,
+            audit_id=None,
+            start=started_at,
+            end=finished_at,
+            prior=prior,
+            engine_state=engine.as_engine_read() if engine else None,
+            principal_id=operator_sub or None,
+            resource=action_id,
+        )
+    except Exception as exc:  # noqa: BLE001 - evidence must not fail the write
+        logger.warning("policy decision collection failed for %s: %s", action_id, exc)
+        return base_policy, {
+            "policy_decisions": (
+                "Policy decision telemetry could not be collected, so this reading "
+                f"rests on the Gateway response alone. {type(exc).__name__}: {exc}"
+            ),
+        }
+
+    return _reconcile_observed_policy(
+        base_policy=base_policy,
+        observed=str(collected.get("terminal") or POLICY_EVALUATION_INCOMPLETE),
+        ids=list(collected.get("ids") or []),
+        observed_source=str(collected.get("terminal_source") or ""),
+    )
+
+
+def _reconcile_observed_policy(
+    *, base_policy: str, observed: str, ids: List[int], observed_source: str = ""
+) -> tuple[str, Dict[str, str]]:
+    """Reconcile the Gateway response with what the engine's own events reported.
+
+    Two disagreements matter and they resolve the same way. A LOG_ONLY flip on a
+    call that ran is WOULD_DENY. A reported DENY on a call that nonetheless
+    returned is also WOULD_DENY: whatever the engine's declared mode says, that
+    denial did not stop this call, and reporting it as DENY would claim the tool
+    never ran when it did. Absent telemetry never weakens an enforced decision.
+
+    The wording follows the source. A span names the call it came from; a
+    CloudWatch metric is a per-minute Sum, so the receipt says the flip belongs
+    to the minutes around this execution rather than to this call.
+    """
+    notes = {
+        "policy_decisions": (
+            f"{len(ids)} decision observation(s) recorded in "
+            f"pellier.policy_decisions (id {', '.join(str(i) for i in ids)})."
+            if ids else "No decision observation was recorded."
+        ),
+    }
+    if observed == POLICY_WOULD_DENY:
+        notes["policy"] = (
+            "A LOG_ONLY policy flip for this action was published to CloudWatch "
+            "in the minutes around this execution and would have denied it. The "
+            "metric is a per-minute total, not a per-call event, so if this "
+            "action ran more than once in that span the flip may belong to "
+            "another call. The decision was observed and not enforced either "
+            "way, so the tool still ran."
+            if observed_source == _SOURCE_METRIC else
+            "A LOG_ONLY policy matched this call and would have denied it. The "
+            "decision was observed and not enforced, so the tool still ran."
+        )
+        return observed, notes
+    if observed == POLICY_DENY and base_policy != POLICY_DENY:
+        notes["policy"] = (
+            "AgentCore Policy reported a denial for this action while the call "
+            "still returned, so the decision was observed and not enforced."
+        )
+        return POLICY_WOULD_DENY, notes
+    if observed == POLICY_EVALUATION_INCOMPLETE and base_policy in (
+        POLICY_ALLOW, POLICY_DENY
+    ):
+        return base_policy, notes
+    return observed, notes
 
 
 # ---------------------------------------------------------------------------
@@ -1124,14 +1434,24 @@ async def execute_confirmed_review(
       2. resolve the customer subject server-side;
       3. claim or reuse the execution turn;
       4. derive the deterministic write key;
-      5. invoke the governed rail;
-      6. classify policy, Aurora, and evidence from what actually happened;
-      7. record the verdicts, so a denial is provable after the response is gone;
-      8. remember the outcome, so "have we seen this before?" is answerable later.
+      5. select the rail, and REFUSE when the governed format requires the
+         managed rail and cannot have it;
+      6. invoke the governed rail;
+      7. collect the policy engine's own decision events for the window;
+      8. classify policy, Aurora, and evidence from what actually happened;
+      9. record the verdicts, so a denial is provable after the response is gone;
+     10. remember the outcome, so "have we seen this before?" is answerable later.
 
-    Nothing in that sequence reads an action parameter from a caller. Steps 7 and 8 are
-    both best-effort ABOUT an execution that has already happened: raising in either
-    would report a completed governed write as a failure and invite a retry.
+    Nothing in that sequence reads an action parameter from a caller. Step 5 is why
+    a governed deployment cannot quietly execute a write in process. Step 7 separates
+    an observed decision from an inference and runs before the append-only receipt is
+    written. Steps 9 and 10 are best-effort ABOUT an execution that already happened:
+    raising in either would report a completed write as a failure and invite a retry.
+
+    Raises:
+        GovernedRailUnavailable: The governed format requires the managed rail and
+            an element of it is missing. Nothing was executed, and a refused
+            receipt records that.
     """
     args = verify_confirmation(review)
     tool = str(review["action"])
@@ -1143,38 +1463,269 @@ async def execute_confirmed_review(
     execution_turn_id = await claim_execution_turn(db, review_id)
     idempotency_key = execution_idempotency_key(review_id, action_hash)
 
-    rail = select_rail(access_token)
-    notes: Dict[str, str] = {}
+    selection = select_rail(access_token)
+    rail = selection.rail
 
-    if rail == RAIL_GATEWAY:
-        policy, result, policy_note = await _execute_through_gateway(
-            tool=tool,
-            args=args,
-            idempotency_key=idempotency_key,
-            access_token=str(access_token),
-        )
-        if policy == POLICY_ALLOW:
-            policy, policy_note = resolve_permissive_policy_state(engine_state)
-        notes["policy"] = policy_note
-    else:
-        policy = POLICY_NOT_EVALUATED
-        notes["policy"] = (
-            "This execution ran in process, so AgentCore Policy was not "
-            "consulted. Only the managed Gateway rail produces a Cedar verdict."
-        )
-        result = await _execute_in_process(
+    if rail == RAIL_REFUSED:
+        raise await _refuse_governed_execution(
             db,
+            review_id=review_id,
             tool=tool,
-            args=args,
-            idempotency_key=idempotency_key,
+            selection=selection,
             operator_sub=operator_sub,
             customer_subject=customer_subject,
+            execution_turn_id=execution_turn_id,
+            idempotency_key=idempotency_key,
         )
 
-    if policy == POLICY_DENY:
-        aurora, aurora_note = AURORA_NOT_REACHED, (
-            "The tool was never entered, so no statement reached the database."
+    if rail == RAIL_GATEWAY:
+        policy, result, notes = await _run_gateway_rail(
+            db, tool=tool, args=args, idempotency_key=idempotency_key,
+            access_token=str(access_token), operator_sub=operator_sub,
+            execution_turn_id=execution_turn_id, engine_state=engine_state,
         )
+    else:
+        policy, result, notes = await _run_in_process_rail(
+            db, tool=tool, args=args, idempotency_key=idempotency_key,
+            operator_sub=operator_sub, customer_subject=customer_subject,
+        )
+
+    aurora, aurora_note, result = _classify_aurora_axis(
+        policy, dict(result), tool=tool, customer_id=customer_id,
+        customer_subject=customer_subject,
+    )
+    notes["aurora"] = aurora_note
+    evidence = classify_evidence_for(policy, aurora, result)
+
+    outcome = ExecutionOutcome(
+        rail=rail,
+        execution_turn_id=execution_turn_id,
+        idempotency_key=idempotency_key,
+        operator_sub=operator_sub,
+        customer_subject=customer_subject,
+        policy=policy,
+        aurora=aurora,
+        evidence=evidence,
+        tool=tool,
+        result=dict(result),
+        notes=notes,
+    )
+    return await _record_and_remember(
+        db, outcome, review, review_id=review_id, engine_state=engine_state
+    )
+
+
+async def _record_and_remember(
+    db: Any,
+    outcome: ExecutionOutcome,
+    review: Mapping[str, Any],
+    *,
+    review_id: int,
+    engine_state: Optional["PolicyEngineState"],
+) -> ExecutionOutcome:
+    """Steps 9 and 10, both ABOUT an execution that already happened.
+
+    Step 9 is the receipt. A Cedar DENY writes no tool_audit row, claims no
+    idempotency key and touches no domain table, so without this the only proof
+    of a refusal is the response body. It is written after classification, so
+    the stored receipt and the returned payload carry the same axes.
+
+    Step 10 is a DERIVED memory, not an authoritative artifact. It reads back
+    from the receipt just written rather than from the classification in flight,
+    so the memory and the evidence cannot disagree, and it is keyed to the
+    review so a replay adds a receipt without adding a second episode.
+
+    Neither may raise: reporting a completed write as a failure invites a retry
+    of a write that already applied.
+
+    Returns:
+        The same outcome, with the evidence axis downgraded when the receipt
+        could not be written.
+    """
+    receipt_id = await record_receipt(
+        db, outcome, review_id=review_id, engine_state=engine_state
+    )
+    if receipt_id is None:
+        # The call returned but its durable classification does not exist. Keep the
+        # business result and report the evidence gap, rather than claiming
+        # RECEIPTED or deriving a memory from an in-flight object.
+        outcome.evidence = EVIDENCE_PENDING
+        outcome.notes["evidence"] = (
+            "The governed call returned, but its execution receipt could not be "
+            "recorded. Inspect the tool audit and domain ledger before relying on "
+            "this attempt as durable proof."
+        )
+        return outcome
+
+    await _remember_outcome(db, review, outcome, receipt_id=receipt_id)
+    return outcome
+
+
+async def _run_gateway_rail(
+    db: Any,
+    *,
+    tool: str,
+    args: Mapping[str, Any],
+    idempotency_key: str,
+    access_token: str,
+    operator_sub: str,
+    execution_turn_id: str,
+    engine_state: Optional["PolicyEngineState"],
+) -> tuple[str, Dict[str, Any], Dict[str, str]]:
+    """Invoke the managed rail and resolve its policy axis from real evidence.
+
+    Three readings are layered, weakest first, so a stronger source always wins:
+    the Gateway's response, the engine's declared state, and finally the engine's
+    own decision events for the window the call occupied. Only the last may
+    report WOULD_DENY.
+
+    Returns:
+        ``(policy_state, tool_envelope, notes)``.
+    """
+    from datetime import datetime, timezone
+
+    started_at = datetime.now(timezone.utc)
+    policy, result, policy_note = await _execute_through_gateway(
+        tool=tool,
+        args=args,
+        idempotency_key=idempotency_key,
+        access_token=access_token,
+    )
+    finished_at = datetime.now(timezone.utc)
+    if policy == POLICY_ALLOW:
+        policy, policy_note = resolve_permissive_policy_state(engine_state)
+    notes: Dict[str, str] = {"policy": policy_note}
+    policy, observation_notes = await _observe_policy_decisions(
+        db,
+        base_policy=policy,
+        action_id=gateway_action_id(tool),
+        engine=engine_state,
+        operator_sub=operator_sub,
+        session_id=f"operator-{operator_sub}",
+        execution_turn_id=execution_turn_id,
+        started_at=started_at,
+        finished_at=finished_at,
+    )
+    notes.update(observation_notes)
+    return policy, dict(result), notes
+
+
+async def _run_in_process_rail(
+    db: Any,
+    *,
+    tool: str,
+    args: Mapping[str, Any],
+    idempotency_key: str,
+    operator_sub: str,
+    customer_subject: Optional[str],
+) -> tuple[str, Dict[str, Any], Dict[str, str]]:
+    """Run the write locally, and claim no policy verdict for it.
+
+    Reached only in the builders format: `select_rail` refuses this path in the
+    governed one rather than downgrading to it.
+
+    Returns:
+        ``(POLICY_NOT_EVALUATED, tool_envelope, notes)``.
+    """
+    notes = {
+        "rail": (
+            "This deployment runs the builders format, where the in-process rail "
+            "is the intended path for a governed write."
+        ),
+        "policy": (
+            "This execution ran in process, so AgentCore Policy was not "
+            "consulted. Only the managed Gateway rail produces a Cedar verdict."
+        ),
+    }
+    result = await _execute_in_process(
+        db,
+        tool=tool,
+        args=args,
+        idempotency_key=idempotency_key,
+        operator_sub=operator_sub,
+        customer_subject=customer_subject,
+    )
+    return POLICY_NOT_EVALUATED, dict(result), notes
+
+
+async def _refuse_governed_execution(
+    db: Any,
+    *,
+    review_id: int,
+    tool: str,
+    selection: RailSelection,
+    operator_sub: str,
+    customer_subject: Optional[str],
+    execution_turn_id: str,
+    idempotency_key: str,
+) -> "GovernedRailUnavailable":
+    """Record that the managed rail was required and unusable, and refuse.
+
+    A refusal is evidence in its own right: it is the moment the system declined
+    to write rather than writing without a verdict, and it must survive the HTTP
+    response like every other governance outcome. The receipt is written before
+    the error is raised so that the refusal is provable even if the operator
+    never sees the response.
+    """
+    outcome = ExecutionOutcome(
+        rail=RAIL_REFUSED,
+        execution_turn_id=execution_turn_id,
+        idempotency_key=idempotency_key,
+        operator_sub=operator_sub,
+        customer_subject=customer_subject,
+        policy=POLICY_EVALUATION_INCOMPLETE,
+        aurora=AURORA_NOT_REACHED,
+        evidence=EVIDENCE_NO_EXECUTION,
+        tool=tool,
+        result={
+            "status": "refused",
+            "message": selection.refusal_reason,
+            "missing": list(selection.missing),
+        },
+        notes={
+            "rail": "The managed rail was required and could not be used.",
+            "refusal_reason": selection.refusal_reason,
+            "policy": (
+                "No policy engine was consulted, because the call was never made. "
+                "That is not an ALLOW and not a NOT_EVALUATED: the governed rail "
+                "was required here and its verdict is missing."
+            ),
+            "aurora": "No statement reached the database.",
+            "evidence": (
+                "This refusal is the artifact. There is no tool audit row and no "
+                "idempotency claim, because nothing executed."
+            ),
+        },
+    )
+    receipt_id = await record_receipt(db, outcome, review_id=review_id)
+    logger.warning(
+        "governed execution refused for review %s: missing %s",
+        review_id, ", ".join(selection.missing),
+    )
+    return GovernedRailUnavailable(
+        selection.missing, reason=selection.refusal_reason, receipt_id=receipt_id
+    )
+
+
+def _classify_aurora_axis(
+    policy: str,
+    result: Dict[str, Any],
+    *,
+    tool: str,
+    customer_id: str,
+    customer_subject: Optional[str],
+) -> tuple[str, str, Dict[str, Any]]:
+    """The Aurora axis for one execution, and the result it was read from.
+
+    Split out of ``execute_confirmed_review`` so that function stays inside the
+    complexity budget once refusal and observation collection joined it. The
+    reclassification below is the only place a tool envelope is rewritten, and it
+    still precedes the classification it feeds.
+    """
+    if policy == POLICY_DENY:
+        return AURORA_NOT_REACHED, (
+            "The tool was never entered, so no statement reached the database."
+        ), result
     elif customer_subject is None and tool == "initiate_return":
         # Fail closed and say why. RLS resolves no scope for an unmapped client, so
         # the write finds nothing; reporting that as "no such order" would disguise an
@@ -1192,56 +1743,9 @@ async def execute_confirmed_review(
                 f"{customer_id} has no identity mapping, so the session resolved "
                 "no customer scope. " + aurora_note
             )
-    else:
-        aurora, aurora_note = classify_aurora(result)
-
-    notes["aurora"] = aurora_note
-    evidence = classify_evidence_for(policy, aurora, result)
-
-    outcome = ExecutionOutcome(
-        rail=rail,
-        execution_turn_id=execution_turn_id,
-        idempotency_key=idempotency_key,
-        operator_sub=operator_sub,
-        customer_subject=customer_subject,
-        policy=policy,
-        aurora=aurora,
-        evidence=evidence,
-        tool=tool,
-        result=dict(result),
-        notes=notes,
-    )
-    # Step 7, and it is not optional. Until this existed the verdicts lived only in the
-    # response body: a Cedar DENY writes no tool_audit row, claims no idempotency key
-    # and touches no domain table, so closing the tab destroyed the only proof that the
-    # action had been refused. Recorded after classification so the stored receipt and
-    # the returned payload carry the same axes, and best-effort so evidence about a
-    # completed write can never fail the write.
-    receipt_id = await record_receipt(
-        db, outcome, review_id=review_id, engine_state=engine_state
-    )
-    if receipt_id is None:
-        # The governed call already returned, but the artifact that would make
-        # its policy/database classification durable does not exist. Keep the
-        # business result intact and report the evidence gap explicitly instead
-        # of returning RECEIPTED or deriving a memory from an in-flight object.
-        outcome.evidence = EVIDENCE_PENDING
-        outcome.notes["evidence"] = (
-            "The governed call returned, but its execution receipt could not be "
-            "recorded. Inspect the tool audit and domain ledger before relying on "
-            "this attempt as durable proof."
-        )
-        return outcome
-
-    # Step 8: remember the outcome, if it is one.
-    #
-    # A DERIVED memory, not an authoritative artifact. The receipt above is the proof;
-    # this is what makes "have we handled something like this before?" answerable later.
-    # It is derived from the receipt just written rather than from the classification in
-    # flight, so the memory and the evidence cannot disagree, and it is keyed to the
-    # review so a replay adds a receipt without adding a second episode.
-    await _remember_outcome(db, review, outcome, receipt_id=receipt_id)
-    return outcome
+        return aurora, aurora_note, result
+    aurora, aurora_note = classify_aurora(result)
+    return aurora, aurora_note, result
 
 
 async def _remember_outcome(

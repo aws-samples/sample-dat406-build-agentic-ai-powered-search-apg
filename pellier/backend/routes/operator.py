@@ -1145,6 +1145,13 @@ async def execute_review(
             access_token=str(operator.get("access_token") or "") or None,
             engine_state=await _policy_engine_state(row),
         )
+    except ge.GovernedRailUnavailable as exc:
+        # Not a failure to execute: a refusal to execute ungoverned. The body names
+        # what is missing so the operator can fix the deployment rather than retry.
+        logger.warning(
+            "governed rail unavailable for review %s: %s", review_id, exc.reason
+        )
+        raise HTTPException(status_code=exc.status_code, detail=exc.as_detail()) from exc
     except ge.ExecutionError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
     except Exception as exc:  # noqa: BLE001
@@ -1163,13 +1170,24 @@ async def _policy_engine_state(row: Dict[str, Any]):
     Gateway call that returned cannot be classified as ALLOW rather than an
     unenforced observation, so the policy axis reports NOT_EVALUATED instead of
     guessing.
+
+    Swallowed here, but not forgotten. ``engine_state_for_action`` records the
+    failure for the rest of this request, so the decision collector on the
+    post-write path declines to repeat the read rather than running the same slow
+    control-plane call a second time, and its receipt says the evaluation was
+    incomplete and why. The read is also bounded and runs off the event loop, so
+    a wedged control plane cannot hold this handler or any other one open.
     """
     from services import governed_execution as ge
 
     try:
         from services.managed_policy import engine_state_for_action
 
-        return await engine_state_for_action(ge.gateway_action_id(str(row["action"])))
+        state = await engine_state_for_action(ge.gateway_action_id(str(row["action"])))
+        # The reader returns the engine's own mapping, which is configuration and
+        # explicitly `inferred`. The typed form carries that label through, so a
+        # verdict can never be derived from it by accident.
+        return ge.PolicyEngineState.from_engine_read(state)
     except Exception as exc:  # noqa: BLE001
         logger.info("policy engine state unavailable: %s", exc)
         return None

@@ -60,9 +60,17 @@ def _live_database_url() -> str:
     `tests/conftest.py` deliberately replaces every `DB_*` setting with a
     localhost placeholder so the suite can never reach a real cluster by
     accident. That protection is correct and stays in place — a live test has
-    to opt out of it explicitly, which is what this does.
+    to opt out of it explicitly, which is what this does. `PELLIER_LIVE_DB_URL`
+    overrides the `.env` cluster with any reachable PostgreSQL that carries the
+    Pellier schema.
     """
     from urllib.parse import quote_plus
+
+    # An explicit URL wins, so the suite can target a local clone of the schema
+    # without pointing it at whichever cluster the developer's .env names.
+    explicit = os.environ.get("PELLIER_LIVE_DB_URL", "").strip()
+    if explicit:
+        return explicit
 
     env_path = pathlib.Path(__file__).resolve().parents[1] / ".env"
     if not env_path.exists():
@@ -342,10 +350,12 @@ async def test_agent_can_complete_its_own_receipt_but_not_falsify_one(db):
                 async with conn.cursor() as cur:
                     await cur.execute(statement)
 
-    # Clean up as the owner, which is the only role that may.
-    await db.execute_query(
-        "DELETE FROM pellier.tool_audit WHERE audit_id = %s", appended
-    )
+    # Nobody cleans this up. Since migration 047 the owner cannot delete an audit
+    # row either: the receipt is evidence, and the probe row stays as one.
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        await db.execute_query(
+            "DELETE FROM pellier.tool_audit WHERE audit_id = %s", appended
+        )
 
 
 @pytest.mark.asyncio(loop_scope="module")
@@ -454,8 +464,11 @@ async def ordered(db) -> AsyncIterator[Dict[str, Any]]:
             "DELETE FROM pellier.returns WHERE customer_id IN ('CUST-MARCO','CUST-ANNA')"
         )
         await db.execute_query("DELETE FROM pellier.orders WHERE id = ANY(%s)", ids)
+        # Only unfilled claims can be released. A completed write_operations row
+        # is frozen evidence since migration 047, so the successful probes stay.
         await db.execute_query(
-            "DELETE FROM pellier.write_operations WHERE idempotency_key LIKE %s",
+            "DELETE FROM pellier.write_operations"
+            " WHERE idempotency_key LIKE %s AND completed_at IS NULL",
             f"live-{_RUN}-%",
         )
 
@@ -581,3 +594,222 @@ async def test_retrying_a_denied_write_does_not_duplicate_evidence(db, ordered):
         key,
     )
     assert receipts[0]["n"] == 1, "a retry duplicated the attempt receipt"
+
+
+# ---------------------------------------------------------------------------
+# Migration 047: evidence immutability, proved against the live triggers
+# ---------------------------------------------------------------------------
+#
+# Every probe below runs on one owner connection and rolls it back at the end.
+# That is not tidiness: after 047 nothing can delete these rows, so a probe that
+# committed would leave permanent residue on every run.
+
+
+async def _expect_refused(conn: Any, statement: str, params: tuple = ()) -> None:
+    """The statement must raise insufficient_privilege from the trigger.
+
+    A savepoint around the statement keeps the surrounding probe transaction
+    usable after the expected failure.
+    """
+    import psycopg
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        async with conn.transaction():
+            async with conn.cursor() as cur:
+                await cur.execute(statement, params)
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_governed_and_execution_receipts_are_append_only(db):
+    """UPDATE and DELETE raise on both receipt tables, even for the owner."""
+    session = f"immutability-probe-{_RUN}"
+    async with db.get_connection() as conn:
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO pellier.governed_receipts"
+                    " (session_id, principal_id, principal_label, tool, caller, decision)"
+                    " VALUES (%s, 'probe', 'probe', 'probe', 'gateway', 'ALLOW')"
+                    " RETURNING receipt_id",
+                    (session,),
+                )
+                receipt_id = (await cur.fetchone())["receipt_id"]
+            await _expect_refused(
+                conn,
+                "UPDATE pellier.governed_receipts SET decision = 'DENY'"
+                " WHERE receipt_id = %s",
+                (receipt_id,),
+            )
+            await _expect_refused(
+                conn,
+                "DELETE FROM pellier.governed_receipts WHERE receipt_id = %s",
+                (receipt_id,),
+            )
+
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT id FROM pellier.customers ORDER BY id LIMIT 1")
+                customer = (await cur.fetchone())["id"]
+                await cur.execute(
+                    "INSERT INTO pellier.approvals"
+                    " (customer_id, tool, args, status, source_turn_id, issue,"
+                    "  action_hash, decided_at, decided_by, execution_turn_id)"
+                    " VALUES (%s, 'initiate_return', '{}'::jsonb, 'approved', %s,"
+                    "  'probe', %s, now(), 'probe', %s) RETURNING id",
+                    (customer, session, "e" * 64, "turn-" + "e" * 32),
+                )
+                review_id = (await cur.fetchone())["id"]
+                await cur.execute(
+                    "INSERT INTO pellier.execution_receipts"
+                    " (execution_turn_id, review_id, tool, rail, actor_principal,"
+                    "  policy_outcome, aurora_outcome, evidence_outcome, idempotency_key)"
+                    " VALUES (%s, %s, 'initiate_return', 'gateway-mcp', 'probe',"
+                    "  'DENY', 'NOT_REACHED', 'POLICY_PROOF', %s) RETURNING receipt_id",
+                    ("turn-" + "e" * 32, review_id, session),
+                )
+                exec_receipt = (await cur.fetchone())["receipt_id"]
+            await _expect_refused(
+                conn,
+                "UPDATE pellier.execution_receipts SET policy_outcome = 'ALLOW'"
+                " WHERE receipt_id = %s",
+                (exec_receipt,),
+            )
+            await _expect_refused(
+                conn,
+                "DELETE FROM pellier.execution_receipts WHERE receipt_id = %s",
+                (exec_receipt,),
+            )
+        finally:
+            await conn.rollback()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_tool_audit_completes_once_and_is_then_frozen(db):
+    """The writer's INSERT then UPDATE pair stays legal; anything after it raises."""
+    async with db.get_connection() as conn:
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO pellier.tool_audit (session_id, tool, caller, args)"
+                    " VALUES (%s, 'probe', 'probe', '{}'::jsonb) RETURNING audit_id",
+                    (f"fill-once-probe-{_RUN}",),
+                )
+                audit_id = (await cur.fetchone())["audit_id"]
+                # The one permitted completion, exactly as tool_audit_writer issues it.
+                await cur.execute(
+                    "UPDATE pellier.tool_audit SET result = %s::jsonb, latency_ms = %s"
+                    " WHERE audit_id = %s",
+                    ('{"status":"probe"}', 7, audit_id),
+                )
+            await _expect_refused(
+                conn,
+                "UPDATE pellier.tool_audit SET result = '{}'::jsonb WHERE audit_id = %s",
+                (audit_id,),
+            )
+            await _expect_refused(
+                conn,
+                "DELETE FROM pellier.tool_audit WHERE audit_id = %s",
+                (audit_id,),
+            )
+        finally:
+            await conn.rollback()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_write_operations_moves_from_claim_to_completed_exactly_once(db):
+    """Claim -> completed succeeds; a completed row refuses UPDATE and DELETE.
+
+    An UNFILLED claim can still be released by DELETE, which is the path
+    migration 023 relies on for a failed attempt.
+    """
+    key = f"fill-once-probe-{_RUN}"
+    async with db.get_connection() as conn:
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO pellier.write_operations"
+                    " (idempotency_key, operation, request_hash)"
+                    " VALUES (%s, 'initiate_return', %s)",
+                    (key, "f" * 64),
+                )
+                await cur.execute(
+                    "UPDATE pellier.write_operations"
+                    " SET result = '{\"status\":\"success\"}'::jsonb, completed_at = now()"
+                    " WHERE idempotency_key = %s",
+                    (key,),
+                )
+                await cur.execute(
+                    "SELECT completed_at FROM pellier.write_operations"
+                    " WHERE idempotency_key = %s",
+                    (key,),
+                )
+                assert (await cur.fetchone())["completed_at"] is not None
+            await _expect_refused(
+                conn,
+                "UPDATE pellier.write_operations SET result = '{}'::jsonb"
+                " WHERE idempotency_key = %s",
+                (key,),
+            )
+            await _expect_refused(
+                conn,
+                "DELETE FROM pellier.write_operations WHERE idempotency_key = %s",
+                (key,),
+            )
+
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO pellier.write_operations"
+                    " (idempotency_key, operation, request_hash)"
+                    " VALUES (%s, 'initiate_return', %s)",
+                    (key + "-unfilled", "f" * 64),
+                )
+            await _expect_refused(
+                conn,
+                "UPDATE pellier.write_operations SET request_hash = %s"
+                " WHERE idempotency_key = %s",
+                ("0" * 64, key + "-unfilled"),
+            )
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "DELETE FROM pellier.write_operations WHERE idempotency_key = %s",
+                    (key + "-unfilled",),
+                )
+                assert cur.rowcount == 1, "an unfilled claim must remain releasable"
+        finally:
+            await conn.rollback()
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_agent_role_can_complete_a_claim_but_not_rewrite_its_identity(db):
+    """The narrowed grant fits the write functions and nothing more.
+
+    `process_return_idempotent` runs as pellier_agent and finalises a claim with
+    `UPDATE ... SET result, completed_at`. That must still work under the column
+    grant; touching any other column is refused by the grant before the trigger
+    is consulted.
+    """
+    import psycopg
+
+    key = f"agent-grant-probe-{_RUN}"
+    await db.execute_query(
+        "INSERT INTO pellier.write_operations (idempotency_key, operation, request_hash)"
+        " VALUES (%s, 'initiate_return', %s)",
+        key, "a" * 64,
+    )
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        async with db.principal_session("irrelevant-for-grants") as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE pellier.write_operations SET request_hash = %s"
+                    " WHERE idempotency_key = %s",
+                    ("b" * 64, key),
+                )
+    async with db.principal_session("irrelevant-for-grants") as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE pellier.write_operations"
+                " SET result = '{\"status\":\"success\"}'::jsonb, completed_at = now()"
+                " WHERE idempotency_key = %s",
+                (key,),
+            )
+            assert cur.rowcount == 1
+    # The completed row is evidence now and stays; there is no cleanup by design.

@@ -495,7 +495,11 @@ def test_the_self_probe_proves_both_attempts_survive() -> None:
     assert "expected 2 retained attempts on one execution turn" in sql
     assert "accepted a malformed execution turn id" in sql
     assert "accepted a policy outcome outside the vocabulary" in sql
-    assert "receipt(s) survived their review" in sql
+    # The cascade used to be proved by deleting the review. Migration 047 makes
+    # execution_receipts append-only and a cascaded DELETE fires that trigger,
+    # so the probe now asserts the declaration from pg_constraint instead.
+    assert "does not CASCADE from" in sql
+    assert "confdeltype = 'c'" in sql
 
 
 def test_the_migration_does_not_widen_the_human_axis() -> None:

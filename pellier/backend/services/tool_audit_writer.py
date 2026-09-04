@@ -192,10 +192,15 @@ def record_after(
             "_head": result_str[:8000],
         })
 
+    # Fill-once, matching the trigger migration 047 installs: a row may be
+    # completed while `result` and `latency_ms` are still NULL, and never again.
+    # The predicate is here as well as in the database so a duplicate After event
+    # updates zero rows instead of raising from inside the trigger, which would
+    # log an error for something that is not one.
     sql = (
         "UPDATE pellier.tool_audit "
         "SET result = %s::jsonb, latency_ms = %s "
-        "WHERE audit_id = %s"
+        "WHERE audit_id = %s AND result IS NULL AND latency_ms IS NULL"
     )
     try:
         _run_async(

@@ -404,12 +404,131 @@ def test_the_dimension_matches_the_schema() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_execution_path_records_the_episode_after_the_receipt() -> None:
-    """Derived from the durable row, so the memory and the evidence cannot disagree."""
+class _OrderRecordingDb:
+    """The database an execution actually talks to, in call order.
+
+    Enough of the real surface for one in-process execution: the principal
+    lookup, the execution-turn claim, and a log of every call the execution made
+    through it. The receipt and the episode append their own names, so the test
+    reads the sequence rather than the source text.
+    """
+
+    def __init__(self) -> None:
+        self.calls: List[str] = []
+        self._claimed: Optional[str] = None
+
+    async def fetch_one(self, query: str, *params: Any) -> Optional[Dict[str, Any]]:
+        if "FROM pellier.principal_customers" in query:
+            self.calls.append("resolve_customer_subject")
+            return {"principal_sub": "sub-theo-cognito"}
+        if query.strip().startswith("UPDATE pellier.approvals"):
+            self.calls.append("claim_execution_turn")
+            self._claimed = params[0]
+            return {"execution_turn_id": params[0]}
+        if "SELECT execution_turn_id" in query:
+            return {"execution_turn_id": self._claimed}
+        return None
+
+    async def fetch_all(self, _query: str, *_params: Any) -> List[Dict[str, Any]]:
+        return []
+
+
+class _NoOpLogic:
+    def __init__(self, _db: Any) -> None:
+        pass
+
+    async def initiate_return(self, **_kwargs: Any) -> Dict[str, Any]:
+        return {"status": "success", "return_id": 9}
+
+
+@pytest.mark.asyncio
+async def test_the_execution_path_records_the_episode_after_the_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Derived from the durable row, so the memory and the evidence cannot disagree.
+
+    Asserted by running an execution and reading the order of the calls it made,
+    not by comparing the position of two identifiers in the source: that scan
+    passes on a rename in a comment and fails on a rename in the code.
+    """
+    from services.business_logic import write_request_hash
+
+    args = {"customer_id": "CUST-THEO", "product_id": 37, "reason": "damaged"}
+    review = {
+        "review_id": 12, "customer_id": "CUST-THEO", "action": "initiate_return",
+        "args": dict(args), "status": "approved",
+        "action_hash": write_request_hash("initiate_return", **args),
+        "source_turn_id": "turn-" + ("a" * 32), "order_id": 305,
+        "execution_turn_id": None, "decided_by": "operator-1",
+    }
+    db = _OrderRecordingDb()
+
+    async def _receipt(recorded_db: Any, *_args: Any, **_kwargs: Any) -> int:
+        recorded_db.calls.append("record_receipt")
+        return 77
+
+    async def _remember(recorded_db: Any, *_args: Any, **_kwargs: Any) -> None:
+        recorded_db.calls.append("_remember_outcome")
+
+    import services.business_logic as bl
+    from config import settings
+
+    monkeypatch.setattr(bl, "BusinessLogic", _NoOpLogic)
+    monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "builders", raising=False)
+    monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_URL", "", raising=False)
+    monkeypatch.setattr(GE, "record_receipt", _receipt)
+    monkeypatch.setattr(GE, "_remember_outcome", _remember)
+
+    await GE.execute_confirmed_review(db, review, operator_sub="sub-operator")
+
+    assert db.calls == [
+        "resolve_customer_subject", "claim_execution_turn",
+        "record_receipt", "_remember_outcome",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_no_episode_is_remembered_when_the_receipt_could_not_be_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A memory derived from a receipt that does not exist would be invented."""
+    from services.business_logic import write_request_hash
+
+    args = {"customer_id": "CUST-THEO", "product_id": 37, "reason": "damaged"}
+    review = {
+        "review_id": 12, "customer_id": "CUST-THEO", "action": "initiate_return",
+        "args": dict(args), "status": "approved",
+        "action_hash": write_request_hash("initiate_return", **args),
+        "source_turn_id": "turn-" + ("a" * 32), "order_id": 305,
+        "execution_turn_id": None, "decided_by": "operator-1",
+    }
+    db = _OrderRecordingDb()
+
+    async def _no_receipt(*_args: Any, **_kwargs: Any) -> Optional[int]:
+        return None
+
+    async def _remember(recorded_db: Any, *_args: Any, **_kwargs: Any) -> None:
+        recorded_db.calls.append("_remember_outcome")
+
+    import services.business_logic as bl
+    from config import settings
+
+    monkeypatch.setattr(bl, "BusinessLogic", _NoOpLogic)
+    monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "builders", raising=False)
+    monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_URL", "", raising=False)
+    monkeypatch.setattr(GE, "record_receipt", _no_receipt)
+    monkeypatch.setattr(GE, "_remember_outcome", _remember)
+
+    outcome = await GE.execute_confirmed_review(db, review, operator_sub="sub-operator")
+
+    assert "_remember_outcome" not in db.calls
+    assert outcome.evidence == GE.EVIDENCE_PENDING
+
+
+def test_the_episode_is_derived_from_the_receipt_that_was_just_written() -> None:
+    """The contract of the step itself: read back, never reuse the in-flight object."""
     import inspect
 
-    source = inspect.getsource(GE.execute_confirmed_review)
-    assert source.index("record_receipt") < source.index("_remember_outcome")
     remember = inspect.getsource(GE._remember_outcome)
     assert "record_outcome_episode" in remember
     assert "latest_receipt" in remember

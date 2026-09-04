@@ -454,9 +454,18 @@ BEGIN
                 'Expected exactly 1 credit row for the probe key, found %.', n_after;
         END IF;
 
-        -- Leave no probe residue behind.
-        DELETE FROM pellier.store_credits WHERE idempotency_key = 'probe-apply-store-credit';
-        DELETE FROM pellier.write_operations WHERE idempotency_key = 'probe-apply-store-credit';
+        -- Leave no probe residue behind, by rolling the probe back rather than
+        -- deleting its rows. Migration 047 makes a COMPLETED
+        -- pellier.write_operations row undeletable, so the DELETE that used to
+        -- clean up here aborts this migration on any cluster that already has
+        -- 047, which is every re-apply: the workshop reset and a second
+        -- bootstrap both run 019 again. Raising a private SQLSTATE that this
+        -- same block catches discards every row the probe wrote, and asks for
+        -- no exemption from the immutability rule. Same shape as 047's own
+        -- self-probe.
+        RAISE EXCEPTION 'migration 019 credit probe complete' USING ERRCODE = 'P0019';
+    EXCEPTION WHEN SQLSTATE 'P0019' THEN
+        RAISE NOTICE 'Credit write probe verified; probe rows rolled back';
     END;
 
     RAISE NOTICE

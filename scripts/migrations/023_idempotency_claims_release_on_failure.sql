@@ -287,6 +287,14 @@ DECLARE
     v_customer   TEXT;
     v_product    TEXT;
 BEGIN
+  -- The probe runs inside a subtransaction that ends by raising a private
+  -- SQLSTATE (P0023) caught below, which discards every row it wrote. It used
+  -- to delete its own rows instead, and since migration 047 a COMPLETED
+  -- pellier.write_operations row cannot be deleted: that DELETE aborts this
+  -- migration on any cluster that already has 047, which is every re-apply.
+  -- Rolling back proves the same invariants and asks for no exemption from the
+  -- immutability rule.
+  BEGIN
     -- 1. A failed attempt must leave no write_operations row.
     v_result := pellier.process_return_idempotent(
         v_key, repeat('d', 64), 'CUST-DOES-NOT-EXIST', '1', 'damaged'
@@ -353,21 +361,15 @@ BEGIN
                 'migration 023: replay applied the write more than once';
         END IF;
 
-        -- Clean up only what this probe created.
-        DELETE FROM pellier.returns
-         WHERE customer_id = v_customer AND product_id = v_product
-           AND reason = 'changed_mind'
-           AND id = (SELECT MAX(id) FROM pellier.returns
-                      WHERE customer_id = v_customer AND product_id = v_product
-                        AND reason = 'changed_mind');
-        DELETE FROM pellier.write_operations
-         WHERE idempotency_key = v_key || '-success';
     END IF;
 
-    DELETE FROM pellier.write_operations WHERE idempotency_key LIKE v_key || '%';
+    RAISE EXCEPTION 'migration 023 probe complete' USING ERRCODE = 'P0023';
+  EXCEPTION WHEN SQLSTATE 'P0023' THEN
     RAISE NOTICE
-        'migration 023: verified — a failed attempt releases its idempotency key, '
-        'a success is recorded once and replays once';
+        'migration 023: verified. A failed attempt releases its idempotency key, '
+        'a success is recorded once and replays once, and every probe row was '
+        'rolled back';
+  END;
 END $$;
 
 COMMIT;

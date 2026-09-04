@@ -295,3 +295,48 @@ def test_operator_audit_failure_is_visible_at_warning(
         )
 
     assert "operator tool_audit INSERT failed: operator audit unavailable" in caplog.text
+
+
+class TestFillOnceAlignment:
+    """Migration 047 makes tool_audit fill-once at the database boundary.
+
+    The writer's UPDATE is the one completion that trigger admits. These pin the
+    statement to that shape, so a second delivery of the same After event is a
+    no-op row count rather than an exception from inside the database.
+    """
+
+    def test_the_update_only_completes_a_row_that_is_still_open(
+        self, mock_db_with_loop: MagicMock,
+    ) -> None:
+        tool_audit_writer._pending_audits["abc-123"] = 12345
+        tool_audit_writer.record_after(
+            tool_use_id="abc-123", result={"status": "success"}, latency_ms=12,
+        )
+        sql = mock_db_with_loop.execute_query.call_args.args[0]
+        assert "result IS NULL" in sql
+        assert "latency_ms IS NULL" in sql
+        # And it still touches only the two completable columns.
+        assignments = sql.split("SET", 1)[1].split("WHERE", 1)[0]
+        for frozen in ("tool", "caller", "args", "session_id", "created_at"):
+            assert frozen not in assignments
+
+    def test_a_rejected_completion_is_visible_at_warning(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """A trigger refusal must not vanish: silent evidence loss is the failure mode."""
+        monkeypatch.setattr(
+            tool_audit_writer, "_db_service", MagicMock(execute_query=MagicMock()),
+        )
+        tool_audit_writer._pending_audits["abc-123"] = 12345
+
+        def _raise(_: Any) -> None:
+            raise RuntimeError("tool_audit row 12345 already finalized")
+
+        monkeypatch.setattr(tool_audit_writer, "_run_async", _raise)
+        with caplog.at_level(logging.WARNING, logger=tool_audit_writer.__name__):
+            tool_audit_writer.record_after(
+                tool_use_id="abc-123", result={"status": "success"}, latency_ms=12,
+            )
+        assert "already finalized" in caplog.text

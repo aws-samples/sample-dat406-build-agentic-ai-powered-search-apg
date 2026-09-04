@@ -63,9 +63,13 @@ CREATE TABLE IF NOT EXISTS pellier.execution_receipts (
     execution_turn_id   TEXT NOT NULL
                         CHECK (execution_turn_id ~ '^turn-[0-9a-f]{32}$'),
 
-    -- The human decision this execution ran under. CASCADE so the deterministic
-    -- workshop reset stays a single delete on pellier.approvals: a receipt without
-    -- its review reconstructs nothing.
+    -- The human decision this execution ran under. CASCADE because a receipt
+    -- without its review reconstructs nothing, so one must never outlive the
+    -- other. It is not how the workshop reset clears them: since migration 047
+    -- this table is append-only and the cascade fires that row trigger, so the
+    -- reset TRUNCATEs approvals and execution_receipts in one statement
+    -- instead (scripts/reset-governed-workshop.sh), which fires no row-level
+    -- triggers.
     review_id           BIGINT NOT NULL
                         REFERENCES pellier.approvals(id) ON DELETE CASCADE,
 
@@ -175,6 +179,12 @@ BEGIN
         RETURN;
     END IF;
 
+  -- The probe runs inside a subtransaction that ends by raising a private
+  -- SQLSTATE (P0025) caught below, which discards every row it wrote. Since
+  -- migration 047 an execution receipt cannot be deleted at all, so a probe
+  -- that committed would leave permanent residue on every apply.
+  BEGIN
+
     INSERT INTO pellier.approvals
         (customer_id, tool, args, status, source_turn_id, issue, action_hash,
          decided_at, decided_by, execution_turn_id)
@@ -233,16 +243,34 @@ BEGIN
             v_count;
     END IF;
 
-    -- 4. deleting the review takes its receipts with it, so the workshop reset
-    --    remains one delete rather than an ordered pair.
-    DELETE FROM pellier.approvals WHERE source_turn_id = v_turn;
+    -- 4. review_id cascades, so a receipt cannot outlive the human decision it
+    --    belongs to. Read from the catalog rather than exercised: since
+    --    migration 047 pellier.execution_receipts is append-only, and a
+    --    cascaded DELETE fires that row trigger like any other, so deleting the
+    --    review is refused whether or not this block rolls back. What is
+    --    provable here is the declaration.
+    --
+    --    The workshop reset therefore does not clear receipts with a DELETE on
+    --    pellier.approvals. It TRUNCATEs approvals and execution_receipts in
+    --    one statement (scripts/reset-governed-workshop.sh), which fires no
+    --    row-level triggers and leaves nothing orphaned.
     SELECT count(*) INTO v_count
-      FROM pellier.execution_receipts WHERE execution_turn_id = v_exec;
-    IF v_count <> 0 THEN
+      FROM pg_constraint
+     WHERE conrelid = 'pellier.execution_receipts'::regclass
+       AND contype = 'f'
+       AND confrelid = 'pellier.approvals'::regclass
+       AND confdeltype = 'c';
+    IF v_count <> 1 THEN
         RAISE EXCEPTION
-            'migration 025: % receipt(s) survived their review; reset would orphan them',
-            v_count;
+            'migration 025: execution_receipts.review_id does not CASCADE from '
+            'pellier.approvals (found % cascading foreign key(s)); a receipt '
+            'could outlive its review', v_count;
     END IF;
 
-    RAISE NOTICE 'migration 025: execution receipt constraints verified';
+    RAISE EXCEPTION 'migration 025 probe complete' USING ERRCODE = 'P0025';
+  EXCEPTION WHEN SQLSTATE 'P0025' THEN
+    RAISE NOTICE
+        'migration 025: execution receipt constraints verified; probe rows '
+        'rolled back';
+  END;
 END $$;

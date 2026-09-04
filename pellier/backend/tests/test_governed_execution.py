@@ -15,6 +15,7 @@ identity must never become the Row-Level Security subject.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -115,18 +116,42 @@ class FakeLogic:
         return dict(type(self).envelope)
 
 
+class FakeCollector:
+    """Stands in for `policy_decisions.collect_for_turn` and records what it saw."""
+
+    calls: List[Dict[str, Any]] = []
+    result: Dict[str, Any] = {"states": [], "ids": [], "terminal": "EVALUATION_INCOMPLETE"}
+    raises: Optional[BaseException] = None
+
+    @classmethod
+    async def collect(cls, _db: Any, **kwargs: Any) -> Dict[str, Any]:
+        cls.calls.append(kwargs)
+        if cls.raises is not None:
+            raise cls.raises
+        return dict(cls.result)
+
+
 @pytest.fixture(autouse=True)
 def _reset_logic(monkeypatch: pytest.MonkeyPatch):
     FakeLogic.calls = []
     FakeLogic.envelope = {"status": "success", "return_id": 9}
     FakeLogic.raises = None
+    FakeCollector.calls = []
+    FakeCollector.result = {"states": [], "ids": [], "terminal": "EVALUATION_INCOMPLETE"}
+    FakeCollector.raises = None
     import services.business_logic as bl
+    from services import policy_decisions as pdec
 
     monkeypatch.setattr(bl, "BusinessLogic", FakeLogic)
-    # Default to the in-process rail unless a test opts into the Gateway.
+    monkeypatch.setattr(pdec, "collect_for_turn", FakeCollector.collect)
+    # Default to the in-process rail unless a test opts into the Gateway. The
+    # governed format refuses that rail, so the baseline here is the builders one.
     from config import settings
 
+    monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "builders", raising=False)
     monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_URL", "", raising=False)
+    monkeypatch.setattr(settings, "AGENTCORE_POLICY_ENGINE_ID", "", raising=False)
+    monkeypatch.delenv("AGENTCORE_POLICY_ENGINE_ID", raising=False)
 
     async def receipt_written(*_args: Any, **_kwargs: Any) -> int:
         return 1
@@ -138,6 +163,32 @@ def _reset_logic(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(ge, "_remember_outcome", episode_written)
     yield
     FakeLogic.calls = []
+    FakeCollector.calls = []
+
+
+def _governed(monkeypatch: pytest.MonkeyPatch, *, gateway_url: str = "https://gw.example",
+              engine_id: str = "engine-1") -> None:
+    from config import settings
+
+    monkeypatch.setattr(settings, "WORKSHOP_FORMAT", "governed", raising=False)
+    monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_URL", gateway_url, raising=False)
+    monkeypatch.setattr(settings, "AGENTCORE_POLICY_ENGINE_ID", engine_id, raising=False)
+
+
+def _gateway_returns(monkeypatch: pytest.MonkeyPatch, policy: str,
+                     envelope: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    calls: List[Dict[str, Any]] = []
+
+    async def fake_gateway(**kwargs: Any):
+        calls.append(kwargs)
+        if policy == ge.POLICY_DENY:
+            return (ge.POLICY_DENY, {"status": "policy_denied",
+                                     "denied_by": "agentcore_policy"}, "Cedar denied it.")
+        return (ge.POLICY_ALLOW, dict(envelope or {"status": "success", "return_id": 9}),
+                "AgentCore Policy permitted the action.")
+
+    monkeypatch.setattr(ge, "_execute_through_gateway", fake_gateway)
+    return calls
 
 
 # ---------------------------------------------------------------------------
@@ -455,8 +506,9 @@ def test_a_returned_gateway_call_under_log_only_is_not_an_allow() -> None:
         matching_forbids=("process_return_damaged_only",),
     )
     policy, note = ge.resolve_permissive_policy_state(log_only)
-    assert policy == ge.POLICY_WOULD_DENY
-    assert "observed, not enforced" in note
+    assert policy == ge.POLICY_INFERRED
+    assert policy != ge.POLICY_WOULD_DENY
+    assert "not a decision" in note
 
 
 def test_enforcement_on_makes_a_returned_call_a_real_allow() -> None:
@@ -476,14 +528,34 @@ def test_a_forbid_in_log_only_is_off_not_observed() -> None:
         policies={"process_return_damaged_only": ("forbid", "LOG_ONLY")},
         matching_forbids=("process_return_damaged_only",),
     )
-    policy, _ = ge.resolve_permissive_policy_state(both_off)
-    assert policy == ge.POLICY_ALLOW
+    policy, note = ge.resolve_permissive_policy_state(both_off)
+    # Nothing was enforced and nothing was observed: not an ALLOW, not a guess.
+    assert policy == ge.POLICY_EVALUATION_INCOMPLETE
+    assert "not a decision" in note
 
 
 def test_an_unreadable_engine_yields_no_verdict_rather_than_a_guess() -> None:
     policy, note = ge.resolve_permissive_policy_state(None)
-    assert policy == ge.POLICY_NOT_EVALUATED
+    assert policy == ge.POLICY_EVALUATION_INCOMPLETE
     assert "no verdict is claimed" in note
+
+
+def test_the_substring_scan_can_never_produce_would_deny() -> None:
+    """Task 2.4: only real observations may say WOULD_DENY."""
+    import itertools
+
+    for gateway_mode, policy_mode, matches in itertools.product(
+        ("ENFORCE", "LOG_ONLY", ""), ("ACTIVE", "LOG_ONLY", ""), (True, False),
+    ):
+        state = ge.PolicyEngineState(
+            gateway_mode=gateway_mode,
+            policies={"process_return_damaged_only": ("forbid", policy_mode)},
+            matching_forbids=("process_return_damaged_only",) if matches else (),
+        )
+        policy, _ = ge.resolve_permissive_policy_state(state)
+        assert policy != ge.POLICY_WOULD_DENY, (gateway_mode, policy_mode, matches)
+        assert policy in (ge.POLICY_ALLOW, ge.POLICY_INFERRED,
+                          ge.POLICY_EVALUATION_INCOMPLETE)
 
 
 def test_only_real_policy_denials_are_classified_as_denials() -> None:
@@ -845,3 +917,621 @@ def test_one_operation_writes_one_audit_identity() -> None:
     # And the invoked name is never used as the audit identity.
     assert 'tool=tool_name' not in source
     assert 'tool=prefixed' not in source
+
+
+# ---------------------------------------------------------------------------
+# Migration 047: evidence immutability
+# ---------------------------------------------------------------------------
+
+MIGRATIONS = REPO / "scripts" / "migrations"
+
+
+def _sql_without_comments(path: Path) -> str:
+    return "\n".join(line.split("--", 1)[0] for line in path.read_text().splitlines())
+
+
+def test_migration_047_installs_append_only_and_fill_once_triggers() -> None:
+    """Receipts are append-only; tool_audit and write_operations fill exactly once."""
+    sql = _sql_without_comments(MIGRATIONS / "047_evidence_immutability.sql")
+    assert "FUNCTION pellier.reject_evidence_mutation()" in sql
+    assert "FUNCTION pellier.tool_audit_fill_once()" in sql
+    assert "FUNCTION pellier.write_operations_fill_once()" in sql
+    for trigger, table in (
+        ("governed_receipts_append_only", "pellier.governed_receipts"),
+        ("execution_receipts_append_only", "pellier.execution_receipts"),
+        ("tool_audit_fill_once", "pellier.tool_audit"),
+        ("write_operations_fill_once", "pellier.write_operations"),
+    ):
+        assert f"CREATE TRIGGER {trigger} BEFORE UPDATE OR DELETE ON {table}" in sql, trigger
+    assert "ERRCODE = 'insufficient_privilege'" in sql
+
+
+def test_migration_047_narrows_the_agent_update_grant_on_write_operations() -> None:
+    """016 granted table-wide UPDATE; only the claim -> completed columns survive."""
+    sql = _sql_without_comments(MIGRATIONS / "047_evidence_immutability.sql")
+    assert "REVOKE UPDATE ON pellier.write_operations FROM pellier_agent" in sql
+    assert "GRANT UPDATE (result, completed_at) ON pellier.write_operations TO pellier_agent" in sql
+
+
+def test_migration_047_keeps_the_claim_release_path_of_023() -> None:
+    """023 leaves a failed claim unfilled; deleting an UNFILLED claim must stay legal."""
+    sql = _sql_without_comments(MIGRATIONS / "047_evidence_immutability.sql")
+    body = sql[sql.index("write_operations_fill_once() RETURNS trigger"):]
+    delete_branch = body[body.index("IF TG_OP = 'DELETE'"):body.index("RETURN OLD")]
+    assert "OLD.completed_at IS NOT NULL" in delete_branch
+
+
+def test_migration_047_leaves_no_probe_residue() -> None:
+    """The self-probe cannot delete what it inserts, so it must roll itself back."""
+    text = (MIGRATIONS / "047_evidence_immutability.sql").read_text()
+    assert "SQLSTATE 'P0047'" in text
+    assert "ERRCODE = 'P0047'" in text
+
+
+# The scans above read the file. A trigger function whose body was reduced to
+# RETURN NEW would satisfy every one of them, so one test has to put a statement
+# to a server and watch it be refused. It runs against any database with the
+# migration list applied.
+#
+#   PELLIER_MIGRATION_DSN=postgresql://... .venv/bin/python -m pytest \
+#       tests/test_governed_execution.py -k immutability_is_enforced -v
+
+_MIGRATION_DSN = os.environ.get("PELLIER_MIGRATION_DSN", "")
+
+
+@pytest.mark.skipif(
+    not _MIGRATION_DSN,
+    reason="set PELLIER_MIGRATION_DSN to a database with the migrations applied",
+)
+def test_migration_047_immutability_is_enforced_by_the_server() -> None:
+    """UPDATE and DELETE really are refused, and the one legal completion is not.
+
+    Everything happens inside a transaction that is rolled back, because after
+    047 nothing can remove what this test inserts.
+    """
+    import psycopg
+
+    probe = "migration-047-live-probe"
+    with psycopg.connect(_MIGRATION_DSN) as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO pellier.governed_receipts"
+                    " (session_id, principal_id, principal_label, tool, caller, decision)"
+                    " VALUES (%s, 'probe', 'probe', 'probe', 'gateway', 'ALLOW')"
+                    " RETURNING receipt_id",
+                    (probe,),
+                )
+                receipt_id = cur.fetchone()[0]
+            for statement, params in (
+                ("UPDATE pellier.governed_receipts SET decision = 'DENY'"
+                 " WHERE receipt_id = %s", (receipt_id,)),
+                ("DELETE FROM pellier.governed_receipts WHERE receipt_id = %s",
+                 (receipt_id,)),
+            ):
+                with conn.transaction(force_rollback=True):
+                    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                        with conn.cursor() as cur:
+                            cur.execute(statement, params)
+
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO pellier.tool_audit (session_id, tool, caller, args)"
+                    " VALUES (%s, 'probe', 'probe', '{}'::jsonb) RETURNING audit_id",
+                    (probe,),
+                )
+                audit_id = cur.fetchone()[0]
+                # The one completion the writer is allowed.
+                cur.execute(
+                    "UPDATE pellier.tool_audit SET result = '{}'::jsonb, latency_ms = 1"
+                    " WHERE audit_id = %s",
+                    (audit_id,),
+                )
+            with conn.transaction(force_rollback=True):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE pellier.tool_audit SET latency_ms = 2"
+                            " WHERE audit_id = %s",
+                            (audit_id,),
+                        )
+        finally:
+            conn.rollback()
+
+
+# 047 makes three earlier probes illegal on any re-apply. Each was fixed in
+# place rather than exempted: the reset and a second bootstrap both re-run the
+# whole migration list, and a switch that suspends the triggers is the one thing
+# append-only evidence must not ship with.
+
+
+@pytest.mark.parametrize(
+    "migration, code",
+    [
+        ("019_operator_desk.sql", "P0019"),
+        ("023_idempotency_claims_release_on_failure.sql", "P0023"),
+        ("025_execution_receipts.sql", "P0025"),
+    ],
+)
+def test_the_earlier_probes_roll_back_instead_of_deleting_evidence(
+    migration: str, code: str
+) -> None:
+    """A probe that deletes its own completed rows cannot run twice after 047."""
+    text = (MIGRATIONS / migration).read_text()
+    assert f"ERRCODE = '{code}'" in text, "the probe must end by raising its private code"
+    assert f"SQLSTATE '{code}'" in text, "and catch it, so the subtransaction rolls back"
+    sql = _sql_without_comments(MIGRATIONS / migration)
+    for table in ("pellier.write_operations", "pellier.execution_receipts",
+                  "pellier.approvals"):
+        assert f"DELETE FROM {table}" not in sql, (
+            f"{migration} still deletes {table}; 047 refuses that on a re-apply"
+        )
+
+
+def test_migration_025_proves_the_cascade_from_the_catalog() -> None:
+    """The cascade cannot be exercised any more, so the declaration is asserted."""
+    sql = _sql_without_comments(MIGRATIONS / "025_execution_receipts.sql")
+    assert "confdeltype = 'c'" in sql
+    assert "confrelid = 'pellier.approvals'::regclass" in sql
+
+
+# ---------------------------------------------------------------------------
+# Task 2.4: the engine read is an inference; decisions come from observations
+# ---------------------------------------------------------------------------
+
+
+class _FakeControlPlane:
+    def __init__(self, gateway_mode: str = "LOG_ONLY") -> None:
+        self.gateway_mode = gateway_mode
+
+    def get_gateway(self, **_kw: Any) -> Dict[str, Any]:
+        return {"policyEngineConfiguration": {"mode": self.gateway_mode}}
+
+    def list_policies(self, **_kw: Any) -> Dict[str, Any]:
+        return {"policies": [{"policyId": "pol-1"}, {"policyId": "pol-2"}]}
+
+    def get_policy(self, *, policyEngineId: str, policyId: str) -> Dict[str, Any]:  # noqa: N803
+        if policyId == "pol-1":
+            return {
+                "name": "process_return_damaged_only",
+                "enforcementMode": "ACTIVE",
+                "definition": {"cedar": {"statement": (
+                    'forbid(principal, action == AgentCore::Action::'
+                    '"pellier-concierge-experience-target___initiate_return", resource)'
+                    ' unless { context.reason == "damaged" };'
+                )}},
+            }
+        return {
+            "name": "baseline_permit",
+            "enforcementMode": "ACTIVE",
+            "definition": {"cedar": {"statement": "permit(principal, action, resource);"}},
+        }
+
+
+@pytest.mark.asyncio
+async def test_engine_state_for_action_is_labeled_inferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from services import managed_policy as mp
+
+    _governed(monkeypatch)
+    from config import settings
+
+    monkeypatch.setattr(settings, "AGENTCORE_GATEWAY_ARN", "arn:aws:x:y:z:gateway/gw-1",
+                        raising=False)
+    import boto3
+
+    monkeypatch.setattr(boto3, "client", lambda *_a, **_k: _FakeControlPlane("LOG_ONLY"))
+
+    state = await mp.engine_state_for_action(
+        "pellier-concierge-experience-target___initiate_return"
+    )
+    assert state["inferred"] is True
+    assert state["matching"] == ["process_return_damaged_only"]
+    assert state["gateway_mode"] == "LOG_ONLY"
+    assert state["policies"]["process_return_damaged_only"] == ("forbid", "ACTIVE")
+    assert state["policy_ids"]["process_return_damaged_only"] == "pol-1"
+    assert state["policy_engine_id"] == "engine-1"
+    assert "WOULD_DENY" not in str(state)
+
+
+def test_the_engine_state_dataclass_round_trips_the_inferred_mapping() -> None:
+    state = ge.PolicyEngineState.from_engine_read({
+        "gateway_mode": "LOG_ONLY",
+        "policies": {"process_return_damaged_only": ("forbid", "ACTIVE")},
+        "policy_ids": {"process_return_damaged_only": "pol-1"},
+        "matching": ["process_return_damaged_only"],
+        "inferred": True,
+        "policy_engine_id": "engine-1",
+    })
+    assert state is not None
+    assert state.matching_forbids == ("process_return_damaged_only",)
+    assert state.inferred is True
+    assert state.observed_forbid() == "process_return_damaged_only"
+    assert state.as_engine_read()["matching"] == ["process_return_damaged_only"]
+    assert ge.PolicyEngineState.from_engine_read(None) is None
+
+
+@pytest.mark.asyncio
+async def test_a_gateway_denial_is_a_deny_and_is_persisted_as_a_governed_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_DENY)
+    FakeCollector.result = {"states": ["DENY"], "ids": [7], "terminal": "DENY"}
+
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+    )
+    assert outcome.rail == ge.RAIL_GATEWAY
+    assert outcome.policy == ge.POLICY_DENY
+    assert outcome.evidence == ge.EVIDENCE_POLICY_PROOF
+    assert FakeLogic.calls == []
+    prior = FakeCollector.calls[0]["prior"]
+    assert [(o.state, o.source) for o in prior] == [("DENY", "governed-receipt")]
+    assert FakeCollector.calls[0]["principal_id"] == OPERATOR_SUBJECT
+    assert FakeCollector.calls[0]["action_id"].endswith("___initiate_return")
+
+
+@pytest.mark.asyncio
+async def test_a_returned_call_under_enforce_is_an_allow_from_the_gateway_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    FakeCollector.result = {"states": ["ALLOW"], "ids": [8], "terminal": "ALLOW"}
+    enforced = ge.PolicyEngineState(gateway_mode="ENFORCE", policies={}, matching_forbids=())
+
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+        engine_state=enforced,
+    )
+    assert outcome.policy == ge.POLICY_ALLOW
+    prior = FakeCollector.calls[0]["prior"]
+    assert [(o.state, o.source) for o in prior] == [("ALLOW", "governed-receipt")]
+    assert prior[0].engine_mode == "ENFORCE"
+    assert FakeCollector.calls[0]["engine_state"]["gateway_mode"] == "ENFORCE"
+
+
+@pytest.mark.asyncio
+async def test_a_returned_call_under_log_only_with_a_text_match_is_inferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The former WOULD_DENY path. It can only infer now."""
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    FakeCollector.result = {"states": ["POLICY_INFERRED"], "ids": [9],
+                            "terminal": "POLICY_INFERRED"}
+    log_only = ge.PolicyEngineState(
+        gateway_mode="LOG_ONLY",
+        policies={"process_return_damaged_only": ("forbid", "ACTIVE")},
+        matching_forbids=("process_return_damaged_only",),
+    )
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+        engine_state=log_only,
+    )
+    assert outcome.policy == ge.POLICY_INFERRED
+    assert outcome.policy != ge.POLICY_WOULD_DENY
+    assert outcome.aurora == ge.AURORA_PERMITTED
+    # A returned call under LOG_ONLY is not a decision, so no governed-receipt row.
+    assert FakeCollector.calls[0]["prior"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_real_log_only_flip_observation_makes_the_receipt_would_deny(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    FakeCollector.result = {"states": ["ALLOW", "WOULD_DENY"], "ids": [1, 2],
+                            "terminal": "WOULD_DENY"}
+    enforced = ge.PolicyEngineState(gateway_mode="ENFORCE", policies={}, matching_forbids=())
+
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+        engine_state=enforced,
+    )
+    assert outcome.policy == ge.POLICY_WOULD_DENY
+    assert "LOG_ONLY" in outcome.notes["policy"]
+    assert outcome.evidence == ge.EVIDENCE_RECEIPTED
+    assert "1, 2" in outcome.notes["policy_decisions"]
+
+
+@pytest.mark.asyncio
+async def test_a_span_deny_on_a_call_that_returned_reads_as_would_deny(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The tool ran, so the engine's deny was observed, not enforced."""
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    FakeCollector.result = {"states": ["DENY"], "ids": [3], "terminal": "DENY"}
+
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+    )
+    assert outcome.policy == ge.POLICY_WOULD_DENY
+    assert outcome.aurora == ge.AURORA_PERMITTED
+    assert outcome.evidence == ge.EVIDENCE_RECEIPTED
+
+
+@pytest.mark.asyncio
+async def test_telemetry_collection_failure_keeps_the_base_reading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    FakeCollector.raises = RuntimeError("logs unreachable")
+
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+    )
+    # No engine state and no telemetry: nothing may be claimed.
+    assert outcome.policy == ge.POLICY_EVALUATION_INCOMPLETE
+    assert "could not be collected" in outcome.notes["policy_decisions"]
+    assert "logs unreachable" in outcome.notes["policy_decisions"]
+    assert outcome.aurora == ge.AURORA_PERMITTED
+
+
+@pytest.mark.asyncio
+async def test_the_observation_window_brackets_the_gateway_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import datetime, timezone
+
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    before = datetime.now(timezone.utc)
+    await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+    )
+    after = datetime.now(timezone.utc)
+    call = FakeCollector.calls[0]
+    # before <= start <= end <= after: the window brackets the call and nothing else.
+    assert before <= call["start"] <= call["end"] <= after
+    assert call["turn_id"].startswith("turn-")
+    assert call["session_id"] == f"operator-{OPERATOR_SUBJECT}"
+
+
+def test_the_execution_entry_point_stays_within_the_length_limit() -> None:
+    """100 lines per function is a hard limit, and this one grew past it.
+
+    The steps it sequences are the contract, so the guard is on the entry point
+    rather than on the file: the next step belongs in a named helper.
+    """
+    import inspect
+
+    for name in ("execute_confirmed_review", "_record_and_remember"):
+        length = len(inspect.getsource(getattr(ge, name)).splitlines())
+        assert length <= 100, f"{name} is {length} lines"
+
+
+@pytest.mark.asyncio
+async def test_observations_are_collected_before_the_receipt_is_written(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The receipt is append-only, so its policy_outcome must be final at insert.
+
+    Asserted from the order of the calls one execution made, not from where two
+    identifiers appear in the source.
+    """
+    _governed(monkeypatch)
+    _gateway_returns(monkeypatch, ge.POLICY_ALLOW)
+    order: List[str] = []
+
+    async def collect(_db: Any, **kwargs: Any) -> Dict[str, Any]:
+        order.append("collect_for_turn")
+        return await FakeCollector.collect(_db, **kwargs)
+
+    async def receipt(*_args: Any, **_kwargs: Any) -> int:
+        order.append("record_receipt")
+        return 1
+
+    from services import policy_decisions as pdec
+
+    monkeypatch.setattr(pdec, "collect_for_turn", collect)
+    monkeypatch.setattr(ge, "record_receipt", receipt)
+
+    await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+    )
+    assert order == ["collect_for_turn", "record_receipt"], (
+        "the rail (and so the observation) must resolve before the receipt insert"
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_in_process_rail_never_collects_observations() -> None:
+    await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT
+    )
+    assert FakeCollector.calls == []
+
+
+# ---------------------------------------------------------------------------
+# Task 2.5: fail closed for governed writes
+# ---------------------------------------------------------------------------
+
+
+def test_select_rail_refuses_in_governed_format_without_a_gateway_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch, gateway_url="")
+    selection = ge.select_rail("jwt")
+    assert selection.rail == ge.RAIL_REFUSED
+    assert selection.missing == ("AGENTCORE_GATEWAY_URL",)
+    assert "AGENTCORE_GATEWAY_URL" in selection.refusal_reason
+
+
+def test_select_rail_names_every_missing_item(monkeypatch: pytest.MonkeyPatch) -> None:
+    _governed(monkeypatch, gateway_url="", engine_id="")
+    selection = ge.select_rail(None)
+    assert selection.rail == ge.RAIL_REFUSED
+    assert selection.missing == (
+        "AGENTCORE_GATEWAY_URL", "access_token", "AGENTCORE_POLICY_ENGINE_ID",
+    )
+
+
+def test_select_rail_refuses_when_only_the_access_token_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Gateway with no caller JWT authorizes nobody. Refuse, do not execute."""
+    _governed(monkeypatch)
+    selection = ge.select_rail(None)
+    assert selection.rail == ge.RAIL_REFUSED
+    assert selection.missing == ("access_token",)
+    assert "access_token" in selection.refusal_reason
+
+
+def test_select_rail_refuses_when_only_the_policy_engine_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The failure this whole task exists to close.
+
+    A Gateway URL and a token with no policy engine is the most dangerous of the
+    three gaps: the write runs against Aurora and returns, and the only trace is
+    one EVALUATION_INCOMPLETE row that reads as "we could not see the verdict"
+    rather than "there was no verdict to see".
+    """
+    _governed(monkeypatch, engine_id="")
+    selection = ge.select_rail("jwt")
+    assert selection.rail == ge.RAIL_REFUSED
+    assert selection.missing == ("AGENTCORE_POLICY_ENGINE_ID",)
+    assert "AGENTCORE_POLICY_ENGINE_ID" in selection.refusal_reason
+
+
+def test_select_rail_takes_the_gateway_when_everything_is_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch)
+    selection = ge.select_rail("jwt")
+    assert selection == ge.RailSelection(rail=ge.RAIL_GATEWAY)
+    assert selection.refusal_reason == ""
+
+
+def test_select_rail_keeps_the_in_process_rail_for_the_builders_format() -> None:
+    assert ge.select_rail(None).rail == ge.RAIL_IN_PROCESS
+    assert ge.select_rail("jwt").rail == ge.RAIL_IN_PROCESS
+
+
+@pytest.mark.asyncio
+async def test_a_refused_execution_writes_a_refused_receipt_and_runs_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _governed(monkeypatch, gateway_url="")
+    recorded = AsyncMock(return_value=44)
+    monkeypatch.setattr(ge, "record_receipt", recorded)
+
+    with pytest.raises(ge.GovernedRailUnavailable) as caught:
+        await ge.execute_confirmed_review(
+            FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token="jwt",
+        )
+
+    error = caught.value
+    assert error.status_code == 409
+    assert error.code == "governed_rail_unavailable"
+    assert error.missing == ("AGENTCORE_GATEWAY_URL",)
+    assert error.receipt_id == 44
+    assert error.as_detail() == {
+        "error": "governed_rail_unavailable", "missing": ["AGENTCORE_GATEWAY_URL"],
+    }
+    assert FakeLogic.calls == [], "a refused execution must not touch BusinessLogic"
+    assert FakeCollector.calls == []
+
+    outcome = recorded.await_args.args[1]
+    assert outcome.rail == ge.RAIL_REFUSED
+    assert outcome.policy == ge.POLICY_EVALUATION_INCOMPLETE
+    assert outcome.aurora == ge.AURORA_NOT_REACHED
+    assert outcome.evidence == ge.EVIDENCE_NO_EXECUTION
+    assert "AGENTCORE_GATEWAY_URL" in outcome.notes["refusal_reason"]
+    assert outcome.execution_turn_id.startswith("turn-")
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_without_a_token_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    _governed(monkeypatch)
+    with pytest.raises(ge.GovernedRailUnavailable) as caught:
+        await ge.execute_confirmed_review(
+            FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT, access_token=None,
+        )
+    assert caught.value.missing == ("access_token",)
+
+
+@pytest.mark.asyncio
+async def test_the_builders_format_keeps_the_in_process_rail_and_the_receipt_says_so() -> None:
+    outcome = await ge.execute_confirmed_review(
+        FakeDb(), approved_review(), operator_sub=OPERATOR_SUBJECT
+    )
+    assert outcome.rail == ge.RAIL_IN_PROCESS
+    assert outcome.policy == ge.POLICY_NOT_EVALUATED
+    assert "builders" in outcome.notes["rail"]
+    assert "in-process" in outcome.notes["rail"]
+    assert len(FakeLogic.calls) == 1
+
+
+def test_the_execute_route_maps_a_refusal_to_409(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from routes import operator as operator_module
+    from services import operator_review as rv
+
+    _governed(monkeypatch, gateway_url="")
+
+    async def review_loaded(_db: Any, _review_id: int) -> Dict[str, Any]:
+        return approved_review()
+
+    monkeypatch.setattr(rv, "get_review", review_loaded)
+
+    app = FastAPI()
+    app.include_router(operator_module.router)
+    app.dependency_overrides[operator_module.get_db_service] = lambda: FakeDb()
+    app.dependency_overrides[operator_module.require_operator] = lambda: {
+        "sub": OPERATOR_SUBJECT, "username": "operator", "groups": ("pellier-operators",),
+        "access_token": "jwt",
+    }
+    response = TestClient(app).post("/api/operator/reviews/12/execute", json={})
+
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"] == {
+        "error": "governed_rail_unavailable", "missing": ["AGENTCORE_GATEWAY_URL"],
+    }
+    assert FakeLogic.calls == []
+
+
+# ---------------------------------------------------------------------------
+# A metric reading is minute-granular, and the receipt says so
+# ---------------------------------------------------------------------------
+
+
+def test_the_metric_source_constant_matches_the_observation_module() -> None:
+    """Two spellings of one source value would silently disable the caveat."""
+    from services import policy_decisions as pdec
+
+    assert ge._SOURCE_METRIC == pdec.SOURCE_METRIC
+
+
+def test_a_metric_sourced_would_deny_is_not_reported_as_a_per_call_decision() -> None:
+    """LogOnlyDecisionFlips is a 60-second Sum over a padded window.
+
+    Reporting it as "matched this call" attributes an adjacent execution of the
+    same action to this one.
+    """
+    policy, notes = ge._reconcile_observed_policy(
+        base_policy=ge.POLICY_ALLOW, observed=ge.POLICY_WOULD_DENY, ids=[7],
+        observed_source="cloudwatch-metric",
+    )
+    assert policy == ge.POLICY_WOULD_DENY
+    assert "matched this call" not in notes["policy"]
+    assert "per-minute" in notes["policy"]
+    assert "may belong to another call" in notes["policy"]
+
+
+def test_a_span_sourced_would_deny_is_still_reported_as_this_call() -> None:
+    """A span names the call it came from, so the per-call wording is honest."""
+    _policy, notes = ge._reconcile_observed_policy(
+        base_policy=ge.POLICY_ALLOW, observed=ge.POLICY_WOULD_DENY, ids=[7],
+        observed_source="gateway-span",
+    )
+    assert "matched this call" in notes["policy"]
+    assert "per-minute" not in notes["policy"]

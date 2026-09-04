@@ -49,7 +49,7 @@ def test_a_policy_allow_does_not_imply_aurora_permitted() -> None:
 def test_a_permissive_gateway_result_is_not_an_allow_without_engine_state() -> None:
     """A call that returned under LOG_ONLY is an observation, not an authorization."""
     policy, note = GE.resolve_permissive_policy_state(None)
-    assert policy == GE.POLICY_NOT_EVALUATED
+    assert policy == GE.POLICY_EVALUATION_INCOMPLETE
     assert "could not be read" in note
 
 
@@ -65,15 +65,18 @@ def test_enforcement_on_turns_a_returned_call_into_a_real_allow() -> None:
     assert "evaluated the action and permitted it" in note
 
 
-def test_an_unenforced_matching_forbid_is_would_deny_not_allow() -> None:
+def test_an_unenforced_matching_forbid_is_inferred_not_a_verdict() -> None:
+    """Policy text that names the action is a fact about text, not a decision."""
     state = GE.PolicyEngineState(
         gateway_mode="LOG_ONLY",
         policies={"process_return_damaged_only": ("forbid", "ACTIVE")},
         matching_forbids=("process_return_damaged_only",),
     )
     assert state.enforcement_is_on is False
-    policy, _note = GE.resolve_permissive_policy_state(state)
-    assert policy == GE.POLICY_WOULD_DENY
+    policy, note = GE.resolve_permissive_policy_state(state)
+    assert policy == GE.POLICY_INFERRED
+    assert policy != GE.POLICY_WOULD_DENY
+    assert "process_return_damaged_only" in note
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +113,9 @@ def test_a_success_is_never_reclassified() -> None:
 
 def test_the_reclassification_only_fires_without_a_customer_subject() -> None:
     """A mapped client's not-ordered result is a business fact and must stand."""
-    source = inspect.getsource(GE.execute_confirmed_review)
+    source = inspect.getsource(GE._classify_aurora_axis)
     branch = source[source.index("elif customer_subject is None"):]
-    branch = branch[: branch.index("else:")]
+    branch = branch[: branch.index("return aurora, aurora_note, result")]
     assert "is_ownership_failure(result)" in branch
     assert "as_rls_denial(result, customer_id)" in branch
     # And the reclassification precedes the classification it feeds.

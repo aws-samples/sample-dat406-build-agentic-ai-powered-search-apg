@@ -33,8 +33,10 @@ than raising, so the Observatory surface degrades to "(no policies)" instead of 
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+from contextvars import ContextVar
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,74 @@ def _region() -> str:
         return os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1"
 
 
+def resolved_region() -> str:
+    """The region the managed-policy reads use, for sibling telemetry clients."""
+    return _region()
+
+
+class ControlPlaneUnavailable(RuntimeError):
+    """A ``bedrock-agentcore-control`` read was not performed, and this says why.
+
+    Raised only for a read that was deliberately skipped. A read that was
+    attempted and failed re-raises its own botocore error unchanged, because the
+    two say different things on a receipt: one is a control plane that answered
+    badly, the other is a call this process chose not to make.
+    """
+
+
+# botocore's defaults are a 60-second read with four retries. Both control-plane
+# reads sit on the operator's request path and one of them runs AFTER the
+# governed write has executed, so the defaults would hold a completed turn open
+# for minutes on a degraded account.
+_CONTROL_CONNECT_TIMEOUT_S = 3.0
+_CONTROL_READ_TIMEOUT_S = 8.0
+_CONTROL_MAX_ATTEMPTS = 2
+# The whole engine read: a get_gateway, a list_policies, and a get_policy per
+# policy. Wider than one call's read timeout, narrower than their sum.
+_CONTROL_DEADLINE_S = 15.0
+
+# Request-scoped, not process-scoped: one degraded read must not suppress the
+# next caller's read. A ContextVar set inside a request's task is never visible
+# to another request, and never outlives it.
+_CONTROL_FAILURE: ContextVar[Optional[str]] = ContextVar(
+    "managed_policy_control_plane_failure", default=None
+)
+
+
+def control_plane_failure() -> Optional[str]:
+    """Why the control-plane read already failed in this request, if it did.
+
+    Callers on the post-write path use this to avoid re-running a read that has
+    just failed, and to record on the receipt why no reading was taken.
+
+    Returns:
+        The recorded reason, or None when no read has failed in this request.
+    """
+    return _CONTROL_FAILURE.get()
+
+
+def _control_client_config() -> Any:
+    """Short timeouts and a small retry cap for the control-plane client."""
+    from botocore.config import Config
+
+    return Config(
+        connect_timeout=_CONTROL_CONNECT_TIMEOUT_S,
+        read_timeout=_CONTROL_READ_TIMEOUT_S,
+        retries={"max_attempts": _CONTROL_MAX_ATTEMPTS, "mode": "standard"},
+    )
+
+
+def _control_client() -> Any:
+    """A bounded ``bedrock-agentcore-control`` client for this region."""
+    import boto3
+
+    return boto3.client(
+        "bedrock-agentcore-control",
+        region_name=_region(),
+        config=_control_client_config(),
+    )
+
+
 def list_managed_policies() -> Dict[str, Any]:
     """Return the Cedar policies attached to the managed policy engine.
 
@@ -128,7 +198,11 @@ def list_managed_policies() -> Dict[str, Any]:
         return {"source": "error", "policy_engine_id": engine_id, "policies": [], "error": str(exc)}
 
     try:
-        client = boto3.client("bedrock-agentcore-control", region_name=_region())
+        client = boto3.client(
+            "bedrock-agentcore-control",
+            region_name=_region(),
+            config=_control_client_config(),
+        )
         summaries = client.list_policies(policyEngineId=engine_id).get("policies", [])
         policies: List[Dict[str, Any]] = []
         for summary in summaries:
@@ -249,51 +323,27 @@ async def recent_decisions(
     }
 
 
-async def engine_state_for_action(action_id: str):
-    """The policy engine's declared state, filtered to one Gateway action.
+def _read_engine_state(
+    engine_id: str, action_id: str, gateway_arn: str
+) -> Dict[str, Any]:
+    """The blocking control-plane reads, for a worker thread.
 
-    Reads the control plane rather than a local table: the enforcement mode and
-    the policy statements are the engine's own facts, and they are what decides
-    whether a Gateway call that returned was an authorization or an unenforced
-    observation.
-
-    Enforcement is the conjunction of two scopes with different vocabularies,
-    verified against the live service: a policy is ``ACTIVE`` or ``LOG_ONLY``; a
-    gateway attachment is ``ENFORCE`` or ``LOG_ONLY``. Both are reported so the
-    caller can classify without assuming one vocabulary covers both.
+    Every call in here is synchronous botocore: a ``get_gateway``, a
+    ``list_policies``, and a ``get_policy`` per policy. Run off the event loop by
+    ``engine_state_for_action`` so a slow control plane costs this one reading
+    rather than every request the process is serving.
 
     Args:
-        action_id: The target-qualified Cedar action, e.g.
-            ``pellier-concierge-experience-target___initiate_return``.
+        engine_id: The policy engine to read.
+        action_id: The target-qualified Cedar action to match against.
+        gateway_arn: The gateway whose attachment mode to read, or "" to skip.
 
     Returns:
-        A ``services.governed_execution.PolicyEngineState``, or ``None`` when the
-        engine cannot be read. ``None`` is a legitimate answer and the caller
-        must not treat it as permission.
+        The engine-state mapping described by ``engine_state_for_action``.
     """
-    from services.governed_execution import PolicyEngineState
+    client = _control_client()
 
-    engine_id = _engine_id()
-    if not engine_id:
-        return None
-
-    import boto3
-
-    client = boto3.client("bedrock-agentcore-control", region_name=_region())
-
-    # `settings` is imported here, not at module scope: this module tolerates being
-    # imported from a stripped env. The reference below was previously bare, which was
-    # a NameError waiting behind the `not engine_id` guard — with the engine id never
-    # resolving, this line was unreachable and the gateway-mode read was dead code.
     gateway_mode = ""
-    try:
-        from config import settings as _settings
-
-        gateway_arn = str(
-            getattr(_settings, "AGENTCORE_GATEWAY_ARN", "") or ""
-        ).strip()
-    except Exception:  # pragma: no cover - stripped-env import path
-        gateway_arn = os.environ.get("AGENTCORE_GATEWAY_ARN", "").strip()
     if gateway_arn:
         gateway_id = gateway_arn.rsplit("/", 1)[-1]
         gateway = client.get_gateway(gatewayIdentifier=gateway_id)
@@ -302,7 +352,8 @@ async def engine_state_for_action(action_id: str):
         )
 
     policies: Dict[str, tuple] = {}
-    matching: list[str] = []
+    policy_ids: Dict[str, str] = {}
+    matching: List[str] = []
     for summary in client.list_policies(policyEngineId=engine_id).get("policies", []):
         detail = client.get_policy(
             policyEngineId=engine_id, policyId=summary["policyId"]
@@ -316,11 +367,87 @@ async def engine_state_for_action(action_id: str):
         # "forbid" from a name would break the moment a policy is renamed.
         effect = "forbid" if statement.lstrip().startswith("forbid") else "permit"
         policies[name] = (effect, str(detail.get("enforcementMode") or ""))
+        policy_ids[name] = str(summary["policyId"])
         if effect == "forbid" and action_id in statement:
             matching.append(name)
 
-    return PolicyEngineState(
-        gateway_mode=gateway_mode,
-        policies=policies,
-        matching_forbids=tuple(matching),
-    )
+    return {
+        "gateway_mode": gateway_mode,
+        "policies": policies,
+        "policy_ids": policy_ids,
+        "matching": matching,
+        "policy_engine_id": engine_id,
+        # Not a decision. See `engine_state_for_action`: only policy_decisions
+        # observations may produce ALLOW, DENY or WOULD_DENY.
+        "inferred": True,
+    }
+
+
+async def engine_state_for_action(action_id: str) -> Optional[Dict[str, Any]]:
+    """The policy engine's declared state, filtered to one Gateway action.
+
+    Reads the control plane rather than a local table: the enforcement mode and
+    the policy statements are the engine's own facts. They describe what the
+    engine is CONFIGURED to do; they are not a decision about any call.
+
+    That distinction is the reason this function's result is labeled
+    ``inferred``. Matching an action id against a policy's Cedar text tells you
+    the policy names the action. It does not tell you the policy applied to a
+    particular call: `process_return_damaged_only` forbids the action only when
+    the reason is not `damaged`, and it therefore "matches" every ALLOW too. A
+    reading derived from this may only ever be ``POLICY_INFERRED``. Real
+    decisions come from ``services.policy_decisions``, which reads the gateway's
+    policy-evaluation spans and the LOG_ONLY metrics.
+
+    Enforcement is the conjunction of two scopes with different vocabularies,
+    verified against the live service: a policy is ``ACTIVE`` or ``LOG_ONLY``; a
+    gateway attachment is ``ENFORCE`` or ``LOG_ONLY``. Both are reported so the
+    caller can classify without assuming one vocabulary covers both.
+
+    The reads run in a worker thread under a deadline. They are synchronous
+    botocore calls and this coroutine is awaited from request handlers, so
+    running them inline would stall every other request in the process, not just
+    this one. A failure is recorded for the rest of the request (see
+    ``control_plane_failure``) and then re-raised unchanged, so a later caller on
+    the same request can decline to repeat a read that has just failed.
+
+    Args:
+        action_id: The target-qualified Cedar action, e.g.
+            ``pellier-concierge-experience-target___initiate_return``.
+
+    Returns:
+        A mapping with ``gateway_mode``, ``policies`` (name -> (effect, mode)),
+        ``policy_ids`` (name -> policy id), ``matching`` (forbid policy names
+        whose statement contains the action), ``policy_engine_id``, and
+        ``inferred: True``. ``None`` when no engine is configured. ``None`` is a
+        legitimate answer and the caller must not treat it as permission.
+
+    Raises:
+        TimeoutError: The control-plane read did not finish inside the deadline.
+        Exception: Whatever botocore raised, unchanged.
+    """
+    engine_id = _engine_id()
+    if not engine_id:
+        return None
+
+    # `settings` is imported here, not at module scope: this module tolerates being
+    # imported from a stripped env. The reference below was previously bare, which was
+    # a NameError waiting behind the `not engine_id` guard — with the engine id never
+    # resolving, this line was unreachable and the gateway-mode read was dead code.
+    try:
+        from config import settings as _settings
+
+        gateway_arn = str(
+            getattr(_settings, "AGENTCORE_GATEWAY_ARN", "") or ""
+        ).strip()
+    except Exception:  # pragma: no cover - stripped-env import path
+        gateway_arn = os.environ.get("AGENTCORE_GATEWAY_ARN", "").strip()
+
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_read_engine_state, engine_id, action_id, gateway_arn),
+            timeout=_CONTROL_DEADLINE_S,
+        )
+    except Exception as exc:  # noqa: BLE001 - recorded for the request, then re-raised
+        _CONTROL_FAILURE.set(f"{type(exc).__name__}: {exc}")
+        raise
