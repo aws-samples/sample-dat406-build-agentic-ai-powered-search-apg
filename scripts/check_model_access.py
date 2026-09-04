@@ -87,23 +87,43 @@ MODELS = [
         },
     },
     {
-        # Probed through the Bedrock Agent Runtime `rerank` API. The
-        # in-process path (services/rerank.py) calls the same model through
-        # `invoke_model` instead, and the Lambda search server uses this
-        # `rerank` API — both are valid surfaces for this model and need
-        # different IAM actions (`bedrock:InvokeModel` vs `bedrock:Rerank`;
-        # the Workshop Studio template grants both). The failure this
-        # preflight exists to catch — the model not being enabled for the
-        # account — surfaces identically on either API, so one probe covers
-        # both call paths.
-        "name": "Cohere Rerank v3.5",
+        # The Lambda search server calls Rerank through the Bedrock Agent
+        # Runtime `rerank` API (IAM: `bedrock:Rerank`).
+        #
+        # This probe alone is NOT sufficient. Model *enablement* fails
+        # identically on either surface, but IAM does not: `bedrock:Rerank`
+        # and `bedrock:InvokeModel` are separate actions, so this probe can
+        # pass while the in-process path the storefront actually runs is
+        # denied. The workshop then shows fusion order under a "hybrid +
+        # rerank" label. The companion entry below probes that path.
+        "name": "Cohere Rerank v3.5 (Rerank API)",
         "model_id": "cohere.rerank-v3-5:0",
-        "required": True,  # Anna's rerank proof + find_pieces at runtime
+        "required": True,  # Lambda search server surface
         "api": "bedrock-agent-runtime.rerank",
         "body": {
             "query": "test",
             "documents": ["hello world", "goodbye world"],
             "top_n": 1,
+        },
+    },
+    {
+        # The surface the storefront and the Lab 2 comparison actually use:
+        # services/rerank.py -> bedrock-runtime.invoke_model (IAM:
+        # `bedrock:InvokeModel`). Probing the exact API the application calls
+        # is the point — a preflight that green-lights a different action is
+        # how a rerank outage reaches the room as a silent degradation.
+        "name": "Cohere Rerank v3.5 (InvokeModel)",
+        "model_id": "cohere.rerank-v3-5:0",
+        "required": True,  # Anna's rerank proof + find_pieces_hybrid at runtime
+        "access_hint": (
+            "Grant bedrock:InvokeModel on cohere.rerank-v3-5:0; the Rerank "
+            "API action alone does not cover the in-process path."
+        ),
+        "body": {
+            "query": "test",
+            "documents": ["hello world", "goodbye world"],
+            "top_n": 1,
+            "api_version": 2,
         },
     },
     {

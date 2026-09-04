@@ -6,17 +6,20 @@ This is **not** the Dispatcher. The codebase has two routing patterns:
   * **Dispatcher (Pattern III)** — Pellier's production path.
     Implemented inline in ``services/chat.py`` as a deterministic
     intent-keyword classifier that picks one specialist directly.
-    One LLM call per turn (the specialist's). No separate Agent
-    object — the Dispatcher *is* the routing function.
+    No separate Agent object — the Dispatcher *is* the routing
+    function, so *routing* costs no model call. The turn still makes
+    two Bedrock calls: the skill router (Sonnet, ``skills/router.py``)
+    picks which skills to inject, then the specialist runs. Triage
+    short-circuits (greetings, meta, thanks) make zero.
 
   * **Orchestrator (Pattern I)** — Pellier Labs' "Agents as Tools"
     teaching surface (this file). A Sonnet 4.6 Agent that sees each
     specialist as a ``@tool`` (search, recommendation, pricing,
-    inventory, support) and picks one to call. Two LLM calls per turn
-    (router + specialist). Useful for teaching the AaT pattern;
-    intentionally NOT Pellier's path because the second LLM call
-    adds latency and a paraphrase cycle the production storefront
-    doesn't want.
+    inventory, support) and picks one to call. That routing agent is
+    an extra model call on top of the skill router and the specialist.
+    Useful for teaching the AaT pattern; intentionally NOT Pellier's
+    path because the routing call adds latency and a paraphrase cycle
+    the production storefront doesn't want.
 
 If you're looking for Pellier's routing logic, see
 ``services/chat.py``'s ``_run_dispatcher_pattern`` branch and the

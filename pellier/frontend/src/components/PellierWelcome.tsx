@@ -15,6 +15,7 @@
  * the parent wires to `useAgentChat.sendMessage`.
  */
 import '../styles/pellier-welcome.css'
+import type { ReactNode } from 'react'
 import type { PersonaSnapshot } from '../contexts/PersonaContext'
 import { useCatalogStats, type CatalogStats } from '../hooks/useCatalogStats'
 import { SHOWCASE_PRODUCTS } from '../data/showcaseProducts'
@@ -25,6 +26,8 @@ import { imageSrc } from '../utils/assetPath'
 interface PellierWelcomeProps {
   onSend: (text: string) => void
   persona?: PersonaSnapshot | null
+  /** Optional Storefront-only continuation that belongs in the welcome flow. */
+  conversationTrail?: ReactNode
 }
 
 type TimeOfDay = 'morning' | 'afternoon' | 'evening'
@@ -252,7 +255,11 @@ function copyForPersona(persona?: PersonaSnapshot | null): PersonaCopy {
   }
 }
 
-export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps) {
+export default function PellierWelcome({
+  onSend,
+  persona,
+  conversationTrail,
+}: PellierWelcomeProps) {
   const copy = copyForPersona(persona)
   const tod = timeOfDay()
   const firstName = persona ? persona.display_name.split(' ')[0] : ''
@@ -299,6 +306,7 @@ export default function PellierWelcome({ onSend, persona }: PellierWelcomeProps)
           <em>{greeting}</em>
         </h2>
         <p className="sf-context">{copy.context(stats)}</p>
+        {conversationTrail}
 
         {/* Pre-vetted picks */}
         <div className="sf-section">

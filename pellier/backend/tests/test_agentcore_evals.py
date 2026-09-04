@@ -1,14 +1,20 @@
-"""Tests for the AgentCore Evals sidecar (Batch 4 evals spike).
+"""Tests for the AgentCore batch-evaluation sidecar.
 
-Two states matter and both must be deterministic:
+The critical test here is
+``test_operation_exists_in_installed_service_model``: it asserts the
+operation this module calls is really present in the installed botocore
+service model. The previous version of this suite stubbed a fake client
+that *defined* the method it was asserting on, so an invented API name
+passed. Introspecting the service model makes that failure mode
+impossible.
 
-  * Off by default — flag unset → ``submit_evaluation_job`` returns a
-    structured ``skipped`` envelope without touching boto3. This is the
-    steady state the workshop ships in.
-  * Wired — flag + dataset ARN set → ``submit_evaluation_job`` calls
-    ``bedrock-agentcore.create_evaluation_job`` exactly once with the
-    configured payload. We stub ``boto3.client`` so the test never hits
-    AWS.
+Three states matter and all are deterministic:
+
+  * Off by default — flag unset → ``skipped`` envelope, no boto3 call.
+  * Flag on but no log group — still ``skipped``; the real API requires a
+    ``dataSourceConfig``.
+  * Wired — flag + log groups set → exactly one ``start_batch_evaluation``
+    call with a payload that validates against the real input shape.
 
 Sister test: ``test_golden_journeys.py`` (the day-1 CI gate).
 """
@@ -28,30 +34,167 @@ def _run(coro: Any) -> Any:
     return asyncio.run(coro)
 
 
+def _enable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", True, raising=False)
+    monkeypatch.setattr(
+        settings,
+        "AGENTCORE_EVALS_LOG_GROUPS",
+        "/aws/bedrock-agentcore/runtimes/pellier",
+        raising=False,
+    )
+    monkeypatch.setattr(
+        settings, "AGENTCORE_EVALS_SERVICE_NAMES", "pellier", raising=False
+    )
+    monkeypatch.setattr(
+        settings, "AGENTCORE_EVALS_EVALUATOR_IDS", None, raising=False
+    )
+
+
+def _service_model() -> Any:
+    import boto3
+
+    return (
+        boto3.session.Session()
+        .client("bedrock-agentcore", region_name="us-east-1")
+        .meta.service_model
+    )
+
+
+def test_operation_exists_in_installed_service_model() -> None:
+    """The operation we call must exist in the installed botocore model.
+
+    This is the regression guard for the launch blocker: a previous
+    version called ``create_evaluation_job``, which no AgentCore service
+    model has ever exposed.
+    """
+    operations = set(_service_model().operation_names)
+
+    assert agentcore_evals.BATCH_EVALUATION_OPERATION in operations
+    assert "GetBatchEvaluation" in operations
+    assert "create_evaluation_job" not in operations
+    assert "CreateEvaluationJob" not in operations
+
+
+def test_submitted_payload_validates_against_real_input_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every key we send must be a real member of the input shape, and
+    every required member must be present."""
+    shape = _service_model().operation_model(
+        agentcore_evals.BATCH_EVALUATION_OPERATION
+    ).input_shape
+
+    _enable(monkeypatch)
+    captured: List[Dict[str, Any]] = []
+
+    class _Client:
+        def start_batch_evaluation(self, **kwargs: Any) -> Dict[str, Any]:
+            captured.append(kwargs)
+            return {
+                "batchEvaluationId": "be-123",
+                "batchEvaluationArn": (
+                    "arn:aws:bedrock-agentcore:us-east-1:123456789012:"
+                    "batch-evaluation/be-123"
+                ),
+                "status": "IN_PROGRESS",
+            }
+
+    monkeypatch.setattr(agentcore_evals, "_client", lambda: _Client())
+
+    result = _run(agentcore_evals.submit_batch_evaluation())
+
+    assert result["status"] == "submitted"
+    assert result["batchEvaluationId"] == "be-123"
+    assert result["jobStatus"] == "IN_PROGRESS"
+    assert len(captured) == 1
+
+    payload = captured[0]
+    members = set(shape.members)
+    assert set(payload) <= members, f"unknown params: {set(payload) - members}"
+    required = set(getattr(shape, "required_members", []) or [])
+    assert required <= set(payload), f"missing required: {required - set(payload)}"
+
+    cw = payload["dataSourceConfig"]["cloudWatchLogs"]
+    assert cw["logGroupNames"] == ["/aws/bedrock-agentcore/runtimes/pellier"]
+    assert cw["serviceNames"] == ["pellier"]
+    # The obsolete parameter model must never come back.
+    assert "datasetArn" not in payload
+    assert "jobRoleArn" not in payload
+    assert "agentRuntimeArn" not in payload
+
+
+def test_session_ids_become_a_filter_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Restricting to specific sessions uses the real filterConfig block."""
+    _enable(monkeypatch)
+    captured: List[Dict[str, Any]] = []
+
+    class _Client:
+        def start_batch_evaluation(self, **kwargs: Any) -> Dict[str, Any]:
+            captured.append(kwargs)
+            return {"batchEvaluationId": "be-9", "status": "IN_PROGRESS"}
+
+    monkeypatch.setattr(agentcore_evals, "_client", lambda: _Client())
+
+    _run(agentcore_evals.submit_batch_evaluation(session_ids=["s-1", "s-2"]))
+
+    filters = captured[0]["dataSourceConfig"]["cloudWatchLogs"]["filterConfig"]
+    assert filters["sessionIds"] == ["s-1", "s-2"]
+
+
+def test_evaluator_ids_are_sent_as_structures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Evaluators are a list of {evaluatorId}, not bare strings."""
+    _enable(monkeypatch)
+    monkeypatch.setattr(
+        settings, "AGENTCORE_EVALS_EVALUATOR_IDS", "ev-a, ev-b", raising=False
+    )
+    captured: List[Dict[str, Any]] = []
+
+    class _Client:
+        def start_batch_evaluation(self, **kwargs: Any) -> Dict[str, Any]:
+            captured.append(kwargs)
+            return {"batchEvaluationId": "be-1", "status": "IN_PROGRESS"}
+
+    monkeypatch.setattr(agentcore_evals, "_client", lambda: _Client())
+
+    _run(agentcore_evals.submit_batch_evaluation())
+
+    assert captured[0]["evaluators"] == [
+        {"evaluatorId": "ev-a"},
+        {"evaluatorId": "ev-b"},
+    ]
+
+
 def test_skipped_when_flag_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default state: flag false → skipped envelope, no AWS call."""
     monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", False, raising=False)
     monkeypatch.setattr(
-        settings, "AGENTCORE_EVALS_DATASET_ARN", None, raising=False
+        settings,
+        "AGENTCORE_EVALS_LOG_GROUPS",
+        "/aws/bedrock-agentcore/runtimes/pellier",
+        raising=False,
     )
 
-    result = _run(agentcore_evals.submit_evaluation_job())
+    result = _run(agentcore_evals.submit_batch_evaluation())
 
     assert result["status"] == "skipped"
     assert "AGENTCORE_EVALS_ENABLED" in result["reason"]
     assert result["configuration"]["configured"] is False
 
 
-def test_skipped_when_flag_on_but_dataset_missing(
+def test_skipped_when_flag_on_but_log_groups_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Flag on but dataset ARN unset → still skipped — `is_enabled` requires both."""
+    """Flag on with no log group → still skipped; the API needs a source."""
     monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", True, raising=False)
     monkeypatch.setattr(
-        settings, "AGENTCORE_EVALS_DATASET_ARN", None, raising=False
+        settings, "AGENTCORE_EVALS_LOG_GROUPS", None, raising=False
     )
 
-    result = _run(agentcore_evals.submit_evaluation_job())
+    result = _run(agentcore_evals.submit_batch_evaluation())
 
     assert result["status"] == "skipped"
     assert agentcore_evals.is_enabled() is False
@@ -60,103 +203,79 @@ def test_skipped_when_flag_on_but_dataset_missing(
 def test_describe_configuration_envelope_shape(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Pellier Labs Measure surface relies on the envelope keys — pin them."""
-    monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", True, raising=False)
-    monkeypatch.setattr(
-        settings,
-        "AGENTCORE_EVALS_DATASET_ARN",
-        "arn:aws:bedrock:us-east-1:123456789012:agent-evaluation-dataset/demo",
-        raising=False,
-    )
-    monkeypatch.setattr(
-        settings,
-        "AGENTCORE_EVALS_JOB_ROLE_ARN",
-        "arn:aws:iam::123456789012:role/PellierEvalsRole",
-        raising=False,
-    )
+    """The Pellier Labs Measure surface relies on these keys — pin them."""
+    _enable(monkeypatch)
 
     cfg = agentcore_evals.describe_configuration()
 
     assert cfg["configured"] is True
     assert cfg["flag"] == "AGENTCORE_EVALS_ENABLED"
-    assert cfg["datasetArn"].endswith(":agent-evaluation-dataset/demo")
+    assert cfg["operation"] == "StartBatchEvaluation"
+    assert cfg["logGroupNames"] == ["/aws/bedrock-agentcore/runtimes/pellier"]
     assert cfg["dailyCiGate"] == "tests/test_golden_journeys.py"
 
 
-def test_error_when_runtime_arn_missing(
+def test_submit_error_is_structured_not_raised(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Flag on + dataset set but no runtime ARN → structured error, not raise."""
-    monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", True, raising=False)
-    monkeypatch.setattr(
-        settings,
-        "AGENTCORE_EVALS_DATASET_ARN",
-        "arn:aws:bedrock:us-east-1:123456789012:agent-evaluation-dataset/demo",
-        raising=False,
-    )
-    monkeypatch.setattr(
-        settings, "AGENTCORE_RUNTIME_ENDPOINT", None, raising=False
-    )
+    """An SDK failure returns an envelope so the surface still renders."""
+    _enable(monkeypatch)
 
-    result = _run(agentcore_evals.submit_evaluation_job())
+    class _Client:
+        def start_batch_evaluation(self, **kwargs: Any) -> Dict[str, Any]:
+            raise RuntimeError("AccessDeniedException")
+
+    monkeypatch.setattr(agentcore_evals, "_client", lambda: _Client())
+
+    result = _run(agentcore_evals.submit_batch_evaluation())
 
     assert result["status"] == "error"
-    assert "agent runtime ARN" in result["reason"]
+    assert "AccessDenied" in result["reason"]
 
 
-class _FakeClient:
-    def __init__(self) -> None:
-        self.calls: List[Dict[str, Any]] = []
-
-    def create_evaluation_job(self, **kwargs: Any) -> Dict[str, Any]:
-        self.calls.append(kwargs)
-        return {
-            "evaluationJobArn": (
-                "arn:aws:bedrock:us-east-1:123456789012:evaluation-job/demo-1"
-            )
-        }
-
-
-def test_submit_calls_create_evaluation_job_once(
+def test_get_batch_evaluation_surfaces_evaluator_summaries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Flag + dataset + runtime all set → one boto3 call with the
-    configured payload. The test never reaches real AWS — boto3.client
-    is replaced with a fake."""
-    monkeypatch.setattr(settings, "AGENTCORE_EVALS_ENABLED", True, raising=False)
-    monkeypatch.setattr(
-        settings,
-        "AGENTCORE_EVALS_DATASET_ARN",
-        "arn:aws:bedrock:us-east-1:123456789012:agent-evaluation-dataset/demo",
-        raising=False,
-    )
-    monkeypatch.setattr(
-        settings,
-        "AGENTCORE_EVALS_JOB_ROLE_ARN",
-        "arn:aws:iam::123456789012:role/PellierEvalsRole",
-        raising=False,
-    )
-    monkeypatch.setattr(
-        settings,
-        "AGENTCORE_RUNTIME_ENDPOINT",
-        "arn:aws:bedrock:us-east-1:123456789012:agent-runtime/pellier",
-        raising=False,
-    )
+    """Reading a batch returns per-evaluator summaries for the surface."""
+    _enable(monkeypatch)
 
-    fake = _FakeClient()
+    class _Client:
+        def get_batch_evaluation(self, **kwargs: Any) -> Dict[str, Any]:
+            assert kwargs == {"batchEvaluationId": "be-123"}
+            return {
+                "batchEvaluationId": "be-123",
+                "status": "COMPLETED",
+                "evaluationResults": {
+                    "totalNumberOfSessions": 12,
+                    "numberOfSessionsCompleted": 12,
+                    "evaluatorSummaries": [
+                        {
+                            "evaluatorId": "ev-a",
+                            "statistics": {"averageScore": 0.91},
+                            "totalEvaluated": 12,
+                            "totalFailed": 0,
+                        }
+                    ],
+                },
+            }
 
-    import boto3
+    monkeypatch.setattr(agentcore_evals, "_client", lambda: _Client())
 
-    monkeypatch.setattr(boto3, "client", lambda *args, **kw: fake)
+    result = _run(agentcore_evals.get_batch_evaluation("be-123"))
 
-    result = _run(agentcore_evals.submit_evaluation_job())
+    assert result["status"] == "ok"
+    assert result["jobStatus"] == "COMPLETED"
+    assert result["results"]["totalNumberOfSessions"] == 12
+    assert result["evaluatorSummaries"][0]["statistics"]["averageScore"] == 0.91
 
-    assert result["status"] == "submitted"
-    assert result["jobArn"].endswith("/demo-1")
-    assert len(fake.calls) == 1
-    payload = fake.calls[0]
-    assert payload["agentRuntimeArn"].endswith("/pellier")
-    assert payload["datasetArn"].endswith("/demo")
-    assert payload["jobRoleArn"].endswith("/PellierEvalsRole")
-    # Evaluator defaults to the Opus profile already used by editorial agents.
-    assert "claude-opus" in payload["evaluatorModelId"]
+
+def test_get_batch_evaluation_requires_an_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty id is a structured error, not a boto3 call."""
+    _enable(monkeypatch)
+
+    result = _run(agentcore_evals.get_batch_evaluation(""))
+
+    assert result["status"] == "error"
+    assert "required" in result["reason"]

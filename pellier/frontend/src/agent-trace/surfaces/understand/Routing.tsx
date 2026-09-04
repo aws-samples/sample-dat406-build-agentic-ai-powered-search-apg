@@ -559,7 +559,10 @@ const StorefrontProductionCard: React.FC = () => (
     </ul>
     <pre style={SNIPPET_STYLE}>
       {`triage (rules) → intent (rules) → low confidence? → classifier / Sonnet
-                              → else → one specialist (one LLM call)`}
+                              → else → skill router (Sonnet) → one specialist
+
+Routing costs no model call. A full turn spends two: skill router,
+then the owning specialist. Triage short-circuits spend none.`}
     </pre>
   </ExpCard>
 );

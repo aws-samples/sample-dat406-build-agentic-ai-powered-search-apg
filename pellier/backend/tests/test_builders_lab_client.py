@@ -24,7 +24,7 @@ def _load_client():
     return module
 
 
-def _comparison_payload() -> dict[str, Any]:
+def _comparison_payload(rerank_executed: bool = True) -> dict[str, Any]:
     return {
         "sharedQueryEmbeddingObservedMs": 8,
         "strategies": [
@@ -36,9 +36,25 @@ def _comparison_payload() -> dict[str, Any]:
                 "products": [{"name": f"Product {index}"}],
                 **(
                     {
+                        "rerankExecuted": rerank_executed,
+                        "productOrderSource": (
+                            "rerank" if rerank_executed else "hybrid RRF (rerank degraded)"
+                        ),
+                        "degradedReason": (
+                            None
+                            if rerank_executed
+                            else "ThrottlingException: rate exceeded"
+                        ),
+                    }
+                    if "rerank" in name
+                    else {}
+                ),
+                **(
+                    {
                         "extractedFilters": {
                             "priceMaxUsd": 100,
                             "inStockOnly": True,
+                            "hardConstraintsEnforced": True,
                         }
                     }
                     if index == 4
@@ -46,7 +62,7 @@ def _comparison_payload() -> dict[str, Any]:
                 ),
             }
             for index, name in enumerate(
-                ("vector only", "hybrid", "rerank", "agentic"),
+                ("vector only", "hybrid", "hybrid + rerank", "agentic rerank"),
                 start=1,
             )
         ],
@@ -199,6 +215,31 @@ def test_compare_writes_full_response_and_checks_filters(
     assert '"priceMaxUsd": 100' in output.read_text(encoding="utf-8")
 
 
+def test_compare_fails_when_rerank_silently_degraded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A rerank-labelled row that fell back to fusion order fails the gate.
+
+    Without this, a Bedrock rerank outage still produced a green Lab 2
+    checkpoint: four strategies, correct filters, and fusion rows
+    presented as reranked results.
+    """
+    client = _load_client()
+    monkeypatch.setattr(
+        client,
+        "_request_json",
+        lambda *_a, **_k: _comparison_payload(rerank_executed=False),
+    )
+    args = argparse.Namespace(
+        base_url="http://example",
+        query=client.DEFAULT_QUERY,
+        output=tmp_path / "comparison.json",
+    )
+
+    assert client.compare(args) == 1
+
+
 def test_receipt_requires_agent_floor_check_evidence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -242,11 +283,40 @@ def test_receipt_requires_agent_floor_check_evidence(
 
     monkeypatch.setattr(client, "_request_json", fake_request)
 
-    assert client.receipt(argparse.Namespace(base_url="http://example")) == 0
+    args = argparse.Namespace(
+        base_url="http://example", within_minutes=30, session=None
+    )
+    assert client.receipt(args) == 0
+    # The request must carry the freshness window: an unscoped "latest row"
+    # would let a rehearsal or a neighbour's turn satisfy the proof.
     assert seen == {
         "path": "/api/agent-trace/tool-audit/recent",
-        "query": {"tool": "floor_check", "limit": "1"},
+        "query": {
+            "tool": "floor_check",
+            "limit": "1",
+            "within_minutes": "30",
+        },
     }
+
+
+def test_receipt_scopes_to_an_explicit_session_when_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _load_client()
+    seen: dict[str, Any] = {}
+
+    def fake_request(_base_url: str, path: str, **kwargs: Any) -> dict[str, Any]:
+        seen["query"] = kwargs["query"]
+        return {"source": "pellier.tool_audit", "count": 0, "rows": []}
+
+    monkeypatch.setattr(client, "_request_json", fake_request)
+    args = argparse.Namespace(
+        base_url="http://example", within_minutes=5, session="marco-session"
+    )
+
+    assert client.receipt(args) == 1
+    assert seen["query"]["session_id"] == "marco-session"
+    assert seen["query"]["within_minutes"] == "5"
 
 
 def test_receipt_rejects_missing_audit_row(
@@ -263,7 +333,10 @@ def test_receipt_rejects_missing_audit_row(
         },
     )
 
-    assert client.receipt(argparse.Namespace(base_url="http://example")) == 1
+    args = argparse.Namespace(
+        base_url="http://example", within_minutes=30, session=None
+    )
+    assert client.receipt(args) == 1
 
 
 def test_ledger_reuses_one_ownership_token_and_writes_session(

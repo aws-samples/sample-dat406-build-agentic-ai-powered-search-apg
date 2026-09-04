@@ -29,6 +29,7 @@ import MarkdownMessage from '../../../components/MarkdownMessage';
 import ResponsiveImage from '../../../components/ResponsiveImage';
 import {
   sendChatMessageStreaming,
+  type ChatMessage,
   type ChatProduct,
   type ChatResponse,
   type OrchestrationPattern,
@@ -36,6 +37,7 @@ import {
 } from '../../../services/chat';
 import LabsCuratedTurns from './LabsCuratedTurns';
 import {
+  labThreadForPersona,
   OPERATOR_TURNS,
 } from '../../../data/personaCurations';
 import { emphasizeProductMentions } from '../../../utils/productProse';
@@ -312,7 +314,7 @@ function runProofSummary(
   }
   if (runStatus === 'complete') {
     return {
-      label: 'Evidence captured',
+      label: 'Run complete',
       summary: `${eventCount} ${eventCount === 1 ? 'event' : 'events'}. ${agentCount} ${agentCount === 1 ? 'agent' : 'agents'}. ${sqlCount} SQL ${sqlCount === 1 ? 'query' : 'queries'}. ${productCount} ${productCount === 1 ? 'product' : 'products'}.`,
     };
   }
@@ -422,11 +424,13 @@ export default function PellierLabsWorkbench() {
   const [executionPattern, setExecutionPattern] = useState<string | null>(null);
   const [executionRoute, setExecutionRoute] = useState<string | null>(null);
   const [copiedSqlId, setCopiedSqlId] = useState<string | null>(null);
+  const [threadProgress, setThreadProgress] = useState<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const eventSequenceRef = useRef(0);
   const traceListRef = useRef<HTMLOListElement | null>(null);
   const currentTraceStepRef = useRef<HTMLLIElement | null>(null);
   const [traceLineHeight, setTraceLineHeight] = useState(0);
+  const threadHistoryRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
     setActiveTurn(null);
@@ -444,6 +448,8 @@ export default function PellierLabsWorkbench() {
     setExecutionPattern(null);
     setExecutionRoute(null);
     setCopiedSqlId(null);
+    setThreadProgress(null);
+    threadHistoryRef.current = [];
   }, [personaId]);
 
   useEffect(() => {
@@ -523,16 +529,19 @@ export default function PellierLabsWorkbench() {
     const facts = memory.facts_loaded ?? 0;
     const orders = memory.orders_loaded ?? 0;
     const live = memory.source === 'aurora';
+    const managed = memory.source?.includes('agentcore');
     setSteps((current) => [
       ...current,
       {
         id: `memory-${eventSequenceRef.current++}`,
         kind: 'memory',
-        title: 'Aurora profile context',
+        title: managed ? 'AgentCore memory context' : 'Aurora profile context',
         detail: live
           ? `${facts} profile ${facts === 1 ? 'fact' : 'facts'} and ${orders} past ${orders === 1 ? 'order' : 'orders'} loaded`
-          : 'No live Aurora profile context was available for this turn',
-        status: live && memory.applied ? 'completed' : 'unavailable',
+          : managed
+            ? 'Managed session context was supplied for this turn'
+            : 'No live Aurora profile context was available for this turn',
+        status: (live || managed) && memory.applied ? 'completed' : 'unavailable',
         meta: [memory.source || 'unavailable', memory.customer_id || '']
           .filter(Boolean)
           .join(' / '),
@@ -576,7 +585,8 @@ export default function PellierLabsWorkbench() {
         title: [queryItem.op?.toUpperCase(), queryItem.table]
           .filter(Boolean)
           .join(' / ') || 'Database query',
-        detail: 'Aurora emitted a query receipt with source and timing metadata',
+        detail:
+          'Application captured this Aurora query, its source, and its timing',
         status: 'completed',
         meta:
           queryItem.duration_ms !== undefined
@@ -658,6 +668,8 @@ export default function PellierLabsWorkbench() {
     curatedQuery: string,
     turnIndex: number | null,
     operatorTurnIndex: number | null = null,
+    conversationHistory: ChatMessage[] = [],
+    onThreadTurnComplete?: (response: ChatResponse) => void,
   ) => {
     const request = curatedQuery.trim();
     if (!request || runStatus === 'running') return;
@@ -682,7 +694,7 @@ export default function PellierLabsWorkbench() {
     try {
       const response: ChatResponse = await sendChatMessageStreaming(
         request,
-        [],
+        conversationHistory,
         handleStreamEvent,
         undefined,
         guardrailsEnabled,
@@ -700,6 +712,7 @@ export default function PellierLabsWorkbench() {
       if (response.products?.length) {
         setProducts((current) => mergeProducts(current, response.products));
       }
+      onThreadTurnComplete?.(response);
       setSteps((current) =>
         current.map((step) => ({
           ...step,
@@ -824,6 +837,48 @@ export default function PellierLabsWorkbench() {
     products.length,
   );
 
+  const runThreadTurn = (turnIndex: number) => {
+    const thread = labThreadForPersona(personaId);
+    const query = thread.turns[turnIndex];
+    if (!query) return;
+
+    const priorHistory = threadHistoryRef.current;
+    void runAgent(
+      query,
+      turnIndex,
+      null,
+      priorHistory,
+      (response) => {
+        threadHistoryRef.current = [
+          ...priorHistory,
+          {
+            role: 'user',
+            content: query,
+            timestamp: new Date(),
+          },
+          {
+            role: 'assistant',
+            content: response.response,
+            timestamp: new Date(),
+            products: response.products,
+          },
+        ];
+        setThreadProgress(turnIndex + 1);
+      },
+    );
+  };
+
+  const startThread = () => {
+    threadHistoryRef.current = [];
+    setThreadProgress(0);
+    runThreadTurn(0);
+  };
+
+  const continueThread = () => {
+    if (threadProgress === null) return;
+    runThreadTurn(threadProgress);
+  };
+
   const copySql = async (step: JourneyStep) => {
     if (!step.sql || !navigator.clipboard?.writeText) return;
     try {
@@ -875,9 +930,14 @@ export default function PellierLabsWorkbench() {
               running={runStatus === 'running'}
               activeIndex={activeTurn}
               orchestrationPattern={orchestrationPattern}
+              threadProgress={threadProgress}
               onInspect={(curatedQuery, index) => {
+                threadHistoryRef.current = [];
+                setThreadProgress(null);
                 void runAgent(curatedQuery, index, null);
               }}
+              onStartThread={startThread}
+              onContinueThread={continueThread}
             />
 
             <details className="pellier-labs-advanced">
@@ -1487,7 +1547,7 @@ export default function PellierLabsWorkbench() {
                 data-status={runStatus}
               >
                 {runStatus === 'complete'
-                  ? 'Verified'
+                  ? 'Response complete'
                   : runStatus === 'running'
                     ? 'Streaming'
                     : runStatus === 'error'
@@ -1609,7 +1669,7 @@ export default function PellierLabsWorkbench() {
                 aria-labelledby="verified-claims-title"
               >
                 <div className="pellier-labs-results-subheading">
-                  <h3 id="verified-claims-title">Verified claims</h3>
+                  <h3 id="verified-claims-title">Observed evidence</h3>
                   <span>{verifiedClaims.length || '-'}</span>
                 </div>
                 {verifiedClaims.length ? (

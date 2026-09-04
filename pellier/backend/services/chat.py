@@ -1344,10 +1344,12 @@ CURRENT REQUEST: {message}"""
         The ``pattern`` parameter selects the orchestration model:
           - ``'dispatcher'`` — Storefront production path. Deterministic
             classifier picks one specialist; that specialist runs
-            directly via its factory. One LLM call per turn. Voice
-            preserved (no paraphrase cycle).
+            directly via its factory. Routing itself costs no model
+            call; the turn spends one on the skill router and one on
+            the specialist. Voice preserved (no paraphrase cycle).
           - ``'agents_as_tools'`` — optional comparison path. Sonnet
-            orchestrator + five ``@tool`` specialists. Two LLM calls per turn.
+            orchestrator + five ``@tool`` specialists, so the routing
+            agent is a third model call on top of those two.
           - ``'graph'`` — optional comparison path. Real Strands
             ``GraphBuilder`` DAG: deterministic router node + 5 specialist
             nodes; conditional edges route the turn to exactly one specialist.

@@ -223,8 +223,12 @@ class Settings(BaseSettings):
     # to opt into the prod-cutover graduation path: a single
     # `create_evaluation_job` call against AgentCore Evals.
     AGENTCORE_EVALS_ENABLED: bool = False
-    AGENTCORE_EVALS_DATASET_ARN: Optional[str] = None
-    AGENTCORE_EVALS_JOB_ROLE_ARN: Optional[str] = None
+    # AgentCore batch evaluation scores *observed agent sessions*:
+    # StartBatchEvaluation reads them from CloudWatch log groups. There is no
+    # dataset ARN, job role, or evaluator-model parameter on this API.
+    AGENTCORE_EVALS_LOG_GROUPS: Optional[str] = None
+    AGENTCORE_EVALS_SERVICE_NAMES: Optional[str] = None
+    AGENTCORE_EVALS_EVALUATOR_IDS: Optional[str] = None
 
     # ========================================
     # Development & Debugging

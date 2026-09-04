@@ -99,6 +99,48 @@ def _wait_for_preference_strategy(
     return False
 
 
+def _verify_readback(
+    data: Any,
+    memory_id: str,
+    actor_ids: list[str],
+) -> dict[str, Any]:
+    """Prove the data plane returns the events we just appended.
+
+    Args:
+        data: A ``bedrock-agentcore`` data-plane client.
+        memory_id: The memory resource to read from.
+        actor_ids: Actors seeded into the ``prefseed`` session.
+
+    Returns:
+        ``{"verified": True, "actors_read": {...}}`` when every seeded
+        actor reads back at least one event.
+
+    Raises:
+        RuntimeError: When any seeded actor reads back nothing. A memory
+            that accepts writes but returns no events is not usable by the
+            workshop, and must fail provisioning rather than pass a status
+            check.
+    """
+    actors_read: dict[str, int] = {}
+    for actor_id in actor_ids:
+        response = data.list_events(
+            memoryId=memory_id,
+            actorId=actor_id,
+            sessionId="prefseed",
+            maxResults=10,
+        )
+        actors_read[actor_id] = len(response.get("events") or [])
+
+    empty = sorted(actor for actor, count in actors_read.items() if count == 0)
+    if empty:
+        raise RuntimeError(
+            "AgentCore Memory accepted the seed but returned no events for: "
+            + ", ".join(empty)
+            + ". The resource is ACTIVE but the data-plane round trip fails."
+        )
+    return {"verified": True, "actors_read": actors_read}
+
+
 def seed(memory_id: str, region: str) -> dict[str, Any]:
     control = boto3.client(
         "bedrock-agentcore-control",
@@ -149,6 +191,13 @@ def seed(memory_id: str, region: str) -> dict[str, Any]:
                     continue
                 raise
 
+    # Read back what we just wrote. GetMemory reporting ACTIVE is a
+    # control-plane fact: it says the resource exists, not that the data
+    # plane accepts an append and returns it. Provisioning has passed on a
+    # control-plane check while the participant path was broken before, so
+    # the gate proves the round trip, not the resource.
+    readback = _verify_readback(data, memory_id, sorted(SEED_TURNS))
+
     return {
         "status": "ready",
         "memory_id": memory_id,
@@ -157,6 +206,7 @@ def seed(memory_id: str, region: str) -> dict[str, Any]:
         "events_created": created,
         "events_already_present": duplicates,
         "actors": sorted(SEED_TURNS),
+        "readback": readback,
     }
 
 

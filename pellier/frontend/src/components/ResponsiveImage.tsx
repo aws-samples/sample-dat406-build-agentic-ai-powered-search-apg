@@ -25,6 +25,7 @@ export default function ResponsiveImage({
   sizes,
   pictureClassName,
   onError,
+  fetchPriority,
   ...imageProps
 }: ResponsiveImageProps) {
   const avifSrcSet = responsiveImageSrcSet(src, widths, 'avif')
@@ -55,6 +56,7 @@ export default function ResponsiveImage({
           }
           onError?.(event)
         }}
+        {...(fetchPriority ? { fetchpriority: fetchPriority } : {})}
         {...imageProps}
       />
     </picture>

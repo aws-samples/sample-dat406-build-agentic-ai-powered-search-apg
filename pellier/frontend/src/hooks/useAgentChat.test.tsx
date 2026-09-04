@@ -16,6 +16,7 @@ import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PersonaProvider } from '../contexts/PersonaContext'
 import { useAgentChat } from './useAgentChat'
+import { sendChatMessageStreaming } from '../services/chat'
 
 // --- Chat service mock ---------------------------------------------------
 // Captured callback — the test drives it to simulate the SSE loop.
@@ -146,5 +147,55 @@ describe('useAgentChat — StrictMode purity', () => {
       expect(products).toHaveLength(1)
       expect(products?.[0]?.id).toBe(42)
     })
+  })
+
+  it('sends the third storefront thread with four real prior messages, not its UI greeting', async () => {
+    const stream = vi.mocked(sendChatMessageStreaming)
+    stream.mockClear()
+    stream.mockImplementation(async (query: string) => ({
+      response: `Grounded reply for ${query}`,
+      products: [],
+      suggestions: [],
+    }))
+    const thread = [
+      'I am packing for Goa for ten days and want linen that fits in a carry-on.',
+      'Find the Italian Linen Camp Shirt and compare it with the Hadley shirt for that trip.',
+      'Without asking me to repeat the trip details, which option should I pack and why?',
+    ] as const
+    const initialGreeting = {
+      role: 'assistant' as const,
+      content: 'Good afternoon, Marco.',
+      timestamp: new Date(),
+      uiOnly: true,
+    }
+    const { result } = renderHook(
+      () =>
+        useAgentChat({
+          mode: 'storefront',
+          initialMessages: [initialGreeting],
+        }),
+      { wrapper },
+    )
+
+    await act(async () => {
+      await result.current.sendMessage(thread[0])
+    })
+    await act(async () => {
+      await result.current.sendMessage(thread[1])
+    })
+    await act(async () => {
+      await result.current.sendMessage(thread[2])
+    })
+
+    expect(stream).toHaveBeenCalledTimes(3)
+    expect(stream.mock.calls[0][1]).toEqual([])
+    expect(stream.mock.calls[1][1]).toHaveLength(2)
+    expect(stream.mock.calls[2][1]).toHaveLength(4)
+    expect(stream.mock.calls[2][1]).toMatchObject([
+      { role: 'user', content: thread[0] },
+      { role: 'assistant', content: `Grounded reply for ${thread[0]}` },
+      { role: 'user', content: thread[1] },
+      { role: 'assistant', content: `Grounded reply for ${thread[1]}` },
+    ])
   })
 })

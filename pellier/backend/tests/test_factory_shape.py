@@ -245,6 +245,9 @@ def test_canonical_multi_tool_rules_are_explicit_in_specialist_prompts() -> None
     assert "make exactly one retrieval call" in _SEARCH_SYSTEM_PROMPT
     assert "never generalize such a claim across a group of pieces" in _SEARCH_SYSTEM_PROMPT
     assert "Do not add product recommendations, performance" in _PRICING_SYSTEM_PROMPT
+    assert "sum only returned price fields" in _PRICING_SYSTEM_PROMPT
+    assert "exceeds the budget by the calculated difference" in _PRICING_SYSTEM_PROMPT
+    assert "Never say a total 'clears' a ceiling" in _PRICING_SYSTEM_PROMPT
     assert "call preference_snapshot first" in RECOMMENDATION_SYSTEM_PROMPT
     assert "explicit sympathy or condolence ask" in RECOMMENDATION_SYSTEM_PROMPT
     assert "Do not turn a persona profile into a claim" in RECOMMENDATION_SYSTEM_PROMPT

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   OPERATOR_TURNS,
   PERSONA_HERO_PILLS,
+  PERSONA_LAB_THREADS,
   PERSONA_TURN_PREVIEW,
   PERSONA_TURN_TRACES,
   turnPreviewProductId,
@@ -111,6 +112,20 @@ describe('persona turn alignment', () => {
       expect(PERSONA_HERO_PILLS[persona]).toHaveLength(5)
       expect(PERSONA_HERO_PILLS[persona]).toEqual(EXPECTED_TURNS[persona])
     }
+  })
+
+  it('keeps a three-turn memory, retrieval, and proof thread for every returning persona', () => {
+    for (const persona of CANONICAL_PERSONAS) {
+      const thread = PERSONA_LAB_THREADS[persona]
+      expect(thread.turns).toHaveLength(3)
+      expect(thread.turns[0]).toMatch(/I |My /)
+      expect(thread.turns[1]).toMatch(/Find|File/)
+      expect(thread.turns[2]).toMatch(/Without asking me to repeat/)
+    }
+    expect(PERSONA_LAB_THREADS.anna.turns[1]).not.toMatch(/in-stock/i)
+    expect(PERSONA_LAB_THREADS.theo.turns.join(' ')).not.toMatch(
+      /file the damaged return|prove whether the return was recorded/i,
+    )
   })
 
   it('keeps Pellier Labs replay entrypoints aligned with Pellier turn strings', () => {

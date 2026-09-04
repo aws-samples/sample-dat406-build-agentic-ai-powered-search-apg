@@ -11,17 +11,24 @@
  *   3. Persona sign-in opens the current storefront persona dropdown.
  *   4. Triage fast-path in ChatDrawer: "hi" produces a reply instantly,
  *      without routing to the specialist chain.
- *   5. Real query produces streaming tokens + a non-empty reply.
+ *   5. Real query produces streaming tokens and a reply that is not a
+ *      stub non-answer.
  *   6. ?reset=1 clears persisted state.
  *
  * Runs automatically on Ubuntu and as a manual macOS facilitator gate.
  *
- * NOTE: does not require Cognito or AWS creds. Bedrock is required
- * for step 4 (real query); if Bedrock is unavailable, step 4 falls
- * back to asserting the fallback message ("I looked through the
- * catalog...") instead of a positive product reply. That still
- * exercises the full pipeline — triage → orchestrator → fallback —
- * without depending on external model availability.
+ * NOTE: does not require Cognito or AWS creds. The real-query step
+ * asserts a non-empty reply that is not a workshop stub non-answer, so
+ * it exercises triage → orchestrator → specialist without depending on
+ * external model availability.
+ *
+ * That is deliberately weaker than a room-readiness check: a reply can
+ * be non-empty and still be degraded. Set E2E_REQUIRE_LIVE_MODEL=1 when
+ * rehearsing against a real Bedrock-backed environment to additionally
+ * require grounded product evidence, so a model outage fails the
+ * rehearsal instead of passing it on a non-empty apology. CI leaves it
+ * unset because it runs with PELLIER_SMOKE_MODE, which returns canned
+ * text and no products by design.
  */
 
 import { expect, test } from '@playwright/test';
@@ -192,7 +199,7 @@ test.describe('Workshop production build smoke', () => {
     await expect(body).toContainText(/Pellier concierge/i, { timeout: 3000 });
   });
 
-  test('real query: streaming tokens land, reply is non-empty', async ({
+  test('real query: streaming tokens land, reply is not a non-answer', async ({
     page,
   }) => {
     await signInAsMarco(page);
@@ -209,7 +216,17 @@ test.describe('Workshop production build smoke', () => {
     await expect(async () => {
       const text = (await body.textContent()) ?? '';
       expect(text.trim().length).toBeGreaterThan(10);
+      // A stub non-answer is a degraded reply, not a passing one.
+      expect(text).not.toMatch(/outside what I can answer right now/i);
     }).toPass({ timeout: 45_000 });
+
+    if (process.env.E2E_REQUIRE_LIVE_MODEL === '1') {
+      // Room readiness: the turn must return grounded catalog evidence, so
+      // a model outage fails the rehearsal rather than passing it.
+      await expect(
+        page.locator('[data-testid^="product-card-"]').first(),
+      ).toBeVisible({ timeout: 45_000 });
+    }
   });
 
   test('?reset=1 clears persisted localStorage keys', async ({ page }) => {

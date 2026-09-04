@@ -488,6 +488,22 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
     counts = readiness.get("counts") or {}
     floor_check_wired = not _floor_check_is_workshop_stub()
     latest_floor_check = await _latest_audit_row(tool="floor_check")
+    # Retrieval completion needs a retrieval that actually ran. Seeded
+    # catalog rows are a precondition for the exercise, not evidence that
+    # anyone performed it.
+    retrieval_rows = [
+        row
+        for row in [
+            await _latest_audit_row(tool="find_pieces_hybrid"),
+            await _latest_audit_row(tool="find_pieces"),
+        ]
+        if row
+    ]
+    latest_retrieval = (
+        max(retrieval_rows, key=lambda row: row.get("audit_id") or 0)
+        if retrieval_rows
+        else None
+    )
     latest_process_return = await _latest_audit_row(tool="process_return")
     latest_audit = await _latest_audit_row()
     latest_gateway = await _latest_audit_row(caller="gateway")
@@ -545,12 +561,28 @@ async def _collect_proof_board(session_id: str | None = None) -> dict[str, Any]:
             "id": "retrieval-comparison",
             "group": "Retrieval evidence",
             "title": "Compare retrieval strategies",
-            "status": _card_status(int(counts.get("catalog_count") or 0) >= 40, "needs_data"),
+            "status": _card_status(
+                bool(latest_retrieval),
+                "needs_run"
+                if int(counts.get("catalog_count") or 0) >= 40
+                else "needs_data",
+            ),
             "required": True,
             "surface": "Pellier + Aurora",
             "summary": "Hybrid search, pgvector, full-text search, and rerank are visible for one shopper query.",
-            "evidenceSource": "config.py + pellier.product_catalog",
+            "evidenceSource": "pellier.tool_audit + pellier.product_catalog",
+            "lastUpdated": (
+                latest_retrieval.get("created_at") if latest_retrieval else None
+            ),
             "evidence": [
+                (
+                    "Latest retrieval row: "
+                    f"{latest_retrieval.get('tool')} "
+                    f"audit_id {latest_retrieval.get('audit_id')}"
+                    if latest_retrieval
+                    else "No retrieval tool call recorded yet — run a shopper "
+                    "query so a retrieval row exists"
+                ),
                 f"Catalog rows: {counts.get('catalog_count', 0)}",
                 f"Embedding model: {settings.BEDROCK_EMBEDDING_MODEL}",
                 f"Rerank model: {settings.BEDROCK_RERANK_MODEL}",
@@ -1547,27 +1579,57 @@ async def get_recent_tool_audit(
         max_length=64,
         pattern=r"^[a-z][a-z0-9_]*$",
     ),
+    session_id: str | None = Query(default=None, min_length=1, max_length=128),
+    within_minutes: int | None = Query(default=None, ge=1, le=1440),
 ):
     """Return the most recent rows from pellier.tool_audit, in reverse
     chronological order. Used by the Write-path surface to demonstrate
     that every ALLOWed tool call (read or write) is reconstructible
     from a single row (args + result + latency_ms).
 
+    Args:
+        limit: Maximum rows to return.
+        tool: Restrict to one tool name.
+        session_id: Restrict to one session. Required to prove that a row
+            belongs to *this* participant's run rather than to a rehearsal
+            or a neighbour's turn.
+        within_minutes: Restrict to rows created in the last N minutes.
+            The cheap freshness guard for the same problem when the caller
+            cannot know the browser-generated session id.
+
     Read-only. Aggregate against the live DB; falls back to empty list
     when the database is unavailable.
     """
+    filters = {
+        "tool": tool,
+        "sessionId": session_id,
+        "withinMinutes": within_minutes,
+    }
     try:
         from app import db_service
         if db_service is None:
             return {
                 "source": "pellier.tool_audit",
-                "filters": {"tool": tool},
+                "filters": filters,
                 "count": 0,
                 "rows": [],
             }
 
-        where = "WHERE tool = %s" if tool else ""
-        params: list[Any] = [tool, limit] if tool else [limit]
+        clauses: list[str] = []
+        params: list[Any] = []
+        if tool:
+            clauses.append("tool = %s")
+            params.append(tool)
+        if session_id:
+            clauses.append("session_id = %s")
+            params.append(session_id)
+        if within_minutes:
+            clauses.append(
+                "created_at >= NOW() - (%s * INTERVAL '1 minute')"
+            )
+            params.append(within_minutes)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(limit)
         rows = await db_service.fetch_all(
             f"""
             SELECT audit_id,
@@ -1595,7 +1657,7 @@ async def get_recent_tool_audit(
             normalized.append(d)
         return {
             "source": "pellier.tool_audit",
-            "filters": {"tool": tool},
+            "filters": filters,
             "count": len(normalized),
             "rows": normalized,
         }

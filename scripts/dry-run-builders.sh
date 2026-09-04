@@ -222,11 +222,25 @@ fi
 
 # --- 5. Required durable action receipt ------------------------------------
 echo "[5/6] Required execution evidence - pellier.tool_audit"
+# Bind the proof to THIS run's session. An unscoped receipt would accept a
+# row left by an earlier rehearsal, which is exactly the false positive a
+# rehearsal exists to catch.
 if uv run "${REPO}/scripts/builders_lab.py" \
-    --base-url "$BASE" receipt >/tmp/dryrun-tool-receipt.json; then
-  pass "Participant receipt command verified the latest agent floor_check row"
+    --base-url "$BASE" receipt --session "$SESSION" \
+    >/tmp/dryrun-tool-receipt.json; then
+  pass "Participant receipt command verified this run's agent floor_check row"
 else
-  fail "Participant receipt command did not verify the floor_check row"
+  fail "Participant receipt command did not verify this run's floor_check row"
+fi
+
+# A receipt that only passes unscoped is a stale-evidence regression: prove
+# the guard rejects a session that produced no floor_check call.
+if uv run "${REPO}/scripts/builders_lab.py" \
+    --base-url "$BASE" receipt --session "dryrun-absent-$(date +%s)" \
+    >/dev/null 2>&1; then
+  fail "Receipt accepted a session that never called floor_check"
+else
+  pass "Receipt rejects a session with no floor_check row"
 fi
 n="$(_psql "SELECT count(*) FROM pellier.tool_audit WHERE tool='floor_check' AND session_id LIKE 'dryrun-%';")"
 if [[ "${n:-0}" =~ ^[0-9]+$ ]] && (( n > 0 )); then

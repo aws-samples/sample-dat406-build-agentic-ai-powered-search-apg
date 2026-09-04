@@ -692,6 +692,38 @@ async def get_price_stats(
         raise HTTPException(status_code=500, detail="internal_error")
 
 
+def _assert_claimable_customer_id(customer_id: str) -> str:
+    """HTTP adapter over :func:`services.persona_identity.assert_claimable_customer_id`.
+
+    Args:
+        customer_id: The customer id asserted by the caller.
+
+    Returns:
+        The same id, unchanged, when the claim is allowed.
+
+    Raises:
+        HTTPException: 403 when the id is not a seeded persona, or 503 when
+            persona configuration is unreadable and the claim cannot be
+            checked at all.
+    """
+    from services.persona_identity import (
+        CustomerIdNotClaimable,
+        PersonasUnavailable,
+        assert_claimable_customer_id,
+    )
+
+    try:
+        return assert_claimable_customer_id(customer_id)
+    except PersonasUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="personas_unavailable"
+        ) from exc
+    except CustomerIdNotClaimable as exc:
+        raise HTTPException(
+            status_code=403, detail="customer_id_not_claimable"
+        ) from exc
+
+
 @app.post("/api/tools/restock")
 async def restock_shelf_endpoint(
     request: dict,
@@ -765,6 +797,17 @@ async def chat_stream(
     via an asyncio.Queue bridge, instead of waiting for the full chain to finish.
     """
     from fastapi.responses import StreamingResponse
+
+    # Validate the asserted identity first: before smoke mode, before the
+    # service check, and before the SSE response begins. Raising from inside
+    # the generator would abort a stream that had already returned 200
+    # instead of rejecting the request, and an impersonation attempt is
+    # invalid whether or not the chat service happens to be up.
+    claimed_customer_id = (
+        _assert_claimable_customer_id(request.customer_id)
+        if request.customer_id
+        else None
+    )
 
     if settings.PELLIER_SMOKE_MODE:
         async def smoke_event_generator():
@@ -848,10 +891,11 @@ async def chat_stream(
             # Merge persona customer_id into the user dict so the agent
             # context and LTM reads scope to the right customer. The
             # persona's customer_id takes precedence over the Cognito
-            # sub when both are present (workshop affordance).
+            # sub when both are present (workshop affordance) — but only
+            # for a seeded demo persona. See _assert_claimable_customer_id.
             effective_user = dict(user) if user else {}
-            if request.customer_id:
-                effective_user["customer_id"] = request.customer_id
+            if claimed_customer_id:
+                effective_user["customer_id"] = claimed_customer_id
 
             from services.agentcore_identity import AgentCoreIdentityService
             from services.agentcore_memory import AgentCoreMemory
@@ -1500,7 +1544,10 @@ async def compare_search_strategies(query: str):
         for r in rerank_pool
     ]
     rerank_service = get_rerank_service()
-    rerank_results = rerank_service.rerank(query=q, documents=documents, top_n=5)
+    rerank_outcome = rerank_service.rerank_with_status(
+        query=q, documents=documents, top_n=5,
+    )
+    rerank_results = rerank_outcome.results
     rerank_ms = int((time.perf_counter() - t0) * 1000)
     if rerank_results:
         rerank_products = [
@@ -1511,6 +1558,9 @@ async def compare_search_strategies(query: str):
             for r in rerank_results
         ]
     else:
+        # Bedrock did not reorder this pool. These are RRF rows. The
+        # strategy still reports itself as degraded below so the row is
+        # never read — or priced — as a reranked result.
         rerank_products = [
             {"name": r.get("name", ""), "productId": r.get("product_id")}
             for r in rerank_pool[:5]
@@ -1532,12 +1582,17 @@ async def compare_search_strategies(query: str):
         soft_embedding = query_embedding
 
     # Try the strictest filter set first; if Sonnet over-constrained the
-    # query, peel filters back in priority order — drop tags before
-    # categories before price — until the pool is large enough to
-    # actually rerank against. This is the same pattern production
-    # retrieval pipelines use: structured filters are hints, not
-    # guarantees, and a one-result return is usually worse than a
-    # wider pool with the reranker doing the final cut.
+    # query, peel back the *soft* filters in priority order — tags, then
+    # categories — until the pool is large enough to rerank against.
+    # Soft filters are model-inferred hints, so relaxing one costs
+    # nothing but breadth.
+    #
+    # Price and availability are NOT in that ladder. A shopper who asks
+    # for "under $100, in stock" has stated a hard predicate: returning a
+    # $240 backordered item would be a wrong answer, not a broader one.
+    # The same rule carries to tenancy, entitlement, and eligibility
+    # filters in other domains. When the strictest rung still leaves a
+    # thin pool, the thin pool IS the answer, and the response says so.
     AGENTIC_MIN_POOL = 5
     cat = extracted.get("categories") or None
     tag = extracted.get("tags") or None
@@ -1547,7 +1602,6 @@ async def compare_search_strategies(query: str):
         ("strict", dict(categories=cat, tags=tag, price_max_usd=pmax, in_stock_only=in_stock)),
         ("drop_tags", dict(categories=cat, tags=None, price_max_usd=pmax, in_stock_only=in_stock)),
         ("drop_cats", dict(categories=None, tags=None, price_max_usd=pmax, in_stock_only=in_stock)),
-        ("drop_all", dict(categories=None, tags=None, price_max_usd=None, in_stock_only=False)),
     ]
     agentic_pool: List[Dict[str, Any]] = []
     filter_used = "strict"
@@ -1565,9 +1619,10 @@ async def compare_search_strategies(query: str):
         f"{r.get('name','')} — {(r.get('description','') or '')[:200]} ({r.get('category','')})"
         for r in agentic_pool
     ]
-    agentic_rerank = rerank_service.rerank(
+    agentic_outcome = rerank_service.rerank_with_status(
         query=soft_signal, documents=agentic_docs, top_n=5,
     )
+    agentic_rerank = agentic_outcome.results
     agentic_ms = int((time.perf_counter() - t0) * 1000)
     if agentic_rerank:
         agentic_products = [
@@ -1613,6 +1668,18 @@ async def compare_search_strategies(query: str):
         4,
     )
     soft_signal_embedding_applied = soft_signal != q
+
+    # A strategy is only charged for the stages it actually ran. When
+    # Bedrock rerank fails, the row falls back to fusion order — charging
+    # it for a rerank call would make the workshop's "is the rerank spend
+    # worth it?" comparison answer a question the run never asked.
+    rerank_executed = rerank_outcome.executed
+    agentic_rerank_executed = agentic_outcome.executed
+    rerank_charge = rerank_usd_per_thousand_queries if rerank_executed else 0.0
+    agentic_rerank_charge = (
+        rerank_usd_per_thousand_queries if agentic_rerank_executed else 0.0
+    )
+
     agentic_cost_per_thousand = round(
         embedding_cost_per_thousand
         + (
@@ -1621,7 +1688,7 @@ async def compare_search_strategies(query: str):
             else 0
         )
         + sonnet_cost_per_thousand
-        + rerank_usd_per_thousand_queries,
+        + agentic_rerank_charge,
         4,
     )
 
@@ -1637,11 +1704,23 @@ async def compare_search_strategies(query: str):
             "cost": (
                 "Modeled incremental request cost per 1,000 queries using the "
                 "costModel inputs below; not a billing measurement and "
-                "excluding provisioned Aurora compute."
+                "excluding provisioned Aurora compute. A strategy is charged "
+                "only for the stages that ran on this request: when "
+                "rerankExecuted is false, the rerank component is excluded."
             ),
             "quality": (
                 "Product order is live. Recall requires labeled relevance "
-                "judgments and is not calculated by this endpoint."
+                "judgments and is not calculated by this endpoint. Read "
+                "rerankExecuted before comparing rows: a degraded rerank "
+                "returns fusion order under productOrderSource, so its "
+                "ordering is not evidence about reranking."
+            ),
+            "constraints": (
+                "Model-inferred soft filters (tags, then categories) are "
+                "relaxed to widen a thin pool. Price and availability are "
+                "hard predicates and are never relaxed, so a small pool is "
+                "reported as a small pool rather than filled with rows that "
+                "violate the request."
             ),
         },
         "costModel": {
@@ -1715,12 +1794,22 @@ async def compare_search_strategies(query: str):
                 "strategy": "hybrid + rerank",
                 "observedMs": rerank_ms,
                 "modeledCostPerThousandUsd": round(
-                    embedding_cost_per_thousand
-                    + rerank_usd_per_thousand_queries,
+                    embedding_cost_per_thousand + rerank_charge,
                     4,
                 ),
-                "costComponents": ["queryEmbedding", "rerank"],
+                "costComponents": (
+                    ["queryEmbedding", "rerank"]
+                    if rerank_executed
+                    else ["queryEmbedding"]
+                ),
                 "products": rerank_products,
+                "rerankExecuted": rerank_executed,
+                "rerankModelId": rerank_outcome.model_id,
+                "rerankRequestId": rerank_outcome.request_id,
+                "degradedReason": rerank_outcome.degraded_reason,
+                "productOrderSource": (
+                    "rerank" if rerank_executed else "hybrid RRF (rerank degraded)"
+                ),
             },
             {
                 "strategy": "agentic (Sonnet → filter → vector → rerank)",
@@ -1734,9 +1823,18 @@ async def compare_search_strategies(query: str):
                         else []
                     ),
                     "filterExtraction",
-                    "rerank",
+                    *(["rerank"] if agentic_rerank_executed else []),
                 ],
                 "products": agentic_products,
+                "rerankExecuted": agentic_rerank_executed,
+                "rerankModelId": agentic_outcome.model_id,
+                "rerankRequestId": agentic_outcome.request_id,
+                "degradedReason": agentic_outcome.degraded_reason,
+                "productOrderSource": (
+                    "rerank"
+                    if agentic_rerank_executed
+                    else "filtered vector (rerank degraded)"
+                ),
                 "extractedFilters": {
                     "categories": extracted.get("categories", []),
                     "tags": extracted.get("tags", []),
@@ -1744,6 +1842,16 @@ async def compare_search_strategies(query: str):
                     "inStockOnly": extracted.get("in_stock_only", False),
                     "softSignal": soft_signal,
                     "filterUsed": filter_used,
+                    "hardConstraintsEnforced": True,
+                    "relaxedFilters": (
+                        {
+                            "strict": [],
+                            "drop_tags": ["tags"],
+                            "drop_cats": ["tags", "categories"],
+                        }.get(filter_used, [])
+                    ),
+                    "poolSize": len(agentic_pool),
+                    "poolBelowTarget": len(agentic_pool) < AGENTIC_MIN_POOL,
                 },
             },
         ],
@@ -1930,9 +2038,10 @@ async def explain_search(query: str):
             ])
         rerank_meta = (
             "Cohere Rerank v3.5 reads the query + each candidate and assigns a "
-            "calibrated relevance score in [0,1]. ▲/▼ shows how far a product "
-            "moved from its RRF position — that movement is what the rerank "
-            "spend buys you."
+            "relevance score in [0,1] used to order this pool. ▲/▼ shows how "
+            "far a product moved from its RRF position — that movement is "
+            "what the rerank spend buys you. Reranking reorders the candidate "
+            "pool; it cannot recover a product retrieval never returned."
         )
     else:
         # Honest degrade — no fabricated scores; show RRF order unchanged.
@@ -2110,31 +2219,15 @@ async def agent_trace_catalog():
 # Reads from docs/personas-config.json; no database table for persona defs.
 # ---------------------------------------------------------------------------
 
-import pathlib as _pathlib
-
-_PERSONAS_CONFIG_PATH = _pathlib.Path(__file__).resolve().parent / "personas-config.json"
-_personas_cache: Optional[list] = None
-
-
-def _load_personas() -> list:
-    """Load persona definitions from docs/personas-config.json. Cached."""
-    global _personas_cache
-    if _personas_cache is not None:
-        return _personas_cache
-    try:
-        raw = json.loads(_PERSONAS_CONFIG_PATH.read_text())
-        _personas_cache = raw.get("personas", [])
-    except Exception as e:
-        logger.warning(f"Failed to load personas config: {e}")
-        _personas_cache = []
-    return _personas_cache
+from services.persona_identity import PERSONAS_CONFIG_PATH as _PERSONAS_CONFIG_PATH
+from services.persona_identity import load_personas as _load_personas
+from services.persona_identity import reset_cache as _reset_personas_cache
 
 
 @app.get("/api/agent-trace/personas/reload")
 async def reload_personas():
     """Dev helper — force re-read of personas-config.json."""
-    global _personas_cache
-    _personas_cache = None
+    _reset_personas_cache()
     return {"reloaded": True, "count": len(_load_personas())}
 
 

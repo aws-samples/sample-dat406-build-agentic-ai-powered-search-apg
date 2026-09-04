@@ -30,8 +30,10 @@ import {
   useAgentChat,
   type AgentChatMessage,
 } from '../hooks/useAgentChat'
+import { labThreadForPersona } from '../data/personaCurations'
 import PellierChatBody from './PellierChatBody'
 import PellierWelcome from './PellierWelcome'
+import StorefrontThreadGuide from './StorefrontThreadGuide'
 import '../styles/chat-drawer.css'
 
 // ---------------------------------------------------------------------------
@@ -114,6 +116,7 @@ export default function ChatDrawer() {
         role: 'assistant',
         content,
         timestamp: new Date(),
+        uiOnly: true,
       },
     ]
   }, [persona])
@@ -206,21 +209,45 @@ export default function ChatDrawer() {
   // times per frame. The old 50ms debounce cancelled its pending scroll on
   // every delta, so the view stood still through a fast stream and lurched
   // once at the end. Pinning scrollTop in at most one rAF per frame follows
-  // the stream instead, and checking nearBottom first keeps a reader who
-  // scrolled up unpinned.
+  // the stream. A scroll listener records whether the reader has deliberately
+  // moved away, so a newly revealed guided turn does not break that behavior.
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const scrollFrameRef = useRef(0)
+  const followsOutputRef = useRef(true)
   useEffect(() => {
     const el = scrollAreaRef.current
     if (!isOpen || !el) return
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    if (!nearBottom || scrollFrameRef.current) return
+
+    const recordReaderPosition = () => {
+      followsOutputRef.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    }
+
+    recordReaderPosition()
+    el.addEventListener('scroll', recordReaderPosition, { passive: true })
+    return () => el.removeEventListener('scroll', recordReaderPosition)
+  }, [isOpen])
+
+  useEffect(() => {
+    const el = scrollAreaRef.current
+    if (!isOpen || !el) return
+    if (!followsOutputRef.current || scrollFrameRef.current) return
     scrollFrameRef.current = requestAnimationFrame(() => {
       scrollFrameRef.current = 0
       el.scrollTop = el.scrollHeight
     })
-  }, [messages, isOpen])
+  }, [messages, isOpen, isLoading])
   useEffect(() => () => cancelAnimationFrame(scrollFrameRef.current), [])
+
+  const sendStorefrontMessage = useCallback(
+    (text?: string) => {
+      // Sending a question is an explicit request to follow its answer, even
+      // when the welcome state was taller than a mobile sheet.
+      followsOutputRef.current = true
+      return sendMessage(text)
+    },
+    [sendMessage],
+  )
 
   // Focus trap: Tab/Shift+Tab cycle within drawer
   const drawerRef = useRef<HTMLDivElement>(null)
@@ -252,10 +279,10 @@ export default function ChatDrawer() {
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
         e.preventDefault()
-        sendMessage()
+        void sendStorefrontMessage()
       }
     },
-    [isLoading, sendMessage],
+    [isLoading, sendStorefrontMessage],
   )
 
   const hasUserMessages = messages.some(m => m.role === 'user')
@@ -349,16 +376,44 @@ export default function ChatDrawer() {
               {!hasUserMessages && (
                 <PellierWelcome
                   persona={persona}
-                  onSend={(text) => void sendMessage(text)}
+                  onSend={(text) => void sendStorefrontMessage(text)}
+                  conversationTrail={
+                    <StorefrontThreadGuide
+                      personaId={persona.id}
+                      messages={messages}
+                      isLoading={isLoading}
+                      onSend={(text) => void sendStorefrontMessage(text)}
+                      onRestart={() => {
+                        clearChat(initialMessages)
+                        void sendStorefrontMessage(
+                          labThreadForPersona(persona.id).turns[0],
+                        )
+                      }}
+                    />
+                  }
                 />
               )}
               {hasUserMessages && (
-                <PellierChatBody
-                  messages={messages}
-                  sendMessage={sendMessage}
-                  addToCart={addToCart}
-                  persona={persona}
-                />
+                <>
+                  <PellierChatBody
+                    messages={messages}
+                    sendMessage={sendStorefrontMessage}
+                    addToCart={addToCart}
+                    persona={persona}
+                  />
+                  <StorefrontThreadGuide
+                    personaId={persona.id}
+                    messages={messages}
+                    isLoading={isLoading}
+                    onSend={(text) => void sendStorefrontMessage(text)}
+                    onRestart={() => {
+                      clearChat(initialMessages)
+                      void sendStorefrontMessage(
+                        labThreadForPersona(persona.id).turns[0],
+                      )
+                    }}
+                  />
+                </>
               )}
             </div>
 
@@ -384,7 +439,7 @@ export default function ChatDrawer() {
                   className="cd-send"
                   disabled={!inputValue.trim() || isLoading}
                   aria-label="Send"
-                  onClick={() => sendMessage()}
+                  onClick={() => void sendStorefrontMessage()}
                 >
                   Ask
                 </button>

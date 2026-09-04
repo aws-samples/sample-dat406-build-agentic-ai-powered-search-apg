@@ -363,6 +363,67 @@ export function heroPillsForPersona(
   return PERSONA_HERO_PILLS[personaId] ?? PERSONA_HERO_PILLS.fresh
 }
 
+// ---------------------------------------------------------------------
+// Guided three-turn threads — the shortest sequence that can prove a
+// memory → retrieval → recall path without introducing another Labs surface.
+//
+// These prompts deliberately do not reuse the hero-pill list. The hero pills
+// remain independent, inspectable storefront turns; a thread must carry one
+// resolved fact into a retrieval turn, then make the final turn omit it.
+// ---------------------------------------------------------------------
+
+export interface PersonaLabThread {
+  title: string
+  focus: string
+  turns: readonly [string, string, string]
+}
+
+export const PERSONA_LAB_THREADS: Record<string, PersonaLabThread> = {
+  marco: {
+    title: 'Trip context into retrieval',
+    focus: 'AgentCore working memory -> Aurora retrieval -> grounded comparison',
+    turns: [
+      'I am packing for Goa for ten days and want linen that fits in a carry-on.',
+      'Find the Italian Linen Camp Shirt and compare it with the Hadley shirt for that trip.',
+      'Without asking me to repeat the trip details, which option should I pack and why?',
+    ],
+  },
+  anna: {
+    title: 'Gift constraint into retrieval',
+    focus: 'AgentCore working memory -> hybrid retrieval -> SQL-enforced budget',
+    turns: [
+      'I am buying a housewarming gift for a ceramics lover with a $200 limit.',
+      'Find two ceramic options within that limit.',
+      'Without asking me to repeat the request, which option would you choose and why?',
+    ],
+  },
+  theo: {
+    title: 'Return context into retrieval',
+    focus: 'AgentCore working memory -> Aurora return-policy lookup -> grounded next step',
+    turns: [
+      'My Wabi-Sabi Bowl arrived chipped. What does the return policy allow?',
+      'Find the return window and damaged-item conditions for that bowl.',
+      'Without asking me to repeat the item or issue, what next steps does the policy support?',
+    ],
+  },
+  fresh: {
+    title: 'Conversation context into retrieval',
+    focus: 'Session context -> catalog retrieval -> grounded follow-up',
+    turns: [
+      'I need a linen piece for a warm-weather carry-on.',
+      'Find two options that match that trip.',
+      'Without asking me to repeat the context, which option would you choose and why?',
+    ],
+  },
+}
+
+export function labThreadForPersona(
+  personaId: string | null | undefined,
+): PersonaLabThread {
+  if (!personaId) return PERSONA_LAB_THREADS.fresh
+  return PERSONA_LAB_THREADS[personaId] ?? PERSONA_LAB_THREADS.fresh
+}
+
 export interface PersonaTurnTrace {
   skills: string[]
   tools: string[]

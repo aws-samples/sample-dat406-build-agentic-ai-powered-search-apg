@@ -20,7 +20,7 @@ TOOL_STUB_RESPONSE = "floor_check is in stub state"
 
 STARTER_AGENT_GRANT = """# === WORKSHOP: Stock Keeper agent grant: START ===
 # WORKSHOP_AGENT_GRANT_STUB
-# Add floor_check to this list after its implementation passes Exercise 1.
+# Add floor_check to this list after its implementation passes step 1.
 INVENTORY_AGENT_TOOLS = [restock_shelf, running_low]
 # === WORKSHOP: Stock Keeper agent grant: END ==="""
 

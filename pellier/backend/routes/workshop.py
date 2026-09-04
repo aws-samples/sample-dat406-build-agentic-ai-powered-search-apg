@@ -57,6 +57,39 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/agent-trace", tags=["agent-trace"])
 
 
+def _assert_claimable_customer_id(customer_id: Optional[str]) -> Optional[str]:
+    """Return ``customer_id`` when the caller may act as it.
+
+    Args:
+        customer_id: The asserted customer id, or None for anonymous.
+
+    Returns:
+        The same value; None passes through unchanged.
+
+    Raises:
+        HTTPException: 403 when the id is not a seeded persona, 503 when
+            persona configuration cannot be read.
+    """
+    if not customer_id:
+        return customer_id
+    from services.persona_identity import (
+        CustomerIdNotClaimable,
+        PersonasUnavailable,
+        assert_claimable_customer_id,
+    )
+
+    try:
+        return assert_claimable_customer_id(customer_id)
+    except PersonasUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="personas_unavailable"
+        ) from exc
+    except CustomerIdNotClaimable as exc:
+        raise HTTPException(
+            status_code=403, detail="customer_id_not_claimable"
+        ) from exc
+
+
 def _build_citations(ctx: AgentContext) -> list[dict]:
     """Build citation dicts from emitted panels.
 
@@ -231,7 +264,10 @@ async def query(payload: WorkshopQueryRequest) -> StreamingResponse:
     blocks, then post-orchestrator events (steps, response) yield.
     """
     session_id = payload.session_id or f"ws-{uuid.uuid4().hex[:12]}"
-    customer_id = payload.customer_id or "anonymous"
+    # This route hands the caller-supplied customer id to ChatService, which
+    # can reach the support specialist's ownership-checked write. Bound the
+    # claim to the seeded personas for the same reason /api/chat/stream does.
+    customer_id = _assert_claimable_customer_id(payload.customer_id) or "anonymous"
 
     async def event_stream() -> AsyncGenerator[str, None]:
         ctx = AgentContext(
@@ -497,6 +533,7 @@ async def resume(payload: WorkshopResumeRequest) -> WorkshopQueryResponse:
             status_code=400,
             detail="resume requires a seeded customer_id",
         )
+    _assert_claimable_customer_id(customer_id)
 
     session_id = payload.session_id or f"ws-{uuid.uuid4().hex[:12]}"
     ctx = AgentContext(

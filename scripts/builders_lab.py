@@ -242,14 +242,21 @@ def compare(args: argparse.Namespace) -> int:
             for product in strategy.get("products", [])[:3]
         )
         components = ", ".join(strategy.get("costComponents", []))
+        order_source = strategy.get("productOrderSource")
         print(
             f"\n{strategy.get('strategy')}\n"
             f"  observed once: {strategy.get('observedMs')} ms\n"
             f"  modeled cost/1K: "
             f"${strategy.get('modeledCostPerThousandUsd')}\n"
             f"  components: {components}\n"
-            f"  top 3: {products}"
+            + (f"  ordered by: {order_source}\n" if order_source else "")
+            + f"  top 3: {products}"
         )
+        if strategy.get("degradedReason"):
+            print(
+                f"  DEGRADED: {strategy['degradedReason']}",
+                file=sys.stderr,
+            )
 
     cost_model = payload.get("costModel") or {}
     filters = ((payload.get("strategies") or [{}])[-1]).get(
@@ -271,23 +278,58 @@ def compare(args: argparse.Namespace) -> int:
     print(json.dumps(filters, indent=2))
     print(f"\nFull response: {args.output}")
 
+    strategies = payload.get("strategies") or []
+    # Any strategy whose name claims reranking must actually have reranked.
+    # Otherwise the comparison shows fusion order under a rerank label and
+    # the "is the rerank spend worth it?" question has no honest answer.
+    degraded = [
+        strategy.get("strategy")
+        for strategy in strategies
+        if "rerank" in str(strategy.get("strategy", ""))
+        and strategy.get("rerankExecuted") is not True
+    ]
     valid = (
-        len(payload.get("strategies", [])) == 4
+        len(strategies) == 4
         and filters.get("priceMaxUsd") == 100
         and filters.get("inStockOnly") is True
+        and filters.get("hardConstraintsEnforced") is True
         and bool(cost_model.get("components"))
+        and not degraded
     )
     if not valid:
+        if degraded:
+            print(
+                "Reranking did not execute for: "
+                + ", ".join(str(name) for name in degraded)
+                + ". The rows shown are fusion order, not reranked order, so "
+                "this comparison is not evidence about reranking. Check "
+                "Bedrock access for the rerank model and run this again.",
+                file=sys.stderr,
+            )
         print("Comparison did not satisfy the Lab 2 evidence contract.", file=sys.stderr)
         return 1
     return 0
 
 
 def receipt(args: argparse.Namespace) -> int:
+    """Verify a floor_check receipt produced by *this* run.
+
+    An unfiltered "latest row" is not proof of your own work: a rehearsal,
+    a bootstrap dry run, or a neighbour's turn leaves rows in the same
+    table. The freshness window is the default guard; ``--session`` is the
+    exact one when you know the session id.
+    """
+    query = {
+        "tool": "floor_check",
+        "limit": "1",
+        "within_minutes": str(args.within_minutes),
+    }
+    if args.session:
+        query["session_id"] = args.session
     payload = _request_json(
         args.base_url,
         "/api/agent-trace/tool-audit/recent",
-        query={"tool": "floor_check", "limit": "1"},
+        query=query,
         timeout=10,
     )
     rows = payload.get("rows") or []
@@ -323,8 +365,17 @@ def receipt(args: argparse.Namespace) -> int:
         "result": result,
         "latencyMs": row.get("latency_ms"),
         "createdAt": row.get("created_at"),
+        "freshnessWindowMinutes": args.within_minutes,
+        "sessionFilter": args.session,
     }
     print(json.dumps(proof, indent=2))
+    print(
+        "This receipt is scoped to the last "
+        f"{args.within_minutes} minutes"
+        + (f" and session {args.session}" if args.session else "")
+        + ", so it cannot be satisfied by an earlier rehearsal row.",
+        file=sys.stderr,
+    )
 
     valid = (
         proof["source"] == "pellier.tool_audit"
@@ -341,8 +392,9 @@ def receipt(args: argparse.Namespace) -> int:
     )
     if not valid:
         print(
-            "No complete agent floor_check receipt was found in "
-            "pellier.tool_audit.",
+            "No complete agent floor_check receipt from the last "
+            f"{args.within_minutes} minutes was found in pellier.tool_audit. "
+            "Replay the Marco turn in Pellier, then run this again.",
             file=sys.stderr,
         )
         return 1
@@ -438,6 +490,19 @@ def parser() -> argparse.ArgumentParser:
     compare_parser.set_defaults(handler=compare)
 
     receipt_parser = commands.add_parser("receipt")
+    receipt_parser.add_argument(
+        "--within-minutes",
+        type=int,
+        default=30,
+        help=(
+            "Only accept a receipt created in the last N minutes, so an "
+            "earlier rehearsal row cannot satisfy the proof."
+        ),
+    )
+    receipt_parser.add_argument(
+        "--session",
+        help="Only accept a receipt from this exact session id.",
+    )
     receipt_parser.set_defaults(handler=receipt)
 
     ledger_parser = commands.add_parser("ledger")

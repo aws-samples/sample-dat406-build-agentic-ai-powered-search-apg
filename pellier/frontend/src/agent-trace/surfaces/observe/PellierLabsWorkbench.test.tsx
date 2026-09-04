@@ -20,7 +20,10 @@ vi.mock('../../../contexts/PersonaContext', () => ({
   usePersona: () => ({ persona: mocks.persona }),
 }));
 
-import { PERSONA_HERO_PILLS } from '../../../data/personaCurations';
+import {
+  PERSONA_HERO_PILLS,
+  PERSONA_LAB_THREADS,
+} from '../../../data/personaCurations';
 import PellierLabsWorkbench from './PellierLabsWorkbench';
 
 /**
@@ -139,6 +142,102 @@ describe('Pellier Labs live agent workbench', () => {
     expect(metrics).not.toBeNull();
     expect(tracePanel(container)).toContainElement(metrics);
     expect(within(metrics!).getAllByText('-')).toHaveLength(4);
+  });
+
+  it('carries a three-turn persona thread through real conversation history', async () => {
+    mocks.persona = {
+      id: 'anna',
+      display_name: 'Anna',
+      customer_id: 'CUST-ANNA',
+    };
+    mocks.sendChatMessageStreaming.mockImplementation(
+      async (query: string) => ({
+        response: `Grounded reply for ${query}`,
+        products: [],
+        suggestions: [],
+      }),
+    );
+
+    const thread = PERSONA_LAB_THREADS.anna;
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <PellierLabsWorkbench />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Start three-turn memory and retrieval thread',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.sendChatMessageStreaming).toHaveBeenNthCalledWith(
+        1,
+        thread.turns[0],
+        [],
+        expect.any(Function),
+        undefined,
+        false,
+        'CUST-ANNA',
+        'dispatcher',
+        'balanced',
+      );
+    });
+
+    await user.click(
+      screen.getByRole('button', {
+        name: `Continue thread: ${thread.turns[1]}`,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.sendChatMessageStreaming).toHaveBeenNthCalledWith(
+        2,
+        thread.turns[1],
+        [
+          {
+            role: 'user',
+            content: thread.turns[0],
+            timestamp: expect.any(Date),
+          },
+          {
+            role: 'assistant',
+            content: `Grounded reply for ${thread.turns[0]}`,
+            timestamp: expect.any(Date),
+            products: [],
+          },
+        ],
+        expect.any(Function),
+        undefined,
+        false,
+        'CUST-ANNA',
+        'dispatcher',
+        'balanced',
+      );
+    });
+
+    await user.click(
+      screen.getByRole('button', {
+        name: `Continue thread: ${thread.turns[2]}`,
+      }),
+    );
+
+    await waitFor(() => {
+      const thirdHistory = mocks.sendChatMessageStreaming.mock.calls[2][1];
+      expect(mocks.sendChatMessageStreaming.mock.calls[2][0]).toBe(
+        thread.turns[2],
+      );
+      expect(thirdHistory).toHaveLength(4);
+      expect(thirdHistory[0]?.content).toBe(thread.turns[0]);
+      expect(thirdHistory[2]?.content).toBe(thread.turns[1]);
+      expect(
+        screen.getByRole('button', {
+          name: 'Restart three-turn memory and retrieval thread',
+        }),
+      ).toBeInTheDocument();
+    });
   });
 
   it('runs the real chat stream and renders only emitted evidence', async () => {
@@ -298,7 +397,7 @@ describe('Pellier Labs live agent workbench', () => {
       name: 'Run proof summary',
     });
     expect(within(proofSummary).getByText('Completed')).toBeInTheDocument();
-    expect(proofSummary).toHaveTextContent('Evidence captured');
+    expect(proofSummary).toHaveTextContent('Run complete');
     expect(proofSummary).toHaveTextContent(
       '4 events. 1 agent. 1 SQL query. 1 product.',
     );

@@ -109,6 +109,8 @@ export interface AgentChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  /** Renders in the chat, but is not conversational evidence for the agent. */
+  uiOnly?: boolean
   products?: ChatProduct[]
   suggestions?: string[]
   agent?: AgentBadge
@@ -488,7 +490,12 @@ export function useAgentChat(
       setMessages(prev => [...prev, loadingMessage])
 
       try {
-        const historyBeforeUser = messagesRef.current
+        // The Storefront's welcome greeting is intentionally present in the
+        // interface but must not become a fabricated assistant turn in the
+        // model's conversation history.
+        const historyBeforeUser = messagesRef.current.filter(
+          (message) => !message.uiOnly,
+        )
 
         const response = await sendChatMessageStreaming(
           text,
@@ -812,7 +819,11 @@ export function useAgentChat(
         // and force a new random id the backend doesn't know.
       }
       responseCache.clear()
-      setMessages(resetTo ?? initialMessages)
+      const nextMessages = resetTo ?? initialMessages
+      // A restart may immediately send a new guided turn. Keep the history
+      // ref in lockstep so that request cannot inherit the prior thread.
+      messagesRef.current = nextMessages
+      setMessages(nextMessages)
     },
     [persistKey, initialMessages],
   )

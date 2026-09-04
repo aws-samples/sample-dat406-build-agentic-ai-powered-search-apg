@@ -214,11 +214,47 @@ def test_recent_tool_audit_filters_by_tool_and_names_aurora_source() -> None:
 
     assert response.status_code == 200
     assert response.json()["source"] == "pellier.tool_audit"
-    assert response.json()["filters"] == {"tool": "floor_check"}
+    assert response.json()["filters"] == {
+        "tool": "floor_check",
+        "sessionId": None,
+        "withinMinutes": None,
+    }
     assert response.json()["rows"][0]["audit_id"] == 101
     query, params = db.fetch_all_calls[-1]
     assert "WHERE tool = %s" in query
     assert params == ("floor_check", 1)
+
+
+def test_recent_tool_audit_scopes_rows_to_one_session_and_window() -> None:
+    """Proof must be attributable to a run, not to whoever ran last.
+
+    Without a session or freshness filter the "latest row" can belong to a
+    rehearsal, a bootstrap dry run, or another attendee on a shared
+    database, so a participant who did nothing still sees a green receipt.
+    """
+    db = _AuditDB()
+    client = _client(db)
+
+    response = client.get(
+        "/api/agent-trace/tool-audit/recent",
+        params={
+            "tool": "floor_check",
+            "limit": 1,
+            "session_id": "marco-session",
+            "within_minutes": 30,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["filters"] == {
+        "tool": "floor_check",
+        "sessionId": "marco-session",
+        "withinMinutes": 30,
+    }
+    query, params = db.fetch_all_calls[-1]
+    assert "session_id = %s" in query
+    assert "created_at >= NOW() - (%s * INTERVAL '1 minute')" in query
+    assert params == ("floor_check", "marco-session", 30, 1)
 
 
 def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
@@ -255,6 +291,36 @@ def test_proof_board_returns_cards_receipt_and_fallbacks(monkeypatch) -> None:
     assert cards["managed-rail"]["status"] == "complete"
     assert "curl" in cards["managed-rail"]["fallback"]["command"]
     assert "process_return" in cards["audit-ledger"]["fallback"]["command"]
+    assert cards["retrieval-comparison"]["status"] == "complete"
+
+
+def test_retrieval_card_needs_a_run_not_just_a_seeded_catalog(
+    monkeypatch,
+) -> None:
+    """Seeded catalog rows are a precondition, not proof of the exercise.
+
+    The card previously read ``complete`` whenever the catalog held 40
+    products, so a participant who never ran a query — and every freshly
+    provisioned machine — saw the retrieval proof already satisfied.
+    """
+    _configure_managed(monkeypatch)
+    monkeypatch.setattr(
+        agent_trace, "_floor_check_is_workshop_stub", lambda: False
+    )
+
+    class _NoRetrievalDB(_ProofDB):
+        async def fetch_one(self, query: str, *params: Any) -> dict | None:
+            if params in (("find_pieces_hybrid",), ("find_pieces",)):
+                return None
+            return await super().fetch_one(query, *params)
+
+    client = _client(_NoRetrievalDB())
+    body = client.get("/api/agent-trace/proof-board").json()
+    card = {c["id"]: c for c in body["cards"]}["retrieval-comparison"]
+
+    assert card["status"] == "needs_run"
+    assert any("No retrieval tool call" in line for line in card["evidence"])
+    assert any("Catalog rows: 40" in line for line in card["evidence"])
 
 
 def test_readiness_missing_database_is_not_ready(monkeypatch) -> None:

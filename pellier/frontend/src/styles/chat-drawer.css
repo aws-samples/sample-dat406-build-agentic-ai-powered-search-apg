@@ -162,6 +162,88 @@
   padding: 48px 24px;
 }
 
+/* ---- Guided storefront conversation ---- */
+.cd-thread-guide {
+  margin: 4px 26px 22px;
+  padding: 16px 0 2px;
+  border-top: 1px solid var(--rule-1);
+}
+.sf-body .cd-thread-guide {
+  margin: 20px 0 0;
+}
+.cd-thread-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.cd-thread-guide-head span:first-child {
+  color: var(--red-1);
+}
+.cd-thread-guide p {
+  margin: 8px 0 12px;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.cd-thread-guide-action {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0 12px 14px;
+  border: 0;
+  border-left: 2px solid var(--red-1);
+  background: transparent;
+  color: var(--ink-1);
+  cursor: pointer;
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.35;
+  text-align: left;
+  transition: color 160ms ease, background-color 160ms ease, padding-left 160ms ease;
+}
+.cd-thread-guide-action svg {
+  flex: 0 0 auto;
+  color: var(--red-1);
+}
+.cd-thread-guide-action:hover {
+  background: rgba(196, 69, 54, 0.05);
+  color: var(--red-1);
+  padding-left: 18px;
+}
+.cd-thread-guide-complete {
+  padding-bottom: 10px;
+}
+.cd-thread-guide-complete p {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--ink-1);
+}
+.cd-thread-guide-restart {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--red-1);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+}
+.cd-thread-guide-restart:hover {
+  color: var(--ink-1);
+}
+
 /* ---- Footer ---- */
 .cd-foot {
   padding: 14px 18px 18px;
