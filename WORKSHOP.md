@@ -175,6 +175,21 @@ request actually used the Runtime and Gateway path.
 - Local tests validate the contract, not the deployed AWS path. The live
   rehearsal must capture a real Gateway denial before Lambda and the matching
   Aurora non-execution evidence.
+- A successful Runtime invocation does not prove the participant's revision
+  ran. The invoke response carries no version and `qualifier=DEFAULT` is an
+  alias, so a green answer is equally consistent with a silently failed deploy
+  and yesterday's package. The Proof Board's managed receipt carries a build
+  fingerprint for exactly this: **This checkout** means the deployed package
+  was built from their source, **Older deployment** names both digests, and
+  **Not reported** means the runtime predates the mechanism, which is not the
+  same finding as stale.
+- Lab 4's RLS proof now asserts its own preconditions before claiming a
+  denial. A policy decides nothing if the role holds BYPASSRLS or SUPERUSER,
+  if the proof runs as the table owner (`pellier.returns` is ENABLE, not
+  FORCE), or if a second permissive policy has been added — permissive
+  policies are OR-ed, so they can only widen. Each of those now fails with a
+  named diagnosis rather than a bare "out-of-scope write succeeded", which
+  reads as a broken policy rather than a skipped one.
 
 ## Pellier Operator
 
@@ -242,7 +257,7 @@ handoff, it also makes the boundary explicit: the shopper turn ends, then the
 typed Operator review and, if one occurs, execution lifecycle follows as
 separate evidence.
 
-What to point at in the Workbench (updated 2026-09-03):
+What to point at in the Workbench (updated 2026-09-04):
 
 - The Evidence ledger opens with the three receipts for the turn: **Policy**
   (the decisions recorded), **Execution** (tool calls audited) and **Data**
@@ -278,6 +293,14 @@ What to point at in the Workbench (updated 2026-09-03):
   the receipts, not from a different colour.
   Lab labels read "Lab 1 · Build a PostgreSQL-Grounded Agent" and so on, with
   no dashes; small Observatory labels are never below 11px.
+- The Observatory and the Operator desk now resolve to the same type scale as
+  the Storefront: one display face for page and section titles, weight capped
+  at 600, and one control family, where a pill is something you press and a
+  4px chip is something you read. If a surface suddenly looks louder or
+  smaller than its neighbour, that is a regression, not a house style.
+- On the Proof Board, the managed receipt names the **executed revision**.
+  Point at it in Lab 3: it is the difference between "the service answered"
+  and "the service ran the code I just packaged".
 
 The required hands-on work remains deliberately concrete:
 
@@ -303,7 +326,7 @@ appear in the room's instructions.
 |---|---|---|---|
 | **Lab 1 · Build**<br>**Build a PostgreSQL-Grounded Agent** | Marco needs a live availability answer. | Complete the Inventory Agent's warehouse capability, then reconcile the response, warehouse rows, and execution evidence in PostgreSQL. | An agent answer is grounded only when it can be checked against the system of record and an execution receipt. |
 | **Lab 2 · Build & Measure**<br>**Build and Measure PostgreSQL Hybrid Retrieval** | Anna narrows a morning-ritual gift to two in-stock options under $100, then chooses from that same shortlist. | Restore the hybrid-ranking calculation, compare retrieval paths, and prove the returned products met price and stock constraints. | Retrieval quality is a measured tradeoff. Relevance can rank results; PostgreSQL enforces eligibility. |
-| **Lab 3 · Operate & Observe**<br>**Operate and Observe the AgentCore Managed Path** | Theo's multi-turn ceramic request needs context and a traceable managed path. | Define the telemetry acceptance criteria, use the managed path as Theo, verify Memory beyond the application process, and correlate his Storefront thread with Runtime, Gateway, and PostgreSQL evidence. | Managed Runtime, Gateway, Memory, and telemetry each prove different parts of the path. A successful answer alone proves none of them. |
+| **Lab 3 · Operate & Observe**<br>**Operate and Observe the AgentCore Managed Path** | Theo's multi-turn ceramic request needs context and a traceable managed path. | Define the telemetry acceptance criteria, use the managed path as Theo, verify Memory beyond the application process, confirm the build fingerprint on the managed receipt matches their own checkout, and correlate his Storefront thread with Runtime, Gateway, and PostgreSQL evidence. | Managed Runtime, Gateway, Memory, telemetry, and the executed revision each prove different parts of the path. A successful answer alone proves none of them. |
 | **Lab 4 · Govern**<br>**Enforce Identity and Prove Non-Execution** | Jessica's return action is allowed only for Jessica; Marco and Anna are the negative controls. | Define the identity-to-customer rule; run the deny, allow, and replay cases; prove exact policy, execution, durable-effect, and database-enforcement outcomes; then complete Jessica's three-turn Operator investigation and stop before approval. | Authentication, policy authorization, execution, database enforcement, staff access, durable effects, and human approval are separate controls and separate facts. |
 
 ### Exact participant exercises
@@ -436,6 +459,13 @@ constraint, and recorded the evidence."
 - Rehearse Jessica's required three-turn Operator close and verify it stops at
   the human checkpoint after preparing, but without approving or executing, a
   business action.
+- Run `receipt` on the rehearsal box after the four labs. It reports each
+  boundary as PROVED, NOT YET, or UNCHECKED, and the third is the one to read
+  carefully: UNCHECKED means the query could not run, not that the step
+  failed. It is also the fastest table-lead diagnostic during the session.
+- After deploying in Lab 3, confirm the Proof Board's executed revision reads
+  **This checkout**. **Older deployment** means the deploy did not land and the
+  managed answers are coming from a previous package.
 - Rehearsing locally: the dev script's tunnel to Aurora expires after about an
   hour. If the storefront starts stalling for thirty seconds on every request,
   restart the dev script before blaming the app.
