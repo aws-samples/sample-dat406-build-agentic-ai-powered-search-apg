@@ -64,6 +64,12 @@ SKIP_PARTS = {
     # Gitignored audit output. A retired-name census names retired names because
     # that is its subject, so scanning it turns the report into the finding.
     "audit",
+    # Gitignored coordination artifacts: implementation plans, per-package
+    # reports, and review packages. A report that explains why a retired name
+    # had to be removed has to name it, so scanning these turns the write-up
+    # into the finding. Same reasoning as the audit output above. Neither
+    # directory ships: `docs/*` and `.superpowers/` are both gitignored.
+    "superpowers", ".superpowers",
 }
 
 # Files permitted to name a retired path, each for a reason that would break if

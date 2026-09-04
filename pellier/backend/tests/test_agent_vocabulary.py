@@ -77,6 +77,12 @@ ALLOWED_HISTORY = {
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", "dist", "build", ".worktrees",
     ".agentcore-project", ".pytest_cache", ".venv", ".mypy_cache", ".ruff_cache",
+    # Gitignored coordination artifacts: implementation plans, per-package
+    # reports, and review packages. A report that explains why a retired name
+    # had to be removed has to name it, so scanning these turns the write-up
+    # into the finding, which is noise rather than drift. Neither directory
+    # ships: `docs/*` and `.superpowers/` are both gitignored.
+    "superpowers", ".superpowers",
 }
 SKIP_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".webp", ".avif", ".svg", ".ico", ".pdf", ".woff",
