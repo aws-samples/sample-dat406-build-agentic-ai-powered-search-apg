@@ -60,6 +60,14 @@ describe('assetPath helpers', () => {
     )
   })
 
+  it('preserves an explicit PNG screenshot derivative', async () => {
+    vi.stubEnv('BASE_URL', '/')
+    const { imageSrc } = await import('./assetPath')
+    expect(imageSrc('/products/tour-observatory-top-panel-960.png')).toBe(
+      '/products/tour-observatory-top-panel-960.png',
+    )
+  })
+
   it('normalizes an already-sized Aurora image before building srcset variants', async () => {
     vi.stubEnv('BASE_URL', '/')
     const { responsiveImageSrcSet } = await import('./assetPath')

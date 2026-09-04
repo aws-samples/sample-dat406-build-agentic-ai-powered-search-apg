@@ -25,6 +25,7 @@ WAREHOUSE_MIGRATION = REPO / "scripts" / "migrations" / "006_warehouse_inventory
 SEED_PREFERENCES = REPO / "scripts" / "seed-sample-preferences.sh"
 FACILITATOR_DRY_RUN = REPO / "scripts" / "dry-run-builders.sh"
 WRITE_TEST_CREDENTIALS = REPO / "scripts" / "write-test-credentials.sh"
+ENVIRONMENT_BOOTSTRAP = REPO / "scripts" / "bootstrap-environment.sh"
 
 
 def _load_model_check():
@@ -173,6 +174,32 @@ def test_governed_identity_bootstrap_covers_jessica_as_a_shopper_principal() -> 
     assert "for shopper in marco anna theo jessica" in health
     assert "Unknown Cognito username" in bootstrap
     assert 'next((x for x in us if x["username"].lower()==w), us[0])' not in bootstrap
+
+
+def test_cloudformation_waits_for_stage2_readiness_not_only_the_editor() -> None:
+    """A box is not ready until the app, managed rail, and receipt gate pass."""
+    source = ENVIRONMENT_BOOTSTRAP.read_text(encoding="utf-8")
+
+    assert 'STAGE2_ENV_MANIFEST="/etc/pellier/bootstrap-stage2.env"' in source
+    assert 'chmod 600 "$temp_manifest"' in source
+    assert 'chown root:root "$temp_manifest"' in source
+    for required in (
+        "COGNITO_USER_POOL_ID",
+        "COGNITO_CLIENT_ID",
+        "COGNITO_TEST_CREDENTIALS_SECRET_ARN",
+        "DB_SECRET_ARN",
+        "DB_CLUSTER_ARN",
+        "AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN",
+        "WORKSHOP_SOURCE_REVISION",
+    ):
+        assert required in source
+
+    stage2 = source.index("Running Stage 2: Labs Bootstrap and governed readiness gate")
+    success = source.index('signal_cloudformation \\\n    "SUCCESS"')
+    assert stage2 < success
+    assert "nohup /tmp/bootstrap-labs.sh" not in source
+    assert "pgrep -f bootstrap-labs.sh" not in source
+    assert "Authenticated sign-in, managed invocation, and durable evidence receipt passed" in source
 
 
 def _write_executable(path: Path, body: str) -> None:

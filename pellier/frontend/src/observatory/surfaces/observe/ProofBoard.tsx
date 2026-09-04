@@ -381,6 +381,14 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
   receipt,
 }) => {
   const [activeStageId, setActiveStageId] = useState<GovernedProofStage['id']>('ground');
+  const selectStage = (index: number) => {
+    const stage = GOVERNED_PROOF_STAGES[index];
+    if (!stage) return;
+    setActiveStageId(stage.id);
+    requestAnimationFrame(() => {
+      document.getElementById(`governed-proof-tab-${stage.id}`)?.focus();
+    });
+  };
   const activeStage = GOVERNED_PROOF_STAGES.find((stage) => stage.id === activeStageId)
     ?? GOVERNED_PROOF_STAGES[0];
   const activeCard = activeStage.cardIds
@@ -399,7 +407,7 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
         className="pellier-governed-proof-tabs"
         role="tablist"
       >
-        {GOVERNED_PROOF_STAGES.map((stage) => {
+        {GOVERNED_PROOF_STAGES.map((stage, index) => {
           const isActive = stage.id === activeStage.id;
           const stageCard = stage.cardIds
             .map((cardId) => cards.find((card) => card.id === cardId))
@@ -415,7 +423,24 @@ const GovernedProofRail: React.FC<{ cards: ProofCard[]; receipt: ManagedReceipt 
               id={`governed-proof-tab-${stage.id}`}
               key={stage.id}
               onClick={() => setActiveStageId(stage.id)}
+              onKeyDown={(event) => {
+                const lastIndex = GOVERNED_PROOF_STAGES.length - 1;
+                if (event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  selectStage(index === lastIndex ? 0 : index + 1);
+                } else if (event.key === 'ArrowLeft') {
+                  event.preventDefault();
+                  selectStage(index === 0 ? lastIndex : index - 1);
+                } else if (event.key === 'Home') {
+                  event.preventDefault();
+                  selectStage(0);
+                } else if (event.key === 'End') {
+                  event.preventDefault();
+                  selectStage(lastIndex);
+                }
+              }}
               role="tab"
+              tabIndex={isActive ? 0 : -1}
               type="button"
             >
               <span className="pellier-governed-proof-tab-icon" aria-hidden="true">

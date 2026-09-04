@@ -13,8 +13,9 @@
  *      the home surface - so we assert on the Header wordmark testid,
  *      which is the stable home-page marker rendered at the top of
  *      `AppContent`.
- *   3. The modal singleton slots are mounted at the App root: both
- *      `AuthModal` and `PreferencesModal` exist in the tree and render
+ *   3. The modal singleton slots are mounted at the App root:
+ *      `AuthModal`, `OperatorSignInModal`, and `PreferencesModal` exist in
+ *      the tree and render
  *      nothing while `UIContext.activeModal === null`, as required by
  *      the UIContext contract (Task 4.1).
  *
@@ -137,16 +138,20 @@ describe('App - provider wiring (Task 6.2 / Req 7.2.1)', () => {
     expect(screen.getByTestId('persona-pill')).toBeInTheDocument()
   })
 
-  it('mounts AuthModal + PreferencesModal as hidden singletons at the App root', async () => {
+  it('mounts sign-in and preference modals as hidden singletons at the App root', async () => {
     render(<App />)
 
-    // Both modals read `activeModal` from UIContext. With no opener
+    // Every modal reads `activeModal` from UIContext. With no opener
     // fired they must render nothing, but the components themselves
     // must be in the tree so opening a modal later surfaces them.
     await screen.findByTestId('wordmark')
     expect(screen.queryByTestId('auth-modal')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('operator-signin-modal')).not.toBeInTheDocument()
     expect(screen.queryByTestId('prefs-modal')).not.toBeInTheDocument()
     expect(screen.queryByTestId('auth-modal-backdrop')).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('operator-signin-modal-backdrop'),
+    ).not.toBeInTheDocument()
     expect(screen.queryByTestId('prefs-modal-backdrop')).not.toBeInTheDocument()
   })
 })

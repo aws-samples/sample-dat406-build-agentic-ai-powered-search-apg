@@ -282,6 +282,27 @@ def test_the_reset_restarts_the_service_even_when_a_step_fails() -> None:
     assert body.index("trap _resume_services EXIT") < body.index("_quiesce_services\n")
 
 
+def test_the_reset_explicitly_restarts_then_gates_the_full_workshop() -> None:
+    """An EXIT trap is recovery, not proof that the restored box is usable."""
+    body = _reset_body()
+    assert "_restart_services_and_wait() {" in body
+    assert "_run_health_gate() {" in body
+    final_restart = body.rindex("_restart_services_and_wait || exit 1")
+    final_gate = body.rindex("_run_health_gate || exit 1")
+    assert final_restart < final_gate
+    assert "Application readiness endpoint responds" in body
+
+
+def test_the_reset_quarantines_incomplete_memory_or_policy_restoration() -> None:
+    body = _reset_body()
+    assert "Could not clean AgentCore Memory runtime" in body
+    assert "Could not restore live Cedar enforcement mode" in body
+    memory = body[body.index("reset_memory_runtime.py"):body.index("# ---------------------------------------------------------------------------\n# STEP 7")]
+    policy = body[body.index("policy_mode.py"):body.rindex("_restart_services_and_wait || exit 1")]
+    assert "exit 1" in memory
+    assert "exit 1" in policy
+
+
 def test_the_reset_refuses_a_live_backend_it_cannot_stop() -> None:
     """Refusing is the safe default; racing must be an explicit opt-in."""
     body = _reset_body()

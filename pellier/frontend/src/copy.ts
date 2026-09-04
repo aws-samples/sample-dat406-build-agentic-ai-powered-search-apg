@@ -697,6 +697,14 @@ export const AUTH_MODAL = {
   VERSION: "v2.4",
 } as const;
 
+export const OPERATOR_SIGNIN_MODAL = {
+  EYEBROW: 'PELLIER OPERATOR',
+  TITLE: 'Continue to the client desk.',
+  BODY: 'Operator access is limited to authorized staff. Sign in to review client records and prepared actions.',
+  ACTION: 'Continue to Operator sign-in',
+  FOOTER: 'Every consequential action remains subject to approval and policy.',
+} as const;
+
 // Preferences onboarding modal (storefront.md "Preferences onboarding modal")
 export interface PreferenceChip {
   label: string;

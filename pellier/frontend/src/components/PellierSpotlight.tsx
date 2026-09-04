@@ -32,8 +32,8 @@ const STEPS: SpotlightStep[] = [
     eyebrow: 'Welcome to Pellier',
     headline: 'Begin with the edit.',
     body: 'Choose a point of view, then browse a collection shaped by the details that matter to that shopper.',
-    image: '/products/hero-fresh-2.png',
-    imageAlt: 'Pellier leather tote, linen, and olive branches in warm daylight',
+    image: '/products/marco-leather-weekend-holdall-960.webp',
+    imageAlt: 'Leather Weekend Holdall on travertine beside folded linen in warm daylight',
   },
   {
     label: 'Ask',
@@ -47,9 +47,9 @@ const STEPS: SpotlightStep[] = [
     label: 'Trace',
     eyebrow: 'Operator and Observatory',
     headline: 'Follow the evidence.',
-    body: 'When a recommendation becomes a case, the Operator workspace and Observatory make the customer scope, routed tools, policy decision, and Aurora record visible.',
-    image: '/products/tour-proof-board-960.webp',
-    imageAlt: 'Pellier Observatory Proof Board showing governed evidence checkpoints',
+    body: 'When a recommendation becomes a case, the Operator workspace and Observatory follow the evidence from grounded answers through retrieval, managed execution, policy, and Aurora.',
+    image: '/products/tour-observatory-top-panel-960.png',
+    imageAlt: 'Pellier Observatory top panel with the current four-stage evidence journey',
   },
 ]
 

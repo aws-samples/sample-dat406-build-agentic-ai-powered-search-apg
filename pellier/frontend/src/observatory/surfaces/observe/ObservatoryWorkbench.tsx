@@ -2158,7 +2158,7 @@ export default function ObservatoryWorkbench() {
                 data-status={runStatus}
               >
                 {runStatus === 'complete'
-                  ? 'Verified'
+                  ? 'Response complete'
                   : runStatus === 'running'
                     ? 'Streaming'
                     : runStatus === 'error'

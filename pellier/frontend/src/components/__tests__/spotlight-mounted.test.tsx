@@ -50,6 +50,10 @@ describe('first-visit orientation', () => {
 
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByRole('heading', { name: 'Begin with the edit.' })).toBeInTheDocument();
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining('marco-leather-weekend-holdall-960.webp'),
+    );
     // The welcome remains a deliberately short arrival sequence.
     const dots = screen.getAllByRole('button', { name: /Show / });
     expect(dots).toHaveLength(3);
@@ -80,15 +84,15 @@ describe('first-visit orientation', () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'the Operator workspace and Observatory make the customer scope',
+      'the Operator workspace and Observatory follow the evidence',
     );
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'routed tools, policy decision, and Aurora record visible.',
+      'through retrieval, managed execution, policy, and Aurora.',
     );
     await waitFor(() =>
       expect(screen.getAllByRole('img').at(-1)).toHaveAttribute(
         'src',
-        expect.stringContaining('tour-proof-board'),
+        expect.stringContaining('tour-observatory-top-panel-960.png'),
       ),
     );
   });

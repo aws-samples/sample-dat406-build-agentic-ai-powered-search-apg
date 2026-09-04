@@ -17,6 +17,7 @@ import { UIProvider, useUI } from './contexts/UIContext'
 import { LayoutProvider } from './contexts/LayoutContext'
 import { PersonaProvider } from './contexts/PersonaContext'
 import AuthModal from './components/AuthModal'
+import OperatorSignInModal from './operator/components/OperatorSignInModal'
 import CartPanel from './components/CartPanel'
 import Toast from './components/Toast'
 import PersonaTransitionOverlay from './components/PersonaTransitionOverlay'
@@ -138,7 +139,13 @@ function ToastSlot() {
   return <Toast message={toastMessage} show={showToast} onClose={dismissToast} />
 }
 
-const TRANSIENT_MODALS = new Set(['auth', 'preferences', 'cart', 'checkout'])
+const TRANSIENT_MODALS = new Set([
+  'auth',
+  'operator-auth',
+  'preferences',
+  'cart',
+  'checkout',
+])
 
 function ModalRouteGuard() {
   const { pathname } = useLocation()
@@ -333,8 +340,9 @@ function App() {
              * to render. AuthModal + PreferencesModal are route-independent;
              * the surface-scoped drawer and comparison host live inside
              * BrowserRouter so route boundaries can close them safely.
-             */}
+            */}
             <AuthModal />
+            <OperatorSignInModal />
             <PreferencesModal />
             <PersonaTransitionOverlay />
             <CartPanelSlot />

@@ -8,8 +8,10 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render as renderBase, screen, fireEvent } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { UIProvider } from '../contexts/UIContext'
 import ClientBook from './surfaces/ClientBook'
 import ClientRecord from './surfaces/ClientRecord'
 import ClientAvatar from './components/ClientAvatar'
@@ -18,6 +20,10 @@ import {
   CAPABILITY_LABELS,
   GOVERNED_UNAVAILABLE_COPY,
 } from '../services/operatorCapabilities'
+
+function render(ui: ReactElement) {
+  return renderBase(<UIProvider>{ui}</UIProvider>)
+}
 
 const BOOK = {
   total: 3,

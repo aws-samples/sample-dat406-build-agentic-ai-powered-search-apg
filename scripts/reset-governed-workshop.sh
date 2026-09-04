@@ -225,6 +225,40 @@ _quiesce_services() {
   exit 1
 }
 
+_restart_services_and_wait() {
+  local attempt
+  if _have_systemd_unit; then
+    if ! systemctl start "$PELLIER_SERVICE" >/dev/null 2>&1; then
+      fail "Could not restart ${PELLIER_SERVICE}; the reset is not ready for a participant."
+      return 1
+    fi
+    _service_was_running=false
+    pass "Application restart requested: ${PELLIER_SERVICE}"
+  elif ! _backend_listening; then
+    fail "No ${PELLIER_SERVICE}.service exists and no backend is listening on :${BACKEND_PORT}."
+    return 1
+  fi
+
+  for attempt in {1..30}; do
+    if _backend_listening; then
+      pass "Application readiness endpoint responds on :${BACKEND_PORT}"
+      return 0
+    fi
+    sleep 2
+  done
+  fail "Application did not become ready on :${BACKEND_PORT} after restart."
+  return 1
+}
+
+_run_health_gate() {
+  if [[ ! -x "$REPO/scripts/health-gate.sh" ]]; then
+    fail "health-gate.sh missing; reset cannot claim a ready workshop."
+    return 1
+  fi
+  echo "------------------------------------------------------------"
+  PELLIER_REPO="$REPO" bash "$REPO/scripts/health-gate.sh"
+}
+
 # Run AFTER quiescing. Before that, an unfinished claim may be a live execution; after
 # it, the only sessions left are ones this script does not control, and an unfinished
 # claim is residue that the TRUNCATE correctly clears.
@@ -452,7 +486,8 @@ elif "$PYTHON" "$REPO/scripts/reset_memory_runtime.py" --apply \
        >/tmp/pellier-governed-reset-memory.log 2>&1; then
   pass "AgentCore Memory runtime cleaned; seeded persona actors preserved"
 else
-  warn "Could not clean AgentCore Memory runtime (see /tmp/pellier-governed-reset-memory.log)"
+  fail "Could not clean AgentCore Memory runtime (see /tmp/pellier-governed-reset-memory.log)"
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -511,10 +546,8 @@ fi
 # as it is. The Aurora reset above has already completed either way.
 if [[ "${PELLIER_RESET_SKIP_AGENTCORE:-0}" == "1" ]]; then
   pass "AgentCore control plane left untouched (PELLIER_RESET_SKIP_AGENTCORE=1)"
-  if [[ -x "$REPO/scripts/health-gate.sh" ]]; then
-    echo "------------------------------------------------------------"
-    PELLIER_REPO="$REPO" bash "$REPO/scripts/health-gate.sh"
-  fi
+  _restart_services_and_wait || exit 1
+  _run_health_gate || exit 1
   exit 0
 fi
 
@@ -584,12 +617,9 @@ if "$PYTHON" "$REPO/scripts/policy_mode.py" --restore-shipped \
      >/tmp/pellier-governed-reset-policy-mode.log 2>&1; then
   pass "Live Cedar enforcement mode restored at both scopes"
 else
-  warn "Could not restore live Cedar enforcement mode (see /tmp/pellier-governed-reset-policy-mode.log)"
+  fail "Could not restore live Cedar enforcement mode (see /tmp/pellier-governed-reset-policy-mode.log)"
+  exit 1
 fi
 
-if [[ -x "$REPO/scripts/health-gate.sh" ]]; then
-  echo "------------------------------------------------------------"
-  PELLIER_REPO="$REPO" bash "$REPO/scripts/health-gate.sh"
-else
-  warn "health-gate.sh missing"
-fi
+_restart_services_and_wait || exit 1
+_run_health_gate || exit 1

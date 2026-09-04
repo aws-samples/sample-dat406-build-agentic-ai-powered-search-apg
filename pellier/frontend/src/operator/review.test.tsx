@@ -9,12 +9,25 @@
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import {
+  render as renderBase,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { UIProvider } from '../contexts/UIContext'
 import ReviewQueue, { relativeTime, outcomeLine } from './surfaces/ReviewQueue'
 import ReviewRecord, { issueLine } from './surfaces/ReviewRecord'
 import ActionAssurance from './components/ActionAssurance'
+import OperatorSignInModal from './components/OperatorSignInModal'
 import OperatorFrame from './shell/OperatorFrame'
+
+function render(ui: ReactElement) {
+  return renderBase(<UIProvider>{ui}</UIProvider>)
+}
 
 const authMock = vi.hoisted(() => ({
   login: vi.fn(),
@@ -320,14 +333,17 @@ describe('ReviewQueue', () => {
 })
 
 describe('OperatorFrame review link', () => {
-  it('offers sign-in from the operator shell', async () => {
+  it('opens the Operator sign-in modal from the operator shell', async () => {
     mockFetch(() => ({ body: { reviews: [], total: 0, pendingCount: 0 } }))
     render(
-      <MemoryRouter initialEntries={['/operator']}>
-        <Routes>
-          <Route path="/operator" element={<OperatorFrame />} />
-        </Routes>
-      </MemoryRouter>,
+      <>
+        <MemoryRouter initialEntries={['/operator']}>
+          <Routes>
+            <Route path="/operator" element={<OperatorFrame />} />
+          </Routes>
+        </MemoryRouter>
+        <OperatorSignInModal />
+      </>,
     )
 
     await screen.findByTestId('operator-reviews-count')
@@ -335,7 +351,8 @@ describe('OperatorFrame review link', () => {
     expect(signIn).toHaveClass('operator-auth-signin')
     expect(signIn).toHaveClass('pellier-account-pill')
     fireEvent.click(signIn)
-    expect(authMock.login).toHaveBeenCalledOnce()
+    expect(authMock.login).not.toHaveBeenCalled()
+    expect(screen.getByTestId('operator-signin-modal')).toBeInTheDocument()
   })
 
   it('labels a pending queue state rather than rendering an unexplained count', async () => {

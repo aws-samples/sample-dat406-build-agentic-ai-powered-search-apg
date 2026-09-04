@@ -940,79 +940,108 @@ else
 fi
 
 # ============================================================================
-# STEP 12: SIGNAL CLOUDFORMATION SUCCESS (~1 sec)
+# STEP 12: RUN STAGE 2 AND PROVE READINESS
 # ============================================================================
+#
+# CloudFormation must not report the box ready while the workshop application is
+# still building in a detached process. Stage 2 owns the deployed application,
+# authenticated Operator sign-in, managed Runtime smoke, and durable receipt
+# checks, so it is the readiness boundary.
+#
+# The manifest is deliberately root-owned and mode 0600. It carries the
+# CloudFormation inputs Stage 2 needs without embedding an ever-growing,
+# shell-quoted sudo command in this script.
+STAGE2_ENV_MANIFEST="/etc/pellier/bootstrap-stage2.env"
 
-if [ ! -z "${CFN_WAIT_HANDLE}" ]; then
-    log "Signaling CloudFormation WaitCondition..."
-    
-    SIGNAL_SUCCESS=false
+write_stage2_manifest() {
+    local manifest_dir temp_manifest name value
+    manifest_dir="$(dirname "$STAGE2_ENV_MANIFEST")"
+    mkdir -p "$manifest_dir"
+    chmod 700 "$manifest_dir"
+    temp_manifest="$(mktemp "${manifest_dir}/bootstrap-stage2.XXXXXX")"
+
+    for name in \
+        CODE_EDITOR_USER HOME_FOLDER REPO_NAME REPO_URL \
+        WORKSHOP_FORMAT WORKSHOP_BRANCH WORKSHOP_ID WORKSHOP_STACK_NAME \
+        WORKSHOP_SOURCE_REVISION AWS_REGION AWS_DEFAULT_REGION \
+        DB_SECRET_ARN DB_CLUSTER_ARN DB_CLUSTER_ENDPOINT DB_NAME \
+        ASSETS_BUCKET_NAME ASSETS_BUCKET_PREFIX \
+        BEDROCK_EMBEDDING_MODEL BEDROCK_RERANK_MODEL \
+        BEDROCK_CHAT_MODEL BEDROCK_FAST_MODEL \
+        COGNITO_USER_POOL_ID COGNITO_POOL_ID COGNITO_POOL \
+        COGNITO_CLIENT_ID COGNITO_CLIENT COGNITO_DOMAIN COGNITO_REGION \
+        COGNITO_TEST_CREDENTIALS_SECRET_ARN COGNITO_CLIENT_SECRET_ARN \
+        AGENTCORE_RUNTIME_LOG_KMS_KEY_ARN \
+        AGENTCORE_RUNTIME_LOG_RETENTION_DAYS TS_DESIRED_SAMPLING \
+        ORIGIN_VERIFY_TOKEN
+    do
+        value="${!name:-}"
+        printf 'export %s=%q\n' "$name" "$value" >> "$temp_manifest"
+    done
+
+    chown root:root "$temp_manifest"
+    chmod 600 "$temp_manifest"
+    mv -f "$temp_manifest" "$STAGE2_ENV_MANIFEST"
+}
+
+signal_cloudformation() {
+    local status="$1" reason="$2" data="$3"
+    local attempt response http_code
+
+    if [ -z "${CFN_WAIT_HANDLE}" ]; then
+        log "ℹ️  CFN_WAIT_HANDLE not set - development mode"
+        return 0
+    fi
+
     for attempt in {1..5}; do
-        SIGNAL_RESPONSE=$(curl -X PUT -H 'Content-Type:' \
-            --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"Code Editor Ready\",\"UniqueId\":\"Stage1-$(date +%s)\",\"Data\":\"Environment Bootstrap Complete\"}" \
+        response="$(curl -X PUT -H 'Content-Type:' \
+            --data-binary "{\"Status\":\"${status}\",\"Reason\":\"${reason}\",\"UniqueId\":\"Pellier-$(date +%s)\",\"Data\":\"${data}\"}" \
             -w "\nHTTP_CODE:%{http_code}" \
             --max-time 10 \
-            "$CFN_WAIT_HANDLE" 2>&1)
-        
-        SIGNAL_HTTP_CODE=$(echo "$SIGNAL_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
-        
-        if [ "$SIGNAL_HTTP_CODE" = "200" ]; then
-            log "✅ CloudFormation signaled successfully (HTTP 200)"
-            echo "$SIGNAL_RESPONSE" > /tmp/cfn-signal-stage1.log
-            SIGNAL_SUCCESS=true
-            break
-        else
-            warn "Signal attempt $attempt failed (HTTP: ${SIGNAL_HTTP_CODE:-unknown})"
-            sleep 2
+            "$CFN_WAIT_HANDLE" 2>&1)"
+        http_code="$(echo "$response" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)"
+        if [ "$http_code" = "200" ]; then
+            log "✅ CloudFormation ${status,,} signal accepted (HTTP 200)"
+            printf '%s\n' "$response" > "/tmp/cfn-signal-${status,,}.log"
+            return 0
         fi
+        warn "CloudFormation ${status,,} signal attempt $attempt failed (HTTP: ${http_code:-unknown})"
+        sleep 2
     done
-    
-    if [ "$SIGNAL_SUCCESS" = "false" ]; then
-        error "CRITICAL: Failed to signal CloudFormation after 5 attempts"
-    fi
+    return 1
+}
+
+if [ -z "${STAGE2_SCRIPT_URL}" ]; then
+    signal_cloudformation "FAILURE" "Stage 2 bootstrap URL missing" "Pellier workshop did not reach readiness" || true
+    error "STAGE2_SCRIPT_URL is required; refusing to report a partial workshop as ready"
+fi
+
+log "Running Stage 2: Labs Bootstrap and governed readiness gate..."
+mkdir -p "$HOME_FOLDER"
+chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER"
+chmod 755 "$HOME_FOLDER"
+write_stage2_manifest
+
+curl -fsSL "$STAGE2_SCRIPT_URL" -o /tmp/bootstrap-labs.sh
+chmod 700 /tmp/bootstrap-labs.sh
+
+if bash -c 'source "$1"; exec /tmp/bootstrap-labs.sh' -- "$STAGE2_ENV_MANIFEST" \
+    2>&1 | tee /var/log/bootstrap-labs.log; then
+    log "✅ Stage 2 and governed readiness gate completed"
 else
-    log "ℹ️  CFN_WAIT_HANDLE not set - development mode"
+    signal_cloudformation "FAILURE" "Stage 2 or governed readiness failed" "See /var/log/bootstrap-labs.log" || true
+    error "Stage 2 did not prove an application-ready governed workshop"
 fi
 
 # ============================================================================
-# STEP 13: TRIGGER STAGE 2 IN BACKGROUND (~1 sec)
+# STEP 13: SIGNAL CLOUDFORMATION SUCCESS
 # ============================================================================
 
-if [ ! -z "${STAGE2_SCRIPT_URL}" ]; then
-    log "Triggering Stage 2: Labs Bootstrap (background)..."
-    
-    # Create /workshop directory with proper permissions
-    mkdir -p "$HOME_FOLDER"
-    chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$HOME_FOLDER"
-    chmod 755 "$HOME_FOLDER"
-    
-    # Download Stage 2 script
-    curl -fsSL "$STAGE2_SCRIPT_URL" -o /tmp/bootstrap-labs.sh
-    chmod +x /tmp/bootstrap-labs.sh
-    
-    # Run Stage 2 in background with proper environment variables
-    sudo bash -c "export CODE_EDITOR_USER='$CODE_EDITOR_USER' && \
-        export HOME_FOLDER='$HOME_FOLDER' && \
-        export REPO_URL='${REPO_URL:-https://github.com/aws-samples/sample-pellier-agentic-search-apg.git}' && \
-        export DB_SECRET_ARN='${DB_SECRET_ARN:-}' && \
-        export DB_CLUSTER_ENDPOINT='${DB_CLUSTER_ENDPOINT:-}' && \
-        export DB_NAME='${DB_NAME:-pellier}' && \
-        export AWS_REGION='$AWS_REGION' && \
-        export BEDROCK_EMBEDDING_MODEL='${BEDROCK_EMBEDDING_MODEL:-us.cohere.embed-v4:0}' && \
-        export BEDROCK_RERANK_MODEL='${BEDROCK_RERANK_MODEL:-cohere.rerank-v3-5:0}' && \
-        export BEDROCK_CHAT_MODEL='${BEDROCK_CHAT_MODEL:-global.anthropic.claude-opus-4-6-v1}' && \
-        export BEDROCK_FAST_MODEL='${BEDROCK_FAST_MODEL:-global.anthropic.claude-haiku-4-5-20251001-v1:0}' && \
-        export ASSETS_BUCKET_NAME='${ASSETS_BUCKET_NAME:-}' && \
-        export ASSETS_BUCKET_PREFIX='${ASSETS_BUCKET_PREFIX:-}' && \
-        nohup /tmp/bootstrap-labs.sh > /var/log/bootstrap-labs.log 2>&1 &"
-    
-    sleep 1
-    STAGE2_PID=$(pgrep -f bootstrap-labs.sh | tail -1)
-    
-    log "✅ Stage 2 triggered (PID: $STAGE2_PID)"
-    log "   Monitor: sudo tail -f /var/log/bootstrap-labs.log"
-else
-    warn "STAGE2_SCRIPT_URL not set - Stage 2 will not run"
+if ! signal_cloudformation \
+    "SUCCESS" \
+    "Stage 2 plus governed readiness succeeded" \
+    "Authenticated sign-in, managed invocation, and durable evidence receipt passed"; then
+    error "CRITICAL: Failed to signal CloudFormation readiness after 5 attempts"
 fi
 
 # ============================================================================
@@ -1026,8 +1055,8 @@ echo ""
 echo "✅ Code Editor ready and accessible"
 echo "✅ VS Code extensions installed"
 echo "✅ Python ${PY_VER} configured"
-echo "✅ CloudFormation signaled (stack continues)"
-echo "⏳ Stage 2 running in background (Labs setup)"
+echo "✅ Stage 2 application and governed readiness checks passed"
+echo "✅ CloudFormation signaled after the workshop proved ready"
 echo ""
 echo "Access Code Editor at CloudFront URL"
 echo "Password: $CODE_EDITOR_PASSWORD"
